@@ -146,7 +146,7 @@ struct ResultButtons: View {
             case .idle, .running:
                 Button {
                 } label: {
-                    Text(taken.isSend ? "Sending…" : taken.isStart ? "Starting…" : "Saving…")
+                    Text(taken.isSend ? "Sending…" : "Saving…")
                 }.buttonStyle(.pill(.quiet, isBusy: true))
             }
         }
@@ -174,10 +174,10 @@ extension Taken {
         return request.name ?? (request.note == nil ? "Your answer" : "Your words")
     }
 
-    /// Any answer that is not a send, a start, a goal edit or a new person's name (Life reads who that is, or adds them
+    /// Any answer that is not a send, a goal edit or a new person's name (Life reads who that is, or adds them
     /// to his directory: its result, or why not, shows on its card first): sent on a bulk card's row and in the
     /// moves list, shown on its button on its own card.
-    var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
+    var isHeld: Bool { !isSend && !staysOpen && request.name == nil }
 
     /// "Sent." only on Life's proof that it went; an answer that sent nothing takes its card's word.
     func doneWord(_ proof: ActionProof) -> String {
@@ -207,7 +207,6 @@ extension Taken {
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }
-        if isStart { return "An agent works toward the goal." }
         if let snoozed = result.changed?.snoozed() { return snoozed }
         if check.group == .newMatter {
             return staysOpen
@@ -234,7 +233,6 @@ extension Taken {
         if isSend { return DraftDelivery(state).word }
         if failure.mayHaveHappened { return "Check first." }
         if failure.isSameTap { return "No answer from Life." }
-        if isStart { return AgentWords.notStarted + "." }
         return "Not saved."
     }
 
@@ -242,9 +240,6 @@ extension Taken {
         if isSend, DraftDelivery(state) == .sent { return "Life saw it in the chat. Its answer was lost on the way." }
         if failure.mayHaveHappened { return "Check before answering again. It stays here." }
         if failure.isSameTap { return "Life may have it: trying again repeats the same tap. It stays here." }
-        if isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
-            return "Your goal is saved. It stays here."
-        }
         return "It stays here."
     }
 }
