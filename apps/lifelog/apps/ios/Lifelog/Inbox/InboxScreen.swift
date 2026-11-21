@@ -17,8 +17,16 @@ struct InboxScreen: View {
     @State private var deferred: [String] = []
     @State private var current: String?
     /// The kind of ask the list and the pager keep to; nil is everything. Not stored: it ends with the screen.
-    @State private var kind: CheckGroup?
+    @State private var kind: CheckGroup? = Self.startKind
     @State private var notice: String?
+    /// Nothing is chosen at first; a fixture launch may open on the Filter's "Your moves" (`-fixtureFilter moves`).
+    private static var startKind: CheckGroup? {
+        #if DEBUG
+            LifeFixture.filter == "moves" ? .yourMove : nil
+        #else
+            nil
+        #endif
+    }
     @State private var visibility = NavigationSplitViewVisibility.all
     /// The widths of the split view and of the ask's column: the list is beside the ask only when the ask has less.
     @State private var widths = (whole: CGFloat.zero, ask: CGFloat.zero)
