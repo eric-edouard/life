@@ -15,7 +15,7 @@ cd "$REPO" && git fetch -q origin
 gh pr list --state open --json number,title,isDraft,mergeable,headRefName,headRefOid,body,files --limit 50 >"$ST/conveyor-prs.json" || exit 1
 jq -r '.[] | select(.isDraft|not) | select(.title|test("^(Trial|Land train)";"i")|not)
   | (.body|[split("\n")[]|select(startswith("Verdict: "))][0] // "") as $v
-  | select($v != "" and ($v|test("rework needed")|not))
+  | select($v != "" and ($v|test("^Verdict: (rework needed|debt added)")|not))
   | [.number, .mergeable, .headRefName,
      (if any(.files[].path; startswith("apps/lifelog/apps/ios/")) then "phone" else "server" end),
      (if any(.files[].path; startswith("apps/lifelog/")) then "voice" else "-" end)] | @tsv' \

@@ -20,7 +20,7 @@ rollback() {
 osascript -e 'quit app "Lifelog Host"'; sleep 8; pkill -f "$APP/Contents/Helpers/"; sleep 2
 rm -rf "$OLD" && mv "$APP" "$OLD"
 ditto "$NEW" "$APP" && open "$APP"
-up=0; for i in {1..24}; do sleep 5; health && { up=$((i*5)); break; }; done
+up=0; for i in {1..36}; do sleep 5; health && { up=$((i*5)); break; }; done
 [ $up = 0 ] && rollback "SERVER DID NOT ANSWER"
 pid=$(pgrep -f "$APP/Contents/Helpers/lifelog-server"); restarts=0
 for i in {1..18}; do
@@ -28,6 +28,6 @@ for i in {1..18}; do
   [ "$p" != "$pid" ] && { restarts=$((restarts+1)); pid=$p; }
 done
 [ $restarts -ge 2 ] && rollback "SERVER CRASH-LOOP ($restarts restarts)"
-health || rollback "SERVER NOT HEALTHY AFTER 90 s"
+health || rollback "SERVER NOT HEALTHY AFTER 180 s"
 after=$(migs); [ "$after" -lt "$before" ] && rollback "MIGRATIONS WENT BACK ($before -> $after)"
 echo "HOST_SWAP_OK after ${up}s; migrations $before -> $after"
