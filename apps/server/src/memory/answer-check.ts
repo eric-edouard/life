@@ -19,7 +19,7 @@ import {
 } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import type { Check, LIFE_CHECKS } from "./life-checks";
-import { matterOfSteps, openStepsOf } from "./matter-read";
+import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
@@ -263,7 +263,7 @@ export const NOT_NOW_DAYS = 3;
 /** The open matter a your move card is on, as it reads now: the one it named (`matter`), else the one holding its step. */
 async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
   const open = (await readMatterBook(await readPeople(), dayNow())).filter(
-    (m) => m.open
+    isAwaitingHisWord
   );
   const v =
     open.find((m) => m.id === c.matter?.id) ??

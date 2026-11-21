@@ -10,6 +10,7 @@ import {
 } from "../memory/exchange-counts";
 import { isHeldOf } from "../memory/held-matters";
 import {
+  isAwaitingHisWord,
   type MatterView,
   matterFinderOf,
   nextStepNow,
@@ -410,7 +411,9 @@ export async function readMatterMove(view: {
 }) {
   const matter = { id: view.id, steps: view.steps.map((s) => s.ref) };
   const find = matterFinderOf(
-    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
+    (await readMatterBook(await readPeople(), dayNow())).filter(
+      isAwaitingHisWord
+    )
   );
   const read = readDesk(
     (db) =>

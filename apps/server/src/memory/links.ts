@@ -224,7 +224,8 @@ async function readOpenMatters(people: People) {
     };
   };
   return book.flatMap((m) => {
-    if (!m.open || m.lone) {
+    // A matter Life reads over (`endingRecords`) is closed as probably done, and still judged: a link ends its steps for good.
+    if (!(m.open || m.endingRecords) || m.lone) {
       return [];
     }
     const { later, open } = splitSteps(m.steps, byId);

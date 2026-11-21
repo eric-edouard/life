@@ -27,6 +27,7 @@ import {
   unfinishedMoves,
 } from "../host/move-read";
 import { decisionsNow } from "../memory/decisions";
+import { isAwaitingHisWord } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { oneMatter } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
@@ -309,7 +310,7 @@ async function matterNameOf(db: Desk["db"], assignment: string) {
   const prefer = assignmentOf(db, assignment)?.matter_id ?? undefined;
   // The open matters, as the move found its assignment (`assignmentOnMatter`).
   const book = (await readMatterBook(await readPeople(), dayNow())).filter(
-    (m) => m.open
+    isAwaitingHisWord
   );
   return (
     (await oneMatter(steps, { book, prefer }))?.name ??

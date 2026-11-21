@@ -13,6 +13,7 @@ import {
   preTickedOf,
 } from "./life-checks";
 import {
+  isAwaitingHisWord,
   type MatterStepNow,
   type MatterView,
   matterPeopleOf,
@@ -72,7 +73,6 @@ export interface CheckInputs {
   matterRank?: YourMoveInputs["matterRank"];
   matters: readonly (Pick<
     MatterView,
-    | "endingRecords"
     | "goal"
     | "id"
     | "lone"
@@ -166,7 +166,7 @@ export function ctxOf(c: CheckInputs): Ctx {
   const mattersByPerson = new Map<string, Set<MatterId>>();
   const add = (by: Map<string, Set<MatterId>>, ref: string, m: MatterId) =>
     by.set(ref, (by.get(ref) ?? new Set()).add(m));
-  for (const m of c.matters.filter((x) => x.open)) {
+  for (const m of c.matters.filter(isAwaitingHisWord)) {
     for (const s of m.steps) {
       add(mattersByStep, s.ref, m);
     }

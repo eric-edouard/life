@@ -48,7 +48,7 @@ import {
 } from "./draft-contest";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { cardRefsProblemOf, readsOnce } from "./find-refs";
-import { matterOfSteps, openStepsOf } from "./matter-read";
+import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { amountOf, eventOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
@@ -426,7 +426,7 @@ async function askCard(
   }
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(
-        (await reads.book()).filter((m) => m.open),
+        (await reads.book()).filter(isAwaitingHisWord),
         [ask.subject],
         prefer
       )
