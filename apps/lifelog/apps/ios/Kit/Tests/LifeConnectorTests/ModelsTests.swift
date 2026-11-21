@@ -181,7 +181,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(matter.row.name == "Mend Gran's watch")
     #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
-    #expect(matter.steps[1].ending?.by == .ticked)
+    #expect(matter.steps[1].ending?.by == .todoItem)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
     #expect(matter.agents.first?.runtime == "claude")
     #expect(matter.agents.first?.notStarted == nil)
