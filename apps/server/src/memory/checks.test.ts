@@ -333,7 +333,12 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   items[0] = guessed("v0", { personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
   items[3] = voice("v3", { conversations: 1 });
-  items[4] = guessed("v4", { conversations: 1, personId: DANA_ID });
+  // A sure guess of Dana backs "Yes" with no likeness from lifelog.
+  items[4] = guessed("v4", {
+    conversations: 1,
+    personId: DANA_ID,
+    sureGuessed: ["person:dana"],
+  });
   const likely = { isLikely: true, kind: "known_person" as const };
   items[5] = guessed("v5", { ...likely, personId: DANA_ID });
   // Likely, but no guess in use (v6), or for a person Life cannot place, asked by a name heard beside it (v7): no "Yes".
@@ -385,14 +390,15 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ]);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
   // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; a guess in use lifelog
-  // calls likely, "Yes"; the others unticked.
+  // calls likely or a sure guess backs, "Yes"; the others unticked.
   expect(byRef("voice:v3")?.preTicked).toBe("not-relevant");
+  expect(byRef("voice:v4")?.preTicked).toBe("is-them");
   expect(byRef("voice:v5")?.preTicked).toBe("is-them");
   expect(
-    [dana, "voice:v1", "voice:v2", "voice:v4", "voice:v6", "voice:v7"].map(
+    [dana, "voice:v1", "voice:v2", "voice:v6", "voice:v7"].map(
       (r) => byRef(r)?.preTicked
     )
-  ).toEqual([null, null, null, null, null, null]);
+  ).toEqual([null, null, null, null, null]);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;

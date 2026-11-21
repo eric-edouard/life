@@ -156,5 +156,11 @@ test("by group reads each turn's newest guess, as the card does: a voice whose t
       person: "person:bob",
     }),
   ]);
-  expect(s.byGroup).toMatchObject({ groups: 1, right: 0, shown: 0 });
+  expect(s.byGroup).toEqual({
+    groups: 1,
+    likely: { n: 0, right: 0 },
+    right: 0,
+    shown: 0,
+    sure: { n: 0, right: 0 },
+  });
 });

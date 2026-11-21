@@ -67,7 +67,7 @@ export interface Guessed {
 
 const LEVELS = ["sure", "likely"] as const;
 /** Right in 100 a card's level must hold on his answers (the design of 21 Nov 2026, section 4): likely asks "Is this X?", sure starts "Yes" ticked. */
-export const BARS = { likely: 85, sure: 97 } as const;
+const BARS = { likely: 85, sure: 97 } as const;
 /** The answers that name no one, scored apart. */
 const NO_ONE = new Set(["not_relevant", "unknown"]);
 /** A guess that names someone: not `unknown`, not `me`, and sure or likely. */
