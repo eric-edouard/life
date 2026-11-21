@@ -363,15 +363,13 @@ type Retirement = Omit<Supersession, "madeBy"> & { dropped?: true };
  * Observations a newer one replaced (memory/supersessions.jsonl), or he said are outdated (`by` itself): id -> the first
  * retirement recorded whose `by` is still current (a replacement re-read away no longer retires anything).
  */
-export const retiredBy = (list: Retirement[], current: Set<string>) => {
-  const out = new Map<string, Retirement>();
-  for (const s of list) {
-    if (current.has(s.by) && !out.has(s.observation)) {
-      out.set(s.observation, s);
-    }
-  }
-  return out;
-};
+export const retiredBy = (list: Retirement[], current: Set<string>) =>
+  new Map(
+    list
+      .filter((s) => current.has(s.by))
+      .toReversed() // the first recorded wins: a later entry overwrites
+      .map((s): [string, Retirement] => [s.observation, s])
+  );
 
 /** The owner's answers to the fact checks: the latest for each memory line (null: taken back). */
 export const latestFactCheckAnswers = (list: FactCheckAnswer[]) =>
@@ -433,8 +431,7 @@ export const answeredFactCheckCorrections = (
 
 /**
  * What his `outdated` corrections retire (true then, not anymore), as extraction retires a fact later evidence closed:
- * kept as history, not wrong. `by` is the observation itself (no successor: readers of `by` skip it); `why` his words;
- * `dropped` his Drop (`outcome`).
+ * kept as history, not wrong. `by` is the observation itself (no successor: readers of `by` skip it); `why` his words.
  */
 export const outdatedBy = (corrections: Correction[]): Retirement[] =>
   corrections.flatMap((c) =>

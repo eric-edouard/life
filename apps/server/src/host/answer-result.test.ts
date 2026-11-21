@@ -742,56 +742,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
   }
 });
 
-// His Drop (21 Nov 2026): the same ending as Mark as done, recorded as dropped.
-test("your move: Drop closes its step as Mark as done does, recorded as dropped", async () => {
-  const mine = {
-    at: "2026-11-01T09:00:00.000Z",
-    day: "2026-11-01",
-    kind: "to_do",
-    quote: "it",
-    ref: "obs_000000000081",
-    text: "Repaint the shed",
-  };
-  const move = asCheck({
-    group: "your move",
-    matter: { id: "matter_000000000008", name: "Shed" },
-    options: [
-      { ends: "step", id: "done", label: "Mark as done", takes: null },
-      { ends: "step", id: "drop", label: "Drop", takes: null },
-    ],
-    ref: `move:matter_000000000008/${mine.ref}`,
-    subject: mine.ref,
-    title: "Shed",
-  });
-  guesses = [move];
-  const people = spyOn(
-    await import("../memory/who"),
-    "readPeople"
-  ).mockResolvedValue({} as never);
-  const book = spyOn(
-    await import("../memory/matters"),
-    "readMatterBook"
-  ).mockResolvedValue([
-    { id: "matter_000000000008", open: true, steps: [mine] },
-  ] as never);
-  try {
-    const r = await call(move.ref, ["drop"], "tap-drop").result;
-    expect(r).toMatchObject({ changed: { answer: "drop", step: mine.ref } });
-    expect(readCorrections()).toMatchObject([
-      {
-        kind: "outdated",
-        note: `"Drop" on "Shed" (${move.ref})`,
-        observations: [mine.ref],
-        outcome: "dropped",
-      },
-    ]);
-  } finally {
-    book.mockRestore();
-    people.mockRestore();
-  }
-});
-
-test("your move: Mark as done closes only its step, never a sibling; each fresh Not now press is its own answer, the same press retried writes once", async () => {
+test("your move: Mark as done closes only its step, never a sibling; Drop closes the same way, recorded as dropped; each fresh Not now press is its own answer, the same press retried writes once", async () => {
   const step = (ref: string) => ({
     at: "2026-11-01T09:00:00.000Z",
     day: "2026-11-01",
@@ -812,7 +763,14 @@ test("your move: Mark as done closes only its step, never a sibling; each fresh 
     subject: mine.ref,
     title: "Garden gate",
   });
-  guesses = [move];
+  // His Drop (21 Nov 2026), on the sibling's card: the same ending as Mark as done, recorded as dropped.
+  const drop = asCheck({
+    ...move,
+    options: [{ ends: "step", id: "drop", label: "Drop", takes: null }],
+    ref: `move:matter_000000000007/${sibling.ref}`,
+    subject: sibling.ref,
+  });
+  guesses = [move, drop];
   const people = spyOn(
     await import("../memory/who"),
     "readPeople"
@@ -824,15 +782,17 @@ test("your move: Mark as done closes only its step, never a sibling; each fresh 
     { id: "matter_000000000007", open: true, steps: [mine, sibling] },
   ] as never);
   try {
+    const nn = "your-move-not-now";
     await call(move.ref, ["done"], "tap-done").result;
+    await call(drop.ref, ["drop"], "tap-drop").result;
     await call(move.ref, ["not-now"], "tap-1").result;
     await call(move.ref, ["not-now"], "tap-1").result;
     await call(move.ref, ["not-now"], "tap-2").result;
     expect(
       readCorrections().map((c) =>
-        c.kind === "outdated" ? c.observations : c.kind
+        c.kind === "outdated" ? [...c.observations, c.outcome] : c.kind
       )
-    ).toEqual([[mine.ref], "your-move-not-now", "your-move-not-now"]);
+    ).toEqual([[mine.ref, undefined], [sibling.ref, "dropped"], nn, nn]);
   } finally {
     book.mockRestore();
     people.mockRestore();
