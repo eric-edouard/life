@@ -53,7 +53,11 @@ import {
   changeAskedTodoItem,
 } from "../change-todo-item";
 import { complain, Misread } from "../complaints";
-import { correctMatter, recordHisCorrection } from "../correct-matter";
+import {
+  correctMatter,
+  isHisOnly,
+  recordHisCorrection,
+} from "../correct-matter";
 import {
   DECISION_ANSWERED,
   DECISION_LAPSED,
@@ -196,26 +200,13 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** The corrections only his own token writes, whatever they name: his marks on a matter, which project it is of, and his Not now on its card. */
-const HIS_ONLY_KINDS = new Set([
-  "matter-icon",
-  "matter-important",
-  "matter-project",
-  "your-move-not-now",
-]);
-
 /** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark, icon or project: his token only), or one of lifelog's four. */
 export async function correct(
   a: z.infer<typeof Correct>,
   agent?: string,
   call?: ToolCall
 ) {
-  if (
-    a.kind === "memory" &&
-    a.correction &&
-    (a.correction.matter !== undefined ||
-      HIS_ONLY_KINDS.has(String(a.correction.kind)))
-  ) {
+  if (a.kind === "memory" && a.correction && isHisOnly(a.correction)) {
     if (agent) {
       throw new Error(NOT_HIS);
     }

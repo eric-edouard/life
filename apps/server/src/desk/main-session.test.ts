@@ -34,7 +34,7 @@ import { askMainSession, keepMainSession, MAIN_BRIEF } from "./main-session";
 import { ownAssignmentOf } from "./role-agents";
 import { SessionLive } from "./runtimes/contract";
 import { readSpokenAsk, receiveSpokenAsks } from "./spoken-ask-intake";
-import { advance, setup } from "./test-desk";
+import { setup } from "./test-desk";
 import { endLostTurns } from "./turn-ends";
 
 // The main session (Tell Life, slice 1): registered on his first words, one desk turn per ask on a session the runtime
@@ -455,9 +455,8 @@ test("on his words the main session acts through its door: each act's `said` mus
   try {
     ({ answer: answered } = await asked(words, async (r) => {
       const id = main()?.id ?? "";
-      // Each act a second apart: an ask's id is made from when it was asked.
+      // All in one millisecond (the clock stands still): each act's ask is its own.
       const act = async (name: string, args: unknown) => {
-        advance(1000);
         results[name] = await callDoor(id, name, args);
       };
       results.notHis = await callDoor(id, "tell_agent", {
@@ -559,7 +558,8 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
     })
   );
   expect(carded.answer).toEqual({
-    card: decisionsNow().find((d) => d.question === "The dentist bill?")?.id,
+    card:
+      decisionsNow().find((d) => d.question === "The dentist bill?")?.id ?? "",
     kind: "card",
     words: "**On it**.",
   });

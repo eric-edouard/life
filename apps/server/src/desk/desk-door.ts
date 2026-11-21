@@ -10,7 +10,11 @@ import {
   WAIT_MS,
 } from "../host/change-registered-agent";
 import { complainThroughTellLife } from "../host/complaints";
-import { correctMatter, recordHisCorrection } from "../host/correct-matter";
+import {
+  correctMatter,
+  isHisOnly,
+  recordHisCorrection,
+} from "../host/correct-matter";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -59,6 +63,7 @@ import {
   keepMainSession,
   MAIN_ASK,
   tellAgent,
+  tellLifeRefOf,
 } from "./main-session";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
@@ -279,7 +284,10 @@ function doorServer(desk: Desk, id: string) {
         { ...change, said: words },
         undefined,
         WAIT_MS,
-        "tell-life"
+        tellLifeRefOf(turn?.id ?? -1, "change_registered_agent", {
+          change,
+          words,
+        })
       );
       if (done.state !== "not_started") {
         acted(turn, {
@@ -300,7 +308,12 @@ function doorServer(desk: Desk, id: string) {
     }),
     ({ agent, said }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      const told = tellAgent(desk, agent, words);
+      const told = tellAgent(
+        desk,
+        agent,
+        words,
+        tellLifeRefOf(turn?.id ?? -1, "tell_agent", { agent, words })
+      );
       if (!("error" in told)) {
         acted(turn, { agent: agentNameOf(agent), kind: "agent", told: words });
       }
@@ -317,14 +330,13 @@ function doorServer(desk: Desk, id: string) {
     async ({ correction, said }, _, turn) => {
       const words = hisWordsOf(turn, said);
       const { matter } = correction;
-      const done =
-        matter === undefined
-          ? [await recordHisCorrection(correction)]
-          : await correctMatter(
-              correction.kind === "outdated"
-                ? { ...correction, note: words }
-                : correction
-            );
+      const done = isHisOnly(correction)
+        ? await correctMatter(
+            correction.kind === "outdated"
+              ? { ...correction, note: words }
+              : correction
+          )
+        : [await recordHisCorrection(correction)];
       acted(turn, {
         kind: "done",
         ...(typeof matter === "string" ? { matter } : {}),
