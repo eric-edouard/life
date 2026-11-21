@@ -7,10 +7,10 @@ import {
   type HandOutFacts,
   type HandOutMatter,
   handOutGateOf,
-  idOf,
   isInScope,
   isOneOfHis,
   isParkedMatterOf,
+  namedIdOf,
   needsYouOf,
   oneMatter,
   openMatters,
@@ -496,13 +496,13 @@ test("a scope holds the matters of an area, of a project, or of an area in no pr
 
 test("a project is found by its id or its name, accents and case aside", () => {
   const list = [{ id: "cafe-co", name: "Café Co" }];
-  expect(idOf(list, "Cafe co")).toBe("cafe-co");
-  expect(idOf(list, "cafe-co")).toBe("cafe-co");
-  expect(idOf(list, "nope")).toBeUndefined();
+  expect(namedIdOf(list, "Cafe co")).toBe("cafe-co");
+  expect(namedIdOf(list, "cafe-co")).toBe("cafe-co");
+  expect(namedIdOf(list, "nope")).toBeUndefined();
   // An exact id beats another project's name that reads alike.
   const two = [
     { id: "a", name: "Cafe" },
     { id: "cafe", name: "Other" },
   ];
-  expect(idOf(two, "cafe")).toBe("cafe");
+  expect(namedIdOf(two, "cafe")).toBe("cafe");
 });

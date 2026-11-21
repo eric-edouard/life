@@ -27,7 +27,10 @@ import { dayNow } from "./zones";
 // (his phone app and the models read the same). Reads only.
 
 /** The id of the project or area `query` is, by id or name; undefined when it is neither. */
-export const idOf = (list: { id: string; name: string }[], query: string) =>
+export const namedIdOf = (
+  list: { id: string; name: string }[],
+  query: string
+) =>
   (
     list.find((x) => x.id === query) ??
     list.find((x) => nameKey(x.name) === nameKey(query))
@@ -171,8 +174,8 @@ export async function rankedRunning<R extends { book: MatterView[] }>(
   const people = given ?? (await readPeople());
   const { truth } = people;
   const known = q.person ? meant(q.person, people).known : undefined;
-  const area = q.area ? idOf(truth.areas, q.area) : undefined;
-  const project = q.project ? idOf(truth.projects, q.project) : undefined;
+  const area = q.area ? namedIdOf(truth.areas, q.area) : undefined;
+  const project = q.project ? namedIdOf(truth.projects, q.project) : undefined;
   const missing = [
     q.person && !known ? "person" : "",
     q.area && !area ? "area" : "",

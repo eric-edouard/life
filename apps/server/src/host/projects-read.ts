@@ -2,8 +2,8 @@ import { nextStepNow } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { readProjectSituationNow } from "../memory/project-situation-read";
 import {
-  idOf,
   isInScope,
+  namedIdOf,
   openDecisions,
   projectStepRefsOf,
   rankedRunning,
@@ -152,7 +152,7 @@ async function finishChips(m: Awaited<ReturnType<typeof readChipsFromMemory>>) {
 async function readHeaderFromMemory(name: string, open: Open) {
   const people = await readPeople();
   const { truth } = people;
-  const id = idOf(truth.projects, name);
+  const id = namedIdOf(truth.projects, name);
   const project = truth.projects.find((p) => p.id === id);
   if (!project) {
     throw new Error(`No project goes by ${name}.`);
