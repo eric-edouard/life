@@ -189,8 +189,7 @@
             return json(["matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
-        /// The design data's spending (`read_spending.json`); none until the designer writes it, then Life's answer reads
-        /// as not what this app reads.
+        /// The design data's spending (`read_spending.json`), as Life answers it.
         func readSpending() async throws -> String { try await gate(); return json(Self.spending) }
         /// The design data's log (`read_log_lines.json`, one page), by level and process; an empty log until the
         /// designer writes it. Polled every 2 s, it adds nothing: the page shows what the frames draw.
