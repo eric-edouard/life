@@ -98,7 +98,9 @@ struct LogEndRow: View {
 
     var body: some View {
         Group {
-            if isLoading { Spinner(size: .small).foregroundStyle(Palette.fg) } else {
+            if isLoading {
+                Spinner(size: .small).foregroundStyle(Palette.fg)
+            } else {
                 Text("Nothing earlier").font(.small).foregroundStyle(Palette.muted)
             }
         }
@@ -134,7 +136,9 @@ struct LogQuiet: View {
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.m) {
-            if let glyph { Image(systemName: glyph).font(.sheetQuestion).foregroundStyle(Palette.ok).accessibilityHidden(true) }
+            if let glyph {
+                Image(systemName: glyph).font(.sheetQuestion).foregroundStyle(Palette.ok).accessibilityHidden(true)
+            }
             Text(text).font(.body15).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: 240).frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -319,7 +319,8 @@ final class LifeStore {
         do {
             return .success(try LibraryStore.feedDecoder.decode(LogPage.self, from: Data(answer.get().utf8)))
         } catch {
-            let error = error is DecodingError ? .failed("Life's answer was not what this app reads.") : MCPError.of(error)
+            let error =
+                error is DecodingError ? .failed("Life's answer was not what this app reads.") : MCPError.of(error)
             if error == .notPaired { pairedOrigin = nil }
             return .failure(error)
         }

@@ -9,7 +9,8 @@ import Library
 /// A made-up line; its id is its second, as unique as the server's place in the log.
 private func line(_ second: Int, _ message: String = "turn ended") -> LogLine {
     LogLine(
-        id: "c\(second)", at: Date(timeIntervalSince1970: TimeInterval(second)), level: .info, category: ["desk", "turn"],
+        id: "c\(second)", at: Date(timeIntervalSince1970: TimeInterval(second)), level: .info,
+        category: ["desk", "turn"],
         message: message)
 }
 
@@ -38,7 +39,10 @@ private func lines(_ feed: LogFeed) -> [String] { feed.rows.compactMap(\.line?.m
 @Test func theLivePollReadsBackToTheTopAcrossAGap() async throws {
     let top = line(10, "top")
     // Newest first: three new lines over two pages, then the top.
-    let pages = ["": LogPage(lines: [line(13), line(12)], cursor: "a"), "a": LogPage(lines: [line(11), top, line(9)], cursor: "b")]
+    let pages = [
+        "": LogPage(lines: [line(13), line(12)], cursor: "a"),
+        "a": LogPage(lines: [line(11), top, line(9)], cursor: "b"),
+    ]
     let asked = Mutex<[String]>([])
     let new = try await LogFeed.newer(than: top) { cursor in
         asked.withLock { $0.append(cursor ?? "") }
@@ -47,7 +51,10 @@ private func lines(_ feed: LogFeed) -> [String] { feed.rows.compactMap(\.line?.m
     #expect(new == [line(13), line(12), line(11)])
     #expect(asked.withLock { $0 } == ["", "a"])
     // Order is the log's, never the times: a line stamped earlier but written later is still new; no top reads one page.
-    #expect(try await LogFeed.newer(than: top) { _ in LogPage(lines: [line(9, "late"), top], cursor: "x") } == [line(9, "late")])
+    #expect(
+        try await LogFeed.newer(than: top) { _ in LogPage(lines: [line(9, "late"), top], cursor: "x") } == [
+            line(9, "late")
+        ])
     #expect(try await LogFeed.newer(than: nil) { _ in LogPage(lines: [line(12)], cursor: "x") } == [line(12)])
 }
 

@@ -155,7 +155,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // A log line's level, and the processes the Live logs menu lists.
     #expect(try quoted("core/log-line.ts", /LOG_LEVELS = \[([^\]]*)\]/) == client(LogLevel.self))
     #expect(
-        try quoted("core/log-line.ts", /const PROCESSES = new Set\(\[([^\]]*)\]/) == Set(LogProcess.allCases.map(\.rawValue)))
+        try quoted("core/log-line.ts", /const PROCESSES = new Set\(\[([^\]]*)\]/)
+            == Set(LogProcess.allCases.map(\.rawValue)))
     #expect(
         try quoted("records/observation.ts", /ClosenessLevel = z\.enum\(\[([^\]]*)\]/) == client(ClosenessLevel.self))
     // A person's details by kind: the keys of `LABELS`; a line of `latest`, his or theirs.

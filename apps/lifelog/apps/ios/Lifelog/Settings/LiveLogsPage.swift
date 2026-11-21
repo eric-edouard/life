@@ -188,7 +188,9 @@ struct LiveLogsPage: View {
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.top, for: .sizeChanges)
-        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.contentInsets.top > Metrics.Spacing.xl } action: {
+        .onScrollGeometryChange(for: Bool.self) {
+            $0.contentOffset.y + $0.contentInsets.top > Metrics.Spacing.xl
+        } action: {
             wasDown, isDown in
             if isDown, !wasDown, logs.read.value?.isFollowing == true { logs.pause() }
         }
@@ -217,8 +219,10 @@ private struct LogLineSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                 HStack(spacing: Metrics.Spacing.m) {
-                    Text("\(Text(line.level.tag).fontWeight(.bold).foregroundStyle(line.level.color))  \(line.categoryWords)")
-                        .font(.codeInline).foregroundStyle(Palette.fg).lineLimit(1)
+                    Text(
+                        "\(Text(line.level.tag).fontWeight(.bold).foregroundStyle(line.level.color))  \(line.categoryWords)"
+                    )
+                    .font(.codeInline).foregroundStyle(Palette.fg).lineLimit(1)
                     Spacer(minLength: 0)
                     Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
                         UIPasteboard.general.string = line.copyText

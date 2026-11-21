@@ -165,7 +165,9 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_people_and_organizations", query.map { ["query": $0] } ?? [:])
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
-    public func readLogLines(_ query: LogQuery) async throws -> String { try await client.call("read_log_lines", query) }
+    public func readLogLines(_ query: LogQuery) async throws -> String {
+        try await client.call("read_log_lines", query)
+    }
 
     public func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
