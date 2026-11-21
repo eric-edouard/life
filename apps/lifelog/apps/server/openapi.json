@@ -3191,6 +3191,103 @@
         },
         "required": ["terms"]
       },
+      "Spending": {
+        "type": "object",
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "billableSeconds": {
+                  "type": "number"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": ["billed", "maybe_billed", "unsettled"]
+                },
+                "seconds": {
+                  "type": "number"
+                },
+                "transcriber": {
+                  "type": "string",
+                  "enum": ["scribe", "speech"]
+                }
+              },
+              "required": [
+                "at",
+                "billableSeconds",
+                "outcome",
+                "seconds",
+                "transcriber"
+              ]
+            }
+          },
+          "modelRuns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "inputTokens": {
+                  "type": "number"
+                },
+                "latencyMs": {
+                  "type": ["number", "null"]
+                },
+                "model": {
+                  "type": "string"
+                },
+                "outputTokens": {
+                  "type": "number"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": ["openai", "anthropic", "claude-code", "codex"]
+                }
+              },
+              "required": [
+                "at",
+                "inputTokens",
+                "latencyMs",
+                "model",
+                "outputTokens",
+                "provider"
+              ]
+            }
+          },
+          "voiceNotes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "billableSeconds": {
+                  "type": ["number", "null"]
+                },
+                "route": {
+                  "type": ["string", "null"]
+                },
+                "seconds": {
+                  "type": ["number", "null"]
+                }
+              },
+              "required": ["at", "billableSeconds", "route", "seconds"]
+            }
+          }
+        },
+        "required": ["jobs", "modelRuns", "voiceNotes"]
+      },
       "Recorded": {
         "type": "object",
         "properties": {
@@ -5570,6 +5667,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Vocabulary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spending": {
+      "get": {
+        "description": "What Voice spent from `from` to `to` (at most 31 days): its transcription jobs by admission, settled or not (`unsettled`: seconds still an estimate; `maybe_billed`: a send it may have been billed for), the chat voice notes it heard, by their answer (no seconds: an answer lost, maybe billed), and its model runs on the Mac, by start. A failed job that billed nothing is left out.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Spending"
                 }
               }
             }

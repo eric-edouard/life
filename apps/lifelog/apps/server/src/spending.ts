@@ -1,9 +1,6 @@
 import type { Db } from "@lifelog/db";
-import {
-  intelligenceRuns,
-  transcriptionJobs,
-  voiceNoteHearings,
-} from "@lifelog/db/schema";
+import { intelligenceRuns, transcriptionJobs } from "@lifelog/db/schema";
+import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
 import { and, gte, isNotNull, lt, ne, notInArray, or } from "drizzle-orm";
 
 // What Voice spent between two instants, for Life's model spending (`GET /spending`): read from its three ledgers,

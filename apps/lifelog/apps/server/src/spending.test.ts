@@ -1,10 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import {
-  intelligenceRuns,
-  transcriptionJobs,
-  voiceNoteHearings,
-} from "@lifelog/db/schema";
+import { intelligenceRuns, transcriptionJobs } from "@lifelog/db/schema";
+import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
 import { spendingOf } from "./spending";
 import { testDb } from "./testing";
 
