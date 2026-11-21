@@ -80,5 +80,18 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
         TellAnswer(#"{"kind":"question","question":"Which plan?","answers":["Kitchen","Flat"]}"#)
             == .question(question: "Which plan?", answers: ["Kitchen", "Flat"]))
     #expect(TellAnswer(#"{"kind":"error","what":"No Mac."}"#) == .error(what: "No Mac."))
-    #expect(TellAnswer(#"{"kind":"done","what":"Called"}"#) == .unknown)
+    #expect(
+        TellAnswer(#"{"kind":"done","matter":"mat_1","words":"**Done**."}"#)
+            == .done(words: "**Done**.", matter: "mat_1"))
+    #expect(
+        TellAnswer(#"{"kind":"agent","agent":"Personal","told":"Book it","words":"**On it**."}"#)
+            == .agent(words: "**On it**.", agent: "Personal", told: "Book it"))
+    #expect(
+        TellAnswer(#"{"kind":"card","card":"dec_1","words":"In your Inbox."}"#)
+            == .card(words: "In your Inbox.", card: "dec_1"))
+    #expect(TellAnswer(#"{"kind":"card","words":"x"}"#) == .unknown)
+    #expect(
+        TellAnswer(#"{"kind":"fix","ask":"entry_1","words":"The caretaker has it."}"#)
+            == .fix(words: "The caretaker has it."))
+    #expect(TellAnswer(#"{"kind":"later"}"#) == .unknown)
 }
