@@ -532,7 +532,7 @@ export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
 }
 
 const logPage = (
-  lines: ShownLine[],
+  lines: (ShownLine & { id: string })[],
   next: z.infer<typeof LogCursor> | null
 ) => ({
   cursor: next && encode(next),
