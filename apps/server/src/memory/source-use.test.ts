@@ -44,7 +44,7 @@ const call = (at: string, id: string, more: Record<string, unknown>) => ({
   ...more,
 });
 
-test("source use: items and units a day as median and max, reads per unit, a call split over its sources by unit share, the memory row, unpriced calls, a step grouped under its night", () => {
+test("source use: items and units a day as median and max, reads per unit, a call split over its sources by unit share, the memory row, calls not reported, a step grouped under its night", () => {
   const events = [
     run("run.start", "memory.nightly", "2026-11-17T00:31:00.000Z", N),
     run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
@@ -55,7 +55,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
     }),
     run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
     run("run.end", "memory.nightly", "2026-11-17T00:50:00.000Z", N),
-    // By hand, its router's reply without its cost: unpriced.
+    // By hand, its router's reply without its cost: not reported.
     run("run.start", "memory.closeness", "2026-11-18T09:00:00.000Z", C),
     call("2026-11-18T09:01:00.000Z", C, { reads: { memory: 5 } }),
   ] as LogEvent[];

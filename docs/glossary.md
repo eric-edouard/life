@@ -304,12 +304,12 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | step run | One processing step's execution inside a processing run, in prose only; the run log records it as a logged run. | |
 | logged run | A processing run, a step run or an eval, as the run log records it (`recordRun`, `RunRecorder`). | |
 | call reads | The units a model call was shown, counted by source on its `model.run` line (`CallReads`, made only by `readsOf` from the units' real ids; `memory` for Life's own lines), never ids or text. `askOnce` refuses a call that names none. | |
-| unpriced | A billed model call whose router did not send its cost on every try (`reported` false): counted, its reported dollars a floor, never guessed. | |
 | spend | One event that used a paid or metered resource, read where it is logged (`memory/spends.ts`): a model call (`model.run`), a local model's run (`model.local`), an agent's turn; never a second copy of the record. | |
 | model spending | What the spends add up to, by day, provider, kind, agent and matter. Not his own `spending` (a payment's flag). | |
+| spending day | One local day's model spending, by provider and kind, written once by the night for a closed day from its records (`LIFE_STATE_DIR/spending/<day>.json`, `host/spending.ts`), so spending outlives the log's year. A day with Voice jobs unsettled waits up to a week. | |
 | billed | A spend's basis: dollars a provider charges per use (OpenRouter, allmodels, Scribe); the models on the Mac at $0. | |
 | equivalent | A spend's basis: his Claude and Codex plans' tokens at list price (`core/prices.ts`, standard short-context rates: no cache-write or long-prompt rates), for comparison only; never billed, never added to billed. | |
-| reported | Whether a spend's amount is known: false for a billed one without its cost, or an equivalent one whose model has no price. | |
+| reported | Whether a spend's amount is known: false for a billed one whose router did not send its cost on every try (its reported dollars a floor), or an equivalent one whose model has no price or usage. Never guessed. | |
 | source use | What each source costs a day: its items and units, what reads it with and without a model, model reads per unit, tokens and billed dollars (`bun life memory source-use`, `memory/source-use.ts`), from the run log and the index. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources and describes their new files; no episodes or facts until the night. | |
 | tick | The watcher's minute. Only that. | |

@@ -618,7 +618,7 @@ export async function runNight(
     await dropOld(now);
     const q = await quota();
     const used = await spent(rec, q);
-    spending = used.spending;
+    ({ spending } = used);
     const agents = await readAgentsFor(rec, since);
     ({ needsYou } = agents);
     mail = successReport(day, rec.ms(), {

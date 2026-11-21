@@ -64,12 +64,10 @@ test("the night writes each closed day once from its records, billed and equival
     ],
   };
   let isDown = true;
-  const voice = async (from: string) => {
-    if (from.startsWith("2020-01-02") && isDown) {
-      throw new Error("down");
-    }
-    return from.startsWith("2020-01-04") ? unsettled : none;
-  };
+  const voice = (from: string) =>
+    from.startsWith("2020-01-02") && isDown
+      ? Promise.reject(new Error("down"))
+      : Promise.resolve(from.startsWith("2020-01-04") ? unsettled : none);
   expect(await writeSpendingDays("2020-01-05", voice)).toEqual(["2020-01-03"]);
   expect(readSpendingDay("2020-01-03")).toMatchObject({
     byKind: [{ billedUsd: 0.25, kind: "daytime", tokens: 2000 }],
