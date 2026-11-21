@@ -71,7 +71,6 @@ export interface CheckInputs {
   lines: readonly Line[];
   matters: readonly (Pick<
     MatterView,
-    | "endingRecords"
     | "goal"
     | "id"
     | "lone"
