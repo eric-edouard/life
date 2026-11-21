@@ -494,6 +494,25 @@ function logAsked(
   });
 }
 
+/** What makes the acts an answer would do refused, in words; false when none is. */
+function actProblemOf(
+  acts: (Act | undefined)[],
+  via: Answered["via"],
+  can: { canAdd: boolean; canEnd: boolean; canLook: boolean }
+) {
+  const own = "only on his own answer, through `answer_check` in his app.";
+  return (
+    (acts.includes("send") &&
+      via !== "connector" &&
+      `a draft is sent ${own}`) ||
+    (acts.includes("add") && !can.canAdd && `an event is added ${own}`) ||
+    (acts.includes("end") && !can.canEnd && `a step is closed ${own}`) ||
+    (acts.includes("look") &&
+      !can.canLook &&
+      `Life looks for a step done ${own}`)
+  );
+}
+
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
 function answerProblemOf(
   d: Omit<Decision, "state">,
@@ -522,18 +541,7 @@ function answerProblemOf(
       !note &&
       "pick an option or give his words as `note`.") ||
     (d.plan && new Set(options).size > 1 && "a plan card takes one pick.") ||
-    (acts.includes("send") &&
-      via !== "connector" &&
-      "a draft is sent only on his own answer, through `answer_check` in his app.") ||
-    (acts.includes("add") &&
-      !canAdd &&
-      "an event is added only on his own answer, through `answer_check` in his app.") ||
-    (acts.includes("end") &&
-      !canEnd &&
-      "a step is closed only on his own answer, through `answer_check` in his app.") ||
-    (acts.includes("look") &&
-      !canLook &&
-      "Life looks for a step done only on his own answer, through `answer_check` in his app.") ||
+    actProblemOf(acts, via, { canAdd, canEnd, canLook }) ||
     (wordless && `${wordless.id} takes his words: give them as \`note\`.`)
   );
 }

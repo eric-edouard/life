@@ -47,7 +47,7 @@ import {
   RegisteredAgentChange,
 } from "../change-registered-agent";
 import {
-  Asked,
+  AskedChange,
   AutoAdded,
   autoAddTodoItem,
   changeAskedTodoItem,
@@ -142,7 +142,7 @@ const ChangeTodoItemArgs = Change.extend({
   obs: ObservationId.optional().describe(
     "Instead of `said`, for an add only (his auto-add permission): the obs_ id of his own spoken to-do or promise. Life checks it and quotes it; at most 3 a day, off once he undoes one."
   ),
-  said: Asked.shape.said.optional(),
+  said: AskedChange.shape.said.optional(),
 });
 
 /** Does what the owner asked for in a chat, through `changeTodoItem`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */

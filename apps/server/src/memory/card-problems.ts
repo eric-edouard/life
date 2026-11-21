@@ -60,11 +60,7 @@ export function cardProblemOf(
   const silence = ask.options.find((o) => o.id === ask.onSilence);
   return (
     (new Set(ids).size !== ids.length && "option ids repeat") ||
-    (ask.onSilence !== null &&
-      !silence &&
-      "`onSilence` must be an option id") ||
-    (silence?.outgoing &&
-      "`onSilence` never takes an `outgoing` option: on silence nothing goes out") ||
+    silenceProblemOf(ask, silence) ||
     lookProblemOf(ask, silence) ||
     addsProblemOf(ask, silence) ||
     planProblemOf(ask, isPlan, silence) ||
@@ -79,23 +75,24 @@ export function cardProblemOf(
   );
 }
 
-/** What breaks the rules of an `adds` option and the `event` need it writes, in words the agent can fix; false when nothing does. */
-function addsProblemOf(
+/** What is wrong with the option `onSilence` names; false when nothing is. */
+function silenceProblemOf(
   ask: z.infer<typeof Ask>,
   silence: z.infer<typeof Option> | undefined
 ) {
-  const adds = ask.options.filter((o) => o.adds);
-  const events = ask.needs?.filter((n) => n.kind === "event") ?? [];
+  return (
+    (ask.onSilence !== null &&
+      !silence &&
+      "`onSilence` must be an option id") ||
+    (silence?.outgoing &&
+      "`onSilence` never takes an `outgoing` option: on silence nothing goes out")
+  );
+}
+
+/** What breaks the rules of an `event` need's times and his calendar; false when nothing does. */
+function eventProblemOf(ask: z.infer<typeof Ask>) {
   const event = eventOf(ask.needs);
   return (
-    (adds.length !== (events.length > 0 ? 1 : 0) &&
-      'one `event` need goes with exactly one `adds` option, and neither without the other (fetch("ask/event"))') ||
-    (events.length > 1 && "at most one `event` need") ||
-    (silence?.adds &&
-      "`onSilence` never takes an `adds` option: on silence nothing is added") ||
-    (adds.some((o) => o.outgoing || o.ends || o.looks || o.takes) &&
-      'an `adds` option has no other mark (fetch("ask/event"))') ||
-    (ask.draft && adds.length > 0 && "an `adds` card has no `draft`") ||
     (event &&
       !(
         Date.parse(event.end) > Date.parse(event.start) &&
@@ -105,6 +102,26 @@ function addsProblemOf(
     (event &&
       !isOn("appointmentsCalendar") &&
       "an `event` card needs his calendar set up: it is off in his settings")
+  );
+}
+
+/** What breaks the rules of an `adds` option and the `event` need it writes, in words the agent can fix; false when nothing does. */
+function addsProblemOf(
+  ask: z.infer<typeof Ask>,
+  silence: z.infer<typeof Option> | undefined
+) {
+  const adds = ask.options.filter((o) => o.adds);
+  const events = ask.needs?.filter((n) => n.kind === "event") ?? [];
+  return (
+    (adds.length !== (events.length > 0 ? 1 : 0) &&
+      'one `event` need goes with exactly one `adds` option, and neither without the other (fetch("ask/event"))') ||
+    (events.length > 1 && "at most one `event` need") ||
+    (silence?.adds &&
+      "`onSilence` never takes an `adds` option: on silence nothing is added") ||
+    (adds.some((o) => o.outgoing || o.ends || o.looks || o.takes) &&
+      'an `adds` option has no other mark (fetch("ask/event"))') ||
+    (ask.draft && adds.length > 0 && "an `adds` card has no `draft`") ||
+    eventProblemOf(ask)
   );
 }
 
