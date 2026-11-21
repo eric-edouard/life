@@ -1,4 +1,13 @@
 {
+  "spending": {
+    "equivalent": {
+      "amount": 0,
+      "basis": "equivalent",
+      "currency": "USD"
+    },
+    "reported": true,
+    "tokens": 0
+  },
   "goal": {
     "by": "life",
     "text": "Gran has her watch back"
@@ -479,13 +488,5 @@
         "shown": "928771774c0f909f"
       }
     }
-  ],
-  "spending": {
-    "equivalent": {
-      "amount": 0,
-      "basis": "equivalent",
-      "currency": "USD"
-    },
-    "tokens": 0
-  }
+  ]
 }

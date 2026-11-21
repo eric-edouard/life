@@ -293,7 +293,9 @@ test("read_log_lines: his token reads the log newest first, both shapes, as his 
     (await rpc(await token(over), "tools/call", { arguments: args, name })).json
       .result;
   for (const agent of await Promise.all(
-    ["read_log_lines", "read_resource_samples"].map((n) => call({}, {}, n))
+    ["read_log_lines", "read_resource_samples", "read_spending"].map((n) =>
+      call({}, {}, n)
+    )
   )) {
     expect(agent).toMatchObject({ isError: true });
     expect(agent.content[0].text).toContain("paired as an agent");
@@ -774,6 +776,7 @@ test("built to serve reads only (the question cases' agent), the connector regis
   // His log is his token's alone: never on a server with no token.
   expect(names).not.toContain("read_log_lines");
   expect(names).not.toContain("read_resource_samples");
+  expect(names).not.toContain("read_spending");
 });
 
 test("change_directory_entry is his: an agent's token is refused, and `said` is required; truth/ stays as it was", async () => {

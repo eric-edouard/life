@@ -5,7 +5,7 @@ import { writeJson } from "../core/files";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { dayNow } from "../memory/zones";
 import { expectWire } from "./http/wire-fixture";
-import { readSpending } from "./spending-read";
+import { matterTurnsOf, readSpending } from "./spending-read";
 
 // `read_spending` on made-up day files of a month long past, today and the month's agents and matters mocked: the
 // phone's fixture (`read_spending`).
@@ -18,7 +18,7 @@ afterAll(() => {
 });
 const sum = { billedUsd: 0, calls: 1, equivalentUsd: 0, tokens: 0 };
 
-test("read_spending: a past month's days as held, billed and equivalent apart by provider and kind, today live, the top agents and matters by tokens", async () => {
+test("read_spending: a past month's days as held, billed and equivalent apart by provider and kind, today live, unsettled Voice work counted, the top agents and matters by tokens and id", async () => {
   const book = await import("../memory/matters");
   const who = await import("../memory/who");
   const desk = await import("./desk-read");
@@ -61,7 +61,7 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
       },
     ],
     day: "2020-02-03",
-    unsettled: 0,
+    unsettled: 1,
   });
   const live = spyOn(spending, "readDaySpends").mockResolvedValue({
     spends: [
@@ -119,10 +119,14 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
     expect(answer.topMatters).toEqual([
       {
         equivalent: { amount: 3.6, basis: "equivalent", currency: "USD" },
+        id: "matter_000000000001",
         matter: "Test shop fit-out",
+        reported: true,
         tokens: 500_000,
       },
     ]);
+    // A day written with Voice work unsettled: the month says so (a floor).
+    expect(answer.unsettled).toBe(1);
     expectWire("read_spending", answer, true);
     // The current month: every day from the 1st to today, each read live while the night has not rolled it up.
     const now = await readSpending();
@@ -133,4 +137,33 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
       spy.mockRestore();
     }
   }
+});
+
+test("a matter's turns are its assignments' whose anchors name it: an anchor shared with another matter goes by the finder's one rule", () => {
+  const turn = (assignment_id: string) => ({
+    agent_id: "agt_000000000001",
+    assignment_id,
+    ended_at: "2026-11-10T10:00:00.000Z",
+    model: "claude:opus",
+    runtime: "claude",
+    tokens_cached: 0,
+    tokens_in: 100,
+    tokens_out: 0,
+  });
+  const anchors: Record<string, string[]> = {
+    asg_000000000001: ["obs_shared", "obs_a"],
+    asg_000000000002: ["obs_shared"],
+  };
+  // The finder: both anchors name A; the shared one alone names B (fewer steps).
+  const find = (refs: readonly string[]) =>
+    refs.includes("obs_a")
+      ? { id: "matter_a", name: "A" }
+      : { id: "matter_b", name: "B" };
+  const turns = [turn("asg_000000000001"), turn("asg_000000000002")];
+  const of = (id: string) =>
+    matterTurnsOf(turns, (a) => anchors[a] ?? [], find, id).map(
+      (t) => t.assignment_id
+    );
+  expect(of("matter_a")).toEqual(["asg_000000000001"]);
+  expect(of("matter_b")).toEqual(["asg_000000000002"]);
 });

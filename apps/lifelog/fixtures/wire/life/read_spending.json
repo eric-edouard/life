@@ -82,25 +82,30 @@
     "basis": "billed",
     "currency": "USD"
   },
+  "unsettled": 1,
   "topAgents": [
     {
       "agent": "Test shop agent",
+      "id": "agt_000000000001",
       "equivalent": {
         "amount": 3.6,
         "basis": "equivalent",
         "currency": "USD"
       },
+      "reported": true,
       "tokens": 500000
     }
   ],
   "topMatters": [
     {
       "matter": "Test shop fit-out",
+      "id": "matter_000000000001",
       "equivalent": {
         "amount": 3.6,
         "basis": "equivalent",
         "currency": "USD"
       },
+      "reported": true,
       "tokens": 500000
     }
   ]

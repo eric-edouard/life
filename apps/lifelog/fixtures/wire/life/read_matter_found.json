@@ -1,4 +1,13 @@
 {
+  "spending": {
+    "equivalent": {
+      "amount": 0,
+      "basis": "equivalent",
+      "currency": "USD"
+    },
+    "reported": true,
+    "tokens": 0
+  },
   "id": "matter_cccccccccccc",
   "name": "Frame Gran's photo",
   "status": "moving",
@@ -195,13 +204,5 @@
         "shown": "fbb39df191312464"
       }
     }
-  ],
-  "spending": {
-    "equivalent": {
-      "amount": 0,
-      "basis": "equivalent",
-      "currency": "USD"
-    },
-    "tokens": 0
-  }
+  ]
 }

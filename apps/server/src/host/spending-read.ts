@@ -4,15 +4,15 @@ import { readMatterBook } from "../memory/matters";
 import type { TurnSpent } from "../memory/spends";
 import {
   type Basis,
-  type Spend,
   type SpendKind,
   type SpendProvider,
   spendOfTurn,
 } from "../memory/spends";
 import { readPeople } from "../memory/who";
 import { dayNow, dayRange } from "../memory/zones";
-import { anchorsOf, readDesk } from "./desk-read";
+import { anchorsOf, type DeskRead, readDesk } from "./desk-read";
 import { sessionTurnsOf, stepTurnsOf, turnsEndedIn } from "./desk-turn-reads";
+import type { RegisteredAgents } from "./registered-agents";
 import {
   type DaySpending,
   type KindSpending,
@@ -43,17 +43,25 @@ const TOP = 5;
 const billedOf = (d: Pick<DaySpending, "byProvider">) =>
   d.byProvider.reduce((n, p) => n + p.billedUsd, 0);
 
-/** A local day's spending: its file, else read live from its records (today, or a closed day the night has not rolled up); none when it can't be read. */
-async function dayOf(day: string, isLive: boolean) {
+/** A local day's spending: its file, else read live from its records (today, or a closed day the night has not rolled up). A live read that fails throws: never a day shown as $0. */
+async function dayOf(
+  day: string,
+  isLive: boolean
+): Promise<DaySpending | undefined> {
   const kept = readSpendingDay(day);
   if (kept || !isLive) {
     return kept;
   }
-  try {
-    return { ...spendingOf((await readDaySpends(day)).spends), day };
-  } catch {
-    // ponytail: a live day whose desk or Voice read fails is left out of this read, like a day with no record.
+  const { spends, unsettled } = await readDaySpends(day);
+  return { ...spendingOf(spends), day, unsettled };
+}
+
+/** The desk's history, read even while the desk is off; unreadable throws (never zero tokens). */
+function deskValueOf<T>(read: DeskRead<T>, empty: T) {
+  if (read.state === "unreadable") {
+    throw new Error(`desk: ${read.why}`);
   }
+  return read.state === "ok" ? read.value : empty;
 }
 
 function merged<T extends ProviderSpending | KindSpending>(
@@ -82,81 +90,107 @@ function merged<T extends ProviderSpending | KindSpending>(
   return [...by.values()];
 }
 
-const tokenSum = (spends: Spend[]) =>
-  spends.reduce(
-    (n, s) => n + (s.tokens ? s.tokens.input + s.tokens.output : 0),
-    0
-  );
-const equivalentSum = (spends: Spend[]) =>
-  spends.reduce((n, s) => n + (s.equivalentUsd ?? 0), 0);
+/** Turns as `{tokens, equivalent, reported}`: `reported` false when one has no price or usage (its equivalent a floor). */
+const turnSpendingOf = (turns: TurnSpent[]) => {
+  const spends = turns.map(spendOfTurn);
+  return {
+    equivalent: amountOf(
+      spends.reduce((n, s) => n + (s.equivalentUsd ?? 0), 0),
+      "equivalent"
+    ),
+    reported: spends.every((s) => s.reported),
+    tokens: spends.reduce(
+      (n, s) => n + (s.tokens ? s.tokens.input + s.tokens.output : 0),
+      0
+    ),
+  };
+};
 
-/** Turns summed by `keyOf`, ranked by tokens, the first `TOP`. */
-function topOf(spends: Spend[], keyOf: (s: Spend) => string | undefined) {
-  const by = new Map<string, Spend[]>();
-  for (const s of spends) {
-    const key = keyOf(s);
+/** Turns grouped by `keyOf`, ranked by tokens, the first `TOP`. */
+function topOf(
+  turns: TurnSpent[],
+  keyOf: (t: TurnSpent) => string | undefined
+) {
+  const by = new Map<string, TurnSpent[]>();
+  for (const t of turns) {
+    const key = keyOf(t);
     if (key) {
-      by.set(key, [...(by.get(key) ?? []), s]);
+      const list = by.get(key);
+      if (list) {
+        list.push(t);
+      } else {
+        by.set(key, [t]);
+      }
     }
   }
   return [...by]
-    .map(([key, list]) => ({
-      equivalent: amountOf(equivalentSum(list), "equivalent"),
-      key,
-      tokens: tokenSum(list),
-    }))
+    .map(([id, list]) => ({ id, ...turnSpendingOf(list) }))
     .toSorted((a, b) => b.tokens - a.tokens)
     .slice(0, TOP);
 }
 
-/** The month's agents and matters by their turns' tokens: an agent by its name, a matter by its assignment's anchors (the one rule `tokenRowsOf` follows). */
+type Finder = (
+  refs: readonly string[]
+) => { id: string; name: string } | undefined;
+
+/**
+ * The month's agents and matters by their turns' tokens, by id, named last: an agent by its name (else its id), a
+ * matter by its assignment's anchors (`matterFinderOf`, the one rule `tokenRowsOf` and `read_matter` follow). The book
+ * is read only when an assignment has anchors.
+ */
 async function readTops(from: string, to: string) {
-  const read = readDesk(
-    (db) => {
-      const turns = turnsEndedIn(db, from, to);
-      const ids = [...new Set(turns.map((t) => t.agent_id))];
-      if (ids.length === 0) {
-        return { anchors: [], names: [], turns };
-      }
-      const names = db
-        .query<{ brief: string; id: string; name: string | null }, string[]>(
-          `select id, name, brief from agent where id in (${ids.map(() => "?").join(",")})`
-        )
-        .all(...ids);
-      const anchors = [...new Set(turns.map((t) => t.assignment_id))].map(
-        (id) => [id, anchorsOf(db, id)] as const
-      );
-      return { anchors, names, turns };
-    },
-    { anchors: [], names: [], turns: [] },
-    // A month's history, even while the desk is off.
-    true
+  const { anchors, names, turns } = deskValueOf(
+    readDesk(
+      (db) => {
+        const ended = turnsEndedIn(db, from, to);
+        const ids = [...new Set(ended.map((t) => t.agent_id))];
+        return {
+          anchors: [...new Set(ended.map((t) => t.assignment_id))].map(
+            (id) => [id, anchorsOf(db, id)] as const
+          ),
+          names:
+            ids.length === 0
+              ? []
+              : db
+                  .query<{ id: string; name: string | null }, string[]>(
+                    `select id, name from agent where id in (${ids.map(() => "?").join(",")})`
+                  )
+                  .all(...ids),
+          turns: ended,
+        };
+      },
+      { anchors: [], names: [], turns: [] },
+      true
+    ),
+    { anchors: [], names: [], turns: [] }
   );
-  if (read.state !== "ok" || read.value.turns.length === 0) {
-    return { topAgents: [], topMatters: [] };
-  }
-  const { anchors, names, turns } = read.value;
-  const spends = turns.map(spendOfTurn);
-  const nameOf = new Map(
-    names.map((a) => [a.id, a.name ?? a.brief.trim().split("\n")[0] ?? a.id])
+  const nameOf = new Map(names.map((a) => [a.id, a.name ?? a.id]));
+  const anchored = anchors.filter(([, refs]) => refs.length > 0);
+  const find: Finder =
+    anchored.length > 0
+      ? matterFinderOf(await readMatterBook(await readPeople(), dayNow()))
+      : () => undefined;
+  const matterOf = new Map(
+    anchored.flatMap(([asg, refs]) => {
+      const m = find(refs);
+      return m ? [[asg, m] as const] : [];
+    })
   );
-  const find = matterFinderOf(
-    await readMatterBook(await readPeople(), dayNow())
-  );
-  const anchorsOfAsg = new Map(anchors);
   return {
-    topAgents: topOf(spends, (s) => s.agent).map(({ key, ...t }) => ({
-      agent: nameOf.get(key) ?? key,
+    topAgents: topOf(turns, (t) => t.agent_id).map((t) => ({
+      agent: nameOf.get(t.id) ?? t.id,
       ...t,
     })),
-    topMatters: topOf(
-      spends,
-      (s) => find(anchorsOfAsg.get(s.assignment ?? "") ?? [])?.name
-    ).map(({ key, ...t }) => ({ matter: key, ...t })),
+    topMatters: topOf(turns, (t) => matterOf.get(t.assignment_id)?.id).map(
+      (t) => ({
+        matter: [...matterOf.values()].find((m) => m.id === t.id)?.name ?? t.id,
+        ...t,
+      })
+    ),
   };
 }
 
-/** `read_spending`: his month (default the current one), each day of it held, today always; billed and equivalent apart. */
+/** `read_spending`: his month (default the current one), each day held, today always; billed and equivalent apart. A read that fails throws. */
 export async function readSpending(month = dayNow().slice(0, 7)) {
   const today = dayNow();
   const isCurrent = month === today.slice(0, 7);
@@ -210,46 +244,67 @@ export async function readSpending(month = dayNow().slice(0, 7)) {
     ),
     observedAt: clock().toISOString(),
     today: amountOf(todays ? billedOf(todays) : 0, "billed"),
+    // Voice work not settled when its day was written (or now, today): not counted, so the month is a floor.
+    unsettled: held.reduce((n, d) => n + d.unsettled, 0),
     ...(await readTops(from, to)),
   };
 }
 
-/** Turns as `{tokens, equivalent}`: the spending of a matter's read, and the base of an agent's. */
-const turnSpendingOf = (turns: TurnSpent[]) => {
-  const spends = turns.map(spendOfTurn);
-  return {
-    equivalent: amountOf(equivalentSum(spends), "equivalent"),
-    tokens: tokenSum(spends),
-  };
-};
-
-/** Each agent's spending in its current session (`read_registered_agents`): since, tokens, equivalent, its runtime. */
-export function readAgentSpending(agents: { id: string; runtime: string }[]) {
-  const read = readDesk(
+/** `read_registered_agents` with each agent's `spending` in its current session (since, tokens, equivalent, reported, provider); none when the desk can't be read. */
+export function withAgentSpending(read: RegisteredAgents) {
+  const desk = readDesk(
     (db) =>
       sessionTurnsOf(
         db,
-        agents.map((a) => a.id)
+        read.agents.map((a) => a.id)
       ),
-    { sessions: [], turns: [] }
+    { sessions: [], turns: [] },
+    true
   );
-  const { sessions, turns } =
-    read.state === "ok" ? read.value : { sessions: [], turns: [] };
-  return new Map(
-    agents.map((a) => [
-      a.id,
-      {
+  if (desk.state !== "ok") {
+    return { ...read };
+  }
+  const { sessions, turns } = desk.value;
+  return {
+    ...read,
+    agents: read.agents.map((a) => ({
+      ...a,
+      spending: {
         ...turnSpendingOf(turns.filter((t) => t.agent_id === a.id)),
         provider:
           a.runtime === "codex" ? ("codex" as const) : ("claude" as const),
         since: sessions.find((s) => s.agent_id === a.id)?.started_at ?? null,
       },
-    ])
-  );
+    })),
+  };
 }
 
-/** A matter's spending (`read_matter`): its assignments' turns, since its first step. */
-export function readMatterSpending(steps: string[]) {
-  const read = readDesk((db) => stepTurnsOf(db, steps), []);
-  return turnSpendingOf(read.state === "ok" ? read.value : []);
+/** The turns of `id`'s matter: those whose assignment's anchors `find` names it (the one rule), each assignment looked up once. Pure. */
+export function matterTurnsOf(
+  turns: TurnSpent[],
+  anchorsOfAssignment: (id: string) => string[],
+  find: Finder,
+  id: string
+) {
+  const isHers = new Map<string, boolean>();
+  return turns.filter((t) => {
+    const known = isHers.get(t.assignment_id);
+    if (known !== undefined) {
+      return known;
+    }
+    const is = find(anchorsOfAssignment(t.assignment_id))?.id === id;
+    isHers.set(t.assignment_id, is);
+    return is;
+  });
+}
+
+/** A matter's spending (`read_matter`): its assignments' turns (`matterTurnsOf`), read even while the desk is off; none when the desk can't be read. */
+export function readMatterSpending(find: Finder, id: string, steps: string[]) {
+  const desk = readDesk(
+    (db) =>
+      matterTurnsOf(stepTurnsOf(db, steps), (a) => anchorsOf(db, a), find, id),
+    [],
+    true
+  );
+  return desk.state === "ok" ? turnSpendingOf(desk.value) : undefined;
 }

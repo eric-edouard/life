@@ -35,6 +35,7 @@
           "basis": "equivalent",
           "currency": "USD"
         },
+        "reported": true,
         "tokens": 0,
         "provider": "claude",
         "since": null
@@ -135,6 +136,7 @@
           "basis": "equivalent",
           "currency": "USD"
         },
+        "reported": true,
         "tokens": 0,
         "provider": "claude",
         "since": null
