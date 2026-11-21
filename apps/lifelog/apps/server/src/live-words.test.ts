@@ -6,15 +6,15 @@ import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 const fake = fakeElevenLabs();
 afterAll(() => fake.server.stop(true));
 
-let env: ReturnType<typeof testDb>;
+let store: ReturnType<typeof testDb>;
 beforeAll(() => {
-  env = testDb();
+  store = testDb();
 });
-afterAll(() => env.drop());
+afterAll(() => store.drop());
 
 const ask = () =>
   createApp(
-    services(testConfig(`http://localhost:${fake.server.port}`), env.db, {
+    services(testConfig(`http://localhost:${fake.server.port}`), store.db, {
       intelligence: null,
     })
   ).request("/live-words/token", {
@@ -36,9 +36,8 @@ test("a refusal from ElevenLabs is a 502, never a token", async () => {
 });
 
 test("needs the device token", async () => {
-  const env = testDb();
   const app = createApp(
-    services(testConfig("http://localhost:1"), env.db, { intelligence: null })
+    services(testConfig("http://localhost:1"), store.db, { intelligence: null })
   );
   expect(
     (await app.request("/live-words/token", { method: "POST" })).status
