@@ -11,7 +11,6 @@ import {
   ne,
   notInArray,
   or,
-  type SQL,
 } from "drizzle-orm";
 
 // What Voice spent between two instants, for Life's model spending (`GET /spending`): read from its three ledgers,
@@ -36,16 +35,6 @@ const PENDING_RUNS = ["running", "waiting"] as const;
 const MAC_PROVIDERS = ["claude-code", "codex"] as const;
 
 export function spendingOf(db: Db, from: Date, to: Date) {
-  const countIn = (
-    table: typeof transcriptionJobs | typeof intelligenceRuns,
-    at: typeof transcriptionJobs.admittedAt | typeof intelligenceRuns.createdAt,
-    where: SQL
-  ) =>
-    db
-      .select({ n: count() })
-      .from(table)
-      .where(and(gte(at, from), lt(at, to), where))
-      .get()?.n ?? 0;
   const jobs = db
     .select({
       admittedAt: transcriptionJobs.admittedAt,
@@ -60,7 +49,7 @@ export function spendingOf(db: Db, from: Date, to: Date) {
       and(
         gte(transcriptionJobs.admittedAt, from),
         lt(transcriptionJobs.admittedAt, to),
-        notInArray(transcriptionJobs.state, UNSETTLED),
+        notInArray(transcriptionJobs.state, [...UNSETTLED]),
         or(ne(transcriptionJobs.state, "failed"), transcriptionJobs.maybeBilled)
       )
     )
@@ -96,25 +85,36 @@ export function spendingOf(db: Db, from: Date, to: Date) {
         gte(intelligenceRuns.createdAt, from),
         lt(intelligenceRuns.createdAt, to),
         // Settled, and on his plans through the Mac (the paid APIs' runs are older, and none runs now).
-        notInArray(intelligenceRuns.state, PENDING_RUNS),
+        notInArray(intelligenceRuns.state, [...PENDING_RUNS]),
         inArray(intelligenceRuns.provider, MAC_PROVIDERS)
       )
     )
     .all();
-  const unsettled =
-    countIn(
-      transcriptionJobs,
-      transcriptionJobs.admittedAt,
-      inArray(transcriptionJobs.state, UNSETTLED)
-    ) +
-    countIn(
-      intelligenceRuns,
-      intelligenceRuns.createdAt,
-      and(
-        inArray(intelligenceRuns.state, PENDING_RUNS),
-        inArray(intelligenceRuns.provider, MAC_PROVIDERS)
-      ) as SQL
-    );
+  const jobsUnsettled =
+    db
+      .select({ n: count() })
+      .from(transcriptionJobs)
+      .where(
+        and(
+          gte(transcriptionJobs.admittedAt, from),
+          lt(transcriptionJobs.admittedAt, to),
+          inArray(transcriptionJobs.state, UNSETTLED)
+        )
+      )
+      .get()?.n ?? 0;
+  const runsUnsettled =
+    db
+      .select({ n: count() })
+      .from(intelligenceRuns)
+      .where(
+        and(
+          gte(intelligenceRuns.createdAt, from),
+          lt(intelligenceRuns.createdAt, to),
+          inArray(intelligenceRuns.state, PENDING_RUNS),
+          inArray(intelligenceRuns.provider, MAC_PROVIDERS)
+        )
+      )
+      .get()?.n ?? 0;
   return {
     jobs: jobs.map((j) => ({
       at: j.admittedAt.toISOString(),
@@ -123,8 +123,13 @@ export function spendingOf(db: Db, from: Date, to: Date) {
       seconds: j.seconds,
       transcriber: j.transcriber,
     })),
-    modelRuns: runs.map((r) => ({ ...r, at: r.at.toISOString() })),
-    unsettled,
+    modelRuns: runs.map((r) => ({
+      ...r,
+      at: r.at.toISOString(),
+      // Only the Mac's providers are selected above.
+      provider: r.provider as (typeof MAC_PROVIDERS)[number],
+    })),
+    unsettled: jobsUnsettled + runsUnsettled,
     // A note whose answer was lost has no seconds: it may have been billed.
     voiceNotes: notes.map((n) => ({
       at: n.doneAt?.toISOString() ?? "",
