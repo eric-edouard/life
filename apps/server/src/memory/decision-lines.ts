@@ -12,6 +12,8 @@ const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
 export const Asked = Ask.extend({
   asker: z.string().min(1),
   at: isoDateTime,
+  /** The open card of another asker that held the draft's chat when this one was asked: this one waits on it (`contestOf`). */
+  contests: DecisionId.optional(),
   /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
   draft: StoredDraft.optional(),
   id: DecisionId,
@@ -40,10 +42,18 @@ export const Withdrawn = z
     at: isoDateTime,
     id: DecisionId,
     kind: z.literal("withdrawn"),
+    /** The card that took its place: the newer card his Send sent (Life's withdrawal), or, worked out, the holder's combined card (`merges`). */
+    replacedBy: DecisionId.optional(),
     schemaVersion: z.literal(DECISIONS_VERSION),
     why: z.string().min(1),
   })
   .strict();
+/** The holder's keep of its card against the waiting card `id` (`keepDraft`): `id` waits until the held card settles. */
+export const Kept = Withdrawn.omit({
+  answeredInChatAt: true,
+  kind: true,
+  replacedBy: true,
+}).extend({ kind: z.literal("kept") });
 /** What his answer sent: the sent message's id (Life's own event id where it knows it) once its network took it. */
 export const Sent = z
   .object({
@@ -93,6 +103,7 @@ export const Line = z.discriminatedUnion("kind", [
   Asked,
   Answered,
   Withdrawn,
+  Kept,
   Sent,
   SendFailed,
   Ended,
@@ -115,14 +126,19 @@ export type DecisionState =
   | "lapsed"
   | "open"
   | "seen"
+  | "waiting"
   | "withdrawn";
 export type Decision = Asked & {
   answer?: Answered;
   /** Life's newest look: the one his answer's look made, a `seen` that settled the card, or a `not_found` that voided his answer (the card is open again). */
   doneSeen?: DoneSeen;
   end?: Ended;
+  /** The holder's keep, while this card waits on its card. */
+  kept?: z.infer<typeof Kept>;
   /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
   notSent?: SendFailed;
+  /** The older card this one replaces, once asked after `CONTEST_WAIT` while that one is still open: his Send withdraws it. */
+  replaces?: string;
   send?: Send;
   state: DecisionState;
   /** Every answer a `not sent:` or `not_found` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
