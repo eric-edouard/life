@@ -60,24 +60,20 @@ export const GoalText = z.string().trim().min(1).max(200);
  */
 export const NextStepKind = z.enum(["do", "wait_event", "wait_owner"]);
 
-const NextStepFields = z
+/** A matter's next step as Life drafts it: one line saying what moves it now, its kind, and for a wait what it waits on. */
+export const DraftedNextStep = z
   .object({
     kind: NextStepKind,
     text: z.string().trim().min(1).max(200),
     waitsOn: z.string().trim().min(1).max(120).optional(),
   })
-  .strict();
-const isWaitNamed = (n: { kind: string; waitsOn?: string }) =>
-  n.kind === "do" || !!n.waitsOn;
-const WAIT_NAMED = "a wait says what it waits on";
-
-/** A matter's next step as Life drafts it: one line saying what moves it now, its kind, and for a wait what it waits on. */
-export const DraftedNextStep = NextStepFields.refine(isWaitNamed, WAIT_NAMED);
+  .strict()
+  .refine((n) => n.kind === "do" || n.waitsOn, "a wait says what it waits on");
 
 /** A matter's next step: Life's draft or his word, which alone may carry a `context` (Markdown, its `life:` links checked when he gives it). */
-export const NextStep = NextStepFields.extend({
+export const NextStep = DraftedNextStep.safeExtend({
   context: ContextMarkdown.optional(),
-}).refine(isWaitNamed, WAIT_NAMED);
+});
 export type NextStep = z.infer<typeof NextStep>;
 
 /** The parts of a direction as Life drafts it (`MatterDirectionDraft`): the goal, then a next step or the records that show the matter is over. */

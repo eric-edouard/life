@@ -341,5 +341,13 @@ test("his next step's context is kept with it; one without has none; a dead life
       text: "Call again",
     })
   ).rejects.toThrow("the link life:unit_0000000000ff opens nothing");
+  // The cap is checked before any link is opened.
+  await expect(
+    next({
+      context: `[this](life:unit_0000000000ff) ${"x".repeat(20_000)}`,
+      kind: "do",
+      text: "Call again",
+    })
+  ).rejects.toThrow("20000");
   expect(readCorrections()).toHaveLength(2);
 });

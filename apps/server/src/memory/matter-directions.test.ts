@@ -112,6 +112,12 @@ test("the night drafts each running matter's direction, pinned to its steps; a r
         matter: "m9",
         nextStep: { kind: "do", text: "x" },
       },
+      // A context is his word's alone: a draft carrying one is dropped.
+      {
+        goal: "Bad",
+        matter: "m1",
+        nextStep: { context: "Because.", kind: "do", text: "z" },
+      },
       // A wait that says not what it waits on is dropped.
       {
         goal: "Bad",

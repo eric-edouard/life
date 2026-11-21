@@ -1,3 +1,4 @@
+import { clock } from "../core/clock";
 import {
   nextStepContextProblemOf,
   readsOnce,
@@ -12,6 +13,7 @@ import { readMatterBook } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { Correction } from "../records/observation";
 import { TICK_LIMIT_MS, tickTodoItems } from "./change-todo-item";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -25,12 +27,18 @@ export const QUICK_MS = 5000;
 export const ticksLimitMsOf = (open: readonly MatterStepNow[]) =>
   open.filter((s) => s.kind === "todo_item").length * TICK_LIMIT_MS;
 
-/** His correction, written once its next step's `context` opens (`nextStepContextProblemOf`): the door of his own words. */
+/** His correction, written once it parses and its next step's `context` opens (`nextStepContextProblemOf`): the door of his own words. */
 export async function recordHisCorrection(
   said: unknown,
   reads: SharedReads = readsOnce()
 ) {
-  const problem = await nextStepContextProblemOf(said, reads);
+  // Its kind, fields and caps first, so no link is opened for a line that would be refused; `recordCorrection` stamps it again.
+  const parsed = Correction.parse({
+    ...(said as object),
+    at: clock().toISOString(),
+    schemaVersion: 1,
+  });
+  const problem = await nextStepContextProblemOf(parsed, reads);
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
   }
