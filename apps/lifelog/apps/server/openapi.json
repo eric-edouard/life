@@ -1325,6 +1325,15 @@
         },
         "required": ["text"]
       },
+      "DictationWords": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      },
       "IngestState": {
         "type": "object",
         "properties": {
@@ -4110,6 +4119,74 @@
           },
           "503": {
             "description": "Not now: send it again later",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dictation/transcript": {
+      "post": {
+        "description": "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of all other work, by the speech service and Scribe for the turns it routes as Thai by where the owner is now. Nothing is kept. 503 when the speech service or transcription is off or busy, or the words need Scribe while its credits are out or no slot frees: nothing was billed. 502 when Scribe failed to give the Thai words: the owner says it again. The device token only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Its words; empty when nothing was heard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictationWords"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not Ogg Opus, or longer than 10 minutes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 16 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Its Thai words are missing: say it again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not now, nothing billed: say it again",
             "content": {
               "application/json": {
                 "schema": {

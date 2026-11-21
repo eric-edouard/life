@@ -208,6 +208,17 @@ switch off, the speech service busy or down, the credits used up for a note that
 at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
 its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
 
+### A field's dictation
+
+The phone sends what the owner dictated into a field (Ogg Opus, at most 10 minutes and 16 MB) to
+`POST /dictation/transcript`, device token only. It is heard like a voice note (`hearOnTheMac`, then `hearRouted`),
+routed by where the owner is now, and ahead of everything else: the speech service's interactive place
+(`X-Priority: interactive`) and Scribe's (`interactive`, waiting up to 60 s for a slot). Nothing is kept: no audio, no
+words, no row; the answer is `no-store`. Words come back only whole: Scribe failing on the Thai turns answers 502, and
+the owner says it again; busy, off or out of credits answers 503 with nothing billed. A lost answer is never asked of
+Scribe again: the phone shows "Not written. Please say it again." Scribe keeps its own copy under its policy (zero
+retention, `enable_logging=false`, is for enterprise accounts only, so it is not asked).
+
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job.

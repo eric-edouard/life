@@ -3,12 +3,13 @@
 // stored; only what comes back is kept, with its provenance.
 import { z } from "zod";
 import type { Config } from "./config";
+import type { Priority } from "./scribe-slots";
 import { switches } from "./switches";
 
 export const EMBEDDING_DIMENSIONS = 192;
 
 // Why a call can't be answered now.
-type Unanswered =
+export type Unanswered =
   | { error: "identity_busy"; retryAfter: string }
   | { error: "invalid_audio" | "identity_unavailable"; message: string };
 
@@ -161,8 +162,13 @@ export async function embedRanges(
 export async function transcribeBlock(
   config: Config,
   ogg: Uint8Array,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  priority: Priority = "ordinary"
 ): Promise<{ heard: Heard } | Unanswered> {
-  const said = await post(config, "/transcribe", ogg, Heard, { signal });
+  const said = await post(config, "/transcribe", ogg, Heard, {
+    // The owner waiting at a field: the service's own waiting place, ahead of every other request.
+    headers: priority === "interactive" ? { "X-Priority": "interactive" } : {},
+    signal,
+  });
   return "answer" in said ? { heard: said.answer } : said;
 }

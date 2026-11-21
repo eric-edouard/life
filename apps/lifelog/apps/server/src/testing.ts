@@ -280,6 +280,8 @@ export function fakeSpeechService() {
       embedding: number[];
     } | null;
     heard: Heard;
+    /** Each block's `X-Priority`. */
+    priorities: string[];
     ranges: [number, number][][];
   } = {
     blocks: 0,
@@ -291,6 +293,7 @@ export function fakeSpeechService() {
     failing: false,
     heard: { durationSeconds: 0, models: {}, turns: [], words: [] },
     meanwhile: () => undefined,
+    priorities: [],
     ranges: [],
   };
   const server = Bun.serve({
@@ -303,6 +306,7 @@ export function fakeSpeechService() {
       }
       if (new URL(req.url).pathname === "/transcribe") {
         fake.blocks += 1;
+        fake.priorities.push(req.headers.get("X-Priority") ?? "ordinary");
         fake.meanwhile();
         return fake.failing
           ? new Response("RuntimeError", { status: 500 })

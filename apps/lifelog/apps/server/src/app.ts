@@ -10,6 +10,7 @@ import { appleHealthRoutes } from "./routes/apple-health";
 import { backupRoutes } from "./routes/backup";
 import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
+import { dictationRoutes } from "./routes/dictation";
 import { healthRoutes } from "./routes/health";
 import { pageRoutes } from "./routes/pages";
 import { placeRoutes } from "./routes/places";
@@ -173,6 +174,7 @@ export function createApp(s: Services) {
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))
     .route("/", voiceNoteRoutes(s))
+    .route("/", dictationRoutes(s))
     .route("/", pageRoutes(s))
     .route("/", backupRoutes(s))
     .route("/", speakerRoutes(s))
