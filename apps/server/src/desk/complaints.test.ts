@@ -18,6 +18,7 @@ import { ask, asksFor } from "../host/asks";
 import { complain, type Misread } from "../host/complaints";
 import {
   agentInRole,
+  beingFixedOf,
   complaintReceiptOf,
   complaintsAtWork,
   currentAssignmentOf,
@@ -28,6 +29,7 @@ import {
   withMisreadSealed,
 } from "../memory/complaint-checks";
 import { COMPLAINTS, stageOf } from "../memory/complaint-record";
+import type { DecisionState } from "../memory/decision-lines";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { readPacket } from "./agent-actions";
@@ -95,6 +97,18 @@ async function press(
   }
 }
 
+/** A made-up caretaker card asked on assignment `assignment`. */
+const caretakerCard = (id: string, assignment: string, agent = "agt_x") => ({
+  agent,
+  assignment,
+  context: "I read the card as shown.",
+  id,
+  question: "Is Dre your cousin?",
+  state: "open" as DecisionState,
+});
+/** His complaints at work as cards show them, over `cards`. */
+const shown = (cards: ReturnType<typeof caretakerCard>[]) =>
+  beingFixedOf(desk.db, cards);
 const received = () =>
   desk.db
     .query<{ assignment_id: string; event_id: string; payload: string }, []>(
@@ -175,11 +189,17 @@ test("a press reaches the caretaker once its ask, its row and its receipt are wr
   );
   // Never pulled as an ask, never fed, never listed.
   expect(asksFor(DESK_AGENT).asks).toEqual([]);
-  // Two complaints on one assignment: neither shows its line.
-  desk.db.run("update assignment set plan_now = 'Reading the card'");
-  expect(complaintsAtWork(desk.db).map((w) => [w.ask, w.line])).toEqual([
-    [first.ask, null],
-    [second.ask, null],
+  // Two complaints on one assignment: neither shows the caretaker's open card, which may be about the other.
+  const both = received()[0]?.assignment_id ?? "";
+  expect(
+    shown([caretakerCard("dec_both", both)]).map((w) => [
+      w.ask,
+      w.line,
+      w.context,
+    ])
+  ).toEqual([
+    [first.ask, null, null],
+    [second.ask, null, null],
   ]);
 });
 
@@ -243,14 +263,41 @@ test("a stopped caretaker leaves a press unreceived, his words kept, its plan sa
   const fourth = await press("key-4");
   const next = agentInRole(desk.db, "caretaker");
   expect(next?.id).not.toBe(caretaker);
-  // A complaint alone on its assignment shows that assignment's line.
-  desk.db.run(
-    "update assignment set plan_now = 'Reading the card' where agent_id = ?",
-    [next?.id ?? ""]
-  );
-  expect(complaintsAtWork(desk.db)).toEqual([
-    { ask: fourth.ask, line: "Reading the card", since: expect.any(String) },
+  // A complaint alone on its assignment shows the caretaker's newest open card there: its question and context.
+  const nextAsg = currentAssignmentOf(desk.db, next?.id ?? "")?.id ?? "";
+  const card = caretakerCard("dec_open", nextAsg, next?.id);
+  const alone = (cards: (typeof card)[]) =>
+    shown(cards).map(({ context, line }) => ({
+      context,
+      line,
+    }));
+  expect(shown([card])).toEqual([
+    {
+      ask: fourth.ask,
+      context: "I read the card as shown.",
+      line: "Is Dre your cousin?",
+      since: expect.any(String),
+    },
   ]);
+  // No open card: the plain line. An answered or withdrawn card never shows.
+  const none = [{ context: null, line: null }];
+  expect(alone([])).toEqual(none);
+  expect(alone([{ ...card, state: "answered" }])).toEqual(none);
+  expect(alone([{ ...card, state: "withdrawn" }])).toEqual(none);
+  // A newer card of another open assignment never shows.
+  desk.db.run(
+    "insert into assignment (id, agent_id, opened_at, opened_by, notes_path, wait_until) select 'asg_other', agent_id, opened_at, opened_by, notes_path, wait_until from assignment where id = ?",
+    [nextAsg]
+  );
+  const other = {
+    ...caretakerCard("dec_other", "asg_other", next?.id),
+    context: "Another complaint's card.",
+    question: "Is this another card?",
+  };
+  expect(alone([card, other])).toEqual([
+    { context: "I read the card as shown.", line: "Is Dre your cousin?" },
+  ]);
+  desk.db.run("delete from assignment where id = 'asg_other'");
 }, 15_000);
 
 test("the caretaker reads a complaint through its door only on the assignment that received it, and waits with no plan card first", async () => {
