@@ -50,6 +50,7 @@ import {
   type CheckMatter,
   type HeldRead,
   LIFE_CHECKS,
+  preTickedOf,
 } from "./life-checks";
 import {
   directionDueOf,
@@ -329,6 +330,7 @@ function ranked(
             onMatters: [],
             onSilence: null,
             options: [...LIFE_CHECKS[group].options],
+            preTicked: preTickedOf({ kind, subject: null }),
             question: fields.question,
             ref: fields.ref,
             ridesOn: rides,

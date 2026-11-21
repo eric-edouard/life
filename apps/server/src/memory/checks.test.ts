@@ -25,7 +25,7 @@ import {
 } from "./checks-test-inputs";
 import { checksText } from "./checks-text";
 import type { AgentHold } from "./held-matters";
-import type { Check } from "./life-checks";
+import { type Check, preTickedOf } from "./life-checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
@@ -328,6 +328,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
+  items[3] = voice("v3", { conversations: 1 });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
@@ -365,6 +366,35 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   const guesses = cards.filter((c) => urgencyOf(c) === "improves");
   expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana]);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
+  // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; the others unticked.
+  expect(byRef("voice:v3")?.preTicked).toBe("not-relevant");
+  expect(
+    [dana, "voice:v1", "voice:v2"].map((r) => byRef(r)?.preTicked)
+  ).toEqual([null, null, null]);
+});
+
+test("the pre-ticked answer: an ending is done, a guess its heard name names is them, a voice heard once with no name is not named", () => {
+  const heard = (
+    conversations: number,
+    name: string | null,
+    heardAs = name
+  ) => ({
+    conversations,
+    heardAs,
+    name,
+  });
+  const dana = { kind: "voice" as const, subject: "person:dana" };
+  expect(preTickedOf({ kind: "ending", subject: null })).toBe("outdated");
+  expect(preTickedOf({ kind: "person", subject: null })).toBeNull();
+  expect(preTickedOf(dana, heard(4, "Dana", "person:dana"))).toBe("is-them");
+  // A heard name of someone else, or one that names no one known, leaves the guess unticked.
+  expect(preTickedOf(dana, heard(4, "Kofi", "person:kofi"))).toBeNull();
+  expect(preTickedOf(dana, heard(4, "Dana", null))).toBeNull();
+  expect(preTickedOf(dana, heard(4, null))).toBeNull();
+  const unknown = { kind: "voice" as const, subject: null };
+  expect(preTickedOf(unknown, heard(1, null))).toBe("not-relevant");
+  expect(preTickedOf(unknown, heard(1, "Zed", null))).toBeNull();
+  expect(preTickedOf(unknown, heard(2, null))).toBeNull();
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;

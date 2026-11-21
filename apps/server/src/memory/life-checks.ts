@@ -214,6 +214,8 @@ export interface Check {
   options: CheckOption[];
   /** A plan card's steps, in order (`PlanStep`); null on a decision with none (an older plan card: its plan is in `context`); absent on every other kind. */
   plan?: z.infer<typeof PlanStep>[] | null;
+  /** The pre-ticked answer: the option id a bulk card starts this row ticked with (`preTickedOf`), worked out when read, never stored; null or absent: unticked. */
+  preTicked?: string | null;
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
@@ -254,6 +256,29 @@ export interface BeingFixed {
 /** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
+
+/**
+ * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
+ * An ending reads probably done; a voice whose guess in use is the one known person its heard name is, "Yes"
+ * (ponytail: lifelog's likeness replaces the heard name once its queue gives one); a voice heard in one conversation
+ * with no name heard, "Don't name"; null for anything else. `voice`: its conversations, the name heard for it and who
+ * that name resolves to.
+ */
+export function preTickedOf(
+  c: Pick<Check, "kind" | "subject">,
+  voice?: { conversations: number; heardAs: string | null; name: string | null }
+): string | null {
+  if (c.kind === "ending") {
+    return "outdated";
+  }
+  if (c.kind !== "voice" || !voice) {
+    return null;
+  }
+  if (c.subject && voice.heardAs === c.subject) {
+    return "is-them";
+  }
+  return voice.conversations === 1 && !voice.name ? "not-relevant" : null;
+}
 
 /** Whether a check asks if a step is done (never in the nightly email). */
 export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
