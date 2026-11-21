@@ -73,7 +73,7 @@ function stepNamesOf(events: LogEvent[]) {
 
 type Spent = Omit<SourceUse, "items" | "units" | "modelFree" | "readsPerUnit">;
 
-/** The calls' `model.run` lines folded by source, each split by its units' share; `usdOn` by source and local day. */
+/** The calls' `model.run` lines folded by source, each call split by its own units' share; `usdOn` by source and local day. */
 function spentOf(events: LogEvent[], days: number) {
   const stepOf = stepNamesOf(events);
   const rows = new Map<Row, Spent>();
@@ -91,16 +91,14 @@ function spentOf(events: LogEvent[], days: number) {
     rows.set(source, row);
     return row;
   };
-  // A step's calls of one day that read the same sources are split together by their units' share, so a call that
-  // read one source is charged to it alone. ponytail: calls over several sources split by units, not characters.
-  const byStepDay = modelCallsOf(
-    events,
-    (e) =>
-      `${e.run}|${localDate(e.at)}|${Object.keys(e.reads ?? {})
-        .toSorted()
-        .join(",")}`
-  );
-  for (const [key, c] of byStepDay) {
+  // Each call is split by its own units' share, so a call that read one source is charged to it alone.
+  // ponytail: calls over several sources split by units, not characters.
+  let call = 0;
+  const byCall = modelCallsOf(events, (e) => {
+    call += 1;
+    return `${e.run}|${localDate(e.at)}|${call}`;
+  });
+  for (const [key, c] of byCall) {
     const [run = "", date = ""] = key.split("|");
     const reads = Object.entries(c.reads) as [Row, number][];
     const total = reads.reduce((n, [, x]) => n + x, 0);

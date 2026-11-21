@@ -1,9 +1,10 @@
 import { join } from "node:path";
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { isThere, readJson, writeJson } from "../core/files";
 import { type LogEvent, log, logDays, logEvents } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
+import { settings } from "../core/settings";
 import { assembleRuns } from "../memory/run-log";
 import {
   type Basis,
@@ -105,7 +106,8 @@ function linesIn(names: string[], from: string, to: string) {
 
 /** Voice's spending, or none while Voice is not set up. */
 const voiceSpending = (from: string, to: string) =>
-  lifelogMissing()
+  // Set up without its token: it can't be read, so the day waits (never written without Voice).
+  lifelogMissing() && !settings().lifelog?.url
     ? Promise.resolve({ jobs: [], modelRuns: [], unsettled: 0, voiceNotes: [] })
     : readVoiceSpending(from, to);
 
@@ -120,7 +122,7 @@ export async function readDaySpends(
 ) {
   const { from = day, to } = dayRange(day, day);
   const { lines, runs } = linesIn(names ?? (await logDays()), from, to);
-  const desk = readDesk((db) => turnsEndedIn(db, from, to), []);
+  const desk = readDesk((db) => turnsEndedIn(db, from, to), [], true);
   if (desk.state === "unreadable") {
     throw new Error(`desk: ${desk.why}`);
   }
@@ -141,9 +143,10 @@ export const readSpendingDay = (day: string) =>
   readJson<DaySpending>(fileOf(day));
 
 /**
- * The night's step: each closed day of the log's year with no day file, newest first, at most `DAYS_A_NIGHT` tried, each on
- * its own (one failing is logged and tried the next night). A day still holding unsettled Voice work waits, up to
- * `SETTLE_DAYS`. A day with no log file left has no record to read: it stays absent. What it wrote.
+ * The night's step: each closed local day of the log's year with no day file, newest first, that the log holds whole
+ * (its first UTC file still kept) and holds anything of; at most `DAYS_A_NIGHT` read, each on its own (one failing is
+ * logged and tried the next night). A day still holding unsettled Voice work waits, up to `SETTLE_DAYS`. The desk is
+ * read even while off, and Voice set up without its token is a failed read. What it wrote.
  */
 export async function writeSpendingDays(
   today = dayNow(),
@@ -158,21 +161,28 @@ export async function writeSpendingDays(
     first && day >= first && tries < DAYS_A_NIGHT;
     day = daysBefore(day, 1)
   ) {
-    // A day already written, or with no log file of its own (no record left to read), is skipped.
-    if (isThere(fileOf(day)) || !names.includes(`${day}.jsonl`)) {
+    const { from = "", to = "" } = dayRange(day, day);
+    // Read only a closed day whose whole span the log still holds (its first UTC file kept) and holds anything of.
+    const isHeld =
+      first <= from.slice(0, 10) &&
+      names.some(
+        (n) =>
+          n.slice(0, 10) >= from.slice(0, 10) &&
+          n.slice(0, 10) <= to.slice(0, 10)
+      );
+    if (isThere(fileOf(day)) || !isHeld || to > clock().toISOString()) {
       continue;
     }
+    // Every day read counts once, written, waiting or failed.
+    tries += 1;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: one day at a time, each on its own
       const { spends, unsettled } = await readDaySpends(day, names, readVoice);
-      const isSettling = unsettled > 0 && day > daysBefore(today, SETTLE_DAYS);
-      tries += isSettling ? 0 : 1;
-      if (!isSettling) {
+      if (unsettled === 0 || day <= daysBefore(today, SETTLE_DAYS)) {
         writeJson(fileOf(day), { ...spendingOf(spends), day, unsettled });
         written.push(day);
       }
     } catch (e) {
-      tries += 1;
       log("run.error", { ...errorOf(e), day, step: "memory.nightly.spending" });
     }
   }

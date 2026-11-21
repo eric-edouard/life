@@ -132,3 +132,23 @@ test("source use: one step's single-source calls of a day are each charged to th
   expect(use.find((u) => u.source === "whatsapp")?.usdADay).toBeCloseTo(0.01);
   expect(use.find((u) => u.source === "imessage")?.usdADay).toBeCloseTo(0.5);
 });
+
+test("source use: each call split by its own units' share, never pooled with another call of the same sources", () => {
+  const events = [
+    run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
+    call("2026-11-17T00:41:00.000Z", X, {
+      costUsd: 1,
+      reads: { lifelog: 1, whatsapp: 9 },
+    }),
+    call("2026-11-17T00:42:00.000Z", X, {
+      costUsd: 9,
+      reads: { lifelog: 9, whatsapp: 1 },
+    }),
+    run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
+  ] as LogEvent[];
+  const use = sourceUseOf(events, [], [chat, voice], ["2026-11-17"]);
+  const usd = (s: string) => use.find((u) => u.source === s)?.usdADay;
+  // 0.9 + 0.9 and 0.1 + 8.1.
+  expect(usd("whatsapp")).toBeCloseTo(1.8);
+  expect(usd("lifelog")).toBeCloseTo(8.2);
+});

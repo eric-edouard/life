@@ -579,7 +579,7 @@ export const tokensSince = (db: Database, since: string) =>
 export const turnsEndedIn = (db: Database, from: string, to: string) =>
   db
     .query<TurnSpent, [string, string]>(
-      "select agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, (select runtime from session where ref = turn.session limit 1) as runtime from turn where ended_at >= ? and ended_at < ? order by ended_at"
+      "select agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, coalesce(substr(model, 1, instr(model, ':') - 1), (select runtime from session where ref = turn.session limit 1)) as runtime from turn where ended_at >= ? and ended_at < ? order by ended_at"
     )
     .all(from, to);
 
@@ -614,8 +614,13 @@ export type DeskRead<T> =
  * Reads the desk's store read-only with `read`; `empty` when the desk has made none yet. Never throws: the desk off or
  * its store unreadable is a state its reader shows.
  */
-export function readDesk<T>(read: (db: Database) => T, empty: T): DeskRead<T> {
-  if (off("desk")) {
+export function readDesk<T>(
+  read: (db: Database) => T,
+  empty: T,
+  // A history read (spending) reads the store even while the desk is off.
+  isEvenOff = false
+): DeskRead<T> {
+  if (off("desk") && !isEvenOff) {
     return { state: "off" };
   }
   if (!existsSync(DESK_STORE)) {
