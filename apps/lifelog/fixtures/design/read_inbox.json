@@ -1520,7 +1520,7 @@
           "name": "Garden shed permit"
         }
       ],
-      "at": "2026-10-01T09:00:00",
+      "at": "2026-09-30T09:00:00",
       "subject": "obs_move_3"
     },
     {
@@ -1630,7 +1630,7 @@
           "name": "Car insurance"
         }
       ],
-      "at": "2026-10-01T09:00:00",
+      "at": "2026-09-18T09:00:00",
       "subject": "obs_move_5"
     },
     {
@@ -3335,7 +3335,7 @@
           "name": "Phone contract"
         }
       ],
-      "at": "2026-09-19T09:00:00",
+      "at": "2026-09-18T09:00:00",
       "subject": "obs_move_36"
     },
     {

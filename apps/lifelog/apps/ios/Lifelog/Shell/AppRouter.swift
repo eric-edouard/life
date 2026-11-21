@@ -13,8 +13,8 @@ final class AppRouter {
     }
 
     enum MatterSheet: Identifiable, Equatable {
-        /// What wakes an agent of the matter: the one named by id, else the matter's first.
-        case agent(String, agent: String? = nil)
+        /// What wakes an agent: the one named by id, else the matter's first; an agent's page with no matter names none.
+        case agent(String?, agent: String? = nil)
         /// "Start an agent" on the matter.
         case start(String)
         /// The grid that changes the matter's icon.
@@ -22,22 +22,27 @@ final class AppRouter {
 
         var id: String {
             switch self {
-            case .agent(let id, let agent): "agent-\(id)-\(agent ?? "")"
+            case .agent(let id, let agent): "agent-\(id ?? "")-\(agent ?? "")"
             case .start(let id): "start-\(id)"
             case .icon(let id): "icon-\(id)"
             }
         }
     }
 
-    /// What is pushed on the matter on show: one of its asks, by check ref.
+    /// What is pushed on the detail column's page: an ask, by check ref, with the matter whose read holds it; an agent's
+    /// page; a matter from an agent's page. Back returns to the page under it.
     enum MatterRoute: Hashable {
-        case card(String)
+        case card(String, matter: String)
+        case agent(String)
+        case matter(String)
     }
 
-    /// What the Projects tab's detail column shows: a matter, or a project's Details (decision 95), by id; one at a time.
+    /// What the Projects tab's detail column shows: a matter, or a project's Details (decision 95), by id, or the
+    /// agents (`AgentsScreen`); one at a time.
     enum Detail: Hashable {
         case matter(String)
         case project(String)
+        case agents
     }
 
     /// What is pushed on the person on show: a part of what Life holds about them (prose, by its ref, with its
@@ -153,10 +158,22 @@ final class AppRouter {
         matterColumn = .detail
     }
 
-    /// An agent's sheet over its matter, from wherever one is named (Spending's top agents).
-    func open(agent: String, matter id: String) {
-        open(matter: id)
-        matterSheet = .agent(id, agent: agent)
+    /// The agents, from Settings' "Your agents": the Projects tab's detail column.
+    func openAgents() {
+        sheet = nil
+        tab = .projects
+        matterPath = []
+        detail = .agents
+        matterColumn = .detail
+    }
+
+    /// An agent's page, from wherever one is named: pushed on the Projects tab's page on show (Back returns to it), else
+    /// on the agents.
+    func open(agent: String) {
+        sheet = nil
+        matterSheet = nil
+        if tab != .projects || detail == nil || matterColumn != .detail { openAgents() }
+        matterPath.append(.agent(agent))
     }
 
     /// A person's or an organization's page, from wherever one is named: the People tab, on them.
