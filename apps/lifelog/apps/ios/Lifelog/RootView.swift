@@ -204,7 +204,7 @@ struct RootView: View {
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }
-            if LifeFixture.sheet == "agents" { router.openAgents() }
+            if LifeFixture.sheet == "agents" { router.show(.agents) }
             // The page of the matter's agent, pushed on the matter.
             if LifeFixture.sheet == "agentPage", let id = LifeFixture.matter {
                 await life.refreshAgents()

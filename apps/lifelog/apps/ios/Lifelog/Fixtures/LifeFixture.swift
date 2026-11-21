@@ -312,7 +312,7 @@
         }
 
         /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
-        /// their ref), a page of `latest` or `reach` (`read_people_and_organizations_latest.json`, `…_reach.json`, by
+        /// their ref, its `open` matters named by id), a page of `latest` or `reach` (`read_people_and_organizations_latest.json`, `…_reach.json`, by
         /// ref) or a prose part.
         func readPart(_ ref: String) async throws -> String {
             try await gate()
@@ -338,7 +338,12 @@
             guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {
                 throw MCPError.failed("No such person.")
             }
-            let now = Self.read("read_people_and_organizations_now", or: [:])[subject] as? [String: Any] ?? [:]
+            var now = Self.read("read_people_and_organizations_now", or: [:])[subject] as? [String: Any] ?? [:]
+            // Their open matters by id, as `read_matters.json` holds them: one source for a matter's row.
+            if let ids = now["open"] as? [String] {
+                let rows = rowsNow()
+                now["open"] = ids.compactMap { id in rows.first { $0["id"] as? String == id } }
+            }
             return json(row.merging(now) { $1 })
         }
 

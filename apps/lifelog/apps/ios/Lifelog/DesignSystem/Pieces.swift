@@ -449,6 +449,8 @@ struct ProgressLine: View {
     var fraction: Double?
     var end: String?
     var endColor = Palette.muted
+    /// The filled part: `fg` for progress, `muted` for a share (Spending's providers).
+    var fill = Palette.fg
 
     var body: some View {
         HStack(spacing: 12) {
@@ -456,7 +458,7 @@ struct ProgressLine: View {
             Capsule().fill(Color.fillTint).frame(height: 6)
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in
-                        Capsule().fill(Palette.fg).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
+                        Capsule().fill(fill).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
                     }
                 }
                 .motion(Motion.standard, value: fraction)
