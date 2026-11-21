@@ -180,7 +180,9 @@ public enum DraftDelivery: Sendable, Equatable {
         switch state {
         case .succeeded(let proof, _): self = proof.isSent ? .sent : .notSent
         case .failed(let failure, _):
-            self = passed.contains("confirmed") ? .sent : failure.mayHaveHappened || failure.isSameTap ? .mayHaveGone : .notSent
+            self =
+                passed.contains("confirmed")
+                ? .sent : failure.mayHaveHappened || failure.isSameTap ? .mayHaveGone : .notSent
         case .idle, .running:
             self = passed.contains("confirmed") ? .sent : passed.contains("handed") ? .handed : .notSent
         }
