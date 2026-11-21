@@ -547,11 +547,22 @@ export const matterOfSteps = <V extends Found>(
 /** Whether `v` got a step, or a step's ending, that `pin` was not drafted on: its next step is then out of date. Pure. */
 const isNewerThan = (
   v: { steps: readonly MatterStepNow[] },
-  pin: DirectionPin
+  pin: DirectionPin,
+  today: string
 ) =>
   v.steps.some(
-    (s) => !pin.steps.includes(s.ref) || (s.ending && s.ending.at > pin.at)
+    (s) =>
+      !pin.steps.includes(s.ref) ||
+      (s.ending && s.ending.at > pin.at) ||
+      isDatePassedSince(s, pin.at, today)
   );
+
+/** Whether an open step's date passed since `at` (his rule of 21 Nov 2026: a dated thing whose date passed is looked into again). */
+const isDatePassedSince = (s: MatterStepNow, at: string, today: string) =>
+  isOpenStep(s) &&
+  s.when !== undefined &&
+  s.when < today &&
+  s.when >= localDate(at);
 
 /** How many days from its first step a new matter is offered: Life's "Start an agent on this?" lapses after them, and nothing starts. */
 export const NEW_MATTER_DAYS = 7;
@@ -666,7 +677,8 @@ const contextKeptOf = (p: DirectionPin, was: NextStep | undefined) =>
     : {};
 
 /**
- * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step newer than its latest pin; or, when
+ * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step, a step's ending or an open step's
+ * date passing newer than its latest pin; or, when
  * that pin is Life's, a blind one (no `laterShown`: drafted before it saw later records) or, while `v` is in its offer
  * window (`offerEndOf`), one of its newest later records (`later`, read only then) that the draft was not shown. His own
  * pin is never redrafted over an outside record. Pure.
@@ -680,7 +692,7 @@ export const isDirectionDue = (
   if (v.lone || !isRunning(v)) {
     return false;
   }
-  if (!(latest && v.goal) || isNewerThan(v, latest)) {
+  if (!(latest && v.goal) || isNewerThan(v, latest, today)) {
     return true;
   }
   const end = offerEndOf(v);
