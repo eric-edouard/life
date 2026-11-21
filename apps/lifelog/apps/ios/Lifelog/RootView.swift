@@ -77,12 +77,12 @@ struct RootView: View {
         // rotation never moves it off the corner (the spec's 52 on the phone, 48 and centred in the Duo's 84-wide column).
         .overlay(alignment: .bottomTrailing) {
             if life.isPaired {
-                let place = router.isBarsInColumn ? TellMetrics.column : TellMetrics.phone
-                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count, size: place.size)
-                    .padding(.trailing, place.trailing)
-                    .padding(.bottom, place.bottom(regular: sizeClass == .regular))
-                    // Past the system's safe areas (the column's, the bar's): the screen's own corner.
-                    .ignoresSafeArea()
+                AskLife(
+                    running: life.tell.strands.filter { !$0.isDone }.count,
+                    place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
+                )
+                // Past the system's safe areas (the column's, the bar's): the screen's own corner.
+                .ignoresSafeArea()
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
@@ -242,14 +242,4 @@ private struct TabLabel: View {
     init(_ title: String, _ symbol: String) { (self.title, self.symbol) = (title, symbol) }
 
     var body: some View { Label(title, systemImage: symbol).environment(\.symbolVariants, .none) }
-}
-
-/// Where Tell Life sits (the placement spec): its size and its margins from the root's bottom-right corner.
-private struct TellMetrics {
-    let size: CGFloat, trailing: CGFloat, bottomCompact: CGFloat, bottomRegular: CGFloat
-
-    func bottom(regular: Bool) -> CGFloat { regular ? bottomRegular : bottomCompact }
-
-    static let phone = TellMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29)
-    static let column = TellMetrics(size: 48, trailing: 18, bottomCompact: 35, bottomRegular: 24)
 }

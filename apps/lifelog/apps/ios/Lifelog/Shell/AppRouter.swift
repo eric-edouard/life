@@ -92,6 +92,8 @@ final class AppRouter {
     /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
     /// (`reportsSideColumn`): Tell Life stands in that column's foot, else at the corner.
     var isBarsInColumn = false
+    /// Ask Life's banner open: the round button's glass morphed into a wide banner along the bottom.
+    var isAskOpen = false
     /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
     var isTellLifeSmall = false
     /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
