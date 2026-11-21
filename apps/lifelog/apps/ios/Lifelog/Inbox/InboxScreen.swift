@@ -94,6 +94,10 @@ struct InboxScreen: View {
             guard let opening else { return }
             // A push's ask may be of another kind: the whole list, with it on show.
             kind = nil
+            // A push's ask folded into a bulk card: its kind one by one, so its own card is on show.
+            if let check = opening.check, shownOrder(nil).bulk.values.contains(where: { $0.contains(check) }) {
+                notes.unfolded.insert(check.group)
+            }
             current = shownOrder(nil).check(on: opening.check?.ref)?.ref
             notice =
                 opening.wasAnswered ? "Already answered, here or elsewhere. This is the next one." : nil

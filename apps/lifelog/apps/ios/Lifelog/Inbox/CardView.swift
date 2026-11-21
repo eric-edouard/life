@@ -11,8 +11,11 @@ struct CardNotes: Equatable {
     var creating: Creating?
     /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
     var wrong: Check?
-    /// On a bulk card: the rows he unticked, and the kinds he goes through one by one (`InboxOrder.folded`).
+    /// On a bulk card: the rows he unticked, the answers he chose on a row's own card (sent with the others), the rows
+    /// its "Answer N" sent, and the kinds he goes through one by one (`InboxOrder.folded`).
     var unticked: Set<String> = []
+    var chosen: [String: Taken] = [:]
+    var sentInBulk: Set<String> = []
     var unfolded: Set<CheckGroup> = []
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
@@ -96,6 +99,8 @@ struct CardView: View {
     /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
     /// Without it, only his word that a step is done is held (`Taken.isEnding`); the host draws its toast.
     var holdsAnswers = false
+    /// A bulk card's row: an answer held for Undo is handed back to the row, nothing sent (`isHeld`).
+    var takes: ((Taken) -> Void)?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -283,6 +288,7 @@ struct CardView: View {
     /// A bulk card's answers, held as one for one Undo; the next ask is on show at once.
     private func submit(all requests: [AnswerRequest], from head: Check) {
         guard !requests.isEmpty else { return }
+        notes.sentInBulk.formUnion(requests.map(\.ref))
         life.hold(requests, as: "\(requests.count) answered")
         current = checks.ref(after: head.ref)
     }
@@ -291,7 +297,9 @@ struct CardView: View {
         let taken = Taken(
             check: check, request: request, nextRef: checks.ref(after: check.ref),
             runtimeName: life.runtimeName(of: check))
-        if holdsAnswers && taken.isHeld {
+        if let takes, taken.isHeld {
+            takes(taken)
+        } else if holdsAnswers && taken.isHeld {
             life.hold(request, as: taken.heldWords)
             current = taken.nextRef
         } else if taken.isEnding {

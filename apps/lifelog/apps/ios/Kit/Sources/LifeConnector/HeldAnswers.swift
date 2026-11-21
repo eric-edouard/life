@@ -18,8 +18,9 @@ public final class HeldAnswers {
     public var latest: String? { order.last }
     @ObservationIgnored private var order: [String] = []
     @ObservationIgnored private var timers: [String: Task<Void, Never>] = [:]
-    /// The refs held together by one tap (a bulk ask's), by each of them: Undo of one is Undo of all.
-    @ObservationIgnored private var together: [String: [String]] = [:]
+    /// The tap that held each ref with others (a bulk ask's): Undo of one is Undo of all, one timer releases them.
+    @ObservationIgnored private var together: [String: Int] = [:]
+    @ObservationIgnored private var taps = 0
     /// Each released answer's send, by its release, until it ended: what still hides its card, and what every flush
     /// waits for.
     private var sending: [Int: (ref: String, going: Task<Void, Never>)] = [:]
@@ -35,32 +36,52 @@ public final class HeldAnswers {
 
     /// His answer, held for Undo, for the Life he gave it to (`life`, captured at his tap).
     public func hold(_ request: AnswerRequest, as label: String, for life: PairedLife? = nil) {
-        held[request.ref] = Held(request: request, label: label, life: life)
-        together[request.ref] = nil
-        order.removeAll { $0 == request.ref }
-        order.append(request.ref)
-        timers[request.ref]?.cancel()
+        put(request, as: label, for: life)
         timers[request.ref] = Task {
             try? await Task.sleep(for: delay)
             if !Task.isCancelled { release(request.ref) }
         }
     }
 
-    /// His answers to many asks by one tap, held as one: one toast (`label`), one Undo.
+    /// His answers to many asks by one tap, held as one: one toast (`label`), one timer, one Undo.
     public func hold(_ requests: [AnswerRequest], as label: String, for life: PairedLife? = nil) {
-        requests.forEach { hold($0, as: label, for: life) }
-        requests.forEach { together[$0.ref] = requests.map(\.ref) }
+        taps += 1
+        let tap = taps
+        for request in requests {
+            put(request, as: label, for: life)
+            together[request.ref] = tap
+        }
+        let timer = Task {
+            try? await Task.sleep(for: delay)
+            if !Task.isCancelled { members(of: tap).forEach(release) }
+        }
+        requests.forEach { timers[$0.ref] = timer }
     }
 
-    /// Undo of `ref`, and of every answer held with it by the same tap.
+    /// Undo of `ref`, and of every answer still held with it by the same tap.
     public func undo(_ ref: String) {
-        for ref in together[ref] ?? [ref] {
+        let refs = together[ref].map { members(of: $0) } ?? [ref]
+        for ref in refs {
             timers.removeValue(forKey: ref)?.cancel()
             held[ref] = nil
             together[ref] = nil
             order.removeAll { $0 == ref }
         }
     }
+
+    /// `request` held as the latest; held again alone, it leaves its tap (whose timer goes on for the others).
+    private func put(_ request: AnswerRequest, as label: String, for life: PairedLife?) {
+        held[request.ref] = Held(request: request, label: label, life: life)
+        order.removeAll { $0 == request.ref }
+        order.append(request.ref)
+        if together.removeValue(forKey: request.ref) != nil {
+            timers[request.ref] = nil
+        } else {
+            timers[request.ref]?.cancel()
+        }
+    }
+
+    private func members(of tap: Int) -> [String] { order.filter { together[$0] == tap } }
 
     /// Every held answer now, finished when every send under way has ended: the screen is going, or the app.
     public func sendAll() async {

@@ -3,8 +3,10 @@ import SwiftUI
 
 /// Every open ask of one kind on one card, when Life pre-ticks 2 or more of them (`InboxOrder.folded`): the question,
 /// the rows in their groups (`Check.bulkGroups`), each ticked with the answer Life reads, and "Answer N", which holds
-/// one answer per ticked row as one, for one Undo (`HeldAnswers`). A row's body opens its own card; "Go one by one"
-/// unfolds the kind. Rows whose answer Life refused come back alone, ticked, with Life's reason above the answers.
+/// one answer per ticked row as one, for one Undo (`HeldAnswers`). A row's body opens its own card, whose answer goes
+/// back to the row (ticked, in its words) and leaves with the others; "Go one by one" unfolds the kind. Rows its
+/// "Answer N" sent that Life refused come back alone, with Life's reason above the answers; one that may have gone is
+/// not ticked again.
 struct BulkCard: View {
     let kind: CheckGroup
     /// The kind's open asks, in the inbox's order.
@@ -19,6 +21,7 @@ struct BulkCard: View {
     /// The row whose own card is open over the list.
     @State private var opened: String?
     @State private var openedNotes = CardNotes()
+    @State private var openedCurrent: String?
 
     var body: some View {
         ScrollView {
@@ -46,10 +49,19 @@ struct BulkCard: View {
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
             onDismiss: { openedNotes = CardNotes() }
         ) {
-            if let opened {
+            if let check = rows.first(where: { $0.ref == opened }) {
                 NavigationStack {
-                    CardPage(ref: opened, source: rows, notes: $openedNotes) { self.opened = nil }
-                        .toolbar { CloseItem { self.opened = nil } }
+                    CardView(
+                        check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
+                        context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
+                        takes: { taken in
+                            notes.chosen[check.ref] = taken
+                            notes.unticked.remove(check.ref)
+                            opened = nil
+                        }
+                    ) { _, _ in opened = nil }
+                    .background(Palette.bg)
+                    .toolbar { CloseItem { opened = nil } }
                 }
             }
         }
@@ -58,22 +70,33 @@ struct BulkCard: View {
     /// The rows Life refused, alone, when there are any; else every row.
     private var shown: [Check] { failed.isEmpty ? rows : failed }
 
-    private var failed: [Check] {
-        rows.filter { if case .failed = life.state(of: .answer(ref: $0.ref)) { true } else { false } }
+    /// Rows this card's "Answer N" sent that did not go, each with why.
+    private var failed: [Check] { rows.filter { failure(of: $0) != nil } }
+
+    private func failure(of check: Check) -> ActionFailure? {
+        guard notes.sentInBulk.contains(check.ref),
+            case .failed(let failure, _) = life.state(of: .answer(ref: check.ref))
+        else { return nil }
+        return failure
     }
 
-    private var ticked: [Check] {
-        shown.filter { $0.preTickedOption != nil && !notes.unticked.contains($0.ref) }
+    /// The answer each ticked row gives: his on its own card, else Life's pre-ticked one; never one that may have gone.
+    private var ticked: [(check: Check, request: AnswerRequest)] {
+        shown.compactMap { check in
+            guard !notes.unticked.contains(check.ref), failure(of: check)?.mayHaveHappened != true else { return nil }
+            let request = notes.chosen[check.ref]?.request ?? check.preTickedOption.flatMap { check.answer($0) }
+            return request.map { (check, $0) }
+        }
     }
 
     private func row(_ check: Check) -> some View {
-        let isTicked = ticked.contains { $0.ref == check.ref }
+        let isTicked = ticked.contains { $0.check.ref == check.ref }
         return TickRow(
             isTicked: isTicked,
             tick: {
                 if isTicked {
                     notes.unticked.insert(check.ref)
-                } else if check.preTickedOption != nil {
+                } else if check.preTickedOption != nil || notes.chosen[check.ref] != nil {
                     notes.unticked.remove(check.ref)
                 } else {
                     // Life reads no answer for it: his own card says who.
@@ -103,11 +126,14 @@ struct BulkCard: View {
         return (about + [answerWords(of: check)]).compactMap(\.self).joined(separator: " · ")
     }
 
-    /// "Yes, done", "Don't name", "Yes, <who>"; nil when Life ticks nothing.
+    /// His answer on the row's own card, else "Yes, done", "Don't name", "Yes, <who>" ("Is this <who>? Yes" when Life
+    /// names no candidate); nil when nothing is ticked.
     private func answerWords(of check: Check) -> String? {
+        if let chosen = notes.chosen[check.ref] { return chosen.heldWords }
         guard let option = check.preTickedOption else { return nil }
+        guard option.id == "is-them" else { return option.label }
         let who = check.likelyPeople.first { $0.ref == check.subject }?.name
-        return option.id == "is-them" ? who.map { "\(option.label), \($0)" } ?? option.label : option.label
+        return who.map { "\(option.label), \($0)" } ?? "\(check.question) \(option.label)"
     }
 
     private var answers: some View {
@@ -115,14 +141,15 @@ struct BulkCard: View {
             if let page {
                 PagerDots(current: page.current, total: page.total).frame(maxWidth: .infinity, alignment: .trailing)
             }
-            if let first = failed.first, case .failed(let failure, _) = life.state(of: .answer(ref: first.ref)) {
-                // Life's own reason when Life answered; the fixed line only when the connection failed.
-                Text("\(failed.count) not answered: \(failure.isSameTap ? "not sent to your Mac." : failure.reason)")
+            if let failure = failed.first.flatMap(failure(of:)) {
+                // Life's own reason when Life answered (or why it may have gone); the fixed line when nothing reached it.
+                let why = failure.isSameTap && !failure.mayHaveHappened ? "not sent to your Mac." : failure.reason
+                Text("\(failed.count) not answered: \(why)")
                     .font(.small).foregroundStyle(Palette.flag).frame(maxWidth: .infinity, alignment: .leading)
                     .appears()
             }
             Button(ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
-                answer(ticked.compactMap { row in row.preTickedOption.flatMap { row.answer($0) } })
+                answer(ticked.map(\.request))
             }
             .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty)
             .contentTransition(.numericText()).motion(Motion.standard, value: ticked.count)
