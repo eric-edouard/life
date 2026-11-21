@@ -38,7 +38,8 @@ test("no helper answers every request unavailable, never a throw", async () => {
 });
 
 test("its model.local line says whether every request was answered, from the replies, never the exit", async () => {
-  const { recentEvents } = await import("../core/log");
+  const { logEvents, logFileOf } = await import("../core/log");
+  const { clock } = await import("../core/clock");
   const helperSaying = (line: string) => {
     const path = join(mkdtempSync(join(tmpdir(), "fm-")), "helper");
     writeFileSync(path, `#!/bin/sh\nwhile read q; do echo '${line}'; done\n`);
@@ -47,7 +48,9 @@ test("its model.local line says whether every request was answered, from the rep
   };
   const okOf = async (path: string, asks = [ask, ask]) => {
     await askFoundationModel(asks, path);
-    return (await recentEvents(1, "model.local")).at(-1)?.ok;
+    // Today's file, not the newest: another test may leave a later day's.
+    return logEvents(logFileOf(clock().toISOString()), "model.local").at(-1)
+      ?.ok;
   };
   expect(await okOf(helperSaying('{"os":"1","reply":{"a":"b"}}'))).toBe(true);
   expect(await okOf(helperSaying('{"detail":"x","error":"refused"}'))).toBe(
