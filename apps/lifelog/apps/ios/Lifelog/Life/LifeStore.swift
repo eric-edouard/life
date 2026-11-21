@@ -610,11 +610,6 @@ final class LifeStore {
     /// His "Wrong…" on each card, above every read, until Life's complaint receipt (`ComplaintDrafts`).
     let complaints = ComplaintDrafts()
 
-    /// The sheet opens on `check`: his draft on it, else a new one, whose sheet starts at rest.
-    func openComplaint(on check: Check) {
-        if complaints.open(check) { forget(.complaint(ref: check.ref)) }
-    }
-
     /// His "Wrong…" on the card `ref` as its draft stands: the press as first sent while his words and tick are
     /// unchanged (its seal, its key, its Life), else a new one to the Life paired now. Its card stays (Life keeps it
     /// open, being fixed); the receipt is the draft's only while it still holds that press.

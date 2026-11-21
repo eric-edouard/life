@@ -9,17 +9,8 @@ struct TellAnswerView: View {
     let open: (String) -> Void
     let tell: (String) -> Void
 
-    static func head(_ words: String) -> some View {
-        Text(words.withoutMarks).font(.tellAnswer).foregroundStyle(Palette.fg).fixedSize(
-            horizontal: false, vertical: true)
-    }
-
-    static func note(_ words: String) -> some View {
-        Text(words).font(.note).foregroundStyle(Palette.muted)
-    }
-
-    private func head(_ words: String) -> some View { Self.head(words) }
-    private func note(_ words: String) -> some View { Self.note(words) }
+    private func head(_ words: String) -> some View { TellHead(words: words) }
+    private func note(_ words: String) -> some View { TellNote(words: words) }
 
     var body: some View {
         switch answer {
@@ -28,30 +19,9 @@ struct TellAnswerView: View {
             head(words)
             if let why { note(why) }
             ForEach(sources, id: \.self) { ref in QuietChip("Open source", symbol: "arrow.up.right") { open(ref) } }
-        case .done(let what, let undo):
-            TellLightLine(kind: .answer)
-            head(what)
-            note("On your list.")
-            if undo != nil { QuietChip("Undo", symbol: "arrow.uturn.backward", isMuted: true) { tell("Undo that") } }
-        case .agent(let agent, let told, let back):
-            TellLightLine(kind: .answer)
-            head("\(agent) is on it")
-            TellStrandRow(title: agent, isDone: false)
-            note("What it was told: \(told)")
-            if let back { note(back) }
-        case .card(let ref):
-            TellLightLine(kind: .answer)
-            head("A card is ready in your Inbox")
-            QuietChip("Open in Inbox", symbol: "tray") { open(ref) }
-        case .fix(let before, let after, let places, let undo):
-            TellLightLine(kind: .answer)
-            Text(before).font(.small).foregroundStyle(Palette.muted).strikethrough()
-            head(after)
-            note("Fixed in \(places) \(places == 1 ? "place" : "places")")
-            if undo != nil { QuietChip("Undo", symbol: "arrow.uturn.backward", isMuted: true) { tell("Undo that") } }
-        case .question(let words, let answers):
+        case .question(let question, let answers):
             TellLightLine(kind: .point)
-            head(words)
+            head(question)
             ForEach(answers, id: \.self) { words in QuietChip(words, symbol: "bubble.left") { tell(words) } }
         case .error(let what):
             TellLightLine(kind: .broken)
