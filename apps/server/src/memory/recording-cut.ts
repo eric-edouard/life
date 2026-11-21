@@ -97,8 +97,8 @@ interface Timed {
 }
 
 /** A crossing turn's text: its words inside the span, and what of it was not read. */
-function clippedOf(t: LifelogTurn, timed: Timed | null, span: Within) {
-  if (!timed?.at) {
+export function clippedOf(t: LifelogTurn, timed: Timed | null, span: Within) {
+  if (!timed?.at || timed.words.length === 0) {
     return NOT_TIMED;
   }
   const kept = wordsWithin(timed, span);

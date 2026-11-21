@@ -9,6 +9,7 @@ import {
 } from "../sources/store-fixtures";
 import { openById } from "./open-by-id";
 import {
+  clippedOf,
   GOES_ON,
   NOT_TIMED,
   WITHIN_REFUSED,
@@ -116,6 +117,16 @@ test("cut to a call: 30 s before and after left out, inside kept, a crossing tur
   expect(read).toContain(NOT_TIMED);
   expect(read).not.toContain("Long");
   expect(read).toContain(GOES_ON);
+});
+
+test("a crossing turn whose clip holds no word timings is said to be left out", () => {
+  const turn = {
+    at: "2026-10-14T10:09:50.000Z",
+    end: "2026-10-14T10:10:20.000Z",
+  } as Parameters<typeof clippedOf>[0];
+  expect(
+    clippedOf(turn, { at: turn.at, text: "", until: null, words: [] }, CALL)
+  ).toBe(NOT_TIMED);
 });
 
 test("cut to a call: a turn ref opens at the span's first turn, and a page on keeps the span", async () => {
