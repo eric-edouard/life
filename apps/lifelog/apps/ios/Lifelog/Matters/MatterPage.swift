@@ -64,7 +64,7 @@ struct MatterPage: View {
                 Steps(steps: matter.steps)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
             }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
+            .matterPageColumn()
         }
         // Pinned below the content, full width, on the page's own colour: nothing shows through or around them; the
         // content fades into it above.
@@ -99,7 +99,7 @@ struct MatterPage: View {
                 People(people: row.people)
                 Placeholder(height: 110)
             }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
+            .matterPageColumn()
         }
     }
 
@@ -160,6 +160,13 @@ struct MatterPage: View {
             }
         }
         .padding(.top, 8)
+    }
+}
+
+extension View {
+    /// The page's column, its row-drawn face's too.
+    fileprivate func matterPageColumn() -> some View {
+        padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
     }
 }
 
