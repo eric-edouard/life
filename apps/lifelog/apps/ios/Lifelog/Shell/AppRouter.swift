@@ -6,7 +6,7 @@ import SwiftUI
 /// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, projects, people, search }
+    enum Tab: Hashable { case inbox, projects, people }
     enum Sheet: String, Identifiable {
         case pendant, settings
         var id: String { rawValue }
@@ -76,7 +76,7 @@ final class AppRouter {
     var matterColumn = NavigationSplitViewColumn.sidebar
     /// The agent on show beside the agents (a regular width); nil is the first.
     var agentShown: String?
-    /// Whether he opened the matter on show from elsewhere (a card's chip, Search, a person), not from the list's rows:
+    /// Whether he opened the matter on show from elsewhere (a card's chip, a person), not from the list's rows:
     /// beside the list it then stays through a chip whose list leaves it out.
     private(set) var isMatterFromElsewhere = false
     /// A project's question, open as a sheet over the Projects tab: here, so opening a matter or a person from it
@@ -129,7 +129,6 @@ final class AppRouter {
             case .inbox: "inbox"
             case .projects: "projects"
             case .people: "people"
-            case .search: "search"
             }
         return TellScreen(
             tab: tab,

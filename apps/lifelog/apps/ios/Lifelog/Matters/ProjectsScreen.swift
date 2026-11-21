@@ -355,12 +355,3 @@ struct MatterRowView: View {
             .compactMap(\.self).joined(separator: ", "))
     }
 }
-
-/// What the search shows while no matter is running.
-struct NoMattersNotice: View {
-    var body: some View {
-        Notice(
-            title: "No matter is running.",
-            detail: "Life finds them in your messages, notes and voice. They show here as they appear.")
-    }
-}

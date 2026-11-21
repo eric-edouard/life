@@ -42,7 +42,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         if picturesDown.withLock({ $0 }) { throw MCPError.unreachable }
         return try wireText("life/read_person_pictures.json")
     }
-    func readPeopleAndOrganizations(query: String?) async throws -> String {
+    func readPeopleAndOrganizations() async throws -> String {
         try wireText("life/read_people_and_organizations.json")
     }
     func readPart(_ ref: String) async throws -> String { try wireText("life/read_people_and_organizations_now.json") }

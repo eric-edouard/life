@@ -97,8 +97,8 @@ public protocol LifeAPI: Sendable {
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
     func readPersonPictures(_ ids: [String]) async throws -> String
-    /// The people and organizations Life knows, closest first; with a query, the ones it matches and `others`.
-    func readPeopleAndOrganizations(query: String?) async throws -> String
+    /// The people and organizations Life knows, closest first.
+    func readPeopleAndOrganizations() async throws -> String
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
     /// A page of Life's log, newest first (`LogPage`), for the Live logs page.
@@ -199,8 +199,8 @@ public struct MCPLifeAPI: LifeAPI {
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
     }
-    public func readPeopleAndOrganizations(query: String?) async throws -> String {
-        try await client.call("read_people_and_organizations", query.map { ["query": $0] } ?? [:])
+    public func readPeopleAndOrganizations() async throws -> String {
+        try await client.call("read_people_and_organizations")
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readLogLines(_ query: LogQuery) async throws -> String {
