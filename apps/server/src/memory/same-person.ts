@@ -3,8 +3,8 @@ import { nameKey } from "./units";
 import type { People } from "./who";
 
 // The likely matches the folds leave (life#727): a guess Life uses and someone else going by its whole name, or someone
-// he knows whom Life already knows by the guess's name, never joined by a fact. Asked as one card ("Are these the same person?"), never decided by Life; worked out when the inbox
-// is read, never stored.
+// he knows whom Life already knows by the guess's name, never joined by a fact. Asked as one card ("Are these the same
+// person?"), never decided by Life; worked out when the inbox is read, never stored.
 
 const REF = /^same:(person:[^~]+)~(person:[^~]+)$/;
 /** A card's ref, bound to both people, so a tap answers only the pair he saw. */
@@ -103,9 +103,11 @@ export function samePersonPairsOf(
     }
   >();
   for (const [guess, g] of guesses) {
-    // A name alone is weak: his directory or his Contacts going by a first name asks nothing (two people share one).
+    // A name alone is weak: his directory or his Contacts going by a first name asks nothing, nor a name two of his
+    // people share that a guess links to one of them; only his word or a reading linked to one person does.
     const reads = isDescription(g.name) ? null : people.readingNow(g.name);
-    const isLinked = reads?.by === "his word" || reads?.by === "guess";
+    const isLinked =
+      reads?.by === "his word" || (reads?.by === "guess" && !reads.isShared);
     const others = [
       ...(isWholeName(g.name) && !isDescription(g.name)
         ? (byName.get(nameKey(g.name)) ?? [])

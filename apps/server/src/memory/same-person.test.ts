@@ -172,6 +172,32 @@ test("a guess whose one name another of Life's readings links to someone he know
   expect(asked?.context).toBe(
     "Life knows sun by the name “Sunny” too; no handle joins them."
   );
+  // His "Different people" on its handle: never asked again.
+  expect(
+    samePersonPairsOf({
+      ...foldsOf([sun], [account, heard], [], []),
+      contacts: [],
+      corrections: [
+        said({
+          kind: "not-this-person",
+          nameOrHandle: "_ig_42",
+          person: "person:sun",
+        }),
+      ],
+      inferred: [account, heard],
+      isGuess: (r) => r.startsWith("person:inf_"),
+      isOrganization: () => false,
+      relationOf: () => null,
+      truth: { people: [sun] } as never,
+    })
+  ).toEqual([]);
+  // A name two of his people share, linked to one of them, asks nothing.
+  const sunnyToo = Person.parse({
+    aliases: ["Sunny"],
+    id: "sun-2",
+    name: "Sun Two",
+  });
+  expect(pairs([{ ...sun, aliases: ["Sunny"] }, sunnyToo])).toEqual([]);
   const twin = {
     ...inferred("inf_sunny-2", ["Sunny", "_ig_43"]),
     name: "Sunny",
