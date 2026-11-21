@@ -55,7 +55,7 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     }
 
     public enum Role: String, UnknownTolerant, Sendable {
-        case personal, caretaker
+        case personal, caretaker, main
         case unknown
     }
 

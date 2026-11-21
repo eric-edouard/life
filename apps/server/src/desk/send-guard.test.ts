@@ -34,6 +34,7 @@ const REFUSED: [string, GuardedCall][] = [
     "x__change_todo_item",
     "x__correct_memory",
     "x__tell_life",
+    "x__ask_main_session",
     // A server id holding `__` is not the door, however it starts.
     "desk__x__request_decision",
     // Codex's shortened names (`<what is left>_<12 hex>`): a write cut to fit, told apart from a twin, or cut whole.

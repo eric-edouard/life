@@ -118,6 +118,7 @@ struct StaleNote: View {
     let since: Date?
     let because: String
     let retry: () async -> Void
+    @State private var isRetrying = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -125,7 +126,13 @@ struct StaleNote: View {
             Text((since.map { "Read at \($0.formatted(.dateTime.hour().minute())). " } ?? "") + because)
                 .font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            QuietChip("Retry", symbol: "arrow.clockwise") { Task { await retry() } }
+            QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {
+                Task {
+                    isRetrying = true
+                    await retry()
+                    isRetrying = false
+                }
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 2)

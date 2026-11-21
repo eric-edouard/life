@@ -26,8 +26,8 @@ import {
   isBeginLate,
   MAX_HANDED,
 } from "./agent-wait";
-import { doorOf } from "./desk-door";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
+import { doorOf } from "./door-keys";
 import {
   type Run,
   type RunEnd,
@@ -55,6 +55,43 @@ export const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   title: `Agent: ${a.name ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });
 
+/**
+ * Records the fresh session turn `turn` of `a` started (`started`): the one before it ended as `fresh`, the agent and the
+ * turn pointed at it. A write that fails is logged: its run goes on, watched.
+ */
+export function recordSession(
+  { db }: Desk,
+  a: Pick<AgentRow, "id" | "runtime">,
+  turn: number,
+  started: { link: string; ref: string }
+) {
+  try {
+    db.transaction(() => {
+      db.run(
+        "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",
+        [now(), a.id]
+      );
+      db.run(
+        "insert into session (agent_id, runtime, ref, link, started_at) values (?, ?, ?, ?, ?)",
+        [a.id, a.runtime, started.ref, started.link, now()]
+      );
+      db.run("update agent set session = ?, link = ? where id = ?", [
+        started.ref,
+        started.link,
+        a.id,
+      ]);
+      db.run("update turn set session = ? where id = ?", [started.ref, turn]);
+    })();
+  } catch (error) {
+    log("desk.runtime", {
+      agent: a.id,
+      ...errorOf(error),
+      ok: false,
+      what: "session",
+    });
+  }
+}
+
 /** The turns whose run this process watches end (`Run.ended`): any other open turn was started before a restart. */
 const watched = new WeakMap<Desk["db"], Set<number>>();
 function watchedIn(db: Desk["db"]) {
@@ -62,6 +99,10 @@ function watchedIn(db: Desk["db"]) {
   watched.set(db, turns);
   return turns;
 }
+
+/** Claims turn `turn` as this process's from its write (the main session's, launched outside the tick): `endLostTurns` never ends it while it launches. */
+export const claimTurn = (desk: Desk, turn: number) =>
+  watchedIn(desk.db).add(turn);
 
 /**
  * Marks turn `turn` under way, once, and counts a try for each event queued before it was written (what it was handed):
@@ -221,7 +262,8 @@ function afterFailure({ db }: Desk, a: AgentRow, s: AssignmentRow) {
 /**
  * The run of desk turn `turn` ended (`failed` when it did); nothing when that turn is already closed, so a late end never
  * touches the turn after it. A turn ends by `set_wait` or `finish`; with neither, the desk reminds it once, then sets
- * the default wait. The turn's tokens are its runs' (`RunEnd.usage`).
+ * the default wait; the main session's turn is `replied` from its start, so it ends as it ran. The turn's tokens are its
+ * runs' (`RunEnd.usage`).
  */
 export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
   const { db } = desk;
@@ -259,7 +301,11 @@ export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
         afterFailure(desk, a, s);
       }
     })();
-  } else if (t.outcome === "waited" || t.outcome === "finished") {
+  } else if (
+    t.outcome === "waited" ||
+    t.outcome === "finished" ||
+    t.outcome === "replied"
+  ) {
     close(desk, t, t.outcome, usage);
   } else if (await isReminded(desk, t, a)) {
     return;

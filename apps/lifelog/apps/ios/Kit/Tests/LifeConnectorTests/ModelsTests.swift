@@ -639,6 +639,16 @@ private func asks(
         .ordered(deferred: [])
     #expect(one.folded().bulk.isEmpty)
     #expect(one.folded(working: [.guessedPerson]).bulk.keys.contains("g1"))
+    // Same person has no filter chip of its own: it is the guessed people's.
+    #expect(order.kinds == [.guessedPerson] && order.only(.guessedPerson).checks.count == 3)
+}
+
+/// A group's heading on the bulk card follows the answer Life pre-ticks on it.
+@Test func theBulkCardHeadsEachGroupByItsPreTickedAnswer() {
+    #expect(
+        CheckGroup.voice.bulkHeading(nil) == "Needs you" && CheckGroup.voice.bulkHeading("is-them") == "Probably them")
+    #expect(CheckGroup.voice.bulkHeading("not-relevant") == "Heard once")
+    #expect(CheckGroup.ending.bulkHeading("outdated") == "Look done" && CheckGroup.ending.bulkHeading("x") == nil)
 }
 
 /// A name card with no one to suggest offers "Create <name>", the longest name it asks about.

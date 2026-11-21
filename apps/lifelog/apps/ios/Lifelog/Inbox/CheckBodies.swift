@@ -169,6 +169,7 @@ struct NewMatterBlock: View {
 struct PersonIdentityBlock: View {
     let identity: Check.NetworkIdentity
 
+    @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -193,7 +194,9 @@ struct PersonIdentityBlock: View {
                 .accessibilityElement(children: .combine)
             }
             if let url = identity.openUrl {
-                TextLink("Open in \(network ?? "its app")", to: .outside) { openURL(url) }
+                TextLink("Open in \(network ?? "its app")", to: .outside) {
+                    life.open(url, network ?? "its app", with: openURL)
+                }
             }
         }
     }
@@ -220,6 +223,7 @@ struct ContactsCardBlock: View {
 struct NeedsBlock: View {
     let rows: [NeedRow]
 
+    @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
     /// The row he just copied, and what went on the pasteboard.
     @State private var copied: (row: Int, text: String)?
@@ -263,7 +267,7 @@ struct NeedsBlock: View {
                 }
             }
         case .open(let url, let label):
-            RoundIconButton(symbol: "arrow.up.right", label: label) { openURL(url) }
+            RoundIconButton(symbol: "arrow.up.right", label: label) { life.open(url, "the link", with: openURL) }
         }
     }
 

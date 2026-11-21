@@ -113,19 +113,27 @@ struct QuietChip: View {
     let title: String
     let symbol: String
     var isMuted = false
+    var isBusy = false
     let action: () -> Void
 
-    init(_ title: String, symbol: String, isMuted: Bool = false, action: @escaping () -> Void) {
+    init(
+        _ title: String, symbol: String, isMuted: Bool = false, isBusy: Bool = false, action: @escaping () -> Void
+    ) {
         self.title = title
         self.symbol = symbol
         self.isMuted = isMuted
+        self.isBusy = isBusy
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: symbol).font(.chip).accessibilityHidden(true)
+                if isBusy {
+                    Spinner(size: .small)
+                } else {
+                    Image(systemName: symbol).font(.chip).accessibilityHidden(true)
+                }
                 Text(title).font(.smallStrong)
             }
             .foregroundStyle(isMuted ? Palette.muted : Palette.fg)
@@ -133,7 +141,7 @@ struct QuietChip: View {
             .background(Color.fillTint, in: .capsule)
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).disabled(isBusy)
     }
 }
 

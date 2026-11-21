@@ -571,3 +571,26 @@ extension String {
         return words.isEmpty ? nil : words
     }
 }
+
+extension CheckGroup {
+    /// The bulk card's question.
+    public var bulkQuestion: String {
+        switch self {
+        case .ending: "Are these done?"
+        case .voice: "Who are these voices?"
+        case .guessedPerson: "Are these the right people?"
+        default: "Answer these?"
+        }
+    }
+
+    /// A group's heading on the bulk card, by the answer Life pre-ticks on it (nil: none); nil draws none.
+    public func bulkHeading(_ preTicked: String?) -> String? {
+        switch (self, preTicked) {
+        case (_, nil): "Needs you"
+        case (.voice, "not-relevant"): "Heard once"
+        case (.voice, "is-them"): "Probably them"
+        case (.ending, "outdated"): "Look done"
+        default: nil
+        }
+    }
+}
