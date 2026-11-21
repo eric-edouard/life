@@ -41,8 +41,8 @@ extension ServerClient {
 public enum DictatedText {
     /// `words` in place of the caret's selection, kept with the text as it was when the run started, with a space on
     /// each side where a word would otherwise touch; at the end when there is none, the text changed since (byte for
-    /// byte) or the selection isn't a place in it (the field's caret outlives text its code replaced, as Send's
-    /// emptying). The text and where the caret goes, after the words; nil for none.
+    /// byte) or the selection no longer fits it (the field's caret outlives text its code replaced: Send's
+    /// emptying leaves a range past the new end). The text and where the caret goes, after the words; nil for none.
     public static func inserting(
         _ words: String, into text: String, at caret: (text: String, selection: Range<String.Index>?)?
     ) -> (text: String, caret: String.Index)? {

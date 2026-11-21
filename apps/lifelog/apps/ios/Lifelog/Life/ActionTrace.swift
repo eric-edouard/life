@@ -15,7 +15,6 @@ func traceAction(
     ]
     switch key {
     case .answer(let ref): fields["kind"] = "answer"; fields["ref"] = ref
-    case .complaint(let ref): fields["kind"] = "complaint"; fields["ref"] = ref
     case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
     case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
     case .move(let id): fields["kind"] = "move"; fields["ref"] = id

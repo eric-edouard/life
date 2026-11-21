@@ -313,6 +313,7 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": null,
       "confirm": [
         {
           "about": ["+33600000001"],
@@ -368,9 +369,7 @@
           ],
           "matter": null,
           "misread": {
-            "cause": "01b070ee5ba7f83a",
-            "seal": "757398c9279ffc48760eab15b8f32ca9",
-            "shown": "0e530fc2d7921f15"
+            "cause": "01b070ee5ba7f83a"
           },
           "confirm": [],
           "networkIdentity": {
@@ -413,8 +412,7 @@
       },
       "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -482,15 +480,13 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": {
+        "cause": "1addffdfdc12fcfa"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves",
-      "misread": {
-        "cause": "1addffdfdc12fcfa",
-        "seal": "e21321a5e0f38ca459ff1815d7677715",
-        "shown": "92b74ff9de2dc75c"
-      }
+      "urgency": "improves"
     }
   ]
 }
