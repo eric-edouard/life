@@ -71,13 +71,20 @@ function toldPlaceOf(db: Desk["db"], to: string) {
   return now?.closed_at === null ? now.id : null;
 }
 
+/** Why ask `a` came where it did, for a told one or the Personal agent: his words told to assignment `to` (there, or
+ * its agent ended: the Personal agent's), else no matter took it. */
+const toldByOf = (a: LedgerEntry) => {
+  const to = toldToOf(a);
+  return to ? { to, why: "told" as const } : { why: "personal" as const };
+};
+
 /** An `ask.spoken` event's facts: where his words are and why it came here, never the words. */
 const payloadOf = (
   a: LedgerEntry,
   by:
     | Exclude<WakeWhy, { why: "wait" | "person" }>
     | { why: "personal" }
-    | { why: "told" }
+    | { why: "told"; to: string }
 ) => ({
   ask: a.id,
   at: a.instruction?.at,
@@ -146,7 +153,7 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
               {
                 assignment: place,
                 eventId: a.id,
-                payload: payloadOf(a, { why: "told" }),
+                payload: payloadOf(a, toldByOf(a)),
               },
             ]
           : []
@@ -218,7 +225,7 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
                     {
                       assignment: place.assignment,
                       eventId: a.id,
-                      payload: payloadOf(a, { why: "personal" }),
+                      payload: payloadOf(a, toldByOf(a)),
                     },
                   ]
             )

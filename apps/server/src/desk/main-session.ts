@@ -361,12 +361,14 @@ export const tellLifeRefOf = (turn: number, act: string, args: unknown) =>
  * ledger with the assignment they go `to` (`to` when given, one of its open ones; else its own, else the one it
  * works on now), which the spoken-ask intake places there (`toldPlaceOf`) and the agent reads as data
  * (`read_spoken_ask`). Refused for an agent not active, the main session itself, or an assignment it does not hold open.
+ * Its ref is made from the place they go (`tellLifeRefOf` on main session turn `turn`), so the same words to the same
+ * place in one ask are told once, however `to` named it.
  */
 export function tellAgent(
   desk: Desk,
   agent: string,
   said: string,
-  ref: string,
+  turn: number,
   to?: string
 ) {
   const a = agentOf(desk.db, agent);
@@ -382,7 +384,11 @@ export function tellAgent(
     return { error: `Not done: ${agent} holds no open assignment.` };
   }
   const line = recordAsk(
-    { at: clock().toISOString(), quote: said, ref },
+    {
+      at: clock().toISOString(),
+      quote: said,
+      ref: tellLifeRefOf(turn, "tell_agent", { agent, to: place, words: said }),
+    },
     { agent: DESK_AGENT, to: place },
     "connector",
     "his words through Tell Life to one agent"
