@@ -347,7 +347,7 @@
               "takes": "person or name"
             }
           ],
-          "preTicked": null,
+          "preTicked": "this-is",
           "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
@@ -369,8 +369,8 @@
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "11cea1d8bb774eacfa1fa073d27a07da",
-            "shown": "cbd8453c56018bc0"
+            "seal": "757398c9279ffc48760eab15b8f32ca9",
+            "shown": "0e530fc2d7921f15"
           },
           "confirm": [],
           "networkIdentity": {
