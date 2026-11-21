@@ -80,10 +80,19 @@ struct BulkCard: View {
         return failure
     }
 
+    /// Its last answer, from any card, may have reached Life: never sent again from here.
+    private func mayHaveGone(_ check: Check) -> Bool {
+        if case .failed(let failure, _) = life.state(of: .answer(ref: check.ref)) {
+            failure.mayHaveHappened
+        } else {
+            false
+        }
+    }
+
     /// The answer each ticked row gives: his on its own card, else Life's pre-ticked one; never one that may have gone.
     private var ticked: [(check: Check, request: AnswerRequest)] {
         shown.compactMap { check in
-            guard !notes.unticked.contains(check.ref), failure(of: check)?.mayHaveHappened != true else { return nil }
+            guard !notes.unticked.contains(check.ref), !mayHaveGone(check) else { return nil }
             let request = notes.chosen[check.ref]?.request ?? check.preTickedOption.flatMap { check.answer($0) }
             return request.map { (check, $0) }
         }
@@ -129,8 +138,10 @@ struct BulkCard: View {
     /// His answer on the row's own card, else "Yes, done", "Don't name", "Yes, <who>" ("Is this <who>? Yes" when Life
     /// names no candidate); nil when nothing is ticked.
     private func answerWords(of check: Check) -> String? {
-        if let chosen = notes.chosen[check.ref] { return chosen.heldWords }
-        guard let option = check.preTickedOption else { return nil }
+        let chosen = notes.chosen[check.ref]
+        if let chosen, chosen.request.options != ["is-them"] { return chosen.heldWords }
+        guard let option = chosen == nil ? check.preTickedOption : check.options.first(where: { $0.id == "is-them" })
+        else { return nil }
         guard option.id == "is-them" else { return option.label }
         let who = check.likelyPeople.first { $0.ref == check.subject }?.name
         return who.map { "\(option.label), \($0)" } ?? "\(check.question) \(option.label)"

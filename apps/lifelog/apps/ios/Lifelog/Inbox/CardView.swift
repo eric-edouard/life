@@ -288,6 +288,8 @@ struct CardView: View {
     /// A bulk card's answers, held as one for one Undo; the next ask is on show at once.
     private func submit(all requests: [AnswerRequest], from head: Check) {
         guard !requests.isEmpty else { return }
+        // A new attempt: an earlier answer's failure on these rows is no longer theirs.
+        requests.forEach { life.forget(.answer(ref: $0.ref)) }
         notes.sentInBulk.formUnion(requests.map(\.ref))
         life.hold(requests, as: "\(requests.count) answered")
         current = checks.ref(after: head.ref)
