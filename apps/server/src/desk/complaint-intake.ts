@@ -111,6 +111,8 @@ export function readComplaint(
   return {
     at: a.at,
     card: c.card,
+    // An old press's: whether the card Life read was the one he saw.
+    ...(c.isAsShown === undefined ? {} : { isAsShown: c.isAsShown }),
     ref: c.ref,
     report: c.report,
     words: a.instruction?.quote ?? "",

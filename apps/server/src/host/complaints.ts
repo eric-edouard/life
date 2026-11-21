@@ -28,7 +28,7 @@ async function reached(id: string, limitMs: number) {
         unreadable: r.state === "unreadable" ? r.why : "",
       }[r.state];
       throw new Error(
-        `Not done: ${why}. His words are recorded: try again with the same key.`
+        `Not done: ${why}. His words are recorded: the caretaker gets them once it can start; a new complaint tries again.`
       );
     }
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's receipt
