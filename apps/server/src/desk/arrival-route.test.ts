@@ -32,7 +32,7 @@ import {
   roleAssignmentOf,
   standingAgentOf,
 } from "./role-agents";
-import { advance, asgOf, setup } from "./test-desk";
+import { advance, ahead, asgOf, setup } from "./test-desk";
 
 // A confirmed arrival's one wake. Made-up chat with Ana; the confirmed arrivals and units are given, not read.
 
@@ -158,53 +158,88 @@ test("no Personal agent is registered while the start is blocked or the desk is 
   expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
 });
 
-test("a matter's arrival is queued though the Personal agent cannot be registered, whose arrivals wait; none goes onto a closed assignment", async () => {
+/** A desk with one matter's agent whose net holds Ana, polled with arrivals of `[id, people, at]`; Personal runs on `claude`. */
+async function matterDesk(agentsRepo?: string) {
   const s = setup();
   const agent = await s.waiting();
   const asg = asgOf(s.desk, agent);
   s.desk.runtimes.claude = s.fake.runtime;
-  // Personal's home cannot be made: its registration throws.
   setSettings({
-    desk: {
-      agentsRepo: "/dev/null/agents",
-      defaultRuntime: "claude",
-      runtimes: {},
-    },
+    desk: { agentsRepo, defaultRuntime: "claude", runtimes: {} },
   });
   const nets = spyOn(matterNet, "netsOf").mockResolvedValue([
     { assignment: asg, people: new Set(["person:ana"]), vectors: [] },
   ] as never);
-  try {
-    const poll = (id: string, people: string[]) =>
-      pollArrivals(s.desk, readPeopleOnce(), {
-        arrivals: [
-          {
-            at: clock().toISOString(),
-            messages: [`whatsapp|${id}`],
-            people,
-            unit: "unit_0000000000a1",
-          },
-        ],
-        units: [unitOf()],
-      });
-    const queuedIds = () =>
-      s.desk.db
-        .query<{ event_id: string }, []>("select event_id from event")
-        .all()
-        .map((r) => r.event_id);
-    await poll("whatsapp:1", ["person:ana"]);
-    await poll("whatsapp:2", ["person:bo"]);
-    expect(queuedIds()).toEqual(["whatsapp:1"]);
-    expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
-    s.desk.db.run("update assignment set closed_at = ? where id = ?", [
-      clock().toISOString(),
-      asg,
-    ]);
-    await poll("whatsapp:3", ["person:ana"]);
-    expect(queuedIds()).toEqual(["whatsapp:1"]);
-  } finally {
+  const poll = (list: [string, string, string][]) =>
+    pollArrivals(s.desk, readPeopleOnce(), {
+      arrivals: list.map(([id, person, at]) => ({
+        at,
+        messages: [`whatsapp|${id}`],
+        people: [person],
+        unit: "unit_0000000000a1",
+      })),
+      units: [unitOf()],
+    });
+  const queuedIds = () =>
+    s.desk.db
+      .query<{ event_id: string }, []>("select event_id from event")
+      .all()
+      .map((r) => r.event_id);
+  const done = () => {
     nets.mockRestore();
     setSettings({ desk: null });
+  };
+  return { asg, done, poll, queuedIds, s };
+}
+
+test("in one poll, a matter's arrival is queued though the Personal agent cannot be registered, whose arrival waits; none goes onto a closed assignment", async () => {
+  // Personal's home cannot be made: its registration throws.
+  const d = await matterDesk("/dev/null/agents");
+  try {
+    const now = clock().toISOString();
+    await d.poll([
+      ["whatsapp:1", "person:ana", now],
+      ["whatsapp:2", "person:bo", now],
+    ]);
+    expect(d.queuedIds()).toEqual(["whatsapp:1"]);
+    expect(standingAgentOf(d.s.desk.db, "personal")).toBeUndefined();
+    d.s.desk.db.run("update assignment set closed_at = ? where id = ?", [
+      now,
+      d.asg,
+    ]);
+    await d.poll([["whatsapp:3", "person:ana", now]]);
+    expect(d.queuedIds()).toEqual(["whatsapp:1"]);
+  } finally {
+    d.done();
+  }
+});
+
+test("a Personal agent that never began is tried again only for a Personal arrival newer than its end, never for a matter's", async () => {
+  const d = await matterDesk();
+  try {
+    const { db } = d.s.desk;
+    const ended = clock().toISOString();
+    const failed = insertAgent(db, {
+      brief: "b",
+      role: "personal",
+      runtime: "claude",
+    }).id;
+    db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
+      ended,
+      failed,
+    ]);
+    db.run(
+      "insert into assignment (id, agent_id, opened_at, opened_by, wait_until, wait_reason, notes_path, closed_at, why_not_started) values ('asg_failed', ?1, ?2, 'owner', ?2, 'first turn', 'n', ?2, 'signed out')",
+      [failed, ended]
+    );
+    await d.poll([
+      ["whatsapp:1", "person:bo", ahead(-MIN)],
+      ["whatsapp:2", "person:ana", ahead(MIN)],
+    ]);
+    expect(d.queuedIds()).toEqual(["whatsapp:2"]);
+    expect(standingAgentOf(db, "personal")).toBeUndefined();
+  } finally {
+    d.done();
   }
 });
 
