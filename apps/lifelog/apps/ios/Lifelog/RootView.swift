@@ -58,13 +58,17 @@ struct RootView: View {
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         // Tell Life: always within reach, in the rail's free middle, on every screen: on the Pendant's vertical line, so it
-        // stands in the closed Duo's side column with the other controls (decision 89), at the bar's end elsewhere.
+        // stands in the closed Duo's side column with the other controls (decision 89), at the bar's end elsewhere; at
+        // mid-height, or under the top group when that reaches lower (a page's Back and flag above the Pendant).
         .overlay {
             if life.isPaired {
                 GeometryReader { window in
-                    let x = router.trailingControlsX.map { $0 - window.frame(in: .global).minX }
+                    let origin = window.frame(in: .global).origin
+                    let pendant = router.pendantFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
                     TellLifeButton()
-                        .position(x: x ?? window.size.width - Metrics.Spacing.m - 28, y: window.size.height / 2)
+                        .position(
+                            x: pendant?.midX ?? window.size.width - Metrics.Spacing.m - 28,
+                            y: max(window.size.height / 2, (pendant?.maxY ?? 0) + Metrics.Spacing.l + 28))
                 }
                 .ignoresSafeArea()
             }

@@ -20,19 +20,19 @@ private struct ShellBar: ViewModifier {
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if hasPendant || hasSettings {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        if hasPendant {
-                            PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
-                        }
-                        if hasSettings {
-                            // Icon only, like the Pendant: a titled item stays out of the closed Duo's side column, alone
-                            // in a bar of its own above the screen's title.
-                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-                                .labelStyle(.iconOnly)
-                                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
-                                .accessibilityIdentifier("top.settings")
-                        }
+                // One item each, never a group: the closed Duo's side column took the group's first item only and left
+                // the gear alone in a bar of its own over the screen's title.
+                if hasPendant {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
+                    }
+                }
+                if hasSettings {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                            .labelStyle(.iconOnly)
+                            .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
+                            .accessibilityIdentifier("top.settings")
                     }
                 }
             }
@@ -74,8 +74,8 @@ struct PendantItem: View {
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
-        // Where the system put it, so Tell Life stands on the same vertical line (`AppRouter.trailingControlsX`).
-        .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).midX }) { router.trailingControlsX = $0 }
+        // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`).
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { router.pendantFrame = $0 }
     }
 
     /// One thing, the most pressing first: something that needs him, a low battery, then the state.

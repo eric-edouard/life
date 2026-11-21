@@ -102,7 +102,7 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json` in `mirroredEnumsMatchTheSpec`, Life's against `apps/server/src` in `lifesEnumsAreTheServers`), which also checks
   every path the client calls.
-- A top-bar item is icon only (`labelStyle(.iconOnly)`): a titled one stays out of the closed Duo's side column, in a bar of its own over the screen's title. Tell Life stands on the Pendant's vertical line (`AppRouter.trailingControlsX`), so it is in that column too.
+- The top group is one `ToolbarItem` per control, never a `ToolbarItemGroup`: the closed Duo's side column took a group's first item only and left the gear in a bar of its own over the screen's title. Tell Life stands on the Pendant's vertical line (`AppRouter.pendantFrame`), so it is in that column too.
 - The toolbar API is `toolbarMinimizationBehavior(_:for:)`; the WWDC docs' `toolbarMinimizeBehavior` doesn't compile.
 - An Omi drains through the same `DrainCoordinator` as the Limitless Pendant, by its `DeviceCodec`. **Any work on the
   Omi starts by reading the latest Omi firmware release notes for the ring-custody fix** (`docs/research/omi.md`,
