@@ -104,7 +104,8 @@ struct SpokenWords: View {
             let isLit = { (index: Int) in !isCurrent || (spokenIndex.map { index <= $0 } ?? false) }
             if style == .line {
                 pieces.enumerated().reduce(Text("")) { line, item in
-                    line + Text(item.element.text).foregroundStyle(isLit(item.offset) ? Palette.fg : Palette.muted)
+                    let piece = Text(item.element.text).foregroundStyle(isLit(item.offset) ? Palette.fg : Palette.muted)
+                    return Text("\(line)\(piece)")
                 }
                 .lineLimit(1).accessibilityLabel(text)
             } else {
