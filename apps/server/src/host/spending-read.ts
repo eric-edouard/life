@@ -128,7 +128,9 @@ async function readTops(from: string, to: string) {
       );
       return { anchors, names, turns };
     },
-    { anchors: [], names: [], turns: [] }
+    { anchors: [], names: [], turns: [] },
+    // A month's history, even while the desk is off.
+    true
   );
   if (read.state !== "ok" || read.value.turns.length === 0) {
     return { topAgents: [], topMatters: [] };
