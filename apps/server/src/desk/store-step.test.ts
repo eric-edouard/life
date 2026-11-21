@@ -359,3 +359,35 @@ test("a store from before turn models is refused by openDesk; the step adds `tur
   ]);
   after.close();
 });
+
+test("the later steps, run in any order on a store from before all of them, end in one shape", () => {
+  const beforeAll = SCHEMA.replace(
+    "role text check (role in ('personal', 'caretaker')),",
+    "is_personal integer not null default 0,"
+  )
+    .replace(
+      "one_agent_per_role on agent (role) where role is not null",
+      "one_personal_agent on agent (is_personal) where is_personal = 1"
+    )
+    .replace("context_used integer,\n  model text", "context_used integer");
+  const steps = [stepRoles, stepTurnModel];
+  const shapeAfter = (order: typeof steps) => {
+    const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+    const path = join(dir, "desk.sqlite");
+    const db = new Database(path);
+    db.run(beforeAll);
+    db.close();
+    for (const step of order) {
+      expect(step(path, dir)).toBe("migrated");
+    }
+    const after = openDesk(path);
+    const shape = after
+      .query<{ sql: string }, []>(
+        "select m.name || ':' || group_concat(c.name || ' ' || c.type, ',') as sql from sqlite_master m, pragma_table_info(m.name) c where m.type = 'table' group by m.name order by m.name"
+      )
+      .all();
+    after.close();
+    return shape;
+  };
+  expect(shapeAfter(steps.toReversed())).toEqual(shapeAfter(steps));
+});

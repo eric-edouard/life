@@ -199,53 +199,50 @@ export function stepStore(
 }
 
 /**
- * Gives the store at `path` its agents' roles once: nothing for a store that has them, none at all, or a checkout on the
- * app's state. Behind its own dated copy, in one transaction: `role` added, the Personal agent's flag carried into it,
- * the flag and its index dropped, the role index made (`SCHEMA`). What it did.
+ * Runs one later store step on the store at `path`, once: nothing for a store past it (`isBefore` false), none at all,
+ * or a checkout on the app's state. Behind its own dated copy (`backUp`, `prefix`), then `change` in one transaction.
+ * A step making an index makes its own: the whole `SCHEMA` names columns a later step adds, so the steps run in any order.
+ * What it did.
  */
-export function stepRoles(path = DESK_STORE, state = LIFE_STATE_DIR) {
+function stepOnce(
+  path: string,
+  state: string,
+  isBefore: (db: Database) => boolean,
+  prefix: string,
+  change: (db: Database) => void
+) {
   if (!existsSync(path) || isAppState(state)) {
     return "skipped";
   }
   const db = openWritable(path, 5000, { strict: true });
   try {
-    if (!isBeforeRoles(db)) {
+    if (!isBefore(db)) {
       return "in shape";
     }
-    backUp(path, "desk-before-roles-");
-    db.transaction(() => {
-      db.run("drop index if exists one_personal_agent");
-      db.run(
-        "alter table agent add column role text check (role in ('personal', 'caretaker'))"
-      );
-      db.run("update agent set role = 'personal' where is_personal = 1");
-      db.run("alter table agent drop column is_personal");
-      db.run(SCHEMA);
-    })();
+    backUp(path, prefix);
+    db.transaction(() => change(db))();
     return "migrated";
   } finally {
     db.close();
   }
 }
 
-/**
- * Gives the store at `path` its turns' model once: nothing for a store that has it, none at all, or a checkout on the
- * app's state. Behind its own dated copy, in one transaction: `turn.model` added, null on every older turn (what they
- * ran on was not kept: they have no `equivalent`). What it did.
- */
-export function stepTurnModel(path = DESK_STORE, state = LIFE_STATE_DIR) {
-  if (!existsSync(path) || isAppState(state)) {
-    return "skipped";
-  }
-  const db = openWritable(path, 5000, { strict: true });
-  try {
-    if (!isBeforeTurnModel(db)) {
-      return "in shape";
-    }
-    backUp(path, "desk-before-turn-model-");
-    db.transaction(() => db.run("alter table turn add column model text"))();
-    return "migrated";
-  } finally {
-    db.close();
-  }
-}
+/** Gives the store's agents their roles (`stepOnce`): `role` added, the Personal agent's flag carried into it, the flag and its index dropped. */
+export const stepRoles = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeRoles, "desk-before-roles-", (db) => {
+    db.run("drop index if exists one_personal_agent");
+    db.run(
+      "alter table agent add column role text check (role in ('personal', 'caretaker'))"
+    );
+    db.run("update agent set role = 'personal' where is_personal = 1");
+    db.run("alter table agent drop column is_personal");
+    db.run(
+      "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')"
+    );
+  });
+
+/** Gives the store's turns their model (`stepOnce`): `turn.model` added, null on every older turn (what they ran on was not kept: they have no `equivalent`). */
+export const stepTurnModel = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeTurnModel, "desk-before-turn-model-", (db) =>
+    db.run("alter table turn add column model text")
+  );
