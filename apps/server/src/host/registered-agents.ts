@@ -98,7 +98,7 @@ export type WakeLine = AnswerLine | ListenLine;
 
 /** What `wakesOnOf` reads besides the filters: the event channels, who people are, the chats the agent has heard from, its open card and whether it has a wide net. */
 export interface WakesOnContext {
-  card?: { check: string; deadline: string; question: string };
+  cards: { check: string; deadline: string; question: string }[];
   channels: Pick<
     EventChannel,
     "hasPoint" | "hasRepo" | "name" | "quantities"
@@ -194,26 +194,28 @@ export function wakesOnOf(
   filters: EventFilter[],
   c: WakesOnContext
 ): WakeLine[] {
-  const { card, channels, hasNet } = c;
+  const { cards, channels, hasNet } = c;
   const lines = filters.flatMap((f): ListenLine[] => [
     ...messageLineOf(f, c),
     ...eventLinesOf(f, channels),
   ]);
   return [
     ...lines,
-    ...(card
-      ? [
-          {
-            card: card.question,
-            check: card.check,
-            deadline: card.deadline,
-            kind: "answer" as const,
-          },
-        ]
-      : []),
+    ...cards.map((card) => ({
+      card: card.question,
+      check: card.check,
+      deadline: card.deadline,
+      kind: "answer" as const,
+    })),
     ...(hasNet ? [{ kind: "wide_net" }] : []),
   ];
 }
+
+/** The open cards and the cards they merged (`cardsHearingOf`), whose agents wait on them too: the cards whose owners `withWakesOn` needs. */
+const openCardsHeardOf = (decisions: ReturnType<typeof decisionsNow>) =>
+  decisions
+    .filter((d) => d.state === "open")
+    .flatMap((d) => cardsHearingOf(d, decisions));
 
 /** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller; the wide net is only for an agent whose matter is found (`hasMatter`, as `netsOf` decides). */
 function withWakesOn(
@@ -226,8 +228,8 @@ function withWakesOn(
   decisions: ReturnType<typeof decisionsNow>
 ) {
   return agents.map(({ assignment, chatsSeen, filters, ...a }) => {
-    // Its open card: the one its assignment owns now (`cardOwnersOf`), whoever asked it, or the one that merged it.
-    const d = decisions.find(
+    // Its open cards: the one its assignment owns now (`cardOwnersOf`), whoever asked it, and any that merged one of its.
+    const cards = decisions.filter(
       (x) =>
         x.state === "open" &&
         cardsHearingOf(x, decisions).some(
@@ -239,11 +241,11 @@ function withWakesOn(
       wakesOn:
         a.status === "waiting"
           ? wakesOnOf(filters, {
-              card: d && {
+              cards: cards.map((d) => ({
                 check: d.id,
                 deadline: d.deadline,
                 question: d.question,
-              },
+              })),
               channels: EVENT_CHANNELS,
               hasNet: hasMatter(a.steps),
               people,
@@ -282,10 +284,7 @@ export async function readRegisteredAgents(
   }
 ): Promise<RegisteredAgents> {
   const decisions = given?.decisions ?? decisionsNow();
-  // The open cards and the cards they merged, whose agents wait on them too.
-  const openDecisions = decisions
-    .filter((d) => d.state === "open")
-    .flatMap((d) => cardsHearingOf(d, decisions));
+  const openDecisions = openCardsHeardOf(decisions);
   const read = readDesk(
     (db) => ({
       agents: agentsNow(db, now.getTime(), true),
@@ -373,10 +372,7 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
 /** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
 export function readAgentsOnSteps(steps: string[], people: People) {
   const decisions = decisionsNow();
-  // The open cards and the cards they merged, whose agents wait on them too.
-  const openDecisions = decisions
-    .filter((d) => d.state === "open")
-    .flatMap((d) => cardsHearingOf(d, decisions));
+  const openDecisions = openCardsHeardOf(decisions);
   const read = readDesk(
     (db) => ({
       agents: agentsOnSteps(db, steps, clock().getTime(), true),
