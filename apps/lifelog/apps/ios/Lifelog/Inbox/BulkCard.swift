@@ -200,7 +200,8 @@ struct BulkCard: View {
             }
             .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty).offWhileOutOfReach()
             .contentTransition(.numericText()).motion(Motion.standard, value: ticked.count)
-            Button("Go one by one") { notes.unfolded.insert(kind) }.buttonStyle(.pill(.quiet, size: .compact))
+            Button("Go one by one") { withAnimation(Motion.standard) { _ = notes.unfolded.insert(kind) } }
+                .buttonStyle(.pill(.quiet, size: .compact))
         }
         .padding(.bottom, Metrics.Spacing.s)
     }

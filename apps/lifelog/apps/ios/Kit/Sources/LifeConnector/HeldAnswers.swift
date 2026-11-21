@@ -121,11 +121,17 @@ public final class HeldAnswers {
 }
 
 extension ActionState where Proof == ActionProof {
-    /// What a held answer's end says back on its own, its card gone by then: that Life recorded it but did not end its
-    /// step as asked, and Life's reason (`isDone` false); or the day a Not now brings its card back. Nil: nothing to say.
-    public var heldAnswerWords: (words: String, isDone: Bool)? {
-        guard case .succeeded(.answered(let result), _) = self, let changed = result.changed else { return nil }
-        if let error = changed.ended?.error { return ("Your answer was recorded. \(error)", false) }
-        return changed.snoozed().map { ($0, true) }
+    /// What a held answer's end says back, its card gone by then (the toast it left has gone too): Life's reason when it
+    /// failed or did not end its step as asked, the day a Not now brings its card back, else `label` once Life took it
+    /// (green only on Life's word). Nil: still running.
+    public func heldAnswerWords(as label: String) -> (words: String, isDone: Bool)? {
+        switch self {
+        case .failed(let failure, _): return (failure.reason, false)
+        case .succeeded(.answered(let result), _):
+            if let error = result.changed?.ended?.error { return ("Your answer was recorded. \(error)", false) }
+            return (result.changed?.snoozed() ?? label, true)
+        case .succeeded: return (label, true)
+        default: return nil
+        }
     }
 }

@@ -72,7 +72,7 @@ struct WrongSheet: View {
 
     private func reportBox(isOn: Bool) -> some View {
         Button {
-            life.complaints[ref]?.report.toggle()
+            withAnimation(Motion.standard) { life.complaints[ref]?.report.toggle() }
         } label: {
             HStack(alignment: .top, spacing: Metrics.Spacing.m) {
                 Image(systemName: isOn ? "checkmark.square.fill" : "square.fill").imageScale(.large)

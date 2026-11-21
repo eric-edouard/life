@@ -231,11 +231,22 @@ private struct ChatHead: View {
     let look: ChatLook
 
     @Environment(\.openURL) private var openURL
+    /// The system took no app for the chat's link: said under the head.
+    @State private var isUnopened = false
 
     var body: some View {
         let url = check.networkIdentity?.openUrl
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+            head(url)
+            if isUnopened { Text("Couldn't open the chat.").font(.small).foregroundStyle(Palette.flag) }
+        }
+        .motion(Motion.standard, value: isUnopened)
+    }
+
+    private func head(_ url: URL?) -> some View {
         Button {
-            if let url { openURL(url) }
+            isUnopened = false
+            if let url { openURL(url) { isUnopened = !$0 } }
         } label: {
             HStack(spacing: Metrics.Spacing.s) {
                 NetworkMark(network: draft.channel)

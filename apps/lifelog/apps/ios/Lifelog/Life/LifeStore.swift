@@ -3,6 +3,7 @@ import Incidents
 import Library
 import LifeConnector
 import Observation
+import SwiftUI
 import UserNotifications
 
 /// The phone's side of Life: its four reads, each a `ReadState`, his actions, each an `ActionState`, the push and the badge,
@@ -88,8 +89,8 @@ final class LifeStore {
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
         let matter = self?.heldMatters.removeValue(forKey: held.request.ref) ?? nil
         await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
-        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
+        // Its card is gone by now: what Life did or could not do on it, or when it comes back, is said back here.
+        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords(as: held.label) {
             self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
         }
         Task { await self?.refreshAfterAnswer(on: matter) }
@@ -784,6 +785,15 @@ final class LifeStore {
     }
 
     /// Shows `said` for 4 s, flagged when not done.
+    /// Leaves the app for `url` (a chat, a calendar): when the system takes none, `what` could not be opened is said back.
+    func open(_ url: URL, _ what: String, with openURL: OpenURLAction) {
+        openURL(url) { accepted in
+            if !accepted {
+                Task { @MainActor in self.show(SaidBack(words: "Couldn't open \(what).", undo: nil, isDone: false)) }
+            }
+        }
+    }
+
     func show(_ said: SaidBack) {
         saidBack = said
         Task {
