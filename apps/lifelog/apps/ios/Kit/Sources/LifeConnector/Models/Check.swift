@@ -88,7 +88,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct LifeLink: Decodable, Sendable, Equatable {
         /// What a ref names (`RefKind`, `memory/refs.ts`).
         public enum Kind: String, UnknownTolerant, Sendable {
-            case ask, conversation, file, matter, message, observation, person, turn, unit
+            case appointment, ask, conversation, file, matter, message, observation, person, turn, unit
             case unknown
         }
         public let ref: String
@@ -199,6 +199,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let draft: Draft?
     /// A draft card's chat as the card heads it; nil for other cards.
     public let head: Head?
+    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
+    /// other kinds, or from a Life that predates it.
+    public let isPlan: Bool?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
