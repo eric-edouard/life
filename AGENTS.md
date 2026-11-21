@@ -48,8 +48,8 @@ in the step that produced it: fix that step with its regression case, never a `c
 - When he states or changes a goal or priority, offer to put it in `truth/me.md` `## Goals` (numbered, his order, each
   with the project ids it serves) and do it on his yes. His goals live there only.
 - When he says which project a repo belongs to, put it in that project's `repos:` in `truth/`, then `bun life validate`.
-- To-do item changes go through `bun life change-todo-item '<json>'`, never `remctl` directly. Deep work goes to his agent:
-  `bun life ask '<his words>'`, verbatim, never your summary.
+- To-do item changes go through `bun life change-todo-item '<json>'`, never `remctl` directly. Deep work goes to his
+  registered agents: his words, verbatim, never your summary, through the connector's `change_registered_agent`.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory checks` before asking him anything. His word beats the memory.
 - A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, Messenger, LinkedIn, mail) needs the owner's OK on the exact text.
@@ -78,7 +78,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   their turns (the persona reads their words), but thousands of facts, his fact-check answers and corrections cite them, and a re-read
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
-  value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (none today: the next is written fresh, its call in `cli.ts`; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
+  value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (today `host/migrate.ts`, the settings step that drops the `agents` setting, spoken asks PR 3, Direction's OK of 21 Nov 2026; its call in `cli.ts`; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
   next start, under the lock (a checkout only on a copy), before anything that appends starts (the lock-free appenders
   never wait on it); it rewrites the stored lines (same count, same order, so the `read_memory_changes` cursor holds),
   each file whole through `writeWhole` (a new file, which every process's kept read reads whole again; never in place),
@@ -163,10 +163,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   is its runtime's permissions and his own rules, never Life's code but the send guard (what the desk sets: an agent of his own Life is held back by nothing but sending and writing as him through his Life connector (his decisions of 19 and 20 Nov 2026; the direction session's ruling under his word of 20 Nov 2026): its session is one of his own in full (his settings, instruction files, skills, connectors, and his login shell's environment, `readLoginEnv`, less the runtime's own engine keys), in the runtime's no-ask mode set at every start and resume (`Row.mode`; Codex's at spawn), and every permission ask that still arrives is approved, with one exception: Life's send guard (`desk/send-guard.ts`), a hook of the session's own flags run before each shell and MCP call, refuses a send outside a card's draft and his connector's writes (`CONNECTOR_WRITES`) on any server but its `desk` door (SECURITY.md lists what, and what gets past it), Codex's hook trusted by the hash his own Codex gives (`readCodexGuardTrust`), and no agent starts without it; and a second Life's agent (a demo, `isOwnLife` false), whose runtime as he set it up would reach his own Life, gets its door alone: none of his settings, MCP servers, built-in tools, instruction files or memory, only its door's asks approved (`Row.onlyDoorPrefix` and a bare tool name), every other refused, none of his environment, never in his Claude or Codex app, in its runtime row, `runtime-rows.ts`; Codex's in Life's own Codex home). The brief carries his one
   gate (nothing outward in his name without his yes on the exact thing, asked as a decision; the Mac and the web are
   free) and the door holds one rule of his (18 Nov 2026): an
-  assignment's first turn asks its plan (a handed-out one's, its one card), so the door refuses `set_wait` and `finish` until it has asked a decision; but the caretaker's: his complaint's words are its plan, and every outward act still goes through a card on the exact content (his yes of 20 Nov 2026). An agent that is not registered is started as
-  before: its own `onAsk` command (its setting), once per new ask, detached and with no words (his OK, 3 Nov 2026), and
-  the question cases' headless agent by a developer's script (his word, 10 Nov 2026); it pulls its own asks
-  (`read_agent_asks`) and keeps its own list. A registered agent's state (its assignments, each with its subject, its wait and its notes file; its sessions, its
+  assignment's first turn asks its plan (a handed-out one's, its one card), so the door refuses `set_wait` and `finish` until it has asked a decision; but the caretaker's: his complaint's words are its plan, and every outward act still goes through a card on the exact content (his yes of 20 Nov 2026). No agent that is not registered is started by
+  Life; only the question cases' headless agent, by a developer's script (his word, 10 Nov 2026). A registered agent's state (its assignments, each with its subject, its wait and its notes file; its sessions, its
   turns) lives in the desk's store only (`desk.sqlite`), never in `memory/`; an assignment's notes are a file in his agents repo (`desk.agentsRepo`), the store holding its path. An assignment whose first turn never began (or not within its runtime's begin limit, its run then stopped) is closed, why in `why_not_started`, never retried; an agent ends when its last open assignment closes. On the connector an agent is known by its
   pairing (its grant's agent claim); at the desk's door a registered agent is known by the key the desk gave its
   session; never by what it says. Nothing in Life branches on an agent's name.
@@ -260,7 +258,7 @@ what it is not, then find its name in `docs/glossary.md` (its Word column is wha
 concept, the same in docs, app, email, connector and code. A new concept gets its glossary line in the same PR.
 
 - The most descriptive name that makes sense, for the concept and for someone who has never read the code: reading
-  it, they know what we are talking about (the connector's `read_agent_asks`, not `asks`). Longer and clear beats
+  it, they know what we are talking about (the connector's `read_registered_agents`, not `agents`). Longer and clear beats
   short and vague.
 - Names never clash: one concept has one name, and one name means one concept. Two names may share a plain word
   (`matter step`, `night step`): qualify the word by what it belongs to, never pick a weaker word to avoid sharing

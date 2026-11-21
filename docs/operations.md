@@ -44,7 +44,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
 the connector's origin, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
-sources, `describePhotos` (the local photo describer), the agents (their wake words), the agents' report senders, the Reminders and Past calendar plugins.
+sources, `describePhotos` (the local photo describer), the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
 - It is strict and read once per process, some of it when modules load (units, email, git). So a new key lands

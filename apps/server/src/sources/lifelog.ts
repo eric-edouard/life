@@ -470,7 +470,7 @@ export function readConversations(
       .all(from),
     (t) => t.conversation_id
   );
-  // His spans ("hey Life" or "hey <agent>") by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  // His spans ("hey Life") by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
   const marks = new Map(
     db
       .query<{ job_id: string; refs: string; turn_index: number }, []>(

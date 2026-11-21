@@ -38,7 +38,6 @@ import { PUSH_ID } from "../../sources/lifelog-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { answerWithResult } from "../answer-result";
-import { asksFor } from "../asks";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
@@ -101,7 +100,7 @@ import {
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct_memory`), on his explicit request in a
-// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. An agent pulls its asks (`read_agent_asks`). Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
+// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 /** A push's card or appointment id: 16 hex (`pushIdOf`). */
@@ -225,16 +224,6 @@ export async function correct(
     ? recordHisCorrection(a.correction)
     : forward(a.kind, a));
   return `Done: ${a.kind}.`;
-}
-
-/** The caller's agent, for the tools that are an agent's own; a plain app is refused. */
-function agentOnly(agent: string | undefined) {
-  if (!agent) {
-    throw new Error(
-      "Not done: this app was paired without an agent; pair it as one (`bun life pair <agent>`)."
-    );
-  }
-  return agent;
 }
 
 /**
@@ -686,14 +675,6 @@ export function buildServer(readsOnly = false) {
       }
     );
   }
-  tool(
-    server,
-    "read_agent_asks",
-    'As a paired agent, call it first in each session: what the owner asked you, the agent this app was paired as (JSON): each time the owner said "hey <you>" or asked you through Life, past a cursor, in the order recorded: its id, when he spoke, when Life recorded it, his words and how sure the wake was (low: confirm with him). Keep your own list; Life keeps none. Who he is: `read_people_and_organizations` with his name.',
-    z.object(page),
-    async ({ cursor, limit }, caller) =>
-      asksFor(agentOnly(caller), cursor, limit)
-  );
   // The same poll as a tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT): one door each.
   tool(
     server,
