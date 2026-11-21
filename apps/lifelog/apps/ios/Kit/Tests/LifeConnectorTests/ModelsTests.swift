@@ -520,6 +520,8 @@ private func everyKindOfCheck() throws -> [Check] {
     let unnamed = try #require(
         decoded(Inbox.self, wireText("life/read_inbox.json")).checks.first { $0.group == .decision })
     #expect(unnamed.agent == nil && unnamed.askingRuntime(among: agents) == nil)
+    // Its "Open in" opens the session the server names (`session`), not a link it was asked with.
+    #expect(unnamed.session == "https://agents.example.test/s/1")
     let lifes = try #require(inbox.checks.first { $0.agentName(runtime: nil) == nil })
     #expect(lifes.askingRuntime(among: agents) == nil)
 }

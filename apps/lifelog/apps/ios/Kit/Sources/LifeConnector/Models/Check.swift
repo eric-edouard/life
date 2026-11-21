@@ -260,6 +260,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
+    /// What its "Open in" opens: a registered agent's card, the session of the agent holding it now; any other ask, its
+    /// first link; nil when none, or from a Life that predates it.
+    public let session: String?
     /// The `life:` links of `context`, each with its kind; empty from a Life that predates them.
     public let lifeLinks: [LifeLink]?
     public let matter: MatterRef?

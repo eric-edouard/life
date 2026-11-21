@@ -9,7 +9,7 @@ import {
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
-import { holderLinksOf } from "../host/inbox";
+import { cardHoldersOf } from "../host/inbox";
 import { decisionsNow } from "../memory/decisions";
 import {
   askDecision,
@@ -304,15 +304,37 @@ test("each open card is its own assignment's, so an agent holding two shows each
   );
 });
 
-test("a card shown as its holder's opens the holder's session, not the asker's", () => {
-  const claude = "https://claude.ai/code/session_test";
-  const codex = "codex://threads/test";
-  expect(
-    holderLinksOf([claude, "https://example.com/doc"], claude, codex)
-  ).toEqual([codex, "https://example.com/doc"]);
-  expect(
-    holderLinksOf([claude, "https://example.com/doc"], claude, undefined)
-  ).toEqual([claude, "https://example.com/doc"]);
+test("a folded card opens its holder's session now, or none: never a session it was asked from", () => {
+  const { desk } = setup();
+  const asker = standing(desk, {});
+  const holder = standing(desk, { project: "test-shop" });
+  const held = openAssignment(desk, holder, {
+    openedBy: "owner",
+    steps: ["obs_test_fold"],
+  });
+  desk.db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+    "dec_test_fold",
+    held,
+  ]);
+  // The asker's session was replaced since it asked (its old link stays on its cards).
+  desk.db.run("update agent set link = 'fake://asker-new' where id = ?", [
+    asker,
+  ]);
+  const cards = [
+    { agent: asker, id: "dec_test_fold" },
+    { agent: asker, id: "dec_test_own" },
+  ];
+  const shown = () => Object.fromEntries(cardHoldersOf(desk.db, cards));
+  // The holder has no session yet: none, never the asker's.
+  expect(shown()).toEqual({
+    dec_test_fold: { agent: holder },
+    dec_test_own: { agent: asker, session: "fake://asker-new" },
+  });
+  desk.db.run("update agent set link = 'fake://holder' where id = ?", [holder]);
+  expect(shown().dec_test_fold).toEqual({
+    agent: holder,
+    session: "fake://holder",
+  });
 });
 
 /** A made-up card on `subject`, asked from assignment `s`'s turn. */

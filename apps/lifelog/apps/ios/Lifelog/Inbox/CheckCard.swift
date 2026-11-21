@@ -54,7 +54,7 @@ struct CheckCard: View {
         .sheet(isPresented: $input.showsContext) {
             ContextSheet(
                 title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
-                appLink: check.links.first.flatMap(URL.init(string:)), appName: runtimeName?.name)
+                appLink: check.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
     }
 

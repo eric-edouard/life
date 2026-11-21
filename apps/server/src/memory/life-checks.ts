@@ -179,7 +179,7 @@ export interface Check {
   lifeLinks: { kind: RefKind; ref: string }[];
   /** Who it may be, as parties (`partyOf`): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
   likelyPeople: Party[];
-  /** Where to look or act (the agent's link first). */
+  /** Where to look, as asked (a registered agent's: the session it asked from first; what "Open in" opens is `session`). */
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
@@ -220,6 +220,8 @@ export interface Check {
   };
   /** The sentence the ask is about, as said: a name's own line (verbatim), the open step of an ending, the step a new matter began with; null for every other kind. */
   said: Said | null;
+  /** A decision's session, what its "Open in" opens: a registered agent's card, its holder's session now (host's `cardHoldersOf`), never a link it was asked with; any other ask, its first link; absent when none, and on every other kind. */
+  session?: string;
   /** What follows the open step an ending check asks about, "since then": what makes Life think it is done, with who said it and when; null for every other kind. */
   since: Said | null;
   /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
@@ -245,9 +247,15 @@ export const endingGuessOf = (step: string) =>
 /** Whether a check asks if a step is done (never in the nightly email). */
 export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
 
+/** Open cards by id, each as its holder's: the agent and its session now, if any. */
+export type CardHolders = Readonly<
+  Record<string, { agent: string; session?: string }>
+>;
+
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
 export interface HeldRead {
-  cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
+  /** Each of the open `decisions` a registered agent asked, as its holder's, with that agent's session now (host's `cardHoldersOf`): given the one list the inbox reads, so a card asked meanwhile is never shown without it. */
+  cardHolders?: (decisions: readonly Decision[]) => CardHolders;
   complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
