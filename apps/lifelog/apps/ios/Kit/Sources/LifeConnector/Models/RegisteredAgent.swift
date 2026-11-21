@@ -9,7 +9,7 @@ public enum AgentStatus: String, UnknownTolerant, Sendable {
 
 /// The runtime an agent works in, by the desk's own name for it (`RuntimeName` in `core/names.ts`, checked by `ContractTests`).
 public enum RuntimeName: String, UnknownTolerant, Sendable {
-    case claude, codex
+    case claude, codex, pi
     case unknown
 
     /// What the owner reads: the app's name for the runtime.
@@ -17,6 +17,7 @@ public enum RuntimeName: String, UnknownTolerant, Sendable {
         switch self {
         case .claude: "Claude Code"
         case .codex: "Codex"
+        case .pi: "pi"
         case .unknown: "its runtime"
         }
     }
@@ -38,12 +39,14 @@ public enum RuntimeName: String, UnknownTolerant, Sendable {
                 Model(id: "gpt-6.2-astra", name: "GPT-6.2 Astra"), Model(id: "gpt-6.2-sol", name: "GPT-6.2 Sol"),
                 Model(id: "gpt-6-luna", name: "GPT-6 Luna"),
             ]
+        // pi runs the memory's model alone (`piRouteOf`, `llm.ts`).
+        case .pi: [Model(id: "deepseek/deepseek-v4.1-flash-1017", name: "DeepSeek V4.1 Flash")]
         case .unknown: []
         }
     }
 
     /// What the Start sheet offers (DSH is out of v1).
-    public static let offered: [RuntimeName] = [.claude, .codex]
+    public static let offered: [RuntimeName] = [.claude, .codex, .pi]
 }
 
 /// A registered agent as the desk reads it now (`read_registered_agents`, and `agents` of `read_matter`).
