@@ -31,6 +31,21 @@ export const WEBHOOK_SECRET = "whsec-test";
 // The archive, migrated, in a file of its own; `reset` empties every table between tests. The
 // change log's seq keeps growing across them, as in production, so a reader's cursor held by a
 // service built once per file never points past the newest change.
+/**
+ * Undoes the `spending` migration's schema on a disposable DB, for a test that runs the migrations after an earlier one
+ * again: its indexes and the voice note hearings' seconds (`isTableKept` false: the test drops that table itself).
+ */
+export function undoSpendingMigration(db: Db, isTableKept = true) {
+  db.$client.run("drop index if exists intelligence_runs_created");
+  db.$client.run("drop index if exists transcription_jobs_admitted");
+  if (isTableKept) {
+    db.$client.run("drop index if exists voice_note_hearings_done");
+    for (const column of ["billable_seconds", "route", "seconds"]) {
+      db.$client.run(`alter table voice_note_hearings drop column ${column}`);
+    }
+  }
+}
+
 export function testDb() {
   const dir = mkdtempSync(join(tmpdir(), "lifelog-test-"));
   const db = connect(join(dir, "archive.sqlite"));
