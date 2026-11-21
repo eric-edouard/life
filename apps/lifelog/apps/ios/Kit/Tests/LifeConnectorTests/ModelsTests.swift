@@ -85,7 +85,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.ridesOn?.matters == 1)
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
-    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .unknown])
+    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
     #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
     #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
     #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))
