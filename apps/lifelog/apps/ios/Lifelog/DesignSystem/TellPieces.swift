@@ -137,7 +137,7 @@ struct TellLifeButton: View {
 
     var body: some View {
         Button {
-            router.isTellLifeOpen = true
+            withAnimation(Motion.standard) { router.isAskOpen = true }
         } label: {
             TellMark(size: 22).frame(width: size, height: size)
                 .overlay { if running > 0 { Circle().stroke(Palette.ai, lineWidth: 2) } }
@@ -147,7 +147,7 @@ struct TellLifeButton: View {
         }
         .buttonStyle(SinkStyle())
         .floatingGlass(in: Circle())
-        .sensoryFeedback(.impact(weight: .medium), trigger: router.isTellLifeOpen) { _, new in new }
+        .sensoryFeedback(.impact(weight: .medium), trigger: router.isAskOpen) { _, new in new }
         .accessibilityLabel("Tell Life")
         .accessibilityIdentifier("tell.life")
     }
