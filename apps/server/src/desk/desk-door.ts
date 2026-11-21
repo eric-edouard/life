@@ -75,8 +75,9 @@ function turnRefusalOf(
   ) {
     return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
   }
-  // Read-only for now (Tell Life, slice 1): the main session answers him and calls none of the door's tools.
-  if (cause === MAIN_ASK) {
+  // Read-only for now (Tell Life, slice 1): the main session answers him and calls none of the door's tools, in a turn
+  // of its own or in his app (the Life plugin's door).
+  if (cause === MAIN_ASK || a?.role === "main") {
     return "Not done: the main session only reads and answers him for now; it changes nothing.";
   }
   const isEnd = name === "set_wait" || name === "finish";
@@ -336,8 +337,7 @@ export function doorFetch(desk: Desk, readFacts = guardFacts) {
   };
 }
 
-/** Serves the door on loopback (`;
-DOOR_PORT`). */
+/** Serves the door on loopback (`DOOR_PORT`). */
 export function openDoor(desk: Desk) {
   Bun.serve({
     development: false,
