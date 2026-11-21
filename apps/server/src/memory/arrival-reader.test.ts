@@ -24,7 +24,12 @@ import {
   readRecentVoice,
 } from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
-import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
+import {
+  READS,
+  readConfirmedArrivals,
+  readReplies,
+  storeReply,
+} from "./read-replies";
 import { OWNER, type Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
 import { applyRules, messageUnits } from "./units";
@@ -756,6 +761,53 @@ test("a confirm filed in last month's file (its first message's month) is still 
   expect(
     readConfirmedArrivals("2026-11-01T00:00:00.000Z", where).map((a) => a.unit)
   ).toEqual(["unit_0000000000ed"]);
+});
+
+test("an older prompt's confirm still keeps its unit for the night (a bump before the night lost a kept promise); a later confirm of the same lines decides", () => {
+  const where = join(dir, "older-prompt");
+  const confirm = (
+    prompt: string,
+    at: string,
+    isActionable: boolean,
+    chat: string
+  ) =>
+    storeReply(
+      {
+        at,
+        madeBy: { engine: "codex", model: "test", prompt, run: "r1" },
+        messages: [`whatsapp|whatsapp:${chat}`],
+        people: [],
+        promptDigest: "0123456789abcdef",
+        read: "arrival_confirm",
+        reply: { isActionable },
+        schemaVersion: 1,
+        starts: [0],
+        unit: `unit_00000000${chat}`,
+      } as ReadReply,
+      at,
+      where
+    );
+  confirm(
+    "memory-arrival-confirm.v1",
+    "2026-11-10T10:00:00.000Z",
+    true,
+    "aaaa"
+  );
+  confirm(
+    "memory-arrival-confirm.v1",
+    "2026-11-10T10:00:00.000Z",
+    true,
+    "bbbb"
+  );
+  confirm(
+    READS.arrival_confirm.prompt,
+    "2026-11-10T12:00:00.000Z",
+    false,
+    "bbbb"
+  );
+  expect(
+    readConfirmedArrivals("2026-11-10T00:00:00.000Z", where).map((a) => a.unit)
+  ).toEqual(["unit_00000000aaaa"]);
 });
 
 // Last: it fills today's model log.
