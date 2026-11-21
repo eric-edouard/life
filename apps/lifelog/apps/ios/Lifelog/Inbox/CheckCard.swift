@@ -52,7 +52,6 @@ struct CheckCard: View {
         }
         .motion(Motion.standard, value: input.isWritingOwnWords)
         .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             // The answers themselves, never a scroll view of them: one at the screen's bottom edge took the bar's soft
             // edge as its own, blurred the answers and kept his taps (21 Nov). `fitsBar` keeps the bar short.
