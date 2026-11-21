@@ -145,31 +145,22 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
   setSystemTime();
 });
 
-// Old plan cards, asked before `plan`: their plan is in `context`, and they read as ever, no role on their options.
-test("a plan card without `plan` still reads", async () => {
+// His phone drew an empty card for a plan asked in `context` alone (21 Nov 2026): the plan card must give its steps.
+test("a plan card without `plan` is refused, its steps asked for", async () => {
   const { desk } = setup();
   const agent = register(desk, { brief: "Test brief", runtime: "fake" });
-  const { id } = await askDecision(desk, on(desk, agent), {
-    context: "## Plan\n1. Ask Kit",
-    deadline: ahead(DAY),
-    onSilence: null,
-    options: [
-      { id: "start", label: "Go" },
-      { id: "stop", label: "Stop the agent" },
-    ],
-    question: "Start with this plan?",
-    title: "Mend the watch",
-  });
-  const d = decisionsNow().find((x) => x.id === id);
-  expect(d && [...planCardsOf(desk.db, [d])]).toEqual([id]);
-  expect(d && decisionCardOf(d)).toMatchObject({
-    gathered: null,
-    options: [
-      { id: "start", takes: null },
-      { id: "stop", takes: null },
-    ],
-    plan: null,
-  });
-  expect(d && decisionCardOf(d).options[0]).not.toHaveProperty("role");
+  await expect(
+    askDecision(desk, on(desk, agent), {
+      context: "## Plan\n1. Ask Kit",
+      deadline: ahead(DAY),
+      onSilence: null,
+      options: [
+        { id: "start", label: "Go" },
+        { id: "stop", label: "Stop the agent" },
+      ],
+      question: "Start with this plan?",
+      title: "Mend the watch",
+    })
+  ).rejects.toThrow("first card is its plan card: give `plan`");
   setSystemTime();
 });
