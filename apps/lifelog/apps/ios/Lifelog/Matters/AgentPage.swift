@@ -91,7 +91,8 @@ struct AgentPage: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
+                // Inset as the list's rows are (`groupedRow`).
+                .padding(.horizontal, Metrics.Spacing.m).padding(.top, Metrics.Spacing.l)
                 .readingWidth().quietListRow()
                 if let line = agent.spendingLine() {
                     SpendingLine(text: line).padding(.horizontal, Metrics.gutter).quietListRow()
@@ -109,8 +110,13 @@ struct AgentPage: View {
 
     private func head(_ agent: RegisteredAgent) -> some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            AgentLabel(runtime: agent.runtimeName, name: agent.name ?? agent.title).font(.screenName)
-                .foregroundStyle(Palette.fg).accessibilityAddTraits(.isHeader)
+            // The mark once, beside the name (decision of 19 Nov: "the star sits once").
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
+                // In `fg`, never `ai`: OpenAI's terms allow no colour on its mark (`RuntimeName.mark`).
+                Image(symbol: agent.runtimeName.mark).foregroundStyle(Palette.fg).accessibilityHidden(true)
+                Text(agent.name ?? agent.title).foregroundStyle(Palette.fg)
+            }
+            .font(.screenName).accessibilityAddTraits(.isHeader)
             if let project = agent.project,
                 let chip = life.projects.shown().onScreen?.chips.first(where: {
                     $0.kind == .project && $0.id == project
