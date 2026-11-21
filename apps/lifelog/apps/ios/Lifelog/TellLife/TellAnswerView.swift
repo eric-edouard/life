@@ -23,6 +23,23 @@ struct TellAnswerView: View {
             TellLightLine(kind: .point)
             head(question)
             ForEach(answers, id: \.self) { words in QuietChip(words, symbol: "bubble.left") { tell(words) } }
+        case .done(let words, let matter):
+            TellLightLine(kind: .answer)
+            head(words)
+            if let matter { QuietChip("Open matter", symbol: "arrow.up.right") { open(matter) } }
+        case .agent(let words, let agent, let told):
+            TellLightLine(kind: .answer)
+            head(words)
+            TellStrandRow(title: agent, isDone: false)
+            note("What it was told: \(told)")
+        case .card(let words, let card):
+            TellLightLine(kind: .answer)
+            head(words)
+            QuietChip("Open in Inbox", symbol: "tray") { open(card) }
+        case .fix(let words):
+            TellLightLine(kind: .answer)
+            head(words)
+            note("The caretaker has it.")
         case .error(let what):
             TellLightLine(kind: .broken)
             head(what)

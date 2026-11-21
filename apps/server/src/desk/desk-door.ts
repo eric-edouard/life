@@ -30,12 +30,13 @@ import { DOOR_PORT, MAIN_SESSION_PATH, text } from "../host/http/http";
 import { keyRefusal } from "../host/http/local-key";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { isHisWordsPlanOf } from "../host/inbox";
-import { MOVE_NOTES } from "../host/move-read";
+import { MOVE_NOTES, shortNameOf } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
 import { readsOnce, refsProblemOf } from "../memory/find-refs";
 import {
   AnswerExtras,
+  type MainSessionAct,
   MainSessionAsk,
   type MainSessionLine,
 } from "../records/main-session-wire";
@@ -57,6 +58,7 @@ import { doorOf, keyOf } from "./door-keys";
 import {
   askMainSession,
   hisWordsIn,
+  keepAct,
   keepAnswerExtras,
   keepMainSession,
   MAIN_ASK,
@@ -171,6 +173,16 @@ function assignmentOfCall(desk: Desk, id: string, named?: string) {
  */
 function doorServer(desk: Desk, id: string) {
   const server = new McpServer({ name: "desk", version: "1" });
+  /** What the main session did on its turn, as its answer's kind (`keepAct`). */
+  const acted = (
+    turn: { id: number } | null | undefined,
+    act: MainSessionAct
+  ) => turn && keepAct(desk, turn.id, act);
+  /** An agent as he reads it, by its id; a new one (a move's) has none yet. */
+  const agentNameOf = (agent: string | null | undefined) => {
+    const a = agent ? agentOf(desk.db, agent) : null;
+    return a ? shortNameOf(a) : "A new agent";
+  };
   /** The main session's `said`, found in his words of its turn (`hisWordsIn`), as he said them. */
   const hisWordsOf = (turn: { id: number } | null | undefined, said?: string) =>
     hisWordsIn(desk, turn?.id ?? -1, said ?? "");
@@ -247,24 +259,28 @@ function doorServer(desk: Desk, id: string) {
           "The main session only, and always: his own words of this ask asking for the card, verbatim. Its card is asked as his own (`owner`): his answer wakes no agent."
         ),
     }),
-    ({ said, ...ask }, s, turn) => {
+    async ({ said, ...ask }, s, turn) => {
       if (agentOf(desk.db, id)?.role !== "main") {
         return askDecision(desk, s, ask);
       }
       hisWordsOf(turn, said);
-      return requestDecision(OWNER_ASKER, ask);
+      const asked = await requestDecision(OWNER_ASKER, ask);
+      if (!(ask.withdraw || ask.keep)) {
+        acted(turn, { card: asked.id, kind: "card" });
+      }
+      return asked;
     }
   );
   door(
     "change_registered_agent",
     "The main session only, on his words (`said`, his own words of this ask, verbatim): his word about his registered agents, as the connector's tool takes it. Start one (on a matter's `step`: it goes to the agent that takes it, his words its goal; on a `project`; or `role` `personal`), `stop`, `resume`, `re_point`, `rename`, `change_model`, or `hand_over` (decision 78: `step` with `agent`, the matter to that agent; `step` with `runtime`, the matter to a new agent of its own there; `agent` with `runtime`, the whole agent there; its old agent writes its notes first, and the move's phase is then on `read_matter`). Never on the main session itself. Returns what the desk did, or why not.",
     RegisteredAgentChange,
-    ({ said, ...change }, _, turn) => {
+    async ({ said, ...change }, _, turn) => {
       if (change.agent === id) {
         return { error: "Not done: the main session never changes itself." };
       }
       const words = hisWordsOf(turn, said);
-      return changeRegisteredAgent(
+      const done = await changeRegisteredAgent(
         { ...change, said: words },
         undefined,
         WAIT_MS,
@@ -273,6 +289,15 @@ function doorServer(desk: Desk, id: string) {
           words,
         })
       );
+      // Only what the desk did or took: an unconfirmed change is said in words alone.
+      if (["started", "done", "asked"].includes(done.state)) {
+        acted(turn, {
+          agent: agentNameOf(done.agent),
+          kind: "agent",
+          told: words,
+        });
+      }
+      return done;
     }
   );
   door(
@@ -284,12 +309,16 @@ function doorServer(desk: Desk, id: string) {
     }),
     ({ agent, said }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      return tellAgent(
+      const told = tellAgent(
         desk,
         agent,
         words,
         tellLifeRefOf(turn?.id ?? -1, "tell_agent", { agent, words })
       );
+      if (!("error" in told)) {
+        acted(turn, { agent: agentNameOf(agent), kind: "agent", told: words });
+      }
+      return told;
     }
   );
   door(
@@ -301,16 +330,19 @@ function doorServer(desk: Desk, id: string) {
     }),
     async ({ correction, said }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      if (!isHisOnly(correction)) {
-        return { done: [await recordHisCorrection(correction)] };
-      }
-      return {
-        done: await correctMatter(
-          correction.kind === "outdated"
-            ? { ...correction, note: words }
-            : correction
-        ),
-      };
+      const { matter } = correction;
+      const done = isHisOnly(correction)
+        ? await correctMatter(
+            correction.kind === "outdated"
+              ? { ...correction, note: words }
+              : correction
+          )
+        : [await recordHisCorrection(correction)];
+      acted(turn, {
+        kind: "done",
+        ...(typeof matter === "string" ? { matter } : {}),
+      });
+      return { done };
     }
   );
   door(
@@ -321,13 +353,16 @@ function doorServer(desk: Desk, id: string) {
       report: z.boolean().optional(),
       said: z.string().min(1).max(8000),
     }),
-    ({ card, report, said }, _, turn) =>
-      complainThroughTellLife(
+    async ({ card, report, said }, _, turn) => {
+      const reached = await complainThroughTellLife(
         hisWordsOf(turn, said),
         card,
         report ?? false,
         `tell-life:${turn?.id}:${card ?? ""}`
-      )
+      );
+      acted(turn, { kind: "fix" });
+      return reached;
+    }
   );
   door(
     "answer",
