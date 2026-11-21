@@ -1,7 +1,6 @@
 import { listUsdOf } from "../core/prices";
 import type { ReadCounts, Tokens } from "../models/model-call";
 import type { RouterSpent } from "../models/routers";
-import type { Run } from "./run-log";
 
 // Model spending (decision 83): each record that used a paid or metered resource read as one spend, where it is
 // logged. A `model.run` line (every model call), a `model.local` line (the describer, Apple's model), a desk turn (an
@@ -178,7 +177,13 @@ export function spendOfTurn(t: TurnSpent): Spend {
  */
 export function spendsOf(
   lines: (Record<string, unknown> & { at: string; kind: string })[],
-  runs: Run[],
+  // A run as `assembleRuns` gives it (structural: run-log reads spends).
+  runs: {
+    children?: unknown;
+    id: string;
+    processingRun?: unknown;
+    step: string;
+  }[],
   turns: TurnSpent[] = []
 ): Spend[] {
   const night = new Set(
