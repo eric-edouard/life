@@ -85,7 +85,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.ridesOn?.matters == 1)
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
-    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .unknown])
+    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
     #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
     #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
     #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))
@@ -695,6 +695,14 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(fresh.checked(by: partial, askedAt: tapped.addingTimeInterval(1)) == nil)
     // Nothing in hand: nothing to show until the read.
     #expect(PushedCard(pushId: "push-n1", in: nil, notified: nil, at: tapped).opening == nil)
+    // How many wait is the read's word alone: none before a read (the one-card inbox counts only its card), the read's
+    // total when the card is past its limit (never one more), less his answers.
+    var read = ReadState<Inbox>()
+    #expect(fresh.shown(in: nil, answeredSinceTap: [])?.total == 1 && read.waiting(less: []) == nil)
+    read.apply(.succeeded(partial, tapped))
+    #expect(fresh.shown(in: partial, answeredSinceTap: [])?.total == 601 && read.waiting(less: []) == 600)
+    read.apply(.succeeded(cached, tapped))
+    #expect(read.waiting(less: ["i1"]) == cached.total - 1)
 }
 
 /// A pushed card past the read's limit, answered: the read after the answer, cut off before it, never puts it back.

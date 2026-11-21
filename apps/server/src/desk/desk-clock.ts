@@ -37,7 +37,7 @@ import {
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
-import { CONTEST_WAIT } from "../memory/draft-contest";
+import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
@@ -242,7 +242,8 @@ export function pollAnswers({ db }: Desk) {
     read: pollDecisions(name, readCursor(db, name), DESK_AGENT),
   }));
   // Read after the polls, so every decision they return is known.
-  const cards = new Map(decisionsNow().map((d) => [d.id, d]));
+  const all = decisionsNow();
+  const cards = new Map(all.map((d) => [d.id, d]));
   const wakesOf = (
     ids: (string | undefined)[],
     eventId: string,
@@ -260,15 +261,19 @@ export function pollAnswers({ db }: Desk) {
       queue(
         db,
         name,
-        read.events.flatMap((e) => [
-          ...wakesOf([e.data.id], e.eventId, e.data),
-          // The merged card's agent hears his answer, never the holder's words or its `onSilence`.
-          ...wakesOf([cards.get(e.data.id)?.merges], e.eventId, {
-            ...e.data,
-            onSilence: null,
-            question: undefined,
-          }),
-        ])
+        read.events.flatMap((e) => {
+          const card = cards.get(e.data.id);
+          const [, ...merged] = card ? cardsHearingOf(card, all) : [];
+          return [
+            ...wakesOf([e.data.id], e.eventId, e.data),
+            // The merged card's agent hears his answer, never the holder's words or its `onSilence`.
+            ...wakesOf(
+              merged.map((m) => m.id),
+              e.eventId,
+              { ...e.data, onSilence: null, question: undefined }
+            ),
+          ];
+        })
       );
       saveCursor(db, name, read.cursor);
     })();

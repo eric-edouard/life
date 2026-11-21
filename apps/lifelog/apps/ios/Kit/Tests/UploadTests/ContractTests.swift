@@ -125,10 +125,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
-    // A need's kinds; `qr` shows its line until the phone draws the code.
     let needs = try source("memory/needs.ts")
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
-    #expect(kinds.subtracting(["qr"]) == client(Check.Need.Kind.self))
+    #expect(kinds == client(Check.Need.Kind.self))
+    #expect(try quoted("memory/needs.ts", /scheme: z\s*\.enum\(\[([^\]]*)\]/) == client(Check.Need.Scheme.self))
+    #expect(try quoted("memory/life-checks.ts", /doneSeenBy\?: ([^;]*);/) == client(Check.DoneSeenBy.self))
     // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
     #expect(
         try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])

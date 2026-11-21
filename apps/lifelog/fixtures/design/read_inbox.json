@@ -279,7 +279,8 @@
           "holder": "Blue Reef Diving Co., Ltd.",
           "kind": "account",
           "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd.",
-          "number": "012-3-45678-9"
+          "number": "012-3-45678-9",
+          "scheme": "th_account"
         },
         {
           "currency": "THB",
@@ -312,6 +313,120 @@
       "pushId": "push_dec_pay",
       "question": "Pay the deposit by Monday?",
       "ref": "dec_pay",
+      "ridesOn": {
+        "matterIds": ["matter_dive"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Pay the dive course deposit",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "Blue Reef holds the December place until the deposit is in.",
+      "deadline": "2026-11-23T17:00:00",
+      "doneSeenBy": "payment",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_dive",
+        "name": "Dive course, December"
+      },
+      "needs": [
+        {
+          "bank": "Kasikornbank",
+          "holder": "Blue Reef Diving Co., Ltd.",
+          "kind": "account",
+          "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd.",
+          "number": "012-3-45678-9",
+          "scheme": "th_account"
+        },
+        {
+          "currency": "THB",
+          "kind": "amount",
+          "line": "4,500 THB",
+          "value": 4500
+        },
+        {
+          "kind": "qr",
+          "line": "QR code from their WhatsApp of Tue: 00020101021229370016A00000067701011101130066812345678530376454074500.005802TH6304ABF1",
+          "payload": "00020101021229370016A00000067701011101130066812345678530376454074500.005802TH6304ABF1",
+          "source": "their WhatsApp of Tue"
+        }
+      ],
+      "options": [
+        {
+          "id": "paid",
+          "label": "I’ve paid"
+        },
+        {
+          "id": "drop",
+          "label": "Drop it"
+        }
+      ],
+      "pushId": "push_dec_pay_qr",
+      "question": "Pay the deposit by Monday?",
+      "ref": "dec_pay_qr",
+      "ridesOn": {
+        "matterIds": ["matter_dive"],
+        "matters": 1,
+        "observations": 14,
+        "pages": 0
+      },
+      "title": "Pay the dive course deposit",
+      "urgency": "blocks"
+    },
+    {
+      "asker": "Claude Code",
+      "clips": [],
+      "context": "Blue Reef holds the December place until the deposit is in.",
+      "deadline": "2026-11-23T17:00:00",
+      "doneSeenBy": "payment",
+      "group": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "matter": {
+        "id": "matter_dive",
+        "name": "Dive course, December"
+      },
+      "needs": [
+        {
+          "bank": "Kasikornbank",
+          "holder": "Blue Reef Diving Co., Ltd.",
+          "kind": "account",
+          "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd.",
+          "number": "012-3-45678-9",
+          "scheme": "th_account"
+        },
+        {
+          "currency": "THB",
+          "kind": "amount",
+          "line": "4,500 THB",
+          "value": 4500
+        },
+        {
+          "kind": "qr",
+          "line": "QR code from their WhatsApp of Tue: 00020101021229370016A00000067701011101130066812345678530376454074800.005802TH63049282",
+          "payload": "00020101021229370016A00000067701011101130066812345678530376454074800.005802TH63049282",
+          "source": "their WhatsApp of Tue"
+        }
+      ],
+      "options": [
+        {
+          "id": "paid",
+          "label": "I’ve paid"
+        },
+        {
+          "id": "drop",
+          "label": "Drop it"
+        }
+      ],
+      "pushId": "push_dec_pay_qr_differs",
+      "question": "Pay the deposit by Monday?",
+      "ref": "dec_pay_qr_differs",
       "ridesOn": {
         "matterIds": ["matter_dive"],
         "matters": 1,

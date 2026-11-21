@@ -121,7 +121,11 @@ struct CheckCard: View {
 
     @ViewBuilder private var content: some View {
         DraftBlock(check: check, isBoxed: false)
-        if let needs = check.needs, !needs.isEmpty { NeedsBlock(needs: needs) }
+        if !(check.needs ?? []).isEmpty {
+            if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.bankTrip.isCodeSaved) }
+            let rows = check.shownNeedRows
+            if !rows.isEmpty { NeedsBlock(rows: rows) }
+        }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)
         case .newMatter:
