@@ -192,7 +192,7 @@ test("a runtime that does not answer is not_started at its stage, with nothing r
   desk.db.run("update agent set status = 'ended' where id = ?", [personal]);
   const stop = ticking(desk, 300);
   const result = await changeRegisteredAgent(
-    { action: "start", personal: true, said: "Test: be my Personal agent" },
+    { action: "start", role: "personal", said: "Test: be my Personal agent" },
     { report: () => undefined },
     5000
   );
