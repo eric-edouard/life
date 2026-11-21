@@ -28,6 +28,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     func readMatters(person: String) async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }
+    func readLogLines(_ query: LogQuery) async throws -> String { "{}" }
     /// What `fetch` answers: a test holds it, or fails it.
     var fetched: @Sendable () async throws -> String = { "" }
     func fetch(_ ref: String) async throws -> String { try await fetched() }
