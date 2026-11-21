@@ -81,6 +81,9 @@ final class AppRouter {
     var sheet: Sheet?
     /// Tell Life, full screen over whatever he was on.
     var isTellLifeOpen = false
+    /// Where the system put the Pendant (its frame in the window): in the side column of the closed Duo, or at the top
+    /// bar's trailing end. Tell Life stands on its vertical line, below it; nil before the Pendant is drawn.
+    var pendantFrame: CGRect?
     /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
     var isTellLifeSmall = false
     /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.

@@ -101,7 +101,7 @@ test("a group he wrote nothing in waits, unless a new line names him", () => {
   ]);
 });
 
-test("a receipt or a message from no one he knows waits; a newsletter is the code rules' drop", () => {
+test("mail is due at once whoever sent it, a stranger's chat too; an automated message never is", () => {
   const mail = (over: Partial<SourceEvent>) =>
     msg({
       chat: "thread-1",
@@ -111,11 +111,59 @@ test("a receipt or a message from no one he knows waits; a newsletter is the cod
       source: "mail",
       ...over,
     });
-  expect(gate([mail({ transaction: true })])).toEqual(["stranger"]);
+  expect(gate([mail({ transaction: true })])).toEqual(["due"]);
+  expect(
+    gate([mail({ sender: "rae@mail.example", text: "Could we meet Friday?" })])
+  ).toEqual(["due"]);
   expect(gate([mail({ bulk: true })])).toEqual(["dropped"]);
+  expect(gate([mail({ sender: "no-reply@shop.example" })])).toEqual([
+    "dropped",
+  ]);
   expect(
     gate([msg({ chat: "33600000002@s.whatsapp.net", sender: "33600000002" })])
-  ).toEqual(["stranger"]);
+  ).toEqual(["due"]);
+});
+
+/** The texts the gate lets a read show, for the one unit of `events`. */
+const freshTexts = (events: SourceEvent[]) =>
+  arrivalsDue(
+    { built: applyRules(messageUnits(events, known)) },
+    reads(),
+    new Date(NOW)
+  ).flatMap((a) => ("due" in a ? a.fresh.map((m) => m.text) : []));
+
+test("another person's line he answered is never read; his own lines and what came after his last are", () => {
+  const ask = msg({ at: ago(30), text: "Lmk where you decide tonight" });
+  const his = msg({
+    at: ago(25),
+    fromMe: true,
+    sender: "me",
+    text: "Let's try out the new place by the river",
+  });
+  expect(freshTexts([ask, his])).toEqual([his.text]);
+  const later = msg({ at: ago(5), text: "Great, and can you book a table?" });
+  expect(freshTexts([ask, his, later])).toEqual([his.text, later.text]);
+});
+
+test("a login code in a chat is never read, the person's other lines are", () => {
+  const code = msg({ at: ago(6), text: "Your verification code is 482913" });
+  expect(freshTexts([msg({ at: ago(7) }), code])).toEqual([
+    "Can you send me the transcript tonight?",
+  ]);
+});
+
+test("a work tracker's thread (GitHub) is never an arrival: agents wait on it instead", () => {
+  expect(
+    gate([
+      msg({
+        chat: "acme/app#12",
+        id: "github:1",
+        sender: "octo",
+        source: "github",
+        text: "Ozren, can you review this pull request today?",
+      }),
+    ])
+  ).toEqual(["night-only"]);
 });
 
 test("notes wait for the night whatever they say", () => {
@@ -124,23 +172,35 @@ test("notes wait for the night whatever they say", () => {
   ).toEqual(["night-only"]);
 });
 
-test("his words to Life and an agent's report are always through", () => {
+test("his words to Life are always through; his agents' report is skipped per message, a person's line in its thread still read", () => {
   const stranger = {
     chat: "33600000002@s.whatsapp.net",
     sender: "33600000002",
   };
   expect(gate([msg({ ...stranger, marked: true })])).toEqual(["due"]);
+  const report = {
+    chat: "thread-2",
+    chatName: "Done: the transcript",
+    source: "mail" as const,
+  };
+  const fromAgent = msg({
+    ...report,
+    at: ago(8),
+    id: "mail:report",
+    sender: "alerts@agents.example.test",
+  });
+  expect(gate([fromAgent])).toEqual(["nothing-new"]);
   expect(
-    gate([
+    freshTexts([
+      fromAgent,
       msg({
-        chat: "thread-2",
-        chatName: "Done: the transcript",
-        id: "mail:report",
-        sender: "alerts@agents.example.test",
-        source: "mail",
+        ...report,
+        id: "mail:sam",
+        sender: "sam@example.com",
+        text: "Thanks, can you also send the slides?",
       }),
     ])
-  ).toEqual(["due"]);
+  ).toEqual(["Thanks, can you also send the slides?"]);
 });
 
 test("a unit held back is the night's: it has no verdict, so the night reads it", () => {

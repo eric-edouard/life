@@ -45,6 +45,18 @@ import Testing
         "a text equal as Swift compares it but not byte for byte takes nothing of the kept indices")
 }
 
+/// The crash of 21 Nov: Send empties the text, the field's caret stays where the last words ended, and the next run
+/// kept that caret with the empty text. A caret outside its text, or inside a character, lands at the end.
+@Test func aCaretLeftFromAnEarlierTextLandsAtTheEnd() {
+    let earlier = "The keys are here."
+    let stale = earlier.endIndex..<earlier.endIndex
+    #expect(DictatedText.inserting("Hello", into: "", at: ("", stale))?.text == "Hello")
+    #expect(DictatedText.inserting("there", into: "Hi", at: ("Hi", stale))?.text == "Hi there")
+    let accent = "caf\u{E9}"
+    let inside = accent.utf8.index(accent.utf8.startIndex, offsetBy: 4)
+    #expect(DictatedText.inserting("now", into: accent, at: (accent, inside..<inside))?.text == "caf\u{E9} now")
+}
+
 /// A fake microphone and Mac: each `begin` and each ask waits until the test lets it go.
 @MainActor private final class Rig {
     var begins: [CheckedContinuation<Void, Never>] = []
@@ -212,4 +224,15 @@ private final class Recording: Sendable {
     #expect(o["sample_rate"] as? Int == 16_000)
     let pcm = try #require(Data(base64Encoded: o["audio_base_64"] as? String ?? ""))
     #expect([UInt8](pcm) == [0, 0, 0xFF, 0x7F, 0x01, 0x80])
+}
+
+/// The stream follows his voice: a quiet room is flat, close speech fills the bar, a syllable rises at once and a pause
+/// falls away by halves.
+@Test func aBarFollowsTheLoudnessOfItsMoment() {
+    #expect(Dictation.bar(0, after: 0) == 0)
+    #expect(Dictation.bar(0.001, after: 0) < 1e-6, "-60 dB: the room")
+    #expect(abs(Dictation.bar(0.01, after: 0) - 0.5) < 1e-6, "-40 dB: soft speech, half a bar")
+    #expect(Dictation.bar(0.1, after: 0) == 1, "-20 dB: close speech, a full bar at once")
+    #expect(Dictation.bar(0, after: 1) == 0.5, "a pause falls by half")
+    #expect(Dictation.bar(0, after: 0.5) == 0.25)
 }
