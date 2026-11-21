@@ -10,7 +10,8 @@ import {
   readAgentsOnSteps,
   readRegisteredAgents,
 } from "../host/registered-agents";
-import { DECISIONS, requestDecision } from "../memory/decisions";
+import { DECISIONS } from "../memory/decision-lines";
+import { requestDecision } from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import type { EventFilter } from "../records/registered-agent";
 import { register } from "./agent-actions";

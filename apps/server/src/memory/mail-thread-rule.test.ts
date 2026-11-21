@@ -19,7 +19,7 @@ const mail = (
   ...over,
 });
 
-test("a reply from an unknown address in a thread the owner wrote in on another day is kept; a shop's mail and a list's issue are not", () => {
+test("mail from an unknown address is kept, in any thread; a no-reply sender's and a list's issue are not", () => {
   const built = applyRules(
     messageUnits(
       [
@@ -27,6 +27,7 @@ test("a reply from an unknown address in a thread the owner wrote in on another 
           hasOwnerWrittenInThread: true,
         }),
         mail("t2", "sales@shop.test", "Your quote"),
+        mail("t4", "no-reply@shop.test", "Your quote is ready"),
         mail("t3", "list@club.test", "Issue 9", {
           bulk: true,
           hasOwnerWrittenInThread: true,
@@ -37,7 +38,8 @@ test("a reply from an unknown address in a thread the owner wrote in on another 
   );
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
     null,
-    "not-a-person",
+    null,
+    "automated",
     "newsletter",
   ]);
 });

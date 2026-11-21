@@ -12,9 +12,9 @@ import { DAY, HOUR, MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
 import type { Decision } from "./decision-lines";
+import { DECISIONS } from "./decision-lines";
 import {
   answerDecision,
-  DECISIONS,
   decisionsNow,
   notSentOf,
   requestDecision,

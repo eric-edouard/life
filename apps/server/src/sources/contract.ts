@@ -130,6 +130,8 @@ export type Descriptor = {
   capturesOnItsOwn?: true;
   /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
   missing?: () => string | undefined;
+  /** Its threads are a work tracker's (issues, pull requests), not a conversation: never an arrival; an agent waits on them instead. */
+  isWorkTracker?: true;
   /** Imported from exports: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
   /**
