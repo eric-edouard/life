@@ -533,8 +533,9 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
     folder: t.dir,
     runtime: "claude",
   });
-  ownAssignmentOf(t.desk.db, other) ??
+  if (!ownAssignmentOf(t.desk.db, other)) {
     openAssignment(t.desk, other, { openedBy: "owner" });
+  }
   const play =
     (name: string, args: Record<string, unknown>) => async (r: string) => {
       await callDoor(main()?.id ?? "", name, args);
