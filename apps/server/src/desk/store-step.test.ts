@@ -26,6 +26,7 @@ import { MOVE_TABLES, openDesk, SCHEMA } from "./desk-store";
 import {
   stepMatterIds,
   stepMoves,
+  stepRoleCheck,
   stepRoles,
   stepStore,
   stepTurnModel,
@@ -49,6 +50,7 @@ const T = "2026-11-18T09:00:00.000Z";
 const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
 const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
 const MATTER_IDS_BACKUP_FILE = /^desk-before-matter-ids-.*\.sqlite$/;
+const ROLE_CHECK_BACKUP_FILE = /^desk-before-role-check-.*\.sqlite$/;
 const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
@@ -302,7 +304,7 @@ test("a store from before roles is refused by openDesk; the roles step carries t
   const db = new Database(path);
   db.run(
     SCHEMA.replace(
-      "role text check (role in ('personal', 'caretaker')),",
+      "role text,",
       "is_personal integer not null default 0,"
     ).replace(
       "one_agent_per_role on agent (role) where role is not null",
@@ -334,6 +336,70 @@ test("a store from before roles is refused by openDesk; the roles step carries t
     after.run("update agent set role = 'personal' where id = ?", [
       "agt_000000000002",
     ])
+  ).toThrow("UNIQUE");
+  after.close();
+});
+
+test("a store whose agents check their role is refused by openDesk; the step rebuilds them without the check behind its own copy, once, every row and index kept, and a new role stored", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(
+    SCHEMA.replace(
+      "  role text,\n",
+      "  role text check (role in ('personal', 'caretaker')),\n"
+    )
+  );
+  for (const [id, role, status] of [
+    ["agt_000000000001", "personal", "active"],
+    ["agt_000000000002", null, "ended"],
+  ] as const) {
+    db.run(
+      "insert into agent (id, brief, runtime, folder, project, status, role, created_at) values (?, 'Test brief', 'claude', '/tmp', 'test-house', ?, ?, ?)",
+      [id, status, role, T]
+    );
+  }
+  db.close();
+  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  expect(stepRoleCheck(path, APP_FOLDERS.state)).toBe("skipped");
+  expect(stepRoleCheck(path, dir)).toBe("migrated");
+  expect(stepRoleCheck(path, dir)).toBe("in shape");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(ROLE_CHECK_BACKUP_FILE),
+  ]);
+  const after = openDesk(path);
+  expect(
+    after.query("select id, role, status, project from agent order by id").all()
+  ).toEqual([
+    {
+      id: "agt_000000000001",
+      project: "test-house",
+      role: "personal",
+      status: "active",
+    },
+    {
+      id: "agt_000000000002",
+      project: "test-house",
+      role: null,
+      status: "ended",
+    },
+  ]);
+  expect(
+    after
+      .query<{ name: string }, []>(
+        "select name from sqlite_master where type = 'index' and tbl_name = 'agent' and sql is not null order by name"
+      )
+      .all()
+      .map((i) => i.name)
+  ).toEqual(["agent_by_project", "agent_by_status", "one_agent_per_role"]);
+  after.run("update agent set role = 'main' where id = ?", [
+    "agt_000000000002",
+  ]);
+  expect(() =>
+    after.run(
+      "update agent set status = 'active', role = 'personal' where id = ?",
+      ["agt_000000000002"]
+    )
   ).toThrow("UNIQUE");
   after.close();
 });
@@ -392,7 +458,7 @@ test("a store from before turn models is refused by openDesk; the step adds `tur
 
 test("the later steps, run in any order on a store from before all of them, end in one shape", () => {
   const beforeAll = SCHEMA.replace(
-    "role text check (role in ('personal', 'caretaker')),",
+    "role text,",
     "is_personal integer not null default 0,"
   )
     .replace(
@@ -415,6 +481,8 @@ test("the later steps, run in any order on a store from before all of them, end 
     for (const step of order) {
       expect(step(path, dir)).toBe("migrated");
     }
+    // `stepRoles` adds `role` with no check: the role check step has nothing left to do.
+    expect(stepRoleCheck(path, dir)).toBe("in shape");
     // Read as the steps left it: `openDesk` would make what a step forgot.
     const after = new Database(path, { readonly: true });
     const shape = after
