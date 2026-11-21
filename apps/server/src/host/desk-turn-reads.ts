@@ -9,7 +9,7 @@ import type { TurnSpent } from "../memory/spends";
  * found in one pass over the sessions (`session.ref` has no index).
  */
 const SPENT =
-  "agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join (select ref, min(runtime) as runtime from session group by ref) legacy on turn.model is null and legacy.ref = turn.session";
+  "agent_id, assignment_id, cost_usd, ended_at, model, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join (select ref, min(runtime) as runtime from session group by ref) legacy on turn.model is null and legacy.ref = turn.session";
 
 /** A move's notes turn that never began ran no model (no session to resume, or a send that failed): never counted as spent. */
 const RAN = "not (turn.cause = 'move_notes' and turn.begun_at is null)";

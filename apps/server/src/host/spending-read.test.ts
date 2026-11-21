@@ -18,7 +18,7 @@ afterAll(() => {
 });
 const sum = { billedUsd: 0, calls: 1, equivalentUsd: 0, tokens: 0 };
 
-test("read_spending: a past month's days as held, billed and equivalent apart by provider and kind, today live, unsettled Voice work counted, the top agents and matters by tokens and id", async () => {
+test("read_spending: a past month's days as held, billed and equivalent apart by provider and kind, today live, unsettled Voice work counted, the top agents and matters by tokens and id, a pi turn billed apart", async () => {
   const book = await import("../memory/matters");
   const who = await import("../memory/who");
   const desk = await import("./desk-read");
@@ -100,6 +100,18 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
           tokens_in: 400_000,
           tokens_out: 100_000,
         },
+        {
+          agent_id: "agt_000000000001",
+          assignment_id: "asg_000000000001",
+          // A turn on pi: billed by OpenRouter, apart from the plans' equivalent.
+          cost_usd: 0.01,
+          ended_at: "2026-11-10T11:00:00.000Z",
+          model: "pi:flash",
+          runtime: "pi",
+          tokens_cached: 0,
+          tokens_in: 900,
+          tokens_out: 100,
+        },
       ],
     },
   } as never);
@@ -118,11 +130,12 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
     expect(answer.today.amount).toBe(0.05);
     expect(answer.topMatters).toEqual([
       {
+        billed: { amount: 0.01, basis: "billed", currency: "USD" },
         equivalent: { amount: 3.6, basis: "equivalent", currency: "USD" },
         id: "matter_000000000001",
         matter: "Test shop fit-out",
         reported: true,
-        tokens: 500_000,
+        tokens: 501_000,
       },
     ]);
     // A day written with Voice work unsettled: the month says so (a floor).
@@ -143,6 +156,7 @@ test("a matter's turns are its assignments' whose anchors name it: an anchor sha
   const turn = (assignment_id: string) => ({
     agent_id: "agt_000000000001",
     assignment_id,
+    cost_usd: null,
     ended_at: "2026-11-10T10:00:00.000Z",
     model: "claude:opus",
     runtime: "claude",

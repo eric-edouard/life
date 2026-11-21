@@ -50,7 +50,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Plan mode, to-do tool | plan mode (unused by the desk), TodoWrite | pi's `plan-mode` and `todo` example extensions; the desk needs neither | on par |
 | The Life plugin's hooks (a turn typed into an agent's session) | `session.start` looks up the door, `prompt.submit` adds the packet, `tool.call` asks `/guard` | the same three as one pi package (`session_start`, `input`, `tool_call`) for a pi the owner opens by hand; the desk's own runs load it with `-e` | on par |
 | Main session (Tell Life) | one ACP process kept warm 5 minutes, prompt per ask | one `pi --mode rpc` kept warm the same way; a second ask while one runs goes in as `steer` instead of being refused | better |
-| Moving an agent (`hand_over`) | `moveToOf` picks "the other runtime" | with three runtimes that pick is wrong. Fix: the move names its target; the phone offers each runtime | gap |
+| Moving an agent (`hand_over`) | `moveToOf` picks "the other runtime" | with three runtimes that pick is wrong. Fix (PR 3): the one move offered goes to the desk's default, and from the default to the first other; `hand_over` already names its target | gap |
 | A second Life's agent (a demo) | Claude's `tools: []`, `strictMcpConfig`, door prefix approvals | `--no-builtin-tools --no-context-files --no-skills`, `--tools` limited to `mcp__desk__*`; no permission round trip to police | better |
 | Stopping a run | ACP `session/cancel`, then kill | RPC `abort`, then kill | on par |
 | Turn begun | first ACP answer update | first `message_update` | on par |
@@ -195,7 +195,7 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 |---|---|---|
 | 1 | `pi-extension.ts`: the guard in `tool_call`, the door, Life's provider with its routing on every request, a repo's `.pi` never trusted; tests in a real pi (#1173) | hard (strict path) |
 | 2 | `pi-runtime.ts` over RPC behind the one runtime (`session-runtime.ts`, split from ACP's), pi pinned and bundled, `pi` in `RuntimeName` and the phone's list, SECURITY.md's and AGENTS.md's lines (decision 3) | hard (strict path) |
-| 3 | a move that names its target, spending as `billed` from OpenRouter with its desk store step | hard (strict path: a store step) |
+| 3 | the move offered goes to the desk's default runtime, from it to the first other (`moveTargetOf`; `hand_over` already takes any runtime); a pi turn's spending `billed` from OpenRouter's cost, kept in `turn.cost_usd` by its store step (`stepTurnCost`, the owner's yes of 22 Nov 2026) | hard (strict path: a store step) |
 | 4 | parity extensions: `web_fetch`, `web_search`, subagents, the owner's Claude hooks, the Life connector grant, the global `AGENTS.md` | standard |
 | 5 | folded into PR 2 | |
 | 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |
