@@ -138,7 +138,7 @@ struct CreateSheet: View {
                 Label("Create", systemImage: isOrganization ? "building.2" : "person.badge.plus")
             }
             .buttonStyle(.pill(.filled))
-            .disabled(trimmed(name) == nil)
+            .disabled(trimmed(name) == nil || life.whyOutOfReach != nil)
         }
     }
 

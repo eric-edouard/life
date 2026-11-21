@@ -59,7 +59,7 @@ final class NetworkPath {
     func follow(back: () -> Void) async {
         #if DEBUG
             // `-offline` fails every request as if there were no network: show what the owner sees then.
-            if SyncStore.OfflineProtocol.isRequested { return network = .none }
+            if OfflineProtocol.isRequested { return network = .none }
         #endif
         for await path in NWPathMonitor() {
             let next = ConnectionSummary.Network(path)

@@ -259,7 +259,7 @@ private let later = then.addingTimeInterval(5)
 @Test func aReadWithNoWayToLifeHoldsUntilLifeAnswers() {
     var connection = LifeConnection()
     connection.note(ReadState<[Int]>.Event.failed(.unreachable), asked: then)
-    #expect(connection.whyNot(hasPath: true) == "Your Mac is out of reach.")
+    #expect(connection.whyNot(hasPath: true) == MCPError.unreachable.reason)
     // A retry under way, one called off, or a phone with no pairing learns nothing about Life.
     for nothing in [ReadState<[Int]>.Event.started, .failed(.cancelled), .failed(.notPaired)] {
         connection.note(nothing, asked: later)

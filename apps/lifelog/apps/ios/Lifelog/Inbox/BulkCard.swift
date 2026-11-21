@@ -162,7 +162,7 @@ struct BulkCard: View {
             Button(ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
                 answer(ticked.map(\.request))
             }
-            .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty)
+            .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty || life.whyOutOfReach != nil)
             .contentTransition(.numericText()).motion(Motion.standard, value: ticked.count)
             Button("Go one by one") { notes.unfolded.insert(kind) }.buttonStyle(.pill(.quiet, size: .compact))
         }

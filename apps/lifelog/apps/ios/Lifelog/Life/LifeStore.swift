@@ -580,8 +580,11 @@ final class LifeStore {
         return true
     }
 
-    /// A bulk card's answers, held as one: one toast, one Undo.
-    func hold(_ requests: [AnswerRequest], as label: String) { holds.hold(requests, as: label, for: pairedLife) }
+    /// A bulk card's answers, held as one: one toast, one Undo; none while Life is out of reach.
+    func hold(_ requests: [AnswerRequest], as label: String) {
+        guard whyOutOfReach == nil else { return }
+        holds.hold(requests, as: label, for: pairedLife)
+    }
 
     func undo(_ ref: String) { holds.undo(ref) }
 

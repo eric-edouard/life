@@ -101,7 +101,8 @@ struct WrongSheet: View {
                 Task { await life.complain(ref) }
             }
             .buttonStyle(.pill(.filled)).lineLimit(1).minimumScaleFactor(0.75)
-            .disabled(draft.check.complaint(words: draft.words, report: draft.report) == nil)
+            .disabled(
+                draft.check.complaint(words: draft.words, report: draft.report) == nil || life.whyOutOfReach != nil)
         }
     }
 }

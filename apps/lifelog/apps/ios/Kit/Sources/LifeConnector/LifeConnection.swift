@@ -27,6 +27,6 @@ public struct LifeConnection: Sendable, Equatable {
     /// Why Life cannot be reached now, in words for a screen; nil when it can.
     public func whyNot(hasPath: Bool) -> String? {
         if !hasPath || lost == .offline { return MCPError.offline.reason }
-        return lost == .unreachable ? "Your Mac is out of reach." : nil
+        return lost == .unreachable ? MCPError.unreachable.reason : nil
     }
 }
