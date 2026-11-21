@@ -22,7 +22,7 @@ export const CALL_SLACK = 5 * MIN;
 /** The expected company: his one-to-one chats and calls from this long before a conversation to its end. */
 const EXPECTED_BEFORE = 6 * HOUR;
 /** A one-to-one message this long before a voice starts is a plan to meet: a signal, and what makes a short conversation worth a read. */
-const PLANNED_WITHIN = 2 * HOUR;
+export const PLANNED_WITHIN = 2 * HOUR;
 /** A likeness this strong is Voice's own bar for "sounds like them" (its `isLikely`). */
 export const SOUNDS_LIKE = 0.65;
 
