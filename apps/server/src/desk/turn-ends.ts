@@ -66,7 +66,7 @@ function watchedIn(db: Desk["db"]) {
 /**
  * Marks turn `turn` under way, once, and counts a try for each event queued before it was written (what it was handed):
  * a turn that never began (offline, out of quota) counts none, so it drops nothing, nor one already ended (a late `begun`).
- * Whether it handed a spoken ask for the first time (`ask.spoken` never handed before): its agent's push is then due.
+ * The spoken asks it handed for the first time (`ask.spoken` never handed before), with its agent: one push each is due.
  */
 const markBegun = (db: Desk["db"], turn: number) =>
   db.transaction(() => {
@@ -87,16 +87,17 @@ const markBegun = (db: Desk["db"], turn: number) =>
     if (t.cause === MOVE_NOTES) {
       return;
     }
-    const isFirstAsk = db
-      .query(
-        "select 1 from event where assignment_id = ? and name = ? and handed = 0 and received_at <= ? and consumed_at is null and dropped_at is null"
+    const { asks } = db
+      .query<{ asks: number }, [string, string, string]>(
+        "select count(*) as asks from event where assignment_id = ? and name = ? and handed = 0 and received_at <= ? and consumed_at is null and dropped_at is null"
       )
-      .get(t.assignment_id, ASK_SPOKEN, t.started_at);
+      .get(t.assignment_id, ASK_SPOKEN, t.started_at) ?? { asks: 0 };
     db.run(
       "update event set handed = handed + 1 where assignment_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
       [t.assignment_id, t.started_at]
     );
-    return isFirstAsk ? agentOf(db, t.agent_id) : undefined;
+    const agent = asks > 0 ? agentOf(db, t.agent_id) : undefined;
+    return agent && { agent, asks };
   })();
 
 /**
@@ -119,8 +120,8 @@ export function watch(desk: Desk, turn: number, run: Run) {
     () => {
       const heard = markBegun(desk.db, turn);
       // Not waited for: the turn's end never waits on the phone.
-      if (heard) {
-        pushHeard(heard);
+      for (let i = 0; heard && i < heard.asks; i += 1) {
+        pushHeard(heard.agent);
       }
     },
     () => undefined

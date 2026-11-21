@@ -36,7 +36,7 @@ import {
 const ROWS_PER_TICK = 1000;
 /** How long a spoken ask waits for the embedder to place it by meaning, from when it was recorded; then the Personal agent. */
 export const SPOKEN_ROUTE_WAIT = 20 * SECOND;
-/** The least time the meaning read is given, so an ask past its wait is still tried by meaning once. */
+/** The least time the meaning read is given, so an ask received past its wait (the desk was off) is still tried by meaning once. */
 const ROUTE_FLOOR = 5 * SECOND;
 
 /** Where spoken ask `ask` was received (its `ask.spoken` event row, for any agent), or null before. */
@@ -61,7 +61,10 @@ const payloadOf = (
   until: a.timing?.ended,
 });
 
-/** The nets each ask's words are close to, read within `ms` (an embedder that hangs reads as not whole). */
+/**
+ * The nets each ask's words are close to, read within `ms`: a read that hangs or fails (logged) is not whole, so no
+ * matter is chosen on it and the tick goes on.
+ */
 async function readRelated(
   desk: Desk,
   readPeopleNow: ReadPeople,
@@ -77,9 +80,13 @@ async function readRelated(
     );
     return { isWhole: isWhole && r.isWhole, related: r.related };
   };
+  const none = { isWhole: false, related: [] };
   return await Promise.race([
-    read(),
-    Bun.sleep(ms).then(() => ({ isWhole: false, related: [] })),
+    read().catch((error: unknown) => {
+      log("desk.asks", { ...errorOf(error), ok: false, what: "route" });
+      return none;
+    }),
+    Bun.sleep(ms).then(() => none),
   ]);
 }
 
@@ -96,19 +103,24 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
     ...cursor.waiting.flatMap((id) => askOf(id) ?? []),
     ...rows.flatMap((a) => (a && isSpokenAsk(a) ? [a] : [])),
   ].filter((a) => !receiptOf(db, a.id));
-  const now = clock().getTime();
-  const left = (a: LedgerEntry) => Date.parse(a.at) + SPOKEN_ROUTE_WAIT - now;
+  const left = (a: LedgerEntry) =>
+    Date.parse(a.at) + SPOKEN_ROUTE_WAIT - clock().getTime();
+  // Bounded by the soonest ask's own wait, so none is held past it; one already past it gets a short try.
   const { isWhole, related } =
     asks.length > 0
       ? await readRelated(
           desk,
           readPeopleNow,
           asks,
-          Math.max(ROUTE_FLOOR, ...asks.map(left))
+          Math.max(ROUTE_FLOOR, Math.min(...asks.map(left)))
         )
       : { isWhole: true, related: [] };
-  // Each ask's matter by meaning (his own words: no person), else whether it goes to the Personal agent now.
+  // Each ask's matter by meaning (his own words: no person), only on a whole read (a matter the embedder could not
+  // read may be closer); else the Personal agent once the read was whole or the ask's own wait is over, by the clock now.
   const toMatters = asks.flatMap((a, i) => {
+    if (!isWhole) {
+      return [];
+    }
     const near = related[i] ?? [];
     const assignment = matterOrPersonalOf(near, undefined);
     const by = near.find((r) => r.assignment === assignment)?.by;
@@ -163,9 +175,22 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
       log("desk.asks", { ...errorOf(error), ok: false });
     }
   }
-  const waiting = asks.flatMap((a) => (receiptOf(db, a.id) ? [] : a.id));
-  saveSpokenAsksCursor(db, { line: cursor.line + rows.length, waiting });
-  if (asks.length > waiting.length) {
-    log("desk.asks", { received: asks.length - waiting.length, waiting });
+  // The cursor as it stands now (an assignment that closed meanwhile gave asks back into it), in one transaction.
+  const waiting = db.transaction(() => {
+    const ids = [
+      ...new Set([
+        ...readSpokenAsksCursor(db).waiting,
+        ...asks.map((a) => a.id),
+      ]),
+    ].filter((id) => !receiptOf(db, id));
+    saveSpokenAsksCursor(db, {
+      line: cursor.line + rows.length,
+      waiting: ids,
+    });
+    return ids;
+  })();
+  const received = asks.filter((a) => receiptOf(db, a.id)).length;
+  if (received > 0) {
+    log("desk.asks", { received, waiting });
   }
 }
