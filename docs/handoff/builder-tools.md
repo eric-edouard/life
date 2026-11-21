@@ -8,7 +8,7 @@ tools/sweep.sh                      # one screen of what is in flight
 while :; do tools/conveyor.sh; sleep 120; done
 ```
 
-Their locks, logs and build folders live in `/private/tmp/life-tools`, one place for every worktree's copy (`LIFE_TOOLS_STATE` moves it). The landing lock itself is `~/.agents/skills/work-on-code/land-lock.sh`, not kept here.
+The conveyor, trains and swaps act on the live checkout, `~/Work/life`. Their locks, logs and build folders live in `/private/tmp/life-tools`, one place for every worktree's copy (`LIFE_TOOLS_STATE` moves it). The landing lock itself is `~/.agents/skills/work-on-code/land-lock.sh`, not kept here.
 
 | File | What it does |
 | --- | --- |
@@ -20,7 +20,7 @@ Their locks, logs and build folders live in `/private/tmp/life-tools`, one place
 | `build-and-swap.sh` | Pulls main, builds and signs Life.app, waits for no open agent turn, swaps it through `swap-life.sh`. |
 | `swap-life.sh <app>` | Replaces `/Applications/Life.app`, rolls back if the helpers do not start or crash-loop in 90 s. |
 | `host-build-and-swap.sh` | The same for Lifelog Host, with a health check and a migration count check. |
-| `claude-verdict.sh` | Runs a debt verdict reviewer through `claude -p` (see `helper-rules.md` for when it is out of quota). |
+| `claude-verdict.sh` | Runs a debt verdict reviewer through `claude -p`. |
 | `helper-rules.md` | The rules every helper agent follows. |
 
 Next: [builder.md](builder.md) for how the tools were used.

@@ -156,7 +156,7 @@ done
   private). Its source export is in the data repo, `~/Life/docs/product/app-design/canvas/project` (0dc3dba7).
 - **A pairing code for an app** (the menu's "Pair an app" from the command line):
   `LIFE_STATE_DIR="$HOME/Library/Application Support/Life/state" bun life pair`. It writes to the app's sign-in state.
-- **Scripts:** this session's copies are in its scratchpad, which won't survive. Restore them from
+- **Scripts:** kept in [`tools/`](../../tools/), listed in
   [builder-tools.md](builder-tools.md). Signing: `LIFE_SIGN_IDENTITY` is the "Apple Development" identity's hash
   (`security find-identity -v -p codesigning`); the Developer ID the README mentions isn't in his keychain.
 
