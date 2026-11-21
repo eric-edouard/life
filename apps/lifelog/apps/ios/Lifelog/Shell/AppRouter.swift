@@ -1,3 +1,4 @@
+import LifeConnector
 import Observation
 import SwiftUI
 
@@ -51,10 +52,15 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
-    /// The person or organization on show in the People tab, by ref, and which column a compact width shows.
-    var person: String?
+    /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
+    /// width shows.
+    private var people = PageStack<PersonRoute>()
+    var person: String? { people.page }
+    var personPath: [PersonRoute] {
+        get { people.path }
+        set { people.path = newValue }
+    }
     var personColumn = NavigationSplitViewColumn.sidebar
-    var personPath: [PersonRoute] = []
     /// The sheet open over a matter, by its id: here, not in the matter's page, so a fold that collapses the page keeps the
     /// sheet and the start it shows. One value, so one sheet replaces the other (Try again) in a single update.
     var matterSheet: MatterSheet?
@@ -74,10 +80,10 @@ final class AppRouter {
         select(person: ref)
     }
 
-    /// The one way the person on show changes: a compact width then shows them too, so a fold keeps them on screen.
+    /// The one way the person on show changes: their page starts bare, even when they were on show, and a compact width
+    /// then shows them too, so a fold keeps them on screen.
     func select(person ref: String?) {
-        if person != ref { personPath = [] }
-        person = ref
+        people.open(ref)
         personColumn = ref == nil ? .sidebar : .detail
     }
 

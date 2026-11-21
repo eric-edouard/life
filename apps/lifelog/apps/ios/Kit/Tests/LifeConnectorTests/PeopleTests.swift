@@ -170,3 +170,120 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(every.reach[0].accounts.map(\.handle) == ["a@o.example", "b@o.example"])
     #expect(every.details.map(\.text) == ["Lyon"])
 }
+
+@Test func allOpenMattersReadsThemWholeWhenNowLeftSomeOut() throws {
+    let matters = try decoded(MatterList.self, wireText("life/read_matters.json")).matters
+    let rows = try String(
+        decoding: JSONSerialization.data(
+            withJSONObject: (JSONSerialization.jsonObject(with: Data(wireText("life/read_matters.json").utf8))
+                as? [String: Any])?["matters"] ?? []),
+        as: UTF8.self)
+    let all = Array(matters.reversed())
+    // A partial preview: three of five, All shows `now`'s three until every one is read, then all of them.
+    let cut = try decoded(
+        PersonNow.self, #"{"ref":"person:c","name":"C","kind":"person","open":\#(rows),"more":{"open":2}}"#)
+    #expect(cut.openCount == 5 && cut.isOpenCut)
+    #expect(cut.openShown(isAll: false, all: nil) == matters)
+    #expect(cut.openShown(isAll: true, all: nil) == matters)
+    #expect(cut.openShown(isAll: true, all: all) == all)
+    // An empty preview with a total: the section still counts them, and All shows the matters read.
+    let none = try decoded(PersonNow.self, #"{"ref":"person:c","name":"C","kind":"person","more":{"open":4}}"#)
+    #expect(none.openCount == 4 && none.openShown(isAll: false, all: nil).isEmpty)
+    #expect(none.openShown(isAll: true, all: all) == all)
+    // Nothing left out: All is `now`'s own, never a read.
+    let whole = try decoded(PersonNow.self, #"{"ref":"person:c","name":"C","kind":"person","open":\#(rows)}"#)
+    #expect(!whole.isOpenCut && whole.openShown(isAll: true, all: all) == matters)
+}
+
+/// A page of `latest`, one exchange a day from `day` (of October) on.
+private func latestPage(_ texts: [String], from day: Int, before: String?) -> String {
+    let items = texts.enumerated().map { at, text in
+        #"{"channel":"whatsapp","at":"2026-10-\#(day + at)T09:00:00.000Z","lines":[{"by":"him","text":"\#(text)"}]}"#
+    }
+    return #"{"latest":[\#(items.joined(separator: ","))],"nextBefore":\#(before.map { "\"\($0)\"" } ?? "null")}"#
+}
+
+@Test func aFailedPageIsAskedAgainAndEachExchangeShowsOnce() throws {
+    let (first, second) = ("person:c/latest", "person:c/latest/before/2026-11-10")
+    var states: [String: ReadState<LatestPage>] = [:]
+    let chain = { PageChain(from: first, states: states) { $0.earlier(of: "person:c") } }
+    states[first, default: ReadState()].apply(
+        .succeeded(try decoded(LatestPage.self, latestPage(["a", "b"], from: 20, before: "2026-11-10")), .now))
+    #expect(chain().next == .more(second))
+    states[second, default: ReadState()].apply(.started)
+    states[second, default: ReadState()].apply(.failed(.failed("Life did not answer.")))
+    #expect(chain().next == .failed(second) && chain().toRead == second && chain().whole == nil)
+    #expect(chain().pages.flatMap(\.latest).count == 2)
+    states[second, default: ReadState()].apply(.started)
+    #expect(chain().next == .reading(second) && chain().toRead == nil)
+    states[second, default: ReadState()].apply(
+        .succeeded(try decoded(LatestPage.self, latestPage(["c", "d"], from: 10, before: nil)), .now))
+    let ids = chain().pages.flatMap(\.latest).map(\.id)
+    #expect(ids.count == 4 && Set(ids).count == 4 && chain().next == .end)
+    // A page naming itself as the next ends the chain, never a loop.
+    var looped: [String: ReadState<LatestPage>] = [:]
+    looped[second, default: ReadState()].apply(
+        .succeeded(try decoded(LatestPage.self, latestPage(["e"], from: 10, before: "2026-11-10")), .now))
+    let loop = PageChain(from: second, states: looped) { $0.earlier(of: "person:c") }
+    #expect(loop.pages.count == 1 && loop.next == .end)
+}
+
+@Test func anExchangeKeepsEveryMessageItsReplyIncluded() throws {
+    let page = try decoded(
+        LatestPage.self,
+        #"{"latest":[{"channel":"whatsapp","at":"2026-11-12T09:00:00.000Z","lines":[{"by":"him","text":"Free tonight?"},{"by":"him","text":"Around 8"},{"by":"them","text":"Yes, see you"}]}],"nextBefore":null}"#
+    )
+    #expect(page.latest[0].lines?.map(\.text) == ["Free tonight?", "Around 8", "Yes, see you"])
+    #expect(page.latest[0].lines?.last?.by == .them)
+}
+
+@Test func openingAPageEvenTheOneOnShowStartsItBare() {
+    var people = PageStack<String>()
+    people.open("person:atelier")
+    people.path.append("person:member")
+    people.open("person:atelier")
+    #expect(people.page == "person:atelier" && people.path.isEmpty)
+    people.path.append("person:atelier/page")
+    people.open(nil)
+    #expect(people.page == nil && people.path.isEmpty)
+}
+
+@Test func eachSearchSourceStandsAloneAndOnlyReadOnesSayNothing() throws {
+    let list = try decoded(PeopleList.self, wireText("life/read_people_and_organizations.json"))
+    var people = ReadState<PeopleList>()
+    people.apply(.succeeded(list, .now))
+    var matters = ReadState<MatterList>()
+    matters.apply(.failed(.unreachable))
+    // People found while the matters' read failed: the people show, the matters offer Try again, nothing is "none".
+    let found = SearchPart(people) { $0.people }
+    let failed = SearchPart(matters) { $0.matching("ana") }
+    guard case .found(let rows) = found, case .failed = failed else {
+        Issue.record("each source should stand alone")
+        return
+    }
+    #expect(!rows.isEmpty && !found.isNothing && !failed.isNothing)
+    // A new pairing clears the people found: the same query reads again, and until then it is reading, never "none".
+    let cleared = SearchPart(nil as ReadState<PeopleList>?) { $0.people }
+    guard case .reading = cleared else {
+        Issue.record("a read not asked yet is reading")
+        return
+    }
+    #expect(!cleared.isNothing)
+    var none = ReadState<PeopleList>()
+    none.apply(.succeeded(try decoded(PeopleList.self, #"{"people":[]}"#), .now))
+    #expect(SearchPart(none) { $0.people }.isNothing)
+}
+
+@Test func anOrganizationSaysWhatItsReadLeftOut() throws {
+    // Nothing fit: its people, domains and matters still count, so the page says how many rather than nothing.
+    let none = try decoded(
+        PersonNow.self,
+        #"{"ref":"person:atelier","name":"Atelier","kind":"organization","more":{"people":3,"domains":2,"open":2}}"#)
+    #expect(none.members.isEmpty && none.membersLeftOut == 3)
+    #expect(none.domains.isEmpty && none.domainsLeftOut == 2)
+    #expect(none.openCount == 2 && none.isOpenCut && none.openShown(isAll: false, all: nil).isEmpty)
+    // Nothing left out: no count.
+    let whole = try decoded(
+        PersonNow.self, #"{"ref":"person:atelier","name":"Atelier","kind":"organization","domains":["atelier.example"]}"#)
+    #expect(whole.membersLeftOut == 0 && whole.domainsLeftOut == 0 && !whole.isOpenCut)
+}

@@ -71,6 +71,8 @@ public protocol LifeAPI: Sendable {
     func readMatters() async throws -> String
     /// One project's matters, with its page's head.
     func readMatters(project: String) async throws -> String
+    /// The matters open with one person or organization, by ref, every one.
+    func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
@@ -118,6 +120,9 @@ public struct MCPLifeAPI: LifeAPI {
     public func readMatters() async throws -> String { try await client.call("read_matters") }
     public func readMatters(project: String) async throws -> String {
         try await client.call("read_matters", ["project": project])
+    }
+    public func readMatters(person: String) async throws -> String {
+        try await client.call("read_matters", ["person": person])
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }

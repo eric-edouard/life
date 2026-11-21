@@ -56,13 +56,12 @@ struct WritingPage: View {
     }
 }
 
-/// Every exchange with them, newest first under its day, paging back by Earlier (`latest` with `before`).
+/// Every exchange with them, newest first under its day, paging back by Earlier (`latest` with `before`): a page is
+/// asked only once the one before it arrived, and one that failed is asked again on Try again.
 struct LatestScreen: View {
     let subject: String
 
     @Environment(LifeStore.self) private var life
-    /// The pages asked beyond the first, in order: each the one before the last.
-    @State private var earlier: [String] = []
 
     private var first: String { subject + "/latest" }
 
@@ -74,8 +73,8 @@ struct LatestScreen: View {
             empty: { Notice(title: "Nothing exchanged yet.", detail: "Their messages, mail and talks show here.") },
             content: { _ in
                 SubPage(title: "Latest", subject: subject) {
-                    let pages = ([first] + earlier).compactMap { life.latest[$0]?.value }
-                    let items = pages.flatMap(\.latest)
+                    let chain = life.latestChain(of: subject)
+                    let items = chain.pages.flatMap(\.latest)
                     ForEach(Array(items.enumerated()), id: \.element.id) { at, item in
                         let day = SaidWords.day(item.at)
                         if at == 0 || SaidWords.day(items[at - 1].at) != day {
@@ -83,11 +82,11 @@ struct LatestScreen: View {
                         }
                         ExchangeView(item: item, when: SaidWords.time(item.at))
                     }
-                    let last = ([first] + earlier).last ?? first
-                    if let next = life.latest[last]?.value?.earlier(of: subject) {
-                        TextLink("Earlier", isOnward: true) { earlier.append(next) }
-                    } else if life.latest[last]?.phase == .loading {
-                        Spinner()
+                    switch chain.next {
+                    case .more(let ref): TextLink("Earlier", isOnward: true) { Task { await life.refreshLatest(ref) } }
+                    case .reading: Spinner()
+                    case .failed(let ref): PartRetry(what: "Earlier exchanges") { await life.refreshLatest(ref) }
+                    case .end: EmptyView()
                     }
                 }
             }
@@ -95,8 +94,18 @@ struct LatestScreen: View {
         .background(Palette.bg)
         .shellBar("")
         .task(id: life.parties.generation.current) { await life.refreshLatest(first) }
-        .task(id: earlier.last) {
-            if let ref = earlier.last { await life.refreshLatest(ref) }
+    }
+}
+
+/// A part of a page that did not load: what it is, and Try again, which reads it again.
+struct PartRetry: View {
+    let what: String
+    let retry: () async -> Void
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            Text("\(what) didn't load.").font(.small).foregroundStyle(Palette.muted)
+            TextLink("Try again") { Task { await retry() } }
         }
     }
 }

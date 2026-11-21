@@ -245,6 +245,20 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     /// How many matters are open with them, those Life left out included.
     public var openCount: Int { open.count + (more["open"] ?? 0) }
 
+    /// Whether `now` left some open matters out, so All reads them all (`read_matters` of them).
+    public var isOpenCut: Bool { (more["open"] ?? 0) > 0 }
+
+    /// The open matters a page shows: three, or on All every one: `now`'s own, or, when it left some out, `all` once
+    /// read (`now`'s until then).
+    public func openShown(isAll: Bool, all: [MatterRow]?) -> [MatterRow] {
+        guard isAll else { return Array(open.prefix(3)) }
+        return isOpenCut ? all ?? open : open
+    }
+
+    /// How many of an organization's people, and of its domains, `now` had no room for (none read them on the phone).
+    public var membersLeftOut: Int { more["people"] ?? 0 }
+    public var domainsLeftOut: Int { more["domains"] ?? 0 }
+
     /// An organization's people now, then those who left (`until`), each in his directory's order.
     public var membersNowThenBefore: (now: [Member], before: [Member]) {
         (members.filter { $0.until == nil }, members.filter { $0.until != nil })

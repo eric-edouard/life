@@ -5,8 +5,8 @@ import SwiftUI
 /// people he knows there (now first, then "Before", quieter), its open matters, its last exchange, and its domains.
 struct OrgPage: View {
     let now: PersonNow
-    /// Every account, the `reach` part's pages read (`PersonNow.withEveryAccount`).
-    let reach: [PersonNow.Reach]
+    /// Its accounts, every one once the `reach` part's pages are read (`PersonNow.withEveryAccount`).
+    let reach: ReachTiles
 
     var body: some View {
         let (present, before) = now.membersNowThenBefore
@@ -20,9 +20,9 @@ struct OrgPage: View {
                             Label(line, systemImage: "building.2").font(.body15).foregroundStyle(Palette.muted)
                         }
                     }
-                    if !reach.isEmpty { ReachTiles(reach: reach) }
+                    reach
                 }
-                if !now.members.isEmpty {
+                if !now.members.isEmpty || now.membersLeftOut > 0 {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(present) { member in MemberRow(member: member) }
                         if !before.isEmpty {
@@ -30,13 +30,14 @@ struct OrgPage: View {
                                 .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.xs)
                             ForEach(before) { member in MemberRow(member: member, isDim: true) }
                         }
+                        LeftOut(count: now.membersLeftOut, of: "people", isOnly: now.members.isEmpty)
                     }
                     .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
                     .card()
                 }
                 OpenMatters(label: "Matters", now: now)
                 Latest(subject: now.row.party.ref, label: "Last exchange", count: 1)
-                Domains(domains: now.domains)
+                Domains(domains: now.domains, leftOut: now.domainsLeftOut)
             }
             .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.xl)
             .readingWidth()
@@ -65,9 +66,10 @@ private struct MemberRow: View {
 /// Its web and mail domains, each a row; a tap opens the site.
 private struct Domains: View {
     let domains: [String]
+    let leftOut: Int
 
     var body: some View {
-        if !domains.isEmpty {
+        if !domains.isEmpty || leftOut > 0 {
             VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                 ForEach(domains, id: \.self) { domain in
                     if let url = URL(string: "https://\(domain)") {
@@ -83,10 +85,26 @@ private struct Domains: View {
                         .accessibilityLabel("Open \(domain)")
                     }
                 }
+                LeftOut(count: leftOut, of: "domains", isOnly: domains.isEmpty)
             }
             .padding(Metrics.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
             .card()
+        }
+    }
+}
+
+/// What Life had no room for in this read, said so a shortened list never reads as whole: "3 more people".
+private struct LeftOut: View {
+    let count: Int
+    let of: String
+    /// Nothing of the list fit: the line stands for all of it ("3 people").
+    let isOnly: Bool
+
+    var body: some View {
+        if count > 0 {
+            Text(isOnly ? "\(count) \(of)" : "\(count) more \(of)").font(.small).foregroundStyle(Palette.muted)
+                .padding(.vertical, Metrics.Spacing.s)
         }
     }
 }
