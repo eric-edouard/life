@@ -3,8 +3,6 @@ import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
-import { decisionsNow } from "../memory/decisions";
-import { isAsked } from "../memory/draft-contest";
 import type { HeldRead } from "../memory/life-checks";
 import {
   type AssignmentRow,
@@ -18,6 +16,7 @@ import {
   heldStampOf,
   readDesk,
 } from "./desk-read";
+import { countsAsAskedOf, movedInOf } from "./move-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
@@ -26,7 +25,7 @@ import {
 
 /**
  * The plan cards among the open decisions of `list` (every decision, in the order asked): an assignment he opened, its
- * first card asked (`isAsked`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
+ * first card asked (`countsAsAskedOf`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
  * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
  */
 export function planCardsOf(db: Database, list: readonly Decision[]) {
@@ -44,25 +43,41 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
       const opened = s ? assignmentOf(db, s) : null;
       return opened &&
         opensWithPlan(db, opened) &&
-        list.find((e) => isAsked(e) && ownerOf(e) === s) === d
+        list.find((e) => ownerOf(e) === s && countsAsAskedOf(db, opened)(e)) ===
+          d
         ? [d.id]
         : [];
     })
   );
 }
 
-/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened, not the caretaker's. */
+/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened or moved to its agent (`movedInOf`), not the caretaker's. */
 export const opensWithPlan = (
   db: Database,
-  s: Pick<AssignmentRow, "agent_id" | "opened_by">
-) => s.opened_by === "owner" && agentOf(db, s.agent_id)?.role !== "caretaker";
+  s: Pick<AssignmentRow, "agent_id" | "id" | "opened_by">
+) =>
+  (s.opened_by === "owner" || movedInOf(db, s) !== null) &&
+  agentOf(db, s.agent_id)?.role !== "caretaker";
 
-/** A card's links as its holder's: the asker's session link (`was`) becomes the holder's (`now`); with none, the links stay (a supporting link never takes the session's place). */
-export const holderLinksOf = (
-  links: string[],
-  was?: string | null,
-  now?: string | null
-) => (now ? links.map((l) => (l === was ? now : l)) : links);
+/** Each desk agent's open card as its holder's (its assignment's agent, else its asker): who, and that agent's session now, if any (never a link the card was asked with). */
+export const cardHoldersOf = (
+  db: Database,
+  open: readonly Pick<Decision, "agent" | "id">[]
+) => {
+  const owners = cardOwnersOf(db, open);
+  return open.flatMap((d) => {
+    const holder = owners[d.id]?.holder ?? d.agent;
+    const agent = holder ? agentOf(db, holder) : null;
+    return agent
+      ? [
+          [
+            d.id,
+            { agent: agent.id, ...(agent.link ? { session: agent.link } : {}) },
+          ] as const,
+        ]
+      : [];
+  });
+};
 
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
 function readHeld(): HeldRead | null {
@@ -72,27 +87,11 @@ function readHeld(): HeldRead | null {
   }
   const complaints = readDesk(complaintsAtWork, []);
   const atWork = complaints.state === "ok" ? complaints.value : [];
-  const open = decisionsNow().filter((d) => d.state === "open");
-  // Each card as its holder's: its id, and its session link in place of the asker's (stamped first when asked).
-  const holders = readDesk((db) => {
-    const owners = cardOwnersOf(db, open);
-    return open.flatMap((d) => {
-      const holder = owners[d.id]?.holder;
-      if (!holder || holder === d.agent) {
-        return [];
-      }
-      const links = holderLinksOf(
-        d.links,
-        d.agent ? agentOf(db, d.agent)?.link : undefined,
-        agentOf(db, holder)?.link
-      );
-      return [[d.id, { agent: holder, links }] as const];
-    });
-  }, []);
   return {
-    cardHolders: Object.fromEntries(
-      holders.state === "ok" ? holders.value : []
-    ),
+    cardHolders: (open) => {
+      const r = readDesk((db) => cardHoldersOf(db, open), []);
+      return Object.fromEntries(r.state === "ok" ? r.value : []);
+    },
     // Over the decisions the list is read from, so a card answered since never shows; the desk unreadable then, the
     // complaints still show as being fixed, without the card (they never block again on a failed read).
     complaints: (decisions) => {

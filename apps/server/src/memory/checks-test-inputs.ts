@@ -150,3 +150,24 @@ export const holdOn = (
   whyNotStarted: null,
   ...over,
 });
+
+/** An open yes-or-no decision `id`, asked by "planner" until `deadline`, on `subject` when given. */
+export const decision = (id: string, deadline: string, subject?: string) => ({
+  asker: "planner",
+  at: "2026-11-18T09:00:00.000Z",
+  context: "",
+  deadline,
+  id,
+  kind: "asked" as const,
+  links: [],
+  onSilence: null,
+  options: [
+    { id: "yes", label: "Yes" },
+    { id: "no", label: "No" },
+  ],
+  question: `Go ahead with ${id}?`,
+  schemaVersion: 3 as const,
+  state: "open" as const,
+  ...(subject ? { subject } : {}),
+  title: "It is due.",
+});

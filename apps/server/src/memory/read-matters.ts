@@ -2,7 +2,12 @@ import type { MatterIconKey } from "../records/matter-icon";
 import { isUnderway, type Project } from "../records/truth";
 import { communicationStylesOf } from "./communication-styles";
 import { decisionsNow } from "./decisions";
-import { type AgentHold, agentForOf, type StandingAgent } from "./held-matters";
+import {
+  type AgentHold,
+  agentForOf,
+  isHeldOf,
+  type StandingAgent,
+} from "./held-matters";
 import { iconNow } from "./matter-icons";
 import {
   directionDueOf,
@@ -12,6 +17,7 @@ import {
   matterOfSteps,
   matterPeopleOf,
   nextStepNow,
+  offerEndOf,
 } from "./matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
@@ -19,6 +25,7 @@ import type { Party } from "./party";
 import { readProjectSituationNow } from "./project-situation-read";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { goalsOf } from "./read-truth";
+import { nameKey } from "./units";
 import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -26,9 +33,13 @@ import { dayNow } from "./zones";
 // (his phone app and the models read the same). Reads only.
 
 /** The id of the project or area `query` is, by id or name; undefined when it is neither. */
-const idOf = (list: { id: string; name: string }[], query: string) =>
-  list.find(
-    (x) => x.id === query || x.name.toLowerCase() === query.toLowerCase()
+export const namedIdOf = (
+  list: { id: string; name: string }[],
+  query: string
+) =>
+  (
+    list.find((x) => x.id === query) ??
+    list.find((x) => nameKey(x.name) === nameKey(query))
   )?.id;
 
 type Role = "owedTo" | "waitingOn" | "with";
@@ -143,10 +154,26 @@ export const needsYouOf = (
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
-/** The running matters (open, not dormant) of the book `read` gives, ranked as `read_day`'s Due (`rankedMattersOf`), of one `person`, `project` or `area` when given; with what rows are read from and what `read` gave. Throws when a name goes by no one known. */
-async function rankedRunning<R extends { book: MatterView[] }>(
+/**
+ * Whether a matter is in a scope: of an area and of a project when given, or in no project (`noProject`: the project it
+ * shows under, `projectOf`, is none). The one rule of the matters list and of the chips' counts (`read_projects`).
+ */
+export const isInScope = (
+  truth: Pick<People["truth"], "projects">,
+  s: { area?: string; noProject?: boolean; project?: string }
+) => {
+  const of = projectOf(truth);
+  return (v: Pick<MatterView, "areas" | "projects">) =>
+    (!s.area || v.areas.includes(s.area)) &&
+    (!s.project || v.projects.includes(s.project)) &&
+    (!s.noProject || of(v) === undefined);
+};
+
+/** The running matters (open, not dormant) of the book `read` gives, ranked as `read_day`'s Due (`rankedMattersOf`), of one `person`, `project` or `area` when given, or of an area in no project; with what rows are read from and what `read` gave. Throws when a name goes by no one known. */
+export async function rankedRunning<R extends { book: MatterView[] }>(
   q: {
     area?: string;
+    noProject?: boolean;
     person?: string;
     project?: string;
   },
@@ -156,8 +183,8 @@ async function rankedRunning<R extends { book: MatterView[] }>(
   const people = given ?? (await readPeople());
   const { truth } = people;
   const known = q.person ? meant(q.person, people).known : undefined;
-  const area = q.area ? idOf(truth.areas, q.area) : undefined;
-  const project = q.project ? idOf(truth.projects, q.project) : undefined;
+  const area = q.area ? namedIdOf(truth.areas, q.area) : undefined;
+  const project = q.project ? namedIdOf(truth.projects, q.project) : undefined;
   const missing = [
     q.person && !known ? "person" : "",
     q.area && !area ? "area" : "",
@@ -169,12 +196,12 @@ async function rankedRunning<R extends { book: MatterView[] }>(
   const ref = known && `person:${known}`;
   const today = dayNow();
   const r = await read(people, today);
+  const isIn = isInScope(truth, { area, noProject: q.noProject, project });
   const running = r.book.filter(
     (v) =>
       isRunning(v) &&
       (!ref || ROLES.some((role) => v[role].includes(ref))) &&
-      (!area || v.areas.includes(area)) &&
-      (!project || v.projects.includes(project))
+      isIn(v)
   );
   const ranked = rankedMattersOf(
     running,
@@ -205,6 +232,7 @@ async function rankedRunning<R extends { book: MatterView[] }>(
 export async function openMatters(
   q: {
     area?: string;
+    noProject?: boolean;
     person?: string;
     project?: string;
   },
@@ -505,4 +533,53 @@ export async function oneMatter<A, S = undefined>(
       s.with ? { ...s, with: people.partyOf(s.with) } : s
     ),
   };
+}
+
+/**
+ * Each running matter he has not answered "Start an agent on this?" for, by id, with its next step and the offer's last
+ * day: one that began in the last `NEW_MATTER_DAYS` (its first step's day), with an open step, not stuck, a goal and a
+ * next step to hand over (the hand-out's gates, `handOutGateOf`), held by no agent (`isHeldOf`), not dismissed, and,
+ * while the hand-out is on, not one of his own (`isOneOfHis`); none while the desk is off or unreadable. Pure.
+ */
+export function newMatterOffersOf(c: {
+  decisions: HandOutFacts["decisions"];
+  dismissed: readonly (readonly string[])[];
+  heldByAgents: readonly AgentHold[] | null;
+  isDirectionDue: (matter: string) => boolean;
+  isForHandOut: (matter: string) => boolean;
+  isParked: (matter: string) => boolean;
+  matters: readonly (HandOutMatter &
+    Pick<MatterView, "goal" | "lone" | "newestOpenStep" | "open" | "status"> & {
+      important?: boolean;
+      steps: readonly { at: string; day: string; ref: string }[];
+    })[];
+  today: string;
+}) {
+  const facts = {
+    decisions: c.decisions,
+    dismissed: dismissedIdsOf(c.matters, c.dismissed),
+    isDue: c.isDirectionDue,
+    isHeld: isHeldOf(c.heldByAgents ?? []),
+    isHis: () => true,
+    isParked: c.isParked,
+  };
+  return new Map(
+    c.matters.flatMap((v) => {
+      const next = nextStepNow(v, c.decisions);
+      const lastDay = offerEndOf(v);
+      return c.heldByAgents &&
+        lastDay &&
+        c.today <= lastDay &&
+        v.newestOpenStep &&
+        v.status !== "stuck" &&
+        v.goal &&
+        next &&
+        !v.lone &&
+        isRunning(v) &&
+        handOutGateOf(v, facts) === null &&
+        !c.isForHandOut(v.id)
+        ? [[v.id, { lastDay, next }] as const]
+        : [];
+    })
+  );
 }

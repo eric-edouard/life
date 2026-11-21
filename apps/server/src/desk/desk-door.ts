@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isOwnLife } from "../core/platform";
 import { same, secretIn } from "../core/secret";
 import {
+  type AgentRow,
   type AssignmentRow,
   agentOf,
   assignmentOf,
@@ -12,6 +13,7 @@ import {
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
+import { MOVE_NOTES } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { AgentWait } from "../records/registered-agent";
 import {
@@ -46,6 +48,31 @@ export const doorOf = (id: string) => ({
 });
 
 /**
+ * Why the door refuses tool `name` on a turn of cause `cause` of `a` on `s`: a move's notes turn only writes its notes
+ * (`agent-moves.ts`); and his rule, an assignment's first turn ends on its plan (or card), asked, so it waits or
+ * finishes only after (not the caretaker's: his words are its plan, his yes of 20 Nov 2026). Null: it may go.
+ */
+function turnRefusalOf(
+  desk: Desk,
+  name: string,
+  cause: string,
+  a: AgentRow | null,
+  s: AssignmentRow
+) {
+  if (
+    cause === MOVE_NOTES &&
+    name !== "write_notes" &&
+    name !== "read_packet"
+  ) {
+    return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
+  }
+  const isEnd = name === "set_wait" || name === "finish";
+  return isEnd && a?.role !== "caretaker" && !hasAsked(desk.db, s)
+    ? askFirstMessageOf(s.opened_by)
+    : null;
+}
+
+/**
  * Agent `id`'s door: its six tools, registered as the connector's are (`tool()`), each refused unless the agent is
  * active (`read_packet` aside), and each acting on the assignment of its open desk turn: a turn names one matter, so
  * outside one nothing is done.
@@ -76,14 +103,9 @@ function doorServer(desk: Desk, id: string) {
             `Not done: no desk turn of ${id} is running: the desk wakes you on your assignment's events, its deadline or his answer, and your tools act on that turn's.`
           );
         }
-        // His rule: an assignment's first turn ends on its plan (or card), asked; it waits or finishes only after. Not the
-        // caretaker's: his words are its plan (his yes of 20 Nov 2026).
-        if (
-          (name === "set_wait" || name === "finish") &&
-          a?.role !== "caretaker" &&
-          !hasAsked(desk.db, s)
-        ) {
-          throw new Error(askFirstMessageOf(s.opened_by));
+        const refused = turnRefusalOf(desk, name, turn.cause, a, s);
+        if (refused) {
+          throw new Error(refused);
         }
         const r = await run(args, s);
         if (typeof r === "object" && r !== null && "error" in r) {

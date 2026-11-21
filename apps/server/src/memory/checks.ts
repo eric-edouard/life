@@ -41,9 +41,10 @@ import {
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
-import { type AgentHold, isHeldOf } from "./held-matters";
+import type { AgentHold } from "./held-matters";
 import {
   type BeingFixed,
+  type CardHolders,
   type Check,
   type CheckKind,
   type CheckMatter,
@@ -52,14 +53,11 @@ import {
 } from "./life-checks";
 import {
   directionDueOf,
-  isRunning,
   type MatterStepNow,
   type MatterView,
   matterBookOf,
   matterFinderOf,
   matterPeopleOf,
-  nextStepNow,
-  offerEndOf,
 } from "./matter-read";
 import {
   MATTER_BOOK_READS,
@@ -83,10 +81,9 @@ import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
 import { PROJECT_SITUATIONS } from "./project-situation-read";
 import {
-  dismissedIdsOf,
-  handOutGateOf,
   isOneOfHis,
   isParkedMatterOf,
+  newMatterOffersOf,
 } from "./read-matters";
 import { lifeLinksOf } from "./refs";
 import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
@@ -131,8 +128,8 @@ type Where = string;
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
-  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now (`HeldRead.cardHolders`). */
-  decisions: readonly Decision[];
+  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now, with its session (`HeldRead.cardHolders`). */
+  decisions: readonly (Decision & { session?: string })[];
   /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
   dismissed: readonly (readonly string[])[];
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
@@ -238,42 +235,6 @@ interface Ctx extends CheckInputs {
   mattersByStep: ReadonlyMap<string, Set<MatterId>>;
   /** The matters offered as new matters (`newMatterOffersOf`), by id: their your move card waits until the offer ends. */
   offered: ReturnType<typeof newMatterOffersOf>;
-}
-
-/**
- * Each running matter he has not answered "Start an agent on this?" for, by id, with its next step and the offer's last
- * day: one that began in the last `NEW_MATTER_DAYS` (its first step's day), with an open step, not stuck, a goal and a
- * next step to hand over (the hand-out's gates, `handOutGateOf`), held by no agent (`isHeldOf`), not dismissed, and,
- * while the hand-out is on, not one of his own (`isOneOfHis`); none while the desk is off or unreadable. Pure.
- */
-function newMatterOffersOf(c: CheckInputs) {
-  const facts = {
-    decisions: c.decisions,
-    dismissed: dismissedIdsOf(c.matters, c.dismissed),
-    isDue: c.isDirectionDue,
-    isHeld: isHeldOf(c.heldByAgents ?? []),
-    isHis: () => true,
-    isParked: c.isParked,
-  };
-  return new Map(
-    c.matters.flatMap((v) => {
-      const next = nextStepNow(v, c.decisions);
-      const lastDay = offerEndOf(v);
-      return c.heldByAgents &&
-        lastDay &&
-        c.today <= lastDay &&
-        v.newestOpenStep &&
-        v.status !== "stuck" &&
-        v.goal &&
-        next &&
-        !v.lone &&
-        isRunning(v) &&
-        handOutGateOf(v, facts) === null &&
-        !c.isForHandOut(v.id)
-        ? [[v.id, { lastDay, next }] as const]
-        : [];
-    })
-  );
 }
 
 function ctxOf(c: CheckInputs): Ctx {
@@ -426,6 +387,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
+          ...sessionOf(d),
           onMatters: [],
           onSilence: d.onSilence,
           ...decisionCardOf(d),
@@ -599,6 +561,12 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   "your move": (c) => yourMoveChecksOf(c, c.offered),
 };
 
+/** A decision's session (`Check.session`): a desk agent's card, its holder's now, or none; any other ask, its first link. */
+const sessionOf = (d: Decision & { session?: string }) => {
+  const session = d.agent ? d.session : d.links[0];
+  return session ? { session } : {};
+};
+
 /** The checks, in his inbox's order (`inboxOrderOf`). Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
@@ -663,13 +631,14 @@ const CHECKS_READ = [
 const checksKeyOf = (
   held: HeldRead | null,
   voices: readonly NamingQueueItem[],
-  decisions: readonly Decision[]
+  decisions: readonly Decision[],
+  holders: CardHolders
 ) =>
   JSON.stringify([
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [held.stamp, held.cardHolders],
+    held && [held.stamp, holders],
     voices,
   ]);
 
@@ -677,10 +646,17 @@ const checksKeyOf = (
 export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
   const all = decisionsNow();
+  // Each open card as its holder's, read from this one list (`HeldRead.cardHolders`).
   const decisions = all.filter((d) => d.state === "open");
-  const key = checksKeyOf(held, voices, decisions);
+  const holders = held?.cardHolders?.(decisions) ?? {};
+  const key = checksKeyOf(held, voices, decisions, holders);
   if (isLocked() || last?.key !== key) {
-    const list = readChecks(held, voices, decisions, all);
+    const list = readChecks(
+      held,
+      voices,
+      decisions.map((d) => ({ ...d, ...holders[d.id] })),
+      all
+    );
     last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -699,7 +675,7 @@ export const checksNow = async (held: HeldRead | null) =>
 async function readChecks(
   held: HeldRead | null,
   voices: NamingQueueItem[],
-  decisions: Decision[],
+  decisions: CheckInputs["decisions"],
   all: Decision[]
 ): Promise<InboxCheck[]> {
   const people = await readPeople();
@@ -751,11 +727,9 @@ async function readChecks(
     steps: new Set([...steps, ...yourMoveStepsOf(matters, today)]),
   });
   const key = secretIn("pushIdKey");
-  // Each card as asked by the agent holding it now (host's `cardHoldersOf`), whoever asked it.
-  const by = held?.cardHolders ?? {};
   const checks = checksOf({
     answered,
-    decisions: decisions.map((d) => ({ ...d, ...by[d.id] })),
+    decisions,
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,

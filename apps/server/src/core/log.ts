@@ -24,6 +24,7 @@ type LogKind =
   | "desk.complaints"
   | "desk.fold"
   | "desk.hand_out"
+  | "desk.move"
   | "desk.net"
   | "desk.queued"
   | "desk.runtime"

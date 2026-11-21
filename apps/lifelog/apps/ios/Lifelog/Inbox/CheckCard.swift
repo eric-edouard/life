@@ -51,10 +51,10 @@ struct CheckCard: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
         }
-        .sheet(isPresented: $input.showsContext) {
+        .sheet(item: $input.context) { context in
             ContextSheet(
-                title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
-                appLink: check.links.first.flatMap(URL.init(string:)), appName: runtimeName?.name)
+                title: context.title, markdown: context.markdown, lifeLinks: context.lifeLinks,
+                appLink: context.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
     }
 
@@ -94,7 +94,7 @@ struct CheckCard: View {
         if !check.planSteps.isEmpty {
             PlanBlock(
                 steps: check.planSteps, agentMark: check.agentMark(runtime: runtimeName), gathered: check.gathered,
-                openContext: isContextBeside ? nil : { input.showsContext = true })
+                openContext: isContextBeside ? nil : { input.context = check.ownContext })
         }
         DraftBlock(check: check, isBoxed: false)
         if !(check.needs ?? []).isEmpty {
@@ -136,9 +136,12 @@ struct CheckCard: View {
         .onAppear { isWriting = true }
     }
 
-    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    /// His "Wrong…" the caretaker is at work on, under the tile: the caretaker's open question as a chip that opens its
+    /// context when it has one, else its line with the spinner.
     @ViewBuilder private var beingFixed: some View {
-        if let fixing = check.beingFixed {
+        if let context = check.fixContext {
+            QuietChip(context.title, symbol: "questionmark.circle") { input.context = context }.appears()
+        } else if let fixing = check.beingFixed {
             HStack(spacing: Metrics.Spacing.s) {
                 StateGlyph.busy
                 Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
@@ -154,7 +157,7 @@ struct CheckCard: View {
     private var contextLink: QuietChip? {
         guard !isContextBeside, check.gathered == nil || check.planSteps.isEmpty, let title = check.contextLinkTitle
         else { return nil }
-        return QuietChip(title, symbol: "questionmark.circle") { input.showsContext = true }
+        return QuietChip(title, symbol: "questionmark.circle") { input.context = check.ownContext }
     }
 
     @ViewBuilder private var matterPill: some View {

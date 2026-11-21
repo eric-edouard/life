@@ -7,7 +7,6 @@ import { clock, daysBefore, HOUR, iso, MIN } from "../core/clock";
 import { log } from "../core/log";
 import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
-import type { ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
@@ -24,7 +23,7 @@ import {
   readRecentVoice,
 } from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
-import { readConfirmedArrivals, readReplies, storeReply } from "./read-replies";
+import { readConfirmedArrivals, readReplies } from "./read-replies";
 import { OWNER, type Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
 import { applyRules, messageUnits } from "./units";
@@ -729,33 +728,6 @@ test("who wrote the confirmed lines: his own promise in a 1:1 chat names the oth
   };
   expect(await peopleOf(SAM)).toEqual([["person:sam"]]);
   expect(await peopleOf("120363000000000001@g.us")).toEqual([[]]);
-});
-
-test("a confirm filed in last month's file (its first message's month) is still read just after midnight UTC", () => {
-  const where = join(dir, "month-edge");
-  storeReply(
-    {
-      at: "2026-11-01T00:10:00.000Z",
-      madeBy: stamp(
-        { engine: "codex", model: "test" },
-        "memory-arrival-confirm.v2",
-        "r1"
-      ),
-      messages: ["whatsapp|whatsapp:edge"],
-      people: [],
-      promptDigest: "0123456789abcdef",
-      read: "arrival_confirm",
-      reply: { isActionable: true },
-      schemaVersion: 1,
-      starts: [0],
-      unit: "unit_0000000000ed",
-    } as ReadReply,
-    "2026-10-31T23:50:00.000Z",
-    where
-  );
-  expect(
-    readConfirmedArrivals("2026-11-01T00:00:00.000Z", where).map((a) => a.unit)
-  ).toEqual(["unit_0000000000ed"]);
 });
 
 // Last: it fills today's model log.

@@ -10,7 +10,13 @@ import {
 import { log } from "../../core/log";
 import { errorOf, fromModel } from "../../core/log-line";
 import { cliEnv } from "../../core/platform";
-import type { Run, RunEnd, Runtime, Usage } from "./contract";
+import {
+  type Run,
+  type RunEnd,
+  type Runtime,
+  SessionLive,
+  type Usage,
+} from "./contract";
 import type { Row } from "./runtime-rows";
 
 // The one runtime: a row's program (`runtime-rows.ts`) driven over the Agent Client Protocol (the ACP runtime spec, 19 Nov
@@ -309,7 +315,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
         (await runtime.state(ref)) === "running" ||
         live.has(ref)
       ) {
-        throw new Error(`session ${ref} is running`);
+        throw new SessionLive(`session ${ref} is running`);
       }
       return await launch(a, message, ref);
     },
