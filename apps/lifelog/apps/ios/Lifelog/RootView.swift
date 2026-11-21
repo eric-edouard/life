@@ -211,6 +211,13 @@ struct RootView: View {
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }
+            if LifeFixture.sheet == "agents" { router.openAgents() }
+            // The page of the matter's agent, pushed on the matter.
+            if LifeFixture.sheet == "agentPage", let id = LifeFixture.matter {
+                await life.refreshAgents()
+                let agents = life.agents.value?.agents ?? []
+                if let agent = (agents.first { $0.matter?.id == id } ?? agents.first)?.id { router.open(agent: agent) }
+            }
             if LifeFixture.sheet == "icon" { router.matterSheet = LifeFixture.matter.map { .icon($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(

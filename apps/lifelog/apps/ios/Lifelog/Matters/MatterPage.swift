@@ -61,7 +61,7 @@ struct MatterPage: View {
                     Goal(row: row).offWhileOutOfReach()
                     if let agent {
                         AgentRow(matter: matter, agent: agent) {
-                            router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                            router.open(agent: matter.holder?.agent.id ?? agent.id)
                         }
                     }
                 }
@@ -405,7 +405,7 @@ extension MatterStep {
 
 /// The agent's row on a matter: the holder's mark and name (else its program) in `ai`, "Moved from …" when he moved it
 /// there, then one line (a move under way, with its spinner; else who it listens for and its deadline, or its state,
-/// `flag` when it never started). It opens the agent's sheet; while a move is possible it is a pull-down menu: Open, or
+/// `flag` when it never started). It opens the agent's page; while a move is possible it is a pull-down menu: Open, or
 /// the move, asked once. A move that failed, or its call, says why above it, with Try again when that may be tried.
 private struct AgentRow: View {
     let matter: Matter
