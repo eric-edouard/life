@@ -129,8 +129,8 @@ extension ReadState where Value == Inbox {
 /// One read of each kind at a time, plus one more pass: a read asked while one of its kind runs never runs beside it
 /// (the later of two would not always land last, and an older read would win). It joins the pass queued after the
 /// running one, or queues it, and returns once that pass ended: several asks during one read make one more pass.
-/// A pass belongs to the pairing it was asked in: once he pairs again (the same Life too) it never begins, so an old
-/// pairing's ask (its person's ref, say) never reaches the new Life, and the new pairing's asks make passes of their own.
+/// A pass belongs to the pairing it was asked in: queued when he pairs again (the same Life too), it never begins, so a
+/// queued ask of the old pairing (its person's ref, say) is never sent; the new pairing's asks make passes of their own.
 @MainActor
 public final class ReadFlights {
     private struct Flight: Hashable {

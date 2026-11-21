@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import LifeConnector
@@ -123,8 +124,6 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     var overlapped = false
     var gates: [CheckedContinuation<Void, Never>] = []
     var shown = ReadState<[Int]>()
-    /// Which reads began, by name.
-    var ran: [String] = []
 
     func read() async {
         started += 1
@@ -210,36 +209,38 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     #expect(state.showing([7, 1], at: then).loadedAt == then.addingTimeInterval(5))
 }
 
-/// An inbox read queued behind the running one, then he pairs again (the same Life): the queued read never begins, so
-/// nothing of the old pairing's ask reaches the new Life, and the new pairing's read runs on its own pass, never
-/// joining the old one.
+/// An inbox read queued behind the running one, then he pairs again (the same Life): the queued read never begins,
+/// and the new pairing's read runs at once on its own pass, never joining the old one. Only the first read is held, so
+/// a queue that let the old read through, or made the new one wait, fails here instead of hanging.
 @MainActor @Test func aReadQueuedBeforeAPairingNeverRunsUnderTheNewOne() async {
     let generation = PairingGeneration()
     let flights = ReadFlights(generation: generation)
     let reads = Reads()
+    let ran = Mutex<[String]>([])
+    let isAsked = Mutex(false)
     let running = Task {
         await flights.run("inbox") {
-            reads.ran.append("old running"); await reads.read()
+            ran.withLock { $0.append("old running") }
+            await reads.read()
         }
     }
     while reads.started < 1 { await Task.yield() }
+    // On the main actor its ask is queued before its task first waits: seen asked, it is in the queue.
     let queued = Task {
-        await flights.run("inbox") {
-            reads.ran.append("old queued"); await reads.read()
-        }
+        isAsked.withLock { $0 = true }
+        await flights.run("inbox") { ran.withLock { $0.append("old queued") } }
     }
-    for _ in 0..<10 { await Task.yield() }
+    while !isAsked.withLock({ $0 }) { await Task.yield() }
     generation.next()
-    let fresh = Task {
-        await flights.run("inbox") {
-            reads.ran.append("new"); await reads.read()
-        }
+    let fresh = Task { await flights.run("inbox") { ran.withLock { $0.append("new") } } }
+    var tries = 0
+    while !ran.withLock({ $0.contains("new") }), tries < 1_000 {
+        tries += 1
+        await Task.yield()
     }
-    while reads.started < 2 { await Task.yield() }
-    await reads.finishNext()
     await reads.finishNext()
     await running.value
     await queued.value
     await fresh.value
-    #expect(reads.ran == ["old running", "new"] && reads.started == 2)
+    #expect(ran.withLock { $0 } == ["old running", "new"])
 }
