@@ -1,4 +1,4 @@
-import { readLinesFrom } from "../core/files";
+import { readLines } from "../core/files";
 import { log } from "../core/log";
 import {
   type AssignmentRow,
@@ -96,8 +96,11 @@ function startFailureOf(db: Desk["db"]) {
 export async function receiveComplaints(desk: Desk) {
   const { db } = desk;
   const from = Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0);
-  // Its page's lines only (`readLinesFrom`): a tick parses no more of the ledger than it reads.
-  const rows = readLinesFrom(LEDGER, from, ROWS_PER_TICK).map(parseLedgerEntry);
+  // Its page's lines only (`readLines`): a tick parses no more of the ledger than it reads.
+  const rows = Array.from(
+    readLines(LEDGER, from, from + ROWS_PER_TICK),
+    parseLedgerEntry
+  );
   const pending = rows.flatMap((a, i) =>
     a && isComplaint(a) && !complaintReceiptOf(db, a.id)
       ? [{ a, n: from + i }]
