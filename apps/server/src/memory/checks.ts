@@ -119,7 +119,7 @@ import { dayNow } from "./zones";
 // store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
 
 /** A kept line as the checks read it. */
-type Line = Pick<
+export type Line = Pick<
   Shown,
   | "about"
   | "confidence"
