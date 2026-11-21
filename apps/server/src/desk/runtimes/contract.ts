@@ -48,7 +48,7 @@ export interface Agent {
 export interface Runtime {
   /** Why the program can't run now (not installed, not answering); none when it can: the same meaning as `SendPath.block`. */
   block: () => Promise<string | undefined>;
-  /** Keeps session `ref` open for `agent` with no prompt (his presence on Tell Life), as `talk` keeps it; refused with `SessionLive` while anything else runs it. */
+  /** Keeps session `ref` open for `agent` with no prompt (his presence on Ask Life), as `talk` keeps it; refused with `SessionLive` while anything else runs it. */
   keep: (agent: Agent, ref: string) => Promise<void>;
   /** Launches `message` in the session now, answering once the run is launched (`Run.begun` says when the turn is under way); refused with `SessionLive` while anything else runs it. */
   send: (agent: Agent, ref: string, message: string) => Promise<Run>;
@@ -63,7 +63,7 @@ export interface Runtime {
   stop: (ref: string) => Promise<void>;
   /**
    * Launches `message` on session `ref` (null: the one kept, else a new one) kept open across prompts, never handed to his app: the main
-   * session's (Tell Life). `onUpdate` hears the run as it goes. Refused with `SessionLive` while anything else runs it, or
+   * session's (Ask Life). `onUpdate` hears the run as it goes. Refused with `SessionLive` while anything else runs it, or
    * while its last prompt runs.
    */
   talk: (

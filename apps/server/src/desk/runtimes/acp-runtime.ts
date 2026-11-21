@@ -24,7 +24,7 @@ import type { Row } from "./runtime-rows";
 
 // The one runtime: a row's program (`runtime-rows.ts`) driven over the Agent Client Protocol (the ACP runtime spec, 19 Nov
 // 2026). One adapter process per turn, closed when the prompt's reply arrives: a turn is one run, his app may open the
-// session between turns. The one exception is `talk` (the main session, Tell Life): its process is kept open across
+// session between turns. The one exception is `talk` (the main session, Ask Life): its process is kept open across
 // prompts, so his next words pay no start, and closed after `KEEP_WARM_MS` without one. Nothing is written to disk: `live` holds the runs this process drives,
 // and a desk restart ends a running turn (its adapter dies with its pipe), which the desk's retry covers.
 // This file names no runtime: what differs is in the row.

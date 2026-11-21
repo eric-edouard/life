@@ -2,36 +2,36 @@ import LifeConnector
 import ServerAPI
 import SwiftUI
 
-/// Tell Life, full screen: one place to say anything to Life from any screen. His last words sit as a caption, the stage
+/// Ask Life, full screen: one place to say anything to Life from any screen. His last words sit as a caption, the stage
 /// shows the present (never a history), and the foot is the composer: his words in a capsule, the one microphone
 /// (`DictationField`: tap, or hold, to talk) and Send, or a swipe up from the microphone. Not a live conversation:
 /// he records, then sends.
-struct TellLifeScreen: View {
+struct AskLifeScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
     @State private var draft = ""
 
-    private var tell: TellLife { life.tell }
+    private var tell: AskLife { life.askLife }
 
     /// Closes to the strip when there is something to keep in sight, else just closes.
     private func makeSmall() {
-        router.isTellLifeSmall = tell.stage != .ready || tell.answer != nil
-        router.isTellLifeOpen = false
+        router.isAskLifeSmall = tell.stage != .ready || tell.answer != nil
+        router.isAskLifeOpen = false
     }
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.l) {
             HStack {
-                TellSmallButton(action: makeSmall)
+                AskLifeSmallButton(action: makeSmall)
                 Spacer()
                 CloseButton {
-                    router.tellContext = nil
-                    router.isTellLifeSmall = false
-                    router.isTellLifeOpen = false
+                    router.askLifeContext = nil
+                    router.isAskLifeSmall = false
+                    router.isAskLifeOpen = false
                 }
             }
-            if let context = router.tellContext {
-                QuietChip(context.question, symbol: "xmark", isMuted: true) { router.tellContext = nil }
+            if let context = router.askLifeContext {
+                QuietChip(context.question, symbol: "xmark", isMuted: true) { router.askLifeContext = nil }
             }
             if !tell.said.isEmpty {
                 Text(tell.said).font(.small).foregroundStyle(Palette.muted).lineLimit(2).multilineTextAlignment(.center)
@@ -43,8 +43,8 @@ struct TellLifeScreen: View {
             composer
         }
         .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-        .background(TellRoom())
-        .onAppear { router.isTellLifeSmall = false }
+        .background(AskLifeRoom())
+        .onAppear { router.isAskLifeSmall = false }
         // Swipe down makes it small.
         .gesture(DragGesture().onEnded { if $0.translation.height > 120 { makeSmall() } })
         .motion(Motion.standard, value: tell.stage)
@@ -58,7 +58,7 @@ struct TellLifeScreen: View {
         }
         // Words that waited for the Mac go as soon as the phone has a path again.
         .onChange(of: life.hasPath) { _, has in
-            if has, tell.stage == .offline { Task { await tell.sendAgain(screen: router.tellScreen) } }
+            if has, tell.stage == .offline { Task { await tell.sendAgain(screen: router.mainSessionScreen) } }
         }
     }
 
@@ -66,15 +66,15 @@ struct TellLifeScreen: View {
         VStack(spacing: Metrics.Spacing.l) {
             switch tell.stage {
             case .thinking:
-                TellLightLine(kind: .point)
+                AskLifeLightLine(kind: .point)
                 note("Thinking…")
             case .working:
                 working
             case .offline:
-                TellLightLine(kind: .waiting)
+                AskLifeLightLine(kind: .waiting)
                 head("Your Mac is offline")
                 note("This goes as soon as it's back.")
-                if let waiting = tell.waiting { TellWaitingPill(words: waiting) }
+                if let waiting = tell.waiting { AskLifeWaitingPill(words: waiting) }
             case .ready:
                 answer
             }
@@ -87,30 +87,30 @@ struct TellLifeScreen: View {
     private var working: some View {
         VStack(spacing: Metrics.Spacing.l) {
             if tell.words.isEmpty {
-                TellLightLine(kind: .point)
+                AskLifeLightLine(kind: .point)
             } else {
-                TellLightLine(kind: .answer); head(tell.words)
+                AskLifeLightLine(kind: .answer); head(tell.words)
             }
-            ForEach(tell.strands) { TellStrandRow(title: $0.title, isDone: $0.isDone) }
+            ForEach(tell.strands) { AskLifeStrandRow(title: $0.title, isDone: $0.isDone) }
         }
     }
 
     @ViewBuilder private var answer: some View {
         if let answer = tell.answer {
-            TellAnswerView(answer: answer, again: again, open: open, tell: say)
+            AskLifeAnswerView(answer: answer, again: again, open: open, tell: say)
         } else {
-            TellLightLine(kind: .ready)
+            AskLifeLightLine(kind: .ready)
             note("Tap or hold the microphone. Swipe up from it, or tap Send.")
         }
     }
 
-    private func again() { Task { await tell.sendAgain(screen: router.tellScreen) } }
+    private func again() { Task { await tell.sendAgain(screen: router.mainSessionScreen) } }
     /// An answer's own chip or button gives words: they go as his, like any others.
-    private func say(_ words: String) { Task { await tell.send(words, screen: router.tellScreen) } }
+    private func say(_ words: String) { Task { await tell.send(words, screen: router.mainSessionScreen) } }
 
     /// What an answer's chip points at, by ref: a person or an organization, a card in the Inbox, else a matter.
     private func open(_ ref: String) {
-        router.isTellLifeOpen = false
+        router.isAskLifeOpen = false
         if ref.hasPrefix("person:") {
             router.open(party: ref)
         } else if ref.hasPrefix("dec_") {
@@ -121,12 +121,12 @@ struct TellLifeScreen: View {
         }
     }
 
-    private func head(_ words: String) -> some View { TellHead(words: words) }
-    private func note(_ words: String) -> some View { TellNote(words: words) }
+    private func head(_ words: String) -> some View { AskLifeHead(words: words) }
+    private func note(_ words: String) -> some View { AskLifeNote(words: words) }
 
     /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
     private var composer: some View {
-        DictationField(prompt: "Tell Life…", text: $draft, axis: .vertical, send: submit)
+        DictationField(prompt: "Ask Life…", text: $draft, axis: .vertical, send: submit)
             .tellComposer()
     }
 
@@ -135,6 +135,6 @@ struct TellLifeScreen: View {
         guard !tell.isBusy else { return }
         let words = draft
         draft = ""
-        Task { await tell.send(words, screen: router.tellScreen) }
+        Task { await tell.send(words, screen: router.mainSessionScreen) }
     }
 }

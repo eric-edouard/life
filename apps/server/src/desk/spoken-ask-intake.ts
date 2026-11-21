@@ -37,7 +37,7 @@ import {
 // wait), each ask is placed alone: one waits while the embedder could not read the nets and it is under
 // `SPOKEN_ROUTE_WAIT` old, or while no Personal place can be made (stopped, a full desk, a runtime that does not
 // answer); never dropped, no age limit. An assignment that closes gives back what it never handed (`giveBack`). His
-// words through Tell Life that the main session handed to one agent (`after.to`) are never routed by meaning: they go
+// words through Ask Life that the main session handed to one agent (`after.to`) are never routed by meaning: they go
 // to that assignment, else its agent's open one, else (its agent ended) to the Personal agent's (`toldPlaceOf`).
 
 const ROWS_PER_TICK = 1000;
@@ -260,7 +260,7 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
 /**
  * Spoken ask `ask` as the agent it was routed to reads it through its door (`read_spoken_ask`): only one received on
  * assignment `s` (its `ask.spoken` event there). His words, verbatim, as data; `ref` opens the recording around them.
- * His words through Tell Life (`after.to`) read the same way.
+ * His words through Ask Life (`after.to`) read the same way.
  */
 export function readSpokenAsk(
   { db }: Desk,
@@ -274,7 +274,7 @@ export function readSpokenAsk(
   return {
     at: a.instruction.at,
     confidence: a.after.confidence,
-    // His words through Tell Life were typed or heard on his phone: no recording opens around them.
+    // His words through Ask Life were typed or heard on his phone: no recording opens around them.
     ...(toldToOf(a) ? {} : { ref: a.instruction.ref }),
     until: a.timing?.ended,
     words: a.instruction.quote,

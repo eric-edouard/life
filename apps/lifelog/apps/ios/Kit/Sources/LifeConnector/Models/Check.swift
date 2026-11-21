@@ -297,7 +297,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
-    /// Set on Life's own cards only, nil on an agent's: it offers "Wrong…", which opens Tell Life on the card.
+    /// Set on Life's own cards only, nil on an agent's: it offers "Wrong…", which opens Ask Life on the card.
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
     public let beingFixed: BeingFixed?
@@ -352,8 +352,8 @@ extension Check {
         }
     }
 
-    /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
-    public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
+    /// The words of what opens his own words on it: "Tell the agent…", or "Ask Life…" on Life's own question.
+    public var tellTitle: String { isLifesOwn ? "Ask Life…" : "Tell the agent…" }
 
     /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
     public struct OpenedContext: Identifiable, Equatable, Sendable {

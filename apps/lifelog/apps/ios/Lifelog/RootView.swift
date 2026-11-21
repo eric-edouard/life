@@ -3,7 +3,7 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs and Tell Life, with the Settings
+/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs and Ask Life, with the Settings
 /// and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
@@ -47,14 +47,14 @@ struct RootView: View {
             } label: {
                 TabLabel("People", "person.2")
             }
-            // Tell Life is a tab of the bar, so the system places it in every pose; a tap opens it and leaves the tab on show
+            // Ask Life is a tab of the bar, so the system places it in every pose; a tap opens it and leaves the tab on show
             // (`tabs`). Not paired: no tab.
-            Tab(value: AppRouter.Tab.tellLife) {
+            Tab(value: AppRouter.Tab.askLife) {
                 Color.clear
             } label: {
-                TabLabel("Tell Life", "waveform")
+                TabLabel("Ask Life", "waveform")
             }
-            .badge(life.tell.strands.filter { !$0.isDone }.count)
+            .badge(life.askLife.strands.filter { !$0.isDone }.count)
             .hidden(!life.isPaired)
         }
         .sheet(item: $router.sheet) { sheet in
@@ -65,18 +65,18 @@ struct RootView: View {
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         .overlay(alignment: .bottom) {
-            if life.isPaired, router.isTellLifeSmall, !router.isTellLifeOpen {
-                TellStrip(
-                    line: life.tell.answer?.line ?? "Working on it…", open: { router.isTellLifeOpen = true },
+            if life.isPaired, router.isAskLifeSmall, !router.isAskLifeOpen {
+                AskLifeStrip(
+                    line: life.askLife.answer?.line ?? "Working on it…", open: { router.isAskLifeOpen = true },
                     close: {
-                        router.isTellLifeSmall = false
-                        router.tellContext = nil
+                        router.isAskLifeSmall = false
+                        router.askLifeContext = nil
                     }
                 )
                 .appears(Motion.fade)
             }
         }
-        .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }
+        .fullScreenCover(isPresented: $router.isAskLifeOpen) { AskLifeScreen() }
         // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
         // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
         .scrollEdgeEffectStyle(.soft, for: .all)
@@ -129,8 +129,8 @@ struct RootView: View {
         Binding(
             get: { router.tab },
             set: { tab in
-                guard tab != .tellLife else {
-                    router.isTellLifeOpen = true
+                guard tab != .askLife else {
+                    router.isAskLifeOpen = true
                     return
                 }
                 if tab == .projects, router.tab == .projects { router.chip = nil }

@@ -42,11 +42,11 @@ struct SettingsView: View {
                 cards
                 pendant
                 dictation
-                RowGroup(label: "Tell Life", surface: .sheet) {
+                RowGroup(label: "Ask Life", surface: .sheet) {
                     NavigationLink {
-                        TellSettingsPage()
+                        AskLifeSettingsPage()
                     } label: {
-                        Row(title: "Tell Life", icon: "waveform", detail: "Its look") {
+                        Row(title: "Ask Life", icon: "waveform", detail: "Its look") {
                             RowValue()
                         }
                     }

@@ -218,7 +218,7 @@ struct CheckActions: View {
     /// words, so "Hand to an agent", "Not now", "Drop" collapse into one row as designed.
     private static func isOneRow(_ labels: [String]) -> Bool { labels.count <= 3 }
 
-    /// His own words, the first quiet answer on a question: "Tell the agent…", or "Tell Life…".
+    /// His own words, the first quiet answer on a question: "Tell the agent…", or "Ask Life…".
     private var tell: Choice? {
         guard check.takesOwnWords else { return nil }
         return Choice(id: .ownWords, label: check.tellTitle) {

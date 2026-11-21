@@ -18,7 +18,7 @@ struct DictationField: View {
     var focused: FocusState<Bool>.Binding?
     /// A field with a Send: Send sits right of the microphone, and a swipe up from it, or a hold slid up its track,
     /// sends once the words landed. While recording, Send dissolves into a "Swipe up to send" hint on the microphone.
-    /// Every field with a single submit passes one (Tell Life, a matter's goal or next step, the new agent's goal) in
+    /// Every field with a single submit passes one (Ask Life, a matter's goal or next step, the new agent's goal) in
     /// place of its own Save or Start button; a card's answers stay buttons.
     var send: (() -> Void)?
 

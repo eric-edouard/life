@@ -6,7 +6,7 @@ import SwiftUI
 /// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, projects, people, tellLife }
+    enum Tab: Hashable { case inbox, projects, people, askLife }
     enum Sheet: String, Identifiable {
         case pendant, settings
         var id: String { rawValue }
@@ -87,17 +87,17 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
-    /// Tell Life, full screen over whatever he was on.
-    var isTellLifeOpen = false
-    /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
-    var isTellLifeSmall = false
-    /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
-    var tellContext: (ref: String, question: String)?
+    /// Ask Life, full screen over whatever he was on.
+    var isAskLifeOpen = false
+    /// Ask Life made small: its strip shows over the rail while there is something to keep in sight.
+    var isAskLifeSmall = false
+    /// What his words are about when he opens Ask Life from a card ("Wrong…"): the card's ref and its question.
+    var askLifeContext: (ref: String, question: String)?
 
-    /// Tell Life on a card: his words go with that card on screen.
-    func tellLife(about ref: String, question: String) {
-        tellContext = (ref, question)
-        isTellLifeOpen = true
+    /// Ask Life on a card: his words go with that card on screen.
+    func askLife(about ref: String, question: String) {
+        askLifeContext = (ref, question)
+        isAskLifeOpen = true
     }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
@@ -117,19 +117,19 @@ final class AppRouter {
     /// The event sheet of an appointment Life added to his calendar, over the tab he was on: from its push, or its row.
     var appointment: AppointmentKey?
 
-    /// What is on his screen for Tell Life: refs only, the tab and the matter or person on show.
-    var tellScreen: TellScreen {
+    /// What is on his screen for Ask Life: refs only, the tab and the matter or person on show.
+    var mainSessionScreen: MainSessionScreen {
         let tab =
             switch tab {
             case .inbox: "inbox"
             case .projects: "projects"
             case .people: "people"
-            // Never on show: its tap opens Tell Life and leaves the tab as it was (`RootView.tabs`).
-            case .tellLife: "inbox"
+            // Never on show: its tap opens Ask Life and leaves the tab as it was (`RootView.tabs`).
+            case .askLife: "inbox"
             }
-        return TellScreen(
+        return MainSessionScreen(
             tab: tab,
-            open: tellContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
+            open: askLifeContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
     }
 
     func open(matter id: String) {

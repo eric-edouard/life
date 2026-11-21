@@ -17,7 +17,7 @@ import { LINKS_PROMPT } from "./links";
 import { MATTERS_PROMPT } from "./matters";
 import { MEMORY, readInferred } from "./memory-files";
 
-// The complaint record (`memory/complaints.jsonl`): one row per complaint (his words through Tell Life, an ask in the ledger), what
+// The complaint record (`memory/complaints.jsonl`): one row per complaint (his words through Ask Life, an ask in the ledger), what
 // the caretaker's later work and the developer's counts start from. It holds no words of his and no card: the ask's id,
 // the kind of card, the stage that made it and that stage's prompt, as his complaint froze them in the ask. Appended only
 // here, by the desk as it receives a complaint (`desk/complaint-intake.ts`): one process (one desk per Mac), each tick

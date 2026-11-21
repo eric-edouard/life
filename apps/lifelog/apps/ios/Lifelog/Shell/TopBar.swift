@@ -25,7 +25,7 @@ private struct ShellBar: ViewModifier {
             .navigationBarTitleDisplayMode(.inline)
             .reportsSideColumn($isInColumn)
             // In the closed Duo's column Back is ours, declared after the Pendant and gear so it stands under them and
-            // above Tell Life (the system's stands first). Its edge swipe goes with it; the column has no edge to swipe.
+            // above Ask Life (the system's stands first). Its edge swipe goes with it; the column has no edge to swipe.
             .navigationBarBackButtonHidden(isInColumn && isPushed)
             .toolbar {
                 // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
