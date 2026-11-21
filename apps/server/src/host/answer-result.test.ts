@@ -324,12 +324,12 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
   mkdirSync(dirname(DESK_STORE), { recursive: true });
   const db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
-    "create table assignment (id text, agent_id text, closed_at text, opened_at text)"
+    "create table assignment (id text, agent_id text, closed_at text, opened_at text, matter_id text)"
   );
   db.run("create table anchor (assignment_id text, step text)");
   db.run("create table card (decision_id text, assignment_id text)");
   db.run(
-    "insert into assignment values ('asg_test', 'agt_0123456789ab', null, '2026-11-18T08:00:00.000Z')"
+    "insert into assignment values ('asg_test', 'agt_0123456789ab', null, '2026-11-18T08:00:00.000Z', null)"
   );
   db.run(
     "create table event (assignment_id text, event_id text, name text, payload text, received_at text)"
