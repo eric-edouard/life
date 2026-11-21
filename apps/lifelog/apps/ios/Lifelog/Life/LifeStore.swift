@@ -17,6 +17,8 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
+    private(set) var spending = ReadState<ModelSpending>()
     /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
@@ -234,6 +236,11 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
+    func refreshSpending() async {
+        if spending.phase == .idle { restore({ self.spending.apply($0) }, key: Self.spendingKey) }
+        await load({ self.spending.apply($0) }, key: Self.spendingKey) { try await $0.readSpending() }
+    }
+
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: Self.peopleKey) {
             try await $0.readPeopleAndOrganizations(query: nil)
@@ -348,6 +355,7 @@ final class LifeStore {
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
     private static let peopleKey = "read_people_and_organizations"
+    private static let spendingKey = "read_spending"
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
@@ -778,6 +786,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()

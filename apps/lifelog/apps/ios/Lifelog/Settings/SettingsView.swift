@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
     @State private var isLiveLogsOpen = false
+    @State private var isSpendingOpen = false
     /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
     @State private var problems: String?
     @State private var isAppsOpen = false
@@ -49,6 +50,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.appearance")
                 }
                 yourData
+                spending
                 help
             }
             .motion(Motion.standard, value: needsYouRows)
@@ -61,7 +63,8 @@ struct SettingsView: View {
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
-        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage() }
+        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage { page = .life } }
+        .navigationDestination(isPresented: $isSpendingOpen) { SpendingPage { page = .life } }
         .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
         .navigationDestination(isPresented: $isAppsOpen) { AppsPage() }
         #if DEBUG
@@ -71,6 +74,7 @@ struct SettingsView: View {
                 case "server": page = .server
                 case "diagnostics": isDiagnosticsOpen = true
                 case "logs": isLiveLogsOpen = true
+                case "spending": isSpendingOpen = true
                 case "apps": isAppsOpen = true
                 default: break
                 }
@@ -388,6 +392,19 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.backup")
+        }
+    }
+
+    /// What Life costs: one plain row, no figure on it (a figure is never in front of him unless he opens it).
+    private var spending: some View {
+        RowGroup(surface: .sheet) {
+            Button {
+                isSpendingOpen = true
+            } label: {
+                Row(title: "Spending", icon: "chart.bar") { RowValue() }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.spending")
         }
     }
 

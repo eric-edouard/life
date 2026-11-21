@@ -140,6 +140,8 @@ final class LiveLogs {
 /// Live logs (Settings, Help): a window onto what Life is doing on the Mac, for looking only. Newest on top, following
 /// while at the top; scrolling down pauses, the pill or play follows again.
 struct LiveLogsPage: View {
+    /// Settings' Life page, for "Pair with Life".
+    let pair: () -> Void
     @Environment(LifeStore.self) private var life
     @State private var logs = LiveLogs()
     @State private var position = ScrollPosition(edge: .top)
@@ -158,6 +160,7 @@ struct LiveLogsPage: View {
                     await logs.poll(life)
                     await logs.loadEarlier(life)
                 },
+                pair: pair,
                 loading: { Spinner().foregroundStyle(Palette.fg).frame(maxHeight: .infinity) },
                 empty: {
                     logs.isProblems

@@ -4,6 +4,7 @@ import {
   answerCheck,
   type CheckAnswer,
   type StartAgent,
+  yourMoveClosingOf,
 } from "../memory/answer-check";
 import type { Decision } from "../memory/decision-lines";
 import {
@@ -209,6 +210,15 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
       ...(a.options[0] === "edit-goal" ? { goal: a.note } : {}),
     };
   }
+  if (c.group === "your move") {
+    const until = (done[0] as { until?: string } | undefined)?.until;
+    return {
+      answer: a.options[0],
+      matter: c.matter,
+      step: c.subject,
+      ...(a.options[0] === "not-now" ? { until } : {}),
+    };
+  }
   if (c.group === "voice") {
     const answered = done[0] as { personId?: string } | undefined;
     return {
@@ -274,7 +284,16 @@ function planOf(
       ...(act === "look" ? ["looking", "done_seen"] : []),
     ];
   }
-  return starts ? ["goal_saved", ...START_STAGES, "recorded"] : ["recorded"];
+  if (starts) {
+    return ["goal_saved", ...START_STAGES, "recorded"];
+  }
+  // A your move's Mark as done: its ticks, then the answer recorded.
+  return [
+    ...(closing.some((s) => s.kind === "todo_item")
+      ? ["todo_items_ticked"]
+      : []),
+    "recorded",
+  ];
 }
 
 /**
@@ -376,7 +395,8 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   if (repeated) {
     return repeated;
   }
-  const tapKey = `${ref}|${saidOf(a)}`;
+  // One press is its key when his app gives one (a fresh press on a card that came back is a new answer), else what it says.
+  const tapKey = `${ref}|${answerKey ?? saidOf(a)}`;
   const failedKey = `${ref}|${answerKey}`;
   const remembered =
     rememberedTap(tapKey) ?? (answerKey ? rememberedTap(failedKey) : undefined);
@@ -385,18 +405,30 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   }
   const open = await openCheckOf(ref);
   const { act, closing, end, limitMs } = await decisionActOf(known, a, report);
-  const starts = open.group === "new matter" && a.options[0] === "start";
+  const starts =
+    (open.group === "new matter" || open.group === "your move") &&
+    a.options[0] === "start";
+  // A your move's Mark as done closes its step, read before the plan so its limit counts the tick.
+  const moveClosing =
+    open.group === "your move" && a.options[0] === "done"
+      ? await yourMoveClosingOf(open)
+      : [];
   report({
     limitSeconds: Math.ceil(
-      (limitMs + (starts ? WAIT_MS : 0) + QUICK_MS) / 1000
+      (limitMs +
+        ticksLimitMsOf(moveClosing) +
+        (starts ? WAIT_MS : 0) +
+        QUICK_MS) /
+        1000
     ),
-    plan: planOf(known, act, closing, starts),
+    plan: planOf(known, act, known ? closing : moveClosing, starts),
   });
   // A new matter's Start: the desk's start, as `change_registered_agent` asks it; its own plan is in this one.
   let start: Awaited<ReturnType<typeof changeRegisteredAgent>> | null = null;
   const startAgent: StartAgent = async (c, goal) => {
     start = await changeRegisteredAgent(
-      { action: "start", said: goal, step: c.ref },
+      // The matter's id: a new matter's ref, a your move card's matter.
+      { action: "start", said: goal, step: c.matter?.id ?? c.ref },
       {
         ...call,
         report: (s) => {
@@ -419,6 +451,13 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
       addDirectoryEntryByHisWord(kind, name, `New ${kind}: ${name}`, fields),
     answerKey,
     end,
+    endYourMove: () =>
+      endByHisWord(
+        moveClosing,
+        `"Mark as done" on "${open.title}" (${open.ref})`,
+        (ticked, of, key) =>
+          report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
+      ),
     look: lookForDone,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),
     startAgent,
