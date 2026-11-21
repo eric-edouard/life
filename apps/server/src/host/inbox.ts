@@ -87,10 +87,18 @@ function readHeld(): HeldRead | null {
     cardHolders: Object.fromEntries(
       holders.state === "ok" ? holders.value : []
     ),
-    // Over the decisions the list is read from, so a card answered since never shows.
+    // Over the decisions the list is read from, so a card answered since never shows; the desk unreadable then, the
+    // complaints still show as being fixed, without the card (they never block again on a failed read).
     complaints: (decisions) => {
-      const r = readDesk((db) => beingFixedOf(db, atWork, decisions), []);
-      return r.state === "ok" ? r.value : [];
+      const r = readDesk((db) => beingFixedOf(db, decisions), []);
+      return r.state === "ok"
+        ? r.value
+        : atWork.map(({ ask, since }) => ({
+            ask,
+            context: null,
+            line: null,
+            since,
+          }));
     },
     plans: (decisions) => {
       const r = readDesk((db) => planCardsOf(db, decisions), new Set<string>());

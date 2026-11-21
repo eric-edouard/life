@@ -108,7 +108,7 @@ const caretakerCard = (id: string, assignment: string, agent = "agt_x") => ({
 });
 /** His complaints at work as cards show them, over `cards`. */
 const shown = (cards: ReturnType<typeof caretakerCard>[]) =>
-  beingFixedOf(desk.db, complaintsAtWork(desk.db), cards);
+  beingFixedOf(desk.db, cards);
 const received = () =>
   desk.db
     .query<{ assignment_id: string; event_id: string; payload: string }, []>(
@@ -192,10 +192,14 @@ test("a press reaches the caretaker once its ask, its row and its receipt are wr
   // Two complaints on one assignment: neither shows the caretaker's open card, which may be about the other.
   const both = received()[0]?.assignment_id ?? "";
   expect(
-    shown([caretakerCard("dec_both", both)]).map((w) => [w.ask, w.line])
+    shown([caretakerCard("dec_both", both)]).map((w) => [
+      w.ask,
+      w.line,
+      w.context,
+    ])
   ).toEqual([
-    [first.ask, null],
-    [second.ask, null],
+    [first.ask, null, null],
+    [second.ask, null, null],
   ]);
 });
 
@@ -280,10 +284,20 @@ test("a stopped caretaker leaves a press unreceived, his words kept, its plan sa
   expect(alone([])).toEqual(none);
   expect(alone([{ ...card, state: "answered" }])).toEqual(none);
   expect(alone([{ ...card, state: "withdrawn" }])).toEqual(none);
-  // A newer card of another assignment never shows.
-  expect(
-    alone([card, caretakerCard("dec_other", "asg_other", next?.id)])
-  ).toEqual([{ context: card.context, line: card.question }]);
+  // A newer card of another open assignment never shows.
+  desk.db.run(
+    "insert into assignment (id, agent_id, opened_at, opened_by, notes_path, wait_until) select 'asg_other', agent_id, opened_at, opened_by, notes_path, wait_until from assignment where id = ?",
+    [nextAsg]
+  );
+  const other = {
+    ...caretakerCard("dec_other", "asg_other", next?.id),
+    context: "Another complaint's card.",
+    question: "Is this another card?",
+  };
+  expect(alone([card, other])).toEqual([
+    { context: "I read the card as shown.", line: "Is Dre your cousin?" },
+  ]);
+  desk.db.run("delete from assignment where id = 'asg_other'");
 }, 15_000);
 
 test("the caretaker reads a complaint through its door only on the assignment that received it, and waits with no plan card first", async () => {

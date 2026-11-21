@@ -429,20 +429,26 @@ export const complaintsAtWork = (db: Database) =>
     .all();
 
 /**
- * Each complaint of `atWork` as a card shows it (`BeingFixed`): with the newest open card of `cards` its assignment
- * owns (`cardOwnersOf`), its question as the line and its `context`, only when the complaint is all that assignment
- * holds, so a card is never shown on a complaint it may not be about; else both null.
+ * His complaints at work (`complaintsAtWork`) as cards show them (`BeingFixed`): each with the newest open card of
+ * `cards` its assignment owns (`cardOwnersOf`), its question as the line and its `context`, only when the complaint is
+ * all that assignment holds, so a card is never shown on a complaint it may not be about; else both null. The rows and
+ * the owners are read in one transaction: one moment of the desk.
  */
 export function beingFixedOf(
   db: Database,
-  atWork: ReturnType<typeof complaintsAtWork>,
   cards: readonly Pick<
     Decision,
     "agent" | "assignment" | "context" | "id" | "question" | "state"
   >[]
 ): BeingFixed[] {
   const open = cards.filter((d) => d.state === "open");
-  const owners = atWork.some((w) => w.alone) ? cardOwnersOf(db, open) : {};
+  const [atWork, owners] = db.transaction(() => {
+    const rows = complaintsAtWork(db);
+    return [
+      rows,
+      rows.some((w) => w.alone) ? cardOwnersOf(db, open) : {},
+    ] as const;
+  })();
   return atWork.map(({ alone, ask, assignment, since }) => {
     const card = alone
       ? open.findLast((d) => owners[d.id]?.assignment === assignment)
