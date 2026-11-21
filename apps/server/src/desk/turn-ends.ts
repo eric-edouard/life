@@ -26,8 +26,8 @@ import {
   isBeginLate,
   MAX_HANDED,
 } from "./agent-wait";
-import { doorOf } from "./desk-door";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
+import { doorOf } from "./door-keys";
 import {
   type Run,
   type RunEnd,

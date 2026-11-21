@@ -1,8 +1,7 @@
-import { createHmac } from "node:crypto";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { isOwnLife } from "../core/platform";
-import { same, secretIn } from "../core/secret";
+import { same } from "../core/secret";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -31,6 +30,7 @@ import {
 } from "./agent-actions";
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
+import { keyOf } from "./door-keys";
 import { askMainSession, keepMainSession, MAIN_ASK } from "./main-session";
 import { readSpokenAsk } from "./spoken-ask-intake";
 
@@ -42,16 +42,6 @@ import { readSpokenAsk } from "./spoken-ask-intake";
 
 const BEARER = /^Bearer /;
 const AGENT_PATH = /^\/mcp\/(agt_[0-9a-f]+)$/;
-
-/** The key of agent `id`'s door. */
-const keyOf = (id: string) =>
-  createHmac("sha256", secretIn("deskKey")).update(id).digest("hex");
-
-/** Where agent `id`'s session reaches its door, and the key it shows there. */
-export const doorOf = (id: string) => ({
-  key: keyOf(id),
-  url: `http://127.0.0.1:${DOOR_PORT}/mcp/${id}`,
-});
 
 /**
  * Why the door refuses tool `name` on a turn of cause `cause` of `a` on `s`: a move's notes turn only writes its notes

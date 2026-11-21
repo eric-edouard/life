@@ -35,8 +35,9 @@ import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { readPacket } from "./agent-actions";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
 import { wakeDue } from "./desk-clock";
-import { doorFetch, doorOf } from "./desk-door";
+import { doorFetch } from "./desk-door";
 import { closeAssignmentRow, type Desk, openDesk } from "./desk-store";
+import { doorOf } from "./door-keys";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
 // His complaint ("Wrong…" on a card of Life's) from his press to the caretaker's door: one ask per press key, its row in
