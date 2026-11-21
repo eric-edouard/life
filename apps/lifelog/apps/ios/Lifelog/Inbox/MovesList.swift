@@ -201,7 +201,7 @@ struct MovesList: View {
                 } label: {
                     HStack {
                         content; Spacer(minLength: 0)
-                    }.padding(.horizontal, 16).padding(.vertical, 8)
+                    }.padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.s)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.groupedRow(at: index, of: count))
@@ -219,7 +219,7 @@ struct MovesList: View {
                 Button("Drop", systemImage: "xmark") { act([move], "drop", words: "Dropped") }.tint(Color.fillTint)
             }
             if move.answer("start") != nil {
-                Button("Hand", systemImage: "sparkles") { act([move], "start", words: "Handed to an agent") }
+                Button("Hand", systemImage: "arrow.right.circle") { act([move], "start", words: "Handed to an agent") }
                     .tint(Palette.ai)
             }
         }
