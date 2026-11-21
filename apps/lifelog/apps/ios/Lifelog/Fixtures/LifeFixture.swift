@@ -125,6 +125,8 @@
         private let statuses = Mutex(LifeFixture.parked.map { [$0: "parked"] } ?? [String: String]())
         /// His icon picks, by matter: a key, or nil when he gave it back to Life (the design data's pick shows again).
         private let icons = Mutex([String: String?]())
+        /// His Remove (true) or Undo (false) of the design data's appointment here.
+        private let removed = Mutex<Bool?>(nil)
 
         init(scenario: String) {
             self.scenario = scenario
@@ -602,6 +604,24 @@
             try await Task.sleep(for: .milliseconds(300))
             statuses.withLock { $0[project] = status.rawValue }
             return "Done: project \(project)."
+        }
+
+        /// The design data's appointment (`read_appointments.json`), when the designer has written one; removed or not
+        /// as he set it here.
+        func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {
+            try await gate()
+            var read = Self.read("read_appointments", or: [:])
+            guard !read.isEmpty else { throw MCPError.failed("No appointment in the design data.") }
+            if let removed = removed.withLock({ $0 }) { read["removedAt"] = removed ? "2026-11-21T10:00:00.000Z" : nil }
+            let data = try JSONSerialization.data(withJSONObject: read)
+            return String(decoding: data, as: UTF8.self)
+        }
+
+        func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String {
+            try await gate()
+            try await Task.sleep(for: .milliseconds(400))
+            removed.withLock { $0 = !isOn }
+            return isOn ? #"{"result":"restored"}"# : #"{"result":"removed"}"#
         }
 
         // MARK: Made-up data
