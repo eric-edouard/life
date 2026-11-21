@@ -165,7 +165,7 @@ export type Decision = Asked & {
   withdrawn?: Withdrawn;
 };
 
-/** Life's outcome as his card and app show it: its state and Life's words for it; when seen, `paid` (the card's amount, which the look matched exactly, and when Life saw it); null when Life looked for nothing. */
+/** Life's outcome as his card and app show it: its state and Life's words for it; when seen, `paid` (the card's amount, which the look matched exactly, and `seenAt`, when Life saw it); null when Life looked for nothing. */
 export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
   if (!l) {
     return null;
@@ -177,7 +177,7 @@ export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
   return {
     line: l.state === "seen" ? "Paid: Life saw it in your accounts" : notFound,
     ...(amount && {
-      paid: { at: l.at, currency: amount.currency, value: amount.value },
+      paid: { currency: amount.currency, seenAt: l.at, value: amount.value },
     }),
     state: l.state,
   };

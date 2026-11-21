@@ -30,7 +30,7 @@
   "doneSeen": {
     "line": "Paid: Life saw it in your accounts",
     "paid": {
-      "at": "2026-11-18T10:00:00.000Z",
+      "seenAt": "2026-11-18T10:00:00.000Z",
       "currency": "THB",
       "value": 4500
     },
