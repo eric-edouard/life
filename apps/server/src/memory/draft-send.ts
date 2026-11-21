@@ -282,7 +282,7 @@ async function readWhere(
 /**
  * The draft as it is stored when its card is asked: the one chat it names, on the source `channel` names (`to` a chat
  * key there, or a person with exactly one 1:1 chat there the source can send into, else a chat the source can open: a
- * new 1:1 chat by its id), the message it replies to or reacts to, the chat's last messages (`recentOf`), its file as read now, the chat's own refusal of
+ * new 1:1 chat by its id), the message it replies to or reacts to, how many people a group holds, the chat's last messages (`recentOf`), its file as read now, the chat's own refusal of
  * anything it can't take. Throws `Not done: …` in words the asking agent can fix.
  */
 export async function resolveDraft(
@@ -315,10 +315,12 @@ export async function resolveDraft(
   const { chat, name, quoted, recent } = await readWhere(draft, s, s.send, now);
   const { file: path, ...fields } = draft;
   const file = path ? await stampFile(path) : undefined;
+  const people = chat ? (s.send.people?.(chat) ?? 0) : 0;
   const stored: StoredDraft = {
     ...fields,
     channel: s.name,
     ...(chat ? { chat } : {}),
+    ...(people > 2 ? { people } : {}),
     ...(file ? { file: file.stamp } : {}),
     ...(quoted ? { quoted } : {}),
     recent,

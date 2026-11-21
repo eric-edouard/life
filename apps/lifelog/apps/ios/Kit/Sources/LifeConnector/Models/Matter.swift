@@ -49,6 +49,8 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
         public let kind: StepKind
         public let text: String
         public let waitsOn: String?
+        /// Why, in Markdown with `life:` links (`read_matter`), when his word or Life's draft gave one.
+        public let context: String?
         public let by: Author?
     }
 

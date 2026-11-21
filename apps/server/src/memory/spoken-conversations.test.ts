@@ -11,6 +11,7 @@ import {
 } from "../sources/store-fixtures";
 import {
   CONVERSATION_PART_CHARS,
+  isSummarised,
   SUMMARY_FROM_CHARS,
   spokenConversationsOf,
   spokenPartsOf,
@@ -104,11 +105,14 @@ const partsOf = async (specs: Spec[], kinds: Kind[] = []) =>
     people
   );
 
-test("a conversation qualifies from 15,000 shown characters with a line that is not his", async () => {
+test("a conversation of any length with a line that is not his has parts; it is summarised from 15,000 shown characters", async () => {
   expect(SUMMARY_FROM_CHARS).toBe(15_000);
-  expect(await partsOf(talk(10))).toEqual([]);
+  const short = await partsOf(talk(10));
+  expect(short).toHaveLength(1);
+  expect(isSummarised(short)).toBe(false);
   const parts = await partsOf(talk(20));
   expect(parts).toHaveLength(1);
+  expect(isSummarised(parts)).toBe(true);
   expect(parts[0]?.lines[0]).toContain("[0] ");
   expect(parts[0]?.lines[0]).toContain(" me: ");
   expect(parts[0]?.lines[1]).toContain(" V1: ");

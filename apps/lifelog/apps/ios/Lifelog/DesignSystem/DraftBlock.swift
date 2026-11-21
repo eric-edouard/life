@@ -3,14 +3,14 @@ import SwiftUI
 import UIKit
 
 /// The exact message he approves, as a strip of the chat it goes into (decision 82, `gen_drafts.py`): the chat's head,
-/// its last messages in the platform's bubble shapes in Life's greys, then the draft in the platform's full sent colour,
-/// dashed and breathing, with "Not sent" where the ticks will be. Mail is a small mail sheet instead. Kit decides what
+/// its last messages in the platform's bubble shapes in Life's greys, then the draft in the platform's full sent colour
+/// on a shadow, with "Not sent" where the ticks will be. Mail is a small mail sheet instead. Kit decides what
 /// each line is (`chatLines`, `textRuns`, `DraftDelivery`); a reply, a reaction, mentions or a file show only when the
 /// draft carries them, never by network. The look alone is the network's (`ChatLook`).
 struct DraftBlock: View {
     let check: Check
     let draft: Check.Draft
-    /// Where the send stands: the ticks spring in and the dashes fade as its steps pass.
+    /// Where the send stands: the ticks spring in and the shadow fades as its steps pass.
     var delivery = DraftDelivery.notSent
     /// On paper of its own (the notification); in an ask it sits on the thing's `tile` with no box.
     var isBoxed = true
@@ -23,7 +23,7 @@ struct DraftBlock: View {
     }
 
     private var look: ChatLook { ChatLook.of(draft.channel) }
-    /// Life's steps say it went: the dashes fade. One that may have gone stays drafted.
+    /// Life's steps say it went: the shadow fades. One that may have gone stays drafted.
     private var isSent: Bool { delivery == .handed || delivery == .sent }
 
     var body: some View {
@@ -54,7 +54,7 @@ struct DraftBlock: View {
                 .overlay(alignment: .bottomTrailing) {
                     Text(reaction).font(.note).padding(.horizontal, 7).padding(.vertical, 1)
                         .background(look.sent, in: .capsule)
-                        .modifier(Drafted(shape: Capsule(), dash: look.dash, isSent: isSent))
+                        .modifier(Drafted(isSent: isSent))
                         .offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
                 }
                 .padding(.bottom, Metrics.Spacing.m)
@@ -124,12 +124,12 @@ struct DraftBlock: View {
         }
     }
 
-    /// A drafted bubble: the platform's full sent colour, the dashed outline and the breath until it is sent.
+    /// A drafted bubble: the platform's full sent colour on a shadow until it is sent.
     private func drafted(_ content: some View) -> some View {
         content.font(.note).foregroundStyle(look.text)
             .padding(.horizontal, 11).padding(.vertical, 7)
             .background(look.sent, in: bubble(isMine: true))
-            .modifier(Drafted(shape: bubble(isMine: true), dash: look.dash, isSent: isSent))
+            .modifier(Drafted(isSent: isSent))
     }
 
     private func bubble(isMine: Bool) -> UnevenRoundedRectangle {
@@ -175,10 +175,7 @@ struct DraftBlock: View {
         }
         .foregroundStyle(Palette.fg).padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.pick, in: .rect(cornerRadius: Metrics.Radius.tile))
-        .modifier(
-            Drafted(
-                shape: RoundedRectangle(cornerRadius: Metrics.Radius.tile), dash: Palette.fg.opacity(0.55),
-                isSent: isSent))
+        .modifier(Drafted(isSent: isSent))
         status(isMine: true)
     }
 
@@ -244,7 +241,13 @@ private struct ChatHead: View {
                 NetworkMark(network: draft.channel)
                 Text(name).font(.rowName).foregroundStyle(Palette.fg).lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if url != nil { Image(systemName: "arrow.up.right").font(.small).foregroundStyle(Palette.muted) }
+                if let people = draft.people, people > 1 {
+                    Text("\(people) people").font(.small).foregroundStyle(Palette.muted)
+                }
+                if url != nil {
+                    Image(systemName: "arrow.up.right").font(.smallStrong).foregroundStyle(Palette.fg)
+                        .frame(width: 32, height: 32).background(Color.fillTint, in: .circle)
+                }
             }
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
@@ -264,27 +267,14 @@ private struct ChatHead: View {
     }
 }
 
-/// A drafted part's marks (decision 82): the dashed outline, his one exception to "no borders", and a breath, both
-/// gone once it is sent; still under Reduce Motion.
-private struct Drafted<S: InsettableShape>: ViewModifier {
-    let shape: S
-    let dash: Color
+/// A drafted part's mark: a soft shadow, gone once it is sent (no outline: nothing here is drawn with one).
+private struct Drafted: ViewModifier {
     let isSent: Bool
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isLit = false
 
     func body(content: Content) -> some View {
         content
-            .overlay {
-                shape.strokeBorder(dash, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])).opacity(isSent ? 0 : 1)
-            }
+            .shadow(color: .black.opacity(isSent ? 0 : 0.28), radius: 6, y: 2)
             .animation(Motion.undrafted, value: isSent)
-            .opacity(isSent || reduceMotion || isLit ? 1 : 0.85)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: Motion.breath / 2).repeatForever()) { isLit = true }
-            }
     }
 }
 
@@ -302,8 +292,6 @@ struct ChatLook {
     var radius: CGFloat
     /// The corner on his side's foot, a tail.
     var tail: CGFloat
-    /// A drafted part's dash: the sent colour mixed halfway toward the ink.
-    var dash: Color
     /// A file then its words as a second bubble, as it will really arrive (Messages.app).
     var isCaptionApart = false
     /// The head names the network ("iMessage"), where its bubble alone doesn't.
@@ -350,7 +338,7 @@ struct ChatLook {
                         ],
                         startPoint: .topLeading, endPoint: .bottomTrailing)),
                 text: .white, quoteTint: shade(0.18, 0.14), bar: Palette.token(dark: 0xe8dcff, light: 0xefe6ff),
-                mention: .white, radius: 20, tail: 6, dash: Palette.token(dark: 0xb79cff, light: 0x5b2fd0))
+                mention: .white, radius: 20, tail: 6)
         default:
             solid(
                 Palette.fg, text: Palette.on, shade: (0.22, 0.08), bar: Palette.on, mention: Palette.on, radius: 16,
@@ -366,7 +354,6 @@ struct ChatLook {
         ChatLook(
             sent: AnyShapeStyle(sent), text: text, quoteTint: shade(tint.dark, tint.light), bar: bar,
             hasQuoteBar: hasQuoteBar, mention: mention, radius: radius, tail: tail,
-            dash: sent.mix(with: Palette.fg, by: 0.5),
             isCaptionApart: isCaptionApart, namesNetwork: namesNetwork)
     }
 
