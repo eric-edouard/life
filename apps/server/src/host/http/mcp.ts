@@ -76,12 +76,14 @@ import {
   readAgentsOnSteps,
   readRegisteredAgents,
 } from "../registered-agents";
+import { readMatterSpending, withAgentSpending } from "../spending-read";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
 import { personPicturesTool } from "./mcp-people";
 import { projectTools } from "./mcp-projects";
+import { spendingTool } from "./mcp-spending";
 import {
   agentIn,
   argNamesOf,
@@ -325,22 +327,27 @@ export function buildServer(readsOnly = false) {
   );
   if (!readsOnly) {
     personPicturesTool(server);
+    spendingTool(server, NOT_HIS);
     // His app's live log; never on the question cases' tokenless server.
     tool(
       server,
       "read_log_lines",
-      'His token only. For his app\'s live log, not for questions about his life: Life\'s event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `["desk","turn"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer.',
+      'His token only. For his app\'s live log, not for questions about his life: Life\'s event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `["desk","turn"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer. `head` (a read with no cursor): the log\'s end as read; pass it back as `after` to read only the lines written since.',
       z.object({
+        after: z
+          .string()
+          .optional()
+          .describe("A head: only the lines written after it"),
         cursor: z.string().optional(),
         limit: z.int().min(1).max(100).optional().describe("Default 50"),
         min_level: z.enum(LOG_LEVELS).optional().describe("Default info"),
         process: z.string().optional().describe("A category's first word"),
       }),
-      ({ cursor, limit, min_level: minLevel, process }, agent) => {
+      ({ after, cursor, limit, min_level: minLevel, process }, agent) => {
         if (agent) {
           throw new Error(NOT_HIS);
         }
-        return readLogLines({ cursor, limit, minLevel, process });
+        return readLogLines({ after, cursor, limit, minLevel, process });
       }
     );
     tool(
@@ -380,7 +387,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included; `nextStep` also has `context`, Markdown with `life:<ref>` links, when his word gave one), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, `with` (a party), and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it.",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included; `nextStep` also has `context`, Markdown with `life:<ref>` links, when his word gave one), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, `with` (a party), and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it. `spending`: its agents' turns (an assignment's by its anchors), `tokens`, `equivalent` (at list price, never billed) and `reported` (false: one turn without a price or usage, a floor); none when the desk can't be read.",
     z.object({
       id: z
         .string()
@@ -393,13 +400,18 @@ export function buildServer(readsOnly = false) {
       const matter = await oneMatter([id], {
         agentsOf: readAgentsOnSteps,
         readIcons: readLifeIcons,
+        spendingOf: readMatterSpending,
       });
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }
       const open = await openChecksNow();
       const [row] = matterRowsNowOf([matter], open);
-      return { ...row, checks: checksOnMatterOf(open, matter.id) };
+      return {
+        ...row,
+        checks: checksOnMatterOf(open, matter.id),
+        spending: matter.spending,
+      };
     }
   );
   appointmentTools(server);
@@ -523,9 +535,9 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_registered_agents",
-    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`. `refused`: his changes (`change_registered_agent`) the desk refused in the last day, and why. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
+    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber; `spending`, its current session's: `since`, `tokens`, `equivalent` (an amount at list price, basis `equivalent`, never billed), `reported` and `provider` (claude, codex). `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`. `refused`: his changes (`change_registered_agent`) the desk refused in the last day, and why. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
     z.object({}),
-    async () => ({ ...(await readRegisteredAgents()) })
+    async () => withAgentSpending(await readRegisteredAgents())
   );
   tool(
     server,

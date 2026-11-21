@@ -1,5 +1,5 @@
 // Quiet ranges: stretches the owner spent dictating to the Mac (its events, turned into ranges by
-// dictation.ts) or the phone played a recording out loud (`POST /quiet-ranges`). Words inside one
+// dictation.ts), or the phone played a recording out loud or was dictated to (`POST /quiet-ranges`). Words inside one
 // are hidden (transcript.ts `keptWords`). The Mac also vouches for time: every dictation before its
 // watermark is already among the ranges, or the Mac is asleep.
 
@@ -16,6 +16,8 @@ import {
   heldFrom,
   idle,
   type MacReport,
+  PHONE_DICTATION,
+  processedQuiet,
   settle,
   step,
   unblocked,
@@ -37,7 +39,9 @@ export const quietRangeInput = z
       .string()
       .min(1)
       .max(200)
-      .describe('The dictating app\'s bundle id, or "playback" from the phone'),
+      .describe(
+        'The dictating app\'s bundle id, or "playback" or "dictation" from the phone'
+      ),
     startedAt: z.iso.datetime({ offset: true }),
   })
   .refine((r) => Date.parse(r.endedAt) > Date.parse(r.startedAt), {
@@ -58,7 +62,9 @@ function insertQuietRange(
     .onConflictDoNothing()
     .returning({ id: quietRanges.id })
     .all();
-  if (stored.length > 0) {
+  if (stored.length > 0 && range.source === PHONE_DICTATION) {
+    logChange(tx, "quietRange", range.id);
+  } else if (stored.length > 0) {
     const span: [Date, Date] = [range.startedAt, range.endedAt];
     // Dictation is not conversation: grouping covers it again (the tick, if nothing sooner).
     if (range.source !== "playback") {
@@ -93,9 +99,11 @@ export function addQuietRange(
   return quietView(row);
 }
 
-const quietView = (row: typeof quietRanges.$inferSelect) => ({
+/** A quiet range on the wire (the feed, the POST's answer): a restored phone tells its own dictation by `isPhoneDictation`. */
+export const quietView = (row: typeof quietRanges.$inferSelect) => ({
   endedAt: row.endedAt.toISOString(),
   id: row.id,
+  isPhoneDictation: row.source === PHONE_DICTATION,
   startedAt: row.startedAt.toISOString(),
 });
 
@@ -225,7 +233,7 @@ export function macView(
   };
 }
 
-// The quiet ranges touching [start, end), as epoch-ms intervals.
+// The quiet ranges processing leaves out touching [start, end), as epoch-ms intervals.
 export const quietIn = (
   db: Pick<Db, "select">,
   [start, end]: [number, number]
@@ -235,6 +243,7 @@ export const quietIn = (
     .from(quietRanges)
     .where(
       and(
+        processedQuiet,
         lt(quietRanges.startedAt, new Date(end)),
         gt(quietRanges.endedAt, new Date(start))
       )

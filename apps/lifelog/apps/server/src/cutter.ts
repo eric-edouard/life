@@ -34,6 +34,7 @@ import {
 import { logChange } from "./change-log";
 import { billableSeconds, sha256Hex } from "./config";
 import { reportError } from "./diagnostics";
+import { processedQuiet } from "./dictation";
 import { SCRIBE_MODEL } from "./elevenlabs";
 import { record } from "./events";
 import { captureRange } from "./turns";
@@ -558,6 +559,7 @@ export function touchesQuiet(db: Db, map: JobMap) {
     .from(quietRanges)
     .where(
       and(
+        processedQuiet,
         lt(quietRanges.startedAt, new Date(range.end)),
         gt(quietRanges.endedAt, new Date(range.start))
       )

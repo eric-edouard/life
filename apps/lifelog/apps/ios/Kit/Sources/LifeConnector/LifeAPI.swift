@@ -106,6 +106,8 @@ public protocol LifeAPI: Sendable {
     func readPeopleAndOrganizations(query: String?) async throws -> String
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
+    /// A page of Life's log, newest first (`LogPage`), for the Live logs page.
+    func readLogLines(_ query: LogQuery) async throws -> String
 
     /// His answer, to the Life it was decided for (`origin`, a `PairedLife`'s) and no other.
     func answerCheck(
@@ -163,6 +165,9 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_people_and_organizations", query.map { ["query": $0] } ?? [:])
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
+    public func readLogLines(_ query: LogQuery) async throws -> String {
+        try await client.call("read_log_lines", query)
+    }
 
     public func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void

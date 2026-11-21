@@ -10,10 +10,10 @@ private func promptPay(_ amount: String, currency: String = "764", aid: String =
         + "54\(String(format: "%02d", amount.count))\(amount)" + "5802TH"
 }
 
-private func card(_ needs: String) throws -> Check {
+private func card(_ needs: String, options: String = "[]") throws -> Check {
     let json =
-        #"{"ref":"dec_1","group":"decision","title":"t","question":"q","asker":"a","options":[],"clips":[],"likelyPeople":[],"links":[],"doneSeenBy":"payment","needs":"#
-        + needs + "}"
+        #"{"ref":"dec_1","group":"decision","title":"t","question":"q","asker":"a","options":"# + options
+        + #","clips":[],"likelyPeople":[],"links":[],"doneSeenBy":"payment","needs":"# + needs + "}"
     return try JSONDecoder().decode(Check.self, from: Data(json.utf8))
 }
 
@@ -123,6 +123,13 @@ private func qr(_ payload: String?) -> String {
     #expect(try card("[\(other)]").transfers == nil)
     #expect(try card("[\(amount)]").transfers == nil)
     #expect(Transfers.thai.usual == .kplus && Transfers.iban.usual == .revolut)
+}
+
+@Test func aPlansStartLeadsOverItsBankApp() throws {
+    let plan =
+        #"[{"id":"no","label":"Not this plan","role":"decline"},{"id":"go","label":"Start the plan","role":"start"}]"#
+    #expect(try card("[\(account)]", options: plan).transfers == nil)
+    #expect(try card("[\(account)]", options: #"[{"id":"paid","label":"Paid"}]"#).transfers == .thai)
 }
 
 /// One card's trip, as the card's state holds it, and what the trip asked of Photos and the bank app.

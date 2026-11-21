@@ -36,6 +36,7 @@ import {
 import { expectWire } from "./wire-fixture";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
+const HIS_ONLY = ["read_log_lines", "read_resource_samples", "read_spending"];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
@@ -135,6 +136,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_projects",
     "read_registered_agents",
     "read_resource_samples",
+    "read_spending",
     "request_decision",
     "search",
     "tell_life",
@@ -164,7 +166,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
     "read_life_status()",
-    "read_log_lines(cursor,limit,min_level,process)",
+    "read_log_lines(after,cursor,limit,min_level,process)",
     "read_matter(id)",
     "read_matters(area,ifNot,noProject,person,project)",
     "read_memory_changes(about,cursor,limit,run,since,types)",
@@ -179,6 +181,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_projects(ifNot)",
     "read_registered_agents()",
     "read_resource_samples()",
+    "read_spending(month)",
     "request_decision(context,deadline,doneSeenBy,draft,gathered,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
@@ -294,9 +297,7 @@ test("read_log_lines: his token reads the log newest first, both shapes, as his 
   ) =>
     (await rpc(await token(over), "tools/call", { arguments: args, name })).json
       .result;
-  for (const agent of await Promise.all(
-    ["read_log_lines", "read_resource_samples"].map((n) => call({}, {}, n))
-  )) {
+  for (const agent of await Promise.all(HIS_ONLY.map((n) => call({}, {}, n)))) {
     expect(agent).toMatchObject({ isError: true });
     expect(agent.content[0].text).toContain("paired as an agent");
   }
@@ -774,8 +775,9 @@ test("built to serve reads only (the question cases' agent), the connector regis
   expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");
   // His log is his token's alone: never on a server with no token.
-  expect(names).not.toContain("read_log_lines");
-  expect(names).not.toContain("read_resource_samples");
+  for (const n of HIS_ONLY) {
+    expect(names).not.toContain(n);
+  }
 });
 
 test("change_directory_entry is his: an agent's token is refused, and `said` is required; truth/ stays as it was", async () => {

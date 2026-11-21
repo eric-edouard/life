@@ -333,10 +333,12 @@ export function readAppended<T, F>(
     closeSync(fd);
   }
 }
-/** Writes a small JSON state file (the schedule's), its folder made if missing. */
+/** Writes a small JSON state file (the schedule's), its folder made if missing: whole or not at all (a sibling, renamed). */
 export function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(value)}\n`);
+  const part = `${path}.${process.pid}.tmp`;
+  writeFileSync(part, `${JSON.stringify(value)}\n`);
+  renameSync(part, path);
 }
 /** Whether `path` exists: false only when it doesn't; throws when it can't be told (access denied), unlike `existsSync`. */
 export const isThere = (path: string) =>
