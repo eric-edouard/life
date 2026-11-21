@@ -79,8 +79,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (none today: the next is written fresh, its call in `cli.ts`; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
-  next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
-  order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
+  next start, under the lock (a checkout only on a copy), before anything that appends starts (the lock-free appenders
+  never wait on it); it rewrites the stored lines (same count, same order, so the `read_memory_changes` cursor holds),
+  each file whole through `writeWhole` (a new file, which every process's kept read reads whole again; never in place),
+  and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
   meaning: the prompt keeps its version and its cached outputs are backfilled.
@@ -325,7 +327,7 @@ Before adding a helper, use the one that exists:
 | An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once, a voice note by lifelog's speech pipeline (`hearVoiceNotes` alone for the event reader and the backfill `memory hear-voice-notes`) |
-| Reading a JSONL file | an append-only one (the ledger, verdicts, files, told-life): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
+| Reading a JSONL file | an append-only one (the ledger, verdicts, files, told-life): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate, its lines from a line `readLines`; rewritten only whole, by `writeWhole`; one code rewrites: `rowsOf` |
 | Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf` with its quiet, `EXCHANGE_ENDS_AFTER` (6 hours, `memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isTwoWay` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`exchanges.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first. Speech is cut at `CONVERSATION_ENDS_AFTER` (5 minutes, `core/quiet.ts`), by lifelog's grouping and by `exchangesOf(turns, CONVERSATION_ENDS_AFTER)` alike |
 | A subject's read, cut into parts that end with their next reads (a person's `now`, `page`, `persona`, `story`, `year`, `month`, `evidence`, `latest`) | `person()` (`memory/read-person-page.ts`) builds every part over the one ref grammar, `PART_CHARS` and `nextReads` (`memory/read-part.ts`); `now` and `latest` as data (`personNowOf`, `readLatest`, `memory/person-now.ts`), `now`'s `knows` made from its next reads; `fetch` and the CLI open a ref through `openById`. Never a second reader beside `person()`; a person only heard has no ref, so no parts |
 | The people and organizations, listed (the People tab, `read_people_and_organizations` with no name) | `peopleListOf` over `rowOf` (`memory/person-now.ts`): his directory's people and organizations and everyone with a page, by `closerOf`'s level in `ClosenessLevel`'s order, the unjudged last, the newest exchange first; `needsYou` from their matter rows; never a second order |
