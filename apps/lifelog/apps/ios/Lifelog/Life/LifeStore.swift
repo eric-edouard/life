@@ -22,10 +22,9 @@ final class LifeStore {
     private(set) var agents = ReadState<RegisteredAgents>()
     /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
     private(set) var spending = ReadState<ModelSpending>()
-    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
+    /// The People tab: everyone Life knows, closest first; and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
-    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
@@ -47,6 +46,8 @@ final class LifeStore {
         case project(String)
         /// His Remove or Undo of an appointment Life added to his calendar, by its id.
         case appointment(String)
+        /// His picture pick for a person or an organization of his directory, by their ref.
+        case picture(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
@@ -58,6 +59,8 @@ final class LifeStore {
             /// His icon to put back (nil: Life's pick), and the one it replaces.
             case icon(matter: String, String?, was: String?)
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
+            /// The picture source to put back (`none`: no picture), and the one it replaces.
+            case picture(ref: String, name: String, Party.Kind, String, was: String)
         }
         let id = UUID()
         let words: String
@@ -72,6 +75,8 @@ final class LifeStore {
     private let statusing = PendingTaps<ProjectStatus>()
     /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
     private let iconing = PendingTaps<String?>()
+    /// His picture pick on a person or an organization (a source, or `none`) from his tap until Life's reads after it.
+    private let picturing = PendingTaps<String>()
     /// His icon picks Life took, until a read of the matter shows them.
     private var writtenIcons = WrittenIcons()
 
@@ -285,7 +290,7 @@ final class LifeStore {
 
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: Self.peopleKey) {
-            try await $0.readPeopleAndOrganizations(query: nil)
+            try await $0.readPeopleAndOrganizations()
         }
     }
 
@@ -370,18 +375,6 @@ final class LifeStore {
             }
         }
         return state(of: .appointment(id))
-    }
-
-    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
-    /// replaces this one's, which then applies nothing.
-    func findPeople(_ query: String) async {
-        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
-        await load(
-            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
-            key: "read_people_and_organizations-query-\(query)", isKept: false
-        ) {
-            try await $0.readPeopleAndOrganizations(query: query)
-        }
     }
 
     /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
@@ -765,6 +758,40 @@ final class LifeStore {
         }
     }
 
+    /// His picture pick under way on `ref` (a source, or `none`); nil when none is.
+    func picturePicking(_ ref: String) -> String? { picturing[ref] }
+
+    /// His picture pick for a person or an organization of his directory (a source, or `none`: no picture), an edit of
+    /// their entry `said` as the tap's words; said back "Picture changed" with Undo (`was`: the source showing before,
+    /// written back explicitly, which shows the same) once their read and the list are read again. One pick per ref at
+    /// a time; a failure says Life's reason.
+    func setPicture(
+        of ref: String, name: String, kind: Party.Kind, from source: String, was: String, saysBack: Bool = true
+    ) async {
+        let api = api
+        let key = ActionKey.picture(ref)
+        if await refusedOutOfReach(key, saysBack: true) { return }
+        let said =
+            source == PersonNow.noPicture
+            ? "No picture for \(name)"
+            : "Show \(name)'s \(Channel.name(source)) picture"
+        _ = await picturing.run(ref, showing: source) {
+            await perform(key) { [runner] in
+                await runner.record(emit: $0) {
+                    try await api.setPicture(of: ref, kind: kind, from: source, said: said, onProgress: $0)
+                }
+            }
+            if case .succeeded = state(of: key) {
+                async let a: Void = refreshPerson(ref)
+                async let b: Void = refreshPeople()
+                _ = await (a, b)
+            }
+            say(
+                key, saysBack ? "Picture changed" : nil,
+                undo: .picture(ref: ref, name: name, kind, was, was: source))
+        }
+    }
+
     /// Its Undo as a tap, none when it was not done.
     func undoing(_ said: SaidBack) -> (() -> Void)? {
         said.undo == nil ? nil : { Task { await self.undo(said) } }
@@ -783,6 +810,9 @@ final class LifeStore {
         case .status(let id, let name, let status, let was)?:
             await statusing.settled(id)
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
+        case .picture(let ref, let name, let kind, let source, let was)?:
+            await picturing.settled(ref)
+            await setPicture(of: ref, name: name, kind: kind, from: source, was: was, saysBack: false)
         case nil: break
         }
     }
@@ -924,7 +954,7 @@ final class LifeStore {
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
-        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
+        (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.

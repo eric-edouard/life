@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (every whole read after the first takes 5 s: a tapped push's card is checked), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people|search`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pictures|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -127,6 +127,8 @@
         private let statuses = Mutex(LifeFixture.parked.map { [$0: "parked"] } ?? [String: String]())
         /// His icon picks, by matter: a key, or nil when he gave it back to Life (the design data's pick shows again).
         private let icons = Mutex([String: String?]())
+        /// His picture picks here, by ref: a source, or `none`.
+        private let pictureFroms = Mutex([String: String]())
         /// His Remove (true) or Undo (false) of the design data's appointment here.
         private let removed = Mutex<Bool?>(nil)
 
@@ -303,14 +305,11 @@
             return json(["pictures": found, "missing": ids.filter { id in !found.contains { $0["id"] == id } }])
         }
 
-        /// The design data's people (`read_people_and_organizations.json`, its rows as the list gives them, and `others`);
-        /// a query keeps the rows whose name holds it. None until the designer writes the file.
-        func readPeopleAndOrganizations(query: String?) async throws -> String {
+        /// The design data's people (`read_people_and_organizations.json`, its rows as the list gives them). None until
+        /// the designer writes the file.
+        func readPeopleAndOrganizations() async throws -> String {
             try await gate()
-            let rows = Self.people["people"] as? [[String: Any]] ?? []
-            guard let query else { return json(["people": rows]) }
-            let found = rows.filter { ($0["name"] as? String)?.localizedStandardContains(query) == true }
-            return json(["people": found, "others": Self.people["others"] ?? []])
+            return json(["people": Self.people["people"] as? [[String: Any]] ?? []])
         }
 
         /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
@@ -346,7 +345,13 @@
                 let rows = rowsNow()
                 now["open"] = ids.compactMap { id in rows.first { $0["id"] as? String == id } }
             }
-            return json(row.merging(now) { $1 })
+            var read = row.merging(now) { $1 }
+            // His pick here: that source's picture, or none.
+            if let from = pictureFroms.withLock({ $0[subject] }) {
+                let choices = now["pictures"] as? [[String: Any]] ?? []
+                read["picture"] = choices.first { $0["source"] as? String == from }.map { ["id": $0["id"]] }
+            }
+            return json(read)
         }
 
         func readMatter(_ id: String) async throws -> String {
@@ -591,6 +596,16 @@
             try await Task.sleep(for: .milliseconds(300))
             marks.withLock { $0[matter] = important }
             return "Done: memory."
+        }
+
+        func setPicture(
+            of ref: String, kind: Party.Kind, from source: String, said: String,
+            onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
+            try await gate()
+            try await Task.sleep(for: .milliseconds(300))
+            pictureFroms.withLock { $0[ref] = source }
+            return "Done: \(kind == .organization ? "organization" : "person") \(ref.trimmingPrefix("person:"))."
         }
 
         func setProjectStatus(

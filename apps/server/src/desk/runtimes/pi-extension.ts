@@ -3,6 +3,7 @@ import type {
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
 import { SEND_FACTS_ENV, SEND_GUARD_HOOK, sendRefusalOf } from "../send-guard";
+import { DOOR_KEY_ENV } from "./contract";
 
 // The extension every pi session of the desk loads (`pi -e`, `pi-runtime.ts`): inside the pi process, before each tool
 // call, Life's send guard (`send-guard.ts`), on the calls Claude's and Codex's hook reads (`SEND_GUARD_HOOK.matcher`);
@@ -20,7 +21,7 @@ export const PI_PROVIDER = "life";
 
 /** What the runtime puts in pi's environment for this extension. */
 export const PI_EXTENSION_ENV = {
-  doorKey: "LIFE_DESK_KEY",
+  doorKey: DOOR_KEY_ENV,
   doorUrl: "LIFE_DESK_URL",
   facts: SEND_FACTS_ENV,
   key: "LIFE_PI_KEY",

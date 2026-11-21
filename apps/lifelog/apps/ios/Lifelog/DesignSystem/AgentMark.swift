@@ -9,7 +9,7 @@ extension RuntimeName {
         switch self {
         case .claude: "claude.mark"
         case .codex: "openai.mark"
-        case .unknown: "apple.terminal"
+        case .pi, .unknown: "apple.terminal"
         }
     }
 }

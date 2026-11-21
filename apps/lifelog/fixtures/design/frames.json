@@ -193,9 +193,6 @@
   "DuoFoldDictRest": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
-  "DuoFoldDictSearch": {
-    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
-  },
   "DuoFoldDictSheet": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
@@ -391,9 +388,6 @@
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Organizations"]
   },
-  "DuoFoldPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
-  },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
     "taps": ["Someone else…"]
@@ -492,10 +486,31 @@
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab people -fixturePerson person:camille, then scroll to the end."
   },
   "DuoFoldPersonPictureChanged": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille",
+      "-fixtureSheet",
+      "pictures"
+    ],
+    "taps": ["WhatsApp picture"],
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonPictures": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille",
+      "-fixtureSheet",
+      "pictures"
+    ],
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonReachMenu": {
     "args": [
@@ -691,9 +706,6 @@
     ],
     "taps": ["Organizations"]
   },
-  "DuoPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
-  },
   "DuoPeopleTall": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
@@ -707,7 +719,7 @@
     "why": "A scroll: by hand, as DuoFoldPersonLower, the Duo open."
   },
   "DuoPersonPictures": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonTall": {
     "args": [
