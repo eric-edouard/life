@@ -23,6 +23,8 @@ nonisolated enum Palette {
     static let on = token(dark: 0x07080a, light: 0xf3f4f5)
     /// A line icon beside a row (components.md "Settings row"): `fg` at 85%.
     static let icon = fg.opacity(0.85)
+    /// A QR's paper, white in both themes: a code scans dark on white.
+    static let qrPaper = Color.white
 
     private static func token(dark: UInt32, light: UInt32) -> Color {
         #if os(watchOS)

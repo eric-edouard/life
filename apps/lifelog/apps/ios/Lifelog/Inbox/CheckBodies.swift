@@ -214,15 +214,14 @@ struct ContactsCardBlock: View {
 }
 
 /// What he needs in hand to do the step, each fact a row: a muted glyph, the fact, and its one press (copy, or open a
-/// page, by his tap only). Which rows a need draws is `Need.rows`; a copy shows its check and "Copied <what>" for 2 s.
+/// page, by his tap only). Which rows the needs draw is `Check.shownNeedRows`; a copy shows its check and "Copied <what>"
+/// for 2 s.
 struct NeedsBlock: View {
-    let needs: [Check.Need]
+    let rows: [NeedRow]
 
     @Environment(\.openURL) private var openURL
     /// The row he just copied, and what went on the pasteboard.
     @State private var copied: (row: Int, text: String)?
-
-    private var rows: [NeedRow] { needs.flatMap(\.rows) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {

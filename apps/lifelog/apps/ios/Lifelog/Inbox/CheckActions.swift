@@ -7,6 +7,10 @@ struct CardInput: Equatable {
     var words = ""
     /// The context sheet is open (`ContextSheet`).
     var showsContext = false
+    /// The trip to his bank app from this card: the QR saved to Photos, the app opened, or why either did not go.
+    var isCodeSaved = false
+    var hasOpenedBankApp = false
+    var bankTripProblem: String?
 }
 
 /// A link on the ask and what it does: its context ("Why this reply?") or "Tell the agent…".
@@ -33,6 +37,10 @@ struct CheckActions: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
     @Environment(\.askSheetZoom) private var sheetZoom
+    @AppStorage(Transfers.thai.storageKey) private var thaiBankApp = Transfers.thai.usual
+    @AppStorage(Transfers.iban.storageKey) private var ibanBankApp = Transfers.iban.usual
+    /// A save or an open is under way: one at a time.
+    @State private var isGoingToBank = false
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -57,6 +65,10 @@ struct CheckActions: View {
             } else {
                 line
                 refusal
+                if let problem = input.bankTripProblem {
+                    Text(problem).font(.small).foregroundStyle(Palette.flag)
+                        .frame(maxWidth: .infinity, alignment: .leading).appears()
+                }
                 DoneSeenLine(doneSeen: check.doneSeen)
                 // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
                 if check.doneSeen?.state == .looking {
@@ -102,13 +114,20 @@ struct CheckActions: View {
     /// The deadline in one line above the answers, with the link at its right end when the row under the thing had none.
     @ViewBuilder private var line: some View {
         let text = check.deadlineLine()
-        if text != nil || !links.isEmpty {
+        if isLookingAfterBank || text != nil || !links.isEmpty {
             // Under an accessibility size the links go under the words, and under each other, never cut.
             let layout =
                 typeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout(spacing: Metrics.Spacing.m))
             layout {
-                if let text { Text(text).font(.small).foregroundStyle(Palette.muted) }
+                if isLookingAfterBank {
+                    HStack(spacing: Metrics.Spacing.s) {
+                        Spinner(size: .small)
+                        Text("Looking for the payment…").font(.small).foregroundStyle(Palette.muted)
+                    }
+                } else if let text {
+                    Text(text).font(.small).foregroundStyle(Palette.muted)
+                }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
                 layout {
                     ForEach(links, id: \.title) { link in TextLink(link.title, action: link.run) }
@@ -169,11 +188,59 @@ struct CheckActions: View {
             .buttonStyle(.pill(.filled))
             .zoomSource(AskSheet.create(ref: check.ref, asOrganization: false), in: sheetZoom)
             others(shown.map(choice))
+        } else if let app = bankApp {
+            // His bank app is the one press; every answer sits quieter beside it.
+            Button {
+                goToBank(app)
+            } label: {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Text(
+                        check.payCode != nil && !input.isCodeSaved ? "Save QR and open \(app.name)" : "Open \(app.name)"
+                    )
+                    Image(systemName: "arrow.up.right").font(.smallStrong)
+                }
+            }
+            .buttonStyle(.pill(.filled, isBusy: isGoingToBank)).disabled(isGoingToBank)
+            if !shown.isEmpty { others(shown.map(choice)) }
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
                 .zoomSource(sheet(of: first), in: sheetZoom)
             let rest = shown.dropFirst().map(choice)
             if !rest.isEmpty { others(rest) }
+        }
+    }
+
+    /// The app his pick opens for this card's kind of transfer (Settings > Apps); nil when the card names none.
+    private var bankApp: BankApp? {
+        check.transfers.map { $0 == .thai ? thaiBankApp : ibanBankApp }
+    }
+
+    /// Back from his bank app on a card Life looks for, it says so in the deadline's place: Life's watcher looks while
+    /// the card is open. Not when the QR asks another amount than the one Life looks for.
+    private var isLookingAfterBank: Bool {
+        input.hasOpenedBankApp && check.doneSeenBy == .payment && check.payCode?.invoiceAmount == nil
+    }
+
+    /// Saves the card's QR to Photos the first time, then opens his bank app; either one that fails says why.
+    private func goToBank(_ app: BankApp) {
+        isGoingToBank = true
+        Task {
+            defer { isGoingToBank = false }
+            if let code = check.payCode, !input.isCodeSaved {
+                do throws(QRPicture.Problem) {
+                    try await QRPicture.save(code.payload)
+                } catch {
+                    input.bankTripProblem = error.words
+                    return
+                }
+                input.isCodeSaved = true
+            }
+            if await UIApplication.shared.open(app.url) {
+                input.hasOpenedBankApp = true
+                input.bankTripProblem = nil
+            } else {
+                input.bankTripProblem = "\(app.name) did not open. Is it on this phone?"
+            }
         }
     }
 
