@@ -8,6 +8,7 @@ import { openStore, turnPlace, withStore } from "../sources/lifelog";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { readMatterBook } from "./matters";
 import { readFiles, readIndex, readUnit } from "./memory-files";
+import { type Need, needRefsOf } from "./needs";
 import {
   type AppointmentSheet,
   readAppointmentSheet,
@@ -229,15 +230,33 @@ export function findMessageIn(
 }
 
 /** Why a card's context can't be shown: blank, or its first `life:` link that opens nothing; none when it can. */
-export async function contextProblemOf(context: string, reads: SharedReads) {
+export function contextProblemOf(context: string, reads: SharedReads) {
   if (context.trim() === "") {
-    return "`context` is required, in Markdown: why you ask, why you drafted this, what you tried, with links";
+    return Promise.resolve(
+      "`context` is required, in Markdown: why you ask, why you drafted this, what you tried, with links"
+    );
   }
   return refsProblemOf(
     lifeRefsOf(context),
     reads,
     (id) => `the link life:${id}`,
     "a `life:` link"
+  );
+}
+
+/** Why a card can't be asked for its refs: its `context`'s (`contextProblemOf`), then its needs' (a QR's message); none when all open. */
+export async function cardRefsProblemOf(
+  ask: { context: string; needs?: Need[] },
+  reads: SharedReads
+) {
+  return (
+    (await contextProblemOf(ask.context, reads)) ??
+    refsProblemOf(
+      needRefsOf(ask.needs),
+      reads,
+      (ref) => `the qr need's \`ref\` ${ref}`,
+      "a QR's `ref`"
+    )
   );
 }
 
