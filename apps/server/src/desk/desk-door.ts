@@ -214,7 +214,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "answer",
-    "The main session only, on a turn of his words: what you add to your answer, called right before its text (your text after your last tool call is always its words). `why`: one line of why. `sources`: the refs it rests on (`fetch` opens each; a dead one is refused). `answers`: 2 to 4 likely answers he may tap, when you ask him something. A later call replaces it.",
+    "The main session only, on a turn of his words: what you add to your answer, called right before its text (your text after your last tool call is always its words). `why`: one line of why. `sources`: the refs it rests on (`fetch` opens each; a dead one is refused). `answers`: 2 to 4 likely answers he may tap, when you ask him something (a question shows no why or sources). A later call replaces it.",
     AnswerExtras,
     async (extras, _, turn) => {
       const dead =
@@ -229,7 +229,7 @@ function doorServer(desk: Desk, id: string) {
         return { error: `Not done: ${dead}.` };
       }
       if (turn) {
-        keepAnswerExtras(turn.id, extras);
+        keepAnswerExtras(desk, turn.id, extras);
       }
     }
   );

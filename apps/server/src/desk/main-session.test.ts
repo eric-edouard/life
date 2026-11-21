@@ -292,6 +292,16 @@ test("`answer` adds why to its words, or likely answers that make it a question;
     why: "Since his mail of 2 October.",
     words: "**Friday**, at ten.",
   });
+  // A later call replaces the earlier one.
+  const twice = await asked("And the fitting?", async (r) => {
+    await callDoor(main()?.id ?? "", "answer", { answers: ["A", "B"] });
+    await play({ why: "Replaced." })(r);
+  });
+  expect(twice.answer).toEqual({
+    kind: "reply",
+    why: "Replaced.",
+    words: "**Friday**, at ten.",
+  });
   expect(await said("Which day?", { answers: ["Friday", "Monday"] })).toEqual({
     answers: ["Friday", "Monday"],
     kind: "question",
