@@ -197,7 +197,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   no line (`hearVoiceNotes`: a line of `memory/files.jsonl`, Thai turns through Scribe once per note); that is Life
   reading what was said, not an act.
 - **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
-  on loopback only, one key per registered agent. Never take the local key on the public port (`docs/architecture.md`, "Pages").
+  on loopback only, one key per registered agent (with its guard's answer, `/guard`, and the Life plugin's lookup of
+  an agent's session, `/session`, by a loopback `Host` only). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
   lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
