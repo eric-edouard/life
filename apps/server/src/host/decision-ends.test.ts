@@ -196,3 +196,58 @@ test("a step card whose step no open matter holds any more, and that never ended
     book.mockRestore();
   }
 });
+
+// Verdict on PR 841: a card on a matter whose newest step another open matter shares closed the other one (the
+// answer found the matter again from that step alone). The ask keeps the matter it resolved, and the answer takes it.
+test("an `ends` card on a matter sharing its newest step with another closes the matter it was asked on, exactly its steps; nothing once that matter ended", async () => {
+  const todo = (ref: string) => ({ kind: "to_do", ref });
+  const shared = todo("obs_0000000000ab");
+  const b = {
+    id: "matter_bbbbbbbbbbbb",
+    open: true,
+    steps: [todo("obs_00000000000b"), shared],
+  };
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      id: "matter_aaaaaaaaaaaa",
+      open: true,
+      steps: [todo("obs_00000000000a"), shared],
+    },
+    b,
+  ] as never);
+  const ask = () =>
+    requestDecision("planner", {
+      context: "A made-up reason to ask.",
+      deadline: new Date(Date.now() + 2 * DAY).toISOString(),
+      onSilence: null,
+      options: [
+        { ends: "matter", id: "done", label: "Done" },
+        { id: "later", label: "Not yet" },
+      ],
+      question: "Is the fence painted?",
+      subject: "matter_bbbbbbbbbbbb",
+      title: "Paint the fence",
+    });
+  try {
+    // B ends before his answer: the card closes nothing, never A's steps through the step they share.
+    const before = await ask();
+    b.open = false;
+    await call(before.id, ["done"]).result;
+    expect(readCorrections()).toEqual([]);
+    b.open = true;
+    const { id } = await ask();
+    expect(decisionsNow().find((d) => d.id === id)).toMatchObject({
+      matter: "matter_bbbbbbbbbbbb",
+      subject: shared.ref,
+    });
+    await call(id, ["done"]).result;
+    expect(readCorrections()).toMatchObject([
+      { kind: "outdated", observations: ["obs_00000000000b", shared.ref] },
+    ]);
+  } finally {
+    book.mockRestore();
+  }
+});
