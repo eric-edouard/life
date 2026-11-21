@@ -32,7 +32,7 @@ private struct PeopleColumns: View {
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.personColumn) {
             ReadScreen(
                 shown: life.people.shown(isEmpty: { $0.people.isEmpty }), retry: { await life.refreshPeople() },
-                loading: { RowsPlaceholder() },
+                loading: { RowsPlaceholder(hasDisc: true, label: "Loading the people") },
                 empty: {
                     Notice(
                         title: "No one yet.",
@@ -68,12 +68,12 @@ private struct PeopleColumns: View {
         .navigationSplitViewStyle(.balanced)
         // Stacked, the split view collapses as on a compact width: the list full screen, a tap pushes the page.
         .environment(\.horizontalSizeClass, isSplit ? .regular : .compact)
-        // The tabs hide while a person fills a compact width and come back with the list (as in Matters).
-        .toolbarVisibility(!isSplit && router.personColumn == .detail ? .hidden : .automatic, for: .tabBar)
         // Beside the list there is always someone, one of the rows on show unless opened from elsewhere.
         .onChange(of: isSplit, initial: true) { fillSelection() }
         .onChange(of: life.people.value) { fillSelection() }
         .onChange(of: kind) { fillSelection() }
+        // Back from someone opened elsewhere (a matter, Search) goes back there, not to this list.
+        .onChange(of: router.personColumn) { _, column in if column == .sidebar, !isSplit { router.closePerson() } }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
 
@@ -167,24 +167,5 @@ extension PeopleList.Kind {
         case .people: "person.2"
         case .organizations: "building.2"
         }
-    }
-}
-
-private struct RowsPlaceholder: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-            ForEach(0..<6, id: \.self) { _ in
-                HStack(spacing: Metrics.Spacing.m) {
-                    Placeholder(width: 40, height: 40)
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-                        Placeholder(width: 160, height: 16)
-                        Placeholder(width: 220, height: 12)
-                    }
-                }
-            }
-            Spacer()
-        }
-        .padding(Metrics.gutter)
-        .accessibilityLabel("Loading the people")
     }
 }

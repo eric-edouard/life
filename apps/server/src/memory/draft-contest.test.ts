@@ -2,9 +2,9 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY, MIN } from "../core/clock";
 import { logEvents, logFileOf } from "../core/log";
+import { DECISIONS } from "./decision-lines";
 import {
   answerDecision,
-  DECISIONS,
   decisionsNow,
   requestDecision,
   settledBetween,

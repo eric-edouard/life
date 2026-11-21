@@ -51,7 +51,11 @@ final class AppRouter {
         case party(String)
     }
 
-    var tab = Tab.inbox
+    var tab = Tab.inbox {
+        didSet { if tab != .people { personCameFrom = nil } }
+    }
+    /// The tab he was on when a person was opened from elsewhere (`open(party:)`): Back from that page returns there.
+    private(set) var personCameFrom: Tab?
     /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All. Choosing one lets
     /// its list choose the matter on show again.
     var chip: String? {
@@ -77,6 +81,21 @@ final class AppRouter {
     var sheet: Sheet?
     /// Tell Life, full screen over whatever he was on.
     var isTellLifeOpen = false
+    /// Where the system put the Pendant (its frame in the window): in the side column of the closed Duo, or at the top
+    /// bar's trailing end. Tell Life stands on its vertical line, below it; nil before the Pendant is drawn.
+    var pendantFrame: CGRect?
+    /// Where the system put the Settings gear, while it shows: Tell Life stands below it too.
+    var settingsFrame: CGRect?
+    /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
+    var isTellLifeSmall = false
+    /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
+    var tellContext: (ref: String, question: String)?
+
+    /// Tell Life on a card: his words go with that card on screen.
+    func tellLife(about ref: String, question: String) {
+        tellContext = (ref, question)
+        isTellLifeOpen = true
+    }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
     private var people = PageStack<PersonRoute>()
@@ -104,7 +123,9 @@ final class AppRouter {
             case .people: "people"
             case .search: "search"
             }
-        return TellScreen(tab: tab, open: tab == "projects" ? matter : tab == "people" ? person : nil)
+        return TellScreen(
+            tab: tab,
+            open: tellContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
     }
 
     func open(matter id: String) {
@@ -143,9 +164,18 @@ final class AppRouter {
         sheet = nil
         matterSheet = nil
         projectAsk = nil
+        let from = tab
         tab = .people
         select(person: ref)
         isPersonFromElsewhere = true
+        personCameFrom = from == .people ? nil : from
+    }
+
+    /// Back from the person on show to the list: to the tab he came from instead, when they were opened from elsewhere.
+    func closePerson() {
+        guard let from = personCameFrom else { return }
+        personCameFrom = nil
+        tab = from
     }
 
     /// The one way the person on show changes, from the list unless `open(party:)` says otherwise: their page starts
@@ -153,6 +183,7 @@ final class AppRouter {
     func select(person ref: String?) {
         people.open(ref)
         isPersonFromElsewhere = false
+        personCameFrom = nil
         personColumn = ref == nil ? .sidebar : .detail
     }
 

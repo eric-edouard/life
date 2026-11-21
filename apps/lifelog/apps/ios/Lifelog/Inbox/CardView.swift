@@ -9,8 +9,6 @@ struct CardNotes: Equatable {
     /// The create sheet open over an ask: kept by the host, above its list of asks, so a read that takes the ask away
     /// (his answer) never closes it before it closes itself.
     var creating: Creating?
-    /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
-    var wrong: Check?
     /// On a bulk card: the rows he unticked, the answers he chose on a row's own card (sent with the others), the rows
     /// its "Answer N" sent, and the kinds he goes through one by one (`InboxOrder.folded`).
     var unticked: Set<String> = []
@@ -74,7 +72,6 @@ private struct AskSheetsHost: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.askSheetZoom, zoom)
-            .sheet(item: $notes.wrong) { check in WrongSheet(ref: check.ref).sheetStack() }
             .sheet(item: $notes.creating) { creating in
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
                     request in
@@ -90,7 +87,8 @@ private struct AskSheetsHost: ViewModifier {
 /// One ask on show, whoever hosts it (the Inbox, a matter's stack): the ask with its answers, then its result in its
 /// place. `checks` are the asks around it, paged by swipe when there are several. A send or a start runs through the
 /// store's action and the ask stays, as its own result: it moves on by itself once it worked, and waits for him when it
-/// did not. With `holdsAnswers` every other answer is held four seconds for Undo and the next ask is on show at once.
+/// did not. Every other answer shows on the button he pressed (`answer-states`): working, then Life's green word, then
+/// the next ask; not done, the ask is open again with Life's reason above its answers.
 struct CardView: View {
     let check: Check
     let checks: [Check]
@@ -102,9 +100,6 @@ struct CardView: View {
     var notice: String?
     /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
     var context: ContextRegion?
-    /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
-    /// Without it, only his word that a step is done is held (`Taken.isEnding`); the host draws its toast.
-    var holdsAnswers = false
     /// A bulk card's row: an answer held for Undo is handed back to the row, nothing sent (`isHeld`).
     var takes: ((Taken) -> Void)?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
@@ -121,7 +116,7 @@ struct CardView: View {
     var body: some View {
         CardArrangement(
             context: context,
-            bar: result.map { taken in
+            bar: result.flatMap { $0.isHeld ? nil : $0 }.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key),
                     retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
@@ -130,7 +125,12 @@ struct CardView: View {
         ) {
             // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
             ZStack {
-                if let taken = result {
+                if let taken = result, taken.isHeld {
+                    // On the button he pressed: the ask stays as it was, alone, until Life says.
+                    checkCard(taken.check, page: nil, pressed: taken)
+                        // Where the pager drew it, so nothing moves under his finger.
+                        .padding(.leading, Pager.gap).padding(.trailing, Pager.gap + (checks.isEmpty ? 0 : Pager.edge))
+                } else if let taken = result {
                     // A step ticking changes in place.
                     AnswerResultView(taken: taken, state: life.state(of: taken.key))
                         .motion(Motion.standard, value: life.state(of: taken.key))
@@ -157,7 +157,8 @@ struct CardView: View {
         // A result that worked has said so: the next ask comes by itself.
         .task(id: isDone) {
             guard isDone, let taken = notes.taken else { return }
-            try? await Task.sleep(for: .seconds(1.5))
+            // The green word on the button holds 0.6 s; a result screen is read for longer.
+            try? await Task.sleep(for: .seconds(taken.isHeld ? 0.6 : 1.5))
             if !Task.isCancelled { leave(taken, false) }
         }
         .task(id: check.ref) { openFixtureSheet() }
@@ -199,20 +200,7 @@ struct CardView: View {
                                         submit(all: $0, from: check)
                                     }
                                 } else {
-                                    CheckCard(
-                                        check: check, runtimeName: life.runtimeName(of: check),
-                                        openMatter: { router.open(matter: $0) },
-                                        input: input(check.ref),
-                                        isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                        answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
-                                        create: { notes.creating = creating(check, $0, asOrganization: $1) },
-                                        wrong: {
-                                            life.openComplaint(on: check)
-                                            notes.wrong = check
-                                        },
-                                        dropProject: dropProject(of: check),
-                                        page: page
-                                    )
+                                    checkCard(check, page: page)
                                 }
                             }
                             .padding(.leading, Pager.gap)
@@ -234,10 +222,27 @@ struct CardView: View {
         .motion(Motion.rise, value: checks.map(\.ref))
     }
 
-    /// His tap's result, unless it reopened the ask (a send refused because someone wrote since).
+    /// One ask with its answers; `pressed`, the answer he gave on it while Life works on it.
+    private func checkCard(_ check: Check, page: (current: Int, total: Int)?, pressed: Taken? = nil) -> some View {
+        CheckCard(
+            check: check, runtimeName: life.runtimeName(of: check),
+            openMatter: { router.open(matter: $0) },
+            input: input(check.ref),
+            isBusy: pressed == nil && life.state(of: .answer(ref: check.ref)).isRunning,
+            answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
+            create: { notes.creating = creating(check, $0, asOrganization: $1) },
+            wrong: { router.tellLife(about: check.ref, question: check.question) },
+            dropProject: dropProject(of: check),
+            page: page,
+            pressed: pressed
+        )
+    }
+
+    /// His tap's result, unless it reopened the ask: a send refused because someone wrote since, or an answer shown on
+    /// its button that Life did not take (its reason stands above the answers).
     private var result: Taken? {
         guard let taken = notes.taken else { return nil }
-        if case .failed(let failure, _) = life.state(of: taken.key), failure.wrote != nil { return nil }
+        if case .failed(let failure, _) = life.state(of: taken.key), failure.wrote != nil || taken.isHeld { return nil }
         return taken
     }
 
@@ -314,13 +319,6 @@ struct CardView: View {
             runtimeName: life.runtimeName(of: check))
         if let takes, taken.isHeld {
             takes(taken)
-        } else if holdsAnswers && taken.isHeld {
-            life.hold(request, as: taken.heldWords)
-            current = taken.nextRef
-        } else if taken.isEnding {
-            // Off the Inbox too (a matter's stack): held for Undo, which the host's toast offers, then sent.
-            life.hold(request, as: taken.heldWords)
-            leave(taken, false)
         } else {
             notes.taken = taken
             Task { await life.answer(request, keepsCardOpen: taken.staysOpen) }

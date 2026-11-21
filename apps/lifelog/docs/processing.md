@@ -208,13 +208,20 @@ switch off, the speech service busy or down, the credits used up for a note that
 at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
 its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
 
+### Live words
+
+While he holds Tell Life, the phone streams his live audio straight to ElevenLabs Scribe (realtime). `POST /live-words/token`
+(device token only) mints ElevenLabs' single-use token for that socket (15 minutes, spent on connect) with the key that
+stays on the Mac; nothing is kept or logged (`live_words.token_failed` when ElevenLabs refuses: 502). The phone's
+socket sits outside `scribe-slots.ts`'s count and `GET /spending`.
+
 ### A field's dictation
 
 The phone sends what the owner dictated into a field (Ogg Opus, at most 10 minutes and 16 MB) to
 `POST /dictation/transcript`, device token only. It is heard like a voice note (`hearOnTheMac`, then `hearRouted`),
 routed by where the owner is now, and ahead of everything else: the speech service's interactive place
 (`X-Priority: interactive`) and Scribe's (`interactive`, waiting up to 60 s for a slot). lifelog keeps no audio and no
-words, only operational events (`dictation.heard`: its length, route, billable seconds and turns left unheard;
+words, only operational events (`dictation.heard`: its length, route, billable seconds, turns left unheard and, when heard on the Mac alone, `speechMs` and `totalMs`, where its wait went;
 `elevenlabs.done` or `.failed`); the answer is `no-store`. Words come back only whole:
 any routed turn Scribe had to hear (one the router judged, or one whose speech-service words the merge drops) left
 without Scribe's words (Scribe failed, answered nothing for it, or its audio could not be cut)

@@ -45,17 +45,20 @@ enum TellStreamLine: Equatable {
     }
 }
 
-/// The answer's kind, one of a closed list the phone draws natively (the design's eight: `offline` is the phone's own
-/// state, `TellLife.Stage`). Words mark the one that matters in `**`. An answer's buttons only point at what exists, by
-/// ref; it never carries a free action. A kind this build doesn't know is `unknown`, said as such, never guessed at.
+/// The answer's kind, one of the closed list the server sends (`MainSessionAnswer`): `reply`, `question`, `error`, and
+/// when the main session acted, its act's kind with its words: `done` (a correction, on a matter), `agent` (an agent
+/// on his words: its name, the words it was told), `card` (a card in his Inbox) and `fix` (the caretaker has it).
+/// `offline` is the phone's own state, `TellLife.Stage`. Words mark the one that matters in `**`. An answer's chips
+/// only open refs or give words as his; it never carries a free action. A kind this build doesn't know is `unknown`,
+/// said as such, never guessed at.
 public enum TellAnswer: Sendable, Equatable {
     case reply(words: String, why: String?, sources: [String])
-    case done(what: String, undo: String?)
-    case agent(agent: String, told: String, back: String?)
-    case card(ref: String)
-    case fix(before: String, after: String, places: Int, undo: String?)
-    case question(words: String, answers: [String])
+    case question(question: String, answers: [String])
     case error(what: String)
+    case done(words: String, matter: String?)
+    case agent(words: String, agent: String, told: String)
+    case card(words: String, card: String)
+    case fix(words: String)
     case unknown
 
     init(_ text: String) {
@@ -64,15 +67,13 @@ public enum TellAnswer: Sendable, Equatable {
         func strings(_ key: String) -> [String] { o[key] as? [String] ?? [] }
         switch o["kind"] as? String {
         case "reply": self = .reply(words: string("words") ?? "", why: string("why"), sources: strings("sources"))
-        case "done": self = .done(what: string("what") ?? "", undo: string("undo"))
-        case "agent": self = .agent(agent: string("agent") ?? "", told: string("told") ?? "", back: string("back"))
-        case "card": self = string("card").map { .card(ref: $0) } ?? .unknown
-        case "fix":
-            self = .fix(
-                before: string("before") ?? "", after: string("after") ?? "", places: (o["places"] as? Int) ?? 1,
-                undo: string("undo"))
-        case "question": self = .question(words: string("question") ?? "", answers: strings("answers"))
+        case "question": self = .question(question: string("question") ?? "", answers: strings("answers"))
         case "error": self = .error(what: string("what") ?? "Life did not say why.")
+        case "done": self = .done(words: string("words") ?? "", matter: string("matter"))
+        case "agent":
+            self = .agent(words: string("words") ?? "", agent: string("agent") ?? "", told: string("told") ?? "")
+        case "card": self = string("card").map { .card(words: string("words") ?? "", card: $0) } ?? .unknown
+        case "fix": self = .fix(words: string("words") ?? "")
         default: self = .unknown
         }
     }
@@ -81,12 +82,9 @@ public enum TellAnswer: Sendable, Equatable {
     public var line: String {
         switch self {
         case .reply(let words, _, _): words
-        case .done(let what, _): what
-        case .agent(let agent, _, _): "\(agent) is **on it**"
-        case .card: "A card is **ready in your Inbox**"
-        case .fix(_, _, let places, _): "Fixed in **\(places) \(places == 1 ? "place" : "places")**"
-        case .question(let words, _): words
+        case .question(let question, _): question
         case .error(let what): what
+        case .done(let words, _), .agent(let words, _, _), .card(let words, _), .fix(let words): words
         case .unknown: "Life answered in a way this app can't show yet."
         }
     }

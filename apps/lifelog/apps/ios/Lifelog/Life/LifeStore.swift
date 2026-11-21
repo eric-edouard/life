@@ -610,11 +610,6 @@ final class LifeStore {
     /// His "Wrong…" on each card, above every read, until Life's complaint receipt (`ComplaintDrafts`).
     let complaints = ComplaintDrafts()
 
-    /// The sheet opens on `check`: his draft on it, else a new one, whose sheet starts at rest.
-    func openComplaint(on check: Check) {
-        if complaints.open(check) { forget(.complaint(ref: check.ref)) }
-    }
-
     /// His "Wrong…" on the card `ref` as its draft stands: the press as first sent while his words and tick are
     /// unchanged (its seal, its key, its Life), else a new one to the Life paired now. Its card stays (Life keeps it
     /// open, being fixed); the receipt is the draft's only while it still holds that press.
@@ -755,17 +750,19 @@ final class LifeStore {
         let api = api
         let key = ActionKey.edit(matter: id, .important)
         if await refusedOutOfReach(key, saysBack: true) { return }
-        let isSent = await marking.run(id, showing: isOn) {
+        _ = await marking.run(id, showing: isOn) {
             await perform(key) { [runner] in
                 await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
             }
+            // Said as soon as Life took it; the reads that show it come after, his tap holding the mark meanwhile.
+            say(
+                key, saysBack ? (isOn ? "Marked important: it comes first" : "Not important") : nil,
+                undo: .important(matter: id, !isOn))
             async let a: Void = refreshMatter(id)
             async let b: Void = refreshListsOf(id)
             async let c: Void = refreshInbox()
             _ = await (a, b, c)
         }
-        guard isSent else { return }
-        say(key, saysBack ? (isOn ? "Important" : "Not important") : nil, undo: .important(matter: id, !isOn))
     }
 
     /// A project's status by his tap: `words` say it back with Undo (the status it had, said back by nothing) once its
@@ -804,7 +801,13 @@ final class LifeStore {
     func undo(_ said: SaidBack) async {
         saidBack = nil
         switch said.undo {
-        case .important(let id, let isOn)?: await setImportant(id, isOn, saysBack: false)
+        case .important(let id, let isOn)?:
+            // Said back before its reads land (`setImportant`): Undo waits for them, else the tap would be refused.
+            // ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
+            while marking[id] != nil {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            }
+            await setImportant(id, isOn, saysBack: false)
         case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
             await setStatus(of: id, named: name, to: status, was: was, words: nil)

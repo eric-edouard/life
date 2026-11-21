@@ -1,12 +1,16 @@
 import { afterAll, beforeEach, expect, test } from "bun:test";
+import { rmSync } from "node:fs";
+import { dirname } from "node:path";
 import { clock } from "../core/clock";
-import { DESK_AGENT } from "../core/names";
+import { DESK_AGENT, OWNER_ASKER } from "../core/names";
+import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { ask } from "../host/asks";
 import { requested } from "../host/change-todo-item";
 import {
   agentChangeOf,
   agentInRole,
+  agentOf,
   agentWaitOf,
   currentAssignmentOf,
   openTurn,
@@ -14,14 +18,22 @@ import {
 import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
 import { MOVE_REASONS } from "../host/move-read";
+import { decisionsNow } from "../memory/decisions";
+import { LEDGER, readLedger } from "../memory/memory-files";
+import { complaintOf, isComplaint } from "../records/ledger-entry";
 import type { MainSessionLine } from "../records/main-session-wire";
 import type { AgentChange } from "../records/registered-agent";
+import { openAssignment, register } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
+import { receiveComplaints } from "./complaint-intake";
 import { wakeDue } from "./desk-clock";
 import { doorFetch } from "./desk-door";
+import { openDesk } from "./desk-store";
 import { doorOf } from "./door-keys";
 import { askMainSession, keepMainSession, MAIN_BRIEF } from "./main-session";
+import { ownAssignmentOf } from "./role-agents";
 import { SessionLive } from "./runtimes/contract";
+import { readSpokenAsk, receiveSpokenAsks } from "./spoken-ask-intake";
 import { setup } from "./test-desk";
 import { endLostTurns } from "./turn-ends";
 
@@ -49,7 +61,11 @@ const turnsOf = (id: string) =>
     .all(id);
 
 /** Asks `words`, then plays the session: `play` (its updates) and its run's end. */
-async function asked(words: string, play: (ref: string) => void, key?: string) {
+async function asked(
+  words: string,
+  play: (ref: string) => unknown,
+  key?: string
+) {
   const lines: MainSessionLine[] = [];
   const answer = askMainSession(t.desk, { key, words }, (l) => lines.push(l));
   // Let the ask reach the runtime.
@@ -58,7 +74,7 @@ async function asked(words: string, play: (ref: string) => void, key?: string) {
     await Bun.sleep(5);
   }
   const ref = t.fake.said.at(-1)?.ref ?? "";
-  play(ref);
+  await play(ref);
   t.fake.exit(ref, true, {
     usage: {
       contextFirst: 10,
@@ -202,7 +218,7 @@ test("a failed run answers an error and ends its turn failed; a run with no word
   ]);
 });
 
-test("the door: his words by the local key stream NDJSON lines then the answer; no words keeps the session; a wrong key is refused; on its turn every door tool is refused", async () => {
+test("the door: his words by the local key stream NDJSON lines then the answer; no words keeps the session; a wrong key is refused; on its turn every other door tool is refused", async () => {
   const fetchDoor = doorFetch(t.desk);
   const post = (body: unknown, key = localKey()) =>
     fetchDoor(
@@ -236,7 +252,7 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
       method: "POST",
     })
   );
-  expect(await call.text()).toContain("only reads and answers him");
+  expect(await call.text()).toContain("acts only on a turn of his words");
   t.fake.exit(ref);
   const lines = (await res.text())
     .trim()
@@ -248,6 +264,91 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
   ]);
   expect(await (await post({})).json()).toEqual({ kept: true });
   expect(t.fake.kept).toEqual([ref]);
+});
+
+/** A made-up card. */
+const card = (question: string) => ({
+  context: "A made-up reason to ask.",
+  deadline: new Date(clock().getTime() + 86_400_000).toISOString(),
+  options: [
+    { id: "yes", label: "Yes" },
+    { id: "no", label: "No" },
+  ],
+  question,
+  title: "a test",
+});
+
+/** Agent `id` calls door tool `name` with `args`; the call's response text. */
+async function callDoor(id: string, name: string, args: unknown) {
+  const res = await doorFetch(t.desk)(
+    new Request(`http://127.0.0.1/mcp/${id}`, {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: { arguments: args, name },
+      }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${doorOf(id).key}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    })
+  );
+  return await res.text();
+}
+
+test("`answer` adds why to its words, or likely answers that make it a question; a dead source is refused; its words stay its text after its last tool call", async () => {
+  const play = (extras: unknown) => async (r: string) => {
+    expect(await callDoor(main()?.id ?? "", "answer", extras)).not.toContain(
+      "Not done"
+    );
+    t.fake.hear(r, { kind: "words", text: "**Friday**, at ten." });
+  };
+  const said = async (words: string, extras: unknown) =>
+    (await asked(words, play(extras))).answer;
+  expect(
+    await said("When is the fitting?", { why: "Since his mail of 2 October." })
+  ).toEqual({
+    kind: "reply",
+    why: "Since his mail of 2 October.",
+    words: "**Friday**, at ten.",
+  });
+  // A later call replaces the earlier one.
+  const twice = await asked("And the fitting?", async (r) => {
+    await callDoor(main()?.id ?? "", "answer", { answers: ["A", "B"] });
+    await play({ why: "Replaced." })(r);
+  });
+  expect(twice.answer).toEqual({
+    kind: "reply",
+    why: "Replaced.",
+    words: "**Friday**, at ten.",
+  });
+  expect(await said("Which day?", { answers: ["Friday", "Monday"] })).toEqual({
+    answers: ["Friday", "Monday"],
+    kind: "question",
+    question: "**Friday**, at ten.",
+  });
+  // A source that opens nothing is refused; the answer stays its words alone.
+  const id = main()?.id ?? "";
+  const dead = await asked("And then?", async (r) => {
+    expect(
+      await callDoor(id, "answer", { sources: ["obs_doesnotexist"] })
+    ).toContain("opens nothing");
+    t.fake.hear(r, { kind: "words", text: "Done." });
+  });
+  expect(dead.answer).toEqual({ kind: "reply", words: "Done." });
+  // Outside a turn of his words, `answer` is refused; any other agent never has it.
+  expect(await callDoor(id, "answer", { why: "x" })).toContain("Not done");
+  const other = register(t.desk, {
+    brief: "Test brief",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  expect(await callDoor(other, "answer", { why: "x" })).toContain(
+    "the main session's alone"
+  );
 });
 
 test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a busy ask is not kept by its key, and a key with other words is refused", async () => {
@@ -328,4 +429,138 @@ test("his word never re-points the main session: it takes no other subject", asy
     await refused({ action: "re_point", agent, steps: ["obs_00000000a101"] })
   ).toBe(error);
   expect(main()?.project).toBeNull();
+});
+
+test("on his words the main session acts through its door: each act's `said` must be his words of this ask; it tells an agent, stops one, asks a card as his and hands a complaint to the caretaker; never on itself; no other agent has its acts", async () => {
+  // The connector's waits read the desk's own store (`readDesk`): this test's desk is it.
+  rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  rmSync(LEDGER, { force: true });
+  t.desk.db = openDesk();
+  const other = register(t.desk, {
+    brief: "Test brief",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  const own =
+    ownAssignmentOf(t.desk.db, other) ??
+    openAssignment(t.desk, other, { openedBy: "owner" });
+  const words =
+    "Tell the test agent to book the dentist, then stop it. Ask me about Friday. The names keep coming out wrong.";
+  const results: Record<string, string> = {};
+  const ticking = setInterval(() => {
+    applyAgentChanges(t.desk);
+    receiveComplaints(t.desk);
+  }, 50);
+  let answered: unknown;
+  try {
+    ({ answer: answered } = await asked(words, async (r) => {
+      const id = main()?.id ?? "";
+      // All in one millisecond (the clock stands still): each act's ask is its own.
+      const act = async (name: string, args: unknown) => {
+        results[name] = await callDoor(id, name, args);
+      };
+      results.notHis = await callDoor(id, "tell_agent", {
+        agent: other,
+        said: "Buy a boat for Ana",
+      });
+      await act("tell_agent", { agent: other, said: "book the dentist" });
+      results.self = await callDoor(id, "change_registered_agent", {
+        action: "stop",
+        agent: id,
+        said: "then stop it",
+      });
+      await act("change_registered_agent", {
+        action: "stop",
+        agent: other,
+        said: "then stop it",
+      });
+      results.noSaid = await callDoor(id, "request_decision", card("Friday?"));
+      await act("request_decision", {
+        ...card("Friday?"),
+        said: "Ask me about Friday",
+      });
+      await act("complain", { said: "The names keep coming out wrong" });
+      t.fake.hear(r, { kind: "words", text: "**Done**." });
+    }));
+  } finally {
+    clearInterval(ticking);
+  }
+  expect(results.notHis).toContain("must be his own words");
+  expect(results.self).toContain("never changes itself");
+  expect(results.noSaid).toContain("must be his own words");
+  expect(results.change_registered_agent).toContain('\\"state\\":\\"done\\"');
+  expect(agentOf(t.desk.db, other)?.status).toBe("stopped");
+  // His words reach the agent through the spoken-ask intake, as he said them, on its own assignment, never by meaning.
+  const told = readLedger().find((a) => a.after.to === own);
+  expect(told?.instruction?.quote).toBe("book the dentist");
+  await receiveSpokenAsks(t.desk, () => Promise.reject(new Error("unused")));
+  expect(readSpokenAsk(t.desk, { id: own }, told?.id ?? "")).toEqual({
+    at: told?.instruction?.at ?? "",
+    confidence: undefined,
+    until: undefined,
+    words: "book the dentist",
+  });
+  // The card is his own (`owner`): his answer wakes no agent.
+  expect(decisionsNow().find((d) => d.question === "Friday?")?.asker).toBe(
+    OWNER_ASKER
+  );
+  // The complaint reached the caretaker, on his words alone: no card, no seal.
+  expect(results.complain).toContain('\\"reached\\":\\"caretaker\\"');
+  const complaint = readLedger().find(isComplaint);
+  expect(complaint?.instruction?.quote).toBe("The names keep coming out wrong");
+  expect(complaintOf(complaint as never)).toMatchObject({
+    card: null,
+    ref: "",
+    report: false,
+  });
+  // Its answer is its last act's kind, from what the act wrote, with its words.
+  expect(answered).toEqual({
+    kind: "fix",
+    words: "**Done**.",
+  });
+  // No other agent has its acts: the caretaker, active now, is refused them.
+  const caretaker = agentInRole(t.desk.db, "caretaker")?.id ?? "";
+  expect(
+    await callDoor(caretaker, "tell_agent", { agent: other, said: "x" })
+  ).toContain("the main session's alone");
+  rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+}, 30_000);
+
+test("an answer's kind is its turn's last act: an agent told, a card asked as his", async () => {
+  const other = register(t.desk, {
+    brief: "Test dentist agent",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  if (!ownAssignmentOf(t.desk.db, other)) {
+    openAssignment(t.desk, other, { openedBy: "owner" });
+  }
+  const play =
+    (name: string, args: Record<string, unknown>) => async (r: string) => {
+      await callDoor(main()?.id ?? "", name, args);
+      t.fake.hear(r, { kind: "words", text: "**On it**." });
+    };
+  const told = await asked(
+    "Tell the dentist agent to move my appointment",
+    play("tell_agent", { agent: other, said: "move my appointment" })
+  );
+  expect(told.answer).toEqual({
+    agent: "Test dentist agent",
+    kind: "agent",
+    told: "move my appointment",
+    words: "**On it**.",
+  });
+  const carded = await asked(
+    "Ask me later about the dentist bill",
+    play("request_decision", {
+      ...card("The dentist bill?"),
+      said: "Ask me later about the dentist bill",
+    })
+  );
+  expect(carded.answer).toEqual({
+    card:
+      decisionsNow().find((d) => d.question === "The dentist bill?")?.id ?? "",
+    kind: "card",
+    words: "**On it**.",
+  });
 });

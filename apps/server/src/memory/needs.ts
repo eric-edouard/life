@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDateTime } from "../records/fields";
 import { oneLine } from "./draft";
 import { nameKey } from "./units";
 
@@ -7,6 +8,7 @@ import { nameKey } from "./units";
 // its one line in the card's rules and its page (`fetch("ask/<kind>")`). A new kind is one entry here and one phone
 // component; the tool's arguments never change for it.
 
+const https = z.url({ protocol: /^https$/ });
 const Account = z
   .object({
     bank: oneLine(80).optional(),
@@ -29,6 +31,25 @@ const Amount = z
     value: z.number().positive(),
   })
   .strict();
+const App = z
+  .object({
+    kind: z.literal("app"),
+    name: oneLine(60),
+    /** An https link into the app (a universal link or its store page), opened by his own tap. */
+    url: https.optional(),
+  })
+  .strict();
+const Event = z
+  .object({
+    end: isoDateTime,
+    kind: z.literal("event"),
+    place: oneLine(200).optional(),
+    /** Popup minutes before it starts, 1 to 3: written with the event on his yes (never a mail). */
+    reminders: z.array(z.int().min(0).max(40_320)).min(1).max(3),
+    start: isoDateTime,
+    title: oneLine(120),
+  })
+  .strict();
 const Link = z
   .object({
     kind: z.literal("link"),
@@ -44,7 +65,6 @@ const Text = z
     text: z.string().min(1).max(500),
   })
   .strict();
-const https = z.url({ protocol: /^https$/ });
 const Place = z
   .object({
     address: oneLine(200).optional(),
@@ -68,6 +88,8 @@ const Qr = z
 export const Need = z.discriminatedUnion("kind", [
   Account,
   Amount,
+  App,
+  Event,
   Link,
   Place,
   Text,
@@ -99,13 +121,23 @@ const KINDS: {
     line: (n) => amountWordsOf(n.value, n.currency),
     page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
   },
+  app: {
+    about: "an app (name, link)",
+    line: (n) => `In ${n.name}`,
+    page: '`{kind: "app", name, url?}`: a step he does in another app (a bank app, a booking app). `name` as the app is called; `url` an `https` link into it (a universal link or its store page), opened by his own tap (his phone shows its host), never a custom scheme. Never guess a link. Example: `{"kind":"app","name":"Grab","url":"https://grab.example.com/open"}`.',
+  },
+  event: {
+    about: "a calendar event (title, times)",
+    line: (n) => `${n.title}, ${n.start.slice(0, 16).replace("T", " ")}`,
+    page: '`{kind: "event", title, start, end, reminders, place?}`: an event he may add to his calendar. `start` and `end` RFC 3339 with an offset, `end` after `start`, ahead; `reminders` 1 to 3 popup times in minutes before the start (`[30, 1440]`); `place` where, as written somewhere. With one option marked `adds: true` ("Add to calendar"), his pick of it alone makes Life write this one event, with those reminders, into his calendar, once: never guests, never a mail; an event he deletes is never written again; the answer carries `added` (the event\'s id, or the error). The card is the ask: an agent\'s event is never one Life is sure of, so Life never adds it unasked (what Life itself reads as agreed reaches his calendar as an appointment). Give no `adds` option without this need, nor this need without it. Example: `{"kind":"event","title":"Dive course, day 1","start":"2026-12-01T08:00:00+07:00","end":"2026-12-01T12:00:00+07:00","reminders":[60,1440],"place":"Blue Reef Diving, Chalong"}`.',
+  },
   link: {
-    about: "a web page to open (url, vendor)",
+    about: "a web page (url, vendor)",
     line: (n) => `${n.vendor ? `${n.vendor}: ` : ""}${new URL(n.url).host}`,
     page: '`{kind: "link", url, vendor?}`: a page he opens by his own tap (a checkout, a login, a form), `https` or `http` only; `vendor` who runs it. His phone shows the page\'s host in full and never opens it by itself. Example: `{"kind":"link","url":"https://pay.example.com/i/123","vendor":"Fibrenet"}`.',
   },
   place: {
-    about: "a place to go (name, links)",
+    about: "a place (name, links)",
     line: (n) => (n.address ? `${n.name}, ${n.address}` : n.name),
     page: '`{kind: "place", name, address?, googleMapsUrl?, appleMapsUrl?, boltUrl?}`: where he goes to do the step. `name` as the place is known; `address` only as written somewhere; the links `https` only, each opened by his own tap: Google Maps, Apple Maps, and a Bolt ride there. Never guess one. Example: `{"kind":"place","name":"Chatuchak vehicle office","googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Chatuchak%20vehicle%20office"}`.',
   },
@@ -190,6 +222,10 @@ export const isToPayee = (name: string, words: readonly string[]) => {
 /** The refs a card's needs name (a QR's message): each must open, like its `context`'s links. */
 export const needRefsOf = (needs: readonly Need[] = []) =>
   needs.flatMap((n) => (n.kind === "qr" && n.ref ? [n.ref] : []));
+
+/** The event a card's `adds` option writes: its one `event` need. */
+export const eventOf = (needs: readonly Need[] = []) =>
+  needs.find((n): n is Of<"event"> => n.kind === "event");
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>

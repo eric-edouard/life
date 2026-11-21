@@ -8,7 +8,7 @@ extension Check {
     /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
-            case account, amount, link, place, text, qr
+            case account, amount, app, event, link, place, text, qr
             case unknown
         }
 
@@ -32,6 +32,11 @@ extension Check {
         let text: String?
         let url: URL?
         let vendor: String?
+        /// An event's place and its popup reminders, in minutes before it starts.
+        let place: String?
+        let reminders: [Int]?
+        /// An app's name.
+        let name: String?
         /// A text need he copies (a reference, a code).
         let copy: Bool?
         /// A QR code's text, and where the payee sent it.
@@ -56,6 +61,9 @@ extension Check {
             currency = try? c.decodeIfPresent(String.self, forKey: .currency)
             label = try? c.decodeIfPresent(String.self, forKey: .label)
             text = try? c.decodeIfPresent(String.self, forKey: .text)
+            name = try? c.decodeIfPresent(String.self, forKey: .name)
+            place = try? c.decodeIfPresent(String.self, forKey: .place)
+            reminders = try? c.decodeIfPresent([Int].self, forKey: .reminders)
             vendor = try? c.decodeIfPresent(String.self, forKey: .vendor)
             copy = try? c.decodeIfPresent(Bool.self, forKey: .copy)
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
@@ -71,7 +79,9 @@ extension Check {
         }
 
         private enum CodingKeys: String, CodingKey {
-            case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, copy, payload,
+            case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, name, place,
+                reminders, copy,
+                payload,
                 source, ref, googleMapsUrl, appleMapsUrl, boltUrl
         }
 
@@ -111,6 +121,28 @@ extension Check {
                 } else {
                     rows = []
                 }
+            case .app:
+                // Its name, with its https link opened by his tap; any other scheme is the line alone.
+                let open = url.flatMap { $0.scheme?.lowercased() == "https" ? $0 : nil }
+                rows =
+                    name.map {
+                        [
+                            NeedRow(
+                                glyph: .link, text: $0, detail: open?.host(),
+                                action: open.map { .open($0, label: "Open \($0.host() ?? "the app")") })
+                        ]
+                    } ?? []
+            case .event:
+                // Its title and time (the line), where, and when it will remind him.
+                rows =
+                    [
+                        NeedRow(glyph: .note, text: line),
+                        place.map { NeedRow(glyph: .note, text: $0) },
+                        reminders.map {
+                            NeedRow(
+                                glyph: .note, text: "Reminders: " + $0.map(Self.beforeWords).joined(separator: ", "))
+                        },
+                    ].compactMap { $0 }
             case .text:
                 rows =
                     text.map { text in
@@ -136,6 +168,16 @@ extension Check {
                 rows = []
             }
             return rows.isEmpty ? [NeedRow(glyph: .note, text: line)] : rows
+        }
+
+        /// A reminder's lead as he reads it: "30 min before", "2 h before", "1 day before".
+        static func beforeWords(_ minutes: Int) -> String {
+            switch minutes {
+            case 0: "at the start"
+            case let m where m % 1440 == 0: "\(m / 1440) day\(m == 1440 ? "" : "s") before"
+            case let m where m % 60 == 0: "\(m / 60) h before"
+            default: "\(minutes) min before"
+            }
         }
 
         /// An amount as a bank app takes it: digits and a point, no grouping, no currency.

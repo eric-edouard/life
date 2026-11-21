@@ -20,19 +20,38 @@ private struct ShellBar: ViewModifier {
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if hasPendant || hasSettings {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        if hasPendant {
-                            PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
-                        }
-                        if hasSettings {
-                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-                                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
-                                .accessibilityIdentifier("top.settings")
-                        }
-                    }
+                // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
+                // said to fit the column: a button the zoom wraps reads as a custom view, which the system keeps in a
+                // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
+                if hasPendant {
+                    if #available(iOS 27.1, *) { pendant.axisBehavior(.verticalPreferred) } else { pendant }
+                }
+                if hasSettings {
+                    if #available(iOS 27.1, *) { settings.axisBehavior(.verticalPreferred) } else { settings }
                 }
             }
+    }
+}
+
+extension ShellBar {
+    private var pendant: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
+        }
+    }
+
+    private var settings: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                .labelStyle(.iconOnly)
+                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
+                .accessibilityIdentifier("top.settings")
+                // Under the Pendant in the column: Tell Life stands below the lower of the two.
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
+                    if $0.width > 0, $0.minX > 0 { router.settingsFrame = $0 }
+                }
+                .onDisappear { router.settingsFrame = nil }
+        }
     }
 }
 
@@ -51,6 +70,7 @@ struct PendantItem: View {
     let open: () -> Void
 
     @Environment(CaptureStore.self) private var capture
+    @Environment(AppRouter.self) private var router
 
     private struct Face {
         var symbol: String
@@ -70,6 +90,12 @@ struct PendantItem: View {
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
+        // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`). Only an
+        // item on screen: a collapsed split view keeps its hidden column's item laid out at the leading edge, which drew
+        // Tell Life over the content's left edge (seen in `design:shots`, the Inbox's moves).
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
+            if $0.width > 0, $0.minX > 0 { router.pendantFrame = $0 }
+        }
     }
 
     /// One thing, the most pressing first: something that needs him, a low battery, then the state.
@@ -85,10 +111,12 @@ struct PendantItem: View {
             return Face(symbol: "battery.25percent", spoken: "battery low, \(percent) percent", color: Palette.flag)
         }
         switch reading.state {
-        case .outOfRange, .notConnected: return Face(symbol: "wifi.slash", spoken: "out of reach")
-        case .noPendant: return Face(symbol: "link.badge.plus", spoken: "no pendant")
+        // The pendant's own mark, dimmed, while it is not recording for a reason of its own: never "…" (that is More).
+        case .outOfRange, .notConnected:
+            return Face(symbol: "record.circle", spoken: "out of reach", color: Palette.muted)
+        case .noPendant: return Face(symbol: "record.circle", spoken: "no pendant", color: Palette.muted)
         case .notRecording: return Face(symbol: "pause.circle", spoken: "paused")
-        case .checking: return Face(symbol: "ellipsis.circle", spoken: "waiting")
+        case .checking: return Face(symbol: "record.circle", spoken: "waiting", color: Palette.muted)
         case .full: return Face(symbol: "exclamationmark.circle", spoken: "full")
         case .recording:
             if case .catchingUp = SyncSummary(facts.status.sync, lastCaughtUp: facts.lastCaughtUp) {

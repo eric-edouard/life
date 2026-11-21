@@ -27,12 +27,16 @@ struct CheckCard: View {
     var dropProject: (project: String, run: () -> Void)?
     /// Where it stands among the asks paged beside it (its index, how many); nil alone.
     var page: (current: Int, total: Int)?
+    /// The answer he gave on it while Life works on it, shown on its own button (`CheckActions.pressed`).
+    var pressed: Taken?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
     @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
+    /// A `life:` link of the context drawn as the thing, opened in a sheet.
+    @State private var opened: LifeLinkTarget?
 
     var body: some View {
         ScrollView {
@@ -50,16 +54,18 @@ struct CheckCard: View {
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if isAnswersInBar {
-                // Taller than the screen allows (a row of wide labels stacks), the bar scrolls rather than grows.
-                ScrollView { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
-                    .scrollBounceBehavior(.basedOnSize).frame(maxHeight: Metrics.answerBarMax)
-            }
+            // The answers themselves, never a scroll view of them: one at the screen's bottom edge took the bar's soft
+            // edge as its own, blurred the answers and kept his taps (21 Nov). `fitsBar` keeps the bar short.
+            if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
         }
         .sheet(item: $input.context) { context in
             ContextSheet(
                 title: context.title, markdown: context.markdown, lifeLinks: context.lifeLinks,
                 appLink: context.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
+        }
+        .sheet(item: $opened) { target in
+            NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -71,13 +77,19 @@ struct CheckCard: View {
 
     // MARK: Under the question
 
-    /// Whether a field of the ask has a thing of its own to draw; its context is behind its link, never the thing.
+    /// Whether a field of the ask has a thing of its own to draw; its context is behind its link, unless it is all
+    /// the ask holds (`isContextTheThing`).
     private var hasThing: Bool {
         !check.planSteps.isEmpty || check.draft != nil || !(check.needs ?? []).isEmpty || !check.clips.isEmpty
             || check.said != nil
             || identity != nil || check.contactsCard != nil
             || ([.newMatter, .yourMove].contains(check.group) && check.goal != nil)
     }
+
+    /// An ask with nothing of its own but its context (a plan card asked without steps, a decision in words): the
+    /// context is the thing, drawn in full on the tile, never an empty card behind a link. Beside the card, the
+    /// context region already shows it.
+    private var isContextTheThing: Bool { !hasThing && !isContextBeside && check.contextLinkTitle != nil }
 
     /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
     private var identity: Check.NetworkIdentity? {
@@ -87,7 +99,7 @@ struct CheckCard: View {
     /// The thing on `tile`, at its full length: his own words while he writes them, else what the ask is about; no tile
     /// when it has nothing.
     @ViewBuilder private var tile: some View {
-        if input.isWritingOwnWords || hasThing {
+        if input.isWritingOwnWords || hasThing || isContextTheThing {
             VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 if input.isWritingOwnWords { ownWords } else { content }
             }
@@ -97,6 +109,9 @@ struct CheckCard: View {
     }
 
     @ViewBuilder private var content: some View {
+        if isContextTheThing, let context = check.context {
+            ContextView(markdown: context, lifeLinks: check.lifeLinks ?? []) { opened = $0 }
+        }
         if !check.planSteps.isEmpty {
             PlanBlock(
                 steps: check.planSteps, agentMark: check.agentMark(runtime: runtimeName), gathered: check.gathered,
@@ -163,9 +178,11 @@ struct CheckCard: View {
     // MARK: The matter, the link, the answers
 
     /// The link to its context, in the code's words for what it asks ("Why this reply?"), under the thing it explains;
-    /// none when the context shows beside the card, or when a plan's source chip already opens it (one way to it).
+    /// none when the context shows beside the card or is the thing, or when a plan's source chip already opens it (one
+    /// way to it).
     private var contextLink: QuietChip? {
-        guard !isContextBeside, check.gathered == nil || check.planSteps.isEmpty, let title = check.contextLinkTitle
+        guard !isContextBeside, !isContextTheThing, check.gathered == nil || check.planSteps.isEmpty,
+            let title = check.contextLinkTitle
         else { return nil }
         return QuietChip(title, symbol: "questionmark.circle") { input.context = check.ownContext }
     }
@@ -205,7 +222,7 @@ struct CheckCard: View {
             .motion(Motion.standard, value: life.isCheckingPush)
             CheckActions(
                 check: check, input: $input, isBusy: isBusy, answer: answer, sameAs: sameAs, create: create,
-                wrong: wrong
+                wrong: wrong, pressed: pressed
             )
         }
         .padding(.bottom, Metrics.Spacing.s)

@@ -1,4 +1,5 @@
 import LifeConnector
+import ServerAPI
 import SwiftUI
 
 /// Tell Life, full screen: one place to say anything to Life from any screen. His last words sit as a caption, the stage
@@ -9,18 +10,38 @@ struct TellLifeScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
     @State private var draft = ""
+    @AppStorage(TellWords.key) private var words = TellWords.live
+    private let live = LiveWords.shared
 
     private var tell: TellLife { life.tell }
+
+    /// Closes to the strip when there is something to keep in sight, else just closes.
+    private func makeSmall() {
+        router.isTellLifeSmall = tell.stage != .ready || tell.answer != nil
+        router.isTellLifeOpen = false
+    }
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.l) {
             HStack {
+                TellSmallButton(action: makeSmall)
                 Spacer()
-                CloseButton { router.isTellLifeOpen = false }
+                CloseButton {
+                    router.tellContext = nil
+                    router.isTellLifeSmall = false
+                    router.isTellLifeOpen = false
+                }
+            }
+            if let context = router.tellContext {
+                QuietChip(context.question, symbol: "xmark", isMuted: true) { router.tellContext = nil }
             }
             if !tell.said.isEmpty {
                 Text(tell.said).font(.small).foregroundStyle(Palette.muted).lineLimit(2).multilineTextAlignment(.center)
                     .appears(Motion.fade)
+            }
+            if !live.text.isEmpty {
+                Text(live.text).font(.small).foregroundStyle(Palette.muted).lineLimit(3).multilineTextAlignment(.center)
+                    .accessibilityLabel("Your words, live")
             }
             Spacer(minLength: 0)
             stage.frame(maxWidth: .infinity)
@@ -29,6 +50,15 @@ struct TellLifeScreen: View {
         }
         .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
         .background(TellRoom())
+        .onAppear {
+            router.isTellLifeSmall = false
+            live.isOn = words == .live
+        }
+        .onChange(of: words) { _, new in live.isOn = new == .live }
+        .onChange(of: draft) { live.clear() }
+        .onDisappear { live.isOn = false }
+        // Swipe down makes it small.
+        .gesture(DragGesture().onEnded { if $0.translation.height > 120 { makeSmall() } })
         .motion(Motion.standard, value: tell.stage)
         .motion(Motion.standard, value: tell.answer)
         // The session is kept warm while the screen stays open, so his first words start at once.
@@ -103,8 +133,8 @@ struct TellLifeScreen: View {
         }
     }
 
-    private func head(_ words: String) -> some View { TellAnswerView.head(words) }
-    private func note(_ words: String) -> some View { TellAnswerView.note(words) }
+    private func head(_ words: String) -> some View { TellHead(words: words) }
+    private func note(_ words: String) -> some View { TellNote(words: words) }
 
     /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
     private var composer: some View {
