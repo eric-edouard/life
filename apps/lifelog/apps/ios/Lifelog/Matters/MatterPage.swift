@@ -72,8 +72,7 @@ struct MatterPage: View {
             }
             .matterPageColumn()
         }
-        // Floating over the content, which runs to the screen's foot under the system's soft scroll edge.
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        // Floating over the content, which runs to the screen's foot under the soft scroll edge (`RootView`).
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
                 DoneButton(id: id).controlSize(.large)

@@ -17,7 +17,8 @@ private struct ShellBar: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationTitle(label)
+            // An empty label leaves the title to the screen's `screenTitle`, the inline one on the open Duo.
+            .titled(label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
@@ -26,6 +27,12 @@ private struct ShellBar: ViewModifier {
                 if hasPendant { fitted(pendant) }
                 if hasSettings { fitted(settings) }
             }
+    }
+}
+
+extension View {
+    @ViewBuilder fileprivate func titled(_ label: String) -> some View {
+        if label.isEmpty { self } else { navigationTitle(label) }
     }
 }
 

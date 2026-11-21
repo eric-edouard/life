@@ -149,7 +149,7 @@ struct CardView: View {
                     .appears(Motion.ask)
                 }
             }
-            .clipped()
+            .clippedSideways()
         }
         .motion(Motion.rise, value: result != nil)
         // A send Life refused because someone wrote since: the ask is open again, with her message by its answers.
@@ -203,6 +203,9 @@ struct CardView: View {
                                     checkCard(check, page: page)
                                 }
                             }
+                            // The pager's hidden bottom edge (below) reaches every scroll inside it: each ask's own
+                            // scroll keeps its soft edge under its answers.
+                            .scrollEdgeEffectHidden(false, for: .bottom)
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
                             .appears(Motion.passes)
@@ -215,12 +218,12 @@ struct CardView: View {
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
-                // Each ask's own scroll softens under its answer bar; the pager's edge effect sat over that bar and
-                // blurred the answers themselves (22 Nov, closed Duo).
-                .scrollEdgeEffectHidden(true, for: .all)
+                // Each ask's own scroll softens under its answer bar; the pager's bottom edge effect sat over that bar
+                // and blurred the answers themselves (22 Nov, closed Duo). Its top edge is the soft one under the title.
+                .scrollEdgeEffectHidden(true, for: .bottom)
             }
         }
-        .clipped()
+        .clippedSideways()
         // An answered ask leaves and the next enters together (`Motion.passes`).
         .motion(Motion.rise, value: checks.map(\.ref))
     }
@@ -330,6 +333,17 @@ struct CardView: View {
 }
 
 /// The pager's measures: 12 from the sides and between asks, and the edge it stops short of its box.
+extension View {
+    /// Clips left and right only: an ask's scroll runs on under the floating title and tab bar, top and bottom of the
+    /// device, softened by its own scroll edge (a plain `clipped()` cut it at the bars, a band over the content, 22 Nov).
+    fileprivate func clippedSideways() -> some View { clipShape(SidewaysClip()) }
+}
+
+/// The view's width, endless up and down.
+nonisolated private struct SidewaysClip: Shape {
+    func path(in rect: CGRect) -> Path { Path(rect.insetBy(dx: 0, dy: -10_000)) }
+}
+
 private enum Pager {
     static let gap = Metrics.Spacing.xs * 3
     static let edge = Metrics.Spacing.xs * 2.5
