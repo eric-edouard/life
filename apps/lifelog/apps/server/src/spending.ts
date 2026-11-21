@@ -1,21 +1,51 @@
 import type { Db } from "@lifelog/db";
 import { intelligenceRuns, transcriptionJobs } from "@lifelog/db/schema";
 import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
-import { and, gte, isNotNull, lt, ne, notInArray, or } from "drizzle-orm";
+import {
+  and,
+  count,
+  gte,
+  inArray,
+  isNotNull,
+  lt,
+  ne,
+  notInArray,
+  or,
+  type SQL,
+} from "drizzle-orm";
 
 // What Voice spent between two instants, for Life's model spending (`GET /spending`): read from its three ledgers,
 // each by its indexed instant. A job counts once settled: `billed` (done; its Scribe seconds, 0 for a speech job's own
-// work), `maybe_billed` (a send it may have been billed for and was never told: never counted as billed), `unsettled`
-// (queued or sent, its seconds an estimate); a job that failed with nothing billed is left out.
+// work) or `maybe_billed` (a send it may have been billed for and was never told: never counted as billed); a job
+// queued or sent (its seconds an estimate) and a model run under way or waiting to start again are only counted,
+// `unsettled`, so the day waits for them; a job that failed with nothing billed is left out.
 
-const outcomeOf = (j: { maybeBilled: boolean; state: string }) => {
-  if (j.maybeBilled) {
-    return "maybe_billed" as const;
-  }
-  return j.state === "completed" ? ("billed" as const) : ("unsettled" as const);
-};
+const UNSETTLED = ["queued", "submitted"] as const;
+/** A settled job's outcome: a whole Scribe job that completed was billed; a speech job's routed send, or a failed job, that may have been billed is apart. */
+const outcomeOf = (j: { maybeBilled: boolean; transcriber: string }) =>
+  j.maybeBilled && j.transcriber === "speech"
+    ? ("maybe_billed" as const)
+    : ("billed" as const);
+const settledOutcomeOf = (j: {
+  maybeBilled: boolean;
+  state: string;
+  transcriber: string;
+}) => (j.state === "failed" ? ("maybe_billed" as const) : outcomeOf(j));
+
+const PENDING_RUNS = ["running", "waiting"] as const;
+const MAC_PROVIDERS = ["claude-code", "codex"] as const;
 
 export function spendingOf(db: Db, from: Date, to: Date) {
+  const countIn = (
+    table: typeof transcriptionJobs | typeof intelligenceRuns,
+    at: typeof transcriptionJobs.admittedAt | typeof intelligenceRuns.createdAt,
+    where: SQL
+  ) =>
+    db
+      .select({ n: count() })
+      .from(table)
+      .where(and(gte(at, from), lt(at, to), where))
+      .get()?.n ?? 0;
   const jobs = db
     .select({
       admittedAt: transcriptionJobs.admittedAt,
@@ -30,6 +60,7 @@ export function spendingOf(db: Db, from: Date, to: Date) {
       and(
         gte(transcriptionJobs.admittedAt, from),
         lt(transcriptionJobs.admittedAt, to),
+        notInArray(transcriptionJobs.state, UNSETTLED),
         or(ne(transcriptionJobs.state, "failed"), transcriptionJobs.maybeBilled)
       )
     )
@@ -64,20 +95,36 @@ export function spendingOf(db: Db, from: Date, to: Date) {
       and(
         gte(intelligenceRuns.createdAt, from),
         lt(intelligenceRuns.createdAt, to),
-        // Settled: a run still under way, or waiting to start again in place, has no tokens yet.
-        notInArray(intelligenceRuns.state, ["running", "waiting"])
+        // Settled, and on his plans through the Mac (the paid APIs' runs are older, and none runs now).
+        notInArray(intelligenceRuns.state, PENDING_RUNS),
+        inArray(intelligenceRuns.provider, MAC_PROVIDERS)
       )
     )
     .all();
+  const unsettled =
+    countIn(
+      transcriptionJobs,
+      transcriptionJobs.admittedAt,
+      inArray(transcriptionJobs.state, UNSETTLED)
+    ) +
+    countIn(
+      intelligenceRuns,
+      intelligenceRuns.createdAt,
+      and(
+        inArray(intelligenceRuns.state, PENDING_RUNS),
+        inArray(intelligenceRuns.provider, MAC_PROVIDERS)
+      ) as SQL
+    );
   return {
     jobs: jobs.map((j) => ({
       at: j.admittedAt.toISOString(),
       billableSeconds: j.billableSeconds,
-      outcome: outcomeOf(j),
+      outcome: settledOutcomeOf(j),
       seconds: j.seconds,
       transcriber: j.transcriber,
     })),
     modelRuns: runs.map((r) => ({ ...r, at: r.at.toISOString() })),
+    unsettled,
     // A note whose answer was lost has no seconds: it may have been billed.
     voiceNotes: notes.map((n) => ({
       at: n.doneAt?.toISOString() ?? "",

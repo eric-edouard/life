@@ -186,24 +186,14 @@ function scribeOf(at: string, billableSeconds: number | null): Spend {
   };
 }
 
-const VOICE_RUNTIME: Record<string, "claude" | "codex"> = {
-  anthropic: "claude",
-  "claude-code": "claude",
-  codex: "codex",
-  openai: "codex",
-};
-
 /**
  * Voice's spends (its `GET /spending`): a settled job's Scribe seconds billed and a speech job's own work at $0; a send
- * that may have been billed not reported; an unsettled job none (its day waits); a heard note's Scribe seconds; its
- * model runs on his plans, at list price.
+ * that may have been billed not reported; a heard note's Scribe seconds; its model runs on his plans, at list price.
+ * What is not settled yet is only Voice's count (`unsettled`): its day waits.
  */
 export function spendsOfVoice(v: VoiceSpending): Spend[] {
   return [
     ...v.jobs.flatMap((j): Spend[] => {
-      if (j.outcome === "unsettled") {
-        return [];
-      }
       const speech: Spend[] =
         j.transcriber === "speech"
           ? [
@@ -226,7 +216,8 @@ export function spendsOfVoice(v: VoiceSpending): Spend[] {
       .filter((n) => n.billableSeconds !== 0)
       .map((n) => scribeOf(n.at, n.billableSeconds)),
     ...v.modelRuns.map((r): Spend => {
-      const runtime = VOICE_RUNTIME[r.provider] ?? "claude";
+      const runtime = r.provider === "codex" ? "codex" : "claude";
+      // ponytail: Voice keeps no cache split; its input is priced at the full rate, an upper bound.
       const tokens = {
         cached: 0,
         input: r.inputTokens,

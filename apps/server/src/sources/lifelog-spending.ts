@@ -8,7 +8,7 @@ export const VoiceSpending = z.object({
     z.object({
       at: z.string(),
       billableSeconds: z.number(),
-      outcome: z.enum(["billed", "maybe_billed", "unsettled"]),
+      outcome: z.enum(["billed", "maybe_billed"]),
       seconds: z.number(),
       transcriber: z.enum(["scribe", "speech"]),
     })
@@ -20,9 +20,10 @@ export const VoiceSpending = z.object({
       latencyMs: z.number().nullable(),
       model: z.string(),
       outputTokens: z.number(),
-      provider: z.enum(["openai", "anthropic", "claude-code", "codex"]),
+      provider: z.enum(["claude-code", "codex"]),
     })
   ),
+  unsettled: z.number(),
   voiceNotes: z.array(
     z.object({
       at: z.string(),

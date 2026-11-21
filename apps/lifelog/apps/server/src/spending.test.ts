@@ -24,7 +24,7 @@ const job = (state: "completed" | "failed" | "queued", maybeBilled = false) =>
     })
     .run();
 
-test("a span's spending: settled jobs billed, a send that may have billed apart, unsettled ones marked, a failed one that billed nothing left out; notes by their answer; settled model runs", () => {
+test("a span's spending: settled jobs billed, a failed send that may have billed apart, unsettled jobs and runs only counted, a failed one that billed nothing left out; notes by their answer; settled Mac runs", () => {
   job("completed");
   job("failed", true);
   job("queued");
@@ -45,7 +45,11 @@ test("a span's spending: settled jobs billed, a send that may have billed apart,
       { key: "c", localText: "" },
     ])
     .run();
-  for (const state of ["valid", "running"] as const) {
+  for (const [state, provider] of [
+    ["valid", "claude-code"],
+    ["running", "claude-code"],
+    ["valid", "openai"],
+  ] as const) {
     db.insert(intelligenceRuns)
       .values({
         conversationId: randomUUID(),
@@ -54,7 +58,7 @@ test("a span's spending: settled jobs billed, a send that may have billed apart,
         model: "claude-sonnet-5-5",
         outputTokens: 10,
         promptVersion: 1,
-        provider: "claude-code",
+        provider,
         state,
         turns: [],
       })
@@ -68,8 +72,9 @@ test("a span's spending: settled jobs billed, a send that may have billed apart,
   expect(s.jobs.map((j) => j.outcome).toSorted()).toEqual([
     "billed",
     "maybe_billed",
-    "unsettled",
   ]);
+  // The queued job and the running run.
+  expect(s.unsettled).toBe(2);
   expect(s.jobs[0]).toMatchObject({
     billableSeconds: 60,
     seconds: 50,
@@ -96,5 +101,5 @@ test("a span's spending: settled jobs billed, a send that may have billed apart,
       new Date("2026-11-21T00:00:00.000Z"),
       new Date("2026-11-22T00:00:00.000Z")
     )
-  ).toEqual({ jobs: [], modelRuns: [], voiceNotes: [] });
+  ).toEqual({ jobs: [], modelRuns: [], unsettled: 0, voiceNotes: [] });
 });

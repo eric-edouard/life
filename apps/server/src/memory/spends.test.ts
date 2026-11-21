@@ -150,7 +150,7 @@ test("a call made in a processing run's step is the night's; any other the dayti
   expect(kinds).toEqual(["night", "daytime"]);
 });
 
-test("Voice's spends: a settled job's Scribe seconds at the day's rate, a speech job's own work at $0, a maybe-billed send not reported, an unsettled job none; a note's seconds; its model runs at list price", () => {
+test("Voice's spends: a settled job's Scribe seconds at the day's rate, a speech job's own work at $0, a maybe-billed send not reported; a note's seconds; its model runs at list price", () => {
   const spends = spendsOfVoice({
     jobs: [
       {
@@ -174,14 +174,8 @@ test("Voice's spends: a settled job's Scribe seconds at the day's rate, a speech
         seconds: 60,
         transcriber: "scribe",
       },
-      {
-        at: AT,
-        billableSeconds: 60,
-        outcome: "unsettled",
-        seconds: 60,
-        transcriber: "scribe",
-      },
     ],
+    unsettled: 0,
     modelRuns: [
       {
         at: AT,

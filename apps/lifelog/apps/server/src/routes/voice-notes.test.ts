@@ -158,6 +158,14 @@ test("Scribe failing after it may have billed: the local words stand, never sent
   expect(await (await ask(a, note(60), key)).json()).toEqual({ text: LOCAL });
   expect(await (await ask(a, note(60), key)).json()).toEqual({ text: LOCAL });
   expect(sends()).toHaveLength(1);
+  // Its seconds are not known to be billed: spending reads it as may have been (no seconds).
+  const heard = env.db
+    .select()
+    .from(voiceNoteHearings)
+    .all()
+    .find((h) => h.key === key);
+  expect(heard?.billableSeconds ?? null).toBeNull();
+  expect(heard?.doneAt).toBeInstanceOf(Date);
 });
 
 test("Scribe taking nothing now: busy, and the note may be sent again", async () => {

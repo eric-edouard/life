@@ -42,7 +42,7 @@ export function voiceNoteRoutes({
     key: string,
     text: string,
     spent: Partial<{
-      billableSeconds: number;
+      billableSeconds: number | null;
       route: string;
       seconds: number;
     }> = {}
@@ -127,11 +127,15 @@ export function voiceNoteRoutes({
           return;
         }
         const spent = {
-          billableSeconds: outcome.billableSeconds,
+          // A send Scribe may have billed without saying: its seconds are not known to be billed.
+          billableSeconds: outcome.maybeBilled ? null : outcome.billableSeconds,
           route: route.kind,
           seconds,
         };
-        record(db, "voice_note.heard", spent);
+        record(db, "voice_note.heard", {
+          ...spent,
+          billableSeconds: outcome.billableSeconds,
+        });
         settle(key, textFrom(outcome.transcript), spent);
       },
     });

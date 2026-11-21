@@ -21,6 +21,7 @@ const CLAUDE = "https://platform.claude.com/docs/en/about-claude/pricing";
 // Claude's from the model table of 3 Nov 2026; GPT-6.1 Sol's from its launch, 30 Sep 2026.
 const OPENAI = "https://openai.com/api/pricing";
 const SCRIBE = "https://elevenlabs.io/pricing/api";
+const SONNET = { cached: 0.1, input: 2, output: 10 };
 const OPUS = { cached: 0.2, input: 4, output: 20 };
 const SOL = { cached: 0.1, input: 2, output: 10 };
 
@@ -42,23 +43,19 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
     ...OPUS,
   },
   {
-    cached: 0.1,
     from: "2026-11-03",
-    input: 2,
     item: "claude:sonnet",
-    output: 10,
     read: "2026-11-21",
     source: CLAUDE,
+    ...SONNET,
   },
   // Voice's model on the Mac names the model whole.
   {
-    cached: 0.1,
-    from: "2026-01-01",
-    input: 2,
+    from: "2026-11-03",
     item: "claude:claude-sonnet-5-5",
-    output: 10,
     read: "2026-11-21",
     source: CLAUDE,
+    ...SONNET,
   },
   {
     cached: 0.01,

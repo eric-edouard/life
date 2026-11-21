@@ -3208,7 +3208,7 @@
                 },
                 "outcome": {
                   "type": "string",
-                  "enum": ["billed", "maybe_billed", "unsettled"]
+                  "enum": ["billed", "maybe_billed"]
                 },
                 "seconds": {
                   "type": "number"
@@ -3250,7 +3250,7 @@
                 },
                 "provider": {
                   "type": "string",
-                  "enum": ["openai", "anthropic", "claude-code", "codex"]
+                  "enum": ["claude-code", "codex"]
                 }
               },
               "required": [
@@ -3262,6 +3262,10 @@
                 "provider"
               ]
             }
+          },
+          "unsettled": {
+            "type": "number",
+            "description": "Jobs queued or sent and model runs under way or waiting, in the span: not counted yet"
           },
           "voiceNotes": {
             "type": "array",
@@ -3286,7 +3290,7 @@
             }
           }
         },
-        "required": ["jobs", "modelRuns", "voiceNotes"]
+        "required": ["jobs", "modelRuns", "unsettled", "voiceNotes"]
       },
       "Recorded": {
         "type": "object",
@@ -5676,7 +5680,7 @@
     },
     "/spending": {
       "get": {
-        "description": "What Voice spent from `from` to `to` (at most 31 days): its transcription jobs by admission, settled or not (`unsettled`: seconds still an estimate; `maybe_billed`: a send it may have been billed for), the chat voice notes it heard, by their answer (no seconds: an answer lost, maybe billed), and its model runs on the Mac, by start. A failed job that billed nothing is left out.",
+        "description": "What Voice spent from `from` to `to` (at most 31 days): its settled transcription jobs by admission (`maybe_billed`: a send it may have been billed for), the chat voice notes it heard, by their answer (no seconds: maybe billed), and its settled model runs on the Mac, by start; `unsettled`, how many jobs and runs are not settled yet. A failed job that billed nothing is left out.",
         "parameters": [
           {
             "schema": {
