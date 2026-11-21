@@ -6,7 +6,7 @@ import { MIN } from "../../core/clock";
 import { register } from "../agent-actions";
 import { BEGIN_WITHIN_MS } from "../agent-wait";
 import { tick, wakeDue } from "../desk-clock";
-import { doorOf } from "../desk-door";
+import { doorOf } from "../door-keys";
 import { advance, setup } from "../test-desk";
 import { acpRuntime, LAUNCH_WITHIN_MS } from "./acp-runtime";
 import type { Agent } from "./contract";

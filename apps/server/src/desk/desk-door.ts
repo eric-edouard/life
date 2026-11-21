@@ -1,9 +1,8 @@
-import { createHmac } from "node:crypto";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { isOwnLife } from "../core/platform";
-import { same, secretIn } from "../core/secret";
+import { same } from "../core/secret";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -15,11 +14,16 @@ import {
   openTurn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
-import { DOOR_PORT, text } from "../host/http/http";
+import { DOOR_PORT, MAIN_SESSION_PATH, text } from "../host/http/http";
+import { keyRefusal } from "../host/http/local-key";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { isHisWordsPlanOf } from "../host/inbox";
 import { MOVE_NOTES } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
+import {
+  MainSessionAsk,
+  type MainSessionLine,
+} from "../records/main-session-wire";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,
@@ -34,30 +38,23 @@ import {
 } from "./agent-actions";
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
+import { doorOf, keyOf } from "./door-keys";
+import { askMainSession, keepMainSession, MAIN_ASK } from "./main-session";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
 import { readSpokenAsk } from "./spoken-ask-intake";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
-// An agent is known by its key alone, `HMAC(deskKey, its id)`: derived, never stored, given to the sessions the desk
-// starts in the runtime's environment, and to the Life plugin for a session of the agent he opens himself (`/session`,
-// below). Eight tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
+// An agent is known by its key alone, `HMAC(deskKey, its id)` (`door-keys.ts`): derived, never stored, given to the
+// sessions the desk starts in the runtime's environment, and to the Life plugin for a session of the agent he opens
+// himself (`/session`, below). Its other path is the main session's (`MAIN_SESSION_PATH`, `main-session.ts`), for the
+// connector, by the local key. Eight tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
 // `complaint-intake.ts`; `read_spoken_ask`, of `spoken-ask-intake.ts`); everything else an agent does with its own tools.
 
 const BEARER = /^Bearer /;
 const DOOR_PATH = /^\/(mcp|guard)\/(agt_[0-9a-f]+)$/;
 const SESSION_PATH = /^\/session\/([\w-]{1,100})$/;
 const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
-
-/** The key of agent `id`'s door. */
-const keyOf = (id: string) =>
-  createHmac("sha256", secretIn("deskKey")).update(id).digest("hex");
-
-/** Where agent `id`'s session reaches its door, and the key it shows there. */
-export const doorOf = (id: string) => ({
-  key: keyOf(id),
-  url: `http://127.0.0.1:${DOOR_PORT}/mcp/${id}`,
-});
 
 /**
  * Why the door refuses tool `name` on a desk turn of cause `cause` (none outside one) of `a` on `s`: a move's notes turn only writes its notes
@@ -77,6 +74,11 @@ function turnRefusalOf(
     name !== "read_packet"
   ) {
     return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
+  }
+  // Read-only for now (Tell Life, slice 1): the main session answers him and calls none of the door's tools, in a turn
+  // of its own or in his app (the Life plugin's door).
+  if (cause === MAIN_ASK || a?.role === "main") {
+    return "Not done: the main session only reads and answers him for now; it changes nothing.";
   }
   const isEnd = name === "set_wait" || name === "finish";
   return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
@@ -231,16 +233,75 @@ function guardFacts() {
   return facts.facts;
 }
 
+/** The local key's gate, built once (`keyRefusal` reads the key once). */
+let refusal: ReturnType<typeof keyRefusal> | undefined;
+const refusalOf = () => {
+  refusal ??= keyRefusal();
+  return refusal;
+};
+
+/**
+ * His words to the main session (`MAIN_SESSION_PATH`), from the connector, by the local key: a POST of `MainSessionAsk`.
+ * With words, its lines as NDJSON, the last its `answer`, the request never timed out while it runs; with none, his
+ * presence: the session kept open, `{kept}` and why not.
+ */
+async function mainSessionFetch(
+  desk: Desk,
+  req: Request,
+  server?: Bun.Server<undefined>
+) {
+  const refused = req.method === "POST" ? await refusalOf()(req) : null;
+  if (req.method !== "POST" || refused) {
+    return refused ?? text("POST only", 405);
+  }
+  const ask = MainSessionAsk.safeParse(await req.json().catch(() => null));
+  if (!ask.success) {
+    return text("not an ask", 400);
+  }
+  if (!ask.data.words) {
+    const why = await keepMainSession(desk);
+    return Response.json({ kept: !why, why });
+  }
+  server?.timeout(req, 0);
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(c) {
+      const say = (l: MainSessionLine) => {
+        try {
+          c.enqueue(encoder.encode(`${JSON.stringify(l)}\n`));
+        } catch {
+          // The connector went: the turn runs on, and a retry under its key hears it.
+        }
+      };
+      say({
+        answer: await askMainSession(desk, ask.data, say),
+        kind: "answer",
+      });
+      try {
+        c.close();
+      } catch {
+        // already closed by the connector
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: { "content-type": "application/x-ndjson" },
+  });
+}
+
 /**
  * The door's requests, each with that agent's key as a bearer (else 401, the same for an unknown agent and a wrong key):
  * `/mcp/<agt_…>`, its tools; `POST /guard/<agt_…>`, the send guard's answer for one tool call (`{ refusal }`, null when
  * it may run). And one without a key, for the Life plugin: `/session/<ref>`, the door of the agent whose session that
  * is (`{ agent, key, url, matcher }`, the guard's tool matcher), else 404; by a loopback `Host` only, so no web page
- * reaches it. 404 for any other path.
+ * reaches it. `MAIN_SESSION_PATH`, by the local key (`mainSessionFetch`). 404 for any other path.
  */
 export function doorFetch(desk: Desk, readFacts = guardFacts) {
-  return async (req: Request) => {
+  return async (req: Request, server?: Bun.Server<undefined>) => {
     const url = new URL(req.url);
+    if (url.pathname === MAIN_SESSION_PATH) {
+      return await mainSessionFetch(desk, req, server);
+    }
     const ref = SESSION_PATH.exec(url.pathname)?.[1];
     if (ref) {
       const agent = LOOPBACK.has(url.hostname) && agentOfSession(desk.db, ref);

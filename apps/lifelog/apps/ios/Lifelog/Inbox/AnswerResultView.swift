@@ -148,7 +148,7 @@ struct ResultButtons: View {
             case .idle, .running:
                 Button {
                 } label: {
-                    Text(taken.isSend ? "Sending…" : "Saving…")
+                    Text(taken.isSend ? "Sending…" : taken.isStart ? "Starting…" : "Saving…")
                 }.buttonStyle(.pill(.quiet, isBusy: true))
             }
         }

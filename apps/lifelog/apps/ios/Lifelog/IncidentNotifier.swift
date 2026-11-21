@@ -206,7 +206,7 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         let kept = (request.content.userInfo[CalendarNotification.appointmentKey] as? String)
             .flatMap { try? Appointment.parsed($0) }
         guard response.actionIdentifier == CalendarNotification.remove else {
-            if let url = kept?.calendarURL { await UIApplication.shared.open(url) }
+            if let url = kept?.calendarURL() { await UIApplication.shared.open(url) }
             return
         }
         let awake = Awake()

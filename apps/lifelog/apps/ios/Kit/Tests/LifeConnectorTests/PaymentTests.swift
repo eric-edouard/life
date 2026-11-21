@@ -26,12 +26,17 @@ private func qr(_ payload: String?) -> String {
         + (payload.map { #","payload":""# + $0 + #"""# } ?? "") + "}"
 }
 
+@Test func aCodeKeepsTheRefOfTheMessageHoldingIt() throws {
+    let code = #"{"kind":"qr","line":"l","source":"s","ref":"msg:wa|1","payload":"\#(promptPay("10"))"}"#
+    #expect(try card("[\(account),\(code)]").payCode?.ref == "msg:wa|1")
+}
+
 @Test func aCodeWithItsTextIsTheHeroWithTheAmountAndTheNameTheBankShows() throws {
     let check = try card("[\(account),\(amount),\(qr(promptPay("4500.00"))),\(reference)]")
     #expect(
         check.payCode
             == PayCode(
-                payload: promptPay("4500.00"), source: "their WhatsApp of Tue", amount: "4,500 THB",
+                payload: promptPay("4500.00"), source: "their WhatsApp of Tue", ref: nil, amount: "4,500 THB",
                 invoiceAmount: nil, payee: "Reef Co."))
     // The hero shows the account, the amount and the code: what is left is the reference.
     #expect(check.shownNeedRows.map(\.text) == ["Reference: R-7"])
@@ -197,7 +202,7 @@ private func qr(_ payload: String?) -> String {
 
 @Test func theAmountSplitsIntoItsFigureAndItsCurrency() throws {
     func code(_ amount: String?) -> PayCode {
-        PayCode(payload: "p", source: "s", amount: amount, invoiceAmount: nil, payee: nil)
+        PayCode(payload: "p", source: "s", ref: nil, amount: amount, invoiceAmount: nil, payee: nil)
     }
     #expect(code("4,500 THB").figure?.number == "4,500")
     #expect(code("4,500 THB").figure?.currency == "THB")

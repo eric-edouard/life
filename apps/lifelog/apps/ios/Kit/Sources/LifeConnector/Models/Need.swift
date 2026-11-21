@@ -37,6 +37,8 @@ extension Check {
         /// A QR code's text, and where the payee sent it.
         let payload: String?
         let source: String?
+        /// The message holding the QR, as `fetch` opens it (`life:` links' ref).
+        let ref: String?
         /// A place's map and ride links (https, each opened by his tap).
         let googleMapsUrl: URL?
         let appleMapsUrl: URL?
@@ -58,6 +60,7 @@ extension Check {
             copy = try? c.decodeIfPresent(Bool.self, forKey: .copy)
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
             source = try? c.decodeIfPresent(String.self, forKey: .source)
+            ref = try? c.decodeIfPresent(String.self, forKey: .ref)
             func link(_ key: CodingKeys) -> URL? {
                 (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
             }
@@ -69,7 +72,7 @@ extension Check {
 
         private enum CodingKeys: String, CodingKey {
             case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, copy, payload,
-                source, googleMapsUrl, appleMapsUrl, boltUrl
+                source, ref, googleMapsUrl, appleMapsUrl, boltUrl
         }
 
         /// The rows the card draws, decided here once: the view only draws them. A need whose fields say nothing

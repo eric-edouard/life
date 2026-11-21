@@ -34,12 +34,17 @@ public struct Appointment: Decodable, Sendable, Equatable, Identifiable, ParsedR
     public var parties: [Party] { from?.sender.map { [$0] } ?? [] }
     public var isRemoved: Bool { removedAt != nil }
 
-    /// When it starts: an instant, or the start of its first day where the phone is.
+    /// When it starts: an instant (`Z` or an offset), or the start of its first day at UTC when `allDay`.
     public var start: Date? {
-        allDay
-            ? Self.day.date(from: startsAt)
-            : (try? Date(startsAt, strategy: .iso8601.year().month().day().time(includingFractionalSeconds: true)))
-                ?? (try? Date(startsAt, strategy: .iso8601))
+        allDay ? Self.day.date(from: startsAt) : Self.instant(startsAt)
+    }
+
+    private static func instant(_ text: String) -> Date? {
+        // `Z` and offsets (`+01:00`) alike, with or without fractions; the other styles read an offset as UTC.
+        let styles = [true, false].map {
+            Date.ISO8601FormatStyle(timeZoneSeparator: .colon, includingFractionalSeconds: $0)
+        }
+        return styles.lazy.compactMap { try? Date(text, strategy: $0) }.first
     }
 
     private static let day: DateFormatter = {
@@ -72,9 +77,16 @@ public struct Appointment: Decodable, Sendable, Equatable, Identifiable, ParsedR
         return f.string(from: date)
     }
 
-    /// Apple Calendar on its day (`calshow:`, seconds since 2001): Calendar opens no event by another app's id.
-    public var calendarURL: URL? {
-        start.flatMap { URL(string: "calshow:\(Int($0.timeIntervalSinceReferenceDate))") }
+    /// Apple Calendar on its day (`calshow:`, seconds since 2001): Calendar opens no event by another app's id. An
+    /// all-day one opens on its own day's midnight where the phone is, never UTC's (behind UTC that is the day before).
+    public func calendarURL(in zone: TimeZone = .current) -> URL? {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = .gmt
+        var local = utc
+        local.timeZone = zone
+        let opens =
+            allDay ? start.flatMap { local.date(from: utc.dateComponents([.year, .month, .day], from: $0)) } : start
+        return opens.flatMap { URL(string: "calshow:\(Int($0.timeIntervalSinceReferenceDate))") }
     }
 
     /// Apple Maps on its place, by name.

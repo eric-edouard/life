@@ -4,14 +4,10 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import { pushIdOf } from "../sources/lifelog-push";
+import type { CheckInputs } from "./check-context";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
-import {
-  type CheckInputs,
-  checksNow,
-  checksOf,
-  checksOnMatterOf,
-} from "./checks";
+import { checksNow, checksOf, checksOnMatterOf } from "./checks";
 import {
   about,
   DANA_ID,
