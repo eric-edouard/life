@@ -501,9 +501,10 @@ export async function askDecision(
       throw new Error(`Not done: ${merging} is no card of ${home.id}.`);
     }
     // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await; a merge's own card goes with it.
-    // Its assignment may have closed while the ask was read.
-    if (assignmentOf(db, home.id)?.closed_at) {
-      throw new Error(`Not done: ${home.id} closed; ask again.`);
+    // Its assignment may have closed or moved to another agent while the ask was read.
+    const now = assignmentOf(db, home.id);
+    if (!now || now.closed_at || now.agent_id !== home.agent_id) {
+      throw new Error(`Not done: ${home.id} closed or moved; ask again.`);
     }
     const open = pendingCardOf(db, home);
     if (open && open.id !== merging) {

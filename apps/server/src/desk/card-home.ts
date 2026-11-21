@@ -13,7 +13,7 @@ import type { Desk } from "./desk-store";
 
 /**
  * Where agent `s.agent_id`'s card on `given` goes (his rule of 21 Nov 2026: on any matter it holds): its open assignment
- * whose anchors find the subject's matter (found as the card's writer finds it, `matterFinderOf`), else, on one it takes
+ * whose anchors find the subject's matter (found as the card's writer finds it: `matterFinderOf` over the open matters), else, on one it takes
  * (`agentForMatterOf`), its own; none given, `s`. An own assignment's subjects no matter holds (a project, an area, the
  * caretaker's) stay its agent's to give; any other is refused.
  */
@@ -26,7 +26,9 @@ export async function cardHomeOf(
     return { home: s, subject: anchorsOf(db, s.id)[0] };
   }
   const people = await readPeople();
-  const find = matterFinderOf(await readMatterBook(people, dayNow()));
+  const find = matterFinderOf(
+    (await readMatterBook(people, dayNow())).filter((m) => m.open)
+  );
   const v = find([given]);
   const mine = [s, ...openAssignments(db).filter((a) => a.id !== s.id)]
     .filter((a) => a.agent_id === s.agent_id)
