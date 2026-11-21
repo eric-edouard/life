@@ -247,3 +247,40 @@ test(
   },
   MIN
 );
+
+// 20 Nov 2026: the desk crashed once every 7 s for 67 minutes, and only "Agents not running" was mailed.
+test(
+  "a crash loop is red, so the tick mails it, naming the helper; a crash alone is amber",
+  async () => {
+    const { log } = await import("../../core/log");
+    // Past the snapshot's cache of the log, which earlier tests filled.
+    let later = performance.now() + 2 * DAY;
+    const timer = spyOn(performance, "now").mockImplementation(() => later);
+    const crash = () =>
+      log("run.error", {
+        command: "desk",
+        error: "TypeError: x is not a function",
+        step: "crash",
+      });
+    const card = async () =>
+      (await snapshot()).cards.find((c) => c.id === "crashes");
+    try {
+      crash();
+      expect(await card()).toMatchObject({ tone: "warn" });
+      for (const _ of [1, 2, 3, 4]) {
+        crash();
+      }
+      later += HOUR;
+      const red = redCards((await snapshot()).cards).find(
+        (c) => c.id === "crashes"
+      );
+      expect(red).toMatchObject({
+        headline: "desk crashed 5 times in 30 min",
+        word: "looping",
+      });
+    } finally {
+      timer.mockRestore();
+    }
+  },
+  MIN
+);
