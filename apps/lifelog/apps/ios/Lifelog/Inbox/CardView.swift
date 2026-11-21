@@ -215,6 +215,9 @@ struct CardView: View {
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
+                // Each ask's own scroll softens under its answer bar; the pager's edge effect sat over that bar and
+                // blurred the answers themselves (22 Nov, closed Duo).
+                .scrollEdgeEffectHidden(true, for: .all)
             }
         }
         .clipped()
