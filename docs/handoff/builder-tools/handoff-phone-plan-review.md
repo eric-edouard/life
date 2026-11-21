@@ -1,0 +1,16 @@
+🫡 The plan can hide **Move back** immediately after a successful handoff and stop polling before the desk sees the request.
+
+1. **One source of truth.** Moving rewrites the assignment’s agent ID, so the old holder can disappear from `matter.agents` while still active elsewhere. Have Life return the eligible destination using its existing refusal rules. Open the sheet by `holder.id`. [Assignment update]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/desk/desk-store.ts:332) · [Matter-agent query]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/host/agents-now.ts:310) · [Eligibility]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/desk/agent-moves.ts:96)
+2. **Callers.** The moved-card pill still displays `matter.name`. Resolve the holder’s `short` for the designed pill. [Card]($HOME/Work/life-wt/matter-handoff-phone/apps/lifelog/apps/ios/Lifelog/Inbox/CheckCard.swift:166) · [Design]($HOME/Life/docs/product/app-design/gen/gen_move.py:103)
+3. **Derived state.** The switch covers every open assignment. Use the desk’s count or omit the number when unknown. [Switch scope]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/host/move-read.ts:100)
+4. **Responsibilities.** Kit can format phases and confirmations. Destination eligibility belongs with the desk. [Move rules]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/desk/agent-moves.ts:79)
+5. **Ordering.** `asked` returns a move ID before application. Decode it, poll across empty or older reads, and accept the matching move’s first terminal result even if `notes` was missed. Handle a refusal recorded only against the ask. This warrants **hard** tier. [Receipt]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/host/change-registered-agent.ts:341) · [Early refusal]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/desk/agent-moves.ts:172) · [Refusal lookup]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/host/desk-read.ts:516)
+6. **Ownership.** Keep the receipt and requested destination per matter or agent, scoped to its pairing. [Action tracking]($HOME/Work/life-wt/matter-handoff-phone/apps/lifelog/apps/ios/Lifelog/Life/LifeStore.swift:405)
+7. **Retries.** Each call creates a new ask. Reconcile an ambiguous response before offering another tap. [Writer]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/host/change-registered-agent.ts:335)
+8. **Names.** Keep the glossary’s “matter move” and “runtime switch.” [Glossary]($HOME/Work/life-wt/matter-handoff-phone/docs/glossary.md:73)
+9. **Document and verify.** Decision 78 is recorded. Add fixture transitions for the required screen review. Today every non-start fixture action immediately returns `done`. [Decision]($HOME/Work/life-wt/matter-handoff-phone/AGENTS.md:153) · [Review rule]($HOME/Work/life-wt/matter-handoff-phone/apps/lifelog/apps/ios/AGENTS.md:18) · [Fixture]($HOME/Work/life-wt/matter-handoff-phone/apps/lifelog/apps/ios/Lifelog/Fixtures/LifeFixture.swift:461)
+10. **Smaller shape.** Share one move-ID transition check and one agent identity shape. Holder and predecessor already carry identical identity fields. [Wire shape]($HOME/Work/life-wt/matter-handoff-phone/apps/server/src/host/move-read.ts:347)
+
+Read-only architecture review. No tests run.
+
+Plan: reshape

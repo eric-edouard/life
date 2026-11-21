@@ -204,6 +204,7 @@
   ],
   "blockingChecks": 1,
   "needsYou": true,
+  "holder": null,
   "checks": [
     {
       "said": null,

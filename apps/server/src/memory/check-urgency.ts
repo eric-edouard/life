@@ -7,6 +7,8 @@ export type Urgency = "blocks" | "improves";
 interface Rankable {
   /** His complaint on it at work with the caretaker: it then only improves. */
   beingFixed?: unknown;
+  /** A your move card's (its step's `when`); null: none. */
+  deadline?: string | null;
   group: CheckGroup;
   /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
   subject: string | null;
@@ -15,16 +17,17 @@ interface Rankable {
 const RANK: Record<CheckGroup, number> = {
   "contacts card": 1,
   decision: 0,
-  ending: 4,
-  "guessed person": 2,
+  ending: 5,
+  "guessed person": 3,
   name: 1,
-  "new matter": 3,
-  "same person": 2,
+  "new matter": 4,
+  "same person": 3,
   voice: 1,
+  "your move": 2,
 };
 /**
  * A check's kind, first to last: an agent's decision; a voice nobody has named, a name with no person or an ambiguous
- * Contacts card, mixed (these block); then a guess in use (a guessed person, a voice lifelog suggests a person for), a
+ * Contacts card, mixed (these block); then his own step on a matter (`your move`); then a guess in use (a guessed person, a voice lifelog suggests a person for), a
  * new matter's offer, and last "is this done?". What blocks, and the inbox's order (`inboxOrderOf`), go by it.
  */
 export const inboxRankOf = (c: Rankable) =>
@@ -33,12 +36,22 @@ export const inboxRankOf = (c: Rankable) =>
     : RANK[c.group];
 
 const LAST_BLOCKING_RANK = RANK.name;
-/** What blocks: by its kind (`inboxRankOf`), unless the caretaker is at work on it (`beingFixed`). */
+/** What blocks: by its kind (`inboxRankOf`), a your move card only with a deadline, unless the caretaker is at work on it (`beingFixed`). */
 export const urgencyOf = (c: Rankable): Urgency =>
-  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
+  (c.group === "your move"
+    ? Boolean(c.deadline)
+    : inboxRankOf(c) <= LAST_BLOCKING_RANK) && !c.beingFixed
+    ? "blocks"
+    : "improves";
+
+/** A your move card: in its tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
+const isMove = (c: Rankable) => c.group === "your move";
+/** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
+const isImportant = (c: Orderable) =>
+  Boolean(c.matter?.important) && !isMove(c);
 
 interface Orderable extends Rankable {
-  /** When it was asked (a decision's `at`), else its newest evidence. */
+  /** When it was asked (a decision's `at`), a your move card's step's day, else its newest evidence. */
   day: string;
   deadline: string | null;
   matter: { id: string; important?: boolean } | null;
@@ -54,11 +67,13 @@ interface Orderable extends Rankable {
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
-  Number(!a.matter?.important) - Number(!b.matter?.important) ||
+  Number(isMove(a) && inboxRankOf(b) < RANK["your move"]) -
+    Number(isMove(b) && inboxRankOf(a) < RANK["your move"]) ||
+  Number(!isImportant(a)) - Number(!isImportant(b)) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   inboxRankOf(a) - inboxRankOf(b) ||
-  (inboxRankOf(a) === RANK.decision
+  (inboxRankOf(a) === RANK.decision || isMove(a)
     ? a.day.localeCompare(b.day)
     : b.ridesOn.matters - a.ridesOn.matters ||
       // Voices, names and cards share a rank: by matters, then newest only.
@@ -69,10 +84,13 @@ const before = (a: Orderable, b: Orderable) =>
       b.day.localeCompare(a.day)) ||
   a.ref.localeCompare(b.ref);
 
-/** A matter's place among its tier's asks: those the caretaker is fixing keep to their own group, never pulled ahead with its actionable ones. */
+/** A matter's place among its tier's asks: those the caretaker is fixing, and its your move card, keep to their own group, never pulled ahead with its other asks. */
 const matterKeyOf = (c: Orderable) => {
   const id = c.matter?.id ?? c.ridesOn.matterIds[0];
-  return id && `${urgencyOf(c)}${c.beingFixed ? " fixing" : ""} ${id}`;
+  return (
+    id &&
+    `${urgencyOf(c)}${c.beingFixed ? " fixing" : ""}${isMove(c) ? " move" : ""} ${id}`
+  );
 };
 
 /**

@@ -37,7 +37,7 @@ extension Check {
         /// A QR code's text, and where the payee sent it.
         let payload: String?
         let source: String?
-        /// A place's links, each opened only by his tap: Bolt's only when Life or the agent gave one.
+        /// A place's map and ride links (https, each opened by his tap).
         let googleMapsUrl: URL?
         let appleMapsUrl: URL?
         let boltUrl: URL?
@@ -108,15 +108,6 @@ extension Check {
                 } else {
                     rows = []
                 }
-            case .place:
-                // Its line, then each link it has, https only, its host in full under it.
-                let links = [("Google Maps", googleMapsUrl), ("Apple Maps", appleMapsUrl), ("Ride with Bolt", boltUrl)]
-                    .compactMap { name, url -> NeedRow? in
-                        guard let url, url.scheme?.lowercased() == "https", let host = url.host() else { return nil }
-                        return NeedRow(
-                            glyph: .link, text: name, detail: host, action: .open(url, label: "Open \(name)"))
-                    }
-                rows = [NeedRow(glyph: .place, text: line)] + links
             case .text:
                 rows =
                     text.map { text in
@@ -126,6 +117,17 @@ extension Check {
                                 action: copy == true ? .copy(text, label: "Copy \(label ?? "it")") : nil)
                         ]
                     } ?? []
+            case .place:
+                // Its name, then each link Life gave, https only.
+                let links = [("Google Maps", googleMapsUrl), ("Apple Maps", appleMapsUrl), ("Bolt", boltUrl)]
+                    .compactMap { name, url in
+                        url.flatMap {
+                            $0.scheme?.lowercased() == "https"
+                                ? NeedRow(
+                                    glyph: .link, text: name, action: .open($0, label: "Open in \(name)")) : nil
+                        }
+                    }
+                rows = [NeedRow(glyph: .note, text: line)] + links
             // The code itself is the card's hero (`Check.payCode`); without its text, its line.
             case .qr, .unknown:
                 rows = []
@@ -142,7 +144,7 @@ extension Check {
 
 /// One row of a need: a glyph, the fact, and at most one press.
 public struct NeedRow: Sendable, Equatable {
-    public enum Glyph: Sendable { case bank, card, person, amount, link, note, place }
+    public enum Glyph: Sendable { case bank, card, person, amount, link, note }
     public enum Action: Sendable, Equatable {
         /// What goes on the pasteboard, and the button's spoken label.
         case copy(String, label: String)

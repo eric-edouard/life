@@ -504,3 +504,66 @@ test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start
     people.mockRestore();
   }
 });
+
+test("your move: Mark as done ends its step through host, Not now pins his word for 3 days, Hand to an agent only while offered", async () => {
+  const steps: [string, string] = ["obs_000000000081", "obs_000000000082"];
+  const move = {
+    ...check("move:matter_000000000081/obs_000000000081", "your move"),
+    goal: "The garden fence is painted",
+    matter: { id: "matter_000000000081", name: "Garden fence" },
+    options: [{ id: "done" }, { id: "start" }, { id: "not-now" }],
+    subject: steps[0],
+  } as unknown as InboxCheck;
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue(
+    {} as never
+  );
+  const book = spyOn(
+    await import("./matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      id: "matter_000000000081",
+      open: true,
+      steps: steps.map((ref) => ({ ref })),
+    },
+  ] as never);
+  const ended: string[] = [];
+  try {
+    const { done } = await answerWith(
+      move,
+      { options: ["done"] },
+      "connector",
+      {
+        endYourMove: () => {
+          ended.push(move.subject ?? "");
+          return Promise.resolve([{ kind: "outdated" }]);
+        },
+      }
+    );
+    expect(done).toEqual([{ kind: "outdated" }]);
+    expect(ended).toEqual([steps[0]]);
+    await expect(
+      answerWith(move, { options: ["done"] }, "session")
+    ).rejects.toThrow("his own answer_check");
+    await answerCheck(move, { options: ["not-now"] });
+    const [line] = said();
+    expect(line).toMatchObject({
+      kind: "your-move-not-now",
+      matter: "matter_000000000081",
+      steps,
+    });
+    expect(
+      (line as { until: string }).until > new Date().toISOString().slice(0, 10)
+    ).toBe(true);
+    await answerCheck(move, { options: ["start"] });
+    expect(started).toEqual(["The garden fence is painted"]);
+    await expect(
+      answerCheck({ ...move, options: [{ id: "done" }] } as never, {
+        options: ["start"],
+      })
+    ).rejects.toThrow("while the card offers it");
+  } finally {
+    book.mockRestore();
+    people.mockRestore();
+  }
+});

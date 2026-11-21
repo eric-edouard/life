@@ -17,6 +17,7 @@ import {
   runtimeOf,
   standingAgents,
 } from "../host/desk-read";
+import type { MatterOfRefs } from "../host/move-read";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
@@ -30,6 +31,7 @@ import {
   withdrawOpenCards,
   writeSubject,
 } from "./agent-actions";
+import { applyHandOver, type HandOverFacts } from "./agent-moves";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
@@ -221,12 +223,13 @@ function rePoint(desk: Desk, id: string, c: AgentChange) {
   }
 }
 
-/** Applies one change in the store; what it touched, or why not. */
+/** Applies one change (his ask `ask`) in the store; what it touched, or why not. */
 function apply(
   desk: Desk,
+  ask: string,
   c: AgentChange,
   brief: string,
-  facts: { blocked?: string; taker?: string }
+  facts: HandOverFacts & { taker?: string }
 ): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
@@ -246,6 +249,8 @@ function apply(
   switch (c.action) {
     case "start":
       return start(desk, c, brief, facts);
+    case "hand_over":
+      return applyHandOver(desk, ask, c, facts);
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
@@ -294,11 +299,28 @@ async function readTakerOf(db: Desk["db"]) {
   };
 }
 
-/** What a start reads before its transaction (a process, a book): on a matter, the agent that takes it (`readTakerOf`); else whether its runtime answers. */
+/** The open matter some refs find (`prefer` taking a tie), the book read once. */
+async function readMatterIdOf(): Promise<MatterOfRefs> {
+  const find = matterFinderOf(
+    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
+  );
+  return (refs, prefer) => find(refs, prefer)?.id;
+}
+
+/** What a start or a move reads before its transaction (a process, a book): a start on a matter, the agent that takes it (`readTakerOf`); else whether the runtime it names answers. */
 async function startFactsOf(desk: Desk, change: unknown) {
   const c = AgentChange.safeParse(change);
-  if (!(c.success && c.data.action === "start")) {
+  if (!(c.success && ["start", "hand_over"].includes(c.data.action))) {
     return {};
+  }
+  if (c.data.action === "hand_over") {
+    const { matter, runtime, steps } = c.data;
+    const matterOf = steps ? await readMatterIdOf() : undefined;
+    return {
+      blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined,
+      matter: steps ? (matter ?? matterOf?.(steps)) : undefined,
+      matterOf,
+    };
   }
   if (c.data.steps) {
     return {
@@ -315,7 +337,7 @@ async function startFactsOf(desk: Desk, change: unknown) {
 function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
-  facts: { blocked?: string; taker?: string }
+  facts: HandOverFacts & { taker?: string }
 ):
   | { agent?: string; error: string; failed?: unknown }
   | { agent?: string; id: string } {
@@ -343,7 +365,7 @@ function applyAsk(
     return {
       agent: parsed.data.agent,
       ...desk.db.transaction(() =>
-        apply(desk, parsed.data, ask.quote, facts)
+        apply(desk, ask.id, parsed.data, ask.quote, facts)
       )(),
     };
   } catch (e) {

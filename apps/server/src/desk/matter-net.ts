@@ -15,6 +15,7 @@ import {
 } from "../host/desk-read";
 import { isOnOrAfter } from "../host/event-channels";
 import type { MessagePayload } from "../host/events";
+import { pinnedAssignmentsOf } from "../host/move-read";
 import { decisionsNow } from "../memory/decisions";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
@@ -185,6 +186,7 @@ async function readOnMatters(desk: Desk, people: People) {
       ? agentForMatterOf(standing, people.truth)
       : () => undefined;
   const embedder = embedderOf(desk);
+  const pinned = pinnedAssignmentsOf(db);
   let isWhole = true;
   const nets: Net[] = [];
   const ends: MatterEnd[] = [];
@@ -200,7 +202,8 @@ async function readOnMatters(desk: Desk, people: People) {
       continue;
     }
     const to = take(v);
-    if (to && to !== a.agent_id) {
+    // A matter he moved stays with its new agent (`pinnedAssignmentsOf`, his answer 3 of decision 78).
+    if (to && to !== a.agent_id && !pinned.has(a.id)) {
       folds.push({ assignment: a.id, to });
     }
     const net = netOf(v);

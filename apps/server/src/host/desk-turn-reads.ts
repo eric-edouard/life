@@ -11,6 +11,9 @@ import type { TurnSpent } from "../memory/spends";
 const SPENT =
   "agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join (select ref, min(runtime) as runtime from session group by ref) legacy on turn.model is null and legacy.ref = turn.session";
 
+/** A move's notes turn that never began ran no model (no session to resume, or a send that failed): never counted as spent. */
+const RAN = "not (turn.cause = 'move_notes' and turn.begun_at is null)";
+
 /** One ended turn's tokens, written when it ended (`close()`). */
 export interface TurnTokens {
   agent_id: string;
@@ -33,7 +36,7 @@ export const tokensSince = (db: Database, since: string) =>
 export const turnsEndedIn = (db: Database, from: string, to: string) =>
   db
     .query<TurnSpent, [string, string]>(
-      `select ${SPENT} where ended_at >= ? and ended_at < ? order by ended_at`
+      `select ${SPENT} where ended_at >= ? and ended_at < ? and ${RAN} order by ended_at`
     )
     .all(from, to);
 
@@ -50,7 +53,7 @@ export function sessionTurnsOf(db: Database, agentIds: string[]) {
     .all(...agentIds);
   const turns = db
     .query<TurnSpent, string[]>(
-      `select ${SPENT} where ended_at is not null and agent_id in (${marks}) and session = (select session from agent where id = turn.agent_id)`
+      `select ${SPENT} where ended_at is not null and ${RAN} and agent_id in (${marks}) and session = (select session from agent where id = turn.agent_id)`
     )
     .all(...agentIds);
   return { sessions, turns };
@@ -62,6 +65,6 @@ export const stepTurnsOf = (db: Database, steps: string[]) =>
     ? []
     : db
         .query<TurnSpent, string[]>(
-          `select ${SPENT} where ended_at is not null and assignment_id in (select assignment_id from anchor where step in (${steps.map(() => "?").join(",")}))`
+          `select ${SPENT} where ended_at is not null and ${RAN} and assignment_id in (select assignment_id from anchor where step in (${steps.map(() => "?").join(",")}))`
         )
         .all(...steps);

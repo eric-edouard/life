@@ -70,8 +70,8 @@
       "name": "Renew the lease",
       "status": "waiting_on_someone",
       "blockingChecks": 0,
-      "needsYou": false
+      "needsYou": true
     }
   ],
-  "version": "5f9159f45d737740"
+  "version": "4d92c5146f3f7ffa"
 }

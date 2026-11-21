@@ -98,6 +98,8 @@ public protocol LifeAPI: Sendable {
     func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
+    /// What Life costs this month (`ModelSpending`), his token only.
+    func readSpending() async throws -> String
     /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
@@ -157,6 +159,7 @@ public struct MCPLifeAPI: LifeAPI {
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
+    public func readSpending() async throws -> String { try await client.call("read_spending") }
     public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])

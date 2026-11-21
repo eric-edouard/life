@@ -274,7 +274,6 @@ struct NeedsBlock: View {
         case .amount: "banknote"
         case .link: "link"
         case .note: "note.text"
-        case .place: "mappin.and.ellipse"
         }
     }
 }

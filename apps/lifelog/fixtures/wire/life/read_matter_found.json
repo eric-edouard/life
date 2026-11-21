@@ -131,6 +131,7 @@
   "steps": [],
   "blockingChecks": 0,
   "needsYou": false,
+  "holder": null,
   "checks": [
     {
       "said": {

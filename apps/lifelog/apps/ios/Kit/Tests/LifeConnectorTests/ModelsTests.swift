@@ -33,6 +33,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         #expect(list.matters.compactMap(\.icon).allSatisfy { $0.by == .life && MatterIcons.symbol($0.key) != nil })
         let agents = try object("read_registered_agents")
         #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
+        #expect(try decoded(ModelSpending.self, designText("read_spending")).sections.count == 5)
         let matterRead = try object("read_matter")
         let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
         for row in rows {
@@ -47,13 +48,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 10)
+    #expect(inbox.total == 11)
     #expect(inbox.blocking == 6)
     #expect(inbox.badge == 6)
-    #expect(inbox.counts.values.reduce(0, +) == 10)
+    #expect(inbox.counts.values.reduce(0, +) == 11)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -148,7 +149,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.project == nil)
 
     let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
-    #expect(chips.all.needYou == 1)
+    #expect(chips.all.needYou == 2)
     #expect(chips.chips.map(\.kind) == [.project])
     #expect(chips.chips.first?.status == .active)
     #expect(chips.chips.first?.area == "home")
@@ -315,7 +316,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matters.map(\.needsYou) == [true, false, false])
+    #expect(list.matters.map(\.needsYou) == [true, false, true])
 }
 
 @Test func theActionsResultsDecode() throws {
@@ -377,8 +378,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     for check in all where check.contextLinkTitle != nil && check.draft == nil {
         switch check.group {
         case .ending: #expect(check.contextLinkTitle == "Why done?")
-        case .newMatter: #expect(check.contextLinkTitle == "What Life saw")
-        case .yourMove: #expect(check.contextLinkTitle == "Where it stands")
+        case .newMatter, .yourMove: #expect(check.contextLinkTitle == "What Life saw")
         case .decision: #expect(check.contextLinkTitle == "Why it asks")
         default: #expect(check.contextLinkTitle?.hasSuffix("?") == true)
         }
@@ -405,9 +405,7 @@ private func everyKindOfCheck() throws -> [Check] {
 @Test func everyKindOfCardAnswersAsLifeTakesIt() throws {
     let all = try everyKindOfCheck()
     func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
-    // ponytail: Life's phone-reads test holds no matter with a step of his yet, so no your move card; drop `.yourMove`
-    // here once its wire fixture has one (its decode and answers: `aYourMoveCardDrawsItsPlace…`, NeedTests).
-    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown, .yourMove]))
+    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown]))
 
     let decision = try card(.decision)
     #expect(decision.answer(decision.options[0]) == AnswerRequest(ref: decision.ref, options: ["yes"]))
@@ -427,6 +425,14 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(found.answer(edit) == nil)
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
     #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
+
+    // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
+    let move = try card(.yourMove)
+    #expect(move.options.map(\.id) == ["done", "start", "not-now"] && move.filled?.id == "done")
+    #expect(move.isEnding(try #require(move.answer(move.options[0]))))
+    #expect(move.answer(move.options[1]) == AnswerRequest(ref: move.ref, options: ["start"], note: move.goal))
+    #expect(move.isHandOver(move.options[1]) && !move.isHandOver(move.options[2]))
+    #expect(move.answer(move.options[2]) == AnswerRequest(ref: move.ref, options: ["not-now"]) && !move.takesOwnWords)
 
     for group in [CheckGroup.name, .contactsCard] {
         let check = try card(group)

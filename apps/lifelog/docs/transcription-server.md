@@ -156,7 +156,7 @@ steps, problems). `fixtures/wire/status-live.json` is its shape. `pipeline` hold
 
 ## Spending
 
-No route serves it since PR 595 cut the phone's spending screen. The ledgers stay: `transcription_jobs.billable_seconds`
+The phone reads no route of it since PR 595; Life's model spending reads `GET /spending` (`docs/voice-source.md`). The ledgers stay: `transcription_jobs.billable_seconds`
 (keyterms at their extra price; `maybe_billed` jobs count) and the token cost on each intelligence run, at the prices in
 `apps/server/src/config.ts`.
 
