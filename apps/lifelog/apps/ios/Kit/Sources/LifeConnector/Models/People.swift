@@ -50,11 +50,9 @@ public struct PersonRow: Decodable, Sendable, Equatable, Identifiable {
 }
 
 /// `read_people_and_organizations` with no name: his directory's people and organizations and everyone with a page, in
-/// Life's order (closest first, the newest exchange first inside a level, the unjudged last); with a query, its matches
-/// and `others`, the people only his Contacts or Life's guesses name.
+/// Life's order (closest first, the newest exchange first inside a level, the unjudged last).
 public struct PeopleList: Decodable, Sendable, Equatable {
     public let people: [PersonRow]
-    public let others: [Party]?
 
     /// Which of them the list shows.
     public enum Kind: Hashable, Sendable, CaseIterable {
@@ -434,24 +432,8 @@ public struct Prose: Sendable, Equatable, ParsedRead, NamesParties {
         return Prose(sections: sections)
     }
 }
-extension PeopleList {
-    /// A find that holds no one: no row, and no other Life has seen by that name.
-    public var isNoOne: Bool { people.isEmpty && (others ?? []).isEmpty }
-}
-
-/// What search reads of the people: one query, read again on each new pairing (`PairingGeneration`), so a query on
-/// show is asked of the new Life too.
-public struct PeopleQuery: Hashable, Sendable {
-    public let text: String
-    public let pairing: Int
-
-    public init(text: String, pairing: Int) {
-        (self.text, self.pairing) = (text, pairing)
-    }
-}
-
 extension PeopleList: NamesParties {
-    public var parties: [Party] { people.map(\.party) + (others ?? []) }
+    public var parties: [Party] { people.map(\.party) }
 }
 
 extension PersonNow: NamesParties {

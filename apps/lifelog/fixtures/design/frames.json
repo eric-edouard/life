@@ -177,9 +177,6 @@
   "DuoFoldDictRest": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
-  "DuoFoldDictSearch": {
-    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
-  },
   "DuoFoldDictSheet": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
@@ -374,9 +371,6 @@
   "DuoFoldPeopleOrgs": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Organizations"]
-  },
-  "DuoFoldPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
@@ -695,9 +689,6 @@
       "person:atelier_morel"
     ],
     "taps": ["Organizations"]
-  },
-  "DuoPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
   "DuoPeopleTall": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
