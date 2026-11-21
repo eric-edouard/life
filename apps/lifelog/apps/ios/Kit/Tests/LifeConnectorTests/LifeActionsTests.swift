@@ -108,6 +108,29 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     #expect(steps.map { $0.passedAt != nil } == [true, true, false])
 }
 
+/// An `ends` answer Life recorded whose to-do tick the list app refused: answered, never offered again, and the refusal
+/// in Life's words comes with it (#753).
+@Test func anEndsAnswerWhoseTickWasRefusedIsRecordedWithTheRefusal() async {
+    let life = FakeLife()
+    life.answers = [
+        { _ in
+            #"{"ref":"dec_000000000002","kind":"decision","send":null,"start":null,"changed":"#
+                + #"{"decision":"dec_000000000002","options":["done"],"state":"answered","ended":"#
+                + #"{"at":"2026-11-18T10:00:01.000Z","error":"Reminders did not take the change."}}}"#
+        }
+    ]
+    let state = await run {
+        await LifeActions(api: life, now: { at }).answer(
+            AnswerRequest(ref: "dec_000000000002", options: ["done"]), key: "tap-1", at: lifeA, emit: $0)
+    }
+    guard case .succeeded(.answered(let result), _) = state else {
+        Issue.record("\(state)")
+        return
+    }
+    #expect(result.tickRefused == "Reminders did not take the change.")
+    #expect(result.changed?.ended?.at != nil)
+}
+
 @Test func aNotSentAnswerFailsAndItsNextTapIsAFreshOne() async throws {
     let life = FakeLife()
     let text = try wireText("life/answer_check_not_sent.json")

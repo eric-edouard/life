@@ -36,6 +36,13 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let conversations: Int?
         /// The person a typed name was read as. Picked from the card, or no person: absent.
         public let recordedAs: String?
+        /// An `ends` answer's end of its step: `error` when the list app refused to tick its to-do item. No end: absent.
+        public let ended: Ended?
+    }
+
+    public struct Ended: Decodable, Sendable, Equatable {
+        public let at: Date?
+        public let error: String?
     }
 
     public let ref: String
@@ -48,4 +55,8 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     public let start: AgentChangeResult?
     /// "I've paid": Life's look for the step done, `seen` or `not_found`, beside the answer. No look: absent.
     public let doneSeen: Check.DoneSeen?
+
+    /// Why the to-do item his `ends` answer would tick stayed open, in Life's words: his answer still stands. Ticked, or
+    /// none to tick: nil.
+    public var tickRefused: String? { changed?.ended?.error }
 }
