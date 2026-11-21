@@ -150,25 +150,18 @@ function close(
 
 /** Adds a run's tokens to open turn `turn`'s (a reminded turn runs twice); its context is its last run's. */
 function addUsage(db: Desk["db"], turn: number, usage: Usage | undefined) {
-  const [tokensIn, cached, out] = [
-    usage?.tokensIn ?? null,
-    usage?.tokensCached ?? null,
-    usage?.tokensOut ?? null,
-  ];
-  // coalesce(run + kept, run, kept): the sum, else whichever is known.
-  db.run(
-    "update turn set tokens_in = coalesce(? + tokens_in, ?, tokens_in), tokens_cached = coalesce(? + tokens_cached, ?, tokens_cached), tokens_out = coalesce(? + tokens_out, ?, tokens_out), context_used = coalesce(?, context_used) where id = ? and ended_at is null",
-    [
-      tokensIn,
-      tokensIn,
-      cached,
-      cached,
-      out,
-      out,
-      usage?.contextLast ?? null,
-      turn,
-    ]
-  );
+  if (usage) {
+    db.run(
+      "update turn set tokens_in = coalesce(tokens_in, 0) + ?, tokens_cached = coalesce(tokens_cached, 0) + ?, tokens_out = coalesce(tokens_out, 0) + ?, context_used = coalesce(?, context_used) where id = ? and ended_at is null",
+      [
+        usage.tokensIn,
+        usage.tokensCached,
+        usage.tokensOut,
+        usage.contextLast,
+        turn,
+      ]
+    );
+  }
 }
 
 /**

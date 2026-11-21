@@ -69,6 +69,14 @@ test("a run that begins after its turn was closed counts no event as handed", as
   ).toBe(0);
 });
 
+const usageOf = (tokensOut: number) => ({
+  contextFirst: null,
+  contextLast: null,
+  tokensCached: 0,
+  tokensIn: 1,
+  tokensOut,
+});
+
 /** An agent whose first turn's run ends with neither a wait nor `finish` while his app holds its session (#912). */
 async function heldAtTheEnd() {
   const made = setup();
@@ -80,7 +88,7 @@ async function heldAtTheEnd() {
   // Handed to its last try: a turn closed now would drop it.
   desk.db.run("update event set handed = ?", [MAX_HANDED]);
   // The run ends; his app holds the session (it reads as running).
-  await turnEnded(desk, turn, { ok: true, usage: { tokensOut: 5 } });
+  await turnEnded(desk, turn, { ok: true, usage: usageOf(5) });
   const session = fake.sessions.get(agentOf(desk.db, agent)?.session ?? "");
   const reminders = () =>
     fake.said.filter((m) => m.message.startsWith("Before you stop")).length;
@@ -132,8 +140,14 @@ test("a reminded turn's tokens are both runs'", async () => {
   release();
   await endLostTurns(desk);
   fake.exit(agentOf(desk.db, agent)?.session ?? "", true, {
-    usage: { tokensOut: 7 },
+    usage: usageOf(7),
   });
   await Bun.sleep(0);
-  expect(turnOf(desk.db, turn)?.tokens_out).toBe(12);
+  expect(
+    desk.db
+      .query<{ tokens_out: number }, [number]>(
+        "select tokens_out from turn where id = ?"
+      )
+      .get(turn)?.tokens_out
+  ).toBe(12);
 });
