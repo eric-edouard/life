@@ -6,7 +6,9 @@ import {
   type NewSessionRequest,
   ndJsonStream,
   type PromptResponse,
+  type SessionUpdate,
 } from "@agentclientprotocol/sdk";
+import { MIN } from "../../core/clock";
 import { log } from "../../core/log";
 import { errorOf, fromModel } from "../../core/log-line";
 import { cliEnv } from "../../core/platform";
@@ -15,18 +17,22 @@ import {
   type RunEnd,
   type Runtime,
   SessionLive,
+  type Update,
   type Usage,
 } from "./contract";
 import type { Row } from "./runtime-rows";
 
 // The one runtime: a row's program (`runtime-rows.ts`) driven over the Agent Client Protocol (the ACP runtime spec, 19 Nov
 // 2026). One adapter process per turn, closed when the prompt's reply arrives: a turn is one run, his app may open the
-// session between turns, and nothing is kept alive. Nothing is written to disk: `live` holds the runs this process drives,
+// session between turns. The one exception is `talk` (the main session, Tell Life): its process is kept open across
+// prompts, so his next words pay no start, and closed after `KEEP_WARM_MS` without one. Nothing is written to disk: `live` holds the runs this process drives,
 // and a desk restart ends a running turn (its adapter dies with its pipe), which the desk's retry covers.
 // This file names no runtime: what differs is in the row.
 
 /** Everything from the spawn to the prompt being sent must finish within this, else the adapter is killed and the launch fails. */
 export const LAUNCH_WITHIN_MS = 30_000;
+/** How long a session kept open by `talk` or `keep` stays open without a prompt (the study's presence, 21 Nov 2026). */
+export const KEEP_WARM_MS = 5 * MIN;
 /** A closed run's adapter has this long to exit before it is killed. */
 const EXIT_WITHIN_MS = 5000;
 /** The stop reasons of a turn that ran its course; anything else (`cancelled`, `refusal`) is a failed turn. */
@@ -51,28 +57,104 @@ const whyOf = (error: unknown) => {
   return e.data?.details ? `${e.message}: ${e.data.details}` : e.message;
 };
 
-/** A run this process drives: its end, and a way to stop it. */
+/** A run this process drives, or a session it keeps open (`talk`): a way to stop it. */
 interface Active {
-  ended?: Promise<RunEnd>;
   stop: () => Promise<void>;
 }
 
-export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
+/** One adapter process on one session (`open`): a prompt at a time on it, until `close`. */
+interface Connection {
+  close: () => Promise<void>;
+  /** Settles when the adapter's process is gone. */
+  exited: Promise<void>;
+  /** Sends `message` as one run on the session; `onUpdate` hears what its model says and does. */
+  prompt: (message: string, onUpdate?: (u: Update) => void) => Run;
+  ref: string;
+  /** Cancels the running prompt and waits for its end, its process killed after `EXIT_WITHIN_MS`; still launching, the process is killed. */
+  stop: () => Promise<void>;
+}
+
+/**
+ * A prompt's reply as its run's end, with the context its usage updates showed (`heard`), and what a failed one logs: a
+ * stop the agent gave is a code word, logged as is; a thrown error is the runtime's, logged by its type only.
+ */
+async function endOf(
+  reply: Promise<PromptResponse>,
+  heard: { first: number | null; last: number | null }
+): Promise<{ end: RunEnd; logged: Record<string, unknown> }> {
+  try {
+    const r = await reply;
+    // What the adapter sent before its reply may still be on its way to the handlers.
+    await Bun.sleep(0);
+    const u = (r as { usage?: PromptUsage | null }).usage;
+    const usage: Usage | undefined = u
+      ? {
+          contextFirst: heard.first,
+          contextLast: heard.last,
+          tokensCached: u.cachedReadTokens ?? 0,
+          tokensIn: (u.inputTokens ?? 0) + (u.cachedWriteTokens ?? 0),
+          tokensOut: u.outputTokens ?? 0,
+        }
+      : undefined;
+    return {
+      end: OK_STOPS.includes(r.stopReason)
+        ? { ok: true, usage }
+        : { ok: false, why: r.stopReason },
+      logged: { error: r.stopReason },
+    };
+  } catch (error) {
+    return {
+      end: { ok: false, why: whyOf(error) },
+      logged: errorOf(fromModel(error)),
+    };
+  }
+}
+
+/** The run's updates as the desk hears them (`Update`): its words, that it thinks, and each tool call as it goes. */
+function updateOf(
+  u: SessionUpdate,
+  titles: Map<string, string>
+): Update | undefined {
+  switch (u.sessionUpdate) {
+    case "agent_message_chunk":
+      return u.content.type === "text"
+        ? { kind: "words", text: u.content.text }
+        : undefined;
+    case "agent_thought_chunk":
+      return { kind: "thinking" };
+    case "tool_call":
+    case "tool_call_update":
+      return {
+        id: u.toolCallId,
+        kind: "working",
+        state: u.status ?? "pending",
+        title: u.title ?? titles.get(u.toolCallId) ?? "",
+      };
+    default:
+      return undefined;
+  }
+}
+
+export function acpRuntime(
+  row: Row,
+  launchWithin = LAUNCH_WITHIN_MS,
+  keepWarm = KEEP_WARM_MS
+): Runtime {
   const live = new Map<string, Active>();
+  /** The sessions kept open across prompts (`talk`), by agent, each closed after `KEEP_WARM_MS` without a prompt. */
+  const kept = new Map<
+    string,
+    { c: Connection; isPrompting: boolean; timer?: Timer }
+  >();
 
   /**
-   * Spawns the adapter in `a.folder`, makes or resumes the session, sets its model and effort and sends `message`: all within
-   * `launchWithin`. The session is in `live` from the first synchronous step when it is resumed, else once it exists.
+   * Spawns the adapter in `a.folder` and makes or resumes the session, its model, effort and mode set: all within
+   * `launchWithin`, else the adapter is killed and the open fails.
    */
-  async function launch(
+  async function open(
     a: Parameters<Runtime["send"]>[0],
-    message: string,
     resume?: string
-  ) {
-    const active: Active = { stop: () => Promise.resolve() };
-    if (resume) {
-      live.set(resume, active);
-    }
+  ): Promise<Connection> {
     const { command, env } = await row.spawn(a);
     const child = spawn(command[0] ?? "", command.slice(1), {
       cwd: a.folder,
@@ -92,32 +174,35 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
       child.once("error", reject)
     );
     const titles = new Map<string, string>();
+    /** The prompt running now, and what it heard: only its updates count (a resume's replays are not a run's). */
+    let current:
+      | {
+          first: number | null;
+          last: number | null;
+          onBegun: () => void;
+          onUpdate?: (u: Update) => void;
+        }
+      | undefined;
     let isPrompted = false;
-    let first: number | null = null;
-    let last: number | null = null;
-    let beginOk: () => void = () => undefined;
-    let beginFail: (e: Error) => void = () => undefined;
-    const begun = new Promise<void>((ok, fail) => {
-      beginOk = ok;
-      beginFail = fail;
-    });
-    begun.catch(() => undefined);
     const conn = client({ name: "life-desk" })
       .onNotification(methods.client.session.update, ({ params }) => {
         const u = params.update;
         if (u.sessionUpdate === "tool_call") {
           titles.set(u.toolCallId, u.title);
         }
-        // Only what arrives after the prompt: the resume's own updates and replays are not this run's.
-        if (!isPrompted) {
+        if (!current) {
           return;
         }
         if (u.sessionUpdate === "usage_update") {
-          first ??= u.used;
-          last = u.used;
+          current.first ??= u.used;
+          current.last = u.used;
         }
         if (ANSWERS.includes(u.sessionUpdate)) {
-          beginOk();
+          current.onBegun();
+        }
+        const heard = current.onUpdate && updateOf(u, titles);
+        if (heard) {
+          current.onUpdate?.(heard);
         }
       })
       // An agent of his own Life: every ask is approved (the runtime's no-ask mode leaves few). A second Life's (a row
@@ -191,15 +276,7 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
       }
     };
     let ref = resume ?? "";
-    active.stop = async () => {
-      if (!isPrompted) {
-        child.kill("SIGKILL"); // still launching: the launch fails
-        return;
-      }
-      await conn.agent.notify(methods.agent.session.cancel, { sessionId: ref });
-      const timer = setTimeout(() => child.kill("SIGKILL"), EXIT_WITHIN_MS);
-      await active.ended?.finally(() => clearTimeout(timer));
-    };
+    let ended: Promise<RunEnd> | undefined;
     const setup = (async () => {
       await conn.agent.request(methods.agent.initialize, {
         clientCapabilities: {},
@@ -226,17 +303,8 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
       } else {
         ref = (await conn.agent.request(methods.agent.session.new, where))
           .sessionId;
-        live.set(ref, active);
       }
       await setOptions(ref);
-      isPrompted = true;
-      const prompt = conn.agent.request(methods.agent.session.prompt, {
-        prompt: [{ text: message, type: "text" }],
-        sessionId: ref,
-      });
-      prompt.catch(() => undefined);
-      // Wrapped: an async function returning a promise would wait for the reply, which is the turn's end.
-      return { prompt };
     })();
     setup.catch(() => undefined);
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -251,62 +319,166 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
         launchWithin
       );
     });
-    let prompt: Promise<PromptResponse>;
     try {
-      ({ prompt } = await Promise.race([setup, late, notStarted]));
+      await Promise.race([setup, late, notStarted]);
     } catch (error) {
       child.kill("SIGKILL");
       await close();
-      live.delete(ref);
       throw error;
     } finally {
       clearTimeout(timer);
     }
-    const ended = (async (): Promise<RunEnd> => {
-      let end: RunEnd;
-      // A stop the agent gave is a code word, logged as is; a thrown error is the runtime's, logged by its type only.
-      let logged: Record<string, unknown> = {};
-      try {
-        const reply = await prompt;
-        // What the adapter sent before its reply may still be on its way to the handlers.
-        await Bun.sleep(0);
-        const u = (reply as { usage?: PromptUsage | null }).usage;
-        const usage: Usage | undefined = u
-          ? {
-              contextFirst: first,
-              contextLast: last,
-              tokensCached: u.cachedReadTokens ?? 0,
-              tokensIn: (u.inputTokens ?? 0) + (u.cachedWriteTokens ?? 0),
-              tokensOut: u.outputTokens ?? 0,
-            }
-          : undefined;
-        end = OK_STOPS.includes(reply.stopReason)
-          ? { ok: true, usage }
-          : { ok: false, why: reply.stopReason };
-        logged = { error: reply.stopReason };
-      } catch (error) {
-        end = { ok: false, why: whyOf(error) };
-        logged = errorOf(fromModel(error));
+
+    const prompt = (message: string, onUpdate?: (u: Update) => void): Run => {
+      let beginOk: () => void = () => undefined;
+      let beginFail: (e: Error) => void = () => undefined;
+      const begun = new Promise<void>((ok, fail) => {
+        beginOk = ok;
+        beginFail = fail;
+      });
+      begun.catch(() => undefined);
+      const heard = { first: null, last: null, onBegun: beginOk, onUpdate };
+      current = heard;
+      isPrompted = true;
+      const reply = conn.agent.request(methods.agent.session.prompt, {
+        prompt: [{ text: message, type: "text" }],
+        sessionId: ref,
+      });
+      reply.catch(() => undefined);
+      ended = (async (): Promise<RunEnd> => {
+        const { end, logged } = await endOf(reply, heard);
+        if (current === heard) {
+          current = undefined;
+        }
+        beginFail(new Error(end.why ?? "it ended before the turn began"));
+        if (!end.ok) {
+          log("desk.runtime", {
+            agent: a.id,
+            ...logged,
+            ok: false,
+            what: "turn",
+          });
+        }
+        return end;
+      })();
+      return { begun, ended };
+    };
+    const stop = async () => {
+      if (!isPrompted) {
+        child.kill("SIGKILL"); // still launching: the launch fails
+        return;
       }
-      beginFail(new Error(end.why ?? "it ended before the turn began"));
-      await close();
-      live.delete(ref);
-      if (!end.ok) {
-        log("desk.runtime", {
-          agent: a.id,
-          ...logged,
-          ok: false,
-          what: "turn",
-        });
+      await conn.agent.notify(methods.agent.session.cancel, { sessionId: ref });
+      const kill = setTimeout(() => child.kill("SIGKILL"), EXIT_WITHIN_MS);
+      await ended?.finally(() => clearTimeout(kill));
+    };
+    return { close, exited, prompt, ref, stop };
+  }
+
+  /**
+   * One run on a session of its own process (`send`, `start`): the process is closed when the run ends, so his app may
+   * open the session between turns. A resumed session is in `live` from the first synchronous step, else once it exists.
+   */
+  async function launch(
+    a: Parameters<Runtime["send"]>[0],
+    message: string,
+    resume?: string
+  ) {
+    let c: Connection | undefined;
+    let isStopped = false;
+    const active: Active = {
+      stop: () => {
+        isStopped = !c;
+        return c?.stop() ?? Promise.resolve();
+      },
+    };
+    if (resume) {
+      live.set(resume, active);
+    }
+    try {
+      c = await open(a, resume);
+      if (isStopped) {
+        await c.close();
+        throw new Error("stopped while it launched"); // still launching: the launch fails
       }
+    } catch (error) {
+      live.delete(resume ?? "");
+      throw error;
+    }
+    live.set(c.ref, active);
+    const run = c.prompt(message);
+    const opened = c;
+    const ended = run.ended.then(async (end) => {
+      await opened.close();
+      live.delete(opened.ref);
       return end;
-    })();
-    active.ended = ended;
-    return { begun, ended, ref } satisfies Run & { ref: string };
+    });
+    return { begun: run.begun, ended, ref: c.ref };
+  }
+
+  /** Closes agent `id`'s kept session once it has had no prompt for `keepWarm`. */
+  const keepFor = (id: string) => {
+    const k = kept.get(id);
+    if (!k) {
+      return;
+    }
+    clearTimeout(k.timer);
+    k.timer = setTimeout(() => {
+      if (!k.isPrompting) {
+        kept.delete(id);
+        live.delete(k.c.ref);
+        k.c.close().catch(() => undefined);
+      }
+    }, keepWarm);
+  };
+
+  /**
+   * Agent `a`'s kept session on `ref` (a new one when null), opened when none is kept: a session live elsewhere is
+   * refused as `send` refuses it, before any process of its own runs it. A kept session on another ref is closed first.
+   */
+  async function keptOf(a: Parameters<Runtime["send"]>[0], ref: string | null) {
+    const k = kept.get(a.id);
+    if (k && (ref === null || k.c.ref === ref)) {
+      return k;
+    }
+    if (k) {
+      kept.delete(a.id);
+      live.delete(k.c.ref);
+      await k.c.close();
+    }
+    if (ref && (live.has(ref) || (await runtime.state(ref)) === "running")) {
+      throw new SessionLive(`session ${ref} is running`);
+    }
+    const c = await open(a, ref ?? undefined);
+    const made: { c: Connection; isPrompting: boolean; timer?: Timer } = {
+      c,
+      isPrompting: false,
+    };
+    kept.set(a.id, made);
+    live.set(c.ref, {
+      stop: async () => {
+        await c.stop();
+        kept.delete(a.id);
+        live.delete(c.ref);
+        await c.close();
+      },
+    });
+    // A process that dies (a crash, a kill) is no longer kept: the next talk opens another.
+    c.exited.then(() => {
+      if (kept.get(a.id) === made) {
+        kept.delete(a.id);
+        live.delete(c.ref);
+      }
+    });
+    return made;
   }
 
   const runtime: Runtime = {
     block: row.block,
+    async keep(a, ref) {
+      await keptOf(a, ref);
+      keepFor(a.id);
+    },
     async send(a, ref, message) {
       // A turn running beside his would branch the conversation. After the awaited read, `live` is looked at again and
       // set in the same synchronous step (`launch`'s first), so two sends can't both pass.
@@ -336,6 +508,21 @@ export function acpRuntime(row: Row, launchWithin = LAUNCH_WITHIN_MS): Runtime {
       live.has(ref) ? Promise.resolve("running") : row.readSessionState(ref),
     async stop(ref) {
       await live.get(ref)?.stop();
+    },
+    async talk(a, ref, message, onUpdate) {
+      const k = await keptOf(a, ref);
+      if (k.isPrompting) {
+        throw new SessionLive(`session ${k.c.ref} is answering`);
+      }
+      k.isPrompting = true;
+      clearTimeout(k.timer);
+      const run = k.c.prompt(message, onUpdate);
+      const ended = run.ended.then((end) => {
+        k.isPrompting = false;
+        keepFor(a.id);
+        return end;
+      });
+      return { begun: run.begun, ended, link: row.link(k.c.ref), ref: k.c.ref };
     },
   };
   return runtime;
