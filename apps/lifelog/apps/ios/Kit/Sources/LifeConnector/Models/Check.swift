@@ -259,6 +259,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// The matters the answer rides on, by name.
     public let onMatters: [MatterRef]?
     public let options: [Option]
+    /// The option a bulk ask starts this row ticked with (`preTickedOf`, the server's rule); nil: not ticked, or from a
+    /// Life that predates it.
+    public let preTicked: String?
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
@@ -397,6 +400,17 @@ extension Check {
 
     /// The option the card fills (the first in order): the one answer it asks for, the others sit quieter.
     public var filled: Option? { optionsInOrder.first }
+
+    /// The option the row starts ticked with in a bulk ask, when Life pre-ticks one this card offers.
+    public var preTickedOption: Option? { options.first { $0.id == preTicked } }
+
+    /// Rows of a bulk ask in its groups: one per pre-ticked option, in the order they first come, then the rows Life
+    /// ticks nothing on.
+    public static func bulkGroups(_ checks: [Check]) -> [[Check]] {
+        let ids = checks.compactMap(\.preTicked).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        return (ids.map(Optional.some) + [nil]).map { id in checks.filter { $0.preTicked == id } }
+            .filter { !$0.isEmpty }
+    }
 
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }

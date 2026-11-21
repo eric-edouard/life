@@ -547,6 +547,9 @@ final class LifeStore {
     /// His answer to such a row, sent in four seconds unless he undoes it.
     func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label, for: pairedLife) }
 
+    /// A bulk card's answers, held as one: one toast, one Undo.
+    func hold(_ requests: [AnswerRequest], as label: String) { holds.hold(requests, as: label, for: pairedLife) }
+
     func undo(_ ref: String) { holds.undo(ref) }
 
     /// Every held answer, at once: the screen is going, or the app.

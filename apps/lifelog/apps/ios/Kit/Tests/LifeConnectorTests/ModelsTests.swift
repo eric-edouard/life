@@ -535,7 +535,9 @@ private func everyKindOfCheck() throws -> [Check] {
 }
 
 /// A whole inbox made from the server's own read: one ask per ref (its push `push-<ref>`), with the urgency given.
-private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
+private func asks(
+    _ urgencies: [(String, Urgency)], groups: [String: String] = [:], preTicked: [String: String] = [:]
+) throws -> Inbox {
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
@@ -543,6 +545,7 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
         first.merging([
             "ref": ref, "pushId": "push-\(ref)", "urgency": urgency.rawValue,
             "group": groups[ref] ?? first["group"] ?? "",
+            "preTicked": preTicked[ref] ?? NSNull(),
         ]) { $1 }
     }
     let body = wire.merging(["checks": checks, "total": checks.count]) { $1 }
@@ -593,6 +596,23 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(order.only(nil) == order)
     // A kind with none waiting is no filter at all.
     #expect(order.only(.newMatter) == order)
+}
+
+/// A kind with 2 or more pre-ticked asks folds into its first, which holds every ask of the kind (pre-ticked or not),
+/// unless he goes one by one; a lone pre-ticked ask stays a card. A ref folded away opens its bulk ask.
+@Test func aKindLifePreTicksFoldsIntoOneBulkAsk() throws {
+    let order = try asks(
+        [("b1", .blocks), ("v1", .blocks), ("v2", .blocks), ("e1", .improves), ("v3", .improves)],
+        groups: ["v1": "voice", "v2": "voice", "v3": "voice", "e1": "ending"],
+        preTicked: ["v1": "not-relevant", "v3": "is-them", "e1": "outdated"]
+    ).ordered(deferred: [])
+    let folded = order.folded()
+    #expect(folded.checks.map(\.ref) == ["b1", "v1", "e1"] && folded.canWaitFrom == 2)
+    #expect(folded.bulk.mapValues { $0.map(\.ref) } == ["v1": ["v1", "v2", "v3"]])
+    #expect(folded.check(on: "v3")?.ref == "v1" && folded.checks.ref(after: "v1") == "e1")
+    #expect(order.folded(except: [.voice]) == order)
+    let groups = Check.bulkGroups(try #require(folded.bulk["v1"])).map { $0.map(\.ref) }
+    #expect(groups == [["v1"], ["v3"], ["v2"]])
 }
 
 /// A name card with no one to suggest offers "Create <name>", the longest name it asks about.

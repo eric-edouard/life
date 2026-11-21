@@ -48,6 +48,35 @@ import Testing
     #expect(holds.latest == "z")
 }
 
+/// A bulk ask's answers are held as one: one toast, and Undo of any brings back all of them, never others.
+@MainActor @Test func answersHeldTogetherAreUndoneTogether() async {
+    let sent = Sent()
+    let holds = HeldAnswers(delay: .seconds(60)) { sent.requests.append($0.request) }
+    holds.hold(AnswerRequest(ref: "alone", options: ["yes"]), as: "Yes")
+    holds.hold(["a", "b", "c"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "3 answered")
+    #expect(holds.held["a"]?.label == "3 answered" && holds.latest == "c")
+    holds.undo("c")
+    #expect(Set(holds.held.keys) == ["alone"] && holds.latest == "alone")
+    await holds.sendAll()
+    #expect(sent.requests.map(\.ref) == ["alone"])
+}
+
+/// One tap's answers go together when their time is up, never some before an Undo of the rest; one of them held again
+/// alone leaves the tap: the tap's Undo leaves it, its own timer sends it.
+@MainActor @Test func aTapsAnswersAreReleasedTogetherAndOneHeldAgainLeavesIt() async throws {
+    let sent = Sent()
+    let holds = HeldAnswers(delay: .milliseconds(40)) { sent.requests.append($0.request) }
+    holds.hold(["a", "b"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "2 answered")
+    holds.hold(AnswerRequest(ref: "b", options: ["false"]), as: "Not yet")
+    holds.undo("a")
+    #expect(Set(holds.held.keys) == ["b"])
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(sent.requests.map(\.options) == [["false"]])
+    holds.hold(["c", "d"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "2 answered")
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(sent.requests.map(\.ref).sorted() == ["b", "c", "d"] && holds.held.isEmpty)
+}
+
 /// A released answer is held or being sent at every step, until its send ended: no frame brings its card back.
 @MainActor @Test func aReleasedAnswerIsUnderWayUntilItsSendEnded() async {
     var sent = false

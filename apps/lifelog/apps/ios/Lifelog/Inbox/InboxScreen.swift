@@ -25,7 +25,7 @@ struct InboxScreen: View {
 
     var body: some View {
         @Bindable var router = router
-        let order = all.only(kind)
+        let order = shownOrder(kind)
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.inboxColumn) {
             CheckList(order: order, chosen: order.check(on: current)?.ref) { ref in
                 if let taken = notes.taken { life.forget(taken.key) }
@@ -87,12 +87,16 @@ struct InboxScreen: View {
         .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
         // An answer that came back refused is on show again, with its reason above the answers.
-        .onChange(of: refusedRef) { _, ref in if let ref { (current, kind) = (ref, nil) } }
+        .onChange(of: refusedRef) { _, ref in
+            if let ref { (current, kind) = (shownOrder(nil).check(on: ref)?.ref, nil) }
+        }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
             // A push's ask may be of another kind: the whole list, with it on show.
             kind = nil
-            current = opening.check?.ref
+            // A push's ask is shown alone: its kind one by one, even if a read later would fold it.
+            if let check = opening.check { notes.unfolded.insert(check.group) }
+            current = shownOrder(nil).check(on: opening.check?.ref)?.ref
             notice =
                 opening.wasAnswered ? "Already answered, here or elsewhere. This is the next one." : nil
             notes.taken = nil
@@ -131,7 +135,7 @@ struct InboxScreen: View {
     /// Undo: the ask is back where it was, and on show.
     private func undo(_ ref: String) {
         life.undo(ref)
-        current = ref
+        current = shownOrder(kind).check(on: ref)?.ref
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
@@ -142,12 +146,16 @@ struct InboxScreen: View {
             ?? InboxOrder()
     }
 
+    /// `all` as shown: of the kind he keeps to, with each kind Life pre-ticks folded into one bulk card unless he goes
+    /// through it one by one.
+    private func shownOrder(_ kind: CheckGroup?) -> InboxOrder { all.only(kind).folded(except: notes.unfolded) }
+
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
     /// as it was until the next ask.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
         if let check = notes.shownCheck ?? order.check(on: current) {
             CardView(
-                check: check, checks: order.checks, current: $current, notes: $notes, notice: notice,
+                check: check, checks: order.checks, bulk: order.bulk, current: $current, notes: $notes, notice: notice,
                 holdsAnswers: true, leave: leave)
         } else {
             InboxZero()
