@@ -619,25 +619,43 @@ test("`tell_agent` on an assignment the agent holds open puts his words there; o
     steps: ["obs_test_two"],
   });
   const results: string[] = [];
-  await asked("Tell it to call the second test garage", async (r) => {
-    const id = main()?.id ?? "";
-    results.push(
-      await callDoor(id, "tell_agent", {
-        agent: other,
-        said: "call the second test garage",
-        to: second,
-      }),
-      await callDoor(id, "tell_agent", {
-        agent: other,
-        said: "call the second test garage",
-        to: "asg_not_its_own",
-      })
-    );
-    t.fake.hear(r, { kind: "words", text: "**On it**." });
-  });
+  await asked(
+    "Tell it to call the second test garage, and call the first test garage",
+    async (r) => {
+      const id = main()?.id ?? "";
+      results.push(
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the second test garage",
+          to: second,
+        }),
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the second test garage",
+          to: "asg_not_its_own",
+        }),
+        // life#1146: the same words to its own assignment, named or not, are told once.
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the first test garage",
+          to: ownAssignmentOf(t.desk.db, other),
+        }),
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the first test garage",
+        })
+      );
+      t.fake.hear(r, { kind: "words", text: "**On it**." });
+    }
+  );
   expect(results[0]).toContain(`\\"assignment\\":\\"${second}\\"`);
   expect(
     readLedger().find((a) => a.after.to === second)?.instruction?.quote
   ).toBe("call the second test garage");
   expect(results[1]).toContain("is not an open assignment of");
+  expect(
+    readLedger().filter(
+      (a) => a.instruction?.quote === "call the first test garage"
+    )
+  ).toHaveLength(1);
 });

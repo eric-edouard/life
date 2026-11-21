@@ -225,7 +225,7 @@ test("his words told to one agent go there; its agent ended, to the Personal age
         .map((e) => [e.assignment_id, e.event_id, JSON.parse(e.payload).by]);
     const kept = told("book the test dentist");
     await d.receive();
-    expect(facts()).toEqual([[to, kept, { why: "told" }]]);
+    expect(facts()).toEqual([[to, kept, { to, why: "told" }]]);
     // Its agent ends: the unhanded ask is given back, and both it and a later one go to Personal.
     closeAssignmentRow(d.s.desk.db, to, { outcome: "done" });
     const late = told("move the test appointment");
@@ -236,8 +236,8 @@ test("his words told to one agent go there; its agent ended, to the Personal age
       standingAgentOf(d.s.desk.db, "personal")?.id ?? ""
     );
     expect(facts()).toEqual([
-      [personal, kept, { why: "personal" }],
-      [personal, late, { why: "personal" }],
+      [personal, kept, { to, why: "told" }],
+      [personal, late, { to, why: "told" }],
     ]);
     expect(readSpokenAsksCursor(d.s.desk.db).waiting).toEqual([]);
   } finally {
