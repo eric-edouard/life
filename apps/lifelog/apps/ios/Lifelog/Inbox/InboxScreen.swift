@@ -195,12 +195,14 @@ private struct InboxZero: View {
     }
 }
 
-/// The inbox is first read, with no cache and no card from a notification: one card's shape in its place, no words (the
-/// question's two lines, its tile, the filled answer, two quiet ones).
+/// The inbox is first read, with no cache and no card from a notification: one card's shape in its place, no words (its
+/// matter's pill, the question's two lines, its tile, the filled answer, two quiet ones), so the card lands where its
+/// shape stood.
 private struct InboxSkeleton: View {
     var body: some View {
         GeometryReader { box in
             VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                Placeholder(width: box.size.width * 0.6, height: 36, radius: 18).padding(.bottom, Metrics.Spacing.xs)
                 VStack(alignment: .leading, spacing: 10) {
                     Placeholder(width: box.size.width * 0.88, height: 26, radius: 9)
                     Placeholder(width: box.size.width * 0.56, height: 26, radius: 9)
