@@ -29,6 +29,7 @@ import { recordToldLife } from "../../memory/told-life";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import { personalParts } from "../../personal/person-parts";
+import { isoDateTime } from "../../records/fields";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
@@ -281,8 +282,11 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "fetch",
-    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), an observation (`obs_…`), an appointment Life added to his calendar (`apt_…`, as `read_appointments` gives it), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs.",
+    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), an observation (`obs_…`), an appointment Life added to his calendar (`apt_…`, as `read_appointments` gives it), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs. `at` and `until` cut a recording (a conversation, a voice unit or a turn ref, which then opens at their first turn) to that span, such as a call's exact one: the turns that overlap it, a turn crossing an edge kept to its words wholly inside (by lifelog's word timings; none without them).",
     z.object({
+      at: isoDateTime
+        .optional()
+        .describe("A recording cut from this instant (a call's `at`)"),
       fromTurn: z.int().min(0).optional(),
       id: z
         .string()
@@ -290,9 +294,15 @@ export function buildServer(readsOnly = false) {
           "Conversation id, unit id or turn ref from another tool, or a read part ref from Next reads"
         ),
       limit: z.int().min(1).max(500).optional(),
+      until: isoDateTime
+        .optional()
+        .describe("A recording cut before this instant (a call's `until`)"),
     }),
-    ({ id, fromTurn, limit }) =>
-      openById(id, fromTurn, limit, readPeopleAndOrganizations)
+    ({ at, id, fromTurn, limit, until }) =>
+      openById(id, fromTurn, limit, readPeopleAndOrganizations, undefined, {
+        at,
+        until,
+      })
   );
   tool(
     server,
@@ -380,7 +390,10 @@ export function buildServer(readsOnly = false) {
         ),
     }),
     async ({ id }) => {
-      const matter = await oneMatter([id], readAgentsOnSteps, readLifeIcons);
+      const matter = await oneMatter([id], {
+        agentsOf: readAgentsOnSteps,
+        readIcons: readLifeIcons,
+      });
       if (!matter) {
         throw new Error(`No matter ${id}.`);
       }

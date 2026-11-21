@@ -63,6 +63,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
     #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
+    // The plan card: the second decision is its assignment's first card; the first is not.
+    #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
+    #expect(inbox.checks.last?.isPlan == nil)
     #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
     #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
     #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
@@ -82,7 +85,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.ridesOn?.matters == 1)
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
-    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .unknown])
+    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
     #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
     #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
     #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))

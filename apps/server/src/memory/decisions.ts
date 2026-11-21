@@ -421,9 +421,8 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
  * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
- * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim`, when given, is
- * handed the subject Life will store, the card's id and the asker's own card a merge withdraws, just before the card
- * is written, and may refuse it by throwing (the desk: whose card it is).
+ * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim` is the desk's
+ * (`Claim`); `prefer` the matter the asker works on, which the finder takes on a tie among the subject's matters.
  */
 export function requestDecision(
   asker: string,
@@ -431,7 +430,8 @@ export function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: Claim
+  claim?: Claim,
+  prefer?: string
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
@@ -439,14 +439,15 @@ export function requestDecision(
   }
   return request.keep
     ? Promise.try(() => keepDraft(asker, request, now))
-    : askCard(asker, request, now, readChat, claim);
+    : askCard(asker, request, now, readChat, claim, prefer);
 }
 
-/** Whose a card is, as the desk claims it just before it is written (`requestDecision`): may refuse it by throwing. */
+/** Whose a card is (the desk's claim): handed the subject Life will store, the card's id, the asker's own card a merge withdraws and the card's write, which it runs at once inside its own writes (whose card it is), or refuses by throwing. */
 type Claim = (
   subject: string | undefined,
   id: string,
-  replacing?: string
+  replacing: string | undefined,
+  write: (stamps: Pick<Asked, "assignment">) => void
 ) => void;
 
 /** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
@@ -455,7 +456,8 @@ async function askCard(
   request: Record<string, unknown>,
   now: Date,
   readChat: typeof resolveDraft,
-  claim?: Claim
+  claim: Claim = (_subject, _id, _replacing, write) => write({}),
+  prefer?: string
 ) {
   const notBuilt = notBuiltOf(request);
   if (notBuilt) {
@@ -482,7 +484,8 @@ async function askCard(
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(
         (await reads.book()).filter((m) => m.open),
-        [ask.subject]
+        [ask.subject],
+        prefer
       )
     : undefined;
   if (isOnMatter(ask.subject) && !matter) {
@@ -504,26 +507,27 @@ async function askCard(
   const draft = ask.draft && (await readChat(ask.draft, now));
   const { contests, merged } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  claim?.(subject, id, merged?.held.id);
-  // The draft as given is stored as Life resolved it (`draft`).
-  const { draft: _given, ...given } = ask;
-  appendJsonl(DECISIONS, Line, [
-    // A merge withdraws the holder's own card, in the same append as the card that takes its place.
-    ...mergeWithdrawalsOf(merged, id, now),
-    {
-      ...given,
-      ...(contests ? { contests } : {}),
-      ...(draft ? { draft } : {}),
-      ...(subject ? { subject } : {}),
-      asker,
-      at: now.toISOString(),
-      // In UTC, so deadlines sort as strings (`checksOf`).
-      deadline: new Date(ask.deadline).toISOString(),
-      id,
-      kind: "asked",
-      schemaVersion: DECISIONS_VERSION,
-    },
-  ]);
+  const { draft: _given, ...given } = ask; // The draft is stored as Life resolved it.
+  const write = (stamps: Pick<Asked, "assignment">) =>
+    appendJsonl(DECISIONS, Line, [
+      ...mergeWithdrawalsOf(merged, id, now), // A merge's withdrawal, in the same append as its card.
+      {
+        ...given,
+        ...stamps,
+        ...(matter ? { matter: matter.id } : {}),
+        ...(contests ? { contests } : {}),
+        ...(draft ? { draft } : {}),
+        ...(subject ? { subject } : {}),
+        asker,
+        at: now.toISOString(),
+        // In UTC, so deadlines sort as strings (`checksOf`).
+        deadline: new Date(ask.deadline).toISOString(),
+        id,
+        kind: "asked",
+        schemaVersion: DECISIONS_VERSION,
+      },
+    ]);
+  claim(subject, id, merged?.held.id, write);
   logAsked(ask, asker, id, !!draft, merged);
   return { id, ...waitsOf(contests, draft, now) };
 }

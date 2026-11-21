@@ -88,7 +88,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct LifeLink: Decodable, Sendable, Equatable {
         /// What a ref names (`RefKind`, `memory/refs.ts`).
         public enum Kind: String, UnknownTolerant, Sendable {
-            case ask, conversation, file, matter, message, observation, person, turn, unit
+            case appointment, ask, conversation, file, matter, message, observation, person, turn, unit
             case unknown
         }
         public let ref: String
@@ -199,6 +199,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let draft: Draft?
     /// A draft card's chat as the card heads it; nil for other cards.
     public let head: Head?
+    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
+    /// other kinds, or from a Life that predates it.
+    public let isPlan: Bool?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
@@ -227,6 +230,15 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let needs: [Need]?
     /// Life's outcome when it sees the step done itself (a payment it looks for); nil when it does not.
     public let doneSeen: DoneSeen?
+    /// How Life sees a decision's step done now: `payment`, it looks in his accounts while the card is open; `tap`, only
+    /// his word; nil on every other kind.
+    public let doneSeenBy: DoneSeenBy?
+
+    public enum DoneSeenBy: String, UnknownTolerant, Sendable {
+        case payment, tap
+        case unknown
+    }
+
     /// What his "Wrong…" sends back with his words: on Life's own cards only, nil on an agent's.
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.

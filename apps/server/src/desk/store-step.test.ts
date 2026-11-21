@@ -23,7 +23,12 @@ import {
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import { AgentWait } from "../records/registered-agent";
 import { openDesk, SCHEMA } from "./desk-store";
-import { stepRoles, stepStore, stepTurnModel } from "./store-step";
+import {
+  stepMatterIds,
+  stepRoles,
+  stepStore,
+  stepTurnModel,
+} from "./store-step";
 
 // The desk's store step (agents and matters, PR 1) on a made-up store of the old shape: same agents, each wait, anchor,
 // event, turn and note found on its assignment, the holds unchanged; run twice; refused, rolled back, or skipped.
@@ -42,6 +47,7 @@ create index event_dropped on event (agent_id, dropped_at) where dropped_at is n
 const T = "2026-11-18T09:00:00.000Z";
 const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
 const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
+const MATTER_IDS_BACKUP_FILE = /^desk-before-matter-ids-.*\.sqlite$/;
 const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
@@ -331,6 +337,29 @@ test("a store from before roles is refused by openDesk; the roles step carries t
   after.close();
 });
 
+test("a store from before chosen matters is refused by openDesk; the step adds `matter_id` behind its own copy, once, every row kept with none chosen", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(SCHEMA.replace("  matter_id text,\n", ""));
+  db.run(
+    "insert into assignment (id, agent_id, opened_at, opened_by, wait_until, notes_path) values ('asg_000000000001', 'agt_000000000001', ?, 'owner', ?, '/tmp/NOTES.md')",
+    [T, T]
+  );
+  db.close();
+  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  expect(stepMatterIds(path, dir)).toBe("migrated");
+  expect(stepMatterIds(path, dir)).toBe("in shape");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(MATTER_IDS_BACKUP_FILE),
+  ]);
+  const after = openDesk(path);
+  expect(after.query("select id, matter_id from assignment").all()).toEqual([
+    { id: "asg_000000000001", matter_id: null },
+  ]);
+  after.close();
+});
+
 test("a store from before turn models is refused by openDesk; the step adds `turn.model` behind its own copy, once, older turns null; skipped on a checkout's app state", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-step-"));
   const path = join(dir, "desk.sqlite");
@@ -369,8 +398,9 @@ test("the later steps, run in any order on a store from before all of them, end 
       "one_agent_per_role on agent (role) where role is not null",
       "one_personal_agent on agent (is_personal) where is_personal = 1"
     )
-    .replace("context_used integer,\n  model text", "context_used integer");
-  const steps = [stepRoles, stepTurnModel];
+    .replace("context_used integer,\n  model text", "context_used integer")
+    .replace("  matter_id text,\n", "");
+  const steps = [stepRoles, stepTurnModel, stepMatterIds];
   const shapeAfter = (order: typeof steps) => {
     const dir = mkdtempSync(join(tmpdir(), "life-step-"));
     const path = join(dir, "desk.sqlite");
