@@ -51,7 +51,11 @@ final class AppRouter {
         case party(String)
     }
 
-    var tab = Tab.inbox
+    var tab = Tab.inbox {
+        didSet { if tab != .people { personCameFrom = nil } }
+    }
+    /// The tab he was on when a person was opened from elsewhere (`open(party:)`): Back from that page returns there.
+    private(set) var personCameFrom: Tab?
     /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All. Choosing one lets
     /// its list choose the matter on show again.
     var chip: String? {
@@ -143,9 +147,18 @@ final class AppRouter {
         sheet = nil
         matterSheet = nil
         projectAsk = nil
+        let from = tab
         tab = .people
         select(person: ref)
         isPersonFromElsewhere = true
+        personCameFrom = from == .people ? nil : from
+    }
+
+    /// Back from the person on show to the list: to the tab he came from instead, when they were opened from elsewhere.
+    func closePerson() {
+        guard let from = personCameFrom else { return }
+        personCameFrom = nil
+        tab = from
     }
 
     /// The one way the person on show changes, from the list unless `open(party:)` says otherwise: their page starts
@@ -153,6 +166,7 @@ final class AppRouter {
     func select(person ref: String?) {
         people.open(ref)
         isPersonFromElsewhere = false
+        personCameFrom = nil
         personColumn = ref == nil ? .sidebar : .detail
     }
 

@@ -755,17 +755,19 @@ final class LifeStore {
         let api = api
         let key = ActionKey.edit(matter: id, .important)
         if await refusedOutOfReach(key, saysBack: true) { return }
-        let isSent = await marking.run(id, showing: isOn) {
+        _ = await marking.run(id, showing: isOn) {
             await perform(key) { [runner] in
                 await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
             }
+            // Said as soon as Life took it; the reads that show it come after, his tap holding the mark meanwhile.
+            say(
+                key, saysBack ? (isOn ? "Marked important: it comes first" : "Not important") : nil,
+                undo: .important(matter: id, !isOn))
             async let a: Void = refreshMatter(id)
             async let b: Void = refreshListsOf(id)
             async let c: Void = refreshInbox()
             _ = await (a, b, c)
         }
-        guard isSent else { return }
-        say(key, saysBack ? (isOn ? "Important" : "Not important") : nil, undo: .important(matter: id, !isOn))
     }
 
     /// A project's status by his tap: `words` say it back with Undo (the status it had, said back by nothing) once its
@@ -804,7 +806,11 @@ final class LifeStore {
     func undo(_ said: SaidBack) async {
         saidBack = nil
         switch said.undo {
-        case .important(let id, let isOn)?: await setImportant(id, isOn, saysBack: false)
+        case .important(let id, let isOn)?:
+            // Said back before its reads land (`setImportant`): Undo waits for them, else the tap would be refused.
+            // ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
+            while marking[id] != nil { try? await Task.sleep(for: .milliseconds(100)) }
+            await setImportant(id, isOn, saysBack: false)
         case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
             await setStatus(of: id, named: name, to: status, was: was, words: nil)

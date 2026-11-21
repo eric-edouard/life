@@ -17,7 +17,7 @@ struct PersonPage: View {
         let state = life.person[ref] ?? ReadState()
         ReadScreen(
             shown: state.shown(), retry: { await life.refreshPerson(ref) },
-            loading: { PagePlaceholder() },
+            loading: { PersonPlaceholder(row: life.people.value?.people.first { $0.id == ref }) },
             empty: { EmptyView() },
             content: { now in
                 // Every account, once `now` sent the `reach` part's ref for those it had no room for and every page
@@ -60,6 +60,45 @@ struct PersonPage: View {
 }
 
 /// Who: their picture (72) beside the name and who they are to him, then how close and their last exchange.
+/// The page before its read: the person as the list read them, else their placeholder; then the reach tiles, what is
+/// open and lately in their places, so the read's page fades in over its own shape.
+private struct PersonPlaceholder: View {
+    let row: PersonRow?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                if let row {
+                    Who(row: row)
+                } else {
+                    HStack(spacing: Metrics.Spacing.l) {
+                        Placeholder(width: 56, height: 56)
+                        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                            Placeholder(width: 180, height: 24, radius: 8)
+                            Placeholder(width: 120, height: 14)
+                        }
+                    }
+                }
+                HStack(spacing: Metrics.Spacing.s) {
+                    ForEach(0..<4, id: \.self) { _ in Placeholder(height: 64, radius: Metrics.Radius.passage) }
+                }
+            }
+            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                Placeholder(width: 110, height: 12)
+                Placeholder(height: 3 * Metrics.listRow, radius: Metrics.Radius.card)
+            }
+            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                Placeholder(width: 70, height: 12)
+                Placeholder(height: 110, radius: Metrics.Radius.card)
+            }
+        }
+        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .readingWidth()
+        .accessibilityElement().accessibilityLabel("Reading their page")
+    }
+}
+
 private struct Who: View {
     let row: PersonRow
 
@@ -88,9 +127,21 @@ struct ReachTiles: View {
     private static let across = 5
 
     @Environment(LifeStore.self) private var life
+    @Environment(\.openURL) private var openURL
+    /// A call he tapped, asked once before it rings (`tel:`, FaceTime).
+    @State private var calling: (url: URL, who: String)?
 
     var body: some View {
-        if !reach.isEmpty { tiles }
+        if !reach.isEmpty {
+            tiles.confirmationDialog(
+                "Call \(calling?.who ?? "")?",
+                isPresented: Binding(get: { calling != nil }, set: { if !$0 { calling = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Call") { if let url = calling?.url { openURL(url) } }
+                Button("Cancel", role: .cancel) {}
+            }
+        }
         if let retryFrom {
             PartRetry(what: "Some of their accounts") {
                 await life.refreshReach(from: retryFrom, isRetry: true)
@@ -117,8 +168,8 @@ struct ReachTiles: View {
 
     @ViewBuilder private func tile(_ app: PersonNow.Reach) -> some View {
         let mark = NetworkMark(network: app.network == "call" ? "phone" : app.network, size: 20)
-        if app.accounts.count == 1, let url = app.accounts.first.flatMap({ URL(string: $0.open.url) }) {
-            Link(destination: url) { face(mark, app.label, several: false) }
+        if app.accounts.count == 1, let account = app.accounts.first, let url = URL(string: account.open.url) {
+            opens(url, who: account.title ?? account.handle) { face(mark, app.label, several: false) }
                 .accessibilityLabel("Open \(app.label)")
         } else {
             Menu {
@@ -133,7 +184,7 @@ struct ReachTiles: View {
     @ViewBuilder private func accounts(_ app: PersonNow.Reach) -> some View {
         ForEach(app.accounts) { account in
             if let url = URL(string: account.open.url) {
-                Link(destination: url) {
+                opens(url, who: account.title ?? account.handle) {
                     Label {
                         Text(account.title ?? account.handle)
                         if account.title != nil { Text(account.handle) }
@@ -144,6 +195,21 @@ struct ReachTiles: View {
             }
         }
     }
+
+    /// A chat opens at once; a call asks first.
+    @ViewBuilder private func opens(_ url: URL, who: String, @ViewBuilder label: () -> some View) -> some View {
+        if Self.callSchemes.contains(url.scheme?.lowercased() ?? "") {
+            Button {
+                calling = (url, who)
+            } label: {
+                label()
+            }.buttonStyle(.plain)
+        } else {
+            Link(destination: url, label: label)
+        }
+    }
+
+    private static let callSchemes: Set = ["tel", "facetime", "facetime-audio"]
 
     private func face(_ mark: some View, _ label: String, several: Bool) -> some View {
         VStack(spacing: Metrics.Spacing.xs) {

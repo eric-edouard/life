@@ -176,15 +176,17 @@ struct AddRow: View {
 struct Toast: View {
     let words: String
     var glyph = StateGlyph.ok
+    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`).
+    var action = "Undo"
     let undo: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 8) {
             glyph
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .flag ? 3 : 1)
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : 3)
             if let undo {
                 Button(action: undo) {
-                    Text("Undo").font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
+                    Text(action).font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
                         .background(Color.pick, in: .capsule).contentShape(.capsule)
                 }
                 .buttonStyle(.plain).fixedSize()
@@ -416,6 +418,19 @@ struct SegmentedChoice<Choice: Hashable>: View {
     var icon: (Choice) -> String? = { _ in nil }
 
     var body: some View {
+        // Always one line: with their symbols while they fit, else the words alone.
+        ViewThatFits(in: .horizontal) {
+            segments(withIcons: true)
+            segments(withIcons: false)
+        }
+        // The chosen segment sits inset in its 48 track.
+        .padding(4)
+        .background(Palette.tile, in: .capsule)
+        .motion(Motion.standard, value: selection)
+    }
+
+    /// Each segment as wide as its words, the room left shared out.
+    private func segments(withIcons: Bool) -> some View {
         HStack(spacing: 0) {
             ForEach(choices, id: \.self) { choice in
                 let isChosen = selection == choice
@@ -423,22 +438,21 @@ struct SegmentedChoice<Choice: Hashable>: View {
                     selection = isChosen ? nil : choice
                 } label: {
                     HStack(spacing: 6) {
-                        if let symbol = icon(choice) {
+                        if withIcons, let symbol = icon(choice) {
                             Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
                         }
-                        Text(title(choice)).font(.chip)
+                        Text(title(choice)).font(.chip).lineLimit(1)
                     }
+                    .fixedSize()
+                    .padding(.horizontal, 14)
                     .foregroundStyle(isChosen ? Palette.on : Palette.fg)
                     .frame(maxWidth: .infinity, minHeight: 40)
                     .background(isChosen ? Palette.fg : .clear, in: .capsule)
+                    .contentShape(.capsule)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
             }
         }
-        // The chosen segment sits inset in its 48 track.
-        .padding(4)
-        .background(Palette.tile, in: .capsule)
-        .motion(Motion.standard, value: selection)
     }
 }
 
