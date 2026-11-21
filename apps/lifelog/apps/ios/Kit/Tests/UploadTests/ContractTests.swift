@@ -149,6 +149,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
+    #expect(
+        try quoted("records/observation.ts", /ClosenessLevel = z\.enum\(\[([^\]]*)\]/) == client(ClosenessLevel.self))
     #expect(try quoted("memory/refs.ts", /(?s)export type Ref = (.*?)\n\);/) == client(Check.LifeLink.Kind.self))
     // The heading a `life:` link's page leaves out (`LifeLinkRead`).
     #expect(try source("memory/words.ts").contains(#"const HEADER = "\#(LifeLinkRead.heading)";"#))
