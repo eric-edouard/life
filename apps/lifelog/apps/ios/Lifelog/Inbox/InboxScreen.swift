@@ -109,8 +109,8 @@ struct InboxScreen: View {
         return .loaded(inbox)
     }
 
-    /// The title's state, "4 waiting": every open ask, less his answers (`Inbox.total`, not the rows read).
-    private var waiting: String? { life.inboxOnShow.flatMap { $0.total > 0 ? "\($0.total) waiting" : nil } }
+    /// The title's state, "4 waiting": as the inbox read last said, less his answers (`LifeStore.waiting`).
+    private var waiting: String? { life.waiting.flatMap { $0 > 0 ? "\($0) waiting" : nil } }
 
     /// The ask whose answer Life refused, back in the order.
     private var refusedRef: String? {

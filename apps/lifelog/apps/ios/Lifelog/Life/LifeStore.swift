@@ -634,6 +634,9 @@ final class LifeStore {
     var inboxShown: ReadState<Inbox>.Shown {
         readOnShow.shown(isEmpty: { $0.without(answersNewer(than: inbox.loadedAt)).checks.isEmpty })
     }
+    /// How many asks wait, as the inbox read on screen said, less his answers: none from a pushed card alone or once
+    /// the pairing is lost (`ReadState.waiting`). The Inbox's title.
+    var waiting: Int? { inbox.waiting(less: answersNewer(than: inbox.loadedAt)) }
     var inboxOnShow: Inbox? { readOnShow.value?.without(answersNewer(than: inbox.loadedAt)) }
     private var readOnShow: ReadState<Inbox> {
         guard let pushed,

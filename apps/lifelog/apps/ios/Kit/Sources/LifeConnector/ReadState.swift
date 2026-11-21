@@ -98,6 +98,25 @@ public struct ReadState<Value: Sendable>: Sendable {
     }
 }
 
+extension ReadState.Shown {
+    /// The value on screen, loaded or stale; nil when the screen shows none (loading, empty, failed, not paired). What a
+    /// screen says about its read (a title's count) reads this, never `ReadState.value`, which outlives a lost pairing.
+    public var onScreen: Value? {
+        switch self {
+        case .loaded(let value), .stale(let value, _, _): value
+        case .loading, .empty, .unreachable, .failed, .notPaired: nil
+        }
+    }
+}
+
+extension ReadState where Value == Inbox {
+    /// How many asks wait, as the inbox read last said (`total`) less his answers, while a read is on screen: nil before
+    /// any read said (a pushed card alone, whose one-card inbox counts only itself) and once the pairing is lost.
+    public func waiting(less answered: Set<String>) -> Int? {
+        shown().onScreen.map { $0.without(answered).total }
+    }
+}
+
 /// One read of each kind at a time, plus one more pass: a read asked while one of its kind runs never runs beside it
 /// (the later of two would not always land last, and an older read would win). It joins the pass queued after the
 /// running one, or queues it, and returns once that pass ended: several asks during one read make one more pass.

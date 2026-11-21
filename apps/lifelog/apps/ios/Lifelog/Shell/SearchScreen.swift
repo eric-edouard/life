@@ -11,9 +11,11 @@ struct SearchScreen: View {
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-        let found = life.matters.value?.matching(query)
+        let shown = life.matters.shown(isEmpty: { $0.matters.isEmpty })
+        // The matters on screen only: a read the screen hides (a lost pairing) counts nothing.
+        let found = shown.onScreen?.matching(query)
         ReadScreen(
-            shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
+            shown: shown, retry: { await life.refreshMatters() },
             loading: { Placeholder().padding(Metrics.gutter) },
             empty: { NoMattersNotice() },
             content: { _ in results(found ?? []) }
