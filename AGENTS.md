@@ -430,6 +430,8 @@ ruling of 29 Oct).
   short and written for humans.
 - Every PR follows the `work-on-code` skill where available: a debt plan checked before code, and the debt
   verdict before merge: did it add or reduce debt?
+- **Strict paths** (never fast, always plan review and a confirming round): `apps/server/src/desk/`, the send paths,
+  writers of `memory/` and the ledger, migrations and store steps, `oauth.ts`, connector tools, `prompts/`.
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.
