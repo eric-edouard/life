@@ -12,6 +12,12 @@ struct PeopleScreen: View {
     @State private var kind = PeopleList.Kind.all
     @State private var visibility = NavigationSplitViewVisibility.all
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// The window taller than wide: the iPhone Duo open upright.
+    @State private var isUpright = false
+
+    /// A person beside the list (regular width, sideways), or pushed over it as folded (compact, or the open Duo
+    /// upright: decision 93). The one place the pose decides.
+    private var isSplit: Bool { sizeClass == .regular && !isUpright }
 
     var body: some View {
         @Bindable var router = router
@@ -31,32 +37,41 @@ struct PeopleScreen: View {
             .background(Palette.bg)
             // Beside a person, the Pendant and Settings are the person's column (the list's bar keeps its title).
             .shellBar(
-                "People", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
+                "People", hasSettings: !isSplit, hasPendant: !isSplit, isTitleLarge: true
             )
             .navigationSubtitle(order == .alphabet ? "A to Z" : "")
-            .filterBar(isFiltered: order != .closeness, identifier: "people.sort") { orderChoices }
+            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {
                 NavigationStack {
-                    PersonPage(ref: ref, hasSettings: sizeClass == .regular).id(ref)
+                    PersonPage(ref: ref, hasSettings: isSplit).id(ref)
                 }
             } else {
                 Notice(title: "No one chosen.", detail: "Pick someone from the list.").background(Palette.bg)
-                    .shellBar("", hasSettings: sizeClass == .regular)
+                    .shellBar("", hasSettings: isSplit)
             }
         }
         .navigationSplitViewStyle(.balanced)
+        // Stacked, the split view collapses as on a compact width: the list full screen, a tap pushes the page.
+        .environment(\.horizontalSizeClass, isSplit ? .regular : .compact)
+        .onGeometryChange(for: Bool.self) {
+            $0.size.height > $0.size.width
+        } action: {
+            isUpright = $0
+        }
         // The tabs hide while a person fills a compact width and come back with the list (as in Matters).
-        .toolbarVisibility(sizeClass != .regular && router.personColumn == .detail ? .hidden : .automatic, for: .tabBar)
-        // A regular width always shows someone.
-        .onChange(of: sizeClass, initial: true) { fillSelection() }
-        .onChange(of: life.people.value) { fillSelection() }
+        .toolbarVisibility(!isSplit && router.personColumn == .detail ? .hidden : .automatic, for: .tabBar)
+        // Beside the list there is always someone, one of the rows on show unless opened from elsewhere.
+        .onChange(of: isSplit, initial: true) { fillSelection(was: life.people.value) }
+        .onChange(of: life.people.value) { was, _ in fillSelection(was: was) }
+        .onChange(of: kind) { fillSelection(was: life.people.value) }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
 
-    private func fillSelection() {
-        guard sizeClass == .regular, router.person == nil else { return }
-        router.select(person: life.people.value?.groups(order, kind).first?.rows.first?.id)
+    private func fillSelection(was: PeopleList?) {
+        guard isSplit, let list = life.people.value else { return }
+        let ref = list.selectionOf(router.person, kind: kind, order: order, was: was)
+        if ref != router.person { router.select(person: ref) }
     }
 
     /// The system menu of the bar's leading button: Life's order, or A to Z.
@@ -90,7 +105,7 @@ struct PeopleScreen: View {
                     ForEach(Array(group.rows.enumerated()), id: \.element.id) { at, row in
                         VStack(alignment: .leading, spacing: 0) {
                             if at == 0, let label = group.label { ListLabel(label) }
-                            PersonRowButton(row: row, isChosen: sizeClass == .regular && router.person == row.id) {
+                            PersonRowButton(row: row, isChosen: isSplit && router.person == row.id) {
                                 router.select(person: row.id)
                             }
                         }

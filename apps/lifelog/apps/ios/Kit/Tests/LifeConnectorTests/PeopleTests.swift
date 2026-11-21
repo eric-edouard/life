@@ -81,3 +81,21 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     let unknown = try decoded(PersonRow.self, #"{"ref":"person:y","name":"Y","kind":"person","level":"soulmate"}"#)
     #expect(unknown.level == .unknown && unknown.standing() == nil)
 }
+
+@Test func theOpenDuoShowsOneOfTheRowsOnShowUnlessOpenedFromElsewhere() throws {
+    let list = try decoded(
+        PeopleList.self,
+        #"{"people":[\#(row("Idris", "inner")),\#(row("Atelier", "regular", kind: "organization")),\#(row("Nora", "faded"))]}"#
+    )
+    // A segment that leaves the person on show out picks its first row; one that keeps them keeps them.
+    #expect(list.selectionOf("person:idris", kind: .organizations, order: .closeness, was: list) == "person:atelier")
+    #expect(list.selectionOf("person:idris", kind: .people, order: .closeness, was: list) == "person:idris")
+    // A read that dropped the person on show picks the first row.
+    let fewer = try decoded(PeopleList.self, #"{"people":[\#(row("Nora", "faded"))]}"#)
+    #expect(fewer.selectionOf("person:idris", kind: .all, order: .closeness, was: list) == "person:nora")
+    // Opened from a matter's chip, never one of the list's: kept through a refresh and a segment change.
+    #expect(list.selectionOf("person:chip", kind: .all, order: .closeness, was: list) == "person:chip")
+    #expect(list.selectionOf("person:chip", kind: .organizations, order: .closeness, was: list) == "person:chip")
+    // No one on show: the first row of the order.
+    #expect(list.selectionOf(nil, kind: .all, order: .alphabet, was: nil) == "person:atelier")
+}

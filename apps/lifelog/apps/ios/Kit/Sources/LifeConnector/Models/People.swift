@@ -108,6 +108,16 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         }
     }
 
+    /// Who a regular width shows once the list or its control changed: `shown` while `kind`'s rows hold them, or while
+    /// neither this list nor the last one (`was`) ever held them (opened from elsewhere: a matter's chip); else the first
+    /// row, so a segment that leaves them out, or a read that dropped them, never leaves a page with no row chosen.
+    public func selectionOf(_ shown: String?, kind: Kind, order: Order, was: PeopleList?) -> String? {
+        let rows = groups(order, kind).flatMap(\.rows)
+        let wasListed = [self, was].contains { $0?.people.contains { $0.id == shown } == true }
+        if let shown, rows.contains(where: { $0.id == shown }) || !wasListed { return shown }
+        return rows.first?.id
+    }
+
     /// A name's index letter: its first letter without accents, capital; "#" for a name that starts otherwise.
     public static func letter(of name: String) -> String {
         guard let first = name.first, first.isLetter else { return "#" }

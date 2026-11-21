@@ -77,7 +77,7 @@
   },
   "DuoFoldPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
+    "taps": ["Sort", "A to Z"]
   },
   "DuoFoldPeopleOrgs": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
@@ -89,7 +89,7 @@
   },
   "DuoFoldPeopleSort": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter"]
+    "taps": ["Sort"]
   },
   "DuoFoldPersonCreate": {
     "args": [
@@ -224,7 +224,7 @@
   },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
+    "taps": ["Sort", "A to Z"]
   },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
@@ -270,5 +270,27 @@
   },
   "ToastImportantOff": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
+  },
+  "DuoPeopleTall": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePose",
+      "upright"
+    ]
+  },
+  "DuoPersonTall": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePose",
+      "upright",
+      "-fixturePerson",
+      "person:camille"
+    ]
   }
 }

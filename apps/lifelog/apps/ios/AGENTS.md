@@ -39,7 +39,9 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
 ## Worth knowing
 
 - **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
-  pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters and People). State a fold must keep lives
+  pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters and People). One exception, his
+  decision 93: People open upright (taller than wide) stacks as folded, the list full screen and a tap pushing the page
+  (`PeopleScreen.isSplit`, the one place the pose decides). State a fold must keep lives
   above the branch (`AppRouter`, the screen). Inside a split view's column read `windowSizeClass` (set at the root): the
   list column is compact even on the open Duo.
   The one other input is where the system puts the bars, its `toolbarVerticalEdge` (`reportsSideColumn`), never a guess: the
