@@ -77,10 +77,12 @@ struct PartyDisc: View {
 }
 
 /// A person or an organization as a row of a list (`party_row`): the disc (40), the name, one `muted` line (theirs,
-/// unless the list gives its own: a role, "Mother"), and what ends the row (nothing, a chevron, a check).
+/// unless the list gives its own: a role, "Mother"), and what ends the row (nothing, a chevron, a check). Dimmed, it is
+/// someone quieter in its list (only seen by Life, no longer there), never disabled.
 struct PartyRow<End: View>: View {
     let party: Party
     var line: String?
+    var isDim = false
     @ViewBuilder var end: End
 
     var body: some View {
@@ -93,13 +95,14 @@ struct PartyRow<End: View>: View {
             .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
             end
         }
+        .opacity(isDim ? 0.6 : 1)
         .accessibilityElement(children: .combine)
     }
 }
 
 extension PartyRow where End == EmptyView {
-    init(_ party: Party, line: String? = nil) {
-        self.init(party: party, line: line) {}
+    init(_ party: Party, line: String? = nil, isDim: Bool = false) {
+        self.init(party: party, line: line, isDim: isDim) {}
     }
 }
 
