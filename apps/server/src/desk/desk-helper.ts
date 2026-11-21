@@ -12,7 +12,12 @@ import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
-import { stepMatterIds, stepRoles, stepStore } from "./store-step";
+import {
+  stepMatterIds,
+  stepRoles,
+  stepStore,
+  stepTurnModel,
+} from "./store-step";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
@@ -59,6 +64,7 @@ export async function desk() {
   try {
     log("desk.store_step", { done: stepStore() });
     log("desk.store_step", { done: stepRoles(), step: "roles" });
+    log("desk.store_step", { done: stepTurnModel(), step: "turn-model" });
     log("desk.store_step", { done: stepMatterIds(), step: "matter ids" });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });

@@ -433,7 +433,6 @@ export function requestDecision(
   now = clock(),
   readChat = resolveDraft,
   claim?: Claim,
-  // The matter the asker works on (the desk's assignment's), which the finder takes on a tie among the subject's matters.
   prefer?: string
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.

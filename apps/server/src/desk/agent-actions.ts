@@ -1,12 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
+import { pathInside } from "../core/platform";
 import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import {
@@ -146,20 +147,12 @@ export function openAssignment(
 ) {
   const id = `asg_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
+  const { matter = null, openedBy, said = null } = a;
   // One write: an assignment is never open without its anchors.
   db.transaction(() => {
     db.run(
-      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path, matter_id) values (?, ?, ?, ?, ?, ?, 'first turn', ?, ?)",
-      [
-        id,
-        agent,
-        now,
-        a.openedBy,
-        a.said ?? null,
-        now,
-        notesPathOf(id),
-        a.matter ?? null,
-      ]
+      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path, matter_id) values (?1, ?2, ?3, ?4, ?5, ?3, 'first turn', ?6, ?7)",
+      [id, agent, now, openedBy, said, notesPathOf(id), matter]
     );
     for (const step of a.steps ?? []) {
       db.run(
@@ -441,8 +434,8 @@ export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
     return;
   }
   const paths = [agentHomeOf(repo, a), dirname(s.notes_path)].flatMap((p) => {
-    const inRepo = p ? relative(repo, p) : "..";
-    return inRepo.startsWith("..") ? [] : [inRepo || "."];
+    const inRepo = p ? pathInside(repo, p) : null;
+    return inRepo === null ? [] : [inRepo || "."];
   });
   try {
     commitPaths(repo, [...new Set(paths)], `desk: ${a.id}'s turn on ${s.id}`);
@@ -464,10 +457,9 @@ export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
 }
 
 /**
- * Assignment `s`'s card subject on its matter (found by its anchors, `steps`, and the matter chosen), with that matter's
- * id: the subject given when it is the matter's id or one of its steps, else none given, the matter's id (its first
- * anchor when no matter holds them); another is refused. None for an agent's own assignment (its subject stays the
- * agent's to give).
+ * Assignment `s`'s card subject and matter (by its anchors, `steps`, and its chosen matter): the subject given when it is
+ * the matter's id or a step, else the matter's id (its first anchor when no matter holds them); another is refused.
+ * None for an agent's own assignment (its subject stays the agent's to give).
  */
 async function subjectOf(
   s: Pick<AssignmentRow, "matter_id">,
@@ -495,8 +487,7 @@ async function subjectOf(
  * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest. Just before the
  * card is written, in one transaction, the desk writes that it is this assignment's (`card`, read by `assignmentOfCard`)
  * and, on a matter, anchors the subject Life will store (a matter's id is stored as one of its steps), so no card is
- * ever without its owner or its anchor; both are undone when the card is not written. The card's line also carries
- * the asking assignment and the matter it was asked on (`subjectOf`'s), which hold when the desk's row is missing.
+ * ever without its owner or its anchor; both are undone when the card is not written. Its line names both too.
  */
 export async function askDecision(
   desk: Desk,

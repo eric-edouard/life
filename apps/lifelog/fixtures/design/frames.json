@@ -80,7 +80,7 @@
   },
   "DuoFoldPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
+    "taps": ["Sort", "A to Z"]
   },
   "DuoFoldPeopleOrgs": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
@@ -95,7 +95,7 @@
   },
   "DuoFoldPeopleSort": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter"]
+    "taps": ["Sort"]
   },
   "DuoFoldPerson": {
     "args": [
@@ -306,7 +306,7 @@
   },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
+    "taps": ["Sort", "A to Z"]
   },
   "DuoPeopleOrg": {
     "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
@@ -386,5 +386,11 @@
   },
   "ToastImportantOff": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
+  },
+  "DuoPeopleTall": {
+    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
+  },
+  "DuoPersonTall": {
+    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
   }
 }

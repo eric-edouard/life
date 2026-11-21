@@ -19,6 +19,10 @@ import type { Runtime } from "./runtimes/contract";
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows.
 
+/** At most one active or stopped agent of each role: the fresh schema's, and `stepRoles`'. */
+export const ONE_AGENT_PER_ROLE =
+  "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')";
+
 export const SCHEMA = `
 create table if not exists agent (
   id text primary key,
@@ -38,7 +42,7 @@ create table if not exists agent (
   outcome text,
   stopped_at text
 );
-create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped');
+${ONE_AGENT_PER_ROLE};
 create table if not exists assignment (
   id text primary key,
   agent_id text not null,
@@ -97,7 +101,8 @@ create table if not exists turn (
   tokens_in integer,
   tokens_cached integer,
   tokens_out integer,
-  context_used integer
+  context_used integer,
+  model text
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);
