@@ -178,7 +178,7 @@ struct InboxScreen: View {
         if let check = notes.shownCheck ?? order.check(on: current) {
             CardView(
                 check: check, checks: order.checks, bulk: order.bulk, current: $current, notes: $notes, notice: notice,
-                holdsAnswers: true, leave: leave)
+                leave: leave)
         } else {
             InboxZero()
         }

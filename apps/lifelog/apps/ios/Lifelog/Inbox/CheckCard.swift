@@ -27,6 +27,8 @@ struct CheckCard: View {
     var dropProject: (project: String, run: () -> Void)?
     /// Where it stands among the asks paged beside it (its index, how many); nil alone.
     var page: (current: Int, total: Int)?
+    /// The answer he gave on it while Life works on it, shown on its own button (`CheckActions.pressed`).
+    var pressed: Taken?
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
@@ -205,7 +207,7 @@ struct CheckCard: View {
             .motion(Motion.standard, value: life.isCheckingPush)
             CheckActions(
                 check: check, input: $input, isBusy: isBusy, answer: answer, sameAs: sameAs, create: create,
-                wrong: wrong
+                wrong: wrong, pressed: pressed
             )
         }
         .padding(.bottom, Metrics.Spacing.s)
