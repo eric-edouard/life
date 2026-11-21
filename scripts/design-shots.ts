@@ -47,6 +47,8 @@ interface Frame {
 export interface AppFrame {
   args?: string[];
   fill?: [string, string];
+  /** A label the screen shows once it is the frame's own (default: the Inbox gone for a route, the screen settled). */
+  ready?: string;
   /** `top` or `bottom`: the page scrolled to that edge, after the taps. */
   scroll?: string;
   taps?: string[];
@@ -91,6 +93,48 @@ const device = (args: string[]) =>
     timeout: 120_000,
   });
 
+/** The launch flags that open a full-screen route: the Inbox's own tab is gone once the app is there. */
+const ROUTE_FLAGS = new Set([
+  "-fixtureMatter",
+  "-fixturePage",
+  "-fixtureParked",
+  "-fixturePerson",
+  "-fixtureTab",
+]);
+const INBOX_TAB = /Inbox, \d+ waiting/;
+const SCREEN_WAIT = 90_000;
+
+/** The accessibility tree as text, less the warning line that counts snapshots. */
+const readScreen = async () =>
+  (await device(["snapshot"]))
+    .split("\n")
+    .filter((line) => !line.startsWith("Warning"))
+    .join("\n");
+
+/**
+ * Waits for the screen the frame asked for, never a fixed time: the frame's own `ready` label on screen, else (for a
+ * frame that opens a route) the Inbox gone, and in every case the tree the same on two reads in a row (the reads settled).
+ */
+async function waitForScreen(app: AppFrame) {
+  const route = (app.args ?? []).some((arg) => ROUTE_FLAGS.has(arg));
+  const start = performance.now();
+  let before = "";
+  while (performance.now() - start < SCREEN_WAIT) {
+    // biome-ignore lint/performance/noAwaitInLoops: each read waits on the last
+    const now = await readScreen();
+    const isThere = app.ready
+      ? now.includes(app.ready)
+      : !(route && INBOX_TAB.test(now));
+    if (isThere && now === before) {
+      return;
+    }
+    before = now;
+  }
+  throw new Error(
+    `the screen never settled${app.ready ? ` on "${app.ready}"` : ""}`
+  );
+}
+
 async function shoot(udid: string, frame: Frame, app: AppFrame) {
   const pose = poseOf(frame);
   await launch(udid, [
@@ -98,7 +142,7 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
     ...(app.args ?? []),
     ...pose.args,
   ]);
-  await Bun.sleep(5000);
+  await waitForScreen(app);
   for (const label of app.taps ?? []) {
     // A sheet may still be coming: wait for the label before pressing it.
     // biome-ignore lint/performance/noAwaitInLoops: the taps run in order
@@ -208,21 +252,9 @@ async function main() {
   const outcome = new Map<string, string>();
   try {
     await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
-    if (
-      mapped.some(
-        (frame) => appFrames[frame.name]?.taps || appFrames[frame.name]?.fill
-      )
-    ) {
-      await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
-      await device([
-        "open",
-        APP_ID,
-        "--platform",
-        "ios",
-        "--device",
-        SIMULATOR,
-      ]);
-    }
+    // The session reads the screen to know a frame is there, so every run opens it.
+    await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
+    await device(["open", APP_ID, "--platform", "ios", "--device", SIMULATOR]);
     for (const frame of mapped) {
       const app = appFrames[frame.name] as AppFrame;
       // Once more on a miss: the first taps after a boot can find the app still settling.
