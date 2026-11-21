@@ -18,13 +18,13 @@ import { localDate } from "./zones";
 
 /** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
 export const voiceChecksOf = (
-  people: Pick<People, "nameOf" | "partyOf" | "resolve">,
-  voices: readonly NamingQueueItem[]
+  people: Pick<People, "nameOf" | "names" | "partyOf" | "refOf" | "resolve">,
+  voices: readonly (NamingQueueItem & { guessed?: readonly string[] })[]
 ) =>
   voices
     .filter((item) => item.kind !== "several")
     .map((item) => {
-      const known = voiceSuggestionOf(people.resolve, item);
+      const known = voiceSuggestionOf(people, item);
       const likely = namingQueueGuessesOf(item)
         .flatMap((id) => {
           const ref = voicePersonOf(people.resolve, id, null);
@@ -68,7 +68,7 @@ export const voiceChecksOf = (
           item
         ),
         question: who ? `Is this ${who}?` : "Who is this?",
-        ref: voiceCardRefOf(people.resolve, item),
+        ref: voiceCardRefOf(people, item),
         ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
         said: null,
         since: null,
