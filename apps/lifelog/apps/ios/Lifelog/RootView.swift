@@ -59,7 +59,19 @@ struct RootView: View {
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         // Tell Life: always within reach, in the rail's free middle, on every screen.
         .overlay(alignment: .trailing) {
-            if life.isPaired { TellLifeButton().padding(.trailing, Metrics.Spacing.m) }
+            if life.isPaired {
+                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count)
+                    .padding(.trailing, Metrics.Spacing.m)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if life.isPaired, router.isTellLifeSmall, !router.isTellLifeOpen {
+                TellStrip(
+                    line: life.tell.answer?.line ?? "Working on it…", open: { router.isTellLifeOpen = true },
+                    close: { router.isTellLifeSmall = false }
+                )
+                .padding(.horizontal, Metrics.gutter).padding(.bottom, 84).appears(Motion.fade)
+            }
         }
         .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }
         .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
