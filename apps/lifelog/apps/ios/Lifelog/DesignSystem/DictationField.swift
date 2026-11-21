@@ -15,8 +15,9 @@ struct DictationField: View {
     @Binding var text: String
     var axis = Axis.horizontal
     var focused: FocusState<Bool>.Binding?
-    /// A field with a Send (Tell Life, later): a swipe up from the microphone sends once the words landed. No 4b field
-    /// passes one, and its Send and track aren't drawn yet.
+    /// A field with a Send (Tell Life): Send sits right of the microphone, and a swipe up from it, or a hold slid up
+    /// its track, sends once the words landed. While recording, Send dissolves into a "Swipe up to send" hint on the
+    /// microphone. No 4b field passes one.
     var send: (() -> Void)?
 
     @Environment(\.library) private var library
@@ -30,6 +31,8 @@ struct DictationField: View {
     /// The text and caret when the run started: the keyboard goes away while he speaks, and the words land there
     /// (at the end when the text changed since).
     @State private var caret: (text: String, selection: TextSelection?)?
+    /// How far up his thumb is from the microphone while he holds, nil when he isn't holding (the track).
+    @State private var rise: CGFloat?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -41,7 +44,12 @@ struct DictationField: View {
                         .overlay(alignment: .leading) { if isOneLineBusy { ListeningLine(dictation: dictation) } }
                     if axis == .vertical, dictation.phase != .rest { ListeningLine(dictation: dictation).appears() }
                 }
-                DictationMic(dictation: dictation, canSend: send != nil, start: start)
+                DictationMic(dictation: dictation, canSend: send != nil, rise: $rise, start: start)
+                    .overlay(alignment: .bottom) { if let rise { SendTrack(rise: rise) } }
+                    .overlay(alignment: .top) {
+                        if send != nil, isRecording, rise == nil { SwipeHint().offset(y: -Metrics.tapTarget) }
+                    }
+                if let send { SendButton(isHidden: isRecording, isLit: hasWords, send: send) }
             }
         }
         .motion(Motion.standard, value: dictation.phase)
@@ -61,6 +69,9 @@ struct DictationField: View {
             if let landed { land(landed) }
         }
     }
+
+    private var isRecording: Bool { dictation.phase == .starting || dictation.phase == .listening }
+    private var hasWords: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     @ViewBuilder private var field: some View {
         let field = TextField(prompt, text: $text, selection: $selection, axis: axis).tint(Palette.fg)
@@ -120,6 +131,8 @@ private struct ProblemLine: View {
 private struct DictationMic: View {
     let dictation: Dictation
     let canSend: Bool
+    /// How far up his thumb is while he holds (for the field's track); nil when he isn't holding.
+    @Binding var rise: CGFloat?
     /// Starts a run from rest (the field keeps its caret first).
     let start: () -> Void
 
@@ -151,6 +164,9 @@ private struct DictationMic: View {
         .animation(reduceMotion ? nil : .spring(duration: 0.22), value: isHolding)
         .gesture(
             DragGesture(minimumDistance: 0).updating($isDown) { _, isDown, _ in isDown = true }
+                .onChanged { value in
+                    if canSend, isHolding { rise = max(0, -value.translation.height) }
+                }
                 .onEnded { value in letGo(swipedUp: value.translation.height < -Metrics.tapTarget) }
         )
         // A gesture the system takes away (a scroll, an alert) never ends; its state resets all the same, after which
@@ -191,6 +207,7 @@ private struct DictationMic: View {
         guard let press else { return }
         self.press = nil
         isHolding = false
+        rise = nil
         if swipedUp == true && canSend { return dictation.swipeUp() }
         let wasHold = Date.now.timeIntervalSince(press.at) >= Self.holdAfter
         // A tap that started the run keeps it going, unless taken away, which drops it; a tap on a run, or the end of
@@ -200,6 +217,73 @@ private struct DictationMic: View {
         } else if swipedUp == nil {
             dictation.cancel()
         }
+    }
+}
+
+/// Send, right of the microphone: dim with nothing to send, lit with words; while recording it dissolves (shrinks, blurs
+/// and fades in 160 ms) and the microphone's hint takes its place.
+private struct SendButton: View {
+    let isHidden: Bool
+    let isLit: Bool
+    let send: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: send) {
+            Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(isLit ? Palette.on : Palette.muted)
+                .frame(width: 36, height: 36).background(isLit ? Palette.fg : Color.fillTint, in: .circle)
+                .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isLit || isHidden)
+        .scaleEffect(isHidden && !reduceMotion ? 0.4 : 1)
+        .blur(radius: isHidden && !reduceMotion ? 6 : 0)
+        .opacity(isHidden ? 0 : 1)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isHidden)
+        .accessibilityLabel("Send")
+        .accessibilityHidden(isHidden)
+    }
+}
+
+/// While he records: two chevrons rising over the microphone, and the words.
+private struct SwipeHint: View {
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.xs) {
+            Image(systemName: "chevron.up.2").font(.system(size: 13, weight: .semibold))
+                .symbolEffect(.bounce.up, options: .repeating)
+            Text("Swipe up to send").font(.small)
+        }
+        .foregroundStyle(Palette.on)
+        .padding(.horizontal, Metrics.Spacing.m).frame(height: 32).background(Palette.fg, in: .capsule)
+        .fixedSize()
+        .accessibilityHidden(true)
+    }
+}
+
+/// While he holds: a track rises from the microphone to a Send target. His thumb reaching it (`armed`) fills the target
+/// with a tick: letting go then sends ("Let go to send").
+private struct SendTrack: View {
+    let rise: CGFloat
+
+    static let reach: CGFloat = 120
+    private var armed: Bool { rise >= Metrics.tapTarget }
+
+    var body: some View {
+        VStack(spacing: Metrics.Spacing.xs) {
+            ZStack {
+                Circle().fill(armed ? Palette.fg : Color.fillTint)
+                Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(armed ? Palette.on : Palette.muted)
+            }
+            .frame(width: 44, height: 44)
+            Capsule().fill(Color.fillTint).frame(width: 4, height: Self.reach - 44)
+        }
+        .offset(y: -44)
+        .animation(.spring(duration: 0.22), value: armed)
+        .sensoryFeedback(.impact(weight: .medium), trigger: armed) { _, new in new }
+        .accessibilityHidden(true)
     }
 }
 

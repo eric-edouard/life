@@ -132,6 +132,8 @@ final class LifeStore {
     private let api: any LifeAPI
     private let cache: ReadCache
     let runner: LifeActions
+    /// Tell Life: his one conversation with Life's main session.
+    let tell: TellLife
     let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// The phone's network path, which the pendant's sync follows too.
@@ -161,6 +163,7 @@ final class LifeStore {
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
+        tell = TellLife(api: api)
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
