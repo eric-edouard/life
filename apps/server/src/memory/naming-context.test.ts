@@ -4,10 +4,14 @@ import type { SourceEvent } from "../records/source";
 import {
   BRIEF_CHARS,
   CALLS_CHARS,
+  expectedCompanyOf,
+  isNameSaid,
   namingBriefOf,
+  namingConfidenceOf,
   overlappingPhoneCallsOf,
   POSSIBLE_SPEAKERS,
   possibleSpeakersOf,
+  voiceGroupsOf,
 } from "./naming-context";
 
 // Made-up people and calls. A part runs from 10:00 to 11:00 UTC on 30 Oct 2026 (the test zones: Lagos, UTC+1, since 19 Oct).
@@ -112,6 +116,7 @@ test("the calls shown stop at 600 characters, and every person on a call is stil
 
 const none = {
   answered: [] as string[],
+  expected: [] as string[],
   facts: [] as string[],
   heard: [] as { at: string; ref: string }[],
   onCall: [] as string[],
@@ -137,17 +142,31 @@ test("a person with none of the signs is not offered, even when lifelog named th
   expect(possible({})).toEqual([]);
 });
 
-test("each sign alone makes a person possible; callers come first", () => {
+test("each sign alone makes a person possible; callers come first, then his answers, then his expected company", () => {
   expect(
     possible({
       answered: ["person:b"],
+      expected: ["person:f"],
       facts: ["person:e"],
       heard: [{ at: "2026-10-20T10:00:00.000Z", ref: "person:c" }],
       onCall: ["person:a"],
       pictured: ["person:d"],
     })
-  ).toEqual(["person:a", "person:b", "person:c", "person:d", "person:e"]);
-  for (const sign of ["answered", "facts", "onCall", "pictured"] as const) {
+  ).toEqual([
+    "person:a",
+    "person:b",
+    "person:f",
+    "person:c",
+    "person:d",
+    "person:e",
+  ]);
+  for (const sign of [
+    "answered",
+    "expected",
+    "facts",
+    "onCall",
+    "pictured",
+  ] as const) {
     expect(possible({ [sign]: ["person:x"] })).toEqual(["person:x"]);
   }
   // Him and non-people are never offered.
@@ -216,4 +235,65 @@ test("a brief holds what he is to them, their language, family and home, how he 
   expect(
     namingBriefOf({ byCall: [], details: [], inPerson: [], often: [] })
   ).toBe("heard in person on 0 days, by call on 0 days");
+});
+
+test("his expected company: a one-to-one message or call from 6 hours before the conversation to its end, nearest its start first, with the chats' titles", () => {
+  const message = (ref: string, at: string, chatName?: string) =>
+    [
+      ref,
+      [{ ...callAt(at, undefined), chatName, phoneCall: undefined }],
+    ] as const;
+  const direct = new Map<string, SourceEvent[]>([
+    message("person:far", minute(-5 * 60), "Far"),
+    message("person:near", minute(-20), "Ana / Annie"),
+    message("person:during", minute(30)),
+    message("person:before", minute(-7 * 60)),
+    message("person:after", minute(61)),
+  ]);
+  expect(expectedCompanyOf(direct, FROM, TO)).toEqual([
+    { away: 20 * MIN, chats: ["Ana / Annie"], ref: "person:near" },
+    { away: 30 * MIN, chats: [], ref: "person:during" },
+    { away: 5 * 60 * MIN, chats: ["Far"], ref: "person:far" },
+  ]);
+});
+
+test("how sure a guess is, counted by code: sure needs the model's sure, two signals and nothing elsewhere; likely one signal", () => {
+  expect(namingConfidenceOf("sure", 2, false)).toBe("sure");
+  expect(namingConfidenceOf("sure", 3, true)).toBe("likely");
+  expect(namingConfidenceOf("sure", 1, false)).toBe("likely");
+  expect(namingConfidenceOf("likely", 4, false)).toBe("likely");
+  expect(namingConfidenceOf("sure", 0, false)).toBe("weak");
+  expect(namingConfidenceOf("weak", 3, false)).toBe("weak");
+});
+
+test("a name said is a whole word of 3 letters or more of the person's name or a chat title, accents and case aside", () => {
+  expect(isNameSaid(["Hey! Zoé, you came"], ["Zoe Martin"])).toBe(true);
+  expect(isNameSaid(["hey zara"], ["Zoe Martin", "Zara / Zoe"])).toBe(true);
+  expect(isNameSaid(["the zoetrope"], ["Zoe"])).toBe(false);
+  expect(isNameSaid(["al is here"], ["Al"])).toBe(false);
+});
+
+test("a voice group is one V across recordings; a voice in no group is its own; each group lists its voices' lines", () => {
+  const groups = voiceGroupsOf(
+    [
+      null,
+      "job-1 speaker_1",
+      "job-2 speaker_0",
+      "job-1 speaker_2",
+      "job-1 speaker_1",
+    ],
+    (v) =>
+      v === "job-1 speaker_1" || v === "job-2 speaker_0" ? "g1" : undefined
+  );
+  expect(groups.lineTokens).toEqual([null, "V1", "V1", "V2", "V1"]);
+  expect([...groups.members].map(([t, m]) => [t, [...m]])).toEqual([
+    [
+      "V1",
+      [
+        ["job-1 speaker_1", [1, 4]],
+        ["job-2 speaker_0", [2]],
+      ],
+    ],
+    ["V2", [["job-1 speaker_2", [3]]]],
+  ]);
 });

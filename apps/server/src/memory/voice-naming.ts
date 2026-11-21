@@ -1,11 +1,13 @@
-import { DAY, HOUR } from "../core/clock";
+import { DAY, iso } from "../core/clock";
 import { newestWithin } from "../core/lists";
 import { redact } from "../core/redact";
 import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
 import {
+  type NamingQueueItem,
   ownAnswerOf,
+  readNamingQueueNow,
   readVoices,
   type VoiceRow,
   voiceKey,
@@ -23,11 +25,19 @@ import { withOf } from "./exchange-reads";
 import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
 import {
   type Brief,
+  CALL_SLACK,
+  EXPECTED_BEFORE,
+  expectedCompanyOf,
   HEARD_WITHIN,
   isHeardAround,
+  isNameSaid,
   namingBriefOf,
+  namingConfidenceOf,
   overlappingPhoneCallsOf,
+  PLANNED_WITHIN,
   possibleSpeakersOf,
+  SOUNDS_LIKE,
+  voiceGroupsOf,
 } from "./naming-context";
 import {
   type Asked,
@@ -37,7 +47,11 @@ import {
   replyOf,
 } from "./read-replies";
 import { begin, chunks, readsOf, type Step } from "./run";
-import { partLine, type SpokenPart } from "./spoken-conversations";
+import {
+  isSummarised,
+  partLine,
+  type SpokenPart,
+} from "./spoken-conversations";
 import {
   callSpanOf,
   clip,
@@ -50,8 +64,9 @@ import { observationsNow, voicePersonOf } from "./who";
 import { messageLine } from "./words";
 import { localDate, time } from "./zones";
 
-// The voice naming (docs/glossary.md): one read of each part of a long conversation recorded in person, saying for each
-// voice no one named the person it probably is, from the lines and the day around them. A guess stays a guess: it is
+// The voice naming (docs/glossary.md): one read of each part of a conversation recorded in person (a long one, or a
+// short one near a call or a plan: `isWorthNaming`), saying for each voice group no one named the person it probably is,
+// from the lines and the day around them, how sure counted by code (`namingConfidenceOf`). A guess stays a guess: it is
 // stored by `memory/read-replies.ts` after `checkedVoices` (never as the model gave it) and acts on nothing: no person is
 // created or folded, nothing goes to lifelog, no line any step reads changes. What is pending is derived from the
 // stored lines (`replyOf`) and the keys of the part now (`unnamedTurnKey`); the night asks, behind his `voiceNaming`
@@ -59,8 +74,7 @@ import { localDate, time } from "./zones";
 
 /** The most calls a night makes: a first build takes several nights, the newest first. */
 export const VOICE_NAMING_CALLS = 40;
-/** The one-to-one messages of the possible speakers a call shows: this long either side of the part, this many characters. */
-const MESSAGES_AROUND = 3 * HOUR;
+/** The one-to-one messages of the possible speakers a call shows, over the expected company's window: this many characters. */
 const MESSAGES_CHARS = 4000;
 const { prompt: PROMPT } = READS.voice_naming;
 
@@ -68,35 +82,42 @@ const { prompt: PROMPT } = READS.voice_naming;
 export interface NamingInput {
   calls: string[];
   day: string;
-  /** Each line `[n] HH:MM who: text`, a voice nobody named as `V1`, `V2`… (`voiceTokensOf`). */
+  /** Each line `[n] HH:MM who: text`, a voice group nobody named as `V1`, `V2`… (`voiceGroupsOf`). */
   lines: string[];
-  /** The one-to-one messages of the people offered, around the part. */
+  /** The one-to-one messages of the people offered, from 6 hours before the conversation to its end, nearest first. */
   messages: string[];
-  /** The people offered: who could be there (`possibleSpeakersOf`), each with a short brief. */
-  people: { brief: string; name: string; ref: string }[];
-  /** For a voice: whom it sounds like among the people offered, from its sound alone. */
-  voices: { likeness: { person: string; score: number }[]; voice: string }[];
+  /** The people offered: who could be there (`possibleSpeakersOf`), each with a short brief and the titles of a chat of theirs in the window. */
+  people: { brief: string; chats?: string[]; name: string; ref: string }[];
+  /** For a voice group: the name Voice heard for it, and whom it sounds like among the people offered, from its sound alone. */
+  voices: {
+    heard?: string;
+    likeness: { person: string; score: number }[];
+    voice: string;
+  }[];
 }
 
 const LINE_WHO = /^\[\d+\] \S+ (\S+): /;
 const TOKEN = /^V\d+$/;
 
 /** What code knows of a part and the model is not shown. */
-interface Known {
-  /** The `V` tokens of the voices his own answer says name no one: stored `unknown`, whatever the model said. */
+export interface Known {
+  /** For a group `V` and a person offered (`${voice} ${person}`): the signals code counted, and whether one points to someone else. */
+  evidence: Map<string, { elsewhere: boolean; signals: number }>;
+  /** Each group `V`'s recording voices, by the `V` they are stored as (`voiceTokensOf` of the part's unnamed keys), with their lines; a `V` not here is stored as itself. */
+  members: Map<string, Map<string, number[]>>;
+  /** The group `V`s of the voices his own answer says name no one: stored `unknown`, whatever the model said. */
   noOne: Set<string>;
-  /** The people on a call that overlaps the part (refs). */
-  onCall: string[];
 }
 
 /**
  * The model's reply checked against what it was shown: an entry stays only when its voice is a `V` of the lines, its
  * person is one of the refs offered, `me` or `unknown`, every line it cites exists and is a line of that voice, and its
  * confidence is one of sure, likely, weak; a voice is answered once. Anything else is dropped, never kept as a name. A
- * person named `likely` who is neither in that voice's likeness nor on a call that overlaps the part (`known`) is
- * stored `weak`. A voice his own answer says names no one is stored `unknown` at `weak` (nothing for a reader to show),
- * whatever the model said and even when it left the voice out. A reply with no list of voices is not a reply (it
- * throws, so it is stored nowhere and asked again).
+ * person's confidence is counted by code (`namingConfidenceOf` over `known.evidence`). A voice his own answer says names
+ * no one is stored `unknown` at `weak` (nothing for a reader to show), whatever the model said and even when it left the
+ * voice out. A group's entry is stored as one entry per recording voice of it (`known.members`), citing its lines of that
+ * voice, else that voice's first line. A reply with no list of voices is not a reply (it throws, so it is stored nowhere
+ * and asked again).
  */
 export function checkedVoices(
   reply: unknown,
@@ -122,15 +143,17 @@ export function checkedVoices(
       return [];
     }
     seen.add(e.voice);
-    const sounds = input.voices
-      .find((x) => x.voice === e.voice)
-      ?.likeness.some((l) => l.person === e.person);
+    const found = known.evidence.get(`${e.voice} ${e.person}`);
     return [
-      e.confidence === "likely" &&
-      offered.has(e.person) &&
-      !sounds &&
-      !known.onCall.includes(e.person)
-        ? { ...e, confidence: "weak" as const }
+      offered.has(e.person)
+        ? {
+            ...e,
+            confidence: namingConfidenceOf(
+              e.confidence,
+              found?.signals ?? 0,
+              found?.elsewhere ?? false
+            ),
+          }
         : e,
     ];
   });
@@ -147,7 +170,20 @@ export function checkedVoices(
           },
         ];
   });
-  return { voices: [...kept, ...answered] };
+  const stored = [...kept, ...answered].flatMap((e) => {
+    const voices = known.members.get(e.voice);
+    return voices
+      ? [...voices].map(([voice, lines]) => {
+          const cited = e.lines.filter((n) => lines.includes(n));
+          return {
+            ...e,
+            lines: cited.length > 0 ? cited : lines.slice(0, 1),
+            voice,
+          };
+        })
+      : [e];
+  });
+  return { voices: stored };
 }
 
 /** The recording a turn key is of. */
@@ -171,6 +207,8 @@ interface Context {
   people: People;
   /** Persons in a photo, by day. */
   pictured: Map<string, Set<string>>;
+  /** Voice's naming queue item of each voice in one (`voiceKey`): its group. */
+  queue: Map<string, NamingQueueItem>;
 }
 
 const addTo = <K, V>(m: Map<K, Set<V>>, k: K, v: V) =>
@@ -251,6 +289,11 @@ async function readContext(
   open = openStore,
   chats?: SourceEvent[]
 ): Promise<Context> {
+  const queue = new Map(
+    (await readNamingQueueNow()).flatMap((item) =>
+      item.voices.map((v) => [voiceKey(v.jobId, v.speakerLabel), item] as const)
+    )
+  );
   const first = parts.reduce(
     (a, p) => (p.at < a ? p.at : a),
     parts[0]?.at ?? ""
@@ -288,6 +331,7 @@ async function readContext(
     names: voiceNamesOf(turns),
     onDay: heardOnDayOf(heard),
     people,
+    queue,
   };
 }
 
@@ -339,12 +383,17 @@ function briefOf(
   return namingBriefOf(brief);
 }
 
-/** The one-to-one messages of the people offered, around a part, nearest first up to `MESSAGES_CHARS`, then in time order. */
-function messagesAround(offered: string[], part: SpokenPart, c: Context) {
-  const [from, to] = [
-    Date.parse(part.at) - MESSAGES_AROUND,
-    Date.parse(part.until) + MESSAGES_AROUND,
-  ];
+/**
+ * The one-to-one messages of the people offered, from `EXPECTED_BEFORE` before the conversation (`began`) to its end,
+ * nearest the part first up to `MESSAGES_CHARS`, then in time order.
+ */
+function messagesAround(
+  offered: string[],
+  part: SpokenPart,
+  [began, ended]: [string, string],
+  c: Context
+) {
+  const [from, to] = [Date.parse(began) - EXPECTED_BEFORE, Date.parse(ended)];
   const near = offered
     .flatMap((ref) =>
       (c.direct.get(ref) ?? []).flatMap((e) => {
@@ -379,14 +428,108 @@ function messagesAround(offered: string[], part: SpokenPart, c: Context) {
     .map((m) => m.line);
 }
 
+/** When a turn began, from its key (`turnRef`'s instant). */
+const turnAtOf = (key: string) =>
+  Date.parse(turnRefOf(key).split("@")[1] ?? "");
+
+/** The phone calls near [from, to), with `CALL_SLACK` either side (the phone's clock and the pendant's differ). */
+const callsNear = (c: Context, from: string, to: string) =>
+  overlappingPhoneCallsOf(
+    c.events,
+    iso(Date.parse(from) - CALL_SLACK),
+    iso(Date.parse(to) + CALL_SLACK),
+    c.people
+  );
+
 /**
- * A part as the naming read asks it, or null when no voice is left unnamed. `began` is when its conversation began,
- * `voices` what lifelog says of the voices of its recordings. Who could be there (`possibleSpeakersOf`) decides which
- * names to trust: a voice lifelog named by sound as someone who could not be there (`basis: recognized`) is shown as a
- * `V` token like an unnamed one, and may be guessed again. A voice is its `V` by `voiceTokensOf` over the keys it is
- * stored by (`unnamedTurnKey` for those, the turn's own key for the rest). `hidden` (the score's hidden run, never the
- * night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them (their likeness stays: lifelog's route already judges it without the span's own exemplars), and whose answers
- * name no one as possible; a part with none of them is null.
+ * Whether a spoken conversation is worth a naming read: a long one (`isSummarised`) always; a short one only when a call
+ * is near it (`callsNear`) or a one-to-one message came in the `PLANNED_WITHIN` before it began (someone on the way).
+ */
+function isWorthNaming(parts: SpokenPart[], c: Context) {
+  const [began, ended] = [parts[0]?.at ?? "", parts.at(-1)?.until ?? ""];
+  const start = Date.parse(began);
+  return (
+    isSummarised(parts) ||
+    callsNear(c, began, ended).lines.length > 0 ||
+    [...c.direct.values()].some((list) =>
+      list.some((e) => {
+        const at = Date.parse(e.at);
+        return !e.phoneCall && at >= start - PLANNED_WITHIN && at <= start;
+      })
+    )
+  );
+}
+
+/**
+ * What code counts for a voice group (its lines `lines`, its recording voices `voices`) and each person offered: the
+ * signals (a one-to-one message in the `PLANNED_WITHIN` before its first line; a word of their name or chat title said
+ * in a line not its own; on a call near the part; its sound like them: its queue item's `isLikely`, else, in no item, its
+ * likeness at `SOUNDS_LIKE` or more), and whether a sound points to someone else. Keyed `${voice} ${person}`.
+ */
+function evidenceOf(
+  part: SpokenPart,
+  groups: ReturnType<typeof voiceGroupsOf>,
+  o: {
+    c: Context;
+    chats: Map<string, string[]>;
+    onCall: string[];
+    possible: string[];
+    rows: Map<string, VoiceRow>;
+  }
+) {
+  const { c } = o;
+  const refOf = (personId: string) =>
+    voicePersonOf(c.people.resolve, personId, c.names.get(personId));
+  const evidence = new Map<string, { elsewhere: boolean; signals: number }>();
+  for (const [token, voices] of groups.members) {
+    const lines = [...voices.values()].flat();
+    const first = Math.min(...lines.map((n) => turnAtOf(part.keys[n] ?? "")));
+    const others = part.voices.flatMap((v, n) =>
+      lines.includes(n) ? [] : [v.text]
+    );
+    const item = c.queue.get([...voices.keys()][0] ?? "");
+    const likely =
+      item?.isLikely && item.personId ? refOf(item.personId) : null;
+    const strong = new Set(
+      [...voices.keys()].flatMap((v) =>
+        (o.rows.get(v)?.likeness ?? []).flatMap((l) =>
+          l.score >= SOUNDS_LIKE ? (refOf(l.personId) ?? []) : []
+        )
+      )
+    );
+    for (const person of o.possible) {
+      const planned = (c.direct.get(person) ?? []).some((e) => {
+        const at = Date.parse(e.at);
+        return !e.phoneCall && at >= first - PLANNED_WITHIN && at <= first;
+      });
+      const named = isNameSaid(others, [
+        c.people.nameOf(person),
+        ...(o.chats.get(person) ?? []),
+      ]);
+      const sounds = item ? likely === person : strong.has(person);
+      evidence.set(`${token} ${person}`, {
+        elsewhere: item
+          ? Boolean(likely && likely !== person)
+          : [...strong].some((r) => r !== person),
+        signals: [planned, named, o.onCall.includes(person), sounds].filter(
+          Boolean
+        ).length,
+      });
+    }
+  }
+  return evidence;
+}
+
+/**
+ * A part as the naming read asks it, or null when no voice is left unnamed. `began` and `ended` bound its conversation,
+ * `voices` what lifelog says of the voices of its recordings. Who could be there (`possibleSpeakersOf`, with his expected
+ * company over the conversation, `expectedCompanyOf`) decides which names to trust: a voice lifelog named by sound as
+ * someone who could not be there (`basis: recognized`) is shown as a `V` like an unnamed one, and may be guessed again.
+ * A `V` is a voice group (`voiceGroupsOf`, Voice's naming queue items); its guess is stored under the keys of its
+ * recording voices (`unnamedTurnKey` for those, the turn's own key for the rest). `hidden` (the score's hidden run,
+ * never the night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them (their likeness stays:
+ * lifelog's route already judges it without the span's own exemplars), and whose answers name no one as possible; a part
+ * with none of them is null.
  */
 export function namingOf(
   part: SpokenPart,
@@ -399,12 +542,9 @@ export function namingOf(
   const rows = new Map(
     voices.map((v) => [voiceKey(v.jobId, v.speakerLabel), v])
   );
-  const calls = overlappingPhoneCallsOf(
-    c.events,
-    part.at,
-    part.until,
-    c.people
-  );
+  const calls = callsNear(c, part.at, part.until);
+  const expected = expectedCompanyOf(c.direct, began, ended);
+  const chats = new Map(expected.map((e) => [e.ref, e.chats]));
   const possible = possibleSpeakersOf(
     {
       answered: voices.flatMap((v) => {
@@ -418,6 +558,7 @@ export function namingOf(
             ) ?? [])
           : [];
       }),
+      expected: expected.map((e) => e.ref),
       facts: [...(c.facts.get(part.day) ?? [])],
       heard: c.heard,
       onCall: calls.people,
@@ -445,52 +586,84 @@ export function namingOf(
   const keys = part.keys.map((k, n) =>
     unnamed[n] ? unnamedTurnKey(turnRefOf(k), part.voices[n]?.label ?? "") : k
   );
-  const tokens = voiceTokensOf(keys.filter((_, n) => unnamed[n]));
+  // The `V` each recording voice is stored as, the one numbering `voiceGuessesOf` reads back.
+  const stored = voiceTokensOf(keys.filter((_, n) => unnamed[n]));
   // The hidden run asks only the parts holding a voice it hid.
   if (
-    tokens.size === 0 ||
-    (hidden && ![...tokens.keys()].some((v) => hidden.has(v)))
+    stored.size === 0 ||
+    (hidden && ![...stored.keys()].some((v) => hidden.has(v)))
   ) {
     return null;
   }
+  const groups = voiceGroupsOf(
+    part.voices.map((v, n) =>
+      unnamed[n] ? voiceKey(jobAt(n), v.label) : null
+    ),
+    (voice) => c.queue.get(voice)?.id
+  );
+  const likenessOf = (members: string[]) => {
+    const best = new Map<string, number>();
+    for (const l of members.flatMap((v) => rows.get(v)?.likeness ?? [])) {
+      const person = voicePersonOf(
+        c.people.resolve,
+        l.personId,
+        c.names.get(l.personId)
+      );
+      if (person && could.has(person)) {
+        best.set(person, Math.max(best.get(person) ?? 0, l.score));
+      }
+    }
+    return [...best].map(([person, score]) => ({
+      person,
+      score: Math.round(score * 100) / 100,
+    }));
+  };
   const input: NamingInput = {
     calls: calls.lines,
     day: part.day,
-    lines: part.voices.map((v, n) => {
-      const who = unnamed[n]
-        ? (tokens.get(voiceKey(jobAt(n), v.label)) ?? "")
-        : (v.name ?? "me");
-      return partLine(n, v, who);
-    }),
-    messages: messagesAround(possible, part, c),
+    lines: part.voices.map((v, n) =>
+      partLine(n, v, groups.lineTokens[n] ?? v.name ?? "me")
+    ),
+    messages: messagesAround(possible, part, [began, ended], c),
     people: possible.map((ref) => ({
       brief: briefOf(ref, part, [began, ended], c),
+      ...(chats.get(ref)?.length ? { chats: chats.get(ref) } : {}),
       name: c.people.nameOf(ref),
       ref,
     })),
-    voices: [...tokens].map(([voice, token]) => ({
-      likeness: (rows.get(voice)?.likeness ?? []).flatMap((l) => {
-        const person = voicePersonOf(
-          c.people.resolve,
-          l.personId,
-          c.names.get(l.personId)
-        );
-        return person && could.has(person)
-          ? [{ person, score: Math.round(l.score * 100) / 100 }]
-          : [];
-      }),
-      voice: token,
-    })),
+    voices: [...groups.members].map(([voice, members]) => {
+      const heard = c.queue.get([...members.keys()][0] ?? "")?.name;
+      return {
+        ...(heard ? { heard } : {}),
+        likeness: likenessOf([...members.keys()]),
+        voice,
+      };
+    }),
   };
   // A voice he answered "A stranger", not relevant or otherwise as no one is never guessed (the hidden run's own are).
   const noOne = new Set(
     part.voices.flatMap((v, n) => {
       const key = voiceKey(jobAt(n), v.label);
       const own = unnamed[n] && !hidden?.has(key) && ownAnswerOf(rows.get(key));
-      return own && own.kind !== "person" ? [tokens.get(key) ?? ""] : [];
+      return own && own.kind !== "person" ? [groups.lineTokens[n] ?? ""] : [];
     })
   );
-  return { input, keys, known: { noOne, onCall: calls.people } };
+  const members = new Map(
+    [...groups.members].map(([token, voices]) => [
+      token,
+      new Map(
+        [...voices].map(([voice, lines]) => [stored.get(voice) ?? "", lines])
+      ),
+    ])
+  );
+  const evidence = evidenceOf(part, groups, {
+    c,
+    chats,
+    onCall: calls.people,
+    possible,
+    rows,
+  });
+  return { input, keys, known: { evidence, members, noOne } };
 }
 
 /** The voices (`voiceKey`) he answered whole, a person, not relevant or "A stranger", and not mixed: what the score's hidden run hides. */
@@ -570,7 +743,8 @@ function namingsOf(
 }
 
 /**
- * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
+ * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`) that are worth a
+ * naming read (`isWorthNaming`): one read of
  * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
  * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person, not relevant or "A stranger",
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
@@ -610,7 +784,8 @@ export async function readVoiceNamingWork(
       open,
       chats
     );
-    for (const group of chunks(talks, 8)) {
+    const worth = talks.filter((t) => isWorthNaming(t.parts, c));
+    for (const group of chunks(worth, 8)) {
       // biome-ignore lint/performance/noAwaitInLoops: a few conversations at a time
       const voices = await Promise.all(
         group.map((t) => readConversationVoices(t.parts))

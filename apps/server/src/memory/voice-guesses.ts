@@ -1,5 +1,4 @@
 import { settings } from "../core/settings";
-import { isPromptVersion } from "../models/prompt-parts";
 import { NamedVoice, type ReadReply } from "../records/read-reply";
 import {
   type NamingQueueItem,
@@ -7,7 +6,7 @@ import {
   voiceKey,
 } from "../sources/lifelog-voices";
 import { READ_REPLIES } from "./memory-files";
-import { READS, readReplies, readRepliesOfMonths } from "./read-replies";
+import { readReplies, readRepliesOfMonths } from "./read-replies";
 import { UNKNOWN, unnamedTurnKey, voiceOfKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 
@@ -63,17 +62,16 @@ export function voiceGuessesOf(line: ReadReply): VoiceGuess[] {
   });
 }
 
-/** The newest guess of each unnamed turn key in `lines`, from the lines of the voice naming's current prompt. */
+/**
+ * The newest guess of each unnamed turn key in `lines`, of any version of the voice naming's prompt: a guess an older
+ * prompt made stays one until a newer line replaces it (a prompt's bump re-asks only the night's window).
+ */
 function newestGuessesOf(lines: readonly ReadReply[]) {
   const now = new Map<string, VoiceGuess>();
-  for (const line of lines) {
-    if (isPromptVersion(line.madeBy.prompt, READS.voice_naming.prompt)) {
-      for (const g of voiceGuessesOf(line)) {
-        for (const key of g.keys) {
-          if ((now.get(key)?.at ?? "") <= g.at) {
-            now.set(key, g);
-          }
-        }
+  for (const g of lines.flatMap(voiceGuessesOf)) {
+    for (const key of g.keys) {
+      if ((now.get(key)?.at ?? "") <= g.at) {
+        now.set(key, g);
       }
     }
   }
@@ -102,8 +100,8 @@ function newestOfFiles(files: readonly (readonly ReadReply[])[]) {
 }
 
 /**
- * The newest stored guess of each unnamed turn key (`unnamedTurnKey`), from the lines of the voice naming's current
- * prompt. The newest guess of a key whose person is not known today (`me` and `unknown` aside) leaves the key with none. A key is a turn's only while the turn
+ * The newest stored guess of each unnamed turn key (`unnamedTurnKey`), from the lines of any version of the voice
+ * naming's prompt. The newest guess of a key whose person is not known today (`me` and `unknown` aside) leaves the key with none. A key is a turn's only while the turn
  * is still unnamed: a turn named since (his answer, lifelog's match, a relabel) has another key and is never looked up.
  */
 export function voiceGuessesNow(
