@@ -74,6 +74,8 @@ final class AppRouter {
         if case .matter(let id) = detail { id } else { nil }
     }
     var matterColumn = NavigationSplitViewColumn.sidebar
+    /// The agent on show beside the agents (a regular width); nil is the first.
+    var agentShown: String?
     /// Whether he opened the matter on show from elsewhere (a card's chip, Search, a person), not from the list's rows:
     /// beside the list it then stays through a chip whose list leaves it out.
     private(set) var isMatterFromElsewhere = false
@@ -204,6 +206,13 @@ final class AppRouter {
         isPersonFromElsewhere = false
         personCameFrom = nil
         personColumn = ref == nil ? .sidebar : .detail
+    }
+
+    /// Back from the agents beside their page, to the Projects list (a regular width): a matter is chosen again there.
+    func closeAgents() {
+        agentShown = nil
+        detail = nil
+        matterColumn = .sidebar
     }
 
     /// The one way the matter on show changes: a compact width then shows it too, so a fold keeps it on screen.

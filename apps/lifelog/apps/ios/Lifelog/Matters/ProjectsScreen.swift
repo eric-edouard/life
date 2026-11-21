@@ -25,19 +25,24 @@ struct ProjectsScreen: View {
         @Bindable var router = router
         let chip = chosen
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
-            // The chips, a project's header and its rows each show their own read: one failing leaves the others.
-            content(chip)
-                .background(Palette.bg)
-                // A swipe's mark and a project's status, said back with Undo.
-                .saysBack()
-                .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
-                // Beside a matter, the Pendant and Settings are the matter column's.
-                .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-                // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
-                // chosen). All's list is the matters' read, which that answer reads again itself.
-                .task(id: [chip?.identity ?? "", chip == nil ? "" : "\(life.answersEnded.values.reduce(0, +))"]) {
-                    await refresh(chip)
-                }
+            // Beside the agents' page the list is the agents, else the chips and their rows.
+            if isAgentsBeside {
+                AgentsScreen(isBeside: true)
+            } else {
+                // The chips, a project's header and its rows each show their own read: one failing leaves the others.
+                content(chip)
+                    .background(Palette.bg)
+                    // A swipe's mark and a project's status, said back with Undo.
+                    .saysBack()
+                    .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
+                    // Beside a matter, the Pendant and Settings are the matter column's.
+                    .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+                    // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
+                    // chosen). All's list is the matters' read, which that answer reads again itself.
+                    .task(id: [chip?.identity ?? "", chip == nil ? "" : "\(life.answersEnded.values.reduce(0, +))"]) {
+                        await refresh(chip)
+                    }
+            }
         } detail: {
             detail
         }
@@ -48,6 +53,13 @@ struct ProjectsScreen: View {
         // The split view can drop the selection when it expands: a regular width always shows a page.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: list(of: chosen).value) { fillSelection() }
+        .onChange(of: router.detail) { fillSelection() }
+        // An agent named from elsewhere is the one on show beside the agents, not a page pushed over it.
+        .onChange(of: router.matterPath) { _, path in
+            guard isAgentsBeside, case .agent(let id)? = path.last else { return }
+            router.agentShown = id
+            router.matterPath = []
+        }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(item: matterSheetBinding) { sheet in
             switch sheet {
@@ -65,6 +77,13 @@ struct ProjectsScreen: View {
         }
     }
 
+    /// The agents are the list, and the agent on show the page beside them (a regular width).
+    private var isAgentsBeside: Bool { sizeClass == .regular && router.detail == .agents }
+
+    private var shownAgent: String {
+        router.agentShown ?? life.agents.value?.agents.first { !$0.isOver }?.id ?? ""
+    }
+
     @ViewBuilder private var detail: some View {
         @Bindable var router = router
         switch router.detail {
@@ -73,6 +92,8 @@ struct ProjectsScreen: View {
         case .matter(let id)?:
             stack { MatterPage(id: id, hasSettings: sizeClass == .regular).id(id) }
                 .zooms(from: id, in: matterZoom)
+        case .agents? where isAgentsBeside:
+            stack { AgentPage(id: shownAgent, hasSettings: true).id(shownAgent) }
         case .agents?:
             stack { AgentsScreen() }
         case .spending?:
