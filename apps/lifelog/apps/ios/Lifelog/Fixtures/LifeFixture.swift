@@ -626,6 +626,21 @@
             return isOn ? #"{"result":"restored"}"# : #"{"result":"removed"}"#
         }
 
+        /// Tell Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
+        func askMainSession(
+            words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
+            try await gate()
+            guard words != nil else { return #"{"kept":true}"# }
+            onProgress(Data(#"{"kind":"thinking"}"#.utf8))
+            try await Task.sleep(for: .milliseconds(600))
+            onProgress(Data(#"{"id":"t1","kind":"working","state":"running","title":"Reading the card"}"#.utf8))
+            try await Task.sleep(for: .milliseconds(600))
+            onProgress(Data(#"{"kind":"words","text":"The card asks you to confirm "}"#.utf8))
+            onProgress(Data(#"{"kind":"words","text":"Friday morning."}"#.utf8))
+            return #"{"kind":"reply","words":"The card asks you to confirm Friday morning."}"#
+        }
+
         // MARK: Made-up data
 
         /// The design data (`apps/lifelog/fixtures/design/`), one file per read, in the connector's wire shape: the
