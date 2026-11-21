@@ -116,14 +116,16 @@ extension Check {
         return (needs ?? []).enumerated().filter { !shown.contains($0.offset) }.flatMap(\.element.rows)
     }
 
-    /// The baht a PromptPay code asks (Bank of Thailand's EMV QR: a merchant account, tag 29 or 30, whose tag 00 is
-    /// PromptPay's id; tag 53 the currency 764; tag 54 the amount): nil for any other code, one that asks no amount,
-    /// or text that is not a whole, well-formed EMV code.
+    /// The baht a PromptPay code asks (Bank of Thailand's EMV QR: tag 29 a credit transfer, its tag 00
+    /// `A000000677010111`, or tag 30 a bill payment, `A000000677010112`; tag 53 the currency 764; tag 54 the amount in
+    /// whole satang at most): nil for any other code, one that asks no amount, or text that is not a whole, well-formed
+    /// EMV code.
     static func promptPayBaht(_ payload: String) -> Double? {
-        guard let fields = emvFields(payload), fields["53"] == "764",
-            let account = fields["29"] ?? fields["30"], emvFields(account)?["00"]?.hasPrefix("A000000677") == true,
-            let amount = fields["54"], !amount.isEmpty, amount.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
-            let value = Double(amount), value.isFinite, value > 0
+        let isPromptPay =
+            fields(payload, "29").flatMap { emvFields($0)?["00"] } == "A000000677010111"
+            || fields(payload, "30").flatMap { emvFields($0)?["00"] } == "A000000677010112"
+        guard isPromptPay, let fields = emvFields(payload), fields["53"] == "764", let amount = fields["54"],
+            amount.wholeMatch(of: /[0-9]+(\.[0-9]{1,2})?/) != nil, let value = Double(amount), value > 0
         else { return nil }
         return value
     }
@@ -145,9 +147,13 @@ extension Check {
         return fields
     }
 
-    private static func isSameMoney(_ a: Double?, _ b: Double) -> Bool {
-        a.map { ($0 * 100).rounded() == (b * 100).rounded() } ?? false
+    /// Whether a payment of `asked` is one Life's watcher sees for a card of `value`: half a cent either side, strictly
+    /// (`HALF_CENT`, `host/done-seen.ts`).
+    private static func isSameMoney(_ value: Double?, _ asked: Double) -> Bool {
+        value.map { asked > $0 - 0.005 && asked < $0 + 0.005 } ?? false
     }
+
+    private static func fields(_ payload: String, _ tag: String) -> String? { emvFields(payload)?[tag] }
 
     /// An amount the code asks, as Life words a card's (`amountWordsOf`, `memory/needs.ts`): Life sends no words for a
     /// QR's own amount, so the phone writes them the same way.

@@ -73,7 +73,8 @@ private func qr(_ payload: String?) -> String {
     // A negative length, a partial field, a length past the end, a non-finite or empty amount, a currency of another.
     let malformed = [
         "00-1x", "000201" + "29", "0002010120ab", promptPay("nan"), promptPay("inf"), promptPay(""), promptPay("1e3"),
-        promptPay("-4500"), promptPay("4500.00", currency: "702"), "",
+        promptPay("-4500"), promptPay("0.001"), promptPay("4500.005"), promptPay("4500.00", currency: "702"),
+        promptPay("4500.00", aid: "A000000677010199"), "",
     ]
     for payload in malformed {
         #expect(Check.promptPayBaht(payload) == nil, "\(payload)")
@@ -85,6 +86,16 @@ private func qr(_ payload: String?) -> String {
     #expect(Check.emvFields("0002") == nil)
     #expect(Check.emvFields("0103ab") == nil)
     #expect(Check.emvFields("01020x") == ["01": "0x"])
+}
+
+@Test func aCodeIsLifesAmountOnlyWithinHalfACentAsTheWatcherSeesIt() throws {
+    let cents = #"{"kind":"amount","line":"4,500.01 THB","value":4500.01,"currency":"THB"}"#
+    #expect(try card("[\(account),\(cents),\(qr(promptPay("4500.01")))]").isPaymentLookedFor)
+    #expect(try !card("[\(account),\(cents),\(qr(promptPay("4500.00")))]").isPaymentLookedFor)
+    // A bill payment's code (tag 30) is PromptPay's too.
+    let bill = promptPay("4500.00").replacingOccurrences(
+        of: "2937" + "0016A000000677010111", with: "3037" + "0016A000000677010112")
+    #expect(Check.promptPayBaht(bill) == 4500)
 }
 
 @Test func twoIdenticalCodesKeepTheSecondAsItsLine() throws {
@@ -127,7 +138,8 @@ private func qr(_ payload: String?) -> String {
             get: { self.state }, set: { self.state = $0 },
             save: {
                 self.saves += 1
-                await withCheckedContinuation { self.saveGate = $0 }
+                // Only the first save waits, so a second one fails the test rather than hanging it.
+                if self.saves == 1 { await withCheckedContinuation { self.saveGate = $0 } }
                 return nil
             },
             open: {
