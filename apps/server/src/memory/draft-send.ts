@@ -187,6 +187,8 @@ const isChat = (s?: Descriptor): s is Descriptor & { kind: "chat" } =>
 
 /** A source whose messages a draft goes into: chat or mail. */
 type Sending = Descriptor & { kind: "chat" | "mail" };
+const isSending = (s: Descriptor): s is Sending =>
+  s.kind === "chat" || s.kind === "mail";
 
 interface ChatSource {
   name: string;
@@ -291,8 +293,7 @@ export async function resolveDraft(
   sources = enabledSources()
 ): Promise<StoredDraft> {
   const sending = sources.filter(
-    (x): x is Sending =>
-      Boolean(x.send) && (x.kind === "chat" || x.kind === "mail")
+    (x): x is Sending => Boolean(x.send) && isSending(x)
   );
   const s = sending.find((x) => x.name === draft.channel);
   if (!s?.send) {
@@ -354,10 +355,10 @@ export function chatTakesLinesOf(chat?: string, sources = enabledSources()) {
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;
 
 /**
- * What was written in each card's draft chat (or any chat, by its channel and id) after its `since`, oldest first, his
- * own messages too: the one test of "someone wrote since" (the send's refusal, `withdrawDraftsAnsweredInChat`, and an
- * arrival he answered before its wake). None for a mail or a draft with no chat. Each channel is read once, from its
- * earliest `since`.
+ * What was written in each card's draft chat (or any chat or mail thread, by its channel and id) after its `since`,
+ * oldest first, his own messages too: the one test of "someone wrote since" (the send's refusal, `withdrawDraftsAnsweredInChat`, and an
+ * arrival he answered before its wake). None for a draft with no chat (a mail draft has none). Each channel is read
+ * once, from its earliest `since`.
  * ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
  */
 export function wroteSince(
@@ -365,7 +366,7 @@ export function wroteSince(
   sources = enabledSources()
 ) {
   const read = new Map<string | undefined, SourceEvent[]>(
-    sources.filter(isChat).flatMap((s) => {
+    sources.filter(isSending).flatMap((s) => {
       const since = cards
         .filter((c) => c.draft.channel === s.name && c.draft.chat)
         .map((c) => c.since.getTime());
