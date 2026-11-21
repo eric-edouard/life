@@ -278,7 +278,7 @@ function triggerRequest(r: ArrivalRead): FoundationRequest {
       { anyOf: ["yes", "no"], description: guide("event"), name: "event" },
     ],
     instructions: instructions.trim(),
-    // Its start only: who sent it and how it opens is what tells a person from a system (34 of 90 sieved on 21 Nov 2026).
+    // Its start only: who sent it and how it opens is what tells a person from a system (a week's replay, 15 to 21 Nov 2026: 92 of 223 mail reads sieved out).
     text: mails
       .map((m) => `From: ${m.sender}\n${m.text.slice(0, SIEVE_CHARS)}`)
       .join("\n\n"),
@@ -330,9 +330,18 @@ const readsAfterOf = (reply?: object) => {
   ];
 };
 
-/** Apple sieves mail only (his decision of 21 Nov 2026): a conversation, and Thai it cannot read, go straight to his engine. */
+/**
+ * Apple sieves mail he received only (his decision of 21 Nov 2026): a conversation, Thai it cannot read, and mail
+ * holding his own lines (where his promises are) go straight to his engine.
+ */
 const isSieved = (r: ArrivalRead) =>
-  kindOf(r.b.unit.source) === "mail" && !THAI.test(r.lines.join("\n"));
+  kindOf(r.b.unit.source) === "mail" &&
+  !THAI.test(r.lines.join("\n")) &&
+  !r.b.messages.some(
+    (m) =>
+      m.fromMe &&
+      r.keys.includes(eventKey({ id: m.id, source: r.b.unit.source }))
+  );
 
 /** The appointment read of a read, for `makeReplies`: its reply stored after `checkedAppointmentReply`. */
 function appointmentOf(r: ArrivalRead): Asked {

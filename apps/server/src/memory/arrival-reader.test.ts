@@ -245,6 +245,29 @@ test("Apple sieves mail: an automated mail needing nothing asks his engine nothi
   expect([notice, bill, person].map((s) => s.calls.engine)).toEqual([0, 1, 1]);
 });
 
+test("Apple is shown each unread mail's sender and its start; a mail holding his own line goes straight to the confirm", async () => {
+  const texts: string[] = [];
+  const s = sceneOf((text) => {
+    texts.push(text);
+    return yes("");
+  });
+  const first = mail("Can we meet on Friday?");
+  await s.read([first]);
+  await s.read([first, mail(`Or Monday ${"x".repeat(700)}`)]);
+  expect(texts).toEqual([
+    "From: sam@example.com\nCan we meet on Friday?",
+    `From: sam@example.com\nOr Monday ${"x".repeat(590)}`,
+  ]);
+  const his = sceneOf(() => yes(""));
+  await his.read([
+    mail("I will send the signed lease tomorrow", {
+      fromMe: true,
+      sender: "me@mine.test",
+    }),
+  ]);
+  expect(his.calls).toEqual({ apple: 0, engine: 1 });
+});
+
 test("chats go straight to his engine's confirm alone, never to Apple; a chat that sets a meeting is read by the appointment read on the next pass", async () => {
   const s = sceneOf(
     () => yes("unused"),
