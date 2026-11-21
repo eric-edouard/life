@@ -355,9 +355,11 @@ export function readAgentsOnSteps(steps: string[], people: People) {
     (db) => agentsOnSteps(db, steps, clock().getTime(), true),
     []
   );
-  // The matter is the one read, found: an agent anchored on it has its wide net.
+  // The matter is the one read, found: an agent anchored on it has its wide net. The chosen matter stays the desk's.
   return read.state === "ok"
-    ? withWakesOn(read.value, people, (s) => s.length > 0)
+    ? withWakesOn(read.value, people, (s) => s.length > 0).map(
+        ({ matterId: _, ...a }) => a
+      )
     : [];
 }
 
