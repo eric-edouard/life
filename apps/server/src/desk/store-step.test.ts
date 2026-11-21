@@ -22,7 +22,12 @@ import {
 } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import { AgentWait } from "../records/registered-agent";
-import { MOVE_TABLES, openDesk, SCHEMA } from "./desk-store";
+import {
+  MOVE_TABLES,
+  ONE_AGENT_PER_ROLE,
+  openDesk,
+  SCHEMA,
+} from "./desk-store";
 import {
   stepMatterIds,
   stepMoves,
@@ -344,12 +349,14 @@ test("a store whose agents check their role is refused by openDesk; the step reb
   const dir = mkdtempSync(join(tmpdir(), "life-step-"));
   const path = join(dir, "desk.sqlite");
   const db = new Database(path);
+  // As `stepRoles` left his store: `role`, with its check, added last.
   db.run(
-    SCHEMA.replace(
-      "  role text,\n",
-      "  role text check (role in ('personal', 'caretaker')),\n"
-    )
+    SCHEMA.replace("  role text,\n", "").replace(`${ONE_AGENT_PER_ROLE};`, "")
   );
+  db.run(
+    "alter table agent add column role text check (role in ('personal', 'caretaker'))"
+  );
+  db.run(ONE_AGENT_PER_ROLE);
   for (const [id, role, status] of [
     ["agt_000000000001", "personal", "active"],
     ["agt_000000000002", null, "ended"],
