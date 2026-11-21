@@ -51,9 +51,9 @@
         "text": "Here is the signed quote.",
         "to": "Kit"
       },
-      "evidence": null,
       "goal": null,
       "group": "decision",
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
@@ -67,6 +67,7 @@
       "onSilence": "no",
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "gathered": null,
       "needs": [],
       "notSent": null,
       "options": [
@@ -82,6 +83,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
@@ -110,13 +112,9 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": "Life read their messages as Kit, the watchmaker (70% sure).",
+          "context": "Life read their messages as Kit, the watchmaker (70% sure).\n\n> Kit here, from the shop\n\n*[whatsapp, 2 Oct](life:unit_000000000001)*",
           "deadline": null,
           "draft": null,
-          "evidence": {
-            "from": "whatsapp, 2 Oct",
-            "quote": "Kit here, from the shop"
-          },
           "goal": null,
           "group": "guessed person",
           "kind": "person",
@@ -154,12 +152,17 @@
           "since": null,
           "subject": null,
           "title": "Know who someone is",
-          "lifeLinks": [],
+          "lifeLinks": [
+            {
+              "kind": "unit",
+              "ref": "unit_000000000001"
+            }
+          ],
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "3d9583390e9c79af83238cf7a4a8352f",
-            "shown": "25fe8d96124c400c"
+            "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
+            "shown": "36753a6bc8e9027f"
           },
           "confirm": [],
           "networkIdentity": {
@@ -209,16 +212,16 @@
       "said": null,
       "since": null,
       "about": [],
-      "agent": null,
+      "agent": "agt_000000000001",
       "asker": "Orbit",
       "at": "2026-10-14T09:00:00.000Z",
       "clips": [],
       "context": null,
       "deadline": "2099-01-02T09:00:00.000Z",
       "draft": null,
-      "evidence": null,
       "goal": null,
       "group": "decision",
+      "isPlan": true,
       "kind": "decision",
       "likelyPeople": [],
       "links": [],
@@ -229,6 +232,7 @@
         "state": "not_found"
       },
       "doneSeenBy": "payment",
+      "gathered": null,
       "needs": [
         {
           "bank": "Test Bank",
@@ -281,6 +285,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Pay the dive course deposit?",
       "ref": "dec_000000000002",
@@ -305,6 +310,87 @@
       "said": null,
       "since": null,
       "about": [],
+      "agent": "agt_000000000001",
+      "asker": "Orbit",
+      "at": "2026-10-14T10:00:00.000Z",
+      "clips": [],
+      "context": "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      "deadline": "2099-01-02T09:00:00.000Z",
+      "draft": null,
+      "goal": null,
+      "group": "decision",
+      "isPlan": true,
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "onMatters": [],
+      "onSilence": null,
+      "doneSeen": null,
+      "doneSeenBy": "tap",
+      "gathered": {
+        "text": "From Kit's quote and two others"
+      },
+      "needs": [],
+      "notSent": null,
+      "options": [
+        {
+          "id": "start",
+          "label": "Start the plan",
+          "role": "start",
+          "takes": null
+        },
+        {
+          "id": "decline",
+          "label": "Not this plan",
+          "role": "decline",
+          "takes": null
+        }
+      ],
+      "plan": [
+        {
+          "by": "agent",
+          "channel": "whatsapp",
+          "text": "Ask Kit for the quote",
+          "when": "today"
+        },
+        {
+          "by": "owner",
+          "channel": "payment",
+          "text": "Pay the deposit"
+        },
+        {
+          "by": "agent",
+          "text": "Book the repair",
+          "when": "once Kit answers, by Thu"
+        }
+      ],
+      "replaces": null,
+      "question": "Start with this plan?",
+      "ref": "dec_000000000003",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Mend the strap",
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f0bf086db1fae378",
+      "urgency": "blocks",
+      "misread": null
+    },
+    {
+      "about": [],
       "asker": "life",
       "at": null,
       "clips": [
@@ -327,13 +413,9 @@
           ]
         }
       ],
-      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.",
+      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.\n\n> It's the shop, about the watch.\n\n*a recorded conversation, 14 Oct*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "a recorded conversation, 14 Oct",
-        "quote": "It's the shop, about the watch."
-      },
       "goal": null,
       "group": "voice",
       "kind": "voice",
@@ -372,6 +454,8 @@
         "observations": 0,
         "pages": 0
       },
+      "said": null,
+      "since": null,
       "subject": null,
       "title": "Name a voice",
       "lifeLinks": [],
@@ -383,8 +467,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "f094d10b549822d0",
-        "seal": "1907a584706d34dd65f52b174822961f",
-        "shown": "424c7f835736fe45"
+        "seal": "06aecb13618c16175b419d4d94e7a240",
+        "shown": "c10722054d0faaa9"
       }
     },
     {
@@ -405,13 +489,9 @@
         }
       ],
       "contactsCard": null,
-      "context": null,
+      "context": "> \"Sam fixed the strap\" said Gran\n\n*[whatsapp, 12 Oct](life:unit_000000000001)*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "whatsapp, 12 Oct",
-        "quote": "\"Sam fixed the strap\" said Gran"
-      },
       "goal": null,
       "group": "name",
       "kind": "person",
@@ -470,7 +550,12 @@
       "since": null,
       "subject": null,
       "title": "Place a name",
-      "lifeLinks": [],
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
       "matter": null,
       "confirm": [],
       "networkIdentity": null,
@@ -478,8 +563,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "3b404043a79bbfd0",
-        "seal": "a50fe724e425673ba948ee95747f76bd",
-        "shown": "ddca4bd9c15b3225"
+        "seal": "2bb405c4a689ec81c89e2ca3b19a1014",
+        "shown": "834a471ddb92c007"
       }
     },
     {
@@ -494,7 +579,6 @@
       "context": "It is the Contacts card Lou.",
       "deadline": null,
       "draft": null,
-      "evidence": null,
       "goal": null,
       "group": "contacts card",
       "kind": "person",
@@ -545,8 +629,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "eab9c455c7fa456b",
-        "seal": "94c23b09083bee9a3734d9954830ecb6",
-        "shown": "6ce57e7f7a701da5"
+        "seal": "40ccb5518e057d06cf05d8036c9fe753",
+        "shown": "17c0d25543bac3c2"
       }
     },
     {
@@ -555,13 +639,9 @@
       "at": null,
       "clips": [],
       "contactsCard": null,
-      "context": "A later step seems to show it done.",
+      "context": "A later step seems to show it done.\n\n> Called them.\n\n*an earlier message*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "an earlier message",
-        "quote": "Called them."
-      },
       "goal": null,
       "group": "ending",
       "kind": "ending",
@@ -624,8 +704,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "1addffdfdc12fcfa",
-        "seal": "59a8c4a7ae0010f623c8cc1b4f0741bb",
-        "shown": "c22e02368640bc0c"
+        "seal": "0066f68ef90e6b612b4096522ce249fd",
+        "shown": "928771774c0f909f"
       }
     },
     {
@@ -634,13 +714,9 @@
       "at": null,
       "clips": [],
       "contactsCard": null,
-      "context": "Life read their messages as Kit, the watchmaker (70% sure).",
+      "context": "Life read their messages as Kit, the watchmaker (70% sure).\n\n> Kit here, from the shop\n\n*[whatsapp, 2 Oct](life:unit_000000000001)*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "whatsapp, 2 Oct",
-        "quote": "Kit here, from the shop"
-      },
       "goal": null,
       "group": "guessed person",
       "kind": "person",
@@ -678,7 +754,12 @@
       "since": null,
       "subject": null,
       "title": "Know who someone is",
-      "lifeLinks": [],
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
       "matter": null,
       "confirm": [],
       "networkIdentity": {
@@ -703,8 +784,67 @@
       "urgency": "improves",
       "misread": {
         "cause": "01b070ee5ba7f83a",
-        "seal": "3d9583390e9c79af83238cf7a4a8352f",
-        "shown": "25fe8d96124c400c"
+        "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
+        "shown": "36753a6bc8e9027f"
+      }
+    },
+    {
+      "about": ["+33600000001"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "contactsCard": null,
+      "context": "They go by the same whole name; nothing Life holds joins them.",
+      "deadline": null,
+      "draft": null,
+      "goal": null,
+      "group": "same person",
+      "kind": "person",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "name": "Robin",
+          "ref": "person:partner"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "same-person",
+          "label": "Same person",
+          "takes": null
+        },
+        {
+          "id": "not-this-person",
+          "label": "Different people",
+          "takes": null
+        }
+      ],
+      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
+      "ref": "same:person:inf_kit~person:partner",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": null,
+      "since": null,
+      "subject": null,
+      "title": "Join one person",
+      "lifeLinks": [],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "87f3c9ef6bcd1334",
+      "urgency": "improves",
+      "misread": {
+        "cause": "6c04307dd5deaa49",
+        "seal": "09f6b6dae58b36c9da13e4e5608df57a",
+        "shown": "868e9f1e31ca2ebc"
       }
     },
     {
@@ -720,13 +860,9 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.",
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*12 Oct*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "12 Oct",
-        "quote": "Gran wants it framed"
-      },
       "goal": "Gran's photo is framed.",
       "group": "new matter",
       "kind": "new matter",
@@ -779,22 +915,23 @@
       "urgency": "improves",
       "misread": {
         "cause": "e33422a9ac5b7ce7",
-        "seal": "02c9729efbc2c1ace0887bd979d3653f",
-        "shown": "f8053e6bca0bfd2b"
+        "seal": "78325163f18215a3cc69046d1c766cd8",
+        "shown": "fbb39df191312464"
       }
     }
   ],
-  "blocking": 5,
+  "blocking": 6,
   "counts": {
-    "decision": 2,
+    "decision": 3,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
     "ending": 1,
     "guessed person": 1,
+    "same person": 1,
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 8,
-  "version": "0f28562dfbf41c4a"
+  "total": 10,
+  "version": "0bc60711464a650f"
 }

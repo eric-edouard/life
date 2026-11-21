@@ -76,6 +76,7 @@ function withoutGroups(
     matters: [],
     nameContexts: new Map(),
     paged: new Set(),
+    samePersons: [],
     titles: new Map(),
     today: "2026-11-18",
     voices: [],

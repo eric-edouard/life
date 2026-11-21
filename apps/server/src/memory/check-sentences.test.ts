@@ -10,8 +10,6 @@ import {
 } from "./check-sentences";
 import { checksOf } from "./checks";
 import { inputs, line, nameRow, stepsOf } from "./checks-test-inputs";
-// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as files from "./memory-files";
 import { holdsName } from "./units";
 import type { People } from "./who";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -70,13 +68,15 @@ test("a name matches whole words, ignoring case and accents", () => {
 });
 
 test("a name's sentence is the unit's own line holding it, who said it and where; a repeat read of an unchanged unit reads nothing", async () => {
-  const units = spyOn(files, "readUnitsFor").mockReturnValue([unit()]);
+  let held = [unit()];
   const read = spyOn(words, "unitLines").mockResolvedValue({
     built: {},
     lines: chat,
   } as never);
   try {
-    const [context] = [...(await readNameContexts(wanted, people)).values()];
+    const [context] = [
+      ...(await readNameContexts(wanted, people, held)).values(),
+    ];
     expect(context?.said).toEqual({
       at: "2026-11-01T09:04:00.000Z",
       by: "Dana",
@@ -85,22 +85,21 @@ test("a name's sentence is the unit's own line holding it, who said it and where
       to: "Kitchen crew",
     });
     expect(context?.clips).toEqual([]);
-    await readNameContexts(wanted, people);
+    await readNameContexts(wanted, people, held);
     expect(read).toHaveBeenCalledTimes(1);
     // The unit changed (a new hash): read again.
-    units.mockReturnValue([unit({ hash: "h2" })]);
-    await readNameContexts(wanted, people);
+    held = [unit({ hash: "h2" })];
+    await readNameContexts(wanted, people, held);
     expect(read).toHaveBeenCalledTimes(2);
   } finally {
-    units.mockRestore();
     read.mockRestore();
   }
 });
 
 test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the sentence, and a unit that cannot be read leaves no context", async () => {
-  const units = spyOn(files, "readUnitsFor").mockReturnValue([
+  let held = [
     unit({ hash: "h3", key: "conv-1", source: "lifelog", title: "conv-1" }),
-  ]);
+  ];
   const spoken = spyOn(words, "spokenLines").mockResolvedValue(
     new Map([
       [
@@ -132,23 +131,28 @@ test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the 
         ],
       ]) as never
     );
-    const [withClip] = [...(await readNameContexts(wanted, people)).values()];
+    const [withClip] = [
+      ...(await readNameContexts(wanted, people, held)).values(),
+    ];
     expect(withClip?.clips).toEqual([clip]);
     expect(withClip?.said.to).toBeNull();
     lifelog.mockRejectedValue(new Error("down"));
-    units.mockReturnValue([
+    held = [
       unit({ hash: "h4", key: "conv-1", source: "lifelog", title: "conv-1" }),
-    ]);
-    const [noClip] = [...(await readNameContexts(wanted, people)).values()];
-    expect(noClip?.clips).toEqual([]);
-    expect(noClip?.said.text).toBe("ask Bastien about the tiles");
+    ];
+    const [noClip] = [
+      ...(await readNameContexts(wanted, people, held)).values(),
+    ];
+    expect(noClip).toMatchObject({
+      clips: [],
+      said: { text: "ask Bastien about the tiles" },
+    });
     spoken.mockRejectedValue(new Error("lifelog down"));
-    units.mockReturnValue([
+    held = [
       unit({ hash: "h5", key: "conv-1", source: "lifelog", title: "conv-1" }),
-    ]);
-    expect((await readNameContexts(wanted, people)).size).toBe(0);
+    ];
+    expect((await readNameContexts(wanted, people, held)).size).toBe(0);
   } finally {
-    units.mockRestore();
     spoken.mockRestore();
     lifelog.mockRestore();
   }
@@ -193,7 +197,7 @@ test("a name's card shows a line that holds the name, never the newest line when
   // Without the unit read: the quote of the newest line that holds the name, not the newest line.
   const [plain] = checksOf(base);
   expect(plain).toMatchObject({
-    evidence: { quote: "Bastien said he comes Thursday" },
+    context: expect.stringContaining("> Bastien said he comes Thursday\n"),
     question: 'Who is "Bastien / bastien"?',
     said: { by: "Dana", text: "Bastien said he comes Thursday" },
   });
@@ -234,9 +238,7 @@ test("a name's card shows a line that holds the name, never the newest line when
 });
 
 test("a name shows the observation's own sentence, not an earlier line that also names the person", async () => {
-  const units = spyOn(files, "readUnitsFor").mockReturnValue([
-    unit({ hash: "h6" }),
-  ]);
+  const held = [unit({ hash: "h6" })];
   const read = spyOn(words, "unitLines").mockResolvedValue({
     built: {},
     lines: [
@@ -245,10 +247,11 @@ test("a name shows the observation's own sentence, not an earlier line that also
     ],
   } as never);
   try {
-    const [context] = [...(await readNameContexts(wanted, people)).values()];
+    const [context] = [
+      ...(await readNameContexts(wanted, people, held)).values(),
+    ];
     expect(context?.said.text).toBe("Bastien comes Thursday, are you in?");
   } finally {
-    units.mockRestore();
     read.mockRestore();
   }
 });

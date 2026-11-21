@@ -264,18 +264,19 @@ export function imessageFixture(
  * setting and LIFELOG_TOKEN point at it until `close`. `seen` records each request.
  */
 export function lifelogServer(
-  routes: Record<string, (body: unknown) => unknown>
+  routes: Record<string, (body: unknown, query: URLSearchParams) => unknown>
 ) {
   const seen: { auth: string | null; body: unknown; path: string }[] = [];
   const server = Bun.serve({
     async fetch(req) {
-      const path = new URL(req.url).pathname;
+      const { pathname: path, searchParams } = new URL(req.url);
       const body = req.method === "POST" ? await req.json() : undefined;
       seen.push({ auth: req.headers.get("authorization"), body, path });
-      const route = routes[path];
-      return route
-        ? Response.json(await route(body))
-        : new Response("", { status: 404 });
+      // A route that gives nothing is lifelog's 404.
+      const out = await routes[path]?.(body, searchParams);
+      return out === null || out === undefined
+        ? new Response("", { status: 404 })
+        : Response.json(out);
     },
     port: 0,
   });

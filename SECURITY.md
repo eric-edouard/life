@@ -98,6 +98,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.
+- A field's dictation on his phone (`POST /dictation/transcript`) to lifelog's speech service on this Mac; the turns it
+  hears as Thai, or all of it when mostly Thai, with vocabulary hints that can name people, to ElevenLabs Scribe under
+  its ordinary retention (his decision, 21 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per
+  dictation; lifelog keeps no audio and no words.
 - To a registered agent's runtime (his Claude subscription, or his Codex subscription: OpenAI): its brief and packet
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).
@@ -129,6 +133,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   a question). Lifelog pushes it to his phone through Apple; his phone then reads the card from the connector and
   writes the notification's text itself, shown on his lock screen and his Watch. When cards leave his inbox (answered,
   withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone removes their notifications.
+  An appointment Life added to his calendar is pushed the same way (his word of 21 Nov 2026): the words "Added to
+  your calendar", its kind `calendar.added`, its level and its opaque id alone; the phone reads the event from the
+  connector (`read_appointments`).
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 

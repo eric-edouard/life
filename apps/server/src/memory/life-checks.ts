@@ -2,9 +2,13 @@
 // label is his app's button, a few words for him; what choosing it does, in words a model reads, is in `answer_check`'s
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
+import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
+import type { PlanStep } from "./card-request";
+import type { Decision } from "./decision-lines";
 import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
+import type { AgentHold } from "./held-matters";
 import type { needsShownOf } from "./needs";
 import type { Party } from "./party";
 import type { RefKind } from "./refs";
@@ -22,6 +26,8 @@ export interface CheckOption {
   label: string;
   looks?: true;
   outgoing?: true;
+  /** On a plan card's two options: `start` the plan, or `decline` it (the option role). */
+  role?: "decline" | "start";
   takes: "note" | "person" | "person or name" | null;
 }
 
@@ -78,6 +84,14 @@ export const LIFE_CHECKS = {
       { id: "dismiss", label: "No", takes: null },
     ],
     title: "Life found a new matter",
+  },
+  "same person": {
+    context: "They go by the same whole name; nothing Life holds joins them.",
+    options: [
+      { id: "same-person", label: "Same person", takes: null },
+      { id: "not-this-person", label: "Different people", takes: null },
+    ],
+    title: "Join one person",
   },
   voice: {
     context:
@@ -141,7 +155,7 @@ export interface Check {
   confirm: Check[];
   /** A Contacts card's own name and handles, from the one `ContactNow`; null for every other kind. Never a network identity (a card has no chat). */
   contactsCard?: { handles: string[]; name: string } | null;
-  /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
+  /** Why it asks, what was tried, what it rests on: folded on his card, in Markdown. An agent's words, or Life's own for its guesses, with the words a guess rests on quoted (`checksOf`). */
   context: string | null;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
@@ -151,13 +165,15 @@ export interface Check {
   doneSeenBy?: "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
-  /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
-  evidence: { from: string; quote: string } | null;
+  /** On a plan card: what its plan was gathered from, one line (the source chip), which opens its `context`; null on a decision with none; absent on every other kind. */
+  gathered?: { text: string } | null;
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
   goal: string | null;
   group: CheckGroup;
   /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
   head?: { name: string; network: string } | null;
+  /** Whether a decision is its assignment's plan card (host's `planCardsOf`): worked out when read, never stored; absent on every other kind. */
+  isPlan?: boolean;
   kind: CheckKind;
   /** The `life:` links of its `context`, each with its kind (`lifeLinksOf`): worked out when read, never stored. */
   lifeLinks: { kind: RefKind; ref: string }[];
@@ -185,6 +201,8 @@ export interface Check {
   onSilence: string | null;
   /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`; on Life's own cards, his complaint, `misread`). */
   options: CheckOption[];
+  /** A plan card's steps, in order (`PlanStep`); null on a decision with none (an older plan card: its plan is in `context`); absent on every other kind. */
+  plan?: z.infer<typeof PlanStep>[] | null;
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
@@ -213,6 +231,9 @@ export interface Check {
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */
 export interface BeingFixed {
   ask: string;
+  /** The caretaker's open card's `context`, beside its question (`line`); null with no card. */
+  context: string | null;
+  /** The caretaker's open card's question on that complaint's assignment; null with none (the plain "fixing this"). */
   line: string | null;
   since: string;
 }
@@ -221,8 +242,14 @@ export interface BeingFixed {
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
 
-/** An ending check always has its evidence: the later step's words. */
-export const isEndingKind = (
-  c: Check
-): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
-  c.kind === "ending";
+/** Whether a check asks if a step is done (never in the nightly email). */
+export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
+
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
+export interface HeldRead {
+  cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
+  complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
+  plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
+  read: () => readonly AgentHold[] | null;
+  stamp: string;
+}

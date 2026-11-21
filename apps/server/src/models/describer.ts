@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { MIN } from "../core/clock";
+import { timedLocalModel } from "../core/log";
 import { download, type Pin } from "../core/pinned";
 import { cliEnv, llamaServer, MACHINE_DIR } from "../core/platform";
 
@@ -39,11 +40,10 @@ const Reply = z.object({
  * `image` (a JPEG) described by the server at `url` with `prompt`: thinking off, the sampling of the bench (11 Nov 2026).
  * Throws on a refusal, a failed call or an empty answer.
  */
-export async function describeAt(
-  url: string,
-  image: Uint8Array,
-  prompt: string
-) {
+export const describeAt = (url: string, image: Uint8Array, prompt: string) =>
+  timedLocalModel("describer", 1, () => describeOnce(url, image, prompt));
+
+async function describeOnce(url: string, image: Uint8Array, prompt: string) {
   const res = await fetch(`${url}/v1/chat/completions`, {
     body: JSON.stringify({
       chat_template_kwargs: { enable_thinking: false },
@@ -137,7 +137,6 @@ export async function startDescriber() {
       if (await isUp()) {
         break;
       }
-      // biome-ignore lint/performance/noAwaitInLoops: polls until the model is loaded
       await Bun.sleep(1000);
     }
   } catch (e) {

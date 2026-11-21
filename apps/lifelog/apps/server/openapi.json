@@ -1325,6 +1325,15 @@
         },
         "required": ["text"]
       },
+      "DictationWords": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      },
       "IngestState": {
         "type": "object",
         "properties": {
@@ -3464,7 +3473,7 @@
     },
     "/notifications": {
       "post": {
-        "description": "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, so a missing one tells him at once it was not; its new cards: a count, a badge and one card's opaque id, `pushId`, 16 hex, which lets the phone rewrite it). Words (`title` and `body` together) and/or a `badge`; `level` is Apple's interruption level (passive makes no sound). Or `removed` alone: the `pushId`s of cards that left Life's inbox, a background push, and the phone removes their notifications. Sent once, recorded as an `apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
+        "description": "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, so a missing one tells him at once it was not; its new cards: a count, a badge and one card's opaque id, `pushId`, 16 hex, which lets the phone rewrite it; an appointment it added to his calendar: `kind` `calendar.added` and its opaque `pushId`, category `life.calendar`, no badge). Words (`title` and `body` together) and/or a `badge`; `level` is Apple's interruption level (passive makes no sound). Or `removed` alone: the `pushId`s of cards that left Life's inbox, a background push, and the phone removes their notifications. Sent once, recorded as an `apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3480,6 +3489,10 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": ["calendar.added"]
                   },
                   "level": {
                     "type": "string",
@@ -4110,6 +4123,74 @@
           },
           "503": {
             "description": "Not now: send it again later",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dictation/transcript": {
+      "post": {
+        "description": "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of all other work, by the speech service and Scribe for the turns it routes as Thai by where the owner is now. lifelog keeps no audio and no words, only operational events (its length, route, billable seconds, turns left unheard and Scribe's outcome). ElevenLabs keeps what Scribe is sent (the Thai turns, or all of it when mostly Thai, with vocabulary hints that can name people) under its ordinary retention; zero retention is enterprise-only. The words are whole or not given. 503 when the speech service or transcription is off or busy, or the words need Scribe while its credits are out or no slot frees: nothing was billed. 502 when Scribe left any routed turn without words: the owner says it again. The device token only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Its words; empty when nothing was heard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictationWords"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not Ogg Opus, or longer than 10 minutes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 16 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Some of its words are missing: say it again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not now, nothing billed: say it again",
             "content": {
               "application/json": {
                 "schema": {

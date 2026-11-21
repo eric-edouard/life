@@ -91,10 +91,21 @@ export const projectTargetsOf = (
     if (!open.some(isRunning)) {
       return [];
     }
-    const matters = newestWithin(open, CALL_CHARS, {
-      at: (v) => v.steps.at(-1)?.at ?? "",
-      size: (v) => JSON.stringify(shownOf(v, decisions, String)).length,
-    });
+    // Only a matter with an open step is shown: one open only for being recent (nothing to do on it) closes with the
+    // clock alone, which must not regenerate the situation. Sized as the call renders it, its name and status too.
+    const matters = newestWithin(
+      open.filter((v) => v.openSteps.length > 0),
+      CALL_CHARS,
+      {
+        at: (v) => v.steps.at(-1)?.at ?? "",
+        size: (v) =>
+          JSON.stringify({
+            ...shownOf(v, decisions, people.nameOf),
+            name: v.name,
+            status: v.status,
+          }).length,
+      }
+    );
     return matters.length === 0 ? [] : [{ matters, project: p }];
   });
 };

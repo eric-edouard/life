@@ -14,7 +14,6 @@ import {
   turns,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { createApp } from "./app";
 import { memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
 import { admit, bought } from "./cutter";
@@ -24,7 +23,6 @@ import { jobBench } from "./job-bench";
 import { getJob, jobWorker } from "./jobs";
 import { latency, spread } from "./latency";
 import { macSocket, vouchedThrough } from "./mac-socket";
-import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
   providerTranscript,
@@ -299,7 +297,6 @@ test("429: the job stays queued, not an attempt, and goes once its next attempt 
 
 test("transcription off or credits used up: nothing is sent; jobs wait queued", async () => {
   const app = appWith();
-  const config = testConfig(baseUrl);
   let used = 49_217;
   fake.respond = (call) =>
     call.path.endsWith("/v1/user/subscription")
@@ -311,7 +308,7 @@ test("transcription off or credits used up: nothing is sent; jobs wait queued", 
   expect(uploads()).toHaveLength(0);
   setSwitches(env.db, { transcription: true });
 
-  const worker = jobWorker(env.db, config, app.audio);
+  const { worker } = app.s;
   await worker.checkCredits();
   await worker.work();
   expect(uploads()).toHaveLength(0);
@@ -503,13 +500,9 @@ test("a refusal fails the job at once; a 5xx may be billed: it waits for its web
 // Bun names it ConnectionRefused on macOS, ECONNREFUSED on Linux (30 Oct: Linux sent it to maybe billed).
 const REFUSED = /ConnectionRefused|ECONNREFUSED/;
 test("a refused connection never left: queued again, not an attempt, not maybe billed", async () => {
-  const audioStore = memoryAudioStore();
-  const s = services(testConfig("http://127.0.0.1:1"), env.db, {
-    audio: audioStore,
-  });
-  const app = Object.assign(createApp(s), { audio: audioStore, s });
+  const app = appWith({ ELEVENLABS_BASE_URL: "http://127.0.0.1:1" });
   const jobId = await admitFragment(app, audio(60), 1);
-  await s.worker.work();
+  await app.s.worker.work();
   const job = jobRow(jobId);
   expect(job).toMatchObject({
     attempts: 0,
