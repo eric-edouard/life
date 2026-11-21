@@ -120,14 +120,14 @@ export function tool<S extends z.ZodObject>(
       const call: ToolCall = {
         ...(typeof key === "string" ? { answerKey: key } : {}),
         report: (step) => {
-          const name = step.step ?? "plan";
+          const stepName = step.step ?? "plan";
           const last = steps.at(-1);
-          if (last?.step === name) {
+          if (last?.step === stepName) {
             last.count = (last.count ?? 1) + 1;
           } else {
             steps.push({
               ms: Math.round(performance.now() - started),
-              step: name,
+              step: stepName,
             });
           }
           if (progressToken !== undefined) {
