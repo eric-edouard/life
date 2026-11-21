@@ -1,5 +1,8 @@
+import { existsSync, readFileSync } from "node:fs";
+import { readLines } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { COMPLAINT_RETRIED } from "../core/paths";
 import {
   type AssignmentRow,
   agentInRole,
@@ -11,7 +14,12 @@ import {
 } from "../host/desk-read";
 import { COMPLAINT_RECEIVED } from "../host/events";
 import { recordComplaints } from "../memory/complaint-record";
-import { askOf, readLedger } from "../memory/memory-files";
+import {
+  askOf,
+  LEDGER,
+  parseLedgerEntry,
+  readLedger,
+} from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import { register } from "./agent-actions";
 import { COMPLAINTS_CURSOR, type Desk, saveCursor } from "./desk-store";
@@ -70,16 +78,24 @@ function destinationOf(
     : { why: blocked ?? "no caretaker can be started now" };
 }
 
+/** When he last pressed "Wrong…": a complaint's ask, anywhere in the ledger (the newest, read from the end), or his retry of one. */
+function readNewestPress() {
+  const asked = readLedger().findLast(isComplaint)?.at ?? "";
+  const retried = existsSync(COMPLAINT_RETRIED)
+    ? readFileSync(COMPLAINT_RETRIED, "utf8")
+    : "";
+  return asked > retried ? asked : retried;
+}
+
 /**
- * Why no caretaker is registered: the last one's first turn never began (`why_not_started`), and no complaint was
- * pressed since it ended, anywhere in the ledger (the newest, read from the end). His next press tries once more; the
- * ones pending wait for it.
+ * Why no caretaker is registered: the last one's first turn never began (`why_not_started`), and he pressed nothing
+ * since it ended, neither a new complaint nor a retry of one. His next press tries once more; the ones pending wait for it.
  */
 function startFailureOf(db: Desk["db"]) {
   const last = agentInRole(db, "caretaker");
   return last?.status === "ended" &&
     last.why_not_started &&
-    (readLedger().findLast(isComplaint)?.at ?? "") <= (last.ended_at ?? "")
+    readNewestPress() <= (last.ended_at ?? "")
     ? `the caretaker did not start (${last.why_not_started}); his next "Wrong…" tries again`
     : undefined;
 }
@@ -91,9 +107,15 @@ function startFailureOf(db: Desk["db"]) {
 export async function receiveComplaints(desk: Desk) {
   const { db } = desk;
   const from = Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0);
-  const rows = readLedger().slice(from, from + ROWS_PER_TICK);
+  // Its page's lines only (`readLines`): a tick parses no more of the ledger than it reads.
+  const rows = Array.from(
+    readLines(LEDGER, from, from + ROWS_PER_TICK),
+    parseLedgerEntry
+  );
   const pending = rows.flatMap((a, i) =>
-    isComplaint(a) && !complaintReceiptOf(db, a.id) ? [{ a, n: from + i }] : []
+    a && isComplaint(a) && !complaintReceiptOf(db, a.id)
+      ? [{ a, n: from + i }]
+      : []
   );
   try {
     recordComplaints(pending.map((p) => p.a));

@@ -324,12 +324,12 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
   mkdirSync(dirname(DESK_STORE), { recursive: true });
   const db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
-    "create table assignment (id text, agent_id text, closed_at text, opened_at text)"
+    "create table assignment (id text, agent_id text, closed_at text, opened_at text, matter_id text)"
   );
   db.run("create table anchor (assignment_id text, step text)");
   db.run("create table card (decision_id text, assignment_id text)");
   db.run(
-    "insert into assignment values ('asg_test', 'agt_0123456789ab', null, '2026-11-18T08:00:00.000Z')"
+    "insert into assignment values ('asg_test', 'agt_0123456789ab', null, '2026-11-18T08:00:00.000Z', null)"
   );
   db.run(
     "create table event (assignment_id text, event_id text, name text, payload text, received_at text)"
@@ -369,11 +369,26 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
       ]
     );
     db.run(
-      "insert into turn (assignment_id, cause, started_at) values (?, ?, ?)",
-      ["asg_test", "answer", "2026-11-18T09:00:05.000Z"]
+      "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, ?, ?)",
+      ["agt_0123456789ab", "asg_test", "answer", "2026-11-18T09:00:05.000Z"]
     );
     expect((await call(id3, ["wait"]).result).asker).toMatchObject({
       told: "woken",
+    });
+    // Folded or moved to another agent: the receipt names the agent holding its card now.
+    const { id: id4 } = await card("desk", "agt_0123456789ab");
+    db.run("insert into card values (?, 'asg_test'), (?, 'asg_test')", [
+      id3,
+      id4,
+    ]);
+    db.run("update assignment set agent_id = 'agt_00000000fe11'");
+    // The one that woke on it stays the one told, after its card moved on.
+    expect((await call(id3, ["wait"]).result).asker).toMatchObject({
+      agent: "agt_0123456789ab",
+      told: "woken",
+    });
+    expect((await call(id4, ["wait"]).result).asker).toMatchObject({
+      agent: "agt_00000000fe11",
     });
   } finally {
     db.close();

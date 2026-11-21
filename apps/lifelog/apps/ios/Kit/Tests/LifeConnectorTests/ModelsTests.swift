@@ -47,12 +47,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 8)
+    #expect(inbox.total == 9)
     #expect(inbox.blocking == 5)
     #expect(inbox.badge == 5)
-    #expect(inbox.counts.values.reduce(0, +) == 8)
+    #expect(inbox.counts.values.reduce(0, +) == 9)
     #expect(
-        inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
+        inbox.checks.map(\.urgency) == [
+            .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+        ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -61,6 +63,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
     #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
+    // The plan card: the second decision is its assignment's first card; the first is not.
+    #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
+    #expect(inbox.checks.last?.isPlan == nil)
     #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
     #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
     #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
@@ -80,7 +85,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.ridesOn?.matters == 1)
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
-    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .unknown])
+    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
     #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
     #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
     #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))
@@ -310,6 +315,10 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(ending.options.compactMap(ending.answer).map(\.options) == [["outdated"], ["false"]])
     #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
 
+    let same = try card(.samePerson)
+    #expect(same.options.compactMap(same.answer).map(\.options) == [["same-person"], ["not-this-person"]])
+    #expect(same.options.compactMap(same.answer).allSatisfy { $0.ref == same.ref })
+
     let found = try card(.newMatter)
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
     #expect(found.answer(edit) == nil)
@@ -507,6 +516,43 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(check.askedName == "Sam Vale")
 }
 
+/// "Wrong…" is on Life's own cards only, and his press sends the card's seal back exactly as `Misread`
+/// (`host/complaints.ts`) takes it: his words as `note`, no option.
+@Test func lifesOwnCardsCarryTheirSealAndAComplaintSendsItBack() throws {
+    let checks = try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
+    #expect(checks.allSatisfy { ($0.misread != nil) == ($0.asker == "life") })
+    let voice = try #require(checks.first { $0.group == .voice })
+    #expect(voice.complaint(words: "  ", report: true) == nil)
+    #expect(voice.complaint(words: String(repeating: "a", count: 4_001), report: true) == nil)
+    let request = try #require(voice.complaint(words: " Not her. ", report: true))
+    let sent = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+    #expect(sent["ref"] as? String == voice.ref)
+    #expect((sent["options"] as? [String])?.isEmpty == true)
+    #expect(sent["note"] as? String == "Not her.")
+    let value = try #require(sent["value"] as? [String: Any])
+    #expect(Set(value.keys) == ["kind", "cause", "shown", "seal", "report"])
+    #expect(value["kind"] as? String == "misread" && value["report"] as? Bool == true)
+    let misread = try #require(voice.misread)
+    #expect(
+        [value["cause"], value["shown"], value["seal"]].map { $0 as? String }
+            == [misread.cause, misread.shown, misread.seal])
+    let decision = try #require(checks.first { $0.group == .decision })
+    #expect(decision.complaint(words: "Wrong", report: false) == nil)
+}
+
+/// A card the caretaker is fixing says so, with the caretaker's own line when it has one.
+@Test func aCardBeingFixedDecodes() throws {
+    var inbox = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    var checks = try #require(inbox["checks"] as? [[String: Any]])
+    checks[2]["beingFixed"] = ["ask": "ask_1", "since": "2026-11-20T09:00:00.000Z", "line": NSNull()]
+    inbox["checks"] = checks
+    let text = String(decoding: try JSONSerialization.data(withJSONObject: inbox), as: UTF8.self)
+    let fixing = try decoded(Inbox.self, text).checks[2].beingFixed
+    #expect(fixing?.ask == "ask_1" && fixing?.line == nil && fixing?.since != nil)
+}
+
 /// A matter's icon, down the chain: his pick, Life's, the first area's icon, the folder. Only a key this app knows is
 /// drawn, chosen in the grid and attributed; his own pick is what Undo puts back, known or not.
 @Test func aMattersIconFallsFromHisPickToTheFolder() throws {
@@ -649,6 +695,14 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(fresh.checked(by: partial, askedAt: tapped.addingTimeInterval(1)) == nil)
     // Nothing in hand: nothing to show until the read.
     #expect(PushedCard(pushId: "push-n1", in: nil, notified: nil, at: tapped).opening == nil)
+    // How many wait is the read's word alone: none before a read (the one-card inbox counts only its card), the read's
+    // total when the card is past its limit (never one more), less his answers.
+    var read = ReadState<Inbox>()
+    #expect(fresh.shown(in: nil, answeredSinceTap: [])?.total == 1 && read.waiting(less: []) == nil)
+    read.apply(.succeeded(partial, tapped))
+    #expect(fresh.shown(in: partial, answeredSinceTap: [])?.total == 601 && read.waiting(less: []) == 600)
+    read.apply(.succeeded(cached, tapped))
+    #expect(read.waiting(less: ["i1"]) == cached.total - 1)
 }
 
 /// A pushed card past the read's limit, answered: the read after the answer, cut off before it, never puts it back.

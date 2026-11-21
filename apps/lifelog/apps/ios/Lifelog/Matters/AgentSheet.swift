@@ -90,7 +90,7 @@ struct AgentSheet: View {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                     if !wakers.isEmpty {
                         group("Wakes on a message or a call from") {
-                            ForEach(Array(wakers.enumerated()), id: \.offset) { wakerRow($1) }
+                            ForEach(Array(wakers.enumerated()), id: \.offset) { wakerButton($1) }
                         }
                     }
                     if !clauses.isEmpty {
@@ -121,6 +121,21 @@ struct AgentSheet: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             Text(title).label().foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
             rows()
+        }
+    }
+
+    /// A person he knows opens their page (the sheet closes, the People tab shows them); a chat, or someone who no
+    /// longer resolves, is only a row.
+    @ViewBuilder private func wakerButton(_ waker: Waker) -> some View {
+        if case .person(_, let party?) = waker.who {
+            Button {
+                router.open(party: party.ref)
+            } label: {
+                wakerRow(waker).contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        } else {
+            wakerRow(waker)
         }
     }
 
@@ -215,7 +230,7 @@ struct AgentSheet: View {
             }
             .disabled(state.isRunning)
             if let link = agent.link.flatMap(URL.init(string:)) {
-                TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
+                TextLink("Open in \(agent.runtimeName.name)", to: .outside) { openURL(link) }
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }
         }

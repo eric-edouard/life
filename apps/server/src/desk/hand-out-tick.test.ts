@@ -497,8 +497,27 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
   const step = "obs_00000000f031";
   await withBook(
     [toDo(step, "I'll send the invoice")],
-    { id: "matter_00000000f031", steps: [step] },
+    { id: "matter_00000000f031", projects: ["test-bakery"], steps: [step] },
     async () => {
+      // Its project's matter: the agent takes it, so its own assignment asks on it.
+      const readTruth = await import("../memory/read-truth");
+      const made = await readTruth.loadTruth();
+      using _truth = spyOn(readTruth, "loadTruth").mockResolvedValue({
+        ...made,
+        projects: [
+          ...made.projects,
+          {
+            chats: [],
+            deadlines: [],
+            id: "test-bakery",
+            name: "Test bakery",
+            notes: "",
+            people: [],
+            repos: [],
+            status: "active",
+          },
+        ],
+      } as never);
       const agent = register(desk, {
         brief: "Test brief: the bakery",
         project: "test-bakery",

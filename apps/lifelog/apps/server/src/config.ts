@@ -1,17 +1,21 @@
+import { clock } from "@life/server/src/core/clock";
+import { HOUR_PRICES, priceOn } from "@life/server/src/core/prices";
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import { z } from "zod";
 
-// Prices from docs/research/elevenlabs.md (live pricing page; Scribe's rate read 2026-11-11).
-// The API reference prices keyterms at +20% ($0.044/h); the higher figure is used.
-export const SCRIBE_USD_PER_HOUR = 0.2;
-const KEYTERMS_USD_PER_HOUR = 0.05;
-
-// Seconds at the base Scribe rate that this audio will cost, add-ons included.
-export const billableSeconds = (seconds: number, s: { keyterms: string[] }) =>
-  (seconds *
-    (SCRIBE_USD_PER_HOUR +
-      (s.keyterms.length > 0 ? KEYTERMS_USD_PER_HOUR : 0))) /
-  SCRIBE_USD_PER_HOUR;
+// Seconds at Scribe's base rate that this audio will cost on `day`, add-ons included (prices: Life's `core/prices.ts`).
+export const billableSeconds = (
+  seconds: number,
+  s: { keyterms: string[] },
+  day = clock().toISOString().slice(0, 10)
+) => {
+  const base = priceOn(HOUR_PRICES, "scribe", day)?.usdPerHour ?? 0;
+  const keyterms =
+    s.keyterms.length > 0
+      ? (priceOn(HOUR_PRICES, "scribe-keyterms", day)?.usdPerHour ?? 0)
+      : 0;
+  return base > 0 ? (seconds * (base + keyterms)) / base : seconds;
+};
 
 // Days, months (spending) and clock times are the owner's: the zone the
 // iPhone named in its latest heartbeat (`refreshOwnerTimeZone`), UTC until it has named one.

@@ -38,7 +38,13 @@ import {
 } from "./read-replies";
 import { begin, chunks, readsOf, type Step } from "./run";
 import { partLine, type SpokenPart } from "./spoken-conversations";
-import { clip, turnRefOf, unnamedTurnKey, voiceTokensOf } from "./units";
+import {
+  callSpanOf,
+  clip,
+  turnRefOf,
+  unnamedTurnKey,
+  voiceTokensOf,
+} from "./units";
 import type { People } from "./who";
 import { observationsNow, voicePersonOf } from "./who";
 import { messageLine } from "./words";
@@ -232,10 +238,9 @@ async function readHeardInPerson(
   // ponytail: a call is of a one-to-one chat; a person on a group call is not caught
   const onCall = (t: HeardTurn) =>
     (direct.get(t.ref) ?? []).some((e) => {
-      const began = Date.parse(e.at);
-      const end = began + (e.phoneCall?.seconds ?? 0) * 1000;
+      const span = callSpanOf(e);
       const at = Date.parse(t.at);
-      return at >= began && at < end;
+      return at >= Date.parse(span.at) && at < Date.parse(span.until);
     });
   return turns.filter((t) => answered.has(`${t.job} ${t.id}`) && !onCall(t));
 }

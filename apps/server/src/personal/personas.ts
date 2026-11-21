@@ -406,8 +406,9 @@ export function personaShownOf(
     [...t.written, ...t.groups, ...t.writing, ...t.recordings],
     room
   );
-  const heard = sample.filter((d): d is Recording => "unit" in d);
+  // A chat-day names its unit's id too: only its messages tell it from a recording.
   const days = sample.filter((d): d is ShownDay => "messages" in d);
+  const heard = sample.filter((d): d is Recording => !("messages" in d));
   const windowed = new Set(t.written.map((d) => d.day));
   const counts: PairCounts | null =
     t.ref === OWNER

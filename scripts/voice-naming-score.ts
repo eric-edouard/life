@@ -5,10 +5,11 @@
 // prints how many parts and voices it would ask.
 
 import { mkdirSync, realpathSync, rmSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { clock } from "@life/server/src/core/clock";
 import { OWNER_DATA_DIR, real } from "@life/server/src/core/paths";
+import { pathInside } from "@life/server/src/core/platform";
 import { readConversationSummaryWork } from "@life/server/src/memory/conversation-summaries";
 import { READ_REPLIES } from "@life/server/src/memory/memory-files";
 import { READS, readReplies } from "@life/server/src/memory/read-replies";
@@ -170,10 +171,7 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
   ];
 }
 
-const inside = (path: string, dir: string) => {
-  const rel = relative(dir, path);
-  return !(rel.startsWith("..") || isAbsolute(rel));
-};
+const inside = (path: string, dir: string) => pathInside(dir, path) !== null;
 
 const SEGMENTS = /[\\/]/;
 
