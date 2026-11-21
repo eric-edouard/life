@@ -218,6 +218,17 @@ test("a card's context is required Markdown, at most 20,000 characters, and its 
     now
   );
   expect(asked.id).toStartWith("dec_");
+  // A QR's message ref must open too; one that opens is kept for his card's source chip.
+  const qr = (ref: string) => ({
+    ...ask("Reef sent the code."),
+    needs: [{ kind: "qr", ref, source: "Reef's WhatsApp of Tue" }],
+  });
+  await expect(
+    requestDecision("planner", qr("unit_0000000000ff"), now)
+  ).rejects.toThrow("the qr need's `ref` unit_0000000000ff opens nothing");
+  expect(
+    (await requestDecision("planner", qr("ask/draft"), now)).id
+  ).toStartWith("dec_");
   rmSync(DECISIONS, { force: true });
 });
 

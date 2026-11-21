@@ -40,10 +40,10 @@ import {
   waitsOf,
 } from "./draft-contest";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
-import { contextProblemOf, readsOnce } from "./find-refs";
+import { contextProblemOf, readsOnce, refsProblemOf } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { MEMORY } from "./memory-files";
-import { amountOf } from "./needs";
+import { amountOf, needRefsOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
@@ -485,7 +485,13 @@ async function askCard(
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.
   const reads = readsOnce();
-  const contextProblem = await contextProblemOf(ask.context, reads);
+  const contextProblem =
+    (await contextProblemOf(ask.context, reads)) ??
+    (await refsProblemOf(
+      needRefsOf(ask.needs),
+      reads,
+      (id) => `the qr need's \`ref\` ${id}`
+    ));
   if (contextProblem) {
     throw new Error(`Not done: ${contextProblem}.`);
   }

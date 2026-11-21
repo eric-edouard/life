@@ -233,12 +233,27 @@ export async function contextProblemOf(context: string, reads: SharedReads) {
   if (context.trim() === "") {
     return "`context` is required, in Markdown: why you ask, why you drafted this, what you tried, with links";
   }
-  for (const id of lifeRefsOf(context)) {
+  return refsProblemOf(
+    lifeRefsOf(context),
+    reads,
+    (id) => `the link life:${id}`,
+    "a `life:` link"
+  );
+}
+
+/** Why one of `ids` can't be opened: the first that opens nothing, named by `named`; none when all open. */
+export async function refsProblemOf(
+  ids: readonly string[],
+  reads: SharedReads,
+  named = (id: string) => `the ref ${id}`,
+  what = "a ref"
+) {
+  for (const id of ids) {
     const ref = parseRef(id);
-    // biome-ignore lint/performance/noAwaitInLoops: stops at the first dead link
+    // biome-ignore lint/performance/noAwaitInLoops: stops at the first dead ref
     const found = "error" in ref ? miss(ref.error) : await findRef(ref, reads);
     if (!found.found) {
-      return `the link life:${id} opens nothing (${found.why}): a \`life:\` link is a ref \`fetch\` opens`;
+      return `${named(id)} opens nothing (${found.why}): ${what} is a ref \`fetch\` opens`;
     }
   }
 }
