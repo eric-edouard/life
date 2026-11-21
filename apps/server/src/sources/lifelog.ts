@@ -182,6 +182,8 @@ export function openStore(dir = WATCH) {
     job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists turns_start on turns (start_at);
+  create index if not exists turns_person on turns (person_id, start_at);
+  create index if not exists turns_person_name on turns (person_name collate nocase);
   drop table if exists jobs;`);
   // A store made before the label still has its `title text not null`; two processes may open it at once.
   try {
