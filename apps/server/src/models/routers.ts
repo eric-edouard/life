@@ -133,9 +133,9 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const deadline = AbortSignal.timeout(MODEL_TIMEOUT_MS);
   const refusals: string[] = [];
   let tokens: Tokens | undefined;
-  // Each router's dollars over the hosts it served; null once one of its replies came without its cost (a sum of a
-  // priced and an unpriced reply would hide the gap). A router that never replied is not in it: it billed nothing.
-  const costUsdByRouter: Partial<Record<Router, number | null>> = {};
+  // What each router tried took, in the order tried: its hosts' dollars and tokens, and whether every try sent its cost
+  // (a try that threw may have billed: unpriced). Its reported dollars still count: a floor.
+  const spentByRouter: Partial<Record<Router, RouterSpent>> = {};
   let answer: Answer = { text: "" };
   const skipped = new Set<Router>();
   let failed: Route | undefined;
@@ -168,18 +168,17 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
       answer = { refusal: (e as Error).message, text: "" };
       isForAnother = (e as { isForAnother?: boolean }).isForAnother === true;
     }
-    const spent = answer.fields?.tokens as Tokens | undefined;
+    const { costUsd, ...fields } = answer.fields ?? {};
+    const spent = fields.tokens as Tokens | undefined;
     tokens = spent ? add(tokens ?? NONE, spent) : tokens;
-    if (answer.fields) {
-      const cost = answer.fields.costUsd as number | undefined;
-      const sum = costUsdByRouter[router];
-      costUsdByRouter[router] =
-        cost === undefined || sum === null ? null : (sum ?? 0) + cost;
-    }
-    const { costUsd: _cost, ...fields } = answer.fields ?? {};
+    spentByRouter[router] = withTry(
+      spentByRouter[router],
+      costUsd as number | undefined,
+      spent
+    );
     answer = {
       ...answer,
-      fields: { ...fields, costUsdByRouter, effort, tokens },
+      fields: { ...fields, effort, spentByRouter, tokens },
     };
     if (!answer.refusal) {
       return answer;
@@ -192,6 +191,24 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   }
   return { ...answer, refusal: refusals.join("; ") };
 }
+
+/** What one router took over a call's tries (`spentByRouter` on its `model.run` line). */
+export interface RouterSpent {
+  costUsd: number;
+  isPriced: boolean;
+  tokens: Tokens;
+}
+
+/** A router's take with one more try: its dollars and tokens added; unpriced once a try sent no cost. */
+const withTry = (
+  was: RouterSpent | undefined,
+  cost: number | undefined,
+  spent: Tokens | undefined
+): RouterSpent => ({
+  costUsd: (was?.costUsd ?? 0) + (cost ?? 0),
+  isPriced: (was?.isPriced ?? true) && cost !== undefined,
+  tokens: add(was?.tokens ?? NONE, spent ?? NONE),
+});
 
 /** A `model.retry` line as the next host is asked after `failed`; never the refusal's text: it can be the model's words. */
 function logRetry(failed: Route | undefined) {

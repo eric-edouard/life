@@ -19,9 +19,8 @@ import {
   anchorsOf,
   currentAssignmentOf,
   heldByAgents,
-  isOldShape,
-  NOT_MIGRATED,
 } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import { AgentWait } from "../records/registered-agent";
 import { openDesk, SCHEMA } from "./desk-store";
 import { stepRoles, stepStore, stepTurnModel } from "./store-step";
@@ -43,6 +42,7 @@ create index event_dropped on event (agent_id, dropped_at) where dropped_at is n
 const T = "2026-11-18T09:00:00.000Z";
 const BACKUP_FILE = /^desk-before-assignments-.*\.sqlite$/;
 const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
+const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -351,7 +351,7 @@ test("a store from before turn models is refused by openDesk; the step adds `tur
   expect(stepTurnModel(path, dir)).toBe("migrated");
   expect(stepTurnModel(path, dir)).toBe("in shape");
   expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
-    expect.stringMatching(/^desk-before-turn-model-.*\.sqlite$/),
+    expect.stringMatching(TURN_MODEL_BACKUP_FILE),
   ]);
   const after = openDesk(path);
   expect(after.query("select tokens_in, model from turn").all()).toEqual([

@@ -1,5 +1,6 @@
 import { listUsdOf } from "../core/prices";
-import { NONE, type ReadCounts, type Tokens } from "../models/model-call";
+import type { ReadCounts, Tokens } from "../models/model-call";
+import type { RouterSpent } from "../models/routers";
 import type { Run } from "./run-log";
 
 // Model spending (decision 83): each record that used a paid or metered resource read as one spend, where it is
@@ -58,9 +59,10 @@ const equivalentOf = (item: string, at: string, tokens: Tokens) => {
 };
 
 /**
- * One line's spends: a model call's (its engine's, then each other router it tried), a local model's; none for any
- * other line. `kind` is the caller's (`spendsOf`). A billed call's dollars are its routers' own (`costUsdByRouter`; a
- * line before it, `costUsd`, its engine's); a router's null, or a line with neither, is not reported.
+ * One line's spends: a model call's (each router it tried, its own dollars and tokens; the call and what it read on the
+ * last, which answered or failed last), a local model's; none for any other line. `kind` is the caller's (`spendsOf`).
+ * A router whose tries were not all priced is not reported, its reported dollars a floor; a line before routers
+ * (`costUsd`, its engine's) without one is not reported. A call with no tokens is not reported either.
  */
 export function spendsOfLine(
   e: Record<string, unknown> & { at: string; kind: string },
@@ -87,14 +89,13 @@ export function spendsOfLine(
     return [];
   }
   const engine = String(e.engine);
-  const tokens = (e.tokens as Tokens | undefined) ?? NONE;
+  const tokens = e.tokens as Tokens | undefined;
   const call = {
     at: e.at,
     calls: 1,
     kind,
     reads: (e.reads as ReadCounts | undefined) ?? {},
     run: typeof e.run === "string" ? e.run : undefined,
-    tokens,
   };
   if (!BILLED_ENGINES.has(engine)) {
     return engine === "claude" || engine === "codex"
@@ -103,28 +104,30 @@ export function spendsOfLine(
             ...call,
             basis: "equivalent",
             provider: engine,
-            ...equivalentOf(`${engine}:${String(e.model)}`, e.at, tokens),
+            tokens,
+            ...(tokens
+              ? equivalentOf(`${engine}:${String(e.model)}`, e.at, tokens)
+              : { reported: false }),
           },
         ]
       : [];
   }
-  const byRouter = e.costUsdByRouter as
-    | Record<string, number | null>
-    | undefined;
-  const usdOf = (router: string) =>
-    byRouter ? byRouter[router] : (num(e.costUsd) ?? null);
-  const billed = (router: string, usd: number | null | undefined) => ({
+  const cost = num(e.costUsd);
+  const byRouter = Object.entries(
+    (e.spentByRouter as Record<string, RouterSpent> | undefined) ?? {
+      [engine]: { costUsd: cost ?? 0, isPriced: cost !== undefined, tokens },
+    }
+  );
+  return byRouter.map(([router, r], i) => ({
     at: e.at,
     basis: "billed" as const,
+    kind,
     provider: router as SpendProvider,
-    ...(usd === null ? { reported: false } : { reported: true, usd: usd ?? 0 }),
-  });
-  return [
-    { ...call, ...billed(engine, usdOf(engine)) },
-    ...Object.entries(byRouter ?? {})
-      .filter(([router]) => router !== engine)
-      .map(([router, usd]) => ({ ...billed(router, usd), calls: 0, kind })),
-  ];
+    reported: r.isPriced,
+    tokens: r.tokens,
+    usd: r.costUsd,
+    ...(i === byRouter.length - 1 ? call : { calls: 0 }),
+  }));
 }
 
 /** A desk turn as a spend reads it (the desk's `turn` row, ended). */
@@ -133,19 +136,25 @@ export interface TurnSpent {
   assignment_id: string;
   ended_at: string;
   model: string | null;
+  /** Its session's runtime: who ran a turn from before `turn.model`. */
+  runtime: string | null;
   tokens_cached: number | null;
   tokens_in: number | null;
   tokens_out: number | null;
 }
 
-/** An agent's turn: its runtime's tokens, equivalent at its model's list price; one with no model has none. */
+/**
+ * An agent's turn: its runtime's tokens (the desk keeps cache reads apart from `tokens_in`: input counts them here),
+ * equivalent at its model's list price; one with no model, or no usage, has none.
+ */
 export function spendOfTurn(t: TurnSpent): Spend {
+  const isUsed = t.tokens_in !== null || t.tokens_out !== null;
   const tokens = {
     cached: t.tokens_cached ?? 0,
-    input: t.tokens_in ?? 0,
+    input: (t.tokens_in ?? 0) + (t.tokens_cached ?? 0),
     output: t.tokens_out ?? 0,
   };
-  const runtime = t.model?.split(":")[0];
+  const runtime = t.model?.split(":")[0] ?? t.runtime;
   return {
     agent: t.agent_id,
     assignment: t.assignment_id,
@@ -154,8 +163,8 @@ export function spendOfTurn(t: TurnSpent): Spend {
     calls: 1,
     kind: "agents",
     provider: runtime === "codex" ? "codex" : "claude",
-    tokens,
-    ...(t.model
+    ...(isUsed ? { tokens } : {}),
+    ...(t.model && isUsed
       ? equivalentOf(t.model, t.ended_at, tokens)
       : { reported: false }),
   };

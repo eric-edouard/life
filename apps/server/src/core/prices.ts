@@ -1,7 +1,9 @@
 // The one price table, for Life and Voice alike: nothing else in either app holds a price. A row holds from its day
 // (`from`, a UTC day) until a later row of its item; `priceOn` takes the latest on or before a spend's day. Each row
-// cites its page and the day it was read. A price only ever prices what was used: a billed call that came without its
-// cost is not reported, never guessed from here.
+// cites its page and the day it was read: `from` is the first day it is evidenced, and a day before every row of an
+// item has no price (not reported). A price only ever prices what was used: a billed call that came without its cost is
+// not reported, never guessed from here. ponytail: equivalents use the standard short-context rates (no cache-write or
+// long-prompt rates: the usage kept can't tell them apart); a comparison, never a bill.
 
 /** Dollars per million tokens: a subscription model's list price (`<runtime>:<model>`), for its `equivalent` only. */
 interface TokenPrice {
@@ -16,7 +18,9 @@ interface HourPrice {
 type Row<P> = P & { from: string; item: string; read: string; source: string };
 
 const CLAUDE = "https://platform.claude.com/docs/en/about-claude/pricing";
+// Claude's from the model table of 3 Nov 2026; GPT-6.1 Sol's from its launch, 30 Sep 2026.
 const OPENAI = "https://openai.com/api/pricing";
+const SCRIBE = "https://elevenlabs.io/pricing/api";
 const OPUS = { cached: 0.2, input: 4, output: 20 };
 const SOL = { cached: 0.1, input: 2, output: 10 };
 
@@ -24,14 +28,14 @@ const SOL = { cached: 0.1, input: 2, output: 10 };
 export const TOKEN_PRICES: Row<TokenPrice>[] = [
   // Claude Code's aliases on 21 Nov 2026: opus is Opus 5.5, sonnet Sonnet 5.5, haiku Haiku 5.5 (its cache read at a tenth).
   {
-    from: "2026-01-01",
+    from: "2026-11-03",
     item: "claude:opus",
     read: "2026-11-21",
     source: CLAUDE,
     ...OPUS,
   },
   {
-    from: "2026-01-01",
+    from: "2026-11-03",
     item: "claude:default",
     read: "2026-11-21",
     source: CLAUDE,
@@ -39,7 +43,7 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
   },
   {
     cached: 0.1,
-    from: "2026-01-01",
+    from: "2026-11-03",
     input: 2,
     item: "claude:sonnet",
     output: 10,
@@ -48,7 +52,7 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
   },
   {
     cached: 0.01,
-    from: "2026-01-01",
+    from: "2026-11-03",
     input: 0.1,
     item: "claude:haiku",
     output: 0.5,
@@ -56,14 +60,14 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
     source: CLAUDE,
   },
   {
-    from: "2026-01-01",
+    from: "2026-09-30",
     item: "codex:gpt-6.1-sol",
     read: "2026-11-21",
     source: OPENAI,
     ...SOL,
   },
   {
-    from: "2026-01-01",
+    from: "2026-09-30",
     item: "codex:default",
     read: "2026-11-21",
     source: OPENAI,
@@ -73,22 +77,29 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
 
 /** Voice's metered transcription (apps/lifelog's docs/research/elevenlabs.md; keyterms at the higher of two figures). */
 export const HOUR_PRICES: Row<HourPrice>[] = [
+  // Scribe v2 at $0.22 read on 7 Oct 2026; v3 (and v2) at $0.20 on 11 Nov 2026.
   {
-    from: "2026-01-01",
+    from: "2026-10-07",
+    item: "scribe",
+    read: "2026-10-07",
+    source: SCRIBE,
+    usdPerHour: 0.22,
+  },
+  {
+    from: "2026-11-11",
     item: "scribe",
     read: "2026-11-11",
-    source: "https://elevenlabs.io/pricing/api",
+    source: SCRIBE,
     usdPerHour: 0.2,
   },
   {
-    from: "2026-01-01",
+    from: "2026-10-07",
     item: "scribe-keyterms",
     read: "2026-11-11",
-    source: "https://elevenlabs.io/pricing/api",
+    source: SCRIBE,
     usdPerHour: 0.05,
   },
 ];
-
 /** `item`'s row in force on `day` (YYYY-MM-DD): the latest whose `from` is on or before it; none before every row. */
 export const priceOn = <P>(rows: Row<P>[], item: string, day: string) =>
   rows

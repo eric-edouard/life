@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { listUsdOf, priceOn } from "./prices";
+import { HOUR_PRICES, listUsdOf, priceOn } from "./prices";
 
 test("a price holds from its day until a later row; a day before every row has none", () => {
   const rows = [
@@ -25,3 +25,10 @@ test("tokens at list price: the cached part of the input at its own rate; an unk
 });
 
 const NONE_TOKENS = { cached: 0, input: 0, output: 0 };
+
+test("Scribe's rate by its evidenced days: $0.22 from 7 Oct, $0.20 from 11 Nov 2026, none before", () => {
+  const rate = (day: string) => priceOn(HOUR_PRICES, "scribe", day)?.usdPerHour;
+  expect(rate("2026-10-06")).toBeUndefined();
+  expect(rate("2026-11-10")).toBe(0.22);
+  expect(rate("2026-11-11")).toBe(0.2);
+});

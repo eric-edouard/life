@@ -5,7 +5,8 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
-import { isOldShape, NOT_MIGRATED, readCursor } from "../host/desk-read";
+import { readCursor } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { COMPLAINT_RECEIVED } from "../host/events";
@@ -16,6 +17,10 @@ import type { Runtime } from "./runtimes/contract";
 // The desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`, WAL): the one state of the desk. Every rule reads its rows and
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows.
+
+/** At most one active or stopped agent of each role: the fresh schema's, and `stepRoles`'. */
+export const ONE_AGENT_PER_ROLE =
+  "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')";
 
 export const SCHEMA = `
 create table if not exists agent (
@@ -36,7 +41,7 @@ create table if not exists agent (
   outcome text,
   stopped_at text
 );
-create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped');
+${ONE_AGENT_PER_ROLE};
 create table if not exists assignment (
   id text primary key,
   agent_id text not null,

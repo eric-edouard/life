@@ -14,14 +14,15 @@ import { isAppState } from "../core/platform";
 import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import { openWritable } from "../core/sqlite";
+import { agentHomeOf } from "../host/desk-read";
 import {
-  agentHomeOf,
+  hasColumn,
   isBeforeAssignments,
   isBeforeRoles,
   isBeforeTurnModel,
-} from "../host/desk-read";
+} from "../host/desk-shape";
 import { copyDb } from "../host/export";
-import { SCHEMA } from "./desk-store";
+import { ONE_AGENT_PER_ROLE, SCHEMA } from "./desk-store";
 
 // The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
@@ -95,11 +96,7 @@ const LATE_COLUMNS = [
 
 function addLateColumns(db: Database) {
   for (const [table, column, ddl, backfill] of LATE_COLUMNS) {
-    if (
-      !db
-        .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-        .get(column)
-    ) {
+    if (!hasColumn(db, table, column)) {
       db.run(`alter table ${table} add column ${column} ${ddl}`);
       if (backfill) {
         db.run(backfill);
@@ -236,9 +233,7 @@ export const stepRoles = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
     );
     db.run("update agent set role = 'personal' where is_personal = 1");
     db.run("alter table agent drop column is_personal");
-    db.run(
-      "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')"
-    );
+    db.run(ONE_AGENT_PER_ROLE);
   });
 
 /** Gives the store's turns their model (`stepOnce`): `turn.model` added, null on every older turn (what they ran on was not kept: they have no `equivalent`). */

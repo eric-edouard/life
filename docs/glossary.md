@@ -295,7 +295,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | step run | One processing step's execution inside a processing run, in prose only; the run log records it as a logged run. | |
 | logged run | A processing run, a step run or an eval, as the run log records it (`recordRun`, `RunRecorder`). | |
 | call reads | The units a model call was shown, counted by source on its `model.run` line (`CallReads`, made only by `readsOf` from the units' real ids; `memory` for Life's own lines), never ids or text. `askOnce` refuses a call that names none. | |
-| unpriced | A billed model call whose router sent no cost (`reported` false): counted, never guessed. | |
+| unpriced | A billed model call whose router did not send its cost on every try (`reported` false): counted, its reported dollars a floor, never guessed. | |
 | spend | One event that used a paid or metered resource, read where it is logged (`memory/spends.ts`): a model call (`model.run`), a local model's run (`model.local`), an agent's turn; never a second copy of the record. | |
 | model spending | What the spends add up to, by day, provider, kind, agent and matter. Not his own `spending` (a payment's flag). | |
 | billed | A spend's basis: dollars a provider charges per use (OpenRouter, allmodels, Scribe); the models on the Mac at $0. | |

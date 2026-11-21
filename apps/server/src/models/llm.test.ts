@@ -176,7 +176,9 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     );
     // What it read and what it cost are on its line.
     expect(lastLine()).toContain('"reads":{"memory":1}');
-    expect(lastLine()).toContain('"costUsdByRouter":{"allmodels":0.25}');
+    expect(lastLine()).toContain(
+      '"spentByRouter":{"allmodels":{"costUsd":0.25,"isPriced":true,'
+    );
     // Done is done, even when the connection stays open.
     reply = { ...reply, open: true };
     expect(await ask()).toEqual({ ok: true });
@@ -200,7 +202,9 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     expect(lastLine()).toContain(
       '"tokens":{"cached":40,"input":60,"output":10}'
     );
-    expect(lastLine()).toContain('"costUsdByRouter":{"allmodels":0.5}');
+    expect(lastLine()).toContain(
+      '"spentByRouter":{"allmodels":{"costUsd":0.5,"isPriced":true,'
+    );
     reply = { ...reply, cut: ["refuseless", "hopper"] };
     await expect(ask()).rejects.toThrow(
       "refuseless: allmodels: stopped (cut before it finished); hopper: allmodels: stopped (cut before it finished)"

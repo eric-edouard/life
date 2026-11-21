@@ -278,7 +278,8 @@ late with harm), or spoken asks above about one a day for a month.
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
 - Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, through a router, what each router
-  it tried billed (`costUsdByRouter`; null for a reply without its cost: unpriced) on its `model.run` line, with its run.
+  it tried took (`spentByRouter`: dollars, tokens, and whether every try sent its cost; one that didn't is unpriced, its
+  dollars a floor) on its `model.run` line, with its run.
   Each line is read as spends (`memory/spends.ts`). A run's use is the sum of its calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
   shows). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under it,
   then the spend by source; the quota lines appear only for an engine that has one (`hasQuota`).
