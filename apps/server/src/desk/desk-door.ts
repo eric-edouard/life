@@ -181,12 +181,19 @@ function doorServer(desk: Desk, id: string) {
  * With words, its lines as NDJSON, the last its `answer`, the request never timed out while it runs; with none, his
  * presence: the session kept open, `{kept}` and why not.
  */
+/** The local key's gate, built once (`keyRefusal` reads the key once). */
+let refusal: ReturnType<typeof keyRefusal> | undefined;
+const refusalOf = () => {
+  refusal ??= keyRefusal();
+  return refusal;
+};
+
 async function mainSessionFetch(
   desk: Desk,
   req: Request,
   server?: Bun.Server<undefined>
 ) {
-  const refused = req.method === "POST" ? await keyRefusal()(req) : null;
+  const refused = req.method === "POST" ? await refusalOf()(req) : null;
   if (req.method !== "POST" || refused) {
     return refused ?? text("POST only", 405);
   }

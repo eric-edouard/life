@@ -15,16 +15,27 @@ import type {
 } from "../records/main-session";
 import { readPacket } from "./agent-actions";
 import type { Desk } from "./desk-store";
-import { roleAssignmentOf, roleStartBlockOf } from "./role-agents";
+import {
+  roleAssignmentOf,
+  roleStartBlockOf,
+  standingAgentOf,
+} from "./role-agents";
 import { SessionLive, type Update } from "./runtimes/contract";
-import { recordSession, sessionAgentOf, turnEnded, watch } from "./turn-ends";
+import {
+  claimTurn,
+  recordSession,
+  sessionAgentOf,
+  turnEnded,
+  watch,
+} from "./turn-ends";
 
 // The main session (Tell Life, his decisions of 21 Nov 2026; the study of that day): the registered agent in role
 // `main`, registered by the desk on his first words, woken only by them (never by the clock: `dueOf`). Each ask is one
-// desk turn (cause `main_ask`, outcome `answered` from its start: `turnEnded` closes it with its usage, no reminder, no
+// desk turn (cause `main_ask`, outcome `replied` from its start: `turnEnded` closes it with its usage, no reminder, no
 // wait) on one session the runtime keeps open across asks (`Runtime.talk`), so his next words pay no start; his presence
-// on the Tell Life screen keeps it open (`keepMainSession`). Read-only in this slice: its door refuses every tool on its
-// turn (`desk-door.ts`), its connector's writes are the send guard's to refuse, and anything outward stays a card.
+// on the Tell Life screen keeps it open (`keepMainSession`). It only answers in this slice: its door refuses it every tool
+// on its turn (`desk-door.ts`) and the send guard its connector's writes; the rest (it runs as one of his own sessions,
+// shell and files included) rests on its brief.
 
 /** A main session turn's cause: his words through Tell Life. */
 export const MAIN_ASK = "main_ask";
@@ -40,6 +51,7 @@ interface Heard {
   end: Promise<MainSessionAnswer>;
   hearers: Set<(l: MainSessionLine) => void>;
   lines: MainSessionLine[];
+  words?: string;
 }
 const asksOf = new WeakMap<Desk["db"], Map<string, Heard>>();
 
@@ -60,21 +72,21 @@ async function mainOf(desk: Desk) {
   return a && s ? { a, s } : { why: "the main session is not registered" };
 }
 
-/** His presence on the Tell Life screen: keeps the main session's session open, when it has one (none yet: his first words make it). Why not, when it can't. */
+/**
+ * His presence on the Tell Life screen: keeps the main session's session open, when it stands and has one (none: his
+ * first words register it and make it; presence registers nothing). Why not, when it can't.
+ */
 export async function keepMainSession(desk: Desk) {
-  const main = await mainOf(desk);
-  if ("why" in main) {
-    return main.why;
-  }
-  const runtime = desk.runtimes[main.a.runtime];
-  if (!(runtime && main.a.session)) {
+  const a = standingAgentOf(desk.db, "main");
+  const runtime = a && desk.runtimes[a.runtime];
+  if (!(a?.status === "active" && a.session && runtime)) {
     return;
   }
   try {
-    await runtime.keep(sessionAgentOf(main.a), main.a.session);
+    await runtime.keep(sessionAgentOf(a), a.session);
   } catch (error) {
     log("desk.runtime", {
-      agent: main.a.id,
+      agent: a.id,
       ...errorOf(error),
       ok: false,
       what: "keep",
@@ -98,7 +110,8 @@ const messageOf = (ask: MainSessionAsk) =>
 async function answer(
   desk: Desk,
   ask: MainSessionAsk,
-  say: (l: MainSessionLine) => void
+  say: (l: MainSessionLine) => void,
+  asked: () => void
 ): Promise<MainSessionAnswer> {
   const { db } = desk;
   const main = await mainOf(desk);
@@ -116,7 +129,7 @@ async function answer(
       ? null
       : Number(
           db.run(
-            "insert into turn (agent_id, assignment_id, session, cause, started_at, model, outcome) values (?, ?, ?, ?, ?, ?, 'answered')",
+            "insert into turn (agent_id, assignment_id, session, cause, started_at, model, outcome) values (?, ?, ?, ?, ?, ?, 'replied')",
             [
               a.id,
               s.id,
@@ -131,6 +144,8 @@ async function answer(
   if (turn === null) {
     return { kind: "error", what: "Life is still answering your last words." };
   }
+  claimTurn(desk, turn);
+  asked();
   // A session gone (deleted) is made again from its packet; a kept one reads running, and is talked on.
   const state = a.session
     ? await runtime.state(a.session).catch(() => null)
@@ -179,16 +194,23 @@ async function answer(
 
 /**
  * His words to the main session (`ask.words`), its lines heard by `hear` as they come; its answer. A retry under the same
- * key (one of the last `ASKS_KEPT`) replays the lines so far and ends with the same answer: never asked twice.
+ * key (one of the last `ASKS_KEPT` that reached the session) replays the lines so far and ends with the same answer: never
+ * asked twice; the key with other words is refused. An ask refused before its turn (busy, no place) is not kept.
  */
 export function askMainSession(
   desk: Desk,
   ask: MainSessionAsk,
   hear: (l: MainSessionLine) => void
-) {
+): Promise<MainSessionAnswer> {
   const byKey = asksOf.get(desk.db) ?? new Map<string, Heard>();
   asksOf.set(desk.db, byKey);
   const known = ask.key ? byKey.get(ask.key) : undefined;
+  if (known && known.words !== ask.words) {
+    return Promise.resolve({
+      kind: "error",
+      what: "Not done: this key asked other words.",
+    });
+  }
   if (known) {
     for (const l of known.lines) {
       hear(l);
@@ -204,14 +226,25 @@ export function askMainSession(
       h(l);
     }
   };
-  const end = answer(desk, ask, say).catch(
-    (error: unknown): MainSessionAnswer => ({
-      kind: "error",
-      what: errorOf(error).error,
-    })
-  );
-  if (ask.key) {
-    byKey.set(ask.key, { end, hearers, lines });
+  const { key } = ask;
+  let isAsked = false;
+  const end = answer(desk, ask, say, () => {
+    isAsked = true;
+  })
+    .catch(
+      (error: unknown): MainSessionAnswer => ({
+        kind: "error",
+        what: errorOf(error).error,
+      })
+    )
+    .then((answered) => {
+      if (key && !isAsked) {
+        byKey.delete(key);
+      }
+      return answered;
+    });
+  if (key) {
+    byKey.set(key, { end, hearers, lines, words: ask.words });
     const [oldest] = byKey.keys();
     if (byKey.size > ASKS_KEPT && oldest) {
       byKey.delete(oldest);

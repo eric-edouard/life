@@ -6,8 +6,9 @@ import { localKey } from "../host/http/local-key";
 import type { MainSessionLine } from "../records/main-session";
 import { wakeDue } from "./desk-clock";
 import { doorFetch, doorOf } from "./desk-door";
-import { askMainSession, MAIN_BRIEF } from "./main-session";
+import { askMainSession, keepMainSession, MAIN_BRIEF } from "./main-session";
 import { setup } from "./test-desk";
+import { endLostTurns } from "./turn-ends";
 
 // The main session (Tell Life, slice 1): registered on his first words, one desk turn per ask on a session the runtime
 // keeps, its lines heard as they come, its answer the words after its last tool call; one ask at a time, a retry under
@@ -85,7 +86,7 @@ test("his first words register the main session and start its session from its b
   );
   await Bun.sleep(0);
   expect(turnsOf(a?.id ?? "")).toEqual([
-    { cause: "main_ask", ended_at: expect.any(String), outcome: "answered" },
+    { cause: "main_ask", ended_at: expect.any(String), outcome: "replied" },
   ]);
   expect(t.desk.db.query("select tokens_out from turn").get()).toEqual({
     tokens_out: 3,
@@ -153,7 +154,7 @@ test("a failed run answers an error and ends its turn failed; a run with no word
   expect(await failing).toEqual({ kind: "error", what: "rate_limit" });
   await Bun.sleep(0);
   expect(turnsOf(main()?.id ?? "").map((x) => x.outcome)).toEqual([
-    "answered",
+    "replied",
     "failed",
   ]);
 });
@@ -204,4 +205,46 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
   ]);
   expect(await (await post({})).json()).toEqual({ kept: true });
   expect(t.fake.kept).toEqual([ref]);
+});
+
+test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a busy ask is not kept by its key, and a key with other words is refused", async () => {
+  expect(await keepMainSession(t.desk)).toBeUndefined();
+  expect(main()).toBeFalsy();
+  const first = await asked("Hello", (r) =>
+    t.fake.hear(r, { kind: "words", text: "Hi." })
+  );
+  // The sweep runs while the next ask reads its session's state, after its turn is written.
+  const { state } = t.fake.runtime;
+  t.fake.runtime.state = async (ref) => {
+    await endLostTurns(t.desk);
+    return await state(ref);
+  };
+  const next = askMainSession(
+    t.desk,
+    { key: "k2", words: "Again" },
+    () => undefined
+  );
+  await Bun.sleep(5);
+  t.fake.runtime.state = state;
+  expect(openTurn(t.desk.db, main()?.id ?? "")?.ended_at).toBeNull();
+  expect(
+    await askMainSession(t.desk, { key: "k3", words: "Busy" }, () => undefined)
+  ).toMatchObject({ kind: "error" });
+  expect(
+    await askMainSession(t.desk, { key: "k2", words: "Other" }, () => undefined)
+  ).toEqual({ kind: "error", what: "Not done: this key asked other words." });
+  t.fake.hear(first.ref, { kind: "words", text: "Again, hi." });
+  t.fake.exit(first.ref);
+  expect(await next).toEqual({ kind: "reply", words: "Again, hi." });
+  // "Busy" was refused before its turn: its key asks again.
+  const again = askMainSession(
+    t.desk,
+    { key: "k3", words: "Busy" },
+    () => undefined
+  );
+  await Bun.sleep(5);
+  expect(t.fake.said.at(-1)?.message).toContain('"Busy"');
+  t.fake.hear(first.ref, { kind: "words", text: "Ok." });
+  t.fake.exit(first.ref);
+  expect(await again).toEqual({ kind: "reply", words: "Ok." });
 });

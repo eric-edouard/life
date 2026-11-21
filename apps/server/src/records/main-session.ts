@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // The main session's wire (Tell Life, his decisions of 21 Nov 2026): what his app sends it, the lines it streams back
 // and the answer it ends on, one of a closed list of kinds the phone draws natively. Read by the desk
-// (`desk/main-session.ts`) and the connector (`host/http/mcp-main-session.ts`) alike.
+// (`desk/main-session.ts`) and the connector alike.
 
 /** What is on his screen, as refs only (never text or pixels): the tab, the thing open, up to 20 refs in view. */
 export const MainSessionScreen = z

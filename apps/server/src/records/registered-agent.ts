@@ -111,9 +111,9 @@ export type AgentRole = "personal" | "caretaker" | "main";
 /** Who opened an assignment: he did (`owner`: his word, his Start), or the desk did itself (`desk`, the hand-out). */
 export type OpenedBy = "owner" | "desk";
 
-/** How an agent turn ended: it set a wait or finished, the desk set the default wait, it failed (its process failed, or ended unheard), it was a move's notes turn (`notes`, however its run ended), or the main session answered his words (`answered`). */
+/** How an agent turn ended: it set a wait or finished, the desk set the default wait, it failed (its process failed, or ended unheard), it was a move's notes turn (`notes`, however its run ended), or the main session replied to his words (`replied`). */
 export type TurnOutcome =
-  | "answered"
+  | "replied"
   | "waited"
   | "finished"
   | "default_wait"

@@ -100,6 +100,10 @@ function watchedIn(db: Desk["db"]) {
   return turns;
 }
 
+/** Claims turn `turn` as this process's from its write (the main session's, launched outside the tick): `endLostTurns` never ends it while it launches. */
+export const claimTurn = (desk: Desk, turn: number) =>
+  watchedIn(desk.db).add(turn);
+
 /**
  * Marks turn `turn` under way, once, and counts a try for each event queued before it was written (what it was handed):
  * a turn that never began (offline, out of quota) counts none, so it drops nothing, nor one already ended (a late `begun`).
@@ -258,7 +262,7 @@ function afterFailure({ db }: Desk, a: AgentRow, s: AssignmentRow) {
 /**
  * The run of desk turn `turn` ended (`failed` when it did); nothing when that turn is already closed, so a late end never
  * touches the turn after it. A turn ends by `set_wait` or `finish`; with neither, the desk reminds it once, then sets
- * the default wait; the main session's turn is `answered` from its start, so it ends as it ran. The turn's tokens are its
+ * the default wait; the main session's turn is `replied` from its start, so it ends as it ran. The turn's tokens are its
  * runs' (`RunEnd.usage`).
  */
 export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
@@ -300,7 +304,7 @@ export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
   } else if (
     t.outcome === "waited" ||
     t.outcome === "finished" ||
-    t.outcome === "answered"
+    t.outcome === "replied"
   ) {
     close(desk, t, t.outcome, usage);
   } else if (await isReminded(desk, t, a)) {
