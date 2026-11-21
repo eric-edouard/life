@@ -348,7 +348,7 @@ function ranked(
 
 /** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({
-  doneSeen: doneSeenShownOf(d.doneSeen),
+  doneSeen: doneSeenShownOf(d.doneSeen, d.needs),
   doneSeenBy: doneSeenByOf(d),
   gathered: d.gathered ?? null,
   needs: needsShownOf(d.needs),

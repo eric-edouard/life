@@ -183,7 +183,7 @@ async function decisionResult(ref: string, key?: string) {
     done: [tap.answer, tap.notSent ?? tap.send, tap.doneSeen, ended].filter(
       Boolean
     ),
-    doneSeen: doneSeenShownOf(tap.doneSeen),
+    doneSeen: doneSeenShownOf(tap.doneSeen, d.needs),
     kind: "decision",
     ref,
     send: sendResultOf(d, tap),
