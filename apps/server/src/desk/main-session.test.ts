@@ -3,7 +3,7 @@ import { setSettings } from "../core/settings";
 import { agentInRole, openTurn } from "../host/desk-read";
 import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
-import type { MainSessionLine } from "../records/main-session";
+import type { MainSessionLine } from "../records/main-session-wire";
 import { wakeDue } from "./desk-clock";
 import { doorFetch } from "./desk-door";
 import { doorOf } from "./door-keys";

@@ -16,7 +16,10 @@ import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { isHisWordsPlanOf } from "../host/inbox";
 import { MOVE_NOTES } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
-import { MainSessionAsk, type MainSessionLine } from "../records/main-session";
+import {
+  MainSessionAsk,
+  type MainSessionLine,
+} from "../records/main-session-wire";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,

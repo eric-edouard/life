@@ -12,7 +12,7 @@ import type {
   MainSessionAnswer,
   MainSessionAsk,
   MainSessionLine,
-} from "../records/main-session";
+} from "../records/main-session-wire";
 import { readPacket } from "./agent-actions";
 import type { Desk } from "./desk-store";
 import {
