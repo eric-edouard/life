@@ -5,7 +5,9 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
+import { isOwnLife } from "../core/platform";
 import { codeAt } from "../core/proc";
+import { rotateProcessLogs } from "../core/service";
 import { settings } from "../core/settings";
 import {
   ownerNamesOf,
@@ -565,6 +567,9 @@ function minute() {
     log("run.error", { ...errorOf(e), step: "watch.done-seen" })
   );
   pushNewCardsIfChanged();
+  if (isOwnLife()) {
+    rotateProcessLogs();
+  }
 }
 
 const STUCK_MS = 3 * HOUR;

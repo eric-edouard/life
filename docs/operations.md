@@ -35,7 +35,8 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 - What stays bounded: the nightly deletes each run's model files and each eval's judge calls (`LIFE_STATE_DIR/memory/runs`, `/evals`) after 30 days and the
   event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each
-  `~/Library/Logs/life-*.log` becomes `life-*.old.log` past 10 MB when its process starts; a bridge
+  process log in `~/Library/Logs` (`life-*`, `lifelog-*`, `com.ericedouard.life.*`) past 10 MB is copied to its `.old.log`
+  and emptied in place by the watcher's minute (`rotateProcessLogs`; both apps' supervisors open them to append); a bridge
   logs to its own capped `logs/bridge.log`, only its errors to the bridges job's log. The backup hashes only files whose
   size or mtime changed since the last staging (`stage`'s `previous`).
 

@@ -70,6 +70,8 @@ export async function desk() {
   setInterval(() => {
     if (performance.now() - since > HUNG_AFTER) {
       console.error(`${clock().toISOString()} desk: a tick passed 5 minutes`);
+      // A crash like any other, so the crash card counts it.
+      log("run.error", { command: "desk", error: "hung", step: "crash" });
       process.exit(1);
     }
   }, MIN);

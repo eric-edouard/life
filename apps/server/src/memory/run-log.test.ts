@@ -6,6 +6,7 @@ import {
   assembleRuns,
   percentOf,
   type Run,
+  readLogLines,
   runs,
   spendLines,
   useText,
@@ -373,4 +374,135 @@ test("a night's use holds every step it ran, listed or not (17 Nov 2026: appoint
     (r) => r.id === `memory.nightly/${id(failed)}`
   );
   expect(nightFailed).toMatchObject({ outcome: "failed", use: null });
+});
+
+test("log lines page back newest first by day and byte, none lost or repeated; filters still move the cursor on; at most 2 days a page", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-log-lines-"));
+  const line = (at: string, extra: Record<string, unknown>) =>
+    `${JSON.stringify({ at, ...extra })}\n`;
+  const days = ["2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"];
+  for (const d of days) {
+    writeFileSync(
+      join(dir, `${d}.jsonl`),
+      `${[1, 2, 3]
+        .map((n) =>
+          line(`${d}T0${n}:00:00.000Z`, {
+            kind: "desk.turn",
+            phase: "begun",
+            turn: n,
+          })
+        )
+        .join("")}not json\nnull\n`
+    );
+  }
+  // A LogTape line (`time`, `category`, `msg`) after the older shape: a crash of `life watch`.
+  appendFileSync(
+    join(dir, "2026-11-20.jsonl"),
+    `${JSON.stringify({
+      category: ["life", "watch", "crash"],
+      command: "watch",
+      error: "boom at obs_0123456789ab",
+      errorType: "TypeError",
+      kind: "run.error",
+      level: "error",
+      msg: "run error failed: {errorType}",
+      step: "crash",
+      time: "2026-11-20T04:00:00.000Z",
+    })}\n`
+  );
+  const first = await readLogLines({ limit: 3 }, dir);
+  expect(first.lines.map((l) => l.at)).toEqual([
+    "2026-11-20T04:00:00.000Z",
+    "2026-11-20T03:00:00.000Z",
+    "2026-11-20T02:00:00.000Z",
+  ]);
+  expect(first.lines.slice(0, 2)).toEqual([
+    {
+      at: "2026-11-20T04:00:00.000Z",
+      category: ["watch", "crash"],
+      level: "error",
+      message: "run error failed: TypeError",
+      parts: [{ text: "run error failed: " }, { value: "TypeError" }],
+    },
+    {
+      at: "2026-11-20T03:00:00.000Z",
+      category: ["desk", "turn"],
+      level: "info",
+      message: "desk.turn",
+      parts: [{ text: "desk.turn" }],
+    },
+  ]);
+  // A line appended while he pages never shifts the cursor.
+  appendFileSync(
+    join(dir, "2026-11-20.jsonl"),
+    line("2026-11-20T05:00:00.000Z", { kind: "desk.turn", phase: "ended" })
+  );
+  const seen = [...first.lines];
+  let { cursor } = first;
+  while (cursor) {
+    // biome-ignore lint/performance/noAwaitInLoops: pages follow their cursor
+    const page = await readLogLines({ cursor, limit: 3 }, dir);
+    seen.push(...page.lines);
+    ({ cursor } = page);
+  }
+  expect(seen).toHaveLength(13);
+  expect(new Set(seen.map((l) => l.at)).size).toBe(13);
+  // Errors only: 2 days a page, so the first page holds the crash and moves on to the older days with none.
+  const errors = await readLogLines({ minLevel: "error" }, dir);
+  expect(errors.lines.map((l) => l.category)).toEqual([["watch", "crash"]]);
+  const older = await readLogLines(
+    { cursor: errors.cursor ?? "", minLevel: "error" },
+    dir
+  );
+  expect(older).toMatchObject({ cursor: null, lines: [] });
+  expect((await readLogLines({ process: "watch" }, dir)).lines).toHaveLength(1);
+  await expect(readLogLines({ cursor: "nonsense" }, dir)).rejects.toThrow(
+    "bad cursor"
+  );
+});
+
+test("a shown value is formatted on the server and ids are masked; the message stays within 160 characters", async () => {
+  const { partsOf } = await import("../core/log-line");
+  expect(
+    partsOf("model run in {ms} for {id}", {
+      id: "obs_0123456789ab",
+      ms: 38_400,
+    })
+  ).toEqual([
+    { text: "model run in " },
+    { value: "38 s" },
+    { text: " for " },
+    { value: "…" },
+  ]);
+  const long = partsOf(`${"x".repeat(150)} {what}`, { what: "y".repeat(50) });
+  expect(
+    long.map((p) => ("text" in p ? p.text : p.value)).join("")
+  ).toHaveLength(160);
+});
+
+test("a line before LogTape shows its kind, what it is about and why as a class, never its words", async () => {
+  const { shownLineOf } = await import("../core/log-line");
+  const at = "2026-11-20T01:00:00.000Z";
+  const shown = (e: Record<string, unknown>) =>
+    shownLineOf({ at, ...e })?.message;
+  expect(
+    shown({
+      kind: "mcp.call",
+      refused: "Not done: Mia is away",
+      tool: "tell_life",
+    })
+  ).toBe("mcp.call tell_life refused, not_done");
+  expect(
+    shown({
+      kind: "mcp.call",
+      refused: "Invalid arguments: said Mia",
+      tool: "x",
+    })
+  ).toBe("mcp.call x refused, invalid_arguments");
+  expect(shown({ error: "Mia", kind: "run.error", step: "watch" })).toBe(
+    "run.error watch failed"
+  );
+  expect(shown({ kind: "desk.runtime", ok: false })).toBe(
+    "desk.runtime failed"
+  );
 });

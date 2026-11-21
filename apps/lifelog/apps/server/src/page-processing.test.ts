@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import {
   conversations as conversationsTable,
   events,
@@ -19,10 +19,14 @@ import { markDirty } from "./grouping";
 import { label, stopWorker } from "./page-audio";
 import { pageLabeler } from "./page-labels";
 import { pageProcessor } from "./page-processing";
+import { PACKET_MS } from "./page-rules";
 import { ingestState, storePages } from "./pages";
 import { storeTranscript, testDb } from "./testing";
 import { loadTurns, startsOf } from "./transcript";
 import { rebuildTurns } from "./turns";
+
+// The module itself, to watch what reaches Silero (`watching`).
+const pageAudio = await import("./page-audio");
 
 // fixtures/pages: made-up Omi records and what Kit's code makes of them (page-rules.test.ts).
 const dir = new URL("../../../fixtures/pages/", import.meta.url);
@@ -43,6 +47,7 @@ beforeEach(() => {
   env = testDb();
 });
 afterEach(() => {
+  mock.restore();
   env.drop();
 });
 
@@ -207,6 +212,186 @@ test("only audio the Mac vouched for is labeled", async () => {
   expect(pieces()).toEqual(kitPieces());
 });
 
+// Watches what reaches Silero: `onCall` runs as each piece is handed over (its 1-based count and
+// request), and may fail it; `sent` holds each packet's start that went.
+function watching(
+  onCall: (
+    n: number,
+    req: { continues: boolean; stream: string }
+  ) => Error | undefined
+) {
+  const sent: number[] = [];
+  let n = 0;
+  const original = pageAudio.label;
+  spyOn(pageAudio, "label").mockImplementation((req, packetsNow) => {
+    n += 1;
+    const failure = onCall(n, req);
+    return failure
+      ? Promise.reject(failure)
+      : original(req, () => {
+          const packets = packetsNow();
+          sent.push(...(packets ?? []).map((p) => p.at));
+          return packets;
+        });
+  });
+  return sent;
+}
+
+test("a quiet range the Mac reports while a piece waits for Silero: none of its audio goes", async () => {
+  const { audio, pages } = setup();
+  await store(audio);
+  const range: [number, number] = [
+    expected.pieces[1].start + 2000,
+    expected.pieces[1].start + 5000,
+  ];
+  const sent = watching((n) => {
+    if (n === 1) {
+      quiet(range);
+    }
+  });
+  await pages.run();
+  expect(sent.some((at) => at < range[1] && at + PACKET_MS > range[0])).toBe(
+    false
+  );
+});
+
+test("the Mac's mark read again when Silero takes a piece: one past it is refused and none of its packets goes, the piece before is kept and never sent again", async () => {
+  const { at, audio, pages } = setup();
+  at.clock += 11 * 60_000;
+  await store(audio);
+  const sent = watching((n) => {
+    if (n === 2) {
+      at.vouched = spanEnd(0) + 1000;
+    }
+  });
+  await pages.run();
+  expect(pieces().map((p) => p.first)).toEqual([expected.pieces[0].first]);
+  expect(sent.every((t) => t < spanEnd(0) + 1000)).toBe(true);
+  at.vouched = Number.POSITIVE_INFINITY;
+  await pages.run();
+  expect(new Set(sent).size).toBe(sent.length);
+  expect(pieces()).toEqual(kitPieces());
+});
+
+test("the VAD worker failing on a batch's second piece: the first piece is kept and never sent again, and the rest is labeled on the next pass", async () => {
+  const { at, audio, pages } = setup();
+  at.clock += 11 * 60_000;
+  await store(audio);
+  const sent = watching((n) =>
+    n === 2 ? new Error("the worker stopped") : undefined
+  );
+  await pages.run().catch(() => undefined);
+  expect(pieces()[0]?.first).toBe(expected.pieces[0].first);
+  await pages.run();
+  expect(new Set(sent).size).toBe(sent.length);
+  expect(pieces()).toEqual(kitPieces());
+});
+
+test("the VAD worker failing on a piece carried over from the batch before: it is labeled again from its first page in a fresh stream, never continued", async () => {
+  const { at, audio, pages } = setup(100);
+  at.clock += 11 * 60_000;
+  await store(audio);
+  const calls: { continues: boolean; stream: string }[] = [];
+  watching((_, req) => {
+    calls.push({ continues: req.continues, stream: req.stream });
+    return req.continues && calls.filter((c) => c.continues).length === 1
+      ? new Error("the worker stopped")
+      : undefined;
+  });
+  await pages.run().catch(() => undefined);
+  await pages.run();
+  const failed = calls.findIndex((c) => c.continues);
+  expect(calls[failed + 1]).toEqual({
+    continues: false,
+    stream: calls[failed]?.stream ?? "",
+  });
+  expect(pieces()).toEqual(kitPieces());
+});
+
+// Labels batch after batch until none waits.
+async function labelAll(labelBatch: (sourceId: string) => Promise<boolean>) {
+  // biome-ignore lint/performance/noAwaitInLoops: batch after batch
+  while (await labelBatch(SOURCE)) {
+    // the next batch
+  }
+}
+
+// Pages 100 to 250 come late, over both spans, with a Mac quiet range at the second span's start.
+// As the late batch's second piece goes to Silero, the worker fails (`fails`), or the Mac's
+// watermark goes back before it (`retreats`) and comes back after a pass. What is stored, and
+// every packet that reached Silero.
+async function lateOverBothSpans(stop: "none" | "fails" | "retreats") {
+  const audio = memoryAudioStore();
+  let vouched = Number.POSITIVE_INFINITY;
+  const labelBatch = pageLabeler(env.db, audio, {
+    batchPages: 3000,
+    now: () => Date.now() + 11 * 60_000,
+    vouched: () => vouched,
+  });
+  await store(audio, 0, 100);
+  await store(audio, 251);
+  await labelAll(labelBatch);
+  quiet([expected.pieces[1].start + 2000, expected.pieces[1].start + 5000]);
+  await store(audio, 100, 251);
+  const sent = watching((n) => {
+    if (n === 2 && stop === "retreats") {
+      vouched = expected.pieces[1].start;
+    }
+    return n === 2 && stop === "fails"
+      ? new Error("the worker stopped")
+      : undefined;
+  });
+  if (stop === "fails") {
+    // Not `rejects`: it waits without letting the worker's answers in.
+    const error = await labelAll(labelBatch).catch((e: Error) => e);
+    expect(String(error)).toContain("the worker stopped");
+  } else {
+    await labelAll(labelBatch);
+  }
+  vouched = Number.POSITIVE_INFINITY;
+  await labelAll(labelBatch);
+  return { pieces: pieces(), sent: sent.toSorted(), timeline: timeline() };
+}
+
+test.each(["fails", "retreats"] as const)(
+  "a late batch stopped part way (%s) is placed again as on one pass: the same pieces, breaks and packets, none sent twice",
+  async (stop) => {
+    const whole = await lateOverBothSpans("none");
+    mock.restore();
+    env.reset();
+    const resumed = await lateOverBothSpans(stop);
+    expect(resumed).toEqual(whole);
+    expect(new Set(resumed.sent).size).toBe(resumed.sent.length);
+  }
+);
+
+test("a late piece the worker fails on leaves the open piece of the same source in its stream", async () => {
+  const audio = memoryAudioStore();
+  // The second span stays open, past what the Mac vouches for.
+  let vouched = expected.pieces[1].start + 5000;
+  const labelBatch = pageLabeler(env.db, audio, {
+    batchPages: 3000,
+    now: () => Date.now() + 11 * 60_000,
+    vouched: () => vouched,
+  });
+  await store(audio, 0, 40);
+  await store(audio, 50);
+  await labelAll(labelBatch);
+  await store(audio, 40, 50);
+  const calls: { continues: boolean; stream: string }[] = [];
+  watching((n, req) => {
+    calls.push({ continues: req.continues, stream: req.stream });
+    return n === 1 ? new Error("the worker stopped") : undefined;
+  });
+  await labelAll(labelBatch).catch(() => undefined);
+  vouched = Number.POSITIVE_INFINITY;
+  await labelAll(labelBatch);
+  const open = calls.find((c) =>
+    c.stream.endsWith(`#${expected.pieces[1].first}`)
+  );
+  expect(open?.continues).toBe(true);
+});
+
 test("a late page is labeled on its own, and its speech is cut", async () => {
   const { at, audio, pages } = setup();
   // The second span's first pages, just before its speech, come after labeling went past them.
@@ -317,7 +502,7 @@ test("ten quiet minutes later the rest goes, and a fragment withdrawn at its blo
     kit.segments[0][0] + 1500,
   ];
   quiet(late);
-  await cut(env.db, audio, new Date(at.clock + 3_600_000), at.clock);
+  await cut(env.db, audio, () => new Date(at.clock + 3_600_000), at.clock);
   expect(source()?.pagesCutFrom).toBe(kit.pages[0][0]);
   await pages.run();
   expect(fragments().length).toBeGreaterThan(0);
@@ -391,20 +576,20 @@ test("a call the worker can't answer settles: an exit rejects it, an unknown pie
     continues: false,
     end: 60_000,
     final: true,
-    packets: [],
     start: 0,
     stream: "exit",
   };
-  const pending = label(request);
+  const none = () => [];
+  const pending = label(request, none);
   await Bun.sleep(5);
   stopWorker();
   await expect(pending).rejects.toThrow("VAD worker");
   await expect(
-    label({ ...request, continues: true, stream: "nothing" })
+    label({ ...request, continues: true, stream: "nothing" }, none)
   ).rejects.toThrow("no piece");
   // The chain goes on.
   expect(
-    (await label({ ...request, end: 1000 }))?.probabilities
+    (await label({ ...request, end: 1000 }, none))?.probabilities
   ).toBeInstanceOf(Float32Array);
 });
 
@@ -415,7 +600,7 @@ test("an Omi source's speech becomes a conversation, and its transcript lands in
   at.clock += 11 * 60_000;
   await pages.run();
   // Its blocks close by the server's clock; the first job comes back with one turn.
-  await cut(env.db, audio, new Date(at.clock + 3_600_000), at.clock);
+  await cut(env.db, audio, () => new Date(at.clock + 3_600_000), at.clock);
   const job = env.db
     .select()
     .from(transcriptionJobs)
