@@ -12,6 +12,7 @@ import {
   isHisTurn,
   lookUpSession,
 } from "../../../claude-plugin/hooks/door";
+import { register as registerPlugin } from "../../../claude-plugin/hooks/life";
 import { clock, HOUR, iso } from "../core/clock";
 import { DOOR_PORT } from "../host/http/http";
 import { openAssignment, register } from "./agent-actions";
@@ -19,7 +20,7 @@ import { doorFetch } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
-// The Life plugin against the desk's own door (`doorFetch`): a session he opened himself finds its agent's door, its
+// The Life plugin (door.ts, and life.ts through a fake engine) against the desk's own door (`doorFetch`): a session he opened himself finds its agent's door, its
 // calls act outside a desk turn, and the send guard answers. Made-up agents, briefs and sessions.
 
 const dir = mkdtempSync(join(tmpdir(), "life-plugin-"));
@@ -145,4 +146,76 @@ test("his turns are the ones he typed or sent from his phone", () => {
   expect(isHisTurn("bridge")).toBe(true);
   expect(isHisTurn("sdk")).toBe(false);
   expect(isHisTurn("scheduled-trigger")).toBe(false);
+});
+
+/** A fake engine: `$` over the door's own handler (or none when `down`), `env` and a store; the hooks as registered. */
+function engineOf(
+  session: string,
+  opts: { down?: boolean; env?: string } = {}
+) {
+  const kept = new Map<string, unknown>();
+  const registered: string[] = [];
+  const hooks = new Map<string, (...a: any[]) => Promise<any>>();
+  registerPlugin((event, h) => {
+    hooks.set(event, h);
+    return { catch: () => undefined };
+  });
+  const $ = {
+    env: { get: async () => opts.env },
+    http: {
+      fetch: opts.down
+        ? () => Promise.reject(new Error("connection refused"))
+        : fetch,
+    },
+    plugin: { name: "life" },
+    session: { id: async () => session },
+    store: {
+      get: async (k: string) => kept.get(k),
+      set: (k: string, v: unknown) => {
+        kept.set(k, v);
+        return Promise.resolve();
+      },
+    },
+    tool: {
+      register: (t: { name: string }) => {
+        registered.push(t.name);
+        return Promise.resolve();
+      },
+    },
+  };
+  const next = Object.assign(async (e: unknown) => ({ passed: e }), {
+    called: false,
+  });
+  const call = (tool: string, input: object = {}) =>
+    // biome-ignore lint/style/noNonNullAssertion: registered above
+    hooks.get("tool.call")!($, { tool, ...input }, next);
+  return { $, call, kept, registered };
+}
+
+test("the plugin's module: a known session with Life down denies Bash, and passes what the guard does not read", async () => {
+  agentWithSession("sess-plugin-1");
+  const door = await lookUpSession(fetch, "sess-plugin-1");
+  const e = engineOf("sess-plugin-1", { down: true });
+  e.kept.set("agent-session:sess-plugin-1", door?.matcher);
+  expect(await e.call("Bash", { command: "ls" })).toHaveProperty("deny");
+  expect(await e.call("Read", { file_path: "x" })).toHaveProperty("passed");
+});
+
+test("the plugin's module: its door's tools are registered and answered by the door", async () => {
+  const id = agentWithSession("sess-plugin-2");
+  const e = engineOf("sess-plugin-2");
+  const r = await e.call("mcp__life__write_notes", {
+    text: "Test notes: cake.",
+  });
+  expect(e.registered).toContain("write_notes");
+  expect(r).toHaveProperty("result");
+  expect(id).toBeTruthy();
+});
+
+test("the plugin's module: a session the desk started (LIFE_SEND_GUARD set) passes everything", async () => {
+  agentWithSession("sess-plugin-3");
+  const e = engineOf("sess-plugin-3", { env: "1" });
+  expect(
+    await e.call("Bash", { command: "gog gmail send --to a@example.test" })
+  ).toHaveProperty("passed");
 });
