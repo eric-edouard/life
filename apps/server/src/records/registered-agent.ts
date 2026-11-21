@@ -108,6 +108,14 @@ export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 /** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his "Wrong…"), `main` (the main session: answers his words through Tell Life). */
 export type AgentRole = "personal" | "caretaker" | "main";
 
+/** Whether an agent in `role` takes no subject but its own (no move to it, no re-point): the caretaker, the main session. */
+export const hasFixedSubject = (role: AgentRole | null) =>
+  role === "caretaker" || role === "main";
+
+/** Whether an agent in `role` is woken only by his words (the main session): never by the clock, so it holds no wait. */
+export const isWokenOnlyByHisWords = (role: AgentRole | null) =>
+  role === "main";
+
 /** Who opened an assignment: he did (`owner`: his word, his Start), or the desk did itself (`desk`, the hand-out). */
 export type OpenedBy = "owner" | "desk";
 

@@ -45,6 +45,7 @@ import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
 import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
+import { isWokenOnlyByHisWords } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
 import { matterRecordOf, readPacket } from "./agent-actions";
@@ -354,10 +355,9 @@ const wakeMessageOf = (
 function dueOf(db: Desk["db"], agent: string, assignment: string) {
   const a = agentOf(db, agent);
   const s = assignmentOf(db, assignment);
-  // The main session is woken only by his words (`main-session.ts`), never by the clock.
   if (
     !(a?.status === "active" && s?.closed_at === null && s.agent_id === a.id) ||
-    a.role === "main" ||
+    isWokenOnlyByHisWords(a.role) ||
     openTurn(db, a.id)
   ) {
     return null;

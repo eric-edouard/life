@@ -574,8 +574,9 @@ export function acpRuntime(
     async talk(a, ref, message, onUpdate) {
       const k = await keptOf(a, ref);
       const { c } = k;
-      if (!c || k.isPrompting) {
-        throw new SessionLive(`session ${k.ref} is answering`);
+      // A stop between its open and here closed it: refused as a session not taken (the ask keeps no retry key).
+      if (!c || k.isPrompting || kept.get(a.id) !== k) {
+        throw new SessionLive(`session ${k.ref} is answering or closed`);
       }
       k.isPrompting = true;
       clearTimeout(k.timer);

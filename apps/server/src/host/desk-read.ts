@@ -10,12 +10,13 @@ import { openReadOnly } from "../core/sqlite";
 import type { Decision } from "../memory/decision-lines";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type { BeingFixed } from "../memory/life-checks";
-import type {
-  AgentChange,
-  AgentRole,
-  AgentStatus,
-  EventFilter,
-  OpenedBy,
+import {
+  type AgentChange,
+  type AgentRole,
+  type AgentStatus,
+  type EventFilter,
+  isWokenOnlyByHisWords,
+  type OpenedBy,
 } from "../records/registered-agent";
 import { isBeforeAssignments, isOldShape, NOT_MIGRATED } from "./desk-shape";
 import { COMPLAINT_RECEIVED } from "./events";
@@ -231,9 +232,9 @@ export const isWaiting = (a: AgentRow, s: AssignmentRow) =>
 export const filtersOf = (s: Pick<AssignmentRow, "wait_events">) =>
   JSON.parse(s.wait_events) as EventFilter[];
 
-/** The agent wait an active agent still holds for this assignment, flagged when it is the default. */
+/** The agent wait an active agent still holds for this assignment, flagged when it is the default; none for an agent woken only by his words. */
 export const agentWaitOf = (a: AgentRow, s: AssignmentRow) =>
-  isWaiting(a, s) && s.wait_until
+  isWaiting(a, s) && s.wait_until && !isWokenOnlyByHisWords(a.role)
     ? {
         events: filtersOf(s),
         isDefault: s.wait_is_default === 1,

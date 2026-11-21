@@ -1,13 +1,18 @@
 import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { createMcpHandler } from "@modelcontextprotocol/server";
-import { DAY } from "../../core/clock";
+import { join } from "node:path";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
+import { clock, DAY } from "../../core/clock";
+import { linesOf } from "../../core/files";
+import { LOG_DIR, logFileOf } from "../../core/log";
 import {
   DECISIONS,
   decisionsNow,
   requestDecision,
 } from "../../memory/decisions";
 import { buildServer } from "./mcp";
+import { tool } from "./mcp-tool";
 
 // `report` (`mcp-tool.ts`) relies on the SDK upgrading to SSE when a handler notifies; only 2026-07-28 exists.
 
@@ -107,4 +112,42 @@ test("answer_check streams its plan and steps on a progress token, and a repeat 
     listed.mockRestore();
     rmSync(DECISIONS, { force: true });
   }
+});
+
+test("the mcp.call line keeps a run of one step (a streamed answer's words) as one entry with its count", async () => {
+  const server = new McpServer({ name: "test", version: "1" });
+  tool(server, "repeat", "A made-up tool.", z.object({}), (_a, _g, call) => {
+    for (const step of ["plan", "words", "words", "words", "done"]) {
+      call.report({ step });
+    }
+    return Promise.resolve("ok");
+  });
+  await createMcpHandler(() => server).fetch(
+    new Request("https://life.example.test/mcp", {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: { _meta: META, arguments: {}, name: "repeat" },
+      }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        "mcp-method": "tools/call",
+        "mcp-name": "repeat",
+        "mcp-protocol-version": "2026-07-28",
+      },
+      method: "POST",
+    })
+  );
+  const line = linesOf(join(LOG_DIR, logFileOf(clock().toISOString())))
+    .map((l) => JSON.parse(l))
+    .findLast((l) => l.kind === "mcp.call" && l.tool === "repeat");
+  expect(
+    line.steps.map((x: { count?: number; step: string }) => [x.step, x.count])
+  ).toEqual([
+    ["plan", undefined],
+    ["words", 3],
+    ["done", undefined],
+  ]);
 });
