@@ -87,7 +87,6 @@ private struct IncidentCard: View {
             ForEach(incident.kind.choices, id: \.self) { resolution in
                 Button(resolution.action(pages: pages)) { choice = resolution }
                     .buttonStyle(.pill(.quiet, size: .compact, isBusy: isResolving))
-                    .disabled(isResolving)
                     .accessibilityIdentifier("pendant.incident.\(resolution)")
             }
         }

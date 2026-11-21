@@ -168,6 +168,7 @@ import SwiftUI
         }
 
         @State private var playback = PlaybackStore(library: nil, sync: nil)
+        @State private var life = LifeStore(path: NetworkPath())
 
         var body: some View {
             VStack(alignment: .leading, spacing: 24) {
@@ -183,6 +184,7 @@ import SwiftUI
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.bg)
             .environment(playback)
+            .environment(life)
             .preferredColorScheme(.dark)
             .task { Self.seedAudio() }
         }
