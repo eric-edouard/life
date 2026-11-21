@@ -21,7 +21,7 @@ final class LifeStore {
     let parties: PartyBook
 
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
-    enum ActionKey: Hashable, Sendable {
+    nonisolated enum ActionKey: Hashable, Sendable {
         case answer(ref: String)
         /// His "Wrong…" on a card: apart from its answers, so they stay as they are while it goes.
         case complaint(ref: String)
