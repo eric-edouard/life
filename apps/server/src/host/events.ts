@@ -455,7 +455,7 @@ export async function readMessageEvents<T>(
       }
     }
   );
-  const read = feeds.flatMap((f) => f.rows(f.from).map(([, e]) => e));
+  const read = feeds.flatMap((f) => Array.from(f.rows(f.from), ([, e]) => e));
   // A chat's voice note is heard before it is matched, so a wait on words sees what was said; past the bound it goes
   // as it is (the arrival pass hears it).
   const chats = new Set(

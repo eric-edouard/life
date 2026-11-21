@@ -15,6 +15,7 @@ struct LifeLinkTarget: Hashable, Identifiable {
     static func glyph(_ kind: Check.LifeLink.Kind) -> String {
         switch kind {
         case .person: "person"
+        case .appointment: "calendar"
         case .matter: "folder"
         case .message, .unit: "bubble"
         case .file: "doc"
