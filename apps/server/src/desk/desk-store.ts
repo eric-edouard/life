@@ -14,7 +14,7 @@ import {
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { COMPLAINT_RECEIVED } from "../host/events";
-import type { Decision } from "../memory/decisions";
+import type { Decision } from "../memory/decision-lines";
 import { askPlaceOf } from "../memory/memory-files";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
