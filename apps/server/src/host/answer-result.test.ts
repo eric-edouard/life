@@ -6,9 +6,9 @@ import { DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import type { InboxCheck } from "../memory/checks";
+import type { Decision } from "../memory/decision-lines";
 import {
   DECISIONS,
-  type Decision,
   decisionsNow,
   notSentOf,
   requestDecision,

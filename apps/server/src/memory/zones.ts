@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { clock, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { systemZone } from "../core/platform";
 import type { Episode } from "../records/episode";
 import { Zone } from "../records/unit";
@@ -109,7 +110,7 @@ export async function readZoneHere(
     return (await read.phone()) ?? read.mac();
   } catch (e) {
     log("source.read", {
-      error: (e as Error).message,
+      ...errorOf(e),
       ok: false,
       source: "lifelog",
       what: "zone",

@@ -6,7 +6,7 @@ import {
   filtersOf,
   type TurnRow,
 } from "../host/desk-read";
-import { DECISION_EVENTS } from "../host/events";
+import { DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT } from "../host/events";
 import { AgentWait } from "../records/registered-agent";
 
 // The wait contract's rules (docs: the desk spec, section 6), pure: rows and the time in, a decision out. The clock
@@ -76,6 +76,8 @@ export const BEGIN_WITHIN_MS = 5 * MIN;
 export const isBeginLate = (t: TurnRow, now: number) =>
   !(t.begun_at || t.ended_at) && now - at(t.started_at) > BEGIN_WITHIN_MS;
 
+const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT];
+
 /**
  * When an assignment's next turn is due and why, from its own turns and events, or null while its turn runs: a failed
  * turn's retry; else the soonest of his answer (at once, or, its retries spent, the last retry's gap after the last
@@ -98,8 +100,8 @@ export function nextWakeOf(
       cause: "retry",
     };
   }
-  // His answer to its decision, its lapse or its withdrawal (he answered in the chat): each wakes the agent at once.
-  const answer = events.find((e) => DECISION_EVENTS.includes(e.name));
+  // His answer to its decision, its lapse or its withdrawal, and a card's contest (`draft.contested`, 10 minutes to act): each wakes the agent at once.
+  const answer = events.find((e) => AT_ONCE.includes(e.name));
   if (answer) {
     // Its retries spent (turns that never began drop nothing), his answer is tried again at the last retry's gap, never at once.
     const spent =

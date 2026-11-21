@@ -13,6 +13,7 @@ import {
   LATER_SHOWN,
   type Matter,
   type NextStep,
+  type ProjectPin,
 } from "../records/matter";
 import type { MatterIconKey } from "../records/matter-icon";
 import type { Observation } from "../records/observation";
@@ -21,6 +22,14 @@ import {
   isOpenTodoItem,
   type LedgerTodoItem,
 } from "../todo-list/todo-items-from-ledger";
+import {
+  chosenIconsOf,
+  chosenProjectsOf,
+  type Finder,
+  type Found,
+  importantIdsOf,
+  pinnedOf,
+} from "./matter-pins";
 import { OWNER } from "./read-truth";
 import { dayStart, localDate } from "./zones";
 
@@ -92,6 +101,8 @@ export interface MatterRecords {
     { at: string; later: string; quote: string }
   >;
   observations: readonly StepObservation[];
+  /** His word of which project a matter is of, pinned to its steps (`matter-project`). */
+  projects: readonly ProjectPin[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
   /** The observations that ended for sure, by id: replaced by a newer one (`replacedBy`) or said outdated (`why`, his or an agent's note); `at`, the instant of that evidence. */
@@ -479,10 +490,6 @@ const isOpenKind = (o: StepObservation) =>
     (o.type === "to_do" && o.speaker === OWNER));
 
 /** What a matter is to its finder: its id and its steps' ids. */
-interface Found {
-  id: string;
-  steps: readonly { ref: string }[];
-}
 
 /**
  * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
@@ -599,26 +606,6 @@ export function laterShownOf<T extends LaterObservation>(
     .slice(-LATER_SHOWN);
 }
 
-/** A book's matter finder (`matterFinderOf`), built once per book read and shared by every pin kind. */
-type Finder<V> = (refs: readonly string[], prefer?: string) => V | undefined;
-
-/**
- * Each pin of his or Life's, oldest first, with the matter `find` finds by its steps (so a re-group keeps it); the
- * matter's id when written only breaks a tie (between matters holding as many of its steps, the one picked); a pin no
- * matter holds is left out. Pure.
- */
-function pinnedOf<
-  V extends Found,
-  P extends { at: string; matter?: string; steps: readonly string[] },
->(find: Finder<V>, pins: readonly P[]) {
-  return pins
-    .toSorted((a, b) => a.at.localeCompare(b.at))
-    .flatMap((p) => {
-      const v = find(p.steps, p.matter);
-      return v ? [[v, p] as const] : [];
-    });
-}
-
 /**
  * Each matter's goal and next step from the pins as written (`directionsOf`): a pin belongs to the matter its steps find
  * (`matterFinderOf`), so a re-group keeps it. The goal: his latest word, else Life's latest draft. The next step: the
@@ -710,23 +697,6 @@ export function directionDueOf(
 export const matterTextOf = (v: Pick<MatterView, "goal" | "name">) =>
   v.goal ? `${v.name}: ${v.goal.text}` : v.name;
 
-/** The ids of the matters `find` finds that his marks hold important (`pinnedOf`): the latest for a matter wins. Pure. */
-export function importantIdsOf<V extends Found>(
-  find: Finder<V>,
-  pins: readonly ImportantPin[]
-) {
-  const marked = new Map(
-    pinnedOf(find, pins).map(([v, p]) => [v.id, p.important])
-  );
-  return new Set([...marked].flatMap(([id, on]) => (on ? [id] : [])));
-}
-
-/** His icon for each matter `find` finds (`pinnedOf`), by id: the latest pin for a matter wins; null gives it back to Life. Pure. */
-export const chosenIconsOf = <V extends Found>(
-  find: Finder<V>,
-  pins: readonly IconPin[]
-) => new Map(pinnedOf(find, pins).map(([v, p]) => [v.id, p.icon]));
-
 /**
  * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
  * (`wait_decision`, never stored), else its `nextStep`. Pure.
@@ -795,13 +765,17 @@ export function matterBookOf(
   const directions = directionsOf(find, rec.directions);
   const marked = importantIdsOf(find, rec.important);
   const icons = chosenIconsOf(find, rec.icons);
+  const projects = chosenProjectsOf(find, rec.projects);
   return book
     .map((v) => {
       const d = directions.get(v);
       const ownerIcon = icons.get(v.id);
+      const project = projects.get(v.id);
       return {
         ...v,
         important: v.open && marked.has(v.id),
+        // His word of its project is its one project: what it shows under and the agent that takes it follow.
+        ...(project ? { projects: [project] } : {}),
         ...(d?.goal ? { goal: d.goal } : {}),
         ...(d?.nextStep ? { nextStep: d.nextStep } : {}),
         ...(d?.latest?.endingRecords
