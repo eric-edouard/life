@@ -407,6 +407,7 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(move.answer(move.options[1]) == AnswerRequest(ref: move.ref, options: ["start"], note: move.goal))
     #expect(move.isHandOver(move.options[1]) && !move.isHandOver(move.options[2]))
     #expect(move.answer(move.options[2]) == AnswerRequest(ref: move.ref, options: ["not-now"]) && !move.takesOwnWords)
+    #expect(move.answer(move.options[3]) == AnswerRequest(ref: move.ref, options: ["drop"]))
     // A hand-over hands the goal only the card shows: never a notification's button.
     for check in [move, found] {
         #expect(!CardNotification.actions(check).map(\.identifier).contains("option:start"))
