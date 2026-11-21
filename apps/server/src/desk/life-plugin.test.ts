@@ -202,14 +202,13 @@ test("the plugin's module: a known session with Life down denies Bash, and passe
 });
 
 test("the plugin's module: its door's tools are registered and answered by the door", async () => {
-  const id = agentWithSession("sess-plugin-2");
+  agentWithSession("sess-plugin-2");
   const e = engineOf("sess-plugin-2");
   const r = await e.call("mcp__life__write_notes", {
     text: "Test notes: cake.",
   });
   expect(e.registered).toContain("write_notes");
   expect(r).toHaveProperty("result");
-  expect(id).toBeTruthy();
 });
 
 test("the plugin's module: a session the desk started (LIFE_SEND_GUARD set) passes everything", async () => {
@@ -218,4 +217,11 @@ test("the plugin's module: a session the desk started (LIFE_SEND_GUARD set) pass
   expect(
     await e.call("Bash", { command: "gog gmail send --to a@example.test" })
   ).toHaveProperty("passed");
+  // The control: the same call in an agent's session without the desk's environment is refused by the guard.
+  agentWithSession("sess-plugin-4");
+  expect(
+    await engineOf("sess-plugin-4").call("Bash", {
+      command: "gog gmail send --to a@example.test",
+    })
+  ).toHaveProperty("deny");
 });
