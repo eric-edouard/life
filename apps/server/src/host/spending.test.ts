@@ -1,12 +1,16 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, expect, setSystemTime, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { daysBefore } from "../core/clock";
 import { LOG_DIR } from "../core/log";
+import { dayStart } from "../memory/zones";
 import { readSpendingDay, writeSpendingDays } from "./spending";
 
 // Model spending's day files on made-up log days long past (the test state's own log folder).
 
 const DAYS = ["2020-01-02", "2020-01-03", "2020-01-04"];
+// Fourteen made-up days for the closure and the cap.
+const MARCH = Array.from({ length: 14 }, (_, i) => daysBefore("2020-03-15", i));
 const line = (at: string, more: Record<string, unknown>) =>
   JSON.stringify({
     engine: "openrouter",
@@ -17,7 +21,8 @@ const line = (at: string, more: Record<string, unknown>) =>
   });
 mkdirSync(LOG_DIR, { recursive: true });
 afterAll(() => {
-  for (const d of DAYS) {
+  setSystemTime();
+  for (const d of [...DAYS, ...MARCH]) {
     rmSync(join(LOG_DIR, `${d}.jsonl`), { force: true });
   }
 });
@@ -86,4 +91,27 @@ test("the night writes each closed day once from its records, billed and equival
   ]);
   expect(readSpendingDay("2020-01-04")?.unsettled).toBe(1);
   expect(await writeSpendingDays("2020-01-12", voice)).toEqual([]);
+});
+
+test("a day is read only once its next local midnight has passed, whatever today says; at most 7 days a night, a leftover sibling of an interrupted write never counts as written", async () => {
+  for (const d of MARCH) {
+    writeFileSync(join(LOG_DIR, `${d}.jsonl`), "");
+  }
+  const none = () =>
+    Promise.resolve({ jobs: [], modelRuns: [], unsettled: 0, voiceNotes: [] });
+  // An interrupted write left only its sibling.
+  writeFileSync(
+    `${join(LOG_DIR, "..", "spending", "2020-03-14.json")}.1.tmp`,
+    "{"
+  );
+  // Today is the 15th where he is now, but the 14th's own local day has a minute left.
+  setSystemTime(new Date(dayStart("2020-03-15").getTime() - 60_000));
+  const first = await writeSpendingDays("2020-03-15", none);
+  expect(first).not.toContain("2020-03-14");
+  expect(first).toHaveLength(7);
+  setSystemTime(new Date(dayStart("2020-03-15").getTime() + 60_000));
+  const second = await writeSpendingDays("2020-03-15", none);
+  expect(second[0]).toBe("2020-03-14");
+  expect(second.filter((d) => first.includes(d))).toEqual([]);
+  expect(readSpendingDay("2020-03-14")?.unsettled).toBe(0);
 });

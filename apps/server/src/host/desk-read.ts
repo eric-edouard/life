@@ -575,11 +575,15 @@ export const tokensSince = (db: Database, since: string) =>
     )
     .all(since);
 
-/** The turns that ended from `from` to `to` (instants, `to` excluded), by `turn_by_ended`, as spends read them: a turn from before `turn.model` names its session's runtime. */
+/**
+ * The turns that ended from `from` to `to` (instants, `to` excluded), by `turn_by_ended`, as spends read them: a turn
+ * from before `turn.model` names its session's runtime, looked up in one pass over the sessions (`session.ref` has no
+ * index).
+ */
 export const turnsEndedIn = (db: Database, from: string, to: string) =>
   db
     .query<TurnSpent, [string, string]>(
-      "select agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, coalesce(substr(model, 1, instr(model, ':') - 1), (select runtime from session where ref = turn.session limit 1)) as runtime from turn where ended_at >= ? and ended_at < ? order by ended_at"
+      "with legacy as (select ref, min(runtime) as runtime from session where ref in (select session from turn where model is null and ended_at >= ?1 and ended_at < ?2) group by ref) select agent_id, assignment_id, ended_at, model, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join legacy on turn.model is null and legacy.ref = turn.session where ended_at >= ?1 and ended_at < ?2 order by ended_at"
     )
     .all(from, to);
 

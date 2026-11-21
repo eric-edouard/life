@@ -14,7 +14,7 @@ import {
   spendsOf,
   spendsOfVoice,
 } from "../memory/spends";
-import { dayNow, dayRange } from "../memory/zones";
+import { dayNow, dayRange, dayStart } from "../memory/zones";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { readVoiceSpending } from "../sources/lifelog-spending";
 import { readDesk, turnsEndedIn } from "./desk-read";
@@ -161,14 +161,17 @@ export async function writeSpendingDays(
     first && day >= first && tries < DAYS_A_NIGHT;
     day = daysBefore(day, 1)
   ) {
-    const { from = "", to = "" } = dayRange(day, day);
-    // Read only a closed day whose whole span the log still holds (its first UTC file kept) and holds anything of.
+    // Its local bounds, never clamped to now: a day is read only once its next local midnight has passed.
+    const from = dayStart(day).toISOString();
+    const to = dayStart(daysBefore(day, -1)).toISOString();
+    // Read only a closed day whose whole span the log still holds (its first UTC file kept) and holds anything of: a
+    // UTC file covers its day, `to` excluded.
     const isHeld =
       first <= from.slice(0, 10) &&
       names.some(
         (n) =>
           n.slice(0, 10) >= from.slice(0, 10) &&
-          n.slice(0, 10) <= to.slice(0, 10)
+          `${n.slice(0, 10)}T00:00:00.000Z` < to
       );
     if (isThere(fileOf(day)) || !isHeld || to > clock().toISOString()) {
       continue;
