@@ -105,10 +105,10 @@ export interface MatterRecords {
   projects: readonly ProjectPin[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
-  /** The observations that ended for sure, by id: replaced by a newer one (`replacedBy`) or said outdated (`why`, his or an agent's note); `at`, the instant of that evidence. */
+  /** The observations that ended for sure, by id: replaced by a newer one (`replacedBy`) or said outdated (`why`, his or an agent's note; `dropped`, his Drop); `at`, the instant of that evidence. */
   retired: ReadonlyMap<
     string,
-    { at: string; replacedBy?: string; why: string }
+    { at: string; dropped?: true; replacedBy?: string; why: string }
   >;
   /** Every to-do item the ledger holds, open or not. */
   todoItems: readonly StepTodoItem[];
@@ -117,10 +117,10 @@ export interface MatterRecords {
 /** A matter's goal or next step as it reads now, who said it (Life's draft or his word) and when. */
 export type ByWhom<T> = T & { at: string; by: "life" | "owner" };
 
-/** How a step ended, and when (`at`, the instant of the evidence, never of the run that found it): its observation retired (replaced, or a word that it is done), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. */
+/** How a step ended, and when (`at`, the instant of the evidence, never of the run that found it): its observation retired (replaced, or a word that it is done), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. `dropped`: it won't be done (his Drop, or the item removed from his list), not done. */
 type StepEnding = { at: string } & (
-  | { by: "record"; replacedBy?: string; why: string }
-  | { by: "ticked" }
+  | { by: "record"; dropped?: true; replacedBy?: string; why: string }
+  | { by: "ticked"; dropped?: true }
   | { by: "link"; quote: string }
 );
 
@@ -346,7 +346,12 @@ function stepsOf(
         day: localDate(at),
         ending: isOpenTodoItem({ fields: f })
           ? undefined
-          : { at: closedAt ?? at, by: "ticked" },
+          : {
+              at: closedAt ?? at,
+              by: "ticked",
+              // Removed without being ticked: dropped; ticked, then cleared from his list: still done.
+              ...(f.deleted && !f.completed ? { dropped: true as const } : {}),
+            },
         kind: "todo_item",
         priority: (f.priority as string | null) ?? undefined,
         quote: title,
