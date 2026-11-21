@@ -1084,7 +1084,8 @@ struct PagerDots: View {
         let first = min(max(current - Self.shown / 2, 0), max(total - Self.shown, 0))
         let last = min(first + Self.shown, total) - 1
         HStack(spacing: 6) {
-            ForEach(first...last, id: \.self) { index in
+            // A half-open range: no asks draws no dot rather than trapping.
+            ForEach(first..<(last + 1), id: \.self) { index in
                 let isCut = (index == first && first > 0) || (index == last && last < total - 1)
                 Circle().fill(index == current ? Palette.fg : Color.fillTint)
                     .frame(width: isCut ? 4 : 6, height: isCut ? 4 : 6).frame(width: 6, height: 6)

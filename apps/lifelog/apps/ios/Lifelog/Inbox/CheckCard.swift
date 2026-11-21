@@ -63,6 +63,10 @@ struct CheckCard: View {
                 title: context.title, markdown: context.markdown, lifeLinks: context.lifeLinks,
                 appLink: context.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
+        .sheet(item: $opened) { target in
+            NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
+                .presentationDetents([.medium, .large])
+        }
     }
 
     private var question: some View {
