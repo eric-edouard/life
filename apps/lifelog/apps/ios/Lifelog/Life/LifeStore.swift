@@ -555,7 +555,11 @@ final class LifeStore {
     func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
         if life == nil, await refusedOutOfReach(.answer(ref: request.ref)) { return }
         let matter = matterOf(card: request.ref)
+        // Leaving the app mid-request does not stop the send.
+        let awake = Awake()
+        awake.id = UIApplication.shared.beginBackgroundTask(withName: "answer") { awake.end() }
         await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
+        awake.end()
         await refreshAfterAnswer(on: matter)
     }
 
@@ -632,6 +636,9 @@ final class LifeStore {
     /// with its own state until the last has ended; then Life's word is said in the toast. True when every one was taken.
     @discardableResult
     func answerRows(_ requests: [AnswerRequest], as label: String) async -> Bool {
+        // A row already answering is left to its own tap: no second send, no word of its own.
+        let requests = requests.filter { !state(of: .answer(ref: $0.ref)).isRunning }
+        guard !requests.isEmpty else { return false }
         let refs = Set(requests.map(\.ref))
         lingering.formUnion(refs)
         let sends = requests.map { request in Task { await self.answer(request) } }
