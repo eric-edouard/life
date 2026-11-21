@@ -794,6 +794,66 @@
       "at": null,
       "clips": [],
       "contactsCard": null,
+      "context": "They go by the same whole name; nothing Life holds joins them.",
+      "deadline": null,
+      "draft": null,
+      "goal": null,
+      "group": "same person",
+      "kind": "person",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "name": "Robin",
+          "ref": "person:partner"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "same-person",
+          "label": "Same person",
+          "takes": null
+        },
+        {
+          "id": "not-this-person",
+          "label": "Different people",
+          "takes": null
+        }
+      ],
+      "preTicked": null,
+      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
+      "ref": "same:person:inf_kit~person:partner",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": null,
+      "since": null,
+      "subject": null,
+      "title": "Join one person",
+      "lifeLinks": [],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "87f3c9ef6bcd1334",
+      "urgency": "improves",
+      "misread": {
+        "cause": "6c04307dd5deaa49",
+        "seal": "69ee232dbf76050e245f4e575a8f126b",
+        "shown": "58832ec04f1a4a76"
+      }
+    },
+    {
+      "about": ["+33600000001"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "contactsCard": null,
       "context": "Life read their messages as Kit, the watchmaker (70% sure).\n\n> Kit here, from the shop\n\n*[whatsapp, 2 Oct](life:unit_000000000001)*",
       "deadline": null,
       "draft": null,
@@ -867,66 +927,6 @@
         "cause": "01b070ee5ba7f83a",
         "seal": "11cea1d8bb774eacfa1fa073d27a07da",
         "shown": "cbd8453c56018bc0"
-      }
-    },
-    {
-      "about": ["+33600000001"],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "contactsCard": null,
-      "context": "They go by the same whole name; nothing Life holds joins them.",
-      "deadline": null,
-      "draft": null,
-      "goal": null,
-      "group": "same person",
-      "kind": "person",
-      "likelyPeople": [
-        {
-          "kind": "person",
-          "name": "Robin",
-          "ref": "person:partner"
-        }
-      ],
-      "links": [],
-      "notSent": null,
-      "onMatters": [],
-      "onSilence": null,
-      "options": [
-        {
-          "id": "same-person",
-          "label": "Same person",
-          "takes": null
-        },
-        {
-          "id": "not-this-person",
-          "label": "Different people",
-          "takes": null
-        }
-      ],
-      "preTicked": null,
-      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
-      "ref": "same:person:inf_kit~person:partner",
-      "ridesOn": {
-        "matterIds": [],
-        "matters": 0,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": null,
-      "since": null,
-      "subject": null,
-      "title": "Join one person",
-      "lifeLinks": [],
-      "matter": null,
-      "confirm": [],
-      "networkIdentity": null,
-      "pushId": "87f3c9ef6bcd1334",
-      "urgency": "improves",
-      "misread": {
-        "cause": "6c04307dd5deaa49",
-        "seal": "69ee232dbf76050e245f4e575a8f126b",
-        "shown": "58832ec04f1a4a76"
       }
     },
     {
@@ -1010,11 +1010,11 @@
     "contacts card": 1,
     "ending": 1,
     "your move": 1,
-    "guessed person": 1,
     "same person": 1,
+    "guessed person": 1,
     "new matter": 1
   },
   "deadlinesToday": 0,
   "total": 11,
-  "version": "39e8a9cd1ac7e818"
+  "version": "f626596cd02d6039"
 }
