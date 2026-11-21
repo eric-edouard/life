@@ -19,7 +19,7 @@ export const EVIDENCE_DAYS = 120;
 /** How many units and payments a matter is shown at most. */
 const SHOWN = 5;
 const TITLE_CHARS = 160;
-/** A word shorter than this never ties a payment to a matter ("of", "to"); a short brand ("Omi") does. */
+/** A word shorter than this never ties a payment to a matter ("of", "to"); a short brand name does. */
 const MIN_WORD = 3;
 
 export interface Evidence {
@@ -47,7 +47,7 @@ const wordsOf = (text: string) =>
       .filter((w) => w.length >= MIN_WORD)
   );
 
-/** `text` without the owner's name: he is in every matter, so his name never tells one apart ("Eric's" goes too). Pure. */
+/** `text` without the owner's name: he is in every matter, so his name never tells one apart ("Sam's" goes too, for an owner called Sam). Pure. */
 export const withoutOwnerOf = (text: string, owner: string) => {
   const names = new Set(normalize(owner).split(" "));
   return text
