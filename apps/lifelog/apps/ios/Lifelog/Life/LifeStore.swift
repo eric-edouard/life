@@ -19,6 +19,8 @@ final class LifeStore {
     private(set) var projectHead: [String: ReadState<ProjectHeader>] = [:]
     private(set) var scopedMatters: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
+    private(set) var spending = ReadState<ModelSpending>()
     /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
@@ -56,8 +58,10 @@ final class LifeStore {
         }
         let id = UUID()
         let words: String
-        /// Nil when it was not done: the words say why.
+        /// Nil when it was not done (the words say why), or when it has no Undo.
         let undo: Undo?
+        /// Done (its glyph a tick) or not (a flag).
+        let isDone: Bool
     }
     private(set) var saidBack: SaidBack?
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
@@ -79,9 +83,9 @@ final class LifeStore {
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
         await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life could not do on it is said back here.
-        if let warning = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWarning {
-            self?.show(SaidBack(words: warning, undo: nil))
+        // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
+        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
+            self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
         }
         Task { await self?.refreshAfterAnswer() }
     }
@@ -239,6 +243,11 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
+    func refreshSpending() async {
+        if spending.phase == .idle { restore({ self.spending.apply($0) }, key: Self.spendingKey) }
+        await load({ self.spending.apply($0) }, key: Self.spendingKey) { try await $0.readSpending() }
+    }
+
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: Self.peopleKey) {
             try await $0.readPeopleAndOrganizations(query: nil)
@@ -373,6 +382,7 @@ final class LifeStore {
     private static let agentsKey = "read_registered_agents"
     private static let projectsKey = "read_projects"
     private static let peopleKey = "read_people_and_organizations"
+    private static let spendingKey = "read_spending"
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
@@ -679,15 +689,15 @@ final class LifeStore {
     private func say(_ key: ActionKey, _ words: String?, undo: SaidBack.Undo) {
         let said: SaidBack? =
             switch state(of: key) {
-            case .succeeded: words.map { SaidBack(words: $0, undo: undo) }
-            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil)
+            case .succeeded: words.map { SaidBack(words: $0, undo: undo, isDone: true) }
+            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil, isDone: false)
             default: nil
             }
         guard let said else { return }
         show(said)
     }
 
-    /// Shows `said` for 4 s, flagged when it has no Undo.
+    /// Shows `said` for 4 s, flagged when not done.
     private func show(_ said: SaidBack) {
         saidBack = said
         Task {
@@ -793,6 +803,7 @@ final class LifeStore {
         cache.clear()
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
+        spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()

@@ -2,7 +2,12 @@ import type { MatterIconKey } from "../records/matter-icon";
 import { isUnderway, type Project } from "../records/truth";
 import { communicationStylesOf } from "./communication-styles";
 import { decisionsNow } from "./decisions";
-import { type AgentHold, agentForOf, type StandingAgent } from "./held-matters";
+import {
+  type AgentHold,
+  agentForOf,
+  isHeldOf,
+  type StandingAgent,
+} from "./held-matters";
 import { iconNow } from "./matter-icons";
 import {
   directionDueOf,
@@ -12,6 +17,7 @@ import {
   matterOfSteps,
   matterPeopleOf,
   nextStepNow,
+  offerEndOf,
 } from "./matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
@@ -130,17 +136,20 @@ function rowOf(
 
 /**
  * Whether a matter needs him: its next step is his decision or something only he does (`wait_decision`, `wait_owner`; a
- * stuck matter is stuck whatever its next step says), or a check about it blocks him (`blockingChecks`). The one rule,
+ * stuck matter is stuck whatever its next step says), a check about it blocks him (`blockingChecks`), or it holds his
+ * step (`isYourMove`: its your move card is open). The one rule,
  * for the row's flag dot and the Needs you filter on his phone, and for the night's count. Pure.
  */
 export const needsYouOf = (
   m: { nextStep?: { kind: string }; status: string },
-  blockingChecks: number
+  blockingChecks: number,
+  isYourMove = false
 ) =>
   (m.status !== "stuck" &&
     (m.nextStep?.kind === "wait_decision" ||
       m.nextStep?.kind === "wait_owner")) ||
-  blockingChecks > 0;
+  blockingChecks > 0 ||
+  isYourMove;
 
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
@@ -524,4 +533,53 @@ export async function oneMatter<A, S = undefined>(
       s.with ? { ...s, with: people.partyOf(s.with) } : s
     ),
   };
+}
+
+/**
+ * Each running matter he has not answered "Start an agent on this?" for, by id, with its next step and the offer's last
+ * day: one that began in the last `NEW_MATTER_DAYS` (its first step's day), with an open step, not stuck, a goal and a
+ * next step to hand over (the hand-out's gates, `handOutGateOf`), held by no agent (`isHeldOf`), not dismissed, and,
+ * while the hand-out is on, not one of his own (`isOneOfHis`); none while the desk is off or unreadable. Pure.
+ */
+export function newMatterOffersOf(c: {
+  decisions: HandOutFacts["decisions"];
+  dismissed: readonly (readonly string[])[];
+  heldByAgents: readonly AgentHold[] | null;
+  isDirectionDue: (matter: string) => boolean;
+  isForHandOut: (matter: string) => boolean;
+  isParked: (matter: string) => boolean;
+  matters: readonly (HandOutMatter &
+    Pick<MatterView, "goal" | "lone" | "newestOpenStep" | "open" | "status"> & {
+      important?: boolean;
+      steps: readonly { at: string; day: string; ref: string }[];
+    })[];
+  today: string;
+}) {
+  const facts = {
+    decisions: c.decisions,
+    dismissed: dismissedIdsOf(c.matters, c.dismissed),
+    isDue: c.isDirectionDue,
+    isHeld: isHeldOf(c.heldByAgents ?? []),
+    isHis: () => true,
+    isParked: c.isParked,
+  };
+  return new Map(
+    c.matters.flatMap((v) => {
+      const next = nextStepNow(v, c.decisions);
+      const lastDay = offerEndOf(v);
+      return c.heldByAgents &&
+        lastDay &&
+        c.today <= lastDay &&
+        v.newestOpenStep &&
+        v.status !== "stuck" &&
+        v.goal &&
+        next &&
+        !v.lone &&
+        isRunning(v) &&
+        handOutGateOf(v, facts) === null &&
+        !c.isForHandOut(v.id)
+        ? [[v.id, { lastDay, next }] as const]
+        : [];
+    })
+  );
 }

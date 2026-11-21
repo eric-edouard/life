@@ -40,9 +40,8 @@ struct FieldRow: View {
                     if isGuess && !isEditing { Text("Life’s guess").foregroundStyle(Palette.ai).appears() }
                 }
                 .font(.small)
-                TextField(prompt, text: $text, axis: .vertical).font(.rowFigure).foregroundStyle(Palette.fg)
-                    .focused($isEditing).tint(Palette.fg).fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(label)
+                DictationField(prompt: prompt, label: label, text: $text, axis: .vertical, focused: $isEditing)
+                    .font(.rowFigure).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                     .padding(isEditing ? Metrics.Spacing.m : 0)
                     .background(isEditing ? Palette.bg : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
             }

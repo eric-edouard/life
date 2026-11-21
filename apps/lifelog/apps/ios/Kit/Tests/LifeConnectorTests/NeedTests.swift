@@ -1,4 +1,5 @@
 import Foundation
+import Library
 import Testing
 
 @testable import LifeConnector
@@ -96,4 +97,26 @@ private func need(_ json: String) throws -> Check.Need {
     #expect(ids.contains("option:later") && !ids.contains("option:done"))
     #expect(CardNotification.answer("option:done", typed: nil, to: check, in: "", asksFaceID: false) == nil)
     #expect(CardNotification.answer("option:later", typed: nil, to: check, in: "", asksFaceID: false) != nil)
+}
+
+@Test func aPlaceShowsItsNameThenEachHttpsLinkByATap() throws {
+    let rows = try need(
+        #"{"kind":"place","line":"Paint shop","name":"Paint shop","googleMapsUrl":"https://maps.example.test/g","boltUrl":"http://ride.example.test/r"}"#
+    ).rows
+    #expect(rows.map(\.text) == ["Paint shop", "Google Maps"])
+    #expect(rows[1].action == .open(URL(string: "https://maps.example.test/g")!, label: "Open in Google Maps"))
+}
+
+@Test func notNowSaysTheDayTheCardComesBack() throws {
+    let result = try JSONDecoder().decode(
+        AnswerResult.self,
+        from: Data(
+            #"{"ref":"move:m/s","kind":"your move","changed":{"answer":"not-now","matter":"m","step":"s","until":"2026-11-24"}}"#
+                .utf8))
+    #expect(
+        result.changed?.snoozed(locale: Locale(identifier: "en_GB"), timeZone: .gmt) == "Snoozed until Tue 24 Nov.")
+    // Held in the Inbox, its card gone, the toast says the same.
+    let held = ActionState<ActionProof>.succeeded(.answered(result), steps: [])
+    let said = try #require(held.heldAnswerWords)
+    #expect(said.words == result.changed?.snoozed() && said.isDone)
 }

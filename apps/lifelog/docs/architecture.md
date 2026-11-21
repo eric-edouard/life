@@ -113,7 +113,7 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 | `PictureCache` | `PartyBook` (`LifeStore.parties`) | `person-pictures/` (the app group's caches) | People's pictures by id (`read_person_pictures`), kept for good |
 
 **Life.** `LifeStore` (built at launch, in the environment) is the phone's side of Life's connector: the inbox, the
-matters, a matter in full and the agents, each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by
+matters, a matter in full, the agents and the month's model spending (`ModelSpending`), each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by
 the code its Mac shows, through Life's own sign-in, and calls the connector like any app; the fixtures of what it reads
 are written by Life's server tests (`fixtures/wire/life/`). His actions (answer, agents, his edits of a matter) are
 `ActionState`s in `LifeStore.actions`, run by `LifeActions`; a push opens its card by `pushId` and sets the badge.

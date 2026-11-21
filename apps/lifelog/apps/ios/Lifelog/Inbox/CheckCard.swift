@@ -51,10 +51,10 @@ struct CheckCard: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
         }
-        .sheet(isPresented: $input.showsContext) {
+        .sheet(item: $input.context) { context in
             ContextSheet(
-                title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
-                appLink: check.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
+                title: context.title, markdown: context.markdown, lifeLinks: context.lifeLinks,
+                appLink: context.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
     }
 
@@ -70,7 +70,8 @@ struct CheckCard: View {
     private var hasThing: Bool {
         !check.planSteps.isEmpty || check.draft != nil || !(check.needs ?? []).isEmpty || !check.clips.isEmpty
             || check.said != nil
-            || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
+            || identity != nil || check.contactsCard != nil
+            || ([.newMatter, .yourMove].contains(check.group) && check.goal != nil)
     }
 
     /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
@@ -94,7 +95,7 @@ struct CheckCard: View {
         if !check.planSteps.isEmpty {
             PlanBlock(
                 steps: check.planSteps, agentMark: check.agentMark(runtime: runtimeName), gathered: check.gathered,
-                openContext: isContextBeside ? nil : { input.showsContext = true })
+                openContext: isContextBeside ? nil : { input.context = check.ownContext })
         }
         DraftBlock(check: check, isBoxed: false)
         if !(check.needs ?? []).isEmpty {
@@ -109,6 +110,7 @@ struct CheckCard: View {
                 input.words = check.goal ?? ""
                 input.isWritingOwnWords = true
             }
+        case .yourMove: NewMatterBlock(goal: check.goal, said: check.said)
         case .name: NameBlock(said: check.said, names: check.about ?? [], clip: check.clips.first)
         default:
             if let said = check.said { SaidBlock(said: said) }
@@ -126,19 +128,22 @@ struct CheckCard: View {
             }
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
         }
-        TextField(
-            check.group == .newMatter
+        DictationField(
+            prompt: check.group == .newMatter
                 ? "The goal"
                 : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
-            text: $input.words, axis: .vertical
+            text: $input.words, axis: .vertical, focused: $isWriting
         )
-        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
+        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
         .onAppear { isWriting = true }
     }
 
-    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    /// His "Wrong…" the caretaker is at work on, under the tile: the caretaker's open question as a chip that opens its
+    /// context when it has one, else its line with the spinner.
     @ViewBuilder private var beingFixed: some View {
-        if let fixing = check.beingFixed {
+        if let context = check.fixContext {
+            QuietChip(context.title, symbol: "questionmark.circle") { input.context = context }.appears()
+        } else if let fixing = check.beingFixed {
             HStack(spacing: Metrics.Spacing.s) {
                 StateGlyph.busy
                 Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
@@ -154,7 +159,7 @@ struct CheckCard: View {
     private var contextLink: QuietChip? {
         guard !isContextBeside, check.gathered == nil || check.planSteps.isEmpty, let title = check.contextLinkTitle
         else { return nil }
-        return QuietChip(title, symbol: "questionmark.circle") { input.showsContext = true }
+        return QuietChip(title, symbol: "questionmark.circle") { input.context = check.ownContext }
     }
 
     @ViewBuilder private var matterPill: some View {

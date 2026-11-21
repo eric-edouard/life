@@ -1,15 +1,29 @@
 import {
   type AssignmentRow,
   anchorsOf,
+  assignmentOf,
   openAssignments,
   standingAgents,
 } from "../host/desk-read";
+import { pinnedAssignmentsOf } from "../host/move-read";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import type { Desk } from "./desk-store";
+
+/** Whether a matter (`isOnMatter`) was moved by him from `agent` to another agent (decision 78): that agent's alone, whoever's project it is, its holder stopped too. */
+function isMovedAwayOf(
+  db: Desk["db"],
+  agent: string,
+  isOnMatter: (a: AssignmentRow) => boolean
+) {
+  return [...pinnedAssignmentsOf(db)].some((id) => {
+    const a = assignmentOf(db, id);
+    return a?.closed_at === null && a.agent_id !== agent && isOnMatter(a);
+  });
+}
 
 /**
  * Where agent `s.agent_id`'s card on `given` goes (his rule of 21 Nov 2026: on any matter it holds): its open assignment
@@ -46,11 +60,16 @@ export async function cardHomeOf(
   );
   const v = held?.w ?? find([given]);
   const own = mine.find((m) => anchorsOf(db, m.a.id).length === 0)?.a;
+  // Its agent takes the matter, unless he moved the matter away from it.
+  const isTakenBy = (w: NonNullable<typeof v>) =>
+    !isMovedAwayOf(
+      db,
+      s.agent_id,
+      (a) => find(anchorsOf(db, a.id), pick(a))?.id === w.id
+    ) && agentForMatterOf(standingAgents(db), people.truth)(w) === s.agent_id;
   const home =
     held?.a ??
-    (v && agentForMatterOf(standingAgents(db), people.truth)(v) === s.agent_id
-      ? own
-      : undefined) ??
+    (v && isTakenBy(v) ? own : undefined) ??
     (!v && own === s ? s : undefined);
   if (!home) {
     throw new Error(

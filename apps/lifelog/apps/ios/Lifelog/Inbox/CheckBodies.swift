@@ -138,11 +138,12 @@ struct EndingBlock: View {
     }
 }
 
-/// A new matter: the goal Start hands the agent, with a pencil that opens it as his words, and the sentence that started it.
+/// The goal Start or Hand to an agent hands the agent, and the sentence that started it; on a new matter, a pencil that
+/// opens the goal as his words.
 struct NewMatterBlock: View {
     let goal: String?
     let said: Check.Said?
-    let edit: () -> Void
+    var edit: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -155,7 +156,7 @@ struct NewMatterBlock: View {
                     }
                     .accessibilityElement(children: .combine)
                     Spacer(minLength: 0)
-                    RoundIconButton(symbol: "pencil", label: "Edit the goal", action: edit)
+                    if let edit { RoundIconButton(symbol: "pencil", label: "Edit the goal", action: edit) }
                 }
             }
             if let said { SaidBlock(said: said) }

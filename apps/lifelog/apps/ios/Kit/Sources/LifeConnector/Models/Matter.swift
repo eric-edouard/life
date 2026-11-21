@@ -140,8 +140,10 @@ public struct Matter: Decodable, Sendable, Equatable {
     public let agents: [RegisteredAgent]
     /// Every open check about it, of every kind (`checksOnMatterOf`, `memory/checks.ts`).
     public let checks: [Check]
+    /// What its agents' turns spent of his plans; nil when the desk can't be read.
+    public let spending: TokenSpending?
 
-    private enum Key: String, CodingKey { case steps, agents, checks }
+    private enum Key: String, CodingKey { case steps, agents, checks, spending }
 
     public init(from decoder: any Decoder) throws {
         row = try MatterRow(from: decoder)
@@ -149,5 +151,6 @@ public struct Matter: Decodable, Sendable, Equatable {
         steps = try container.decode([MatterStep].self, forKey: .steps)
         agents = try container.decode([RegisteredAgent].self, forKey: .agents)
         checks = try container.decode([Check].self, forKey: .checks)
+        spending = try container.decodeIfPresent(TokenSpending.self, forKey: .spending)
     }
 }

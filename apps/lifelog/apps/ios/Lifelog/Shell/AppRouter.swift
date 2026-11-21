@@ -13,8 +13,8 @@ final class AppRouter {
     }
 
     enum MatterSheet: Identifiable, Equatable {
-        /// What wakes the matter's agent.
-        case agent(String)
+        /// What wakes an agent of the matter: the one named by id, else the matter's first.
+        case agent(String, agent: String? = nil)
         /// "Start an agent" on the matter.
         case start(String)
         /// The grid that changes the matter's icon.
@@ -22,7 +22,7 @@ final class AppRouter {
 
         var id: String {
             switch self {
-            case .agent(let id): "agent-\(id)"
+            case .agent(let id, let agent): "agent-\(id)-\(agent ?? "")"
             case .start(let id): "start-\(id)"
             case .icon(let id): "icon-\(id)"
             }
@@ -114,6 +114,12 @@ final class AppRouter {
         matterPath = []
         detail = .project(project)
         matterColumn = .detail
+    }
+
+    /// An agent's sheet over its matter, from wherever one is named (Spending's top agents).
+    func open(agent: String, matter id: String) {
+        open(matter: id)
+        matterSheet = .agent(id, agent: agent)
     }
 
     /// A person's or an organization's page, from wherever one is named: the People tab, on them.

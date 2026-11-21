@@ -108,6 +108,16 @@ export const LIFE_CHECKS = {
     ],
     title: "Name a voice",
   },
+  // A matter's step that is his: "Hand to an agent" only while an agent could take it (`checks.ts` drops it otherwise).
+  "your move": {
+    context: "A step of yours is open on this matter.",
+    options: [
+      { ends: "step", id: "done", label: "Mark as done", takes: null },
+      { id: "start", label: "Hand to an agent", takes: null },
+      { id: "not-now", label: "Not now", takes: null },
+    ],
+    title: "Your move",
+  },
 } as const satisfies Record<
   Exclude<CheckGroup, "decision">,
   { context: string | null; options: CheckOption[]; title: string }
@@ -118,7 +128,8 @@ export type CheckKind =
   | "ending"
   | "new matter"
   | "person"
-  | "voice";
+  | "voice"
+  | "your move";
 /** A matter as a card names it: its id, its name, and `important` when he marked it. */
 export interface CheckMatter {
   id: string;

@@ -6,6 +6,8 @@ import SwiftUI
 struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: View {
     let shown: ReadState<Value>.Shown
     let retry: () async -> Void
+    /// What "Pair with Life" does: opens Settings, unless the screen is inside it (its Life page then).
+    var pair: (() -> Void)?
     @ViewBuilder let loading: Loading
     @ViewBuilder let empty: Empty
     @ViewBuilder let content: (Value) -> Content
@@ -51,7 +53,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
             Notice(
                 title: "Not paired with Life.",
                 detail: "Inbox and Projects need Life on your Mac.",
-                action: ("Pair with Life", { router.sheet = .settings }))
+                action: ("Pair with Life", { if let pair { pair() } else { router.sheet = .settings } }))
         }
     }
 }

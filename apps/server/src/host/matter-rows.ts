@@ -14,11 +14,18 @@ export const matterRowsNowOf = <
   R extends { id: string; nextStep?: { kind: string }; status: string },
 >(
   rows: readonly R[],
-  open: readonly Pick<Check, "group" | "matter" | "ridesOn" | "subject">[]
+  open: readonly (Pick<Check, "group" | "matter" | "ridesOn" | "subject"> &
+    Partial<Pick<Check, "deadline">>)[]
 ) =>
   rows.map((m) => {
-    const blockingChecks = blockingCountOf(checksOnMatterOf(open, m.id));
-    return { ...m, blockingChecks, needsYou: needsYouOf(m, blockingChecks) };
+    const on = checksOnMatterOf(open, m.id);
+    const blockingChecks = blockingCountOf(on);
+    const isYourMove = on.some((c) => c.group === "your move");
+    return {
+      ...m,
+      blockingChecks,
+      needsYou: needsYouOf(m, blockingChecks, isYourMove),
+    };
   });
 
 async function readRows(

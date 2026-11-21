@@ -8,6 +8,8 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
     case samePerson = "same person"
+    /// A matter's open step that is his: it stays in his inbox until done, handed over or put off.
+    case yourMove = "your move"
     case unknown
 }
 
@@ -300,11 +302,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let seal: String
     }
 
-    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's own line, when it has one.
+    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's open card on it, its question
+    /// (`line`) and its Markdown (`context`, with `life:` links); both nil when it has none, or holds more than one complaint.
     public struct BeingFixed: Decodable, Sendable, Equatable {
         public let ask: String
         public let since: Date?
         public let line: String?
+        public let context: String?
     }
 
     /// Life's outcome on a step it sees done itself (`doneSeen`, the asks contract): never his answer.
@@ -346,6 +350,30 @@ extension Check {
     /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
     public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
 
+    /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
+    public struct OpenedContext: Identifiable, Equatable, Sendable {
+        public let title: String
+        public let markdown: String
+        /// Its `life:` links' kinds; none for the caretaker's, whose links open by ref all the same.
+        public let lifeLinks: [LifeLink]
+        /// What its "Open in" opens; nil for the caretaker's.
+        public let session: String?
+
+        public var id: String { markdown }
+    }
+
+    /// The card's own context, as its link opens it.
+    public var ownContext: OpenedContext {
+        OpenedContext(
+            title: contextLinkTitle ?? "", markdown: context ?? "", lifeLinks: lifeLinks ?? [], session: session)
+    }
+
+    /// The caretaker's open question's context, under that question; nil with none.
+    public var fixContext: OpenedContext? {
+        guard let line = beingFixed?.line, let context = beingFixed?.context else { return nil }
+        return OpenedContext(title: line, markdown: context, lifeLinks: [], session: nil)
+    }
+
     /// The words of the link that opens its context: the code's, by what it asks, never the agent's (the context
     /// sheet's table, decision 81); nil with no context, so a card with none has no link.
     public var contextLinkTitle: String? {
@@ -353,7 +381,7 @@ extension Check {
         if draft != nil { return "Why this reply?" }
         switch group {
         case .ending: return "Why done?"
-        case .newMatter: return "What Life saw"
+        case .newMatter, .yourMove: return "What Life saw"
         case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
@@ -377,8 +405,16 @@ extension Check {
     public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
 
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
+    /// A your move card's "Hand to an agent" hands over the goal it shows, as a new matter's Start does.
     public func answer(_ option: Option) -> AnswerRequest? {
-        option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
+        guard option.takes == nil else { return nil }
+        let goal = isHandOver(option) ? self.goal : nil
+        return AnswerRequest(ref: ref, options: [option.id], note: goal)
+    }
+
+    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand to an agent.
+    public func isHandOver(_ option: Option) -> Bool {
+        option.id == "start" && (group == .newMatter || group == .yourMove)
     }
 
     /// His answer naming who it is, through the option that takes it: a person Life knows, or a typed name, which is a

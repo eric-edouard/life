@@ -9,23 +9,25 @@ import {
 const check = (group: string, subject: string | null = null) =>
   ({ group, subject }) as never;
 
-test("by kind: decision, unnamed voice, name and card together (these block), then a guess in use, a new matter, an ending", () => {
+test("by kind: decision, unnamed voice, name and card together (these block), then his move, a guess in use, a new matter, an ending", () => {
   const list = [
     check("decision"),
     check("voice"),
     check("name"),
     check("contacts card"),
+    check("your move"),
     check("guessed person"),
     check("voice", "person:gran"),
     check("new matter"),
     check("ending"),
   ];
-  expect(list.map(inboxRankOf)).toEqual([0, 1, 1, 1, 2, 2, 3, 4]);
+  expect(list.map(inboxRankOf)).toEqual([0, 1, 1, 1, 2, 3, 3, 4, 5]);
   expect(list.map(urgencyOf)).toEqual([
     "blocks",
     "blocks",
     "blocks",
     "blocks",
+    "improves",
     "improves",
     "improves",
     "improves",
