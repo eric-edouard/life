@@ -35,7 +35,7 @@ struct SpendingPage: View {
                 ForEach(spending.sections, id: \.label) { section in
                     ListLabel(section.label).padding(.top, Metrics.Spacing.s)
                     ForEach(Array(section.lines.enumerated()), id: \.element.id) { at, line in
-                        row(line).groupedRow(at: at, of: section.lines.count)
+                        row(line, at: at, of: section.lines.count)
                     }
                 }
             }
@@ -43,8 +43,9 @@ struct SpendingPage: View {
         }
     }
 
-    /// Its name, its figure in strong text ($0 muted), one muted line, and its share of the month as a bar under it.
-    @ViewBuilder private func row(_ line: SpendLine) -> some View {
+    /// Its name, its figure in strong text ($0 muted), one muted line, and its share of the month as a bar under it; one
+    /// that opens something is pressed as a whole (`groupedRow`'s button style).
+    @ViewBuilder private func row(_ line: SpendLine, at index: Int, of count: Int) -> some View {
         let open = opening(line.opens)
         let step: TypeStep = line.isZero ? .rowFigure : .rowName
         let shown = VStack(spacing: 0) {
@@ -58,9 +59,9 @@ struct SpendingPage: View {
             }
         }
         if let open {
-            Button(action: open) { shown }.buttonStyle(.plain)
+            Button(action: open) { shown }.buttonStyle(.groupedRow(at: index, of: count))
         } else {
-            shown
+            shown.groupedRow(at: index, of: count)
         }
     }
 

@@ -162,6 +162,7 @@ final class AppRouter {
     /// A page Settings opens (the agents, Spending) in the Projects tab's detail column, with the tabs: the sheet closes.
     func show(_ page: Detail) {
         sheet = nil
+        matterSheet = nil
         tab = .projects
         matterPath = []
         detail = page
