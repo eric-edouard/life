@@ -605,7 +605,7 @@ export const lifeChat = () => settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
-  messages: (Pick<Message, "bulk" | "fromMe" | "sender" | "text"> &
+  messages: (Pick<Message, "bulk" | "fromMe" | "sender"> &
     Partial<Pick<Message, "transaction">>)[];
   unit: Pick<Unit, "source" | "title">;
 }

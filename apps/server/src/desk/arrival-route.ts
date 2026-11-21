@@ -59,14 +59,20 @@ export function arrivalFactsOf(
 }
 
 /**
- * Whether he wrote in an arrival's chat after its newest line (`events`: what was written there since before it, oldest
- * first): he answered, so no agent wakes. Unseen newest line (older than the read): after the confirm.
+ * Whether he answered an arrival: he wrote in its chat after its newest line, another person's (`events`: what was
+ * written there since before it, oldest first), so no agent wakes. His own newest line is a commitment, never answered
+ * by his next one. Unseen newest line (older than the read): after the confirm. A mail arrival always wakes
+ * (`wroteSince` reads chats); the gate's rule covers a mail thread-day.
  */
 export function hasAnsweredOf(
   events: Pick<SourceEvent, "at" | "fromMe" | "id">[],
   f: Pick<ArrivalFacts, "at" | "id">
 ) {
-  const after = events.find((e) => e.id === f.id)?.at ?? f.at;
+  const newest = events.find((e) => e.id === f.id);
+  if (newest?.fromMe) {
+    return false;
+  }
+  const after = newest?.at ?? f.at;
   return events.some((e) => e.fromMe && e.at > after);
 }
 
@@ -150,8 +156,8 @@ export async function pollArrivals(
   if (unqueued.length === 0) {
     return;
   }
-  // ponytail: an answered arrival is never queued, so its chat is read again on each poll until it leaves the
-  // look-back; one hour of a chat is cheap.
+  // ponytail: an answered arrival is never queued, so its source is read again on each poll, from an hour before its
+  // confirm, until it leaves the 12-hour look-back; store answered ids if that read shows up.
   const wrote = answersOf(unqueued, o.sources);
   const nets = await netsOf(desk, people);
   const routed = unqueued.flatMap((f, i) =>

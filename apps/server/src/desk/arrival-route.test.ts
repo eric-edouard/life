@@ -422,6 +422,10 @@ test("he answered after an arrival's newest line: no agent wakes; a line of his 
   expect(
     hasAnsweredOf([line("w:8", 0, true), line("whatsapp:9", 1, false)], f)
   ).toBe(false);
+  // His own newest line is a commitment: his next line never answers it.
+  expect(
+    hasAnsweredOf([line("whatsapp:9", 1, true), line("w:10", 2, true)], f)
+  ).toBe(false);
   // The newest line unseen: only a line of his after the confirm counts.
   expect(hasAnsweredOf([line("w:10", 2, true)], f)).toBe(false);
 
