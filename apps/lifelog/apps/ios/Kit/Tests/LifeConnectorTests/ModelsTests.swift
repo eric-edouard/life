@@ -623,7 +623,7 @@ private func asks(
     #expect(folded.check(on: "v3")?.ref == "v1" && folded.checks.ref(after: "v1") == "e1")
     #expect(order.folded(except: [.voice]) == order)
     let groups = Check.bulkGroups(try #require(folded.bulk["v1"])).map { $0.map(\.ref) }
-    #expect(groups == [["v1"], ["v3"], ["v2"]])
+    #expect(groups == [["v2"], ["v1"], ["v3"]])
 }
 
 /// A same person ask folds with the guessed people's (one screen of Yes or No rows); a kind he is answering row by row

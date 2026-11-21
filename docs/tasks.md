@@ -197,6 +197,13 @@ the watcher, every 30 minutes, brings that calendar in line, through the client 
   change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
 - Its location is the appointment's place, with Google and Apple Maps links by name in the description (`mapLinksOf`).
 - Only a popup reminder, never mail (it would come back as a message). No guests, no invites sent.
+- An agent's event (his word of 21 Nov 2026): a card with one `event` need (title, start, end, 1 to 3 reminders in
+  minutes, place) and one option marked `adds` ("Add to calendar"). His pick of it alone, in his app, writes that event
+  once into this calendar through `googleCalendar`, marked `lifeOutput=card`, busy, with popup reminders, no guests
+  (`addEventByHisWord`, `host/card-event-calendar.ts`); the card's `added` line is the proof, `decision.answered` carries
+  `added` (the event's id, or the error); a failed write is not retried. It is never touched again by the sync or
+  the Past calendar, so one he deletes is never written again. An agent is never "sure" in Life's sense (that is Life's
+  own reading's confidence), so its event is always asked; what Life reads as agreed reaches his calendar as an appointment, unasked.
 - An event that ended is never touched.
 
 ## Marks

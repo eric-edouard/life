@@ -515,7 +515,6 @@ test("on his words the main session acts through its door: each act's `said` mus
   });
   // Its answer is its last act's kind, from what the act wrote, with its words.
   expect(answered).toEqual({
-    ask: complaint?.id,
     kind: "fix",
     words: "**Done**.",
   });
@@ -533,8 +532,9 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
     folder: t.dir,
     runtime: "claude",
   });
-  ownAssignmentOf(t.desk.db, other) ??
+  if (!ownAssignmentOf(t.desk.db, other)) {
     openAssignment(t.desk, other, { openedBy: "owner" });
+  }
   const play =
     (name: string, args: Record<string, unknown>) => async (r: string) => {
       await callDoor(main()?.id ?? "", name, args);

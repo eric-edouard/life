@@ -173,7 +173,6 @@ function assignmentOfCall(desk: Desk, id: string, named?: string) {
  */
 function doorServer(desk: Desk, id: string) {
   const server = new McpServer({ name: "desk", version: "1" });
-  /** The main session's `said`, found in his words of its turn (`hisWordsIn`), as he said them. */
   /** What the main session did on its turn, as its answer's kind (`keepAct`). */
   const acted = (
     turn: { id: number } | null | undefined,
@@ -184,6 +183,7 @@ function doorServer(desk: Desk, id: string) {
     const a = agent ? agentOf(desk.db, agent) : null;
     return a ? shortNameOf(a) : "A new agent";
   };
+  /** The main session's `said`, found in his words of its turn (`hisWordsIn`), as he said them. */
   const hisWordsOf = (turn: { id: number } | null | undefined, said?: string) =>
     hisWordsIn(desk, turn?.id ?? -1, said ?? "");
   const door = <S extends z.ZodObject>(
@@ -289,7 +289,8 @@ function doorServer(desk: Desk, id: string) {
           words,
         })
       );
-      if (done.state !== "not_started") {
+      // Only what the desk did or took: an unconfirmed change is said in words alone.
+      if (["started", "done", "asked"].includes(done.state)) {
         acted(turn, {
           agent: agentNameOf(done.agent),
           kind: "agent",
@@ -359,7 +360,7 @@ function doorServer(desk: Desk, id: string) {
         report ?? false,
         `tell-life:${turn?.id}:${card ?? ""}`
       );
-      acted(turn, { ask: reached.ask, kind: "fix" });
+      acted(turn, { kind: "fix" });
       return reached;
     }
   );
