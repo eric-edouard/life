@@ -205,8 +205,15 @@ reverse it, change its entry here in the same commit.
   owner's own device; the server is not, so the rule holds with no exception for speech detection.
 - **Dictation is stored, never processed.** The Mac helper reports when the owner dictates to the Mac; the ranges
   the server makes of it are cut from every job before ElevenLabs, `apps/identity` or a model sees it, checked in the cutter and again in the
-  worker's `claim`. The raw backup holds everything the Pendant heard. No exception: the Pendant's button no longer
-  sends anything to an AI.
+  worker's `claim`, and the watermark and the ranges are read again where audio leaves (when Silero takes a piece,
+  before a block's job is admitted, at each send, before each identity request). The raw backup holds everything the
+  Pendant heard. No exception: the Pendant's button no longer sends anything to an AI.
+- **Dictation on the phone: the device that knows the clock decides (21 Nov 2026).** The iPhone drops pendant audio
+  heard during a dictation (#802, pending its iPhone side; until then that audio is processed like any other): it keeps the dictation as a local quiet range on its own clock, the clock that places
+  the pendant's audio, and never uploads what it covers. The server never places a dictation on pendant audio itself:
+  it would have to infer which remote clock stamped that audio, and three review rounds found that inference wrong (a
+  clock measured late, audio buffered under an older clock, a clock with no measurement). The server keeps no record of
+  a phone dictation. Android gets no phone dictation for now.
 
 ## People, places and search
 

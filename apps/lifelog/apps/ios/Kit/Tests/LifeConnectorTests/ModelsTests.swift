@@ -59,6 +59,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.matter?.name == "Mend Gran's watch")
     #expect(decision.draft?.file?.name == "quote.pdf")
     #expect(decision.draft?.quoted?.sender == "Kit")
+    // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
+    #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
+    #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
+    #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
+    #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
     #expect(decision.deadline != nil)
     #expect(decision.confirm?.first?.group == .guessedPerson)
     // The identity ask: who the guess is as WhatsApp shows them, with WhatsApp's own link to the chat.
