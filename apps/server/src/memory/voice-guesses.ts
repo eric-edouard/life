@@ -14,8 +14,8 @@ import type { People } from "./who";
 
 // The voice guesses (docs/glossary.md, "voice guess"): what the voice naming stored (`memory/voice-naming.ts`), read as
 // a guess for each turn nobody named. A guess is only ever shown: as "probably X" when the words of a conversation are
-// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when it agrees
-// with lifelog's suggestion (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
+// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when lifelog's
+// suggestion does not contradict it (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
 // lifelog, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
 // corrections (`scripts/imports.test.ts` checks).
 

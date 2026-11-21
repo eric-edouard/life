@@ -266,7 +266,7 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
   }
 });
 
-test("a voice card asks about the one person lifelog's suggestion and the group's sure or likely guesses agree on, known to lifelog by an id", async () => {
+test("a voice card asks about the one person the group's sure or likely guesses name and lifelog's suggestion does not contradict, known to lifelog by an id", async () => {
   const folder = mkdtempSync(join(tmpdir(), "voice-card-guesses-"));
   try {
     line([entry()], "2026-10-11T00:00:00.000Z", folder);
