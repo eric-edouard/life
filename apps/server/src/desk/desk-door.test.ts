@@ -3,12 +3,17 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
+import { DESK_AGENT } from "../core/names";
+import { ask as recordAsk } from "../host/asks";
 import { currentAssignmentOf } from "../host/desk-read";
+import { ASK_SPOKEN } from "../host/events";
+import { isHisWordsPlanOf } from "../host/inbox";
 import { decisionsNow } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
 import { readPacket, register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
+import { firstTurnOf } from "./first-turns";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { on } from "./test-desk";
 
@@ -28,6 +33,21 @@ const agent = (brief = "Test brief: a made-up bakery's order") => {
   desk.db.run("update agent set link = ? where id = ?", [`fake://${id}`, id]);
   turnOn(id, on(desk, id).id);
   return id;
+};
+let spokenCount = 0;
+/** His spoken ask of the desk, recorded: its id. */
+const spokenAsk = () => {
+  spokenCount += 1;
+  return recordAsk(
+    {
+      at: clock().toISOString(),
+      quote: "hey Life, order the test cake",
+      ref: `door-job:${spokenCount}@x`,
+    },
+    { agent: DESK_AGENT, confidence: "high", conversation: "c1", turns: [0] },
+    "watch",
+    "heard its wake"
+  ).id;
 };
 const turnOn = (id: string, assignment: string) =>
   desk.db.run(
@@ -146,6 +166,55 @@ test("a new agent waits or finishes only once it asked its plan", async () => {
   );
   await call(id, key, "request_decision", ask("Test: go with the plan?"));
   expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
+});
+
+test("the Personal agent holding his spoken ask may wait without a plan card: his words are its plan", async () => {
+  const id = agent();
+  const s = on(desk, id);
+  const wait = { events: [], reason: "r", until: ahead(HOUR) };
+  desk.db.run("update agent set role = 'personal' where id = ?", [id]);
+  // Personal with no spoken ask yet: a plan card first.
+  expect(firstTurnOf(desk.db, { role: "personal" }, s)).toContain("plan card");
+  expect((await call(id, doorOf(id).key, "set_wait", wait)).text).toContain(
+    "ask your plan first"
+  );
+  desk.db.run(
+    "insert into event (assignment_id, event_id, name, payload, received_at) values (?, 'entry_00000000000a', ?, '{}', ?)",
+    [s.id, ASK_SPOKEN, clock().toISOString()]
+  );
+  expect(firstTurnOf(desk.db, { role: "personal" }, s)).toContain(
+    "his words are your plan"
+  );
+  expect(
+    (await call(id, doorOf(id).key, "set_wait", wait)).result?.isError
+  ).toBe(false);
+});
+
+test("a spoken ask is read at the door only by the assignment it was routed to; a matter's assignment keeps its card", async () => {
+  const id = agent();
+  const other = agent();
+  const spoken = spokenAsk();
+  desk.db.run(
+    "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
+    [on(desk, id).id, spoken, ASK_SPOKEN, clock().toISOString()]
+  );
+  const read = (who: string) =>
+    call(who, doorOf(who).key, "read_spoken_ask", { ask: spoken });
+  expect(JSON.parse((await read(id)).text ?? "{}")).toMatchObject({
+    words: "hey Life, order the test cake",
+  });
+  expect((await read(other)).text).toContain("was received here");
+  // On a matter (anchored), the Personal agent's assignment keeps its card even with a spoken ask.
+  expect(isHisWordsPlanOf(desk.db, { role: "personal" }, on(desk, id))).toBe(
+    true
+  );
+  desk.db.run(
+    "insert into anchor (assignment_id, step, added_at) values (?, 'obs_00000000000a', ?)",
+    [on(desk, id).id, clock().toISOString()]
+  );
+  expect(isHisWordsPlanOf(desk.db, { role: "personal" }, on(desk, id))).toBe(
+    false
+  );
 });
 
 test("a handed-out agent is told to ask its card, not its plan", async () => {

@@ -102,7 +102,7 @@ The briefs are in `builder-tools/helper-resume.md` (the queue as it stood) unles
 
 ## Known bugs and flaky tests
 
-- **Under load (above about 60):** `scribe-dispatch.test.ts` ([#857](https://github.com/eric-edouard/life/issues/857)), `voice-notes.test.ts`, and the check's "a clean tree that passed is known to every worktree" (5 s) time out. Rerun once. `foundation-model.test.ts` was fixed by #892.
+- **Under load (above about 60):** `voice-notes.test.ts` and the check's "a clean tree that passed is known to every worktree" (5 s) time out. Rerun once. `foundation-model.test.ts` was fixed by #892.
 - **The Live logs crash** ("No Observable object of type AppRouter") is fixed in #921, but not yet on his phone.
 - **Debugging a crash on the phone:** `xcrun devicectl device copy from --device <his UDID> --domain-type systemCrashLogs --source / --destination <dir>` while the phone is unlocked. For the message itself, use `xcrun devicectl device process launch --device <UDID> --console --terminate-existing com.ericedouard.lifelog`.
 

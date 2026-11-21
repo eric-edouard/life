@@ -79,7 +79,6 @@ const RUNTIME = process.env.LIFE_DEMO_RUNTIME ?? "claude";
 writeFileSync(
   join(state, "settings.json"),
   JSON.stringify({
-    agents: { Orbit: { wake: ["orbit"] } },
     connector: { origin: `http://127.0.0.1:${PUBLIC_PORT}` },
     desk: {
       defaultRuntime: RUNTIME,
