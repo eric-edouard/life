@@ -26,7 +26,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         let inbox = try reply(Inbox.self, DesignReplies.inbox(read, checks: checks))
         #expect(!inbox.checks.isEmpty && inbox.total == inbox.checks.count)
         let rows = try #require(try object("read_matters")["matters"] as? [[String: Any]])
-        #expect(try reply(MatterList.self, DesignReplies.matters(rows)).matters.count == rows.count)
+        let list = try reply(MatterList.self, DesignReplies.matters(rows))
+        #expect(list.matters.count == rows.count)
+        // Life's picks, and none (the area's icon): every key one this build draws.
+        #expect(list.matters.contains { $0.icon == nil })
+        #expect(list.matters.compactMap(\.icon).allSatisfy { $0.by == .life && MatterIcons.symbol($0.key) != nil })
         let agents = try object("read_registered_agents")
         #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
         let matterRead = try object("read_matter")
@@ -55,6 +59,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.matter?.name == "Mend Gran's watch")
     #expect(decision.draft?.file?.name == "quote.pdf")
     #expect(decision.draft?.quoted?.sender == "Kit")
+    // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
+    #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
+    #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
+    #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
+    #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
     #expect(decision.deadline != nil)
     #expect(decision.confirm?.first?.group == .guessedPerson)
     // The identity ask: who the guess is as WhatsApp shows them, with WhatsApp's own link to the chat.
@@ -496,6 +505,53 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let check = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: name), as: UTF8.self))
     #expect(check.createsByName)
     #expect(check.askedName == "Sam Vale")
+}
+
+/// A matter's icon, down the chain: his pick, Life's, the first area's icon, the folder. Only a key this app knows is
+/// drawn, chosen in the grid and attributed; his own pick is what Undo puts back, known or not.
+@Test func aMattersIconFallsFromHisPickToTheFolder() throws {
+    func row(icon: [String: String]?, areas: [String]? = ["Home"]) throws -> MatterRow {
+        var object: [String: Any] = ["id": "matter_x", "name": "Renew the lease", "status": "moving"]
+        (object["icon"], object["areas"]) = (icon, areas)
+        return try decoded(
+            MatterRow.self, String(decoding: JSONSerialization.data(withJSONObject: object), as: UTF8.self))
+    }
+    let owner = try row(icon: ["by": "owner", "key": "sign"])
+    #expect((owner.symbol, owner.knownIcon?.by, owner.ownerIconKey) == ("signature", .owner, "sign"))
+    let life = try row(icon: ["by": "life", "key": "key"])
+    #expect((life.symbol, life.knownIcon?.by, life.ownerIconKey) == ("key", .life, nil))
+    // None: the area's icon, unattributed; an area with no icon of its own, or none, gets the folder.
+    let none = try row(icon: nil)
+    #expect((none.symbol, none.knownIcon, none.ownerIconKey) == ("house", nil, nil))
+    #expect(try row(icon: nil, areas: ["Garden"]).symbol == "folder")
+    #expect(try row(icon: nil, areas: nil).symbol == "folder")
+    // A key Life added since this build: drawn as none, yet his pick of it is still what Undo restores.
+    let newer = try row(icon: ["by": "owner", "key": "a_new_key"], areas: ["Money"])
+    #expect((newer.symbol, newer.knownIcon, newer.ownerIconKey) == ("banknote", nil, "a_new_key"))
+}
+
+/// Undo's earlier pick after a write whose read failed: Life's `key` on the row, he picks `sign`, the write goes and
+/// the matter read fails, so the row still says `key`; his next pick's Undo must put back `sign`, never Life's pick.
+/// A read loaded after the write is the row's word again.
+@Test func undoPutsBackThePickLastWrittenUntilAReadShowsIt() throws {
+    func row(_ by: String, _ key: String) throws -> MatterRow {
+        let icon = #"{"by": "\#(by)", "key": "\#(key)"}"#
+        let text = #"{"id": "matter_x", "name": "Renew the lease", "status": "moving", "icon": \#(icon)}"#
+        return try decoded(MatterRow.self, text)
+    }
+    let read = Date(timeIntervalSince1970: 0)
+    let (wrote, readAgain) = (read.addingTimeInterval(10), read.addingTimeInterval(20))
+    var written = WrittenIcons()
+    let lifes = try row("life", "key")
+    #expect(written.earlierPick(of: lifes, loadedAt: read) == nil)
+    written.wrote("sign", on: "matter_x", at: wrote)
+    #expect(written.earlierPick(of: lifes, loadedAt: read) == "sign")
+    #expect(written.earlierPick(of: lifes, loadedAt: nil) == "sign")
+    // “Let Life pick” written, the row still his: Undo gives it back to Life.
+    written.wrote(nil, on: "matter_x", at: wrote)
+    #expect(written.earlierPick(of: try row("owner", "sign"), loadedAt: read) == nil)
+    // A read after the write: the row says what Life holds now.
+    #expect(written.earlierPick(of: try row("owner", "hammer"), loadedAt: readAgain) == "hammer")
 }
 
 /// His answer is confirmed while a read asked before it is still on its way: that read, landing after, still lists the

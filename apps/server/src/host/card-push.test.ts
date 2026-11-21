@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY } from "../core/clock";
+import { logEvents, logFileOf } from "../core/log";
 import { setSettings } from "../core/settings";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
@@ -51,7 +52,7 @@ beforeEach(() => {
   look = spyOn(checks, "checksNow").mockImplementation(() =>
     Promise.resolve(open)
   );
-  push = spyOn(lifelog, "notifyPhone").mockResolvedValue(undefined);
+  push = spyOn(lifelog, "notifyPhone").mockResolvedValue(true);
 });
 afterEach(() => {
   look.mockRestore();
@@ -87,6 +88,13 @@ test("Life's own checks push too: the first 5 alone, the rest as one push that n
   expect(push.mock.calls.map(([p]) => p)).toEqual([
     ...[3, 4, 5, 6, 7].map((n) => ({ badge: 2, ...alone(n, "person") })),
     { badge: 2, body: "3 more new cards", level: "active", title: "Life" },
+  ]);
+  // Each push lifelog took is a line: a card's by its push id, the rest by count.
+  expect(
+    logEvents(logFileOf(clock().toISOString()), "card.push_accepted").slice(-2)
+  ).toMatchObject([
+    { cards: 1, loudness: "active", pushId: card(7).pushId },
+    { cards: 3, loudness: "active" },
   ]);
 });
 
@@ -239,7 +247,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
         badge: 3,
         body: "1 new card",
         level: "active",
-        pushId: checks.pushIdOf(id),
+        pushId: lifelog.pushIdOf(id),
         title: "Life",
       },
     ],
@@ -247,7 +255,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   // The lock is released with the decision open: the full look finds it seen, and pushes nothing more.
   open = [
     ...cards(2),
-    { group: "decision", kind: "decision", pushId: checks.pushIdOf(id) },
+    { group: "decision", kind: "decision", pushId: lifelog.pushIdOf(id) },
   ] as checks.InboxCheck[];
   held.mockReturnValue(false);
   await pushNewCardsIfChanged();

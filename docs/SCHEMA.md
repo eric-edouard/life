@@ -260,7 +260,7 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 
 ## decisions.jsonl
 
-The decisions: a question an agent puts to him (`memory/decisions.ts`), append-only, one synchronous line each,
+The decisions: a question an agent puts to him (`memory/decisions.ts`; each line's shape in `memory/decision-lines.ts`), append-only, one synchronous line each,
 outside the lock, schemaVersion 3, by `kind`:
 - `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, `desk`, or `owner` from his own app),
   `agent` (`agt_…`, a registered agent's, optional), `assignment` (the desk's `asg_…` that asked it, which owns it when
@@ -280,7 +280,9 @@ outside the lock, schemaVersion 3, by `kind`:
   recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
-  days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null). A `draft` needs
+  days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null), `contests` (Life's stamp:
+  the open card of another asker that held the draft's chat when asked, which this one waits on, `memory/draft-contest.ts`),
+  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read). A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
   `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
@@ -306,9 +308,14 @@ outside the lock, schemaVersion 3, by `kind`:
   before his next answer so that one is kept.
 - `withdrawn` (`requestDecision`, by its asker; or `withdrawDraftsAnsweredInChat`, by Life, when he wrote in its draft's chat
   himself since it was asked): `id`, `at`, `why`, and Life's `answeredInChatAt` (his message's instant, never its words;
-  the asker's own has none, and lines before it lack it).
+  the asker's own has none, and lines before it lack it), and `replacedBy` (`answerDecision`, by Life: the newer card
+  his Send sent, which `replaces` it).
+- `kept` (`requestDecision`, the holder's keep): `id` (the waiting card), `at`, `why`.
 
-Where each stands is worked out when read (`decisionsNow`): open, answered, seen (a `seen` look and no answer of his), lapsed (its deadline passed) or withdrawn.
+Where each stands is worked out when read (`decisionsNow`): open, waiting (on the held card it `contests`: while it is
+open or its send runs, for `CONTEST_WAIT` or while kept; past it, open with `replaces`), answered, seen (a `seen` look
+and no answer of his), lapsed (its deadline passed) or withdrawn (a card a `merges` names: withdrawn for its asker,
+`replacedBy` that card).
 The file also holds earlier versions' lines, kept and skipped for good: the old decisions page's (schemaVersion 1,
 before 2 Nov 2026: Life's old fact checks, what he answered on that page, his loops' decisions) and the cards before
 titles (schemaVersion 2, with `recommended` and `why`; none in his data on 18 Nov 2026).
@@ -352,7 +359,7 @@ its steps) is worked out when read (`nextStepNow`), never stored.
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/read-replies.ts`), one line per call,
-append-only, in the file of the month of its first message (`messages[0]`'s instant, UTC, so a file never moves and old history is never touched again), not of `at` (when it was made): `read` (`connection`, `mentions`, `conflict`, `conversation_summary`, `voice_naming`, `arrival_trigger` or `arrival_confirm`; the arrival reads also store `unit`, the unit their lines are of, and the trigger's `madeBy` is `{model: "apple-on-device", os, prompt, run}`, its `reply` `{author, quote}` or `{refused}`, the confirm's `{isActionable}` with `people`, who wrote the lines read, as read, never him), `reply` (the object
+append-only, in the file of the month of its first message (`messages[0]`'s instant, UTC, so a file never moves and old history is never touched again), not of `at` (when it was made): `read` (`connection`, `mentions`, `conflict`, `conversation_summary`, `voice_naming`, `arrival_trigger`, `arrival_confirm` or `arrival_appointment`; the arrival reads also store `unit`, the unit their lines are of, and the trigger's `madeBy` is `{model: "apple-on-device", os, prompt, run}`, its `reply` `{author, quote}` or `{refused}`, the confirm's `{isActionable}` with `people`, who wrote the lines read, as read, never him, the appointment's, stored after its check, `{agreed: true, quote, title, start, end, allDay, zone, place, link, people}` (`link` https only, copied exactly) or `{agreed: false, refused?}`), `reply` (the object
 the model gave, as given (except `voice_naming`, stored after `checkedVoices`): only its `exchanges` list is required, the rest is checked when read; for `conversation_summary`, `summary` is required and `subjects` (`label`, `line`), `quotes` (`line`, `quote`) and `doubts` are checked when read: a subject whose line is not one of the lines read and a quote not on its line are dropped; for `voice_naming`, `voices` is required, a list of `{voice, person, lines, confidence}` kept only after it was checked against the call's input, so a stored entry names an offered ref, `me` or `unknown`, and cites lines of that voice), `messages` (the
 `eventKey` of every message the call showed, in order; for a conversation summary the key of each turn it read, `<turn ref> <owner or author>`, so a voice given to someone else changes it; for a voice naming, a turn nobody named is `<turn ref> voice:<label>`, `unnamedTurnKey`), `starts` (where each exchange begins in them), `madeBy` (its
 `prompt` is the prompt's versioned name), `promptDigest` (a 16-hex digest of the prompt's text, kept beside the name and
@@ -515,11 +522,10 @@ else its id is its facts' hash. One the reply forgets stays while its facts hold
 
 ## appointment-events.jsonl
 
-The calendar sync's lines (`appointments-calendar.ts`), appended outside the lock, one tick at a time:
-`{schemaVersion: 1, at, appointment, calendar, event, observations, op}`, `op` `created` (its event's id in that
-calendar; one written in another calendar counts as never written),
-`removed` (Life deleted it, its appointment gone) or `refused` (that event gone by his hand or an agent's). No
-appointment citing every fact of a refused one is written again.
+The calendar sync's lines (`appointments-calendar.ts`), appended outside the lock, one at a time in the watcher: `{schemaVersion: 1, at, appointment, calendar, event, observations | messages, op}` (the night's
+appointment's facts, or the message keys an appointment agreed in new lines was read from), `op` `created` (its event's
+id in that calendar; one written in another calendar counts as never written), `removed` (Life deleted it, its
+appointment gone), `refused` (that event gone by his hand or an agent's) or `restored` (his word lifting the refusal). No appointment citing every fact of a refused one is written again.
 
 ## ledger.jsonl
 
@@ -685,7 +691,7 @@ wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store r
 `matter_id` (the matter he chose for it, by Start or the hand-out, which the finder takes on a tie among its anchors'
 matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
-queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
-cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
+queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `draft.contested` (`{id, asker, channel, chat, held, until}`, event id `<card>.draft.contested`) and `draft.kept` (`{id, held}`), `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
+cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written once, just before the card is written (dropped when it is not), `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines). Never deleted by hand.

@@ -11,15 +11,16 @@ import { askOf } from "./memory-files";
 
 /**
  * What a card of Life's rests on, as a digest: its kind, what it acts on, its subject, its question (the guess, in
- * words), a new matter's goal, the words it rests on and its `basis` (what else its builder says it rests on: an
- * ending's later step); never its labels, rank or counts. His complaint names it; another guess, goal or link at the
+ * words), a new matter's goal, the words it rests on (`quote`, also quoted in its context) and its `basis` (what else
+ * its builder says it rests on: an ending's later step); never its labels, rank or counts. His complaint names it; another guess, goal or link at the
  * same ref is another cause.
  */
 export const causeOf = (
-  c: Pick<Check, "evidence" | "group" | "question" | "ref" | "subject"> & {
+  c: Pick<Check, "group" | "question" | "ref" | "subject"> & {
     goal?: string | null;
   },
-  basis?: string
+  basis?: string,
+  quote?: string
 ) =>
   digest(
     "sha256",
@@ -29,7 +30,7 @@ export const causeOf = (
       c.subject,
       c.question,
       c.goal ?? null,
-      c.evidence?.quote ?? null,
+      quote ?? null,
       basis ?? null,
     ]),
     16
@@ -95,10 +96,15 @@ export function withMisreadSealed<
 export function withComplaintFields<
   C extends Pick<
     Check,
-    "asker" | "evidence" | "goal" | "group" | "question" | "ref" | "subject"
+    "asker" | "goal" | "group" | "question" | "ref" | "subject"
   >,
->(c: C, fixing?: ReadonlyMap<string, BeingFixed>, basis?: string) {
-  const cause = c.asker === LIFE_ASKER ? causeOf(c, basis) : null;
+>(
+  c: C,
+  fixing?: ReadonlyMap<string, BeingFixed>,
+  basis?: string,
+  quote?: string
+) {
+  const cause = c.asker === LIFE_ASKER ? causeOf(c, basis, quote) : null;
   return {
     ...c,
     beingFixed: (cause && fixing?.get(cause)) || undefined,

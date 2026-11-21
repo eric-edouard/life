@@ -4,6 +4,7 @@ import { dirname, join, relative } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { commitPaths } from "../core/proc";
@@ -29,6 +30,7 @@ import { matcherOf, waitChannelsOf } from "../host/events";
 import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
+import { isAsked, isPending } from "../memory/draft-contest";
 import { oneMatter, readMatterProjectIds } from "../memory/read-matters";
 import {
   loadTruth,
@@ -81,19 +83,19 @@ function cardsOf(
   return list.filter((d) => mine.has(assignmentOfCard(db, d) ?? ""));
 }
 
-/** Assignment `s`'s open card, if any: one at a time. */
-export const openCardOf = (
+/** Assignment `s`'s card open or waiting on another (`isPending`), if any: one at a time. */
+export const pendingCardOf = (
   db: Desk["db"],
   s: Pick<AssignmentRow, "agent_id" | "id">,
   list = decisionsNow()
-) => cardsOf(db, s, list).find((d) => d.state === "open");
+) => cardsOf(db, s, list).find(isPending);
 
-/** Whether assignment `s` has a card he was asked and not withdrawn: its first card is its plan, so the door lets its agent wait or finish only after. */
+/** Whether assignment `s` has a card he was asked and not withdrawn (one another card took the place of counts): its first card is its plan, so the door lets its agent wait or finish only after. */
 export const hasAsked = (
   db: Desk["db"],
   s: Pick<AssignmentRow, "agent_id" | "id">,
   list = decisionsNow()
-) => cardsOf(db, s, list).some((d) => d.state !== "withdrawn");
+) => cardsOf(db, s, list).some(isAsked);
 
 /** Where a new assignment's notes file goes: in his agents repo (`desk.agentsRepo`), else under the desk's folders. */
 const notesPathOf = (id: string) =>
@@ -232,7 +234,7 @@ export async function withdrawOpenCards(
   why: string
 ) {
   for (const d of cardsOf(db, s, decisionsNow())) {
-    if (d.state === "open") {
+    if (isPending(d)) {
       // As the agent that asked it, a folded card's included: the desk checked it is this assignment's.
       // biome-ignore lint/performance/noAwaitInLoops: one append at a time
       await requestDecision(DESK_AGENT, {
@@ -409,7 +411,7 @@ export async function stopOpenRun(
     .catch((error: unknown) =>
       log("desk.runtime", {
         agent: id,
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         what: "stop",
       })
@@ -447,7 +449,7 @@ export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
   } catch (error) {
     log("desk.runtime", {
       agent: a.id,
-      error: String(error),
+      ...errorOf(error),
       ok: false,
       what: "commit",
     });
@@ -490,22 +492,22 @@ async function subjectOf(
 /**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
  * per assignment, on its matter (`subjectOf`) and never on a step another assignment of its agent is anchored on
- * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest, then hands the
- * card's write to the desk's claim, which writes it inside one transaction with the row saying it is this assignment's
- * (`card`, read by `assignmentOfCard`) and, on a matter, the anchor on the subject Life stores (a matter's id is stored
- * as one of its steps): all of them or, when any fails, none, rolled back at once, so no other ask's anchor is ever
- * taken back. The card's line carries the asking assignment and its matter, so the desk stopping between the line and
- * the commit leaves a card still owned by its assignment (`assignmentOfCard`) and on its matter; never an anchor
- * without its card.
+ * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest. Just before the
+ * card is written, in one transaction, the desk writes that it is this assignment's (`card`, read by `assignmentOfCard`)
+ * and, on a matter, anchors the subject Life will store (a matter's id is stored as one of its steps), so no card is
+ * ever without its owner or its anchor; both are undone when the card is not written. The card's line also carries
+ * the asking assignment and the matter it was asked on (`subjectOf`'s), which hold when the desk's row is missing.
  */
 export async function askDecision(
   desk: Desk,
   s: AssignmentRow,
-  { withdraw, why, ...ask }: z.infer<typeof DecisionRequest>
+  { keep, withdraw, why, ...ask }: z.infer<typeof DecisionRequest>
 ) {
   const { db } = desk;
   const id = s.agent_id;
   heard(desk, s);
+  const isMine = (card?: string) =>
+    cardsOf(db, s, decisionsNow()).some((d) => d.id === card);
   if (withdraw) {
     const card = cardsOf(db, s, decisionsNow()).find((d) => d.id === withdraw);
     if (!card) {
@@ -515,17 +517,29 @@ export async function askDecision(
     }
     return requestDecision(DESK_AGENT, { agent: card.agent, why, withdraw });
   }
+  if (keep) {
+    const held = decisionsNow().find((d) => d.id === keep)?.contests;
+    if (!isMine(held)) {
+      throw new Error(`Not done: ${keep} waits on no card of ${s.id}.`);
+    }
+    return requestDecision(DESK_AGENT, { agent: id, keep, why });
+  }
   const steps = anchorsOf(db, s.id);
   const { matter, subject } = await subjectOf(s, steps, ask.subject);
   const link = agentOf(db, id)?.link;
+  // Undone when the card is not written: its owner row, and its subject's anchor when this ask added it.
+  let undo: (() => void) | undefined;
   const claim = (
     on: string | undefined,
     decision: string,
-    write: (stamps: { assignment: string }) => void
+    merging?: string
   ) => {
-    // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await.
-    const open = openCardOf(db, s);
-    if (open) {
+    if (merging && !isMine(merging)) {
+      throw new Error(`Not done: ${merging} is no card of ${s.id}.`);
+    }
+    // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await; a merge's own card goes with it.
+    const open = pendingCardOf(db, s);
+    if (open && open.id !== merging) {
       throw new Error(
         `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`
       );
@@ -536,19 +550,28 @@ export async function askDecision(
         `Not done: ${on} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
       );
     }
-    db.transaction(() => {
+    const isAnchored = db.transaction(() => {
       db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
         decision,
         s.id,
       ]);
-      if (steps.length > 0 && on) {
-        db.run(
-          "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-          [s.id, on, clock().toISOString()]
-        );
-      }
-      write({ assignment: s.id });
+      return steps.length > 0 && on
+        ? db.run(
+            "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
+            [s.id, on, clock().toISOString()]
+          ).changes > 0
+        : false;
     })();
+    undo = db.transaction(() => {
+      db.run("delete from card where decision_id = ?", [decision]);
+      if (isAnchored) {
+        db.run("delete from anchor where assignment_id = ? and step = ?", [
+          s.id,
+          on ?? "",
+        ]);
+      }
+    });
+    return { assignment: s.id };
   };
   return requestDecision(
     DESK_AGENT,
@@ -562,7 +585,38 @@ export async function askDecision(
     undefined,
     claim,
     matter
-  );
+  ).catch((error) => {
+    undo?.();
+    throw error;
+  });
+}
+
+/**
+ * `read_card`: a card in a contest with one of assignment `s`'s, as data: one waiting on its card (`draft.contested`),
+ * or its own waiting card (`draft.kept`: the holder's why). Never one of another contest.
+ */
+export function readCard({ db }: Desk, s: AssignmentRow, id: string) {
+  const all = decisionsNow();
+  const mine = new Set(cardsOf(db, s, all).map((x) => x.id));
+  const d = all.find((x) => x.id === id);
+  if (!(d && (mine.has(d.id) || mine.has(d.contests ?? "")))) {
+    throw new Error(`Not done: ${id} is in no contest with a card of ${s.id}.`);
+  }
+  const { agent, asker, context, contests, draft, kept, options } = d;
+  const { question, replaces, state, title } = d;
+  return {
+    asker: agent ?? asker,
+    contests: contests ?? null,
+    context,
+    draft: draft ?? null,
+    id,
+    kept: kept?.why ?? null,
+    options: options.map((o) => o.label),
+    question,
+    replaces: replaces ?? null,
+    state,
+    title,
+  };
 }
 
 /** Where an agent may write, what it never starts, how it waits, and which matter his own words in its session are about (his rulings of 20 Nov 2026): Life keeps its notes; the desk alone dispatches and wakes. */
@@ -715,7 +769,7 @@ export async function readPacket(
         ]
       : []),
     `Events waiting:\n${events.join("\n") || "(none)"}`,
-    `Your open decision: ${openCardOf(db, s)?.id ?? "none"}`,
+    `Your open decision: ${pendingCardOf(db, s)?.id ?? "none"}`,
   ].join("\n\n");
 }
 

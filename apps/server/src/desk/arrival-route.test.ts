@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { clock, daysBefore, MIN } from "../core/clock";
+import { logEvents, logFileOf } from "../core/log";
 import { queuedEvents } from "../host/desk-read";
 import { UNITS } from "../memory/memory-files";
 import { dayStart, localDate } from "../memory/zones";
@@ -116,6 +117,15 @@ test("a message already queued for any agent wakes no one again; else Personal o
   await poll("whatsapp:10");
   await poll("whatsapp:10");
   expect(woken()).toHaveLength(1);
+  // Each wake queued is one log line; one refused as already queued is none.
+  expect(
+    logEvents(logFileOf(clock().toISOString()), "desk.queued")
+      .filter((l) => l.assignment === asgOf(s.desk, agent))
+      .map((l) => [l.event, l.eventId])
+  ).toEqual([
+    ["message.received", "whatsapp:9"],
+    [ARRIVAL_CONFIRMED, "whatsapp:10"],
+  ]);
   expect(Object.keys(JSON.parse(String(woken()[0]?.payload))).sort()).toEqual([
     "at",
     "chat",

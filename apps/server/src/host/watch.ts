@@ -2,9 +2,12 @@ import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
+import { isOwnLife } from "../core/platform";
 import { codeAt } from "../core/proc";
+import { rotateProcessLogs } from "../core/service";
 import { settings } from "../core/settings";
 import {
   ownerNamesOf,
@@ -35,6 +38,7 @@ import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
+import { syncAppointments } from "./appointments-calendar";
 import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
 import { describePhotos } from "./describe-photos";
 import { lookForPaymentsDone } from "./done-seen";
@@ -43,6 +47,7 @@ import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
 import { lockReport, sendReport } from "./report";
+import { sampleResources } from "./resource-sample";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
@@ -53,7 +58,7 @@ import { lockReport, sendReport } from "./report";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
-// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
+// down never stops it (1 Nov: 20 h without one). Every 30 minutes his calendar follows the appointments. Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
 let ticking = false;
 let syncingMeasurements = false;
@@ -324,7 +329,7 @@ function withdrawAnsweredEvery() {
   try {
     withdrawDraftsAnsweredInChat();
   } catch (e) {
-    log("run.error", { error: String(e), step: "watch.withdraw" });
+    log("run.error", { ...errorOf(e), step: "watch.withdraw" });
   }
 }
 /**
@@ -366,7 +371,7 @@ export function startFileDescriptions(events: SourceEvent[]) {
   describingFiles = true;
   describeFilesOnArrival(events)
     .catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.files" })
+      log("run.error", { ...errorOf(e), step: "watch.files" })
     )
     .finally(() => {
       describingFiles = false;
@@ -393,7 +398,7 @@ function startArrivalReader(
   )
     .catch((e: Error) => {
       // Lifelog unreadable: chats and mail are still read.
-      log("run.error", { error: e.message, step: "watch.arrivals.voice" });
+      log("run.error", { ...errorOf(e), step: "watch.arrivals.voice" });
     })
     .then((voice) =>
       readArrivals(
@@ -403,7 +408,7 @@ function startArrivalReader(
       )
     )
     .catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.arrivals" })
+      log("run.error", { ...errorOf(e), step: "watch.arrivals" })
     )
     .finally(() => {
       readingArrivals = false;
@@ -412,7 +417,7 @@ function startArrivalReader(
 
 function todayEvery() {
   syncToday().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.today" })
+    log("run.error", { ...errorOf(e), step: "watch.today" })
   );
 }
 
@@ -434,13 +439,14 @@ export async function watch(): Promise<number> {
     serve();
   } catch (e) {
     // The watcher matters more than its server: it keeps polling and says why the server is off.
-    log("run.error", { error: String(e), step: "watch.serve" });
+    log("run.error", { ...errorOf(e), step: "watch.serve" });
   }
   sayActions();
   minute();
   embedEvery();
   describeEvery();
   picturesEvery();
+  appointmentsEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(pushNewDecisionsAtOnce, DECISIONS_EVERY),
@@ -449,6 +455,7 @@ export async function watch(): Promise<number> {
     setInterval(describeEvery, DESCRIBE_EVERY),
     setInterval(todayEvery, TODAY_EVERY),
     setInterval(picturesEvery, HOUR),
+    setInterval(appointmentsEvery, APPOINTMENTS_EVERY),
   ];
   try {
     return await (listening() ? listen(running, started) : quiet(running));
@@ -472,6 +479,7 @@ async function listen(running: string, started: Date): Promise<number> {
   // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
   while (codeAt(LIFE_CODE_DIR) === running) {
     let result: { cursor: string } | { error: string };
+    let failure: ReturnType<typeof errorOf> | undefined;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
       const page = await poll(
@@ -499,7 +507,7 @@ async function listen(running: string, started: Date): Promise<number> {
           },
           (e: Error) => {
             const lost = h.tries + 1 >= TRIES;
-            log("run.error", { error: e.message, lost, step: "watch.hear" });
+            log("run.error", { ...errorOf(e), lost, step: "watch.hear" });
             return lost ? null : h.tries + 1;
           }
         );
@@ -519,12 +527,14 @@ async function listen(running: string, started: Date): Promise<number> {
       }
       result = { cursor: page.cursor };
     } catch (e) {
-      result = { error: (e as Error).message };
-      console.error(clock().toISOString(), result.error);
+      // What the status reads show: a model's error by its type, Life's own by its first line (`errorOf`).
+      failure = errorOf(e);
+      result = { error: failure.error };
+      console.error(clock().toISOString(), (e as Error).message);
     }
     health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
-      log("run.error", { error: result.error, step: "watch" });
+      log("run.error", { ...failure, step: "watch" });
     }
     await Bun.write(HEALTH, `${JSON.stringify(health, null, 2)}\n`);
     if ("error" in result) {
@@ -549,18 +559,24 @@ async function quiet(running: string) {
 
 function minute() {
   syncMeasurements().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.apple-health" })
+    log("run.error", { ...errorOf(e), step: "watch.apple-health" })
   );
   tick().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "todo.tick" })
+    log("run.error", { ...errorOf(e), step: "todo.tick" })
   );
   mailStuckLock().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.lock" })
+    log("run.error", { ...errorOf(e), step: "watch.lock" })
   );
   lookForPaymentsDone().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.done-seen" })
+    log("run.error", { ...errorOf(e), step: "watch.done-seen" })
   );
   pushNewCardsIfChanged();
+  if (isOwnLife()) {
+    rotateProcessLogs();
+    sampleResources().catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "watch.resources" })
+    );
+  }
 }
 
 const STUCK_MS = 3 * HOUR;
@@ -588,22 +604,30 @@ function picturesEvery() {
   keepingPictures = true;
   writePersonPictures()
     .catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.pictures" })
+      log("run.error", { ...errorOf(e), step: "watch.pictures" })
     )
     .finally(() => {
       keepingPictures = false;
     });
 }
 
+/** How often his calendar is brought in line with the appointments (the only sync of them, `appointments-calendar.ts`). */
+const APPOINTMENTS_EVERY = 30 * MIN;
+function appointmentsEvery() {
+  syncAppointments().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.appointments" })
+  );
+}
+
 function embedEvery() {
   embedSearched().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.embed" })
+    log("run.error", { ...errorOf(e), step: "watch.embed" })
   );
 }
 
 function describeEvery() {
   describeNew().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.describe" })
+    log("run.error", { ...errorOf(e), step: "watch.describe" })
   );
 }
 

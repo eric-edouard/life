@@ -230,7 +230,10 @@ test("a note keeps its Scribe slot until its words are stored: the next grant se
   const key = sha256Hex(randomUUID());
   let next: Promise<unknown> = Promise.resolve();
   const seen: (Date | null)[] = [];
-  scribe.respond = () => {
+  scribe.respond = (call) => {
+    if (call.path.endsWith("/v1/user/subscription")) {
+      return Response.json({});
+    }
     next = s.worker.paidSend(
       "dictation",
       { priority: "interactive", waitMs: 5000 },

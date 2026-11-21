@@ -9,11 +9,14 @@ import {
   type HandOutGate,
   handOutGateOf,
 } from "../memory/read-matters";
+import { handlesOf } from "../memory/read-truth";
+import { ME, type Organization, type Person } from "../records/truth";
 
 // The desk health check (his yes of 20 Nov 2026), a report in code, no model, no action: where agents and matters
 // drift apart (the oddities), how many of the matters to do have an agent and why not the others (`coverageOf`, "agent
-// coverage"), and the row of how many running matters need him (`matterRowsNowOf`). Each rule is pure; `readAgentSection` reads and the nightly shows
-// every row, never capped.
+// coverage"), the row of how many running matters need him (`matterRowsNowOf`), and the people rows (`peopleRowsOf`):
+// what the folds leave for him to tidy. Each rule is pure; `readAgentSection` reads and the nightly shows every row,
+// never capped.
 
 interface Row {
   name: string;
@@ -209,3 +212,70 @@ export const lastNeedsYouOf = (
     .map((e) => e.needsYou)
     .filter((n): n is number => typeof n === "number")
     .at(-1);
+
+/** The same day a year later ("2025-11-20" -> "2026-11-20"). */
+const yearAfter = (day: string) =>
+  `${Number(day.slice(0, 4)) + 1}${day.slice(4)}`;
+const people = (name: string, relation: string): Row => ({
+  name: `People · ${name}`,
+  relation,
+});
+
+/**
+ * The people rows: each guess (`isGuess`) not folded, none of whose evidence units is still live; and, of what of his
+ * directory was added or changed since the last report (`changed`, `readDirectoryChangesSince`), each person with no
+ * handle and each organization with nobody linked; then each current link of an organization to a person with no
+ * counted exchange in a year, by his days: one whose year ran out after `sinceDay`, to `today`, or one added or changed
+ * since that has run out already (or has none counted). No counts that night (`lastExchangeDay` null): no link row.
+ */
+export function peopleRowsOf(i: {
+  changed: ReadonlySet<string>;
+  guesses: readonly { evidence: readonly string[]; id: string; name: string }[];
+  lastExchangeDay: ((person: string) => string | undefined) | null;
+  live: ReadonlySet<string>;
+  sinceDay: string;
+  today: string;
+  truth: { organizations: Organization[]; people: Person[] };
+}) {
+  const nameOf = (id: string) =>
+    i.truth.people.find((p) => p.id === id)?.name ?? id;
+  const isEnded = (org: string, person: string, last: string | undefined) => {
+    const ran = last && yearAfter(last);
+    return ran
+      ? ran <= i.today &&
+          (ran > i.sinceDay || i.changed.has(`${org}|${person}`))
+      : i.changed.has(`${org}|${person}`);
+  };
+  const lastOf = i.lastExchangeDay;
+  return [
+    ...i.guesses.flatMap((g) =>
+      g.evidence.some((u) => i.live.has(u))
+        ? []
+        : [people(g.name, `a guess (${g.id}) with no evidence left`)]
+    ),
+    ...i.truth.people.flatMap((p) =>
+      p.id !== ME && i.changed.has(p.id) && handlesOf(p).length === 0
+        ? [people(p.name, "in his directory with no handle")]
+        : []
+    ),
+    ...i.truth.organizations.flatMap((o) =>
+      i.changed.has(o.id) && o.people.length === 0
+        ? [people(o.name, "an organization with nobody linked")]
+        : []
+    ),
+    ...(lastOf
+      ? i.truth.organizations.flatMap((o) =>
+          o.people.flatMap((l) =>
+            l.until === undefined && isEnded(o.id, l.id, lastOf(l.id))
+              ? [
+                  people(
+                    nameOf(l.id),
+                    `at ${o.name}: no counted exchange in a year, and the link has no end`
+                  ),
+                ]
+              : []
+          )
+        )
+      : []),
+  ];
+}

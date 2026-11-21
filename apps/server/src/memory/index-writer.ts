@@ -54,7 +54,7 @@ create table observation_subjects (observation text, subject text, primary key (
 create index observation_subjects_subject on observation_subjects (subject);
 create table units (
   id text primary key, date text, source text, title text, importance integer, type text, area text, topics text,
-  items integer);
+  items integer, chat text);
 create index units_date on units (date);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
@@ -132,7 +132,7 @@ function writeIndex(path: string, write: (db: Database) => void) {
 
 /** The units' rows: titles, a chapter's or repo-day's summary, the topics of their verdicts, their people. */
 function indexUnits(db: Database, units: IndexedUnit[]) {
-  const unitRow = insertInto(db, "units", 9);
+  const unitRow = insertInto(db, "units", 10);
   const unitText = insertInto(db, "unit_search", 4);
   const unitTopic = insertInto(db, "unit_topics", 2);
   const unitPerson = insertInto(db, "unit_people", 2);
@@ -148,7 +148,8 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
       v?.type ?? null,
       v?.area ?? null,
       tags.join(", "),
-      u.stats.items
+      u.stats.items,
+      u.key
     );
     unitText.run(u.id, u.title, u.summary ?? "", tags.join(" "));
     hash.run(
@@ -356,6 +357,8 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
       db.query("select subject from observation_subjects limit 0").all();
       // One built before the units held their items a day (`source-use.ts`).
       db.query("select items from units limit 0").all();
+      // One built before the units held their chat's key (`readChatsTitled`).
+      db.query("select chat from units limit 0").all();
       // One built before a person's episodes were indexed (`readEpisodesWith`).
       db.query("select episode from episode_people limit 0").all();
     } finally {
