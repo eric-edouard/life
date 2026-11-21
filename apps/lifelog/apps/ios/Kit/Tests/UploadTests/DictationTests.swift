@@ -23,18 +23,26 @@ import Testing
 }
 
 @Test func dictatedWordsGoWhereTheCaretIsWithASpaceWhereAWordWouldTouch() {
-    func insert(_ words: String, _ text: String, _ from: Int, _ to: Int? = nil) -> (String, Int) {
+    func insert(_ words: String, _ text: String, _ from: Int, _ to: Int? = nil, now: String? = nil) -> (String, Int)? {
         let start = text.index(text.startIndex, offsetBy: from)
         let end = text.index(text.startIndex, offsetBy: to ?? from)
-        let (result, caret) = DictatedText.inserting(words, into: text, at: start..<end)
-        return (result, result.distance(from: result.startIndex, to: caret))
+        let now = now ?? text
+        return DictatedText.inserting(words, into: now, at: (text, start..<end)).map {
+            ($0.text, $0.text.distance(from: $0.text.startIndex, to: $0.caret))
+        }
     }
-    #expect(DictatedText.inserting(" the keys ", into: "", at: nil).text == "the keys")
-    #expect(DictatedText.inserting("are here.", into: "The keys", at: nil).text == "The keys are here.")
-    #expect(insert("keys", "The are here.", 4) == ("The keys are here.", 8))
-    #expect(insert("Keys", "the keys", 0) == ("Keys the keys", 4))
-    #expect(insert("door", "the keys, please", 4, 8) == ("the door, please", 8), "a selection is replaced")
-    #expect(insert("", "same", 2) == ("same", 2))
+    #expect(DictatedText.inserting(" the keys ", into: "", at: nil)?.text == "the keys")
+    #expect(DictatedText.inserting("are here.", into: "The keys", at: nil)?.text == "The keys are here.")
+    #expect(insert("keys", "The are here.", 4)! == ("The keys are here.", 8))
+    #expect(insert("Keys", "the keys", 0)! == ("Keys the keys", 4))
+    #expect(insert("door", "the keys, please", 4, 8)! == ("the door, please", 8), "a selection is replaced")
+    #expect(insert("keys", "the keys", 4, 8)! == ("the keys", 8), "the same words over their selection still land")
+    #expect(insert("  ", "same", 2) == nil, "no words, nothing lands, nothing sends")
+    #expect(insert("here", "The keys", 4, now: "The kays")! == ("The kays here", 13), "changed text: at the end")
+    let composed = "caf\u{E9} now"
+    #expect(
+        insert("today", composed, 6, now: "cafe\u{301} now")! == ("cafe\u{301} now today", 14),
+        "a text equal as Swift compares it but not byte for byte takes nothing of the kept indices")
 }
 
 /// A fake microphone and Mac: each `begin` and each ask waits until the test lets it go.
@@ -52,6 +60,7 @@ import Testing
         begin: { ended in
             self.ended = ended
             await withCheckedContinuation { self.begins.append($0) }
+            try Task.checkCancellation()
             self.recordings += 1
             let recording = Recording(Data("run \(self.recordings)".utf8))
             self.recording = recording
@@ -121,6 +130,17 @@ private final class Recording: Sendable {
     rig.asks[0].answer.resume(returning: .success("the keys"))
     await rig.until { rig.dictation.phase == .rest }
     #expect(rig.dictation.landed?.words == "the keys")
+}
+
+@MainActor @Test func aRunPausedThenCancelledWhileTheMicrophoneIsAskedForNeverOpensIt() async {
+    let rig = Rig()
+    rig.dictation.tap()
+    rig.dictation.tap()
+    rig.dictation.cancel()
+    await rig.until { rig.begins.count == 1 }
+    rig.begins[0].resume()
+    for _ in 0..<100 { await Task.yield() }
+    #expect(rig.recordings == 0 && rig.dictation.phase == .rest && rig.dictation.problem == nil)
 }
 
 @MainActor @Test func aCancelledRunsWordsNeverLandAndTheNextRunsDo() async {

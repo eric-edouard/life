@@ -108,9 +108,11 @@ final class DictationCapture {
         }
     }
 
-    /// The audio session or the engine refused to start: a call or another app holds the microphone.
+    /// The audio session or the engine refused to start because a call, Siri or another app holds the microphone.
     private static func isAudioBusy(_ error: NSError) -> Bool {
-        [NSOSStatusErrorDomain, "com.apple.coreaudio.avfaudio"].contains(error.domain)
+        let busy: Set<AVAudioSession.ErrorCode> = [.insufficientPriority, .cannotInterruptOthers, .siriIsRecording]
+        return [NSOSStatusErrorDomain, "com.apple.coreaudio.avfaudio"].contains(error.domain)
+            && AVAudioSession.ErrorCode(rawValue: error.code).map(busy.contains) == true
     }
 
     /// Closes the microphone and returns what it heard (Ogg Opus). Called again, it returns the same.

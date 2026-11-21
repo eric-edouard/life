@@ -81,14 +81,14 @@ struct DictationField: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    /// The words at the caret he left, or at the end when the text changed since; then, on a swipe up, the Send.
+    /// The words at the caret he left, then, on a swipe up, the Send, which reads the text with them.
     private func land(_ landed: Dictation.Landed) {
-        var range: Range<String.Index>?
-        if let caret, caret.text == text, case .selection(let picked)? = caret.selection?.indices { range = picked }
-        let (new, at) = DictatedText.inserting(landed.words, into: text, at: range)
-        guard new != text else { return }
-        text = new
-        selection = TextSelection(insertionPoint: at)
+        var picked: Range<String.Index>?
+        if case .selection(let range)? = caret?.selection?.indices { picked = range }
+        let kept = caret.map { (text: $0.text, selection: picked) }
+        guard let landing = DictatedText.inserting(landed.words, into: text, at: kept) else { return }
+        text = landing.text
+        selection = TextSelection(insertionPoint: landing.caret)
         AccessibilityNotification.Announcement(landed.words).post()
         if landed.sends { send?() }
     }
@@ -124,9 +124,8 @@ private struct DictationMic: View {
     let start: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// His finger's travel while it is down; nil once it is up, or the system took the gesture away.
-    @GestureState private var drag: CGSize?
-    @State private var travel = CGSize.zero
+    /// Whether his finger is down; false again once it is up, or once the system took the gesture away.
+    @GestureState private var isDown = false
     /// The phase when his finger went down, and since when: a quick press is a tap, a long one a hold.
     @State private var press: (wasRecording: Bool, at: Date)?
     @State private var isHolding = false
@@ -150,12 +149,15 @@ private struct DictationMic: View {
         .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
         .contentShape(.rect)
         .animation(reduceMotion ? nil : .spring(duration: 0.22), value: isHolding)
-        .gesture(DragGesture(minimumDistance: 0).updating($drag) { value, drag, _ in drag = value.translation })
-        // Ended or cancelled alike, the finger is up: a hold never outlives it.
-        .onChange(of: drag) { old, new in
-            if let new { travel = new }
-            if old == nil, new != nil { pressed() }
-            if old != nil, new == nil { letGo(swipedUp: travel.height < -Metrics.tapTarget) }
+        .gesture(
+            DragGesture(minimumDistance: 0).updating($isDown) { _, isDown, _ in isDown = true }
+                .onEnded { value in letGo(swipedUp: value.translation.height < -Metrics.tapTarget) }
+        )
+        // A gesture the system takes away (a scroll, an alert) never ends; its state resets all the same, after which
+        // a press `onEnded` didn't let go of was taken away.
+        .onChange(of: isDown) { _, isDown in
+            if isDown { return pressed() }
+            Task { letGo(swipedUp: nil) }
         }
         .accessibilityElement()
         .accessibilityLabel(isRecording ? "Pause dictating" : dictation.phase == .writing ? "Writing" : "Dictate")
@@ -184,14 +186,20 @@ private struct DictationMic: View {
         }
     }
 
-    private func letGo(swipedUp: Bool) {
+    /// His finger is up, or the press was taken away (`swipedUp` nil), which never sends.
+    private func letGo(swipedUp: Bool?) {
         guard let press else { return }
         self.press = nil
         isHolding = false
-        if swipedUp && canSend { return dictation.swipeUp() }
+        if swipedUp == true && canSend { return dictation.swipeUp() }
         let wasHold = Date.now.timeIntervalSince(press.at) >= Self.holdAfter
-        // A tap that started the run keeps it going; a tap on a run, or the end of a hold, pauses.
-        if press.wasRecording || wasHold { dictation.pause() }
+        // A tap that started the run keeps it going, unless taken away, which drops it; a tap on a run, or the end of
+        // a hold, pauses.
+        if press.wasRecording || wasHold {
+            dictation.pause()
+        } else if swipedUp == nil {
+            dictation.cancel()
+        }
     }
 }
 

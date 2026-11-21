@@ -154,8 +154,8 @@ public final class Dictation {
         let current = run
         phase = .writing
         sampling?.cancel()
+        // `starting` stays: a cancel before the microphone opened still stops it opening.
         let starting = starting
-        self.starting = nil
         writing = Task {
             await starting?.value
             if let ogg = await closed(current) { await write(ogg, current) }

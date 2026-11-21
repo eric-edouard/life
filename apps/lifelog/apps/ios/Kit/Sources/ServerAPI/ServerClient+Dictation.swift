@@ -39,14 +39,16 @@ extension ServerClient {
 
 /// Dictated words put into a field's text where the caret is, as typing would.
 public enum DictatedText {
-    /// `words` in place of `selection` (the end when there is none), with a space on each side where a word would
-    /// otherwise touch; the text and where the caret goes, after the words.
+    /// `words` in place of the caret's selection, kept with the text as it was when the run started, with a space on
+    /// each side where a word would otherwise touch; at the end when there is none or the text changed since (byte for
+    /// byte: a kept index fits only its own text). The text and where the caret goes, after the words; nil for none.
     public static func inserting(
-        _ words: String, into text: String, at selection: Range<String.Index>?
-    ) -> (text: String, caret: String.Index) {
+        _ words: String, into text: String, at caret: (text: String, selection: Range<String.Index>?)?
+    ) -> (text: String, caret: String.Index)? {
         let words = words.trimmingCharacters(in: .whitespacesAndNewlines)
-        let range = selection ?? text.endIndex..<text.endIndex
-        guard !words.isEmpty else { return (text, range.upperBound) }
+        guard !words.isEmpty else { return nil }
+        let kept = caret.flatMap { $0.text.utf8.elementsEqual(text.utf8) ? $0.selection : nil }
+        let range = kept ?? text.endIndex..<text.endIndex
         let before = text[..<range.lowerBound]
         let after = text[range.upperBound...]
         let lead = before.last.map { $0.isWhitespace ? "" : " " } ?? ""
