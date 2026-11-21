@@ -3,6 +3,7 @@ import { MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import { count } from "../core/lists";
 import { log, logFileOf, recentEvents } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -21,10 +22,12 @@ import type { describeFiles } from "../memory/message-files";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
-import { localDate, localTime, time, when } from "../memory/zones";
+import { dayNow, localDate, localTime, time, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../records/ledger-entry";
 import { polling, readHealth } from "./health";
+import type { Card } from "./status/card";
+import { isCrashLoopCard } from "./status/crash-card";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
 // (no model). `sendReport` also carries the alerts (a failed action or delivery, the lock, a card in red).
@@ -223,7 +226,7 @@ export function successReport(day: string, ms: number, n: Night) {
           kind: "pairs",
           list: checks.map((c) => ({
             name: c.question,
-            relation: `${c.context ? `${c.context} · ` : ""}${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
+            relation: `${c.context ? `${c.context} · ` : ""}${ridesText(c.ridesOn)}`,
           })),
           title: "Checks",
         },
@@ -350,6 +353,24 @@ export const actFailedReport = (a: LedgerEntry) =>
     verdict: "FAILED",
   });
 
+/**
+ * The cards in red, something of Life's broken now: the alert mails them (`redReport`); amber and idle don't. A run's
+ * (pipeline) counts its own tries and mails once out of them; the Mac's repeats the archive's and the watcher's. A
+ * crash loop earlier in the day counts too, so one between two ticks is still mailed.
+ */
+const QUIET_GROUPS = new Set(["mac", "pipeline"]);
+export const redCards = (cards: Card[]) =>
+  cards.filter(
+    (c) =>
+      isCrashLoopCard(c) || (c.tone === "bad" && !QUIET_GROUPS.has(c.group))
+  );
+
+/** A red card's alert key: one mail a day per problem; a crash loop's, on the day of its last crash. */
+export const alertKeyOf = (c: Card, now: Date) =>
+  isCrashLoopCard(c) && c.at
+    ? `alert/${c.id}/loop/${localDate(c.at)}`
+    : `alert/${c.id}/${c.word}/${dayNow(now)}`;
+
 /** The alert for the cards in red (`redCards`): what is broken, each in its card's words. */
 export const redReport = (
   at: string,
@@ -406,13 +427,13 @@ export async function sendReport(id: string | string[], mail: Mail) {
     const to = mailedTo();
     const sentAs = await (to ? byMail(keys, mail, to) : onMac(keys, mail));
     for (const k of keys) {
-      log("email.sent", { id: sentAs, key: k, subject: mail.subject });
+      log("email.sent", { id: sentAs, key: k });
       sent?.add(k);
     }
     return sentAs;
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: `${EMAIL_STEP}${keys[0]?.split("/")[0]}`,
     });
     return null;

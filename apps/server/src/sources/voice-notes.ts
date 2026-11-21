@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { exec } from "../core/proc";
 import { call } from "./lifelog-call";
 
@@ -62,6 +63,6 @@ export async function readVoiceNoteWords(
     if (status === 400 || status === 413) {
       return { text: "" };
     }
-    log("file.read", { error: String(error), what: "voice note" });
+    log("file.read", { ...errorOf(error), what: "voice note" });
   }
 }

@@ -10,7 +10,7 @@ import { readCommunicationStyle } from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailRefOf, detailsOf, readCardsOf } from "./details";
-import { readExchangeCounts } from "./exchange-counts";
+import { lastExchangeAtOf, readExchangeCounts } from "./exchange-counts";
 import {
   episodeLine,
   latest,
@@ -465,11 +465,7 @@ const standingOf = (
   levels: ReturnType<typeof levelsWith>,
   counted: ReturnType<typeof readExchangeCounts>
 ): Standing => ({
-  lastExchangeAt: (ref) =>
-    (counted?.people[ref] ?? [])
-      .map((r) => r.start)
-      .toSorted()
-      .at(-1),
+  lastExchangeAt: lastExchangeAtOf(counted),
   levelOf: (ref) => levels.get(ref),
 });
 

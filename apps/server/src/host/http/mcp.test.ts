@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { SignJWT } from "jose";
@@ -33,6 +33,7 @@ import {
   token,
   verify,
 } from "./mcp-test-harness";
+import { expectWire } from "./wire-fixture";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
 
@@ -117,6 +118,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_day",
     "read_inbox",
     "read_life_status",
+    "read_log_lines",
     "read_matter",
     "read_matters",
     "read_memory_changes",
@@ -128,6 +130,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited",
     "read_processing_runs",
     "read_registered_agents",
+    "read_resource_samples",
     "request_decision",
     "search",
     "tell_life",
@@ -145,7 +148,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
-    "change_registered_agent(action,agent,effort,folder,model,name,personal,project,runtime,said,step)",
+    "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
@@ -155,6 +158,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
     "read_life_status()",
+    "read_log_lines(cursor,limit,min_level,process)",
     "read_matter(id)",
     "read_matters(area,ifNot,person,project)",
     "read_memory_changes(about,cursor,limit,run,since,types)",
@@ -166,7 +170,8 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
     "read_registered_agents()",
-    "request_decision(context,deadline,doneSeenBy,draft,links,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
+    "read_resource_samples()",
+    "request_decision(context,deadline,doneSeenBy,draft,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);
@@ -243,31 +248,103 @@ test("Events: `events/poll` and `read_new_events` are one poll; an unknown event
   expect(unknown.json.result).toMatchObject({ isError: true });
 });
 
-test("a call logs who asked, the arguments, and what surfaced without its text", async () => {
-  const logged = async (asked: string) => {
-    await rpc(await token(), "tools/call", {
-      arguments: { id: asked },
-      name: "read_observation",
-    });
+// 21 Nov 2026: the log promised metadata only, yet kept a call's arguments (his words in `tell_life`, a card's draft)
+// and a refusal's text (which can quote them).
+test("a call logs who asked, its arguments' names, and what surfaced without its text", async () => {
+  const logged = async (name: string, args: object) => {
+    await rpc(await token(), "tools/call", { arguments: args, name });
     return linesOf(
       join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
     )
       .map((l) => JSON.parse(l))
       .findLast((l) => l.kind === "mcp.call");
   };
-  expect((await logged("x".repeat(300))).args.id).toBe(`${"x".repeat(199)}…`);
   const id = "obs_0123456789ab";
-  expect(await logged(id)).toMatchObject({
+  const line = await logged("read_observation", { id });
+  expect(line).toMatchObject({
     agent: "Orbit",
-    args: { id },
+    args: ["id"],
     chars: `no observation ${id}`.length,
     client: "chatgpt-client",
     error: true,
     ids: [id],
     kind: "mcp.call",
-    refused: `no observation ${id}`,
+    refused: "error",
     tool: "read_observation",
   });
+  const words = "Tell Mia I'm at Lyon station at 6";
+  const told = await logged("tell_life", { asked: "x", said: words });
+  expect(told).toMatchObject({ args: ["asked", "said"], refused: "not_done" });
+  expect(JSON.stringify(told)).not.toContain("Lyon");
+});
+
+test("read_log_lines: his token reads the log newest first, both shapes, as his app shows them; an agent's is refused, as for read_resource_samples", async () => {
+  const call = async (
+    over: Record<string, unknown>,
+    args: object,
+    name = "read_log_lines"
+  ) =>
+    (await rpc(await token(over), "tools/call", { arguments: args, name })).json
+      .result;
+  for (const agent of await Promise.all(
+    ["read_log_lines", "read_resource_samples"].map((n) => call({}, {}, n))
+  )) {
+    expect(agent).toMatchObject({ isError: true });
+    expect(agent.content[0].text).toContain("paired as an agent");
+  }
+  expect(
+    JSON.parse(
+      (await call({ agent: undefined }, {}, "read_resource_samples")).content[0]
+        .text
+    )
+  ).toMatchObject({ hour: [] });
+  // A made-up day after every other, so it is the newest: the phone's fixture. A line before LogTape, then one of it.
+  const day = join(LOG_DIR, "2099-01-01.jsonl");
+  writeFileSync(
+    day,
+    [
+      { at: "2099-01-01T08:00:00.000Z", kind: "desk.turn", phase: "begun" },
+      {
+        at: "2099-01-01T08:00:05.000Z",
+        error: true,
+        kind: "mcp.call",
+        refused: "not_done",
+        tool: "tell_life",
+      },
+      {
+        category: ["life", "model", "memory-extract.v2"],
+        error: "Error",
+        errorType: "Error",
+        id: "obs_0123456789ab",
+        kind: "model.run",
+        level: "error",
+        ms: 38_400,
+        msg: "model run failed: {errorType} in {ms}",
+        time: "2099-01-01T08:00:09.000Z",
+      },
+    ]
+      .map((l) => `${JSON.stringify(l)}\n`)
+      .join("")
+  );
+  try {
+    const his = JSON.parse(
+      (await call({ agent: undefined }, { limit: 2 })).content[0].text
+    );
+    expect(his.lines.map((l: { level: string }) => l.level)).toEqual([
+      "error",
+      "warn",
+    ]);
+    expectWire("read_log_lines", his, true);
+  } finally {
+    rmSync(day);
+  }
+  const warns = JSON.parse(
+    (await call({ agent: undefined }, { limit: 5, min_level: "warn" }))
+      .content[0].text
+  );
+  expect(warns.lines.every((l: { level: string }) => l.level !== "info")).toBe(
+    true
+  );
 });
 
 const logged = () =>
@@ -295,16 +372,17 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   });
   expect(
     await last(await token({ sub: "someone-else" }), "tools/list")
-  ).toMatchObject({ ...asker, refused: "forbidden: not the owner" });
-  expect((await last(await token({}, -60), "tools/list")).refused).toContain(
-    "exp"
+  ).toMatchObject({ ...asker, refused: "forbidden" });
+  // A refusal is logged by its class, never its reason's words.
+  expect((await last(await token({}, -60), "tools/list")).refused).toBe(
+    "invalid"
   );
   const before = logged().length;
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
   // A 2026-07-28 call missing its Mcp-Name header is refused by the SDK before any tool.
   await modern("tools/call", { arguments: {}, name: "read_observation" });
-  expect(logged().at(-1)?.refused).toContain("name-header-missing");
+  expect(logged().at(-1)?.refused).toBe("rejected");
 });
 
 test("a streamed request (subscriptions/listen) answers at once: nothing waits on its stream", async () => {
@@ -687,6 +765,9 @@ test("built to serve reads only (the question cases' agent), the connector regis
   }
   expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");
+  // His log is his token's alone: never on a server with no token.
+  expect(names).not.toContain("read_log_lines");
+  expect(names).not.toContain("read_resource_samples");
 });
 
 test("change_directory_entry is his: an agent's token is refused, and `said` is required; truth/ stays as it was", async () => {

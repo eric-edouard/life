@@ -46,11 +46,7 @@
         {
           "asker": "life",
           "clips": [],
-          "context": "The same number is in his mail, and the chat opens with that name.",
-          "evidence": {
-            "from": "Hélène Aubert, mail, 9 Nov",
-            "quote": "Mon numéro pro : 06 39 98 01 23"
-          },
+          "context": "The same number is in his mail, and the chat opens with that name.\n\n> Mon numéro pro : 06 39 98 01 23\n\n*Hélène Aubert, mail, 9 Nov*",
           "group": "guessed person",
           "likelyPeople": [],
           "links": [],
@@ -996,11 +992,7 @@
     {
       "asker": "life",
       "clips": [],
-      "context": "The same number is in his mail, and the chat opens with that name.",
-      "evidence": {
-        "from": "Idris Benali, mail, 9 Nov",
-        "quote": "Mon numéro pro : 06 39 98 01 23"
-      },
+      "context": "The same number is in his mail, and the chat opens with that name.\n\n> Mon numéro pro : 06 39 98 01 23\n\n*Idris Benali, mail, 9 Nov*",
       "group": "guessed person",
       "likelyPeople": [],
       "links": [],
@@ -1050,11 +1042,7 @@
     {
       "asker": "life",
       "clips": [],
-      "context": "He wrote the price on Tuesday; nothing in the matter has changed since.",
-      "evidence": {
-        "from": "Idris Benali, Messenger, Tue 17 Nov",
-        "quote": "Voilà le prix du fournisseur : 4 200 € posé."
-      },
+      "context": "He wrote the price on Tuesday; nothing in the matter has changed since.\n\n> Voilà le prix du fournisseur : 4 200 € posé.\n\n*Idris Benali, Messenger, Tue 17 Nov*",
       "group": "ending",
       "likelyPeople": [],
       "links": [],
@@ -1158,10 +1146,6 @@
     {
       "asker": "life",
       "clips": [],
-      "evidence": {
-        "from": "WhatsApp, Mon 9 Nov",
-        "quote": "Cam: on se voit samedi au marché ?"
-      },
       "group": "guessed person",
       "likelyPeople": [
         {
@@ -1207,7 +1191,8 @@
         "pages": 0
       },
       "title": "A name Life can’t place: “Cam”, on WhatsApp",
-      "urgency": "improves"
+      "urgency": "improves",
+      "context": "> Cam: on se voit samedi au marché ?\n\n*WhatsApp, Mon 9 Nov*"
     },
     {
       "asker": "life",
