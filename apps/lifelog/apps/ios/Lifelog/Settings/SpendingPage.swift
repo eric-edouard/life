@@ -29,15 +29,17 @@ struct SpendingPage: View {
 
     private func page(_ spending: ModelSpending) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-                SpendFigures(spending: spending)
+            // A list screen (decision 98): its parts are grouped inset cards under their `ListLabel`, no dividers.
+            VStack(alignment: .leading, spacing: 0) {
+                SpendFigures(spending: spending).padding(.horizontal, Metrics.Spacing.m)
                 ForEach(spending.sections, id: \.label) { section in
-                    RowGroup(label: section.label, surface: .sheet) {
-                        ForEach(section.lines) { row($0) }
+                    ListLabel(section.label).padding(.top, Metrics.Spacing.s)
+                    ForEach(Array(section.lines.enumerated()), id: \.element.id) { at, line in
+                        row(line).groupedRow(at: at, of: section.lines.count)
                     }
                 }
             }
-            .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
+            .padding(.bottom, Metrics.Spacing.xl).readingWidth()
         }
     }
 
@@ -46,12 +48,14 @@ struct SpendingPage: View {
         let open = opening(line.opens)
         let step: TypeStep = line.isZero ? .rowFigure : .rowName
         let shown = VStack(spacing: 0) {
-            Row(title: line.title, detail: line.detail) {
+            Row(title: line.title, detail: line.detail, isInList: true) {
                 Text(line.value).monospacedDigit().font(step)
                     .foregroundStyle(line.isZero ? Palette.muted : Palette.fg)
                 if open != nil { RowValue() }
             }
-            if let share = line.share { ProgressLine(fraction: share).padding(.horizontal, Metrics.Spacing.l) }
+            if let share = line.share {
+                ProgressLine(fraction: share, fill: Palette.muted).padding(.horizontal, Metrics.Spacing.l)
+            }
         }
         if let open {
             Button(action: open) { shown }.buttonStyle(.plain)
@@ -104,7 +108,7 @@ private struct SpendFigures: View {
             .font(.small).foregroundStyle(Palette.muted)
         }
         .padding(Metrics.Spacing.l)
-        .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+        .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
     }
 
     private func figure(_ label: String, _ amount: Double, step: TypeStep, alignment: HorizontalAlignment)

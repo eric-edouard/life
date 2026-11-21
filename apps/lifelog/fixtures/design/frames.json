@@ -594,15 +594,7 @@
     ]
   },
   "DuoFoldSpendingEnd": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureSheet",
-      "settings",
-      "-fixturePage",
-      "spending"
-    ],
-    "scroll": "bottom"
+    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
   },
   "DuoFoldSpendingLower": {
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
