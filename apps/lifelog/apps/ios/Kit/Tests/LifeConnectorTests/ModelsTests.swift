@@ -160,6 +160,49 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.agents[1].link == nil)
 }
 
+/// Decision 75: his words on a card go to whoever hears them, named by the card's holder (its standing role, as the
+/// desk sends it), never "Send"; Life's own question, or one he asked through his own app, is told to Life.
+@Test func aCardsAnswerNamesWhoHearsHisWords() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let agents = try decoded(RegisteredAgents.self, wireText("life/read_registered_agents.json")).agents
+    #expect(agents.map(\.role) == [.personal, nil])
+    let held = try #require(inbox.checks.first { $0.agent == agents[0].id })
+    #expect(held.hearer(among: agents) == "the Personal agent")
+    #expect(held.tellTitle == "Tell the agent…")
+    let lifes = try #require(inbox.checks.first { $0.isLifesOwn })
+    #expect(lifes.hearer(among: agents) == "Life")
+    #expect(lifes.tellTitle == "Tell Life…")
+    let other = try #require(inbox.checks.first { $0.agent == nil && !$0.isLifesOwn })
+    #expect(other.hearer(among: agents) == "the agent")
+    var fields = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    var first = try #require((fields["checks"] as? [[String: Any]])?.first)
+    first["asker"] = "owner"
+    fields["checks"] = [first]
+    let owners = try decoded(
+        Inbox.self, String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
+    #expect(owners.checks[0].hearer(among: agents) == "Life")
+}
+
+/// His words go with the option he picked that takes them, and with none when he answered in general ("Tell the
+/// agent…"): a general reply never submits an option's meaning ("Paid another way").
+@Test func hisWordsGoWithThePickedOptionOrNone() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let card = try #require(inbox.checks.first { $0.options.contains { $0.takes == .note } })
+    let note = try #require(card.options.first { $0.takes == .note })
+    #expect(card.answer(words: "Not yet") == AnswerRequest(ref: card.ref, options: [], note: "Not yet"))
+    #expect(
+        card.answer(words: "By bank", option: note.id)
+            == AnswerRequest(ref: card.ref, options: [note.id], note: "By bank"))
+    #expect(card.answer(words: "x", option: "no such") == AnswerRequest(ref: card.ref, options: [], note: "x"))
+    let two =
+        #"{"ref":"dec_2","group":"decision","title":"t","question":"q","asker":"a","options":[{"id":"cash","label":"Paid in cash","takes":"note"},{"id":"bank","label":"Paid by bank","takes":"note"},{"id":"step","label":"It’s done","ends":"step"},{"id":"all","label":"Drop it","ends":"matter"}],"clips":[],"likelyPeople":[],"links":[]}"#
+    let check = try JSONDecoder().decode(Check.self, from: Data(two.utf8))
+    #expect(check.answer(words: "On Tuesday", option: "bank")?.options == ["bank"])
+    #expect(check.options.map(\.label) == ["Paid in cash", "Paid by bank", "It’s done", "Drop it"])
+    #expect(check.options.compactMap(\.ends) == [.step, .matter])
+}
+
 @Test func aValueOrAFieldLifeAddsNeverBreaksARead() throws {
     let text = #"""
         {"matters":[{"id":"m","name":"New kind","status":"on_ice","needsYou":false,"something":{"new":true},
