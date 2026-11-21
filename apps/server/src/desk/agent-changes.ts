@@ -313,7 +313,9 @@ function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
   facts: { blocked?: string; taker?: string }
-): { agent?: string; error: string } | { agent?: string; id: string } {
+):
+  | { agent?: string; error: string; failed?: unknown }
+  | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
     return { error: "only a change from `change_registered_agent` is applied" };
@@ -333,7 +335,7 @@ function applyAsk(
       )(),
     };
   } catch (e) {
-    return { agent: parsed.data.agent, error: (e as Error).message };
+    return { agent: parsed.data.agent, error: (e as Error).message, failed: e };
   }
 }
 
@@ -362,7 +364,22 @@ export async function applyAgentChanges(desk: Desk) {
     if (!r) {
       continue;
     }
-    log("desk.change", { ask: ask.id, ...r });
+    // A refusal is logged by its class: its sentence can quote a runtime's output.
+    // A refusal by its class (its sentence can quote a runtime's output); a change that threw is an error, by `errorOf`.
+    const {
+      error: refusal,
+      failed,
+      ...done
+    } = r as typeof r & {
+      error?: string;
+      failed?: unknown;
+    };
+    const why = refusal ? { refused: "refused" } : {};
+    log("desk.change", {
+      ask: ask.id,
+      ...done,
+      ...(failed ? errorOf(failed) : why),
+    });
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
       await stopOpenRun(desk, r.id);

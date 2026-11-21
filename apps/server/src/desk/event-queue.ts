@@ -1,5 +1,6 @@
 import { clock, iso } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   type AssignmentRow,
   anchorsOf,
@@ -197,9 +198,9 @@ export async function pollChannels(desk: Desk, readPeopleNow: ReadPeople) {
       const wakes = agentWakesOf(db, assignments, people, events);
       db.transaction(() => queue(db, c.event, wakes))();
     } catch (error) {
-      const why = (error as Error).message;
-      failed(why);
-      log("desk.runtime", { error: why, ok: false, what: c.name });
+      const why = errorOf(error);
+      failed(why.error);
+      log("desk.runtime", { ...why, ok: false, what: c.name });
     }
   }
 }

@@ -519,14 +519,14 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "request_decision",
-    `Ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push to his phone). The one way to send a message for him: its \`draft\`, sent when he picks its outgoing option, on his phone or, in his own app, by \`answer_check\` once he approved the exact text in this chat. ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. Returns its id, and to an agent a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
+    `Ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push to his phone). The one way to send a message for him: its \`draft\`, sent when he picks its outgoing option, on his phone or, in his own app, by \`answer_check\` once he approved the exact text in this chat. ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. A draft into a chat another asker's open card holds waits on it (the result's \`waits\`): asked once that card settles, or after 10 minutes, replacing it (his Send withdraws it). Holding a chat yourself, \`keep\` a card waiting on yours (its id, with \`why\`), or ask one card for both with \`merges\` (its id). Returns its id, and to an agent a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
     DecisionRequest,
-    async ({ withdraw, why, ...ask }, agent) => {
+    async ({ keep, withdraw, why, ...ask }, agent) => {
       // Taken before the ask, so its answer is past the cursor.
       const cursor = agent && decisionCursorOf(clock());
       const asked = await requestDecision(
         agent ?? OWNER_ASKER,
-        withdraw ? { why, withdraw } : ask
+        withdraw || keep ? { ...(keep ? { keep } : { withdraw }), why } : ask
       );
       return cursor ? { ...asked, cursor } : asked;
     },

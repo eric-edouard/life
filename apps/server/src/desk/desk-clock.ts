@@ -28,6 +28,8 @@ import {
   CALL_ENDED,
   callMatchableOf,
   DECISION_EVENTS,
+  DRAFT_CONTESTED,
+  DRAFT_KEPT,
   MESSAGE_RECEIVED,
   matcherOf,
   messageMatchableOf,
@@ -37,6 +39,7 @@ import {
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
+import { CONTEST_WAIT } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
@@ -254,9 +257,11 @@ export async function pollCalls(
 }
 
 /**
- * Queues his answers to the agents' decisions, their lapses and their withdrawals (he answered in the chat), for the
- * open assignment that owns each (`assignmentOfCard`), in the transaction that saves each cursor: read through
- * `pollDecisions`, as the desk (every registered agent asks as it).
+ * Queues his answers to the agents' decisions, their lapses and their withdrawals (for them), for the open assignment
+ * that owns each (`assignmentOfCard`) and the one whose card it merged (`merges`), in the transaction that saves each
+ * cursor: read through `pollDecisions`, as the desk (every registered agent asks as it). Then each card's contest, facts
+ * only: `draft.contested` to the holder of the card a card waits on, `draft.kept` to the waiting card's own (once each,
+ * `queue`).
  */
 export function pollAnswers({ db }: Desk) {
   const open = new Set(openAssignments(db).map((s) => s.id));
@@ -266,22 +271,64 @@ export function pollAnswers({ db }: Desk) {
   }));
   // Read after the polls, so every decision they return is known.
   const cards = new Map(decisionsNow().map((d) => [d.id, d]));
+  const wakesOf = (
+    ids: (string | undefined)[],
+    eventId: string,
+    payload: unknown
+  ) =>
+    ids.flatMap((id) => {
+      const card = id ? cards.get(id) : undefined;
+      const assignment = card && assignmentOfCard(db, card);
+      return assignment && open.has(assignment)
+        ? [{ assignment, eventId, payload }]
+        : [];
+    });
   for (const { name, read } of reads) {
     db.transaction(() => {
       queue(
         db,
         name,
-        read.events.flatMap((e) => {
-          const card = cards.get(e.data.id);
-          const assignment = card && assignmentOfCard(db, card);
-          return assignment && open.has(assignment)
-            ? [{ assignment, eventId: e.eventId, payload: e.data }]
-            : [];
-        })
+        read.events.flatMap((e) => [
+          ...wakesOf([e.data.id], e.eventId, e.data),
+          // The merged card's agent hears his answer, never the holder's words or its `onSilence`.
+          ...wakesOf([cards.get(e.data.id)?.merges], e.eventId, {
+            ...e.data,
+            onSilence: null,
+            question: undefined,
+          }),
+        ])
       );
       saveCursor(db, name, read.cursor);
     })();
   }
+  const waiting = [...cards.values()].filter((d) => d.state === "waiting");
+  // A keep is heard even when its card settled before this poll.
+  const kept = [...cards.values()].filter((d) => d.kept);
+  db.transaction(() => {
+    queue(
+      db,
+      DRAFT_CONTESTED,
+      waiting.flatMap((d) =>
+        d.kept
+          ? []
+          : wakesOf([d.contests], `${d.id}.${DRAFT_CONTESTED}`, {
+              asker: d.agent ?? d.asker,
+              channel: d.draft?.channel,
+              chat: d.draft?.chat,
+              held: d.contests,
+              id: d.id,
+              until: new Date(Date.parse(d.at) + CONTEST_WAIT).toISOString(),
+            })
+      )
+    );
+    queue(
+      db,
+      DRAFT_KEPT,
+      kept.flatMap((d) =>
+        wakesOf([d.id], `${d.id}.${DRAFT_KEPT}`, { held: d.contests, id: d.id })
+      )
+    );
+  })();
 }
 
 /** A deadline wake of an agent's own assignment: since when to sweep (`since`: when its last turn ended); none for another cause or a first turn. A matter's wake carries its record instead (`matterRecordOf`). */
