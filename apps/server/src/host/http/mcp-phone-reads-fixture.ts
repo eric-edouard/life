@@ -304,6 +304,31 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         },
       ],
     },
+    {
+      ...matter,
+      id: "matter_bbbbbbbbbbbb",
+      name: "Renew the lease",
+      // His own step, quiet: his your move card.
+      openSteps: [
+        {
+          at: "2026-10-11T09:00:00.000Z",
+          day: "2026-10-11",
+          kind: "to_do",
+          quote: "I must sign the lease",
+          ref: "obs_000000000010",
+          text: "Sign the lease renewal",
+        },
+      ],
+      status: "dormant",
+      steps: [
+        {
+          at: "2026-10-11T09:00:00.000Z",
+          day: "2026-10-11",
+          quote: "I must sign the lease",
+          ref: "obs_000000000010",
+        },
+      ],
+    },
   ],
   nameContexts: new Map([
     [
@@ -395,6 +420,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   plans: new Set(["dec_000000000002", "dec_000000000003"]),
   samePersons: [
     {
+      called: null,
       guess: "person:inf_kit",
       handles: ["+33600000001"],
       lines: ["the watchmaker, +33600000001", "his partner"],
@@ -430,6 +456,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         },
       ],
       id: "v1",
+      isLikely: false,
       kind: "new_person",
       likely: [GRAN_VOICE],
       name: null,

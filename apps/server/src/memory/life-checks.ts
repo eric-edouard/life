@@ -4,6 +4,7 @@
 
 import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
 import type { PlanStep } from "./card-request";
 import type { Decision } from "./decision-lines";
 import type { doneSeenShownOf } from "./decisions";
@@ -108,6 +109,16 @@ export const LIFE_CHECKS = {
     ],
     title: "Name a voice",
   },
+  // A matter's step that is his: "Hand to an agent" only while an agent could take it (`checks.ts` drops it otherwise).
+  "your move": {
+    context: "A step of yours is open on this matter.",
+    options: [
+      { ends: "step", id: "done", label: "Mark as done", takes: null },
+      { id: "start", label: "Hand to an agent", takes: null },
+      { id: "not-now", label: "Not now", takes: null },
+    ],
+    title: "Your move",
+  },
 } as const satisfies Record<
   Exclude<CheckGroup, "decision">,
   { context: string | null; options: CheckOption[]; title: string }
@@ -118,7 +129,8 @@ export type CheckKind =
   | "ending"
   | "new matter"
   | "person"
-  | "voice";
+  | "voice"
+  | "your move";
 /** A matter as a card names it: its id, its name, and `important` when he marked it. */
 export interface CheckMatter {
   id: string;
@@ -203,6 +215,8 @@ export interface Check {
   options: CheckOption[];
   /** A plan card's steps, in order (`PlanStep`); null on a decision with none (an older plan card: its plan is in `context`); absent on every other kind. */
   plan?: z.infer<typeof PlanStep>[] | null;
+  /** The pre-ticked answer: the option id a bulk card starts this row ticked with (`preTickedOf`), worked out when read, never stored; null or absent: unticked. */
+  preTicked?: string | null;
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
@@ -243,6 +257,30 @@ export interface BeingFixed {
 /** The guess an ending check's answer stores in the fact-check line (the card asks "Is this done?" with the step's own sentence). */
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
+
+/**
+ * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
+ * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (lifelog's
+ * `isLikely`), "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
+ * one conversation with no name heard, "Don't name"; null for anything else.
+ */
+export function preTickedOf(
+  c: Pick<Check, "kind"> & Partial<Pick<Check, "subject">>,
+  voice?: Pick<NamingQueueItem, "conversations" | "isLikely" | "kind" | "name">
+): string | null {
+  if (c.kind === "ending") {
+    return "outdated";
+  }
+  if (c.kind !== "voice" || !voice) {
+    return null;
+  }
+  if (c.subject && voice.isLikely) {
+    return "is-them";
+  }
+  return voice.kind === "new_person" && voice.conversations === 1 && !voice.name
+    ? "not-relevant"
+    : null;
+}
 
 /** Whether a check asks if a step is done (never in the nightly email). */
 export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";

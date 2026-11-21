@@ -2,7 +2,7 @@ import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
 import { flagsOf } from "../host/agents-now";
 import {
@@ -21,7 +21,7 @@ import {
 import { isHeldOf } from "../memory/held-matters";
 import { LOCK } from "../memory/memory-lock";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
-import { BEGIN_WITHIN_MS } from "./agent-wait";
+import { BEGIN_WITHIN_MS, EVENTS_SETTLE, nextWakeOf } from "./agent-wait";
 import {
   pollAnswers,
   pollMessages,
@@ -749,4 +749,22 @@ test("a new agent's first turn ranks with his answers, ahead of older deadlines,
   });
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(1);
+});
+
+test("an event wakes once its events stop coming for 5 minutes, at most 10 after the first, and 10 after the last turn", () => {
+  // A burst of made-up messages: the agent drafts once it is in, not on its first line (withdrawn cards, 21 Nov 2026).
+  const t0 = Date.parse("2026-11-20T10:00:00Z");
+  const s = { opened_at: iso(t0 - DAY), wait_until: iso(t0 + DAY) };
+  const message = (after: number) =>
+    ({ name: "message.received", received_at: iso(t0 + after) }) as never;
+  const ended = (before: number) =>
+    [
+      { cause: "event", ended_at: iso(t0 - before), outcome: "waited" },
+    ] as never;
+  const dueAt = (turns: never[], ...afters: number[]) =>
+    nextWakeOf(s, turns, afters.map(message))?.at;
+  expect(dueAt([], 0)).toBe(t0 + EVENTS_SETTLE);
+  expect(dueAt([], 0, 3 * MIN)).toBe(t0 + 8 * MIN);
+  expect(dueAt([], 0, 4 * MIN, 8 * MIN)).toBe(t0 + 10 * MIN);
+  expect(dueAt(ended(2 * MIN), 0)).toBe(t0 + 8 * MIN);
 });

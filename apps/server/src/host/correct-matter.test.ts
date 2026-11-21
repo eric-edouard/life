@@ -314,7 +314,7 @@ test("a pin on the second of two matters holding the same step lands on it, and 
   ]);
 });
 
-// life#817: his next step may carry a context, a card's Markdown with live `life:` links; Life's drafts carry none.
+// life#817: his next step may carry a context, a card's Markdown with live `life:` links.
 test("his next step's context is kept with it; one without has none; a dead life: link is refused before anything is written", async () => {
   const next = (nextStep: object) =>
     correct({

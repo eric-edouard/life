@@ -40,9 +40,9 @@ export function recheckOf(
   );
 }
 
-// Everyone, the most like the speaker first; none when it is too short to judge.
+// Everyone, the most like the speaker first, with their likeness and lead; none when it is too short to judge.
 // Only an order for his names, so its own conversations count (a recheck judges without them).
-export function likelyOf(
+export function rankedOf(
   samples: Parameters<typeof speakerVoice>[0],
   profiles: ProfilesByModel
 ) {
@@ -51,8 +51,22 @@ export function likelyOf(
     ? rankPeople(
         voice.vector,
         (profiles.get(voice.model) ?? NO_PROFILES).people
-      ).map((p) => p.personId)
+      )
     : [];
+}
+
+// Whether a card's voice is likely the person it names by its sound alone (`GET /naming-queue`'s `isLikely`): they are
+// the nearest person, at `likelyThreshold` and `margin` ahead of everyone else. One signal among those Life counts.
+export function isLikelyOf(
+  ranked: ReturnType<typeof rankedOf>,
+  personId: string | null
+) {
+  const [them] = ranked;
+  return (
+    them?.personId === personId &&
+    them.score >= RECOGNITION.likelyThreshold &&
+    them.margin >= RECOGNITION.margin
+  );
 }
 
 // How many people a voice's likeness names.

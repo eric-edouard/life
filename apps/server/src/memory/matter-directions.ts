@@ -8,7 +8,7 @@ import {
   MatterDirectionFields,
   ONE_OF,
 } from "../records/matter";
-import type { Observation } from "../records/observation";
+import { type Observation, ObservationId } from "../records/observation";
 import {
   directionDueOf,
   laterShownOf,
@@ -23,17 +23,18 @@ import {
 import { MATTER_DIRECTIONS } from "./memory-files";
 import { meContext } from "./model-context";
 import { OWNER } from "./read-truth";
+import { lifeRefsOf } from "./refs";
 import { begin, checkedEntries, inBatches, readsOf } from "./run";
 import { clip } from "./units";
 import type { People } from "./who";
 import { dayNow } from "./zones";
 
 // The matters' directions (docs/glossary.md: matter direction): for each running matter due one (`isDirectionDue`), one
-// model call drafts its goal (where it is going) and its next step (what moves it now, and its kind), or, when the matter
+// model call drafts its goal (where it is going) and its next step (what moves it now, its kind and its context), or, when the matter
 // looks over, no next step and the later records that show it (`endingRecords`: the links step then judges them). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v2";
+const PROMPT = "memory-matter-directions.v3";
 /** The most characters of matters a night is shown, those with no direction first, then the newest; and one call. */
 const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
@@ -57,6 +58,38 @@ export async function dueDirectionsOf(
       : []
   );
 }
+
+/** A step's `id` for the next step's context to link (`life:`), when it is an observation's. */
+const linkOf = (ref: string) =>
+  ObservationId.safeParse(ref).success ? { id: ref } : {};
+
+/** A quote: a Markdown quote's line (`> …`), or words in quotation marks. */
+const QUOTE = /^\s*>|["“”«»„]/m;
+
+/**
+ * Whether a drafted next step's context holds only what its matter's call was shown: every `life:` link one of its
+ * steps' or later records' ids, and no quote (`> …` or in quotation marks: the call sees clipped lines, never the checked quotes). Else it is
+ * dropped and the next step kept.
+ */
+const isGroundedContext = (
+  context: string,
+  shown: {
+    later: { id: string }[];
+    open: { id?: string }[];
+    steps: { id?: string }[];
+  }
+) => {
+  const ids = new Set(
+    [...shown.steps, ...shown.open, ...shown.later].flatMap((s) =>
+      s.id ? [s.id] : []
+    )
+  );
+  return (
+    context.trim() !== "" &&
+    !QUOTE.test(context) &&
+    [...lifeRefsOf(context)].every((id) => ids.has(id))
+  );
+};
 
 /** A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now. */
 const shownOf = (
@@ -87,6 +120,7 @@ const shownOf = (
     text: clip(o.text, SHOWN_CHARS),
   })),
   open: v.openSteps.map((s) => ({
+    ...linkOf(s.ref),
     ...(s.when ? { due: s.when } : {}),
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
@@ -94,6 +128,7 @@ const shownOf = (
   people: matterPeopleOf(v).map(nameOf),
   projects: v.projects,
   steps: v.steps.slice(-SHOWN_STEPS).map((s) => ({
+    ...linkOf(s.ref),
     day: s.day,
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
@@ -171,9 +206,10 @@ export async function matterDirections(
         Drafted,
         (d) => d.matter,
         (id) => byId.has(id)
-      ).entries.map(({ matter, ...d }) => {
+      ).entries.map(({ matter, nextStep, ...d }) => {
         const m = byId.get(matter);
         const shownIds = m?.later.map((o) => o.id) ?? [];
+        const context = nextStep?.context;
         return {
           ...d,
           // Only records the call was shown can be cited.
@@ -186,6 +222,17 @@ export async function matterDirections(
             : {}),
           laterShown: shownIds,
           ...(m ? { matter: m.v.id } : {}),
+          ...(nextStep
+            ? {
+                nextStep: {
+                  ...nextStep,
+                  context:
+                    context && m && isGroundedContext(context, m.shown)
+                      ? context
+                      : undefined,
+                },
+              }
+            : {}),
           steps: m?.v.steps.map((s) => s.ref) ?? [],
         };
       });

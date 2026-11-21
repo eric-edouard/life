@@ -1,14 +1,20 @@
 import { settings } from "../core/settings";
 import { isPromptVersion } from "../models/prompt-parts";
 import { NamedVoice, type ReadReply } from "../records/read-reply";
+import {
+  type NamingQueueItem,
+  readJobMonths,
+  voiceKey,
+} from "../sources/lifelog-voices";
 import { READ_REPLIES } from "./memory-files";
-import { READS, readReplies } from "./read-replies";
+import { READS, readReplies, readRepliesOfMonths } from "./read-replies";
 import { UNKNOWN, unnamedTurnKey, voiceOfKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 
 // The voice guesses (docs/glossary.md, "voice guess"): what the voice naming stored (`memory/voice-naming.ts`), read as
-// a guess for each turn nobody named. A guess is only ever shown, as "probably X", when the words of a conversation are
-// opened (`fetch`, behind his `voiceGuessesShown` setting). Nothing here names a turn: it never sets a speaker, reaches
+// a guess for each turn nobody named. A guess is only ever shown: as "probably X" when the words of a conversation are
+// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when it agrees
+// with lifelog's suggestion (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
 // lifelog, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
 // corrections (`scripts/imports.test.ts` checks).
 
@@ -57,17 +63,10 @@ export function voiceGuessesOf(line: ReadReply): VoiceGuess[] {
   });
 }
 
-/**
- * The newest stored guess of each unnamed turn key (`unnamedTurnKey`), from the lines of the voice naming's current
- * prompt. The newest guess of a key whose person is not known today (`me` and `unknown` aside) leaves the key with none. A key is a turn's only while the turn
- * is still unnamed: a turn named since (his answer, lifelog's match, a relabel) has another key and is never looked up.
- */
-export function voiceGuessesNow(
-  people: Pick<People, "names" | "refOf">,
-  where = READ_REPLIES
-) {
+/** The newest guess of each unnamed turn key in `lines`, from the lines of the voice naming's current prompt. */
+function newestGuessesOf(lines: readonly ReadReply[]) {
   const now = new Map<string, VoiceGuess>();
-  for (const line of readReplies(where).flat()) {
+  for (const line of lines) {
     if (isPromptVersion(line.madeBy.prompt, READS.voice_naming.prompt)) {
       for (const g of voiceGuessesOf(line)) {
         for (const key of g.keys) {
@@ -78,6 +77,40 @@ export function voiceGuessesNow(
       }
     }
   }
+  return now;
+}
+
+/** Each month file's newest guesses, by its lines as `readAppended` keeps them: worked out again only when the file grew. */
+const guessesOfFile = new WeakMap<
+  readonly ReadReply[],
+  Map<string, VoiceGuess>
+>();
+
+/** The newest stored guess of each unnamed turn key in these month files, a file's worked out again only when it grew. */
+function newestOfFiles(files: readonly (readonly ReadReply[])[]) {
+  const now = new Map<string, VoiceGuess>();
+  for (const lines of files) {
+    const held = guessesOfFile.get(lines) ?? newestGuessesOf(lines);
+    guessesOfFile.set(lines, held);
+    for (const [key, g] of held) {
+      if ((now.get(key)?.at ?? "") <= g.at) {
+        now.set(key, g);
+      }
+    }
+  }
+  return now;
+}
+
+/**
+ * The newest stored guess of each unnamed turn key (`unnamedTurnKey`), from the lines of the voice naming's current
+ * prompt. The newest guess of a key whose person is not known today (`me` and `unknown` aside) leaves the key with none. A key is a turn's only while the turn
+ * is still unnamed: a turn named since (his answer, lifelog's match, a relabel) has another key and is never looked up.
+ */
+export function voiceGuessesNow(
+  people: Pick<People, "names" | "refOf">,
+  where = READ_REPLIES
+) {
+  const now = newestOfFiles(readReplies(where));
   // The newest guess of a key is the one that counts: when its person is not known today the key has none, never an older guess.
   for (const [key, g] of now) {
     if (
@@ -126,5 +159,41 @@ export function withGuessesShown<
   return lines.map((l) => ({
     ...l,
     speaker: shownSpeaker(l, guesses, people),
+  }));
+}
+
+/**
+ * Each queue item with who the voice naming guessed its voices are (`guessed`, for `voiceSuggestionOf`): the person of
+ * the newest sure or likely guess of each of its turns, `me` and `unknown` left out, as stored. Reads only the month
+ * files its voices' recordings can be filed under (`readJobMonths`); throws when one cannot be read.
+ */
+export async function withVoiceGuesses<I extends NamingQueueItem>(
+  items: readonly I[],
+  where = READ_REPLIES,
+  monthsOf = readJobMonths
+) {
+  const jobs = [...new Set(items.flatMap((i) => i.voices.map((v) => v.jobId)))];
+  const guesses =
+    jobs.length > 0
+      ? newestOfFiles(readRepliesOfMonths(await monthsOf(jobs), where))
+      : new Map<string, VoiceGuess>();
+  const byVoice = Map.groupBy(
+    [...guesses.values()].filter(
+      (g) =>
+        g.confidence !== "weak" && g.person !== "me" && g.person !== "unknown"
+    ),
+    (g) => g.voice
+  );
+  return items.map((i) => ({
+    ...i,
+    guessed: [
+      ...new Set(
+        i.voices.flatMap((v) =>
+          (byVoice.get(voiceKey(v.jobId, v.speakerLabel)) ?? []).map(
+            (g) => g.person
+          )
+        )
+      ),
+    ].sort(),
   }));
 }

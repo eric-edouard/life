@@ -37,11 +37,16 @@ public struct Complaint: Encodable, Sendable, Equatable {
 
 /// His word about a registered agent (`change_registered_agent`'s arguments).
 public struct AgentRequest: Encodable, Sendable, Equatable {
-    public enum Action: String, Encodable, Sendable { case start, stop, resume, changeModel = "change_model" }
+    public enum Action: String, Encodable, Sendable {
+        case start, stop, resume
+        case changeModel = "change_model"
+        case handOver = "hand_over"
+    }
 
     public var action: Action
+    /// The agent acted on; with `hand_over` and a `step`, the agent the matter moves to.
     public var agent: String?
-    /// A matter's id: the subject of a start.
+    /// A matter's id: the subject of a start, or of a matter move.
     public var step: String?
     public var runtime: String?
     public var model: String?
@@ -92,12 +97,20 @@ public protocol LifeAPI: Sendable {
     /// The card a push names, from the Life at `origin` (nil: the one paired now).
     func readInbox(pushId: String, at origin: URL?) async throws -> String
     func readMatters() async throws -> String
-    /// One project's matters, with its page's head.
+    /// A project chip's matters.
     func readMatters(project: String) async throws -> String
+    /// An area chip's matters: those of the area in no project.
+    func readMatters(area: String) async throws -> String
+    /// The Projects tab's chips (`ProjectChips`).
+    func readProjects() async throws -> String
+    /// A project chip's header and Details (`ProjectHeader`).
+    func readProject(_ id: String) async throws -> String
     /// The matters open with one person or organization, by their ref (`person:ana`), every one.
     func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
+    /// What Life costs this month (`ModelSpending`), his token only.
+    func readSpending() async throws -> String
     /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
@@ -150,6 +163,13 @@ public struct MCPLifeAPI: LifeAPI {
     public func readMatters(project: String) async throws -> String {
         try await client.call("read_matters", ["project": project])
     }
+    public func readMatters(area: String) async throws -> String {
+        try await client.call("read_matters", MattersOfArea(area: area))
+    }
+    public func readProjects() async throws -> String { try await client.call("read_projects") }
+    public func readProject(_ id: String) async throws -> String {
+        try await client.call("read_project", ["project": id])
+    }
     public func readMatters(person: String) async throws -> String {
         // Life's `person` takes a name, alias or id: the ref's id (`ana`), never the ref itself.
         let id = person.hasPrefix("person:") ? String(person.dropFirst("person:".count)) : person
@@ -157,6 +177,7 @@ public struct MCPLifeAPI: LifeAPI {
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
+    public func readSpending() async throws -> String { try await client.call("read_spending") }
     public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
@@ -233,6 +254,11 @@ public struct MCPLifeAPI: LifeAPI {
         }
         return try await client.call(
             "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
+    }
+
+    private struct MattersOfArea: Encodable, Sendable {
+        let area: String
+        let noProject = true
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {

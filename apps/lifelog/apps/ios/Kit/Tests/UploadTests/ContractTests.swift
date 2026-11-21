@@ -149,12 +149,18 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(roles == client(RegisteredAgent.Role.self))
     #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))
+    // A move's phase, worked out when read (`movePhaseOf`).
+    let phases = try source("host/move-read.ts").matches(of: /phase: "([a-z]+)" as const/).map { String($0.output.1) }
+    #expect(Set(phases) == client(MovePhase.self))
     #expect(
         try quoted("host/desk-read.ts", /(?s)export type DeskRead<T> =(.*?value: T \});/)
             == client(RegisteredAgents.Desk.self))
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
+    // Model spending's providers and kinds (`read_spending`).
+    #expect(try quoted("memory/spends.ts", /SPEND_PROVIDERS = \[([^\]]*)\]/) == client(SpendProvider.self))
+    #expect(try quoted("memory/spends.ts", /export type SpendKind = ([^;]*);/) == client(SpendKind.self))
     // A log line's level, and the processes the Live logs menu lists.
     #expect(try quoted("core/log-line.ts", /LOG_LEVELS = \[([^\]]*)\]/) == client(LogLevel.self))
     #expect(

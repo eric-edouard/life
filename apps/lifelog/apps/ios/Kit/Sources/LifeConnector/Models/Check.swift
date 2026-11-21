@@ -8,6 +8,8 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
     case samePerson = "same person"
+    /// A matter's open step that is his: it stays in his inbox until done, handed over or put off.
+    case yourMove = "your move"
     case unknown
 }
 
@@ -257,6 +259,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// The matters the answer rides on, by name.
     public let onMatters: [MatterRef]?
     public let options: [Option]
+    /// The option a bulk ask starts this row ticked with (`preTickedOf`, the server's rule); nil: not ticked, or from a
+    /// Life that predates it.
+    public let preTicked: String?
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
@@ -379,7 +384,7 @@ extension Check {
         if draft != nil { return "Why this reply?" }
         switch group {
         case .ending: return "Why done?"
-        case .newMatter: return "What Life saw"
+        case .newMatter, .yourMove: return "What Life saw"
         case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
@@ -396,6 +401,17 @@ extension Check {
     /// The option the card fills (the first in order): the one answer it asks for, the others sit quieter.
     public var filled: Option? { optionsInOrder.first }
 
+    /// The option the row starts ticked with in a bulk ask, when Life pre-ticks one this card offers.
+    public var preTickedOption: Option? { options.first { $0.id == preTicked } }
+
+    /// Rows of a bulk ask in its groups: one per pre-ticked option, in the order they first come, then the rows Life
+    /// ticks nothing on.
+    public static func bulkGroups(_ checks: [Check]) -> [[Check]] {
+        let ids = checks.compactMap(\.preTicked).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        return (ids.map(Optional.some) + [nil]).map { id in checks.filter { $0.preTicked == id } }
+            .filter { !$0.isEmpty }
+    }
+
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }
 
@@ -403,8 +419,16 @@ extension Check {
     public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
 
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
+    /// A your move card's "Hand to an agent" hands over the goal it shows, as a new matter's Start does.
     public func answer(_ option: Option) -> AnswerRequest? {
-        option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
+        guard option.takes == nil else { return nil }
+        let goal = isHandOver(option) ? self.goal : nil
+        return AnswerRequest(ref: ref, options: [option.id], note: goal)
+    }
+
+    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand to an agent.
+    public func isHandOver(_ option: Option) -> Bool {
+        option.id == "start" && (group == .newMatter || group == .yourMove)
     }
 
     /// His answer naming who it is, through the option that takes it: a person Life knows, or a typed name, which is a

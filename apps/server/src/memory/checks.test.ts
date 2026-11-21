@@ -315,6 +315,7 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
       },
     ],
     id,
+    isLikely: false,
     kind: "new_person",
     likely: [DANA_ID, "00000000-0000-4000-8000-000000000002"],
     name: null,
@@ -328,6 +329,17 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
+  items[3] = voice("v3", { conversations: 1 });
+  items[4] = voice("v4", {
+    conversations: 1,
+    kind: "known_person",
+    personId: DANA_ID,
+  });
+  const likely = { isLikely: true, kind: "known_person" as const };
+  items[5] = voice("v5", { ...likely, personId: DANA_ID });
+  // Likely, but no guess in use (v6), or for a person Life cannot place, asked by a name heard beside it (v7): no "Yes".
+  items[6] = voice("v6", { isLikely: true });
+  items[7] = voice("v7", { ...likely, name: DANA_ID, personId: "unplaced" });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
@@ -363,8 +375,22 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   );
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   const guesses = cards.filter((c) => urgencyOf(c) === "improves");
-  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana]);
+  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([
+    dana,
+    "voice:v4",
+    "voice:v5",
+    "voice:v7",
+  ]);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
+  // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; a guess in use lifelog
+  // calls likely, "Yes"; the others unticked.
+  expect(byRef("voice:v3")?.preTicked).toBe("not-relevant");
+  expect(byRef("voice:v5")?.preTicked).toBe("is-them");
+  expect(
+    [dana, "voice:v1", "voice:v2", "voice:v4", "voice:v6", "voice:v7"].map(
+      (r) => byRef(r)?.preTicked
+    )
+  ).toEqual([null, null, null, null, null, null]);
 });
 
 const HEX16 = /^[0-9a-f]{16}$/;

@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { exec, execOk } from "@life/server/src/core/proc";
 
@@ -57,8 +58,36 @@ export async function createSimulator(name: string, deviceType?: string) {
   ).trim();
 }
 
-/** Builds the Debug app for `udid` into `derivedData`; returns the app's path. */
+/** What the app is built from: the iOS tree at HEAD, its uncommitted changes and its untracked files' names. */
+export async function sourceStamp() {
+  const dir = "apps/lifelog/apps/ios";
+  const git = (args: string[]) => execOk(["git", ...args], { cwd: REPO });
+  const parts = [
+    await git(["rev-parse", `HEAD:${dir}`]),
+    await git(["diff", "HEAD", "--", dir]),
+    await git(["ls-files", "-o", "--exclude-standard", "--", dir]),
+  ];
+  return new Bun.CryptoHasher("sha256").update(parts.join("\0")).digest("hex");
+}
+
+/**
+ * Builds the Debug app for `udid` into `derivedData`; returns the app's path. A build of the same sources (`sourceStamp`,
+ * kept beside it) is reused.
+ */
 export async function buildApp(udid: string, derivedData: string) {
+  const app = join(
+    derivedData,
+    "Build/Products/Debug-iphonesimulator/lifelog.app"
+  );
+  const stampFile = join(derivedData, ".source-stamp");
+  const stamp = await sourceStamp();
+  if (
+    existsSync(app) &&
+    existsSync(stampFile) &&
+    readFileSync(stampFile, "utf8") === stamp
+  ) {
+    return app;
+  }
   await execOk(["bun", "run", "ios:project"], { cwd: REPO });
   await execOk(
     [
@@ -71,20 +100,13 @@ export async function buildApp(udid: string, derivedData: string) {
     ],
     { cwd: REPO, timeout: 30 * 60_000 }
   );
-  return join(derivedData, "Build/Products/Debug-iphonesimulator/lifelog.app");
+  writeFileSync(stampFile, stamp);
+  return app;
 }
 
-/** Boots `udid` unless it runs already; true when this call booted it (so its caller shuts it down). */
-export async function boot(udid: string) {
-  const isBooted = (await execOk(["xcrun", "simctl", "list", "devices"]))
-    .split("\n")
-    .some((line) => line.includes(udid) && line.includes("(Booted)"));
-  // `-b` boots it when it isn't, and waits out one still shutting down.
-  await execOk(["xcrun", "simctl", "bootstatus", udid, "-b"], {
-    timeout: 300_000,
-  });
-  return !isBooted;
-}
+/** Boots `udid`; `-b` does nothing when it runs already, and waits out one still shutting down. */
+export const boot = (udid: string) =>
+  execOk(["xcrun", "simctl", "bootstatus", udid, "-b"], { timeout: 300_000 });
 
 export const install = (udid: string, app: string) =>
   execOk(["xcrun", "simctl", "install", udid, app]);

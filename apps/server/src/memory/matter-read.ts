@@ -51,8 +51,8 @@ type MatterStatus = (typeof STATUSES)[number];
 
 /** A step in this many days or less: the matter is moving. */
 const MOVING_DAYS = 14;
-/** An open step's date passed this many days ago or less: the matter is stuck; an older one has no say. */
-const STUCK_DAYS = 30;
+/** An open step's date passed this many days ago or less: the matter is stuck; an older one has no say (nor is it a your move card's deadline). */
+export const STUCK_DAYS = 30;
 /** A matter with nothing to do is done once its last step and every date are this many days past. */
 const QUIET_DAYS = 7;
 

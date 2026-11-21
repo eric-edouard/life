@@ -83,6 +83,38 @@ final class DictationCapture {
         return capture
     }
 
+    /// The recording's loudness now, 0 to 1: the field's stream.
+    var level: Float { mic.recording.level }
+
+    /// One run of a field's dictation (`Dictation`), its start's failures in the field's words.
+    static func run(library: LibraryStore?, sync: SyncStore?) -> Dictation.Begin {
+        { ended in
+            let capture: DictationCapture
+            do {
+                capture = try await begin(library: library, sync: sync, ended: ended)
+            } catch Failure.denied {
+                throw Dictation.StartFailure.refused
+            } catch Failure.noLibrary, Failure.tooLate {
+                throw Dictation.StartFailure.notStarted
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as NSError where Self.isAudioBusy(error) {
+                throw Dictation.StartFailure.busy
+            } catch {
+                // The stretch's write, the encoder: nothing a call explains.
+                throw Dictation.StartFailure.notStarted
+            }
+            return DictationRun(level: { capture.level }, finish: capture.finish)
+        }
+    }
+
+    /// The audio session or the engine refused to start because a call, Siri or another app holds the microphone.
+    private static func isAudioBusy(_ error: NSError) -> Bool {
+        let busy: Set<AVAudioSession.ErrorCode> = [.insufficientPriority, .cannotInterruptOthers, .siriIsRecording]
+        return [NSOSStatusErrorDomain, "com.apple.coreaudio.avfaudio"].contains(error.domain)
+            && AVAudioSession.ErrorCode(rawValue: error.code).map(busy.contains) == true
+    }
+
     /// Closes the microphone and returns what it heard (Ogg Opus). Called again, it returns the same.
     func finish() async throws -> Data {
         if let closing { return try await closing.value }

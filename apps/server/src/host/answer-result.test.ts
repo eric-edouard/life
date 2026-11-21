@@ -22,6 +22,12 @@ import { expectWire } from "./http/wire-fixture";
 
 // Made-up people, chats and ids throughout.
 
+/** People who know no one, for a voice card's ref. */
+const NO_ONE = {
+  names: new Map<string, string>(),
+  refOf: (r: string) => r,
+  resolve: () => null,
+};
 const draft = { channel: "whatsapp", text: "Can you come Friday?", to: "Kit" };
 const readChat = () =>
   Promise.resolve({ ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" });
@@ -407,6 +413,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     conversations: 2,
     evidence: [],
     id: "v1",
+    isLikely: false,
     kind: "new_person",
     likely: [],
     name: null,
@@ -418,7 +425,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     ],
     words: 9,
   };
-  const voiceRef = voiceCardRefOf(() => null, item);
+  const voiceRef = voiceCardRefOf(NO_ONE, item);
   guesses = [
     asCheck({
       group: "ending",
@@ -697,6 +704,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
     conversations: 1,
     evidence: [],
     id: "v2",
+    isLikely: false,
     kind: "new_person",
     likely: [],
     name: null,
@@ -707,7 +715,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
     ],
     words: 9,
   };
-  const voiceRef = voiceCardRefOf(() => null, shown);
+  const voiceRef = voiceCardRefOf(NO_ONE, shown);
   guesses = [asCheck({ group: "voice", ref: voiceRef })];
   const grown = {
     ...shown,
@@ -737,5 +745,53 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
   } finally {
     queue.mockRestore();
     send.mockRestore();
+  }
+});
+
+test("your move: Mark as done closes only its step, never a sibling; each fresh Not now press is its own answer, the same press retried writes once", async () => {
+  const step = (ref: string) => ({
+    at: "2026-11-01T09:00:00.000Z",
+    day: "2026-11-01",
+    kind: "to_do",
+    quote: "it",
+    ref,
+    text: "Paint the gate",
+  });
+  const [mine, sibling] = [step("obs_000000000071"), step("obs_000000000072")];
+  const move = asCheck({
+    group: "your move",
+    matter: { id: "matter_000000000007", name: "Garden gate" },
+    options: [
+      { ends: "step", id: "done", label: "Mark as done", takes: null },
+      { id: "not-now", label: "Not now", takes: null },
+    ],
+    ref: `move:matter_000000000007/${mine.ref}`,
+    subject: mine.ref,
+    title: "Garden gate",
+  });
+  guesses = [move];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    { id: "matter_000000000007", open: true, steps: [mine, sibling] },
+  ] as never);
+  try {
+    await call(move.ref, ["done"], "tap-done").result;
+    await call(move.ref, ["not-now"], "tap-1").result;
+    await call(move.ref, ["not-now"], "tap-1").result;
+    await call(move.ref, ["not-now"], "tap-2").result;
+    expect(
+      readCorrections().map((c) =>
+        c.kind === "outdated" ? c.observations : c.kind
+      )
+    ).toEqual([[mine.ref], "your-move-not-now", "your-move-not-now"]);
+  } finally {
+    book.mockRestore();
+    people.mockRestore();
   }
 });

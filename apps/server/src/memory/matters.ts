@@ -176,6 +176,8 @@ interface HisPins {
   directions: DirectionPin[];
   icons: IconPin[];
   important: ImportantPin[];
+  /** His Not now on your move cards (`your-move-not-now`), each with its `until`. */
+  notNow: (ReturnType<typeof pinOf> & { until: string })[];
   projects: ProjectPin[];
 }
 
@@ -189,7 +191,7 @@ const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
 /**
  * What is pinned to matters' steps (`pinnedOf` finds each one's matter): the directions (`directionsOf`: Life's drafts,
  * then his `matter-direction`), his important marks (`matter-important`, on or off), his icons (`matter-icon`, a key
- * or null) and his projects (`matter-project`), each with when it was written. Both files are folded incrementally (`readAppended`): a read parses only
+ * or null), his projects (`matter-project`) and his Not now on your move cards (`your-move-not-now`), each with when it was written. Both files are folded incrementally (`readAppended`): a read parses only
  * the lines appended since the last.
  */
 export function readMatterPins() {
@@ -210,6 +212,7 @@ export function readMatterPins() {
       directions: [...(last?.directions ?? [])],
       icons: [...(last?.icons ?? [])],
       important: [...(last?.important ?? [])],
+      notNow: [...(last?.notNow ?? [])],
       projects: [...(last?.projects ?? [])],
     }),
     (pins, c) => {
@@ -226,6 +229,8 @@ export function readMatterPins() {
         pins.icons.push({ ...pinOf(c), icon: c.icon });
       } else if (c.kind === "matter-project") {
         pins.projects.push({ ...pinOf(c), project: c.project });
+      } else if (c.kind === "your-move-not-now") {
+        pins.notNow.push({ ...pinOf(c), until: c.until });
       }
     }
   );

@@ -2,7 +2,13 @@ import { z } from "zod";
 import { DAY } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { LIVE, parseTurnRef, type Store, writeLifelog } from "./lifelog";
+import {
+  LIVE,
+  parseTurnRef,
+  type Store,
+  withStore,
+  writeLifelog,
+} from "./lifelog";
 import { call, lifelogMissing } from "./lifelog-call";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
@@ -201,6 +207,7 @@ export const NamingQueueItem = z.object({
     })
   ),
   id: z.string(),
+  isLikely: z.boolean(),
   kind: z.enum(["new_person", "known_person", "several"]),
   likely: z.array(z.string()),
   name: z.string().nullable(),
@@ -222,8 +229,11 @@ let reading: Promise<NamingQueueItem[]> | undefined;
 let answered = 0;
 let isDown = false;
 
-/** One `GET /naming-queue`, nothing kept; throws when it fails. */
-const getQueue = async () =>
+/**
+ * The queue as lifelog gives it now (`GET /naming-queue`), nothing kept: for an answer, which reads it in its turn
+ * (`answerCheck`), never the kept list; throws when lifelog cannot be read.
+ */
+export const readNamingQueueNow = async () =>
   lifelogMissing()
     ? []
     : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
@@ -234,7 +244,7 @@ const getQueue = async () =>
  */
 function refresh() {
   const since = answered;
-  reading ??= getQueue()
+  reading ??= readNamingQueueNow()
     .then((queue) => {
       if (since === answered) {
         kept = queue;
@@ -265,18 +275,6 @@ export async function readNamingQueue() {
   return kept ?? (await next);
 }
 
-/** The queue as lifelog gives it now, for an answer: never the kept list, nor one an answer sent meanwhile made old; throws when lifelog cannot be read. */
-export async function readNamingQueueNow() {
-  const since = answered;
-  const queue = await getQueue();
-  if (since !== answered) {
-    throw new Error(
-      "Not done: another voice answer landed meanwhile; try again."
-    );
-  }
-  return queue;
-}
-
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [
   ...new Set([item.personId, ...item.likely].filter((x): x is string => !!x)),
@@ -302,3 +300,35 @@ export async function answerNamingQueue(
   );
   return done;
 }
+
+/**
+ * The UTC months (`YYYY-MM`) a read of these jobs' speech can be filed under (a reply goes in its first message's month):
+ * from their conversation's start to their last turn. A job the store does not hold has none.
+ */
+export const readJobMonths = (jobIds: readonly string[]) =>
+  withStore((store) => {
+    const span = store.db.query<
+      { from: string | null; to: string | null },
+      [string]
+    >(
+      `select c.start_at as "from", max(t.start_at) as "to" from turns t
+        join conversations c on c.id = t.conversation_id where t.job_id = ?`
+    );
+    return [
+      ...new Set(
+        jobIds.flatMap((job) => {
+          const { from, to } = span.get(job) ?? {};
+          const months: string[] = [];
+          for (let m = from?.slice(0, 7); m && to && m <= to.slice(0, 7); ) {
+            months.push(m);
+            const [y, mo] = m.split("-").map(Number) as [number, number];
+            m =
+              mo === 12
+                ? `${y + 1}-01`
+                : `${y}-${String(mo + 1).padStart(2, "0")}`;
+          }
+          return months;
+        })
+      ),
+    ];
+  });

@@ -327,14 +327,38 @@ export const voicePersonOf = (
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
-/** The person lifelog suggests for a voice it asks about, what a voice card's "Yes" names (its `subject`); none for a new person. */
-export const voiceSuggestionOf = (
-  resolve: (s: string) => string | null,
-  item: { kind: string; name: string | null; personId: string | null }
-) =>
-  item.kind === "new_person"
-    ? null
-    : voicePersonOf(resolve, item.personId, item.name);
+/**
+ * The person a voice card asks about, what its "Yes" names (its `subject`): the one person lifelog's suggestion (its
+ * person, else the name it heard, as `resolve` reads it, a new person's too) and the voice naming's guesses for its
+ * voices (`guessed`, `withVoiceGuesses`; only someone known today) agree on, and only when lifelog knows them by an id
+ * (its person or one of its `likely`), so "Yes" assigns that id, never a name; none otherwise. Only ever a question to
+ * him ("Is this X?"): his tap is the answer.
+ */
+export function voiceSuggestionOf(
+  people: Pick<People, "names" | "refOf" | "resolve">,
+  item: {
+    guessed?: readonly string[];
+    likely: readonly string[];
+    name: string | null;
+    personId: string | null;
+  }
+) {
+  const named = new Set(
+    [
+      voicePersonOf(people.resolve, item.personId, item.name),
+      ...(item.guessed ?? [])
+        .map((g) => people.refOf(g))
+        .filter((r) => people.names.has(r)),
+    ].filter((r) => r !== null)
+  );
+  const [one] = named;
+  return named.size === 1 &&
+    [item.personId, ...item.likely].some(
+      (id) => id && voicePersonOf(people.resolve, id, null) === one
+    )
+    ? (one as string)
+    : null;
+}
 
 /**
  * A voice card's ref: its lifelog group, the recordings his answer would change (a digest of its voices) and the person
@@ -342,10 +366,11 @@ export const voiceSuggestionOf = (
  * suggestion is another card.
  */
 export const voiceCardRefOf = (
-  resolve: (s: string) => string | null,
+  people: Pick<People, "names" | "refOf" | "resolve">,
   item: {
+    guessed?: readonly string[];
     id: string;
-    kind: string;
+    likely: readonly string[];
     name: string | null;
     personId: string | null;
     voices: { jobId: string; speakerLabel: string }[];
@@ -354,7 +379,7 @@ export const voiceCardRefOf = (
   const voices = [
     ...new Set(item.voices.map((v) => voiceKey(v.jobId, v.speakerLabel))),
   ].sort();
-  const suggested = voiceSuggestionOf(resolve, item);
+  const suggested = voiceSuggestionOf(people, item);
   return `voice:${item.id}~${digest("sha256", voices.join("\n"), 8)}${suggested ? `~${suggested}` : ""}`;
 };
 

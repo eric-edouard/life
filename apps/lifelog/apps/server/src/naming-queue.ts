@@ -34,7 +34,7 @@ import {
   voiceId,
 } from "./people";
 import { latestValid } from "./runs";
-import { likelyOf } from "./sounds-like";
+import { isLikelyOf, rankedOf } from "./sounds-like";
 import { type LoadedTurn, loadTurns } from "./transcript";
 import { readVoiceProjection } from "./voice-map";
 import type { Result } from "./voices-call";
@@ -244,9 +244,11 @@ function cardOf(
   };
 }
 
-// `likely`: everyone, the most like its voice first (the phone orders its names by it).
+// `likely`: everyone, the most like its voice first (the phone orders its names by it). `isLikely`: its sound alone
+// names its `personId` (sounds-like.ts `isLikelyOf`).
 export type Card = Suggestion & {
   clips: Clip[];
+  isLikely: boolean;
   likely: string[];
   words: number;
 };
@@ -298,6 +300,7 @@ function readSplitCards(
         // Map point/card ids are strings: turns/ reserves the split-group namespace.
         ...cardOf(`turns/${group}`, voices, seconds, 0),
         clips,
+        isLikely: false,
         likely: [],
         words,
       };
@@ -434,14 +437,19 @@ function cardsOf(
 ) {
   const clipsOf = cardClips(db, reader, clip);
   return suggest(db, voices, reader)
-    .map(({ card, words }) => ({
-      card: {
-        ...card,
-        clips: clipsOf(card),
-        likely: likelyOf(reader.samples(card.voices), reader.profiles),
-      },
-      words,
-    }))
+    .map(({ card, words }) => {
+      const ranked = rankedOf(reader.samples(card.voices), reader.profiles);
+      return {
+        card: {
+          ...card,
+          clips: clipsOf(card),
+          isLikely:
+            card.kind === "known_person" && isLikelyOf(ranked, card.personId),
+          likely: ranked.map((p) => p.personId),
+        },
+        words,
+      };
+    })
     .sort(
       (a, b) =>
         Number(b.card.clips.some((c) => c.audio || c.at)) -

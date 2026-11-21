@@ -11,6 +11,12 @@ struct CardNotes: Equatable {
     var creating: Creating?
     /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
     var wrong: Check?
+    /// On a bulk card: the rows he unticked, the answers he chose on a row's own card (sent with the others), the rows
+    /// its "Answer N" sent, and the kinds he goes through one by one (`InboxOrder.folded`).
+    var unticked: Set<String> = []
+    var chosen: [String: Taken] = [:]
+    var sentInBulk: Set<String> = []
+    var unfolded: Set<CheckGroup> = []
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
@@ -82,6 +88,8 @@ private struct AskSheetsHost: ViewModifier {
 struct CardView: View {
     let check: Check
     let checks: [Check]
+    /// The kinds answered in bulk, by the ask that stands for each (`InboxOrder.bulk`): the Inbox's only.
+    var bulk: [String: [Check]] = [:]
     /// The ask under the pager's leading edge: swiping only moves it, never answers.
     @Binding var current: String?
     @Binding var notes: CardNotes
@@ -91,6 +99,8 @@ struct CardView: View {
     /// Answers that are not a send or a start are held for Undo (the Inbox draws the toast), not shown as a result.
     /// Without it, only his word that a step is done is held (`Taken.isEnding`); the host draws its toast.
     var holdsAnswers = false
+    /// A bulk card's row: an answer held for Undo is handed back to the row, nothing sent (`isHeld`).
+    var takes: ((Taken) -> Void)?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
     let leave: (Taken, _ keep: Bool) -> Void
 
@@ -173,20 +183,29 @@ struct CardView: View {
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 0) {
                         ForEach(Array(checks.enumerated()), id: \.element.ref) { index, check in
-                            CheckCard(
-                                check: check, runtimeName: life.runtimeName(of: check),
-                                openMatter: { router.open(matter: $0) },
-                                input: input(check.ref),
-                                isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
-                                create: { notes.creating = creating(check, $0, asOrganization: $1) },
-                                wrong: {
-                                    life.openComplaint(on: check)
-                                    notes.wrong = check
-                                },
-                                dropProject: dropProject(of: check),
-                                page: checks.count > 1 ? (index, checks.count) : nil
-                            )
+                            let page: (current: Int, total: Int)? = checks.count > 1 ? (index, checks.count) : nil
+                            Group {
+                                if let rows = bulk[check.ref] {
+                                    BulkCard(kind: check.group, rows: rows, notes: $notes, page: page) {
+                                        submit(all: $0, from: check)
+                                    }
+                                } else {
+                                    CheckCard(
+                                        check: check, runtimeName: life.runtimeName(of: check),
+                                        openMatter: { router.open(matter: $0) },
+                                        input: input(check.ref),
+                                        isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
+                                        answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
+                                        create: { notes.creating = creating(check, $0, asOrganization: $1) },
+                                        wrong: {
+                                            life.openComplaint(on: check)
+                                            notes.wrong = check
+                                        },
+                                        dropProject: dropProject(of: check),
+                                        page: page
+                                    )
+                                }
+                            }
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
                             .appears(Motion.passes)
@@ -266,11 +285,23 @@ struct CardView: View {
             asks: checks, source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
     }
 
+    /// A bulk card's answers, held as one for one Undo; the next ask is on show at once.
+    private func submit(all requests: [AnswerRequest], from head: Check) {
+        guard !requests.isEmpty else { return }
+        // A new attempt: an earlier answer's failure on these rows is no longer theirs.
+        requests.forEach { life.forget(.answer(ref: $0.ref)) }
+        notes.sentInBulk.formUnion(requests.map(\.ref))
+        life.hold(requests, as: "\(requests.count) answered")
+        current = checks.ref(after: head.ref)
+    }
+
     private func submit(_ check: Check, _ request: AnswerRequest) {
         let taken = Taken(
             check: check, request: request, nextRef: checks.ref(after: check.ref),
             runtimeName: life.runtimeName(of: check))
-        if holdsAnswers && taken.isHeld {
+        if let takes, taken.isHeld {
+            takes(taken)
+        } else if holdsAnswers && taken.isHeld {
             life.hold(request, as: taken.heldWords)
             current = taken.nextRef
         } else if taken.isEnding {
@@ -290,8 +321,8 @@ private enum Pager {
     static let edge = Metrics.Spacing.xs * 2.5
 }
 
-/// An ask pushed on a matter's stack: found by its ref among the checks the matter lists, or, once answered, the
-/// result he is still reading. Gone from both: said so.
+/// An ask pushed on a matter's stack, or in a project's sheet: found by its ref among the checks the matter lists, or,
+/// once answered, the result he is still reading. Gone from both: said so.
 struct CardPage: View {
     let ref: String
     let source: [Check]
@@ -303,9 +334,8 @@ struct CardPage: View {
     @State private var current: String?
 
     var body: some View {
+        // Its bar is its host's: Back and the Pendant on a matter's stack, Close in a sheet.
         page
-            // A pushed screen: Back, then the Pendant.
-            .shellBar("", hasSettings: false)
             // Above the ask, so the matter's read that takes it away (his answer) never closes it before it does.
             .askSheets($notes) { _ in leave() }
     }

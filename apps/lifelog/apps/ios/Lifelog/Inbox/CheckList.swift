@@ -37,9 +37,13 @@ struct CheckList: View {
         return Button {
             choose(check.ref)
         } label: {
+            // A kind answered in bulk is one row, its card's question and how many it holds.
+            let bulk = order.bulk[check.ref]
             Row(
-                title: check.question, icon: symbol(of: check),
-                detail: check.beingFixed == nil ? check.listLine() : "Being fixed", isInList: true
+                title: bulk == nil ? check.question : check.group.bulkQuestion, icon: symbol(of: check),
+                detail: bulk.map { "\($0.count) waiting" }
+                    ?? (check.beingFixed == nil ? check.listLine() : "Being fixed"),
+                isInList: true
             ) {
                 // The caretaker is at work on it: it no longer waits on him, so no deadline.
                 if check.beingFixed != nil {
@@ -74,6 +78,7 @@ extension CheckGroup {
         case .samePerson: "person.2"
         case .ending: "checkmark"
         case .newMatter: "plus"
+        case .yourMove: "arrow.right.circle"
         case .unknown: "circle"
         }
     }
@@ -89,6 +94,7 @@ extension CheckGroup {
         case .samePerson: "Same person?"
         case .ending: "Is this done?"
         case .newMatter: "New matters"
+        case .yourMove: "Your moves"
         case .unknown: "Other"
         }
     }

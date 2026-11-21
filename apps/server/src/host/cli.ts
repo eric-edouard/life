@@ -5,11 +5,10 @@ import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { Engine } from "../core/names";
+import { Engine, ROLE_ASKERS } from "../core/names";
 import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
-  agentNames,
   connector,
   readSettings,
   type Settings,
@@ -32,19 +31,14 @@ import {
 import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { archiveCommand } from "./archive";
-import { ask, timings } from "./asks";
+import { timings } from "./asks";
 import { backup } from "./backup";
 import { bridgeCommand } from "./bridges";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
 } from "./change-directory-entry";
-import {
-  Asked,
-  changeAskedTodoItem,
-  requested,
-  setAutoAdd,
-} from "./change-todo-item";
+import { Asked, changeAskedTodoItem, setAutoAdd } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
@@ -52,15 +46,10 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
-
-/** The one agent, when there is exactly one: the default of `ask`. */
-const only = () => {
-  const names = agentNames();
-  return names.length === 1 ? names[0] : undefined;
-};
 
 /** `change-todo-item` and `auto-add` need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
@@ -121,30 +110,6 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`, `archive whatsapp <folder>`. */
   archive: () => archiveCommand(process.argv.slice(3)),
-  /**
-   * Hands work to an agent from a Claude session: `ask [<agent>] '<his words>'` records an ask, which the agent
-   * pulls; the agent may be left out when there is only one.
-   */
-  ask() {
-    const [first = "", ...rest] = process.argv.slice(3);
-    const named = agentNames().includes(first);
-    const agent = named ? first : only();
-    const words = (named ? rest : [first, ...rest]).join(" ").trim();
-    if (!agent || words.length < 3) {
-      console.error(
-        `usage: bun life ask <${agentNames().join("|") || "agent"}> '<words>'`
-      );
-      return Promise.resolve(2);
-    }
-    const done = ask(
-      requested("session", words),
-      { agent, confidence: "high" },
-      "session",
-      "asked in a Claude session"
-    );
-    console.log(`${done.id}: ${entryLine(done)}`);
-    return Promise.resolve(0);
-  },
   /**
    * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each instant as
    * the time since the one before it (apps/server/src/host/asks.ts `timings`).
@@ -391,15 +356,16 @@ const commands: Record<string, () => number | Promise<number>> = {
   memory: () => memoryCommand(process.argv.slice(3)),
   /**
    * A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes: `pair <agent>` pairs it
-   * as that agent; `pair` alone, a plain app, which reads but pulls no asks. `--link` prints the link the phone opens
-   * (`lifelog://pair?life=<origin>&code=<code>`) instead of the code.
+   * as that agent (any name but a role's, `ROLE_ASKERS`); `pair` alone, a plain app. `--link` prints the link the phone
+   * opens (`lifelog://pair?life=<origin>&code=<code>`) instead of the code.
    */
   pair() {
-    const names = agentNames();
     const args = process.argv.slice(3);
     const agent = args.find((a) => !a.startsWith("--"));
-    if (agent && !names.includes(agent)) {
-      console.error(`usage: bun life pair [--link] <${names.join("|")}>`);
+    if (agent && ROLE_ASKERS.includes(agent)) {
+      console.error(
+        `bun life pair [--link] [<agent>]: ${ROLE_ASKERS.join(", ")} are roles, not agents`
+      );
       return Promise.resolve(2);
     }
     const code = pair(agent);
@@ -472,6 +438,8 @@ export async function main(more: typeof commands = {}) {
   process.on("uncaughtException", crashed);
   process.on("unhandledRejection", crashed);
   try {
+    // The settings' old keys gone, before the command reads any (host/migrate.ts).
+    migrateSettings();
     process.exit(await command());
   } catch (e) {
     crashed(e);

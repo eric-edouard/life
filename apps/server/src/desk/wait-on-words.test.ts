@@ -5,6 +5,7 @@ import { FILES } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { register, setWait } from "./agent-actions";
+import { EVENTS_SETTLE } from "./agent-wait";
 import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { advance, ahead, chatSource, on, setup } from "./test-desk";
 
@@ -52,6 +53,7 @@ async function waitingOnWords() {
     }
     advance(10 * MIN);
     await pollMessages(s.desk, readPeopleOnce());
+    advance(EVENTS_SETTLE);
     await wakeDue(s.desk);
   };
   return { ...s, arrive, id, set };

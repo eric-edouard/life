@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { clock, DAY, iso } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
+import { oneAtATime } from "../core/lock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
@@ -182,13 +183,8 @@ async function pushAdded(d: AppointmentDraft, now: Date) {
   }
 }
 
-let turn: Promise<unknown> = Promise.resolve();
 /** One sync, Remove or Undo at a time: the watcher's ticks and the connector's calls share this chain. */
-function inTurn<T>(run: () => Promise<T>) {
-  const next = turn.then(run);
-  turn = next.catch(() => undefined);
-  return next;
-}
+const inTurn = oneAtATime();
 
 /** Brings his calendar in line with the appointments; null when it is not set up, or the night is rewriting its file. */
 async function sync(now: Date) {

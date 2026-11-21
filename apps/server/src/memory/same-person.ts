@@ -2,9 +2,9 @@ import { latestInUseOf } from "./ref-kinds";
 import { nameKey } from "./units";
 import type { People } from "./who";
 
-// The likely matches the folds leave (life#727): a guess Life uses and someone else going by its whole name, never
-// joined by a fact. Asked as one card ("Are these the same person?"), never decided by Life; worked out when the inbox
-// is read, never stored.
+// The likely matches the folds leave (life#727): a guess Life uses and someone else going by its whole name, or someone
+// he knows whom Life already knows by the guess's name, never joined by a fact. Asked as one card ("Are these the same
+// person?"), never decided by Life; worked out when the inbox is read, never stored.
 
 const REF = /^same:(person:[^~]+)~(person:[^~]+)$/;
 /** A card's ref, bound to both people, so a tap answers only the pair he saw. */
@@ -27,7 +27,9 @@ const isDescription = (n: string) => LOWER.test(n.trim());
 /**
  * Each guess in use (`isGuess`: not settled, not his word), not folded, not an organization, with a handle, and someone
  * else going by its whole name: his directory (a name or an alias), his Contacts, or another such guess (one card for
- * the two, asked of the one with handles, the smaller id when both have). A pair his word settled is never asked
+ * the two, asked of the one with handles, the smaller id when both have); or, by any name, someone not a guess whom its
+ * name reads as by his word or by another of Life's readings linked to them (`readingNow`), the account's other name
+ * (`called`). A pair his word settled is never asked
  * again: `same-person` folded it, or a `not-this-person` on a handle that reads as one of them names the other.
  */
 export function samePersonPairsOf(
@@ -39,6 +41,7 @@ export function samePersonPairsOf(
     | "inferred"
     | "isGuess"
     | "isOrganization"
+    | "readingNow"
     | "relationOf"
     | "resolve"
     | "truth"
@@ -90,12 +93,36 @@ export function samePersonPairsOf(
     !(handlesOf(other).length > 0 && other < guess);
   const pairs = new Map<
     string,
-    { guess: string; handles: string[]; lines: [string, string]; other: string }
+    {
+      /** The guess's name Life knows the other by, when that is what joins them; null: the same whole name. */
+      called: string | null;
+      guess: string;
+      handles: string[];
+      lines: [string, string];
+      other: string;
+    }
   >();
+  /** Who a guess may be: someone going by its whole name, or someone his word or a linked reading knows by its name (`called`). */
+  const othersOf = (g: { name: string }) => {
+    if (isDescription(g.name)) {
+      return [];
+    }
+    // A name alone is weak: his directory or his Contacts going by a first name asks nothing, nor a name two of his
+    // people share that a guess links to one of them; only his word or a reading linked to one person does.
+    const reads = people.readingNow(g.name);
+    const isLinked =
+      reads?.by === "his word" || (reads?.by === "guess" && !reads.isShared);
+    return [
+      ...(isWholeName(g.name) ? (byName.get(nameKey(g.name)) ?? []) : []).map(
+        ({ ref }) => ({ called: null, ref })
+      ),
+      ...(reads && isLinked && !people.isGuess(reads.ref)
+        ? [{ called: g.name, ref: reads.ref }]
+        : []),
+    ];
+  };
   for (const [guess, g] of guesses) {
-    for (const { ref } of isWholeName(g.name) && !isDescription(g.name)
-      ? (byName.get(nameKey(g.name)) ?? [])
-      : []) {
+    for (const { called, ref } of othersOf(g)) {
       const other = canon(ref);
       const both = [guess, other].sort().join("|");
       // Of two guesses, the card asks of the one with handles, the smaller id when both have.
@@ -110,6 +137,7 @@ export function samePersonPairsOf(
         handlesOf(asked).length > 0
       ) {
         pairs.set(both, {
+          called,
           guess: asked,
           handles: handlesOf(asked),
           lines: [lineOf(asked), lineOf(them)],
@@ -124,13 +152,16 @@ export function samePersonPairsOf(
 const shown = (name: string, line: string) =>
   line ? `${name} (${line})` : name;
 
-/** Each pair as its card asks it: the guess's handles, the other as who it may be, each with its line so the two read apart, the ref bound to both, and both refs for what rides on it. */
+/** Each pair as its card asks it: the guess's handles, the other as who it may be, each with its line so the two read apart, what joins them (the kind's context, or the name Life knows the other by), the ref bound to both, and both refs for what rides on it. */
 export const samePersonAsksOf = (
   people: Pick<People, "nameOf" | "partyOf">,
   pairs: ReturnType<typeof samePersonPairsOf>
 ) =>
   pairs.map((p) => ({
     about: p.handles,
+    ...(p.called && {
+      context: `Life knows ${people.nameOf(p.other)} by the name “${p.called}” too; no handle joins them.`,
+    }),
     likelyPeople: [people.partyOf(p.other)],
     /** The kept lines about either of them, each once. */
     linesOf: <L>(byRef: ReadonlyMap<string, L[]>) => [

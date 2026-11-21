@@ -33,6 +33,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         #expect(list.matters.compactMap(\.icon).allSatisfy { $0.by == .life && MatterIcons.symbol($0.key) != nil })
         let agents = try object("read_registered_agents")
         #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
+        #expect(try decoded(ModelSpending.self, designText("read_spending")).sections.count == 5)
         let matterRead = try object("read_matter")
         let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
         for row in rows {
@@ -47,13 +48,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 10)
+    #expect(inbox.total == 11)
     #expect(inbox.blocking == 6)
     #expect(inbox.badge == 6)
-    #expect(inbox.counts.values.reduce(0, +) == 10)
+    #expect(inbox.counts.values.reduce(0, +) == 11)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -145,14 +146,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
     #expect(MatterIcons.symbol("a_new_key") == nil)
     #expect(list.matters[2].important == nil)
-    #expect(list.project == nil)
 
     let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
-    #expect(chips.all.needYou == 1)
+    #expect(chips.all.needYou == 2)
     #expect(chips.chips.map(\.kind) == [.project])
     #expect(chips.chips.first?.status == .active)
     #expect(chips.chips.first?.area == "home")
     #expect(chips.chips.first?.agentAtWork == true)
+    #expect(chips.underway == 1)
     // An area and a project can share an id: the chips' identity tells them apart.
     let sameText =
         #"{"all":{"needYou":0,"open":0},"chips":[{"kind":"area","id":"home","name":"Home","#
@@ -168,17 +169,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(header.project.repos.map(\.folder) == ["/Users/owner/Work/shop-site", nil])
     #expect(header.parties.map(\.name) == ["Robin"])
 
-    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
-    #expect(project.project?.name == "Shop fit-out")
-    #expect(project.project?.status == .active)
-    #expect(project.project?.goal == "The shop opens in spring.")
     let said = "The shop is quoting the watch repair; the call to them is done."
-    #expect(project.project?.situation?.map(\.text) == [said])
-    #expect(project.project?.situation?.first?.cites == ["obs_000000000005"])
-    // An older response has no `situation`: it decodes, with none.
-    let olderText = #"{"matters":[],"project":{"id":"p","name":"P","status":"active"},"version":"v"}"#
-    let older = try decoded(MatterList.self, olderText)
-    #expect(older.project?.situation == nil)
+    #expect(header.project.situation.map(\.text) == [said])
+    #expect(header.project.situation.first?.cites == ["obs_000000000005"])
+    // A project chip's list is `read_matters` of the project; its head, if Life sends one, is not read.
+    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
     #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
@@ -279,24 +274,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matching("nothing like it").isEmpty)
 }
 
-@Test func theFiltersNarrowTheListAndAreasComeMostFirst() throws {
-    let text = #"""
-        {"matters":[
-        {"id":"a","name":"A","status":"moving","needsYou":true,"areas":["Home","Money"],"agent":"agt_1","nextStep":{"kind":"wait_decision","text":"x"}},
-        {"id":"b","name":"B","status":"stuck","needsYou":false,"areas":["Home"],"nextStep":{"kind":"do","text":"y"}},
-        {"id":"c","name":"C","status":"moving","needsYou":false,"areas":["Work"],"nextStep":{"kind":"do","text":"z"}},
-        {"id":"d","name":"D","status":"dormant","needsYou":false}]}
-        """#
-    let list = try decoded(MatterList.self, text)
-    #expect(list.areasByCount == ["Home", "Money", "Work"])
-    func ids(_ filter: MatterFilter) -> [String] { list.shown(filter: filter) { _ in false }.map(\.id) }
-    #expect(ids(.everything) == ["a", "b", "c", "d"])
-    #expect(ids(.area("Home")) == ["a", "b"])
-    #expect(ids(.needsYou) == ["a"])
-    #expect(ids(.agentWorking) == ["a"])
-}
-
-@Test func aParkedOrDoneProjectsMattersAreParkedAndTheMarkFilters() throws {
+@Test func aParkedOrDoneProjectsMattersAreParked() throws {
     let text = #"""
         {"matters":[
         {"id":"a","name":"A","status":"moving","important":true,"project":{"id":"p","name":"P","status":"waiting"}},
@@ -308,14 +286,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.map(\.isParked) == [false, true, true, false])
     #expect(list.matters[0].project?.status.isUnderway == true)
     #expect(list.matters[3].project?.status == .unknown)
-    // His mark as shown filters: a tap that unmarks "a" and marks "b" moves both.
-    #expect(list.shown(filter: .important) { $0.important == true }.map(\.id) == ["a"])
-    #expect(list.shown(filter: .important) { $0.id == "b" }.map(\.id) == ["b"])
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matters.map(\.needsYou) == [true, false, false])
+    #expect(list.matters.map(\.needsYou) == [true, false, true])
 }
 
 @Test func theActionsResultsDecode() throws {
@@ -377,7 +352,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     for check in all where check.contextLinkTitle != nil && check.draft == nil {
         switch check.group {
         case .ending: #expect(check.contextLinkTitle == "Why done?")
-        case .newMatter: #expect(check.contextLinkTitle == "What Life saw")
+        case .newMatter, .yourMove: #expect(check.contextLinkTitle == "What Life saw")
         case .decision: #expect(check.contextLinkTitle == "Why it asks")
         default: #expect(check.contextLinkTitle?.hasSuffix("?") == true)
         }
@@ -423,7 +398,19 @@ private func everyKindOfCheck() throws -> [Check] {
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
     #expect(found.answer(edit) == nil)
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
-    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"]))
+    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
+
+    // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
+    let move = try card(.yourMove)
+    #expect(move.options.map(\.id) == ["done", "start", "not-now"] && move.filled?.id == "done")
+    #expect(move.isEnding(try #require(move.answer(move.options[0]))))
+    #expect(move.answer(move.options[1]) == AnswerRequest(ref: move.ref, options: ["start"], note: move.goal))
+    #expect(move.isHandOver(move.options[1]) && !move.isHandOver(move.options[2]))
+    #expect(move.answer(move.options[2]) == AnswerRequest(ref: move.ref, options: ["not-now"]) && !move.takesOwnWords)
+    // A hand-over hands the goal only the card shows: never a notification's button.
+    for check in [move, found] {
+        #expect(!CardNotification.actions(check).map(\.identifier).contains("option:start"))
+    }
 
     for group in [CheckGroup.name, .contactsCard] {
         let check = try card(group)
@@ -548,7 +535,9 @@ private func everyKindOfCheck() throws -> [Check] {
 }
 
 /// A whole inbox made from the server's own read: one ask per ref (its push `push-<ref>`), with the urgency given.
-private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [:]) throws -> Inbox {
+private func asks(
+    _ urgencies: [(String, Urgency)], groups: [String: String] = [:], preTicked: [String: String] = [:]
+) throws -> Inbox {
     let wire = try #require(
         JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
     let first = try #require((wire["checks"] as? [[String: Any]])?.first)
@@ -556,6 +545,7 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
         first.merging([
             "ref": ref, "pushId": "push-\(ref)", "urgency": urgency.rawValue,
             "group": groups[ref] ?? first["group"] ?? "",
+            "preTicked": preTicked[ref] ?? NSNull(),
         ]) { $1 }
     }
     let body = wire.merging(["checks": checks, "total": checks.count]) { $1 }
@@ -606,6 +596,23 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(order.only(nil) == order)
     // A kind with none waiting is no filter at all.
     #expect(order.only(.newMatter) == order)
+}
+
+/// A kind with 2 or more pre-ticked asks folds into its first, which holds every ask of the kind (pre-ticked or not),
+/// unless he goes one by one; a lone pre-ticked ask stays a card. A ref folded away opens its bulk ask.
+@Test func aKindLifePreTicksFoldsIntoOneBulkAsk() throws {
+    let order = try asks(
+        [("b1", .blocks), ("v1", .blocks), ("v2", .blocks), ("e1", .improves), ("v3", .improves)],
+        groups: ["v1": "voice", "v2": "voice", "v3": "voice", "e1": "ending"],
+        preTicked: ["v1": "not-relevant", "v3": "is-them", "e1": "outdated"]
+    ).ordered(deferred: [])
+    let folded = order.folded()
+    #expect(folded.checks.map(\.ref) == ["b1", "v1", "e1"] && folded.canWaitFrom == 2)
+    #expect(folded.bulk.mapValues { $0.map(\.ref) } == ["v1": ["v1", "v2", "v3"]])
+    #expect(folded.check(on: "v3")?.ref == "v1" && folded.checks.ref(after: "v1") == "e1")
+    #expect(order.folded(except: [.voice]) == order)
+    let groups = Check.bulkGroups(try #require(folded.bulk["v1"])).map { $0.map(\.ref) }
+    #expect(groups == [["v1"], ["v3"], ["v2"]])
 }
 
 /// A name card with no one to suggest offers "Create <name>", the longest name it asks about.

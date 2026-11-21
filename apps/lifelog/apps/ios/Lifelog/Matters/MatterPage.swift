@@ -42,19 +42,25 @@ struct MatterPage: View {
 
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
-        // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
-        let agent = matter.agents.first
+        // Its holder; else Life lists the active one first, else the newest past one: an ended agent shows how it ended.
+        let holder = matter.holder?.agent.id
+        let agent =
+            matter.agents.first { $0.id == holder } ?? life.agents.value?.agents.first { $0.id == holder }
+            ?? matter.agents.first
         let canStart = agent?.isOver ?? true
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
                 asks(life.asks(ofMatter: id))
                 if let agent {
-                    AgentRow(agent: agent) { router.matterSheet = .agent(id) }
+                    AgentRow(matter: matter, agent: agent) {
+                        router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                    }
                 }
                 GoalAndNext(matter: matter).disabled(life.whyOutOfReach != nil)
                 People(people: row.people)
                 Steps(steps: matter.steps)
+                if let line = matter.spendingLine { SpendingLine(text: line) }
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
         }
@@ -110,7 +116,7 @@ struct MatterPage: View {
     }
 
     /// The name is the head; under it what he must do (one phrase), then its icon (a tap changes it), how long it has
-    /// been open, and its project, a link to the project's page (else its areas).
+    /// been open, and its project, a link to its chip in the Projects tab (else its areas).
     private func header(_ matter: Matter) -> some View {
         let row = matter.row
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
@@ -129,7 +135,12 @@ struct MatterPage: View {
                         Palette.muted)
                     if let project = row.project {
                         TextLink(project.name, to: .page) {
-                            router.matterPath.append(.project(project.id))
+                            // A done project has no chip: its Details, then.
+                            if project.status == .done {
+                                router.openDetails(of: project.id)
+                            } else {
+                                router.open(project: ProjectChips.Chip.identity(.project, project.id))
+                            }
                         }
                     }
                 }
@@ -188,7 +199,7 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                TextField(label, text: $draft, axis: .vertical).focused($focused).font(.lead)
+                DictationField(prompt: label, text: $draft, axis: .vertical, focused: $focused).font(.lead)
                     .foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
                     Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
@@ -344,29 +355,135 @@ extension MatterStep {
 
 // MARK: Agent
 
-/// The agent's row on a matter: its runtime in `ai`, one line under it (who it listens for and its deadline, or its state;
-/// `flag` when it never started), a chevron. It opens the agent's sheet.
+/// The agent's row on a matter: the holder's mark and name (else its program) in `ai`, "Moved from …" when he moved it
+/// there, then one line (a move under way, with its spinner; else who it listens for and its deadline, or its state,
+/// `flag` when it never started). It opens the agent's sheet; while a move is possible it is a pull-down menu: Open, or
+/// the move, asked once. A move that failed, or its call, says why above it, with Try again when that may be tried.
 private struct AgentRow: View {
+    let matter: Matter
     let agent: RegisteredAgent
     let open: () -> Void
 
+    @Environment(LifeStore.self) private var life
+    @State private var asking: MoveChoice?
+    /// The move he last asked here: Try again repeats only it.
+    @State private var tried: MoveChoice?
+
     var body: some View {
-        Button(action: open) {
-            HStack(spacing: Metrics.Spacing.s) {
-                VStack(alignment: .leading, spacing: 2) {
-                    AgentLabel(runtime: agent.runtimeName).font(.bodyStrong)
+        let id = matter.row.id
+        let move = life.moveShown(ofMatter: id)
+        let call = life.state(of: .move(id))
+        let isUnderWay = call.isRunning || move?.phase.isUnderWay == true
+        let choice = isUnderWay ? nil : matter.moveChoice(among: life.agents.value?.agents ?? [])
+        let holder = matter.holder?.agent.name ?? agent.runtimeName.name
+        let ask = asking.map { MoveWords.ask($0, matter: matter.row.name, holder: holder) }
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+            let failed = MoveReceipt.failure(
+                call: call.failure, shown: move, tried: life.retryable(tried, call: call.failure, shown: move),
+                offered: choice)
+            if let failed { MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } }) }
+            if let choice {
+                Menu {
+                    Button("Open \(holder)", action: open)
+                    Button {
+                        asking = choice
+                    } label: {
+                        let item = MoveWords.item(choice)
+                        Text(item.title)
+                        if let subtitle = item.subtitle { Text(subtitle) }
+                    }
+                } label: {
+                    row(move, trailing: "chevron.up.chevron.down")
+                }
+                .menuStyle(.button).buttonStyle(.plain)
+            } else {
+                Button(action: open) { row(move, trailing: "chevron.right") }.buttonStyle(.plain)
+            }
+        }
+        .alert(
+            ask?.title ?? "",
+            isPresented: Binding {
+                asking != nil
+            } set: {
+                if !$0 { asking = nil }
+            }, presenting: asking
+        ) {
+            choice in
+            Button("Cancel", role: .cancel) {}
+            Button("Move") { go(choice) }
+        } message: { _ in
+            Text(ask?.message ?? "")
+        }
+        // While it moves, the page reads the matter and the agents every 3 s, until the move rests or the page goes.
+        .task(id: isUnderWay) {
+            guard isUnderWay else { return }
+            while (try? await Task.sleep(for: .seconds(3))) != nil {
+                async let a: Void = life.refreshMatter(id)
+                async let b: Void = life.refreshAgents()
+                _ = await (a, b)
+            }
+        }
+    }
+
+    private func go(_ choice: MoveChoice) {
+        tried = choice
+        let said =
+            switch choice {
+            case .runtime(let runtime): "Move it to \(runtime.name)."
+            case .back(_, let name): "Move it back to the \(name)."
+            }
+        Task { await life.move(matter: matter.row.id, to: choice, said: said) }
+    }
+
+    private func row(_ move: AgentMove?, trailing: String) -> some View {
+        let holder = matter.holder?.agent
+        let underWay = move.flatMap { MoveWords.underWay($0, runtime: holder?.runtimeName ?? agent.runtimeName) }
+        return HStack(spacing: Metrics.Spacing.s) {
+            VStack(alignment: .leading, spacing: 2) {
+                AgentLabel(runtime: holder?.runtimeName ?? agent.runtimeName, name: holder?.name).font(.bodyStrong)
+                if let underWay {
+                    HStack(spacing: 6) {
+                        Spinner(size: .small)
+                        Text(underWay).lineLimit(1)
+                    }
+                    .font(.small).foregroundStyle(Palette.muted)
+                } else {
+                    if let from = matter.holder?.movedFrom {
+                        Text("Moved from \(from.name)").font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+                    }
                     if let line = agent.rowLine() {
                         Text(line).font(.small).foregroundStyle(agent.notStarted == nil ? Palette.muted : Palette.flag)
                             .lineLimit(1)
                     }
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
             }
-            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
-            .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
+            Spacer(minLength: 0)
+            Image(systemName: trailing).font(.smallStrong).foregroundStyle(Palette.muted)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
         .accessibilityElement(children: .combine)
+        .motion(Motion.standard, value: underWay)
+    }
+}
+
+/// Why a move or a switch, or its call, failed, in `flag`, with Try again when it repeats the same one (`MoveReceipt.failure`).
+struct MoveFailureLine: View {
+    let reason: String
+    let retry: (() -> Void)?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
+            Text(reason).font(.small).foregroundStyle(Palette.flag).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if let retry { QuietChip("Try again", symbol: "arrow.clockwise", action: retry) }
+        }
+    }
+}
+
+extension ActionState {
+    /// Why it failed, when it did.
+    var failure: ActionFailure? {
+        if case .failed(let failure, _) = self { failure } else { nil }
     }
 }

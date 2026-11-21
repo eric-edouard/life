@@ -38,6 +38,15 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let recordedAs: String?
         /// An `ends` answer's end of its step or matter: `error`, Life's reason when it did not end as asked. No end: absent.
         public let ended: Ended?
+        /// "Not now" on a your move card: the local day (`YYYY-MM-DD`) it is back in his inbox. Any other answer: absent.
+        public let until: String?
+
+        /// What "Not now" says back: "Snoozed until Tue 24 Nov." (a new step on its matter can bring it back sooner).
+        public func snoozed(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
+            until.flatMap { SaidWords.parse($0, timeZone: timeZone) }.map {
+                "Snoozed until \(SaidWords.day($0.date, locale: locale, timeZone: timeZone))."
+            }
+        }
     }
 
     public struct Ended: Decodable, Sendable, Equatable {

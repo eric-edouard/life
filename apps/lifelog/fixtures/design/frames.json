@@ -1,4 +1,7 @@
 {
+  "AgentProgramMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
   "CfgPlaces": {
     "args": [
       "-fixtureLife",
@@ -9,22 +12,39 @@
       "apps"
     ]
   },
+  "DuoFoldAgentProgramMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitchAsk": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitchFailed": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitched": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitching": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentsListMoved": {
+    "why": "The app has no Agents list yet."
+  },
   "DuoFoldImportantCard": {
     "why": "Its card (Return Jun’s drill, the switched stack) is not in the design data, and Life sends no reason a card is first: of this frame only the pill's flag is built."
   },
   "DuoFoldImportantFilter": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "matters"],
-    "taps": ["Filter", "Important", "Filter"]
+    "why": "Its Filter menu is gone: the Projects tab's chips filter the list in place (decision 95)."
   },
   "DuoFoldImportantList": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "matters"]
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"]
   },
   "DuoFoldImportantPage": {
     "args": [
       "-fixtureLife",
       "ok",
       "-fixtureTab",
-      "matters",
+      "projects",
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureUnmarked",
@@ -37,7 +57,7 @@
       "-fixtureLife",
       "ok",
       "-fixtureTab",
-      "matters",
+      "projects",
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureUnmarked",
@@ -45,7 +65,7 @@
     ]
   },
   "DuoFoldImportantSwipe": {
-    "why": "A swipe: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+    "why": "A swipe: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab projects, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
   },
   "DuoFoldLogDetail": {
     "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
@@ -71,6 +91,30 @@
   },
   "DuoFoldLogsProblems": {
     "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
+  },
+  "DuoFoldMoveAsk": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveBackMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveFailed": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveNotes": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveStarting": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoved": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovedCard": {
+    "why": "A card's pill follows its holder already (read_inbox's agent is the holder); the design data has no moved matter to show it on."
   },
   "DuoFoldNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
@@ -263,23 +307,18 @@
     "why": "Works at: deferred by ruling (a)."
   },
   "DuoFoldProject": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "matters",
-      "-fixtureMatter",
-      "matter_kitchen",
-      "-fixtureProject",
-      "halden"
-    ]
+    "why": "Replaced by decision 95: a project is its chip (DuoFoldProjectsOne), and its page is Details (DuoFoldProjectDetails)."
+  },
+  "DuoFoldProjectDetails": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"],
+    "taps": ["Halden house", "Details"]
   },
   "DuoFoldProjectFromMatter": {
     "args": [
       "-fixtureLife",
       "ok",
       "-fixtureTab",
-      "matters",
+      "projects",
       "-fixtureMatter",
       "matter_kitchen"
     ]
@@ -289,26 +328,44 @@
       "-fixtureLife",
       "ok",
       "-fixtureTab",
-      "matters",
+      "projects",
       "-fixtureParked",
       "halden"
     ]
   },
   "DuoFoldProjectParked": {
+    "why": "Replaced by decision 95: a project is parked from its chip's menu (DuoFoldProjectsParked) or its Details."
+  },
+  "DuoFoldProjectTellLife": {
+    "why": "Its card (StackPlan, the kitchen's plan) is not in the design data: the ready line stands over his words on a decision whose matter has a project underway."
+  },
+  "DuoFoldProjects": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"]
+  },
+  "DuoFoldProjectsArea": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"],
+    "taps": ["Home"]
+  },
+  "DuoFoldProjectsAsk": {
+    "why": "The design data holds no decision on a Halden house matter, so its header has no question to open; any project's question opens the same sheet."
+  },
+  "DuoFoldProjectsMenu": {
+    "why": "A long press: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab projects, then a long press on Halden house."
+  },
+  "DuoFoldProjectsOne": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects"],
+    "taps": ["Halden house"]
+  },
+  "DuoFoldProjectsParked": {
     "args": [
       "-fixtureLife",
       "ok",
       "-fixtureTab",
-      "matters",
-      "-fixtureMatter",
-      "matter_kitchen",
-      "-fixtureProject",
+      "projects",
+      "-fixtureParked",
       "halden"
     ],
-    "taps": ["Parked"]
-  },
-  "DuoFoldProjectTellLife": {
-    "why": "Its card (StackPlan, the kitchen's plan) is not in the design data: the ready line stands over his words on a decision whose matter has a project underway."
+    "taps": ["Halden house"]
   },
   "DuoFoldSettingsLogs": {
     "why": "Settings scrolled to its Help group, a problem in the last hour: needs warn lines in read_log_lines.json (the designer's to write) and a scroll, which design:shots does not do."
@@ -327,7 +384,7 @@
       "-fixtureLife",
       "ok",
       "-fixtureTab",
-      "matters",
+      "projects",
       "-fixtureMatter",
       "matter_kitchen"
     ],
@@ -361,6 +418,9 @@
   "DuoPeopleSearch": {
     "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
   },
+  "DuoPeopleTall": {
+    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
+  },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
@@ -373,23 +433,38 @@
   "DuoPersonPictures": {
     "why": "Not built: the person read names no pictures by source yet (life#812)."
   },
+  "DuoPersonTall": {
+    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
+  },
   "ImportantCard": {
     "why": "The switched stack (StackOnlyYou) is not built, and Life sends no whyNow: of this frame only the pill's flag is built."
   },
   "ImportantFilter": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then Filter and Important."
+    "why": "Replaced by decision 95: the Projects tab has no Filter menu; its chips filter the list in place."
   },
   "ImportantList": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects."
   },
   "ImportantPage": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important twice (the toast lasts 4 s)."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important twice (the toast lasts 4 s)."
   },
   "ImportantPageOff": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important."
   },
   "ImportantSwipe": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+  },
+  "MatterIcon": {
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_lease -fixtureSheet icon."
+  },
+  "MoveMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "MoveNotes": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "Moved": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
   "PersonReachMenu": {
     "args": [
@@ -413,20 +488,17 @@
     ],
     "taps": ["Open Mail: choose an account"]
   },
-  "MatterIcon": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_lease -fixtureSheet icon."
-  },
   "ProjectFromMatter": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen."
   },
   "ProjectInList": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen -fixtureProject halden, then Parked, Back and Back."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureParked halden."
   },
   "ProjectPage": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen -fixtureProject halden."
+    "why": "Replaced by decision 95: a project is its chip, and its page is Details."
   },
   "ProjectParked": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen -fixtureProject halden, then Parked (the toast lasts 4 s)."
+    "why": "Replaced by decision 95: a project is parked from its chip's menu or its Details."
   },
   "ProjectTellLife": {
     "why": "Its card (StackPlan, the kitchen's plan) is not in the design data and the stack's sheet is not built: Tell the agent… is written on the card, and the ready line stands over his words there on a decision whose matter has a project underway."
@@ -456,12 +528,31 @@
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its card (the kitchen’s plan of eight steps) is not in the design data either."
   },
   "ToastImportantOff": {
-    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
   },
-  "DuoPeopleTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
+  "DuoFoldSpending": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureSheet",
+      "settings",
+      "-fixturePage",
+      "spending"
+    ]
   },
-  "DuoPersonTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
+  "DuoFoldSettingsSpending": {
+    "why": "Settings scrolled to its Spending row, after Your data: a scroll, which design:shots does not do. By hand: -fixtureLife ok -fixtureSheet settings, then scroll to the row."
+  },
+  "DuoFoldSpendingLower": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
+  },
+  "DuoFoldSpendingEnd": {
+    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
+  },
+  "DuoFoldAgentSpend": {
+    "why": "The line needs the agents' spending in read_registered_agents.json (the designer's to write), and the frame is the agent's page at its end. By hand, once written: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen -fixtureSheet agent, then scroll to the end."
+  },
+  "DuoFoldMatterSpend": {
+    "why": "The line needs the matter's spending in read_matter.json (the designer's to write), and the frame is the page at its end. By hand, once written: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then scroll to the end."
   }
 }
