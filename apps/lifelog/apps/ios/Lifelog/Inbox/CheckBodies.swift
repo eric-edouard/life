@@ -331,7 +331,7 @@ struct PlanBlock: View {
 
     private func row(_ step: Check.PlanStep) -> some View {
         let isHis = step.by == .owner
-        return HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.m) {
+        return HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
             Group {
                 if isHis {
                     StateDot(color: Palette.fg)
@@ -339,7 +339,7 @@ struct PlanBlock: View {
                     Image(symbol: agentMark).foregroundStyle(Palette.icon).accessibilityHidden(true)
                 }
             }
-            .frame(width: 20)
+            .frame(width: Metrics.FlatRow.slot)
             VStack(alignment: .leading, spacing: 2) {
                 Text(step.text).font(isHis ? .bodyBold : .body15).foregroundStyle(isHis ? Palette.fg : Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
