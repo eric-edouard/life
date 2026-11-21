@@ -54,10 +54,11 @@ struct PairSheet: View {
         VStack(alignment: .leading, spacing: 24) {
             if phase == .confirming { confirm } else { progress }
         }
+        .faces(phase == .confirming)
         .sheetScroll {
             SheetHeader(title: title, close: { dismiss() })
         } buttons: {
-            VStack(spacing: 10) { buttons }
+            VStack(spacing: 10) { buttons }.faces(phase)
         }
         .readingWidth()
         .background(Palette.sheet)

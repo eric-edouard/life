@@ -73,6 +73,13 @@ extension View {
         modifier(Appears(transition: transition))
     }
 
+    /// A view whose face changes with `face` (a sheet's phase, an action's state): the old face fades out as the new
+    /// fades in, as a read's faces do; the same face with new values changes in place.
+    func faces(_ face: some Hashable) -> some View {
+        ZStack(alignment: .topLeading) { appears(Motion.fade).id(face) }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
     /// The source a sheet or a pushed page zooms out of and back into (the system's zoom); nothing without an id or a
     /// namespace.
     @ViewBuilder func zoomSource<ID: Hashable>(_ id: ID?, in namespace: Namespace.ID?) -> some View {

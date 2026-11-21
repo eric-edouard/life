@@ -35,10 +35,11 @@ struct PairPendantSheet: View {
 
     var body: some View {
         content
+            .faces(face)
             .sheetScroll {
                 SheetHeader(title: title, color: color) { dismiss() }
             } buttons: {
-                VStack(spacing: 10) { buttons }
+                VStack(spacing: 10) { buttons }.faces(face)
             }
             .readingWidth()
             .background(Palette.sheet)
@@ -55,6 +56,15 @@ struct PairPendantSheet: View {
         startedAt = .now
         hasGivenUp = false
         await capture.reconnect()
+    }
+
+    private var face: String {
+        switch phase {
+        case .looking: "looking"
+        case .pairing: "pairing"
+        case .paired: "paired"
+        case .failed: "failed"
+        }
     }
 
     private var title: String {
