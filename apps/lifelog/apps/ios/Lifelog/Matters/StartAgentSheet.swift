@@ -24,6 +24,7 @@ struct StartAgentSheet: View {
             case .failed(let failure, _): notStarted(failure)
             }
         }
+        .faces(face)
         .sheetScroll {
             SheetHeader(title: title, color: titleColor) { dismiss() }
         } buttons: {
@@ -33,6 +34,15 @@ struct StartAgentSheet: View {
         .presentationDetents([.large])
         .onAppear { if goal.isEmpty { goal = matter.row.goal?.text ?? "" } }
         .sheetStack()
+    }
+
+    private var face: String {
+        switch state {
+        case .idle: "idle"
+        case .running: "running"
+        case .succeeded: "succeeded"
+        case .failed: "failed"
+        }
     }
 
     private var titleColor: Color {
@@ -89,7 +99,7 @@ struct StartAgentSheet: View {
             switch state {
             case .idle:
                 Button("Start") { start() }.buttonStyle(.pill(.filled))
-                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).offWhileOutOfReach()
             case .running:
                 Button {
                 } label: {
@@ -109,6 +119,7 @@ struct StartAgentSheet: View {
                 }
             }
         }
+        .faces(face)
     }
 
     private var goalLine: some View {

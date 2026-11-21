@@ -78,7 +78,7 @@ private struct Who: View {
     }
 }
 
-/// Reach: five equal tiles at most, each an app's mark over its name, one tap to their chat or a call. An app with
+/// Reach: five tiles at most, sharing the row whatever their count, each an app's mark over its name, one tap to their chat or a call. An app with
 /// several accounts carries a chevron and opens the system menu of them (their name there over the handle, newest
 /// first); past five, the fifth is More. Then Try again, when some accounts did not load.
 struct ReachTiles: View {
@@ -112,7 +112,6 @@ struct ReachTiles: View {
                         Image(systemName: "ellipsis").font(.body15).foregroundStyle(Palette.fg), "More", several: false)
                 }
             }
-            ForEach(0..<max(0, Self.across - reach.count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity) }
         }
     }
 

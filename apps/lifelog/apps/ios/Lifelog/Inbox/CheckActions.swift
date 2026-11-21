@@ -81,6 +81,7 @@ struct CheckActions: View {
         }
         .motion(Motion.standard, value: check.doneSeen?.state)
         .motion(Motion.standard, value: isBusy)
+        .offWhileOutOfReach()
     }
 
     /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.
@@ -136,13 +137,29 @@ struct CheckActions: View {
         enum ID: Hashable { case ownWords, option(String) }
         let id: ID
         let label: String
+        /// His word that the step or matter is done ("I've paid"): a green check before it.
+        var isEnding = false
         /// The sheet the tap opens, which zooms out of this answer; nil for an answer.
         var sheet: AskSheet?
         let run: () -> Void
+
+        @ViewBuilder var words: some View {
+            if isEnding {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Image(systemName: "checkmark").foregroundStyle(Palette.ok)
+                    Text(label)
+                }
+            } else {
+                Text(label)
+            }
+        }
     }
 
     private func choice(_ option: Check.Option) -> Choice {
-        Choice(id: .option(option.id), label: label(of: option), sheet: sheet(of: option)) { tap(option) }
+        Choice(id: .option(option.id), label: label(of: option), isEnding: option.ends != nil, sheet: sheet(of: option))
+        {
+            tap(option)
+        }
     }
 
     /// The sheet a tap on `option` opens, if any (`tap` goes by it).
@@ -240,7 +257,8 @@ struct CheckActions: View {
             .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
             others(shown.map(choice))
         case .first(let first):
-            Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
+            let lead = choice(first)
+            Button(action: lead.run) { lead.words }.buttonStyle(.pill(.filled))
                 .zoomSource(sheet(of: first), in: sheetZoom)
             others(shown.dropFirst().map(choice))
         case .none:
@@ -290,7 +308,7 @@ struct CheckActions: View {
         let isShort = Self.isOneRow(rest.map(\.label))
         let stack = VStack(spacing: Metrics.Spacing.s) {
             ForEach(rest) { choice in
-                Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .row))
+                Button(action: choice.run) { choice.words }.buttonStyle(.pill(.quiet, size: .row))
                     .zoomSource(choice.sheet, in: sheetZoom)
             }
         }
@@ -300,7 +318,7 @@ struct CheckActions: View {
             ViewThatFits(in: .horizontal) {
                 AnswerRow {
                     ForEach(rest) { choice in
-                        Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .compact))
+                        Button(action: choice.run) { choice.words }.buttonStyle(.pill(.quiet, size: .compact))
                             .lineLimit(1).minimumScaleFactor(0.75)
                             .zoomSource(choice.sheet, in: sheetZoom)
                     }

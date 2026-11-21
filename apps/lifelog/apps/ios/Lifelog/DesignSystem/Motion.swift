@@ -34,9 +34,7 @@ enum Motion {
     static let follow = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.7)
     /// One breath of the lit lens.
     static let pulse: TimeInterval = 2.4
-    /// One breath of a drafted part (decision 82): opacity 0.85 to 1 and back.
-    static let breath: TimeInterval = 1.6
-    /// A drafted part's dashed outline going once it is sent.
+    /// A drafted part's shadow going once it is sent.
     static let undrafted = Animation.easeOut(duration: 0.2)
 }
 
@@ -71,6 +69,13 @@ extension View {
     /// give a view a transition.
     func appears(_ transition: AnyTransition = Motion.appears) -> some View {
         modifier(Appears(transition: transition))
+    }
+
+    /// A view whose face changes with `face` (a sheet's phase, an action's state): the old face fades out as the new
+    /// fades in, as a read's faces do; the same face with new values changes in place.
+    func faces(_ face: some Hashable) -> some View {
+        ZStack(alignment: .topLeading) { appears(Motion.fade).id(face) }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     /// The source a sheet or a pushed page zooms out of and back into (the system's zoom); nothing without an id or a

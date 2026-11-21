@@ -135,6 +135,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         /// The chat's last messages when the card was asked, oldest first (`[]` for a new chat; a mail's: the one it
         /// answers); nil on a card asked before Life stamped them, which then shows the draft alone.
         public let recent: [Recent]?
+        /// How many people the chat holds, when it is a group (the head says "N people"); absent for one person.
+        public let people: Int?
     }
 
     /// A Contacts card as Life holds it (`contactsCard`, `memory/check-asks.ts`): never a network identity, a card has no chat.

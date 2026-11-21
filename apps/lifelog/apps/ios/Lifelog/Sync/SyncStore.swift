@@ -27,7 +27,8 @@ final class SyncStore {
     static let backgroundTaskID =
         (Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String])?.first ?? ""
 
-    private(set) var network = ConnectionSummary.Network.unknown
+    /// The phone's network path, shared with Life's store.
+    let path: NetworkPath
     /// Bumped whenever the cache, the uploads or the outbox changed while the app is in front, and when it comes
     /// forward: screens read again. Never in the background, where nothing shows them and the reloads cost about a
     /// third of the app's CPU (Oct 20).
@@ -80,8 +81,12 @@ final class SyncStore {
     /// Read by the uploader off the main actor, to rest between renders in the background.
     private nonisolated static let inBackground = Mutex(false)
 
-    init(capture: CaptureStore, library: LibraryStore?, server: URL? = DeviceToken.paired) {
+    init(
+        capture: CaptureStore, library: LibraryStore?, path: NetworkPath = NetworkPath(),
+        server: URL? = DeviceToken.paired
+    ) {
         self.capture = capture
+        self.path = path
         self.library = library
         self.server = server
     }
@@ -96,20 +101,6 @@ final class SyncStore {
 
     /// Since when the owner has been dictating to the Mac, as the feed last said.
     var macDictatingSince: Date? { feed.mac?.dictatingSince }
-
-    /// Follows the network path for the life of the app; back online, a run goes at once.
-    func followNetwork() async {
-        #if DEBUG
-            // `-offline` fails every request as if there were no network: show what the owner sees then.
-            if OfflineProtocol.isRequested { return network = .none }
-        #endif
-        for await path in NWPathMonitor() {
-            let next = ConnectionSummary.Network(path)
-            let back = network == .none && next != .none
-            if next != network { network = next }
-            if back { run() }
-        }
-    }
 
     // MARK: Triggers
 
@@ -392,7 +383,7 @@ final class SyncStore {
     /// The raw backup sends up to 64 MB at a time: only on Wi-Fi or a wire, or while charging.
     private var mayBackUp: Bool {
         UIDevice.current.isBatteryMonitoringEnabled = true
-        return [.wifi, .wired].contains(network) || [.charging, .full].contains(UIDevice.current.batteryState)
+        return [.wifi, .wired].contains(path.network) || [.charging, .full].contains(UIDevice.current.batteryState)
     }
 
     /// The server's message for a failure, in words the owner reads.

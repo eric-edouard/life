@@ -112,6 +112,28 @@ test("holds: only chats with a guid; block: readable chat.db", async () => {
   ).toContain("Full Disk Access");
 });
 
+test("a chat's people are its handles, each address once whatever its service, and him", () => {
+  const f = fixture();
+  f.db.run(
+    "create table handle (ROWID integer primary key, id text, service text)"
+  );
+  f.db.run(
+    "create table chat_handle_join (chat_id integer, handle_id integer)"
+  );
+  f.db.run(
+    "insert into chat values (5, 'iMessage;+;chat1', 'chat1', 'iMessage')"
+  );
+  f.db.run(
+    "insert into handle values (1, '+15550100', 'iMessage'), (2, '+15550100', 'SMS'), (3, 'ana@example.com', 'iMessage')"
+  );
+  f.db.run(
+    "insert into chat_handle_join values (5, 1), (5, 2), (5, 3), (2, 1)"
+  );
+  const p = messagesAppSend({ db: f.path });
+  expect(p.people?.("chat1")).toBe(3);
+  expect(p.people?.("+15550100")).toBe(2);
+});
+
 test("text goes into the newest chat of a handle, as argv only, and the matching row confirms", async () => {
   const f = fixture();
   const m = messages(f, { text: 'say "hi"; rm -rf /' });
