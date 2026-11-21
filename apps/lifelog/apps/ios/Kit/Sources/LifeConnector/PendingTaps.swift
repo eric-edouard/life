@@ -6,6 +6,7 @@ import Observation
 @MainActor @Observable
 public final class PendingTaps<Value: Sendable> {
     private var shown: [String: Value] = [:]
+    private var waiting: [String: [CheckedContinuation<Void, Never>]] = [:]
 
     public init() {}
 
@@ -19,6 +20,13 @@ public final class PendingTaps<Value: Sendable> {
         shown[id] = value
         await write()
         shown[id] = nil
+        waiting.removeValue(forKey: id)?.forEach { $0.resume() }
         return true
+    }
+
+    /// Returns once no tap on `id` is under way (at once when none is).
+    public func settled(_ id: String) async {
+        guard shown[id] != nil else { return }
+        await withCheckedContinuation { waiting[id, default: []].append($0) }
     }
 }
