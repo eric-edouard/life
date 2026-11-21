@@ -21,7 +21,7 @@ import { inBatches, type Step } from "./run";
 export const READS = {
   arrival_appointment: { prompt: "memory-arrival-appointment.v1" },
   arrival_confirm: { prompt: "memory-arrival-confirm.v2" },
-  arrival_trigger: { prompt: "memory-arrival-trigger.v2" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v3" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },

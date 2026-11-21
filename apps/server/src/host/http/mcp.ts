@@ -34,6 +34,7 @@ import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
+import { PUSH_ID } from "../../sources/lifelog-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { answerWithResult } from "../answer-result";
@@ -78,11 +79,13 @@ import {
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
+import { appointmentTools } from "./mcp-appointments";
 import { personPicturesTool } from "./mcp-people";
 import {
   agentIn,
   argNamesOf,
   callerOf,
+  NOT_HIS,
   READERS,
   REVERSIBLE,
   type ToolCall,
@@ -97,8 +100,7 @@ import {
 // Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
-/** A push's card id: 16 hex (`pushIdOf`). */
-const PUSH_ID = /^[0-9a-f]{16}$/;
+/** A push's card or appointment id: 16 hex (`pushIdOf`). */
 
 const SCOPES = [SCOPE, "offline_access"];
 
@@ -198,10 +200,6 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** What an agent's token may not write: his own words (`tell_life`), his answer to a check. */
-const NOT_HIS =
-  "Not done: this app was paired as an agent, and an agent's words are not his.";
-
 /** The corrections only his own token writes, whatever they name: his marks on a matter, and which project it is of. */
 const HIS_ONLY_KINDS = new Set([
   "matter-icon",
@@ -284,7 +282,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "fetch",
-    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), an observation (`obs_…`), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs.",
+    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), an observation (`obs_…`), an appointment Life added to his calendar (`apt_…`, as `read_appointments` gives it), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs.",
     z.object({
       fromTurn: z.int().min(0).optional(),
       id: z
@@ -392,6 +390,7 @@ export function buildServer(readsOnly = false) {
       return { ...row, checks: checksOnMatterOf(open, matter.id) };
     }
   );
+  appointmentTools(server);
   tool(
     server,
     "read_area_page",
