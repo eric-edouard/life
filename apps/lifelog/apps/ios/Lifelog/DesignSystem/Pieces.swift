@@ -362,7 +362,8 @@ struct ListLabel<Action: View>: View {
             Spacer(minLength: 0)
             action
         }
-        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+        // Over its card's text: the list's inset and a little more.
+        .padding(.horizontal, Metrics.gutter + Metrics.Spacing.xs).padding(.top, 16).padding(.bottom, 6)
     }
 }
 
@@ -372,7 +373,7 @@ extension ListLabel where Action == EmptyView {
 
 extension View {
     /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
-    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset from the column's edges;
+    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset by the gutter (`Metrics.gutter`, as the frames draw it);
     /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
     /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
     /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
@@ -384,7 +385,7 @@ extension View {
         return frame(minHeight: Metrics.listRow).contentShape(.rect)
             .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
             .background(Palette.card, in: shape)
-            .padding(.horizontal, Metrics.Spacing.m)
+            .padding(.horizontal, Metrics.gutter)
             .motion(Motion.standard, value: isChosen)
             .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
@@ -1053,7 +1054,7 @@ struct RowsPlaceholder: View {
             }
         }
         .card()
-        .padding(.horizontal, Metrics.Spacing.m)
+        .padding(.horizontal, Metrics.gutter)
         .frame(maxHeight: .infinity, alignment: .top)
         .readingWidth()
         .accessibilityElement().accessibilityLabel(label)
