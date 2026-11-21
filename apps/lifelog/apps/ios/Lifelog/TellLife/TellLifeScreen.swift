@@ -93,7 +93,7 @@ struct TellLifeScreen: View {
     /// What an answer's chip points at, by ref: a person or an organization, a card in the Inbox, else a matter.
     private func open(_ ref: String) {
         router.isTellLifeOpen = false
-        if ref.hasPrefix("person:") || ref.hasPrefix("org:") {
+        if ref.hasPrefix("person:") {
             router.open(party: ref)
         } else if ref.hasPrefix("dec_") {
             router.tab = .inbox
@@ -103,13 +103,8 @@ struct TellLifeScreen: View {
         }
     }
 
-    private func head(_ words: String) -> some View {
-        Text(words.withoutMarks).font(.tellAnswer).foregroundStyle(Palette.fg)
-    }
-
-    private func note(_ words: String) -> some View {
-        Text(words).font(.note).foregroundStyle(Palette.muted)
-    }
+    private func head(_ words: String) -> some View { TellAnswerView.head(words) }
+    private func note(_ words: String) -> some View { TellAnswerView.note(words) }
 
     /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
     private var composer: some View {

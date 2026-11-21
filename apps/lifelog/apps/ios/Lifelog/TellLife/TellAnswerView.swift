@@ -9,13 +9,17 @@ struct TellAnswerView: View {
     let open: (String) -> Void
     let tell: (String) -> Void
 
-    private func head(_ words: String) -> some View {
-        Text(words.withoutMarks).font(.tellAnswer).foregroundStyle(Palette.fg)
+    static func head(_ words: String) -> some View {
+        Text(words.withoutMarks).font(.tellAnswer).foregroundStyle(Palette.fg).fixedSize(
+            horizontal: false, vertical: true)
     }
 
-    private func note(_ words: String) -> some View {
+    static func note(_ words: String) -> some View {
         Text(words).font(.note).foregroundStyle(Palette.muted)
     }
+
+    private func head(_ words: String) -> some View { Self.head(words) }
+    private func note(_ words: String) -> some View { Self.note(words) }
 
     var body: some View {
         switch answer {
@@ -52,6 +56,7 @@ struct TellAnswerView: View {
         case .error(let what):
             TellLightLine(kind: .broken)
             head(what)
+            note("Your words are kept.")
             QuietChip("Try again", symbol: "arrow.clockwise", action: again)
         case .unknown:
             TellLightLine(kind: .broken)
