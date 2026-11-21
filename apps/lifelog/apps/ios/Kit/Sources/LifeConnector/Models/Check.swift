@@ -198,6 +198,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let draft: Draft?
     /// A draft card's chat as the card heads it; nil for other cards.
     public let head: Head?
+    /// The older draft card into the same chat that this one replaces (his Send withdraws it); nil for most cards.
+    public let replaces: String?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.

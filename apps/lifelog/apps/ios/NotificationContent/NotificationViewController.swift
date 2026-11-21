@@ -33,13 +33,21 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
                 $0.padding(16).environment(
                     \.openURL,
                     OpenURLAction { [weak self] url in
-                        self?.extensionContext?.open(url)
+                        self?.openChat(url)
                         return .handled
                     }))
         }
         preferredContentSize =
             check?.draft == nil
             ? .zero : draft.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude))
+    }
+
+    /// The chat in its app; when the system refuses the open from here, the card's own app instead, where the card
+    /// holds the same link.
+    private func openChat(_ url: URL) {
+        extensionContext?.open(url) { [weak self] opened in
+            if !opened { Task { @MainActor in self?.extensionContext?.performNotificationDefaultAction() } }
+        }
     }
 
     func didReceive(

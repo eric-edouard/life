@@ -73,6 +73,10 @@ private var utc: Calendar {
     let whole = try draft(#""text":"@Anna, then @Ann","mentions":[{"name":"Ann"}]"#).textRuns
     #expect(whole.map(\.text) == ["@Anna, then ", "@Ann"])
     #expect(whole.map(\.isMention) == [false, true])
+    // The send tests the one UTF-16 unit after a name: half of a pair is no letter, so `@Ann𠮷` holds a whole `@Ann`.
+    let paired = try draft(#""text":"@Ann𠮷, then @Ann","mentions":[{"name":"Ann"}]"#).textRuns
+    #expect(paired.map(\.text) == ["@Ann", "𠮷, then @Ann"])
+    #expect(paired.map(\.isMention) == [true, false])
     // A mention the send would not find ends the search there.
     #expect(try draft(#""text":"@Anna only","mentions":[{"name":"Ann"}]"#).textRuns.map(\.isMention) == [false])
 }
@@ -95,10 +99,15 @@ private var utc: Calendar {
     let replayed = ActionState<ActionProof>.succeeded(
         try result(#"{"ref":"dec_1","kind":"decision","send":{"state":"sent"}}"#), steps: [])
     #expect(DraftDelivery(replayed) == .sent)
-    #expect(!replayed.isWaitingOnLife && running([]).isWaitingOnLife)
+    // "Asking Life" only while a request runs: never once answered, nor before it starts.
+    #expect(!replayed.isRunning && running([]).isRunning && !ActionState<ActionProof>.idle.isRunning)
     // A dropped stream never said: it may have gone. Life's own "not sent" is not sent.
     let dropped = ActionState<ActionProof>.failed(ActionFailure(.streamDropped), steps: [step("handed", false)])
     #expect(DraftDelivery(dropped) == .mayHaveGone)
+    // Confirmed in the chat, then the answer lost: it is sent.
+    let confirmedThenDropped = ActionState<ActionProof>.failed(
+        ActionFailure(.streamDropped), steps: [step("handed", true), step("confirmed", true)])
+    #expect(DraftDelivery(confirmedThenDropped) == .sent)
     #expect(DraftDelivery(.failed(ActionFailure(reason: "Someone wrote", retry: .no), steps: [])) == .notSent)
 }
 
@@ -126,4 +135,17 @@ private var utc: Calendar {
     #expect(sheet.fields.map(\.label) == ["From", "To", "Subject"])
     #expect(sheet.fields.map(\.value) == ["me@example.test", "~ Helene", "Re: Lease"])
     #expect(card.draft?.file?.size == 640000)
+}
+
+@Test func aCardThatReplacesAnOlderDraftSaysWhich() throws {
+    let card = { (replaces: String) in
+        try LibraryStore.feedDecoder.decode(
+            Check.self,
+            from: Data(
+                (#"{"ref":"dec_2","group":"decision","title":"Reply","question":"Send this?","asker":"desk","#
+                    + #""options":[],"clips":[],"likelyPeople":[],"links":[],"replaces":\#(replaces),"#
+                    + #""draft":{"to":"Jun","text":"Tonight"}}"#).utf8))
+    }
+    #expect(try card(#""dec_1""#).replaces == "dec_1")
+    #expect(try card("null").replaces == nil)
 }
