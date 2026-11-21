@@ -41,7 +41,10 @@ struct CheckActions: View {
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.s) {
-            if input.isWritingOwnWords {
+            if let pressed, pressedChoice == nil {
+                // His words or a person he named: the one answer, working then Life's green word.
+                pressedButton(pressed, kind: .filled, size: .large)
+            } else if input.isWritingOwnWords {
                 Button {
                     if let request = check.answer(words: words, option: input.option) { answer(request) }
                 } label: {
@@ -55,7 +58,7 @@ struct CheckActions: View {
                 // Only navigation: it stays on while Life is out of reach.
                 Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(
                     .pill(.quiet, size: .compact))
-            } else if isBusy || (pressed != nil && pressedChoice == nil) {
+            } else if isBusy {
                 Button {
                 } label: {
                     Text(check.draft != nil ? "Sending…" : "Saving…")
@@ -345,25 +348,30 @@ struct CheckActions: View {
     /// word (only on Life's say-so), and every other dimmed and off until it is over.
     @ViewBuilder private func answerButton(_ choice: Choice, kind: PillStyle.Kind, size: PillStyle.Size) -> some View {
         if let pressed, case .option(let id) = choice.id, id == pressedChoice {
-            let state = life.state(of: pressed.key)
-            Button {
-            } label: {
-                if case .succeeded(let proof, _) = state {
-                    HStack(spacing: Metrics.Spacing.s) {
-                        Image(systemName: "checkmark")
-                        Text(pressed.doneWord(proof).trimmingCharacters(in: CharacterSet(charactersIn: ".")))
-                    }
-                } else {
-                    Text("Saving…")
-                }
-            }
-            .buttonStyle(.pill(state.isDone(isSend: false) ? .done : kind, size: size, isBusy: state.isRunning))
-            .motion(Motion.standard, value: state.isDone(isSend: false))
+            pressedButton(pressed, kind: kind, size: size)
         } else {
             Button(action: choice.run) { choice.words }.buttonStyle(.pill(kind, size: size))
                 .zoomSource(choice.sheet, in: sheetZoom)
                 .opacity(pressed == nil ? 1 : 0.35).disabled(pressed != nil)
         }
+    }
+
+    /// The answer he pressed, in place: "Saving…" with the spinner while Life works, then green with Life's word.
+    private func pressedButton(_ pressed: Taken, kind: PillStyle.Kind, size: PillStyle.Size) -> some View {
+        let state = life.state(of: pressed.key)
+        return Button {
+        } label: {
+            if case .succeeded(let proof, _) = state {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Image(systemName: "checkmark")
+                    Text(pressed.doneWord(proof).trimmingCharacters(in: CharacterSet(charactersIn: ".")))
+                }
+            } else {
+                Text("Saving…")
+            }
+        }
+        .buttonStyle(.pill(state.isDone(isSend: false) ? .done : kind, size: size, isBusy: state.isRunning))
+        .motion(Motion.standard, value: state.isDone(isSend: false))
     }
 
     /// One tap answers; an option that names someone opens "Same as…", and a name card's "Organization" its create sheet.
