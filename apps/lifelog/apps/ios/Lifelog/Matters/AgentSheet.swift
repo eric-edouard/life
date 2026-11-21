@@ -4,7 +4,8 @@ import SwiftUI
 /// What wakes an agent ("What wakes it" on its page, `AgentPage`), read as one sentence down the page, or the one state
 /// word of an agent that does not wait.
 struct AgentSheet: View {
-    let matter: String
+    /// The matter it was opened on; nil from an agent's page whose agent holds none.
+    let matter: String?
     /// The agent shown; nil: the matter's first.
     var agentID: String?
 
@@ -16,7 +17,7 @@ struct AgentSheet: View {
     /// The agent named, in the matter's read or else in `read_registered_agents`; none named, the matter's first. Its
     /// names are only in `read_registered_agents` (`registered`).
     private var agent: RegisteredAgent? {
-        let ones = life.matter[matter]?.value?.agents
+        let ones = matter.flatMap { life.matter[$0]?.value?.agents }
         guard let agentID else { return ones?.first }
         return ones?.first { $0.id == agentID } ?? registered(agentID)
     }
@@ -200,7 +201,7 @@ struct AgentSheet: View {
         if let check = clause.check {
             Button {
                 router.matterSheet = nil
-                router.matterPath.append(.card(check))
+                if let matter { router.matterPath.append(.card(check, matter: matter)) }
             } label: {
                 row.contentShape(.rect)
             }.buttonStyle(.plain)
@@ -229,7 +230,7 @@ struct AgentSheet: View {
         let state = life.state(of: .agent(agent.id))
         let primary: (String, () -> Void)? =
             if agent.notStarted != nil {
-                ("Try again", { router.matterSheet = .start(matter) })
+                ("Try again", { router.matterSheet = matter.map { .start($0) } })
             } else if agent.status == .stopped {
                 ("Resume", { Task { await life.resumeAgent(agent.id) } })
             } else {

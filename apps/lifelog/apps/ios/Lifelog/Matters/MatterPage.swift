@@ -116,7 +116,7 @@ struct MatterPage: View {
             VStack(spacing: 0) {
                 ForEach(Array(checks.enumerated()), id: \.element.ref) { at, check in
                     Button {
-                        router.matterPath.append(.card(check.ref))
+                        router.matterPath.append(.card(check.ref, matter: id))
                     } label: {
                         HStack(spacing: Metrics.Spacing.m) {
                             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {

@@ -205,7 +205,11 @@ struct RootView: View {
             if let ref = LifeFixture.person { router.open(party: ref) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {
-                if LifeFixture.matter == nil { await life.open(ref: ref) } else { router.matterPath = [.card(ref)] }
+                if LifeFixture.matter == nil {
+                    await life.open(ref: ref)
+                } else {
+                    router.matterPath = [.card(ref, matter: LifeFixture.matter ?? "")]
+                }
             }
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).

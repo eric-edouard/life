@@ -92,9 +92,9 @@ struct ProjectsScreen: View {
         return NavigationStack(path: $router.matterPath) {
             root().navigationDestination(for: AppRouter.MatterRoute.self) { route in
                 switch route {
-                case .card(let ref):
+                case .card(let ref, let matter):
                     CardPage(
-                        ref: ref, source: life.asks(ofMatter: matterUnder(ref) ?? ""), notes: $notes,
+                        ref: ref, source: life.asks(ofMatter: matter), notes: $notes,
                         leave: { router.matterPath = [] }
                     )
                     // A pushed screen: Back, then the Pendant.
@@ -109,20 +109,6 @@ struct ProjectsScreen: View {
             life.forget(taken.key)
             notes.taken = nil
         }
-    }
-
-    /// The matter an ask pushed on the stack belongs to: the nearest matter under it (one pushed, or an agent's), else
-    /// the column's own.
-    private func matterUnder(_ ref: String) -> String? {
-        let under = router.matterPath.prefix { $0 != .card(ref) }.reversed()
-        for route in under {
-            switch route {
-            case .matter(let id): return id
-            case .agent(let id): if let matter = life.agents.value?.agents.first(where: { $0.id == id })?.matter { return matter.id }
-            case .card: continue
-            }
-        }
-        return router.matter
     }
 
     /// The chip chosen, as Life lists it now; none is All (or a chip Life no longer lists).

@@ -279,7 +279,7 @@ struct SettingsView: View {
                 router.openAgents()
             } label: {
                 let count = (life.agents.value?.agents ?? []).filter { !$0.isOver }.count
-                Row(title: "Your agents", icon: "sparkle", detail: count == 0 ? nil : "\(count) at work") { RowValue() }
+                Row(title: "Your agents", icon: "cpu", detail: count == 0 ? nil : "\(count) at work") { RowValue() }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("settings.agents")

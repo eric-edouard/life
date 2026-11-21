@@ -27,7 +27,14 @@
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
   "AgentsList": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects", "-fixtureSheet", "agents"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "AskNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
@@ -68,7 +75,14 @@
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
   "DuoAgents": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects", "-fixtureSheet", "agents"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "DuoDictListening": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
@@ -114,10 +128,24 @@
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
   "DuoFoldAgentsList": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects", "-fixtureSheet", "agents"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "DuoFoldAgentsListMoved": {
-    "args": ["-fixtureLife", "ok", "-fixtureTab", "projects", "-fixtureSheet", "agents"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "DuoFoldDictAgain": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."

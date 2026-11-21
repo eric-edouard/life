@@ -42,18 +42,9 @@ struct AgentsScreen: View {
                 Button {
                     router.open(agent: agent.id)
                 } label: {
-                    HStack(spacing: 12) {
-                        Image(symbol: agent.runtimeName.mark).font(.system(size: 20)).foregroundStyle(Palette.fg)
-                            .frame(width: 40, height: 40).background(Circle().fill(Palette.tile))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(agent.name ?? agent.title).font(.rowName).foregroundStyle(Palette.fg)
-                            Text(held.words ?? agent.stateWord ?? "").font(.small).foregroundStyle(Palette.muted)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        if !held.needsYou.isEmpty { StateDot(color: Palette.flag) }
-                    }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .contentShape(.rect)
+                    AgentListRow(
+                        runtime: agent.runtimeName, name: agent.name ?? agent.title,
+                        line: held.words ?? agent.stateWord ?? "", needsYou: !held.needsYou.isEmpty)
                 }
                 .buttonStyle(.groupedRow(at: at, of: agents.count))
                 .readingWidth().quietListRow()
@@ -91,20 +82,20 @@ struct AgentPage: View {
                 group("Needs you", held.needsYou, color: Palette.flag)
                 group("Waiting on someone", held.waiting)
                 group("In work", held.inWork)
-                ListLabel("Settings").readingWidth().quietListRow()
-                VStack(spacing: 0) {
+                RowGroup(label: "Settings") {
                     AgentRunsOn(agent: agent)
                     Button {
-                        router.matterSheet = .agent(agent.matter?.id ?? "", agent: id)
+                        router.matterSheet = .agent(agent.matter?.id, agent: id)
                     } label: {
                         Row(title: "What wakes it") { RowValue() }
                     }
                     .buttonStyle(.plain)
                 }
-                .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
-                .padding(.horizontal, Metrics.gutter)
+                .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
                 .readingWidth().quietListRow()
-                if let line = agent.spendingLine() { SpendingLine(text: line).padding(.horizontal, Metrics.gutter).quietListRow() }
+                if let line = agent.spendingLine() {
+                    SpendingLine(text: line).padding(.horizontal, Metrics.gutter).quietListRow()
+                }
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
@@ -121,7 +112,9 @@ struct AgentPage: View {
             AgentLabel(runtime: agent.runtimeName, name: agent.name ?? agent.title).font(.screenName)
                 .foregroundStyle(Palette.fg).accessibilityAddTraits(.isHeader)
             if let project = agent.project,
-                let chip = life.projects.shown().onScreen?.chips.first(where: { $0.kind == .project && $0.id == project })
+                let chip = life.projects.shown().onScreen?.chips.first(where: {
+                    $0.kind == .project && $0.id == project
+                })
             {
                 QuietChip(chip.name, symbol: MatterIcons.areaSymbol(chip.area ?? chip.id)) {
                     router.open(project: chip.identity)
@@ -206,7 +199,7 @@ struct AgentRunsOn: View {
             }
             if let failed {
                 MoveFailureLine(reason: failed.reason, retry: failed.retry.map { to in { go(to) } })
-                    .padding(.horizontal, 16).padding(.bottom, Metrics.Spacing.s)
+                    .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
             }
         }
         .motion(Motion.standard, value: move?.phase)
