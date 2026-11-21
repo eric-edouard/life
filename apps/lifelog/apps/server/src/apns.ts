@@ -208,6 +208,14 @@ export const NoticeRequest = z
   })
   .refine(
     (n) =>
+      n.kind === undefined ||
+      (n.title !== undefined &&
+        n.pushId !== undefined &&
+        n.badge === undefined),
+    { message: "`calendar.added` is an alert with its `pushId`, never a badge" }
+  )
+  .refine(
+    (n) =>
       n.removed === undefined
         ? n.title !== undefined || n.badge !== undefined
         : Object.keys(n).length === 1,

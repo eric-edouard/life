@@ -297,6 +297,7 @@ test("one draft per meeting: the night's and the arrival's of one start are one,
       end: "2031-03-12 11:00",
       id: "apt_000000000011",
       start: "2031-03-12 10:00",
+      zone: "UTC",
     }),
   ];
   const arrivals = [
@@ -362,22 +363,24 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   agreed("2031-06-01 10:00", ["whatsapp|m1"]);
   await syncAppointments(NOW);
   const [event, first] = [...events][0] ?? [];
-  await Bun.write(
-    APPOINTMENTS,
-    JSON.stringify({
-      appointments: [
-        appointment({
-          end: "2031-06-01 11:00",
-          id: "apt_000000000011",
-          start: "2031-06-01 10:00",
-        }),
-      ],
-      built: ARRIVAL_AT,
-      inputs: "i",
-      madeBy: { model: "m", prompt: "p", run: "r" },
-      schemaVersion: 1,
-    })
-  );
+  const night = (id: string) =>
+    Bun.write(
+      APPOINTMENTS,
+      JSON.stringify({
+        appointments: [
+          appointment({
+            end: "2031-06-01 11:00",
+            id,
+            start: "2031-06-01 10:00",
+          }),
+        ],
+        built: ARRIVAL_AT,
+        inputs: "i",
+        madeBy: { model: "m", prompt: "p", run: "r" },
+        schemaVersion: 1,
+      })
+    );
+  await night("apt_000000000011");
   await syncAppointments(NOW);
   expect([...events.keys()]).toEqual([event ?? ""]);
   expect(updates.at(-1)).toMatchObject({ busy: true, id: event });
@@ -385,13 +388,20 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
     "Meeting link: https://meet.example.com/kit-lou"
   );
   expect(updates.at(-1)?.description).toContain("Agreed in unit_0000000000aa");
-  rmSync(APPOINTMENTS, { force: true });
+  // The night's next reading takes the arrival's id (`arrivalOf`); past the reply's window the event stays, busy.
+  const id = first?.props.lifeAppointment ?? "";
+  await night(id);
+  const later = new Date("2031-04-15T09:00:00Z");
+  await syncAppointments(later);
+  expect([...events.keys()]).toEqual([event ?? ""]);
+  expect(updates.at(-1)).toMatchObject({ busy: true, id: event });
   // Deleted by him while the first reply is read; then that reply out of the window, a second of the same start in
-  // it: the same id, never written again.
+  // it, the night's reading still there: the same id, never written again.
   events.clear();
   await syncAppointments(NOW);
   agreed("2031-06-01 10:00", ["whatsapp|m5"], LATER_AT);
-  await syncAppointments(new Date("2031-04-15T09:00:00Z"));
+  await syncAppointments(later);
+  await syncAppointments(later);
   expect(events.size).toBe(0);
   expect(
     readAppointmentEvents().byAppointment.get(

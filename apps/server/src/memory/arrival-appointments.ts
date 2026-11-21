@@ -16,7 +16,7 @@ import { READS, readRepliesSince } from "./read-replies";
 /** How far back the arrival's appointments are read: the sync, his Undo, the event sheet and the night's takeover. */
 export const ARRIVAL_APPOINTMENT_DAYS = 30;
 
-/** An appointment agreed in new lines: its id is its start's hash, the same whichever lines agreed it. */
+/** An appointment agreed in new lines: its id is its meeting key's hash, the same whichever lines agreed it. */
 export type ArrivalAppointment = Omit<
   Appointment,
   "observations" | "timeGuessed"
@@ -31,9 +31,13 @@ export type ArrivalAppointment = Omit<
   unit: string;
 };
 
-/** The one rule of what is an arrival appointment: an agreed line of the current prompt, the first one per start (one meeting, one id). */
+/** One meeting's key: its local start in its zone (none: where he is then). Two calls at 10:00 in two zones are two. */
+export const meetingKeyOf = (a: { start: string; zone: string | null }) =>
+  `${a.start} ${a.zone ?? ""}`;
+
+/** The one rule of what is an arrival appointment: an agreed line of the current prompt, the first one per meeting (`meetingKeyOf`: one meeting, one id). */
 export function arrivalAppointmentsOf(lines: ReadReply[]) {
-  const starts = new Set<string>();
+  const keys = new Set<string>();
   return lines.flatMap((l): ArrivalAppointment[] => {
     if (
       !(
@@ -41,17 +45,17 @@ export function arrivalAppointmentsOf(lines: ReadReply[]) {
         l.reply.agreed &&
         isPromptVersion(l.madeBy.prompt, READS.arrival_appointment.prompt)
       ) ||
-      starts.has(l.reply.start)
+      keys.has(meetingKeyOf(l.reply))
     ) {
       return [];
     }
-    starts.add(l.reply.start);
+    keys.add(meetingKeyOf(l.reply));
     const { agreed: _, people: __, ...r } = l.reply;
     return [
       {
         ...r,
         at: l.at,
-        id: `apt_${digest("sha1", `arrival ${l.reply.start}`, 12)}`,
+        id: `apt_${digest("sha1", `arrival ${meetingKeyOf(l.reply)}`, 12)}`,
         messages: l.messages,
         unit: l.unit,
       },

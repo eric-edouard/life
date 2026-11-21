@@ -12,6 +12,7 @@ import { ObservationId } from "../records/observation";
 import { eventKey } from "../records/source";
 import {
   type ArrivalAppointment,
+  meetingKeyOf,
   readArrivalAppointments,
 } from "./arrival-appointments";
 import {
@@ -149,8 +150,8 @@ export function heldIdsOf(
 export function checkedAppointments(
   reply: unknown,
   ctx: {
-    /** The arrival's appointments, each with the shown facts citing its messages: a reading of them takes its id. */
-    arrivals?: readonly { facts: readonly string[]; id: string }[];
+    /** The arrival's appointments, each with the shown facts citing its messages and its meeting key: a reading of them, or of its meeting, takes its id. */
+    arrivals?: readonly { facts: readonly string[]; id: string; key: string }[];
     held: readonly Appointment[];
     refused: readonly (readonly string[])[];
     replacedBy: (fact: string) => string | undefined;
@@ -201,10 +202,21 @@ export function checkedAppointments(
     used.add(id);
     return id;
   };
+  // A new reading of an arrival's meeting takes its id, so the id holds once the arrival is past its window.
+  const taken = new Set(ids.filter(Boolean));
+  const arrivalOf = (a: { start: string; zone: string | null }) => {
+    const id = ctx.arrivals?.find(
+      (x) => x.key === meetingKeyOf(a) && !taken.has(x.id)
+    )?.id;
+    if (id) {
+      taken.add(id);
+    }
+    return id;
+  };
   const kept = entries.map(
     ({ facts, ...a }, i): Appointment => ({
       ...a,
-      id: ids[i] ?? newId(facts),
+      id: ids[i] ?? arrivalOf(a) ?? newId(facts),
       observations: facts,
     })
   );
@@ -220,21 +232,25 @@ export function checkedAppointments(
   return { appointments: [...kept, ...stays], invalid };
 }
 
-/** The arrival's appointments with the facts that cite their messages (a fact's source as `eventKey`); those none cites left out. */
+/** The arrival's appointments with the facts that cite their messages (a fact's source as `eventKey`) and their meeting key. */
 export const arrivalsCitedBy = (
   facts: readonly Pick<Observation, "id" | "source">[],
-  arrivals: readonly Pick<ArrivalAppointment, "id" | "messages">[]
+  arrivals: readonly Pick<
+    ArrivalAppointment,
+    "id" | "messages" | "start" | "zone"
+  >[]
 ) =>
-  arrivals.flatMap((a) => {
-    const cited = facts
+  arrivals.map((a) => ({
+    facts: facts
       .filter((o) =>
         a.messages.includes(
           eventKey({ id: o.source.ref, source: o.source.channel })
         )
       )
-      .map((o) => o.id);
-    return cited.length > 0 ? [{ facts: cited, id: a.id }] : [];
-  });
+      .map((o) => o.id),
+    id: a.id,
+    key: meetingKeyOf(a),
+  }));
 
 /** The nightly step: the appointments ahead of him, read again when their facts, the held ones or his day changed. */
 export async function appointments() {
