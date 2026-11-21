@@ -31,7 +31,11 @@ import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
 import { isPending } from "../memory/draft-contest";
-import { oneMatter, readMatterProjectIds } from "../memory/read-matters";
+import {
+  oneMatter,
+  readMatterProjectIds,
+  readProjectSituationsNow,
+} from "../memory/read-matters";
 import {
   loadTruth,
   PROJECT_NOTES_MAX,
@@ -667,15 +671,20 @@ async function projectLinesOf(project: string) {
 
 /**
  * A project in a packet, read as data: its line and his notes from his directory (`projectHeaderOf`, clipped to
- * `PROJECT_NOTES_MAX`); its running matters are `read_matters`'. Nothing for a project no longer in his directory.
+ * `PROJECT_NOTES_MAX`), then its situation (`readProjectSituationNow`); its running matters are `read_matters`'. Nothing for a project no longer in his directory.
  */
-function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
+function projectContextOf(
+  { projects }: Pick<Truth, "projects">,
+  id: string,
+  situation: string
+) {
   const p = projects.find((x) => x.id === id);
   return p
     ? [
         [
           projectHeaderOf(p),
           clip(p.notes.trim(), PROJECT_NOTES_MAX),
+          situation,
           `Its running matters: \`read_matters\` with \`project: "${id}"\`.`,
         ]
           .filter(Boolean)
@@ -728,12 +737,16 @@ export async function readPacket(
     });
   }
   const truth = await loadTruth();
-  const projects = [
+  const ids = [
     ...new Set([
       ...(a.project ? [a.project] : []),
       ...(isOnProject ? [] : await readMatterProjectIds(steps)),
     ]),
-  ].map((p) => projectContextOf(truth, p));
+  ];
+  const situations = await readProjectSituationsNow(truth, ids);
+  const projects = ids.map((p, i) =>
+    projectContextOf(truth, p, situations[i] ?? "")
+  );
   return [
     await subjectLineOf(a, isOnProject, matter, steps),
     ...projects.flat(),

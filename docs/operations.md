@@ -118,6 +118,7 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
   By hand, `bun life memory episodes` and `extract` read the last `--days` days (7), or `--from YYYY-MM-DD [--to …]`: the
   units behind a fact lost to a bug are read again by their days, never a whole backfill.
+  After the matter directions the night writes the project situations (`bun life memory project-situations`: one call per project underway with a running matter, only when its matters' words or its entry changed, never on the clock; at 10 years still those projects alone, 30,000 characters each).
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
   exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks lifelog
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory

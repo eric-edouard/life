@@ -16,6 +16,7 @@ import {
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
 import type { Party } from "./party";
+import { readProjectSituationNow } from "./project-situation-read";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { goalsOf } from "./read-truth";
 import { meant, type People, readPeople } from "./who";
@@ -206,7 +207,7 @@ export async function openMatters(
   agentOf: (steps: string[]) => string | undefined = () => undefined,
   readIcons?: LifeIconsReader
 ) {
-  const { decisions, people, project, ranked } = await rankedRunning(
+  const { book, decisions, people, project, ranked } = await rankedRunning(
     q,
     async (p, t) => ({
       book: await readMatterBook(p, t),
@@ -222,6 +223,10 @@ export async function openMatters(
           ?.text,
         id: head.id,
         name: head.name,
+        situation: readProjectSituationNow(
+          head.id,
+          projectStepRefsOf(truth, book, head.id)
+        ),
         status: head.status,
       },
     }),
@@ -241,6 +246,38 @@ export const isOneOfHis = (
   v: Pick<MatterView, "hasOwnOpenStep" | "owedTo" | "waitingOn" | "with">,
   people: Pick<People, "isKnownToHim">
 ) => v.hasOwnOpenStep || knownPeopleOf(v, people).length > 0;
+
+/** The steps of the matters that show under project `id` (`projectOf`), running or not: what a project situation line may still cite. */
+export const projectStepRefsOf = (
+  truth: Pick<People["truth"], "projects">,
+  book: readonly Pick<MatterView, "openSteps" | "projects" | "steps">[],
+  id: string
+) =>
+  new Set(
+    book
+      .filter((v) => projectOf(truth)(v)?.id === id)
+      .flatMap((v) => [...v.steps, ...v.openSteps].map((s) => s.ref))
+  );
+
+/** What an agent's packet says of where each project in `projectIds` stands, in order (`readProjectSituationNow`): empty for one with no situation. */
+export async function readProjectSituationsNow(
+  truth: Pick<People["truth"], "projects">,
+  projectIds: readonly string[]
+) {
+  const book =
+    projectIds.length > 0
+      ? await readMatterBook(await readPeople(), dayNow())
+      : [];
+  return projectIds.map((id) => {
+    const lines = readProjectSituationNow(
+      id,
+      projectStepRefsOf(truth, book, id)
+    );
+    return lines.length === 0
+      ? ""
+      : `Where it stands (Life's reading of its matters, read as data):\n${lines.map((l) => `- ${l.text}`).join("\n")}`;
+  });
+}
 
 /** A matter's people he knows (`isKnownToHim`). */
 const knownPeopleOf = (

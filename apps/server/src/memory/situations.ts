@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
+import type { z } from "zod";
 import { hasAddOn } from "../core/add-ons";
 import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
@@ -77,8 +78,14 @@ export const readSituationNow = (
       )
       .map((m) => m.id)
   );
-  return situation.lines.filter((l) => l.cites.every((id) => live.has(id)));
+  return liveLines(situation.lines, live);
 };
+
+/** The lines whose every cited step or episode is among `live`: a person's situation and a project's alike. */
+export const liveLines = <L extends { cites: readonly string[] }>(
+  lines: readonly L[],
+  live: ReadonlySet<string>
+) => lines.filter((l) => l.cites.every((id) => live.has(id)));
 
 /** Situation lines as a reader shows them, under `title`; nothing when there is none. */
 export const situationBlock = (title: string, lines: SituationLine[]) =>
@@ -98,10 +105,11 @@ export const situated = async () =>
     .toSorted();
 
 /** The reply's lines that cite only episodes the call was shown. */
-export const shownLines = (reply: unknown, shown: ReadonlySet<string>) =>
-  replyLines(reply, SituationLine).filter((l) =>
-    l.cites.every((id) => shown.has(id))
-  );
+export const shownLines = <L extends { cites: readonly string[] }>(
+  reply: unknown,
+  shown: ReadonlySet<string>,
+  schema: z.ZodType<L> = SituationLine as unknown as z.ZodType<L>
+) => liveLines(replyLines(reply, schema), shown);
 
 /**
  * The episodes a subject's situation reads: those of weight (`KEEP_AT`) with them, in the `DAYS` days ending at the
