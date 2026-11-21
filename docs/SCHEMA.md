@@ -690,7 +690,7 @@ runtime), current session and link, `status` `active`, `stopped`, `handed_over` 
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
 `wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
-`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`,
+`plan_total`, `plan_now` (never written, never read: it goes with the next store step), `closed_at`, `outcome`, `why_not_started`,
 `matter_id` (the matter he chose for it, by Start or the hand-out, which the finder takes on a tie among its anchors'
 matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
