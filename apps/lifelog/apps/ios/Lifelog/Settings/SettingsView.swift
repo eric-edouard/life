@@ -40,6 +40,16 @@ struct SettingsView: View {
                 sending
                 cards
                 pendant
+                RowGroup(label: "Tell Life", surface: .sheet) {
+                    NavigationLink {
+                        TellSettingsPage()
+                    } label: {
+                        Row(title: "Tell Life", icon: "waveform", detail: "Its look, and how your words are heard") {
+                            RowValue()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
                 RowGroup(label: "Appearance", surface: .sheet) {
                     SegmentedChoice(
                         choices: [Appearance.auto, .light, .dark],
