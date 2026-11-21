@@ -815,8 +815,7 @@ final class LifeStore {
         show(said)
     }
 
-    /// Shows `said` for 4 s, flagged when not done.
-    /// Leaves the app for `url` (a chat, a calendar): when the system takes none, `what` could not be opened is said back.
+    /// Leaves the app for `url` (a chat, a calendar): when the system takes none, `what` could not be opened is said back (the notification extension has no LifeStore: its chat head says so itself).
     func open(_ url: URL, _ what: String, with openURL: OpenURLAction) {
         openURL(url) { accepted in
             if !accepted {
@@ -825,6 +824,7 @@ final class LifeStore {
         }
     }
 
+    /// Shows `said` for 4 s, flagged when not done.
     func show(_ said: SaidBack) {
         saidBack = said
         Task {
