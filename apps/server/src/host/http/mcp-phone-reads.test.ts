@@ -294,7 +294,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
           "mcp-protocol-version": "2026-07-28",
         }
       );
-      expect(json.result.isError).toBe(false);
+      expect(json.result.isError, JSON.stringify(json.result)).toBe(false);
       return json.result.content[0].text as string;
     };
     const inbox = await read("read_inbox");
@@ -376,6 +376,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     ]);
     expectWire("read_matters_project", withSituation);
     expectWire("read_projects", await read("read_projects"));
+    mkdirSync(join(HOME, "Work", "shop-site", ".git"), { recursive: true });
     // The folders are under his home (a test's is temporary), and the version hashes them: both held fixed.
     const header = JSON.parse(
       (await read("read_project", { project: "shop-fit-out" })).replaceAll(

@@ -9,13 +9,14 @@ public struct ProjectChips: Decodable, Sendable, Equatable {
         public let open: Int
     }
 
-    public struct Chip: Decodable, Sendable, Equatable, Identifiable {
+    public struct Chip: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
             case project, area
             case unknown
         }
 
         public let kind: Kind
+        /// The id a request names; an area's and a project's can be the same word, so a list keys on `identity`.
         public let id: String
         public let name: String
         /// A project's, as stored; an area has none.
@@ -24,6 +25,7 @@ public struct ProjectChips: Decodable, Sendable, Equatable {
         public let area: String?
         public let needYou: Int
         public let agentAtWork: Bool
+        public var identity: String { "\(kind.rawValue):\(id)" }
         /// What the list under the chip holds.
         public let matters: Int
     }

@@ -1,19 +1,5 @@
 {
   "project": {
-    "agents": [
-      {
-        "id": "agt_000000000001",
-        "line": "Gran's watch: the shop quotes by Friday.",
-        "status": "running",
-        "title": "Get Gran's watch mended"
-      },
-      {
-        "id": "agt_000000000002",
-        "line": "Waiting for his answer",
-        "status": "waiting",
-        "title": "Get Gran's watch mended"
-      }
-    ],
     "ask": {
       "deadline": "2099-01-01T09:00:00.000Z",
       "matter": {
@@ -60,7 +46,21 @@
         "text": "The shop is quoting the watch repair; the call to them is done."
       }
     ],
-    "status": "active"
+    "status": "active",
+    "agents": [
+      {
+        "id": "agt_000000000001",
+        "line": "Gran's watch: the shop quotes by Friday.",
+        "status": "running",
+        "title": "Get Gran's watch mended"
+      },
+      {
+        "id": "agt_000000000002",
+        "line": "Waiting for his answer",
+        "status": "waiting",
+        "title": "Get Gran's watch mended"
+      }
+    ]
   },
   "version": "fixed"
 }

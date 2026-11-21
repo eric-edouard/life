@@ -7,6 +7,7 @@ import {
   type HandOutFacts,
   type HandOutMatter,
   handOutGateOf,
+  idOf,
   isInScope,
   isOneOfHis,
   isParkedMatterOf,
@@ -491,4 +492,11 @@ test("a scope holds the matters of an area, of a project, or of an area in no pr
   expect(of({ area: "home" })).toEqual([home, homeShop, unknown]);
   expect(of({ project: "shop" })).toEqual([homeShop]);
   expect(of({ area: "home", noProject: true })).toEqual([home, unknown]);
+});
+
+test("a project is found by its id or its name, accents and case aside", () => {
+  const list = [{ id: "cafe-co", name: "Café Co" }];
+  expect(idOf(list, "Cafe co")).toBe("cafe-co");
+  expect(idOf(list, "cafe-co")).toBe("cafe-co");
+  expect(idOf(list, "nope")).toBeUndefined();
 });

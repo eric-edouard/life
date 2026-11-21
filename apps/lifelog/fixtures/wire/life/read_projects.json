@@ -10,10 +10,10 @@
       "kind": "project",
       "name": "Shop fit-out",
       "status": "active",
-      "agentAtWork": true,
       "matters": 1,
-      "needYou": 1
+      "needYou": 1,
+      "agentAtWork": true
     }
   ],
-  "version": "53c76419cd9b15a1"
+  "version": "94256403f61d53ce"
 }

@@ -1,13 +1,9 @@
-import { join } from "node:path";
-import { HOME } from "../core/platform";
-import { blockingCountOf } from "../memory/check-urgency";
-import { checksOnMatterOf } from "../memory/checks";
 import { nextStepNow } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { readProjectSituationNow } from "../memory/project-situation-read";
 import {
+  idOf,
   isInScope,
-  needsYouOf,
   openDecisions,
   projectStepRefsOf,
   rankedRunning,
@@ -15,165 +11,179 @@ import {
 import { goalsOf, projectPeopleAndChatsOf } from "../memory/read-truth";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { isUnderway } from "../records/truth";
+import { listRepos } from "../sources/git";
 import { openChecksAndKeyNow, unchangedOf, versionOf } from "./inbox";
-import { readRegisteredAgents } from "./registered-agents";
+import { matterRowsNowOf } from "./matter-rows";
+import { readActiveAgentOf, readRegisteredAgents } from "./registered-agents";
 
 // `read_projects` and `read_project` (life#712): the Projects tab's chip row and a project chip's header with its
 // Details. The list under a chip is `read_matters` (`project`, or `area` with `noProject`); a chip's counts and that list
-// come from one rule, `isInScope`. Read once per checks' key (it covers the matter book, the cards, what agents hold
-// and the project situations), as `read_matters` is.
+// come from one rule, `isInScope`. What comes from memory is read once per checks' key (the matter book, the cards, the
+// project situations); who is at work (the desk) is read on every call and joins it before the version is made, so an
+// agent's turn that ends moves the version.
 
-/** A project's alive agents (running, or waiting on something), as the desk reads them now. */
-const aliveAgentsOf = async (
-  book: Awaited<ReturnType<typeof readMatterBook>>,
-  people: Awaited<ReturnType<typeof readPeople>>
-) =>
-  (
-    await readRegisteredAgents(undefined, {
-      book,
-      decisions: openDecisions(),
-      people,
-    })
+type Open = Awaited<ReturnType<typeof openChecksAndKeyNow>>["checks"];
+type People = Awaited<ReturnType<typeof readPeople>>;
+type Book = Awaited<ReturnType<typeof readMatterBook>>;
+
+/** The agents at work now (running or waiting) on a project: its own, or one an open assignment holds a matter of it for. */
+async function readAtWork(
+  people: People,
+  book: Book,
+  decisions: ReturnType<typeof openDecisions>
+) {
+  const alive = (
+    await readRegisteredAgents(undefined, { book, decisions, people })
   ).agents.filter((a) => a.status === "running" || a.status === "waiting");
+  const holder = readActiveAgentOf();
+  return (project: string | undefined, matters: Book) => {
+    const held = new Set(
+      matters.flatMap((v) => holder(v.steps.map((s) => s.ref)) ?? [])
+    );
+    return alive.filter(
+      (a) => (project !== undefined && a.project === project) || held.has(a.id)
+    );
+  };
+}
 
-/** The ids of the matters a chip holds, from the matters the agents are on: a project's agent or an agent on one of its matters. */
-const isOnChip =
-  (project: string | undefined, matterIds: ReadonlySet<string>) =>
-  (a: { matter: { id: string } | null; project: string | null }) =>
-    (project !== undefined && a.project === project) ||
-    (a.matter !== null && matterIds.has(a.matter.id));
-
-async function readChips() {
-  const [{ checks: open }, people] = await Promise.all([
-    openChecksAndKeyNow(),
-    readPeople(),
-  ]);
+async function readChipsFromMemory(open: Open) {
+  const people = await readPeople();
   const { truth } = people;
   const { book, decisions, ranked } = await rankedRunning(
     {},
     async (p, t) => ({ book: await readMatterBook(p, t) }),
     people
   );
-  const agents = await aliveAgentsOf(book, people);
   const needs = new Set(
-    ranked
-      .filter((v) =>
-        needsYouOf(
-          { nextStep: nextStepNow(v, decisions), status: v.status },
-          blockingCountOf(checksOnMatterOf(open, v.id))
-        )
-      )
-      .map((v) => v.id)
+    matterRowsNowOf(
+      ranked.map((v) => ({
+        id: v.id,
+        nextStep: nextStepNow(v, decisions),
+        status: v.status,
+      })),
+      open
+    )
+      .filter((r) => r.needsYou)
+      .map((r) => r.id)
   );
-  const chipOf = (
-    c: { id: string; name: string } & (
-      | { kind: "area" }
-      | { area: string; kind: "project"; status: string }
-    ),
-    scope: Parameters<typeof isInScope>[1]
+  const chipOf = <C extends { id: string; kind: "area" | "project" }>(
+    c: C,
+    scope: Parameters<typeof isInScope>[1],
+    isParked = false
   ) => {
-    const matters = ranked.filter(isInScope(truth, scope));
-    const ids = new Set(matters.map((v) => v.id));
-    const isParked = c.kind === "project" && c.status === "parked";
+    const held = ranked.filter(isInScope(truth, scope));
     return {
-      ...c,
-      agentAtWork:
-        !isParked &&
-        agents.some(
-          (a) =>
-            a.status === "running" &&
-            isOnChip(c.kind === "project" ? c.id : undefined, ids)(a)
-        ),
-      matters: matters.length,
-      needYou: matters.filter((v) => needs.has(v.id)).length,
+      chip: {
+        ...c,
+        matters: held.length,
+        needYou: held.filter((v) => needs.has(v.id)).length,
+      },
+      held,
+      isParked,
     };
   };
   const goalRank = (id: string) => {
     const i = goalsOf(truth.me.goals).findIndex((g) => g.projects.includes(id));
     return i < 0 ? Number.POSITIVE_INFINITY : i;
   };
-  const projectChips = (isIn: (s: string) => boolean) =>
+  const projectChips = (isParked: boolean) =>
     truth.projects
-      .filter((p) => isIn(p.status))
+      .filter((p) => p.status !== "done" && !isUnderway(p) === isParked)
       .map((p) =>
         chipOf(
           {
             area: p.area,
             id: p.id,
-            kind: "project",
+            kind: "project" as const,
             name: p.name,
             status: p.status,
           },
-          { project: p.id }
+          { project: p.id },
+          isParked
         )
       );
-  const underway = projectChips((s) => s === "active" || s === "waiting");
-  const answer = {
+  return {
     all: { needYou: needs.size, open: ranked.length },
+    book,
     chips: [
       // Those needing him first, then by his goals, the directory's order for a tie (a stable sort).
-      ...underway.toSorted(
+      ...projectChips(false).toSorted(
         (a, b) =>
-          Number(b.needYou > 0) - Number(a.needYou > 0) ||
-          goalRank(a.id) - goalRank(b.id)
+          Number(b.chip.needYou > 0) - Number(a.chip.needYou > 0) ||
+          goalRank(a.chip.id) - goalRank(b.chip.id)
       ),
       ...truth.areas
         .map((a) =>
           chipOf(
-            { id: a.id, kind: "area", name: a.name },
+            { id: a.id, kind: "area" as const, name: a.name },
             { area: a.id, noProject: true }
           )
         )
-        .filter((c) => c.matters > 0),
-      ...projectChips((s) => s === "parked"),
+        .filter((c) => c.chip.matters > 0),
+      ...projectChips(true),
     ],
+    decisions,
+    people,
+  };
+}
+
+/** The chip row: memory's part kept per key, the agents at work read now. */
+async function finishChips(m: Awaited<ReturnType<typeof readChipsFromMemory>>) {
+  const onProject = await readAtWork(m.people, m.book, m.decisions);
+  const answer = {
+    all: m.all,
+    chips: m.chips.map(({ chip, held, isParked }) => ({
+      ...chip,
+      agentAtWork:
+        !isParked &&
+        onProject(chip.kind === "project" ? chip.id : undefined, held).length >
+          0,
+    })),
   };
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 
-async function readHeader(name: string) {
-  const [{ checks: open }, people] = await Promise.all([
-    openChecksAndKeyNow(),
-    readPeople(),
-  ]);
+async function readHeaderFromMemory(name: string, open: Open) {
+  const people = await readPeople();
   const { truth } = people;
-  const project = truth.projects.find(
-    (p) => p.id === name || p.name.toLowerCase() === name.toLowerCase()
-  );
+  const id = idOf(truth.projects, name);
+  const project = truth.projects.find((p) => p.id === id);
   if (!project) {
     throw new Error(`No project goes by ${name}.`);
   }
   const book = await readMatterBook(people, dayNow());
-  const own = book.filter((v) => v.projects.includes(project.id));
-  const ids = new Set(own.filter((v) => v.open).map((v) => v.id));
+  const own = book.filter((v) => v.open && v.projects.includes(project.id));
   const goals = goalsOf(truth.me.goals);
   const rank = goals.findIndex((g) => g.projects.includes(project.id));
   const entry = projectPeopleAndChatsOf(truth, project.id);
-  // The most pressing open decision about one of its matters, in the inbox's own order.
-  const ask = open.find(
-    (c) =>
-      c.kind === "decision" &&
-      ((c.matter !== null && ids.has(c.matter.id)) ||
-        c.ridesOn.matterIds.some((i) => ids.has(i)))
-  );
-  const agents =
-    project.status === "parked" || project.status === "done"
-      ? []
-      : (await aliveAgentsOf(book, people)).filter(isOnChip(project.id, ids));
-  const answer = {
-    project: {
-      agents: agents.map((a) => ({
-        id: a.id,
-        line: a.wait ? `Waiting for ${a.wait.reason}` : a.notes || a.title,
-        status: a.status,
-        title: a.title,
-      })),
-      ask: ask && {
-        deadline: ask.deadline,
-        matter: ask.matter ?? ask.onMatters[0] ?? null,
-        question: ask.question,
-        ref: ask.ref,
-      },
+  // The most pressing open decision about one of its matters, in the inbox's own order, with the matter it is about.
+  const [asked] = open.flatMap((c) => {
+    const matter = [c.matter?.id, ...c.ridesOn.matterIds]
+      .map((i) => own.find((v) => v.id === i))
+      .find(Boolean);
+    return c.kind === "decision" && matter ? [{ c, matter }] : [];
+  });
+  const here = new Map(listRepos().map((r) => [r.key, r.path]));
+  return {
+    book,
+    decisions: openDecisions(),
+    own,
+    people,
+    project,
+    shown: {
+      ask: asked
+        ? {
+            deadline: asked.c.deadline,
+            matter: {
+              id: asked.matter.id,
+              ...(asked.matter.important ? { important: true } : {}),
+              name: asked.matter.name,
+            },
+            question: asked.c.question,
+            ref: asked.c.ref,
+          }
+        : null,
       chats: (entry?.chats ?? []).map(({ key, name: n }) => ({ key, name: n })),
       goal:
         rank < 0
@@ -184,8 +194,9 @@ async function readHeader(name: string) {
       people: (entry?.people ?? []).map((x) =>
         people.partyOf(`person:${x.id}`)
       ),
+      // A repo's folder is where it is cloned on the Mac (`listRepos`), none for one that is not.
       repos: project.repos.map((r) => ({
-        folder: r.includes("/") ? null : join(HOME, "Work", r),
+        folder: here.get(r) ?? null,
         name: r,
       })),
       situation: readProjectSituationNow(
@@ -195,35 +206,67 @@ async function readHeader(name: string) {
       status: project.status,
     },
   };
+}
+
+/** One project's header: memory's part kept per key, its agents at work read now (none while it is not underway). */
+async function finishHeader(
+  m: Awaited<ReturnType<typeof readHeaderFromMemory>>
+) {
+  const onProject = await readAtWork(m.people, m.book, m.decisions);
+  const agents = isUnderway(m.project)
+    ? onProject(m.project.id, m.own).map((a) => ({
+        id: a.id,
+        // Its turn says which: a waiting agent says what for; one at work, what it took its subject to be.
+        line:
+          a.status === "waiting" && a.wait
+            ? `Waiting for ${a.wait.reason}`
+            : a.notes || a.title,
+        status: a.status,
+        title: a.title,
+      }))
+    : [];
+  const answer = { project: { ...m.shown, agents } };
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 
-/** One answer per key of the checks (the matter book's files, the cards, what agents hold, the situations) and call. */
+/** What memory gives, once per key of the checks (the matter book's files, the cards, the situations) and call; its promise leaves the cache only if it fails. */
 let kept: { for: string; reads: Map<string, Promise<unknown>> } | undefined;
-async function keptRead<A extends { version: string }>(
+async function keptRead<M, A extends { version: string }>(
   rest: string,
-  read: () => Promise<A>,
+  read: (open: Open) => Promise<M>,
+  finish: (m: M) => Promise<A>,
   ifNot?: string
 ) {
-  const { key } = await openChecksAndKeyNow();
+  const { checks, key } = await openChecksAndKeyNow();
   const keptFor = JSON.stringify([key, dayNow()]);
   if (kept?.for !== keptFor) {
     kept = { for: keptFor, reads: new Map() };
   }
-  let answer = kept.reads.get(rest) as Promise<A> | undefined;
-  if (!answer) {
-    answer = read();
-    kept.reads.set(rest, answer);
-    answer.catch(() => kept?.reads.delete(rest));
+  const { reads } = kept;
+  let memory = reads.get(rest) as Promise<M> | undefined;
+  if (!memory) {
+    const own = read(checks);
+    memory = own;
+    reads.set(rest, own);
+    own.catch(() => {
+      if (reads.get(rest) === own) {
+        reads.delete(rest);
+      }
+    });
   }
-  const a = await answer;
+  const a = await finish(await memory);
   return a.version === ifNot ? unchangedOf(ifNot) : a;
 }
 
 /** `read_projects`: the chip row. */
 export const readProjectsNow = (ifNot?: string) =>
-  keptRead("chips", readChips, ifNot);
+  keptRead("chips", readChipsFromMemory, finishChips, ifNot);
 
 /** `read_project`: one project's header and Details. */
 export const readProjectNow = (project: string, ifNot?: string) =>
-  keptRead(`project ${project}`, () => readHeader(project), ifNot);
+  keptRead(
+    `project ${project}`,
+    (open) => readHeaderFromMemory(project, open),
+    finishHeader,
+    ifNot
+  );

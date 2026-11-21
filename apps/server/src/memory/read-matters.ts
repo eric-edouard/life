@@ -19,6 +19,7 @@ import type { Party } from "./party";
 import { readProjectSituationNow } from "./project-situation-read";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { goalsOf } from "./read-truth";
+import { nameKey } from "./units";
 import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -26,10 +27,8 @@ import { dayNow } from "./zones";
 // (his phone app and the models read the same). Reads only.
 
 /** The id of the project or area `query` is, by id or name; undefined when it is neither. */
-const idOf = (list: { id: string; name: string }[], query: string) =>
-  list.find(
-    (x) => x.id === query || x.name.toLowerCase() === query.toLowerCase()
-  )?.id;
+export const idOf = (list: { id: string; name: string }[], query: string) =>
+  list.find((x) => x.id === query || nameKey(x.name) === nameKey(query))?.id;
 
 type Role = "owedTo" | "waitingOn" | "with";
 const ROLES: readonly Role[] = ["owedTo", "waitingOn", "with"];
