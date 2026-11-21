@@ -79,12 +79,16 @@ export type OnCompleted = (job: Job) => Promise<void>;
 // Stores a provider transcript once, from whichever path brings it (the send's answer, a webhook,
 // reconcile), with its turns in the same transaction, then its source's grouping and
 // `onCompleted`. Replays find the job already completed and change nothing. A transcript also
-// completes a failed job: it was bought.
+// completes a failed job: it was bought. `billing`: what it is known to have cost, written in the
+// same transaction, so a completed job never shows its admission estimate as billed.
 function complete(
   db: Db,
   match: ProviderMatch,
   raw: unknown,
-  onCompleted: OnCompleted
+  onCompleted: OnCompleted,
+  billing: Partial<
+    Pick<typeof jobs.$inferInsert, "billableSeconds" | "error" | "maybeBilled">
+  > = {}
 ): "applied" | "duplicate" | "unknown_job" {
   const { transcript, transcriptionId } = parseTranscript(raw);
   const job = findJob(db, match);
@@ -100,6 +104,7 @@ function complete(
         providerRequestId: sql`coalesce(${jobs.providerRequestId}, ${match.requestId ?? null})`,
         providerTranscriptionId: sql`coalesce(${jobs.providerTranscriptionId}, ${transcriptionId})`,
         state: "completed",
+        ...billing,
       })
       .where(and(eq(jobs.id, job.id), ne(jobs.state, "completed")))
       .returning({ id: jobs.id })
@@ -359,14 +364,10 @@ function answered(
       // Audio the provider can't read never becomes readable. It is kept as a gap, a transcript
       // with no words and nothing billed.
       if (outcome.error.includes("invalid_audio")) {
-        complete(db, { jobId }, NO_WORDS, onCompleted);
-        db.update(jobs)
-          .set({
-            billableSeconds: 0,
-            error: `kept as a gap: ${outcome.error}`,
-          })
-          .where(eq(jobs.id, jobId))
-          .run();
+        complete(db, { jobId }, NO_WORDS, onCompleted, {
+          billableSeconds: 0,
+          error: `kept as a gap: ${outcome.error}`,
+        });
         return;
       }
       fail(db, send, outcome.error);
@@ -664,15 +665,11 @@ export function jobWorker(
             back(db, sent, outcome.error);
             return;
           }
-          complete(db, { jobId: job.id }, outcome.transcript, completed);
-          db.update(jobs)
-            .set({
-              billableSeconds: outcome.billableSeconds,
-              error: outcome.error,
-              maybeBilled: outcome.maybeBilled,
-            })
-            .where(eq(jobs.id, job.id))
-            .run();
+          complete(db, { jobId: job.id }, outcome.transcript, completed, {
+            billableSeconds: outcome.billableSeconds,
+            error: outcome.error,
+            maybeBilled: outcome.maybeBilled,
+          });
         },
       }
     );

@@ -1,5 +1,9 @@
 import type { Db } from "@lifelog/db";
-import { intelligenceRuns, transcriptionJobs } from "@lifelog/db/schema";
+import {
+  intelligenceRuns,
+  type RawCall,
+  transcriptionJobs,
+} from "@lifelog/db/schema";
 import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
 import {
   and,
@@ -33,6 +37,44 @@ const settledOutcomeOf = (j: {
 
 const PENDING_RUNS = ["running", "waiting"] as const;
 const MAC_PROVIDERS = ["claude-code", "codex"] as const;
+
+const isMac = (p: string): p is (typeof MAC_PROVIDERS)[number] =>
+  (MAC_PROVIDERS as readonly string[]).includes(p);
+
+/**
+ * A run's model calls as spending reads them: each answered call by the provider and model it ran on (a run resumed
+ * under the other engine keeps its earlier answers' own), at the run's start. A run with no call kept (an older one)
+ * by its totals when it has any; a call with no answer has no usage and is left out (spending is a floor).
+ */
+function modelCallsOf(r: {
+  at: Date;
+  inputTokens: number;
+  latencyMs: number | null;
+  model: string;
+  outputTokens: number;
+  provider: string;
+  raw: RawCall[];
+}) {
+  const calls =
+    r.raw.length > 0
+      ? r.raw
+      : [{ ...r, latencyMs: r.latencyMs ?? 0, stage: "", text: "" }];
+  return calls.flatMap((c) => {
+    const provider = c.provider ?? r.provider;
+    return isMac(provider) && c.inputTokens + c.outputTokens > 0
+      ? [
+          {
+            at: r.at.toISOString(),
+            inputTokens: c.inputTokens,
+            latencyMs: c.latencyMs,
+            model: c.model ?? r.model,
+            outputTokens: c.outputTokens,
+            provider,
+          },
+        ]
+      : [];
+  });
+}
 
 export function spendingOf(db: Db, from: Date, to: Date) {
   const jobs = db
@@ -78,6 +120,7 @@ export function spendingOf(db: Db, from: Date, to: Date) {
       model: intelligenceRuns.model,
       outputTokens: intelligenceRuns.outputTokens,
       provider: intelligenceRuns.provider,
+      raw: intelligenceRuns.raw,
     })
     .from(intelligenceRuns)
     .where(
@@ -123,12 +166,7 @@ export function spendingOf(db: Db, from: Date, to: Date) {
       seconds: j.seconds,
       transcriber: j.transcriber,
     })),
-    modelRuns: runs.map((r) => ({
-      ...r,
-      at: r.at.toISOString(),
-      // Only the Mac's providers are selected above.
-      provider: r.provider as (typeof MAC_PROVIDERS)[number],
-    })),
+    modelRuns: runs.flatMap(modelCallsOf),
     unsettled: jobsUnsettled + runsUnsettled,
     // A note whose answer was lost has no seconds: it may have been billed.
     voiceNotes: notes.map((n) => ({

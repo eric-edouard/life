@@ -217,7 +217,7 @@ export function spendsOfVoice(v: VoiceSpending): Spend[] {
       .map((n) => scribeOf(n.at, n.billableSeconds)),
     ...v.modelRuns.map((r): Spend => {
       const runtime = r.provider === "codex" ? "codex" : "claude";
-      // ponytail: Voice keeps no cache split; its input is priced at the full rate, an upper bound.
+      // ponytail: Voice keeps no cache split (its input excludes cache reads), so this is an approximation; split cache reads in Voice if it matters.
       const tokens = {
         cached: 0,
         input: r.inputTokens,

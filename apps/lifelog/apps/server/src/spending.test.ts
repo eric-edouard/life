@@ -64,6 +64,42 @@ test("a span's spending: settled jobs billed, a failed send that may have billed
       })
       .run();
   }
+  // Resumed under Codex: its kept Claude answer stays Claude's. A failed run with no answer: no usage, left out.
+  db.insert(intelligenceRuns)
+    .values([
+      {
+        conversationId: randomUUID(),
+        createdAt: AT,
+        inputTokens: 5,
+        model: "gpt-6.1-sol",
+        outputTokens: 1,
+        promptVersion: 1,
+        provider: "codex",
+        raw: [
+          {
+            inputTokens: 5,
+            latencyMs: 7,
+            model: "claude-sonnet-5-5",
+            outputTokens: 1,
+            provider: "claude-code",
+            stage: "voices",
+            text: "",
+          },
+        ],
+        state: "valid",
+        turns: [],
+      },
+      {
+        conversationId: randomUUID(),
+        createdAt: AT,
+        model: "gpt-6.1-sol",
+        promptVersion: 1,
+        provider: "codex",
+        state: "failed",
+        turns: [],
+      },
+    ])
+    .run();
   const s = spendingOf(
     db,
     new Date("2026-11-20T00:00:00.000Z"),
@@ -88,9 +124,17 @@ test("a span's spending: settled jobs billed, a failed send that may have billed
     {
       at: AT.toISOString(),
       inputTokens: 100,
-      latencyMs: null,
+      latencyMs: 0,
       model: "claude-sonnet-5-5",
       outputTokens: 10,
+      provider: "claude-code",
+    },
+    {
+      at: AT.toISOString(),
+      inputTokens: 5,
+      latencyMs: 7,
+      model: "claude-sonnet-5-5",
+      outputTokens: 1,
       provider: "claude-code",
     },
   ]);
