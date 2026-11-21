@@ -335,20 +335,11 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     kind: "known_person",
     personId: DANA_ID,
   });
-  items[5] = voice("v5", {
-    isLikely: true,
-    kind: "known_person",
-    personId: DANA_ID,
-  });
-  // Likely, but no guess in use: nothing to say "Yes" to.
+  const likely = { isLikely: true, kind: "known_person" as const };
+  items[5] = voice("v5", { ...likely, personId: DANA_ID });
+  // Likely, but no guess in use (v6), or for a person Life cannot place, asked by a name heard beside it (v7): no "Yes".
   items[6] = voice("v6", { isLikely: true });
-  // Likely for a person Life cannot place, asked by a name heard beside it: the likeness is not that name's.
-  items[7] = voice("v7", {
-    isLikely: true,
-    kind: "known_person",
-    name: DANA_ID,
-    personId: "00000000-0000-4000-8000-00000000000f",
-  });
+  items[7] = voice("v7", { ...likely, name: DANA_ID, personId: "unplaced" });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
