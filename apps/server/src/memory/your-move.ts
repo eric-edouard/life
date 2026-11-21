@@ -100,7 +100,7 @@ export interface YourMoveInputs {
   isParked: (matter: string) => boolean;
   matters: readonly (Pick<
     MatterView,
-    "goal" | "id" | "name" | "nextStep" | "open" | "status"
+    "endingRecords" | "goal" | "id" | "name" | "nextStep" | "open" | "status"
   > & {
     important?: boolean;
     /** Its open steps (`MatterView.openSteps`); none: no card. */
@@ -119,7 +119,8 @@ export interface YourMoveInputs {
 }
 
 /**
- * Each open matter whose step is his, by id: it has one (`yourMoveOf`), no open decision is on it (an agent's card
+ * Each open matter whose step is his, by id: it has one (`yourMoveOf`), Life's latest direction does not read it over
+ * (`endingRecords`: the links step then judges what ends it), no open decision is on it (an agent's card
  * already asks him), its project is not parked (his own word), and no agent's open assignment holds it, or its agent
  * waits on him (`wait_owner`). A closed try holds nothing here (`isHeldOf`'s rule for the hand-out stays its own).
  * `held`: an open assignment holds it (then no Start). Pure.
@@ -134,6 +135,7 @@ export function yourMovesOf(c: YourMoveInputs) {
       const next = nextStepNow(v, c.decisions);
       const held = Boolean(isHeld(v));
       return move &&
+        v.endingRecords === undefined &&
         next?.kind !== "wait_decision" &&
         !c.decisions.some((d) => d.matter === v.id) &&
         !c.isParked(v.id) &&
