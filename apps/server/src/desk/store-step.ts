@@ -20,18 +20,26 @@ import {
   isBeforeAssignments,
   isBeforeMatterIds,
   isBeforeMoves,
+  isBeforeRoleCheck,
   isBeforeRoles,
   isBeforeTurnModel,
 } from "../host/desk-shape";
 import { copyDb } from "../host/export";
-import { MOVE_TABLES, ONE_AGENT_PER_ROLE, SCHEMA } from "./desk-store";
+import {
+  AGENT_INDEXES,
+  AGENT_TABLE,
+  MOVE_TABLES,
+  ONE_AGENT_PER_ROLE,
+  SCHEMA,
+} from "./desk-store";
 
 // The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
 // wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
 // caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
 // turn keeps the model it ran on (`turn.model`; older turns null). `stepMatterIds` (life#826): an assignment keeps the
-// matter he chose. `stepMoves`, of decision 78: a move's tables and `turn.move`. Only the desk helper runs them, at its
+// matter he chose. `stepMoves`, of decision 78: a move's tables and `turn.move`. `stepRoleCheck`, of the main session: the
+// agents' role check goes, so a new role needs no step. Only the desk helper runs them, at its
 // start, in that order (any order ends in one shape); `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
@@ -231,9 +239,7 @@ function stepOnce(
 export const stepRoles = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
   stepOnce(path, state, isBeforeRoles, "desk-before-roles-", (db) => {
     db.run("drop index if exists one_personal_agent");
-    db.run(
-      "alter table agent add column role text check (role in ('personal', 'caretaker'))"
-    );
+    db.run("alter table agent add column role text");
     db.run("update agent set role = 'personal' where is_personal = 1");
     db.run("alter table agent drop column is_personal");
     db.run(ONE_AGENT_PER_ROLE);
@@ -261,4 +267,25 @@ export const stepMoves = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
     if (!hasColumn(db, "turn", "move")) {
       db.run("alter table turn add column move text");
     }
+  });
+
+/**
+ * Rebuilds the store's agents without the role check (`stepOnce`): the roles are code's one list (`AgentRole`), so the
+ * main session's role, and any after it, needs no step. Every row kept, column by column, and its indexes made again.
+ */
+export const stepRoleCheck = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeRoleCheck, "desk-before-role-check-", (db) => {
+    const columns = db
+      .query<{ name: string }, []>(
+        "select name from pragma_table_info('agent')"
+      )
+      .all()
+      .map((c) => c.name)
+      .join(", ");
+    db.run("alter table agent rename to old_agent");
+    db.run(AGENT_TABLE);
+    db.run(`insert into agent (${columns}) select ${columns} from old_agent`);
+    // Its indexes went with the old table.
+    db.run("drop table old_agent");
+    db.run(AGENT_INDEXES);
   });

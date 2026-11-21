@@ -17,6 +17,14 @@ export const isBeforeAssignments = (db: Database) =>
 export const isBeforeRoles = (db: Database) =>
   hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
 
+/** Whether the store's agents still check their role against a list (`stepRoleCheck` rebuilds them without it). */
+export const isBeforeRoleCheck = (db: Database) =>
+  db
+    .query(
+      "select 1 from sqlite_master where type = 'table' and name = 'agent' and sql like '%check (role in%'"
+    )
+    .get() !== null;
+
 /** Whether the store's assignments predate the matter he chose (`stepMatterIds` reshapes it): assignments and no `matter_id`. */
 export const isBeforeMatterIds = (db: Database) =>
   hasColumn(db, "assignment", "id") &&
@@ -41,6 +49,7 @@ export const isBeforeMoves = (db: Database) =>
 export const isOldShape = (db: Database) =>
   isBeforeAssignments(db) ||
   isBeforeRoles(db) ||
+  isBeforeRoleCheck(db) ||
   isBeforeTurnModel(db) ||
   isBeforeMatterIds(db) ||
   isBeforeMoves(db);

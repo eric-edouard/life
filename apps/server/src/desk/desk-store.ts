@@ -19,7 +19,7 @@ import type { Runtime } from "./runtimes/contract";
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows.
 
-/** At most one active or stopped agent of each role: the fresh schema's, and `stepRoles`'. */
+/** At most one active or stopped agent of each role: the fresh schema's, `stepRoles`' and `stepRoleCheck`'s. */
 export const ONE_AGENT_PER_ROLE =
   "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')";
 
@@ -50,7 +50,8 @@ create table if not exists runtime_block (
 );
 `;
 
-export const SCHEMA = `
+/** The agents' table: its role is code's one list (`AgentRole`), never a check here, so a new role needs no store step. */
+export const AGENT_TABLE = `
 create table if not exists agent (
   id text primary key,
   brief text not null,
@@ -63,13 +64,24 @@ create table if not exists agent (
   link text,
   status text not null check (status in ('active', 'stopped', 'handed_over', 'ended')),
   name text,
-  role text check (role in ('personal', 'caretaker')),
+  role text,
   created_at text not null,
   ended_at text,
   outcome text,
   stopped_at text
 );
+`;
+
+/** The agents' indexes (`stepRoleCheck` makes them again on the rebuilt table). */
+export const AGENT_INDEXES = `
 ${ONE_AGENT_PER_ROLE};
+create index if not exists agent_by_project on agent (project);
+create index if not exists agent_by_status on agent (status, ended_at);
+`;
+
+export const SCHEMA = `
+${AGENT_TABLE}
+${AGENT_INDEXES}
 create table if not exists assignment (
   id text primary key,
   agent_id text not null,
@@ -143,8 +155,6 @@ create table if not exists anchor (
   primary key (assignment_id, step)
 );
 create index if not exists anchor_by_step on anchor (step);
-create index if not exists agent_by_project on agent (project);
-create index if not exists agent_by_status on agent (status, ended_at);
 create index if not exists event_dropped on event (assignment_id, dropped_at) where dropped_at is not null;
 create table if not exists report_line (
   source text not null,
