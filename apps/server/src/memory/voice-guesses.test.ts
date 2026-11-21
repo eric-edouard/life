@@ -57,7 +57,8 @@ const line = (
   voices: unknown[],
   when: string,
   folder = where,
-  firstAt = at(0)
+  firstAt = at(0),
+  prompt = READS.voice_naming.prompt
 ) => {
   made += 1;
   storeReply(
@@ -66,7 +67,7 @@ const line = (
       madeBy: {
         engine: "codex",
         model: "test",
-        prompt: READS.voice_naming.prompt,
+        prompt,
         run: `r${made}`,
       },
       messages: MESSAGES,
@@ -105,6 +106,24 @@ test("a guess is kept for each turn of its voice, the newest wins, and an entry 
     line([bad], "2026-10-13T00:00:00.000Z");
     expect(guessOf(MESSAGES[1] as string)).toBe("me");
   }
+});
+
+test("a guess an older prompt made stays one until a newer line replaces it", () => {
+  const folder = `${where}-older`;
+  line(
+    [entry()],
+    "2026-10-11T00:00:00.000Z",
+    folder,
+    at(0),
+    "memory-voice-naming.v1"
+  );
+  expect(
+    voiceGuessesNow(people, folder).get(MESSAGES[1] as string)?.person
+  ).toBe("person:dana");
+  line([entry({ person: "me" })], "2026-10-12T00:00:00.000Z", folder);
+  expect(
+    voiceGuessesNow(people, folder).get(MESSAGES[1] as string)?.person
+  ).toBe("me");
 });
 
 test("when the newest guess names a person not known now the key has none, never an older guess", () => {
