@@ -42,17 +42,18 @@ const unavailable = (detail: string): FoundationAnswer => ({
 });
 
 /**
- * Asks Apple's model, one spawn for all `requests`, answered in order, at background priority. No helper (a checkout,
- * Windows) or a helper that fails answers every request `unavailable`: the caller's fallback, never a throw.
+ * Asks Apple's model, one spawn for all `requests`, answered in order, at background priority (`command`: the helper
+ * under `taskpolicy -b`; a test runs its stub bare, free of the Mac's load). No helper (a checkout, Windows) or a helper
+ * that fails answers every request `unavailable`: the caller's fallback, never a throw.
  */
 export async function askFoundationModel(
   requests: FoundationRequest[],
-  helper = process.env.LIFE_FOUNDATION_MODEL
+  command = backgroundHelper(process.env.LIFE_FOUNDATION_MODEL)
 ): Promise<FoundationAnswer[]> {
   if (requests.length === 0) {
     return [];
   }
-  if (!helper) {
+  if (command.length === 0) {
     return requests.map(() => unavailable("no helper (LIFE_FOUNDATION_MODEL)"));
   }
   return await timedLocalModel(
@@ -61,7 +62,7 @@ export async function askFoundationModel(
     async () =>
       answersOf(
         requests.length,
-        await exec(["taskpolicy", "-b", helper], {
+        await exec(command, {
           stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
           timeout: requests.length * MIN,
         })
@@ -70,6 +71,9 @@ export async function askFoundationModel(
     (answers) => answers.every((a) => "reply" in a)
   );
 }
+
+const backgroundHelper = (helper: string | undefined) =>
+  helper ? ["taskpolicy", "-b", helper] : [];
 
 /** The helper's lines, one per request in order; a missing or bad one is unavailable. */
 function answersOf(
