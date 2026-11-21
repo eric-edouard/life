@@ -35,6 +35,13 @@ test("every flag a frame launches with is one the app's fixture reads", () => {
   expect(flags.filter((flag) => !read.has(flag))).toEqual([]);
 });
 
+test("every frame has args to launch with, or a why it has none (never both, never neither)", () => {
+  const bad = Object.entries(appFrames).filter(
+    ([, f]) => (f.args === undefined) === (f.why === undefined)
+  );
+  expect(bad.map(([name]) => name)).toEqual([]);
+});
+
 test("the live-logs and plan frames stay named (a merge once dropped seven)", () => {
   const kept = [
     "DuoFoldSettingsLogs",

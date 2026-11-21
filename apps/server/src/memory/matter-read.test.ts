@@ -783,8 +783,8 @@ test("a to-do item removed unticked reads as dropped; one ticked, then cleared f
     "2026-10-20"
   );
   expect(v?.steps.map((s) => s.ending)).toEqual([
-    { at: "2026-10-18T13:00:00.000Z", by: "ticked", dropped: true },
-    { at: "2026-10-18T13:00:00.000Z", by: "ticked" },
+    { at: "2026-10-18T13:00:00.000Z", by: "todo_item", dropped: true },
+    { at: "2026-10-18T13:00:00.000Z", by: "todo_item" },
   ]);
 });
 

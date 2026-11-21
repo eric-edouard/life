@@ -7,8 +7,6 @@ export type Urgency = "blocks" | "improves";
 interface Rankable {
   /** His complaint on it at work with the caretaker: it then only improves. */
   beingFixed?: unknown;
-  /** A your move card's (its step's `when`); null: none. */
-  deadline?: string | null;
   group: CheckGroup;
   /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
   subject: string | null;
@@ -37,16 +35,12 @@ export const inboxRankOf = (c: Rankable) =>
     ? RANK["guessed person"]
     : RANK[c.group];
 
-const LAST_BLOCKING_RANK = RANK.name;
-/** What blocks: by its kind (`inboxRankOf`), a your move card only with a deadline, unless the caretaker is at work on it (`beingFixed`). */
+const LAST_BLOCKING_RANK = RANK["your move"];
+/** What blocks: by its kind (`inboxRankOf`), a your move card always (his word of 21 Nov 2026), unless the caretaker is at work on it (`beingFixed`). */
 export const urgencyOf = (c: Rankable): Urgency =>
-  (c.group === "your move"
-    ? Boolean(c.deadline)
-    : inboxRankOf(c) <= LAST_BLOCKING_RANK) && !c.beingFixed
-    ? "blocks"
-    : "improves";
+  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
-/** A your move card: in its tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
+/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
 const isMove = (c: Rankable) => c.group === "your move";
 /** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
 const isImportant = (c: Orderable) =>
