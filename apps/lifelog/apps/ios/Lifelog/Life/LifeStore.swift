@@ -628,6 +628,26 @@ final class LifeStore {
         _ = await (inbox, matters, chips)
     }
 
+    /// A tap that would answer or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
+    func saysOutOfReach() -> Bool {
+        guard let why = whyOutOfReach else { return false }
+        show(SaidBack(words: why, undo: nil, isDone: false))
+        return true
+    }
+
+    /// A tap on a screen while Life is out of reach: refused before anything leaves the phone or shows, with why. Only
+    /// taps on a screen: an answer from a notification's button is tried.
+    /// `saysBack`: an action said back with Undo (`saidBack`) says why there too.
+    func refusedOutOfReach(_ key: ActionKey, saysBack: Bool = false) async -> Bool {
+        guard let why = whyOutOfReach else { return false }
+        await perform(key) { emit in
+            emit(.started)
+            emit(.failed(ActionFailure(reason: why, retry: .allowed)))
+        }
+        if saysBack { _ = saysOutOfReach() }
+        return true
+    }
+
     // MARK: Answers on rows
 
     /// His answers to rows of Life's own questions (a bulk card, the moves list), sent at once. Each row stays on show
@@ -640,8 +660,10 @@ final class LifeStore {
         for send in sends { await send.value }
         lingering.subtract(refs)
         let said = requests.map { state(of: .answer(ref: $0.ref)).heldAnswerWords(as: label) }
-        let failed = said.lazy.compactMap { $0 }.first { !$0.isDone }
-        let words = failed?.words ?? (requests.count == 1 ? said[0]?.words : nil) ?? label
+        // An answer with no end (the pairing changed meanwhile) is no word from Life: never green.
+        let failed = said.first { $0?.isDone != true }
+        let words =
+            failed.map { $0?.words ?? "Life did not answer." } ?? (requests.count == 1 ? said[0]?.words : nil) ?? label
         show(SaidBack(words: words, undo: nil, isDone: failed == nil))
         return failed == nil
     }
