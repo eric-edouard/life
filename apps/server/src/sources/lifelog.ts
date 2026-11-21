@@ -544,6 +544,29 @@ export function turnsBetween(
     .map((t) => lifelogTurn(t, byId));
 }
 
+/**
+ * Whether turn `t` overlaps the span from `?1` to `?2` (ISO, `?2` exclusive): begun before its end, and begun inside it
+ * or still going at its start. The one test of a call's turns: the desk's (`recordingsOf`) and `fetch`'s (`turnsOverlapping`).
+ */
+export const OVERLAPS =
+  "t.start_at < ?2 and (t.start_at >= ?1 or coalesce(t.end_at, t.start_at) > ?1)";
+
+/** The turns of a conversation that overlap `from`..`to` (`OVERLAPS`), in order. */
+export function turnsOverlapping(
+  store: Store,
+  conversationId: string,
+  from: string,
+  to: string,
+  byId: Map<string, string> = new Map()
+): LifelogTurn[] {
+  return store.db
+    .query<LifelogTurnRow, [string, string, string]>(
+      `select t.* from turns t where ${OVERLAPS} and t.conversation_id = ?3 order by t.start_at, t.job_id, t.turn_index`
+    )
+    .all(from, to, conversationId)
+    .map((t) => lifelogTurn(t, byId));
+}
+
 /** Who spoke a turn, as lifelog names them: its person id (the directory may move it later), else its name; null for him or nobody. */
 export const authorOf = (t: LifelogTurn) =>
   t.owner ? null : (t.personId ?? t.name);

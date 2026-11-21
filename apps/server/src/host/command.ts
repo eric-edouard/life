@@ -100,6 +100,7 @@ const OPTIONS = {
   steps: { type: "string" },
   to: { type: "string" },
   types: { type: "string" },
+  until: { type: "string" },
   who: { type: "string" },
 } as const;
 
@@ -302,7 +303,9 @@ const HANDLERS: Record<string, Handler> = {
             id,
             count(values["from-turn"]),
             count(values.limit),
-            readPeopleAndOrganizations
+            readPeopleAndOrganizations,
+            undefined,
+            { at: values.at, until: values.until }
           )
         : null
     ),

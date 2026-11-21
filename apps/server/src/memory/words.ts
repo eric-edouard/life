@@ -15,6 +15,7 @@ import {
   readTranscript,
   turnRef,
   turnsBetween,
+  turnsOverlapping,
   withStore,
 } from "../sources/lifelog";
 import {
@@ -32,6 +33,14 @@ import { readPassageCandidates, readPassages } from "./passages";
 import type { SourceLine } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
 import {
+  clipEdges,
+  headOf,
+  moreOf,
+  spanOf,
+  WITHIN_REFUSED,
+  type Within,
+} from "./recording-cut";
+import {
   isDirect,
   kindOf,
   SOURCES,
@@ -43,6 +52,7 @@ import { dayUnitId } from "./unit-ids";
 import {
   type Built,
   builtFor,
+  callSpanOf,
   clip,
   isFrozen,
   lifelogNames,
@@ -368,85 +378,128 @@ function wholeConversation(id: string, from: number, limit: number) {
 }
 
 /**
- * `bun life memory fetch <id> [--from-turn n] [--limit n]`: the lines of a lifelog conversation or voice unit (who spoke
- * and when from Life's store, the words from lifelog), or of a chat or mail unit (from the archive), `limit` at a time.
- * A turn ref (`<job>:<turn>@<at>`, an ask's `ref`) opens its conversation as it is now, LEAD turns before the turn.
+ * `bun life memory fetch <id> [--from-turn n] [--limit n] [--at t] [--until t]`: the lines of a lifelog conversation or
+ * voice unit (who spoke and when from Life's store, the words from lifelog), or of a chat or mail unit (from the
+ * archive), `limit` at a time. A turn ref (`<job>:<turn>@<at>`, an ask's `ref`) opens its conversation as it is now, LEAD
+ * turns before the turn. `within` cuts a recording to a span (inside a unit's own): its turns that overlap it, a turn
+ * crossing an edge kept to its words wholly inside (`clipEdges`); a turn ref then opens at the span's first turn.
+ * Anything but a recording refuses a span.
  */
 export async function fetchOf(
   id: string,
   from?: number,
   limit = PAGE,
-  open = openStore
+  open = openStore,
+  within: Within = {}
 ): Promise<string> {
+  const isCut = Boolean(within.at || within.until);
   const turn = parseTurnRef(id);
   if (turn) {
     const at = await findTurn(id, turn, open);
     return at.found
       ? fetchOf(
           at.place.conversation,
-          from ?? Math.max(0, at.place.offset - LEAD),
+          from ?? (isCut ? 0 : Math.max(0, at.place.offset - LEAD)),
           limit,
-          open
+          open,
+          within
         )
       : asData([`(${at.why})`]);
   }
   const fromTurn = from ?? 0;
-  const whole = wholeConversation(id, fromTurn, limit);
+  // An imported conversation has no recording to cut: cut, it has no turns.
+  const whole = isCut ? null : wholeConversation(id, fromTurn, limit);
   if (whole) {
     return whole;
   }
   const people = await readPeople();
-  const { truth } = people;
   const found = UNIT_ID.test(id) ? await findUnit(id) : { unit: undefined };
   if ("why" in found) {
     return asData([`(${found.why})`]);
   }
   const { unit } = found;
-  const head = unit
-    ? `${unit.source} ${unit.date} "${unit.title}" (${unit.id})`
-    : `Conversation ${id}`;
-  let total: number;
-  let lines: { at: string; speaker: string; text: string }[];
-  if (unit && kindOf(unit.source) !== "voice") {
-    const all = (await unitLines(unit, people))?.lines ?? [];
-    total = all.length;
-    lines = all
-      .slice(fromTurn, fromTurn + limit)
-      .map((l) => ({ ...l, speaker: l.speakerName ?? l.speaker }));
-  } else {
-    const turns = await withStore(
-      (store) =>
-        turnsBetween(
-          store,
-          unit?.key ?? id,
-          unit?.start,
-          unit?.end,
-          lifelogNames(truth)
-        ),
-      open
-    );
-    total = turns.length;
-    const shown = turns.slice(fromTurn, fromTurn + limit);
-    // A voice guess is shown here, in the display alone: the lines extraction and the episodes read never carry it.
-    lines = withGuessesShown(
-      voiceLines(shown, await transcripts(shown), people.resolve),
-      people
-    );
-    if (shown.length > 0 && lines.length === 0) {
-      return asData([
-        head,
-        "(no words: lifelog no longer has this recording, or these turns are empty)",
-      ]);
-    }
+  const isVoice = !unit || kindOf(unit.source) === "voice";
+  if (isCut && !isVoice) {
+    return asData([`(${WITHIN_REFUSED})`]);
   }
-  if (total === 0) {
+  const span = isCut ? spanOf(within, unit) : null;
+  const head = headOf(id, unit, span);
+  const read = isVoice
+    ? await spokenPage(id, unit, span, fromTurn, limit, people, open)
+    : await writtenPage(unit, fromTurn, limit, people);
+  if (!read) {
+    return asData([
+      head,
+      "(no words: lifelog no longer has this recording, or these turns are empty)",
+    ]);
+  }
+  if (read.total === 0) {
     return asData([head, "(nothing found)"]);
   }
-  const note =
-    unit && sourceOf(unit.source).imported
-      ? `(the whole conversation: fetch ${unit.key})`
-      : undefined;
-  return pageOf({ head, id, lines, note, total }, fromTurn, limit);
+  return pageOf(
+    { ...read, head, id: moreOf(id, within, span), note: wholeNoteOf(unit) },
+    fromTurn,
+    limit
+  );
+}
+
+/** Where an imported unit's whole conversation is. */
+const wholeNoteOf = (unit?: Unit) =>
+  unit && sourceOf(unit.source).imported
+    ? `(the whole conversation: fetch ${unit.key})`
+    : undefined;
+
+/** A chat or mail unit's lines, re-read from its source, a page of them. */
+async function writtenPage(
+  unit: Unit | undefined,
+  from: number,
+  limit: number,
+  people: People
+) {
+  const all = unit ? ((await unitLines(unit, people))?.lines ?? []) : [];
+  return {
+    lines: all
+      .slice(from, from + limit)
+      .map((l) => ({ ...l, speaker: l.speakerName ?? l.speaker })),
+    total: all.length,
+  };
+}
+
+/**
+ * A recording's lines, a page of them: its turns from Life's store (a unit's, or cut to a span), the words from lifelog.
+ * Null when turns are shown but none has words.
+ */
+async function spokenPage(
+  id: string,
+  unit: Unit | undefined,
+  span: { at: string; until: string } | null,
+  from: number,
+  limit: number,
+  people: People,
+  open: typeof openStore
+) {
+  const names = lifelogNames(people.truth);
+  const key = unit?.key ?? id;
+  const turns = await withStore(
+    (store) =>
+      span
+        ? turnsOverlapping(store, key, span.at, span.until, names)
+        : turnsBetween(store, key, unit?.start, unit?.end, names),
+    open
+  );
+  const shown = turns.slice(from, from + limit);
+  const said = await transcripts(shown);
+  if (span) {
+    await clipEdges(shown, said, span);
+  }
+  // A voice guess is shown here, in the display alone: the lines extraction and the episodes read never carry it.
+  const lines = withGuessesShown(
+    voiceLines(shown, said, people.resolve),
+    people
+  );
+  return shown.length > 0 && lines.length === 0
+    ? null
+    : { lines, total: turns.length };
 }
 
 /** Whether a text holds every word of `query`, case and accents ignored; a query with no word holds nothing. */
@@ -695,8 +748,10 @@ function chatLinesOf(
           redact(textOf(e)),
           e.deleted
         );
+        // A picked-up call's exact span: what `fetch` cuts its recording to (`at`, `until`).
+        const call = e.phoneCall?.seconds ? callSpanOf(e) : null;
         return isChat
-          ? `${line} [id ${e.id}${e.fromMe || e.sender === who ? "" : `; sender ${e.sender}`}]`
+          ? `${line} [id ${e.id}${e.fromMe || e.sender === who ? "" : `; sender ${e.sender}`}${call ? `; call at ${call.at} until ${call.until}` : ""}]`
           : line;
       }),
     ];
