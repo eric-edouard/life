@@ -7,6 +7,7 @@ import { nameKey } from "./units";
 // its one line in the card's rules and its page (`fetch("ask/<kind>")`). A new kind is one entry here and one phone
 // component; the tool's arguments never change for it.
 
+const https = z.url({ protocol: /^https$/ });
 const Account = z
   .object({
     bank: oneLine(80).optional(),
@@ -29,6 +30,14 @@ const Amount = z
     value: z.number().positive(),
   })
   .strict();
+const App = z
+  .object({
+    kind: z.literal("app"),
+    name: oneLine(60),
+    /** An https link into the app (a universal link or its store page), opened by his own tap. */
+    url: https.optional(),
+  })
+  .strict();
 const Link = z
   .object({
     kind: z.literal("link"),
@@ -44,7 +53,6 @@ const Text = z
     text: z.string().min(1).max(500),
   })
   .strict();
-const https = z.url({ protocol: /^https$/ });
 const Place = z
   .object({
     address: oneLine(200).optional(),
@@ -68,6 +76,7 @@ const Qr = z
 export const Need = z.discriminatedUnion("kind", [
   Account,
   Amount,
+  App,
   Link,
   Place,
   Text,
@@ -98,6 +107,11 @@ const KINDS: {
     about: "what to pay (value, currency)",
     line: (n) => amountWordsOf(n.value, n.currency),
     page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
+  },
+  app: {
+    about: "an app to do the step in (name, link)",
+    line: (n) => `In ${n.name}`,
+    page: '`{kind: "app", name, url?}`: a step he does in another app (a bank app, a booking app). `name` as the app is called; `url` an `https` link into it (a universal link or its store page), opened by his own tap, never a custom scheme. Never guess a link. Example: `{"kind":"app","name":"Grab","url":"https://grab.onelink.me/2695613898"}`.',
   },
   link: {
     about: "a web page to open (url, vendor)",
