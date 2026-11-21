@@ -54,6 +54,7 @@ struct PairSheet: View {
         VStack(alignment: .leading, spacing: 24) {
             if phase == .confirming { confirm } else { progress }
         }
+        // The body changes only between asking and checking: pairing to done changes its lines in place.
         .faces(phase == .confirming)
         .sheetScroll {
             SheetHeader(title: title, close: { dismiss() })
