@@ -190,6 +190,7 @@ test("two calls that ended make one wake that carries both", async () => {
   advance(EVENTS_SETTLE);
   await wakeDue(desk);
   expect(turns(agent)).toHaveLength(2);
+  expect(turns(agent).at(-1)?.cause).toBe("event");
   expect(fake.said.at(-1)?.message.match(/call\.ended/g)).toHaveLength(2);
 });
 
