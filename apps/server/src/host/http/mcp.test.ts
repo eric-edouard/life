@@ -9,7 +9,7 @@ import { LOG_DIR } from "../../core/log";
 import { CONNECTOR_WRITES } from "../../core/names";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { setSettings, settings } from "../../core/settings";
-import { DECISIONS } from "../../memory/decisions";
+import { DECISIONS } from "../../memory/decision-lines";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
 import { apply, type Stay } from "../../sources/lifelog";
