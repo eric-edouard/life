@@ -61,11 +61,14 @@ const steps: Record<string, string[]> = {
   ],
   // Vendored skills are upstream text.
   scrub: ["bun", "scripts/scrub-check.ts", ":!.claude/skills"],
-  // 8 workers: 34 s instead of 84 s one file at a time (21 Nov); more would only load the Mac further.
+  // 8 workers: 34 s instead of 84 s one file at a time (21 Nov); more would only load the Mac further. 30 s a test:
+  // bun's 5 s default timed out healthy tests whenever the Mac was loaded, failing whole pushes and trains (21 Nov).
   test: [
     "bun",
     "test",
     "--parallel=8",
+    "--timeout",
+    "30000",
     "./apps/server/src/",
     "./scripts/",
     "./apps/edge/",
