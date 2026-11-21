@@ -4,12 +4,13 @@ import { CODEX } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
-// every page's assets, the pinned codex, the two ACP adapters) beside it, at the paths the code reads them from, for the app to pass as `LIFE_CODE_DIR`. Usage:
+// every page's assets, the pinned codex, the two ACP adapters, pi and Life's pi extension) beside it, at the paths the code reads them from, for the app to pass as `LIFE_CODE_DIR`. Usage:
 // `bun scripts/helper.ts [out]` (default dist/helper).
 
 const ROOT = join(import.meta.dir, "..");
 const out = process.argv[2] ?? join(ROOT, "dist", "helper");
 const resources = join(out, "resources");
+const PI = join("node_modules", "@earendil-works", "pi-coding-agent");
 
 await rm(out, { force: true, recursive: true });
 await mkdir(join(resources, "docs"), { recursive: true });
@@ -50,17 +51,23 @@ await Promise.all([
       }
     );
   }),
-  // The send guard's hook, bundled alone: an agent's every tool call waits for it (`runtime-rows.ts` runs it from here).
-  execOk(
-    [
-      "bun",
-      "build",
-      "--target=bun",
-      join(ROOT, "apps", "server", "src", "desk", "send-guard-hook.ts"),
-      "--outfile",
-      join(resources, "apps", "server", "src", "desk", "send-guard-hook.js"),
-    ],
-    { timeout: 300_000 }
+  // The send guard's hook and Life's pi extension, each bundled alone (`runtime-rows.ts` and pi's runtime run them from here).
+  ...["desk/send-guard-hook", "desk/runtimes/pi-extension"].map((at) =>
+    execOk(
+      [
+        "bun",
+        "build",
+        "--target=bun",
+        join(ROOT, "apps", "server", "src", `${at}.ts`),
+        "--outfile",
+        join(resources, "apps", "server", "src", `${at}.js`),
+      ],
+      { timeout: 300_000 }
+    )
+  ),
+  // pi ships bundled (its `dist/bundle`, which reads its `package.json`): copied whole, run by the helper as bun.
+  ...["package.json", join("dist", "bundle")].map((f) =>
+    cp(join(ROOT, PI, f), join(resources, PI, f), { recursive: true })
   ),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
