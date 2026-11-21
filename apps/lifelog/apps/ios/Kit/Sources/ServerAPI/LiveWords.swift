@@ -98,10 +98,13 @@ public final class LiveWords {
         min(max((now.timeIntervalSince(word.at) - Double(glyph) * perGlyph) / fade, 0), 1)
     }
 
-    /// Whether every glyph of `words` is fully in at `now` (nothing left to draw over time).
-    public nonisolated static func isSettled(_ words: [LiveWord], at now: Date) -> Bool {
-        words.allSatisfy { opacity(of: $0, glyph: $0.text.count, at: now) >= 1 }
+    /// When every glyph of `words` is fully in: nothing changes over time after it.
+    public nonisolated static func settledAt(_ words: [LiveWord]) -> Date {
+        words.map { $0.at.addingTimeInterval(fade + Double($0.text.count) * perGlyph) }.max() ?? .distantPast
     }
+
+    /// The run the stream serves now: `finish` takes it, so a run's end never touches the next one's stream.
+    public var run: Int { generation }
 
     /// His words landed in the field, or this run is heard on the Mac: nothing live to show.
     public func clear() { (words, committed, hasFailed) = ([], "", false) }
@@ -128,14 +131,14 @@ public final class LiveWords {
         send(Self.chunk(samples))
     }
 
-    /// He paused and the microphone gave its last samples: what is left is committed (a moment of silence sent with
+    /// `run` paused and the microphone gave its last samples: what is left is committed (a moment of silence sent with
     /// `commit`), and the run's words come back once ElevenLabs committed them. Nil when the stream failed, never
-    /// opened, or took past `finishWithin`: the Mac then hears the recording. The socket closes either way.
-    public func finish() async -> String? {
-        guard session != nil else { return nil }
+    /// opened, or took past `finishWithin` (`hasFailed`: the Mac then hears the recording), or another run began: that
+    /// one's stream is left alone. Otherwise the socket closes either way.
+    public func finish(_ mine: Int) async -> String? {
+        guard mine == generation, session != nil else { return nil }
         var words: String?
         if isOpen, !hasFailed {
-            let mine = generation
             isFinishing = true
             words = await withCheckedContinuation { ending in
                 self.ending = ending
@@ -146,6 +149,8 @@ public final class LiveWords {
                 }
             }
         }
+        guard mine == generation else { return nil }
+        if words == nil { hasFailed = true }
         close()
         return words
     }

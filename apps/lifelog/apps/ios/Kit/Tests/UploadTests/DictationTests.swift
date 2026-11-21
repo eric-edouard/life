@@ -227,6 +227,22 @@ private final class Recording: Sendable {
     #expect(live.words.isEmpty && !live.hasFailed)
 }
 
+/// A run's end never touches a run begun after it, and a run that never opened its stream is heard on the Mac.
+@MainActor @Test func aRunsFinishLeavesALaterRunAloneAndOneNeverOpenedFails() async {
+    let live = LiveWords()
+    live.begin {
+        try await Task.sleep(for: .seconds(3600)); return "never"
+    }
+    let first = live.run
+    live.begin {
+        try await Task.sleep(for: .seconds(3600)); return "never"
+    }
+    #expect(await live.finish(first) == nil)
+    #expect(!live.hasFailed, "the later run's stream is untouched")
+    #expect(await live.finish(live.run) == nil)
+    #expect(live.hasFailed, "no token by the pause: the Mac hears it, and the line says so")
+}
+
 /// A partial corrected in place, or replaced by its final, keeps its word's time: it never fades in again or moves. New
 /// words come after, one `stagger` apart, left to right.
 @Test func aWordKeepsItsTimeWhenItsPartialIsReplacedAndNewWordsComeInLeftToRight() {
@@ -254,8 +270,10 @@ private final class Recording: Sendable {
     let mid = t0.addingTimeInterval(LiveWords.fade / 2)
     #expect(LiveWords.opacity(of: word, glyph: 0, at: mid) > LiveWords.opacity(of: word, glyph: 3, at: mid))
     #expect(LiveWords.opacity(of: word, glyph: 0, at: t0.addingTimeInterval(-1)) == 0, "never below 0")
-    #expect(!LiveWords.isSettled([word], at: t0.addingTimeInterval(LiveWords.fade)))
-    #expect(LiveWords.isSettled([word], at: t0.addingTimeInterval(LiveWords.fade + 4 * LiveWords.perGlyph)))
+    let settled = LiveWords.settledAt([word])
+    #expect(settled == t0.addingTimeInterval(LiveWords.fade + 4 * LiveWords.perGlyph))
+    #expect(LiveWords.opacity(of: word, glyph: 4, at: settled) == 1, "the last glyph is in")
+    #expect(LiveWords.settledAt([]) == .distantPast)
 }
 
 /// Instant dictation's words land at the pause and the Mac is never asked; without them (heard on the Mac, or the

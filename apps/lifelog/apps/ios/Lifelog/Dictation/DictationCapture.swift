@@ -60,6 +60,8 @@ final class DictationCapture {
     static func begin(
         library: LibraryStore?, sync: SyncStore?, ended: @escaping @MainActor () -> Void
     ) async throws -> DictationCapture {
+        // Another run's words never show in this field while it opens.
+        LiveWords.shared.clear()
         guard await AVAudioApplication.requestRecordPermission() else { throw Failure.denied }
         // Taken once he allowed it: the time the permission sheet stays up is never left out.
         let (start, opened) = (CaptureInstant(.now), ContinuousClock.now)
@@ -77,8 +79,6 @@ final class DictationCapture {
             if capture.isInstant {
                 capture.mic.onSamples = { LiveWords.shared.feed($0) }
                 LiveWords.shared.begin { try await ServerClient.production.liveWordsToken() }
-            } else {
-                LiveWords.shared.clear()
             }
             try capture.mic.start { [weak capture] in capture?.stopOnItsOwn() }
         } catch {
@@ -149,7 +149,10 @@ final class DictationCapture {
         let heard: Result<Data, any Error>
         do { heard = .success(try await mic.stop()) } catch { heard = .failure(error) }
         // After the microphone's last samples have gone to the socket; it runs to its end even when nobody waits.
-        if isInstant { instantWords = Task { await LiveWords.shared.finish() } }
+        if isInstant {
+            let run = LiveWords.shared.run
+            instantWords = Task { await LiveWords.shared.finish(run) }
+        }
         lease.map(AudioSessionOwner.shared.release)
         lease = nil
         // From the monotonic clock: a wall clock set back can't make the stretch end before it starts.

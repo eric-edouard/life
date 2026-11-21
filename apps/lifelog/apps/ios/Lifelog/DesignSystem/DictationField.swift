@@ -49,7 +49,8 @@ struct DictationField: View {
                         field.opacity(isOneLineBusy || isTallLive ? 0 : 1)
                         if isTallLive {
                             let (head, tail) = DictatedText.parts(in: text, at: keptCaret)
-                            LiveWordsText(head: head, words: live.words, tail: tail)
+                            // The caller's line limit holds; past it, the newest words stay in sight.
+                            LiveWordsText(head: head, words: live.words, tail: tail).truncationMode(.head)
                         }
                     }
                     .overlay(alignment: .leading) {
@@ -398,9 +399,13 @@ struct LiveWordsText: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        // The clock runs only while a glyph is still fading: when the last settles it stops until new words come.
-        TimelineView(.animation(paused: reduceMotion || LiveWords.isSettled(words, at: .now))) { context in
-            text.textRenderer(WordFade(words: words, now: reduceMotion ? .distantFuture : context.date))
+        if reduceMotion {
+            text
+        } else {
+            // Frames only while a glyph is still fading; the last one draws every word whole.
+            TimelineView(FramesUntil(end: LiveWords.settledAt(words))) { context in
+                text.textRenderer(WordFade(words: words, now: context.date))
+            }
         }
     }
 
@@ -410,6 +415,20 @@ struct LiveWordsText: View {
             return Text("\(line)\(word)")
         }
         return Text("\(spoken)\(Text(verbatim: tail))")
+    }
+}
+
+/// A frame every 1/60 s from now until `end`, then one at it.
+private struct FramesUntil: TimelineSchedule {
+    let end: Date
+
+    func entries(from start: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        var next: Date? = min(start, end)
+        return AnyIterator {
+            guard let now = next else { return nil }
+            next = now < end ? min(now.addingTimeInterval(1.0 / 60), end) : nil
+            return now
+        }
     }
 }
 
