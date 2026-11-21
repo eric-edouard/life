@@ -4,8 +4,8 @@ import { expect, setSystemTime, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { MIGRATIONS, migrateDb } from "@lifelog/db";
-import { transcriptionJobs } from "@lifelog/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { events, transcriptionJobs } from "@lifelog/db/schema";
+import { and, eq, sql } from "drizzle-orm";
 import { memoryAudioStore } from "./audio-store";
 import { latestSeq } from "./change-log";
 import { jobBench } from "./job-bench";
@@ -68,6 +68,23 @@ async function until(holds: () => boolean) {
   }
   return holds();
 }
+// A block's job is queued for its slot once the worker logs that it heard it: from that event on, the
+// routed turns' send is in the line (nothing awaits between the two), however long the Mac took to get there.
+const heardLogged = (jobId: string) =>
+  until(
+    () =>
+      env.db
+        .select({ id: events.id })
+        .from(events)
+        .where(
+          and(
+            eq(events.name, "speech.heard"),
+            sql`${events.fields}->>'job' = ${jobId}`
+          )
+        )
+        .limit(1)
+        .get() !== undefined
+  );
 const THAI = {
   durationSeconds: 30,
   models: {},
@@ -139,7 +156,7 @@ test("a block's routed turns wait while a Scribe job holds the slot, and go once
   const jobId = await admitFragment(app, speechAudio(30), 1);
   const working = app.s.worker.work();
   expect(await until(() => speech.blocks === 1)).toBe(true);
-  await Bun.sleep(20);
+  expect(await heardLogged(jobId)).toBe(true);
   expect(jobRow(jobId)).toMatchObject({
     maybeBilled: false,
     state: "submitted",
@@ -183,7 +200,7 @@ test("the POST starts its clock: a block that waited 5 minutes for its slot is n
   const jobId = await admitFragment(app, speechAudio(10), 1);
   const working = app.s.worker.work();
   expect(await until(() => speech.blocks === 1)).toBe(true);
-  await Bun.sleep(20);
+  expect(await heardLogged(jobId)).toBe(true);
   setSystemTime(start + 5 * MIN);
   try {
     dictation.free();
