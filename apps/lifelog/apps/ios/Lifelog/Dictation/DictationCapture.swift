@@ -70,6 +70,10 @@ final class DictationCapture {
             try Task.checkCancellation()
             guard ContinuousClock.now < opened + cap else { throw Failure.tooLate }
             capture.lease = try AudioSessionOwner.shared.take(.recording) { [weak capture] in capture?.stopOnItsOwn() }
+            if LiveWords.shared.isOn {
+                capture.mic.onSamples = { LiveWords.shared.feed($0) }
+                LiveWords.shared.begin { try await ServerClient.production.liveWordsToken() }
+            }
             try capture.mic.start { [weak capture] in capture?.stopOnItsOwn() }
         } catch {
             _ = try? await capture.finish()
@@ -133,6 +137,7 @@ final class DictationCapture {
 
     private func close() async throws -> Data {
         deadline?.cancel()
+        LiveWords.shared.end()
         let heard: Result<Data, any Error>
         do { heard = .success(try await mic.stop()) } catch { heard = .failure(error) }
         lease.map(AudioSessionOwner.shared.release)
