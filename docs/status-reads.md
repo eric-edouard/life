@@ -96,6 +96,25 @@ day's file and a byte in it, so lines appended meanwhile never shift it; a page 
 short with a cursor still set; null when nothing older is left. With no cursor, the first page is the newest lines,
 newest first.
 
+## resource samples
+
+`read_resource_samples`, his token only (an agent's is refused; the tokenless server has none): what loads his Mac,
+`{hour, latest, observedAt}`. `hour` is the last hour's samples, one a minute, oldest first; `latest` the newest. Each
+is the watcher's `resource.sample` line (`sampleResources`, `host/resource-sample.ts`), his own Life only:
+
+| Field | What |
+|---|---|
+| `time` | when it was taken (UTC) |
+| `procs` | per group of Life's processes, `[cpu %, rss MB]`: `life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>` (a desk agent's runtime and every tool it runs, by `LIFE_DESK_AGENT`). A process counts under its nearest named ancestor; anything else is left out |
+| `load` | 1, 5 and 15 minute load |
+| `memFree`, `swapMb`, `diskFreeGb` | free memory (%), swap used, free disk |
+| `battery`, `power` | battery % (null without one), `ac` or `battery` |
+| `thermal` | `nominal`, or the warning level |
+
+It reads back from the end of today's log file (and yesterday's across midnight) until a line older than the hour,
+never a whole day. A local model's run is its own line, `model.local` (`describer`, `foundation`: duration, requests,
+whether it answered).
+
 ## changes
 
 Every change to the memory, past a cursor: `{items, count, remaining, cursor, observedAt}`. `count` is the items
