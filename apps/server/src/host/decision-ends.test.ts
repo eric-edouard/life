@@ -236,10 +236,10 @@ test("an `ends` card on a matter sharing its newest step with another closes the
   try {
     // B ends before his answer: the card closes nothing, never A's steps through the step they share.
     const before = await ask();
-    b.open = false;
+    Object.assign(b, { open: false, status: "done" });
     await call(before.id, ["done"]).result;
     expect(readCorrections()).toEqual([]);
-    b.open = true;
+    Object.assign(b, { open: true, status: "moving" });
     const { id } = await ask();
     expect(decisionsNow().find((d) => d.id === id)).toMatchObject({
       matter: "matter_bbbbbbbbbbbb",
@@ -248,6 +248,41 @@ test("an `ends` card on a matter sharing its newest step with another closes the
     await call(id, ["done"]).result;
     expect(readCorrections()).toMatchObject([
       { kind: "outdated", observations: ["obs_00000000000b", shared.ref] },
+    ]);
+  } finally {
+    book.mockRestore();
+  }
+});
+
+// His word of 21 Nov 2026: a matter Life reads over closes as probably done; his Done on it still ends its steps for good.
+test("an `ends` card on a matter Life reads over (closed, its steps not ended) closes its steps by his word", async () => {
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      id: "matter_dddddddddddd",
+      open: false,
+      status: "probably_done",
+      steps: [{ kind: "to_do", ref: "obs_00000000000d" }],
+    },
+  ] as never);
+  try {
+    const { id } = await requestDecision("planner", {
+      context: "A made-up reason to ask.",
+      deadline: new Date(Date.now() + 2 * DAY).toISOString(),
+      onSilence: null,
+      options: [
+        { ends: "matter", id: "done", label: "Done" },
+        { id: "later", label: "Not yet" },
+      ],
+      question: "Was the parcel collected?",
+      subject: "matter_dddddddddddd",
+      title: "Collect the parcel",
+    });
+    await call(id, ["done"]).result;
+    expect(readCorrections()).toMatchObject([
+      { kind: "outdated", observations: ["obs_00000000000d"] },
     ]);
   } finally {
     book.mockRestore();

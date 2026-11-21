@@ -16,7 +16,7 @@ import {
   standingAgents,
 } from "../host/desk-read";
 import type { MatterOfRefs } from "../host/move-read";
-import { matterFinderOf } from "../memory/matter-read";
+import { isAwaitingHisWord, matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
@@ -291,7 +291,9 @@ async function readTakerOf(db: Desk["db"]) {
 /** The open matter some refs find (`prefer` taking a tie), the book read once. */
 async function readMatterIdOf(): Promise<MatterOfRefs> {
   const find = matterFinderOf(
-    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
+    (await readMatterBook(await readPeople(), dayNow())).filter(
+      isAwaitingHisWord
+    )
   );
   return (refs, prefer) => find(refs, prefer)?.id;
 }
