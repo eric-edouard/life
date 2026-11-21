@@ -1,4 +1,5 @@
 import { daysBefore } from "../core/clock";
+import { oneAtATime } from "../core/lock";
 import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
 import {
@@ -155,6 +156,14 @@ async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
   }
   return { item, people };
 }
+
+/**
+ * One voice answer at a time in this process (the phone releases held answers at once): its read of lifelog's queue
+ * and its answer share a turn. ponytail: a turn waits for the ones before it, each a queue read (34 to 120 ms measured)
+ * and one write; a hung lifelog holds the rest up to its read limit, past the phone's 15 s idle wait (the answer still
+ * lands, the phone shows it failed). Answers from the CLI's own process are not in this chain.
+ */
+const voiceTurn = oneAtATime();
 
 /** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
 async function answerVoice(
@@ -477,15 +486,21 @@ export async function answerCheck(
       `Not done: pick one of ${Object.keys(writers).join(", ")} for ${ref}.`
     );
   }
-  const voice = check.group === "voice" ? await readVoice(check) : undefined;
-  const typed = await typedPersonOf(a, voice?.people);
-  const done = await write(check, typed.a, {
-    addDirectoryEntry,
-    endYourMove,
-    onStep,
-    startAgent,
-    voice,
-  });
+  const answer = async (read?: Voice) => {
+    const typed = await typedPersonOf(a, read?.people);
+    const done = await write(check, typed.a, {
+      addDirectoryEntry,
+      endYourMove,
+      onStep,
+      startAgent,
+      voice: read,
+    });
+    return { done, typed, voice: read };
+  };
+  // A voice is read and answered in its turn: each reads lifelog's queue after the answer before it landed.
+  const { done, typed, voice } = await (check.group === "voice"
+    ? voiceTurn(async () => answer(await readVoice(check)))
+    : answer());
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }

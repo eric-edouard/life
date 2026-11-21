@@ -91,3 +91,16 @@ export function release(name: Service) {
     rmSync(serviceLock(name), { force: true });
   }
 }
+
+/**
+ * One chain within this process: each call's `run` starts once the one before it ended, a failure included, so the
+ * calls sharing it never overlap. Each resource keeps its own (`const inTurn = oneAtATime()`); nothing across processes.
+ */
+export function oneAtATime() {
+  let turn: Promise<unknown> = Promise.resolve();
+  return <T>(run: () => Promise<T>) => {
+    const next = turn.then(run);
+    turn = next.catch(() => undefined);
+    return next;
+  };
+}
