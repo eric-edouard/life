@@ -200,15 +200,7 @@ struct Toast: View {
 }
 
 extension View {
-    /// What he just answered (the one held last, for 4 s), over the top: out of the layout, so nothing moves. `shows`
-    /// says whether this screen names that held answer.
-    func heldToast(shows: @escaping (String) -> Bool, undo: @escaping (String) -> Void) -> some View {
-        modifier(HeldToast(shows: shows, undo: undo))
-    }
-}
-
-extension View {
-    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the held answer's toast; in
+    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the toast; in
     /// the closed Duo's side column (`inSideColumn`) only a change that was not made, the column's capsule says the rest.
     func saidBackToast(inSideColumn: Bool) -> some View { modifier(SaidBackToast(inSideColumn: inSideColumn)) }
 
@@ -249,24 +241,6 @@ private struct SaidBackToast: ViewModifier {
             .motion(Motion.standard, value: life.saidBack?.id)
         }
         .reportsSideColumn($isClosed)
-    }
-}
-
-private struct HeldToast: ViewModifier {
-    let shows: (String) -> Bool
-    let undo: (String) -> Void
-
-    @Environment(LifeStore.self) private var life
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .top) {
-            ZStack {
-                if let latest = life.latestHeld, shows(latest.ref) {
-                    Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
-                }
-            }
-            .motion(Motion.standard, value: life.latestHeld?.ref)
-        }
     }
 }
 

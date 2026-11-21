@@ -82,32 +82,18 @@ final class LifeStore {
     /// A tapped push, from the tap until a whole read asked after it lands: its card, as in hand, is shown meanwhile.
     private(set) var pushed: PushedCard?
 
-    /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
-    /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
-    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
-        let matter = self?.heldMatters.removeValue(forKey: held.request.ref) ?? nil
-        await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life did or could not do on it, or when it comes back, is said back here.
-        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords(as: held.label) {
-            self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
-        }
-        Task { await self?.refreshAfterAnswer(on: matter) }
-    }
-    var held: [String: HeldAnswers.Held] { holds.held }
-    /// Whether an answer is held or still being sent: the app going waits for it.
-    var hasAnswersUnderWay: Bool { !holds.underWay.isEmpty }
-    /// The answer held last, which the Inbox's toast names.
-    var latestHeld: (ref: String, held: HeldAnswers.Held)? {
-        holds.latest.flatMap { ref in holds.held[ref].map { (ref, $0) } }
-    }
-    /// The asks a read asked at `asked` (nil: none yet) may still list though his answer took them out: held for Undo, on
+    /// The refs of his answers to rows of Life's own questions while they are sent (`answerRows`): their rows stay on
+    /// show, each with its own state, until the last has ended.
+    private(set) var lingering: Set<String> = []
+    /// The asks a read asked at `asked` (nil: none yet) may still list though his answer took them out: on
     /// their way, or confirmed after it was asked. Every screen leaves them out of that read (`inboxOnShow`, a matter's
     /// asks), so none flashes back; a read asked later says what is open.
     func answersNewer(than asked: Date?) -> Set<String> {
-        holds.underWay.union(answered.newer(than: asked)).union(
+        answered.newer(than: asked).union(
             actions.states.compactMap { key, state in
                 if case .answer(let ref) = key, state.isRunning { ref } else { nil }
-            })
+            }
+        ).subtracting(lingering)
     }
     /// His answers Life confirmed, kept with the reads for a cold start.
     private var answered = AnsweredCards()
@@ -620,16 +606,7 @@ final class LifeStore {
         _ = await (inbox, matters, chips)
     }
 
-    // MARK: Held answers
-
-    /// His answer to such a row, sent in four seconds unless he undoes it; none while Life is out of reach.
-    func hold(_ request: AnswerRequest, as label: String) {
-        guard !isOutOfReach else { return }
-        heldMatters[request.ref] = matterOf(card: request.ref)
-        holds.hold(request, as: label, for: pairedLife)
-    }
-
-    /// A tap that would hold or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
+    /// A tap that would answer or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
     func saysOutOfReach() -> Bool {
         guard let why = whyOutOfReach else { return false }
         show(SaidBack(words: why, undo: nil, isDone: false))
@@ -637,7 +614,7 @@ final class LifeStore {
     }
 
     /// A tap on a screen while Life is out of reach: refused before anything leaves the phone or shows, with why. Only
-    /// taps on a screen: an answer from a notification's button, or one held before Life went out of reach, is tried.
+    /// taps on a screen: an answer from a notification's button is tried.
     /// `saysBack`: an action said back with Undo (`saidBack`) says why there too.
     func refusedOutOfReach(_ key: ActionKey, saysBack: Bool = false) async -> Bool {
         guard let why = whyOutOfReach else { return false }
@@ -649,23 +626,25 @@ final class LifeStore {
         return true
     }
 
-    /// A bulk card's answers, held as one: one toast, one Undo; none while Life is out of reach.
-    func hold(_ requests: [AnswerRequest], as label: String) {
-        guard !isOutOfReach else { return }
-        for request in requests { heldMatters[request.ref] = matterOf(card: request.ref) }
-        holds.hold(requests, as: label, for: pairedLife)
+    // MARK: Answers on rows
+
+    /// His answers to rows of Life's own questions (a bulk card, the moves list), sent at once. Each row stays on show
+    /// with its own state until the last has ended; then Life's word is said in the toast. True when every one was taken.
+    @discardableResult
+    func answerRows(_ requests: [AnswerRequest], as label: String) async -> Bool {
+        let refs = Set(requests.map(\.ref))
+        lingering.formUnion(refs)
+        let sends = requests.map { request in Task { await self.answer(request) } }
+        for send in sends { await send.value }
+        lingering.subtract(refs)
+        let said = requests.map { state(of: .answer(ref: $0.ref)).heldAnswerWords(as: label) }
+        // An answer with no end (the pairing changed meanwhile) is no word from Life: never green.
+        let failed = said.first { $0?.isDone != true }
+        let words =
+            failed.map { $0?.words ?? "Life did not answer." } ?? (requests.count == 1 ? said[0]?.words : nil) ?? label
+        show(SaidBack(words: words, undo: nil, isDone: failed == nil))
+        return failed == nil
     }
-
-    /// Each held answer's matter, taken when he answered: by its send, a read may have dropped its card.
-    @ObservationIgnored private var heldMatters: [String: String?] = [:]
-
-    func undo(_ ref: String) {
-        heldMatters[ref] = nil
-        holds.undo(ref)
-    }
-
-    /// Every held answer, at once: the screen is going, or the app.
-    func sendHeld() async { await holds.sendAll() }
 
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
@@ -932,8 +911,7 @@ final class LifeStore {
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
-        holds.clear()
-        // His actions and their keys were the last Life's: none goes on to this one.
+        // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.
         actions.startOver(pairing: parties.generation.current)
         taps = AnswerTaps()
         onStep(.reading)
