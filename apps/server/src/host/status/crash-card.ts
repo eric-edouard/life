@@ -3,8 +3,8 @@ import type { LogEvent } from "../../core/log";
 import { ASK, type Card, firstOf } from "./card";
 
 // The status card "Crashes": Life's helpers crashing (`main`'s catch, host/cli.ts, logs each as a `run.error` of step
-// `crash`). Red on a crash loop now; amber after any crash in the day. Its word is "looping" after any crash loop in
-// the day, so the tick's alert (`redCards`) mails a loop once a day even when it fell between two ticks.
+// `crash`). Red on a crash loop now ("looping"), amber after one earlier in the day ("looped") or any crash. The tick's
+// alert (`redCards`) takes either, keyed to the loop's own day (`alertKeyOf`), so a loop between two ticks is mailed once.
 
 type ErrorLine = Pick<LogEvent, "at" | "kind" | "step"> & {
   command?: unknown;
@@ -18,6 +18,8 @@ export const isCrash = (e: ErrorLine) =>
 const CRASH_LOOP_AT = 5;
 const CRASH_LOOP_MS = 30 * MIN;
 const LOOPING = "looping";
+/** A loop earlier in the day, over now. */
+const LOOPED = "looped";
 
 /** The crashes of the latest crash loop among `crashes` (oldest first): its window ends at its last crash. */
 function latestLoopOf<T extends ErrorLine>(crashes: T[]): T[] {
@@ -36,9 +38,9 @@ function latestLoopOf<T extends ErrorLine>(crashes: T[]): T[] {
   return crashes.slice(from, to);
 }
 
-/** The crash card after a crash loop in the day, red or not: the alert mails it (`redCards`). */
+/** The crash card after a crash loop in the day, now or over: the alert mails it (`redCards`). */
 export const isCrashLoopCard = (c: Card) =>
-  c.id === "crashes" && c.word === LOOPING;
+  c.id === "crashes" && (c.word === LOOPING || c.word === LOOPED);
 
 /** The card from the run errors of the last day (`errorsToday`), oldest first, at `now`. */
 export function crashCard(errors: ErrorLine[], now: number): Card {
@@ -57,7 +59,7 @@ export function crashCard(errors: ErrorLine[], now: number): Card {
           word: LOOPING,
         },
       ],
-      [loop.length > 0, { tone: "warn", word: LOOPING }],
+      [loop.length > 0, { tone: "warn", word: LOOPED }],
       [
         last !== undefined,
         { tone: "warn", word: `${crashes.length} in a day` },

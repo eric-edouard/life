@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
-import { redCards } from "../report";
+import { alertKeyOf, redCards } from "../report";
 import { crashCard } from "./crash-card";
 import {
   processingStepsOf,
@@ -303,6 +303,11 @@ test("a crash loop that fell between two ticks is still in the alert", () => {
     at: crashes[4]?.at,
     headline: "desk crashed 5 times in 30 min",
     tone: "warn",
+    word: "looped",
   });
   expect(redCards([later])).toEqual([later]);
+  // Mailed under its own day, the same key red or over, never the next day's.
+  const key = alertKeyOf(later, new Date("2026-11-21T09:00:00.000Z"));
+  expect(key).toBe(alertKeyOf(crashCard(crashes, at("10:32")), new Date()));
+  expect(key).toBe("alert/crashes/loop/2026-11-20");
 });

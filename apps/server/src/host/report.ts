@@ -22,7 +22,7 @@ import type { describeFiles } from "../memory/message-files";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
-import { localDate, localTime, time, when } from "../memory/zones";
+import { dayNow, localDate, localTime, time, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../records/ledger-entry";
 import { polling, readHealth } from "./health";
@@ -364,6 +364,12 @@ export const redCards = (cards: Card[]) =>
     (c) =>
       isCrashLoopCard(c) || (c.tone === "bad" && !QUIET_GROUPS.has(c.group))
   );
+
+/** A red card's alert key: one mail a day per problem; a crash loop's, on the day of its last crash. */
+export const alertKeyOf = (c: Card, now: Date) =>
+  isCrashLoopCard(c) && c.at
+    ? `alert/${c.id}/loop/${localDate(c.at)}`
+    : `alert/${c.id}/${c.word}/${dayNow(now)}`;
 
 /** The alert for the cards in red (`redCards`): what is broken, each in its card's words. */
 export const redReport = (

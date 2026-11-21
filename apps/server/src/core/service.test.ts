@@ -80,8 +80,32 @@ test("a log put in place of the one being rotated is never emptied: the copy and
     expect(readFileSync(path, "utf8")).toBe("new\n");
     expect(statSync(join(dir, "moved")).size).toBe(0);
     expect(statSync(join(dir, "life-desk.old.log")).size).toBe(10_000_001);
+    // Owner-only, whatever the umask.
+    expect(statSync(join(dir, "life-desk.old.log")).mode.toString(8)).toEndWith(
+      "600"
+    );
   } finally {
     swap.mockRestore();
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("a backup is whole even when the disk takes a write in parts", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-logs-"));
+  const big = Buffer.alloc(10_000_001, "y");
+  writeFileSync(join(dir, "life-desk.log"), big);
+  const write = fs.writeSync;
+  const short = spyOn(fs, "writeSync").mockImplementation(((
+    fd: number,
+    b: NodeJS.ArrayBufferView,
+    off: number,
+    n: number
+  ) => write(fd, b, off, Math.min(n, 4096))) as typeof fs.writeSync);
+  try {
+    expect(rotateProcessLogs(dir)).toEqual(["life-desk.log"]);
+    expect(readFileSync(join(dir, "life-desk.old.log")).equals(big)).toBe(true);
+  } finally {
+    short.mockRestore();
     rmSync(dir, { force: true, recursive: true });
   }
 });

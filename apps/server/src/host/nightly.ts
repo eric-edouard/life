@@ -107,6 +107,7 @@ import { openChecksNow } from "./inbox";
 import { syncPast } from "./past-calendar";
 import { readAgentSection } from "./registered-agents";
 import {
+  alertKeyOf,
   failureReport,
   type Mail,
   redCards,
@@ -279,7 +280,7 @@ export async function nightly(days: number, force = false) {
     const red = redCards((await snapshot()).cards);
     if (red.length > 0) {
       await sendReport(
-        red.map((c) => `alert/${c.id}/${c.word}/${dayNow(clock())}`),
+        red.map((c) => alertKeyOf(c, clock())),
         redReport(clock().toISOString(), red)
       );
     }

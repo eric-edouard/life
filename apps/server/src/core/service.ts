@@ -127,13 +127,17 @@ function rotateLog(path: string) {
 
 /** A whole file, read through its descriptor, into a new file at `to` (`copyFileSync` takes no descriptor). */
 function copyFrom(fd: number, to: string) {
-  const out = openSync(to, "wx");
+  // Owner-only, as his logs are.
+  const out = openSync(to, "wx", 0o600);
   try {
     const chunk = Buffer.allocUnsafe(1_048_576);
     let at = 0;
     let read = readSync(fd, chunk, 0, chunk.length, at);
     while (read > 0) {
-      writeSync(out, chunk, 0, read);
+      let written = 0;
+      while (written < read) {
+        written += writeSync(out, chunk, written, read - written);
+      }
       at += read;
       read = readSync(fd, chunk, 0, chunk.length, at);
     }
