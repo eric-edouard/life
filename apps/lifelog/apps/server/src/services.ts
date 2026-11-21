@@ -57,7 +57,7 @@ export function services(
     voices = voiceUpkeep(db),
     // Cuts a job's clean turns from its bucket audio and embeds them (rebuild P3). Summaries
     // name speakers when read, so recognition starts nothing.
-    excerpts = excerptSampler(db, config, audio),
+    excerpts = excerptSampler(db, config, audio, () => mac.vouchedThrough()),
     // The archive's invariants, hourly, with an email to the owner when one breaks.
     health = healthWatch(db, config),
     // The daily restic snapshot, when RESTIC_* is set.

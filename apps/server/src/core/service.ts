@@ -1,5 +1,20 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  ftruncateSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
 import { join } from "node:path";
+import { log } from "./log";
+import { errorOf } from "./log-line";
 import { HOME } from "./platform";
 import { exec, execOk, untilAnswers } from "./proc";
 
@@ -16,7 +31,7 @@ const xml = (s: string) =>
 /** Keeps `args` running in `dir` as job `job`, replacing (so restarting) the job of that name if there is one. */
 export async function keepRunning(job: string, dir: string, args: string[]) {
   const label = labelOf(job);
-  const log = join(HOME, "Library", "Logs", `${label}.log`);
+  const output = join(HOME, "Library", "Logs", `${label}.log`);
   const plist = join(AGENTS, `${label}.plist`);
   mkdirSync(AGENTS, { recursive: true });
   writeFileSync(
@@ -28,7 +43,7 @@ export async function keepRunning(job: string, dir: string, args: string[]) {
 <key>ProgramArguments</key><array>${args.map((a) => `<string>${xml(a)}</string>`).join("")}</array>
 <key>WorkingDirectory</key><string>${xml(dir)}</string>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>10</integer>
-<key>StandardOutPath</key><string>${xml(log)}</string><key>StandardErrorPath</key><string>${xml(log)}</string>
+<key>StandardOutPath</key><string>${xml(output)}</string><key>StandardErrorPath</key><string>${xml(output)}</string>
 </dict></plist>
 `
   );
@@ -41,4 +56,92 @@ export async function keepRunning(job: string, dir: string, args: string[]) {
     `${label} stopping`
   );
   await execOk(["launchctl", "bootstrap", domain(), plist]);
+}
+
+const LOG_END = /\.log$/;
+/** The process logs past this size are rotated (`rotateProcessLogs`). */
+const LOG_CAP = 10_000_000;
+/** Life's process logs: Life.app's helpers, Lifelog Host's children and the launchd jobs; never a `.old.log`. */
+const PROCESS_LOG =
+  /^(?:life-|lifelog-|com\.ericedouard\.life\.).*(?<!\.old)\.log$/;
+
+/**
+ * The one rotation rule for every process log in ~/Library/Logs: past `LOG_CAP`, copied to `<name>.old.log` (the one
+ * kept) and emptied in place, so its writers (who append: launchd, `O_APPEND` in both apps' supervisors) go on
+ * writing into it. Regular files only (never through a link), each on its own: one that fails is logged and the rest
+ * still rotate. Run by his own Life's watcher alone (a demo's would fight over his logs). Returns the names rotated.
+ * ponytail: a line written between the copy and the truncate is lost (logrotate's copytruncate); a child's output
+ * can't be reopened without restarting it.
+ */
+export function rotateProcessLogs(dir = join(HOME, "Library", "Logs")) {
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((n) => PROCESS_LOG.test(n));
+  } catch (e) {
+    log("run.error", { ...errorOf(e), step: "watch.logs" });
+    return [];
+  }
+  return names.filter((n) => {
+    try {
+      return rotateLog(join(dir, n));
+    } catch (e) {
+      log("run.error", { ...errorOf(e), file: n, step: "watch.logs" });
+      return false;
+    }
+  });
+}
+
+/**
+ * One log, through one descriptor from its check to its truncate, so a file put in its place meanwhile is never
+ * emptied; the backup is written beside it first and replaces the kept one only once whole.
+ */
+function rotateLog(path: string) {
+  let fd: number;
+  try {
+    // biome-ignore lint/suspicious/noBitwiseOperators: open's flags are bits.
+    fd = openSync(path, constants.O_RDWR | constants.O_NOFOLLOW);
+  } catch (e) {
+    // Gone since the listing, or a link.
+    if (["ELOOP", "ENOENT"].includes((e as NodeJS.ErrnoException).code ?? "")) {
+      return false;
+    }
+    throw e;
+  }
+  try {
+    const at = fstatSync(fd);
+    // Mostly holes: a writer that doesn't append wrote on past an earlier truncate (an app not rebuilt since); its
+    // own restart rotates it.
+    if (!at.isFile() || at.size <= LOG_CAP || at.blocks * 512 < at.size / 2) {
+      return false;
+    }
+    const next = `${path}.rotating`;
+    rmSync(next, { force: true });
+    copyFrom(fd, next);
+    renameSync(next, path.replace(LOG_END, ".old.log"));
+    ftruncateSync(fd, 0);
+    return true;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** A whole file, read through its descriptor, into a new file at `to` (`copyFileSync` takes no descriptor). */
+function copyFrom(fd: number, to: string) {
+  // Owner-only, as his logs are.
+  const out = openSync(to, "wx", 0o600);
+  try {
+    const chunk = Buffer.allocUnsafe(1_048_576);
+    let at = 0;
+    let read = readSync(fd, chunk, 0, chunk.length, at);
+    while (read > 0) {
+      let written = 0;
+      while (written < read) {
+        written += writeSync(out, chunk, written, read - written);
+      }
+      at += read;
+      read = readSync(fd, chunk, 0, chunk.length, at);
+    }
+  } finally {
+    closeSync(out);
+  }
 }

@@ -1,10 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
+import { alertKeyOf, redCards } from "../report";
+import { crashCard } from "./crash-card";
 import {
   processingStepsOf,
   quietestAt,
-  redCards,
   snapshot,
   toneOf,
   waking,
@@ -247,3 +248,66 @@ test(
   },
   MIN
 );
+
+// 20 Nov 2026: the desk crashed once every 7 s for 67 minutes, and only "Agents not running" was mailed.
+test(
+  "a crash loop is red, so the tick mails it, naming the helper; a crash alone is amber",
+  async () => {
+    const { log } = await import("../../core/log");
+    // Past the snapshot's cache of the log, which earlier tests filled.
+    let later = performance.now() + 2 * DAY;
+    const timer = spyOn(performance, "now").mockImplementation(() => later);
+    const crash = () =>
+      log("run.error", {
+        command: "desk",
+        error: "TypeError: x is not a function",
+        step: "crash",
+      });
+    const card = async () =>
+      (await snapshot()).cards.find((c) => c.id === "crashes");
+    try {
+      crash();
+      expect(await card()).toMatchObject({ tone: "warn" });
+      for (const _ of [1, 2, 3, 4]) {
+        crash();
+      }
+      later += HOUR;
+      const red = redCards((await snapshot()).cards).find(
+        (c) => c.id === "crashes"
+      );
+      expect(red).toMatchObject({
+        headline: "desk crashed 5 times in 30 min",
+        word: "looping",
+      });
+    } finally {
+      timer.mockRestore();
+    }
+  },
+  MIN
+);
+
+// A loop between two ticks: amber by the 11:00 tick, still mailed once that day.
+test("a crash loop that fell between two ticks is still in the alert", () => {
+  const crashes = ["10:27", "10:28", "10:29", "10:31", "10:32"].map((t) => ({
+    at: `2026-11-20T${t}:00.000Z`,
+    command: "desk",
+    kind: "run.error",
+    step: "crash",
+  }));
+  const at = (t: string) => Date.parse(`2026-11-20T${t}:00.000Z`);
+  expect(crashCard(crashes.slice(0, 3), at("10:30")).tone).toBe("warn");
+  expect(redCards([crashCard(crashes.slice(0, 3), at("10:30"))])).toEqual([]);
+  expect(crashCard(crashes, at("10:32")).tone).toBe("bad");
+  const later = crashCard(crashes, at("11:00"));
+  expect(later).toMatchObject({
+    at: crashes[4]?.at,
+    headline: "desk crashed 5 times in 30 min",
+    tone: "warn",
+    word: "looped",
+  });
+  expect(redCards([later])).toEqual([later]);
+  // Mailed under its own day, the same key red or over, never the next day's.
+  const key = alertKeyOf(later, new Date("2026-11-21T09:00:00.000Z"));
+  expect(key).toBe(alertKeyOf(crashCard(crashes, at("10:32")), new Date()));
+  expect(key).toBe("alert/crashes/loop/2026-11-20");
+});

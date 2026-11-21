@@ -17,9 +17,17 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
-    /// The People tab: everyone Life knows, closest first, and one of them read in full, by ref.
+    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
+    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
+    /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
+    private(set) var latest: [String: ReadState<LatestPage>] = [:]
+    private(set) var prose: [String: ReadState<Prose>] = [:]
+    /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
+    private(set) var reach: [String: ReadState<ReachPage>] = [:]
+    /// Every matter open with someone, by their ref: read on All once their `now` left some out.
+    private(set) var openWith: [String: ReadState<MatterList>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -232,6 +240,50 @@ final class LifeStore {
         await load(update, key: key) { try await $0.readPart(ref + "/now") }
     }
 
+    func refreshLatest(_ ref: String) async {
+        await load({ self.latest[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+            try await $0.readPart(ref)
+        }
+    }
+
+    /// Every account of theirs: the `reach` part page after page to its end, from `first` on a visit (the accounts may
+    /// have changed on the Mac since), or from the page that failed on Try again (`isRetry`). A page that fails stops
+    /// it there; the pages read before stand until their new read lands.
+    func refreshReach(from first: String, isRetry: Bool = false) async {
+        var next = isRetry ? reachChain(from: first).toRead : first
+        while let ref = next {
+            await load({ self.reach[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+                try await $0.readPart(ref)
+            }
+            guard reach[ref]?.phase == .loaded else { return }
+            next = reach[ref]?.value?.next
+        }
+    }
+
+    /// The `reach` part's pages read so far, from `first`, and what comes next.
+    func reachChain(from first: String) -> PageChain<ReachPage> {
+        PageChain(from: first, states: reach, next: \.next)
+    }
+
+    /// Their `latest` pages read so far, from the first, paging back, and what comes next.
+    func latestChain(of subject: String) -> PageChain<LatestPage> {
+        PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
+    }
+
+    func refreshOpenWith(_ ref: String) async {
+        await load(
+            { self.openWith[ref, default: ReadState()].apply($0) }, key: "read_matters-person-\(ref)", isKept: false
+        ) {
+            try await $0.readMatters(person: ref)
+        }
+    }
+
+    func refreshProse(_ ref: String) async {
+        await load({ self.prose[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+            try await $0.readPart(ref)
+        }
+    }
+
     /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
     func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
         update(.started)
@@ -240,6 +292,18 @@ final class LifeStore {
         }
         if case .failed(.notPaired) = event { pairedOrigin = nil }
         update(event)
+    }
+
+    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
+    /// replaces this one's, which then applies nothing.
+    func findPeople(_ query: String) async {
+        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
+        await load(
+            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
+            key: "read_people_and_organizations-query-\(query)", isKept: false
+        ) {
+            try await $0.readPeopleAndOrganizations(query: query)
+        }
     }
 
     func refreshMatter(_ id: String) async {
@@ -276,19 +340,19 @@ final class LifeStore {
         if inbox.value != nil { setBadge(badge) }
     }
 
-    private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+    private func restore<V: ParsedRead & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
-            let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
+            let value = try? V.parsed(kept.text)
         else { return }
         parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
     /// The read `key`, one pass at a time (`ReadFlights`): its value applies as of when its pass began, and is kept for a
-    /// cold start. A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
+    /// cold start unless `isKept` is false (a part of a page, read again on each visit). A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
     /// no reset (`PairingGeneration`).
-    private func load<V: Decodable & Sendable & NamesParties>(
-        _ update: @escaping (ReadState<V>.Event) -> Void, key: String,
+    private func load<V: ParsedRead & NamesParties>(
+        _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true,
         fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
         await flights.run(key) { [self] in
@@ -297,8 +361,8 @@ final class LifeStore {
             guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
             do {
                 let read = try text.get()
-                let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(read.utf8))
-                cache.store(read, key: key, asked: asked)
+                let value = try V.parsed(read)
+                if isKept { cache.store(read, key: key, asked: asked) }
                 parties.remember(value.parties, at: asked, pairing: pairing)
                 update(.succeeded(value, asked))
             } catch let error as MCPError {
@@ -656,7 +720,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person) = (ReadState(), [:])
+        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()

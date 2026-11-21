@@ -62,10 +62,11 @@ export const CheckGroup = z.enum([
 ]);
 export type CheckGroup = z.infer<typeof CheckGroup>;
 
-/** What his notification settings are kept by: a check's group, and a decision with a draft apart (`notifyKindOf`, `host/card-push.ts`). */
+/** What his notification settings are kept by: a check's group, a decision with a draft apart (`notifyKindOf`, `host/card-push.ts`), and an appointment Life added to his calendar. */
 export const NotifyKind = z.enum([
   ...CheckGroup.options,
   "decision with a draft",
+  "calendar",
 ]);
 export type NotifyKind = z.infer<typeof NotifyKind>;
 

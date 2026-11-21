@@ -76,6 +76,14 @@ public enum ActionState<Proof: Sendable & Equatable>: Sendable, Equatable {
         return false
     }
 
+    /// Life has not answered yet (before the call, or while it runs): only then may a screen say it is asking.
+    public var isWaitingOnLife: Bool {
+        switch self {
+        case .idle, .running: true
+        case .succeeded, .failed: false
+        }
+    }
+
     public var steps: [ActionStep] {
         switch self {
         case .idle: []

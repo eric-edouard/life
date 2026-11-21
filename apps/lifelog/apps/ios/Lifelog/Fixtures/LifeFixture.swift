@@ -176,6 +176,16 @@
             head["status"] = status
             return json(["project": head, "matters": rows])
         }
+        /// The matters whose people name `person`, by any role.
+        func readMatters(person: String) async throws -> String {
+            try await gate()
+            let rows = rowsNow().filter { row in
+                (row["people"] as? [String: [[String: Any]]] ?? [:]).values.joined().contains {
+                    $0["ref"] as? String == person
+                }
+            }
+            return json(["matters": rows])
+        }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
         /// A `life:` link's page: what Life read of it, as its text reads.
         func fetch(_ ref: String) async throws -> String {
@@ -205,15 +215,27 @@
         }
 
         /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
-        /// their ref) or `latest` (`read_people_and_organizations_latest.json`, by ref).
+        /// their ref), a page of `latest` or `reach` (`read_people_and_organizations_latest.json`, `…_reach.json`, by
+        /// ref) or a prose part.
         func readPart(_ ref: String) async throws -> String {
             try await gate()
             let parts = ref.split(separator: "/").map(String.init)
             guard let subject = parts.first, let part = parts.dropFirst().first else {
                 throw MCPError.failed("No such part.")
             }
-            if part == "latest" {
-                return json(Self.read("read_people_and_organizations_latest", or: [:])[subject] ?? ["latest": []])
+            // A page of `latest` or `reach`, by its whole ref (`person:camille/latest/before/2026-11-10`); `latest`
+            // alone may be keyed by its subject.
+            if part == "latest" || part == "reach" {
+                let pages = Self.read("read_people_and_organizations_\(part)", or: [:])
+                guard let page = pages[ref] ?? (ref == subject + "/latest" ? pages[subject] : nil) else {
+                    if part == "latest", ref == subject + "/latest" { return json(["latest": []]) }
+                    throw MCPError.failed("No such page.")
+                }
+                return json(page)
+            }
+            // A prose part, as Life writes it (`read_people_and_organizations_parts.json`, its text by ref).
+            if part != "now" {
+                return Self.read("read_people_and_organizations_parts", or: [:])[ref] as? String ?? ""
             }
             let rows = Self.people["people"] as? [[String: Any]] ?? []
             guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {

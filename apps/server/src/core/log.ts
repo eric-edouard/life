@@ -35,11 +35,13 @@ type LogKind =
   | "lifelog.write"
   | "matter.icons"
   | "mcp.call"
+  | "model.local"
   | "model.retry"
   | "model.run"
   | "offline"
   | "photos.describe"
   | "quota.read"
+  | "resource.sample"
   | "run.start"
   | "run.end"
   | "run.error"
@@ -115,6 +117,34 @@ const lifeLine = logWriter("life", (line, time) => {
     console.error(line);
   }
 });
+
+/**
+ * `work`, a run of a model on this Mac (`model`: describer, foundation), as one `model.local` line: its duration, how
+ * many requests it held and whether it answered (`isOk`, by default when it did not throw).
+ */
+export async function timedLocalModel<T>(
+  model: string,
+  count: number,
+  work: () => Promise<T>,
+  isOk: (t: T) => boolean = () => true
+) {
+  const started = performance.now();
+  const logged = (ok: boolean) =>
+    log("model.local", {
+      count,
+      model,
+      ms: Math.round(performance.now() - started),
+      ok,
+    });
+  try {
+    const t = await work();
+    logged(isOk(t));
+    return t;
+  } catch (e) {
+    logged(false);
+    throw e;
+  }
+}
 
 /** One line of Life's: to the day file of its own instant. */
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {

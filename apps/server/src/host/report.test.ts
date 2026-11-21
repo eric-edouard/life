@@ -246,10 +246,9 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   at: null,
   clips: [],
   confirm: [],
-  context: null,
+  context: "> see you Friday\n\n*whatsapp, 7 Sep*",
   deadline: null,
   draft: null,
-  evidence: { from: "whatsapp, 7 Sep", quote: "see you Friday" },
   goal: null,
   group: "guessed person",
   kind: "person",
@@ -289,7 +288,7 @@ test("the Checks section lists every row in the order given, after Birthdays, wi
   );
   const { text, html } = successReport("2026-10-15", 1000, n);
   expect(text).toContain(
-    "Checks (40)\n- Life thinks this is Zed 0, a plumber (80% sure): “see you Friday” (whatsapp, 7 Sep) · settles 3 observations and 2 open matters\n- Life thinks this is Zed 1, a plumber (80% sure): “see you Friday” (whatsapp, 7 Sep) · settles 1 observation"
+    "Checks (40)\n- Life thinks this is Zed 0, a plumber (80% sure): > see you Friday\n\n*whatsapp, 7 Sep* · settles 3 observations and 2 open matters\n- Life thinks this is Zed 1, a plumber (80% sure): > see you Friday\n\n*whatsapp, 7 Sep* · settles 1 observation"
   );
   expect(text).not.toContain("more");
   expect(text).toContain("Zed 39,");
@@ -313,7 +312,6 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     context: null,
     deadline: "2026-10-16T08:00:00.000Z",
     draft: i === 0 ? { text: "Can you come Friday?", to: "Kit" } : null,
-    evidence: null,
     goal: null,
     group: "decision",
     kind: "decision",

@@ -52,9 +52,6 @@ const CAPS: Record<string, Record<string, number>> = {
   "Inbox/CheckList.swift": {
     padding: 2,
   },
-  "Inbox/DraftBlock.swift": {
-    font: 1,
-  },
   "Matters/MatterPage.swift": {
     height: 1,
     padding: 11,

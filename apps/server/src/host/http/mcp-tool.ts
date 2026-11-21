@@ -1,7 +1,7 @@
 import type { AuthInfo, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { log } from "../../core/log";
-import { IDS } from "../../core/log-line";
+import { IDS, refusalClassOf } from "../../core/log-line";
 import { clip } from "../../memory/units";
 
 // How an MCP tool of Life's is registered: its arguments checked, its answer as text, every call logged (`mcp.call`).
@@ -69,14 +69,6 @@ const cut = (args: unknown) =>
   JSON.parse(
     JSON.stringify(args, (_, v) => (typeof v === "string" ? clip(v, 200) : v))
   );
-
-/** A refused tool call's class on its `mcp.call` line, never its text (it can quote what was asked). */
-const refusalOf = (body: string) => {
-  if (body.startsWith("Invalid arguments")) {
-    return "invalid_arguments";
-  }
-  return body.startsWith("Not done") ? "not_done" : "error";
-};
 
 /** Who asked, on every `mcp.call` line: the OAuth client and its grant's agent claim. */
 export const callerOf = (auth?: AuthInfo) => ({
@@ -165,7 +157,7 @@ export function tool<S extends z.ZodObject>(
         error: result.isError,
         ids: [...new Set(body.match(IDS))],
         ms: Math.round(performance.now() - started),
-        ...(result.isError ? { refused: refusalOf(body) } : {}),
+        ...(result.isError ? { refused: refusalClassOf(body) } : {}),
         ...(steps.length ? { steps } : {}),
         tool: name,
       });

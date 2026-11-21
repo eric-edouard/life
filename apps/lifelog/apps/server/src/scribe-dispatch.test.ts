@@ -1,6 +1,6 @@
 // Paid sends through the job worker with one ElevenLabs slot: dictation beside the pendant's blocks,
 // the POST's own clock, and slots freed by what settles them (scribe-slots.ts holds the order rules).
-import { expect, setSystemTime, test } from "bun:test";
+import { expect, mock, setSystemTime, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { MIGRATIONS, migrateDb } from "@lifelog/db";
@@ -11,6 +11,7 @@ import { latestSeq } from "./change-log";
 import { jobBench } from "./job-bench";
 import { getJob } from "./jobs";
 import { addQuietRange } from "./quiet-ranges";
+import { creditsWatch } from "./scribe-credits";
 import { setSwitches } from "./switches";
 import { OWNER_TOKEN, providerTranscript } from "./testing";
 
@@ -140,8 +141,8 @@ test("dictation takes the slot next after the send under way, ahead of older wor
 
   // No call to the worker: the freed slot sends what is queued.
   dictation.free();
-  expect(await until(() => jobRow(older).state === "submitted")).toBe(true);
-  expect(uploads()).toHaveLength(2);
+  expect(await until(() => uploads().length === 2)).toBe(true);
+  expect(jobRow(older).state).toBe("submitted");
 });
 
 test("a block's routed turns wait while a Scribe job holds the slot, and go once it is answered", async () => {
@@ -172,13 +173,95 @@ test("a block's routed turns wait while a Scribe job holds the slot, and go once
   });
 });
 
+test("a quiet range that lands while a block waits for its paid slot: nothing of it is sent, then or on a retry", async () => {
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const atScribe = await admitFragment(app, audio(60), 100);
+  await app.s.worker.work();
+  setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
+  speech.heard = THAI;
+  fake.respond = thaiAnswer;
+  // Recorded from T0 to T0 + 30 s; its Thai turn waits for the slot.
+  const jobId = await admitFragment(app, speechAudio(30), 1);
+  const working = app.s.worker.work();
+  expect(await until(() => speech.blocks === 1)).toBe(true);
+  await Bun.sleep(20);
+  expect(uploads()).toHaveLength(1);
+
+  // Meanwhile the Mac reports a dictation over its last second.
+  addQuietRange(env.db, {
+    endedAt: new Date(T0 + 31_000).toISOString(),
+    id: randomUUID(),
+    source: "com.apple.dictation",
+    startedAt: new Date(T0 + 29_000).toISOString(),
+  });
+  await completeByWebhook(app, jobRow(atScribe));
+  await working;
+  expect(uploads()).toHaveLength(1);
+  // Withdrawn at the send or on the retry, never sent.
+  due(jobId);
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(getJob(env.db, jobId)).toBeUndefined();
+});
+
+test("nothing paid goes before the first read of the credits: a wake at boot waits, and credits read out keep the job queued", async () => {
+  let answer: (r: Response) => void = () => undefined;
+  const quota = new Promise<Response>((resolve) => {
+    answer = resolve;
+  });
+  fake.respond = (call) =>
+    call.path.endsWith("/v1/user/subscription") ? quota : Response.json({});
+  const app = appWith(oneSlot);
+  setSwitches(env.db, { transcriber: "scribe" });
+  const jobId = await admitFragment(app, audio(60), 1);
+  // A wake just after boot, before the tick read the credits.
+  app.s.worker.poke();
+  await Bun.sleep(100);
+  expect(uploads()).toHaveLength(0);
+  answer(Response.json({ character_count: 1000, character_limit: 1000 }));
+  await app.s.worker.work.idle();
+  await Bun.sleep(20);
+  expect(uploads()).toHaveLength(0);
+  expect(jobRow(jobId).state).toBe("queued");
+});
+
+test("paid sends and the tick wait for the balance read, not for the low-credit email", async () => {
+  const app = appWith({
+    ALERT_EMAIL_FROM: "Alerts <alerts@example.com>",
+    ALERT_EMAIL_TO: "owner@example.com",
+    RESEND_API_KEY: "re_test",
+  });
+  fake.respond = () =>
+    Response.json({ character_count: 850, character_limit: 1000 });
+  // Resend never answers.
+  const real = globalThis.fetch;
+  spyOn(globalThis, "fetch").mockImplementation(((
+    url: string | URL | Request,
+    init?: RequestInit
+  ) =>
+    String(url).startsWith("https://api.resend.com")
+      ? new Promise(() => undefined)
+      : real(url, init)) as typeof fetch);
+  const credits = creditsWatch(env.db, app.s.config);
+  // The check itself (the tick's) returns once the balance is applied.
+  await credits.check();
+  await credits.firstRead();
+  expect(credits.level()).toBe("low");
+  mock.restore();
+});
+
 test("a routed excerpt holds the slot until its words are stored, then dictation waiting for it gets it by itself", async () => {
   const app = appWith(oneSlot);
   setSwitches(env.db, { transcriber: "speech" });
   inThaiZone();
   speech.heard = THAI;
   let dictation: ReturnType<typeof dictate> | undefined;
-  fake.respond = () => {
+  fake.respond = (call) => {
+    if (call.path.endsWith("/v1/user/subscription")) {
+      return Response.json({});
+    }
     dictation = dictate(app);
     return thaiAnswer();
   };
