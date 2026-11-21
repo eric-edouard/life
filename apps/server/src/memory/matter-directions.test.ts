@@ -710,6 +710,7 @@ test("a matter's evidence is shown; a looks-over draft may cite a unit or a paym
           },
         ],
       } as never);
+      // biome-ignore lint/performance/noAwaitInLoops: each draft is read back before the next is written
       await matterDirections(people, { today: TODAY });
       expect(
         readMatterPins().directions[0]?.nextStep?.context !== undefined

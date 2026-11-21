@@ -29,7 +29,7 @@ export interface Evidence {
 
 /** A matter's window: from its oldest open step's day, at most `EVIDENCE_DAYS` back; none without an open step. Pure. */
 export const windowOf = (v: Pick<MatterView, "openSteps">, today: string) => {
-  const oldest = v.openSteps.map((s) => s.day).toSorted()[0];
+  const [oldest] = v.openSteps.map((s) => s.day).toSorted();
   return oldest
     ? {
         from:
@@ -39,6 +39,8 @@ export const windowOf = (v: Pick<MatterView, "openSteps">, today: string) => {
       }
     : null;
 };
+
+const SPACES = /\s+/;
 
 const wordsOf = (text: string) =>
   new Set(
@@ -51,7 +53,7 @@ const wordsOf = (text: string) =>
 export const withoutOwnerOf = (text: string, owner: string) => {
   const names = new Set(normalize(owner).split(" "));
   return text
-    .split(/\s+/)
+    .split(SPACES)
     .filter((t) => !names.has(normalize(t).split(" ")[0] ?? ""))
     .join(" ");
 };
@@ -114,7 +116,7 @@ export async function readEvidence(
     const window = windowOf(m.v, today);
     return window ? [{ ...m, window }] : [];
   });
-  const from = withWindow.map((m) => m.window.from).toSorted()[0];
+  const [from] = withWindow.map((m) => m.window.from).toSorted();
   const paid = from ? await placedOn(from, today, [], []) : { list: [] };
   if ("error" in paid) {
     log("run.error", {
@@ -123,10 +125,12 @@ export async function readEvidence(
     });
   }
   const owner = readOwnerName();
+  const texts = withWindow.map((m) => withoutOwnerOf(matterTextOf(m.v), owner));
+  const vectors = await Promise.all(texts.map((t) => embedQuery(t)));
   const out = new Map<string, Evidence>();
-  for (const m of withWindow) {
-    const text = withoutOwnerOf(matterTextOf(m.v), owner);
-    const { vector } = await embedQuery(text);
+  for (const [i, m] of withWindow.entries()) {
+    const text = texts[i] ?? "";
+    const vector = vectors[i]?.vector;
     const own = [...m.v.steps.map((s) => s.ref), ...m.later.map((o) => o.id)];
     const units =
       readIndex((db) => {

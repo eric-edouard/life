@@ -222,14 +222,14 @@ export async function matterDirections(
         Drafted,
         (d) => d.matter,
         (id) => byId.has(id)
-      ).entries.map(({ matter, nextStep, ...d }) => {
+      ).entries.flatMap(({ matter, nextStep, ...d }) => {
         const m = byId.get(matter);
-        const laterShown = m?.later.map((o) => o.id) ?? [];
+        if (!m) {
+          return [];
+        }
+        const laterShown = m.later.map((o) => o.id);
         // A payment cited is read, never stored: it has no ref to open.
-        const citable = [
-          ...laterShown,
-          ...(m?.shown.units.map((u) => u.id) ?? []),
-        ];
+        const citable = [...laterShown, ...m.shown.units.map((u) => u.id)];
         const context = nextStep?.context;
         return {
           ...d,
@@ -242,19 +242,19 @@ export async function matterDirections(
               }
             : {}),
           laterShown,
-          ...(m ? { matter: m.v.id } : {}),
+          matter: m.v.id,
           ...(nextStep
             ? {
                 nextStep: {
                   ...nextStep,
                   context:
-                    context && m && isGroundedContext(context, m.shown)
+                    context && isGroundedContext(context, m.shown)
                       ? context
                       : undefined,
                 },
               }
             : {}),
-          steps: m?.v.steps.map((s) => s.ref) ?? [],
+          steps: m.v.steps.map((s) => s.ref),
         };
       });
       appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [
