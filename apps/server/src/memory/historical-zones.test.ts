@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { writeWhole } from "../core/files";
 import {
   fixedZoneOf,
   historicalZonesOf,
@@ -273,7 +274,7 @@ test("zones follow the derivation over the whole era only: a narrower window app
     );
   const whole = { from: "2018-01-01", to: "2018-01-31" };
   try {
-    writeFileSync(
+    writeWhole(
       ZONES,
       `${line("2018-01-01T00:00:00Z", "Etc/GMT", "mail")}\n${line("2018-02-01T00:00:00Z", "Etc/GMT")}\n`
     );
@@ -295,7 +296,7 @@ test("zones follow the derivation over the whole era only: a narrower window app
     await prepareHistoricalZones(whole, evidence);
     expect(readFileSync(ZONES, "utf8")).toBe(after);
   } finally {
-    writeFileSync(ZONES, was);
+    writeWhole(ZONES, was);
   }
 });
 
@@ -306,7 +307,7 @@ test("a day a record cites keeps its zone, and so its units", async () => {
   writeFileSync(join(UNITS, "2018-01-06.jsonl"), unitLine("2018-01-06"));
   writeFileSync(cited, '{"unit":"unit_aaaaaaaaaaaa"}\n');
   try {
-    writeFileSync(
+    writeWhole(
       ZONES,
       `${line("2018-01-01T00:00:00Z", "Etc/GMT", "mail")}\n${line("2018-02-01T00:00:00Z", "Etc/GMT")}\n`
     );
@@ -322,7 +323,7 @@ test("a day a record cites keeps its zone, and so its units", async () => {
   } finally {
     rmSync(cited);
     rmSync(UNITS, { force: true, recursive: true });
-    writeFileSync(ZONES, was);
+    writeWhole(ZONES, was);
   }
 });
 

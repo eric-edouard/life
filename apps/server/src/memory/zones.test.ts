@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { writeWhole } from "../core/files";
 import { readPhoneZone } from "../sources/lifelog";
 import { lifelogServer } from "../sources/store-fixtures";
 import { ZONES } from "./memory-files";
@@ -78,7 +79,7 @@ test("a zone noticed is recorded once, from when `cutAt` says; none or the same,
       `${JSON.stringify({ from: cutAt(noon, "Africa/Lagos", "Asia/Jakarta").toISOString(), schemaVersion: 1, tz: "Asia/Jakarta" })}\n`
     );
   } finally {
-    writeFileSync(ZONES, was);
+    writeWhole(ZONES, was);
   }
 });
 
