@@ -102,8 +102,6 @@ const QueueItem = z
   .object({
     // Its clean turns of its voice, best first (naming-queue.ts `cardClips`). Cards with one to play
     // come first.
-    // Its clean turns of its voice, best first (naming-queue.ts `cardClips`). Cards with one to play
-    // come first.
     clips: z.array(Clip),
     conversations: z.int(),
     // Turns where the summaries heard its name.
@@ -117,6 +115,9 @@ const QueueItem = z
     exchanges: z.int(),
     // Its voice group (the unnamed group recognition keeps), or its one voice's `jobId/label`.
     id: z.string(),
+    // Whether `personId` is likely right: the nearest person by voice, tied to it by a summary or named by its
+    // sound alone (sounds-like.ts `isLikelyOf`). Life pre-ticks "Yes" on it.
+    isLikely: z.boolean(),
     kind: z.enum(suggestionKinds),
     // Everyone, the most like its voice first; empty when it is too short to judge.
     likely: z.array(z.uuid()),

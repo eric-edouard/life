@@ -55,7 +55,10 @@ export const voiceChecksOf = (
         options: LIFE_CHECKS.voice.options.filter(
           (o) => who || o.id !== "is-them"
         ),
-        preTicked: preTickedOf({ kind: "voice" }, item),
+        preTicked: preTickedOf(
+          { kind: "voice", subject: who ? known : null },
+          item
+        ),
         question: who ? `Is this ${who}?` : "Who is this?",
         ref: voiceCardRefOf(people.resolve, item),
         ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
