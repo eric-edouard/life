@@ -20,6 +20,7 @@ import {
   type Decision,
   type DecisionState,
   DoneSeen,
+  doneSeenShownOf,
   Ended,
   Kept,
   Line,
@@ -631,22 +632,8 @@ async function lookOnAnswer(
     (e: Error) => ({ error: e.message, state: "not_found" as const })
   );
   const line = recordDoneSeen(d.id, outcome);
-  onStep?.("done_seen", doneSeenShownOf(line) ?? undefined);
+  onStep?.("done_seen", doneSeenShownOf(line, d.needs) ?? undefined);
   return line;
-}
-
-/** Life's outcome as his card and app show it: its state and Life's words for it; null when Life looked for nothing. */
-export function doneSeenShownOf(l?: DoneSeen) {
-  if (!l) {
-    return null;
-  }
-  const notFound = l.error
-    ? `Life could not look in your accounts: ${l.error}`
-    : "Not in your accounts yet";
-  return {
-    line: l.state === "seen" ? "Paid: Life saw it in your accounts" : notFound,
-    state: l.state,
-  };
 }
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
