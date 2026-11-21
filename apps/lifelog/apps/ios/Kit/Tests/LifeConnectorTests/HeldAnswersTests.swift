@@ -1,3 +1,4 @@
+import Synchronization
 import Testing
 
 @testable import LifeConnector
@@ -127,4 +128,32 @@ import Testing
     await holds.sendAll()
     #expect(!sent.contains(["no"]))
     #expect(holds.underWay.isEmpty)
+}
+
+/// His Done held for Undo, then released: Life recorded it but did not end its step. Its end says so in Life's words,
+/// and the answer stands, never offered again (#753).
+@MainActor @Test func aReleasedDoneThatLifeCouldNotEndSaysLifesReason() async {
+    let life = FakeLife()
+    life.answers = [
+        { _ in
+            #"{"ref":"dec_000000000002","kind":"decision","send":null,"start":null,"changed":"#
+                + #"{"decision":"dec_000000000002","options":["done"],"state":"answered","ended":"#
+                + #"{"at":"2026-11-18T10:00:01.000Z","error":"Reminders did not take the change."}}}"#
+        }
+    ]
+    let actions = LifeActions(api: life, pause: { _ in })
+    let state = Mutex(ActionState<ActionProof>.idle)
+    let holds = HeldAnswers(delay: .seconds(60)) { held in
+        await actions.answer(held.request, key: "tap-1", at: lifeA) { event in state.withLock { $0.apply(event) } }
+    }
+    holds.hold(AnswerRequest(ref: "dec_000000000002", options: ["done"]), as: "Done")
+    await holds.sendAll()
+    let ended = state.withLock { $0 }
+    #expect(ended.heldAnswerWarning == "Your answer was recorded. Reminders did not take the change.")
+    guard case .succeeded = ended else {
+        Issue.record("expected it answered, got \(ended)")
+        return
+    }
+    #expect(life.keys.withLock { $0 } == ["tap-1"])
+    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWarning == nil)
 }

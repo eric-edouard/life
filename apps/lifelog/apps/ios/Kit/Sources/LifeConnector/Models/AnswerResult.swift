@@ -36,6 +36,12 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let conversations: Int?
         /// The person a typed name was read as. Picked from the card, or no person: absent.
         public let recordedAs: String?
+        /// An `ends` answer's end of its step or matter: `error`, Life's reason when it did not end as asked. No end: absent.
+        public let ended: Ended?
+    }
+
+    public struct Ended: Decodable, Sendable, Equatable {
+        public let error: String?
     }
 
     public let ref: String
