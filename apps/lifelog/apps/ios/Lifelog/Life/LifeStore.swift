@@ -772,25 +772,18 @@ final class LifeStore {
 
     func undo(_ said: SaidBack) async {
         saidBack = nil
+        // A change is said back before its reads land: Undo waits for them, else the tap would be refused.
         switch said.undo {
         case .important(let id, let isOn)?:
-            await waitForReads { marking[id] != nil }
+            await marking.settled(id)
             await setImportant(id, isOn, saysBack: false)
         case .icon(let id, let icon, let was)?:
-            await waitForReads { iconing[id] != nil }
+            await iconing.settled(id)
             await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
-            await waitForReads { statusing[id] != nil }
+            await statusing.settled(id)
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
         case nil: break
-        }
-    }
-
-    /// A change is said back before its reads land: Undo waits for them, else the tap would be refused.
-    /// ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
-    private func waitForReads(while isPending: () -> Bool) async {
-        while isPending() {
-            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
         }
     }
 
