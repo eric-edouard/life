@@ -3,8 +3,8 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs and the system's search tab, with the
-/// Settings and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
+/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs and Tell Life, with the Settings
+/// and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
@@ -16,8 +16,6 @@ struct RootView: View {
     @AppStorage("appearance") private var appearance = Appearance.auto
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
-    @State private var query = ""
-    @State private var scope = SearchScope.all
 
     init() {
         // The Inbox's count is `flag` (it needs him), not the system's red; SwiftUI's `badge` takes no colour.
@@ -58,17 +56,6 @@ struct RootView: View {
             }
             .badge(life.tell.strands.filter { !$0.isDone }.count)
             .hidden(!life.isPaired)
-            // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
-            Tab(value: AppRouter.Tab.search, role: .search) {
-                // The field belongs to this tab alone: on the tabs it would show on Inbox and Projects too.
-                NavigationStack {
-                    SearchScreen(query: query, scope: scope).shellBar("", hasSettings: false)
-                        .searchable(text: $query, prompt: "Search")
-                        .searchScopes($scope, activation: .onSearchPresentation) {
-                            ForEach(SearchScope.allCases, id: \.self) { Text($0.word).tag($0) }
-                        }
-                }
-            }
         }
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
@@ -173,14 +160,13 @@ struct RootView: View {
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab projects|people|search`, `-fixtureCard`, `-fixtureMatter`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
+        /// `-fixtureTab projects|people`, `-fixtureCard`, `-fixtureMatter`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
         /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
             switch LifeFixture.tab {
             case "projects": router.tab = .projects
             case "people": router.tab = .people
-            case "search": router.tab = .search
             default: break
             }
             if let id = LifeFixture.matter { router.open(matter: id) }

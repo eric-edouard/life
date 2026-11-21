@@ -22,10 +22,9 @@ final class LifeStore {
     private(set) var agents = ReadState<RegisteredAgents>()
     /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
     private(set) var spending = ReadState<ModelSpending>()
-    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
+    /// The People tab: everyone Life knows, closest first; and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
-    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
@@ -285,7 +284,7 @@ final class LifeStore {
 
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: Self.peopleKey) {
-            try await $0.readPeopleAndOrganizations(query: nil)
+            try await $0.readPeopleAndOrganizations()
         }
     }
 
@@ -370,18 +369,6 @@ final class LifeStore {
             }
         }
         return state(of: .appointment(id))
-    }
-
-    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
-    /// replaces this one's, which then applies nothing.
-    func findPeople(_ query: String) async {
-        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
-        await load(
-            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
-            key: "read_people_and_organizations-query-\(query)", isKept: false
-        ) {
-            try await $0.readPeopleAndOrganizations(query: query)
-        }
     }
 
     /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
@@ -924,7 +911,7 @@ final class LifeStore {
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
-        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
+        (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.
