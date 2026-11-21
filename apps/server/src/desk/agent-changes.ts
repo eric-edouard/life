@@ -315,7 +315,16 @@ function applyAsk(
 ): { agent?: string; error: string } | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
-    return { error: "only a change from `change_registered_agent` is applied" };
+    // One the connector took before the Personal agent was named by its role: never applied, his to ask again.
+    const isOldForm =
+      typeof ask.agentChange === "object" &&
+      ask.agentChange !== null &&
+      "personal" in ask.agentChange;
+    return {
+      error: isOldForm
+        ? 'asked in an old form: ask again with role "personal"'
+        : "only a change from `change_registered_agent` is applied",
+    };
   }
   if (clock().getTime() - Date.parse(ask.at) > STALE_AFTER) {
     return {

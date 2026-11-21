@@ -26,7 +26,6 @@ import {
   currentAssignmentOf,
   modelOf,
 } from "../host/desk-read";
-import { migrateAgentChangeRole } from "../host/migrate";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -732,18 +731,17 @@ test("re_point with role personal marks an existing agent as the Personal agent,
             }).success
           ).toBe(false);
         }
-        // One the old connector took just before the upgrade: the start's migration names it by role, and it applies once.
-        const before = said(oldFlag(true) as never);
-        await migrateAgentChangeRole();
-        await applyAgentChanges(desk);
-        await applyAgentChanges(desk);
+        // One the old connector queued before the upgrade is refused in words he can act on, never applied.
+        for (const flag of [true, "true"]) {
+          // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
+          expect((await applied(oldFlag(flag) as never))?.error).toBe(
+            'asked in an old form: ask again with role "personal"'
+          );
+        }
         expect(
-          desk.db
-            .query<{ error: string | null }, [string]>(
-              "select error from agent_change where ask = ?"
-            )
-            .all(before)
-        ).toEqual([{ error: null }]);
+          (await applied({ action: "re_point", agent: mine, role: "personal" }))
+            ?.error
+        ).toBeNull();
         expect(agentOf(desk.db, mine)).toMatchObject({
           project: null,
           role: "personal",
