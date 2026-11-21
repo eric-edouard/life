@@ -395,6 +395,38 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     #expect(failure.mayHaveHappened)
 }
 
+@Test func aMoveIsAskedAtOnceWithItsIdAndADroppedOneMayHaveGone() async {
+    let life = FakeLife()
+    life.changes = [
+        { _ in #"{"action":"hand_over","agent":null,"move":"ask_1","state":"asked"}"# },
+        { _ in throw MCPError.streamDropped },
+        { _ in throw MCPError.unreachable },
+        { _ in throw MCPError.offline },
+    ]
+    let move = AgentRequest(action: .handOver, step: "matter_1", runtime: "codex", said: "Move it to Codex.")
+    let asked = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
+    guard case .succeeded(.agent(let result), _) = asked else {
+        Issue.record("\(asked)")
+        return
+    }
+    #expect(result.move == "ask_1")
+    // Each call is a new ask: one whose answer dropped is never sent again blind.
+    let dropped = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
+    guard case .failed(let failure, _) = dropped else {
+        Issue.record("\(dropped)")
+        return
+    }
+    #expect(failure.mayHaveHappened && !failure.canTryAgain)
+    // A connection lost before Life's headers may have reached it too; only offline is sure it did not.
+    let lost = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
+    let offline = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
+    guard case .failed(let unreachable, _) = lost, case .failed(let notSent, _) = offline else {
+        Issue.record("\(lost) \(offline)")
+        return
+    }
+    #expect(unreachable.mayHaveHappened && notSent.canTryAgain)
+}
+
 @Test func anEditIsOneStep() async {
     let life = FakeLife()
     let state = await run { emit in

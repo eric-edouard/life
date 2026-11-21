@@ -87,6 +87,13 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public let amber: [String]
     /// Its current session's model spending (`read_registered_agents` only); nil when the desk can't be read.
     public let spending: AgentSpending?
+    /// Its name ("Halden house agent") and short name (`read_registered_agents` only; an older Life sends neither).
+    public let name: String?
+    public let short: String?
+    /// The runtime it can switch to, or why not now; its newest runtime switch (`read_registered_agents` only).
+    public let moveTo: String?
+    public let moveBlocked: MoveBlocked?
+    public let `switch`: AgentMove?
 
     public var runtimeName: RuntimeName { RuntimeName(rawValue: runtime) ?? .unknown }
     /// Ended or handed over: it holds nothing, and its matter can start another.
@@ -106,8 +113,17 @@ public struct RegisteredAgents: Decodable, Sendable, Equatable {
         case unknown
     }
 
+    /// His change the desk refused before it wrote anything (in the last day): its ask's id, and the desk's words.
+    public struct Refusal: Decodable, Sendable, Equatable {
+        public let ask: String
+        public let agent: String?
+        public let error: String
+    }
+
     public let agents: [RegisteredAgent]
     public let desk: Desk
     public let helper: Helper
     public let why: String?
+    /// None from an older Life.
+    public let refused: [Refusal]?
 }

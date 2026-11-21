@@ -42,6 +42,8 @@ final class LifeStore {
         case complaint(ref: String)
         case start(matter: String)
         case agent(String)
+        /// His move of a matter, or his runtime switch of an agent, by the matter's or the agent's id.
+        case move(String)
         case edit(matter: String, Edit)
         case project(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
@@ -110,6 +112,11 @@ final class LifeStore {
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
+    /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`settleMoves`).
+    var moveReceipts: [String: MoveReceipt] = [:]
+    /// The moves he asked from this phone (their ids): Try again repeats only one of them.
+    var movesAskedHere: Set<String> = []
+
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
 
@@ -120,8 +127,8 @@ final class LifeStore {
     private let approve: Approve
     private let api: any LifeAPI
     private let cache: ReadCache
-    private let runner: LifeActions
-    private let now: @Sendable () -> Date
+    let runner: LifeActions
+    let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// One read of each kind at a time, plus one more pass.
     @ObservationIgnored private let flights: ReadFlights
@@ -240,7 +247,10 @@ final class LifeStore {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
     }
     func refreshAgents() async {
+        let before = agents.loadedAt
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
+        // Only a fresh read settles his moves, never the cached one a failed read leaves.
+        if agents.loadedAt != before { settleMoves() }
     }
 
     func refreshSpending() async {
@@ -346,9 +356,11 @@ final class LifeStore {
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
         // Offline, a matter not read yet since launch still shows what was last read, as stale.
         if matter[id] == nil { restore(update, key: key) }
+        let before = matter[id]?.loadedAt
         await load(update, key: key) {
             try await $0.readMatter(id)
         }
+        if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
     }
 
     func refreshProjects() async {
@@ -434,7 +446,7 @@ final class LifeStore {
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
     /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
-    private func perform(
+    func perform(
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
     ) async {
@@ -539,36 +551,6 @@ final class LifeStore {
 
     /// Every held answer, at once: the screen is going, or the app.
     func sendHeld() async { await holds.sendAll() }
-
-    /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
-    func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
-        await perform(.start(matter: id)) { [runner] in
-            await runner.startAgent(matter: id, goal: goal, runtime: runtime, model: model, emit: $0)
-        }
-        async let a: Void = refreshMatter(id)
-        async let b: Void = refreshAgents()
-        async let c: Void = refreshListsOf(id)
-        _ = await (a, b, c)
-    }
-
-    func stopAgent(_ agent: String) async {
-        await change(agent, AgentRequest(action: .stop, agent: agent, said: "Stop it."))
-    }
-    func resumeAgent(_ agent: String) async {
-        await change(agent, AgentRequest(action: .resume, agent: agent, said: "Resume it."))
-    }
-    private func change(_ agent: String, _ request: AgentRequest) async {
-        await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
-        // The matter page draws the agent from its own read, and its lists and project header their spinners.
-        let pages = matter.filter { $0.value.value?.agents.contains { $0.id == agent } == true }.keys
-        async let agents: Void = refreshAgents()
-        for id in pages {
-            async let page: Void = refreshMatter(id)
-            async let lists: Void = refreshListsOf(id)
-            _ = await (page, lists)
-        }
-        await agents
-    }
 
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
@@ -698,7 +680,7 @@ final class LifeStore {
     }
 
     /// Shows `said` for 4 s, flagged when not done.
-    private func show(_ said: SaidBack) {
+    func show(_ said: SaidBack) {
         saidBack = said
         Task {
             try? await Task.sleep(for: .seconds(4))
@@ -718,7 +700,7 @@ final class LifeStore {
 
     /// Every list a change to matter `id` can move, read again: All, the chips and their counts, and each chip's list
     /// and project header read with it on show (its rank, flag, agent, or its leaving once done).
-    private func refreshListsOf(_ id: String) async {
+    func refreshListsOf(_ id: String) async {
         let held = (projects.value?.chips ?? []).filter {
             scopedMatters[$0.identity]?.value?.matters.contains { $0.id == id } == true
         }
@@ -805,7 +787,7 @@ final class LifeStore {
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
-        (answered, pushed) = (AnsweredCards(), nil)
+        (answered, pushed, moveReceipts) = (AnsweredCards(), nil, [:])
         parties.startOver()
         holds.clear()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.

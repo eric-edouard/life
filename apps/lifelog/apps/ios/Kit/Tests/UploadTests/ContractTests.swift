@@ -149,6 +149,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(roles == client(RegisteredAgent.Role.self))
     #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))
+    // A move's phase, worked out when read (`movePhaseOf`).
+    let phases = try source("host/move-read.ts").matches(of: /phase: "([a-z]+)" as const/).map { String($0.output.1) }
+    #expect(Set(phases) == client(MovePhase.self))
     #expect(
         try quoted("host/desk-read.ts", /(?s)export type DeskRead<T> =(.*?value: T \});/)
             == client(RegisteredAgents.Desk.self))
