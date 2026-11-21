@@ -7,6 +7,8 @@ struct PayCodeBlock: View {
     let code: PayCode
     /// He saved it to Photos from this card: a check on the tile's corner.
     let isSaved: Bool
+    /// The message holding the code, opened in a sheet when Life gave its ref.
+    @State private var opened: LifeLinkTarget?
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.xs) {
@@ -24,10 +26,20 @@ struct PayCodeBlock: View {
                 Text("The invoice says \(invoice)").font(.small).foregroundStyle(Palette.flag)
             }
             QRTile(payload: code.payload, isSaved: isSaved).padding(.vertical, Metrics.Spacing.m)
-            Text("From \(code.source)").font(.small).foregroundStyle(Palette.muted)
+            if let ref = code.ref {
+                QuietChip("From \(code.source)", symbol: "bubble") {
+                    opened = LifeLinkTarget(ref: ref, words: code.source, kind: .message)
+                }
+            } else {
+                Text("From \(code.source)").font(.small).foregroundStyle(Palette.muted)
+            }
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .motion(Motion.standard, value: isSaved)
+        .sheet(item: $opened) { target in
+            NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
+                .presentationDetents([.medium, .large])
+        }
     }
 }

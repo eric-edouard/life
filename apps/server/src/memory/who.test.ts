@@ -13,11 +13,13 @@ import { inferredId } from "./people";
 import { action, inferred, people as mapped, said } from "./record-fixtures";
 import { messageUnits, nameKey } from "./units";
 import {
+  cardSubjectOf,
   foldsOf,
   meant,
   namedLike,
   nearNames,
   readUnresolvedPeople,
+  voiceCardRefOf,
   voicePersonOf,
 } from "./who";
 
@@ -393,4 +395,13 @@ test("a lifelog person id is who the id resolves to, else who the name lifelog g
   expect(voicePersonOf(resolve, "p9", "Dana")).toBe("person:dana");
   expect(voicePersonOf(resolve, "p9", null)).toBeNull();
   expect(voicePersonOf(resolve, null, "Dana")).toBe("person:dana");
+});
+
+test("a voice card's subject is its ref up to the first ~, whatever suggestion it carries", () => {
+  const no = { names: new Map(), refOf: (r: string) => r, resolve: () => null };
+  const item = { id: "g1", voices: [{ jobId: "j1", speakerLabel: "A" }] };
+  const ref = voiceCardRefOf(no as never, item as never);
+  expect(cardSubjectOf(ref)).toBe("voice:g1");
+  expect(ref.startsWith(`${cardSubjectOf(ref)}~`)).toBe(true);
+  expect(cardSubjectOf("dec_1")).toBe("dec_1");
 });

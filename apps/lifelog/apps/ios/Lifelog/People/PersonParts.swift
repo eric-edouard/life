@@ -105,11 +105,18 @@ struct LatestScreen: View {
 struct PartRetry: View {
     let what: String
     let retry: () async -> Void
+    @State private var isRetrying = false
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
             Text("\(what) didn't load.").font(.small).foregroundStyle(Palette.muted)
-            QuietChip("Try again", symbol: "arrow.clockwise") { Task { await retry() } }
+            QuietChip("Try again", symbol: "arrow.clockwise", isBusy: isRetrying) {
+                Task {
+                    isRetrying = true
+                    await retry()
+                    isRetrying = false
+                }
+            }
         }
     }
 }

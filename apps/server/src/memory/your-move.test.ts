@@ -1,12 +1,13 @@
 import { expect, setSystemTime, spyOn, test } from "bun:test";
 import { yourMoveClosingOf } from "./answer-check";
+import type { CheckInputs } from "./check-context";
 import {
   blockingCountOf,
   inboxOf,
   inboxOrderOf,
   urgencyOf,
 } from "./check-urgency";
-import { type CheckInputs, checksOf, type InboxCheck } from "./checks";
+import { checksOf, type InboxCheck } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import type { Check } from "./life-checks";
 import { Need, needsShownOf } from "./needs";

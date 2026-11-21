@@ -58,3 +58,16 @@ private func matters() throws -> [MatterRow] {
     #expect(moves[0].answer("drop") == nil)
     #expect(moves[0].answer("done") == AnswerRequest(ref: "c1", options: ["done"]))
 }
+
+@Test func the_chips_follow_lifes_order_with_counts_and_a_person_counts_once_per_name() throws {
+    let checks = [
+        try move("c1", matter: "a", day: "2026-11-16"), try move("c2", matter: "b", day: "2026-09-01"),
+        try move("c3", matter: "a", day: "2026-10-01"),
+    ]
+    let all = YourMoves(checks: checks, matters: try matters(), now: now, timeZone: utc)
+    // Life's order, not the moves'; a project with no move is left out.
+    let projects = all.projects(in: ["p2", "p3", "p1"])
+    #expect(projects.map(\.project.id) == ["p2", "p1"] && projects.map(\.count) == [1, 2])
+    #expect(all.people().map(\.ref) == ["person:camille"])
+    #expect(all.people(limit: 0).isEmpty)
+}

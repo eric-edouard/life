@@ -97,7 +97,14 @@ struct InboxScreen: View {
         // The moves' list is the ask column's, which a compact width then shows.
         .onChange(of: kind) { _, kind in if kind == .yourMove { router.inboxColumn = .detail } }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
-        .onChange(of: all.kinds) { _, kinds in if let kind, !kinds.contains(kind) { self.kind = nil } }
+        .onChange(of: all.kinds) { _, kinds in
+            if let kind, !kinds.contains(kind) { self.kind = nil }
+            // The guesses' card left with its last row: the next guesses start clean, not beside old answered rows.
+            if !kinds.contains(.guessedPerson) {
+                (notes.guesses, notes.guessed) = ([], [:])
+                notes.working.remove(.guessedPerson)
+            }
+        }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
         // An answer that came back refused is on show again, with its reason above the answers.
         .onChange(of: refusedRef) { _, ref in

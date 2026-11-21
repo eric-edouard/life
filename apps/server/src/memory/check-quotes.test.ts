@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
+import type { CheckInputs } from "./check-context";
 import { readSentences } from "./check-sentences";
-import { type CheckInputs, checksOf } from "./checks";
+import { checksOf } from "./checks";
 import { about, inputs, line, nameRow, stepsOf } from "./checks-test-inputs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as files from "./memory-files";

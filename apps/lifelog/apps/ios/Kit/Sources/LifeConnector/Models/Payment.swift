@@ -6,6 +6,8 @@ public struct PayCode: Sendable, Equatable {
     public let payload: String
     /// Where the payee sent it, in Life's words.
     public let source: String
+    /// The message holding it, as `fetch` opens it; nil when Life gave none.
+    public let ref: String?
     /// What the code asks, else the card's amount ("4,800 THB"); nil when neither says.
     public let amount: String?
     /// The card's amount when the code asks another: his invoice's, to check before he pays.
@@ -106,11 +108,12 @@ extension Check {
         guard let qr = need(at: drawnQRIndex), let payload = qr.payload, let source = qr.source else { return nil }
         guard let asked = Self.promptPayBaht(payload) else {
             return PayCode(
-                payload: payload, source: source, amount: invoice?.line, invoiceAmount: nil, payee: account?.holder)
+                payload: payload, source: source, ref: qr.ref, amount: invoice?.line, invoiceAmount: nil,
+                payee: account?.holder)
         }
         let isInvoice = invoice.map { $0.currency == "THB" && Self.isSameMoney($0.value, asked) } ?? true
         return PayCode(
-            payload: payload, source: source, amount: Self.amountWords(asked, currency: "THB"),
+            payload: payload, source: source, ref: qr.ref, amount: Self.amountWords(asked, currency: "THB"),
             invoiceAmount: isInvoice ? nil : invoice?.line, payee: account?.holder)
     }
 
