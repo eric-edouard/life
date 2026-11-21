@@ -913,11 +913,13 @@ struct Field: View {
     var surface = Surface.page
     /// A symbol leading the text, as a search field has.
     var icon: String?
+    /// Its one submit, when it has one: the field's Send (`DictationField.send`).
+    var send: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
             if let icon { Image(systemName: icon).foregroundStyle(Palette.muted).accessibilityHidden(true) }
-            DictationField(prompt: prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
+            DictationField(prompt: prompt, text: $text, send: send).font(.body15).foregroundStyle(Palette.fg)
         }
         .padding(.horizontal, 20)
         .frame(minHeight: 48)
