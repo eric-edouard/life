@@ -346,6 +346,22 @@ public struct Prose: Sendable, Equatable, ParsedRead, NamesParties {
         return Prose(sections: sections)
     }
 }
+extension PeopleList {
+    /// A find that holds no one: no row, and no other Life has seen by that name.
+    public var isNoOne: Bool { people.isEmpty && (others ?? []).isEmpty }
+}
+
+/// What search reads of the people: one query, read again on each new pairing (`PairingGeneration`), so a query on
+/// show is asked of the new Life too.
+public struct PeopleQuery: Hashable, Sendable {
+    public let text: String
+    public let pairing: Int
+
+    public init(text: String, pairing: Int) {
+        (self.text, self.pairing) = (text, pairing)
+    }
+}
+
 extension PeopleList: NamesParties {
     public var parties: [Party] { people.map(\.party) + (others ?? []) }
 }

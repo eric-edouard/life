@@ -17,9 +17,10 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
-    /// The People tab: everyone Life knows, closest first, and one of them read in full, by ref.
+    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
+    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
@@ -291,6 +292,18 @@ final class LifeStore {
         }
         if case .failed(.notPaired) = event { pairedOrigin = nil }
         update(event)
+    }
+
+    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
+    /// replaces this one's, which then applies nothing.
+    func findPeople(_ query: String) async {
+        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
+        await load(
+            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
+            key: "read_people_and_organizations-query-\(query)", isKept: false
+        ) {
+            try await $0.readPeopleAndOrganizations(query: query)
+        }
     }
 
     func refreshMatter(_ id: String) async {
@@ -707,7 +720,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
+        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()

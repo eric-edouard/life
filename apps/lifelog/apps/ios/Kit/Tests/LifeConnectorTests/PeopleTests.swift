@@ -232,3 +232,15 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     people.open(nil)
     #expect(people.page == nil && people.path.isEmpty)
 }
+
+@Test func aFindHoldingOnlyOthersIsSomeoneAndANewPairingAsksTheQueryAgain() throws {
+    // A match only among the others Life has seen is a match: search never says nothing holds above it.
+    let others = try decoded(
+        PeopleList.self, #"{"people":[],"others":[{"ref":"unknown:mara","name":"Mara","kind":"person"}]}"#)
+    #expect(!others.isNoOne)
+    #expect(try decoded(PeopleList.self, #"{"people":[],"others":[]}"#).isNoOne)
+    #expect(try decoded(PeopleList.self, #"{"people":[]}"#).isNoOne)
+    // The search's read of the people is its query and its pairing: the same query on a new pairing is a new read.
+    #expect(PeopleQuery(text: "mar", pairing: 1) != PeopleQuery(text: "mar", pairing: 2))
+    #expect(PeopleQuery(text: "mar", pairing: 2) == PeopleQuery(text: "mar", pairing: 2))
+}
