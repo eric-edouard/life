@@ -5,6 +5,7 @@ import { clock, DAY, iso, MIN } from "../core/clock";
 import { openReadOnly } from "../core/sqlite";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import { isOldShape } from "../host/desk-shape";
+import { stepTurnsOf } from "../host/desk-turn-reads";
 import { opensWithPlan, planCardsOf } from "../host/inbox";
 import {
   assignmentOnMatter,
@@ -548,6 +549,23 @@ test("a matter that closes during the notes fails the move, and its old holder, 
   await advanceMoves(desk);
   expect(phaseOf(desk).move).toBeUndefined();
   expect(agentOf(desk.db, old)?.status).toBe("ended");
+});
+
+// Catch-up review (#915): a notes turn that ran nothing (its old session gone) counted as a model call of unknown usage.
+test("a notes turn that never ran is not counted as spent", async () => {
+  const { desk, fake, old } = await holding();
+  fake.sessions.delete(agentOf(desk.db, old)?.session ?? "");
+  move(desk, { runtime: "other", steps: [STEP] });
+  await advanceMoves(desk);
+  await wakeDue(desk);
+  expect(
+    desk.db
+      .query(
+        "select 1 from turn where cause = 'move_notes' and ended_at is not null"
+      )
+      .all()
+  ).toHaveLength(1);
+  expect(stepTurnsOf(desk.db, [STEP])).toHaveLength(1);
 });
 
 test("the store step gives a store of the shape before moves its tables, behind a dated copy; openDesk refuses it before", () => {
