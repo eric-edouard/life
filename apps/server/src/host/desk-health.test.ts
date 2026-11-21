@@ -194,14 +194,16 @@ test("the number's row shows last night's only when one was written", () => {
 // Verdict on PR 841: the health rules found an agent's matter from its steps alone, so an agent on the running matter
 // he chose, sharing its step with a done one, read as idle. Each rule takes the chosen matter on a tie.
 test("an agent on the matter he chose, sharing its step with a done one, is at work; a card on it is not on an idle matter", () => {
-  const shared = [{ at: "2026-11-18T09:00:00.000Z", ref: "obs_shared" }];
+  const shared = [
+    { at: "2026-11-18T09:00:00.000Z", ref: "obs_shared" },
+  ] as unknown as MatterView["steps"];
   const tied = matterFinderOf([
     matter("over", { open: false, status: "done", steps: shared }),
     matter("chosen", { steps: shared }),
   ]);
   const on = {
     ...agent("agt_1", "waiting", ["obs_shared"]),
-    matterId: "chosen",
+    matter: { id: "chosen" },
   };
   expect(activeOnIdleMatterOf([on], tied)).toEqual([]);
   expect(splitAnchorsOf([on], tied)).toEqual([]);
@@ -219,7 +221,5 @@ test("an agent on the matter he chose, sharing its step with a done one, is at w
     )
   ).toEqual([]);
   // With no matter chosen, the done one is found: the oddity the pick prevents.
-  expect(activeOnIdleMatterOf([{ ...on, matterId: null }], tied)).toHaveLength(
-    1
-  );
+  expect(activeOnIdleMatterOf([{ ...on, matter: null }], tied)).toHaveLength(1);
 });

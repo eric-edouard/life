@@ -234,8 +234,11 @@ function withWakesOn(
   });
 }
 
-/** A registered agent as read now, with what will wake it, and the matter its first anchor finds, when its subject is one. */
-export type RegisteredAgent = ReturnType<typeof withWakesOn>[number] & {
+/** A registered agent as read now, with what will wake it, and the matter its anchors find (the one he chose on a tie), when its subject is one. */
+export type RegisteredAgent = Omit<
+  ReturnType<typeof withWakesOn>[number],
+  "matterId"
+> & {
   matter: { id: string; name: string; status: string } | null;
 };
 
@@ -293,8 +296,8 @@ export async function readRegisteredAgents(
     given?.decisions
   );
   return {
-    agents: agents.map((a) => {
-      const v = find(a.steps, a.matterId ?? undefined);
+    agents: agents.map(({ matterId, ...a }) => {
+      const v = find(a.steps, matterId ?? undefined);
       return {
         ...a,
         matter: v ? { id: v.id, name: v.name, status: v.status } : null,
@@ -307,7 +310,9 @@ export async function readRegisteredAgents(
 }
 
 /** An agent in two parts: what it works on (with its id and status), then where it stands, what it waits for and until when, its last turn, its link. */
-function partsOf(a: AgentNow & { matter?: RegisteredAgent["matter"] }) {
+function partsOf(
+  a: Omit<AgentNow, "matterId"> & { matter?: RegisteredAgent["matter"] }
+) {
   const last = a.lastTurn;
   return {
     detail: [

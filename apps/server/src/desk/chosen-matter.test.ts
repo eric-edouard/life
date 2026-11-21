@@ -103,11 +103,16 @@ test("a Start on a matter sharing its step with another reaches its own project'
       expect(done.agent).toBe(bakery);
       const s = openAssignmentOfMatter(desk.db, "matter_00000000b826");
       expect(s?.agent_id).toBe(bakery);
-      // His agent list shows the matter he chose, not the other holder of its step.
+      // His agent list, while it works on that assignment, shows the matter he chose, not the other holder of its step.
+      desk.db.run(
+        "update turn set assignment_id = ? where agent_id = ? and ended_at is null",
+        [s?.id ?? "", bakery]
+      );
       expect(
         (await readRegisteredAgents()).agents.find((a) => a.id === bakery)
           ?.matter?.id
       ).toBe("matter_00000000b826");
+
       expect(
         readFileSync(CORRECTIONS, "utf8").trim().split("\n").at(-1)
       ).toContain('"matter":"matter_00000000b826"');

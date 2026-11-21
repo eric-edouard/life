@@ -23,8 +23,8 @@ interface Row {
 /** An agent as the oddities read it: its id and status as `read_registered_agents` gives them, and its anchors. */
 export interface HealthAgent {
   id: string;
-  /** The matter chosen for its current assignment, the finder's pick on a tie (`AgentNow.matterId`). */
-  matterId?: string | null;
+  /** Its matter as the agent list resolved it, with the matter he chose (`readRegisteredAgents`): the finder's pick on a tie. */
+  matter?: { id: string } | null;
   project: string | null;
   status: string;
   steps: readonly string[];
@@ -50,7 +50,7 @@ export const activeOnIdleMatterOf = (
   find: Find
 ) =>
   agents.flatMap((a) => {
-    const v = isActive(a) ? find(a.steps, a.matterId ?? undefined) : undefined;
+    const v = isActive(a) ? find(a.steps, a.matter?.id) : undefined;
     return v && !isRunning(v)
       ? [oddity(a.id, `active, but its matter "${v.name}" is not running`)]
       : [];
@@ -81,7 +81,7 @@ export const splitAnchorsOf = (agents: readonly HealthAgent[], find: Find) =>
     if (a.status === "ended" || a.steps.length === 0) {
       return [];
     }
-    const v = find(a.steps, a.matterId ?? undefined);
+    const v = find(a.steps, a.matter?.id);
     const refs = new Set([v?.id, ...(v?.steps.map((s) => s.ref) ?? [])]);
     return a.steps.every((r) => refs.has(r))
       ? []
@@ -94,10 +94,7 @@ export const stoppedOnRunningOf = (
   find: Find
 ) =>
   agents.flatMap((a) => {
-    const v =
-      a.status === "stopped"
-        ? find(a.steps, a.matterId ?? undefined)
-        : undefined;
+    const v = a.status === "stopped" ? find(a.steps, a.matter?.id) : undefined;
     return v && isRunning(v)
       ? [oddity(a.id, `stopped, yet it holds the running matter "${v.name}"`)]
       : [];
