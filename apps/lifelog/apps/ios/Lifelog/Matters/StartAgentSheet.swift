@@ -60,7 +60,7 @@ struct StartAgentSheet: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
-            TextField("Goal", text: $goal, axis: .vertical).font(.quote).foregroundStyle(Palette.fg)
+            DictationField(prompt: "Goal", text: $goal, axis: .vertical).font(.quote).foregroundStyle(Palette.fg)
                 .lineLimit(2...).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
             Caps("Who works on it")
             SegmentedChoice(choices: RuntimeName.offered, selection: $runtimeName, title: \.name)

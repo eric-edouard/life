@@ -74,6 +74,7 @@ extension CheckGroup {
         case .samePerson: "person.2"
         case .ending: "checkmark"
         case .newMatter: "plus"
+        case .yourMove: "arrow.right.circle"
         case .unknown: "circle"
         }
     }
@@ -89,6 +90,7 @@ extension CheckGroup {
         case .samePerson: "Same person?"
         case .ending: "Is this done?"
         case .newMatter: "New matters"
+        case .yourMove: "Your moves"
         case .unknown: "Other"
         }
     }

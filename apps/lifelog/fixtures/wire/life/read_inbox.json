@@ -710,6 +710,80 @@
       }
     },
     {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "A step of yours is open on this matter.\n\n> I must sign the lease\n\n*11 Oct*",
+      "deadline": null,
+      "draft": null,
+      "goal": "Renew the lease",
+      "group": "your move",
+      "kind": "your move",
+      "likelyPeople": [],
+      "links": [],
+      "needs": [],
+      "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_bbbbbbbbbbbb",
+          "name": "Renew the lease"
+        }
+      ],
+      "onSilence": null,
+      "options": [
+        {
+          "ends": "step",
+          "id": "done",
+          "label": "Mark as done",
+          "takes": null
+        },
+        {
+          "id": "start",
+          "label": "Hand to an agent",
+          "takes": null
+        },
+        {
+          "id": "not-now",
+          "label": "Not now",
+          "takes": null
+        }
+      ],
+      "question": "Sign the lease renewal",
+      "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
+      "ridesOn": {
+        "matterIds": ["matter_bbbbbbbbbbbb"],
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-10-11",
+        "by": null,
+        "channel": null,
+        "text": "I must sign the lease",
+        "to": null
+      },
+      "since": null,
+      "subject": "obs_000000000010",
+      "title": "Renew the lease",
+      "lifeLinks": [],
+      "matter": {
+        "id": "matter_bbbbbbbbbbbb",
+        "name": "Renew the lease"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f686b7df91114fb8",
+      "urgency": "improves",
+      "misread": {
+        "cause": "3f8aa0d63fc5994e",
+        "seal": "c19022c99aed8381216d4fd6996bbec8",
+        "shown": "93d796e1f5113d66"
+      }
+    },
+    {
       "about": ["+33600000001"],
       "asker": "life",
       "at": null,
@@ -928,11 +1002,12 @@
     "name": 1,
     "contacts card": 1,
     "ending": 1,
+    "your move": 1,
     "guessed person": 1,
     "same person": 1,
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 10,
-  "version": "fe0108a8cbac6749"
+  "total": 11,
+  "version": "bcbf909d11be9981"
 }

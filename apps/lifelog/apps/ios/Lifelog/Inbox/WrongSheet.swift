@@ -39,8 +39,8 @@ struct WrongSheet: View {
                     .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
                     .padding(.top, Metrics.Spacing.l)
                 Group {
-                    TextField("Say what is true…", text: words, axis: .vertical)
-                        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
+                    DictationField(prompt: "Say what is true…", text: words, axis: .vertical, focused: $isWriting)
+                        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
                         .padding(Metrics.Spacing.l)
                         .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
                         .padding(.top, Metrics.Spacing.m)

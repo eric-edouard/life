@@ -47,6 +47,7 @@ export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
   "new matter": "normal",
   "same person": "normal",
   voice: "normal",
+  "your move": "normal",
 };
 const URGENT_WITHIN = 3 * HOUR;
 

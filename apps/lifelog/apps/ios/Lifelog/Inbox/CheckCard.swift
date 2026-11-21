@@ -126,13 +126,13 @@ struct CheckCard: View {
             }
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
         }
-        TextField(
-            check.group == .newMatter
+        DictationField(
+            prompt: check.group == .newMatter
                 ? "The goal"
                 : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
-            text: $input.words, axis: .vertical
+            text: $input.words, axis: .vertical, focused: $isWriting
         )
-        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
+        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
         .onAppear { isWriting = true }
     }
 
