@@ -690,8 +690,7 @@ test("a start that returns the existing agent (active, same words) hands nothing
 });
 
 // His word of 21 Nov 2026: an agent he started himself becomes the Personal agent through his word, never an edit of the store.
-// Regression: `personal` was a boolean, and a client holding a cached schema sent the string "true" ("expected true").
-// The subject is the role, a string, as the store holds it; the boolean is gone.
+// Regression: the boolean `personal` (a cached schema sent "true"); the role is a string, as the store holds it.
 test("re_point with role personal marks an existing agent as the Personal agent, a second refused, the old boolean refused; the fold then gives it the matters of no project", async () => {
   desk.embedder = null;
   // This file's Personal agent is ended for the test, so none holds the role.
@@ -723,7 +722,7 @@ test("re_point with role personal marks an existing agent as the Personal agent,
             .get(step)?.agent_id;
         // No Personal agent yet: nothing takes the matter.
         expect(holderOf()).toBe(old);
-        // The old boolean, and the string a cached schema sent, are refused by the connector and the desk alike.
+        // The old boolean and the string a cached schema sent: refused by the connector; by the desk in words he acts on.
         const oldFlag = (flag: unknown) => ({
           action: "re_point",
           agent: mine,
@@ -737,7 +736,6 @@ test("re_point with role personal marks an existing agent as the Personal agent,
             }).success
           ).toBe(false);
         }
-        // One the old connector queued before the upgrade is refused in words he can act on, never applied.
         for (const flag of [true, "true"]) {
           // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
           expect((await applied(oldFlag(flag) as never))?.error).toBe(
