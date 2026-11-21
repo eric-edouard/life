@@ -125,7 +125,7 @@ async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
   } catch (e) {
     const { message } = e as Error;
     problems.push(`ledger.jsonl: ${message}`);
-    rec.error(message, { step: "memory.nightly.actions" });
+    rec.error(e, { step: "memory.nightly.actions" });
   }
   return {
     actions: actions.filter(

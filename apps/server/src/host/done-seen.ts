@@ -1,8 +1,8 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { Decision } from "../memory/decision-lines";
 import {
-  type Decision,
   decisionsNow,
   doneSeenByOf,
   type LookForDone,
