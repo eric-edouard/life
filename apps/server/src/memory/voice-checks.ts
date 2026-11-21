@@ -5,6 +5,7 @@ import { plain } from "./doubts";
 import { type Check, LIFE_CHECKS, preTickedOf } from "./life-checks";
 import type { GuessedQueueItem } from "./voice-guesses";
 import {
+  isSuggestionBackedOf,
   type People,
   voiceCardRefOf,
   voicePersonOf,
@@ -53,20 +54,12 @@ export const voiceChecksOf = (
         options: LIFE_CHECKS.voice.options.filter(
           (o) => who || o.id !== "is-them"
         ),
-        // "Yes" is pre-ticked only on the person lifelog's likeness scored (`personId`), never on a name heard beside it.
+        // "Yes" is pre-ticked only on a suggestion lifelog's sound or a sure guess backs, never on a name heard beside it.
         preTicked: preTickedOf(
           {
             kind: "voice",
             subject:
-              known &&
-              known ===
-                voicePersonOf(
-                  people.resolve,
-                  item.personId,
-                  item.names?.[item.personId ?? ""]
-                )
-                ? known
-                : null,
+              known && isSuggestionBackedOf(people, item, known) ? known : null,
           },
           item
         ),

@@ -66,6 +66,8 @@ export interface Guessed {
 }
 
 const LEVELS = ["sure", "likely"] as const;
+/** Right in 100 a card's level must hold on his answers (the design of 21 Nov 2026, section 4): likely asks "Is this X?", sure starts "Yes" ticked. */
+export const BARS = { likely: 85, sure: 97 } as const;
 /** The answers that name no one, scored apart. */
 const NO_ONE = new Set(["not_relevant", "unknown"]);
 /** A guess that names someone: not `unknown`, not `me`, and sure or likely. */
@@ -106,6 +108,9 @@ function byGroupOf(kept: Guessed[]) {
     }
   }
   const guessedFor = voiceGuessedPeopleOf(newest.values());
+  const sureFor = voiceGuessedPeopleOf(
+    [...newest.values()].filter((g) => g.confidence === "sure")
+  );
   // Each voice in the part of its newest guess.
   const groups = [
     ...Map.groupBy(
@@ -114,15 +119,34 @@ function byGroupOf(kept: Guessed[]) {
     ).values(),
   ];
   const shown = groups.flatMap((list) => {
-    const named = guessedFor(list.map((g) => g.voice));
-    return named.length === 1
-      ? [{ answer: list[0]?.answer, person: named[0] }]
+    const voices = list.map((g) => g.voice);
+    const [person, ...more] = guessedFor(voices);
+    return person && more.length === 0
+      ? [
+          {
+            answer: list[0]?.answer,
+            // As the card: a sure guess of that person on its voices starts "Yes" ticked (`isSuggestionBackedOf`).
+            level: sureFor(voices).includes(person)
+              ? ("sure" as const)
+              : ("likely" as const),
+            person,
+          },
+        ]
       : [];
   });
+  const at = (level: (typeof LEVELS)[number]) => {
+    const list = shown.filter((s) => s.level === level);
+    return {
+      n: list.length,
+      right: list.filter((s) => s.person === s.answer).length,
+    };
+  };
   return {
     groups: groups.length,
+    likely: at("likely"),
     right: shown.filter((s) => s.person === s.answer).length,
     shown: shown.length,
+    sure: at("sure"),
   };
 }
 
@@ -206,6 +230,12 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
     ...at("by voice", s.byVoice),
     ...at("by guess", s.byGuess),
     `by group: ${s.byGroup.groups} answered groups, a name shown on ${s.byGroup.shown}, his answer on ${s.byGroup.right}`,
+    ...LEVELS.map((c) => {
+      const { n, right } = s.byGroup[c];
+      const per = n === 0 ? null : Math.round((right / n) * 100);
+      const holds = per === null ? "-" : per >= BARS[c] ? "holds" : "under";
+      return `by group ${c}: ${right} right of ${n} (${per ?? "-"} in 100), bar ${BARS[c]}: ${holds}`;
+    }),
     ...at("no likeness, by voice", s.noLikeness),
     `me guesses (sure or likely, all wrong on a person he answered): ${s.meGuesses}`,
     `talking words named right: ${s.words.right} of ${s.words.all}`,

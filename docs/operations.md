@@ -398,6 +398,7 @@ first.
   likeness apart; `me` guesses; the talking words named right; guesses on voices he answered not relevant; how many voices he answered "A stranger" were guessed a person or him, at sure and at likely; the doubted
   names (named by sound, shown unnamed by rule 3, as now recognised) and how many the model named as the same
   person; mixed voices and voices he answered turn by turn (no answer on the voice) are left out and counted apart.
+  By group (one card per part and answer) it prints each level against its bar on his answers: likely (asks "Is this X?") 85 right in 100, sure (starts "Yes" ticked on the bulk card) 97; a level under its bar is lowered in code on those numbers (no automatic step-down: his answers are lifelog's, read per stored line).
   The calls are the night's and the watcher's (`voiceNaming`, `inBatches`, the engine in settings). Show him the numbers before
   switching on `voiceGuessesShown`, the setting that shows a sure or likely guess as "probably X" when a
   conversation's words are opened (`fetch`) and nowhere else; absent means off, like `voiceNaming`.

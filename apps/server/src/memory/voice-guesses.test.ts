@@ -22,7 +22,7 @@ import {
   withGuessesShown,
   withVoiceGuesses,
 } from "./voice-guesses";
-import { voiceSuggestionOf } from "./who";
+import { isSuggestionBackedOf, voiceSuggestionOf } from "./who";
 import { fetchOf, voiceLines, voiceText } from "./words";
 
 // Made-up people and recordings. Stored guesses are written as lines of a trial folder, as the voice naming writes them.
@@ -322,6 +322,8 @@ test("a voice card asks about the one person the group's sure or likely guesses 
       async () => lifelogNames
     );
     expect(guessed?.guessed).toEqual(["person:dana", "person:kofi"]);
+    // Dana's guess is sure, Kofi's likely: only Dana backs a pre-ticked "Yes".
+    expect(guessed?.sureGuessed).toEqual(["person:dana"]);
     // Each item keeps the names of its own ids only.
     expect(guessed?.names).toEqual({ "lf-dana": "Dana" });
     // Only the months its recordings can be filed under are read.
@@ -367,6 +369,14 @@ test("a voice card asks about the one person the group's sure or likely guesses 
     expect(card({ name: null, names: lifelogNames, personId: "lf-new" })).toBe(
       "person:dana"
     );
+    // "Yes" starts ticked on a suggestion a sure guess backs, or lifelog's likely sound on it; a likely guess alone asks unticked.
+    const backed = (o: Record<string, unknown>) =>
+      isSuggestionBackedOf(who, { ...item, ...o }, "person:dana");
+    expect(backed({ sureGuessed: ["person:dana"] })).toBe(true);
+    expect(backed({ sureGuessed: ["person:kofi"] })).toBe(false);
+    expect(backed({ isLikely: true, personId: "lf-dana" })).toBe(true);
+    expect(backed({ isLikely: false, personId: "lf-dana" })).toBe(false);
+    expect(backed({ isLikely: true, personId: "lf-kofi" })).toBe(false);
     // A month file torn mid-line: the read throws (the inbox keeps lifelog's suggestion, an answer refuses).
     appendFileSync(join(folder, "2026-08.jsonl"), "{not json\n");
     await expect(withVoiceGuesses([item], folder, months)).rejects.toThrow();

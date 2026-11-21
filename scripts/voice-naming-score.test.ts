@@ -126,9 +126,23 @@ test("by group: one card per part and answer, its name the one person its sure o
     g("g", { part: 4, person: "unknown" }),
     g("h", { part: 4, person: "me" }),
   ]);
-  expect(s.byGroup).toEqual({ groups: 4, right: 1, shown: 2 });
-  expect(reportOf(s).join("\n")).toContain(
+  // Both shown cards hold a sure guess of their person, so both start "Yes" ticked: one right of two, under the bar.
+  expect(s.byGroup).toEqual({
+    groups: 4,
+    likely: { n: 0, right: 0 },
+    right: 1,
+    shown: 2,
+    sure: { n: 2, right: 1 },
+  });
+  const report = reportOf(s).join("\n");
+  expect(report).toContain(
     "by group: 4 answered groups, a name shown on 2, his answer on 1"
+  );
+  expect(report).toContain(
+    "by group sure: 1 right of 2 (50 in 100), bar 97: under"
+  );
+  expect(report).toContain(
+    "by group likely: 0 right of 0 (- in 100), bar 85: -"
   );
 });
 
@@ -142,5 +156,5 @@ test("by group reads each turn's newest guess, as the card does: a voice whose t
       person: "person:bob",
     }),
   ]);
-  expect(s.byGroup).toEqual({ groups: 1, right: 0, shown: 0 });
+  expect(s.byGroup).toMatchObject({ groups: 1, right: 0, shown: 0 });
 });

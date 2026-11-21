@@ -330,13 +330,15 @@ export const voicePersonOf = (
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
-/** A queue item as a voice card reads it: lifelog's, with the voice naming's guesses (`guessed`) and the names lifelog gives its person ids (`names`), both from `withVoiceGuesses`. */
+/** A queue item as a voice card reads it: lifelog's, with the voice naming's guesses (`guessed`, and `sureGuessed` of them at sure) and the names lifelog gives its person ids (`names`), all from `withVoiceGuesses`. */
 interface VoiceCardItem {
   guessed?: readonly string[];
+  isLikely?: boolean;
   likely: readonly string[];
   name: string | null;
   names?: Readonly<Record<string, string>>;
   personId: string | null;
+  sureGuessed?: readonly string[];
 }
 
 /**
@@ -368,6 +370,24 @@ export function voiceSuggestionOf(
     ? (one as string)
     : null;
 }
+
+/**
+ * Whether a voice card's suggestion (`voiceSuggestionOf`, `ref`) is backed enough to start ticked "Yes" (`preTickedOf`):
+ * lifelog's sound alone names them (`isLikely` on its `personId`), or a sure voice guess on its voices does (`sureGuessed`,
+ * `namingConfidenceOf`: the model sure, 2 signals or more, nothing elsewhere). A likely guess alone asks, unticked.
+ */
+export const isSuggestionBackedOf = (
+  people: Pick<People, "names" | "refOf" | "resolve">,
+  item: VoiceCardItem,
+  ref: string
+) =>
+  (item.isLikely === true &&
+    voicePersonOf(
+      people.resolve,
+      item.personId,
+      item.names?.[item.personId ?? ""]
+    ) === ref) ||
+  (item.sureGuessed ?? []).some((g) => people.refOf(g) === ref);
 
 /**
  * The lifelog person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
