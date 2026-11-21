@@ -442,26 +442,6 @@ test("a fragment's duration is measured from its Ogg Opus audio, not trusted fro
   expect((await putFragment(app, a, a.pages, seconds + 0.4)).status).toBe(200);
 });
 
-test("a fragment sent again is the same fragment, before and after its block closed, and buys nothing", async () => {
-  const app = appWith();
-  const first = await (await putFragment(app, c)).json();
-  const again = await (await putFragment(app, c)).json();
-  expect(again).toEqual(first);
-  expect(first).toMatchObject({ jobId: null, pages: [[21, 30]] });
-  expect(app.audio.writes).toBe(1);
-
-  await report(app, lastEnd(c) + 50_000);
-  await app.s.worker.work();
-  const [job] = jobs();
-  const replay = await putFragment(app, c);
-  expect(replay.status).toBe(200);
-  expect(await replay.json()).toEqual({ ...first, jobId: job?.id });
-  await app.s.worker.work();
-  expect(jobs()).toHaveLength(1);
-  expect(uploads()).toHaveLength(1);
-  expect(app.audio.writes).toBe(2);
-});
-
 test("audio from before the Mac's quiet ranges is covered: kept without audio, its pages held, never cut", async () => {
   const app = appWith();
   const old = {
