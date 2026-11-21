@@ -4,6 +4,7 @@ import {
   fakeElevenLabs,
   fakeSpeechService,
   heardInBangkok,
+  MIXED_HEARD,
   OWNER_TOKEN,
   pendantOgg,
   scribeThai,
@@ -43,17 +44,6 @@ const dictate = (a = createApp(servicesWith()), audio = pendantOgg(60)) =>
     },
     method: "POST",
   });
-// English, a Thai turn, French: only the Thai turn goes to Scribe.
-const MIXED = {
-  durationSeconds: 60,
-  models: {},
-  turns: [
-    spokenTurn(0, 10, "en"),
-    spokenTurn(10, 14, "th"),
-    spokenTurn(14, 60, "fr"),
-  ],
-  words: [spokenWord(1, "Hello"), spokenWord(15, "Salut")],
-};
 const sends = () =>
   scribe.calls.filter((c) => c.path.endsWith("/speech-to-text"));
 // Whatever the route touched, no table holds the dictation's words.
@@ -85,7 +75,7 @@ test("English is heard on the Mac alone, ahead of other work, and nothing of it 
 });
 
 test("a Thai turn waits for the held slot, then goes to Scribe once, ahead of an older ordinary waiter", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = scribeThai;
   const s = servicesWith({ ELEVENLABS_SLOTS: "1" });
   const order: string[] = [];
@@ -138,7 +128,7 @@ test("a Thai turn waits for the held slot, then goes to Scribe once, ahead of an
 });
 
 test("Scribe answering no words for a Thai turn: the field says it again, never the Mac's words alone", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = () =>
     Response.json({
       language_code: "tha",
@@ -150,8 +140,48 @@ test("Scribe answering no words for a Thai turn: the field says it again, never 
   expect((await res.json()).error).toBe("transcription_failed");
 });
 
+test("mostly Thai, heard whole: a short turn whose Mac words Scribe left out answers 502", async () => {
+  speech.heard = {
+    durationSeconds: 60,
+    models: {},
+    // The last turn is under a second: never judged, but its "No" is the Mac's word the merge drops.
+    turns: [
+      spokenTurn(0, 40, "th"),
+      spokenTurn(40, 50, "en"),
+      spokenTurn(50, 50.7, "en"),
+    ],
+    words: [spokenWord(41, "Hello"), spokenWord(50.1, "No")],
+  };
+  const heardBy = (words: [number, string][]) => () =>
+    Response.json({
+      language_code: "tha",
+      language_probability: 0.9,
+      words: words.map(([start, text]) => ({
+        end: start + 0.3,
+        speaker_id: "speaker_0",
+        start,
+        text,
+        type: "word",
+      })),
+    });
+  scribe.respond = heardBy([
+    [0.5, "สวัสดี"],
+    [41, "Hello"],
+  ]);
+  expect((await dictate()).status).toBe(502);
+  scribe.respond = heardBy([
+    [0.5, "สวัสดี"],
+    [41, "Hello"],
+    [50.1, "No"],
+  ]);
+  const res = await dictate();
+  expect(res.status).toBe(200);
+  expect((await res.json()).text).toBe("สวัสดี Hello No");
+  expect(sends()).toHaveLength(2);
+});
+
 test("Scribe failing after it may have billed: 502; refusing: 503", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = () => new Response("boom", { status: 500 });
   const res = await dictate();
   expect(res.status).toBe(502);

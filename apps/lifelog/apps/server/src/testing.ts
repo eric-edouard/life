@@ -390,6 +390,17 @@ export const spokenWord = (start: number, text: string) => ({
   start,
   text,
 });
+// English, a Thai turn, French: only the Thai turn goes to Scribe.
+export const MIXED_HEARD = {
+  durationSeconds: 60,
+  models: {},
+  turns: [
+    spokenTurn(0, 10, "en"),
+    spokenTurn(10, 14, "th"),
+    spokenTurn(14, 60, "fr"),
+  ],
+  words: [spokenWord(1, "Hello"), spokenWord(15, "Salut")],
+};
 export const scribeThai = () =>
   Response.json({
     language_code: "tha",

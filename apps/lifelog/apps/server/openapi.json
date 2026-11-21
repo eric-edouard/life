@@ -4136,7 +4136,7 @@
     },
     "/dictation/transcript": {
       "post": {
-        "description": "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of all other work, by the speech service and Scribe for the turns it routes as Thai by where the owner is now. lifelog keeps no audio and no words, only an event of its length and route. ElevenLabs keeps what Scribe is sent (the Thai turns, or all of it when mostly Thai, with vocabulary hints that can name people) under its ordinary retention; zero retention is enterprise-only. The words are whole or not given. 503 when the speech service or transcription is off or busy, or the words need Scribe while its credits are out or no slot frees: nothing was billed. 502 when Scribe left any routed turn without words: the owner says it again. The device token only.",
+        "description": "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of all other work, by the speech service and Scribe for the turns it routes as Thai by where the owner is now. lifelog keeps no audio and no words, only operational events (its length, route, billable seconds, turns left unheard and Scribe's outcome). ElevenLabs keeps what Scribe is sent (the Thai turns, or all of it when mostly Thai, with vocabulary hints that can name people) under its ordinary retention; zero retention is enterprise-only. The words are whole or not given. 503 when the speech service or transcription is off or busy, or the words need Scribe while its credits are out or no slot frees: nothing was billed. 502 when Scribe left any routed turn without words: the owner says it again. The device token only.",
         "requestBody": {
           "required": true,
           "content": {

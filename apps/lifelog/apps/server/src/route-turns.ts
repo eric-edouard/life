@@ -52,15 +52,20 @@ const turnAt = <T extends Span>(turns: T[], at: number) => {
   );
 };
 
+type Spoken = { start: number; text: string }[];
 // Whether no word with text starts inside the turn.
-const isWordless = (turn: Span, words: { start: number; text: string }[]) =>
+const isWordless = (turn: Span, words: Spoken) =>
   !words.some((w) => inside(turn, w.start) && w.text.trim() !== "");
 
-/** The routed turns the router judged (`judgedOf`) that `words` (Scribe's, in block seconds) leave wordless. */
-export const unheardOf = (
-  routed: HeardTurn[],
-  words: { start: number; text: string }[]
-) => judgedOf(routed).filter((t) => isWordless(t, words)).length;
+/**
+ * How many routed turns Scribe's `words` (in block seconds) leave wordless, among those it had to
+ * hear: the ones the router judged, and any whose `local` words (the speech service's) the merge
+ * drops for Scribe's (`transcriptOf`).
+ */
+export const unheardOf = (routed: HeardTurn[], local: Spoken, words: Spoken) =>
+  routed.filter(
+    (t) => (isJudged(t) || !isWordless(t, local)) && isWordless(t, words)
+  ).length;
 
 export type Route = { kind: "whole" } | { kind: "turns"; routed: HeardTurn[] };
 
@@ -105,11 +110,9 @@ export const thaiChanceOf = (
 ) => chanceOf(featuresOf(turn, judged, words));
 
 /** A block's turns the router judges: a second or more, with VoxLingua's scores. */
-export const judgedOf = (turns: HeardTurn[]) =>
-  turns.filter(
-    (t): t is Judged =>
-      t.end - t.start >= MIN_ROUTED_SECONDS && t.scores !== null
-  );
+const isJudged = (t: HeardTurn): t is Judged =>
+  t.end - t.start >= MIN_ROUTED_SECONDS && t.scores !== null;
+export const judgedOf = (turns: HeardTurn[]) => turns.filter(isJudged);
 
 /** Routes the turns whose chance clears `bar` (`barOf` the zone the owner was in). */
 export function routeTurns(

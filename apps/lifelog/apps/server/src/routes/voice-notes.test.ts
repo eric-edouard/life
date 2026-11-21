@@ -14,6 +14,7 @@ import {
   fakeElevenLabs,
   fakeSpeechService,
   heardInBangkok,
+  MIXED_HEARD,
   OWNER_TOKEN,
   pendantOgg,
   scribeThai,
@@ -57,17 +58,6 @@ const ask = (
     method: "POST",
     signal,
   });
-// English, a Thai turn, French: the worker's own mix (jobs.test.ts); only the Thai turn goes to Scribe.
-const MIXED = {
-  durationSeconds: 60,
-  models: {},
-  turns: [
-    spokenTurn(0, 10, "en"),
-    spokenTurn(10, 14, "th"),
-    spokenTurn(14, 60, "fr"),
-  ],
-  words: [spokenWord(1, "Hello"), spokenWord(15, "Salut")],
-};
 const LOCAL = "Hello Salut";
 const sends = () =>
   scribe.calls.filter((c) => c.path.endsWith("/speech-to-text"));
@@ -90,7 +80,7 @@ test("an English note is heard on the Mac alone", async () => {
 });
 
 test("a Thai turn goes to Scribe once; asked again, its words come back with no send", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = scribeThai;
   const a = app();
   const key = sha256Hex(randomUUID());
@@ -103,7 +93,7 @@ test("a Thai turn goes to Scribe once; asked again, its words come back with no 
 });
 
 test("Scribe failing after it may have billed: the local words stand, never sent again", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = () => new Response("boom", { status: 500 });
   const a = app();
   const key = sha256Hex(randomUUID());
@@ -117,7 +107,7 @@ test("Scribe failing after it may have billed: the local words stand, never sent
 });
 
 test("Scribe taking nothing now: busy, and the note may be sent again", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = () => new Response("slow down", { status: 429 });
   const a = app();
   const key = sha256Hex(randomUUID());
@@ -138,7 +128,7 @@ test("the speech service busy: 503; not Ogg Opus: 400", async () => {
 });
 
 test("a send cut off (a crash, a lost answer) is never sent again: past 5 minutes the Mac's words stand", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = scribeThai;
   const key = sha256Hex(randomUUID());
   env.db
@@ -159,7 +149,7 @@ test("a send cut off (a crash, a lost answer) is never sent again: past 5 minute
 });
 
 test("no Scribe slot now (dictation holds the one): busy, nothing claimed, and the note goes once it is free", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = scribeThai;
   const s = speechServices(scribe, speech, env.db, { ELEVENLABS_SLOTS: "1" });
   const a = createApp(s);
@@ -186,7 +176,7 @@ test("no Scribe slot now (dictation holds the one): busy, nothing claimed, and t
 });
 
 test("a note keeps its Scribe slot until its words are stored: the next grant sees them", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   const s = speechServices(scribe, speech, env.db, { ELEVENLABS_SLOTS: "1" });
   const a = createApp(s);
   const key = sha256Hex(randomUUID());
@@ -216,7 +206,7 @@ test("a note keeps its Scribe slot until its words are stored: the next grant se
 });
 
 test("a note whose caller left while the speech service heard it is never sent to Scribe", async () => {
-  speech.heard = MIXED;
+  speech.heard = MIXED_HEARD;
   scribe.respond = scribeThai;
   const left = new AbortController();
   speech.meanwhile = () => left.abort();

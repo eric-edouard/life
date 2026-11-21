@@ -56,8 +56,8 @@ export async function hearOnTheMac(
 }
 
 // What hearing the routed turns came to: `heard`, the transcript (`maybeBilled` when Scribe may have
-// billed turns that came back without words; `unheard`, how many judged routed turns have none of
-// Scribe's words, whatever Scribe answered), or `later`: Scribe took nothing now and billed nothing,
+// billed turns that came back without words; `unheard`, how many routed turns Scribe had to hear have
+// none of its words, whatever it answered: `unheardOf`), or `later`: Scribe took nothing now and billed nothing,
 // fine to send again.
 type Routed =
   | {
@@ -102,7 +102,7 @@ export async function hearRouted(
       kind: "heard" as const,
       maybeBilled: false,
       transcript: transcriptOf(heard, routed, null),
-      unheard: unheardOf(routed, []),
+      unheard: unheardOf(routed, heard.words, []),
     };
     settle(local);
     return local;
@@ -138,7 +138,7 @@ export async function hearRouted(
           languageCode: said.transcript.languageCode,
           words,
         }),
-        unheard: unheardOf(routed, words),
+        unheard: unheardOf(routed, heard.words, words),
       };
     }
     if (said.later) {
@@ -150,7 +150,7 @@ export async function hearRouted(
       kind: "heard",
       maybeBilled: said.billed,
       transcript: transcriptOf(heard, routed, null),
-      unheard: unheardOf(routed, []),
+      unheard: unheardOf(routed, heard.words, []),
     };
   }
 }

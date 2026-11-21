@@ -1,6 +1,7 @@
 // A field's dictation on the phone: the owner's words, heard while he waits at the field, ahead of
 // every other request (the speech service's interactive place, then Scribe's for Thai turns). lifelog
-// keeps no audio and no words, only a `dictation.heard` event (its length and route); Scribe keeps
+// keeps no audio and no words, only operational events (its length, route, billable seconds, turns
+// left unheard, Scribe's outcome); Scribe keeps
 // what it is sent under its ordinary policy (zero retention is enterprise-only). Its words are whole
 // or not given: a lost or partial answer is said again (the phone shows "Not written. Please say it
 // again."), never asked of Scribe twice.
@@ -103,7 +104,8 @@ export function dictationRoutes({
       description:
         "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of " +
         "all other work, by the speech service and Scribe for the turns it routes as Thai by where the " +
-        "owner is now. lifelog keeps no audio and no words, only an event of its length and route. " +
+        "owner is now. lifelog keeps no audio and no words, only operational events (its length, " +
+        "route, billable seconds, turns left unheard and Scribe's outcome). " +
         "ElevenLabs keeps what Scribe is sent (the Thai turns, or all of it when mostly Thai, with " +
         "vocabulary hints that can name people) under its ordinary retention; zero retention is " +
         "enterprise-only. The words are whole or not given. 503 when the speech service or " +
