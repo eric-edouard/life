@@ -15,12 +15,8 @@ import {
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
 import type { Decision } from "../memory/decision-lines";
-import {
-  cardsHearingOf,
-  decisionsNow,
-  settledAtOf,
-  settledBetween,
-} from "../memory/decisions";
+import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import { cardsHearingOf } from "../memory/draft-contest";
 import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";

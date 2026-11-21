@@ -313,15 +313,6 @@ function contestOfAsk(
 const isSendingOf = (d: Decision) =>
   d.state === "answered" && actDueOf(d) === "send" && !d.send;
 
-/**
- * The cards whose askers hear card `d` settle (his answer, its lapse, its withdrawal), `d`'s own first: `d`, and the card
- * it merged (`merges`), whose asker hears it too, never its words. The one rule for the polls and `wakesOn`.
- */
-export const cardsHearingOf = (d: Decision, list: readonly Decision[]) => {
-  const merged = d.merges ? list.find((x) => x.id === d.merges) : undefined;
-  return merged ? [d, merged] : [d];
-};
-
 /** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
 function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
   const d = decisionsNow(now).find((x) => x.id === id);

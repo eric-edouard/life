@@ -35,8 +35,8 @@ import {
   readMessageEvents,
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
-import { cardsHearingOf, decisionsNow } from "../memory/decisions";
-import { CONTEST_WAIT } from "../memory/draft-contest";
+import { decisionsNow } from "../memory/decisions";
+import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";

@@ -2,7 +2,8 @@ import { clock, DAY, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
-import { cardsHearingOf, decisionsNow } from "../memory/decisions";
+import { decisionsNow } from "../memory/decisions";
+import { cardsHearingOf } from "../memory/draft-contest";
 import {
   lastExchangeAtOf,
   readExchangeCounts,
