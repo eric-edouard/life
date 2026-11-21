@@ -672,7 +672,8 @@
       "people",
       "-fixturePerson",
       "person:atelier_morel"
-    ]
+    ],
+    "taps": ["Organizations"]
   },
   "DuoPeopleSearch": {
     "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."

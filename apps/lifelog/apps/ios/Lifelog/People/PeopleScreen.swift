@@ -10,9 +10,10 @@ struct PeopleScreen: View {
 
     var body: some View {
         GeometryReader { window in
+            let isSplit = PeopleList.isSplit(
+                isRegularWidth: sizeClass == .regular, width: window.size.width, height: window.size.height)
             PeopleColumns(
-                isSplit: PeopleList.isSplit(
-                    isRegularWidth: sizeClass == .regular, width: window.size.width, height: window.size.height))
+                isSplit: isSplit, hasOwnBack: sizeClass == .regular && !isSplit)
         }
     }
 }
@@ -21,6 +22,8 @@ struct PeopleScreen: View {
 /// decision 93).
 private struct PeopleColumns: View {
     let isSplit: Bool
+    /// Stacked on a regular width (the open Duo upright): the system collapses nothing there, so it draws no Back.
+    let hasOwnBack: Bool
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
@@ -51,6 +54,14 @@ private struct PeopleColumns: View {
             if let ref = router.person {
                 NavigationStack(path: $router.personPath) {
                     PersonPage(ref: ref, hasSettings: isSplit).id(ref)
+                        .toolbar {
+                            if hasOwnBack {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button("Back", systemImage: "chevron.backward") { router.personColumn = .sidebar }
+                                        .labelStyle(.iconOnly)
+                                }
+                            }
+                        }
                         .navigationDestination(for: AppRouter.PersonRoute.self) { route in
                             switch route {
                             case .part(let part, let title): ProsePage(ref: part, title: title)
