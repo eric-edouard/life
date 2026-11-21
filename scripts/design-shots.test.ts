@@ -12,6 +12,7 @@ import {
   DESIGN_DATA,
   FRAME_MAP,
   parseArgs,
+  ROUTE_FLAGS,
   readAppFrames,
 } from "./design-shots";
 import { buildApp, sourceStamp } from "./simulator";
@@ -33,6 +34,19 @@ test("every flag a frame launches with is one the app's fixture reads", () => {
     (frame.args ?? []).filter((arg) => arg.startsWith("-"))
   );
   expect(flags.filter((flag) => !read.has(flag))).toEqual([]);
+});
+
+test("every route flag the shots wait on is one the app's fixture reads", () => {
+  const fixture = readFileSync(
+    join(
+      import.meta.dir,
+      "../apps/lifelog/apps/ios/Lifelog/Fixtures/LifeFixture.swift"
+    ),
+    "utf8"
+  );
+  expect(
+    [...ROUTE_FLAGS].filter((flag) => !fixture.includes(`"${flag}"`))
+  ).toEqual([]);
 });
 
 test("every frame has args to launch with, or a why it has none (never both, never neither)", () => {
