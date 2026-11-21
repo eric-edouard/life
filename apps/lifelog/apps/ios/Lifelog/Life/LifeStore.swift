@@ -537,7 +537,8 @@ final class LifeStore {
         }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshAgents()
-        _ = await (a, b)
+        async let c: Void = refreshListsOf(id)
+        _ = await (a, b, c)
     }
 
     func stopAgent(_ agent: String) async {
@@ -548,10 +549,14 @@ final class LifeStore {
     }
     private func change(_ agent: String, _ request: AgentRequest) async {
         await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
-        // The matter page draws the agent from its own read, so that read is refreshed too.
+        // The matter page draws the agent from its own read, and its lists and project header their spinners.
         let pages = matter.filter { $0.value.value?.agents.contains { $0.id == agent } == true }.keys
         async let agents: Void = refreshAgents()
-        for id in pages { await refreshMatter(id) }
+        for id in pages {
+            async let page: Void = refreshMatter(id)
+            async let lists: Void = refreshListsOf(id)
+            _ = await (page, lists)
+        }
         await agents
     }
 
@@ -619,13 +624,8 @@ final class LifeStore {
                 await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
             }
             async let a: Void = refreshMatter(id)
-            async let b: Void = refreshMatters()
+            async let b: Void = refreshListsOf(id)
             async let c: Void = refreshInbox()
-            // A chip's list ranks his marked ones first too.
-            for chip in projects.value?.chips ?? []
-            where scopedMatters[chip.identity]?.value?.matters.contains(where: { $0.id == id }) == true {
-                await refreshScopedMatters(chip.kind, chip.id)
-            }
             _ = await (a, b, c)
         }
         guard isSent else { return }
@@ -702,8 +702,25 @@ final class LifeStore {
     ) async {
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
         async let a: Void = refreshMatter(id)
-        async let b: Void = refreshMatters()
+        async let b: Void = refreshListsOf(id)
         _ = await (a, b)
+    }
+
+    /// Every list a change to matter `id` can move, read again: All, the chips and their counts, and each chip's list
+    /// and project header read with it on show (its rank, flag, agent, or its leaving once done).
+    private func refreshListsOf(_ id: String) async {
+        let held = (projects.value?.chips ?? []).filter {
+            scopedMatters[$0.identity]?.value?.matters.contains { $0.id == id } == true
+        }
+        async let all: Void = refreshMatters()
+        async let chips: Void = refreshProjects()
+        for chip in held {
+            let hasHead = chip.kind == .project && projectHead[chip.id] != nil
+            async let rows: Void = refreshScopedMatters(chip.kind, chip.id)
+            async let head: Void = hasHead ? refreshProjectHead(chip.id) : ()
+            _ = await (rows, head)
+        }
+        _ = await (all, chips)
     }
 
     /// A matter's asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`), for its

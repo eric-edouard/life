@@ -61,6 +61,12 @@ final class AppRouter {
         if case .matter(let id) = detail { id } else { nil }
     }
     var matterColumn = NavigationSplitViewColumn.sidebar
+    /// Whether he opened the matter on show from elsewhere (a card's chip, Search, a person), not from the list's rows:
+    /// beside the list it then stays through a chip whose list leaves it out.
+    private(set) var isMatterFromElsewhere = false
+    /// A project's question, open as a sheet over the Projects tab: here, so opening a matter or a person from it
+    /// closes it.
+    var projectAsk: OpenAsk?
     /// What is pushed on the matter on show (`MatterRoute`): Back returns to the matter, the tab stays on Projects.
     var matterPath: [MatterRoute] = []
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
@@ -84,9 +90,11 @@ final class AppRouter {
 
     func open(matter id: String) {
         sheet = nil
+        projectAsk = nil
         tab = .projects
         matterPath = []
         select(matter: id)
+        isMatterFromElsewhere = true
     }
 
     /// A project, from a matter that names it: the Projects tab's list on its chip (decision 95: the filtered list is
@@ -109,6 +117,7 @@ final class AppRouter {
     func open(party ref: String) {
         sheet = nil
         matterSheet = nil
+        projectAsk = nil
         tab = .people
         select(person: ref)
         isPersonFromElsewhere = true
@@ -125,6 +134,7 @@ final class AppRouter {
     /// The one way the matter on show changes: a compact width then shows it too, so a fold keeps it on screen.
     func select(matter id: String?) {
         if matter != id { matterPath = [] }
+        isMatterFromElsewhere = false
         detail = id.map { .matter($0) }
         matterColumn = id == nil ? .sidebar : .detail
     }

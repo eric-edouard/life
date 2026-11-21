@@ -11,8 +11,7 @@ struct ProjectsScreen: View {
     @State private var visibility = NavigationSplitViewVisibility.all
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
-    /// A project's question, open as a sheet over the tab, and what he typed on it.
-    @State private var ask: OpenAsk?
+    /// What he typed on a project's question (`AppRouter.projectAsk`).
     @State private var askNotes = CardNotes()
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// A compact width opens a matter out of its row and closes it back into it; beside the list nothing is pushed, so
@@ -25,29 +24,28 @@ struct ProjectsScreen: View {
         @Bindable var router = router
         let chip = chosen
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
-            // Never empty: the chips and a project's header stay whatever its list holds.
-            ReadScreen(
-                shown: list(of: chip).shown(isEmpty: { _ in false }), retry: { await refresh(chip) },
-                loading: {
-                    VStack(spacing: 0) {
-                        chipRow
-                        RowsPlaceholder()
-                    }
-                },
-                empty: { EmptyView() },
-                content: { list in content(list.matters, chip: chip) }
-            )
-            .background(Palette.bg)
-            // A swipe's mark and a project's status, said back with Undo.
-            .saysBack()
-            .screenTitle("Projects", state: life.projects.value.map { "\($0.underway) underway" })
-            // Beside a matter, the Pendant and Settings are the matter column's.
-            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-            // The chosen chip's list and header, again after any answer (and once Life's chips name the chip chosen).
-            .task(id: [chip?.identity ?? "", "\(life.answersEnded)"]) { await refresh(chip) }
+            // The chips, a project's header and its rows each show their own read: one failing leaves the others.
+            content(chip)
+                .background(Palette.bg)
+                // A swipe's mark and a project's status, said back with Undo.
+                .saysBack()
+                .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
+                // Beside a matter, the Pendant and Settings are the matter column's.
+                .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+                // The chosen chip's list and header, again after any answer (and once Life's chips name the chip chosen).
+                .task(id: [chip?.identity ?? "", "\(life.answersEnded)"]) { await refresh(chip) }
         } detail: {
             detail
         }
+        // His word that a step is done, held for Undo after he left its ask: on the matter on show, or on a project's
+        // question, whose sheet closes back onto the list.
+        .heldToast(
+            shows: { ref in
+                life.matter[router.matter ?? ""]?.value?.checks.contains { $0.ref == ref } == true
+                    || life.projectHead.values.contains { $0.value?.project.ask?.ref == ref }
+            },
+            undo: { life.undo($0) }
+        )
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
         // list on the matter, whatever the column widths: kept on purpose (the owner's call, 19 Nov 2026); the system's
         // sidebar button brings the list back.
@@ -70,8 +68,8 @@ struct ProjectsScreen: View {
             }
         }
         // His answer closes it where he was; the result he read is forgotten, so the next opens on its question.
-        .sheet(item: $ask, onDismiss: forgetAskResult) { ask in
-            ProjectAsk(ask: ask, notes: $askNotes) { self.ask = nil }
+        .sheet(item: $router.projectAsk, onDismiss: forgetAskResult) { ask in
+            ProjectAsk(ask: ask, notes: $askNotes) { router.projectAsk = nil }
         }
     }
 
@@ -96,11 +94,6 @@ struct ProjectsScreen: View {
                     }
             }
             .zooms(from: id, in: matterZoom)
-            // His word that a step is done, held for Undo after he left its ask: over the top of the matter.
-            .heldToast(
-                shows: { ref in life.matter[id]?.value?.checks.contains { $0.ref == ref } == true },
-                undo: { life.undo($0) }
-            )
             // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
             // opens on its own question.
             .onChange(of: router.matterPath) { _, path in
@@ -152,59 +145,78 @@ struct ProjectsScreen: View {
     /// its first.
     private func fillSelection() {
         guard sizeClass == .regular else { return }
+        // Details, or a matter he opened from elsewhere, stay whatever the chip's list holds.
         if case .project = router.detail { return }
+        if router.isMatterFromElsewhere { return }
         let matters = list(of: chosen).value?.matters
         let isGone = router.matter == nil || matters?.contains { $0.id == router.matter } == false
         router.select(matter: isGone ? matters?.first?.id : router.matter)
     }
 
-    /// The chips, the header of a project's chip, then the rows in Life's order (his marked ones first); on All, a
-    /// parked or done project's matters last, under "Parked". A swipe to the right marks one, or unmarks it: the
-    /// system's own swipe action, as Mail flags a message.
-    private func content(_ rows: [MatterRow], chip: ProjectChips.Chip?) -> some View {
-        let parkedFrom = chip == nil ? rows.firstIndex(where: \.isParked) : nil
-        let split = parkedFrom ?? rows.count
+    /// The chips, the header of a project's chip, then the chip's rows as their read stands.
+    private func content(_ chip: ProjectChips.Chip?) -> some View {
+        let shown = list(of: chip).shown()
         return List {
             chipRow.quietListRow()
             if let chip, chip.kind == .project {
-                ProjectHead(id: chip.id) { ask = OpenAsk(ask: $0) }.readingWidth().quietListRow()
+                ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
-            if rows.isEmpty {
-                Text("Nothing is running here.").font(.body15).foregroundStyle(Palette.muted)
-                    .padding(Metrics.gutter).quietListRow()
-            }
-            ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
-                let isMarked = life.isImportant(row.id, as: row.important)
-                let isParked = at >= split
-                VStack(alignment: .leading, spacing: 0) {
-                    if at == parkedFrom { ListLabel("Parked") }
-                    Button {
-                        router.open(matter: row.id)
-                    } label: {
-                        MatterRowView(row: row, isMarked: isMarked)
-                    }
-                    .buttonStyle(
-                        .groupedRow(
-                            at: isParked ? at - split : at, of: isParked ? rows.count - split : split,
-                            isChosen: sizeClass == .regular && router.matter == row.id)
-                    )
-                    .zoomSource(row.id, in: matterZoom)
+            if let list = shown.onScreen {
+                if case .stale(_, let since, let why) = shown {
+                    StaleNote(since: since, because: why.words, retry: { await refresh(chip) }).quietListRow()
                 }
-                .readingWidth()
-                .appears()
+                rows(list.matters, chip: chip)
+            } else {
+                ReadScreen(
+                    shown: shown, retry: { await refresh(chip) }, loading: { RowsPlaceholder() },
+                    empty: { EmptyView() }, content: { _ in EmptyView() }
+                )
                 .quietListRow()
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    Button(isMarked ? "Unmark" : "Important", systemImage: isMarked ? "flag" : "flag.fill") {
-                        Task { await life.setImportant(row.id, !isMarked) }
-                    }
-                    .tint(Color.pick)
-                }
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
-        .motion(Motion.standard, value: rows.map(\.id))
+        .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// The rows in Life's order (his marked ones first); on All, a parked or done project's matters last, under
+    /// "Parked". A swipe to the right marks one, or unmarks it: the system's own swipe action, as Mail flags a message.
+    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?) -> some View {
+        let parkedFrom = chip == nil ? rows.firstIndex(where: \.isParked) : nil
+        let split = parkedFrom ?? rows.count
+        if rows.isEmpty {
+            Text("Nothing is running here.").font(.body15).foregroundStyle(Palette.muted)
+                .padding(Metrics.gutter).quietListRow()
+        }
+        ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
+            let isMarked = life.isImportant(row.id, as: row.important)
+            let isParked = at >= split
+            VStack(alignment: .leading, spacing: 0) {
+                if at == parkedFrom { ListLabel("Parked") }
+                Button {
+                    router.matterPath = []
+                    router.select(matter: row.id)
+                } label: {
+                    MatterRowView(row: row, isMarked: isMarked)
+                }
+                .buttonStyle(
+                    .groupedRow(
+                        at: isParked ? at - split : at, of: isParked ? rows.count - split : split,
+                        isChosen: sizeClass == .regular && router.matter == row.id)
+                )
+                .zoomSource(row.id, in: matterZoom)
+            }
+            .readingWidth()
+            .appears()
+            .quietListRow()
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button(isMarked ? "Unmark" : "Important", systemImage: isMarked ? "flag" : "flag.fill") {
+                    Task { await life.setImportant(row.id, !isMarked) }
+                }
+                .tint(Color.pick)
+            }
+        }
     }
 
     /// All, then Life's chips in its order; one row that scrolls sideways, the chosen chip scrolled into view. A long

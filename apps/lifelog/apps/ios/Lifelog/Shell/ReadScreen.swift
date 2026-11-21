@@ -12,13 +12,6 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
 
     @Environment(AppRouter.self) private var router
 
-    private static func reason(_ why: ReadState<Value>.Why) -> String {
-        switch why {
-        case .unreachable: "Your Mac is out of reach."
-        case .failed(let reason): reason
-        }
-    }
-
     var body: some View {
         // Each face fades out as the next fades in (loading to content: the spinner goes as the content comes).
         ZStack { face.appears(Motion.fade).id(faceName) }
@@ -44,7 +37,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .empty: empty
         case .stale(let value, let since, let why):
             VStack(spacing: 0) {
-                StaleNote(since: since, because: Self.reason(why), retry: retry)
+                StaleNote(since: since, because: why.words, retry: retry)
                 content(value)
             }
         case .unreachable:
@@ -59,6 +52,16 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
                 title: "Not paired with Life.",
                 detail: "Inbox and Projects need Life on your Mac.",
                 action: ("Pair with Life", { router.sheet = .settings }))
+        }
+    }
+}
+
+extension ReadState.Why {
+    /// Why the value on screen is old, in a few words.
+    var words: String {
+        switch self {
+        case .unreachable: "Your Mac is out of reach."
+        case .failed(let reason): reason
         }
     }
 }

@@ -3,7 +3,8 @@ import SwiftUI
 
 /// A project chip's header (`read_project`, the project head pattern of decision 98): where it stands in one sentence,
 /// its status and the goal it serves with Details behind the info button, the question waiting for him as the one
-/// coral card, then its agents as slim rows. Nothing until Life's header is read: the matters under it come first.
+/// coral card, then its agents as slim rows. Nothing while Life's header is first read: the matters under it come first;
+/// a header that failed says so with its retry, whatever its rows show.
 struct ProjectHead: View {
     let id: String
     /// His tap on the question: the screen opens it as a sheet.
@@ -13,35 +14,45 @@ struct ProjectHead: View {
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-        if let head = life.projectHead[id]?.value?.project {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                Group {
-                    let situation = head.situation.map(\.text).joined(separator: " ")
-                    if !situation.isEmpty {
-                        Text(situation).font(.lead).foregroundStyle(Palette.fg)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    HStack(spacing: Metrics.Spacing.s) {
-                        Text(statusLine(head)).font(.small).foregroundStyle(Palette.muted)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        // A round tinted button (decision 98): the whole circle is the tap.
-                        Button {
-                            router.openDetails(of: id)
-                        } label: {
-                            Image(systemName: "info").font(.smallStrong).foregroundStyle(Palette.fg)
-                                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
-                                .background(Color.fillTint, in: .circle).contentShape(.circle)
-                        }
-                        .buttonStyle(.plain).accessibilityLabel("Details")
-                    }
-                }
-                .padding(.horizontal, Metrics.gutter)
-                if let ask = head.ask { askCard(ask) }
-                agents(head.agents)
-            }
-            .padding(.bottom, Metrics.Spacing.s)
-            .motion(Motion.standard, value: head)
+        let shown = (life.projectHead[id] ?? ReadState()).shown()
+        // Not paired: the rows under it say so, once.
+        if case .notPaired = shown {
+            EmptyView()
+        } else {
+            ReadScreen(
+                shown: shown, retry: { await life.refreshProjectHead(id) }, loading: { EmptyView() },
+                empty: { EmptyView() }, content: { header($0.project) })
         }
+    }
+
+    private func header(_ head: ProjectHeader.Head) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            Group {
+                let situation = head.situation.map(\.text).joined(separator: " ")
+                if !situation.isEmpty {
+                    Text(situation).font(.lead).foregroundStyle(Palette.fg)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: Metrics.Spacing.s) {
+                    Text(statusLine(head)).font(.small).foregroundStyle(Palette.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // A round tinted button (decision 98): the whole circle is the tap.
+                    Button {
+                        router.openDetails(of: id)
+                    } label: {
+                        Image(systemName: "info").font(.smallStrong).foregroundStyle(Palette.fg)
+                            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+                            .background(Color.fillTint, in: .circle).contentShape(.circle)
+                    }
+                    .buttonStyle(.plain).accessibilityLabel("Details")
+                }
+            }
+            .padding(.horizontal, Metrics.gutter)
+            if let ask = head.ask { askCard(ask) }
+            agents(head.agents)
+        }
+        .padding(.bottom, Metrics.Spacing.s)
+        .motion(Motion.standard, value: head)
     }
 
     /// "Underway · for your goal: …", his tap on the status first.
