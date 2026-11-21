@@ -35,6 +35,7 @@ import { OWNER, type Truth } from "./read-truth";
 import {
   clipEdges,
   headOf,
+  isEmptySpan,
   moreOf,
   spanOf,
   WITHIN_REFUSED,
@@ -308,7 +309,7 @@ function pageOf(
   p: {
     head: string;
     id: string;
-    lines: { at: string; speaker: string; text: string }[];
+    lines: { at: string; n?: number; speaker: string; text: string }[];
     note?: string;
     total: number;
   },
@@ -329,9 +330,10 @@ function pageOf(
         : text
     );
   }
+  // Cut by characters, the next page starts at the first line not shown (its turn's place when lines skip silent turns).
   const end =
     page.length < p.lines.length
-      ? from + page.length
+      ? (p.lines[page.length]?.n ?? from + page.length)
       : Math.min(p.total, from + limit);
   return asData([
     `${p.head}: ${from + 1}–${end} of ${p.total}`,
@@ -341,13 +343,17 @@ function pageOf(
   ]);
 }
 
+/** The import source an id is a conversation of (`<source>:<id>`), if any. */
+const importedSourceOf = (id: string) =>
+  SOURCES.find((s) => s.imported && id.startsWith(`${s.name}:`));
+
 /**
  * A page of an imported conversation (`<source>:<id>`) whole, from its export copy: every turn of its latest version,
  * him as the owner and the assistant under its name, and whether the import kept it. The assistant's words are recorded
  * content, never his. None when `id` is not an imported source's.
  */
 function wholeConversation(id: string, from: number, limit: number) {
-  const source = SOURCES.find((s) => s.imported && id.startsWith(`${s.name}:`));
+  const source = importedSourceOf(id);
   if (!source) {
     return null;
   }
@@ -396,10 +402,12 @@ export async function fetchOf(
   const turn = parseTurnRef(id);
   if (turn) {
     const at = await findTurn(id, turn, open);
+    // Cut to a span, a turn ref opens at the span's first turn.
+    const lead = isCut ? Number.POSITIVE_INFINITY : LEAD;
     return at.found
       ? fetchOf(
           at.place.conversation,
-          from ?? (isCut ? 0 : Math.max(0, at.place.offset - LEAD)),
+          from ?? Math.max(0, at.place.offset - lead),
           limit,
           open,
           within
@@ -407,8 +415,11 @@ export async function fetchOf(
       : asData([`(${at.why})`]);
   }
   const fromTurn = from ?? 0;
-  // An imported conversation has no recording to cut: cut, it has no turns.
-  const whole = isCut ? null : wholeConversation(id, fromTurn, limit);
+  // An imported conversation is no recording: it refuses a span.
+  if (isCut && importedSourceOf(id)) {
+    return asData([`(${WITHIN_REFUSED})`]);
+  }
+  const whole = wholeConversation(id, fromTurn, limit);
   if (whole) {
     return whole;
   }
@@ -437,7 +448,7 @@ export async function fetchOf(
     return asData([head, "(nothing found)"]);
   }
   return pageOf(
-    { ...read, head, id: moreOf(id, within, span), note: wholeNoteOf(unit) },
+    { ...read, head, id: moreOf(id, span), note: wholeNoteOf(unit) },
     fromTurn,
     limit
   );
@@ -472,7 +483,7 @@ async function writtenPage(
 async function spokenPage(
   id: string,
   unit: Unit | undefined,
-  span: { at: string; until: string } | null,
+  span: Within | null,
   from: number,
   limit: number,
   people: People,
@@ -480,24 +491,37 @@ async function spokenPage(
 ) {
   const names = lifelogNames(people.truth);
   const key = unit?.key ?? id;
-  const turns = await withStore(
-    (store) =>
-      span
-        ? turnsOverlapping(store, key, span.at, span.until, names)
-        : turnsBetween(store, key, unit?.start, unit?.end, names),
-    open
-  );
+  const turns =
+    span && isEmptySpan(span)
+      ? []
+      : await withStore(
+          (store) =>
+            span
+              ? turnsOverlapping(
+                  store,
+                  key,
+                  span.at ?? "",
+                  span.until ?? "9999",
+                  names
+                )
+              : turnsBetween(store, key, unit?.start, unit?.end, names),
+          open
+        );
   const shown = turns.slice(from, from + limit);
   const said = await transcripts(shown);
   if (span) {
     await clipEdges(shown, said, span);
   }
   // A voice guess is shown here, in the display alone: the lines extraction and the episodes read never carry it.
+  // Each line keeps its turn's place, so a page on starts after the last turn shown, not the last line.
+  const place = new Map(
+    shown.map((t, n) => [turnRef(t.jobId, t.turnIndex, t.at), from + n])
+  );
   const lines = withGuessesShown(
     voiceLines(shown, said, people.resolve),
     people
-  );
-  return shown.length > 0 && lines.length === 0
+  ).map((l) => ({ ...l, n: place.get(l.ref) }));
+  return !span && shown.length > 0 && lines.length === 0
     ? null
     : { lines, total: turns.length };
 }

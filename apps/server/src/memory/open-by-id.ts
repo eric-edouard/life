@@ -27,6 +27,11 @@ export async function openById(
   if ("error" in ref) {
     return asData([`(${ref.error})`]);
   }
+  const isRecording =
+    ref.kind === "conversation" || ref.kind === "unit" || ref.kind === "turn";
+  if ((within.at || within.until) && !isRecording) {
+    return asData([`(${WITHIN_REFUSED})`]);
+  }
   if (ref.kind === "person" && (from !== undefined || limit !== undefined)) {
     return asData([
       "(a read part takes no fromTurn and no limit: it is one bounded piece; its next reads are at its end)",
@@ -37,15 +42,8 @@ export async function openById(
     return readPerson(subject.slice("person:".length), { ...o, byId: true });
   }
   // A conversation, unit or turn is looked up and shown by its own reader (`fetchOf`, over `findUnit` and `findTurn`).
-  if (
-    ref.kind === "conversation" ||
-    ref.kind === "unit" ||
-    ref.kind === "turn"
-  ) {
+  if (isRecording) {
     return fetchOf(id, from, limit, undefined, within);
-  }
-  if (within.at || within.until) {
-    return asData([`(${WITHIN_REFUSED})`]);
   }
   const found = await findRef(ref, reads);
   if (!found.found) {

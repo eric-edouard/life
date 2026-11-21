@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "../core/clock";
+import { clock, HOUR, iso } from "../core/clock";
 import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -546,12 +546,26 @@ export function turnsBetween(
 
 /**
  * Whether turn `t` overlaps the span from `?1` to `?2` (ISO, `?2` exclusive): begun before its end, and begun inside it
- * or still going at its start. The one test of a call's turns: the desk's (`recordingsOf`) and `fetch`'s (`turnsOverlapping`).
+ * or still going at its start. `?3` is the earliest start read (`overlapArgs`), so the start index bounds the scan. The
+ * one test of a call's turns: the desk's (`recordingsOf`) and `fetch`'s (`turnsOverlapping`).
  */
 export const OVERLAPS =
-  "t.start_at < ?2 and (t.start_at >= ?1 or coalesce(t.end_at, t.start_at) > ?1)";
+  "t.start_at >= ?3 and t.start_at < ?2 and (t.start_at >= ?1 or coalesce(t.end_at, t.start_at) > ?1)";
 
-/** The turns of a conversation that overlap `from`..`to` (`OVERLAPS`), in order. */
+/** ponytail: a turn is taken to run at most an hour; one begun earlier is not read as crossing a span's start. */
+const LONGEST_TURN = HOUR;
+
+/** `OVERLAPS`' arguments for the span `from`..`to` (`from` "" for an open start). */
+export const overlapArgs = (
+  from: string,
+  to: string
+): [string, string, string] => [
+  from,
+  to,
+  from ? iso(Date.parse(from) - LONGEST_TURN) : "",
+];
+
+/** The turns of a conversation that overlap `from`..`to` (`OVERLAPS`; "" and "9999" leave a side open), in order. */
 export function turnsOverlapping(
   store: Store,
   conversationId: string,
@@ -560,10 +574,10 @@ export function turnsOverlapping(
   byId: Map<string, string> = new Map()
 ): LifelogTurn[] {
   return store.db
-    .query<LifelogTurnRow, [string, string, string]>(
-      `select t.* from turns t where ${OVERLAPS} and t.conversation_id = ?3 order by t.start_at, t.job_id, t.turn_index`
+    .query<LifelogTurnRow, [string, string, string, string]>(
+      `select t.* from turns t where ${OVERLAPS} and t.conversation_id = ?4 order by t.start_at, t.job_id, t.turn_index`
     )
-    .all(from, to, conversationId)
+    .all(...overlapArgs(from, to), conversationId)
     .map((t) => lifelogTurn(t, byId));
 }
 
