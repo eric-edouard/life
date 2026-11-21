@@ -37,7 +37,7 @@ struct MatterPage: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
         }
-        .task(id: life.answersEnded) { await life.refreshMatter(id) }
+        .task(id: life.answersEnded[id]) { await life.refreshMatter(id) }
     }
 
     private func page(_ matter: Matter) -> some View {
