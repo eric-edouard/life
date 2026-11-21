@@ -26,7 +26,6 @@ import { runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { enabledSources } from "../../memory/sources";
 import { recordToldLife } from "../../memory/told-life";
-import { clip } from "../../memory/units";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import { personalParts } from "../../personal/person-parts";
@@ -81,8 +80,8 @@ import { text } from "./http";
 import { personPicturesTool } from "./mcp-people";
 import {
   agentIn,
+  argNamesOf,
   callerOf,
-  cut,
   READERS,
   REVERSIBLE,
   type ToolCall,
@@ -501,14 +500,14 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "request_decision",
-    `Ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push to his phone). The one way to send a message for him: its \`draft\`, sent when he picks its outgoing option, on his phone or, in his own app, by \`answer_check\` once he approved the exact text in this chat. ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. Returns its id, and to an agent a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
+    `Ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push to his phone). The one way to send a message for him: its \`draft\`, sent when he picks its outgoing option, on his phone or, in his own app, by \`answer_check\` once he approved the exact text in this chat. ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. A draft into a chat another asker's open card holds waits on it (the result's \`waits\`): asked once that card settles, or after 10 minutes, replacing it (his Send withdraws it). Holding a chat yourself, \`keep\` a card waiting on yours (its id, with \`why\`), or ask one card for both with \`merges\` (its id). Returns its id, and to an agent a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
     DecisionRequest,
-    async ({ withdraw, why, ...ask }, agent) => {
+    async ({ keep, withdraw, why, ...ask }, agent) => {
       // Taken before the ask, so its answer is past the cursor.
       const cursor = agent && decisionCursorOf(clock());
       const asked = await requestDecision(
         agent ?? OWNER_ASKER,
-        withdraw ? { why, withdraw } : ask
+        withdraw || keep ? { ...(keep ? { keep } : { withdraw }), why } : ask
       );
       return cursor ? { ...asked, cursor } : asked;
     },
@@ -677,7 +676,7 @@ export function buildServer(readsOnly = false) {
       const result = await pollEvents(params, agentIn(ctx.http?.authInfo));
       log("mcp.call", {
         ...callerOf(ctx.http?.authInfo),
-        args: cut(params),
+        args: argNamesOf(params),
         ids: result.events.map((e) => e.eventId),
         ms: Math.round(performance.now() - started),
         tool: "events/poll",
@@ -694,10 +693,9 @@ export function buildServer(readsOnly = false) {
 export function createMcp(verify: Verify, issuer: string) {
   const { metadata, resource } = connector();
   const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
-  // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
+  // The SDK's own rejections (a request it refuses before any handler) are logged by their class: its text can quote the request.
   const handler = createMcpHandler(() => buildServer(), {
-    onerror: (e) =>
-      log("mcp.call", { error: true, refused: clip(e.message, 300) }),
+    onerror: () => log("mcp.call", { error: true, refused: "rejected" }),
   });
   /** The owner's token (its OAuth client, for the log), or why the request is refused; with the token either way. */
   async function authorize(req: Request) {
@@ -733,8 +731,7 @@ export function createMcp(verify: Verify, issuer: string) {
       }
       // A refused token is logged, never its body; none at all is OAuth discovery or a probe.
       if (auth.token) {
-        const refused = clip(`${auth.refusal}: ${auth.why}`, 300);
-        log("mcp.call", { error: true, refused });
+        log("mcp.call", { error: true, refused: auth.refusal });
       }
       return denied(auth);
     })

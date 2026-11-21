@@ -11,10 +11,10 @@ import { dirname } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
+import type { Decision } from "./decision-lines";
 import {
   answerDecision,
   DECISIONS,
-  type Decision,
   decisionsNow,
   notSentOf,
   requestDecision,
@@ -769,12 +769,12 @@ test("someone else's message leaves the card open and his tap's send refused; hi
   expect(withdrawAt(9, kitChat([{ fromMe: true, min: 8 }]))).toEqual([id]);
 });
 
-test("a card with no draft is untouched, and a second draft into an open draft's chat is refused with that card's id", async () => {
+test("a card with no draft is untouched, and the same asker's second draft into its open draft's chat is refused with that card's id", async () => {
   const plain = await requestDecision("planner", ask(), NOW);
   const { id } = await draftCard();
   await expect(
     requestDecision(
-      "atlas",
+      "planner",
       ask({
         draft,
         options: [

@@ -593,7 +593,8 @@ export function jobWorker(
     record(db, `elevenlabs.${outcome.kind}`, {
       job: job.id,
       ms: Math.round(performance.now() - started),
-      ...("error" in outcome ? { error: outcome.error.slice(0, 120) } : {}),
+      // A refusal's words are the provider's (its HTTP body): its kind says what happened.
+      ...("error" in outcome ? { ok: false } : {}),
       ...(outcome.kind === "accepted" ? { requestId: outcome.requestId } : {}),
     });
     answered(db, job, outcome, completed);

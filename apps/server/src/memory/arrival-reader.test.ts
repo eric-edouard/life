@@ -199,15 +199,20 @@ test("Apple's yes goes to his engine; a confirmed yes is a confirmed arrival; a 
   expect(s.calls).toEqual({ apple: 1, engine: 1 });
 });
 
-test("automated lines with no ask quoted ask his engine nothing; a person's lines go on", async () => {
-  const no = sceneOf(() => ({
+test("only a person's lines with an ask quoted go on: small talk and automated lines ask his engine nothing", async () => {
+  const automated = sceneOf(() => ({
     os: "27.2",
-    reply: { author: "automated", quote: "" },
+    reply: { author: "automated", quote: "pay your invoice" },
   }));
-  await no.read([msg("Your parcel has shipped")]);
-  const person = sceneOf(() => yes(""));
-  await person.read([msg("Lovely evening, thanks again")]);
-  expect([no.calls.engine, person.calls.engine]).toEqual([0, 1]);
+  await automated.read([msg("Your invoice is ready: pay your invoice")]);
+  // Apple calls small talk a person's with no quote (seen on made-up chats, 21 Nov 2026): it once sent nearly all on.
+  const smallTalk = sceneOf(() => yes(""));
+  await smallTalk.read([msg("Lovely evening, thanks again")]);
+  const ask = sceneOf(() => yes("send me the lease"));
+  await ask.read([msg("Can you send me the lease?")]);
+  expect([automated, smallTalk, ask].map((s) => s.calls.engine)).toEqual([
+    0, 0, 1,
+  ]);
 });
 
 test("Thai lines and no Apple model go straight to his engine; a refusal is stored, then confirmed", async () => {

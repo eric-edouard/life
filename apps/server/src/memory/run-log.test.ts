@@ -57,7 +57,8 @@ test("runs: processing runs hold their steps; failed, unfinished, running and ol
   const by = (step: string) => list.find((r) => r.step === step);
   expect(by("memory.nightly")).toMatchObject({
     children: [`memory.episodes/${id(triage)}`],
-    errors: [{ error: "offline", step: "memory.nightly.actions" }],
+    // An error leaves the Mac by its type only; one written before types is `failed`.
+    errors: [{ errorType: "failed", step: "memory.nightly.actions" }],
     outcome: "ok",
     // What the night's report listed, for an audit (docs/operations.md, "Regression cases").
     result: { listed: ["obs_000000000001"] },
