@@ -1,6 +1,6 @@
 # Status reads
 
-Developer reference for the connector's four JSON status reads. Most people never need it: the status window in Life.app
+Developer reference for the connector's JSON status reads. Most people never need it: the status window in Life.app
 shows the same.
 
 Four read-only tools on Life's connector (`/mcp`) let a private page show whether Life works, what it ran, every
@@ -73,6 +73,49 @@ processing run writes nothing itself: open its `children`.
  "startedAt":"2026-10-16T11:12:49.565Z","endedAt":"2026-10-16T11:13:16.894Z","window":{"from":"2026-10-16","to":"2026-10-16"},
  "input":{"days":1,"prompt":"memory-extract.v2"},"result":{"calls":1,"failed":0,"read":3,"cached":0,"added":7},"errors":[]}
 ```
+
+## log lines
+
+`read_log_lines`, his token only (an agent's is refused; the question cases' tokenless server has none): the event
+log's lines, newest first, `{lines, cursor, observedAt}`, for his app's live log. Each line is worked out when read
+from the stored one (`shownLineOf`, `core/log-line.ts`), never its other fields (arguments, bodies, error words):
+
+| Field | What |
+|---|---|
+| `at` | when it was written (UTC) |
+| `level` | `info`, `warn` (a refused call) or `error` (a run error, an `error`, `ok: false`) |
+| `category` | the part of Life, then what it is about (`["desk","turn"]`, `["mcp","read_day"]`): LogTape's category without `life`. Its first word is one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command |
+| `message` | one line, at most 160 characters, ids masked, for copy and search |
+| `parts` | the message as `{text}` and `{value}` pieces, from LogTape's template and the line's fields: a value is formatted on the Mac (`38 s`, `3`, a masked id, a kind) |
+
+A line written before LogTape (21 Nov 2026: `at`, `kind`, no level) is read too, never migrated: its category from
+its kind and step, its message its kind, step and why as a class (a refusal's, an outcome, `failed`), as one text part.
+
+`limit` 1-100 (default 50), `min_level` (`info`, `warn`, `error`), `process` (a category's first word). The cursor is a
+day's file and a byte in it, so lines appended meanwhile never shift it; a page reads at most 2 days, so it may be
+short with a cursor still set; null when nothing older is left. With no cursor, the first page is the newest lines,
+newest first.
+
+## resource samples
+
+`read_resource_samples`, his token only (an agent's is refused; the tokenless server has none): what loads his Mac,
+`{hour, latest, observedAt}`. `hour` is the last hour's samples, one a minute, oldest first; `latest` the newest. Each
+is the watcher's `resource.sample` line (`sampleResources`, `host/resource-sample.ts`), his own Life only:
+
+| Field | What |
+|---|---|
+| `time` | when it was taken (UTC) |
+| `procs` | per group of Life's processes, `[cpu %, rss MB]`: `life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>` (a desk agent's runtime and every tool it runs under the desk, by `LIFE_DESK_AGENT`). A process is known by the program at the start of its command line (a bridge by `LIFE_BRIDGE`, set at launch), never by words in its arguments, and counts under its nearest named ancestor; anything else is left out |
+| `load` | 1, 5 and 15 minute load |
+| `memFree`, `swapMb`, `diskFreeGb` | free memory (%), swap used, free disk |
+| `battery`, `power` | battery %, `ac` or `battery` |
+| `thermal` | `nominal`, or the warning level |
+
+A field is null when its tool failed (or, for `battery`, there is none); never a made-up 0.
+
+It reads back from the end of today's log file (and yesterday's across midnight) until a line older than the hour,
+never a whole day. A local model's run is its own line, `model.local` (`describer`, `foundation`: duration, requests,
+whether the model ran for every request: Apple's from its replies, a refusal counted as run).
 
 ## changes
 

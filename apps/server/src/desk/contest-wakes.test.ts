@@ -8,6 +8,8 @@ import {
 } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY, MIN } from "../core/clock";
+// biome-ignore lint/performance/noNamespaceImport: a test reads the registered agents from its own desk
+import * as deskRead from "../host/desk-read";
 import {
   DECISION_ANSWERED,
   DRAFT_CONTESTED,
@@ -15,10 +17,10 @@ import {
   decisionCursorOf,
   pollDecisions,
 } from "../host/events";
+import { readRegisteredAgents } from "../host/registered-agents";
 import {
   answerDecision,
   DECISIONS,
-  openDecisionOf,
   requestDecision,
 } from "../memory/decisions";
 import { CONTEST_WAIT } from "../memory/draft-contest";
@@ -150,7 +152,14 @@ test("a merged card's answer wakes both agents", async () => {
   } as never);
   advance(MIN);
   // The merged card's agent waits on the combined card.
-  expect(openDecisionOf(asker)?.id).toBe(merged.id);
+  const read = spyOn(deskRead, "readDesk").mockImplementation(
+    (r) => ({ state: "ok", value: r(desk.db) }) as never
+  );
+  const { agents } = await readRegisteredAgents();
+  read.mockRestore();
+  expect(agents.find((a) => a.id === asker)?.wakesOn).toContainEqual(
+    expect.objectContaining({ check: merged.id, kind: "answer" })
+  );
   await answerDecision(merged.id, ["skip"]);
   advance(MIN);
   pollAnswers(desk);

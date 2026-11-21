@@ -27,6 +27,7 @@ import {
   Sent,
   Stored,
   Withdrawn,
+  withdrawnOf,
 } from "./decision-lines";
 import { isSendable } from "./draft";
 import {
@@ -321,14 +322,6 @@ export const cardsHearingOf = (d: Decision, list: readonly Decision[]) => [
   ...list.filter((x) => d.merges !== undefined && x.id === d.merges),
 ];
 
-/** The open card registered agent `agent` waits on, if any: its own (the door lets each assignment ask one at a time), or the one that merged its card (`cardsHearingOf`), worked out from `list`, never stored. */
-export const openDecisionOf = (agent: string, list = decisionsNow()) =>
-  list.find(
-    (d) =>
-      d.state === "open" &&
-      cardsHearingOf(d, list).some((c) => c.agent === agent)
-  );
-
 /** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
 function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
   const d = decisionsNow(now).find((x) => x.id === id);
@@ -377,24 +370,25 @@ export function withdrawDraftsAnsweredInChat(
   const lines = open.flatMap(({ d }, i): Withdrawn[] => {
     const his = found[i]?.find((e) => e.fromMe);
     return his
-      ? [
-          {
-            answeredInChatAt: his.at,
-            at: now.toISOString(),
-            id: d.id,
-            kind: "withdrawn",
-            schemaVersion: DECISIONS_VERSION,
-            why: ANSWERED_IN_CHAT,
-          },
-        ]
+      ? [withdrawnOf(d.id, now, ANSWERED_IN_CHAT, { answeredInChatAt: his.at })]
       : [];
   });
-  appendJsonl(DECISIONS, Withdrawn, lines);
-  for (const l of lines) {
-    log("decision.withdrawn", { by: "life", id: l.id });
-  }
+  appendWithdrawals(lines, "life");
   return lines.map((l) => l.id);
 }
+
+/** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
+function appendWithdrawals(lines: Withdrawn[], by: string) {
+  appendJsonl(DECISIONS, Withdrawn, lines);
+  logWithdrawn(by, lines);
+}
+
+/** One `decision.withdrawn` line for each card withdrawn, by `by` (who withdrew it). */
+const logWithdrawn = (by: string, cards: { id: string }[]) => {
+  for (const { id } of cards) {
+    log("decision.withdrawn", { by, id });
+  }
+};
 
 /** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
 function keepDraft(asker: string, request: object, now: Date) {
@@ -429,16 +423,7 @@ function withdrawDecision(asker: string, request: object, now: Date) {
   if (d.asker !== asker || d.agent !== w.data.agent) {
     throw new Error(`Not done: ${d.id} was asked by another agent.`);
   }
-  appendJsonl(DECISIONS, Withdrawn, [
-    {
-      at: now.toISOString(),
-      id: d.id,
-      kind: "withdrawn",
-      schemaVersion: DECISIONS_VERSION,
-      why: w.data.why,
-    },
-  ]);
-  log("decision.withdrawn", { by: "asker", id: d.id });
+  appendWithdrawals([withdrawnOf(d.id, now, w.data.why)], "asker");
   return { id: d.id };
 }
 
@@ -548,15 +533,27 @@ async function askCard(
       schemaVersion: DECISIONS_VERSION,
     },
   ]);
+  logAsked(ask, asker, id, !!draft, merged);
+  return { id, ...waitsOf(contests, draft, now) };
+}
+
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+function logAsked(
+  ask: z.infer<typeof Ask>,
+  asker: string,
+  id: string,
+  hasDraft: boolean,
+  merged?: { held: Decision; waiting: Decision }
+) {
+  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
     asker,
-    draft: !!draft,
+    draft: hasDraft,
     id,
     options,
   });
-  return { id, ...waitsOf(contests, draft, now) };
 }
 
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
@@ -752,19 +749,15 @@ export async function answerDecision(
   }
   // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
   // contest opened): one draft per chat when it goes.
-  appendJsonl(
-    DECISIONS,
-    Withdrawn,
+  appendWithdrawals(
     decisionsNow(now)
       .filter((x) => x.id !== id && isPending(x) && isSameChat(x, d))
-      .map((x) => ({
-        at: now.toISOString(),
-        id: x.id,
-        kind: "withdrawn" as const,
-        replacedBy: id,
-        schemaVersion: DECISIONS_VERSION,
-        why: "he sent a newer draft into its chat instead",
-      }))
+      .map((x) =>
+        withdrawnOf(x.id, now, "he sent a newer draft into its chat instead", {
+          replacedBy: id,
+        })
+      ),
+    "send"
   );
   const outcome = await deliver(stored.draft, id, {
     onStep,

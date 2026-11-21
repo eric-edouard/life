@@ -1,10 +1,12 @@
 import { clock, DAY, MIN } from "../../core/clock";
 import { recentEvents } from "../../core/log";
+import { logLevelOf } from "../../core/log-line";
 import { changeFeed, encode } from "../../memory/changes";
 import { runs, STEPS, useText } from "../../memory/run-log";
 import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import type { Tone } from "./card";
+import { isCrash } from "./crash-card";
 import { sleeps } from "./mac";
 import { cached, callerOf, type LogLine, spent, toneOfRun } from "./snapshot";
 
@@ -34,6 +36,7 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   clients: (e) => e.kind === "mcp.call",
   connector: (e) => e.kind === "mcp.call",
   contacts: read("contacts"),
+  crashes: isCrash,
   email: (e) => e.kind === "email.sent",
   engine: (e) => e.kind === "quota.read" || e.kind === "model.run",
   lifelog: (e) => e.step === "watch" || read("lifelog")(e),
@@ -90,16 +93,17 @@ const tokensOf = (e: LogLine) => {
   return t ? `${Math.round((t.input + t.output) / 1e3)}k tokens` : undefined;
 };
 
-/** One log line as a history entry: a failure's text goes with his words, in `content`. */
+/** One log line as a history entry, its tone by its level (`logLevelOf`, the phone's too): a failure's text goes with his words, in `content`. */
 function entryOf(e: LogLine): Entry {
-  const bad = e.kind === "run.error" || e.ok === false || !!e.error;
+  const level = logLevelOf(e);
+  const bad = level === "error";
   const kind = ENTRIES[e.kind];
   return {
     at: e.at,
     content: bad ? clip(String(e.error ?? "failed"), 300) : kind?.content?.(e),
     sub: bad ? "failed" : tokensOf(e),
     title: kind?.title(e) ?? `${e.kind}${e.step ? ` ${e.step}` : ""}`,
-    tone: bad ? "bad" : "ok",
+    tone: { error: "bad", info: "ok", warn: "warn" }[level] as Tone,
   };
 }
 
