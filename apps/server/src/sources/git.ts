@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { log } from "../core/log";
@@ -33,7 +33,7 @@ export interface Repo {
 
 /** The repos under `root`: a folder with a `.git`, worktrees folded into their main repo by the common git dir. */
 export function listRepos(root = work()): Repo[] {
-  if (!root) {
+  if (!(root && existsSync(root))) {
     return [];
   }
   const repos = new Map<string, Repo>();

@@ -33,19 +33,17 @@ struct ReplaceSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            SheetHeader(title: title, color: phase.isFailure ? Palette.flag : Palette.fg) { dismiss() }
-            ScrollView { content }.scrollBounceBehavior(.basedOnSize)
-            VStack(spacing: 10) { buttons }
-        }
-        .padding(.horizontal, Metrics.gutter)
-        .padding(.top, Metrics.Spacing.l)
-        .padding(.bottom, Metrics.Spacing.l)
-        .readingWidth()
-        .background(Palette.sheet)
-        .presentationBackground(Palette.sheet)
-        .interactiveDismissDisabled(phase == .replacing)
-        .accessibilityIdentifier("pendant.replaceSheet")
+        content
+            .sheetScroll {
+                SheetHeader(title: title, color: phase.isFailure ? Palette.flag : Palette.fg) { dismiss() }
+            } buttons: {
+                VStack(spacing: 10) { buttons }
+            }
+            .readingWidth()
+            .background(Palette.sheet)
+            .presentationBackground(Palette.sheet)
+            .interactiveDismissDisabled(phase == .replacing)
+            .accessibilityIdentifier("pendant.replaceSheet")
     }
 
     private var title: String {

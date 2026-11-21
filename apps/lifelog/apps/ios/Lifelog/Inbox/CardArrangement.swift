@@ -87,7 +87,7 @@ struct ContextRegion: View {
                     ContextView(markdown: context, lifeLinks: check.lifeLinks ?? []) { opened = $0 }
                 }
                 if let id = check.matter?.id, let matter = life.matter[id]?.value { matterBlock(matter) }
-                if let link = check.links.first.flatMap(URL.init(string:)) {
+                if let link = check.session.flatMap(URL.init(string:)) {
                     TextLink("Open in \(runtimeName?.name ?? "its app")", to: .outside) { openURL(link) }
                 }
             }
