@@ -138,6 +138,27 @@ export function piRowOf(
   const sessions = join(place.dir, "sessions");
   const agentDir = join(place.dir, "agent");
   const [model] = place.provider.models ?? [];
+  /** What agent `a`'s run on session `ref` needs (the session file to resume, its model and effort), or why it can't run. */
+  const runOf = (a: Agent, ref: string, isNew: boolean) => {
+    if (!(PI_EXTENSION && model)) {
+      throw new Error("Life's pi extension or its model is missing");
+    }
+    if (a.model && a.model !== PI_MODEL_WORD) {
+      throw new Error(
+        `pi runs its one model (${PI_MODEL_WORD}), not ${a.model}`
+      );
+    }
+    const file = isNew ? undefined : sessionFileOf(sessions, ref);
+    if (!(isNew || file)) {
+      throw new Error(`pi has no session ${ref}`);
+    }
+    return {
+      effort: a.effort ?? place.effort,
+      extension: PI_EXTENSION,
+      file,
+      id: model.id,
+    };
+  };
   return {
     block: () =>
       Promise.resolve(
@@ -163,24 +184,12 @@ export function piRowOf(
       return sessionFileOf(sessions, ref) ? "idle" : "gone";
     },
     async spawn(a, ref, isNew) {
-      if (!(PI_EXTENSION && model)) {
-        throw new Error("Life's pi extension or its model is missing");
-      }
-      if (a.model && a.model !== PI_MODEL_WORD) {
-        throw new Error(
-          `pi runs its one model (${PI_MODEL_WORD}), not ${a.model}`
-        );
-      }
-      const effort = a.effort ?? place.effort;
+      const { effort, extension, file, id } = runOf(a, ref, isNew);
       mkdirSync(agentDir, { recursive: true });
       writeFileSync(
         join(agentDir, "settings.json"),
         JSON.stringify(settingsOf(isOwn))
       );
-      const file = isNew ? undefined : sessionFileOf(sessions, ref);
-      if (!(isNew || file)) {
-        throw new Error(`pi has no session ${ref}`);
-      }
       return {
         command: [
           process.execPath,
@@ -190,7 +199,7 @@ export function piRowOf(
           "--provider",
           PI_PROVIDER,
           "--model",
-          model.id,
+          id,
           "--session-dir",
           sessions,
           ...(file
@@ -198,7 +207,7 @@ export function piRowOf(
             : ["--session-id", ref, "--name", a.title]),
           ...(effort ? ["--thinking", effort] : []),
           "-e",
-          PI_EXTENSION,
+          extension,
           ...(isOwn
             ? []
             : ["--no-context-files", "--no-skills", "--no-builtin-tools"]),
@@ -293,6 +302,41 @@ function addUsage(u: Usage, m: NonNullable<PiLine["message"]>["usage"]) {
   u.contextLast = m.totalTokens;
 }
 
+/** A line pi printed, read as JSON; none when it is not. */
+const parseLine = (text: string): PiLine | undefined => {
+  try {
+    return JSON.parse(text) as PiLine;
+  } catch {
+    // not a line of pi's protocol
+    return undefined;
+  }
+};
+
+/** What line `l` does to the run `c`: its beginning, its usage and stop, its listener's update; its end at `agent_settled`. */
+function runHeard(c: Current, l: PiLine): RunEnd | undefined {
+  if (l.type === "message_update") {
+    c.begun();
+  }
+  if (l.type === "message_end" && l.message?.role === "assistant") {
+    addUsage(c.usage, l.message.usage);
+    c.stop = l.message.stopReason;
+    c.why = l.message.errorMessage;
+  }
+  const heard = updateOf(l);
+  if (heard) {
+    c.onUpdate?.(heard);
+  }
+  if (l.type !== "agent_settled") {
+    return;
+  }
+  if (l.aborted) {
+    return { ok: false, why: "cancelled" };
+  }
+  return c.stop === "error" || c.stop === "aborted"
+    ? { ok: false, why: c.why ?? c.stop }
+    : { ok: true, usage: c.usage };
+}
+
 /**
  * Spawns pi in `a.folder` on session `resume` (none: a new one, its id made here) and waits for Life's extension to
  * answer (`PI_EXTENSION_COMMAND` in `get_commands`): within `launchWithin`, else pi is killed and the open fails.
@@ -315,7 +359,8 @@ const openOf =
       child.stdin.write(`${JSON.stringify(line)}\n`);
     const ask = (line: { message?: string; type: string }) =>
       new Promise<PiLine>((resolve) => {
-        const id = `life-${++asked}`;
+        asked += 1;
+        const id = `life-${asked}`;
         answers.set(id, resolve);
         send({ ...line, id });
       });
@@ -335,43 +380,15 @@ const openOf =
     };
     /** One line pi printed: a response to what the runtime asked, else an event of the run. */
     const hear = (text: string) => {
-      let l: PiLine;
-      try {
-        l = JSON.parse(text) as PiLine;
-      } catch {
+      const l = parseLine(text);
+      if (l?.type === "response") {
+        answers.get(l.id ?? "")?.(l);
+        answers.delete(l.id ?? "");
         return;
       }
-      if (l.type === "response" && l.id) {
-        answers.get(l.id)?.(l);
-        answers.delete(l.id);
-        return;
-      }
-      const c = current;
-      if (!c) {
-        return;
-      }
-      if (l.type === "message_update") {
-        c.begun();
-      }
-      if (l.type === "message_end" && l.message?.role === "assistant") {
-        addUsage(c.usage, l.message.usage);
-        c.stop = l.message.stopReason;
-        c.why = l.message.errorMessage;
-      }
-      const heard = updateOf(l);
-      if (heard) {
-        c.onUpdate?.(heard);
-      }
-      if (l.type === "agent_settled") {
-        const isOk = !(l.aborted || c.stop === "error" || c.stop === "aborted");
-        settle(
-          isOk
-            ? { ok: true, usage: c.usage }
-            : {
-                ok: false,
-                why: l.aborted ? "cancelled" : (c.why ?? c.stop ?? "error"),
-              }
-        );
+      const ended = l && current && runHeard(current, l);
+      if (ended) {
+        settle(ended);
       }
     };
     // Split on line feeds only (pi's rpc.md): a reader by lines would also split a JSON string at U+2028 or U+2029.

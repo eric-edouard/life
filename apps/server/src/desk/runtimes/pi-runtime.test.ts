@@ -64,7 +64,7 @@ test("a first turn makes the session, ends with its usage, and the next turn res
   const next = await pi.send(agent, first.ref, "A wake.");
   expect((await next.ended).ok).toBe(true);
   // The resumed session sends the first exchange back: the brief, its answer, then the wake.
-  expect(provider.asked.slice(before)[0]?.body.messages.length).toBeGreaterThan(
+  expect(provider.asked.at(before)?.body.messages.length).toBeGreaterThan(
     provider.asked[before - 1]?.body.messages.length ?? 0
   );
   expect(await pi.state("no-such-session")).toBe("gone");
@@ -123,13 +123,13 @@ test("an answer holding a line separator is heard whole", async () => {
 
 test("a session another process keeps reads as running, and is never sent beside it", async () => {
   const keeper = piRuntime(row);
-  const kept = await keeper.talk(agent, null, "Hi.", () => undefined);
-  await kept.ended;
+  const held = await keeper.talk(agent, null, "Hi.", () => undefined);
+  await held.ended;
   const other = piRuntime(row);
-  expect(await other.state(kept.ref)).toBe("running");
-  await expect(other.send(agent, kept.ref, "A wake.")).rejects.toThrow();
-  await keeper.stop(kept.ref);
-  expect(await other.state(kept.ref)).toBe("idle");
+  expect(await other.state(held.ref)).toBe("running");
+  await expect(other.send(agent, held.ref, "A wake.")).rejects.toThrow();
+  await keeper.stop(held.ref);
+  expect(await other.state(held.ref)).toBe("idle");
 });
 
 test("a prompt pi takes as a command ends its turn at once", async () => {
