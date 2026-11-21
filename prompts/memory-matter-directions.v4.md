@@ -32,7 +32,7 @@ payments, today}`:
 
 - `matter`: its `id`, as given.
 - `goal`: where the matter is going, as one short line in {{language}}, at most about 12 words: the state of things once
-  it is over, not the next step ("The refund for the broken kettle is paid back", "Gran has her watch back, mended", "The flat in Lyon is
+  it is over, not the next step ("The refund for the broken kettle is paid back", "{{owner}}'s grandmother has her watch back, mended", "The flat in Lyon is
   booked for the March trip"). Name things as the steps do, and people by their name or who they are to {{owner}}.
 - `nextStep`: what moves the matter now, `{kind, text, waitsOn?, context}`:
   - `text`: one short line in {{language}}, at most about 10 words: the one action or wait that moves the matter,

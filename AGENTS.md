@@ -220,7 +220,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Prompts and what they write name the owner, never a pronoun** (his words of 16 Nov 2026): a prompt says `{{owner}}`, which
   `promptText` fills with `readOwnerName` (`models/prompt-parts.ts`, from `truth/`), and states the rule first; never he, him, his,
   she, her or "the owner" for him (`prompt-parts.test.ts` checks). Anyone else is named in a prompt's own words by their name or who they
-  are to him, never by a family word from his notes or a ref's id (the same shared rule, his pass of 21 Nov 2026); quotes stay as said. Memory is written in his `memoryLanguage` (`{{language}}`);
+  are to him, never by a family word from his notes or a ref's id (the same shared rule, his pass of 21 Nov 2026). Memory is written in his `memoryLanguage` (`{{language}}`);
   quotes stay as said, topic tags English. A label digested with stored work (`him` in the persona and style inputs) changes
   with its prompt's next version.
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
