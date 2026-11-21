@@ -1,4 +1,7 @@
 import { digest } from "../core/hash";
+import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
+import { settings } from "../core/settings";
 import { isSameBirthday } from "../records/fields";
 import {
   CONTACT_PREFIX,
@@ -474,6 +477,19 @@ export const cardOwnerOf =
     return named.size === 1 ? [...named][0] : undefined;
   };
 
+/** The bridge's map of WhatsApp lids to phones while WhatsApp is a source he turned on; a store it cannot read is logged, and no lid reads as a phone. */
+function lidPhonesNow() {
+  if (!settings().sources.includes("whatsapp")) {
+    return new Map<string, string>();
+  }
+  try {
+    return readLidPhones();
+  } catch (e) {
+    log("run.error", { ...errorOf(e), step: "people.lid-phones" });
+    return new Map<string, string>();
+  }
+}
+
 /**
  * truth/, the people his Contacts name, Life's inferred people and the owner's corrections, read once, with the
  * resolver and the folds over them.
@@ -485,7 +501,7 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
-  const lidPhones = readLidPhones();
+  const lidPhones = lidPhonesNow();
   const parties = directoryPartiesOf(truth);
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,

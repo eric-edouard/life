@@ -117,8 +117,8 @@ const handleIndex = (people: Person[]) => ({
  * the guess). His Contacts are his word on a number: no guess outranks a card. A `not-this-person` correction blocks
  * that match. Each reading says which of those it came from (`by`) and whether more than one person in truth/ or his
  * Contacts goes by that name (`isShared`), so an answer by a typed name can refuse a guess or a shared name. A
- * WhatsApp `@lid` its bridge knows the phone of (`lidPhones`, `readLidPhones`) reads as that phone, his word on the lid
- * itself first.
+ * WhatsApp `@lid` its bridge knows the phone of (`lidPhones`, `readLidPhones`) reads as that phone, unless his word
+ * names the lid itself.
  */
 export function readingOf(
   people: Person[],
@@ -207,14 +207,20 @@ export function readingOf(
     );
     return found?.[1] ? { by: found[0], isShared, ref: found[1] } : null;
   };
+  // His word on a lid, either way, is about the lid: the bridge's phone is never read for it (so a person he ruled
+  // out never comes back through the phone, a card, or a fold).
+  const heard = new Set([
+    ...said.keys(),
+    ...[...not].map((x) => x.split("|")[0]),
+  ]);
   return (nameOrHandle: string, from?: HandleFrom): Reading | null => {
-    const own = read(nameOrHandle, from);
     const phone = lidPhones.get(nameOrHandle.trim());
-    const byPhone = phone && own?.by !== "his word" ? read(phone) : null;
-    return byPhone &&
-      !keysOf(nameOrHandle).some((k) => not.has(`${k}|${byPhone.ref}`))
-      ? byPhone
-      : own;
+    return (
+      (phone &&
+        !keysOf(nameOrHandle).some((k) => heard.has(k)) &&
+        read(phone)) ||
+      read(nameOrHandle, from)
+    );
   };
 }
 

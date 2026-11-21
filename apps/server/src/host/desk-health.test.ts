@@ -193,7 +193,7 @@ test("the number's row shows last night's only when one was written", () => {
   expect(lastNeedsYouOf([end(2), end(0)])).toBe(0);
 });
 
-test("the people rows: a guess with no live evidence, a changed person with no handle, a changed organization with nobody, a link that turned a year old or changed and is", () => {
+test("the people rows: a guess with no live evidence, a changed person with no handle, a changed organization with nobody, a link whose year ran out since the last night or that changed and has", () => {
   const truth = {
     organizations: [
       Organization.parse({ id: "acme", name: "Acme", people: [] }),
@@ -205,6 +205,7 @@ test("the people rows: a guess with no live evidence, a changed person with no h
           { id: "bob", role: "Engineer" },
           { id: "cid", role: "Engineer" },
           { id: "dan", role: "Engineer", until: 2024 },
+          { id: "eve", role: "Engineer" },
         ],
       }),
     ],
@@ -218,34 +219,39 @@ test("the people rows: a guess with no live evidence, a changed person with no h
       }),
       Person.parse({ id: "cid", name: "Cid" }),
       Person.parse({ id: "dan", name: "Dan" }),
+      Person.parse({ id: "eve", name: "Eve" }),
     ],
   };
-  const now = new Date("2026-11-21T00:00:00.000Z");
   const last: Record<string, string> = {
-    // Turned a year old since the last night.
-    "person:ann": "2025-11-20T12:00:00.000Z",
-    // Long ago, but nothing about the link changed: shown the night it turned, not again.
-    "person:bob": "2024-01-01T00:00:00.000Z",
+    // Its year ran out today, after the last night's day.
+    ann: "2025-11-21",
+    // Long ago, and nothing about the link changed: shown the night it ran out, not again.
+    bob: "2024-01-01",
     // Ended, by his word: never shown.
-    "person:dan": "2020-01-01T00:00:00.000Z",
+    dan: "2020-01-01",
+    // Within the year.
+    eve: "2026-03-01",
   };
-  const rows = peopleRowsOf({
-    changed: new Set(["acme", "ann", "bob", "bolt|cid", "me"]),
+  const input = {
+    changed: new Set(["acme", "ann", "bob", "bolt|cid", "bolt|eve", "me"]),
     guesses: [
       { evidence: ["unit_gone"], id: "inf_x", name: "X" },
       { evidence: ["unit_gone", "unit_live"], id: "inf_y", name: "Y" },
     ],
-    lastExchangeAt: (ref) => last[ref],
+    lastExchangeDay: (id: string) => last[id],
     live: new Set(["unit_live"]),
-    now,
-    since: "2026-11-20T00:00:00.000Z",
+    sinceDay: "2026-11-20",
+    today: "2026-11-21",
     truth,
-  });
-  expect(rows.map((r) => `${r.name}: ${r.relation}`)).toEqual([
+  };
+  const rows = peopleRowsOf(input).map((r) => `${r.name}: ${r.relation}`);
+  expect(rows).toEqual([
     "People · X: a guess (inf_x) with no evidence left",
     "People · Ann: in his directory with no handle",
     "People · Acme: an organization with nobody linked",
     "People · Ann: at Bolt: no counted exchange in a year, and the link has no end",
     "People · Cid: at Bolt: no counted exchange in a year, and the link has no end",
   ]);
+  // No counts tonight: nothing is said of the links.
+  expect(peopleRowsOf({ ...input, lastExchangeDay: null })).toHaveLength(3);
 });

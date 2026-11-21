@@ -344,7 +344,7 @@ test("renaming takes whole words only, any case, longest name first", () => {
   ).toBe("Lou met Lou's friend Zoéline; Lou left.");
 });
 
-test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never groups", () => {
+test("a 1:1 chat's handle by unit: iMessage handles, WhatsApp numbers and lids, never groups", () => {
   const chat = (id: string, app: string, key: string) =>
     ({ id, key, source: app }) as Unit;
   expect([
@@ -355,11 +355,13 @@ test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never 
       chat("unit_4", "whatsapp", "33600000000@s.whatsapp.net"),
       chat("unit_5", "whatsapp", "120363000@g.us"),
       chat("unit_6", "line", "!abc:matrix.local"),
+      chat("unit_7", "whatsapp", "70001@lid"),
     ]),
   ]).toEqual([
     ["unit_1", "+33600000000"],
     ["unit_2", "a@b.fr"],
     ["unit_4", "+33600000000"],
+    ["unit_7", "70001@lid"],
   ]);
 });
 

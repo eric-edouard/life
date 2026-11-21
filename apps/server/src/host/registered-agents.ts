@@ -466,24 +466,33 @@ export async function readAgentSection(since: string, lastNeedsYou?: number) {
 }
 
 /**
- * The people rows (`peopleRowsOf`) since `since`: the guesses in use, not folded into anyone, against the live units;
- * what of his directory changed since (`readDirectoryChangesSince`); the exchange counts as of last night. A failure
- * costs these rows only, saying so.
+ * The people rows (`peopleRowsOf`) since `since`: Life's guesses, not folded into anyone, against the live units; what
+ * of his directory changed since (`readDirectoryChangesSince`); the exchange counts built tonight, by his days. A
+ * failure costs these rows only, saying so.
  */
 async function readPeopleRows(people: People, since: string) {
   try {
     const guesses = [...latestInUseOf(people.inferred)].flatMap(([ref, g]) =>
-      people.canon(ref) === ref
+      people.canon(ref) === ref && people.isGuess(ref)
         ? [{ evidence: g.evidence.map((e) => e.unit), id: g.id, name: g.name }]
         : []
     );
+    // Counts built since the last report, or none: an older file (a failed rebuild) says nothing of tonight.
+    const counted = readExchangeCounts();
+    const lastAt = lastExchangeAtOf(counted);
     return peopleRowsOf({
       changed: readDirectoryChangesSince(since),
       guesses,
-      lastExchangeAt: lastExchangeAtOf(readExchangeCounts()),
+      lastExchangeDay:
+        counted && counted.built >= since
+          ? (id) => {
+              const last = lastAt(people.canon(`person:${id}`));
+              return last && localDate(last);
+            }
+          : null,
       live: await readLiveUnits(),
-      now: clock(),
-      since,
+      sinceDay: localDate(since),
+      today: dayNow(),
       truth: people.truth,
     });
   } catch (e) {

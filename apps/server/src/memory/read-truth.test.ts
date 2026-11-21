@@ -395,11 +395,10 @@ test("what of his directory changed since a night: each person, organization and
       "people:\n  - id: ann\n    name: Ann\n  - id: bob\n    name: Bob\n",
       "organizations:\n  - id: acme\n    name: Acme\n    people:\n      - id: ann\n        role: Founder\n      - id: bob\n        role: Engineer\n"
     );
-    const all = new Set(["ann", "bob", "acme", "acme|ann", "acme|bob"]);
-    // No commit before the night: everything is new.
-    expect(readDirectoryChangesSince("2026-11-20T00:00:00Z", data)).toEqual(
-      all
-    );
+    // Not a repo: a failure, never "everything changed".
+    expect(() =>
+      readDirectoryChangesSince("2026-11-20T00:00:00Z", data)
+    ).toThrow();
     for (const args of [
       ["init", "-q"],
       ["add", "."],
@@ -417,8 +416,9 @@ test("what of his directory changed since a night: each person, organization and
         env: { ...process.env, ...env },
       });
     }
-    expect(readDirectoryChangesSince("2026-11-19T00:00:00Z", data)).toEqual(
-      all
+    // No commit before the night: everything is new.
+    expect(readDirectoryChangesSince("2026-11-18T00:00:00Z", data)).toEqual(
+      new Set(["ann", "bob", "acme", "acme|ann", "acme|bob"])
     );
     // Bob's role edited and Cid added after the night: Ann and her link are left as they were.
     write(

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { git } from "../core/proc";
+import { git, gitOut } from "../core/proc";
 import { CONTACT_PREFIX, INFERRED_PREFIX } from "../records/observation";
 import {
   type Area,
@@ -355,36 +355,45 @@ export function integrity(truth: Truth): string[] {
   return issues;
 }
 
-interface Entry {
+/** A directory entry as written in its file, before the schema's defaults: what the directory's writer and its change reader compare. */
+export interface Entry {
+  aliases?: string[];
+  domains?: string[];
+  handles?: Record<string, unknown>;
   id: string;
+  name?: string;
   people?: { id: string }[];
+  projects?: string[];
 }
 
-/** A directory file's entries as written (no defaults), by id; none when it is absent. */
-const entriesOf = (text: string, key: string) =>
-  ((text ? Bun.YAML.parse(text) : null) as Record<string, Entry[]> | null)?.[
+/** A directory file's entries as written (no defaults); none when the text holds none. */
+export const entriesOf = (text: string, key: string) =>
+  (((text ? Bun.YAML.parse(text) : null) as Record<string, unknown[]> | null)?.[
     key
-  ] ?? [];
+  ] ?? []) as Entry[];
 
 /**
  * What of his directory was added or changed since `since`: each person's and organization's id, and each
  * organization's link to a person as `<organization>|<person>`, compared with the data repo's last commit before
- * `since` (every one when there is none). Two `git show`s of one commit: the directory's size, never its history.
+ * `since` (every one when there is none). One `git log -1` and two `git show`s of one commit: the directory's size, never its history.
  */
 export function readDirectoryChangesSince(
   since: string,
   data = OWNER_DATA_DIR
 ) {
-  const before = git(data, [
+  // The last commit before `since`, any file: none on a repo with no commit before it (every entry is then new).
+  const before = gitOut(data, [
     "log",
     "-1",
     "--format=%H",
     `--before=${since}`,
-    "--",
-    "truth",
-  ])
-    .stdout.toString()
-    .trim();
+  ]);
+  /** A file at that commit; empty when the commit did not hold it. Any other failure throws. */
+  const was = (file: string) =>
+    before &&
+    git(data, ["cat-file", "-e", `${before}:truth/${file}`]).exitCode === 0
+      ? gitOut(data, ["show", `${before}:truth/${file}`])
+      : "";
   const keyed = (entries: Entry[]) =>
     new Map(
       entries.flatMap((e) => [
@@ -403,16 +412,9 @@ export function readDirectoryChangesSince(
     const now = keyed(
       entriesOf(existsSync(path) ? readFileSync(path, "utf8") : "", key)
     );
-    const was = keyed(
-      entriesOf(
-        before
-          ? git(data, ["show", `${before}:truth/${file}`]).stdout.toString()
-          : "",
-        key
-      )
-    );
+    const then = keyed(entriesOf(was(file), key));
     for (const [k, v] of now) {
-      if (was.get(k) !== v) {
+      if (then.get(k) !== v) {
         changed.add(k);
       }
     }
