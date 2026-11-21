@@ -63,12 +63,12 @@ export async function dueDirectionsOf(
 const linkOf = (ref: string) =>
   ObservationId.safeParse(ref).success ? { id: ref } : {};
 
-/** A Markdown quote's line (`> …`). */
-const QUOTE_LINE = /^\s*>/m;
+/** A quote: a Markdown quote's line (`> …`), or words in quotation marks. */
+const QUOTE = /^\s*>|["“”«»„]/m;
 
 /**
  * Whether a drafted next step's context holds only what its matter's call was shown: every `life:` link one of its
- * steps' or later records' ids, and no quote (`> …`: the call sees clipped lines, never the checked quotes). Else it is
+ * steps' or later records' ids, and no quote (`> …` or in quotation marks: the call sees clipped lines, never the checked quotes). Else it is
  * dropped and the next step kept.
  */
 const isGroundedContext = (
@@ -86,7 +86,7 @@ const isGroundedContext = (
   );
   return (
     context.trim() !== "" &&
-    !QUOTE_LINE.test(context) &&
+    !QUOTE.test(context) &&
     [...lifeRefsOf(context)].every((id) => ids.has(id))
   );
 };

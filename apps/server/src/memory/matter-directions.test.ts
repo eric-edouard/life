@@ -497,6 +497,22 @@ test("a drafted context links only its matter's shown ids and quotes nothing, or
     rmSync(MATTER_DIRECTIONS, { force: true });
     await matterDirections(people, { all: true, today: TODAY });
     expect(next()[0]).toEqual({ kind: "do", text: "Ask Sam again" });
+    // So is one inline, and a sibling's id behind an image (the phone opens it as a link).
+    ask.mockResolvedValue({
+      directions: [
+        draft(
+          "m1",
+          "Sam said “The parcel arrived” [here](life:obs_00000000e004)."
+        ),
+        draft("m2", "![record](life:obs_00000000e004)"),
+      ],
+    } as never);
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    await matterDirections(people, { all: true, today: TODAY });
+    expect(next()).toEqual([
+      { kind: "do", text: "Ask Sam again" },
+      { kind: "do", text: "Ask Sam again" },
+    ]);
   } finally {
     book.mockRestore();
     ask.mockRestore();
