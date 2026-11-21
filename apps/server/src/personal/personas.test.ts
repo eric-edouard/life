@@ -382,6 +382,8 @@ test("a persona's window is 3 years ending at the newest day of all four lists, 
   expect(digest()).toBe(base);
   // The counts are over the windowed messages only.
   const {
+    days: shownDays,
+    heard,
     shown: { counts },
   } = personaShownOf(
     { ...personaWindowOf(lists()), ref: "person:ana" },
@@ -390,17 +392,8 @@ test("a persona's window is 3 years ending at the newest day of all four lists, 
     100_000
   );
   // Chat-days are shown as days, never taken for recordings to hear (a chat-day names its unit's id too).
-  const shownOnly = personaShownOf(
-    { ...personaWindowOf(lists()), ref: "person:ana" },
-    direct,
-    "Ana",
-    100_000
-  );
-  expect(shownOnly.heard).toEqual([]);
-  expect(shownOnly.days.map((d) => d.day)).toEqual([
-    "2021-06-01",
-    "2024-02-01",
-  ]);
+  expect(heard).toEqual([]);
+  expect(shownDays.map((d) => d.day)).toEqual(["2021-06-01", "2024-02-01"]);
   expect(counts).toEqual(pairCountsOf(exchangeCountsOf(direct.slice(1))));
   expect(counts).not.toEqual(pairCountsOf(exchangeCountsOf(direct)));
   // A newer day in any list moves the window and changes the digest: here his own writing, two years on.
