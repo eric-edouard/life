@@ -217,6 +217,10 @@ export function readChatsTitled(
       ) ?? []
     );
   } catch (e) {
-    throw new Error(REBUILDING, { cause: e });
+    // Only an index from before `units.chat` is rebuilding; any other failure is itself.
+    if (String(e).includes("no such column: chat")) {
+      throw new Error(REBUILDING, { cause: e });
+    }
+    throw e;
   }
 }
