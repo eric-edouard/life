@@ -63,7 +63,7 @@ export const NextStepKind = z.enum(["do", "wait_event", "wait_owner"]);
 /**
  * A matter's next step, Life's draft or his word: one line saying what moves it now, its kind, for a wait what it waits
  * on, and its `context` (Markdown, as a card's: its `life:` links checked before it is written; Life's drafts from
- * `memory-matter-directions.v3`).
+ * `memory-matter-directions.v3` on).
  */
 export const NextStep = z
   .object({
@@ -87,7 +87,7 @@ export const PINNED = {
 };
 
 export const MatterDirectionFields = z.object({
-  /** The ids of the later records a "looks over" draft cites (a few; none when the matter's own steps show it). */
+  /** The ids of the records a "looks over" draft cites, later records or evidence units (a few; none when the matter's own steps show it). */
   endingRecords: z.array(z.string().min(1)).max(3).optional(),
   goal: GoalText,
   nextStep: NextStep.optional(),

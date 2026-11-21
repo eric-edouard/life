@@ -84,6 +84,52 @@ function rowsFor<R extends { id: string }>(
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
+/** The rankings an index read fuses: by words (the FTS `query`, its rows' ids), by meaning (the stored hashes `readNearest` reads), and their best `LIMIT + 1`. */
+const rankersOf = (db: Database, query: string) => ({
+  best: (rankings: string[][]) =>
+    fuse(rankings)
+      .slice(0, LIMIT + 1)
+      .map(([id]) => id),
+  held: (sql: string, args: string[]) =>
+    query
+      ? db
+          .query<{ id: string }, string[]>(sql)
+          .all(query, ...args)
+          .map((r) => r.id)
+      : [],
+  texts: (sql: string, args: string[]) => () =>
+    db.query<{ id: string; hash: string }, string[]>(sql).all(...args),
+});
+
+/**
+ * The ids of the units best for `q` within `range`, by meaning (`vector`) and by words, fused: `AND` holds every word
+ * (search), `OR` any, ranked by FTS (a matter's evidence: its words are never all in a mail's).
+ */
+export function rankedUnitIds(
+  db: Database,
+  q: string,
+  range: DayRange,
+  vector: number[] | undefined,
+  op: "AND" | "OR" = "AND"
+) {
+  const u = between("u.date", range);
+  const { best, held, texts } = rankersOf(db, ftsQuery(q, op));
+  return best([
+    readNearest(
+      vector,
+      texts(
+        `select u.id, h.hash from units u join search_hashes h on h.id = u.id where 1${u.sql}`,
+        u.args
+      )
+    ),
+    held(
+      `select u.id from unit_search s join units u on u.id = s.id
+          where unit_search match ?${u.sql} order by rank limit ${CANDIDATES}`,
+      u.args
+    ),
+  ]);
+}
+
 /** The observations and units best for `q` by meaning (`vector`) and by words (holding them all), fused (`fuse`). */
 export function matches(
   db: Database,
@@ -92,21 +138,7 @@ export function matches(
   vector?: number[]
 ) {
   const o = between("o.date", range);
-  const u = between("u.date", range);
-  const query = ftsQuery(q, "AND");
-  const held = (sql: string, args: string[]) =>
-    query
-      ? db
-          .query<{ id: string }, string[]>(sql)
-          .all(query, ...args)
-          .map((r) => r.id)
-      : [];
-  const best = (rankings: string[][]) =>
-    fuse(rankings)
-      .slice(0, LIMIT + 1)
-      .map(([id]) => id);
-  const texts = (sql: string, args: string[]) => () =>
-    db.query<{ id: string; hash: string }, string[]>(sql).all(...args);
+  const { best, held, texts } = rankersOf(db, ftsQuery(q, "AND"));
   const observations = rowsFor<Row>(
     db,
     `select ${COLUMNS} from observations o where o.id in (select value from json_each(?))`,
@@ -128,20 +160,7 @@ export function matches(
   const units = rowsFor<UnitRow>(
     db,
     "select id, date, source, title, topics from units where id in (select value from json_each(?))",
-    best([
-      readNearest(
-        vector,
-        texts(
-          `select u.id, h.hash from units u join search_hashes h on h.id = u.id where 1${u.sql}`,
-          u.args
-        )
-      ),
-      held(
-        `select u.id from unit_search s join units u on u.id = s.id
-          where unit_search match ?${u.sql} order by rank limit ${CANDIDATES}`,
-        u.args
-      ),
-    ])
+    rankedUnitIds(db, q, range, vector)
   ).map(unitLine);
   if (observations.length + units.length === 0) {
     return ["(nothing found)"];

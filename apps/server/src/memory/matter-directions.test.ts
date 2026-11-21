@@ -646,3 +646,78 @@ test("a drafted context links only its matter's shown ids and quotes nothing, or
     ask.mockRestore();
   }
 });
+
+test("a matter's evidence is shown; a looks-over draft may cite a unit or a payment, only the unit is stored, and a context links a unit, never a payment (his pass of 21 Nov 2026)", async () => {
+  const matters = await import("./matters");
+  const models = await import("../models/llm");
+  const evidence = await import("./matter-evidence");
+  const v = waiting("00000000e004");
+  const receipt = "unit_receipt000001";
+  const book = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+    book: [v],
+    records: recordsOf([]),
+  } as never);
+  const read = spyOn(evidence, "readEvidence").mockResolvedValue(
+    new Map([
+      [
+        v.id,
+        {
+          payments: [
+            { day: "2026-11-17", id: "pay-1", text: "-€65 Hosting Inc" },
+          ],
+          units: [
+            {
+              day: "2026-11-17",
+              id: receipt,
+              source: "mail" as const,
+              title: "Your receipt from Hosting Inc",
+            },
+          ],
+        },
+      ],
+    ])
+  );
+  const ask = spyOn(models, "askOnce").mockResolvedValue({
+    directions: [
+      {
+        endingRecords: [receipt, "pay-1"],
+        goal: "The invoice is paid",
+        matter: "m1",
+      },
+    ],
+  } as never);
+  try {
+    await matterDirections(people, { today: TODAY });
+    expect(JSON.stringify(ask.mock.calls[0])).toContain(receipt);
+    expect(JSON.stringify(ask.mock.calls[0])).toContain("Hosting Inc");
+    expect(readMatterPins().directions[0]?.endingRecords).toEqual([receipt]);
+    // A context may link the unit it was shown, never a payment (no ref opens one).
+    for (const [link, kept] of [
+      [receipt, true],
+      ["pay-1", false],
+    ] as const) {
+      rmSync(MATTER_DIRECTIONS, { force: true });
+      ask.mockResolvedValue({
+        directions: [
+          {
+            goal: "The invoice is paid",
+            matter: "m1",
+            nextStep: {
+              context: `Seen in [the mail](life:${link}).`,
+              kind: "do",
+              text: "Check the invoice",
+            },
+          },
+        ],
+      } as never);
+      await matterDirections(people, { today: TODAY });
+      expect(
+        readMatterPins().directions[0]?.nextStep?.context !== undefined
+      ).toBe(kept);
+    }
+  } finally {
+    book.mockRestore();
+    read.mockRestore();
+    ask.mockRestore();
+  }
+});
