@@ -10,6 +10,7 @@ import {
   type NamingQueueItem,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import { planRoleOf } from "./card-problems";
 import { cardAskOf, guessAskOf } from "./check-asks";
 import { literalOf, type Quote, withQuoteOf } from "./check-quotes";
 import {
@@ -31,9 +32,11 @@ import {
 import type { Decision } from "./decision-lines";
 import {
   DECISIONS,
-  decisionCardOf,
   decisionsNow,
+  doneSeenByOf,
+  doneSeenShownOf,
   isOnMatter,
+  notSentOf,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
@@ -73,6 +76,7 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { needsShownOf } from "./needs";
 import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
 import { PROJECT_SITUATIONS } from "./project-situation-read";
@@ -330,6 +334,21 @@ function ranked(
       ]
     : [];
 }
+
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
+export const decisionCardOf = (d: Decision) => ({
+  doneSeen: doneSeenShownOf(d.doneSeen),
+  doneSeenBy: doneSeenByOf(d),
+  gathered: d.gathered ?? null,
+  needs: needsShownOf(d.needs),
+  notSent: notSentOf(d),
+  options: d.options.map((o) => {
+    const role = d.plan && planRoleOf(o.id);
+    return { ...o, ...(role ? { role } : {}), takes: o.takes ?? null };
+  }),
+  plan: d.plan ?? null,
+  replaces: d.replaces ?? null,
+});
 
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {

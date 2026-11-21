@@ -47,13 +47,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 9)
-    #expect(inbox.blocking == 5)
-    #expect(inbox.badge == 5)
-    #expect(inbox.counts.values.reduce(0, +) == 9)
+    #expect(inbox.total == 10)
+    #expect(inbox.blocking == 6)
+    #expect(inbox.badge == 6)
+    #expect(inbox.counts.values.reduce(0, +) == 10)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)

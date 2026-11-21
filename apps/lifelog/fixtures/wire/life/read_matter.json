@@ -263,6 +263,7 @@
       "onSilence": "no",
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "gathered": null,
       "needs": [],
       "notSent": null,
       "options": [
@@ -278,6 +279,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",

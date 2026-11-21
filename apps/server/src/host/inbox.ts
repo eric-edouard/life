@@ -7,6 +7,7 @@ import { decisionsNow } from "../memory/decisions";
 import { isAsked } from "../memory/draft-contest";
 import type { HeldRead } from "../memory/life-checks";
 import {
+  type AssignmentRow,
   agentOf,
   assignmentOf,
   assignmentOfCard,
@@ -41,15 +42,20 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
     list.flatMap((d) => {
       const s = d.state === "open" ? ownerOf(d) : null;
       const opened = s ? assignmentOf(db, s) : null;
-      const isHis =
-        opened?.opened_by === "owner" &&
-        agentOf(db, opened.agent_id)?.role !== "caretaker";
-      return isHis && list.find((e) => isAsked(e) && ownerOf(e) === s) === d
+      return opened &&
+        opensWithPlan(db, opened) &&
+        list.find((e) => isAsked(e) && ownerOf(e) === s) === d
         ? [d.id]
         : [];
     })
   );
 }
+
+/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened, not the caretaker's. */
+export const opensWithPlan = (
+  db: Database,
+  s: Pick<AssignmentRow, "agent_id" | "opened_by">
+) => s.opened_by === "owner" && agentOf(db, s.agent_id)?.role !== "caretaker";
 
 /** A card's links as its holder's: the asker's session link (`was`) becomes the holder's (`now`); with none, the links stay (a supporting link never takes the session's place). */
 export const holderLinksOf = (
