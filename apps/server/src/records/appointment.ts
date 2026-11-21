@@ -53,6 +53,8 @@ export const AppointmentEvent = z
     at: isoDateTime,
     /** The calendar it was in (the `appointments` setting's then). */
     calendar: z.string().min(1),
+    /** On his Remove of one he had confirmed (its event's `lifeConfirmed`), and its Undo: written again confirmed. */
+    confirmed: z.literal(true).optional(),
     /** Its id in that calendar. */
     event: z.string().min(1),
     /** The keys of the messages an appointment agreed in new lines was read from (`eventKey`, or a turn's key). */

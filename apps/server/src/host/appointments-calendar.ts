@@ -105,7 +105,12 @@ const appendEvent = (
   op: AppointmentEvent["op"],
   e: Pick<
     AppointmentEvent,
-    "appointment" | "calendar" | "event" | "messages" | "observations"
+    | "appointment"
+    | "calendar"
+    | "confirmed"
+    | "event"
+    | "messages"
+    | "observations"
   >,
   now: Date
 ) => {
@@ -114,6 +119,8 @@ const appendEvent = (
       appointment: e.appointment,
       at: now.toISOString(),
       calendar: e.calendar,
+      // His confirmation travels only from his Remove to its Undo; a written event holds it itself.
+      ...(e.confirmed && op !== "created" ? { confirmed: true } : {}),
       event: e.event,
       ...(e.messages
         ? { messages: e.messages }
@@ -126,7 +133,7 @@ const appendEvent = (
 };
 
 /**
- * The appointments to draft now in `calendar`: each one not refused there whose event is listed, or was never written there
+ * The appointments to draft now in `calendar`: each one not refused (his no holds in every calendar) whose event is listed, or was never written there
  * (another calendar's event is not his no), or Life removed, or he restored. One Life wrote there and no longer lists
  * is looked up by its id: gone is a refusal (recorded); still there (outside the listing) or a failed lookup leaves it
  * for the next tick.
@@ -142,8 +149,8 @@ export async function drafted<A extends Planned>(
   const kept: A[] = [];
   for (const a of list) {
     const last = byAppointment.get(a.id);
-    if (last?.op === "refused" && last.calendar === calendar) {
-      // His no, even while Google still lists the event his Remove deleted.
+    if (last?.op === "refused") {
+      // His no, in any calendar, even while Google still lists the event his Remove deleted.
       continue;
     }
     if (
@@ -245,12 +252,22 @@ async function sync(now: Date) {
   }
   const today = dayNow(now);
   const cal = googleCalendar(appointments.calendar, appointments.account);
+  const known = readAppointmentEvents().byAppointment;
+  // An event his Remove deleted is gone, even while Google still lists it.
+  const isDeleted = (id: string, of = "") => {
+    const last = known.get(of);
+    return (
+      (last?.op === "refused" || last?.op === "restored") && last.event === id
+    );
+  };
   // From the start of his day: an event that ended before is never touched.
-  const listed = await cal.list(
-    dayStart(today).toISOString(),
-    iso(now.getTime() + AHEAD),
-    `lifeOutput=${OUTPUT.lifeOutput}`
-  );
+  const listed = (
+    await cal.list(
+      dayStart(today).toISOString(),
+      iso(now.getTime() + AHEAD),
+      `lifeOutput=${OUTPUT.lifeOutput}`
+    )
+  ).filter((e) => !isDeleted(e.id, e.props.lifeAppointment));
   const held = heldOf(
     listed.map((e) => ({
       allDay: e.allDay,
@@ -259,11 +276,15 @@ async function sync(now: Date) {
       of: e.props.lifeAppointment ?? "",
     }))
   );
-  const confirmed = new Set(
-    listed.flatMap((e) =>
+  // Confirmed: its event says so, or his Undo brings back one he had confirmed.
+  const confirmed = new Set([
+    ...listed.flatMap((e) =>
       e.props.lifeConfirmed === "yes" ? [e.props.lifeAppointment ?? ""] : []
-    )
-  );
+    ),
+    ...[...known].flatMap(([of, l]) =>
+      l.op === "restored" && l.confirmed ? [of] : []
+    ),
+  ]);
   const agreedOn = new Map(
     listed.flatMap((e) =>
       e.props.lifeAgreed === "yes"
@@ -279,7 +300,6 @@ async function sync(now: Date) {
         : []
     )
   );
-  const known = readAppointmentEvents().byAppointment;
   const list = await drafted(
     plannedOf(
       file?.appointments ?? [],
@@ -376,12 +396,20 @@ export const removeAppointment = (id: string, now = clock()) =>
         ? { result: "removed" }
         : failed("it is not in your calendar");
     }
+    const cal = googleCalendar(last.calendar, s.account);
+    let wasConfirmed = false;
     try {
-      await googleCalendar(last.calendar, s.account).remove(last.event);
+      const props = (await cal.read(last.event))?.props;
+      wasConfirmed = props?.lifeConfirmed === "yes";
+      await cal.remove(last.event);
     } catch (e) {
       return failed((e as Error).message);
     }
-    appendEvent("refused", last, now);
+    appendEvent(
+      "refused",
+      { ...last, confirmed: wasConfirmed || undefined },
+      now
+    );
     return { result: "removed" };
   });
 
@@ -398,16 +426,14 @@ export const restoreAppointment = (id: string, now = clock()) =>
         : failed("it was not removed");
     }
     appendEvent("restored", last, now);
-    const why = await sync(now).then(
-      () =>
-        readAppointmentEvents().byAppointment.get(id)?.op === "created"
-          ? null
-          : "Life no longer holds it, or the calendar is off",
+    const error = await sync(now).then(
+      () => null,
       (e: Error) => e.message
     );
-    if (why) {
-      appendEvent("refused", last, now);
-      return failed(why);
+    // Its own outcome, never the whole sync's: written again, it is restored whatever failed after it.
+    if (readAppointmentEvents().byAppointment.get(id)?.op === "created") {
+      return { result: "restored" };
     }
-    return { result: "restored" };
+    appendEvent("refused", last, now);
+    return failed(error ?? "Life no longer holds it, or the calendar is off");
   });

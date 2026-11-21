@@ -525,7 +525,8 @@ time in the watcher: `{schemaVersion: 1, at, appointment, calendar, event, obser
 appointment's facts, or the message keys an appointment agreed in new lines was read from), `op` `created` (its event's
 id in that calendar; one written in another calendar counts as never written), `removed` (Life deleted it, its
 appointment gone), `refused` (that event gone by his hand or an agent's, or by his Remove) or `restored` (his Undo,
-which lifts the refusal). No appointment citing every fact of a refused one is written again.
+which lifts the refusal); `confirmed: true` on his Remove of one he had confirmed and on its Undo, so it comes back
+confirmed. A refusal holds in every calendar. No appointment citing every fact of a refused one is written again.
 
 ## ledger.jsonl
 

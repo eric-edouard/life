@@ -8,7 +8,9 @@ import {
   APPOINTMENTS,
   readReplyPath,
 } from "../memory/memory-files";
+import { readAppointmentSheet } from "../memory/read-appointments";
 import { READS, storeReply } from "../memory/read-replies";
+import type { People } from "../memory/who";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import type { ReadReply } from "../records/read-reply";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -149,15 +151,27 @@ const ARRIVAL_AT = "2031-03-10T08:00:00.000Z";
 const LATER_AT = "2031-04-01T08:00:00.000Z";
 let events: Map<
   string,
-  { allDay: boolean; busy?: boolean; props: Record<string, string> }
+  {
+    allDay: boolean;
+    busy?: boolean;
+    props: Record<string, string>;
+    summary?: string;
+  }
 >;
+let made = 0;
 const fake = {
   create: (
-    f: { allDay: boolean; busy: boolean },
+    f: { allDay: boolean; busy: boolean; summary?: string },
     props: Record<string, string>
   ) => {
-    const id = `ev${events.size + 1}`;
-    events.set(id, { allDay: f.allDay, busy: f.busy, props });
+    made += 1;
+    const id = `ev${made}`;
+    events.set(id, {
+      allDay: f.allDay,
+      busy: f.busy,
+      props,
+      summary: f.summary,
+    });
     return Promise.resolve(id);
   },
   exists: (id: string) => Promise.resolve(events.has(id)),
@@ -165,6 +179,8 @@ const fake = {
     Promise.resolve(
       [...events].map(([id, e]) => ({ allDay: e.allDay, id, props: e.props }))
     ),
+  read: (id: string) =>
+    Promise.resolve(events.has(id) ? { props: events.get(id)?.props } : null),
   remove: (id: string) => {
     if (failDelete) {
       return Promise.reject(new Error("gog calendar delete: offline"));
@@ -225,6 +241,7 @@ const clean = () => {
 beforeEach(() => {
   clean();
   events = new Map();
+  made = 0;
   updates = [];
   failDelete = false;
   setSettings({
@@ -422,6 +439,33 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   await syncAppointments(later);
   expect([...events.keys()]).toEqual([event ?? ""]);
   expect(updates.at(-1)).toMatchObject({ busy: true, id: event });
+  // Its sheet, by its push's id, past the reply's window: the night's reading with the arrival's link, as written.
+  const sheet = await readAppointmentSheet(
+    { pushId: push.pushIdOf(id) },
+    {
+      book: () => Promise.resolve([]),
+      message: () => null,
+      people: () => Promise.resolve({} as People),
+    },
+    later
+  );
+  expect(sheet).toMatchObject({
+    addedAt: NOW.toISOString(),
+    appointment: id,
+    link: "https://meet.example.com/kit-lou",
+  });
+  // One never written has no sheet.
+  expect(
+    await readAppointmentSheet(
+      { appointment: "apt_00000000ffff" },
+      {
+        book: () => Promise.resolve([]),
+        message: () => null,
+        people: () => Promise.resolve({} as People),
+      },
+      later
+    )
+  ).toBeNull();
   // Deleted by him while the first reply is read; then that reply out of the window, a second of the same start in
   // it, the night's reading still there: the same id, never written again.
   events.clear();
@@ -456,14 +500,47 @@ test("his Remove deletes the event and is never written over; his Undo writes it
   expect(events.has(event ?? "")).toBe(false);
   events = listed;
   await syncAppointments(NOW);
-  expect(lastOp(id)).toBe("refused");
-  expect(events.size).toBe(0);
   await syncAppointments(NOW);
-  expect(events.size).toBe(0);
+  expect(lastOp(id)).toBe("refused");
+  expect([...events.keys()]).toEqual([event ?? ""]);
+  // His Undo while Google still lists the event his Remove deleted: written again all the same.
   expect(await restoreAppointment(id, NOW)).toEqual({ result: "restored" });
   expect(lastOp(id)).toBe("created");
-  expect(events.size).toBe(1);
+  expect(events.size).toBe(2);
   expect(pushed).toHaveBeenCalledTimes(1);
+});
+
+test("his Remove holds in another calendar; his Undo is its own outcome, whatever fails after it; one he confirmed comes back confirmed", async () => {
+  agreed("2031-03-12 10:00", ["whatsapp|m1"]);
+  await syncAppointments(NOW);
+  const [event, e] = [...events][0] ?? [];
+  const id = e?.props.lifeAppointment ?? "";
+  // An agent confirmed it with him.
+  events.set(event ?? "", {
+    ...(e as NonNullable<typeof e>),
+    props: { ...e?.props, lifeConfirmed: "yes" },
+  });
+  expect(await removeAppointment(id, NOW)).toEqual({ result: "removed" });
+  setSettings({
+    appointmentsCalendar: { account: "a@example.com", calendar: "other" },
+  });
+  await syncAppointments(NOW);
+  await syncAppointments(NOW);
+  expect(events.size).toBe(0);
+  expect(lastOp(id)).toBe("refused");
+  // A second meeting that cannot be written: his Undo still says restored once its own event is written.
+  agreed("2031-03-13 10:00", ["whatsapp|m2"]);
+  const { create } = fake;
+  fake.create = (f, props) =>
+    f.summary?.includes("Coffee") && props.lifeAppointment !== id
+      ? Promise.reject(new Error("gog calendar create: offline"))
+      : create(f, props);
+  expect(await restoreAppointment(id, NOW)).toEqual({ result: "restored" });
+  fake.create = create;
+  expect(lastOp(id)).toBe("created");
+  const [back] = [...events.values()];
+  expect(back).toMatchObject({ busy: true, props: { lifeConfirmed: "yes" } });
+  expect(back?.summary).toBe("Coffee with Kit");
 });
 
 test("Undo of one Life no longer holds is refused again; with the calendar off nothing runs", async () => {
