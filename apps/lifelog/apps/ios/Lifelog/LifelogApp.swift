@@ -182,7 +182,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
         if case .removed(let gone)? = NotificationRoute(userInfo: userInfo) {
-            await life.removeNotifications(sparingResults: true) { gone.contains($0) }
+            await LifeStore.removeNotifications(sparingResults: true) { gone.contains($0) }
             return .newData
         }
         guard userInfo["lifelog"] as? String == "processing" else { return .noData }

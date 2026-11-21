@@ -48,13 +48,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 11)
+    #expect(inbox.total == 12)
     #expect(inbox.blocking == 7)
     #expect(inbox.badge == 7)
-    #expect(inbox.counts.values.reduce(0, +) == 11)
+    #expect(inbox.counts.values.reduce(0, +) == 12)
     #expect(
         inbox.checks.map(\.urgency) == [
             .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+            .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -180,7 +181,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(matter.row.name == "Mend Gran's watch")
     #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
-    #expect(matter.steps[1].ending?.by == .todoItem)
+    #expect(matter.steps[1].ending?.by == .ticked)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
     #expect(matter.agents.first?.runtime == "claude")
     #expect(matter.agents.first?.notStarted == nil)
@@ -625,6 +626,21 @@ private func asks(
     #expect(groups == [["v1"], ["v3"], ["v2"]])
 }
 
+/// A same person ask folds with the guessed people's (one screen of Yes or No rows); a kind he is answering row by row
+/// stays one card down to its last row.
+@Test func guessedPeopleAndSamePersonAsksShareOneBulkAsk() throws {
+    let order = try asks(
+        [("g1", .improves), ("s1", .improves), ("g2", .improves)],
+        groups: ["g1": "guessed person", "s1": "same person", "g2": "guessed person"],
+        preTicked: ["g1": "this-is", "s1": "same-person", "g2": "this-is"]
+    ).ordered(deferred: [])
+    #expect(order.folded().bulk.mapValues { $0.map(\.ref) } == ["g1": ["g1", "s1", "g2"]])
+    let one = try asks([("g1", .improves)], groups: ["g1": "guessed person"], preTicked: ["g1": "this-is"])
+        .ordered(deferred: [])
+    #expect(one.folded().bulk.isEmpty)
+    #expect(one.folded(working: [.guessedPerson]).bulk.keys.contains("g1"))
+}
+
 /// A name card with no one to suggest offers "Create <name>", the longest name it asks about.
 @Test func aNameWithNoOneToSuggestIsCreatedByItsWholeName() throws {
     let inbox = try JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any]
@@ -917,4 +933,17 @@ private func asks(
         return ""
     }
     #expect(unpaired == nil)
+}
+
+/// Asked `ifNot` its version, Life's "nothing changed" keeps the read held; any other answer is a new read, and an
+/// inbox changed on the phone is no longer Life's version.
+@Test func anUnchangedAnswerKeepsTheReadHeld() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let version = try #require(inbox.version)
+    let unchanged = #"{"unchanged":true,"version":"\#(version)"}"#
+    #expect(inbox.isUnchanged(by: unchanged))
+    #expect(!inbox.isUnchanged(by: #"{"unchanged":true,"version":"other"}"#))
+    #expect(!inbox.isUnchanged(by: try wireText("life/read_inbox.json")))
+    #expect(!inbox.without([inbox.checks[0].ref]).isUnchanged(by: unchanged))
+    #expect(try decoded(MatterList.self, wireText("life/read_matters.json")).version != nil)
 }

@@ -141,7 +141,7 @@
               "takes": "person or name"
             }
           ],
-          "preTicked": null,
+          "preTicked": "this-is",
           "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
@@ -163,8 +163,8 @@
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "11cea1d8bb774eacfa1fa073d27a07da",
-            "shown": "cbd8453c56018bc0"
+            "seal": "757398c9279ffc48760eab15b8f32ca9",
+            "shown": "0e530fc2d7921f15"
           },
           "confirm": [],
           "networkIdentity": {
@@ -830,7 +830,7 @@
           "takes": null
         }
       ],
-      "preTicked": null,
+      "preTicked": "same-person",
       "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
       "ref": "same:person:inf_kit~person:partner",
       "ridesOn": {
@@ -851,8 +851,68 @@
       "urgency": "improves",
       "misread": {
         "cause": "6c04307dd5deaa49",
-        "seal": "69ee232dbf76050e245f4e575a8f126b",
-        "shown": "58832ec04f1a4a76"
+        "seal": "c0110a633575370f23297e76720d0968",
+        "shown": "78ae0f244152c578"
+      }
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "contactsCard": null,
+      "context": "Their Contacts card says “Owner, Test Bakery”.",
+      "deadline": null,
+      "draft": null,
+      "goal": null,
+      "group": "at organization",
+      "kind": "person",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "name": "person:test-bakery",
+          "ref": "person:test-bakery"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes",
+          "takes": null
+        },
+        {
+          "id": "not-at-organization",
+          "label": "No",
+          "takes": null
+        }
+      ],
+      "preTicked": null,
+      "question": "Is Kit at person:test-bakery as Owner?",
+      "ref": "at:person:test-bakery~person:inf_kit~89ff3122",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": null,
+      "since": null,
+      "subject": null,
+      "title": "Link someone to an organization",
+      "lifeLinks": [],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "e17351fad95db35b",
+      "urgency": "improves",
+      "misread": {
+        "cause": "a2fc300ae36cf927",
+        "seal": "231a4eecef6ba66ff43fabee2359463f",
+        "shown": "bc3ffe5c57de4fb9"
       }
     },
     {
@@ -889,7 +949,7 @@
           "takes": "person or name"
         }
       ],
-      "preTicked": null,
+      "preTicked": "this-is",
       "question": "Is this Kit?",
       "ref": "person:inf_kit",
       "ridesOn": {
@@ -932,8 +992,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "01b070ee5ba7f83a",
-        "seal": "11cea1d8bb774eacfa1fa073d27a07da",
-        "shown": "cbd8453c56018bc0"
+        "seal": "757398c9279ffc48760eab15b8f32ca9",
+        "shown": "0e530fc2d7921f15"
       }
     },
     {
@@ -1018,10 +1078,11 @@
     "your move": 1,
     "ending": 1,
     "same person": 1,
+    "at organization": 1,
     "guessed person": 1,
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 11,
-  "version": "26e5ae0c523c4c4d"
+  "total": 12,
+  "version": "aa43f8d9881af1d0"
 }

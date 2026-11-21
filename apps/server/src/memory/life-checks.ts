@@ -6,8 +6,7 @@ import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import type { PlanStep } from "./card-request";
-import type { Decision } from "./decision-lines";
-import type { doneSeenShownOf } from "./decisions";
+import type { Decision, doneSeenShownOf } from "./decision-lines";
 import type { StoredDraft } from "./draft";
 import type { AgentHold } from "./held-matters";
 import type { needsShownOf } from "./needs";
@@ -43,6 +42,15 @@ export interface Said {
 
 /** Each kind of Life's guesses: what it is trying to do (its title), why it asks (its context), and what he can answer, its guess first (`answerCheck` writes it). */
 export const LIFE_CHECKS = {
+  // His Yes adds the person to the organization in his directory, with the role the question shows; his No is never asked again.
+  "at organization": {
+    context: null,
+    options: [
+      { id: "yes", label: "Yes", takes: null },
+      { id: "not-at-organization", label: "No", takes: null },
+    ],
+    title: "Link someone to an organization",
+  },
   "contacts card": {
     context: null,
     options: [
@@ -263,14 +271,22 @@ export const endingGuessOf = (step: string) =>
  * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
  * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (lifelog's
  * `isLikely`), "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
- * one conversation with no name heard, "Don't name"; null for anything else.
+ * one conversation with no name heard, "Don't name"; a guessed person, "Yes"; two accounts that may be one person, "Same
+ * person" (the bulk card of guesses draws these as Yes or No rows, answered one by one); null for anything else.
  */
 export function preTickedOf(
-  c: Pick<Check, "kind"> & Partial<Pick<Check, "subject">>,
+  c: Pick<Check, "kind"> & Partial<Pick<Check, "group" | "subject">>,
   voice?: Pick<NamingQueueItem, "conversations" | "isLikely" | "kind" | "name">
 ): string | null {
   if (c.kind === "ending") {
     return "outdated";
+  }
+  // A guess Life already uses, and two accounts that may be one person: his "Yes" is the answer a row starts from.
+  if (c.group === "guessed person") {
+    return "this-is";
+  }
+  if (c.group === "same person") {
+    return "same-person";
   }
   if (c.kind !== "voice" || !voice) {
     return null;

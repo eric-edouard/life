@@ -12,7 +12,7 @@ import UserNotifications
 /// permission and posts nothing when denied.
 final class IncidentNotifier: NSObject {
     /// Marks the notification that shows his answer's result: Life's push removing the answered card spares it.
-    static let resultKey = "lifeResult"
+    nonisolated static let resultKey = "lifeResult"
     private static let stateKey = "incidentReducer"
     private static let changesKey = "pendantChanges"
 
