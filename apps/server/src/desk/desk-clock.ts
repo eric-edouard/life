@@ -18,6 +18,7 @@ import {
   openTurn,
   queuedEvents,
   readCursor,
+  turnModelOf,
 } from "../host/desk-read";
 import { isOnOrAfter } from "../host/event-channels";
 import {
@@ -385,8 +386,8 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
       return null;
     }
     const id = db.run(
-      "insert into turn (agent_id, assignment_id, session, cause, started_at) values (?, ?, ?, ?, ?)",
-      [a.id, s.id, due.a.session, due.cause, now()]
+      "insert into turn (agent_id, assignment_id, session, cause, started_at, model) values (?, ?, ?, ?, ?, ?)",
+      [a.id, s.id, due.a.session, due.cause, now(), turnModelOf(due.a)]
     ).lastInsertRowid;
     return { ...due, turn: Number(id) };
   })();
