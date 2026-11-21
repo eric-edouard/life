@@ -101,7 +101,7 @@ struct AppointmentSheet: View {
             }
             // Remove is plain text, not coral (his word).
             HStack(spacing: Metrics.Spacing.s) {
-                if let calendar = appointment.calendarURL, !appointment.isRemoved {
+                if let calendar = appointment.calendarURL(), !appointment.isRemoved {
                     Button {
                         openURL(calendar)
                     } label: {
