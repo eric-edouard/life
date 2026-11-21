@@ -59,7 +59,8 @@
     "goal": "The shop opens in spring.",
     "id": "shop-fit-out",
     "name": "Shop fit-out",
+    "situation": [],
     "status": "active"
   },
-  "version": "a621e50602fdad20"
+  "version": "0fd0f4c9bd96f06c"
 }
