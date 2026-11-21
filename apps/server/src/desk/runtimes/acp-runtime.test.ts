@@ -8,7 +8,7 @@ import { BEGIN_WITHIN_MS } from "../agent-wait";
 import { tick, wakeDue } from "../desk-clock";
 import { doorOf } from "../desk-door";
 import { advance, setup } from "../test-desk";
-import { acpRuntime } from "./acp-runtime";
+import { acpRuntime, LAUNCH_WITHIN_MS } from "./acp-runtime";
 import type { Agent } from "./contract";
 import type { Row } from "./runtime-rows";
 
@@ -344,4 +344,85 @@ test("an adapter that refuses the mode: the turn still ends ok, and its asks are
       .filter((l) => l.asked)
       .map((l) => (l.outcome as { optionId: string }).optionId)
   ).toEqual(["yes", "yes", "yes"]);
+});
+
+test("talk: one process kept across prompts, its updates heard as they come, the session never handed off; closed once idle; keep resumes it; stop closes it", async () => {
+  const dir = made();
+  const handedOff: string[] = [];
+  const rt = acpRuntime(
+    rowFor(dir, () => Promise.resolve("idle"), {
+      handOff: (_a, ref) => {
+        handedOff.push(ref);
+        return Promise.resolve();
+      },
+    }),
+    LAUNCH_WITHIN_MS,
+    300
+  );
+  const heard: unknown[] = [];
+  const first = await rt.talk(agentIn(), null, "[answer]", (u) =>
+    heard.push(u)
+  );
+  expect((await first.ended).ok).toBe(true);
+  expect(heard).toEqual([{ kind: "words", text: "ok" }]);
+  expect(await rt.state(first.ref)).toBe("running");
+  await expect(rt.send(agentIn(), first.ref, "[answer]")).rejects.toThrow(
+    "is running"
+  );
+  const again = await rt.talk(agentIn(), first.ref, "[door]", () => undefined);
+  expect(again.ref).toBe(first.ref);
+  expect((await again.ended).ok).toBe(true);
+  expect(kindsOf(dir).filter((k) => k !== "asked" && k !== "config")).toEqual([
+    "initialize",
+    "made",
+    "prompt",
+    "prompt",
+  ]);
+  expect(new Set(logOf(dir).map((l) => l.pid)).size).toBe(1);
+  expect(handedOff).toEqual([]);
+  const pid = logOf(dir)[0]?.pid ?? 0;
+  await until(() => isGone(pid));
+  expect(isGone(pid)).toBe(true);
+  expect(await rt.state(first.ref)).toBe("idle");
+  await rt.keep(agentIn(), first.ref);
+  expect(kindsOf(dir).at(-1)).toBe("config");
+  expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
+  const kept = logOf(dir).at(-1)?.pid ?? 0;
+  await rt.stop(first.ref);
+  expect(isGone(kept)).toBe(true);
+  expect(await rt.state(first.ref)).toBe("idle");
+});
+
+test("talk and keep racing open one process; a stopped kept session's old timer never drops the next one mid-answer; a ref switch while answering is refused", async () => {
+  const dir = made();
+  const rt = acpRuntime(rowFor(dir), LAUNCH_WITHIN_MS, 300);
+  const first = await rt.talk(agentIn(), null, "[answer]", () => undefined);
+  await first.ended;
+  await rt.stop(first.ref);
+  const [, run] = await Promise.all([
+    rt.keep(agentIn(), first.ref),
+    rt.talk(agentIn(), first.ref, "[hang]", () => undefined),
+  ]);
+  expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
+  await expect(rt.keep(agentIn(), "another-session")).rejects.toThrow(
+    "is answering"
+  );
+  await Bun.sleep(600);
+  expect(await rt.state(first.ref)).toBe("running");
+  await rt.stop(first.ref);
+  expect(await run.ended).toEqual({ ok: false, why: "cancelled" });
+  expect(await rt.state(first.ref)).toBe("idle");
+});
+
+test("a stop while a send launches kills its adapter at once: the launch fails", async () => {
+  const dir = made();
+  const rt = acpRuntime(rowFor(dir));
+  const launching = rt.send(agentIn("stall"), "fake-x", "[answer]");
+  await until(() => isRunning(dir));
+  const at = performance.now();
+  await rt.stop("fake-x");
+  await expect(launching).rejects.toThrow();
+  expect(performance.now() - at).toBeLessThan(5000);
+  await until(() => !isRunning(dir));
+  expect(isRunning(dir)).toBe(false);
 });

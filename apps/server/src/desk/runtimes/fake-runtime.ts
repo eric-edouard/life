@@ -1,4 +1,9 @@
-import { type RunEnd, type Runtime, SessionLive } from "./contract";
+import {
+  type RunEnd,
+  type Runtime,
+  SessionLive,
+  type Update,
+} from "./contract";
 
 // A runtime for tests: sessions in memory. The test plays the agent (its door calls and its turn's end) and sets what
 // the runtime does: fail, forget a session, run a turn of his, end a run (with the usage it reports).
@@ -12,6 +17,8 @@ export function fakeRuntime() {
     string,
     { fail: (e: Error) => void; ok: () => void }
   >();
+  /** Each talking session's `onUpdate`. */
+  const hearers = new Map<string, (u: Update) => void>();
   /** Set by `holdBegun`: a run is under way only when the test says. */
   let isBegunHeld = false;
   /** Sessions started, so a forgotten session's ref is never given again. */
@@ -52,14 +59,27 @@ export function fakeRuntime() {
         begins.get(ref)?.fail(new Error("it ended before it began"));
       }
     },
+    /** Plays what a talk's model says and does as it goes. */
+    hear(ref: string, u: Update) {
+      hearers.get(ref)?.(u);
+    },
     /** From now on a run is under way only on `begin(ref)` (else it fails on `exit`), not as it is launched. */
     holdBegun() {
       isBegunHeld = true;
     },
     /** While set, `start` and `send` throw, as a CLI that fails. */
     isFailing: false as boolean,
+    /** The sessions `keep` kept, in order. */
+    kept: [] as string[],
     runtime: {
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
+      keep(_agent, ref) {
+        if (sessions.get(ref)?.running) {
+          return Promise.reject(new SessionLive(`session ${ref} is running`));
+        }
+        fake.kept.push(ref);
+        return Promise.resolve();
+      },
       async send(_agent, ref, message) {
         const s = sessions.get(ref);
         if (s?.running) {
@@ -94,6 +114,22 @@ export function fakeRuntime() {
         fake.stopped.push(ref);
         fake.exit(ref, false);
         return Promise.resolve();
+      },
+      talk(agent, ref, message, onUpdate) {
+        if (ref && sessions.get(ref)?.running) {
+          return Promise.reject(new SessionLive(`session ${ref} is running`));
+        }
+        if (fake.isFailing) {
+          return Promise.reject(new Error("cannot talk"));
+        }
+        if (!ref) {
+          startedCount += 1;
+        }
+        const r = ref ?? `${agent.id}-${startedCount}`;
+        sessions.set(r, { running: true });
+        hearers.set(r, onUpdate);
+        fake.said.push({ message, ref: r });
+        return Promise.resolve({ ...run(r), link: `fake://${r}`, ref: r });
       },
     } satisfies Runtime,
     /** Every message given to a session, in order: `start`'s brief and each `send`. */
