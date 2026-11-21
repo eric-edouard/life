@@ -15,6 +15,7 @@ import { MOVE_REASONS } from "../host/move-read";
 import { locate } from "../memory/quote-check";
 import type {
   AnswerExtras,
+  MainSessionAct,
   MainSessionAnswer,
   MainSessionAsk,
   MainSessionLine,
@@ -61,8 +62,9 @@ interface Heard {
   words?: string;
 }
 const asksOf = new WeakMap<Desk["db"], Map<string, Heard>>();
-/** One running turn of his words: his words and what its session added at its door (`answer`). */
+/** One running turn of his words: his words, what its session added at its door (`answer`) and its last act. */
 interface TurnState {
+  act?: MainSessionAct;
   extras?: AnswerExtras;
   words: string;
 }
@@ -101,12 +103,25 @@ export function hisWordsIn(desk: Desk, turn: number, said: string) {
   return found.verbatim;
 }
 
-/** Its answer: its words with what it added; a question when it gave likely answers. */
-const answerOf = (
+/** What the main session did on its turn `turn`, by one of its door's acts: its answer's kind (the last act stands). */
+export function keepAct(desk: Desk, turn: number, act: MainSessionAct) {
+  const state = turnsIn(desk.db).get(turn);
+  if (state) {
+    state.act = act;
+  }
+}
+
+/** Its answer: its last act's kind with its words, else its words as a reply, or a question when it gave likely answers. */
+function answerOf(
   words: string,
-  { answers, sources, why }: AnswerExtras = {}
-): MainSessionAnswer =>
-  answers
+  { answers, sources, why }: AnswerExtras = {},
+  // ponytail: one kind per answer, the last act's; a list of acts when the phone should show each of several.
+  act?: MainSessionAct
+): MainSessionAnswer {
+  if (act) {
+    return { ...act, words };
+  }
+  return answers
     ? { answers, kind: "question", question: words }
     : {
         kind: "reply",
@@ -114,6 +129,7 @@ const answerOf = (
         ...(why ? { why } : {}),
         ...(sources?.length ? { sources } : {}),
       };
+}
 
 /** The main session's agent and its own assignment: registered when none stands, else why there is none. */
 async function mainOf(desk: Desk) {
@@ -244,7 +260,11 @@ async function answer(
       return { kind: "error", what: end.why ?? "the session failed" };
     }
     return words.trim()
-      ? answerOf(words.trim(), turnsIn(db).get(turn)?.extras)
+      ? answerOf(
+          words.trim(),
+          turnsIn(db).get(turn)?.extras,
+          turnsIn(db).get(turn)?.act
+        )
       : { kind: "error", what: "Life gave no answer." };
   } catch (error) {
     // Nothing ran: a session his app holds deletes the turn, any other failure ends it failed.
