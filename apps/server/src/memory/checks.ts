@@ -40,6 +40,7 @@ import { withDraftConfirms } from "./draft-send";
 import { type AgentHold, isHeldOf } from "./held-matters";
 import {
   type BeingFixed,
+  type CardHolders,
   type Check,
   type CheckKind,
   type CheckMatter,
@@ -629,13 +630,14 @@ const CHECKS_READ = [
 const checksKeyOf = (
   held: HeldRead | null,
   voices: readonly NamingQueueItem[],
-  decisions: readonly Decision[]
+  decisions: readonly Decision[],
+  holders: CardHolders
 ) =>
   JSON.stringify([
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [held.stamp, held.complaints, held.cardHolders],
+    held && [held.stamp, held.complaints, holders],
     voices,
   ]);
 
@@ -643,10 +645,17 @@ const checksKeyOf = (
 export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
   const all = decisionsNow();
+  // Each open card as its holder's, read from this one list (`HeldRead.cardHolders`).
   const decisions = all.filter((d) => d.state === "open");
-  const key = checksKeyOf(held, voices, decisions);
+  const holders = held?.cardHolders?.(decisions) ?? {};
+  const key = checksKeyOf(held, voices, decisions, holders);
   if (isLocked() || last?.key !== key) {
-    const list = readChecks(held, voices, decisions, all);
+    const list = readChecks(
+      held,
+      voices,
+      decisions.map((d) => ({ ...d, ...holders[d.id] })),
+      all
+    );
     last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -665,7 +674,7 @@ export const checksNow = async (held: HeldRead | null) =>
 async function readChecks(
   held: HeldRead | null,
   voices: NamingQueueItem[],
-  decisions: Decision[],
+  decisions: CheckInputs["decisions"],
   all: Decision[]
 ): Promise<InboxCheck[]> {
   const people = await readPeople();
@@ -717,11 +726,9 @@ async function readChecks(
     steps,
   });
   const key = secretIn("pushIdKey");
-  // Each card as asked by the agent holding it now, with its session (host's `cardHoldersOf`), whoever asked it.
-  const by = held?.cardHolders ?? {};
   const checks = checksOf({
     answered,
-    decisions: decisions.map((d) => ({ ...d, ...by[d.id] })),
+    decisions,
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,

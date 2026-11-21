@@ -236,9 +236,15 @@ export const endingGuessOf = (step: string) =>
 /** Whether a check asks if a step is done (never in the nightly email). */
 export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
 
+/** Open cards by id, each as its holder's: the agent and its session now, if any. */
+export type CardHolders = Readonly<
+  Record<string, { agent: string; session?: string }>
+>;
+
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
-  cardHolders?: Readonly<Record<string, { agent: string; session?: string }>>;
+  /** Each of the open `decisions` a registered agent asked, as its holder's, with that agent's session now (host's `cardHoldersOf`): given the one list the inbox reads, so a card asked meanwhile is never shown without it. */
+  cardHolders?: (decisions: readonly Decision[]) => CardHolders;
   complaints?: readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;

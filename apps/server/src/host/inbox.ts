@@ -3,7 +3,6 @@ import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
-import { decisionsNow } from "../memory/decisions";
 import { isAsked } from "../memory/draft-contest";
 import type { HeldRead } from "../memory/life-checks";
 import {
@@ -76,12 +75,11 @@ function readHeld(): HeldRead | null {
     return null;
   }
   const complaints = readDesk(complaintsAtWork, []);
-  const open = decisionsNow().filter((d) => d.state === "open");
-  const holders = readDesk((db) => cardHoldersOf(db, open), []);
   return {
-    cardHolders: Object.fromEntries(
-      holders.state === "ok" ? holders.value : []
-    ),
+    cardHolders: (open) => {
+      const r = readDesk((db) => cardHoldersOf(db, open), []);
+      return Object.fromEntries(r.state === "ok" ? r.value : []);
+    },
     complaints: complaints.state === "ok" ? complaints.value : [],
     plans: (decisions) => {
       const r = readDesk((db) => planCardsOf(db, decisions), new Set<string>());
