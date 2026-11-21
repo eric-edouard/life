@@ -66,7 +66,7 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     }
     // Which letter Æ sorts after is the locale's: only that each letter is one section.
     #expect(Set(list.groups(.alphabet, .all).map(\.label)) == ["A", "Æ", "H"])
-    #expect(list.groups(.alphabet, .all).first?.rows.map(\.party.name) == ["Ada", "Afton"])
+    #expect(list.groups(.alphabet, .all).first { $0.label == "A" }?.rows.map(\.party.name) == ["Ada", "Afton"])
 }
 
 @Test func standingSaysHowCloseAndTheLastExchange() throws {
