@@ -210,10 +210,9 @@ export const openStepsOf = (
       isOpenUntilHisWord(s) && (onlyStep === undefined || s.ref === onlyStep)
   );
 
-/** Whether a matter still waits on his word: open, or probably done with steps only Life's reading closed (`openStepsOf`: a link, or a direction that reads it over). What a card can be on and his answer can close. */
-export const isAwaitingHisWord = (
-  v: Pick<MatterView, "open" | "status"> & { steps: readonly MatterStepNow[] }
-) => v.open || (v.status === "probably_done" && openStepsOf(v).length > 0);
+/** Whether a matter still waits on his word: open, or probably done (a step only a link ended, or a direction reads it over). What a card can be on and his answer can close (`openStepsOf`). */
+export const isAwaitingHisWord = (v: Pick<MatterView, "open" | "status">) =>
+  v.open || v.status === "probably_done";
 
 /** The lookups over the records, built once for every matter. `offered`: every record a matters call was shown (`mattersNow`). */
 function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {

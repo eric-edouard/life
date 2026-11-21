@@ -56,7 +56,12 @@ import {
   type HeldRead,
   LIFE_CHECKS,
 } from "./life-checks";
-import { directionDueOf, matterBookOf, matterFinderOf } from "./matter-read";
+import {
+  directionDueOf,
+  isAwaitingHisWord,
+  matterBookOf,
+  matterFinderOf,
+} from "./matter-read";
 import {
   MATTER_BOOK_READS,
   mattersNow,
@@ -503,7 +508,7 @@ async function readChecks(
     lines,
     matterRank: new Map(
       rankedMattersOf(
-        matters.filter((v) => v.open),
+        matters.filter(isAwaitingHisWord),
         people.nameOf,
         today,
         rankContextOf(people)
