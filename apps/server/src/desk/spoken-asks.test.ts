@@ -1,6 +1,6 @@
 import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { SECOND } from "../core/clock";
+import { MIN, SECOND } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { setSettings } from "../core/settings";
 import { ask, asksFor } from "../host/asks";
@@ -51,7 +51,10 @@ const spoken = (words = "remind me to water the test plant") => {
 };
 
 /** A desk whose spoken-ask cursor starts past the ledger as it is (other tests' asks), Personal on `claude`. */
-function deskOf(related: (text: string) => { isWhole: boolean; to?: string }) {
+function deskOf(
+  related: (text: string) => { isWhole: boolean; to?: string },
+  duringRead: () => void = () => undefined
+) {
   const s = setup();
   s.desk.runtimes.claude = s.fake.runtime;
   setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
@@ -59,10 +62,10 @@ function deskOf(related: (text: string) => { isWhole: boolean; to?: string }) {
     ? readFileSync(LEDGER, "utf8").split("\n").length - 1
     : 0;
   saveSpokenAsksCursor(s.desk.db, { line: lines, waiting: [] });
-  const nets = spyOn(matterNet, "readNets").mockImplementation(async () => ({
-    isWhole: related("").isWhole,
-    nets: [],
-  }));
+  const nets = spyOn(matterNet, "readNets").mockImplementation(() => {
+    duringRead();
+    return Promise.resolve({ isWhole: related("").isWhole, nets: [] });
+  });
   const words = spyOn(matterNet, "relatedWords").mockImplementation(
     async (_d, _n, texts) => ({
       isWhole: true,
@@ -222,20 +225,108 @@ test("a spoken ask wakes its agent at once, and says to confirm a low one", () =
   ).not.toContain("confirm");
 });
 
-test("he hears '<agent> heard you' once, when the turn that hands his ask begins, never while it is queued", async () => {
+test("he hears '<agent> heard you' once per ask, when the turn that hands it begins, never while queued or on a retry", async () => {
   const d = deskOf(() => ({ isWhole: true }));
   const pushes = spyOn(push, "notifyPhone").mockResolvedValue(true);
   try {
+    spoken();
     spoken();
     await d.receive();
     expect(pushes).not.toHaveBeenCalled();
     await wakeDue(d.s.desk);
     await Bun.sleep(0);
-    expect(pushes.mock.calls).toEqual([
-      [{ body: "Your ask reached it.", title: "Personal heard you" }],
-    ]);
+    const heard: [push.Push] = [
+      { body: "Your ask reached it.", title: "Personal heard you" },
+    ];
+    expect(pushes.mock.calls).toEqual([heard, heard]);
+    // The turn fails; its retry hands the same asks again: no push.
+    await d.s.end(standingAgentOf(d.s.desk.db, "personal")?.id ?? "", true);
+    advance(6 * MIN);
+    await wakeDue(d.s.desk);
+    await Bun.sleep(0);
+    expect(pushes.mock.calls).toHaveLength(2);
   } finally {
     pushes.mockRestore();
+    d.done();
+  }
+});
+
+test("a matter met on a read the embedder left partial is not taken: the ask waits, then goes to Personal at its own wait", async () => {
+  let to: string | undefined;
+  const d = deskOf(() => ({ isWhole: false, to }));
+  try {
+    to = asgOf(d.s.desk, await d.s.waiting());
+    const id = spoken();
+    await d.receive();
+    expect(d.events()).toEqual([]);
+    advance(21 * SECOND);
+    await d.receive();
+    const personal = standingAgentOf(d.s.desk.db, "personal")?.id ?? "";
+    expect(d.events().map((e) => [e.assignment_id, e.event_id])).toEqual([
+      [asgOf(d.s.desk, personal), id],
+    ]);
+  } finally {
+    d.done();
+  }
+});
+
+test("two asks sharing a stalled read: each falls back at its own wait, by the clock after the read", async () => {
+  const d = deskOf(
+    () => ({ isWhole: false }),
+    () => advance(6 * SECOND)
+  );
+  try {
+    const old = spoken();
+    advance(15 * SECOND);
+    const young = spoken();
+    await d.receive();
+    expect(d.events().map((e) => e.event_id)).toEqual([old]);
+    expect(readSpokenAsksCursor(d.s.desk.db).waiting).toEqual([young]);
+  } finally {
+    d.done();
+  }
+});
+
+test("a read that fails is logged and not whole: an ask past its wait still goes to Personal", async () => {
+  const d = deskOf(() => ({ isWhole: true }));
+  const fail = spyOn(matterNet, "readNets").mockRejectedValue(
+    new Error("matter book unreadable")
+  );
+  try {
+    const id = spoken();
+    advance(21 * SECOND);
+    await d.receive();
+    expect(d.events().map((e) => e.event_id)).toEqual([id]);
+  } finally {
+    fail.mockRestore();
+    d.done();
+  }
+});
+
+test("an ask given back while another is being read is kept waiting, never lost", async () => {
+  let to: string | undefined;
+  let closing = false;
+  const d = deskOf(
+    () => ({ isWhole: true, to }),
+    () => {
+      if (closing) {
+        closeAssignmentRow(d.s.desk.db, to ?? "", { outcome: "done" });
+        to = undefined;
+      }
+    }
+  );
+  try {
+    to = asgOf(d.s.desk, await d.s.waiting());
+    const first = spoken();
+    await d.receive();
+    expect(d.events().map((e) => e.event_id)).toEqual([first]);
+    closing = true;
+    spoken("x".repeat(30));
+    // No Personal place now: the given-back ask can only wait.
+    d.s.fake.blocked = "signed out";
+    await d.receive();
+    expect(readSpokenAsksCursor(d.s.desk.db).waiting).toContain(first);
+  } finally {
     d.done();
   }
 });

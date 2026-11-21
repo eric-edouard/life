@@ -645,7 +645,10 @@ export async function tick(desk: Desk, isPollDue = true) {
   await advanceMoves(desk);
   await receiveComplaints(desk);
   const people = readPeopleOnce();
-  await receiveSpokenAsks(desk, people);
+  // A failure here never holds his answers or the turns due.
+  await receiveSpokenAsks(desk, people).catch((error: unknown) =>
+    log("desk.asks", { ...errorOf(error), ok: false })
+  );
   await handOutNext(desk);
   pollAnswers(desk);
   await endUnbegunTurns(desk);
