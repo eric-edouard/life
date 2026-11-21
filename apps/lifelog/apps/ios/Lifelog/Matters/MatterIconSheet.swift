@@ -28,7 +28,7 @@ struct MatterIconSheet: View {
                 IconGrid(groups: MatterIcons.groups, chosen: picking ?? row?.knownIcon?.key) { key in
                     if let row { choose(key, row: row) }
                 }
-                .disabled(isRunning)
+                .disabled(isRunning).offWhileOutOfReach()
                 .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.xl)
             }
             .scrollEdgeEffectStyle(.soft, for: .bottom)

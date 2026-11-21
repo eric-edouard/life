@@ -46,6 +46,8 @@ final class LifeStore {
         case move(String)
         case edit(matter: String, Edit)
         case project(String)
+        /// His Remove or Undo of an appointment Life added to his calendar, by its id.
+        case appointment(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
@@ -132,6 +134,10 @@ final class LifeStore {
     let runner: LifeActions
     let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
+    /// The phone's network path, which the pendant's sync follows too.
+    private let path: NetworkPath
+    /// How the newest settled read of Life ended: with the path, whether Life can be reached (`whyOutOfReach`).
+    private var connection = LifeConnection()
     /// One read of each kind at a time, plus one more pass.
     @ObservationIgnored private let flights: ReadFlights
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
@@ -143,6 +149,7 @@ final class LifeStore {
         cache: ReadCache = ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-reads")),
         pictures: URL = AppGroup.pictures,
         now: @escaping @Sendable () -> Date = { Date() },
+        path: NetworkPath,
         setBadge: @escaping @MainActor (Int) -> Void = { count in
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) }
         }
@@ -157,6 +164,7 @@ final class LifeStore {
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
+        self.path = path
         pairedOrigin = tokens.load()?.endpoint.origin
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
@@ -171,6 +179,13 @@ final class LifeStore {
     }
 
     var isPaired: Bool { pairedOrigin != nil }
+    /// Whether the phone has a network path at all; back, every read screen reads again.
+    var hasPath: Bool { path.network != .none }
+    /// Why Life cannot be reached now (no internet, or the newest read found the Mac out of reach), nil when it can. While
+    /// it is not nil the app is read-only: no tap on a screen acts (`refusedOutOfReach`), its controls are off, and every
+    /// read screen says why.
+    var whyOutOfReach: String? { connection.whyNot(hasPath: hasPath) }
+    var isOutOfReach: Bool { whyOutOfReach != nil }
     /// Whether Life answers: its inbox read, the one every screen starts from.
     var link: LinkState { outcome.link(hasRead: inbox.value != nil) }
 
@@ -336,6 +351,28 @@ final class LifeStore {
         update(event)
     }
 
+    /// An appointment Life added to his calendar (`read_appointments`): read when its sheet opens, kept by the sheet.
+    func readAppointment(_ key: AppointmentKey, _ update: @escaping (ReadState<Appointment>.Event) -> Void) async {
+        await load(update, key: "read_appointments-\(key.id)", isKept: false) {
+            try await $0.readAppointment(key, at: nil)
+        }
+    }
+
+    /// His Remove (`isOn` false) or Undo of one, from its sheet or its notification: Life's `failed` fails it, with
+    /// Life's reason.
+    @discardableResult
+    func changeAppointment(_ id: String, isOn: Bool) async -> ActionState<ActionProof> {
+        let api = api
+        await perform(.appointment(id)) { [runner] in
+            await runner.record(emit: $0) { _ in
+                let text = try await api.changeAppointment(id, isOn: isOn, at: nil)
+                try AppointmentChange.checked(text, isOn: isOn)
+                return text
+            }
+        }
+        return state(of: .appointment(id))
+    }
+
     /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
     /// replaces this one's, which then applies nothing.
     func findPeople(_ query: String) async {
@@ -436,19 +473,24 @@ final class LifeStore {
     ) async {
         await flights.run(key) { [self] in
             let (asked, pairing) = (now(), parties.generation.current)
-            update(.started)
+            // Every read says whether Life could be reached (`whyOutOfReach`).
+            let apply = { (event: ReadState<V>.Event) in
+                self.connection.note(event, asked: asked)
+                update(event)
+            }
+            apply(.started)
             guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
             do {
                 let read = try text.get()
                 let value = try V.parsed(read)
                 if isKept { cache.store(read, key: key, asked: asked) }
                 parties.remember(value.parties, at: asked, pairing: pairing)
-                update(.succeeded(value, asked))
+                apply(.succeeded(value, asked))
             } catch let error as MCPError {
                 if error == .notPaired { pairedOrigin = nil }
-                update(.failed(error))
+                apply(.failed(error))
             } catch {
-                update(.failed(.failed("Life's answer was not what this app reads.")))
+                apply(.failed(.failed("Life's answer was not what this app reads.")))
             }
         }
     }
@@ -486,6 +528,7 @@ final class LifeStore {
     /// `life`: the Life it was decided for, when his tap was not on the screen now (a notification's button); else the
     /// one paired at this tap.
     func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
+        if life == nil, await refusedOutOfReach(.answer(ref: request.ref)) { return }
         let matter = matterOf(card: request.ref)
         await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
         await refreshAfterAnswer(on: matter)
@@ -536,6 +579,7 @@ final class LifeStore {
     /// open, being fixed); the receipt is the draft's only while it still holds that press.
     func complain(_ ref: String) async {
         guard let life = pairedLife else { return await refuseUnpaired(.complaint(ref: ref)) }
+        if await refusedOutOfReach(.complaint(ref: ref)) { return }
         guard let press = complaints.press(ref, to: life) else { return }
         let matter = matterOf(card: ref)
         await send(press.request, keepsCardOpen: true, for: press.life)
@@ -564,14 +608,36 @@ final class LifeStore {
 
     // MARK: Held answers
 
-    /// His answer to such a row, sent in four seconds unless he undoes it.
+    /// His answer to such a row, sent in four seconds unless he undoes it; none while Life is out of reach.
     func hold(_ request: AnswerRequest, as label: String) {
+        guard !isOutOfReach else { return }
         heldMatters[request.ref] = matterOf(card: request.ref)
         holds.hold(request, as: label, for: pairedLife)
     }
 
-    /// A bulk card's answers, held as one: one toast, one Undo.
+    /// A tap that would hold or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
+    func saysOutOfReach() -> Bool {
+        guard let why = whyOutOfReach else { return false }
+        show(SaidBack(words: why, undo: nil, isDone: false))
+        return true
+    }
+
+    /// A tap on a screen while Life is out of reach: refused before anything leaves the phone or shows, with why. Only
+    /// taps on a screen: an answer from a notification's button, or one held before Life went out of reach, is tried.
+    /// `saysBack`: an action said back with Undo (`saidBack`) says why there too.
+    func refusedOutOfReach(_ key: ActionKey, saysBack: Bool = false) async -> Bool {
+        guard let why = whyOutOfReach else { return false }
+        await perform(key) { emit in
+            emit(.started)
+            emit(.failed(ActionFailure(reason: why, retry: .allowed)))
+        }
+        if saysBack { _ = saysOutOfReach() }
+        return true
+    }
+
+    /// A bulk card's answers, held as one: one toast, one Undo; none while Life is out of reach.
     func hold(_ requests: [AnswerRequest], as label: String) {
+        guard !isOutOfReach else { return }
         for request in requests { heldMatters[request.ref] = matterOf(card: request.ref) }
         holds.hold(requests, as: label, for: pairedLife)
     }
@@ -624,6 +690,7 @@ final class LifeStore {
     /// his pick it replaced (`was`, nil when the icon was Life's or none). One pick per matter at a time, through its
     /// reads: a second one before them would take its `was` from the read before the first.
     func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
+        if await refusedOutOfReach(.edit(matter: id, .icon), saysBack: true) { return }
         let api = api
         let isSent = await iconing.run(id, showing: icon) {
             await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
@@ -646,6 +713,7 @@ final class LifeStore {
     func setImportant(_ id: String, _ isOn: Bool, saysBack: Bool = true) async {
         let api = api
         let key = ActionKey.edit(matter: id, .important)
+        if await refusedOutOfReach(key, saysBack: true) { return }
         let isSent = await marking.run(id, showing: isOn) {
             await perform(key) { [runner] in
                 await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
@@ -672,6 +740,7 @@ final class LifeStore {
             case .waiting: "Set the project \(name) back to waiting"
             default: "Set the project \(name) underway"
             }
+        if await refusedOutOfReach(.project(id), saysBack: true) { return }
         let isSent = await statusing.run(id, showing: status) {
             await perform(.project(id)) { [runner] in
                 await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
@@ -727,6 +796,7 @@ final class LifeStore {
         _ id: String, _ what: ActionKey.Edit,
         _ change: @escaping @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
     ) async {
+        if await refusedOutOfReach(.edit(matter: id, what)) { return }
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshListsOf(id)
@@ -822,7 +892,7 @@ final class LifeStore {
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
-        (answered, pushed, moveReceipts) = (AnsweredCards(), nil, [:])
+        (answered, pushed, moveReceipts, connection) = (AnsweredCards(), nil, [:], LifeConnection())
         parties.startOver()
         holds.clear()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.

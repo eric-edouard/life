@@ -212,6 +212,7 @@ struct ProjectsScreen: View {
                     Task { await life.setImportant(row.id, !isMarked) }
                 }
                 .tint(Color.pick)
+                .offWhileOutOfReach()
             }
         }
     }

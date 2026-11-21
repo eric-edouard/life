@@ -56,6 +56,7 @@ struct RootView: View {
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
+        .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
         // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
         .environment(router)
         .environment(\.windowSizeClass, sizeClass)
@@ -134,6 +135,8 @@ struct RootView: View {
         case .card(let pushId, let card, let kept): Task { await life.open(pushId: pushId, card: card, life: kept) }
         case .inbox: Task { await life.refreshInbox() }
         case .removed: return  // A background push: never shown, never tapped.
+        // Its event sheet over the tab he was on, once any other sheet is out of the way.
+        case .appointment(let pushId): return dismissSheet { router.appointment = .pushId(pushId) }
         }
         router.tab = .inbox
         dismissSheet {}

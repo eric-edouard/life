@@ -32,6 +32,7 @@ struct MatterPage: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     let isOn = life.isImportant(id, as: row.important)
                     MarkItem(isOn: isOn) { Task { await life.setImportant(id, !isOn) } }
+                        .offWhileOutOfReach()
                 }
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
@@ -56,7 +57,7 @@ struct MatterPage: View {
                         router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
                     }
                 }
-                GoalAndNext(matter: matter)
+                GoalAndNext(matter: matter).offWhileOutOfReach()
                 People(people: row.people)
                 Steps(steps: matter.steps)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
@@ -80,6 +81,7 @@ struct MatterPage: View {
                     DoneButton(id: id)
                 }
                 .controlSize(.large)
+                .offWhileOutOfReach()
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
