@@ -1,12 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { z } from "zod";
 import { errorOf } from "../../core/log-line";
 import { off } from "../../core/outputs";
 import {
   type MainSessionAnswer,
-  type MainSessionAsk,
+  MainSessionAsk,
   type MainSessionLine,
-  MainSessionScreen,
 } from "../../records/main-session-wire";
 import { DOOR_PORT, MAIN_SESSION_PATH } from "./http";
 import { localKey } from "./local-key";
@@ -78,10 +76,7 @@ export function mainSessionTool(server: McpServer, notHis: string) {
     server,
     "ask_main_session",
     "His app's token only: Tell Life. His `words` (as he sent them, verbatim) to Life's main session, with `screen`, the refs on his screen (`tab`, `open`: the ref open, `visible`: up to 20 refs in view; never text). Its progress notifications stream what it does as it goes, each a JSON line: `thinking`, `working` (`id`, `title`, `state`: a tool call), `words` (`text`, a chunk of its answer; a `working` line after words starts them again). Returns its answer (JSON), one kind of a closed list: `reply` (`words`) or `error` (`what`; his words stay his to send again). Without `words`, his presence on the Tell Life screen: the session is kept open so his next words start at once (`{kept, why}`). The tap's `life/answerKey` makes a retry ask once. Read-only for now: it answers, and changes nothing.",
-    z.object({
-      screen: MainSessionScreen.optional(),
-      words: z.string().trim().min(1).max(8000).optional(),
-    }),
+    MainSessionAsk.pick({ screen: true, words: true }),
     async ({ screen, words }, agent, call) => {
       if (agent) {
         throw new Error(notHis);
@@ -90,8 +85,9 @@ export function mainSessionTool(server: McpServer, notHis: string) {
       if (why) {
         return error(why);
       }
+      // Each line is a step of the call's log, named by its kind, never its words.
       return await askDesk({ key: call.answerKey, screen, words }, (line) =>
-        call.report(line)
+        call.report({ ...line, step: line.kind })
       );
     },
     REVERSIBLE

@@ -31,6 +31,7 @@ import {
   token,
   verify,
 } from "./mcp-test-harness";
+import { NOT_HIS } from "./mcp-tool";
 import { expectWire } from "./wire-fixture";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
@@ -692,6 +693,17 @@ test("tell_life keeps his words verbatim, marked, the question as the assistant'
     marked: true,
     source: "told-life",
     text: "In Lyon, until 12.",
+  });
+});
+
+test("ask_main_session refuses an agent's token before anything reaches the desk", async () => {
+  const { json } = await rpc(await token({}), "tools/call", {
+    arguments: { words: "Hello" },
+    name: "ask_main_session",
+  });
+  expect(json.result).toMatchObject({
+    content: [{ text: NOT_HIS }],
+    isError: true,
   });
 });
 
