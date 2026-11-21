@@ -207,8 +207,7 @@ function draftChatOf(d: DraftChat | null | undefined, people: IdentityPeople) {
 
 /**
  * A draft card's head, the chat as his card names it, from the stored draft: its network (the source's label) and
- * the chat's name; null for a draft that resolved no source. ponytail: no `members` yet: no source reads a group's
- * member count (a count of who wrote would miss the silent ones); add it with a reader that does.
+ * the chat's name; null for a draft that resolved no source. A group's people are the stored draft's `people`.
  */
 export function draftHeadOf(d: DraftChat) {
   const source = SOURCES.find((s) => s.name === d.channel);

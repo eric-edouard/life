@@ -15,6 +15,7 @@ import {
   readBlock,
   readHomeserverRooms,
   roomFeaturesOf,
+  roomPeopleOf,
 } from "./matrix";
 
 test("a bridge that isn't set up or running is a reason it is blocked, never a throw", async () => {
@@ -431,6 +432,32 @@ test("a room's features are its bridge's own state event; a room with none has n
   expect(roomFeaturesOf("!b", synapse)).toBeUndefined();
   expect(
     roomFeaturesOf("!a", join(BRIDGES, "no-homeserver.db"))
+  ).toBeUndefined();
+});
+
+test("a room's people are its joined ghosts, him included; his account, the bot and those who left don't count", () => {
+  const synapse = synapseWith({});
+  const db = new Database(synapse);
+  db.run("alter table current_state_events add column state_key text");
+  db.run("alter table current_state_events add column membership text");
+  for (const [user, membership] of [
+    ["@net_ana:life.local", "join"],
+    ["@net_kit:life.local", "join"],
+    ["@net_him:life.local", "join"],
+    ["@net_bo:life.local", "leave"],
+    ["@netbot:life.local", "join"],
+    ["@owner:life.local", "join"],
+  ]) {
+    db.run(
+      "insert into current_state_events (room_id, type, event_id, state_key, membership) values ('!g', 'm.room.member', ?, ?, ?)",
+      [`$${user}`, user, membership]
+    );
+  }
+  db.close();
+  expect(roomPeopleOf("!g", "@net_:life.local", synapse)).toBe(3);
+  expect(roomPeopleOf("!none", "@net_:life.local", synapse)).toBe(0);
+  expect(
+    roomPeopleOf("!g", "@net_:life.local", join(BRIDGES, "no-homeserver.db"))
   ).toBeUndefined();
 });
 
