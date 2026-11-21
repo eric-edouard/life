@@ -48,6 +48,19 @@ import Testing
     #expect(holds.latest == "z")
 }
 
+/// A bulk ask's answers are held as one: one toast, and Undo of any brings back all of them, never others.
+@MainActor @Test func answersHeldTogetherAreUndoneTogether() async {
+    let sent = Sent()
+    let holds = HeldAnswers(delay: .seconds(60)) { sent.requests.append($0.request) }
+    holds.hold(AnswerRequest(ref: "alone", options: ["yes"]), as: "Yes")
+    holds.hold(["a", "b", "c"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "3 answered")
+    #expect(holds.held["a"]?.label == "3 answered" && holds.latest == "c")
+    holds.undo("c")
+    #expect(Set(holds.held.keys) == ["alone"] && holds.latest == "alone")
+    await holds.sendAll()
+    #expect(sent.requests.map(\.ref) == ["alone"])
+}
+
 /// A released answer is held or being sent at every step, until its send ended: no frame brings its card back.
 @MainActor @Test func aReleasedAnswerIsUnderWayUntilItsSendEnded() async {
     var sent = false

@@ -11,6 +11,9 @@ struct CardNotes: Equatable {
     var creating: Creating?
     /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
     var wrong: Check?
+    /// On a bulk card: the rows he unticked, and the kinds he goes through one by one (`InboxOrder.folded`).
+    var unticked: Set<String> = []
+    var unfolded: Set<CheckGroup> = []
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
@@ -82,6 +85,8 @@ private struct AskSheetsHost: ViewModifier {
 struct CardView: View {
     let check: Check
     let checks: [Check]
+    /// The kinds answered in bulk, by the ask that stands for each (`InboxOrder.bulk`): the Inbox's only.
+    var bulk: [String: [Check]] = [:]
     /// The ask under the pager's leading edge: swiping only moves it, never answers.
     @Binding var current: String?
     @Binding var notes: CardNotes
@@ -173,20 +178,29 @@ struct CardView: View {
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 0) {
                         ForEach(Array(checks.enumerated()), id: \.element.ref) { index, check in
-                            CheckCard(
-                                check: check, runtimeName: life.runtimeName(of: check),
-                                openMatter: { router.open(matter: $0) },
-                                input: input(check.ref),
-                                isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
-                                answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
-                                create: { notes.creating = creating(check, $0, asOrganization: $1) },
-                                wrong: {
-                                    life.openComplaint(on: check)
-                                    notes.wrong = check
-                                },
-                                dropProject: dropProject(of: check),
-                                page: checks.count > 1 ? (index, checks.count) : nil
-                            )
+                            let page: (current: Int, total: Int)? = checks.count > 1 ? (index, checks.count) : nil
+                            Group {
+                                if let rows = bulk[check.ref] {
+                                    BulkCard(kind: check.group, rows: rows, notes: $notes, page: page) {
+                                        submit(all: $0, from: check)
+                                    }
+                                } else {
+                                    CheckCard(
+                                        check: check, runtimeName: life.runtimeName(of: check),
+                                        openMatter: { router.open(matter: $0) },
+                                        input: input(check.ref),
+                                        isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
+                                        answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
+                                        create: { notes.creating = creating(check, $0, asOrganization: $1) },
+                                        wrong: {
+                                            life.openComplaint(on: check)
+                                            notes.wrong = check
+                                        },
+                                        dropProject: dropProject(of: check),
+                                        page: page
+                                    )
+                                }
+                            }
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
                             .appears(Motion.passes)
@@ -264,6 +278,13 @@ struct CardView: View {
         Creating(
             check: check, name: name, isOrganization: asOrganization, nextRef: checks.ref(after: check.ref),
             asks: checks, source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
+    }
+
+    /// A bulk card's answers, held as one for one Undo; the next ask is on show at once.
+    private func submit(all requests: [AnswerRequest], from head: Check) {
+        guard !requests.isEmpty else { return }
+        life.hold(requests, as: "\(requests.count) answered")
+        current = checks.ref(after: head.ref)
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {

@@ -77,13 +77,33 @@ public struct InboxOrder: Equatable, Sendable {
     public let checks: [Check]
     /// Where what only improves starts (the list's heading "The rest can wait"); nil when nothing improves.
     public let canWaitFrom: Int?
+    /// A kind answered in bulk, by the ref of the ask that stands for it (`folded`): every open ask of that kind.
+    public let bulk: [String: [Check]]
 
-    public init(checks: [Check] = [], canWaitFrom: Int? = nil) {
-        (self.checks, self.canWaitFrom) = (checks, canWaitFrom)
+    public init(checks: [Check] = [], canWaitFrom: Int? = nil, bulk: [String: [Check]] = [:]) {
+        (self.checks, self.canWaitFrom, self.bulk) = (checks, canWaitFrom, bulk)
     }
 
-    /// The ask on show: the one he is on, else the first.
-    public func check(on ref: String?) -> Check? { checks.first { $0.ref == ref } ?? checks.first }
+    /// The ask on show: the one he is on (or the bulk ask that holds it), else the first.
+    public func check(on ref: String?) -> Check? {
+        checks.first { $0.ref == ref } ?? checks.first { bulk[$0.ref]?.contains { $0.ref == ref } == true }
+            ?? checks.first
+    }
+
+    /// Each kind with 2 or more asks Life pre-ticks (`preTicked`) folded into its first ask, which stands for all of
+    /// them (`bulk`), unless he chose to go through it one by one (`unfolded`).
+    public func folded(except unfolded: Set<CheckGroup> = []) -> InboxOrder {
+        let inBulk = kinds.filter { kind in
+            !unfolded.contains(kind) && checks.count(where: { $0.group == kind && $0.preTicked != nil }) > 1
+        }
+        let bulk = Dictionary(
+            uniqueKeysWithValues: inBulk.compactMap { kind in
+                let all = checks.filter { $0.group == kind }
+                return all.first.map { ($0.ref, all) }
+            })
+        let kept = checks.filter { !inBulk.contains($0.group) || bulk[$0.ref] != nil }
+        return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom, bulk: bulk)
+    }
 
     /// The kinds of ask that wait, in the order they first appear: what the list's filter offers.
     public var kinds: [CheckGroup] { checks.map(\.group).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
