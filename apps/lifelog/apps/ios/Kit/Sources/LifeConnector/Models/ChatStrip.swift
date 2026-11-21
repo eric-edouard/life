@@ -90,16 +90,18 @@ extension Check.Draft {
     }
 
     /// The draft's words cut at each mention it names, found as the send finds them (`mentionsAt`,
-    /// `sources/matrix-content.ts`): in order, each after the one before, a name only whole (`@Ann` isn't in `@Anna`);
-    /// a mention not found ends the search.
+    /// `sources/matrix-content.ts`): in order, each after the one before, code unit for code unit as JavaScript's `indexOf`
+    /// (`.literal`: a decomposed `é` is not `é`), a name only whole (`@Ann` isn't in `@Anna`); a mention not found ends
+    /// the search.
     public var textRuns: [TextRun] {
         guard let text else { return [] }
         var runs: [TextRun] = []
         var from = text.startIndex
         mentions: for mention in mentions ?? [] {
-            var at = text.range(of: "@" + mention.name, range: from..<text.endIndex)
-            while let found = at, found.upperBound < text.endIndex, text[found.upperBound].isWordCharacter {
-                at = text.range(of: "@" + mention.name, range: text.index(after: found.lowerBound)..<text.endIndex)
+            var at = text.range(of: "@" + mention.name, options: .literal, range: from..<text.endIndex)
+            while let found = at, text.utf16.isWordUnit(at: found.upperBound) {
+                let after = text.index(after: found.lowerBound)
+                at = text.range(of: "@" + mention.name, options: .literal, range: after..<text.endIndex)
             }
             guard let at else { break mentions }
             if from < at.lowerBound { runs.append(TextRun(text: String(text[from..<at.lowerBound]), isMention: false)) }
@@ -111,9 +113,18 @@ extension Check.Draft {
     }
 }
 
-extension Character {
-    /// A letter, a number or `_`: the send's `WORD_CHAR`.
-    fileprivate var isWordCharacter: Bool { isLetter || isNumber || self == "_" }
+extension String.UTF16View {
+    /// Whether the code unit at `index` is a letter, a number or `_`, as the send's `WORD_CHAR` tests the one UTF-16 unit
+    /// after a name: half of a pair (a letter beyond the BMP) is none, so `@Ann𠮷` holds a whole `@Ann`.
+    fileprivate func isWordUnit(at index: String.Index) -> Bool {
+        guard index < endIndex, let scalar = Unicode.Scalar(self[index]) else { return false }
+        switch scalar.properties.generalCategory {
+        case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter, .decimalNumber,
+            .letterNumber, .otherNumber:
+            return true
+        default: return scalar == "_"
+        }
+    }
 }
 
 extension Check {
@@ -161,18 +172,51 @@ extension Check.Draft.File {
 /// Where a draft he sent stands, as its bubble shows it in place of "Not sent", from proof only: while it runs, the
 /// send's own steps (`sendStepsOf`), `handed` one tick and `confirmed` (Life saw it in the chat) two; once it ended,
 /// Life's answer (`send.state`): sent, two; an answer that sent nothing (`send` absent), none; a call that never gave
-/// its answer, may have gone. Never "delivered": no source reports the other side's receipt.
+/// its answer, may have gone, unless `confirmed` had already come: then it is sent. Never "delivered": no source reports
+/// the other side's receipt.
 public enum DraftDelivery: Sendable, Equatable {
     case notSent, handed, sent, mayHaveGone
 
     public init(_ state: ActionState<ActionProof>) {
+        let passed = state.steps.filter { $0.passedAt != nil }.map(\.id)
         switch state {
         case .succeeded(let proof, _): self = proof.isSent ? .sent : .notSent
-        case .failed(let failure, _): self = failure.mayHaveHappened || failure.isSameTap ? .mayHaveGone : .notSent
+        case .failed(let failure, _):
+            self =
+                passed.contains("confirmed")
+                ? .sent : failure.mayHaveHappened || failure.isSameTap ? .mayHaveGone : .notSent
         case .idle, .running:
-            let passed = state.steps.filter { $0.passedAt != nil }.map(\.id)
             self = passed.contains("confirmed") ? .sent : passed.contains("handed") ? .handed : .notSent
         }
+    }
+}
+
+extension DraftDelivery {
+    /// A send that ended, in one word for its result screen and its notification: the bubble's, so they never differ.
+    public var word: String {
+        switch self {
+        case .sent: "Sent."
+        case .mayHaveGone: "May have gone."
+        case .notSent, .handed: "Not sent."
+        }
+    }
+}
+
+extension ActionState where Proof == ActionProof {
+    /// Whether his tap is over: Life answered, or the draft he sent (`isSend`) was seen in its chat
+    /// (`DraftDelivery.sent`) and only Life's answer was lost. The card then moves on, offering nothing again.
+    public func isDone(isSend: Bool) -> Bool {
+        switch self {
+        case .succeeded: true
+        case .failed: isSend && DraftDelivery(self) == .sent
+        case .idle, .running: false
+        }
+    }
+
+    /// Whether the result offers his tap again (Try again): Life allows it, nothing may have happened, and it is not done.
+    public func offersRetry(isSend: Bool) -> Bool {
+        guard case .failed(let failure, _) = self else { return false }
+        return failure.canTryAgain && !isDone(isSend: isSend)
     }
 }
 

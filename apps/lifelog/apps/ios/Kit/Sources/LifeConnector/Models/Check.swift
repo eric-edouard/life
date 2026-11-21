@@ -199,6 +199,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let draft: Draft?
     /// A draft card's chat as the card heads it; nil for other cards.
     public let head: Head?
+    /// The older draft card into the same chat that this one replaces (his Send withdraws it); nil for most cards.
+    public let replaces: String?
     /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
     /// other kinds, or from a Life that predates it.
     public let isPlan: Bool?
