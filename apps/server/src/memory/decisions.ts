@@ -375,10 +375,15 @@ export function withdrawDraftsAnsweredInChat(
 /** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
 function appendWithdrawals(lines: Withdrawn[], by: string) {
   appendJsonl(DECISIONS, Withdrawn, lines);
-  for (const l of lines) {
-    log("decision.withdrawn", { by, id: l.id });
-  }
+  logWithdrawn(by, lines);
 }
+
+/** One `decision.withdrawn` line for each card withdrawn, by `by` (who withdrew it). */
+const logWithdrawn = (by: string, cards: { id: string }[]) => {
+  for (const { id } of cards) {
+    log("decision.withdrawn", { by, id });
+  }
+};
 
 /** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
 function keepDraft(asker: string, request: object, now: Date) {
@@ -523,18 +528,27 @@ async function askCard(
       schemaVersion: DECISIONS_VERSION,
     },
   ]);
-  if (merged) {
-    log("decision.withdrawn", { by: "merge", id: merged.held.id });
-  }
+  logAsked(ask, asker, id, !!draft, merged);
+  return { id, ...waitsOf(contests, draft, now) };
+}
+
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+function logAsked(
+  ask: z.infer<typeof Ask>,
+  asker: string,
+  id: string,
+  hasDraft: boolean,
+  merged?: { held: Decision; waiting: Decision }
+) {
+  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
     asker,
-    draft: !!draft,
+    draft: hasDraft,
     id,
     options,
   });
-  return { id, ...waitsOf(contests, draft, now) };
 }
 
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */

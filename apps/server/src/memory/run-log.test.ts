@@ -479,3 +479,30 @@ test("a shown value is formatted on the server and ids are masked; the message s
     long.map((p) => ("text" in p ? p.text : p.value)).join("")
   ).toHaveLength(160);
 });
+
+test("a line before LogTape shows its kind, what it is about and why as a class, never its words", async () => {
+  const { shownLineOf } = await import("../core/log-line");
+  const at = "2026-11-20T01:00:00.000Z";
+  const shown = (e: Record<string, unknown>) =>
+    shownLineOf({ at, ...e })?.message;
+  expect(
+    shown({
+      kind: "mcp.call",
+      refused: "Not done: Mia is away",
+      tool: "tell_life",
+    })
+  ).toBe("mcp.call tell_life refused, not_done");
+  expect(
+    shown({
+      kind: "mcp.call",
+      refused: "Invalid arguments: said Mia",
+      tool: "x",
+    })
+  ).toBe("mcp.call x refused, invalid_arguments");
+  expect(shown({ error: "Mia", kind: "run.error", step: "watch" })).toBe(
+    "run.error watch failed"
+  );
+  expect(shown({ kind: "desk.runtime", ok: false })).toBe(
+    "desk.runtime failed"
+  );
+});

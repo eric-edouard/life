@@ -245,22 +245,39 @@ export const partsOf = (template: string, e: Record<string, unknown>) => {
   return parts;
 };
 
-/** A refusal's classes (`mcp.call`'s `refused`): a line before LogTape is shown only these, never its clipped text. */
+/** A refusal's class, from its text (a tool's answer, or a line written before classes): never its words. */
+export const refusalClassOf = (text: string) => {
+  if (text.startsWith("Invalid arguments")) {
+    return "invalid_arguments";
+  }
+  if (text.startsWith("Not done")) {
+    return "not_done";
+  }
+  const head = text.split(":")[0] ?? "";
+  return REFUSALS.has(head) ? head : "error";
+};
 const REFUSALS = new Set([
-  "error",
   "forbidden",
   "invalid",
   "invalid_arguments",
   "not_done",
+  "rejected",
 ]);
 
-/** Why a line before LogTape is what it is, as a class only: a refusal's, an outcome, else `failed` for an error. */
-const oldWhyOf = (e: Record<string, unknown>) => {
-  if (e.refused) {
-    const head = String(e.refused).split(":")[0] ?? "";
-    return REFUSALS.has(head) ? `refused, ${head}` : "refused";
-  }
-  return word(e.outcome) ?? (e.error ? "failed" : undefined);
+/** A line before LogTape in words: its kind, what it is about (a run's step whole), then why as a class only. */
+const oldMessageOf = (kind: string, e: Record<string, unknown>) => {
+  const about = kind.startsWith("run.")
+    ? [word(e.step)]
+    : categoryOf(kind, e)
+        .slice(1)
+        .filter((w) => w !== kind.split(".")[1]);
+  const why = e.refused
+    ? `refused, ${refusalClassOf(String(e.refused))}`
+    : (word(e.outcome) ?? (logLevelOf(e) === "error" ? "failed" : undefined));
+  return [kind, ...about, why]
+    .filter(Boolean)
+    .join(" ")
+    .replace(PLACEHOLDER, "");
 };
 
 /**
@@ -278,19 +295,7 @@ export const shownLineOf = (
   const isLogTape = Array.isArray(e.category) && typeof e.msg === "string";
   const parts = isLogTape
     ? partsOf(String(e.msg), e)
-    : partsOf(
-        [
-          kind,
-          ...categoryOf(kind, e)
-            .slice(1)
-            .filter((w) => w !== kind.split(".")[1]),
-          oldWhyOf(e),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .replace(PLACEHOLDER, ""),
-        {}
-      );
+    : partsOf(oldMessageOf(kind, e), {});
   return {
     at,
     category: isLogTape
