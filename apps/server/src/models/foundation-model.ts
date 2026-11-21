@@ -66,8 +66,8 @@ export async function askFoundationModel(
           timeout: requests.length * MIN,
         })
       ),
-    // The model ran for each: an answer or its refusal, whatever the helper's exit.
-    (answers) => answers.every((a) => !("error" in a) || a.error === "refused")
+    // Answered: a reply for every request, whatever the helper's exit.
+    (answers) => answers.every((a) => "reply" in a)
   );
 }
 

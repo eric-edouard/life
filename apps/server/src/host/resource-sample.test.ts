@@ -14,6 +14,7 @@ const PS = `
   103   100   1.0  10240 /Applications/Life.app/Contents/Helpers/life desk HOME=/x
   104   103  30.0 204800 node claude-agent-acp HOME=/x LIFE_DESK_AGENT=agt_0a0a0a0a0a0a
   105   104   5.0  10240 /bin/zsh -c ls HOME=/x LIFE_DESK_AGENT=agt_0a0a0a0a0a0a
+  107   104   1.0  10240 /usr/bin/grep LIFE_DESK_AGENT=agt_0c0c0c0c0c0c x HOME=/x LIFE_DESK_AGENT=agt_0a0a0a0a0a0a
   106   100   1.0  10240 /Applications/Life.app/Contents/Helpers/life-foundation-model HOME=/x
   200     1   1.0  10240 /Applications/Lifelog Host.app/Contents/MacOS/Lifelog Host HOME=/x
   201   200  20.0 409600 /Applications/Lifelog Host.app/Contents/Helpers/llama/llama-server --embedding --port 8091 HOME=/x
@@ -25,17 +26,20 @@ const PS = `
   401     1   9.0  10240 /opt/bin/rg life-entry.ts docs /Applications/Life.app/Contents/Helpers/life watch HOME=/x
   402     1   9.0  10240 /usr/bin/grep LIFE_DESK_AGENT=agt_0b0b0b0b0b0b ./bridge -c config.yaml HOME=/x
   403     1   9.0  10240 /usr/bin/grep Life.app/Contents/Helpers/life watch LIFE_BRIDGE=whatsapp HOME=/x
+  404     1   9.0  10240 /usr/bin/grep build/Life.app/Contents/Helpers/life example HOME=/x
+  405   100   1.0  10240 /Applications/Life.app/Contents/Helpers/life example HOME=/x
 `;
 
 test("a process counts under its nearest named program, an agent's tools under the agent; a program that only names one of Life's is left out", () => {
   expect(groupsOf(parsePs(PS))).toEqual({
-    "agent.agt_0a0a0a0a0a0a": [35, 210],
+    "agent.agt_0a0a0a0a0a0a": [36, 220],
     "bridge.whatsapp": [0.2, 20],
     embedder: [20, 400],
     foundation: [1, 10],
     homeserver: [0.5, 40],
     "life.app": [2, 50],
     "life.desk": [1, 10],
+    "life.other": [1, 10],
     "life.watch": [15, 120],
     "voice.host": [1, 10],
     "voice.identity": [6, 80],
@@ -114,7 +118,7 @@ test("the last hour of samples is read back from the end of the log, across midn
     `${[
       sample("2026-11-21T00:10:00.000Z", 4),
       sample("2026-11-21T00:20:00.001Z", 5),
-    ].join("\n")}\n{"time":"2026-11-21T00:19:30`
+    ].join("\n")}\n${sample("2026-11-21T00:15:00.000Z", 6)}`
   );
   const read = readResourceSamples(now, dir);
   expect(read.hour.map((s) => (s.load as number[])[0])).toEqual([2, 3, 4]);

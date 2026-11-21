@@ -2,13 +2,13 @@ import { DAY } from "../../core/clock";
 import { holder } from "../../core/lock";
 import { TEST } from "../../core/paths";
 import { exec } from "../../core/proc";
+import { diskFreeGbOf } from "../resource-sample";
 import { ASK, type Card } from "./card";
 
 // The Mac Life runs on, as the status snapshot shows it (apps/server/src/host/status/snapshot.ts): awake since, battery, disk, the archive and the
 // watcher, and its sleeps of the last day. Read-only.
 
 const WAKE_SEC = /sec = (\d+)/;
-const SPACES = /\s+/;
 const BATTERY = /(\d+)%;\s*([^;]+)/;
 const POWER_LINE =
   /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) (Sleep|Wake)\s/;
@@ -27,8 +27,6 @@ export async function macState() {
     machine(["sysctl", "-n", "kern.waketime"]),
   ]);
   const sec = Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0);
-  const free =
-    Number(disk.stdout.trim().split("\n").at(-1)?.split(SPACES)[3] ?? 0) * 1024;
   // The archive and the watcher, whoever runs them: who holds each one's lock (`hold`, lock.ts).
   const services = (["archive", "watch"] as const).map((name) => ({
     name,
@@ -37,7 +35,7 @@ export async function macState() {
   return {
     awakeSince: sec ? new Date(sec * 1000).toISOString() : null,
     battery: batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? "?",
-    freeGb: Math.round(free / 1e9),
+    freeGb: diskFreeGbOf(disk.code === 0 ? disk.stdout : null),
     services,
   };
 }
@@ -80,7 +78,7 @@ export function macCard(mac: Awaited<ReturnType<typeof macState>>): Card {
     facts: [
       { at: mac.awakeSince, label: "Awake since" },
       { label: "Battery", value: mac.battery },
-      { label: "Disk free", value: `${mac.freeGb} GB` },
+      { label: "Disk free", value: `${mac.freeGb ?? "?"} GB` },
     ],
     group: "mac",
     headline: "online",

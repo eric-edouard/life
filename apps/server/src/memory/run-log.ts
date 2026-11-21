@@ -530,7 +530,7 @@ const NEWLINE = 10;
 
 /**
  * A file's lines from its end, newest first, read back a block at a time, each with the byte after its newline
- * (`end`, a page's cursor); only those ending by `stop` when given. A torn last line comes too (callers skip it).
+ * (`end`, a page's cursor); only those ending by `stop` when given. A torn last line (no newline yet) is left out.
  */
 function* linesFromEnd(path: string, stop: number | null = null) {
   let fd: number;
@@ -543,6 +543,8 @@ function* linesFromEnd(path: string, stop: number | null = null) {
     const { size } = fstatSync(fd);
     let pos = Math.min(size, stop ?? size);
     let rest = Buffer.alloc(0);
+    // Until a newline is seen, the end is a torn line still being written: skipped, as `linesOf` does.
+    let isTorn = true;
     const block = Buffer.alloc(BLOCK);
     while (pos > 0) {
       const n = Math.min(BLOCK, pos);
@@ -550,8 +552,9 @@ function* linesFromEnd(path: string, stop: number | null = null) {
       readSync(fd, block, 0, n, pos);
       // A newline byte is never inside a UTF-8 character, so a cut between blocks never splits one wrongly.
       const buf = Buffer.concat([block.subarray(0, n), rest]);
-      let end = buf.length;
-      let i = buf.lastIndexOf(NEWLINE, end - 1);
+      let end: number = isTorn ? buf.lastIndexOf(NEWLINE) : buf.length;
+      isTorn = end < 0;
+      let i = end > 0 ? buf.lastIndexOf(NEWLINE, end - 1) : -1;
       while (i >= 0) {
         if (end > i + 1) {
           yield { end: pos + end + 1, raw: buf.toString("utf8", i + 1, end) };
@@ -559,7 +562,7 @@ function* linesFromEnd(path: string, stop: number | null = null) {
         end = i;
         i = end > 0 ? buf.lastIndexOf(NEWLINE, end - 1) : -1;
       }
-      rest = buf.subarray(0, end);
+      rest = buf.subarray(0, Math.max(end, 0));
     }
     if (rest.length > 0) {
       yield { end: rest.length + 1, raw: rest.toString("utf8") };

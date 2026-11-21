@@ -33,28 +33,25 @@ export const parsePs = (out: string): Proc[] =>
       : [];
   });
 
-// A process is known by the program it runs, at the start of its command line: an absolute path whose folders may
-// hold one inner space ("Application Support", "Lifelog Host.app") but never start an argument, so a program that
-// only names one of Life's in its arguments (`rg Life.app/…`) is never taken for it.
-const AT = "^(?:/[^/ ]+(?: [^/ -][^/ ]*)?)*";
-const COMMAND = /^[a-z][a-z-]{0,23}$/;
-/** Which of Life's groups a process is, first rule first; each names a fixed group or a checked word. */
+// A process is known by the program it runs, at the start of its command line: an absolute path of whole folders,
+// where only the folders Life's programs live in hold a space ("Application Support", "Lifelog Host…"), so a
+// program that only names one of Life's in its arguments (`grep build/Life.app/…`) is never taken for it.
+const AT = "^(?:/(?:Application Support|Lifelog Host[^/ ]*|[^/ ]+))*";
+/** The helper commands Life.app keeps running (`Supervisor.swift`), and the CLI's from a checkout; any other is `life.other`. */
+const COMMANDS = new Set(["archive", "desk", "memory", "watch"]);
+const commandOf = (m: RegExpMatchArray) =>
+  `life.${COMMANDS.has(m[1] ?? "") ? m[1] : "other"}`;
+/** Which of Life's groups a process is, first rule first; each names a fixed group. */
 const RULES: [RegExp, (m: RegExpMatchArray) => string | undefined][] = [
   [new RegExp(`${AT}/llama-server .*--embedding`), () => "embedder"],
   [new RegExp(`${AT}/llama-server `), () => "describer"],
-  [
-    new RegExp(`${AT}/Life\\.app/Contents/Helpers/life (\\S+)`),
-    (m) => (COMMAND.test(m[1] ?? "") ? `life.${m[1]}` : "life.other"),
-  ],
+  [new RegExp(`${AT}/Life\\.app/Contents/Helpers/life (\\S+)`), commandOf],
   [
     new RegExp(`${AT}/Life\\.app/Contents/Helpers/life-foundation-model\\b`),
     () => "foundation",
   ],
   [new RegExp(`${AT}/Life\\.app/Contents/`), () => "life.app"],
-  [
-    /^\S*bun \S*\/life-entry\.ts (\S+)/,
-    (m) => (COMMAND.test(m[1] ?? "") ? `life.${m[1]}` : "life.other"),
-  ],
+  [/^\S*bun \S*\/life-entry\.ts (\S+)/, commandOf],
   [
     new RegExp(
       `${AT}/Lifelog Host\\.app/Contents/Helpers/(lifelog-server|lifelog-quiet|cloudflared)\\b`
@@ -86,7 +83,7 @@ const ruleOf = (cmd: string) => {
 
 /**
  * CPU % and RSS (MB) summed per group: a process counts under the nearest of itself and its ancestors that a rule
- * names, so a helper's children add to it; under the desk, a process tagged with an agent counts as that agent.
+ * names, so a helper's children add to it; the desk's child tagged with an agent, and all under it, count as that agent.
  */
 export function groupsOf(procs: Proc[]) {
   const byPid = new Map(procs.map((p) => [p.pid, p]));
@@ -98,12 +95,13 @@ export function groupsOf(procs: Proc[]) {
     const p = byPid.get(pid);
     const above =
       p && p.ppid > 1 && depth < 64 ? groupOf(p.ppid, depth + 1) : undefined;
-    const agent = p?.cmd.match(AGENT)?.[1];
-    const isUnderDesk = above === "life.desk" || above?.startsWith("agent.");
-    const group =
-      (agent && isUnderDesk ? `agent.${agent}` : undefined) ??
-      (p && ruleOf(p.cmd)) ??
-      above;
+    // An agent's runtime is the desk's child that names it; everything under it is that agent's, whatever it says.
+    const agent = above === "life.desk" && p?.cmd.match(AGENT)?.[1];
+    const group = above?.startsWith("agent.")
+      ? above
+      : ((agent ? `agent.${agent}` : undefined) ??
+        (p && ruleOf(p.cmd)) ??
+        above);
     named.set(pid, group);
     return group;
   };
@@ -132,6 +130,12 @@ const ON_AC = /AC Power/;
 const POWER: Record<string, string> = { false: "battery", true: "ac" };
 const THERMAL_WARNING = /warning level[^\n]*?(\d+)/i;
 
+/** Free disk in GB from `df -k /`'s output, or null when it failed. */
+export const diskFreeGbOf = (df: string | null) => {
+  const kb = Number(df?.trim().split("\n").at(-1)?.split(SPACES)[3]);
+  return Number.isNaN(kb) ? null : Math.round((kb * 1024) / 1e9);
+};
+
 const numberOf = (text: string | null, re: RegExp) => {
   const m = text?.match(re)?.[1];
   return m === undefined ? null : Number(m);
@@ -146,15 +150,11 @@ export function systemOf(o: {
   swap: string | null;
   therm: string | null;
 }) {
-  const freeKb = o.df?.trim().split("\n").at(-1)?.split(SPACES)[3];
   const swap = numberOf(o.swap, SWAP_USED);
   const warning = numberOf(o.therm, THERMAL_WARNING);
   return {
     battery: numberOf(o.batt, BATTERY),
-    diskFreeGb:
-      freeKb === undefined || Number.isNaN(Number(freeKb))
-        ? null
-        : Math.round((Number(freeKb) * 1024) / 1e9),
+    diskFreeGb: diskFreeGbOf(o.df),
     load: o.load?.match(LOAD)?.slice(1, 4).map(Number) ?? null,
     memFree: numberOf(o.pressure, FREE),
     power: o.batt === null ? null : POWER[String(ON_AC.test(o.batt))],
