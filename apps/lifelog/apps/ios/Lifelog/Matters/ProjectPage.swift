@@ -50,18 +50,17 @@ struct ProjectPage: View {
                     .frame(maxWidth: .infinity, alignment: .leading).card()
                 }
                 VStack(spacing: 0) {
-                    ForEach(matters) { row in
+                    ForEach(Array(matters.enumerated()), id: \.element.id) { at, row in
                         Button {
                             router.open(matter: row.id)
                         } label: {
-                            MatterRowView(
-                                row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
+                            MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.groupedRow(at: at, of: matters.count))
                     }
                 }
-                // Full width: the rows keep the gutter themselves, as on the list.
-                .padding(.horizontal, -Metrics.gutter)
+                // The card on the page's gutter: a grouped row keeps a list's inset from its column's edges.
+                .padding(.horizontal, -Metrics.Spacing.m)
             }
             .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
             .motion(Motion.standard, value: status)
