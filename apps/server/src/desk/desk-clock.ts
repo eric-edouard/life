@@ -496,6 +496,15 @@ async function launch(
       );
     }
   } catch (error) {
+    // His app took the session between `wake`'s read and the send: the turn never ran, so it goes and the wake waits.
+    if (
+      a.session &&
+      state !== "gone" &&
+      (await runtime?.state(a.session).catch(() => null)) === "running"
+    ) {
+      db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      return;
+    }
     log("desk.runtime", {
       agent: a.id,
       ...errorOf(error),

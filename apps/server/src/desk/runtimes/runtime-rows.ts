@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
@@ -83,16 +83,45 @@ export async function readCliBlock(program: string) {
     : `${program} --version failed: ${r.stderr.slice(-200) || r.code}`;
 }
 
+/** Claude's own record of each live interactive session (the app's, a terminal's): `<pid>.json`, gone at its exit. */
+const CLAUDE_SESSIONS = join(HOME, ".claude", "sessions");
+
+/** Whether process `pid` runs (EPERM: it runs as someone else). */
+const isAlive = (pid: unknown) => {
+  try {
+    return typeof pid === "number" && process.kill(pid, 0);
+  } catch (error) {
+    return (error as { code?: string }).code === "EPERM";
+  }
+};
+
 /**
- * Whether a process runs the CLI on session `ref` (its id after a resume or session flag in the command line): the
- * desk's turn, his app's, a terminal's. A child of the session that only names the id in a path (a dev server under its
- * scratchpad) is not one, or it would hold the session for good.
+ * Whether a process runs Claude on session `ref`: Claude's own record names a live one (his app or a terminal, between
+ * his turns too, however it was opened), or a Claude command line names it after a resume or session flag (the desk's
+ * own runs, which write no record). A child naming the id only in a path (a dev server under its scratchpad) is neither.
+ * ponytail: a record left by a crash whose pid is reused holds the session until that process ends (a wait, never a loss).
  */
 export async function isHeld(ref: string) {
+  let names: string[] = [];
+  try {
+    names = readdirSync(CLAUDE_SESSIONS).filter((n) => n.endsWith(".json"));
+  } catch {
+    // no record yet
+  }
+  for (const n of names) {
+    try {
+      const r = JSON.parse(readFileSync(join(CLAUDE_SESSIONS, n), "utf8"));
+      if (r.sessionId === ref && isAlive(r.pid)) {
+        return true;
+      }
+    } catch {
+      // gone or being written: the next look says
+    }
+  }
   const { code, stderr } = await exec([
     "pgrep",
     "-f",
-    `(--resume|--session-id|-r)[= ]${ref}`,
+    `claude.*(--resume|--session-id|-r)[= ]${ref}`,
   ]);
   // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
   if (code !== 0 && code !== 1) {

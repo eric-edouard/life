@@ -1,4 +1,4 @@
-import { afterEach, expect, setSystemTime, test } from "bun:test";
+import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { DAY, HOUR, MIN } from "../core/clock";
 import { agentOf } from "../host/desk-read";
@@ -79,6 +79,11 @@ test("his answer while the session runs elsewhere (his app) starts no second pro
   queue(id, "dec_5.answered", DECISION_ANSWERED);
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(1);
+  // His app takes the session between the tick's read and the send: the turn goes, nothing failed or closed.
+  spyOn(fake.runtime, "state").mockResolvedValueOnce("idle");
+  await wakeDue(desk);
+  expect(turns(id)).toHaveLength(1);
+  expect(on(desk, id).closed_at).toBeNull();
   if (session) {
     session.running = false;
   }

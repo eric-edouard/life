@@ -183,34 +183,61 @@ test("his login shell's environment goes to his own Life's agents only, less the
   }
 });
 
-test("a claude session is running while any process runs the CLI on it, even between his turns; a child naming its id in a path is not one", async () => {
+test("a claude session is running while Claude's own record names a live process, even between his turns", async () => {
   const ref = `ref-${crypto.randomUUID()}`;
   // His last turn ended: the case the desk once took for idle and resumed beside his app.
-  const dir = join(HOME, ".claude", "projects", "made-up");
-  mkdirSync(dir, { recursive: true });
+  const projects = join(HOME, ".claude", "projects", "made-up");
+  mkdirSync(projects, { recursive: true });
   writeFileSync(
-    join(dir, `${ref}.jsonl`),
-    `${JSON.stringify({ message: { content: "Hi", stop_reason: null }, type: "user" })}\n${JSON.stringify({ message: { content: [{ type: "text" }], stop_reason: "end_turn" }, type: "assistant" })}\n`
+    join(projects, `${ref}.jsonl`),
+    `${JSON.stringify({ message: { content: [{ type: "text" }], stop_reason: "end_turn" }, type: "assistant" })}\n`
   );
-  // Made-up processes: `sh -c` shows its next word in the command line as an app's flag would (`; :` keeps sh alive).
+  const records = join(HOME, ".claude", "sessions");
+  mkdirSync(records, { recursive: true });
+  const record = (pid: number) =>
+    writeFileSync(
+      join(records, `${pid}.json`),
+      JSON.stringify({ pid, sessionId: ref })
+    );
+  // Made-up processes: `sh -c` shows its next word in the command line (`; :` keeps sh alive).
   const sleeper = (word: string) =>
     Bun.spawn(["sh", "-c", "sleep 30; :", word]);
-  const app = sleeper(`--resume=${ref}`);
-  const child = sleeper(`/made-up/${ref}/serve.ts`);
+  const app = sleeper("made-up-app");
+  const others = [
+    sleeper(`made-up/other --resume=${ref}`),
+    sleeper(`/made-up/${ref}/serve.ts`),
+  ];
   const row = runtimeRowsOf(false).claude;
   try {
-    expect(await isHeld(ref)).toBe(true);
+    record(app.pid);
     expect(await row.readSessionState(ref)).toBe("running");
     app.kill();
     await app.exited;
+    // A stale record: its process is gone. Neither a non-Claude flag nor a path holds it.
     expect(await isHeld(ref)).toBe(false);
     expect(await row.readSessionState(ref)).toBe("idle");
     expect(await row.readSessionState(`ref-${crypto.randomUUID()}`)).toBe(
       "gone"
     );
   } finally {
-    app.kill();
-    child.kill();
+    for (const p of [app, ...others]) {
+      p.kill();
+    }
+  }
+});
+
+test("a Claude command line resuming the session holds it with no record", async () => {
+  const ref = `ref-${crypto.randomUUID()}`;
+  const resumed = Bun.spawn([
+    "sh",
+    "-c",
+    "sleep 30; :",
+    `made-up/claude --resume ${ref}`,
+  ]);
+  try {
+    expect(await isHeld(ref)).toBe(true);
+  } finally {
+    resumed.kill();
   }
 });
 
