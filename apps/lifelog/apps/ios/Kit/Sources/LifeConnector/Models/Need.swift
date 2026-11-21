@@ -54,7 +54,6 @@ extension Check {
             currency = try? c.decodeIfPresent(String.self, forKey: .currency)
             label = try? c.decodeIfPresent(String.self, forKey: .label)
             text = try? c.decodeIfPresent(String.self, forKey: .text)
-            url = (try? c.decodeIfPresent(String.self, forKey: .url)).flatMap { $0.flatMap(URL.init(string:)) }
             vendor = try? c.decodeIfPresent(String.self, forKey: .vendor)
             copy = try? c.decodeIfPresent(Bool.self, forKey: .copy)
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
@@ -62,6 +61,7 @@ extension Check {
             func link(_ key: CodingKeys) -> URL? {
                 (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
             }
+            url = link(.url)
             googleMapsUrl = link(.googleMapsUrl)
             appleMapsUrl = link(.appleMapsUrl)
             boltUrl = link(.boltUrl)

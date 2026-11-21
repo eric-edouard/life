@@ -132,7 +132,7 @@ import Testing
 
 /// His Done held for Undo, then released: Life recorded it but did not end its step. Its end says so in Life's words,
 /// and the answer stands, never offered again (#753).
-@MainActor @Test func aReleasedDoneThatLifeCouldNotEndSaysLifesReason() async {
+@MainActor @Test func aReleasedDoneThatLifeCouldNotEndSaysLifesReason() async throws {
     let life = FakeLife()
     life.answers = [
         { _ in
@@ -149,11 +149,12 @@ import Testing
     holds.hold(AnswerRequest(ref: "dec_000000000002", options: ["done"]), as: "Done")
     await holds.sendAll()
     let ended = state.withLock { $0 }
-    #expect(ended.heldAnswerWarning == "Your answer was recorded. Reminders did not take the change.")
+    let said = try #require(ended.heldAnswerWords)
+    #expect(said.words == "Your answer was recorded. Reminders did not take the change." && !said.isDone)
     guard case .succeeded = ended else {
         Issue.record("expected it answered, got \(ended)")
         return
     }
     #expect(life.keys.withLock { $0 } == ["tap-1"])
-    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWarning == nil)
+    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWords == nil)
 }

@@ -424,7 +424,19 @@ private func everyKindOfCheck() throws -> [Check] {
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
     #expect(found.answer(edit) == nil)
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
-    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"]))
+    #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
+
+    // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
+    let move = try card(.yourMove)
+    #expect(move.options.map(\.id) == ["done", "start", "not-now"] && move.filled?.id == "done")
+    #expect(move.isEnding(try #require(move.answer(move.options[0]))))
+    #expect(move.answer(move.options[1]) == AnswerRequest(ref: move.ref, options: ["start"], note: move.goal))
+    #expect(move.isHandOver(move.options[1]) && !move.isHandOver(move.options[2]))
+    #expect(move.answer(move.options[2]) == AnswerRequest(ref: move.ref, options: ["not-now"]) && !move.takesOwnWords)
+    // A hand-over hands the goal only the card shows: never a notification's button.
+    for check in [move, found] {
+        #expect(!CardNotification.actions(check).map(\.identifier).contains("option:start"))
+    }
 
     for group in [CheckGroup.name, .contactsCard] {
         let check = try card(group)

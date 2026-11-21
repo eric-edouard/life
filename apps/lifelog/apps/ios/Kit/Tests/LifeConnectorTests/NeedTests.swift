@@ -1,4 +1,5 @@
 import Foundation
+import Library
 import Testing
 
 @testable import LifeConnector
@@ -104,4 +105,18 @@ private func need(_ json: String) throws -> Check.Need {
     ).rows
     #expect(rows.map(\.text) == ["Paint shop", "Google Maps"])
     #expect(rows[1].action == .open(URL(string: "https://maps.example.test/g")!, label: "Open in Google Maps"))
+}
+
+@Test func notNowSaysTheDayTheCardComesBack() throws {
+    let result = try JSONDecoder().decode(
+        AnswerResult.self,
+        from: Data(
+            #"{"ref":"move:m/s","kind":"your move","changed":{"answer":"not-now","matter":"m","step":"s","until":"2026-11-24"}}"#
+                .utf8))
+    #expect(
+        result.changed?.snoozed(locale: Locale(identifier: "en_GB"), timeZone: .gmt) == "Snoozed until Tue 24 Nov.")
+    // Held in the Inbox, its card gone, the toast says the same.
+    let held = ActionState<ActionProof>.succeeded(.answered(result), steps: [])
+    let said = try #require(held.heldAnswerWords)
+    #expect(said.words == result.changed?.snoozed() && said.isDone)
 }

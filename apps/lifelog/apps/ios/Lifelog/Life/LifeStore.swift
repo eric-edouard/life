@@ -56,8 +56,10 @@ final class LifeStore {
         }
         let id = UUID()
         let words: String
-        /// Nil when it was not done: the words say why.
+        /// Nil when it was not done (the words say why), or when it has no Undo.
         let undo: Undo?
+        /// Done (its glyph a tick) or not (a flag).
+        let isDone: Bool
     }
     private(set) var saidBack: SaidBack?
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
@@ -79,9 +81,9 @@ final class LifeStore {
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
         await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life could not do on it is said back here.
-        if let warning = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWarning {
-            self?.show(SaidBack(words: warning, undo: nil))
+        // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
+        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
+            self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
         }
         Task { await self?.refreshAfterAnswer() }
     }
@@ -689,15 +691,15 @@ final class LifeStore {
     private func say(_ key: ActionKey, _ words: String?, undo: SaidBack.Undo) {
         let said: SaidBack? =
             switch state(of: key) {
-            case .succeeded: words.map { SaidBack(words: $0, undo: undo) }
-            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil)
+            case .succeeded: words.map { SaidBack(words: $0, undo: undo, isDone: true) }
+            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil, isDone: false)
             default: nil
             }
         guard let said else { return }
         show(said)
     }
 
-    /// Shows `said` for 4 s, flagged when it has no Undo.
+    /// Shows `said` for 4 s, flagged when not done.
     private func show(_ said: SaidBack) {
         saidBack = said
         Task {
