@@ -34,9 +34,7 @@ enum Motion {
     static let follow = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.7)
     /// One breath of the lit lens.
     static let pulse: TimeInterval = 2.4
-    /// One breath of a drafted part (decision 82): opacity 0.85 to 1 and back.
-    static let breath: TimeInterval = 1.6
-    /// A drafted part's dashed outline going once it is sent.
+    /// A drafted part's shadow going once it is sent.
     static let undrafted = Animation.easeOut(duration: 0.2)
 }
 

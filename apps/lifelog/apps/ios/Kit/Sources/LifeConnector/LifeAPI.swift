@@ -84,9 +84,11 @@ public struct NextStepRequest: Encodable, Sendable, Equatable {
     public var kind: String
     public var text: String
     public var waitsOn: String?
+    /// Why, in Markdown with `life:` links, as a card's context; absent when his edit gives none.
+    public var context: String?
 
-    public init(kind: String, text: String, waitsOn: String? = nil) {
-        (self.kind, self.text, self.waitsOn) = (kind, text, waitsOn)
+    public init(kind: String, text: String, waitsOn: String? = nil, context: String? = nil) {
+        (self.kind, self.text, self.waitsOn, self.context) = (kind, text, waitsOn, context)
     }
 }
 

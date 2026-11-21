@@ -154,6 +154,7 @@ struct MatterPage: View {
 private struct GoalAndNext: View {
     let matter: Matter
     @Environment(LifeStore.self) private var life
+    @State private var opened: LifeLinkTarget?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -166,8 +167,15 @@ private struct GoalAndNext: View {
                 label: "Next step", text: matter.row.nextStep?.text ?? "",
                 state: life.state(of: .edit(matter: matter.row.id, .next)),
                 save: { text in await life.setNextStep(of: matter.row.id, NextStepRequest(kind: "do", text: text)) })
+            if let context = matter.row.nextStep?.context {
+                ContextView(markdown: context, lifeLinks: []) { opened = $0 }
+                    .padding(.horizontal, 20).padding(.bottom, 16)
+            }
         }
         .card()
+        .sheet(item: $opened) { target in
+            NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
+        }
     }
 }
 
@@ -187,12 +195,9 @@ private struct EditableLine: View {
                 Caps(label)
                 Spacer()
                 if !isEditing {
-                    Button {
+                    RoundIconButton(symbol: "pencil", label: "Edit \(label.lowercased())", size: 32) {
                         draft = text; isEditing = true; focused = true
-                    } label: {
-                        Image(systemName: "pencil").foregroundStyle(Palette.muted).frame(width: 44, height: 28)
                     }
-                    .accessibilityLabel("Edit \(label.lowercased())")
                 }
             }
             if isEditing {
