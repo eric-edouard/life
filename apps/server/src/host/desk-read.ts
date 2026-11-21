@@ -181,6 +181,22 @@ export const currentAssignmentOf = (db: Database, id: string) =>
     )
     .get(id);
 
+/** The open assignments of agent `id`, oldest first. */
+export const openAssignmentsOf = (db: Database, id: string) =>
+  db
+    .query<AssignmentRow, [string]>(
+      "select * from assignment where agent_id = ? and closed_at is null order by opened_at, rowid"
+    )
+    .all(id);
+
+/** The agent whose session `ref` is (any of its sessions, an old one too), if any. */
+export const agentOfSession = (db: Database, ref: string) =>
+  db
+    .query<{ agent_id: string }, [string]>(
+      "select agent_id from session where ref = ?1 union select id from agent where session = ?1 limit 1"
+    )
+    .get(ref)?.agent_id;
+
 /** An assignment's last turns, newest first: enough for its last one and a run of failures. */
 export const lastTurns = (db: Database, id: string, n = 4) =>
   db
