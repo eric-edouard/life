@@ -201,6 +201,19 @@ test("a move finds its assignment by the matter he chose, whatever its anchors",
   ).toEqual({ id: old });
 });
 
+test("a matter never moves to an agent that takes no other subject (the main session)", async () => {
+  const { desk, dir } = await holding();
+  const main = register(desk, {
+    brief: "Test brief: main",
+    folder: dir,
+    role: "main",
+    runtime: "fake",
+  });
+  expect(move(desk, { agent: main, steps: [STEP] })).toEqual({
+    error: MOVE_REASONS.fixedSubject("Test brief: main"),
+  });
+});
+
 test("a second move while one is under way is refused", async () => {
   const { desk } = await holding();
   move(desk, { runtime: "other", steps: [STEP] });

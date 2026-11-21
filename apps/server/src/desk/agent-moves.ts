@@ -31,7 +31,7 @@ import { readMatterBook } from "../memory/matters";
 import { oneMatter } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
-import type { AgentChange } from "../records/registered-agent";
+import { type AgentChange, hasFixedSubject } from "../records/registered-agent";
 import { insertAgent, stopOpenRun } from "./agent-actions";
 import { type Desk, endWhenIdle, moveAssignment } from "./desk-store";
 import { turnEnded } from "./turn-ends";
@@ -98,13 +98,16 @@ function refusalOf(
     : toRuntimeRefusalOf(desk, m, from, facts);
 }
 
-/** Why a matter can't move to the agent he named (`to`): stopped, gone, the caretaker, or the one holding it. */
+/** Why a matter can't move to the agent he named (`to`): stopped, gone, one that takes no other subject (`hasFixedSubject`), or the one holding it. */
 function toAgentRefusalOf(to: AgentRow | null, from: AgentRow) {
   if (to?.status === "stopped") {
     return MOVE_REASONS.stopped;
   }
-  if (to?.status !== "active" || to.role === "caretaker") {
+  if (to?.status !== "active") {
     return MOVE_REASONS.agentEnded(to ? shortNameOf(to) : "other");
+  }
+  if (hasFixedSubject(to.role)) {
+    return MOVE_REASONS.fixedSubject(shortNameOf(to));
   }
   return to.id === from.id ? MOVE_REASONS.withAgent(shortNameOf(to)) : null;
 }

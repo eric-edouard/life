@@ -18,7 +18,7 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     let tell = TellLife(api: life)
     await tell.send("  Does Friday work?  ", screen: TellScreen(tab: "inbox"))
     #expect(tell.said == "Does Friday work?")
-    #expect(tell.answer == .reply(words: "Friday works."))
+    #expect(tell.answer == .reply(words: "Friday works.", why: nil, sources: []))
     #expect(tell.stage == .ready)
     #expect(tell.strands == [TellStrand(id: "a", title: "Reading the card", state: "completed")])
     // The last `working` line came after the words and started them again.
@@ -36,7 +36,7 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     await tell.sendAgain(screen: TellScreen())
     let keys = life.askedKeys.withLock { $0 }
     #expect(keys.count == 2 && keys[0] == keys[1] && keys[0] != nil)
-    #expect(tell.answer == .reply(words: "Hi."))
+    #expect(tell.answer == .reply(words: "Hi.", why: nil, sources: []))
     #expect(tell.waiting == nil)
 }
 
@@ -69,5 +69,26 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     await tell.send("B", screen: TellScreen())
     let keys = life.askedKeys.withLock { $0 }
     #expect(keys.count == 2 && keys[0] != keys[1])
-    #expect(tell.answer == .reply(words: "B."))
+    #expect(tell.answer == .reply(words: "B.", why: nil, sources: []))
+}
+
+@Test func everyKindOfAnswerIsReadFromItsFields() {
+    #expect(
+        TellAnswer(#"{"kind":"reply","words":"**31 January**","why":"Since 2 October.","sources":["doc:1"]}"#)
+            == .reply(words: "**31 January**", why: "Since 2 October.", sources: ["doc:1"]))
+    #expect(
+        TellAnswer(#"{"kind":"done","what":"Call the notary","undo":"u1"}"#)
+            == .done(what: "Call the notary", undo: "u1"))
+    #expect(
+        TellAnswer(#"{"kind":"agent","agent":"Personal","told":"Add the keys","back":"the card"}"#)
+            == .agent(agent: "Personal", told: "Add the keys", back: "the card"))
+    #expect(TellAnswer(#"{"kind":"card","card":"dec_1"}"#) == .card(ref: "dec_1"))
+    #expect(TellAnswer(#"{"kind":"card"}"#) == .unknown)
+    #expect(
+        TellAnswer(#"{"kind":"fix","before":"cousin","after":"fitter","places":3,"undo":"u2"}"#)
+            == .fix(before: "cousin", after: "fitter", places: 3, undo: "u2"))
+    #expect(
+        TellAnswer(#"{"kind":"question","question":"Which plan?","answers":["Kitchen","Flat"]}"#)
+            == .question(words: "Which plan?", answers: ["Kitchen", "Flat"]))
+    #expect(TellAnswer(#"{"kind":"fix","before":"a","after":"b","places":1}"#).line == "Fixed in **1 place**")
 }

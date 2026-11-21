@@ -34,7 +34,10 @@ const at = (t: string) => new Date(t).getTime();
  * with no turn, a turn silent (no door call) for over an hour, and its dropped events.
  */
 export function flagsOf(
-  a: Pick<AssignmentRow, "wait_is_default" | "wait_until">,
+  w: Pick<
+    NonNullable<ReturnType<typeof agentWaitOf>>,
+    "isDefault" | "until"
+  > | null,
   open: TurnRow | null,
   dropped: number,
   now: number
@@ -47,9 +50,9 @@ export function flagsOf(
       )
     : 0;
   return {
-    defaultWait: a.wait_is_default === 1,
+    defaultWait: w?.isDefault === true,
     dropped,
-    late: !open && a.wait_until !== null && now - at(a.wait_until) > LATE_AFTER,
+    late: !open && w !== null && now - at(w.until) > LATE_AFTER,
     silent: open !== null && now - heard > SILENT_AFTER,
   };
 }
@@ -149,7 +152,7 @@ function amberOf(
   dropped: number,
   now: number
 ) {
-  const f = flagsOf(s, open, dropped, now);
+  const f = flagsOf(agentWaitOf(a, s), open, dropped, now);
   return a.status === "active"
     ? [
         ...(f.defaultWait ? ["default wait"] : []),
