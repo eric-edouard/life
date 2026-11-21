@@ -13,7 +13,11 @@ import { getJob } from "./jobs";
 import { addQuietRange } from "./quiet-ranges";
 import { creditsWatch } from "./scribe-credits";
 import { setSwitches } from "./switches";
-import { OWNER_TOKEN, providerTranscript } from "./testing";
+import {
+  OWNER_TOKEN,
+  providerTranscript,
+  undoSpendingMigration,
+} from "./testing";
 
 const {
   admitFragment,
@@ -526,6 +530,7 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
       ? sql`delete from __drizzle_migrations where created_at > ${postClock}`
       : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
   );
+  undoSpendingMigration(env.db);
   migrateDb(env.db);
 };
 
