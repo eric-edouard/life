@@ -16,6 +16,7 @@ import {
 import {
   about,
   DANA_ID,
+  decision,
   holdOn,
   inputs,
   line,
@@ -229,26 +230,6 @@ test("an ending rides on its open matter and goes with his answer", () => {
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
   // An old doubt line on the same ref: an answer by ref would land on it, so no ending check.
   expect(checksOf({ ...base, doubted: new Set([o.id]) })).toEqual([]);
-});
-
-const decision = (id: string, deadline: string, subject?: string) => ({
-  asker: "planner",
-  at: "2026-11-18T09:00:00.000Z",
-  context: "",
-  deadline,
-  id,
-  kind: "asked" as const,
-  links: [],
-  onSilence: null,
-  options: [
-    { id: "yes", label: "Yes" },
-    { id: "no", label: "No" },
-  ],
-  question: `Go ahead with ${id}?`,
-  schemaVersion: 3 as const,
-  state: "open" as const,
-  ...(subject ? { subject } : {}),
-  title: "It is due.",
 });
 
 test("open decisions come first, soonest deadline first, each naming the agent that asked; one on a step leaves with its matter, one on a project stays", () => {

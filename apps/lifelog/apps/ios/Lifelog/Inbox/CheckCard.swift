@@ -56,7 +56,7 @@ struct CheckCard: View {
         .sheet(isPresented: $input.showsContext) {
             ContextSheet(
                 title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
-                appLink: check.links.first.flatMap(URL.init(string:)), appName: runtimeName?.name)
+                appLink: check.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
         // Its `life:` links come with no kinds: each opens its page all the same, behind the plain link glyph.
         .sheet(isPresented: $showsFixContext) {
