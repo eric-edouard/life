@@ -37,9 +37,7 @@ export const inboxRankOf = (c: Rankable) =>
 const LAST_BLOCKING_RANK = RANK["your move"];
 /** What blocks: by its kind (`inboxRankOf`), a your move card always (his word of 21 Nov 2026), unless the caretaker is at work on it (`beingFixed`). */
 export const urgencyOf = (c: Rankable): Urgency =>
-  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed
-    ? "blocks"
-    : "improves";
+  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
 /** A your move card: in its tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
 const isMove = (c: Rankable) => c.group === "your move";
