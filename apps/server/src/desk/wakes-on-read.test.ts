@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { agentsNow } from "../host/desk-read";
+import { agentsNow } from "../host/agents-now";
 import {
   readAgentsOnSteps,
   readRegisteredAgents,
