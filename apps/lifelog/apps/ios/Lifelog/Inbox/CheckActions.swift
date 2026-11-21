@@ -195,8 +195,8 @@ struct CheckActions: View {
     }
 
     /// The answers float in the card's bottom bar (decision 97) when they are one short zone: no people to pick, and
-    /// at most three quiet ones (`isOneRow`: a row when they fit, else rows of 48, never more); a taller group stays at
-    /// the end of the card's scroll.
+    /// at most three quiet ones under the lead (`isOneRow`: a row when they fit, else rows of 48); a taller group stays
+    /// at the end of the card's scroll.
     static func fitsBar(_ check: Check) -> Bool {
         let options = shown(check)
         let quiet: [Check.Option]
