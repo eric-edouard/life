@@ -11,7 +11,7 @@ import {
 } from "../memory/appointments";
 import {
   type ArrivalAppointment,
-  meetingKeyOf,
+  meetingStartOf,
   readArrivalAppointments,
 } from "../memory/arrival-appointments";
 import {
@@ -173,7 +173,7 @@ const isAhead = (a: Planned, now: Date) => {
 };
 
 /**
- * One draft per meeting: a night's appointment and an arrival of the same id or meeting (`meetingKeyOf`) are one, with the night's
+ * One draft per meeting: a night's appointment and an arrival of the same id or start (`meetingStartOf`) are one, with the night's
  * details, his agreement and its link, under the id that already has event lines (`hasEvent`), else the arrival's;
  * a night's appointment whose event says he agreed it (`agreedOn`) stays agreed; an arrival already over is left out.
  */
@@ -193,7 +193,7 @@ export function plannedOf(
     const a =
       ahead.find((x) => x.id === n.id) ??
       ahead.find(
-        (x) => meetingKeyOf(x) === meetingKeyOf(n) && !joined.has(x.id)
+        (x) => meetingStartOf(x) === meetingStartOf(n) && !joined.has(x.id)
       );
     if (!a) {
       const agreed = agreedOn.get(n.id);

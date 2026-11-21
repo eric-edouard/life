@@ -8,7 +8,11 @@ import {
   heldIdsOf,
   observationsAheadOf,
 } from "./appointments";
-import { arrivalAppointmentsOf } from "./arrival-appointments";
+import {
+  arrivalAppointmentsOf,
+  meetingKeyOf,
+  meetingStartOf,
+} from "./arrival-appointments";
 import type { ObservationStatusInputs } from "./memory-files";
 import { READS } from "./read-replies";
 
@@ -281,7 +285,7 @@ test("on a tie with a held appointment, the reading keeps the held id, whose eve
     {
       ...ctx,
       arrivals: [
-        { facts: ["obs_000000000001"], id: "apt_0000000000aa", key: "x" },
+        { facts: ["obs_000000000001"], id: "apt_0000000000aa", start: "x" },
       ],
     }
   );
@@ -289,9 +293,19 @@ test("on a tie with a held appointment, the reading keeps the held id, whose eve
 });
 
 test("a new reading of an arrival's meeting takes its id; the same hour in another zone is another meeting", () => {
+  const meeting = {
+    allDay: false,
+    end: "2026-11-11 17:00",
+    start: "2026-11-11 16:00",
+    zone: null,
+  };
   const arrivals = [
-    { facts: [], id: "apt_0000000000aa", key: "2026-11-11 16:00 Asia/Tokyo" },
-    { facts: [], id: "apt_0000000000bb", key: "2026-11-11 16:00 " },
+    {
+      facts: [],
+      id: "apt_0000000000aa",
+      start: meetingStartOf({ ...meeting, zone: "Asia/Tokyo" }),
+    },
+    { facts: [], id: "apt_0000000000bb", start: meetingStartOf(meeting) },
   ];
   const { appointments } = checkedAppointments(
     { appointments: [reply({ facts: ["obs_000000000002"] })] },
@@ -336,4 +350,38 @@ test("two calls at the same hour in two zones are two arrival appointments; two 
   ]);
   expect(found.map((a) => a.zone)).toEqual(["Asia/Tokyo", "America/New_York"]);
   expect(new Set(found.map((a) => a.id)).size).toBe(2);
+});
+
+test("a held id with no event gives way to the arrival's of the same start, so the id holds past the window", () => {
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({})] },
+    {
+      ...ctx,
+      arrivals: [
+        {
+          facts: [],
+          id: "apt_0000000000aa",
+          start: meetingStartOf({
+            allDay: false,
+            end: "2026-11-11 17:00",
+            start: "2026-11-11 16:00",
+            zone: null,
+          }),
+        },
+      ],
+      hasEvent: () => false,
+    }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_0000000000aa"]);
+});
+
+test("two names of one zone are one meeting", () => {
+  const call = {
+    allDay: false,
+    end: "2026-12-01 11:00",
+    start: "2026-12-01 10:00",
+  };
+  expect(meetingKeyOf({ ...call, zone: "US/Eastern" })).toBe(
+    meetingKeyOf({ ...call, zone: "America/New_York" })
+  );
 });

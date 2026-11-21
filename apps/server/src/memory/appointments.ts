@@ -12,7 +12,7 @@ import { ObservationId } from "../records/observation";
 import { eventKey } from "../records/source";
 import {
   type ArrivalAppointment,
-  meetingKeyOf,
+  meetingStartOf,
   readArrivalAppointments,
 } from "./arrival-appointments";
 import {
@@ -150,8 +150,14 @@ export function heldIdsOf(
 export function checkedAppointments(
   reply: unknown,
   ctx: {
-    /** The arrival's appointments, each with the shown facts citing its messages and its meeting key: a reading of them, or of its meeting, takes its id. */
-    arrivals?: readonly { facts: readonly string[]; id: string; key: string }[];
+    /** The arrival's appointments, each with the shown facts citing its messages and when it starts: a reading of them, or of its start, takes its id. */
+    arrivals?: readonly {
+      facts: readonly string[];
+      id: string;
+      start: string;
+    }[];
+    /** Whether an id has calendar event lines: a held id without one gives way to the arrival's of the same start. */
+    hasEvent?: (id: string) => boolean;
     held: readonly Appointment[];
     refused: readonly (readonly string[])[];
     replacedBy: (fact: string) => string | undefined;
@@ -204,9 +210,9 @@ export function checkedAppointments(
   };
   // A new reading of an arrival's meeting takes its id, so the id holds once the arrival is past its window.
   const taken = new Set(ids.filter(Boolean));
-  const arrivalOf = (a: { start: string; zone: string | null }) => {
+  const arrivalOf = (a: Parameters<typeof meetingStartOf>[0]) => {
     const id = ctx.arrivals?.find(
-      (x) => x.key === meetingKeyOf(a) && !taken.has(x.id)
+      (x) => x.start === meetingStartOf(a) && !taken.has(x.id)
     )?.id;
     if (id) {
       taken.add(id);
@@ -216,7 +222,10 @@ export function checkedAppointments(
   const kept = entries.map(
     ({ facts, ...a }, i): Appointment => ({
       ...a,
-      id: ids[i] ?? arrivalOf(a) ?? newId(facts),
+      id:
+        (ids[i] && ctx.hasEvent?.(ids[i]) !== false
+          ? ids[i]
+          : (arrivalOf(a) ?? ids[i])) ?? newId(facts),
       observations: facts,
     })
   );
@@ -249,7 +258,7 @@ export const arrivalsCitedBy = (
       )
       .map((o) => o.id),
     id: a.id,
-    key: meetingKeyOf(a),
+    start: meetingStartOf(a),
   }));
 
 /** The nightly step: the appointments ahead of him, read again when their facts, the held ones or his day changed. */
@@ -262,7 +271,8 @@ export async function appointments() {
   );
   const last = readAppointments();
   const held = last?.appointments ?? [];
-  const refused = [...readAppointmentEvents().refused.values()];
+  const events = readAppointmentEvents();
+  const refused = [...events.refused.values()];
   const ahead = observationsAheadOf(
     observations,
     statusInputs,
@@ -304,6 +314,7 @@ export async function appointments() {
           });
           const c = checkedAppointments(reply, {
             arrivals: arrivalsCitedBy(ahead, readArrivalAppointments(step.now)),
+            hasEvent: (id) => events.byAppointment.has(id),
             held,
             refused,
             replacedBy: (f) => statusInputs.retired.get(f)?.by,

@@ -6,6 +6,7 @@ import {
   ARRIVAL_APPOINTMENT_READ,
   type ReadReply,
 } from "../records/read-reply";
+import { span } from "./episode-span";
 import { READ_REPLIES } from "./memory-files";
 import { READS, readRepliesSince } from "./read-replies";
 
@@ -31,9 +32,21 @@ export type ArrivalAppointment = Omit<
   unit: string;
 };
 
-/** One meeting's key: its local start in its zone (none: where he is then). Two calls at 10:00 in two zones are two. */
-export const meetingKeyOf = (a: { start: string; zone: string | null }) =>
-  `${a.start} ${a.zone ?? ""}`;
+type Meeting = Pick<Appointment, "allDay" | "end" | "start" | "zone">;
+
+/** When a meeting starts: an instant (in its zone, else where he is then), or its first day when it is all-day. */
+export const meetingStartOf = (a: Meeting) =>
+  span(
+    { day: a.start.slice(0, 10), end: a.end, start: a.start },
+    a.zone ?? undefined
+  ).from;
+
+/**
+ * One meeting's key, for its id: its start instant when its zone is named (two names of one zone are one meeting; two
+ * calls at 10:00 in two zones are two), else its local start, which no move of his changes.
+ */
+export const meetingKeyOf = (a: Meeting) =>
+  a.zone && !a.allDay ? meetingStartOf(a) : `${a.start} ${a.zone ?? ""}`;
 
 /** The one rule of what is an arrival appointment: an agreed line of the current prompt, the first one per meeting (`meetingKeyOf`: one meeting, one id). */
 export function arrivalAppointmentsOf(lines: ReadReply[]) {

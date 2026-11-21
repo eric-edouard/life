@@ -363,7 +363,7 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   agreed("2031-06-01 10:00", ["whatsapp|m1"]);
   await syncAppointments(NOW);
   const [event, first] = [...events][0] ?? [];
-  const night = (id: string) =>
+  const writeNight = (id: string) =>
     Bun.write(
       APPOINTMENTS,
       JSON.stringify({
@@ -380,7 +380,7 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
         schemaVersion: 1,
       })
     );
-  await night("apt_000000000011");
+  await writeNight("apt_000000000011");
   await syncAppointments(NOW);
   expect([...events.keys()]).toEqual([event ?? ""]);
   expect(updates.at(-1)).toMatchObject({ busy: true, id: event });
@@ -390,7 +390,7 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   expect(updates.at(-1)?.description).toContain("Agreed in unit_0000000000aa");
   // The night's next reading takes the arrival's id (`arrivalOf`); past the reply's window the event stays, busy.
   const id = first?.props.lifeAppointment ?? "";
-  await night(id);
+  await writeNight(id);
   const later = new Date("2031-04-15T09:00:00Z");
   await syncAppointments(later);
   expect([...events.keys()]).toEqual([event ?? ""]);
