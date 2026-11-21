@@ -17,6 +17,7 @@ import {
 import { isOnline } from "../models/llm";
 import { isPromptVersion, promptText } from "../models/prompt-parts";
 import {
+  ARRIVAL_APPOINTMENT_READ,
   ARRIVAL_CONFIRM_READ,
   ARRIVAL_TRIGGER_READ,
   type ReadReply,
@@ -24,6 +25,7 @@ import {
 import { eventKey } from "../records/source";
 import { firstNameOf, ownerIn } from "../records/truth";
 import { type LifelogTurn, readStore, withStore } from "../sources/lifelog";
+import { checkedAppointmentReply } from "./arrival-appointments";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { closedConversations } from "./extract";
 import { type Evidence, voiceUnits } from "./gather";
@@ -50,7 +52,7 @@ import {
   UNKNOWN,
 } from "./units";
 import { chatLines, messageLine, turnLines } from "./words";
-import { dayNow, dayStart, localDate, time } from "./zones";
+import { dayNow, dayStart, localDate, time, zoneNow } from "./zones";
 
 /**
  * The most confirm calls a day, failures included: a runaway guard, not a budget (114 on its first day, 20 Nov 2026,
@@ -222,6 +224,7 @@ function triggerRequest(lines: string[]): FoundationRequest {
         name: "author",
       },
       { description: guide("quote"), name: "quote" },
+      { anyOf: ["yes", "no"], description: guide("event"), name: "event" },
     ],
     instructions: instructions.trim(),
     // A line over `READ_CHARS` is cut for Apple's context alone; the confirm reads it whole.
@@ -234,8 +237,12 @@ function triggerReplyOf(answer: FoundationAnswer) {
   if (!("reply" in answer)) {
     return { refused: answer.error };
   }
-  const { author, quote = "" } = answer.reply;
-  return { author: author === "person" ? "person" : "automated", quote };
+  const { author, event, quote = "" } = answer.reply;
+  return {
+    author: author === "person" ? "person" : "automated",
+    event: event === "yes" ? "yes" : "no",
+    quote,
+  };
 }
 
 /**
@@ -248,6 +255,44 @@ const isTriggered = (
 ) =>
   "refused" in reply ||
   (reply.author === "person" && reply.quote.trim() !== "");
+
+/** Whether a stored trigger goes on to the appointment read: its lines set a meeting, or no answer. Apart from the ask rule: a booking mail asks nothing. */
+const isEventTriggered = (reply: { refused: string } | { event?: string }) =>
+  "refused" in reply || reply.event === "yes";
+
+/** The reads of his engine a stored trigger goes on to: the confirm, the appointment read, both or none. */
+const readsAfterOf = (
+  reply: Parameters<typeof isTriggered>[0] &
+    Parameters<typeof isEventTriggered>[0],
+  r: ArrivalRead
+) => [
+  ...(isTriggered(reply) ? [confirmOf(r)] : []),
+  ...(isEventTriggered(reply) ? [appointmentOf(r)] : []),
+];
+
+/** The appointment read of a read, for `makeReplies`: its reply stored after `checkedAppointmentReply`. */
+function appointmentOf(r: ArrivalRead): Asked {
+  const firstDay = localDate(r.firstAt);
+  return {
+    at: r.at,
+    call: {
+      checked: (answer) =>
+        checkedAppointmentReply(answer, { firstDay, lines: r.lines }),
+      firstAt: r.firstAt,
+      input: {
+        firstDay,
+        here: zoneNow() ?? null,
+        lastDay: localDate(r.at),
+        lines: r.lines,
+      },
+      keys: r.keys,
+      reads: readsOf([{ source: r.b.unit.source, unit: r.b.unit.id }]),
+      starts: [0],
+      unit: r.b.unit.id,
+    },
+    read: ARRIVAL_APPOINTMENT_READ,
+  };
+}
 
 /** The confirm call of a read, for `makeReplies`: it stores the read's unit and who wrote its lines. */
 function confirmOf(r: ArrivalRead): Asked {
@@ -266,7 +311,7 @@ function confirmOf(r: ArrivalRead): Asked {
   };
 }
 
-/** The confirm calls the model log holds for today, failed ones included: a failing read cannot spin past the cap. */
+/** His engine's calls the model log holds for today (confirms and appointment reads), failed ones included: a failing read cannot spin past the cap. */
 async function readConfirmsToday() {
   const day = dayNow();
   return (
@@ -274,7 +319,8 @@ async function readConfirmsToday() {
   ).filter(
     (e) =>
       e.prompt !== undefined &&
-      isPromptVersion(e.prompt, READS.arrival_confirm.prompt) &&
+      (isPromptVersion(e.prompt, READS.arrival_confirm.prompt) ||
+        isPromptVersion(e.prompt, READS.arrival_appointment.prompt)) &&
       localDate(e.at) === day
   ).length;
 }
@@ -320,7 +366,9 @@ export async function readArrivals(
     where
   ).filter(
     (l) =>
-      (l.read === ARRIVAL_TRIGGER_READ || l.read === ARRIVAL_CONFIRM_READ) &&
+      (l.read === ARRIVAL_TRIGGER_READ ||
+        l.read === ARRIVAL_CONFIRM_READ ||
+        l.read === ARRIVAL_APPOINTMENT_READ) &&
       // Only the current prompts' lines: an older version's answer neither marks a line read nor waits for a confirm.
       isPromptVersion(l.madeBy.prompt, READS[l.read].prompt) &&
       // Yesterday's too: a conversation that ran past midnight is read whole.
@@ -333,7 +381,7 @@ export async function readArrivals(
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
   const pending = pendingTriggers(stored, day);
-  const pendingUnits = new Set(pending.map((t) => t.unit));
+  const pendingUnits = new Set(pending.map(({ t }) => t.unit));
   // Words are fetched only for a unit with a turn not read yet (fewer of its keys read than its turns), or a confirm
   // pending: a conversation read whole fetches nothing again.
   const readOfUnit = Map.groupBy(
@@ -383,13 +431,17 @@ export async function readArrivals(
     ...voiceReadsDue(fetched, spoken, read, people.resolve, people.nameOf),
   ];
   if (due.length === 0 && pending.length === 0) {
-    return;
+    return 0;
   }
   const step = await (
     o.step ??
     (() =>
       begin("arrival-reader", "main", {
-        prompts: [TRIGGER, READS.arrival_confirm.prompt],
+        prompts: [
+          TRIGGER,
+          READS.arrival_confirm.prompt,
+          READS.arrival_appointment.prompt,
+        ],
       }))
   )();
   const forApple = due.filter((r) => !THAI.test(r.lines.join("\n")));
@@ -398,9 +450,10 @@ export async function readArrivals(
   const answers = await apple(requests);
   // Apple's own time, apart from the confirms: guided generation slows down on macOS 27 (Apple's open bug).
   const appleMs = Math.round(performance.now() - appleStart);
+  // Thai lines go to both of his engine's reads.
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
-    .map(confirmOf);
+    .flatMap((r) => [confirmOf(r), appointmentOf(r)]);
   const digest = promptDigestOf(promptText(TRIGGER));
   for (const [i, r] of forApple.entries()) {
     const answer = answers[i] as FoundationAnswer;
@@ -410,7 +463,7 @@ export async function readArrivals(
     }
     // No Apple model on this Mac: nothing stored, his engine reads it.
     if ("error" in answer && answer.error !== "refused") {
-      toConfirm.push(confirmOf(r));
+      toConfirm.push(confirmOf(r), appointmentOf(r));
       continue;
     }
     const reply = triggerReplyOf(answer);
@@ -434,9 +487,7 @@ export async function readArrivals(
       confirmOf(r).call.firstAt,
       where
     );
-    if (isTriggered(reply)) {
-      toConfirm.push(confirmOf(r));
-    }
+    toConfirm.push(...readsAfterOf(reply, r));
   }
   toConfirm.push(...pendingConfirms(pending, lineSources, people));
   const room =
@@ -451,7 +502,7 @@ export async function readArrivals(
         })
       : [];
   const { failed, stored: confirmed } = await makeReplies(taken, step, where);
-  return step.end({
+  await step.end({
     apple: forApple.length,
     appleMs,
     confirmed,
@@ -459,23 +510,33 @@ export async function readArrivals(
     due: due.length,
     failed: failed.length,
   });
+  // How many appointment reads were made: the watcher then brings his calendar in line at once.
+  return taken.filter((a) => a.read === ARRIVAL_APPOINTMENT_READ).length;
 }
 
 const sameKeys = (a: string[], b: string[]) =>
   a.length === b.length && a.every((k, i) => k === b[i]);
 
 /**
- * Today's triggers that go on to a confirm and have none yet (Life was offline, or the cap was spent). An earlier day's
- * is the night's, never confirmed when the next day's allowance opens.
+ * Today's triggers that go on to a read of his engine (a confirm, an appointment read) not made yet (Life was offline,
+ * or the cap was spent), each with the read it waits for. An earlier day's is the night's, never read when the next
+ * day's allowance opens.
  */
 function pendingTriggers(stored: ReadReply[], day: string) {
-  const confirms = stored.filter((l) => l.read === ARRIVAL_CONFIRM_READ);
-  return stored.filter(
-    (l): l is Extract<ReadReply, { read: typeof ARRIVAL_TRIGGER_READ }> =>
-      l.read === ARRIVAL_TRIGGER_READ &&
-      localDate(l.at) === day &&
-      isTriggered(l.reply) &&
-      !confirms.some((c) => sameKeys(c.messages, l.messages))
+  const isMade = (read: string, keys: string[]) =>
+    stored.some((c) => c.read === read && sameKeys(c.messages, keys));
+  return stored.flatMap((l) =>
+    l.read === ARRIVAL_TRIGGER_READ && localDate(l.at) === day
+      ? [
+          ...(isTriggered(l.reply) && !isMade(ARRIVAL_CONFIRM_READ, l.messages)
+            ? [{ ask: confirmOf, t: l }]
+            : []),
+          ...(isEventTriggered(l.reply) &&
+          !isMade(ARRIVAL_APPOINTMENT_READ, l.messages)
+            ? [{ ask: appointmentOf, t: l }]
+            : []),
+        ]
+      : []
   );
 }
 /**
@@ -487,7 +548,7 @@ function pendingConfirms(
   units: { built: Built[]; spoken: ReadonlyMap<string, SourceLine[]> },
   people: { nameOf: (ref: string) => string; resolve: Resolve }
 ): Asked[] {
-  return pending.flatMap((t) => {
+  return pending.flatMap(({ ask, t }) => {
     const b = units.built.find((u) => u.unit.id === t.unit);
     if (!b) {
       return [];
@@ -500,7 +561,7 @@ function pendingConfirms(
       : linesOf(b, keys, people.resolve, people.nameOf);
     const [r, ...more] = chunksOf(b, lines, people.resolve);
     return r && more.length === 0 && sameKeys(r.keys, t.messages)
-      ? [confirmOf(r)]
+      ? [ask(r)]
       : [];
   });
 }

@@ -10,6 +10,7 @@ import {
 } from "./appointments";
 import {
   arrivalAppointmentsOf,
+  checkedAppointmentReply,
   isSameMeeting,
   meetingKeyOf,
 } from "./arrival-appointments";
@@ -431,4 +432,56 @@ test("a held appointment the night keeps as it was takes the arrival's id while 
     ).appointments.map((a) => a.id);
   expect(read(false)).toEqual(["apt_0000000000aa"]);
   expect(read(true)).toEqual(["apt_000000000001"]);
+});
+
+test("an appointment read's reply is kept only as the lines say it: quote found, link exact and https, at most 10 people", () => {
+  const lines = [
+    "10:02 Sam: Call on 2026-12-03 at 15:00 https://meet.example.com/abc-def",
+  ];
+  const said = {
+    agreed: true,
+    allDay: false,
+    end: null,
+    link: "https://meet.example.com/abc-def",
+    people: Array.from({ length: 12 }, (_, i) => `P${i}`),
+    place: null,
+    quote: "Call on 2026-12-03 at 15:00",
+    start: "2026-12-03 15:00",
+    title: "Call with Sam",
+    zone: null,
+  };
+  const read = { firstDay: "2026-12-01", lines };
+  const kept = checkedAppointmentReply(said, read);
+  expect(kept).toMatchObject({ end: "2026-12-03 16:00", link: said.link });
+  expect(kept.agreed && kept.people).toHaveLength(10);
+  expect(
+    checkedAppointmentReply(
+      { ...said, link: "http://meet.example.com/abc-def" },
+      read
+    )
+  ).toMatchObject({ link: null });
+  expect(
+    checkedAppointmentReply(
+      { ...said, link: "https://meet.example.com/other" },
+      read
+    )
+  ).toMatchObject({ link: null });
+  expect(
+    checkedAppointmentReply({ ...said, quote: "Dinner on Friday" }, read)
+  ).toEqual({
+    agreed: false,
+    refused: "its quote is not in the lines",
+  });
+  expect(
+    checkedAppointmentReply({ ...said, start: "2026-11-30 15:00" }, read)
+  ).toMatchObject({ agreed: false });
+  expect(
+    checkedAppointmentReply({ ...said, allDay: true }, read)
+  ).toMatchObject({ agreed: false });
+  expect(checkedAppointmentReply({ isActionable: true }, read)).toMatchObject({
+    agreed: false,
+  });
+  expect(checkedAppointmentReply({ agreed: false }, read)).toEqual({
+    agreed: false,
+  });
 });

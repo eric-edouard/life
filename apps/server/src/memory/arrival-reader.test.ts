@@ -63,18 +63,22 @@ const sceneOf = (
   apple: (text: string) => FoundationAnswer,
   confirm = true,
   /** His engine fails its first call. */
-  failsFirst = false
+  failsFirst = false,
+  /** His engine's answer to an appointment read. */
+  meeting: object = { agreed: false }
 ) => {
   trial += 1;
   const where = join(dir, `trial-${trial}`);
   const calls = { apple: 0, engine: 0 };
   const step = {
-    ask: (q: { input: { lines: string[] } }) => {
+    ask: (q: { input: { firstDay?: string; lines: string[] } }) => {
       shown.push(q.input.lines.join("\n"));
       calls.engine += 1;
       return failsFirst && calls.engine === 1
         ? Promise.reject(new Error("engine down"))
-        : Promise.resolve({ isActionable: confirm });
+        : Promise.resolve(
+            q.input.firstDay ? meeting : { isActionable: confirm }
+          );
     },
     attempt: (work: () => Promise<unknown>) => work().catch(() => undefined),
     dir: join(dir, "run"),
@@ -215,19 +219,79 @@ test("only a person's lines with an ask quoted go on: small talk and automated l
   ]);
 });
 
-test("Thai lines and no Apple model go straight to his engine; a refusal is stored, then confirmed", async () => {
+test("Thai lines and no Apple model go straight to both of his engine's reads; a refusal is stored, then read", async () => {
   const thai = sceneOf(() => yes("unused"));
   await thai.read([msg("ช่วยส่งเอกสารให้หน่อยได้ไหม")]);
-  expect(thai.calls).toEqual({ apple: 0, engine: 1 });
+  expect(thai.calls).toEqual({ apple: 0, engine: 2 });
   const none = sceneOf(() => ({ detail: "no helper", error: "unavailable" }));
   await none.read([msg("Can you check the contract?")]);
-  expect(none.lines().map((l) => l.read)).toEqual(["arrival_confirm"]);
+  expect(none.lines().map((l) => l.read)).toEqual([
+    "arrival_confirm",
+    "arrival_appointment",
+  ]);
   const refused = sceneOf(() => ({ detail: "sensitive", error: "refused" }));
   await refused.read([msg("Can you check the contract?")]);
   expect(refused.lines().map((l) => l.read)).toEqual([
     "arrival_trigger",
     "arrival_confirm",
+    "arrival_appointment",
   ]);
+});
+
+/** His engine agreeing on a made-up dinner two days ahead, quoting the booking line. */
+const dinner = () => {
+  const day = daysBefore(dayNow(), -2);
+  return {
+    agreed: true,
+    allDay: false,
+    end: null,
+    link: null,
+    people: ["Sam"],
+    place: "Riverside",
+    quote: "table for 2 is booked",
+    start: `${day} 19:30`,
+    title: "Dinner with Sam",
+    zone: null,
+  };
+};
+test("a meeting goes to the appointment read alone, apart from the ask rule: a booking asks nothing and is still read", async () => {
+  const s = sceneOf(
+    () => ({
+      os: "27.2",
+      reply: { author: "person", event: "yes", quote: "" },
+    }),
+    true,
+    false,
+    dinner()
+  );
+  const events = [msg("Your table for 2 is booked at Riverside, 19:30")];
+  expect(await s.read(events)).toBe(1);
+  expect(s.calls).toEqual({ apple: 1, engine: 1 });
+  const read = s.lines().find((l) => l.read === "arrival_appointment");
+  expect(read?.reply).toEqual({
+    ...dinner(),
+    end: `${dinner().start.slice(0, 10)} 20:30`,
+  });
+  // Read once: a second pass asks nothing and syncs nothing.
+  expect(await s.read(events)).toBe(0);
+  expect(s.calls).toEqual({ apple: 1, engine: 1 });
+});
+
+test("an ask and a meeting in one read go to both reads; offline, both wait and are asked on the next pass", async () => {
+  const s = sceneOf(
+    () => ({
+      os: "27.2",
+      reply: { author: "person", event: "yes", quote: "bring the plans" },
+    }),
+    true,
+    false,
+    dinner()
+  );
+  const events = [msg("Table for 2 is booked at 19:30, bring the plans")];
+  expect(await s.read(events, false)).toBe(0);
+  expect(s.calls).toEqual({ apple: 1, engine: 0 });
+  expect(await s.read(events)).toBe(1);
+  expect(s.calls).toEqual({ apple: 1, engine: 2 });
 });
 
 test("a grown chat is read for its new lines only, a new read of its own", async () => {
@@ -571,6 +635,24 @@ const twoAsks = () => [
   msg("Can you send the slides?"),
   msg("Can you send the budget?", { chat: "c2", id: "whatsapp:c2" }),
 ];
+test("the day's cap counts both reads: one short of it, an ask and a meeting in one read make one call, the newest", async () => {
+  const s = sceneOf(
+    () => ({
+      os: "27.2",
+      reply: { author: "person", event: "yes", quote: "send it" },
+    }),
+    true,
+    false,
+    dinner()
+  );
+  await s.read(
+    [msg("Can you send it? Table booked for 19:30")],
+    true,
+    CONFIRMS_A_DAY - 1
+  );
+  expect(s.calls.engine).toBe(1);
+});
+
 test("the day's cap counts the confirms already made: one short of it, one of two reads is confirmed, the newest", async () => {
   const s = sceneOf(() => yes("send it"));
   await s.read(twoAsks(), true, CONFIRMS_A_DAY - 1);

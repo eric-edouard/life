@@ -1,13 +1,16 @@
-import { DAY, iso } from "../core/clock";
+import { z } from "zod";
+import { DAY, HOUR, iso } from "../core/clock";
 import { digest } from "../core/hash";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Appointment } from "../records/appointment";
 import {
   ARRIVAL_APPOINTMENT_READ,
+  ArrivalAppointmentReply,
   type ReadReply,
 } from "../records/read-reply";
 import { span } from "./episode-span";
 import { READ_REPLIES } from "./memory-files";
+import { locate } from "./quote-check";
 import { READS, readRepliesSince } from "./read-replies";
 import { dayStart } from "./zones";
 
@@ -110,4 +113,69 @@ export function readArrivalAppointments(now: Date, where = READ_REPLIES) {
       (l) => l.at >= since
     )
   );
+}
+
+/** The reply as the model gives it, before the checks: strict, a field it invents refuses it. */
+const Said = z.union([
+  z
+    .object({
+      agreed: z.literal(true),
+      allDay: z.boolean(),
+      end: z.string().nullable(),
+      link: z.string().nullable(),
+      people: z.array(z.string()),
+      place: z.string().nullable(),
+      quote: z.string(),
+      start: z.string(),
+      title: z.string(),
+      zone: z.string().nullable(),
+    })
+    .strict(),
+  z.object({ agreed: z.literal(false) }).strict(),
+]);
+const Stored = ArrivalAppointmentReply.shape.reply;
+
+/** A local time an hour later (`YYYY-MM-DD HH:MM`, no zone). */
+const hourAfter = (local: string) =>
+  iso(Date.parse(`${local.replace(" ", "T")}Z`) + HOUR)
+    .slice(0, 16)
+    .replace("T", " ");
+
+/**
+ * The appointment read's reply as stored (`makeReplies`' `checked`): one that agrees, with its quote found in the lines,
+ * a start on or after the lines' first day, an end on or after it (an hour after a timed start when none is given, the
+ * same day for a whole one), whole days written as days; a link kept only when https and copied exactly from the lines;
+ * at most 10 people, by name. Any other reply is stored as not agreed with why (`refused`), so it is not asked again.
+ */
+export function checkedAppointmentReply(
+  answer: unknown,
+  read: { firstDay: string; lines: string[] }
+): z.infer<typeof Stored> {
+  const said = Said.safeParse(answer);
+  if (!said.success) {
+    return { agreed: false, refused: "not the reply's shape" };
+  }
+  const a = said.data;
+  if (!a.agreed) {
+    return a;
+  }
+  const end = a.end ?? (a.allDay ? a.start : hourAfter(a.start));
+  const link =
+    a.link?.startsWith("https://") && read.lines.join("\n").includes(a.link)
+      ? a.link
+      : null;
+  const why =
+    (locate(a.quote, read.lines) === null && "its quote is not in the lines") ||
+    (a.start.slice(0, 10) < read.firstDay && "it starts before the lines") ||
+    (end < a.start && "it ends before it starts") ||
+    (a.allDay !== !a.start.includes(" ") && "its days and times disagree");
+  const stored = Stored.safeParse({
+    ...a,
+    end,
+    link,
+    people: a.people.slice(0, 10),
+  });
+  return why || !stored.success
+    ? { agreed: false, refused: why || "a field out of bounds" }
+    : stored.data;
 }
