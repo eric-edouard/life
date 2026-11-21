@@ -55,14 +55,19 @@ struct MatterPage: View {
             LazyVStack(alignment: .leading, spacing: 14) {
                 header(row, openSince: matter.steps.first?.at)
                 asks(life.asks(ofMatter: id))
-                if let agent {
-                    AgentRow(matter: matter, agent: agent) {
-                        router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                if canStart { start(again: agent != nil) }
+                // One card: the goal and the agent on it (decision 98, the next-goal-agent card).
+                VStack(alignment: .leading, spacing: 0) {
+                    Goal(row: row).offWhileOutOfReach()
+                    if let agent {
+                        AgentRow(matter: matter, agent: agent) {
+                            router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                        }
                     }
                 }
-                GoalAndNext(row: row).offWhileOutOfReach()
+                .card()
                 People(people: row.people)
-                Steps(steps: matter.steps)
+                Timeline(steps: matter.steps).padding(.top, Metrics.Spacing.s)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
             }
             .matterPageColumn()
@@ -71,22 +76,22 @@ struct MatterPage: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
-                VStack(spacing: 8) {
-                    if canStart {
-                        Button {
-                            router.matterSheet = .start(id)
-                        } label: {
-                            Text(agent == nil ? "Start an agent" : "Start again").frame(maxWidth: .infinity)
-                        }
-                        .primaryGlassButton()
-                    }
-                    DoneButton(id: id)
-                }
-                .controlSize(.large)
-                .offWhileOutOfReach()
+                DoneButton(id: id).controlSize(.large)
+                    .offWhileOutOfReach()
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
+        }
+    }
+
+    /// No agent holds it (or the last one ended): said once, and the one way to start one, a quiet pill
+    /// (`DuoFoldStart`); its answers stay "Mark as done" alone.
+    private func start(again: Bool) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+            if !again { Text("No agent holds this matter.").font(.small).foregroundStyle(Palette.muted) }
+            Button(again ? "Start again" : "Start an agent") { router.matterSheet = .start(id) }
+                .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+                .offWhileOutOfReach()
         }
     }
 
@@ -97,7 +102,7 @@ struct MatterPage: View {
             VStack(alignment: .leading, spacing: 14) {
                 header(row, openSince: nil)
                 // Edited once the read lands: that face is a new view, which would not hold his words saved here.
-                GoalAndNext(row: row).disabled(true)
+                Goal(row: row).disabled(true).card()
                 People(people: row.people)
                 Placeholder(height: 110)
             }
@@ -113,16 +118,25 @@ struct MatterPage: View {
                     Button {
                         router.matterPath.append(.card(check.ref))
                     } label: {
-                        Row(
-                            title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }, isInList: true
-                        ) {
-                            StateDot(color: Palette.flag)
+                        HStack(spacing: Metrics.Spacing.m) {
+                            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                                HStack(spacing: 6) {
+                                    StateDot(color: Palette.flag)
+                                    Text(
+                                        [needsYourAnswer, check.deadline.map { DeadlineWords.by($0) }]
+                                            .compactMap(\.self).joined(separator: " · ")
+                                    )
+                                }
+                                .font(.small).foregroundStyle(Palette.flag)
+                                Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                             RowValue()
                         }
+                        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m).contentShape(
+                            .rect)
                     }
                     .buttonStyle(.groupedRow(at: at, of: checks.count))
-                    // The dot has its words.
-                    .accessibilityValue(needsYourAnswer)
                 }
             }
             // The card on the page's gutter: a list keeps its inset from its column's edges.
@@ -142,7 +156,8 @@ struct MatterPage: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader).stepsAsideForToast()
-            if !life.asks(ofMatter: id).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
+            // What he must do, under the name, when no ask of it waits (the ask's card says that then).
+            if life.asks(ofMatter: id).isEmpty { NextStep(row: row).offWhileOutOfReach() }
             HStack(spacing: 6) {
                 MetaIconButton(symbol: row.symbol, label: "Change the icon") { router.matterSheet = .icon(id) }
                 HStack(spacing: 0) {
@@ -175,38 +190,48 @@ extension View {
 
 // MARK: Goal and next step
 
-/// His goal and next step for the matter, each edited in place: saving is an action with its own state, and a failure
-/// leaves his words in the field.
-private struct GoalAndNext: View {
+/// His goal for the matter, edited in place in its card: saving is an action with its own state, and a failure leaves
+/// his words in the field.
+private struct Goal: View {
+    let row: MatterRow
+    @Environment(LifeStore.self) private var life
+
+    var body: some View {
+        EditableLine(
+            label: "Goal", text: row.goal?.text ?? "",
+            state: life.state(of: .edit(matter: row.id, .goal)),
+            save: { text in await life.setGoal(of: row.id, text) }
+        )
+        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+    }
+}
+
+/// His next step, the plain sentence under the matter's name with its pencil, then what Life knows of it.
+private struct NextStep: View {
     let row: MatterRow
     @Environment(LifeStore.self) private var life
     @State private var opened: LifeLinkTarget?
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             EditableLine(
-                label: "Goal", text: row.goal?.text ?? "",
-                state: life.state(of: .edit(matter: row.id, .goal)),
-                save: { text in await life.setGoal(of: row.id, text) })
-            Hairline()
-            EditableLine(
-                label: "Next step", text: row.nextStep?.text ?? "",
+                label: nil, text: row.nextStep?.text ?? "",
                 state: life.state(of: .edit(matter: row.id, .next)),
                 save: { text in await life.setNextStep(of: row.id, NextStepRequest(kind: "do", text: text)) })
             if let context = row.nextStep?.context {
                 ContextView(markdown: context, lifeLinks: []) { opened = $0 }
-                    .padding(.horizontal, 20).padding(.bottom, 16)
             }
         }
-        .card()
         .sheet(item: $opened) { target in
             NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
         }
     }
 }
 
+/// A line he edits in place: under its label in a card (the goal), or, with no label, the plain sentence under a
+/// matter's name (the next step), muted, its pencil at its end.
 private struct EditableLine: View {
-    let label: String
+    let label: String?
     let text: String
     let state: ActionState<ActionProof>
     let save: (String) async -> Void
@@ -219,18 +244,20 @@ private struct EditableLine: View {
     @FocusState private var focused: Bool
 
     var body: some View {
+        let name = label ?? "Next step"
+        let pencil = RoundIconButton(symbol: "pencil", label: "Edit \(name.lowercased())", size: 32) {
+            draft = saved ?? text; isEditing = true; focused = true
+        }
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                Caps(label)
-                Spacer()
-                if !isEditing {
-                    RoundIconButton(symbol: "pencil", label: "Edit \(label.lowercased())", size: 32) {
-                        draft = saved ?? text; isEditing = true; focused = true
-                    }
+            if let label {
+                HStack(alignment: .top) {
+                    Caps(label)
+                    Spacer()
+                    if !isEditing { pencil }
                 }
             }
             if isEditing {
-                DictationField(prompt: label, text: $draft, axis: .vertical, focused: $focused).font(.lead)
+                DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused).font(.lead)
                     .foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
                     Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
@@ -242,9 +269,13 @@ private struct EditableLine: View {
                 }
             } else {
                 let shown = saved ?? text
-                Text(shown.isEmpty ? "Not set" : shown).font(.lead)
-                    .foregroundStyle(shown.isEmpty ? Palette.faint : Palette.fg).fixedSize(
-                        horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(shown.isEmpty ? "Not set" : shown).font(.lead)
+                        .foregroundStyle(shown.isEmpty ? Palette.faint : label == nil ? Palette.muted : Palette.fg)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if label == nil { pencil }
+                }
             }
             if case .failed(let failure, _) = state {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
@@ -252,7 +283,6 @@ private struct EditableLine: View {
                 Label("Saved", systemImage: "checkmark").font(.small).foregroundStyle(Palette.ok)
             }
         }
-        .padding(.horizontal, 20).padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: state) {
             guard case .succeeded = $1 else { return }
@@ -309,37 +339,6 @@ private struct People: View {
     }
 }
 
-private struct Steps: View {
-    let steps: [MatterStep]
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Caps("Steps")
-                Spacer()
-                Text("\(steps.count), newest first").font(.body15).foregroundStyle(Palette.muted)
-            }
-            .padding(.top, 10)
-            ForEach(Array(steps.reversed().enumerated()), id: \.element.id) { offset, step in
-                HStack(alignment: .top, spacing: 14) {
-                    Text(String(format: "%02d", steps.count - offset)).font(.monoSmall).foregroundStyle(Palette.muted)
-                        .frame(width: 22, alignment: .leading).padding(.top, 3)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
-                        if step.kind == "todo_item" && step.ending == nil {
-                            Text("Open").font(.smallStrong).foregroundStyle(Palette.flag)
-                        }
-                        Text(step.text).font(.leadBold).foregroundStyle(
-                            step.ending == nil ? Palette.fg : Palette.muted)
-                        if !step.quote.isEmpty { Text(step.quote).font(.body15).foregroundStyle(Palette.muted) }
-                    }
-                }
-                .accessibilityElement(children: .combine)
-            }
-        }
-    }
-}
-
 /// His word that the matter is done: an action, so it says what it is doing and what came of it.
 private struct DoneButton: View {
     let id: String
@@ -355,7 +354,13 @@ private struct DoneButton: View {
                     switch state {
                     case .running: Text("Marking it done…")
                     case .succeeded: Label("Marked as done", systemImage: "checkmark")
-                    default: Label("Mark as done", systemImage: "checkmark")
+                    // The check in `ok`: the answer that closes something (decision 98, rule 13).
+                    default:
+                        Label {
+                            Text("Mark as done")
+                        } icon: {
+                            Image(systemName: "checkmark").foregroundStyle(Palette.ok)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -420,7 +425,10 @@ private struct AgentRow: View {
             let failed = MoveReceipt.failure(
                 call: call.failure, shown: move, tried: life.retryable(tried, call: call.failure, shown: move),
                 offered: choice)
-            if let failed { MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } }) }
+            if let failed {
+                MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } })
+                    .padding(.horizontal, Metrics.gutter)
+            }
             if let choice {
                 Menu {
                     Button("Open \(holder)", action: open)
@@ -499,8 +507,8 @@ private struct AgentRow: View {
             Spacer(minLength: 0)
             Image(systemName: trailing).font(.smallStrong).foregroundStyle(Palette.muted)
         }
-        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
-        .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
+        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
         .accessibilityElement(children: .combine)
         .motion(Motion.standard, value: underWay)
     }
