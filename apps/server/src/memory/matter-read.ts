@@ -547,10 +547,17 @@ export const matterOfSteps = <V extends Found>(
 /** Whether `v` got a step, or a step's ending, that `pin` was not drafted on: its next step is then out of date. Pure. */
 const isNewerThan = (
   v: { steps: readonly MatterStepNow[] },
-  pin: DirectionPin
+  pin: DirectionPin,
+  today: string
 ) =>
   v.steps.some(
-    (s) => !pin.steps.includes(s.ref) || (s.ending && s.ending.at > pin.at)
+    (s) =>
+      !pin.steps.includes(s.ref) ||
+      (s.ending && s.ending.at > pin.at) ||
+      // An open step's date passed since the pin: his rule of 21 Nov 2026, a dated thing past is looked into again.
+      (isOpenStep(s) &&
+        localDate(pin.at) <= (s.when ?? "") &&
+        (s.when ?? "") < today)
   );
 
 /** How many days from its first step a new matter is offered: Life's "Start an agent on this?" lapses after them, and nothing starts. */
@@ -666,7 +673,8 @@ const contextKeptOf = (p: DirectionPin, was: NextStep | undefined) =>
     : {};
 
 /**
- * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step newer than its latest pin; or, when
+ * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step, a step's ending or an open step's
+ * date passing newer than its latest pin; or, when
  * that pin is Life's, a blind one (no `laterShown`: drafted before it saw later records) or, while `v` is in its offer
  * window (`offerEndOf`), one of its newest later records (`later`, read only then) that the draft was not shown. His own
  * pin is never redrafted over an outside record. Pure.
@@ -680,7 +688,7 @@ export const isDirectionDue = (
   if (v.lone || !isRunning(v)) {
     return false;
   }
-  if (!(latest && v.goal) || isNewerThan(v, latest)) {
+  if (!(latest && v.goal) || isNewerThan(v, latest, today)) {
     return true;
   }
   const end = offerEndOf(v);
@@ -814,29 +822,4 @@ export function matterBookOf(
     .toSorted((a, b) =>
       (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
     );
-}
-
-/**
- * The matters that ended on `day` (a local day), by their steps: closed, and the newest ending among their to-dos,
- * promises, waits and to-do items falls on it. A trip done by quiet has no ending and is not listed. Each with that last
- * step, to say how it ended. Pure.
- */
-export function doneOnOf(
-  book: readonly MatterView[],
-  day: string,
-  dayOf: (at: string) => string
-) {
-  return book.flatMap((v) => {
-    const last = v.open
-      ? undefined
-      : v.steps
-          .filter((s) => ACTIONABLE.includes(s.kind) && s.ending)
-          .toSorted((a, b) =>
-            (a.ending?.at ?? "").localeCompare(b.ending?.at ?? "")
-          )
-          .at(-1);
-    return last?.ending && dayOf(last.ending.at) === day
-      ? [{ last, matter: v }]
-      : [];
-  });
 }

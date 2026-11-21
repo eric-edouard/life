@@ -75,7 +75,7 @@ const CAPS: Record<string, Record<string, number>> = {
     width: 1,
   },
   "Shell/ReadScreen.swift": {
-    padding: 4,
+    padding: 2,
   },
 };
 

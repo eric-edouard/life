@@ -97,11 +97,13 @@ test("a dormant matter whose open step is his shows one your move card: his step
   ).toEqual(["your move"]);
 });
 
-test("a pure wait on someone, a closed matter, a parked project or an open decision show no your move card", () => {
+test("a pure wait on someone, a closed matter, one Life reads over, a parked project or an open decision show no your move card", () => {
   for (const list of [
     moves({ matters: [{ ...MATTER, openSteps: [WAIT] }] }),
     moves({ matters: [{ ...MATTER, open: false, status: "done" as const }] }),
     moves({ isParked: () => true }),
+    // Life's latest direction reads it over (his word of 21 Nov 2026: a matter long done leaves his inbox).
+    moves({ matters: [{ ...MATTER, endingRecords: [], nextStep: undefined }] }),
     moves({
       decisions: [
         {

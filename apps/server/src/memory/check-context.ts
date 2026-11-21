@@ -72,6 +72,7 @@ export interface CheckInputs {
   matterRank?: YourMoveInputs["matterRank"];
   matters: readonly (Pick<
     MatterView,
+    | "endingRecords"
     | "goal"
     | "id"
     | "lone"
