@@ -4,6 +4,8 @@ import SwiftUI
 /// What he has typed or opened on a card.
 struct CardInput: Equatable {
     var isWritingOwnWords = false
+    /// The option that took him to his words, when one did: his words go with it; none for a general reply.
+    var option: String?
     var words = ""
     /// The context sheet is open (`ContextSheet`).
     var showsContext = false
@@ -40,9 +42,12 @@ struct CheckActions: View {
         VStack(spacing: Metrics.Spacing.s) {
             if input.isWritingOwnWords {
                 Button {
-                    if let request = check.answer(words: words) { answer(request) }
+                    if let request = check.answer(words: words, option: input.option) { answer(request) }
                 } label: {
-                    Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
+                    // His words go to whoever hears them, never "Send": that is only ever the message itself.
+                    Text(
+                        check.group == .newMatter
+                            ? "Save the goal" : "Tell \(check.hearer(among: life.agents.value?.agents ?? []))")
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.isEmpty)
@@ -289,7 +294,10 @@ struct CheckActions: View {
         case nil:
             if let request = check.answer(option) { return answer(request) }
             // A note, or what this build doesn't know yet: his own words go back, never a dead button.
-            if [.note, .unknown].contains(option.takes), check.takesOwnWords { input.isWritingOwnWords = true }
+            if [.note, .unknown].contains(option.takes), check.takesOwnWords {
+                input.option = option.takes == .note ? option.id : nil
+                input.isWritingOwnWords = true
+            }
         }
     }
 }
