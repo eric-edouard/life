@@ -39,7 +39,7 @@ const LAST_BLOCKING_RANK = RANK["your move"];
 export const urgencyOf = (c: Rankable): Urgency =>
   inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
-/** A your move card: in its tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
+/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
 const isMove = (c: Rankable) => c.group === "your move";
 /** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
 const isImportant = (c: Orderable) =>
