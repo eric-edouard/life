@@ -1,10 +1,16 @@
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
-import { type PiRow, piRowOf, piRuntime } from "./pi-runtime";
+import {
+  claudeHooksOf,
+  instructionsOf,
+  type PiRow,
+  piRowOf,
+  piRuntime,
+} from "./pi-runtime";
 
 // The pi runtime over a real pi (the pinned one, run as the helper runs it) and a made-up provider that answers by the
 // prompt's words: `[hang]` streams nothing until aborted, `[sep]` an answer holding U+2028, anything else "hello". One
@@ -33,6 +39,7 @@ afterAll(() => {
 
 const dir = mkdtempSync(join(tmpdir(), "life-pi-runtime-"));
 const row = piRowOf(false, {
+  claude: dir,
   dir,
   provider: provider.providerOf({ only: ["host/fp8"], zdr: true }),
 });
@@ -148,4 +155,25 @@ test("pi runs its one model by the desk's word, and refuses another", async () =
   await expect(pi.start({ ...agent, model: "opus" }, "Hi.")).rejects.toThrow(
     "one model"
   );
+});
+
+test("his own agent reads his Claude instructions, imports followed, and his Claude hooks; a missing file is none", () => {
+  const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
+  const shared = join(claude, "shared.md");
+  writeFileSync(shared, "# Shared rules");
+  writeFileSync(join(claude, "CLAUDE.md"), `First line\n@${shared}\nLast line`);
+  writeFileSync(
+    join(claude, "settings.json"),
+    JSON.stringify({
+      hooks: {
+        PreToolUse: [{ hooks: [{ command: "true", type: "command" }] }],
+      },
+    })
+  );
+  expect(instructionsOf(claude)).toBe("First line\n# Shared rules\nLast line");
+  expect(claudeHooksOf(claude)).toEqual([
+    { hooks: [{ command: "true", type: "command" }] },
+  ]);
+  expect(instructionsOf(dir)).toBeUndefined();
+  expect(claudeHooksOf(dir)).toEqual([]);
 });

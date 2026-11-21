@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { log } from "../../core/log";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "../../core/paths";
@@ -13,6 +19,7 @@ import {
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
+import type { ClaudeHookGroup } from "./pi-parity";
 import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
 import {
   type Connection,
@@ -63,6 +70,8 @@ const PI_MODEL_WORD = "flash";
 
 /** Where pi keeps the desk's sessions and settings, the provider it asks, and the effort an agent naming none thinks at. */
 export interface PiPlace {
+  /** His Claude folder: his instructions and hooks, for his own Life. */
+  claude: string;
   dir: string;
   effort?: string;
   provider: PiProvider;
@@ -113,6 +122,43 @@ const settingsOf = (isOwn: boolean) => ({
   skills: isOwn ? [join(HOME, ".claude", "skills")] : [],
 });
 
+/** His Claude folder, where Claude Code reads his instructions and hooks (a test passes its own). */
+const CLAUDE_HOME = join(HOME, ".claude");
+
+/** A file's text, or none when it is not there. */
+const textOf = (path: string) => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {}
+};
+
+/**
+ * His global instructions as Claude Code reads them (`<claude>/CLAUDE.md`), each line that is an `@` import replaced by
+ * the file it names: pi reads its agent folder's `AGENTS.md` and follows no import.
+ */
+export const instructionsOf = (claude: string) =>
+  textOf(join(claude, "CLAUDE.md"))
+    ?.split("\n")
+    .map((l) => {
+      const at = /^@(\S+)$/.exec(l.trim())?.[1];
+      return at
+        ? (textOf(at.startsWith("~/") ? join(HOME, at.slice(2)) : at) ?? l)
+        : l;
+    })
+    .join("\n");
+
+/** His Claude `PreToolUse` hooks (`<claude>/settings.json`), for the extension to run on each shell call. */
+export const claudeHooksOf = (claude: string): ClaudeHookGroup[] => {
+  try {
+    return (
+      JSON.parse(textOf(join(claude, "settings.json")) ?? "{}").hooks
+        ?.PreToolUse ?? []
+    );
+  } catch {
+    return [];
+  }
+};
+
 /** The session file of `ref` under `sessions`, if pi wrote one (`<time>_<ref>.jsonl`). */
 const sessionFileOf = (sessions: string, ref: string) => {
   try {
@@ -130,6 +176,7 @@ const sessionFileOf = (sessions: string, ref: string) => {
 export function piRowOf(
   isOwn = isOwnLife(),
   place: PiPlace = {
+    claude: CLAUDE_HOME,
     dir: join(LIFE_STATE_DIR, "desk", "pi"),
     effort: piRouteOf().effort,
     provider: lifeProviderOf(),
@@ -190,6 +237,13 @@ export function piRowOf(
         join(agentDir, "settings.json"),
         JSON.stringify(settingsOf(isOwn))
       );
+      // His global instructions, as his Claude sessions read them; a second Life's agent reads none.
+      const instructions = isOwn ? instructionsOf(place.claude) : undefined;
+      if (instructions) {
+        writeFileSync(join(agentDir, "AGENTS.md"), instructions);
+      } else {
+        rmSync(join(agentDir, "AGENTS.md"), { force: true });
+      }
       return {
         command: [
           process.execPath,
@@ -225,6 +279,13 @@ export function piRowOf(
           [PI_EXTENSION_ENV.doorKey]: a.door.key,
           [PI_EXTENSION_ENV.doorUrl]: a.door.url,
           [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
+          ...(isOwn
+            ? {
+                [PI_EXTENSION_ENV.hooks]: JSON.stringify(
+                  claudeHooksOf(place.claude)
+                ),
+              }
+            : {}),
           [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
           [PI_EXTENSION_ENV.provider]: JSON.stringify(place.provider),
         },

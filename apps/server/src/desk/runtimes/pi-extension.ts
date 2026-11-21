@@ -4,6 +4,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { SEND_FACTS_ENV, SEND_GUARD_HOOK, sendRefusalOf } from "../send-guard";
 import { DOOR_KEY_ENV } from "./contract";
+import {
+  type ClaudeHookGroup,
+  hookRefusalOf,
+  registerWebTools,
+} from "./pi-parity";
 
 // The extension every pi session of the desk loads (`pi -e`, `pi-runtime.ts`): inside the pi process, before each tool
 // call, Life's send guard (`send-guard.ts`), on the calls Claude's and Codex's hook reads (`SEND_GUARD_HOOK.matcher`);
@@ -24,6 +29,8 @@ export const PI_EXTENSION_ENV = {
   doorKey: DOOR_KEY_ENV,
   doorUrl: "LIFE_DESK_URL",
   facts: SEND_FACTS_ENV,
+  /** His Claude `PreToolUse` hooks (JSON), set for his own Life only: with it, his hooks and the web tools (`pi-parity.ts`). */
+  hooks: "LIFE_PI_HOOKS",
   key: "LIFE_PI_KEY",
   provider: "LIFE_PI_PROVIDER",
 } as const;
@@ -71,12 +78,21 @@ export default function lifeDesk(pi: ExtensionAPI) {
     description: "Life's desk: the send guard, the door and Life's provider",
     handler: async () => undefined,
   });
-  pi.on("tool_call", (event) => {
+  const hooks = process.env[env.hooks];
+  const own = hooks ? (JSON.parse(hooks) as ClaudeHookGroup[]) : undefined;
+  if (own) {
+    registerWebTools(pi, process.env.SERPAPI_API_KEY);
+  }
+  pi.on("tool_call", async (event, ctx) => {
     const call = guardedCallOf(event.toolName, event.input);
     if (!GUARDED.test(call.tool_name)) {
       return;
     }
-    const why = sendRefusalOf(call, JSON.parse(required(env.facts)));
+    const why =
+      sendRefusalOf(call, JSON.parse(required(env.facts))) ??
+      (own && call.tool_name === "Bash"
+        ? await hookRefusalOf(own, { ...call, cwd: ctx.cwd })
+        : undefined);
     return why ? { block: true, reason: why } : undefined;
   });
 }

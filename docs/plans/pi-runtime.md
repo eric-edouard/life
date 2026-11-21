@@ -196,10 +196,11 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 | 1 | `pi-extension.ts`: the guard in `tool_call`, the door, Life's provider with its routing on every request, a repo's `.pi` never trusted; tests in a real pi (#1173) | hard (strict path) |
 | 2 | `pi-runtime.ts` over RPC behind the one runtime (`session-runtime.ts`, split from ACP's), pi pinned and bundled, `pi` in `RuntimeName` and the phone's list, SECURITY.md's and AGENTS.md's lines (decision 3) | hard (strict path) |
 | 3 | a move that names its target, spending as `billed` from OpenRouter with its desk store step | hard (strict path: a store step) |
-| 4 | parity extensions: `web_fetch`, `web_search`, subagents, the owner's Claude hooks, the Life connector grant, the global `AGENTS.md` | standard |
+| 4 | parity in the extension (`pi-parity.ts`), his own Life only: his Claude `PreToolUse` hooks on each shell call, `web_fetch`, `web_search` (SerpAPI, his key), his global instructions (`CLAUDE.md`, imports followed) as the agent folder's `AGENTS.md` | standard |
+| 4b | subagents (the extension loaded in each child) and the Life connector's read grant in `mcp.json` (strict path: `host/http/`) | hard |
 | 5 | folded into PR 2 | |
 | 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |
-| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 4 have landed and their tests pass | small |
+| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 4b have landed and their tests pass | small |
 
 Existing agents keep their runtime: only agents started after PR 7 run on pi by default.
 
