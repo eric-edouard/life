@@ -97,7 +97,7 @@ struct ProjectHead: View {
             ForEach(agents) { agent in
                 let registered = life.agents.value?.agents.first { $0.id == agent.id }
                 Button {
-                    if let matter = registered?.matter?.id { router.open(agent: agent.id, matter: matter) }
+                    router.open(agent: agent.id)
                 } label: {
                     HStack(spacing: Metrics.Spacing.m) {
                         VStack(alignment: .leading, spacing: 2) {

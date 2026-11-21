@@ -49,7 +49,7 @@ private func matters() throws -> [MatterRow] {
     #expect(all.shown(.project("p1")).map(\.id) == ["c3", "c1"])
     #expect(all.shown(.person("person:camille")).map(\.id) == ["c3", "c1"])
     #expect(all.dead.map(\.id) == ["c2"])
-    #expect(all.moves[2].detail == "M a · 3 days")
+    #expect(all.moves[2].detail == "q · 3 days")
 }
 
 @Test func a_server_without_drop_offers_no_drop_answer() throws {
@@ -70,4 +70,11 @@ private func matters() throws -> [MatterRow] {
     #expect(projects.map(\.project.id) == ["p2", "p1"] && projects.map(\.count) == [1, 2])
     #expect(all.people().map(\.ref) == ["person:camille"])
     #expect(all.people(limit: 0).isEmpty)
+}
+
+@Test func a_move_carries_its_matters_symbol_or_none() throws {
+    let checks = [try move("c1", matter: "a", day: "2026-11-16"), try move("c2", matter: "gone", day: "2026-11-15")]
+    let moves = YourMoves(checks: checks, matters: try matters(), now: now, timeZone: utc).moves
+    #expect(moves.first { $0.id == "c1" }?.symbol == MatterIcons.fallback)
+    #expect(moves.first { $0.id == "c2" }?.symbol == nil)
 }

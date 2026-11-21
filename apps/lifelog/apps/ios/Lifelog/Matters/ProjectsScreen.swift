@@ -72,34 +72,42 @@ struct ProjectsScreen: View {
         @Bindable var router = router
         switch router.detail {
         case .project(let id)?:
-            NavigationStack { ProjectDetails(id: id).id(id) }
+            stack { ProjectDetails(id: id).id(id) }
         case .matter(let id)?:
-            NavigationStack(path: $router.matterPath) {
-                MatterPage(id: id, hasSettings: sizeClass == .regular).id(id)
-                    .navigationDestination(for: AppRouter.MatterRoute.self) { route in
-                        switch route {
-                        case .card(let ref):
-                            CardPage(
-                                ref: ref, source: life.asks(ofMatter: id), notes: $notes,
-                                leave: { router.matterPath = [] }
-                            )
-                            // A pushed screen: Back, then the Pendant.
-                            .shellBar("", hasSettings: false)
-                        }
-                    }
-            }
-            .zooms(from: id, in: matterZoom)
-            // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
-            // opens on its own question.
-            .onChange(of: router.matterPath) { _, path in
-                guard path.isEmpty, let taken = notes.taken else { return }
-                life.forget(taken.key)
-                notes.taken = nil
-            }
+            stack { MatterPage(id: id, hasSettings: sizeClass == .regular).id(id) }
+                .zooms(from: id, in: matterZoom)
+        case .agents?:
+            stack { AgentsScreen() }
         case nil:
             Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
                 // Loading, unreachable, no matters: the top group stays.
                 .shellBar("", hasSettings: sizeClass == .regular)
+        }
+    }
+
+    /// The detail column's page and what is pushed on it (`AppRouter.MatterRoute`). Back to the page, by his Done or the
+    /// system's back: the result he read is forgotten, so the next ask opens on its own question.
+    private func stack(@ViewBuilder _ root: () -> some View) -> some View {
+        @Bindable var router = router
+        return NavigationStack(path: $router.matterPath) {
+            root().navigationDestination(for: AppRouter.MatterRoute.self) { route in
+                switch route {
+                case .card(let ref, let matter):
+                    CardPage(
+                        ref: ref, source: life.asks(ofMatter: matter), notes: $notes,
+                        leave: { router.matterPath = [] }
+                    )
+                    // A pushed screen: Back, then the Pendant.
+                    .shellBar("", hasSettings: false)
+                case .agent(let id): AgentPage(id: id)
+                case .matter(let id): MatterPage(id: id, hasSettings: false)
+                }
+            }
+        }
+        .onChange(of: router.matterPath) { _, path in
+            guard path.isEmpty, let taken = notes.taken else { return }
+            life.forget(taken.key)
+            notes.taken = nil
         }
     }
 

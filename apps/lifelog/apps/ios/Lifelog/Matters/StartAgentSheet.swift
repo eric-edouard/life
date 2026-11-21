@@ -70,7 +70,9 @@ struct StartAgentSheet: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
-            DictationField(prompt: "Goal", text: $goal, axis: .vertical).font(.quote).foregroundStyle(Palette.fg)
+            // The goal's own Send (or a swipe up from the microphone) starts it: the one submit is the field's.
+            DictationField(prompt: "Goal", text: $goal, axis: .vertical, send: start).font(.quote)
+                .foregroundStyle(Palette.fg)
                 .lineLimit(2...).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
             Caps("Who works on it")
             SegmentedChoice(choices: RuntimeName.offered, selection: $runtimeName, title: \.name)
@@ -93,13 +95,12 @@ struct StartAgentSheet: View {
         }
     }
 
-    /// The answers of each state, in the bottom bar: Start; Starting…; Done; Try again (and the other program) or Close.
+    /// The answers of each state, in the bottom bar: none while he writes (the goal's Send starts it); Starting…; Done;
+    /// Try again (and the other program) or Close.
     @ViewBuilder private var buttons: some View {
         VStack(spacing: 10) {
             switch state {
-            case .idle:
-                Button("Start") { start() }.buttonStyle(.pill(.filled))
-                    .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).offWhileOutOfReach()
+            case .idle: EmptyView()
             case .running:
                 Button {
                 } label: {
@@ -184,6 +185,7 @@ struct StartAgentSheet: View {
     }
 
     private func start() {
+        guard !goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !life.saysOutOfReach() else { return }
         let runtime = runtimeName?.rawValue
         let model = model
         Task {

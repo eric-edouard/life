@@ -177,11 +177,10 @@ struct MovesList: View {
 
     private func row(_ move: YourMoves.Move, at index: Int, of count: Int) -> some View {
         let refused = failure(of: move)
-        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the step, then the matter
+        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the matter, then the step
         // and its age, or why Life refused it, in `flag`.
-        let symbol = move.check.matter.flatMap { id in life.matters.value?.matters.first { $0.id == id.id } }?.symbol
         let content = Row(
-            title: move.check.said?.text ?? move.check.question, icon: isSelecting ? nil : symbol,
+            title: move.check.title, icon: isSelecting ? nil : move.symbol,
             iconTint: Palette.muted, detail: move.detail, state: refused.map { .refused($0.reason) } ?? .known,
             isInList: true)
         return Group {

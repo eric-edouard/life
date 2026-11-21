@@ -16,14 +16,12 @@ struct VocabularyView: View {
             VStack(alignment: .leading, spacing: 24) {
                 if let terms = words.shown {
                     VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 8) {
-                            Field(prompt: "Add a word or a name", text: $draft, surface: .sheet)
-                                .autocorrectionDisabled()
-                                .submitLabel(.done)
-                                .onSubmit { add(to: terms) }
-                                .accessibilityIdentifier("vocabulary.add")
-                            RowButton(title: "Add") { add(to: terms) }.disabled(typed.isEmpty)
-                        }
+                        // Its Send adds the word: the one submit is the field's.
+                        Field(prompt: "Add a word or a name", text: $draft, surface: .sheet) { add(to: terms) }
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                            .onSubmit { add(to: terms) }
+                            .accessibilityIdentifier("vocabulary.add")
                         Text("Used from the next recording.").font(.note).foregroundStyle(Palette.muted)
                         switch words {
                         case .saving:
