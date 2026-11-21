@@ -75,6 +75,8 @@ struct ProjectsScreen: View {
                 .zooms(from: id, in: matterZoom)
         case .agents?:
             stack { AgentsScreen() }
+        case .spending?:
+            stack { SpendingPage() }
         case nil:
             Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
                 // Loading, unreachable, no matters: the top group stays.
@@ -141,12 +143,12 @@ struct ProjectsScreen: View {
         askNotes.taken = nil
     }
 
-    /// A regular width always shows a page: a project's Details stay; a matter no longer in the chip's list gives way to
-    /// its first.
+    /// A regular width always shows a page: a page that is not a matter (Details, the agents, Spending) stays; a matter no
+    /// longer in the chip's list gives way to its first.
     private func fillSelection() {
         guard sizeClass == .regular else { return }
-        // Details, or a matter he opened from elsewhere, stay whatever the chip's list holds.
-        if case .project = router.detail { return }
+        // A page that is not a matter, or a matter he opened from elsewhere, stays whatever the chip's list holds.
+        if router.detail != nil, router.matter == nil { return }
         if router.isMatterFromElsewhere { return }
         let matters = list(of: chosen).value?.matters
         let isGone = router.matter == nil || matters?.contains { $0.id == router.matter } == false
