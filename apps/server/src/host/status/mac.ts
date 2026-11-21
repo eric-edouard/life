@@ -2,6 +2,7 @@ import { DAY } from "../../core/clock";
 import { holder } from "../../core/lock";
 import { TEST } from "../../core/paths";
 import { exec } from "../../core/proc";
+import { ASK, type Card } from "./card";
 
 // The Mac Life runs on, as the status snapshot shows it (apps/server/src/host/status/snapshot.ts): awake since, battery, disk, the archive and the
 // watcher, and its sleeps of the last day. Read-only.
@@ -61,4 +62,29 @@ export async function sleeps(now: number) {
     }
   }
   return list;
+}
+
+/** The status card "MacBook": red when the archive or the watcher is not running on it. */
+export function macCard(mac: Awaited<ReturnType<typeof macState>>): Card {
+  const down = mac.services.filter((s) => !s.running);
+  return {
+    ...(down.length
+      ? {
+          ask: ASK(
+            `${down.map((s) => s.name).join(", ")} not running on the Mac`
+          ),
+          tone: "bad" as const,
+          word: `${down.length} down`,
+        }
+      : { tone: "ok" as const, word: "online" }),
+    facts: [
+      { at: mac.awakeSince, label: "Awake since" },
+      { label: "Battery", value: mac.battery },
+      { label: "Disk free", value: `${mac.freeGb} GB` },
+    ],
+    group: "mac",
+    headline: "online",
+    id: "mac",
+    name: "MacBook",
+  };
 }
