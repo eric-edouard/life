@@ -92,8 +92,10 @@ struct CheckCard: View {
             || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
     }
 
-    /// A guessed person with the chat the network shows them in: that is the thing.
-    private var identity: Check.NetworkIdentity? { check.group == .guessedPerson ? check.networkIdentity : nil }
+    /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
+    private var identity: Check.NetworkIdentity? {
+        check.group == .guessedPerson || check.group == .samePerson ? check.networkIdentity : nil
+    }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
     /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
@@ -119,7 +121,11 @@ struct CheckCard: View {
 
     @ViewBuilder private var content: some View {
         DraftBlock(check: check, isBoxed: false)
-        if let needs = check.needs, !needs.isEmpty { NeedsBlock(needs: needs) }
+        if !(check.needs ?? []).isEmpty {
+            if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.bankTrip.isCodeSaved) }
+            let rows = check.shownNeedRows
+            if !rows.isEmpty { NeedsBlock(rows: rows) }
+        }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)
         case .newMatter:
@@ -166,12 +172,14 @@ struct CheckCard: View {
 
     /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
     /// it has one and it is not shown beside it; then "Tell the agent…" on an agent's question.
-    private var askLinks: [AskLink] {
-        var links: [AskLink] = []
+    private var askLinks: [QuietChip] {
+        var links: [QuietChip] = []
         if !isContextBeside, let title = check.contextLinkTitle {
-            links.append(AskLink(title: title) { input.showsContext = true })
+            links.append(QuietChip(title, symbol: "questionmark.circle") { input.showsContext = true })
         }
-        if check.takesOwnWords { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
+        if check.takesOwnWords {
+            links.append(QuietChip("Tell the agent…", symbol: "text.alignleft") { input.isWritingOwnWords = true })
+        }
         return links
     }
 
@@ -187,7 +195,7 @@ struct CheckCard: View {
                 HStack(spacing: Metrics.Spacing.m) {
                     matterPill.fixedSize()
                     Spacer(minLength: Metrics.Spacing.m)
-                    if let link = askLinks.first { TextLink(link.title, action: link.run).fixedSize() }
+                    if let link = askLinks.first { link.fixedSize() }
                 }
                 .preference(key: LinkBesideMatter.self, value: true)
                 HStack(spacing: 0) {

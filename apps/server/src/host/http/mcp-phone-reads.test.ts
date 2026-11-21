@@ -115,7 +115,7 @@ const kitOnWhatsapp = new Map([
     },
   ],
 ]);
-/** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
+/** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice, a same person. */
 const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
   decisions: [
@@ -369,6 +369,14 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       )[s] ?? null,
   },
   plans: new Set(["dec_000000000002"]),
+  samePersons: [
+    {
+      guess: "person:inf_kit",
+      handles: ["+33600000001"],
+      lines: ["the watchmaker, +33600000001", "his partner"],
+      other: "person:partner",
+    },
+  ],
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
   voices: [
@@ -575,6 +583,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         nextStep: {
           at: "2026-10-13T09:00:00.000Z",
           by: "owner",
+          // His word's context: on read_matter only, never in read_matters' list.
+          context: "The shop said Friday ([the call](life:obs_000000000005)).",
           kind: "wait_event",
           text: "The shop's quote",
           waitsOn: "the shop",

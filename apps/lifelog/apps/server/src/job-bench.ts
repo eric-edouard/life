@@ -1,7 +1,7 @@
 // The job worker's test bench (jobs.test.ts, scribe-dispatch.test.ts): a fake ElevenLabs and
 // speech service, a test database reset before each test, and the helpers that admit a block and
 // read its job. Call it once at the top of a test file.
-import { afterAll, beforeEach } from "bun:test";
+import { afterAll, beforeEach, onTestFinished } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import { heartbeats } from "@lifelog/db/schema";
@@ -66,6 +66,9 @@ export function jobBench() {
     const s = services(testConfig(baseUrl, overrides), env.db, {
       audio: bucket,
     });
+    // Every test's app shares the one db, and a job worker is one per db: it stops, its round settled, before the next
+    // test resets the db.
+    onTestFinished(() => s.worker.stop());
     return Object.assign(createApp(s), { audio: bucket, s });
   };
   // The audio of the last upload ElevenLabs got.

@@ -277,9 +277,10 @@ late with harm), or spoken asks above about one a day for a month.
   allmodels' abliterated one on Refuseless then Hopper at high (his choice, 8 Nov 2026): about half the price, the abliterated model for what the plain one refuses. `isOnline`
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
-- Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, when its router sends one, its
-  cost (`costUsd`; a call without it is unpriced) on its `model.run` line, with its run. A run's use is the sum of its
-  calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
+- Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, through a router, what each router
+  it tried took (`spentByRouter`: dollars, tokens, and whether every try sent its cost; one that didn't is unpriced, its
+  dollars a floor) on its `model.run` line, with its run.
+  Each line is read as spends (`memory/spends.ts`). A run's use is the sum of its calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
   shows). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under it,
   then the spend by source; the quota lines appear only for an engine that has one (`hasQuota`).
 - `bun life memory source-use [--days 7] [--json]`: what each source costs a day (items and units, readers, model
@@ -475,8 +476,10 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete). Each pass takes at most 256 missing texts, newest
   first; hash progress survives restarts. Normalized float32 partitions hold at most 4,096 rows, and exact search
   merges bounded best candidates without loading or sorting every vector.
-- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
-  its conversation as it is now, 5 turns before it. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
+- `fetch <id> [--from-turn n] [--at instant] [--until instant]`: a conversation's or a unit's lines, 200 at a time. A
+  turn ref (an ask's `ref`) opens its conversation as it is now, 5 turns before it. `--at`/`--until` cut a recording to
+  a span, such as a call's (a recording cut): its turns that overlap it, a turn crossing an edge kept to its words
+  wholly inside, then at the span's first turn for a turn ref; anything else refuses them. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
   search cites it) gives it whole from its export copy, the assistant's replies too, kept or not by the import; a page
   is at most 200 lines and 50,000 characters.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the

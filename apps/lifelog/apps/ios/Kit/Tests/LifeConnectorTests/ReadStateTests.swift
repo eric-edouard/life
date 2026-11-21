@@ -77,8 +77,14 @@ private func shown(_ state: ReadState<[Int]>) -> String {
 @Test func losingThePairingShowsNoOldValue() {
     var state = ReadState<[Int]>()
     state.apply(.succeeded([1], then))
+    #expect(state.shown().onScreen == [1])
+    state.apply(.failed(.unreachable))
+    // Stale, still on screen: its count stays.
+    #expect(state.shown().onScreen == [1])
     state.apply(.failed(.notPaired))
     #expect(shown(state) == "notPaired")
+    // The value outlives the pairing, but nothing on screen, a title's count included, reads it.
+    #expect(state.value == [1] && state.shown().onScreen == nil)
 }
 
 @Test func aFirstReadThatDidNotLandNeedsARetry() {

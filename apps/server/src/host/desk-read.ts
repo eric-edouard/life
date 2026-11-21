@@ -15,6 +15,7 @@ import type {
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
+import { isBeforeAssignments, isOldShape, NOT_MIGRATED } from "./desk-shape";
 import { COMPLAINT_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
@@ -55,6 +56,8 @@ export interface AssignmentRow {
   agent_id: string;
   closed_at: string | null;
   id: string;
+  /** The matter he (or the hand-out) chose, by its id when it was opened or re-pointed: the finder's tie-breaker between matters sharing its anchors (`matterFinderOf`'s `prefer`). Null: none chosen (an agent's own, or opened before 21 Nov 2026), or an id a re-group has since replaced. */
+  matter_id: string | null;
   /** Where its notes are: a file in his agents repo (`desk.agentsRepo`), else under the desk's folders. */
   notes_path: string;
   opened_at: string;
@@ -86,6 +89,8 @@ export interface TurnRow {
   ended_at: string | null;
   heard_at: string | null;
   id: number;
+  /** The model it ran on, as `<runtime>:<model>` (`default`: the runtime's own), snapshotted at its start; null before the column. */
+  model: string | null;
   outcome: string | null;
   reminded_at: string | null;
   session: string | null;
@@ -124,10 +129,10 @@ export const handedOutSince = (db: Database, since: string) =>
 export const handOutsSince = (db: Database, since: string) =>
   db
     .query<
-      Pick<AssignmentRow, "closed_at" | "id" | "why_not_started">,
+      Pick<AssignmentRow, "closed_at" | "id" | "matter_id" | "why_not_started">,
       [string]
     >(
-      "select id, closed_at, why_not_started from assignment where opened_by = 'desk' and opened_at >= ? order by opened_at"
+      "select id, closed_at, matter_id, why_not_started from assignment where opened_by = 'desk' and opened_at >= ? order by opened_at"
     )
     .all(since);
 
@@ -236,10 +241,10 @@ export function agentHomeOf(
   return a.project ? join(agentsRepo, `project-${a.project}`) : null;
 }
 
-/** Which assignment owns card `d`: the one that asked it, written once when asked (`card`, `askDecision`), never worked out from anchors that move; one asked before the desk kept owners (20 Nov 2026), its asker's first assignment (its one then); none for a card no registered agent asked. */
+/** Which assignment owns card `d`: the one that asked it, written once when asked (`card`, `askDecision`), never worked out from anchors that move; with no row (the desk stopped before it committed), the assignment its line names; one asked before the desk kept owners (20 Nov 2026), its asker's first assignment (its one then); none for a card no registered agent asked. */
 export const assignmentOfCard = (
   db: Database,
-  d: { agent?: string; id: string }
+  d: { agent?: string; assignment?: string; id: string }
 ) =>
   d.agent
     ? (db
@@ -247,6 +252,7 @@ export const assignmentOfCard = (
           "select assignment_id as id from card where decision_id = ?"
         )
         .get(d.id)?.id ??
+      d.assignment ??
       db
         .query<{ id: string }, [string]>(
           "select id from assignment where agent_id = ? order by opened_at, rowid limit 1"
@@ -323,6 +329,14 @@ export const holderOf = (db: Database, steps: string[]) =>
           `select a.id from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status = 'active' and s.closed_at is null and n.step in (${steps.map(() => "?").join(",")}) limit 1`
         )
         .get(...steps)?.id ?? null);
+
+/** The open assignment on the matter he chose, by its id (`matter_id`), if one is. */
+export const openAssignmentOfMatter = (db: Database, matter: string) =>
+  db
+    .query<AssignmentRow, [string]>(
+      "select * from assignment where matter_id = ? and closed_at is null order by opened_at desc limit 1"
+    )
+    .get(matter);
 
 /** The active agents that take matters (`agentForOf`): a project's or the Personal agent, oldest first. */
 export const standingAgents = (db: Database): StandingAgent[] =>
@@ -424,17 +438,22 @@ export const agentChangeOf = (db: Database, ask: string) =>
  * the assignment it opened or found (on a matter, its agent's newest anchored on any of its `steps`; else the agent's own), its agent's
  * newest session and that assignment's first turn, each null until written.
  */
-export function readStartFacts(db: Database, ask: string, steps?: string[]) {
+export function readStartFacts(
+  db: Database,
+  ask: string,
+  { matter, steps }: { matter?: string; steps?: string[] } = {}
+) {
   const change = agentChangeOf(db, ask);
   const id = change?.agent_id;
-  // On a matter, its agent's assignment anchored on any of `steps` (open first, as Start found it, then newest); else its own.
+  // On a matter, its agent's assignment anchored on any of `steps` (an open one first, as Start found it, then the one
+  // on the matter he chose, then newest): a closed one's past never answers today's Start; else its own.
   const assignment =
     (id &&
       db
-        .query<AssignmentRow, [string, string | null]>(
-          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by closed_at is not null, opened_at desc limit 1"
+        .query<AssignmentRow, [string, string | null, string | null]>(
+          "select * from assignment s where agent_id = ?1 and iif(?2 is null, id not in (select assignment_id from anchor), id in (select assignment_id from anchor where step in (select value from json_each(?2)))) order by closed_at is not null, matter_id is not ?3, opened_at desc limit 1"
         )
-        .get(id, steps ? JSON.stringify(steps) : null)) ||
+        .get(id, steps ? JSON.stringify(steps) : null, matter ?? null)) ||
     null;
   const one = <T>(sql: string, key?: string | null) =>
     (key ? db.query<T, [string]>(sql).get(key) : null) ?? null;
@@ -478,6 +497,11 @@ export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
     model: a.model ?? set?.model ?? null,
   };
 }
+
+/** What a turn of agent `a` runs on, as the price table names it (`core/prices.ts`): `<runtime>:<model>`, `default` for the runtime's own. */
+export const turnModelOf = (
+  a: Pick<AgentRow, "effort" | "model" | "runtime">
+) => `${a.runtime}:${modelOf(a).model ?? "default"}`;
 
 /** A line a scheduled task or a session posted for the report (`bun life desk report-line`): one per source per day. */
 export interface ReportLine {
@@ -532,27 +556,6 @@ export function notesOutsideOf(path: string, state: string) {
     db.close();
   }
 }
-
-const hasColumn = (db: Database, table: string, column: string) =>
-  db
-    .query(`select 1 from pragma_table_info('${table}') where name = ?`)
-    .get(column) !== null;
-
-/** Whether the store predates assignments (`desk/store-step.ts`'s `stepStore` reshapes it). */
-export const isBeforeAssignments = (db: Database) =>
-  hasColumn(db, "agent", "wait_events");
-
-/** Whether the store's agents predate roles (`stepRoles` reshapes it): a store that has agents and no `role`. */
-export const isBeforeRoles = (db: Database) =>
-  hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
-
-/** Whether the store at `db` is of an old shape: only the desk helper's store steps (`desk/store-step.ts`) change it. */
-export const isOldShape = (db: Database) =>
-  isBeforeAssignments(db) || isBeforeRoles(db);
-
-/** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
-export const NOT_MIGRATED =
-  "not migrated: the desk helper's store step has not run on it (its log says why)";
 
 /** What reading the desk's store gave: nothing while the desk is off, why when it could not be read. */
 export type DeskRead<T> =

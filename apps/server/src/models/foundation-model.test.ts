@@ -23,18 +23,17 @@ const ask = {
 };
 
 test("answers each request in order: a reply with its OS, a refusal, and unavailable once the helper is gone", async () => {
-  const [a, b, c] = await askFoundationModel([ask, ask, ask], helper);
+  const [a, b, c] = await askFoundationModel([ask, ask, ask], [helper]);
   expect(a).toEqual({ os: "Version 27.2", reply: { author: "person" } });
   expect(b).toEqual({ detail: "sensitive", error: "refused" });
   expect(c).toMatchObject({ error: "unavailable" });
-  // Background priority (`taskpolicy -b`) is slow on a loaded Mac.
-}, 30_000);
+});
 
 test("no helper answers every request unavailable, never a throw", async () => {
-  expect(await askFoundationModel([ask], "")).toEqual([
+  expect(await askFoundationModel([ask], [])).toEqual([
     { detail: "no helper (LIFE_FOUNDATION_MODEL)", error: "unavailable" },
   ]);
-  expect(await askFoundationModel([], helper)).toEqual([]);
+  expect(await askFoundationModel([], [helper])).toEqual([]);
 });
 
 test("its model.local line says whether every request was answered, from the replies, never the exit", async () => {
@@ -47,7 +46,7 @@ test("its model.local line says whether every request was answered, from the rep
     return path;
   };
   const okOf = async (path: string, asks = [ask, ask]) => {
-    await askFoundationModel(asks, path);
+    await askFoundationModel(asks, [path]);
     // Today's file, not the newest: another test may leave a later day's.
     return logEvents(logFileOf(clock().toISOString()), "model.local").at(-1)
       ?.ok;
@@ -61,4 +60,4 @@ test("its model.local line says whether every request was answered, from the rep
   );
   // Answers one, refuses one, then exits before the third: a mixed batch.
   expect(await okOf(helper, [ask, ask, ask])).toBe(false);
-}, 60_000);
+});

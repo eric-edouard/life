@@ -64,8 +64,12 @@ import SwiftUI
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack {
-                        CountBadge(count: 3); TextLink("Retry") {}; TextLink("Open in Claude", isOutward: true) {}
+                        CountBadge(count: 3); TextLink("All 5", to: .page) {};
+                        TextLink("Open in Claude", to: .outside) {}
                     }
+                    QuietChip("Why this reply?", symbol: "questionmark.circle") {}
+                    QuietChip("From two quotes", symbol: "doc", isMuted: true) {}
+                    AddRow("Add someone") {}
                     Button("Sending…") {}.buttonStyle(.pill(.quiet, size: .compact, isBusy: true))
                     SegmentedChoice(choices: RuntimeName.offered, selection: $runtime, title: \.name)
                     Text("A draft on paper").font(.quote).padding(16).frame(maxWidth: .infinity, alignment: .leading)

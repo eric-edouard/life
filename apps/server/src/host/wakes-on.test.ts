@@ -28,6 +28,7 @@ const filter = (f: Partial<EventFilter>): EventFilter => ({
   ...f,
 });
 const ctx = (over: Partial<WakesOnContext> = {}): WakesOnContext => ({
+  cards: [],
   channels: EVENT_CHANNELS,
   hasNet: false,
   people,
@@ -271,7 +272,7 @@ test("the lines keep the filters' order, then the open card (with its deadline),
   };
   const lines = wakesOnOf(
     [filter({ text_matches: "a" }), filter({ person: "Test Ana" })],
-    ctx({ card, hasNet: true })
+    ctx({ cards: [card], hasNet: true })
   );
   expect(lines.map((l) => l.kind)).toEqual([
     "message",
@@ -281,7 +282,7 @@ test("the lines keep the filters' order, then the open card (with its deadline),
   ]);
   expect(lines[0]).toMatchObject({ words: "a" });
   expect(lines[1]).toMatchObject({ party: ana });
-  expect(wakesOnOf([], ctx({ card }))).toEqual([
+  expect(wakesOnOf([], ctx({ cards: [card] }))).toEqual([
     {
       card: card.question,
       check: card.check,

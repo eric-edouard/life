@@ -2,10 +2,13 @@ import {
   appendFileSync,
   closeSync,
   existsSync,
+  fstatSync,
   mkdirSync,
   openSync,
   readdirSync,
   readFileSync,
+  readSync,
+  renameSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -27,17 +30,26 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
 
-/** A file as a read saw it: unchanged while its inode, size and mtime are. */
+/** A file as a read saw it: unchanged while its inode, birth time, size and mtime are. */
 interface Seen {
+  birthtimeMs: number;
   ino: number;
   mtimeMs: number;
   size: number;
 }
+/** The same file, maybe grown: the same inode and birth time (an inode number reused for a new file is born later). */
+const isSameNode = (a: Seen, s: Seen) =>
+  a.ino === s.ino && a.birthtimeMs === s.birthtimeMs;
 // An unchanged inode, size and mtime is trusted: a same-size rewrite within one mtime tick (APFS: nanoseconds) would
 // be missed; only code that appends or rewrites whole writes these files.
 const isSameFile = (a: Seen, s: Seen) =>
-  a.ino === s.ino && a.size === s.size && a.mtimeMs === s.mtimeMs;
-const seenOf = ({ ino, mtimeMs, size }: Seen): Seen => ({ ino, mtimeMs, size });
+  isSameNode(a, s) && a.size === s.size && a.mtimeMs === s.mtimeMs;
+const seenOf = ({ birthtimeMs, ino, mtimeMs, size }: Seen): Seen => ({
+  birthtimeMs,
+  ino,
+  mtimeMs,
+  size,
+});
 
 /**
  * `read` of a file, kept per process: read again only once the file changed (`isSameFile`), whole. For values far
@@ -83,64 +95,243 @@ export function readChangeStamp(paths: readonly string[]) {
   return `${newest}/${bytes}`;
 }
 
-/** A file's complete lines, blanks included (`linesOf`'s count). */
-export const readLineCount = keptReader((path) => linesOf(path).length);
-
-interface Read extends Seen {
-  /** The fold so far, of the bytes up to `end` (just past the last newline read). */
-  acc: unknown;
-  end: number;
-  hash: number | bigint;
+/**
+ * Writes whole or not at all: a temp file beside it, then a rename. A new file, so every process's kept read of it
+ * (`readAppended`, `readLines`) reads it whole again: the one way to rewrite an append-only file (a migration, a test).
+ */
+export function writeWhole(path: string, data: string | Uint8Array) {
+  // Each process its own temp file: the app starts several at once, each may rename an old file.
+  const temp = `${path}.${process.pid}.tmp`;
+  writeFileSync(temp, data);
+  renameSync(temp, path);
 }
-const reads = new Map<string, Read>();
+
+/** The file at `path` opened to read, or undefined when there is none. */
+function openIfThere(path: string) {
+  try {
+    return openSync(path, "r");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return;
+    }
+    throw e;
+  }
+}
+
+/** Bytes `from` to `to` of the open file `fd`; a file that ends before `to` (cut since its stat) throws, keeping the last read. */
+function readBytes(fd: number, from: number, to: number) {
+  const bytes = Buffer.alloc(Math.max(0, to - from));
+  let n = 0;
+  while (n < bytes.length) {
+    const got = readSync(fd, bytes, n, bytes.length - n, from + n);
+    if (got === 0) {
+      throw new Error(`file ended at byte ${from + n}, before ${to}`);
+    }
+    n += got;
+  }
+  return bytes;
+}
+
+/** How many bytes a scan reads at once (more only for a longer line). */
+const SCAN = 64 * 1024;
 
 /**
- * An append-only file as `add` folds its rows, kept per process: a read parses only the complete lines appended since
- * the last one; a file replaced or rewritten (a migration, a restore, a test) is read whole again. A grown file gets
- * a new result (`start(last)` copies the last one, then its new rows are added), so a result already returned never
- * changes: callers only read it. One fold per path.
+ * The complete lines of the open file `fd` from byte `from` to `size`, `SCAN` bytes at a time: `line` gets each line's
+ * first byte and its bytes (no newline). Returns the byte just past the last newline.
  */
-// ponytail: the fold stays in memory and grows with its file (verdicts most), and a change reads and hashes the whole
-// file again (no reparse): keep less state in an only-growing file if that bites.
+function readLinesAt(
+  fd: number,
+  from: number,
+  size: number,
+  line: (at: number, bytes: Buffer) => void
+) {
+  let pos = from;
+  let want = SCAN;
+  while (pos < size) {
+    const bytes = readBytes(fd, pos, Math.min(size, pos + want));
+    const last = bytes.lastIndexOf(10);
+    if (last < 0) {
+      if (pos + bytes.length >= size) {
+        break;
+      }
+      want *= 2;
+      continue;
+    }
+    for (let i = 0, j = bytes.indexOf(10); j >= 0 && j <= last; ) {
+      line(pos + i, bytes.subarray(i, j));
+      i = j + 1;
+      j = bytes.indexOf(10, i);
+    }
+    pos += last + 1;
+    want = SCAN;
+  }
+  return pos;
+}
+
+interface Kept<F> extends Seen {
+  /** The fold so far, of the bytes up to `end`. */
+  acc: F;
+  /** Just past the last newline read. */
+  end: number;
+}
+
+/**
+ * The complete lines of the open file `fd` (at `path`) folded, kept per process in `kept` (one fold per path): a grown
+ * file (`isSameNode`, at least as long) is read only past the last newline read; another file (`writeWhole`), or a
+ * shorter one, whole. `begin` gets the last fold (none: from the start) and returns a fold of its own, fed every new line
+ * (blanks too) and then `done`; it never changes the last fold. Every read ends before `done`, and the fold is kept only
+ * once `done` returned: a read or a fold that throws leaves the last one as it was.
+ */
+// ponytail: a writer that rewrites an append-only file in place, not through `writeWhole`, at least as long, is taken as
+// grown: no code does (AGENTS.md, "A rename or a new field backfills"); checking would read the whole file again.
+function readFolded<F>(
+  kept: Map<string, Kept<F>>,
+  path: string,
+  fd: number,
+  begin: (last: F | undefined) => {
+    done: () => F;
+    line: (at: number, bytes: Buffer) => void;
+  }
+): Kept<F> {
+  const s = fstatSync(fd);
+  const last = kept.get(path);
+  if (last && isSameFile(last, s)) {
+    return last;
+  }
+  const isGrown = last && isSameNode(last, s) && s.size >= last.end;
+  const fold = begin(isGrown ? last.acc : undefined);
+  const end = readLinesAt(fd, isGrown ? last.end : 0, s.size, fold.line);
+  const read = { acc: fold.done(), end, ...seenOf(s) };
+  kept.set(path, read);
+  return read;
+}
+
+/** Every `LINE_STEP`-th line's byte is kept: a read from any line reads its block of at most that many lines. */
+const LINE_STEP = 1024;
+interface LineIndex {
+  count: number;
+  /** `starts[k]`: the byte line `k * LINE_STEP` starts at. */
+  starts: number[];
+}
+const lineIndexes = new Map<string, Kept<LineIndex>>();
+/** Where the open file's complete lines start (`LineIndex`), read once per process, then only its new bytes. */
+const readLineIndex = (path: string, fd: number) =>
+  readFolded(lineIndexes, path, fd, (last) => {
+    const ix = { count: last?.count ?? 0, starts: [...(last?.starts ?? [])] };
+    return {
+      done: () => ix,
+      line: (at) => {
+        if (ix.count % LINE_STEP === 0) {
+          ix.starts.push(at);
+        }
+        ix.count += 1;
+      },
+    };
+  });
+
+/** A file's complete lines, blanks included (`linesOf`'s count). */
+export function readLineCount(path: string) {
+  const fd = openIfThere(path);
+  if (fd === undefined) {
+    lineIndexes.delete(path);
+    return 0;
+  }
+  try {
+    return readLineIndex(path, fd).acc.count;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * A file's complete lines from line `from` up to line `to`, through one descriptor (a file replaced meanwhile is read
+ * as it was), one checkpoint block (`LINE_STEP` lines) at a time: a scan of any length holds one block, and reads the
+ * whole blocks its lines are in. Iterate it to its end or break, which closes the file.
+ */
+export function* readLines(
+  path: string,
+  from: number,
+  to = Number.POSITIVE_INFINITY
+) {
+  const fd = openIfThere(path);
+  if (fd === undefined) {
+    lineIndexes.delete(path);
+    return;
+  }
+  try {
+    const { acc: ix, end } = readLineIndex(path, fd);
+    const stop = Math.min(to, ix.count);
+    if (from >= stop) {
+      return;
+    }
+    for (let k = Math.floor(from / LINE_STEP); k * LINE_STEP < stop; k += 1) {
+      const block = readBytes(fd, ix.starts[k] ?? 0, ix.starts[k + 1] ?? end)
+        .toString("utf8")
+        .split("\n");
+      const first = k * LINE_STEP;
+      for (
+        let n = Math.max(from, first);
+        n < Math.min(stop, first + LINE_STEP);
+        n += 1
+      ) {
+        yield block[n - first] ?? "";
+      }
+    }
+  } finally {
+    closeSync(fd);
+  }
+}
+
+const reads = new Map<string, Kept<unknown>>();
+
+/**
+ * An append-only file as `add` folds its rows, kept per process (`readFolded`): a read parses only the complete lines
+ * appended since the last one; a file replaced or rewritten (`writeWhole`: a migration, a restore, a test) is read whole
+ * again. A grown file gets a new result (`start(last)` copies the last one, then its new rows are added), so a result
+ * already returned never changes: callers only read it. One fold per path.
+ */
+// ponytail: the fold stays in memory and grows with its file (verdicts most): keep less state in an only-growing file
+// if that bites.
 export function readAppended<T, F>(
   path: string,
   schema: z.ZodType<T>,
   start: (last?: F) => F,
   add: (acc: F, row: T) => void
 ): F {
+  const kept = reads as Map<string, Kept<F>>;
   const s = statSync(path, { throwIfNoEntry: false });
-  if (!s) {
-    reads.delete(path);
+  const last = kept.get(path);
+  if (s && last && isSameFile(last, s)) {
+    return last.acc;
+  }
+  const fd = openIfThere(path);
+  if (fd === undefined) {
+    kept.delete(path);
     return start();
   }
-  const last = reads.get(path);
-  if (last && isSameFile(last, s)) {
-    return last.acc as F;
+  try {
+    return readFolded(kept, path, fd, (before) => {
+      const lines: string[] = [];
+      return {
+        // Parsed before any is added: a bad line throws and leaves the last read as it was.
+        done: () => {
+          const rows = lines.map((l) => schema.parse(JSON.parse(l)));
+          const acc = start(before);
+          for (const r of rows) {
+            add(acc, r);
+          }
+          return acc;
+        },
+        line: (_, bytes) => {
+          if (bytes.length > 0) {
+            lines.push(bytes.toString("utf8"));
+          }
+        },
+      };
+    }).acc;
+  } finally {
+    closeSync(fd);
   }
-  const bytes = readFileSync(path);
-  const isGrown =
-    last?.ino === s.ino &&
-    bytes.length >= last.end &&
-    Bun.hash(bytes.subarray(0, last.end)) === last.hash;
-  const from = isGrown ? last.end : 0;
-  const end = bytes.lastIndexOf(10) + 1;
-  // Parsed before any is added: a bad line throws and leaves the last read as it was.
-  const rows = new TextDecoder()
-    .decode(bytes.subarray(from, end))
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => schema.parse(JSON.parse(l)));
-  const acc = start(isGrown ? (last.acc as F) : undefined);
-  for (const r of rows) {
-    add(acc, r);
-  }
-  reads.set(path, {
-    acc,
-    end,
-    hash: Bun.hash(bytes.subarray(0, end)),
-    ...seenOf(s),
-  });
-  return acc;
 }
 /** Writes a small JSON state file (the schedule's), its folder made if missing. */
 export function writeJson(path: string, value: unknown) {

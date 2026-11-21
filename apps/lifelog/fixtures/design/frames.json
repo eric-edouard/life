@@ -1,4 +1,14 @@
 {
+  "CfgPlaces": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureSheet",
+      "settings",
+      "-fixturePage",
+      "apps"
+    ]
+  },
   "DuoFoldImportantCard": {
     "why": "Its card (Return Jun’s drill, the switched stack) is not in the design data, and Life sends no reason a card is first: of this frame only the pill's flag is built."
   },
@@ -80,7 +90,7 @@
   },
   "DuoFoldPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
+    "taps": ["Sort", "A to Z"]
   },
   "DuoFoldPeopleOrgs": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
@@ -95,7 +105,7 @@
   },
   "DuoFoldPeopleSort": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter"]
+    "taps": ["Sort"]
   },
   "DuoFoldPerson": {
     "args": [
@@ -275,6 +285,12 @@
   "DuoFoldProjectTellLife": {
     "why": "Its card (StackPlan, the kitchen's plan) is not in the design data: the ready line stands over his words on a decision whose matter has a project underway."
   },
+  "DuoFoldStackPay": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay"]
+  },
+  "DuoFoldStackPayQr": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay_qr"]
+  },
   "DuoFoldToastImportantOff": {
     "args": [
       "-fixtureLife",
@@ -306,7 +322,7 @@
   },
   "DuoPeopleAZ": {
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
-    "taps": ["Filter", "A to Z"]
+    "taps": ["Sort", "A to Z"]
   },
   "DuoPeopleOrg": {
     "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
@@ -384,7 +400,31 @@
   "ProjectTellLife": {
     "why": "Its card (StackPlan, the kitchen's plan) is not in the design data and the stack's sheet is not built: Tell the agent… is written on the card, and the ready line stands over his words there on a decision whose matter has a project underway."
   },
+  "StackApprove": {
+    "why": "A sign-in to approve in another app: no need on the wire names an app to open without an account (a server gap), so the card has no Open K PLUS."
+  },
+  "StackOnlyYouPay": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay"]
+  },
+  "StackPayBack": {
+    "why": "After Open K PLUS: the simulator has no K PLUS, so its open fails. By hand on a phone with K PLUS: -fixtureLife ok -fixtureCard dec_pay, then the filled answer."
+  },
+  "StackPayQr": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay_qr"]
+  },
+  "StackPayQrBack": {
+    "why": "After Save QR and open K PLUS: the simulator asks to add to Photos and has no K PLUS to open, so its open fails and the card says so. By hand on a phone with K PLUS: -fixtureLife ok -fixtureCard dec_pay_qr, then the filled answer."
+  },
+  "StackPayQrDiffers": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "dec_pay_qr_differs"]
+  },
   "ToastImportantOff": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
+  },
+  "DuoPeopleTall": {
+    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
+  },
+  "DuoPersonTall": {
+    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
   }
 }

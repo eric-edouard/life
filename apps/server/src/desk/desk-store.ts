@@ -5,12 +5,8 @@ import { clock } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
-import {
-  assignmentOfCard,
-  isOldShape,
-  NOT_MIGRATED,
-  readCursor,
-} from "../host/desk-read";
+import { assignmentOfCard, readCursor } from "../host/desk-read";
+import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { COMPLAINT_RECEIVED } from "../host/events";
@@ -22,6 +18,10 @@ import type { Runtime } from "./runtimes/contract";
 // The desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`, WAL): the one state of the desk. Every rule reads its rows and
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows.
+
+/** At most one active or stopped agent of each role: the fresh schema's, and `stepRoles`'. */
+export const ONE_AGENT_PER_ROLE =
+  "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')";
 
 export const SCHEMA = `
 create table if not exists agent (
@@ -42,7 +42,7 @@ create table if not exists agent (
   outcome text,
   stopped_at text
 );
-create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped');
+${ONE_AGENT_PER_ROLE};
 create table if not exists assignment (
   id text primary key,
   agent_id text not null,
@@ -60,6 +60,7 @@ create table if not exists assignment (
   closed_at text,
   outcome text,
   why_not_started text,
+  matter_id text,
   check (closed_at is not null or wait_until is not null)
 );
 create index if not exists assignment_by_agent on assignment (agent_id, closed_at);
@@ -100,7 +101,8 @@ create table if not exists turn (
   tokens_in integer,
   tokens_cached integer,
   tokens_out integer,
-  context_used integer
+  context_used integer,
+  model text
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);
