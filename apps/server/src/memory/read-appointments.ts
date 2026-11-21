@@ -5,8 +5,8 @@ import { pushIdOf } from "../sources/lifelog-push";
 import { readAppointmentEvents, readAppointments } from "./appointments";
 import { readArrivalAppointments } from "./arrival-appointments";
 import { span } from "./episode-span";
-import type { SharedReads } from "./find-refs";
 import { matterOfSteps } from "./matter-read";
+import type { readMatterBook } from "./matters";
 import { readIndex } from "./memory-files";
 import { messageWordsOf } from "./message-files";
 import { clip, speakerOf } from "./units";
@@ -18,7 +18,7 @@ import type { People } from "./who";
 
 /** What the sheet reads, once per request: the people, the matter book, and a message by its key (`find-refs.ts`). */
 export interface AppointmentReads {
-  book: SharedReads["book"];
+  book: () => ReturnType<typeof readMatterBook>;
   message: (key: string) => SourceEvent | null;
   people: () => Promise<People>;
 }
