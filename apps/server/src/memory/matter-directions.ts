@@ -8,7 +8,8 @@ import {
   MatterDirectionFields,
   ONE_OF,
 } from "../records/matter";
-import type { Observation } from "../records/observation";
+import { type Observation, ObservationId } from "../records/observation";
+import { contextProblemOf, readsOnce } from "./find-refs";
 import {
   directionDueOf,
   laterShownOf,
@@ -29,11 +30,11 @@ import type { People } from "./who";
 import { dayNow } from "./zones";
 
 // The matters' directions (docs/glossary.md: matter direction): for each running matter due one (`isDirectionDue`), one
-// model call drafts its goal (where it is going) and its next step (what moves it now, and its kind), or, when the matter
+// model call drafts its goal (where it is going) and its next step (what moves it now, its kind and its context), or, when the matter
 // looks over, no next step and the later records that show it (`endingRecords`: the links step then judges them). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v2";
+const PROMPT = "memory-matter-directions.v3";
 /** The most characters of matters a night is shown, those with no direction first, then the newest; and one call. */
 const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
@@ -57,6 +58,10 @@ export async function dueDirectionsOf(
       : []
   );
 }
+
+/** A step's `id` for the next step's context to link (`life:`), when it is an observation's. */
+const linkOf = (ref: string) =>
+  ObservationId.safeParse(ref).success ? { id: ref } : {};
 
 /** A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now. */
 const shownOf = (
@@ -87,6 +92,7 @@ const shownOf = (
     text: clip(o.text, SHOWN_CHARS),
   })),
   open: v.openSteps.map((s) => ({
+    ...linkOf(s.ref),
     ...(s.when ? { due: s.when } : {}),
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
@@ -94,6 +100,7 @@ const shownOf = (
   people: matterPeopleOf(v).map(nameOf),
   projects: v.projects,
   steps: v.steps.slice(-SHOWN_STEPS).map((s) => ({
+    ...linkOf(s.ref),
     day: s.day,
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
@@ -146,6 +153,7 @@ export async function matterDirections(
     size
   );
   const step = await begin("matter-directions", "fast", { prompt: PROMPT });
+  const reads = { ...readsOnce(), people: async () => people };
   let drafted = 0;
   await inBatches(calls, step, async (call, dir) => {
     await step.attempt(async () => {
@@ -166,7 +174,7 @@ export async function matterDirections(
         ),
       });
       const list = (reply as { directions?: unknown } | null)?.directions;
-      const directions = checkedEntries(
+      const checked = checkedEntries(
         Array.isArray(list) ? list : [],
         Drafted,
         (d) => d.matter,
@@ -189,6 +197,15 @@ export async function matterDirections(
           steps: m?.v.steps.map((s) => s.ref) ?? [],
         };
       });
+      // A context whose `life:` links open nothing is dropped, by a card's rule; its next step stays.
+      const directions = await Promise.all(
+        checked.map(async (d) =>
+          d.nextStep?.context !== undefined &&
+          (await contextProblemOf(d.nextStep.context, reads))
+            ? { ...d, nextStep: { ...d.nextStep, context: undefined } }
+            : d
+        )
+      );
       appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [
         {
           at: step.now.toISOString(),

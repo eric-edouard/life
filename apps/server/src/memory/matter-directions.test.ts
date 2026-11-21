@@ -1,10 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import {
-  type DirectionPin,
-  MatterDirectionBatch,
-  MatterDirectionFields,
-} from "../records/matter";
+import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import { matterDirections } from "./matter-directions";
 import {
   directionDueOf,
@@ -449,13 +445,46 @@ test("a stored line of v1 (a next step, no laterShown) still parses; a draft wit
   ).toBe(false);
 });
 
-// life#817: a next step's context is his word's alone; Life's drafts carry none.
-test("a drafted next step carrying a context is refused", () => {
-  const draft = (nextStep: object) =>
-    MatterDirectionFields.safeParse({ goal: "Gran has her watch", nextStep })
-      .success;
-  expect(draft({ kind: "do", text: "Call the shop" })).toBe(true);
-  expect(
-    draft({ context: "Because.", kind: "do", text: "Call the shop" })
-  ).toBe(false);
+// life#817: Life's draft carries a context; one whose `life:` link opens nothing is dropped, its next step kept.
+test("a drafted next step keeps its context; a dead link drops the context only", async () => {
+  const matters = await import("./matters");
+  const models = await import("../models/llm");
+  const v = waiting("00000000e004");
+  const book = spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
+    book: [v],
+    records: recordsOf([], []),
+  } as never);
+  const ask = spyOn(models, "askOnce");
+  const drafted = async (context: string) => {
+    ask.mockResolvedValue({
+      directions: [
+        {
+          goal: "Sam answers",
+          matter: "m1",
+          nextStep: { context, kind: "do", text: "Ask Sam again" },
+        },
+      ],
+    } as never);
+    rmSync(MATTER_DIRECTIONS, { force: true });
+    await matterDirections(people, { all: true, today: TODAY });
+    return readMatterPins().directions[0]?.nextStep;
+  };
+  try {
+    await drafted("Sam has not answered since the 16th.");
+    // The call is shown the step's id to link.
+    expect(JSON.stringify(ask.mock.calls[0])).toContain(
+      `"id":"obs_00000000e004"`
+    );
+    expect(await drafted("Sam has not answered since the 16th.")).toMatchObject(
+      {
+        context: "Sam has not answered since the 16th.",
+      }
+    );
+    const dead = await drafted("[asked](life:obs_00000000dead)");
+    expect(dead).toMatchObject({ kind: "do", text: "Ask Sam again" });
+    expect(dead?.context).toBeUndefined();
+  } finally {
+    book.mockRestore();
+    ask.mockRestore();
+  }
 });
