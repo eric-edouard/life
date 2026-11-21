@@ -476,6 +476,10 @@ rests on), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and w
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
 no page. A reader drops a line whose episode is no longer live, and the whole situation when `madeBy.prompt` is not the variant now. His correction is a line on the page.
 
+## project-situations/<project>.json
+
+Where a project underway stands now, written by `project-situations.ts` each night when its inputs changed: `project` (its directory id), `lines` (each `text` and `cites`, the refs of the matter steps it rests on), `inputs` (a hash of the prompt's variant name and what was shown: the directory entry's deadlines, name, status and notes, and each running matter's name, goal, next step, open steps and newest 12 steps; never the date and never a matter's status, which follows the clock), `built`, `madeBy`, `schemaVersion`. Kept apart from `situations/`, whose files are all people's. Rewritten whole, never from its own last version; removed when the project is no longer underway or shows no running matter. A reader drops a line whose step no matter of the project holds any more, and the whole situation when `madeBy.prompt` is not the variant now.
+
 ## personas/<id>.json
 
 What someone with a page (`pagedNow`) is like, wants and can give, and what keeps happening between them and the owner, or the owner

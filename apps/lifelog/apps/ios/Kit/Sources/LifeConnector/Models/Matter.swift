@@ -93,12 +93,20 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
 
 /// `read_matters`: the running matters, most pressing first; of one project, its page's head too.
 public struct MatterList: Decodable, Sendable, Equatable {
-    /// A project's page: its name, status as stored and his goal naming it.
+    /// A project's page: its name, status as stored, his goal naming it and where it stands now.
     public struct ProjectHead: Decodable, Sendable, Equatable {
+        /// One line of where a project stands: Life's reading of its matters, with the matter steps it cites (`cites`).
+        public struct SituationLine: Decodable, Sendable, Equatable {
+            public let text: String
+            public let cites: [String]
+        }
+
         public let id: String
         public let name: String
         public let status: ProjectStatus
         public let goal: String?
+        /// Absent in a response from a server that does not read it yet; empty until Life has made it.
+        public let situation: [SituationLine]?
     }
 
     public let matters: [MatterRow]

@@ -137,7 +137,6 @@ export async function startDescriber() {
       if (await isUp()) {
         break;
       }
-      // biome-ignore lint/performance/noAwaitInLoops: polls until the model is loaded
       await Bun.sleep(1000);
     }
   } catch (e) {
