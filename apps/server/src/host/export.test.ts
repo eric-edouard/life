@@ -16,7 +16,7 @@ import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
 import { writePassages } from "../memory/passages";
 import { DESCRIPTIONS } from "../sources/photo-descriptions";
-import { stage } from "./export";
+import { stage, stateInDataOf } from "./export";
 
 const SECRET = /oauth|local\.key|\.bak$/;
 
@@ -145,4 +145,14 @@ test("a store in Life's state that is being written, in WAL, is exported whole a
     db.close();
     rmSync(DESCRIPTIONS, { force: true });
   }
+});
+
+// Verdict on PR 831: with Life's state as its data folder, the data's copy (unfiltered) kept the state's secrets.
+test("an export whose state is its data folder is refused before anything is copied; a state inside the data is cut out", () => {
+  expect(() => stateInDataOf("/test/life", "/test/life")).toThrow(
+    "nothing was staged"
+  );
+  expect(stateInDataOf("/test/life", "/test/life/state")).toBe("state");
+  expect(stateInDataOf("/test/life", "/test/life/..state")).toBe("..state");
+  expect(stateInDataOf("/test/life", "/test/state")).toBeNull();
 });

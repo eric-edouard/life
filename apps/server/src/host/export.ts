@@ -177,6 +177,20 @@ function stageNotes(dir: string) {
 }
 
 /**
+ * Where Life's state sits inside his data (`state`'s path under `data`), else null. Refused when they are one folder:
+ * the data's copy would carry the state's secrets past the state's filter (SECURITY.md).
+ */
+export function stateInDataOf(data: string, state: string) {
+  const inData = pathInside(data, state);
+  if (inData === "") {
+    throw new Error(
+      `${state} is Life's data folder too: an export would carry its secrets; nothing was staged`
+    );
+  }
+  return inData;
+}
+
+/**
  * Stages everything Life holds in `dir` (made, never one with anything in it), consistent: his data cloned under
  * memory's lock (an APFS clone, in ms), each store copied whole by SQLite, the watcher's cursor before its store (the
  * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held. A file of the
@@ -191,6 +205,7 @@ export async function stage(
   if (!isEmpty(dir)) {
     throw new Error(`${dir} is not empty`);
   }
+  const inData = stateInDataOf(OWNER_DATA_DIR, LIFE_STATE_DIR);
   mkdirSync(join(dir, "archive"), { recursive: true });
   const cloned = await locked(() => {
     cpSync(OWNER_DATA_DIR, join(dir, "data"), { recursive: true });
@@ -201,7 +216,6 @@ export async function stage(
   }
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
   // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
-  const inData = pathInside(OWNER_DATA_DIR, LIFE_STATE_DIR);
   if (inData) {
     rmSync(join(dir, "data", inData), { force: true, recursive: true });
   }

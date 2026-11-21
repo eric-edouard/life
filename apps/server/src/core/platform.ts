@@ -26,10 +26,13 @@ export const slashed = (p: string) => p.split(sep).join("/");
 export function pathInside(
   root: string,
   path: string,
-  paths = { isAbsolute, relative }
+  paths = { isAbsolute, relative, sep }
 ) {
   const r = paths.relative(root, path);
-  return r.startsWith("..") || paths.isAbsolute(r) ? null : r;
+  // Above it is `..` as a whole part: `..agents` is a child.
+  return r === ".." || r.startsWith(`..${paths.sep}`) || paths.isAbsolute(r)
+    ? null
+    : r;
 }
 
 /**

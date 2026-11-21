@@ -1,4 +1,6 @@
 import {
+  constants,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -67,30 +69,69 @@ const partOf = (p: string) => {
 };
 
 /**
- * Where each desk notes file of the export (`dir`) goes, as its own store names it: refused at once when a different
- * file is there already; one there with the same bytes is left as it is.
+ * Where each desk notes file of the export (`dir`) goes, as its staged store (`store`, verified) names it, outside the
+ * state folder it goes to (`state`): refused when a note names no such assignment, or a different file is there
+ * already; one there with the same bytes is still listed, so `putNotes` finds it again.
  */
-async function notesPlacesOf(dir: string, m: Manifest) {
-  const desk = join(dir, "state", pathIn(LIFE_STATE_DIR, DESK_STORE));
+async function notesPlacesOf(
+  dir: string,
+  m: Manifest,
+  store: string,
+  state: string
+) {
   const names = m.files.filter((f) => partOf(f.path).part === "notes");
-  if (names.length === 0 || !existsSync(desk)) {
+  if (names.length === 0) {
     return [];
   }
   const at = new Map(
-    notesOutsideOf(desk, LIFE_STATE_DIR).map((s) => [s.id, s.notes_path])
+    existsSync(store)
+      ? notesOutsideOf(store, state).map((s) => [s.id, s.notes_path])
+      : []
   );
-  const places: { from: string; to: string }[] = [];
+  const places: { from: string; sha256: string; to: string }[] = [];
   for (const f of names) {
     const to = at.get(basename(f.path, ".md"));
+    if (!to) {
+      throw new Error(
+        `${f.path} is no assignment's notes outside ${state}: nothing was changed`
+      );
+    }
     // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
-    const there = to && existsSync(to) ? await sha256Of(to) : null;
-    if (to && there === null) {
-      places.push({ from: join(dir, f.path), to });
-    } else if (there !== null && there !== f.sha256) {
+    if (existsSync(to) && (await sha256Of(to)) !== f.sha256) {
       throw new Error(`${to} holds other notes: nothing was changed`);
     }
+    places.push({ from: join(dir, f.path), sha256: f.sha256, to });
   }
   return places;
+}
+
+/**
+ * Puts each note in place, never over another file: made only where nothing is (`COPYFILE_EXCL`), one there with the
+ * same bytes kept as it is. One another writer put there meanwhile with other bytes is kept, the notes this call made
+ * are taken back, and the import refused.
+ */
+export async function putNotes(
+  places: readonly { from: string; sha256: string; to: string }[]
+) {
+  const made: string[] = [];
+  for (const n of places) {
+    mkdirSync(dirname(n.to), { recursive: true });
+    try {
+      copyFileSync(n.from, n.to, constants.COPYFILE_EXCL);
+      made.push(n.to);
+    } catch (e) {
+      const isThere = (e as { code?: string }).code === "EEXIST";
+      // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+      if (!isThere || (await sha256Of(n.to)) !== n.sha256) {
+        for (const p of made) {
+          rmSync(p, { force: true });
+        }
+        throw isThere
+          ? new Error(`${n.to} holds other notes: nothing was changed`)
+          : e;
+      }
+    }
+  }
 }
 
 /**
@@ -174,7 +215,6 @@ export async function restore(dir: string, to: Install = HERE) {
     readFileSync(join(dir, "manifest.json"), "utf8")
   ) as Manifest;
   const kept = await refusal(m, to);
-  const notes = await notesPlacesOf(dir, m);
   const side: Install = {
     archive: `${to.archive}.importing`,
     data: `${to.data}.importing`,
@@ -197,10 +237,14 @@ export async function restore(dir: string, to: Install = HERE) {
       }
     }
     await recount(m, at, kept);
-    for (const n of notes) {
-      mkdirSync(dirname(n.to), { recursive: true });
-      cpSync(n.from, n.to);
-    }
+    await putNotes(
+      await notesPlacesOf(
+        dir,
+        m,
+        join(side.state, pathIn(LIFE_STATE_DIR, DESK_STORE)),
+        to.state
+      )
+    );
     // In place: Life's state file by file (its folder may hold this install's own key), the archive, his data last.
     for (const f of m.files.filter((x) => partOf(x.path).part === "state")) {
       const { path } = partOf(f.path);

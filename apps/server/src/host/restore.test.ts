@@ -12,10 +12,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { sha256Of } from "../core/hash";
 import { DESK_STORE, OWNER_DATA_DIR } from "../core/paths";
 import { linesIn, rowsIn, stage } from "./export";
 import { started } from "./init";
-import { restore } from "./restore";
+import { putNotes, restore } from "./restore";
 
 const temp = (name: string) => mkdtempSync(join(tmpdir(), `life-${name}-`));
 
@@ -166,4 +167,32 @@ test("an import over other notes at a notes file's place changes nothing; the sa
   writeFileSync(notes, "Test notes: waiting on Ana");
   await restore(dir, to);
   expect(readFileSync(notes, "utf8")).toBe("Test notes: waiting on Ana");
+});
+
+// Verdict on PR 831: notes were placed after a check made before the whole export was hashed; a note written there
+// meanwhile was overwritten. Each note is made only where nothing is.
+test("a note another writer puts in place after the check is kept, and the notes this import made are taken back", async () => {
+  const at = temp("race");
+  const ours = join(at, "ours.md");
+  writeFileSync(ours, "Test notes: ours");
+  const sha256 = await sha256Of(ours);
+  const first = join(at, "agents", "asg_1", "NOTES.md");
+  const second = join(at, "agents", "asg_2", "NOTES.md");
+  mkdirSync(dirname(second), { recursive: true });
+  writeFileSync(second, "Test notes: written meanwhile");
+  await expect(
+    putNotes([
+      { from: ours, sha256, to: first },
+      { from: ours, sha256, to: second },
+    ])
+  ).rejects.toThrow("holds other notes");
+  expect(readFileSync(second, "utf8")).toBe("Test notes: written meanwhile");
+  expect(existsSync(first)).toBe(false);
+  // The same bytes there pass, kept as they are.
+  writeFileSync(second, "Test notes: ours");
+  await putNotes([
+    { from: ours, sha256, to: first },
+    { from: ours, sha256, to: second },
+  ]);
+  expect(readFileSync(first, "utf8")).toBe("Test notes: ours");
 });
