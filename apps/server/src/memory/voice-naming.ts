@@ -100,7 +100,7 @@ const LINE_WHO = /^\[\d+\] \S+ (\S+): /;
 const TOKEN = /^V\d+$/;
 
 /** What code knows of a part and the model is not shown. */
-export interface Known {
+interface Known {
   /** For a group `V` and a person offered (`${voice} ${person}`): the signals code counted, and whether one points to someone else. */
   evidence: Map<string, { elsewhere: boolean; signals: number }>;
   /** Each group `V`'s recording voices, by the `V` they are stored as (`voiceTokensOf` of the part's unnamed keys), with their lines; a `V` not here is stored as itself. */
