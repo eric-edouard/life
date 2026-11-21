@@ -84,9 +84,11 @@ public struct NextStepRequest: Encodable, Sendable, Equatable {
     public var kind: String
     public var text: String
     public var waitsOn: String?
+    /// Why, in Markdown with `life:` links, as a card's context; absent when his edit gives none.
+    public var context: String?
 
-    public init(kind: String, text: String, waitsOn: String? = nil) {
-        (self.kind, self.text, self.waitsOn) = (kind, text, waitsOn)
+    public init(kind: String, text: String, waitsOn: String? = nil, context: String? = nil) {
+        (self.kind, self.text, self.waitsOn, self.context) = (kind, text, waitsOn, context)
     }
 }
 
@@ -143,6 +145,24 @@ public protocol LifeAPI: Sendable {
     func setProjectStatus(
         _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
+    /// An appointment Life added to his calendar, by its push's `pushId` or its own id (one of the two), from the Life at
+    /// `origin` (nil: the one paired now).
+    func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String
+    /// His Remove (`isOn` false) or Undo (`isOn` true) of one, from the Life at `origin`.
+    func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String
+}
+
+/// How `read_appointments` names one: by its push's id, or its own.
+public enum AppointmentKey: Sendable, Hashable, Identifiable {
+    case pushId(String)
+    case appointment(String)
+
+    public var id: String {
+        switch self {
+        case .pushId(let id): "push-\(id)"
+        case .appointment(let id): id
+        }
+    }
 }
 
 public struct MCPLifeAPI: LifeAPI {
@@ -254,6 +274,20 @@ public struct MCPLifeAPI: LifeAPI {
         }
         return try await client.call(
             "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
+    }
+
+    public func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {
+        let arguments =
+            switch key {
+            case .pushId(let id): ["pushId": id]
+            case .appointment(let id): ["appointment": id]
+            }
+        return try await client.call("read_appointments", arguments, at: origin)
+    }
+
+    public func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String {
+        try await client.call(
+            "change_appointment", ["action": isOn ? "restore" : "remove", "appointment": appointment], at: origin)
     }
 
     private struct MattersOfArea: Encodable, Sendable {

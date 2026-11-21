@@ -1,19 +1,20 @@
 import LifeConnector
 import SwiftUI
 
-/// A round 44 button holding one symbol, on the quiet fill. `isDone` shows a check in `ok` in its place (copied), same
-/// button, same size.
+/// A round button (44, or the pencil's 32) holding one symbol, on the quiet fill. `isDone` shows a check in `ok` in its
+/// place (copied), same button, same size.
 struct RoundIconButton: View {
     let symbol: String
     let label: String
     var isDone = false
+    var size = Metrics.tapTarget
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: isDone ? "checkmark" : symbol).font(.smallStrong)
                 .foregroundStyle(isDone ? Palette.ok : Palette.fg)
-                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).background(Color.fillTint, in: .circle)
+                .frame(width: size, height: size).background(Color.fillTint, in: .circle)
                 .motion(Motion.standard, value: isDone)
         }
         .buttonStyle(.plain).accessibilityLabel(label)

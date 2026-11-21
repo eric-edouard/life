@@ -3,6 +3,7 @@ import { NamedVoice, type ReadReply } from "../records/read-reply";
 import {
   type NamingQueueItem,
   readJobMonths,
+  readVoiceNames,
   voiceKey,
 } from "../sources/lifelog-voices";
 import { READ_REPLIES } from "./memory-files";
@@ -12,8 +13,8 @@ import type { People } from "./who";
 
 // The voice guesses (docs/glossary.md, "voice guess"): what the voice naming stored (`memory/voice-naming.ts`), read as
 // a guess for each turn nobody named. A guess is only ever shown: as "probably X" when the words of a conversation are
-// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when it agrees
-// with lifelog's suggestion (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
+// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when lifelog's
+// suggestion does not contradict it (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
 // lifelog, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
 // corrections (`scripts/imports.test.ts` checks).
 
@@ -160,38 +161,65 @@ export function withGuessesShown<
   }));
 }
 
+/** A queue item as a voice card reads it (`withVoiceGuesses`). */
+export type GuessedQueueItem = NamingQueueItem & {
+  guessed?: readonly string[];
+  names?: Readonly<Record<string, string>>;
+};
+
 /**
- * Each queue item with who the voice naming guessed its voices are (`guessed`, for `voiceSuggestionOf`): the person of
- * the newest sure or likely guess of each of its turns, `me` and `unknown` left out, as stored. Reads only the month
- * files its voices' recordings can be filed under (`readJobMonths`); throws when one cannot be read.
+ * Who each voice's turns are guessed to be, as a voice card reads them: over the newest guess of each unnamed turn key
+ * (`newest`), the sure or likely ones naming someone (never `me` or `unknown`), each person once, sorted; for the voices
+ * given. The score's by-group row reads the same (`scripts/voice-naming-score.ts`).
  */
-export async function withVoiceGuesses<I extends NamingQueueItem>(
-  items: readonly I[],
-  where = READ_REPLIES,
-  monthsOf = readJobMonths
+export function voiceGuessedPeopleOf(
+  newest: Iterable<Pick<VoiceGuess, "confidence" | "person" | "voice">>
 ) {
-  const jobs = [...new Set(items.flatMap((i) => i.voices.map((v) => v.jobId)))];
-  const guesses =
-    jobs.length > 0
-      ? newestOfFiles(readRepliesOfMonths(await monthsOf(jobs), where))
-      : new Map<string, VoiceGuess>();
   const byVoice = Map.groupBy(
-    [...guesses.values()].filter(
+    [...newest].filter(
       (g) =>
         g.confidence !== "weak" && g.person !== "me" && g.person !== "unknown"
     ),
     (g) => g.voice
   );
+  return (voices: readonly string[]) =>
+    [
+      ...new Set(
+        voices.flatMap((v) => (byVoice.get(v) ?? []).map((g) => g.person))
+      ),
+    ].sort();
+}
+
+/**
+ * Each queue item as a voice card reads it: with who the voice naming guessed its voices are (`guessed`, for
+ * `voiceSuggestionOf`: `voiceGuessedPeopleOf` the newest guess of each of its turns, as stored) and the name lifelog gives each
+ * of its person ids (`names`, `readVoiceNames`). Reads only the month files its voices' recordings can be filed under
+ * (`readJobMonths`); throws when one cannot be read.
+ */
+export async function withVoiceGuesses<I extends NamingQueueItem>(
+  items: readonly I[],
+  where = READ_REPLIES,
+  monthsOf = readJobMonths,
+  namesOf: (
+    ids: readonly string[]
+  ) => Promise<Record<string, string>> = readVoiceNames
+) {
+  const jobs = [...new Set(items.flatMap((i) => i.voices.map((v) => v.jobId)))];
+  const idsOf = (i: I) =>
+    [i.personId, ...i.likely].filter((id): id is string => id !== null);
+  const [guesses, names] = await Promise.all([
+    jobs.length > 0
+      ? monthsOf(jobs).then((m) => newestOfFiles(readRepliesOfMonths(m, where)))
+      : new Map<string, VoiceGuess>(),
+    namesOf([...new Set(items.flatMap(idsOf))]),
+  ]);
+  const guessedFor = voiceGuessedPeopleOf(guesses.values());
   return items.map((i) => ({
     ...i,
-    guessed: [
-      ...new Set(
-        i.voices.flatMap((v) =>
-          (byVoice.get(voiceKey(v.jobId, v.speakerLabel)) ?? []).map(
-            (g) => g.person
-          )
-        )
-      ),
-    ].sort(),
+    guessed: guessedFor(i.voices.map((v) => voiceKey(v.jobId, v.speakerLabel))),
+    // Each item's own ids only, so the inbox key (`checksKeyOf`) changes with them.
+    names: Object.fromEntries(
+      idsOf(i).flatMap((id) => (names[id] ? [[id, names[id]]] : []))
+    ),
   }));
 }

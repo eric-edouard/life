@@ -16,7 +16,10 @@ import { READS, readReplies } from "@life/server/src/memory/read-replies";
 import { begin, chunks } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { turnRefOf } from "@life/server/src/memory/units";
-import { voiceGuessesOf } from "@life/server/src/memory/voice-guesses";
+import {
+  voiceGuessedPeopleOf,
+  voiceGuessesOf,
+} from "@life/server/src/memory/voice-guesses";
 import {
   readVoiceNamingWork,
   voiceNaming,
@@ -48,6 +51,8 @@ export interface Guessed {
   apart?: "mixed" | "turn";
   at: string;
   confidence: "sure" | "likely" | "weak";
+  /** The unnamed turn keys it was made for (`unnamedTurnKey`): a card reads the newest guess of each (`voiceGuessedPeopleOf`). */
+  keys: string[];
   /** Whether lifelog had a likeness to offer for it. */
   likeness: boolean;
   /** The stored line (one part of a conversation) it was read from. */
@@ -86,12 +91,22 @@ const newestPerVoice = (list: Guessed[]) => [
 ];
 
 /**
- * By group, as a voice card would ask (who.ts `voiceSuggestionOf`): his answered voices, each by its newest guess, of
- * one part with the same answer, a person or no one, as one card; the name it shows is the one person every sure or
- * likely guess of the group names (none when two disagree). Lifelog's own name for a voice since answered is not known.
+ * By group, as a voice card would ask (who.ts `voiceSuggestionOf`): his answered voices of one part with the same answer,
+ * a person or no one, as one card; the name it shows is the one person the card's own reading of their turns names
+ * (`voiceGuessedPeopleOf`, over the newest guess of each turn: none when two disagree). Lifelog's own name for a voice since
+ * answered is not known.
  */
 function byGroupOf(kept: Guessed[]) {
-  // Each voice by its newest guess, as the card reads it, in the part that guess was made in.
+  const newest = new Map<string, Guessed>();
+  for (const g of kept) {
+    for (const k of g.keys) {
+      if ((newest.get(k)?.at ?? "") <= g.at) {
+        newest.set(k, g);
+      }
+    }
+  }
+  const guessedFor = voiceGuessedPeopleOf(newest.values());
+  // Each voice in the part of its newest guess.
   const groups = [
     ...Map.groupBy(
       newestPerVoice(kept.filter((g) => g.answer)),
@@ -99,9 +114,9 @@ function byGroupOf(kept: Guessed[]) {
     ).values(),
   ];
   const shown = groups.flatMap((list) => {
-    const named = new Set(list.filter(namesOther).map((g) => g.person));
-    return named.size === 1
-      ? [{ answer: list[0]?.answer, person: [...named][0] }]
+    const named = guessedFor(list.map((g) => g.voice));
+    return named.length === 1
+      ? [{ answer: list[0]?.answer, person: named[0] }]
       : [];
   });
   return {
@@ -331,6 +346,7 @@ async function gather(lines: ReadReply[]) {
       ...(apart ? { apart } : {}),
       at: g.at,
       confidence: g.confidence,
+      keys: g.keys,
       likeness: (row?.likeness.length ?? 0) > 0,
       part,
       person:

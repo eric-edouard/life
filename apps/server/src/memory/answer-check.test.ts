@@ -331,9 +331,10 @@ const item: NamingQueueItem = {
 
 /** The people a voice card's ref is read with, of a made-up `resolve`. */
 const whoOf = (resolve: (s: string) => string | null) => ({
-  names: new Map<string, string>(),
+  names: new Map([["person:dana", "Dana"]]),
   refOf: (r: string) => r,
   resolve,
+  truth: { people: [] },
 });
 
 // Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
@@ -451,6 +452,17 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await import("../sources/lifelog-voices"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p" });
+  // The voice naming guessed Dana for the voices lifelog calls Dana: the card asks "Is this Dana?".
+  const guesses = spyOn(
+    await import("./voice-guesses"),
+    "withVoiceGuesses"
+  ).mockImplementation(async (items) =>
+    items.map((i) => ({
+      ...i,
+      guessed: i.personId === DANA_ID ? ["person:dana"] : [],
+      names: {},
+    }))
+  );
   const voices = [{ jobId: "job-1", speakerLabel: "A" }];
   try {
     await answerCheck(voice, {
@@ -463,7 +475,12 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     });
     await answerCheck(voice, { name: "Zed", options: ["this-is"] });
     // "Yes" to the guess in use: the check's subject, with nothing else given.
-    const known = { ...item, kind: "known_person" as const, personId: DANA_ID };
+    const known = {
+      ...item,
+      guessed: ["person:dana"],
+      kind: "known_person" as const,
+      personId: DANA_ID,
+    };
     queue.mockResolvedValueOnce([known]);
     const dana = {
       ...voice,
@@ -520,6 +537,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     );
     expect(said()).toEqual([]);
   } finally {
+    guesses.mockRestore();
     send.mockRestore();
     people.mockRestore();
     queue.mockRestore();
@@ -637,5 +655,38 @@ test("your move: Mark as done ends its step through host, Not now pins his word 
   } finally {
     book.mockRestore();
     people.mockRestore();
+  }
+});
+
+test("someone else, named as a person lifelog knows by an id the card does not list, is assigned that id (life#963)", async () => {
+  const KOFI_ID = "00000000-0000-4000-8000-000000000002";
+  const resolve = (s: string) =>
+    ({ [DANA_ID]: "person:dana", Kofi: "person:kofi" })[s] ?? null;
+  const voices = await import("../sources/lifelog-voices");
+  const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
+  const queue = spyOn(voices, "readNamingQueueNow").mockResolvedValue([item]);
+  const names = spyOn(voices, "readVoiceNames").mockResolvedValue({
+    [KOFI_ID]: "Kofi",
+  });
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    nameOf: () => "Kofi",
+    ...whoOf(resolve),
+  } as never);
+  const send = spyOn(voices, "answerNamingQueue").mockResolvedValue({
+    personId: "p",
+  });
+  try {
+    await answerCheck(voice, { options: ["this-is"], person: "person:kofi" });
+    expect(send.mock.calls).toEqual([
+      [
+        [{ jobId: "job-1", speakerLabel: "A" }],
+        { kind: "assign", personId: KOFI_ID },
+      ],
+    ]);
+  } finally {
+    queue.mockRestore();
+    names.mockRestore();
+    people.mockRestore();
+    send.mockRestore();
   }
 });

@@ -12,6 +12,14 @@ public struct PayCode: Sendable, Equatable {
     public let invoiceAmount: String?
     /// The name the bank app should show: the account's holder.
     public let payee: String?
+
+    /// The amount as the card draws it: the figure large, its currency small ("4,500", "THB"): the currency is the
+    /// last word; an amount of one word has none.
+    public var figure: (number: String, currency: String?)? {
+        guard let amount else { return nil }
+        guard let space = amount.lastIndex(of: " ") else { return (amount, nil) }
+        return (String(amount[..<space]), String(amount[amount.index(after: space)...]))
+    }
 }
 
 /// The kinds of transfer a bank app takes, by the account's `scheme`.

@@ -320,44 +320,75 @@ export function aboutNow(
   });
 }
 
-/** Who a lifelog person id is: the id, else the name lifelog gave it (the directory knows the id of few people). The one rule. */
+/**
+ * Who a lifelog person id is: the id, else the name lifelog gave it (`readVoiceNames`: the directory knows the id of few
+ * people), which the caller passes as `name`. The one rule.
+ */
 export const voicePersonOf = (
   resolve: (s: string) => string | null,
   id: string | null | undefined,
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
+/** A queue item as a voice card reads it: lifelog's, with the voice naming's guesses (`guessed`) and the names lifelog gives its person ids (`names`), both from `withVoiceGuesses`. */
+interface VoiceCardItem {
+  guessed?: readonly string[];
+  likely: readonly string[];
+  name: string | null;
+  names?: Readonly<Record<string, string>>;
+  personId: string | null;
+}
+
 /**
- * The person a voice card asks about, what its "Yes" names (its `subject`): the one person lifelog's suggestion (its
- * person, else the name it heard, as `resolve` reads it, a new person's too) and the voice naming's guesses for its
- * voices (`guessed`, `withVoiceGuesses`; only someone known today) agree on, and only when lifelog knows them by an id
- * (its person or one of its `likely`), so "Yes" assigns that id, never a name; none otherwise. Only ever a question to
- * him ("Is this X?"): his tap is the answer.
+ * The person a voice card asks about, what its "Yes" names (its `subject`): the one person the voice naming guessed for
+ * its voices (`guessed`, `withVoiceGuesses`; only someone known today), which offers only who could be there
+ * (`possibleSpeakersOf`), and lifelog's suggestion (its person, else the name it heard, as `resolve` reads it) does not
+ * contradict; only when lifelog knows them by an id (`voiceIdOf`), so "Yes" assigns that id, never a name; none
+ * otherwise. Lifelog's suggestion alone never names anyone: it reads sound and words, not who could be there. Only ever
+ * a question to him ("Is this X?"): his tap is the answer.
  */
 export function voiceSuggestionOf(
   people: Pick<People, "names" | "refOf" | "resolve">,
-  item: {
-    guessed?: readonly string[];
-    likely: readonly string[];
-    name: string | null;
-    personId: string | null;
-  }
+  item: VoiceCardItem
 ) {
-  const named = new Set(
-    [
-      voicePersonOf(people.resolve, item.personId, item.name),
-      ...(item.guessed ?? [])
-        .map((g) => people.refOf(g))
-        .filter((r) => people.names.has(r)),
-    ].filter((r) => r !== null)
+  const guessed = new Set(
+    (item.guessed ?? [])
+      .map((g) => people.refOf(g))
+      .filter((r) => people.names.has(r))
   );
-  const [one] = named;
-  return named.size === 1 &&
-    [item.personId, ...item.likely].some(
-      (id) => id && voicePersonOf(people.resolve, id, null) === one
-    )
+  const lifelog = voicePersonOf(
+    people.resolve,
+    item.personId,
+    item.names?.[item.personId ?? ""] ?? item.name
+  );
+  const [one] = guessed;
+  return guessed.size === 1 &&
+    (lifelog === null || lifelog === one) &&
+    voiceIdOf(people, item, one as string)
     ? (one as string)
     : null;
+}
+
+/**
+ * The lifelog person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
+ * with the name lifelog gives it: the card's own (its person, its `likely`, named in `names`) first, else the one id of
+ * `elsewhere` (id → lifelog's name), never one of two; none when lifelog knows them by no such id.
+ */
+export function voiceIdOf(
+  people: Pick<People, "resolve">,
+  item: Pick<VoiceCardItem, "likely" | "names" | "personId">,
+  ref: string,
+  elsewhere: Readonly<Record<string, string>> = {}
+) {
+  const isRef = (id: string, name?: string) =>
+    voicePersonOf(people.resolve, id, name) === ref;
+  const own = [item.personId, ...item.likely].find(
+    (id): id is string => !!id && isRef(id, item.names?.[id])
+  );
+  const other = Object.entries(elsewhere).filter(([id, name]) =>
+    isRef(id, name)
+  );
+  return own ?? (other.length === 1 ? other[0]?.[0] : undefined);
 }
 
 /**
@@ -367,12 +398,8 @@ export function voiceSuggestionOf(
  */
 export const voiceCardRefOf = (
   people: Pick<People, "names" | "refOf" | "resolve">,
-  item: {
-    guessed?: readonly string[];
+  item: VoiceCardItem & {
     id: string;
-    likely: readonly string[];
-    name: string | null;
-    personId: string | null;
     voices: { jobId: string; speakerLabel: string }[];
   }
 ) => {

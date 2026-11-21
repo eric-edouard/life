@@ -5,6 +5,7 @@ import LifeConnector
 extension LifeStore {
     /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
     func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
+        if await refusedOutOfReach(.start(matter: id)) { return }
         await perform(.start(matter: id)) { [runner] in
             await runner.startAgent(matter: id, goal: goal, runtime: runtime, model: model, emit: $0)
         }
@@ -21,6 +22,7 @@ extension LifeStore {
         await change(agent, AgentRequest(action: .resume, agent: agent, said: "Resume it."))
     }
     private func change(_ agent: String, _ request: AgentRequest) async {
+        if await refusedOutOfReach(.agent(agent)) { return }
         await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
         await refreshPages(showing: agent)
     }
@@ -81,6 +83,7 @@ extension LifeStore {
     /// Asks the move; once Life answers, its receipt shows it, so the call's own state is forgotten. An answer lost on
     /// the way may still have reached Life: its receipt, with no id, takes the move the reads show under way.
     private func handOver(_ id: String, _ request: AgentRequest) async {
+        if await refusedOutOfReach(.move(id)) { return }
         await perform(.move(id)) { [runner] in await runner.changeAgent(request, emit: $0) }
         switch state(of: .move(id)) {
         case .succeeded(.agent(let result), _):
