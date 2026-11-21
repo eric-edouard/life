@@ -407,6 +407,8 @@ function startArrivalReader(
         ownerNamesOf(people.truth)
       )
     )
+    // An appointment read made: his calendar now, not at the next half hour.
+    .then((appointmentReads) => appointmentReads > 0 && appointmentsEvery())
     .catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "watch.arrivals" })
     )

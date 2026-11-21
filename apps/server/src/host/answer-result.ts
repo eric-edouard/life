@@ -24,6 +24,7 @@ import {
   openStepsOf,
 } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
+import { samePersonPairOf } from "../memory/same-person";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { addDirectoryEntryByHisWord } from "./change-directory-entry";
@@ -218,7 +219,11 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
   return {
     corrections: done.length,
     names: c.about,
-    person: a.person ?? c.ref,
+    // A same person card's ref is the pair: its person is the other, whom the guess joins on "Same person".
+    person:
+      c.group === "same person"
+        ? samePersonPairOf(c.ref).other
+        : (a.person ?? c.ref),
   };
 }
 

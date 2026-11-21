@@ -314,3 +314,78 @@ test("a card shown as its holder's opens the holder's session, not the asker's",
     holderLinksOf([claude, "https://example.com/doc"], claude, undefined)
   ).toEqual([claude, "https://example.com/doc"]);
 });
+
+/** A made-up card on `subject`, asked from assignment `s`'s turn. */
+const askOn = (
+  desk: ReturnType<typeof setup>["desk"],
+  s: Parameters<typeof askDecision>[1],
+  subject: string
+) =>
+  askDecision(desk, s, {
+    context: "A made-up reason to ask.",
+    deadline: iso(clock().getTime() + DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: go on?",
+    subject,
+    title: "a test",
+  });
+
+test("a card goes on any matter its agent holds, filed under the assignment holding it; another is refused", async () => {
+  const { desk } = setup();
+  const [a, b, c, d] = ["a", "b", "c", "d"].map(
+    (x) => `obs_00000000f0${x}${x}`
+  ) as [string, string, string, string];
+  await withBook(
+    [
+      toDo(a, "I'll tune the piano"),
+      toDo(b, "I'll pay the plumber"),
+      toDo(c, "I'll renew the insurance"),
+      toDo(d, "I'll water the plants"),
+    ],
+    { id: "matter_00000000f0aa", steps: [a] },
+    async () => {
+      const personal = standing(desk, { role: "personal" });
+      const own = openAssignments(desk.db).find((s) => s.agent_id === personal);
+      const onA = assignmentOf(
+        desk.db,
+        openAssignment(desk, personal, { openedBy: "owner", steps: [a] })
+      );
+      const onB = openAssignment(desk, personal, {
+        openedBy: "desk",
+        steps: [b],
+      });
+      const other = standing(desk, {});
+      const onD = assignmentOf(
+        desk.db,
+        openAssignment(desk, other, { openedBy: "owner", steps: [d] })
+      );
+      if (!(own && onA && onD)) {
+        throw new Error("no assignments");
+      }
+      const ownerOf = (id: string) =>
+        cardOwnersOf(desk.db, [{ agent: personal, id }])[id]?.assignment;
+      // Woken on A, asks on B's matter: filed under B.
+      expect(ownerOf((await askOn(desk, onA, b)).id)).toBe(onB);
+      // A matter under no project, which the Personal agent takes: filed under its own assignment.
+      expect(ownerOf((await askOn(desk, onA, c)).id)).toBe(own.id);
+      // Another agent, on a matter it neither is assigned nor takes (the Personal agent takes it): refused.
+      await expect(askOn(desk, onD, c)).rejects.toThrow(
+        "is not on a matter you hold"
+      );
+      // Nor from its own assignment.
+      const otherOwn = openAssignments(desk.db).find(
+        (s) => s.agent_id === other && s.id !== onD.id
+      );
+      if (!otherOwn) {
+        throw new Error("no own assignment");
+      }
+      await expect(askOn(desk, otherOwn, c)).rejects.toThrow(
+        "is not on a matter you hold"
+      );
+      await withdrawOpenCards(desk.db, { agent_id: personal }, "test over");
+    }
+  );
+});

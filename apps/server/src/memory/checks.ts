@@ -82,6 +82,7 @@ import {
   isParkedMatterOf,
 } from "./read-matters";
 import { lifeLinksOf } from "./refs";
+import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
 import {
   type People,
@@ -91,12 +92,10 @@ import {
 } from "./who";
 import { dayNow } from "./zones";
 
-// The checks: everything waiting on his word, in one shape, with no limit. A check is one guess of Life's
-// that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
-// an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
-// or a new matter Life offers an agent for ("Start an agent on this?"). Derived when read, never stored: his answer (`answerCheck`,
-// `answer-check.ts`) goes to its kind's own store: a correction (a person, a new matter's goal or dismissal), a
-// fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
+// The checks: everything waiting on his word, in one shape, with no limit: a guess of Life's his word would settle,
+// shown with its evidence while something rides on it (Life uses its guess meanwhile), a decision an agent asks, or a
+// new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
+// store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
 
 /** A kept line as the checks read it. */
 type Line = Pick<
@@ -188,6 +187,8 @@ export interface CheckInputs {
   };
   /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
   plans?: ReadonlySet<string>;
+  /** The guesses that may be someone going by their whole name (`samePersonPairsOf`), worked out once by the reader. */
+  samePersons: ReturnType<typeof samePersonPairsOf>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
@@ -511,17 +512,15 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     );
     const cards = people.ambiguousCards.flatMap((a) => {
       // The people its name and handles say, named once: his answer is one of them.
-      const card = people.contacts.find((x) => x.id === a.card) ?? {
-        handles: [],
-      };
-      const likelyPeople = a.people.map(people.partyOf);
+      const handles =
+        people.contacts.find((x) => x.id === a.card)?.handles ?? [];
       return ranked(
         c,
         "contacts card",
         {
-          about: card.handles,
-          likelyPeople,
-          ...cardAskOf(people.nameOf(a.card), card.handles),
+          about: handles,
+          likelyPeople: a.people.map(people.partyOf),
+          ...cardAskOf(people.nameOf(a.card), handles),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -553,7 +552,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         );
       }
     );
-    return [...guessed, ...cards, ...named];
+    const same = samePersonAsksOf(people, c.samePersons).flatMap((a) =>
+      ranked(c, "same person", a, a.linesOf(byRef), a.refs, null)
+    );
+    return [...guessed, ...cards, ...same, ...named];
   },
   voice: (c) => voiceChecksOf(c.people, c.voices),
 };
@@ -730,6 +732,7 @@ async function readChecks(
     paged,
     people,
     plans: held?.plans(all),
+    samePersons: samePersonPairsOf(people),
     titles,
     today,
     voices,

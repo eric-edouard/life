@@ -48,6 +48,7 @@ import type {
   OpenedBy,
 } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
+import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
@@ -457,38 +458,14 @@ export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
 }
 
 /**
- * Assignment `s`'s card subject and matter (by its anchors, `steps`, and its chosen matter): the subject given when it is
- * the matter's id or a step, else the matter's id (its first anchor when no matter holds them); another is refused.
- * None for an agent's own assignment (its subject stays the agent's to give).
- */
-async function subjectOf(
-  s: Pick<AssignmentRow, "matter_id">,
-  steps: string[],
-  given: string | undefined
-) {
-  if (steps.length === 0) {
-    return { subject: given };
-  }
-  const m = await oneMatter(steps, { prefer: s.matter_id ?? undefined });
-  if (given === undefined) {
-    return { matter: m?.id, subject: m?.id ?? steps[0] };
-  }
-  if (m && (m.id === given || m.steps.some((x) => x.ref === given))) {
-    return { matter: m.id, subject: given };
-  }
-  throw new Error(
-    `Not done: ${given} is not your matter's (${m?.id ?? steps[0]}): a card's subject is your matter or one of its steps; another matter is another assignment's.`
-  );
-}
-
-/**
  * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first, one open card
- * per assignment, on its matter (`subjectOf`) and never on a step another assignment of its agent is anchored on
- * (`siblingOn`); or withdraws one of this assignment's own cards. `requestDecision` checks the rest, then hands the
- * card's write to the desk's claim, which writes it in one transaction with the row saying it is this assignment's
- * (`card`, read by `assignmentOfCard`) and, on a matter, the anchor on the subject Life stores (a matter's id is stored
- * as one of its steps): all or, when any fails, none, so no other ask's anchor is ever taken back. The line names its
- * assignment and matter, so a stop between the line and the commit leaves the card its owner; never an anchor alone.
+ * per assignment, filed under the assignment holding its subject's matter (`cardHomeOf`, the woken one or another of its
+ * agent's) and never on a step another assignment of its agent is anchored on (`siblingOn`); or withdraws one of this
+ * assignment's own cards. `requestDecision` checks the rest, then hands the card's write to the desk's claim, which
+ * writes it in one transaction with the row saying it is that assignment's (`card`, read by `assignmentOfCard`) and, on a
+ * matter, the anchor on the subject Life stores (a matter's id is stored as one of its steps): all or, when any fails,
+ * none, so no other ask's anchor is ever taken back. The line names its assignment and matter, so a stop between the
+ * line and the commit leaves the card its owner; never an anchor alone.
  */
 export async function askDecision(
   desk: Desk,
@@ -498,8 +475,8 @@ export async function askDecision(
   const { db } = desk;
   const id = s.agent_id;
   heard(desk, s);
-  const isMine = (card?: string) =>
-    cardsOf(db, s, decisionsNow()).some((d) => d.id === card);
+  const isMine = (card?: string, of = s) =>
+    cardsOf(db, of, decisionsNow()).some((d) => d.id === card);
   if (withdraw) {
     const card = cardsOf(db, s, decisionsNow()).find((d) => d.id === withdraw);
     if (!card) {
@@ -516,8 +493,8 @@ export async function askDecision(
     }
     return requestDecision(DESK_AGENT, { agent: id, keep, why });
   }
-  const steps = anchorsOf(db, s.id);
-  const { matter, subject } = await subjectOf(s, steps, ask.subject);
+  const { home, matter, subject } = await cardHomeOf(db, s, ask.subject);
+  const steps = anchorsOf(db, home.id);
   const link = agentOf(db, id)?.link;
   const claim = (
     on: string | undefined,
@@ -525,17 +502,22 @@ export async function askDecision(
     merging: string | undefined,
     write: (stamps: { assignment: string }) => void
   ) => {
-    if (merging && !isMine(merging)) {
-      throw new Error(`Not done: ${merging} is no card of ${s.id}.`);
+    if (merging && !isMine(merging, home)) {
+      throw new Error(`Not done: ${merging} is no card of ${home.id}.`);
     }
     // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await; a merge's own card goes with it.
-    const open = pendingCardOf(db, s);
+    // Its assignment may have closed or moved to another agent while the ask was read.
+    const now = assignmentOf(db, home.id);
+    if (!now || now.closed_at || now.agent_id !== home.agent_id) {
+      throw new Error(`Not done: ${home.id} closed or moved; ask again.`);
+    }
+    const open = pendingCardOf(db, home);
     if (open && open.id !== merging) {
       throw new Error(
         `Not done: ${id} already asks ${open.id}; withdraw it or wait for his answer.`
       );
     }
-    const sibling = on && siblingOn(db, s, on);
+    const sibling = on && siblingOn(db, home, on);
     if (sibling) {
       throw new Error(
         `Not done: ${on} is ${sibling}'s, another assignment of yours: ask on it from its own turn.`
@@ -544,15 +526,15 @@ export async function askDecision(
     db.transaction(() => {
       db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
         decision,
-        s.id,
+        home.id,
       ]);
       if (steps.length > 0 && on) {
         db.run(
           "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
-          [s.id, on, clock().toISOString()]
+          [home.id, on, clock().toISOString()]
         );
       }
-      write({ assignment: s.id });
+      write({ assignment: home.id });
     })();
   };
   return requestDecision(

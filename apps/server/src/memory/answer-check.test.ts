@@ -8,6 +8,7 @@ import type { InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
 import type { Check } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
+import { samePersonRefOf } from "./same-person";
 import { voiceCardRefOf } from "./who";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
@@ -237,6 +238,29 @@ test("Don't name on a name check: every way it was written is never asked again 
   expect(said()).toEqual([
     { kind: "not-worth-naming", nameOrHandle: "Kit" },
     { kind: "not-worth-naming", nameOrHandle: "kit" },
+  ]);
+});
+
+test("same person: Same person folds the guess into the other; Different people says each of its handles is not them", async () => {
+  const pair = check(
+    samePersonRefOf("person:inf_kit", "person:kit-lee"),
+    "same person",
+    ["@line__u1:beeper.local", "+33600000001"]
+  );
+  await answerCheck(pair, { options: ["same-person"] });
+  await answerCheck(pair, { options: ["not-this-person"] });
+  expect(said()).toEqual([
+    { from: "person:inf_kit", kind: "same-person", to: "person:kit-lee" },
+    {
+      kind: "not-this-person",
+      nameOrHandle: "@line__u1:beeper.local",
+      person: "person:kit-lee",
+    },
+    {
+      kind: "not-this-person",
+      nameOrHandle: "+33600000001",
+      person: "person:kit-lee",
+    },
   ]);
 });
 
