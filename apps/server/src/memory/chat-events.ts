@@ -81,7 +81,7 @@ export function readWhoChats(
   );
   const titled =
     o.who && !known && first.events.length === 0
-      ? readChatsTitled(o.who, o.chat)
+      ? readChatsTitled(o.who, Object.keys(sources), o.chat)
       : [];
   if (titled.length === 0) {
     return { ...first, person: !!o.who };
