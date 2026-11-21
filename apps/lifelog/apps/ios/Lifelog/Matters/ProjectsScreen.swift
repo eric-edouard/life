@@ -41,9 +41,6 @@ struct ProjectsScreen: View {
         } detail: {
             detail
         }
-        // His word that a step is done, held for Undo after he left its ask (a matter's, or a project's question, whose
-        // sheet closes back onto the list): every answer held here was given on this tab.
-        .heldToast(shows: { _ in true }, undo: { life.undo($0) })
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
         // list on the matter, whatever the column widths: kept on purpose (the owner's call, 19 Nov 2026); the system's
         // sidebar button brings the list back.

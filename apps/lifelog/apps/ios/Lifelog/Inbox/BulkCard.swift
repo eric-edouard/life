@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Every open ask of one kind on one card, when Life pre-ticks 2 or more of them (`InboxOrder.folded`): the question,
 /// the rows in their groups (`Check.bulkGroups`), each ticked with the answer Life reads, and "Answer N", which holds
-/// one answer per ticked row as one, for one Undo (`HeldAnswers`). A row's body opens its own card, whose answer goes
+/// one answer per ticked row, the rows working until Life has answered them all. A row's body opens its own card, whose answer goes
 /// back to the row (ticked, in its words) and leaves with the others; "Go one by one" unfolds the kind. Rows its
 /// "Answer N" sent that Life refused come back alone, with Life's reason above the answers; one that may have gone is
 /// not ticked again.
@@ -201,7 +201,7 @@ struct BulkCard: View {
             ForEach(same) { check in
                 SamePersonTile(
                     check: check, state: guessState(check), failure: guessFailure(check),
-                    answer: { send(check, yes: $0) }, undo: { undo(check) }, open: { opened = check.ref })
+                    answer: { send(check, yes: $0) }, open: { opened = check.ref })
             }
             let rest = all.filter { $0.group != .samePerson }
             if !rest.isEmpty {
@@ -210,7 +210,7 @@ struct BulkCard: View {
                     ForEach(rest) { check in
                         GuessRow(
                             check: check, state: guessState(check), failure: guessFailure(check),
-                            answer: { send(check, yes: $0) }, undo: { undo(check) }, open: { opened = check.ref })
+                            answer: { send(check, yes: $0) }, open: { opened = check.ref })
                     }
                 }
                 .padding(.horizontal, Metrics.Spacing.s)
@@ -221,7 +221,7 @@ struct BulkCard: View {
 
     private func guessState(_ check: Check) -> GuessState {
         let yes = notes.guessed[check.ref] == "Yes"
-        if life.held[check.ref] != nil { return .held(yes: yes) }
+        if life.state(of: .answer(ref: check.ref)).isRunning { return .sending(yes: yes) }
         return !rows.contains { $0.ref == check.ref } && notes.guessed[check.ref] != nil ? .answered(yes: yes) : .rest
     }
 
@@ -245,12 +245,7 @@ struct BulkCard: View {
         guard !life.saysOutOfReach() else { return }
         life.forget(.answer(ref: check.ref))
         notes.guessed[check.ref] = words
-        life.hold(request, as: words)
-    }
-
-    private func undo(_ check: Check) {
-        life.undo(check.ref)
-        notes.guessed[check.ref] = nil
+        Task { await life.answerRows([request], as: words) }
     }
 
     private var guessAnswers: some View {
@@ -289,10 +284,12 @@ struct BulkCard: View {
                 Text("Life read an ending for each ticked one").font(.small).foregroundStyle(Palette.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button(ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
+            let isAnswering = shown.contains { life.state(of: .answer(ref: $0.ref)).isRunning }
+            Button(isAnswering ? "Answering…" : ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
                 answer(ticked.map(\.request))
             }
-            .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty).offWhileOutOfReach()
+            .buttonStyle(.pill(.filled, isBusy: isAnswering)).disabled(ticked.isEmpty || isAnswering)
+            .offWhileOutOfReach()
             .contentTransition(.numericText()).motion(Motion.standard, value: ticked.count)
             Button("Go one by one") { withAnimation(Motion.standard) { _ = notes.unfolded.insert(kind) } }
                 .buttonStyle(.pill(.quiet, size: .compact))
