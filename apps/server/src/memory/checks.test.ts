@@ -334,11 +334,6 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
     kind: "known_person",
     personId: DANA_ID,
   });
-  items[4] = voice("v4", {
-    conversations: 1,
-    kind: "known_person",
-    personId: DANA_ID,
-  });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
