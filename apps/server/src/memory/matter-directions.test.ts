@@ -236,6 +236,79 @@ test("his goal wins over every draft; his next step wins until Life drafts again
   expect(split.has(left)).toBe(false);
 });
 
+test("his next step with no context keeps the earlier step's context while its kind and wait stay; another kind or wait, his own context or Life's next draft replace it (life#1005)", () => {
+  const steps = ["obs_000000000001", "unit_000000000002"];
+  const v = { id: "matter_000000000001", steps: steps.map((ref) => ({ ref })) };
+  let hour = 0;
+  const pin = (by: "life" | "owner", nextStep: DirectionPin["nextStep"]) => ({
+    at: `2026-11-10T${String(hour++).padStart(2, "0")}:00:00.000Z`,
+    by,
+    ...(by === "life" ? { goal: "The strap is mended" } : {}),
+    nextStep,
+    steps,
+  });
+  const why = "The shop [quoted it](life:obs_000000000001).";
+  const drafted = pin("life", {
+    context: why,
+    kind: "do",
+    text: "Ask the shop",
+  });
+  const stepOf = (...pins: DirectionPin[]) =>
+    directionsOf(matterFinderOf([v]), [drafted, ...pins]).get(v)?.nextStep;
+  const reworded = pin("owner", { kind: "do", text: "Ask the shop today" });
+  expect(stepOf(reworded)).toMatchObject({ by: "owner", context: why });
+  expect(
+    stepOf(reworded, pin("owner", { kind: "do", text: "Ask them by mail" }))
+  ).toMatchObject({ context: why });
+  const waiting = pin("owner", {
+    kind: "wait_event",
+    text: "The shop's answer",
+    waitsOn: "the shop",
+  });
+  expect(stepOf(waiting)?.context).toBeUndefined();
+  expect(
+    stepOf(reworded, waiting, pin("owner", { kind: "do", text: "Ask again" }))
+      ?.context
+  ).toBeUndefined();
+  const waited = pin("life", {
+    context: why,
+    kind: "wait_event",
+    text: "The shop's answer",
+    waitsOn: "the shop",
+  });
+  expect(
+    stepOf(
+      waited,
+      pin("owner", {
+        kind: "wait_event",
+        text: "The answer",
+        waitsOn: "the shop",
+      })
+    )
+  ).toMatchObject({ context: why, text: "The answer" });
+  expect(
+    stepOf(
+      waited,
+      pin("owner", {
+        kind: "wait_event",
+        text: "The parcel",
+        waitsOn: "the post",
+      })
+    )?.context
+  ).toBeUndefined();
+  const his = "Kit said [it is ready](life:unit_000000000002).";
+  expect(
+    stepOf(pin("owner", { context: his, kind: "do", text: "Pick it up" }))
+  ).toMatchObject({ context: his });
+  const redrafted = stepOf(reworded, pin("life", { kind: "do", text: "Go" }));
+  expect([redrafted?.by, redrafted?.context]).toEqual(["life", undefined]);
+  expect(
+    directionsOf(matterFinderOf([v]), [
+      pin("owner", { kind: "do", text: "Ask the shop" }),
+    ]).get(v)?.nextStep?.context
+  ).toBeUndefined();
+});
+
 test("a matter waits on his decision while one he has not answered is about one of its steps", () => {
   const v = view("matter_00000000d001", {
     nextStep: {
