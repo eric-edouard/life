@@ -128,7 +128,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(kinds.subtracting(["qr"]) == client(Check.Need.Kind.self))
     // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
     #expect(
-        try quoted("memory/decisions.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
+        try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
             == client(Check.DoneSeen.State.self))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     #expect(try quoted("records/truth.ts", /status: z\.enum\(\[([^\]]*)\]/) == client(ProjectStatus.self))
