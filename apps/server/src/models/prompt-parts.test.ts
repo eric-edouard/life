@@ -56,11 +56,7 @@ test("with every part on, each prompt keeps its own name", () => {
 });
 
 // About to be deleted with their reads; left as they are.
-const UNTOUCHED = new Set([
-  "memory-conflict.v2",
-  "memory-connection.v3",
-  "memory-voice-naming.v1",
-]);
+const UNTOUCHED = new Set(["memory-conflict.v2", "memory-connection.v3"]);
 /** Double-quoted text: examples and words cited, where any pronoun may stand. */
 const QUOTED = /"[^"\n]*"|“[^”\n]*”/g;
 const MD = /\.md$/;

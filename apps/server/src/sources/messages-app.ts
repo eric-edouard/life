@@ -179,6 +179,18 @@ export function messagesAppSend({
     limitMs: (d) =>
       ((d.file ? 1 : 0) + (d.text ? 1 : 0)) * HAND_OVER_MS +
       ((d.file ? 3 : 0) + (d.text ? 1 : 0)) * confirmMs,
+    // The handles Messages keeps for the chat, each address once whatever its service, and him.
+    people: (chat) =>
+      read(
+        (db) =>
+          (db
+            .query<{ n: number }, [string]>(
+              `select count(distinct h.id) as n from chat c
+                join chat_handle_join j on j.chat_id = c.ROWID join handle h on h.ROWID = j.handle_id
+               where c.chat_identifier = ?`
+            )
+            .get(chat)?.n ?? 0) + 1
+      ),
     refusal: (d: Outgoing) => Promise.resolve(takesProblemOf(d, TAKES)),
     send: async (d, _txn, handed) => {
       let onHanded = handed;
