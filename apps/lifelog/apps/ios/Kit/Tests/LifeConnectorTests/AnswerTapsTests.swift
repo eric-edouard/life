@@ -35,22 +35,3 @@ private let yes = AnswerRequest(ref: "c1", options: ["yes"])
     #expect(taps.key(for: no, make: make) == "k2")
     #expect(taps.key(for: AnswerRequest(ref: "c1", options: ["no"], note: "later"), make: make) == "k3")
 }
-
-/// His "Wrong…" that Life refused (the caretaker did not have it in time) is tried again under its key, which Life
-/// resumes; the card's own answer never takes it, and the next press after it reached is a new one.
-@Test func aComplaintKeepsItsKeyUntilItReached() {
-    var taps = AnswerTaps()
-    var made = 0
-    let make = {
-        made += 1
-        return "k\(made)"
-    }
-    let wrong = AnswerRequest(
-        ref: "c1", options: [], note: "Not her.", value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
-    #expect(taps.key(for: wrong, make: make) == "k1")
-    taps.ended(wrong, as: .failed(ActionFailure(.refused("not received")), steps: []))
-    #expect(taps.key(for: yes, make: make) == "k2")
-    #expect(taps.key(for: wrong, make: make) == "k1")
-    taps.ended(wrong, as: .succeeded(.complaintReceipt(ask: "ask_1"), steps: []))
-    #expect(taps.key(for: wrong, make: make) == "k3")
-}

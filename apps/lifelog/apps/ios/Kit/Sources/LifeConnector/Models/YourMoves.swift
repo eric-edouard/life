@@ -12,6 +12,8 @@ public struct YourMoves: Equatable, Sendable {
         /// Whole days since the step was said (its sentence, else when the ask was made); nil when no date is known.
         public let ageDays: Int?
         public let project: MatterProject?
+        /// Its matter's icon (`MatterRow.symbol`); nil when the matter is not among the rows.
+        public let symbol: String?
         /// Who is in the matter: with, owed, waited on (never him).
         public let people: [Party]
         /// Its matter is dormant or probably done: nothing has moved on it.
@@ -53,7 +55,7 @@ public struct YourMoves: Equatable, Sendable {
             return Move(
                 check: check,
                 ageDays: at.map { max(0, calendar.dateComponents([.day], from: $0, to: now).day ?? 0) },
-                project: row?.project,
+                project: row?.project, symbol: row?.symbol,
                 people: people.reduce(into: []) { all, party in if !all.contains(party) { all.append(party) } },
                 looksDead: row.map { [.dormant, .probablyDone].contains($0.status) } ?? false)
         }

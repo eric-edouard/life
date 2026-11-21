@@ -7,32 +7,10 @@ public struct AnswerRequest: Encodable, Sendable, Equatable {
     public var note: String?
     public var person: String?
     public var name: String?
-    /// His "Wrong…" on a card of Life's: the card's `misread` as read, with his tick (`Check.complaint`).
-    public var value: Complaint?
 
-    public init(
-        ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil,
-        value: Complaint? = nil
-    ) {
+    public init(ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil) {
         (self.ref, self.options, self.note, self.person, self.name) = (ref, options, note, person, name)
-        self.value = value
     }
-
-    /// His "Wrong…", apart from the card's own answers: its own action state and its own key.
-    public var isComplaint: Bool { value != nil }
-}
-
-/// His "Wrong…" as `answer_check` takes it (`Misread`, `host/complaints.ts`): the card's seal, exactly as Life showed it.
-public struct Complaint: Encodable, Sendable, Equatable {
-    let kind = "misread"
-    let cause: String
-    let shown: String
-    let seal: String
-    /// His tick on "Send an anonymized report to the developer".
-    public let report: Bool
-    /// Set on the app's own repeat of a call whose connection dropped, never on his press: only his own Try again is a
-    /// press Life counts again (a caretaker that never started tries once more).
-    var repeated: Bool? = nil
 }
 
 /// His word about a registered agent (`change_registered_agent`'s arguments).

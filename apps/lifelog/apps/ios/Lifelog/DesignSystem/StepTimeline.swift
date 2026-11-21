@@ -34,7 +34,7 @@ struct StepTimeline: View {
         guard let date = try? Date(day, strategy: Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
         else { return day }
         return Calendar.current.isDateInToday(date)
-            ? "Today" : date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+            ? "Today" : date.dayAndMonth
     }
 
     private struct StepLine: View {

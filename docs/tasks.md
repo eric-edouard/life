@@ -34,14 +34,13 @@ to his agents through the desk, which starts and wakes them.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded.
-- His complaint (his "Wrong…" on a card of Life's, never an agent's) is an ask of the desk (`complain`,
-  `host/complaints.ts`): `answer_check` with `value` `{kind: "misread", cause, shown, seal, report}` (the card's `misread`,
-  sealed by Life on the card as shown, and his tick), his words as `note`, no option, and the press's `life/answerKey`,
-  whose ask it is: a retry resumes it, the key with anything else is refused, and so is a ref or cause Life did not seal.
+- His complaint is his words through Tell Life ("Wrong…" on a card of Life's, never an agent's, opens Tell Life on it):
+  the main session hands them on through its door's `complain` (`complainThroughTellLife`, `host/complaints.ts`), an ask
+  of the desk with the card on his screen as Life reads it (its own cause) and his `report` tick, one per ask and card.
   Then the desk writes its complaint record row and receives it for the caretaker (`receiveComplaints`: its `complaint.received` event on the caretaker's assignment, registering the caretaker
   when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
   stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
-  his last press, leaves it waiting (his next press tries once more), and the answer says so. The
+  his last complaint, leaves it waiting (his next complaint tries once more), and the answer says so. The
   caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads a spoken ask routed to it the same way, `read_spoken_ask`); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
   never handed to a turn: the desk receives them again.

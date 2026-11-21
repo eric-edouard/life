@@ -39,8 +39,6 @@ final class LifeStore {
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
     nonisolated enum ActionKey: Hashable, Sendable {
         case answer(ref: String)
-        /// His "Wrong…" on a card: apart from its answers, so they stay as they are while it goes.
-        case complaint(ref: String)
         case start(matter: String)
         case agent(String)
         /// His move of a matter, or his runtime switch of an agent, by the matter's or the agent's id.
@@ -569,7 +567,7 @@ final class LifeStore {
     /// The answer's call alone, until Life's answer to it, to the Life it was decided for (`life`) and no other: one
     /// decided under an earlier pairing, or none, is refused here and never sent.
     private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife?) async {
-        let key = request.isComplaint ? ActionKey.complaint(ref: request.ref) : .answer(ref: request.ref)
+        let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
         guard let life, life.generation == parties.generation.current else { return await refuseUnpaired(key) }
         let (tap, generation) = (taps.key(for: request), parties.generation)
@@ -589,26 +587,6 @@ final class LifeStore {
             emit(.started)
             emit(.failed(ActionFailure(.notPaired)))
         }
-    }
-
-    // MARK: His "Wrong…"
-
-    /// His "Wrong…" on each card, above every read, until Life's complaint receipt (`ComplaintDrafts`).
-    let complaints = ComplaintDrafts()
-
-    /// His "Wrong…" on the card `ref` as its draft stands: the press as first sent while his words and tick are
-    /// unchanged (its seal, its key, its Life), else a new one to the Life paired now. Its card stays (Life keeps it
-    /// open, being fixed); the receipt is the draft's only while it still holds that press.
-    func complain(_ ref: String) async {
-        guard let life = pairedLife else { return await refuseUnpaired(.complaint(ref: ref)) }
-        if await refusedOutOfReach(.complaint(ref: ref)) { return }
-        guard let press = complaints.press(ref, to: life) else { return }
-        let matter = matterOf(card: ref)
-        await send(press.request, keepsCardOpen: true, for: press.life)
-        if case .succeeded(.complaintReceipt(let ask), _) = state(of: .complaint(ref: ref)) {
-            complaints.received(ask, for: press)
-        }
-        await refreshAfterAnswer(on: matter)
     }
 
     /// The matter of the card `ref`, as the inbox or a matter's read on hand has it; nil when it has none.
@@ -936,7 +914,6 @@ final class LifeStore {
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.
         actions.startOver(pairing: parties.generation.current)
         taps = AnswerTaps()
-        complaints.clear()
         onStep(.reading)
         await refresh()
     }

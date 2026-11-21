@@ -261,15 +261,19 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused).font(.lead)
-                    .foregroundStyle(Palette.fg).lineLimit(1...)
+                // The field's Send (or a swipe up from the microphone) saves: the one submit is the field's.
+                DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused) {
+                    let words = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !state.isRunning, !words.isEmpty else { return }
+                    Task { await save(words) }
+                }
+                .font(.lead).foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
-                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
-                    Button(state.isRunning ? "Saving…" : "Save") {
-                        Task { await save(draft.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+                    if state.isRunning {
+                        Spinner(size: .small)
+                        Text("Saving…").font(.small).foregroundStyle(Palette.muted)
                     }
-                    .buttonStyle(.pill(.filled, size: .compact, isBusy: state.isRunning))
-                    .disabled(state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
                 let shown = saved ?? text
@@ -393,10 +397,15 @@ struct PagePlaceholder: View {
     }
 }
 
+extension Date {
+    /// "Tue 17 Nov".
+    var dayAndMonth: String { formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
+}
+
 extension MatterStep {
     /// A step's day and who or what it came from, as the matter page and the card's context both show it.
     var whenAndWith: String {
-        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with?.name].compactMap(\.self)
+        [at.dayAndMonth, with?.name].compactMap(\.self)
             .joined(separator: " · ")
     }
 }

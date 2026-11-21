@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { clock, HOUR, iso } from "../core/clock";
 import { agentOf, currentAssignmentOf, openTurn } from "../host/desk-read";
 import type { Messaging } from "../host/events";
+import { answerDecision } from "../memory/decisions";
 import { MATTERS_PROMPT } from "../memory/matters";
 // biome-ignore lint/performance/noNamespaceImport: a helper spies on its functions
 import * as memoryFiles from "../memory/memory-files";
@@ -14,7 +15,7 @@ import { dayNow } from "../memory/zones";
 import type { Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
-import { register, setWait } from "./agent-actions";
+import { askDecision, register, setWait } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -133,6 +134,33 @@ export function on(desk: Desk, id: string) {
 /** The assignment agent `id` works on (each test agent has one). */
 export const asgOf = (desk: Desk, id: string) =>
   currentAssignmentOf(desk.db, id)?.id ?? "";
+
+/** Assignment `s` past its plan: its first card, a valid plan card, asked and answered `start`, so a test's own first card is a later one; returns its id. Call it outside `withMatters`: the card rides on a made-up matter holding the assignment's anchors. */
+export async function pastPlan(desk: Desk, s: ReturnType<typeof on>) {
+  const steps = desk.db
+    .query<{ step: string }, [string]>(
+      "select step from anchor where assignment_id = ?"
+    )
+    .all(s.id)
+    .map((a) => a.step);
+  const { id } = await withMatters(
+    steps.length ? [matterView(`mat_plan_${s.id}`, steps)] : [],
+    () =>
+      askDecision(desk, s, {
+        context: "A made-up plan.",
+        deadline: ahead(24 * HOUR),
+        options: [
+          { id: "start", label: "Start the plan" },
+          { id: "decline", label: "Not this plan" },
+        ],
+        plan: [{ by: "agent", text: "Do the one step" }],
+        question: "Start with this plan?",
+        title: "a test plan",
+      })
+  );
+  await answerDecision(id, ["start"]);
+  return id;
+}
 
 /** A new agent on a made-up matter, its first turn launched. */
 export async function started(desk: Desk, step: string) {

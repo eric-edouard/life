@@ -17,9 +17,9 @@ import { LINKS_PROMPT } from "./links";
 import { MATTERS_PROMPT } from "./matters";
 import { MEMORY, readInferred } from "./memory-files";
 
-// The complaint record (`memory/complaints.jsonl`): one row per complaint (his "Wrong…", an ask in the ledger), what
+// The complaint record (`memory/complaints.jsonl`): one row per complaint (his words through Tell Life, an ask in the ledger), what
 // the caretaker's later work and the developer's counts start from. It holds no words of his and no card: the ask's id,
-// the kind of card, the stage that made it and that stage's prompt, as his press froze them in the ask. Appended only
+// the kind of card, the stage that made it and that stage's prompt, as his complaint froze them in the ask. Appended only
 // here, by the desk as it receives a complaint (`desk/complaint-intake.ts`): one process (one desk per Mac), each tick
 // one at a time, only for the complaints it is receiving, so its recording and its recovery after a crash are the same
 // pass, before the receipt.
@@ -46,7 +46,7 @@ export const ComplaintRow = z
   .object({
     ask: z.string(),
     at: isoDateTime,
-    /** The card's kind; `unknown` when it had left before his press. */
+    /** The card's kind; `unknown` when none, or it had left before his complaint. */
     kind: z.union([CheckGroup, z.literal("unknown")]),
     prompt: z.string().nullable(),
     schemaVersion: z.literal(1),
@@ -60,7 +60,7 @@ const guessPromptOf = (ref: unknown) =>
   readInferred().findLast((p) => `person:${p.id}` === ref)?.madeBy.prompt ??
   "unknown";
 
-/** Card `card`'s kind, the stage that made it and the prompt it was made with: frozen into his complaint at his press. */
+/** Card `card`'s kind, the stage that made it and the prompt it was made with: frozen into his complaint when made. */
 export function stageOf(card: unknown) {
   const c = card as { group?: unknown; ref?: unknown } | null;
   const group = CheckGroup.safeParse(c?.group);
@@ -73,7 +73,7 @@ export function stageOf(card: unknown) {
     : { kind: group.data, ...stage };
 }
 
-/** The row of complaint `a`, from what its ask froze at his press. */
+/** The row of complaint `a`, from what its ask froze. */
 function rowOf(a: LedgerEntry): ComplaintRow {
   const c = complaintOf(a);
   const kind = CheckGroup.safeParse(c?.kind);
@@ -132,7 +132,7 @@ function mendTail() {
 
 /**
  * Writes the complaint record's row for each of `asks` (complaints) that has none, in order: the intake's pending ones,
- * so a crash after an ask is recovered by the next tick with no second press. Synchronous, so nothing runs between its
+ * so a crash after an ask is recovered by the next tick with no second ask. Synchronous, so nothing runs between its
  * read and its append; a bad row throws before anything is appended. The rows appended.
  */
 export function recordComplaints(asks: readonly LedgerEntry[]) {

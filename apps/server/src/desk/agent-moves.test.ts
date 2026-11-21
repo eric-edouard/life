@@ -291,10 +291,11 @@ test("a moved matter stays with its new agent: the fold leaves it, and its new h
       context: "A made-up reason to ask.",
       deadline: iso(clock().getTime() + DAY),
       options: [
-        { id: "yes", label: "Yes" },
-        { id: "no", label: "No" },
+        { id: "start", label: "Start the plan" },
+        { id: "decline", label: "Not this plan" },
       ],
-      question: "Test: call the plumber?",
+      plan: [{ by: "agent", text: "Call the plumber" }],
+      question: "Start with this plan?",
       title: "a test",
     });
     move(desk, { runtime: "other", steps: [STEP] });
