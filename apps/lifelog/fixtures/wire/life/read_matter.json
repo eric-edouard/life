@@ -253,6 +253,7 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "session": "https://agents.example.test/s/1",
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",

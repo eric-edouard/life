@@ -317,7 +317,8 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     kind: "decision",
     lifeLinks: [],
     likelyPeople: [],
-    links: [`https://example.com/session/${i}`],
+    // The link it was asked with (the asker's old session); the email links its holder's now (`session`).
+    links: [`https://example.com/asked/${i}`],
     matter: null,
     notSent: null,
     onMatters: [],
@@ -330,6 +331,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     ref: `dec_00000000000${i}`,
     ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
     said: null,
+    session: `https://example.com/session/${i}`,
     since: null,
     subject: null,
     title: `Fix the boiler ${i}`,
@@ -349,6 +351,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     'Waiting on you (9)\n- Fix the boiler 0: Book plumber 0? · Draft to Kit: "Can you come Friday?" · Recommended: Book it · by 2026-10-16 '
   );
   expect(text).toContain("· asked by planner · https://example.com/session/8");
+  expect(text).not.toContain("https://example.com/asked/");
   expect(text.indexOf("Waiting on you")).toBeLessThan(
     text.indexOf("Birthdays")
   );

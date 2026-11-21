@@ -57,6 +57,7 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "session": "https://agents.example.test/s/1",
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
@@ -846,5 +847,5 @@
   },
   "deadlinesToday": 0,
   "total": 9,
-  "version": "df9664ab458b74bf"
+  "version": "713e4aafd33b55b4"
 }
