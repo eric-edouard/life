@@ -30,20 +30,20 @@ struct SearchScreen: View {
     private var asked: String { query.trimmingCharacters(in: .whitespaces) }
 
     var body: some View {
-        let people = peopleRead
-        let isNothing =
-            !asked.isEmpty && (people == nil || people?.value?.isNoOne == true)
-            && (scope == .people || life.matters.value?.matching(query).isEmpty == true)
+        // One reading of what shows, for the rows, "Nothing holds" and the title's count alike. Unpaired, one notice says
+        // so: the people's.
+        let results = SearchResults(
+            query: query, people: peopleRead, matters: scope == .people ? nil : life.matters, isPaired: life.isPaired)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if isNothing {
+                if results.isNothing {
                     Text("Nothing holds “\(asked)”.").font(.body15).foregroundStyle(Palette.muted)
                         .padding(Metrics.gutter)
                         .appears()
                 }
-                if let people {
+                if let people = results.people {
                     ReadScreen(
-                        shown: people.shown(isEmpty: \.isNoOne), retry: { await readPeople() },
+                        shown: people, retry: { await readPeople() },
                         loading: { Placeholder().padding(Metrics.gutter) },
                         empty: {
                             if asked.isEmpty {
@@ -55,15 +55,14 @@ struct SearchScreen: View {
                         content: { list in peopleRows(list) }
                     )
                 }
-                // Unpaired, one notice says so: the people's.
-                if scope != .people, people == nil || life.isPaired {
+                if let matters = results.matters {
                     ReadScreen(
-                        shown: life.matters.shown(isEmpty: { $0.matching(query).isEmpty }),
-                        retry: { await life.refreshMatters() },
+                        shown: matters, retry: { await life.refreshMatters() },
                         loading: { Placeholder().padding(Metrics.gutter) },
                         empty: { if asked.isEmpty { NoMattersNotice() } },
-                        content: { list in
-                            matterRows(list.matching(query), isLabelled: people?.value?.people.isEmpty == false)
+                        content: { _ in
+                            matterRows(
+                                results.matterRows ?? [], isLabelled: results.people?.onScreen?.people.isEmpty == false)
                         }
                     )
                 }
@@ -73,7 +72,7 @@ struct SearchScreen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Palette.bg)
-        .screenTitle("Search", state: resultsWord(people: people))
+        .screenTitle("Search", state: results.count.map { $0 == 1 ? "1 result" : "\($0) results" })
         // Each source on its own: the matters once per pairing, the people a moment after he stops typing (a newer
         // query replaces the read under way), and again on a new pairing.
         .task(id: life.parties.generation.current) {
@@ -95,17 +94,6 @@ struct SearchScreen: View {
         guard scope != .matters else { return nil }
         guard !asked.isEmpty else { return scope == .people ? life.people : nil }
         return life.peopleFound.flatMap { $0.query == asked ? $0.state : nil } ?? ReadState()
-    }
-
-    /// The title's state, "4 results": the rows that hold what he typed, from the reads on screen only (none while he
-    /// typed nothing, nor from a read the screen hides, as once unpaired).
-    private func resultsWord(people: ReadState<PeopleList>?) -> String? {
-        guard !asked.isEmpty else { return nil }
-        let found = people?.shown(isEmpty: \.isNoOne).onScreen.map { $0.people.count + ($0.others?.count ?? 0) }
-        let matters = scope == .people ? nil : life.matters.shown().onScreen?.matching(query).count
-        guard found != nil || matters != nil else { return nil }
-        let count = (found ?? 0) + (matters ?? 0)
-        return count == 1 ? "1 result" : "\(count) results"
     }
 
     private func readPeople() async {
