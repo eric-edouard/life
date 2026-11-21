@@ -130,7 +130,8 @@ struct MovesList: View {
                 showsDead.toggle()
             } label: {
                 Row(
-                    title: "\(moves.dead.count) look dead", icon: "moon", detail: "Nothing has moved on them in 3 months",
+                    title: "\(moves.dead.count) look dead", icon: "moon",
+                    detail: "Nothing has moved on them in 3 months",
                     isInList: true
                 ) {
                     Image(systemName: showsDead ? "chevron.down" : "chevron.right").foregroundStyle(Palette.muted)
@@ -158,10 +159,12 @@ struct MovesList: View {
         if filter == .all {
             let alive = rows.filter { !$0.looksDead || isSelecting }
             let old = alive.filter(\.isOverMonth)
-            return [Section(heading: "Older than a month", moves: old), Section(heading: "Newer", moves: alive.filter { !$0.isOverMonth })]
+            let newer = alive.filter { !$0.isOverMonth }
+            return [Section(heading: "Older than a month", moves: old), Section(heading: "Newer", moves: newer)]
                 .filter { !$0.moves.isEmpty }
         }
-        return rows.isEmpty ? [] : [Section(heading: "\(filterName(all)) · \(rows.count)", moves: rows)]
+        let heading = "\(filterName(all)) · \(rows.count)"
+        return rows.isEmpty ? [] : [Section(heading: heading, moves: rows)]
     }
 
     private func filterName(_ all: YourMoves) -> String {
@@ -169,7 +172,8 @@ struct MovesList: View {
         case .all: "All"
         case .overMonth: "Older than a month"
         case .project(let id): all.moves.lazy.compactMap(\.project).first { $0.id == id }?.name ?? "Project"
-        case .person(let ref): all.moves.lazy.flatMap(\.people).first { $0.ref == ref }.map { "With \($0.name)" } ?? "Person"
+        case .person(let ref):
+            all.moves.lazy.flatMap(\.people).first { $0.ref == ref }.map { "With \($0.name)" } ?? "Person"
         }
     }
 
@@ -186,12 +190,18 @@ struct MovesList: View {
         }
         return Group {
             if isSelecting {
-                TickRow(isTicked: ticked.contains(move.id), tick: { tick(move) }, open: { opened = move.id }) { content }
-                    .padding(.horizontal, Metrics.Spacing.s)
-                    .groupedRow(at: index, of: count)
+                TickRow(isTicked: ticked.contains(move.id), tick: { tick(move) }, open: { opened = move.id }) {
+                    content
+                }
+                .padding(.horizontal, Metrics.Spacing.s)
+                .groupedRow(at: index, of: count)
             } else {
-                Button { opened = move.id } label: {
-                    HStack { content; Spacer(minLength: 0) }.padding(.horizontal, 16).padding(.vertical, 8)
+                Button {
+                    opened = move.id
+                } label: {
+                    HStack {
+                        content; Spacer(minLength: 0)
+                    }.padding(.horizontal, 16).padding(.vertical, 8)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.groupedRow(at: index, of: count))
