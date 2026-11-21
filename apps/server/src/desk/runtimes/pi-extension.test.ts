@@ -107,6 +107,7 @@ async function runTurn() {
           },
         ]),
         [PI_EXTENSION_ENV.key]: "life-key",
+        [PI_EXTENSION_ENV.own]: "1",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
       },
       stderr: "ignore",

@@ -1,15 +1,16 @@
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
+import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
-  claudeHooksOf,
-  instructionsOf,
   type PiRow,
   piRowOf,
   piRuntime,
+  readClaudeHooks,
+  readClaudeInstructions,
 } from "./pi-runtime";
 
 // The pi runtime over a real pi (the pinned one, run as the helper runs it) and a made-up provider that answers by the
@@ -157,11 +158,11 @@ test("pi runs its one model by the desk's word, and refuses another", async () =
   );
 });
 
-test("his own agent reads his Claude instructions, imports followed, and his Claude hooks; a missing file is none", () => {
+test("his own agent reads his Claude instructions, imports followed from the file's folder, and his Claude hooks; a missing file is none", () => {
   const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
-  const shared = join(claude, "shared.md");
-  writeFileSync(shared, "# Shared rules");
-  writeFileSync(join(claude, "CLAUDE.md"), `First line\n@${shared}\nLast line`);
+  writeFileSync(join(claude, "shared.md"), "# Shared rules\n@more.md");
+  writeFileSync(join(claude, "more.md"), "More");
+  writeFileSync(join(claude, "CLAUDE.md"), "First line\n@shared.md\nLast line");
   writeFileSync(
     join(claude, "settings.json"),
     JSON.stringify({
@@ -170,10 +171,32 @@ test("his own agent reads his Claude instructions, imports followed, and his Cla
       },
     })
   );
-  expect(instructionsOf(claude)).toBe("First line\n# Shared rules\nLast line");
-  expect(claudeHooksOf(claude)).toEqual([
+  expect(readClaudeInstructions(claude)).toBe(
+    "First line\n# Shared rules\nMore\nLast line"
+  );
+  expect(readClaudeHooks(claude)).toEqual([
     { hooks: [{ command: "true", type: "command" }] },
   ]);
-  expect(instructionsOf(dir)).toBeUndefined();
-  expect(claudeHooksOf(dir)).toEqual([]);
+  expect(readClaudeInstructions(dir)).toBeUndefined();
+  expect(readClaudeHooks(dir)).toEqual([]);
+});
+
+test("his own agent's spawn carries his instructions, hooks and own mark; a second Life's none of them", async () => {
+  const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
+  writeFileSync(join(claude, "CLAUDE.md"), "His rules");
+  const place = {
+    claude,
+    dir: mkdtempSync(join(tmpdir(), "life-pi-place-")),
+    provider: provider.providerOf({}),
+  };
+  const own = await piRowOf(true, place).spawn(agent, "ref-own", true);
+  expect(own.env[PI_EXTENSION_ENV.own]).toBe("1");
+  expect(own.env[PI_EXTENSION_ENV.hooks]).toBe("[]");
+  expect(readFileSync(join(place.dir, "agent", "AGENTS.md"), "utf8")).toBe(
+    "His rules"
+  );
+  const second = await piRowOf(false, place).spawn(agent, "ref-second", true);
+  expect(second.env[PI_EXTENSION_ENV.own]).toBeUndefined();
+  expect(second.env[PI_EXTENSION_ENV.hooks]).toBeUndefined();
+  expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
