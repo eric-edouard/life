@@ -284,6 +284,6 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     #expect(none.openCount == 2 && none.isOpenCut && none.openShown(isAll: false, all: nil).isEmpty)
     // Nothing left out: no count.
     let whole = try decoded(
-        PersonNow.self, #"{"ref":"person:atelier","name":"Atelier","kind":"organization","domains":["atelier.example"]}"#)
+        PersonNow.self, #"{"ref":"person:a","name":"A","kind":"organization","domains":["a.example"]}"#)
     #expect(whole.membersLeftOut == 0 && whole.domainsLeftOut == 0 && !whole.isOpenCut)
 }
