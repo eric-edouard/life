@@ -2,7 +2,7 @@ import {
   CONVERSATION_ENDS_AFTER,
   RECORDING_ENDS_ON_SILENCE_AFTER,
 } from "../core/quiet";
-import { LIVE, type Store, turnRef } from "./lifelog";
+import { LIVE, OVERLAPS, overlapArgs, type Store, turnRef } from "./lifelog";
 
 // Whether the words of a stretch of speech are in, by lifelog's own signals and spans (the contract's `endedOnSilence`
 // and `closed`, the states and pages of its recordings), never a timing rule of Life's: the hearing (`host/hear.ts`)
@@ -49,8 +49,9 @@ interface InsideRow {
 
 /**
  * The recordings of speech from `from` to `to` (ISO instants, `to` exclusive) once their words are in, else null: one
- * entry per conversation holding turns inside, `turn` the ref of its first turn inside (`fetch` opens it as it is now,
- * so it survives lifelog regrouping the conversation) and `turns` how many are inside. Null too when no turn is inside.
+ * entry per conversation holding turns that overlap the span (`OVERLAPS`, as `fetch` cut to it reads them), `turn` the
+ * ref of its first (`fetch` opens it as it is now, so it survives lifelog regrouping the conversation) and `turns` how
+ * many. Null too when no turn overlaps.
  *
  * The words are in when, by lifelog's own signals (no timer of Life's): a turn of the same phone source starts at or
  * after `to`; or the last turn inside belongs to a recording that ended on silence and ended within
@@ -65,15 +66,15 @@ interface InsideRow {
 export function recordingsOf(store: Store, from: string, to: string) {
   const { db } = store;
   const inside = db
-    .query<InsideRow, [string, string]>(
+    .query<InsideRow, [string, string, string]>(
       `select t.job_id, t.turn_index, t.start_at, t.conversation_id as conversation, c.end_at as conversation_end,
         c.closed, j.source_id, j.first_page,
         (select max(coalesce(o.end_at, o.start_at)) from turns o where o.job_id = t.job_id) as recording_end
       from turns t join conversations c on c.id = t.conversation_id
       left join transcription_jobs j on j.id = t.job_id
-      where ${LIVE} and t.start_at >= ?1 and t.start_at < ?2 order by t.start_at, t.job_id, t.turn_index`
+      where ${LIVE} and ${OVERLAPS} order by t.start_at, t.job_id, t.turn_index`
     )
-    .all(from, to);
+    .all(...overlapArgs(from, to));
   const last = inside.at(-1);
   if (!last) {
     return null;

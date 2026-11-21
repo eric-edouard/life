@@ -153,7 +153,7 @@ public struct CardNotification: Sendable, Equatable {
     /// Reply…: his own words, typed or dictated. A category's button, so the Watch shows it.
     public static var replyAction: UNTextInputNotificationAction {
         UNTextInputNotificationAction(
-            identifier: reply, title: "Reply…", options: [.authenticationRequired], textInputButtonTitle: "Send",
+            identifier: reply, title: "Reply…", options: [.authenticationRequired], textInputButtonTitle: "Tell",
             textInputPlaceholder: "Your words")
     }
 

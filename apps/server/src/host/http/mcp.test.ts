@@ -154,7 +154,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
-    "fetch(fromTurn,id,limit)",
+    "fetch(at,fromTurn,id,limit,until)",
     "read_agent_asks(cursor,limit)",
     "read_appointments(appointment,pushId)",
     "read_area_page(name)",

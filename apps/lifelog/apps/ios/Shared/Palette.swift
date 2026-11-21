@@ -23,6 +23,8 @@ nonisolated enum Palette {
     static let on = token(dark: 0x07080a, light: 0xf3f4f5)
     /// A line icon beside a row (components.md "Settings row"): `fg` at 85%.
     static let icon = fg.opacity(0.85)
+    /// A QR's paper, white in both themes: a code scans dark on white.
+    static let qrPaper = Color.white
 
     /// A colour for dark and light. Life's own are the tokens above; the only other caller is a draft's chat, drawn in
     /// its platform's own colours (`ChatLook`, decision 82).

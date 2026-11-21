@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { appendJsonl } from "../core/files";
+import { appendJsonl, writeWhole } from "../core/files";
 import { FactCheck, FactCheckAnswer } from "../records/fact-check";
 import {
   type Correction,
@@ -689,8 +689,8 @@ test("readObservations reads an observation month once, then its new lines, and 
     expect(await texts()).toEqual(["one"]);
     appendFileSync(file, monthLine("obs_00000000000b", "two"));
     expect(await texts()).toEqual(["one", "two"]);
-    // Same size, other content: read again whole.
-    writeFileSync(
+    // Same size, other content, rewritten as a rewrite is (`writeWhole`): read again whole.
+    writeWhole(
       file,
       [
         monthLine("obs_00000000000a", "uno"),
