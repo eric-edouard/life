@@ -1,15 +1,10 @@
 import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, iso, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
+import { writeWhole } from "../core/files";
 import { DESK_AGENT } from "../core/names";
 import { asksFor } from "../host/asks";
 import { agentOf, currentAssignmentOf, queuedEvents } from "../host/desk-read";
@@ -342,7 +337,7 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
     await tick(desk);
   } finally {
     if (before) {
-      writeFileSync(CORRECTIONS, before);
+      writeWhole(CORRECTIONS, before);
     } else {
       rmSync(CORRECTIONS, { force: true });
     }
