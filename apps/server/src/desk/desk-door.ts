@@ -222,7 +222,7 @@ function doorServer(desk: Desk, id: string) {
         (await refsProblemOf(
           extras.sources,
           readsOnce(),
-          (id) => `the source ${id}`,
+          (ref) => `the source ${ref}`,
           "a source"
         ));
       if (dead) {
