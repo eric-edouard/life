@@ -61,13 +61,11 @@ struct SpendingPage: View {
         }
     }
 
-    /// A top matter opens its page; a top agent its sheet over the matter its read names, when it names one.
+    /// A top matter opens its page; a top agent its page.
     private func opening(_ opens: SpendLine.Opens?) -> (() -> Void)? {
         switch opens {
         case .matter(let id): return { router.open(matter: id) }
-        case .agent(let id):
-            guard let matter = life.agents.value?.agents.first(where: { $0.id == id })?.matter else { return nil }
-            return { router.open(agent: id, matter: matter.id) }
+        case .agent(let id): return { router.open(agent: id) }
         case nil: return nil
         }
     }
