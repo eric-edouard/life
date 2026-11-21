@@ -245,8 +245,8 @@ export async function contextProblemOf(context: string, reads: SharedReads) {
 export async function refsProblemOf(
   ids: readonly string[],
   reads: SharedReads,
-  named = (id: string) => `the ref ${id}`,
-  what = "a ref"
+  named: (id: string) => string,
+  what: string
 ) {
   for (const id of ids) {
     const ref = parseRef(id);

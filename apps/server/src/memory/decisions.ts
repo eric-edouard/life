@@ -490,7 +490,8 @@ async function askCard(
     (await refsProblemOf(
       needRefsOf(ask.needs),
       reads,
-      (id) => `the qr need's \`ref\` ${id}`
+      (id) => `the qr need's \`ref\` ${id}`,
+      "a QR's `ref`"
     ));
   if (contextProblem) {
     throw new Error(`Not done: ${contextProblem}.`);
