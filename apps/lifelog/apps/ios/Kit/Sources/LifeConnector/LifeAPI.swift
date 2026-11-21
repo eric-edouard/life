@@ -97,8 +97,8 @@ public protocol LifeAPI: Sendable {
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
     func readPersonPictures(_ ids: [String]) async throws -> String
-    /// The people and organizations Life knows, closest first; with a query, the ones it matches and `others`.
-    func readPeopleAndOrganizations(query: String?) async throws -> String
+    /// The people and organizations Life knows, closest first.
+    func readPeopleAndOrganizations() async throws -> String
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
     /// A page of Life's log, newest first (`LogPage`), for the Live logs page.
@@ -124,6 +124,12 @@ public protocol LifeAPI: Sendable {
     /// A project's status by his tap, `said` in his words: an edit of its entry in his directory.
     func setProjectStatus(
         _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String
+    /// His picture pick for a person's or an organization's entry in his directory (`ref`, `person:<id>`): a source's
+    /// name, `contacts` or `none`, `said` in his words: an edit of that entry.
+    func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
     /// An appointment Life added to his calendar, by its push's `pushId` or its own id (one of the two), from the Life at
     /// `origin` (nil: the one paired now).
@@ -193,8 +199,8 @@ public struct MCPLifeAPI: LifeAPI {
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
     }
-    public func readPeopleAndOrganizations(query: String?) async throws -> String {
-        try await client.call("read_people_and_organizations", query.map { ["query": $0] } ?? [:])
+    public func readPeopleAndOrganizations() async throws -> String {
+        try await client.call("read_people_and_organizations")
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readLogLines(_ query: LogQuery) async throws -> String {
@@ -265,6 +271,23 @@ public struct MCPLifeAPI: LifeAPI {
         }
         return try await client.call(
             "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
+    }
+
+    public func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
+        struct Edit: Encodable {
+            let kind: String
+            let action = "edit"
+            let id: String
+            let pictureFrom: String
+            let said: String
+        }
+        let edit = Edit(
+            kind: kind == .organization ? "organization" : "person", id: String(ref.trimmingPrefix("person:")),
+            pictureFrom: source, said: said)
+        return try await client.call("change_directory_entry", edit, onProgress: onProgress)
     }
 
     public func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {

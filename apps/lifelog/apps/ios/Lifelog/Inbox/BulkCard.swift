@@ -48,7 +48,6 @@ struct BulkCard: View {
             .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             Group { if kind == .guessedPerson { guessAnswers } else { answers } }
                 .padding(.horizontal, Metrics.Spacing.s).readingWidth()

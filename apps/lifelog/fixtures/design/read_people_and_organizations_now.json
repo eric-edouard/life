@@ -115,6 +115,20 @@
         "ref": "person:camille/page",
         "first": "Camille is your partner. You live together, and the one open thing between you is the lease on rue des Carmes, which goes back to Hélène before 30 November."
       }
+    ],
+    "pictures": [
+      {
+        "id": "0c1dd147dc5331bb52324d0ec0661d2e",
+        "source": "contacts"
+      },
+      {
+        "id": "69c417eadc421481e9a79b1444258bb3",
+        "source": "whatsapp"
+      },
+      {
+        "id": "59400481f8a16e09515dc886a44c1393",
+        "source": "instagram"
+      }
     ]
   },
   "person:marc_fenn": {
