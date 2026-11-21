@@ -36,12 +36,12 @@ export const WEBHOOK_SECRET = "whsec-test";
  * again: its indexes and the voice note hearings' seconds (`isTableKept` false: the test drops that table itself).
  */
 export function undoSpendingMigration(db: Db, isTableKept = true) {
-  db.$client.run("drop index if exists intelligence_runs_created");
-  db.$client.run("drop index if exists transcription_jobs_admitted");
+  db.run(sql.raw("drop index if exists intelligence_runs_created"));
+  db.run(sql.raw("drop index if exists transcription_jobs_admitted"));
   if (isTableKept) {
-    db.$client.run("drop index if exists voice_note_hearings_done");
+    db.run(sql.raw("drop index if exists voice_note_hearings_done"));
     for (const column of ["billable_seconds", "route", "seconds"]) {
-      db.$client.run(`alter table voice_note_hearings drop column ${column}`);
+      db.run(sql.raw(`alter table voice_note_hearings drop column ${column}`));
     }
   }
 }
