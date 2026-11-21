@@ -131,7 +131,7 @@ struct MovesList: View {
             } label: {
                 Row(
                     title: "\(moves.dead.count) look dead", icon: "moon",
-                    detail: "Nothing has moved on them in 3 months",
+                    detail: "Nothing has moved on them for a while",
                     isInList: true
                 ) {
                     Image(systemName: showsDead ? "chevron.down" : "chevron.right").foregroundStyle(Palette.muted)
@@ -248,7 +248,7 @@ struct MovesList: View {
         return VStack(spacing: Metrics.Spacing.s) {
             if let why = failed.first.flatMap(failure(of:)) {
                 let words = why.isSameTap && !why.mayHaveHappened ? "not sent to your Mac." : why.reason
-                Text("Not handed: \(words)").font(.small).foregroundStyle(Palette.flag)
+                Text("Not sent: \(words)").font(.small).foregroundStyle(Palette.flag)
                     .frame(maxWidth: .infinity, alignment: .leading).appears()
             }
             HStack(spacing: Metrics.Spacing.s) {

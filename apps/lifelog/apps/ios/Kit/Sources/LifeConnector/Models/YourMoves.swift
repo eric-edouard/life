@@ -41,6 +41,8 @@ public struct YourMoves: Equatable, Sendable {
 
     public init(checks: [Check], matters: [MatterRow], now: Date, timeZone: TimeZone = .current) {
         let byID = Dictionary(matters.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
         moves = checks.filter { $0.group == .yourMove }.map { check in
             let row = check.matter.flatMap { byID[$0.id] }
             let at =
@@ -50,7 +52,7 @@ public struct YourMoves: Equatable, Sendable {
                 .flatMap { $0 }.filter { !$0.isOwner }
             return Move(
                 check: check,
-                ageDays: at.map { max(0, Calendar.current.dateComponents([.day], from: $0, to: now).day ?? 0) },
+                ageDays: at.map { max(0, calendar.dateComponents([.day], from: $0, to: now).day ?? 0) },
                 project: row?.project,
                 people: people.reduce(into: []) { all, party in if !all.contains(party) { all.append(party) } },
                 looksDead: row.map { [.dormant, .probablyDone].contains($0.status) } ?? false)
