@@ -1,4 +1,7 @@
 {
+  "AgentProgramMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
   "CfgPlaces": {
     "args": [
       "-fixtureLife",
@@ -8,6 +11,24 @@
       "-fixturePage",
       "apps"
     ]
+  },
+  "DuoFoldAgentProgramMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitchAsk": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitchFailed": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitched": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentSwitching": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldAgentsListMoved": {
+    "why": "The app has no Agents list yet."
   },
   "DuoFoldImportantCard": {
     "why": "Its card (Return Jun’s drill, the switched stack) is not in the design data, and Life sends no reason a card is first: of this frame only the pill's flag is built."
@@ -71,6 +92,30 @@
   },
   "DuoFoldLogsProblems": {
     "why": "Its lines are not in the design data yet (read_log_lines.json, the designer's to write): until then the page shows the empty log."
+  },
+  "DuoFoldMoveAsk": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveBackMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveFailed": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveNotes": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoveStarting": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMoved": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "DuoFoldMovedCard": {
+    "why": "A card's pill follows its holder already (read_inbox's agent is the holder); the design data has no moved matter to show it on."
   },
   "DuoFoldNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
@@ -390,6 +435,15 @@
   },
   "ImportantSwipe": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+  },
+  "MoveMenu": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "MoveNotes": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "Moved": {
+    "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
   "PersonReachMenu": {
     "args": [

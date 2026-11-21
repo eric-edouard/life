@@ -49,7 +49,9 @@ struct MatterPage: View {
                 header(matter)
                 asks(life.asks(ofMatter: id))
                 if let agent {
-                    AgentRow(agent: agent) { router.matterSheet = .agent(id, agent: agent.id) }
+                    AgentRow(matter: matter, agent: agent) {
+                        router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                    }
                 }
                 GoalAndNext(matter: matter)
                 People(people: row.people)
@@ -342,29 +344,134 @@ extension MatterStep {
 
 // MARK: Agent
 
-/// The agent's row on a matter: its runtime in `ai`, one line under it (who it listens for and its deadline, or its state;
-/// `flag` when it never started), a chevron. It opens the agent's sheet.
+/// The agent's row on a matter: the holder's mark and name (else its program) in `ai`, "Moved from …" when he moved it
+/// there, then one line (a move under way, with its spinner; else who it listens for and its deadline, or its state,
+/// `flag` when it never started). It opens the agent's sheet; while a move is possible it is a pull-down menu: Open, or
+/// the move, asked once. A move that failed, or its call, says why above it, with Try again when that may be tried.
 private struct AgentRow: View {
+    let matter: Matter
     let agent: RegisteredAgent
     let open: () -> Void
 
+    @Environment(LifeStore.self) private var life
+    @State private var asking: MoveChoice?
+
     var body: some View {
-        Button(action: open) {
-            HStack(spacing: Metrics.Spacing.s) {
-                VStack(alignment: .leading, spacing: 2) {
-                    AgentLabel(runtime: agent.runtimeName).font(.bodyStrong)
+        let id = matter.row.id
+        let move = life.moveShown(ofMatter: id)
+        let call = life.state(of: .move(id))
+        let isUnderWay = call.isRunning || move?.phase.isUnderWay == true
+        let choice = isUnderWay ? nil : matter.moveChoice(among: life.agents.value?.agents ?? [])
+        let holder = matter.holder?.agent.name ?? agent.runtimeName.name
+        let ask = asking.map { MoveWords.ask($0, matter: matter.row.name, holder: holder) }
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+            failure(move: move, call: call, choice: choice)
+            if let choice {
+                Menu {
+                    Button("Open \(holder)", action: open)
+                    Button {
+                        asking = choice
+                    } label: {
+                        let item = MoveWords.item(choice)
+                        Text(item.title)
+                        if let subtitle = item.subtitle { Text(subtitle) }
+                    }
+                } label: {
+                    row(move, trailing: "chevron.up.chevron.down")
+                }
+                .menuStyle(.button).buttonStyle(.plain)
+            } else {
+                Button(action: open) { row(move, trailing: "chevron.right") }.buttonStyle(.plain)
+            }
+        }
+        .alert(
+            ask?.title ?? "",
+            isPresented: Binding {
+                asking != nil
+            } set: {
+                if !$0 { asking = nil }
+            }, presenting: asking
+        ) {
+            choice in
+            Button("Cancel", role: .cancel) {}
+            Button("Move") { go(choice) }
+        } message: { _ in
+            Text(ask?.message ?? "")
+        }
+        // While it moves, the page reads the matter and the agents every 3 s, until the move rests or the page goes.
+        .task(id: isUnderWay) {
+            guard isUnderWay else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                async let a: Void = life.refreshMatter(id)
+                async let b: Void = life.refreshAgents()
+                _ = await (a, b)
+            }
+        }
+    }
+
+    private func go(_ choice: MoveChoice) {
+        let said =
+            switch choice {
+            case .runtime(let runtime): "Move it to \(runtime.name)."
+            case .back(_, let name): "Move it back to the \(name)."
+            }
+        Task { await life.move(matter: matter.row.id, to: choice, said: said) }
+    }
+
+    /// Why the move, or the tap's own call, failed, in `flag`; Try again repeats the same move, only when nothing may
+    /// have gone (a call that may have gone is never sent blind).
+    @ViewBuilder private func failure(
+        move: AgentMove?, call: ActionState<ActionProof>, choice: MoveChoice?
+    ) -> some View {
+        let failed: (reason: String, canTryAgain: Bool)? =
+            if case .failed(let failure, _) = call {
+                (failure.reason, failure.canTryAgain)
+            } else if let move, move.phase == .failed {
+                (move.reason ?? "It did not move.", true)
+            } else {
+                nil
+            }
+        if let failed {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
+                Text(failed.reason).font(.small).foregroundStyle(Palette.flag).fixedSize(
+                    horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if failed.canTryAgain, let choice {
+                    QuietChip("Try again", symbol: "arrow.clockwise") { go(choice) }
+                }
+            }
+        }
+    }
+
+    private func row(_ move: AgentMove?, trailing: String) -> some View {
+        let holder = matter.holder?.agent
+        let underWay = move.flatMap { MoveWords.underWay($0, runtime: holder?.runtimeName ?? agent.runtimeName) }
+        return HStack(spacing: Metrics.Spacing.s) {
+            VStack(alignment: .leading, spacing: 2) {
+                AgentLabel(runtime: holder?.runtimeName ?? agent.runtimeName, name: holder?.name).font(.bodyStrong)
+                if let underWay {
+                    HStack(spacing: 6) {
+                        Spinner(size: .small)
+                        Text(underWay).lineLimit(1)
+                    }
+                    .font(.small).foregroundStyle(Palette.muted)
+                } else {
+                    if let from = matter.holder?.movedFrom {
+                        Text("Moved from \(from.name)").font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+                    }
                     if let line = agent.rowLine() {
                         Text(line).font(.small).foregroundStyle(agent.notStarted == nil ? Palette.muted : Palette.flag)
                             .lineLimit(1)
                     }
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
             }
-            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
-            .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
+            Spacer(minLength: 0)
+            Image(systemName: trailing).font(.smallStrong).foregroundStyle(Palette.muted)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
         .accessibilityElement(children: .combine)
+        .motion(Motion.standard, value: underWay)
     }
 }

@@ -12,8 +12,11 @@ struct AgentSheet: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    /// The program he picked, asked once before the switch.
+    @State private var asking: RuntimeName?
 
-    /// The agent named, in the matter's read or else in `read_registered_agents`; none named, the matter's first.
+    /// The agent named, in the matter's read or else in `read_registered_agents`; none named, the matter's first. Its
+    /// names and its switch are only in `read_registered_agents` (`registered`).
     private var agent: RegisteredAgent? {
         let ones = life.matter[matter]?.value?.agents
         guard let agentID else { return ones?.first }
@@ -26,6 +29,7 @@ struct AgentSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let agent {
+                runsOn(agent)
                 content(agent)
                 // A refused Stop or Resume says why in the scroll, which holds any length; the bar keeps the buttons.
                 if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
@@ -41,15 +45,126 @@ struct AgentSheet: View {
             if let agent { buttons(agent) }
         }
         .background(Palette.sheet)
+        .saysBack()
         .sheetStack()
         .motion(Motion.standard, value: agent?.status)
         .presentationDetents([.large])
+        .alert(
+            switchAsk?.title ?? "",
+            isPresented: Binding {
+                asking != nil
+            } set: {
+                if !$0 { asking = nil }
+            },
+            presenting: asking
+        ) { runtime in
+            Button("Cancel", role: .cancel) {}
+            Button("Switch") { if let agent { go(agent, to: runtime) } }
+        } message: { _ in
+            Text(switchAsk?.message ?? "")
+        }
+        // While it switches, the sheet reads the agents every 3 s, until the switch rests or the sheet goes.
+        .task(id: isSwitching) {
+            guard isSwitching else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                await life.refreshAgents()
+            }
+        }
+    }
+
+    private var switchAsk: (title: String, message: String)? {
+        guard let asking, let agent else { return nil }
+        return MoveWords.switchAsk(nameOf(agent), to: asking)
+    }
+
+    private var isSwitching: Bool {
+        guard let agent else { return false }
+        return life.state(of: .move(agent.id)).isRunning || life.switchShown(of: agent.id)?.phase.isUnderWay == true
+    }
+
+    /// Its name ("Halden house agent"), else its program's.
+    private func nameOf(_ agent: RegisteredAgent) -> String {
+        registered(agent.id)?.name ?? agent.runtimeName.name
+    }
+
+    private func go(_ agent: RegisteredAgent, to runtime: RuntimeName) {
+        Task { await life.switchAgent(agent.id, to: runtime, said: "Switch it to \(runtime.name).") }
+    }
+
+    // MARK: Runs on
+
+    /// The program it runs on: a pop-up of both (the current checked) while it can switch, asked once; plain text when
+    /// it can't (the other blocked, or it is not at work). A switch under way shows its step; a failed one, why, with
+    /// Try again when that may be tried.
+    private func runsOn(_ agent: RegisteredAgent) -> some View {
+        let read = registered(agent.id)
+        let move = life.switchShown(of: agent.id)
+        let call = life.state(of: .move(agent.id))
+        let isAtWork = agent.status == .running || agent.status == .waiting
+        let other = read?.moveTo.flatMap(RuntimeName.init(rawValue:)).flatMap { isAtWork && !isSwitching ? $0 : nil }
+        let failed: (reason: String, canTryAgain: Bool)? =
+            if case .failed(let failure, _) = call {
+                (failure.reason, failure.canTryAgain)
+            } else if let move, move.phase == .failed {
+                (move.reason ?? "It did not switch.", true)
+            } else {
+                nil
+            }
+        return group("Settings") {
+            FlatRow(lead: .symbol("cpu")) {
+                Text("Runs on").font(.rowName)
+            } trailing: {
+                // Starting, it is on its new program already.
+                if let words = move.flatMap({ MoveWords.underWay($0, runtime: (read ?? agent).runtimeName) }) {
+                    HStack(spacing: 6) {
+                        Spinner(size: .small)
+                        Text(words)
+                    }
+                    .font(.small).foregroundStyle(Palette.muted)
+                } else if let other {
+                    Picker(
+                        "Runs on",
+                        selection: Binding {
+                            agent.runtimeName
+                        } set: {
+                            if $0 == other { asking = other }
+                        }
+                    ) {
+                        ForEach([agent.runtimeName, other], id: \.self) { runtime in
+                            Label {
+                                Text(runtime.name)
+                            } icon: {
+                                Image(symbol: runtime.mark)
+                            }
+                            .tag(runtime)
+                        }
+                    }
+                    .pickerStyle(.menu).tint(Palette.muted)
+                } else {
+                    Text(agent.runtimeName.name).font(.small).foregroundStyle(Palette.muted)
+                }
+            }
+            if let failed {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
+                    Text(failed.reason).font(.small).foregroundStyle(Palette.flag)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    if failed.canTryAgain, let to = read?.moveTo.flatMap(RuntimeName.init(rawValue:)) {
+                        QuietChip("Try again", symbol: "arrow.clockwise") { go(agent, to: to) }
+                    }
+                }
+            }
+        }
+        .padding(.top, Metrics.Spacing.xl)
+        .motion(Motion.standard, value: move?.phase)
     }
 
     private func head(_ agent: RegisteredAgent) -> some View {
         SheetHeader(title: nil) { dismiss() }.frame(minHeight: Metrics.tapTarget)
             .overlay(alignment: .leading) {
-                AgentLabel(runtime: agent.runtimeName).font(.sheetQuestion)
+                AgentLabel(runtime: (registered(agent.id) ?? agent).runtimeName, name: registered(agent.id)?.name)
+                    .font(.sheetQuestion)
             }
     }
 

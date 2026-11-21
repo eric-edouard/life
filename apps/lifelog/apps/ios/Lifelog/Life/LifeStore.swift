@@ -40,6 +40,8 @@ final class LifeStore {
         case complaint(ref: String)
         case start(matter: String)
         case agent(String)
+        /// His move of a matter, or his runtime switch of an agent, by the matter's or the agent's id.
+        case move(String)
         case edit(matter: String, Edit)
         case project(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
@@ -56,8 +58,9 @@ final class LifeStore {
         }
         let id = UUID()
         let words: String
-        /// Nil when it was not done: the words say why.
+        /// Nil when it was not done (the words say why), or when it was done with nothing to undo (`isDone`).
         let undo: Undo?
+        var isDone = false
     }
     private(set) var saidBack: SaidBack?
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
@@ -106,6 +109,9 @@ final class LifeStore {
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
+    /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`endMoves`).
+    var moveReceipts: [String: MoveReceipt] = [:]
+
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
 
@@ -116,8 +122,8 @@ final class LifeStore {
     private let approve: Approve
     private let api: any LifeAPI
     private let cache: ReadCache
-    private let runner: LifeActions
-    private let now: @Sendable () -> Date
+    let runner: LifeActions
+    let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// One read of each kind at a time, plus one more pass.
     @ObservationIgnored private let flights: ReadFlights
@@ -234,6 +240,7 @@ final class LifeStore {
     }
     func refreshAgents() async {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
+        await endMoves()
     }
 
     func refreshSpending() async {
@@ -342,6 +349,7 @@ final class LifeStore {
         await load(update, key: key) {
             try await $0.readMatter(id)
         }
+        await endMoves()
     }
 
     func refreshProject(_ id: String) async {
@@ -407,7 +415,7 @@ final class LifeStore {
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
     /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
-    private func perform(
+    func perform(
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
     ) async {
@@ -547,31 +555,6 @@ final class LifeStore {
     /// Every held answer, at once: the screen is going, or the app.
     func sendHeld() async { await holds.sendAll() }
 
-    /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
-    func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
-        await perform(.start(matter: id)) { [runner] in
-            await runner.startAgent(matter: id, goal: goal, runtime: runtime, model: model, emit: $0)
-        }
-        async let a: Void = refreshMatter(id)
-        async let b: Void = refreshAgents()
-        _ = await (a, b)
-    }
-
-    func stopAgent(_ agent: String) async {
-        await change(agent, AgentRequest(action: .stop, agent: agent, said: "Stop it."))
-    }
-    func resumeAgent(_ agent: String) async {
-        await change(agent, AgentRequest(action: .resume, agent: agent, said: "Resume it."))
-    }
-    private func change(_ agent: String, _ request: AgentRequest) async {
-        await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
-        // The matter page draws the agent from its own read, so that read is refreshed too.
-        let pages = matter.filter { $0.value.value?.agents.contains { $0.id == agent } == true }.keys
-        async let agents: Void = refreshAgents()
-        for id in pages { await refreshMatter(id) }
-        await agents
-    }
-
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
         let api = api
@@ -697,8 +680,8 @@ final class LifeStore {
         show(said)
     }
 
-    /// Shows `said` for 4 s, flagged when it has no Undo.
-    private func show(_ said: SaidBack) {
+    /// Shows `said` for 4 s, flagged when it has no Undo and was not done.
+    func show(_ said: SaidBack) {
         saidBack = said
         Task {
             try? await Task.sleep(for: .seconds(4))
@@ -788,7 +771,7 @@ final class LifeStore {
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
         spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
-        (answered, pushed) = (AnsweredCards(), nil)
+        (answered, pushed, moveReceipts) = (AnsweredCards(), nil, [:])
         parties.startOver()
         holds.clear()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.

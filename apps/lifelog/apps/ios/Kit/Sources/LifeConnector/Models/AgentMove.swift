@@ -24,18 +24,31 @@ public struct AgentMove: Decodable, Sendable, Equatable {
         (self.id, self.phase, self.reason, self.done, self.total) = (id, phase, reason, done, total)
     }
 
-    /// The move a screen shows. With his `receipt` (the move's id Life answered his tap with): the read's move of that
-    /// id; else its ask refused before the desk wrote a move (`refused`), failed with the desk's words; else asked and
-    /// not applied yet, as its notes. With none, the read's own move (one asked from another app shows too).
+    /// The move a screen shows. With his `receipt`: the read's move of its id; else its ask refused before the desk
+    /// wrote a move (`refused`), failed with the desk's words; else asked and not applied yet, as its notes, for
+    /// `MoveReceipt.patience`. Past that, or with none, the read's own move (one asked from another app shows too), so
+    /// a page opened after the move's hour, or after a newer move, never waits on it.
     public static func shown(
-        receipt: String?, read: AgentMove?, refused: [RegisteredAgents.Refusal]
+        receipt: MoveReceipt?, read: AgentMove?, refused: [RegisteredAgents.Refusal], now: Date
     ) -> AgentMove? {
-        guard let receipt, read?.id != receipt else { return read }
-        if let refusal = refused.first(where: { $0.ask == receipt }) {
-            return AgentMove(id: receipt, phase: .failed, reason: refusal.error)
+        guard let receipt, read?.id != receipt.id else { return read }
+        if let refusal = refused.first(where: { $0.ask == receipt.id }) {
+            return AgentMove(id: receipt.id, phase: .failed, reason: refusal.error)
         }
-        return AgentMove(id: receipt, phase: .notes)
+        guard now.timeIntervalSince(receipt.at) < MoveReceipt.patience else { return read }
+        return AgentMove(id: receipt.id, phase: .notes)
     }
+}
+
+/// His move as Life answered his tap (`hand_over`'s `move`, the ask's id), and when.
+public struct MoveReceipt: Sendable, Equatable {
+    /// How long an ask the reads don't show yet counts as under way: the desk applies it within its 5 s tick.
+    public static let patience: TimeInterval = 60
+
+    public let id: String
+    public let at: Date
+
+    public init(id: String, at: Date) { (self.id, self.at) = (id, at) }
 }
 
 /// An agent as a move names it: its id, its name ("Halden house agent"), its short name, its program.
@@ -75,12 +88,13 @@ public enum MoveChoice: Equatable, Sendable {
 }
 
 extension Matter {
-    /// The one move to offer: back to the agent he moved it from while `agents` (`read_registered_agents`) lists it not
-    /// over (the old holder is no longer anchored on the matter, so the matter's own agents can't tell), else to the
-    /// other program; none with no holder, or while the other program can't run.
+    /// The one move to offer: back to the agent he moved it from while `agents` (`read_registered_agents`) lists it at
+    /// work and not the caretaker, as the desk takes one (the old holder is no longer anchored on the matter, so the
+    /// matter's own agents can't tell), else to the other program; none with no holder, or while it can't run.
     public func moveChoice(among agents: [RegisteredAgent]) -> MoveChoice? {
         guard let holder, moveBlocked == nil else { return nil }
-        if let from = holder.movedFrom, agents.contains(where: { $0.id == from.id && !$0.isOver }) {
+        let isTaker = { (a: RegisteredAgent) in [.running, .waiting].contains(a.status) && a.role != .caretaker }
+        if let from = holder.movedFrom, agents.contains(where: { $0.id == from.id && isTaker($0) }) {
             return .back(agent: from.id, name: from.name)
         }
         return moveTo.flatMap(RuntimeName.init(rawValue:)).map { .runtime($0) }

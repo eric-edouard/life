@@ -187,8 +187,14 @@ public struct Matter: Decodable, Sendable, Equatable {
     public let checks: [Check]
     /// What its agents' turns spent of his plans; nil when the desk can't be read.
     public let spending: TokenSpending?
+    /// The agent of its open assignment (none: no agent holds it, or an older Life), where it can move, or why not now,
+    /// and its newest move (decision 78).
+    public let holder: MatterHolder?
+    public let moveTo: String?
+    public let moveBlocked: MoveBlocked?
+    public let move: AgentMove?
 
-    private enum Key: String, CodingKey { case steps, agents, checks, spending }
+    private enum Key: String, CodingKey { case steps, agents, checks, spending, holder, moveTo, moveBlocked, move }
 
     public init(from decoder: any Decoder) throws {
         row = try MatterRow(from: decoder)
@@ -197,5 +203,9 @@ public struct Matter: Decodable, Sendable, Equatable {
         agents = try container.decode([RegisteredAgent].self, forKey: .agents)
         checks = try container.decode([Check].self, forKey: .checks)
         spending = try container.decodeIfPresent(TokenSpending.self, forKey: .spending)
+        holder = try container.decodeIfPresent(MatterHolder.self, forKey: .holder)
+        moveTo = try container.decodeIfPresent(String.self, forKey: .moveTo)
+        moveBlocked = try container.decodeIfPresent(MoveBlocked.self, forKey: .moveBlocked)
+        move = try container.decodeIfPresent(AgentMove.self, forKey: .move)
     }
 }

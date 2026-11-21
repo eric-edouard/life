@@ -37,11 +37,16 @@ public struct Complaint: Encodable, Sendable, Equatable {
 
 /// His word about a registered agent (`change_registered_agent`'s arguments).
 public struct AgentRequest: Encodable, Sendable, Equatable {
-    public enum Action: String, Encodable, Sendable { case start, stop, resume, changeModel = "change_model" }
+    public enum Action: String, Encodable, Sendable {
+        case start, stop, resume
+        case changeModel = "change_model"
+        case handOver = "hand_over"
+    }
 
     public var action: Action
+    /// The agent acted on; with `hand_over` and a `step`, the agent the matter moves to.
     public var agent: String?
-    /// A matter's id: the subject of a start.
+    /// A matter's id: the subject of a start, or of a matter move.
     public var step: String?
     public var runtime: String?
     public var model: String?
