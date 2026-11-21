@@ -229,17 +229,21 @@ test("Thai lines and no Apple model go straight to both of his engine's reads; a
   expect(thai.calls).toEqual({ apple: 0, engine: 2 });
   const none = sceneOf(() => ({ detail: "no helper", error: "unavailable" }));
   await none.read([msg("Can you check the contract?")]);
-  expect(none.lines().map((l) => l.read)).toEqual([
-    "arrival_confirm",
-    "arrival_appointment",
-  ]);
+  // His engine's two reads run at once: stored in either order.
+  expect(
+    none
+      .lines()
+      .map((l) => l.read)
+      .toSorted()
+  ).toEqual(["arrival_appointment", "arrival_confirm"]);
   const refused = sceneOf(() => ({ detail: "sensitive", error: "refused" }));
   await refused.read([msg("Can you check the contract?")]);
-  expect(refused.lines().map((l) => l.read)).toEqual([
-    "arrival_trigger",
-    "arrival_confirm",
-    "arrival_appointment",
-  ]);
+  expect(
+    refused
+      .lines()
+      .map((l) => l.read)
+      .toSorted()
+  ).toEqual(["arrival_appointment", "arrival_confirm", "arrival_trigger"]);
 });
 
 /** His engine agreeing on a made-up dinner two days ahead, quoting the booking line. */
