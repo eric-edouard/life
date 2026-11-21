@@ -98,17 +98,18 @@ export interface ConfirmedArrival {
 }
 
 /**
- * The one rule of what is a confirmed arrival: the latest confirm line of its messages, of any prompt version, says
- * `isActionable`. An older prompt's yes still counts: the reader reads only today's lines, so a prompt bumped before the
- * night would otherwise leave that day's confirmed units unread (an importance-1 reply keeping a promise). Read by
- * extraction's choice of units and the desk's wake, never decided twice.
+ * The one rule of what is a confirmed arrival: the latest confirm line ending at a message (the desk's wake id), of any
+ * prompt version, says `isActionable`. An older prompt's yes still counts: the reader reads only today's lines, so a
+ * prompt bumped before the night would otherwise leave that day's confirmed units unread (an importance-1 reply keeping
+ * a promise); a newer read ending at the same message replaces it, so a message wakes one agent. Read by extraction's
+ * choice of units and the desk's wake, never decided twice.
  */
 export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
   [
     ...new Map(
       lines
         .filter((l) => l.read === ARRIVAL_CONFIRM_READ)
-        .map((l) => [l.messages.join(" "), l])
+        .map((l) => [l.messages.at(-1), l])
     ).values(),
   ].flatMap((l) =>
     l.reply.isActionable === true
