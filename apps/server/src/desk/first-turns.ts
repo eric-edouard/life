@@ -1,5 +1,5 @@
 import type { AgentRow, AssignmentRow } from "../host/desk-read";
-import { isHisWordsPlanOf } from "../host/inbox";
+import { isHisWordsPlanOf, opensWithPlan } from "../host/inbox";
 import { askPageOf } from "../memory/card-request";
 import type { Desk } from "./desk-store";
 
@@ -25,11 +25,11 @@ const CARETAKER_FIRST_TURN =
 const SPOKEN_ASK_FIRST_TURN =
   " Your first turn reads each spoken ask it was woken on (`ask.spoken`: `read_spoken_ask`) and starts on it: his words are your plan, so ask no plan card and wait for no `start`. Anything outward still goes to him first, as a card on the exact content.";
 
-/** What an assignment's first turn does: the caretaker's by its role, the Personal agent's on his spoken ask (`isHisWordsPlanOf`); else his plan card first when he opened it, one card of what it found when the desk did, either card's plan in Markdown. */
+/** What an assignment's first turn does: the caretaker's by its role, the Personal agent's on his spoken ask (`isHisWordsPlanOf`); else his plan card first when it opens with a plan (`opensWithPlan`: he opened it, or it moved in, the door's rule too), one card of what it found when the desk did, either card's plan in Markdown. */
 export function firstTurnOf(
   db: Desk["db"],
   a: Pick<AgentRow, "role">,
-  s: Pick<AssignmentRow, "id" | "opened_by">
+  s: Pick<AssignmentRow, "agent_id" | "id" | "opened_by">
 ) {
   if (a.role === "caretaker") {
     return CARETAKER_FIRST_TURN;
@@ -37,5 +37,5 @@ export function firstTurnOf(
   if (isHisWordsPlanOf(db, a, s)) {
     return SPOKEN_ASK_FIRST_TURN;
   }
-  return `${s.opened_by === "desk" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN}${PLAN_IN_MARKDOWN}`;
+  return `${opensWithPlan(db, s) ? PLAN_FIRST_TURN : HANDED_OUT_FIRST_TURN}${PLAN_IN_MARKDOWN}`;
 }
