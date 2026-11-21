@@ -4,7 +4,7 @@ import { ClosenessLevel } from "../records/observation";
 import { closerOf, levelsWith } from "./closeness";
 import { QUOTE_MAX } from "./index-rows";
 import {
-  doneOnOf,
+  ACTIONABLE,
   type MatterStepNow,
   type MatterView,
   matterPeopleOf,
@@ -123,6 +123,31 @@ export async function readOpenItems(
     ),
     ...(await repliesOwed(end)),
   ];
+}
+
+/**
+ * The matters that ended on `day` (a local day), by their steps: closed, and the newest ending among their to-dos,
+ * promises, waits and to-do items falls on it. A trip done by quiet has no ending and is not listed. Each with that last
+ * step, to say how it ended. Pure.
+ */
+export function doneOnOf(
+  book: readonly MatterView[],
+  day: string,
+  dayOf: (at: string) => string
+) {
+  return book.flatMap((v) => {
+    const last = v.open
+      ? undefined
+      : v.steps
+          .filter((s) => ACTIONABLE.includes(s.kind) && s.ending)
+          .toSorted((a, b) =>
+            (a.ending?.at ?? "").localeCompare(b.ending?.at ?? "")
+          )
+          .at(-1);
+    return last?.ending && dayOf(last.ending.at) === day
+      ? [{ last, matter: v }]
+      : [];
+  });
 }
 
 /** The matters that ended on `date` (`doneOnOf`): each with its name and how its last step ended. */

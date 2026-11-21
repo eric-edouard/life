@@ -554,15 +554,11 @@ const isNewerThan = (
     (s) =>
       !pin.steps.includes(s.ref) ||
       (s.ending && s.ending.at > pin.at) ||
-      isDatePassedSince(s, pin.at, today)
+      // An open step's date passed since the pin: his rule of 21 Nov 2026, a dated thing past is looked into again.
+      (isOpenStep(s) &&
+        localDate(pin.at) <= (s.when ?? "") &&
+        (s.when ?? "") < today)
   );
-
-/** Whether an open step's date passed since `at` (his rule of 21 Nov 2026: a dated thing whose date passed is looked into again). */
-const isDatePassedSince = (s: MatterStepNow, at: string, today: string) =>
-  isOpenStep(s) &&
-  s.when !== undefined &&
-  s.when < today &&
-  s.when >= localDate(at);
 
 /** How many days from its first step a new matter is offered: Life's "Start an agent on this?" lapses after them, and nothing starts. */
 export const NEW_MATTER_DAYS = 7;
@@ -826,29 +822,4 @@ export function matterBookOf(
     .toSorted((a, b) =>
       (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
     );
-}
-
-/**
- * The matters that ended on `day` (a local day), by their steps: closed, and the newest ending among their to-dos,
- * promises, waits and to-do items falls on it. A trip done by quiet has no ending and is not listed. Each with that last
- * step, to say how it ended. Pure.
- */
-export function doneOnOf(
-  book: readonly MatterView[],
-  day: string,
-  dayOf: (at: string) => string
-) {
-  return book.flatMap((v) => {
-    const last = v.open
-      ? undefined
-      : v.steps
-          .filter((s) => ACTIONABLE.includes(s.kind) && s.ending)
-          .toSorted((a, b) =>
-            (a.ending?.at ?? "").localeCompare(b.ending?.at ?? "")
-          )
-          .at(-1);
-    return last?.ending && dayOf(last.ending.at) === day
-      ? [{ last, matter: v }]
-      : [];
-  });
 }
