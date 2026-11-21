@@ -659,7 +659,7 @@ const CHECKS_READ = [
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
-  cardHolders?: Readonly<Record<string, string>>;
+  cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
   complaints?: readonly BeingFixed[];
   read: () => readonly AgentHold[] | null;
   stamp: string;
@@ -759,7 +759,7 @@ async function readChecks(
   const by = held?.cardHolders ?? {};
   const checks = checksOf({
     answered,
-    decisions: decisions.map((d) => ({ ...d, agent: by[d.id] ?? d.agent })),
+    decisions: decisions.map((d) => ({ ...d, ...by[d.id] })),
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,

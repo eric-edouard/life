@@ -9,6 +9,7 @@ import {
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
+import { holderLinksOf } from "../host/inbox";
 import {
   askDecision,
   openAssignment,
@@ -267,4 +268,13 @@ test("each open card is its own assignment's, so an agent holding two shows each
       await withdrawOpenCards(desk.db, { agent_id: id }, "test over");
     }
   );
+});
+
+test("a card shown as its holder's opens the holder's session, not the asker's", () => {
+  const claude = "https://claude.ai/code/session_test";
+  const codex = "codex://threads/test";
+  expect(
+    holderLinksOf([claude, "https://example.com/doc"], claude, codex)
+  ).toEqual([codex, "https://example.com/doc"]);
+  expect(holderLinksOf([claude], claude, undefined)).toEqual([]);
 });

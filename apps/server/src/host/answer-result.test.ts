@@ -375,6 +375,13 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     expect((await call(id3, ["wait"]).result).asker).toMatchObject({
       told: "woken",
     });
+    // Folded or moved to another agent: the receipt names the agent holding its card now.
+    const { id: id4 } = await card("desk", "agt_0123456789ab");
+    db.run("insert into card values (?, 'asg_test')", [id4]);
+    db.run("update assignment set agent_id = 'agt_00000000fe11'");
+    expect((await call(id4, ["wait"]).result).asker).toMatchObject({
+      agent: "agt_00000000fe11",
+    });
   } finally {
     db.close();
     setSettings({ desk: null });

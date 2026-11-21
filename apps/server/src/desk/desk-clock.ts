@@ -22,6 +22,7 @@ import { isOnOrAfter } from "../host/event-channels";
 import {
   CALL_ENDED,
   callMatchableOf,
+  DECISION_ANSWERED,
   DECISION_EVENTS,
   DRAFT_CONTESTED,
   DRAFT_KEPT,
@@ -342,10 +343,11 @@ function dueOf(db: Desk["db"], agent: string, assignment: string) {
   if (!d) {
     return null;
   }
+  // His answer first; a contest or a lapse (also at once) goes with the first turns.
   let rank = 2;
-  if (d.cause === "answer") {
+  if (events.some((e) => e.name === DECISION_ANSWERED)) {
     rank = 0;
-  } else if (turns.length === 0) {
+  } else if (d.cause === "answer" || turns.length === 0) {
     rank = 1;
   }
   return { ...d, a, events, rank, s };

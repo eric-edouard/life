@@ -1,7 +1,7 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { DAY, HOUR, MIN } from "../core/clock";
-import { DECISION_ANSWERED } from "../host/events";
+import { DECISION_ANSWERED, DRAFT_CONTESTED } from "../host/events";
 import { answerDecision, requestDecision } from "../memory/decisions";
 import { register } from "./agent-actions";
 import { pollAnswers, wakeDue } from "./desk-clock";
@@ -46,6 +46,25 @@ test("his answer starts ahead of three new agents' first turns", async () => {
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
   expect(fresh.filter((f) => turns(f).length > 0)).toHaveLength(2);
+});
+
+test("his answer starts ahead of three older contests, which wait for the next tick", async () => {
+  const { desk, queue, turns, waiting } = setup();
+  const contested = [
+    await waiting(DAY),
+    await waiting(DAY),
+    await waiting(DAY),
+  ];
+  const id = await waiting(DAY);
+  advance(2 * HOUR);
+  for (const [i, c] of contested.entries()) {
+    queue(c, `dec_c${i}.${DRAFT_CONTESTED}`, DRAFT_CONTESTED);
+  }
+  advance(MIN);
+  queue(id, "dec_4.answered", DECISION_ANSWERED);
+  await wakeDue(desk);
+  expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
+  expect(contested.filter((c) => turns(c).length > 1)).toHaveLength(2);
 });
 
 test("his answer while its agent is stopped is queued once, and wakes it when he resumes it", async () => {
