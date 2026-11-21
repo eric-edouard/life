@@ -51,7 +51,7 @@ export const OWNER_ASKER = "owner";
 /** The askers that are roles, not agents: none may name one of his agents, or it would read and withdraw their cards. */
 export const ROLE_ASKERS = [DESK_AGENT, OWNER_ASKER, LIFE_ASKER];
 
-/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice. */
+/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice, a guess that may be someone else going by its whole name (`same person`). */
 export const CheckGroup = z.enum([
   "decision",
   "ending",
@@ -60,6 +60,7 @@ export const CheckGroup = z.enum([
   "contacts card",
   "name",
   "voice",
+  "same person",
 ]);
 export type CheckGroup = z.infer<typeof CheckGroup>;
 

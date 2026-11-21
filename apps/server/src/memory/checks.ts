@@ -43,6 +43,7 @@ import {
   type Check,
   type CheckKind,
   type CheckMatter,
+  type HeldRead,
   LIFE_CHECKS,
 } from "./life-checks";
 import {
@@ -81,6 +82,7 @@ import {
   isParkedMatterOf,
 } from "./read-matters";
 import { lifeLinksOf } from "./refs";
+import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
 import {
   type People,
@@ -90,12 +92,10 @@ import {
 } from "./who";
 import { dayNow } from "./zones";
 
-// The checks: everything waiting on his word, in one shape, with no limit. A check is one guess of Life's
-// that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
-// an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
-// or a new matter Life offers an agent for ("Start an agent on this?"). Derived when read, never stored: his answer (`answerCheck`,
-// `answer-check.ts`) goes to its kind's own store: a correction (a person, a new matter's goal or dismissal), a
-// fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
+// The checks: everything waiting on his word, in one shape, with no limit: a guess of Life's his word would settle,
+// shown with its evidence while something rides on it (Life uses its guess meanwhile), a decision an agent asks, or a
+// new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
+// store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
 
 /** A kept line as the checks read it. */
 type Line = Pick<
@@ -118,7 +118,7 @@ type Where = string;
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
-  /** The open decisions (`decisionsNow`). */
+  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now (`HeldRead.cardHolders`). */
   decisions: readonly Decision[];
   /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
   dismissed: readonly (readonly string[])[];
@@ -185,6 +185,10 @@ export interface CheckInputs {
       | "relation"
     >[];
   };
+  /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
+  plans?: ReadonlySet<string>;
+  /** The guesses that may be someone going by their whole name (`samePersonPairsOf`), worked out once by the reader. */
+  samePersons: ReturnType<typeof samePersonPairsOf>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
@@ -349,6 +353,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           draft: d.draft ?? null,
           goal: null,
           group: "decision",
+          isPlan: c.plans?.has(d.id) ?? false,
           kind: "decision",
           likelyPeople: [],
           links: d.links,
@@ -505,17 +510,15 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     );
     const cards = people.ambiguousCards.flatMap((a) => {
       // The people its name and handles say, named once: his answer is one of them.
-      const card = people.contacts.find((x) => x.id === a.card) ?? {
-        handles: [],
-      };
-      const likelyPeople = a.people.map(people.partyOf);
+      const handles =
+        people.contacts.find((x) => x.id === a.card)?.handles ?? [];
       return ranked(
         c,
         "contacts card",
         {
-          about: card.handles,
-          likelyPeople,
-          ...cardAskOf(people.nameOf(a.card), card.handles),
+          about: handles,
+          likelyPeople: a.people.map(people.partyOf),
+          ...cardAskOf(people.nameOf(a.card), handles),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -547,7 +550,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         );
       }
     );
-    return [...guessed, ...cards, ...named];
+    const same = samePersonAsksOf(people, c.samePersons).flatMap((a) =>
+      ranked(c, "same person", a, a.linesOf(byRef), a.refs, null)
+    );
+    return [...guessed, ...cards, ...same, ...named];
   },
   voice: (c) => voiceChecksOf(c.people, c.voices),
 };
@@ -609,13 +615,6 @@ const CHECKS_READ = [
   ZONES,
 ];
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
-export interface HeldRead {
-  complaints?: readonly BeingFixed[];
-  read: () => readonly AgentHold[] | null;
-  stamp: string;
-}
-
 /** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
@@ -626,17 +625,18 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [held.stamp, held.complaints],
+    held && [held.stamp, held.complaints, held.cardHolders],
     voices,
   ]);
 
 /** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
 export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
-  const decisions = decisionsNow().filter((d) => d.state === "open");
+  const all = decisionsNow();
+  const decisions = all.filter((d) => d.state === "open");
   const key = checksKeyOf(held, voices, decisions);
   if (isLocked() || last?.key !== key) {
-    const list = readChecks(held, voices, decisions);
+    const list = readChecks(held, voices, decisions, all);
     last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -655,7 +655,8 @@ export const checksNow = async (held: HeldRead | null) =>
 async function readChecks(
   held: HeldRead | null,
   voices: NamingQueueItem[],
-  decisions: Decision[]
+  decisions: Decision[],
+  all: Decision[]
 ): Promise<InboxCheck[]> {
   const people = await readPeople();
   const [records, unresolved, paged] = await Promise.all([
@@ -706,9 +707,11 @@ async function readChecks(
     steps,
   });
   const key = secretIn("pushIdKey");
+  // Each card as asked by the agent holding it now (host's `cardHoldersOf`), whoever asked it.
+  const by = held?.cardHolders ?? {};
   const checks = checksOf({
     answered,
-    decisions,
+    decisions: decisions.map((d) => ({ ...d, ...by[d.id] })),
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
@@ -725,6 +728,8 @@ async function readChecks(
     nameGroups,
     paged,
     people,
+    plans: held?.plans(all),
+    samePersons: samePersonPairsOf(people),
     titles,
     today,
     voices,

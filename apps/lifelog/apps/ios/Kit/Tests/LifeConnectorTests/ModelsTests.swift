@@ -47,12 +47,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 8)
+    #expect(inbox.total == 9)
     #expect(inbox.blocking == 5)
     #expect(inbox.badge == 5)
-    #expect(inbox.counts.values.reduce(0, +) == 8)
+    #expect(inbox.counts.values.reduce(0, +) == 9)
     #expect(
-        inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
+        inbox.checks.map(\.urgency) == [
+            .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+        ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -310,6 +312,10 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(ending.options.compactMap(ending.answer).map(\.options) == [["outdated"], ["false"]])
     #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
 
+    let same = try card(.samePerson)
+    #expect(same.options.compactMap(same.answer).map(\.options) == [["same-person"], ["not-this-person"]])
+    #expect(same.options.compactMap(same.answer).allSatisfy { $0.ref == same.ref })
+
     let found = try card(.newMatter)
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
     #expect(found.answer(edit) == nil)
@@ -505,6 +511,43 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     let check = try decoded(Check.self, String(decoding: JSONSerialization.data(withJSONObject: name), as: UTF8.self))
     #expect(check.createsByName)
     #expect(check.askedName == "Sam Vale")
+}
+
+/// "Wrong…" is on Life's own cards only, and his press sends the card's seal back exactly as `Misread`
+/// (`host/complaints.ts`) takes it: his words as `note`, no option.
+@Test func lifesOwnCardsCarryTheirSealAndAComplaintSendsItBack() throws {
+    let checks = try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
+    #expect(checks.allSatisfy { ($0.misread != nil) == ($0.asker == "life") })
+    let voice = try #require(checks.first { $0.group == .voice })
+    #expect(voice.complaint(words: "  ", report: true) == nil)
+    #expect(voice.complaint(words: String(repeating: "a", count: 4_001), report: true) == nil)
+    let request = try #require(voice.complaint(words: " Not her. ", report: true))
+    let sent = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+    #expect(sent["ref"] as? String == voice.ref)
+    #expect((sent["options"] as? [String])?.isEmpty == true)
+    #expect(sent["note"] as? String == "Not her.")
+    let value = try #require(sent["value"] as? [String: Any])
+    #expect(Set(value.keys) == ["kind", "cause", "shown", "seal", "report"])
+    #expect(value["kind"] as? String == "misread" && value["report"] as? Bool == true)
+    let misread = try #require(voice.misread)
+    #expect(
+        [value["cause"], value["shown"], value["seal"]].map { $0 as? String }
+            == [misread.cause, misread.shown, misread.seal])
+    let decision = try #require(checks.first { $0.group == .decision })
+    #expect(decision.complaint(words: "Wrong", report: false) == nil)
+}
+
+/// A card the caretaker is fixing says so, with the caretaker's own line when it has one.
+@Test func aCardBeingFixedDecodes() throws {
+    var inbox = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    var checks = try #require(inbox["checks"] as? [[String: Any]])
+    checks[2]["beingFixed"] = ["ask": "ask_1", "since": "2026-11-20T09:00:00.000Z", "line": NSNull()]
+    inbox["checks"] = checks
+    let text = String(decoding: try JSONSerialization.data(withJSONObject: inbox), as: UTF8.self)
+    let fixing = try decoded(Inbox.self, text).checks[2].beingFixed
+    #expect(fixing?.ask == "ask_1" && fixing?.line == nil && fixing?.since != nil)
 }
 
 /// A matter's icon, down the chain: his pick, Life's, the first area's icon, the folder. Only a key this app knows is
