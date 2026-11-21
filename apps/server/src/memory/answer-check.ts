@@ -5,6 +5,7 @@ import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
   readNamingQueueNow,
+  readVoiceNames,
 } from "../sources/lifelog-voices";
 import {
   answerDecision,
@@ -194,8 +195,11 @@ async function answerVoice(
   ];
 }
 
-/** Who a voice's answer names: a new person by `name`, else the lifelog id of Life's `person` (`voiceIdOf`), else, when lifelog knows them by no id, that person by their name. */
-function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
+/**
+ * Who a voice's answer names: a new person by `name`, else the lifelog id of Life's `person` (`voiceIdOf`: the card's
+ * own, else the one id lifelog gives one of their names), else that person by their name.
+ */
+async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
     return { kind: "confirm", name: a.name } as const;
   }
@@ -203,7 +207,16 @@ function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
-  const id = voiceIdOf(people, item, ref);
+  const aliases =
+    people.truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
+  const id =
+    voiceIdOf(people, item, ref) ??
+    voiceIdOf(
+      people,
+      item,
+      ref,
+      await readVoiceNames([], [people.nameOf(ref), ...aliases])
+    );
   return id
     ? ({ kind: "assign", personId: id } as const)
     : ({ kind: "confirm", name: people.nameOf(ref) } as const);

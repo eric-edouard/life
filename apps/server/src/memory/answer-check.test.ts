@@ -334,6 +334,7 @@ const whoOf = (resolve: (s: string) => string | null) => ({
   names: new Map<string, string>(),
   refOf: (r: string) => r,
   resolve,
+  truth: { people: [] },
 });
 
 // Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
@@ -647,9 +648,9 @@ test("someone else, named as a person lifelog knows by an id the card does not l
   const voices = await import("../sources/lifelog-voices");
   const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(voices, "readNamingQueueNow").mockResolvedValue([item]);
-  const names = spyOn(voices, "readVoiceNames").mockResolvedValue(
-    new Map([[KOFI_ID, "Kofi"]])
-  );
+  const names = spyOn(voices, "readVoiceNames").mockResolvedValue({
+    [KOFI_ID]: "Kofi",
+  });
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: () => "Kofi",
     ...whoOf(resolve),

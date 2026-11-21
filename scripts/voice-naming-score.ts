@@ -17,7 +17,7 @@ import { begin, chunks } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { turnRefOf } from "@life/server/src/memory/units";
 import {
-  guessedOf,
+  voiceGuessedPeopleOf,
   voiceGuessesOf,
 } from "@life/server/src/memory/voice-guesses";
 import {
@@ -38,9 +38,10 @@ import {
   isTurnNamed,
   ownAnswerOf,
   readVoices,
+  speakerTurns,
   type VoiceRow,
   voiceKey,
-  voiceNamesIn,
+  voiceNamesOf,
 } from "@life/server/src/sources/lifelog-voices";
 
 /** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, `unknown` ("A stranger"), or null when he did not answer the whole voice. */
@@ -50,7 +51,7 @@ export interface Guessed {
   apart?: "mixed" | "turn";
   at: string;
   confidence: "sure" | "likely" | "weak";
-  /** The unnamed turn keys it was made for (`unnamedTurnKey`): a card reads the newest guess of each (`guessedOf`). */
+  /** The unnamed turn keys it was made for (`unnamedTurnKey`): a card reads the newest guess of each (`voiceGuessedPeopleOf`). */
   keys: string[];
   /** Whether lifelog had a likeness to offer for it. */
   likeness: boolean;
@@ -92,7 +93,7 @@ const newestPerVoice = (list: Guessed[]) => [
 /**
  * By group, as a voice card would ask (who.ts `voiceSuggestionOf`): his answered voices of one part with the same answer,
  * a person or no one, as one card; the name it shows is the one person the card's own reading of their turns names
- * (`guessedOf`, over the newest guess of each turn: none when two disagree). Lifelog's own name for a voice since
+ * (`voiceGuessedPeopleOf`, over the newest guess of each turn: none when two disagree). Lifelog's own name for a voice since
  * answered is not known.
  */
 function byGroupOf(kept: Guessed[]) {
@@ -104,7 +105,7 @@ function byGroupOf(kept: Guessed[]) {
       }
     }
   }
-  const guessedFor = guessedOf(newest.values());
+  const guessedFor = voiceGuessedPeopleOf(newest.values());
   // Each voice in the part of its newest guess.
   const groups = [
     ...Map.groupBy(
@@ -290,7 +291,7 @@ async function gather(lines: ReadReply[]) {
   }
   const { names, store } = await withStore(
     (s) => ({
-      names: voiceNamesIn(s),
+      names: voiceNamesOf(speakerTurns(s, new Date(0))),
       store: new Set(
         per.flatMap(({ g, row }) =>
           row?.basis !== "owner" &&

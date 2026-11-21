@@ -295,7 +295,7 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
       ],
     } as unknown as NamingQueueItem;
     const months = async () => ["2026-08", "2026-10"];
-    const lifelogNames = new Map([["lf-new", "Dana"]]);
+    const lifelogNames = { "lf-dana": "Dana", "lf-new": "Dana" };
     const [guessed] = await withVoiceGuesses(
       [item],
       folder,
@@ -303,7 +303,8 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
       async () => lifelogNames
     );
     expect(guessed?.guessed).toEqual(["person:dana", "person:kofi"]);
-    expect(guessed?.names).toBe(lifelogNames);
+    // Each item keeps the names of its own ids only.
+    expect(guessed?.names).toEqual({ "lf-dana": "Dana" });
     // Only the months its recordings can be filed under are read.
     const [one] = await withVoiceGuesses([item], folder, async () => [
       "2026-10",

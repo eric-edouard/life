@@ -321,7 +321,7 @@ export function aboutNow(
 }
 
 /**
- * Who a lifelog person id is: the id, else the name lifelog gave it (`voiceNamesIn`: the directory knows the id of few
+ * Who a lifelog person id is: the id, else the name lifelog gave it (`readVoiceNames`: the directory knows the id of few
  * people), which the caller passes as `name`. The one rule.
  */
 export const voicePersonOf = (
@@ -335,7 +335,7 @@ interface VoiceCardItem {
   guessed?: readonly string[];
   likely: readonly string[];
   name: string | null;
-  names?: ReadonlyMap<string, string>;
+  names?: Readonly<Record<string, string>>;
   personId: string | null;
 }
 
@@ -354,7 +354,7 @@ export function voiceSuggestionOf(
       voicePersonOf(
         people.resolve,
         item.personId,
-        item.names?.get(item.personId ?? "") ?? item.name
+        item.names?.[item.personId ?? ""] ?? item.name
       ),
       ...(item.guessed ?? [])
         .map((g) => people.refOf(g))
@@ -368,19 +368,26 @@ export function voiceSuggestionOf(
 }
 
 /**
- * The lifelog person id a voice answer naming `ref` assigns ("Yes", "Someone else…"): the card's own ids first (its
- * person, its `likely`), then any id lifelog gives a name (`names`), each read as `voicePersonOf`; none when lifelog knows
- * them by no id.
+ * The lifelog person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
+ * with the name lifelog gives it: the card's own (its person, its `likely`, named in `names`) first, else the one id of
+ * `elsewhere` (id → lifelog's name), never one of two; none when lifelog knows them by no such id.
  */
-export const voiceIdOf = (
+export function voiceIdOf(
   people: Pick<People, "resolve">,
   item: Pick<VoiceCardItem, "likely" | "names" | "personId">,
-  ref: string
-) =>
-  [item.personId, ...item.likely, ...(item.names?.keys() ?? [])].find(
-    (id): id is string =>
-      !!id && voicePersonOf(people.resolve, id, item.names?.get(id)) === ref
+  ref: string,
+  elsewhere: Readonly<Record<string, string>> = {}
+) {
+  const isRef = (id: string, name?: string) =>
+    voicePersonOf(people.resolve, id, name) === ref;
+  const own = [item.personId, ...item.likely].find(
+    (id): id is string => !!id && isRef(id, item.names?.[id])
   );
+  const other = Object.entries(elsewhere).filter(([id, name]) =>
+    isRef(id, name)
+  );
+  return own ?? (other.length === 1 ? other[0]?.[0] : undefined);
+}
 
 /**
  * A voice card's ref: its lifelog group, the recordings his answer would change (a digest of its voices) and the person

@@ -131,7 +131,7 @@ test("a job's months run from its first conversation's start to its last turn; a
   ]);
 });
 
-test("the name lifelog gave a person id is its newest turn's, and a turn with no name leaves it", async () => {
+test("the name lifelog gave a person id is its newest turn's, found by id or by any name it gave", async () => {
   await withStore(({ db }) => {
     for (const [i, at, id, name] of [
       [0, "2026-10-02T00:00:00.000Z", "p-names-1", "Dana"],
@@ -145,7 +145,10 @@ test("the name lifelog gave a person id is its newest turn's, and a turn with no
       );
     }
   });
-  const names = await readVoiceNames();
-  expect(names.get("p-names-1")).toBe("Dana");
-  expect(names.has("p-names-2")).toBe(false);
+  // By id, and by a name it gave (any case): an id with no named turn has none.
+  expect(await readVoiceNames(["p-names-1", "p-names-2"])).toEqual({
+    "p-names-1": "Dana",
+  });
+  expect(await readVoiceNames([], ["dani"])).toEqual({ "p-names-1": "Dana" });
+  expect(await readVoiceNames([])).toEqual({});
 });

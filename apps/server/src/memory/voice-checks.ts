@@ -25,7 +25,7 @@ export const voiceChecksOf = (
       const known = voiceSuggestionOf(people, item);
       const likely = namingQueueGuessesOf(item)
         .flatMap((id) => {
-          const ref = voicePersonOf(people.resolve, id, item.names?.get(id));
+          const ref = voicePersonOf(people.resolve, id, item.names?.[id]);
           return ref ? [ref] : [];
         })
         .filter((ref, i, all) => all.indexOf(ref) === i)
@@ -63,7 +63,7 @@ export const voiceChecksOf = (
                 voicePersonOf(
                   people.resolve,
                   item.personId,
-                  item.names?.get(item.personId ?? "")
+                  item.names?.[item.personId ?? ""]
                 )
                 ? known
                 : null,

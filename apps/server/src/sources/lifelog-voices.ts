@@ -144,22 +144,50 @@ export function speakerTurns(store: Store, since: Date) {
     .all(since.toISOString());
 }
 
-/** The newest name lifelog gave each person id in the store's turns: who an id is when Life's directory does not know it (`voicePersonOf`). */
-export const voiceNamesIn = (store: Store): ReadonlyMap<string, string> =>
-  new Map(
-    store.db
-      .query<{ id: string; name: string }, []>(
-        // SQLite takes the bare column from the row holding max(): each id's newest name. ponytail: a scan of every turn
-        // (tens of ms at a year of speech), once per inbox read and answer; an index on person_id when it shows.
-        `select person_id as id, person_name as name, max(start_at) from turns
-          where person_id is not null and person_name is not null group by person_id`
-      )
-      .all()
-      .map((r) => [r.id, r.name])
-  );
+/** The newest name lifelog gave each person id, from `speakerTurns`' rows. */
+export function voiceNamesOf(
+  rows: { at: string; id: string; name: string | null }[]
+) {
+  const newest = new Map<string, { at: string; name: string }>();
+  for (const { at, id, name } of rows) {
+    if (name && at >= (newest.get(id)?.at ?? "")) {
+      newest.set(id, { at, name });
+    }
+  }
+  return new Map([...newest].map(([id, { name }]) => [id, name]));
+}
 
-/** `voiceNamesIn` on the store, read once. */
-export const readVoiceNames = () => withStore(voiceNamesIn);
+/**
+ * The newest name lifelog gave each of these person ids (`ids`), and each id it gave any of these names (`named`, any
+ * case), with its newest name: who an id is when Life's directory does not know it (`voicePersonOf`). Indexed reads
+ * (`turns_person`, `turns_person_name`), one per id and name; none without ids or names.
+ */
+export async function readVoiceNames(
+  ids: readonly string[],
+  named: readonly string[] = []
+): Promise<Record<string, string>> {
+  if (ids.length === 0 && named.length === 0) {
+    return {};
+  }
+  return await withStore((store) => {
+    const newest = store.db.query<{ name: string }, [string]>(
+      "select person_name as name from turns where person_id = ? and person_name is not null order by start_at desc limit 1"
+    );
+    const idsNamed = store.db.query<{ id: string }, [string]>(
+      "select distinct person_id as id from turns where person_name = ? collate nocase and person_id is not null"
+    );
+    const all = new Set([
+      ...ids,
+      ...named.flatMap((n) => idsNamed.all(n).map((r) => r.id)),
+    ]);
+    return Object.fromEntries(
+      [...all].flatMap((id) => {
+        const name = newest.get(id)?.name;
+        return name ? [[id, name]] : [];
+      })
+    );
+  });
+}
 
 /** Whether lifelog now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
 export function isTurnNamed(store: Store, ref: string) {
