@@ -244,8 +244,8 @@ function cardOf(
   };
 }
 
-// `likely`: everyone, the most like its voice first (the phone orders its names by it). `isLikely`: its
-// `personId` is likely right (sounds-like.ts `isLikelyOf`).
+// `likely`: everyone, the most like its voice first (the phone orders its names by it). `isLikely`: its sound alone
+// names its `personId` (sounds-like.ts `isLikelyOf`).
 export type Card = Suggestion & {
   clips: Clip[];
   isLikely: boolean;
@@ -410,8 +410,6 @@ function suggest(
                     }
                   : verdict;
               })(),
-              // A summary tied it to its person.
-              isHeard: verdict.personId !== null,
               words,
             },
           ];
@@ -439,15 +437,14 @@ function cardsOf(
 ) {
   const clipsOf = cardClips(db, reader, clip);
   return suggest(db, voices, reader)
-    .map(({ card, isHeard, words }) => {
+    .map(({ card, words }) => {
       const ranked = rankedOf(reader.samples(card.voices), reader.profiles);
       return {
         card: {
           ...card,
           clips: clipsOf(card),
           isLikely:
-            card.kind === "known_person" &&
-            isLikelyOf(ranked, card.personId, isHeard),
+            card.kind === "known_person" && isLikelyOf(ranked, card.personId),
           likely: ranked.map((p) => p.personId),
         },
         words,

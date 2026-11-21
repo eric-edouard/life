@@ -260,8 +260,8 @@ export const endingGuessOf = (step: string) =>
 
 /**
  * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
- * An ending reads probably done; a voice whose guess is in use (`subject`) and that lifelog calls likely (`isLikely`),
- * "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
+ * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (lifelog's
+ * `isLikely`), "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
  * one conversation with no name heard, "Don't name"; null for anything else.
  */
 export function preTickedOf(

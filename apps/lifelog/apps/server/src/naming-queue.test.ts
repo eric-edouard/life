@@ -445,22 +445,17 @@ function ownerAnd(voice: number[], isTied = false) {
   return me;
 }
 
-test("a card no summary named that sounds like someone asks about them; a guess is likely when tied by a summary or named by sound alone", () => {
+test("a card no summary named that sounds like someone asks about them; its sound alone makes it likely", () => {
   let me = ownerAnd(alike(1)); // the owner, split off under another label
   expect(queued()).toMatchObject([
     { isLikely: true, kind: "known_person", name: null, personId: me },
   ]);
   env.reset();
-  me = ownerAnd(alike(0.55), true); // like them, short of naming them by sound
+  // Tied by a summary and like them, short of naming them by sound: the summary is not the sound.
+  me = ownerAnd(alike(0.55), true);
   expect(queued()).toMatchObject([
-    { isLikely: true, kind: "known_person", personId: me },
+    { isLikely: false, kind: "known_person", personId: me },
   ]);
-  env.reset();
-  ownerAnd(alike(0.55)); // the same, untied
-  expect(queued()).toMatchObject([{ isLikely: false, kind: "new_person" }]);
-  env.reset();
-  ownerAnd(alike(0.3), true); // tied by a summary, but not like them
-  expect(queued()).toMatchObject([{ isLikely: false, kind: "known_person" }]);
 });
 
 test("a card plays clean turns that sound like its voice, never one that is someone else first", () => {

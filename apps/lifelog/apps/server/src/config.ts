@@ -62,8 +62,8 @@ export const RECOGNITION = {
   // 0.6 kept one person's 15 voices together and nobody else on Oct 10–11.
   candidateThreshold: 0.6,
   closedSetTurn: 0.4, // several people, none but the owner's picks
-  // Likeness at which a card's guess is likely on its sound alone (sounds-like.ts `isLikelyOf`): the replay's
-  // 0.65 above, with `margin`. Life pre-ticks "Yes" on such a card; he still sees it and unticks it.
+  // Likeness at which a card's sound alone names its person (sounds-like.ts `isLikelyOf`, `GET /naming-queue`'s
+  // `isLikely`): the replay's 0.65 above, with `margin`.
   likelyThreshold: 0.65,
   // Likeness to a person at which `GET /speakers/voices` offers them (sounds-like.ts `readSpeakerVoices`).
   // Looser than `matchThreshold` on purpose: a reader weighs it, nothing is named by it.

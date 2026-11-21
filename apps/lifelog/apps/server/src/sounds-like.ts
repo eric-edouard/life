@@ -55,21 +55,17 @@ export function rankedOf(
     : [];
 }
 
-// Whether a card's voice is likely the person it names (`GET /naming-queue`'s `isLikely`; Life pre-ticks "Yes" on
-// it): they are the nearest person, and a summary tied it to them (`isHeard`) at `likenessThreshold`, or its sound
-// alone names them at `likelyThreshold`, `margin` ahead. "Nearest" carries the first: on his answered voices (21 Nov)
-// a person merely at 0.5 was nearly anyone (a wrong one passed for 233 of 290 voices); the nearest, for 21.
+// Whether a card's voice is likely the person it names by its sound alone (`GET /naming-queue`'s `isLikely`): they are
+// the nearest person, at `likelyThreshold` and `margin` ahead of everyone else. One signal among those Life counts.
 export function isLikelyOf(
   ranked: ReturnType<typeof rankedOf>,
-  personId: string | null,
-  isHeard: boolean
+  personId: string | null
 ) {
   const [them] = ranked;
   return (
     them?.personId === personId &&
-    ((isHeard && them.score >= RECOGNITION.likenessThreshold) ||
-      (them.score >= RECOGNITION.likelyThreshold &&
-        them.margin >= RECOGNITION.margin))
+    them.score >= RECOGNITION.likelyThreshold &&
+    them.margin >= RECOGNITION.margin
   );
 }
 

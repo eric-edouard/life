@@ -115,8 +115,8 @@ const QueueItem = z
     exchanges: z.int(),
     // Its voice group (the unnamed group recognition keeps), or its one voice's `jobId/label`.
     id: z.string(),
-    // Whether `personId` is likely right: the nearest person by voice, tied to it by a summary or named by its
-    // sound alone (sounds-like.ts `isLikelyOf`). Life pre-ticks "Yes" on it.
+    // Whether its sound alone names `personId`: the nearest person, at 0.65 likeness and 0.1 ahead of the next
+    // (sounds-like.ts `isLikelyOf`). One signal; Life decides what to make of it.
     isLikely: z.boolean(),
     kind: z.enum(suggestionKinds),
     // Everyone, the most like its voice first; empty when it is too short to judge.
