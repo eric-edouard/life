@@ -79,6 +79,14 @@ export const LIFE_CHECKS = {
     ],
     title: "Life found a new matter",
   },
+  "same person": {
+    context: "They go by the same whole name; nothing Life holds joins them.",
+    options: [
+      { id: "same-person", label: "Same person", takes: null },
+      { id: "not-this-person", label: "Different people", takes: null },
+    ],
+    title: "Join one person",
+  },
   voice: {
     context:
       "Heard in conversations: who it is goes to every turn of this voice.",

@@ -88,8 +88,10 @@ struct CheckCard: View {
             || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
     }
 
-    /// A guessed person with the chat the network shows them in: that is the thing.
-    private var identity: Check.NetworkIdentity? { check.group == .guessedPerson ? check.networkIdentity : nil }
+    /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
+    private var identity: Check.NetworkIdentity? {
+        check.group == .guessedPerson || check.group == .samePerson ? check.networkIdentity : nil
+    }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
     /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.

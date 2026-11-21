@@ -367,6 +367,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
+  samePersons: [],
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
   voices: [

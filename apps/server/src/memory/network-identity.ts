@@ -5,6 +5,7 @@ import { readUnitsFor } from "./memory-files";
 import type { Party } from "./party";
 import { chatUnitsFor, readPersonUnits } from "./person-units";
 import { OWNER } from "./read-truth";
+import { samePersonPairOf } from "./same-person";
 import { isDirect, SOURCES, sourceOf } from "./sources";
 import { type Message, oneLineOf, UNKNOWN } from "./units";
 import type { People } from "./who";
@@ -95,7 +96,11 @@ export function networkIdentityOf(
 
 /** What the index files a check's person as: their ref now, and each of their handles while no one is known by it. */
 const refsOf = (c: PersonCheck, refOf: People["refOf"]) =>
-  new Set([refOf(c.ref), ...c.about.map((h) => `${UNKNOWN}${h}`)]);
+  new Set([
+    // A same person card's ref is the pair: its chat is the guess's.
+    refOf(samePersonPairOf(c.ref).guess || c.ref),
+    ...c.about.map((h) => `${UNKNOWN}${h}`),
+  ]);
 
 /**
  * Each person check's network identity, by its ref (a decision's `confirm` guesses too). Reads one bounded query of
