@@ -69,9 +69,9 @@ struct RootView: View {
             capture.routeToOpen = nil
             open(route)
         }
-        // A card's push while the app is in front: the inbox is read again, as on coming back to it.
+        // A card's push while the app is in front: the inbox alone is read again.
         .task(id: capture.cardPushes) {
-            if capture.cardPushes > 0 { await life.refresh() }
+            if capture.cardPushes > 0 { await life.refreshInbox() }
         }
         .task(id: scenePhase == .active) {
             // An answer held for Undo goes now: nothing waits in the background.
@@ -81,7 +81,7 @@ struct RootView: View {
             #if DEBUG
                 await life.importFromEnvironment()
             #endif
-            await life.refresh()
+            await life.refreshOnForeground()
             // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
             var attempt = 0
             while life.needsRetry {

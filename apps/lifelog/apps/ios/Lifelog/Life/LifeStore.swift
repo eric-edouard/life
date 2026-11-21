@@ -84,12 +84,13 @@ final class LifeStore {
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
+        let matter = self?.matterOf(card: held.request.ref)
         await self?.send(held.request, for: held.life)
         // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
         if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
             self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
         }
-        Task { await self?.refreshAfterAnswer() }
+        Task { await self?.refreshAfterAnswer(on: matter) }
     }
     var held: [String: HeldAnswers.Held] { holds.held }
     /// Whether an answer is held or still being sent: the app going waits for it.
@@ -109,8 +110,9 @@ final class LifeStore {
     }
     /// His answers Life confirmed, kept with the reads for a cold start.
     private var answered = AnsweredCards()
-    /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
-    private(set) var answersEnded = 0
+    /// Answers that have ended, by the matter of their card: its page, which draws asks from its own read, and the
+    /// project chip on show read again when it changes. An answer on a card of no matter changes no matter.
+    private(set) var answersEnded: [String: Int] = [:]
 
     /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`settleMoves`).
     var moveReceipts: [String: MoveReceipt] = [:]
@@ -184,7 +186,13 @@ final class LifeStore {
 
     // MARK: Reads
 
-    /// Every read, side by side: on foreground, on a push, after an action.
+    /// Coming forward: every read, unless the inbox was read in the last 30 s (a card's push says what changed since).
+    func refreshOnForeground() async {
+        if let read = inbox.loadedAt, now().timeIntervalSince(read) < 30 { return }
+        await refresh()
+    }
+
+    /// Every read, side by side.
     func refresh() async {
         async let a: Void = refreshInbox()
         async let b: Void = refreshMatters()
@@ -475,8 +483,9 @@ final class LifeStore {
     /// `life`: the Life it was decided for, when his tap was not on the screen now (a notification's button); else the
     /// one paired at this tap.
     func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
+        let matter = matterOf(card: request.ref)
         await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
-        await refreshAfterAnswer()
+        await refreshAfterAnswer(on: matter)
     }
 
     /// The Life the phone is paired with now, as an answer decided now captures it (`PairedLife`).
@@ -525,17 +534,25 @@ final class LifeStore {
     func complain(_ ref: String) async {
         guard let life = pairedLife else { return await refuseUnpaired(.complaint(ref: ref)) }
         guard let press = complaints.press(ref, to: life) else { return }
+        let matter = matterOf(card: ref)
         await send(press.request, keepsCardOpen: true, for: press.life)
         if case .succeeded(.complaintReceipt(let ask), _) = state(of: .complaint(ref: ref)) {
             complaints.received(ask, for: press)
         }
-        await refreshAfterAnswer()
+        await refreshAfterAnswer(on: matter)
     }
 
-    /// What an answer changes, read again: the inbox, the matters and the chips. The matter page, and the header and
-    /// list of the chip on show, read themselves again when `answersEnded` changes.
-    private func refreshAfterAnswer() async {
-        answersEnded += 1
+    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it; nil when it has none.
+    private func matterOf(card ref: String) -> String? {
+        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matter?.id }
+        return matter.first { $0.value.value?.checks.contains { $0.ref == ref } == true }?.key
+    }
+
+    /// What an answer changes, read again: the inbox; with a card of a matter, the matters and the chips too. That
+    /// matter's page, and the header and list of the chip on show, read themselves again when `answersEnded` changes.
+    private func refreshAfterAnswer(on matter: String?) async {
+        guard let matter else { return await refreshInbox() }
+        answersEnded[matter, default: 0] += 1
         async let inbox: Void = refreshInbox()
         async let matters: Void = refreshMatters()
         async let chips: Void = refreshProjects()
