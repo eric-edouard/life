@@ -1,20 +1,25 @@
 import Foundation
 import Observation
 
-/// One run of a field's dictation as `Dictation` drives it: its loudness since last asked (0 to 1) and its end, which closes the
-/// microphone and returns what it heard (Ogg Opus). The app's `DictationCapture` is the one real run.
+/// One run of a field's dictation as `Dictation` drives it: its loudness since last asked (0 to 1), its end, which closes the
+/// microphone and returns what it heard (Ogg Opus), and, once ended, the words instant dictation heard (`LiveWords`):
+/// nil for a run heard on the Mac, or when the stream failed. The app's `DictationCapture` is the one real run.
 public struct DictationRun: Sendable {
     public let level: @MainActor () -> Float
     public let finish: @MainActor () async throws -> Data
+    public let heard: @MainActor () async -> String?
 
-    public init(level: @escaping @MainActor () -> Float, finish: @escaping @MainActor () async throws -> Data) {
-        (self.level, self.finish) = (level, finish)
+    public init(
+        level: @escaping @MainActor () -> Float, finish: @escaping @MainActor () async throws -> Data,
+        heard: @escaping @MainActor () async -> String? = { nil }
+    ) {
+        (self.level, self.finish, self.heard) = (level, finish, heard)
     }
 }
 
 /// One field's dictation. Each run, start to pause, is its own recording (its own quiet stretch and cap); at its pause
-/// its words are asked of the Mac once and land at the field's caret (`landed`). Words come only at a pause: the Mac's
-/// recognition doesn't stream. Only the current run changes anything: a run cancelled or replaced finishes its
+/// its words land at the field's caret (`landed`): instant dictation's, or else (heard on the Mac, or the stream failed)
+/// the Mac's, asked once with the recording. Only the current run changes anything: a run cancelled or replaced finishes its
 /// recording and drops whatever comes back.
 @MainActor @Observable
 public final class Dictation {
@@ -161,18 +166,20 @@ public final class Dictation {
         let starting = starting
         writing = Task {
             await starting?.value
-            if let ogg = await closed(current) { await write(ogg, current) }
+            guard let (ogg, heard) = await closed(current) else { return }
+            if let words = await heard(), run == current { return land(words) }
+            if run == current { await write(ogg, current) }
         }
     }
 
-    /// Takes the run's microphone, closes it and returns what it heard; nil when the run is no longer current or its
-    /// recording has a hole (never sent). Nothing keeps the run once this returns.
-    private func closed(_ current: Int) async -> Data? {
+    /// Takes the run's microphone, closes it and returns what it heard, with how to ask for its instant words; nil when
+    /// the run is no longer current or its recording has a hole (never sent). Nothing keeps the run once this returns.
+    private func closed(_ current: Int) async -> (Data, @MainActor () async -> String?)? {
         guard run == current, let run = opened else { return nil }
         opened = nil
         do {
             let ogg = try await bounded { try await run.finish() }
-            return self.run == current ? ogg : nil
+            return self.run == current ? (ogg, run.heard) : nil
         } catch {
             if self.run == current { fail(.notWritten) }
             return nil
@@ -219,11 +226,15 @@ public final class Dictation {
             let words = words
             let text = try await bounded { try await words(ogg) }
             guard run == current else { return }
-            (phase, landed, sendsWhenLanded) = (.rest, Landed(words: text, sends: sendsWhenLanded), false)
+            land(text)
         } catch {
             guard run == current else { return }
             fail(DictationFailure(error) == .notReached ? .notReached(ogg) : .notWritten)
         }
+    }
+
+    private func land(_ words: String) {
+        (phase, landed, sendsWhenLanded) = (.rest, Landed(words: words, sends: sendsWhenLanded), false)
     }
 
     private struct TimedOut: Error {}
