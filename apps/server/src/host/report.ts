@@ -107,7 +107,7 @@ function waitingRow(c: Check) {
       ...(first && c.options.length > 1 ? [`Recommended: ${first.label}`] : []),
       ...(c.deadline ? [`by ${localTime(c.deadline)}`] : []),
       `asked by ${c.asker}`,
-      ...c.links.slice(0, 1),
+      ...(c.session ? [c.session] : []),
     ].join(" · "),
   };
 }
