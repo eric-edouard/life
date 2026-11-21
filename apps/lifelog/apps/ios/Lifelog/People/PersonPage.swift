@@ -268,8 +268,8 @@ struct OpenMatters: View {
                     .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
             .motion(Motion.standard, value: rows.map(\.id))
             .task(id: isAll) {
                 if isAll, now.isOpenCut { await life.refreshOpenWith(ref) }
@@ -289,7 +289,7 @@ private struct Lately: View {
                 ListLabel("Lately") {
                     if !isWhole { QuietChip("More", symbol: "chevron.down") { isWhole = true } }
                 }
-                .padding(.horizontal, -Metrics.Spacing.m)
+                .padding(.horizontal, -Metrics.gutter)
                 Text(lines.joined(separator: " ")).font(.body15).foregroundStyle(Palette.fg)
                     .lineLimit(isWhole ? nil : 4).fixedSize(horizontal: false, vertical: true)
                     .padding(Metrics.Spacing.l)
@@ -395,8 +395,8 @@ private struct Knows: View {
                     }
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
         }
     }
 }
