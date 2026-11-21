@@ -165,7 +165,6 @@ export function withGuessesShown<
 export type GuessedQueueItem = NamingQueueItem & {
   guessed?: readonly string[];
   names?: Readonly<Record<string, string>>;
-  sureGuessed?: readonly string[];
 };
 
 /**
@@ -193,8 +192,7 @@ export function voiceGuessedPeopleOf(
 
 /**
  * Each queue item as a voice card reads it: with who the voice naming guessed its voices are (`guessed`, for
- * `voiceSuggestionOf`: `voiceGuessedPeopleOf` the newest guess of each of its turns, as stored; `sureGuessed`, the same over
- * the sure ones only, for `isSuggestionBackedOf`) and the name lifelog gives each
+ * `voiceSuggestionOf`: `voiceGuessedPeopleOf` the newest guess of each of its turns, as stored) and the name lifelog gives each
  * of its person ids (`names`, `readVoiceNames`). Reads only the month files its voices' recordings can be filed under
  * (`readJobMonths`); throws when one cannot be read.
  */
@@ -216,19 +214,12 @@ export async function withVoiceGuesses<I extends NamingQueueItem>(
     namesOf([...new Set(items.flatMap(idsOf))]),
   ]);
   const guessedFor = voiceGuessedPeopleOf(guesses.values());
-  const sureFor = voiceGuessedPeopleOf(
-    [...guesses.values()].filter((g) => g.confidence === "sure")
-  );
-  return items.map((i) => {
-    const voices = i.voices.map((v) => voiceKey(v.jobId, v.speakerLabel));
-    return {
-      ...i,
-      guessed: guessedFor(voices),
-      // Each item's own ids only, so the inbox key (`checksKeyOf`) changes with them.
-      names: Object.fromEntries(
-        idsOf(i).flatMap((id) => (names[id] ? [[id, names[id]]] : []))
-      ),
-      sureGuessed: sureFor(voices),
-    };
-  });
+  return items.map((i) => ({
+    ...i,
+    guessed: guessedFor(i.voices.map((v) => voiceKey(v.jobId, v.speakerLabel))),
+    // Each item's own ids only, so the inbox key (`checksKeyOf`) changes with them.
+    names: Object.fromEntries(
+      idsOf(i).flatMap((id) => (names[id] ? [[id, names[id]]] : []))
+    ),
+  }));
 }

@@ -66,7 +66,7 @@ export interface Guessed {
 }
 
 const LEVELS = ["sure", "likely"] as const;
-/** Right in 100 a card's level must hold on his answers (the design of 21 Nov 2026, section 4): likely asks "Is this X?", sure starts "Yes" ticked. */
+/** Right in 100 a card's level must hold on his answers (the design of 21 Nov 2026, section 4): likely asks "Is this X?"; sure is the bar before a sure guess could ever start a row ticked (none does: he ticks them himself, 21 Nov 2026). */
 const BARS = { likely: 85, sure: 97 } as const;
 /** The answers that name no one, scored apart. */
 const NO_ONE = new Set(["not_relevant", "unknown"]);
@@ -125,7 +125,7 @@ function byGroupOf(kept: Guessed[]) {
       ? [
           {
             answer: list[0]?.answer,
-            // As the card: a sure guess of that person on its voices starts "Yes" ticked (`isSuggestionBackedOf`).
+            // Sure when a sure guess of that person is among its voices' newest.
             level: sureFor(voices).includes(person)
               ? ("sure" as const)
               : ("likely" as const),
