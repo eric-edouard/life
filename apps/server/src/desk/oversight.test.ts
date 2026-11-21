@@ -383,8 +383,15 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       name: "test-plan · 2026-11-18",
       relation: "Test plan ready · https://example.com/plan",
     });
-    // The desk health rows close the section: the number of matters that need him, always.
-    expect(rows.at(-1)?.name).toBe("Desk health · needs you");
+    // The desk health rows close the section, then the people rows: the number of matters that need him, always.
+    expect(rows.filter((x) => !x.name.startsWith("People")).at(-1)?.name).toBe(
+      "Desk health · needs you"
+    );
+    expect(
+      rows.findIndex((x) => x.name.startsWith("People")) === -1 ||
+        rows.findIndex((x) => x.name.startsWith("People")) >
+          rows.findIndex((x) => x.name === "Desk health · needs you")
+    ).toBe(true);
     expect(rows.find((x) => x.name.startsWith(`${onMatter?.id} `))?.name).toBe(
       `${onMatter?.id} [waiting] Test bakery order`
     );

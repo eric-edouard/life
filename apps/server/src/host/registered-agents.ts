@@ -3,6 +3,10 @@ import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
 import { decisionsNow } from "../memory/decisions";
+import {
+  lastExchangeAtOf,
+  readExchangeCounts,
+} from "../memory/exchange-counts";
 import { isHeldOf } from "../memory/held-matters";
 import {
   type MatterView,
@@ -10,8 +14,11 @@ import {
   nextStepNow,
 } from "../memory/matter-read";
 import { readMatterBook, readMatterBookAndRecords } from "../memory/matters";
+import { readLiveUnits } from "../memory/memory-files";
 import type { Party } from "../memory/party";
 import { agentForMatterOf, readHandOutMatters } from "../memory/read-matters";
+import { readDirectoryChangesSince } from "../memory/read-truth";
+import { latestInUseOf } from "../memory/ref-kinds";
 import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
@@ -23,7 +30,7 @@ import {
   agentsOnProjects,
   agentsOnSteps,
 } from "./agents-now";
-import { healthRowsOf } from "./desk-health";
+import { healthRowsOf, peopleRowsOf } from "./desk-health";
 import {
   type AssignmentRow,
   anchorsOf,
@@ -470,8 +477,44 @@ export async function readAgentSection(since: string, lastNeedsYou?: number) {
       })),
       ...tokens,
       ...(health?.rows ?? []),
+      ...(await readPeopleRows(people, since)),
     ],
   };
+}
+
+/**
+ * The people rows (`peopleRowsOf`) since `since`: Life's guesses, not folded into anyone, against the live units; what
+ * of his directory changed since (`readDirectoryChangesSince`); the exchange counts built tonight, by his days. A
+ * failure costs these rows only, saying so.
+ */
+async function readPeopleRows(people: People, since: string) {
+  try {
+    const guesses = [...latestInUseOf(people.inferred)].flatMap(([ref, g]) =>
+      people.canon(ref) === ref && people.isGuess(ref)
+        ? [{ evidence: g.evidence.map((e) => e.unit), id: g.id, name: g.name }]
+        : []
+    );
+    // Counts built since the last report, or none: an older file (a failed rebuild) says nothing of tonight.
+    const counted = readExchangeCounts();
+    const lastAt = lastExchangeAtOf(counted);
+    return peopleRowsOf({
+      changed: readDirectoryChangesSince(since),
+      guesses,
+      lastExchangeDay:
+        counted && counted.built >= since
+          ? (id) => {
+              const last = lastAt(people.canon(`person:${id}`));
+              return last && localDate(last);
+            }
+          : null,
+      live: await readLiveUnits(),
+      sinceDay: localDate(since),
+      today: dayNow(),
+      truth: people.truth,
+    });
+  } catch (e) {
+    return [{ name: "People", relation: `could not be read: ${String(e)}` }];
+  }
 }
 
 /** The desk health rows and the number (`healthRowsOf`) over the book, records and people already read, the holds in the desk's store and his open checks. */
