@@ -54,6 +54,8 @@ function shownOf(
   open: () => Promise<string | Record<string, unknown>>
 ) {
   switch (hit.kind) {
+    case "appointment":
+      return hit.appointment;
     case "ask":
       return asData([hit.page]);
     case "matter": {

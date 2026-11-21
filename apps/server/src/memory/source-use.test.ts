@@ -36,6 +36,7 @@ const run = (kind: string, step: string, at: string, id: string) => ({
 });
 const call = (at: string, id: string, more: Record<string, unknown>) => ({
   at,
+  engine: "openrouter",
   kind: "model.run",
   run: id,
   step: "",
@@ -54,7 +55,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
     }),
     run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
     run("run.end", "memory.nightly", "2026-11-17T00:50:00.000Z", N),
-    // By hand, on his subscription: unpriced.
+    // By hand, its router's reply without its cost: unpriced.
     run("run.start", "memory.closeness", "2026-11-18T09:00:00.000Z", C),
     call("2026-11-18T09:01:00.000Z", C, { reads: { memory: 5 } }),
   ] as LogEvent[];

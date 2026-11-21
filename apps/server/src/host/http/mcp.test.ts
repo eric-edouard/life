@@ -107,12 +107,14 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
     "answer_check",
+    "change_appointment",
     "change_directory_entry",
     "change_registered_agent",
     "change_todo_item",
     "correct_memory",
     "fetch",
     "read_agent_asks",
+    "read_appointments",
     "read_area_page",
     "read_chats",
     "read_day",
@@ -147,12 +149,14 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       .sort()
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
+    "change_appointment(action,appointment)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
     "read_agent_asks(cursor,limit)",
+    "read_appointments(appointment,pushId)",
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",

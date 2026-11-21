@@ -47,12 +47,14 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 8)
+    #expect(inbox.total == 9)
     #expect(inbox.blocking == 5)
     #expect(inbox.badge == 5)
-    #expect(inbox.counts.values.reduce(0, +) == 8)
+    #expect(inbox.counts.values.reduce(0, +) == 9)
     #expect(
-        inbox.checks.map(\.urgency) == [.blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves])
+        inbox.checks.map(\.urgency) == [
+            .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
+        ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -312,6 +314,10 @@ private func everyKindOfCheck() throws -> [Check] {
     let ending = try card(.ending)
     #expect(ending.options.compactMap(ending.answer).map(\.options) == [["outdated"], ["false"]])
     #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
+
+    let same = try card(.samePerson)
+    #expect(same.options.compactMap(same.answer).map(\.options) == [["same-person"], ["not-this-person"]])
+    #expect(same.options.compactMap(same.answer).allSatisfy { $0.ref == same.ref })
 
     let found = try card(.newMatter)
     let edit = try #require(found.options.first { $0.id == "edit-goal" })
