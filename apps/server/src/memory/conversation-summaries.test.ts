@@ -198,6 +198,14 @@ test("a long conversation is asked once, stored as given and shown; asking again
   expect(asked).toHaveLength(0);
 });
 
+test("a short conversation is found (the voice naming reads it) but never summarised or counted", async () => {
+  const s = sceneOf([{ day: 0, name: "Dana", turns: 10 }]);
+  const { done, found } = await run(s, () => SAID);
+  expect(found.parts).toHaveLength(1);
+  expect(found.counts).toEqual({ conversations: 0, parts: 0 });
+  expect(done.calls).toBe(0);
+});
+
 test("a part waits for the one before it and is given its summary; a failed call stores nothing and is not asked again that night", async () => {
   const s = sceneOf([{ day: 0, turns: 160 }]);
   const found = await readConversationSummaryWork(

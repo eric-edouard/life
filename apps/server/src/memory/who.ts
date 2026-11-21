@@ -340,29 +340,31 @@ interface VoiceCardItem {
 }
 
 /**
- * The person a voice card asks about, what its "Yes" names (its `subject`): the one person lifelog's suggestion (its
- * person, else the name it heard, as `resolve` reads it, a new person's too) and the voice naming's guesses for its
- * voices (`guessed`, `withVoiceGuesses`; only someone known today) agree on, and only when lifelog knows them by an id
- * (`voiceIdOf`), so "Yes" assigns that id, never a name; none otherwise. Only ever a question to him ("Is this X?"): his tap is the answer.
+ * The person a voice card asks about, what its "Yes" names (its `subject`): the one person the voice naming guessed for
+ * its voices (`guessed`, `withVoiceGuesses`; only someone known today), which offers only who could be there
+ * (`possibleSpeakersOf`), and lifelog's suggestion (its person, else the name it heard, as `resolve` reads it) does not
+ * contradict; only when lifelog knows them by an id (`voiceIdOf`), so "Yes" assigns that id, never a name; none
+ * otherwise. Lifelog's suggestion alone never names anyone: it reads sound and words, not who could be there. Only ever
+ * a question to him ("Is this X?"): his tap is the answer.
  */
 export function voiceSuggestionOf(
   people: Pick<People, "names" | "refOf" | "resolve">,
   item: VoiceCardItem
 ) {
-  const named = new Set(
-    [
-      voicePersonOf(
-        people.resolve,
-        item.personId,
-        item.names?.[item.personId ?? ""] ?? item.name
-      ),
-      ...(item.guessed ?? [])
-        .map((g) => people.refOf(g))
-        .filter((r) => people.names.has(r)),
-    ].filter((r) => r !== null)
+  const guessed = new Set(
+    (item.guessed ?? [])
+      .map((g) => people.refOf(g))
+      .filter((r) => people.names.has(r))
   );
-  const [one] = named;
-  return named.size === 1 && voiceIdOf(people, item, one as string)
+  const lifelog = voicePersonOf(
+    people.resolve,
+    item.personId,
+    item.names?.[item.personId ?? ""] ?? item.name
+  );
+  const [one] = guessed;
+  return guessed.size === 1 &&
+    (lifelog === null || lifelog === one) &&
+    voiceIdOf(people, item, one as string)
     ? (one as string)
     : null;
 }

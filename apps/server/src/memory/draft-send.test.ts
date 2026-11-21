@@ -58,6 +58,8 @@ const source = (
     opensHint: opens
       ? "a new person's id as <digits>@s.whatsapp.net (a group it never saw can't be opened)"
       : undefined,
+    // The crew is five; a 1:1 chat is him and one other.
+    people: (chat) => (chat.startsWith("!crew") ? 5 : 2),
     refusal,
     send,
     takes: () => ALL,
@@ -85,7 +87,7 @@ afterAll(() => {
 
 const hi = "Can you come Friday?";
 
-test("a draft names one chat its bridge holds: a chat key, or a person with one such 1:1 chat; its name is what his card shows", async () => {
+test("a draft names one chat its bridge holds: a chat key, or a person with one such 1:1 chat; its name and a group's people are what his card shows", async () => {
   const sendnet = source("sendnet", [
     line("!ana:life.local", "Test Ana"),
     line("ana-export-id", "Test Ana"),
@@ -96,10 +98,13 @@ test("a draft names one chat its bridge holds: a chat key, or a person with one 
   expect(await read("!crew:life.local")).toMatchObject({
     channel: "sendnet",
     chat: "!crew:life.local",
+    people: 5,
     text: hi,
     to: "Boat crew",
   });
-  expect(await read("Test Ana")).toMatchObject({ chat: "!ana:life.local" });
+  const ana = await read("Test Ana");
+  expect(ana).toMatchObject({ chat: "!ana:life.local" });
+  expect(ana.people).toBeUndefined();
   await expect(read("ana-export-id")).rejects.toThrow("no chat");
   await expect(read("Nobody Known")).rejects.toThrow("no chat");
 });
