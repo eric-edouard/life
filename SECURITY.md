@@ -94,7 +94,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   photo; never an image, a face or a face print of the Photos source. The images of the files in his messages (a
   photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026). The episodes call also sees the email addresses
   of the people its day involves (his directory and Contacts cards), so a legal name can be tied to a nickname (his yes
-  of 20 Nov 2026). A voice note's words, as text, like the rest.
+  of 20 Nov 2026). A voice note's words, as text, like the rest. With payments on, the matter directions call also sees,
+  for each matter it drafts that holds an open step, at most 5 of his payments in its window sharing a word of its name:
+  amount, currency, merchant, the money app's category and his note (matter evidence; on his yes to this line).
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.

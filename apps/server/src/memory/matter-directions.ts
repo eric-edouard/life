@@ -81,16 +81,13 @@ const isGroundedContext = (
     later: { id: string }[];
     open: { id?: string }[];
     steps: { id?: string }[];
-    units?: { id: string }[];
+    units: { id: string }[];
   }
 ) => {
   const ids = new Set(
-    [
-      ...shown.steps,
-      ...shown.open,
-      ...shown.later,
-      ...(shown.units ?? []),
-    ].flatMap((s) => (s.id ? [s.id] : []))
+    [...shown.steps, ...shown.open, ...shown.later, ...shown.units].flatMap(
+      (s) => (s.id ? [s.id] : [])
+    )
   );
   return (
     context.trim() !== "" &&

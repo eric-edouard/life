@@ -4,7 +4,7 @@ import type { SourceName } from "../core/names";
 import { readOwnerName } from "../models/prompt-parts";
 import { type MatterView, matterTextOf } from "./matter-read";
 import { readIndex } from "./memory-files";
-import { type Placed, paymentLine, placedOn } from "./payments";
+import { type Placed, paymentText, placedOn } from "./payments";
 import { rankedUnitIds } from "./search";
 import { clip, normalize } from "./units";
 import { embedQuery } from "./vectors";
@@ -63,7 +63,7 @@ const paymentWords = (p: Placed) =>
 
 /**
  * The payments of `window` sharing the most of `name`'s words (a matter's name: the thing it is about, never its goal's
- * "paid" or "done"), at most `SHOWN`, each shown by its one line (`paymentLine`), with an id local to its call. A word
+ * "paid" or "done"), at most `SHOWN`, each shown by what was paid (`paymentText`), with an id local to its call. A word
  * in more than 1% of the payments read (a category, a shop he pays daily) ties nothing. ponytail: words only, no
  * meaning: embedding every payment line each night would cost more than the few a matter needs.
  */
@@ -96,7 +96,7 @@ export function paymentsFor(
       day: p.day,
       id: idOf(n),
       // Only what was paid: no time, place or episode.
-      text: paymentLine({ day: p.day, payment: p.payment }).slice(2),
+      text: paymentText(p.payment),
     }));
 }
 
