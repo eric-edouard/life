@@ -174,6 +174,7 @@ test("forward and recordCorrection have only their known importers", () => {
     "apps/server/src/memory/answer-check.ts",
   ]);
   expect(importers(["recordHisCorrection"], "correct-matter")).toEqual([
+    "apps/server/src/desk/desk-door.ts",
     "apps/server/src/host/command.ts",
     "apps/server/src/host/http/mcp.ts",
   ]);
