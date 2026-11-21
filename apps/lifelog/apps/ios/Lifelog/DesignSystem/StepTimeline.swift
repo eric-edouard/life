@@ -73,7 +73,7 @@ struct StepTimeline: View {
         /// Who the step came from: the person, else an agent's or his to-do list's step by its kind; nothing else is
         /// guessed.
         private var who: String? {
-            step.with?.name ?? (step.kind == "agent" ? "Agent" : step.kind == "todo_item" ? "To-do list" : nil)
+            step.with?.name ?? (step.kind == "agent" ? "Agent" : step.kind == "todo_item" ? "You, to-do list" : nil)
         }
 
         private func dot(isOpen: Bool) -> some View {
