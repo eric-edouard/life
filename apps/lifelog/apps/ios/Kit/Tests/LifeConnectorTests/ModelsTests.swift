@@ -620,16 +620,23 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
     #expect(decision.complaint(words: "Wrong", report: false) == nil)
 }
 
-/// A card the caretaker is fixing says so, with the caretaker's own line when it has one.
+/// A card the caretaker is fixing says so, with the caretaker's open question and its context when it has one.
 @Test func aCardBeingFixedDecodes() throws {
-    var inbox = try #require(
-        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
-    var checks = try #require(inbox["checks"] as? [[String: Any]])
-    checks[2]["beingFixed"] = ["ask": "ask_1", "since": "2026-11-20T09:00:00.000Z", "line": NSNull()]
-    inbox["checks"] = checks
-    let text = String(decoding: try JSONSerialization.data(withJSONObject: inbox), as: UTF8.self)
-    let fixing = try decoded(Inbox.self, text).checks[2].beingFixed
-    #expect(fixing?.ask == "ask_1" && fixing?.line == nil && fixing?.since != nil)
+    func fixing(line: Any, context: Any) throws -> Check.BeingFixed? {
+        var inbox = try #require(
+            JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+        var checks = try #require(inbox["checks"] as? [[String: Any]])
+        checks[2]["beingFixed"] = [
+            "ask": "ask_1", "since": "2026-11-20T09:00:00.000Z", "line": line, "context": context,
+        ]
+        inbox["checks"] = checks
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: inbox), as: UTF8.self)
+        return try decoded(Inbox.self, text).checks[2].beingFixed
+    }
+    let plain = try fixing(line: NSNull(), context: NSNull())
+    #expect(plain?.ask == "ask_1" && plain?.line == nil && plain?.context == nil && plain?.since != nil)
+    let asked = try fixing(line: "Is this Ana?", context: "From [her chat](life:unit_1).")
+    #expect(asked?.line == "Is this Ana?" && asked?.context == "From [her chat](life:unit_1).")
 }
 
 /// A matter's icon, down the chain: his pick, Life's, the first area's icon, the folder. Only a key this app knows is

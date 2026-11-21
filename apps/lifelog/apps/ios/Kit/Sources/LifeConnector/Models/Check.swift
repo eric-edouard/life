@@ -297,11 +297,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let seal: String
     }
 
-    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's own line, when it has one.
+    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's open card on it, its question
+    /// (`line`) and its Markdown (`context`, with `life:` links); both nil when it has none, or holds more than one complaint.
     public struct BeingFixed: Decodable, Sendable, Equatable {
         public let ask: String
         public let since: Date?
         public let line: String?
+        public let context: String?
     }
 
     /// Life's outcome on a step it sees done itself (`doneSeen`, the asks contract): never his answer.

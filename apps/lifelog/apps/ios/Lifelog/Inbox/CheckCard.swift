@@ -33,6 +33,8 @@ struct CheckCard: View {
     @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
+    /// The caretaker's context, opened from its line.
+    @State private var showsFixContext = false
 
     var body: some View {
         ScrollView {
@@ -55,6 +57,11 @@ struct CheckCard: View {
             ContextSheet(
                 title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
                 appLink: check.links.first.flatMap(URL.init(string:)), appName: runtimeName?.name)
+        }
+        // Its `life:` links come with no kinds: each opens its page all the same, behind the plain link glyph.
+        .sheet(isPresented: $showsFixContext) {
+            ContextSheet(
+                title: check.beingFixed?.line ?? "", markdown: check.beingFixed?.context ?? "", lifeLinks: [])
         }
     }
 
@@ -136,13 +143,20 @@ struct CheckCard: View {
         .onAppear { isWriting = true }
     }
 
-    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's open question when it has
+    /// one, which opens that card's context when it has one.
     @ViewBuilder private var beingFixed: some View {
         if let fixing = check.beingFixed {
-            HStack(spacing: Metrics.Spacing.s) {
-                StateGlyph.busy
-                Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
+            Button {
+                showsFixContext = true
+            } label: {
+                HStack(spacing: Metrics.Spacing.s) {
+                    StateGlyph.busy
+                    Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
+                        .multilineTextAlignment(.leading)
+                }
             }
+            .buttonStyle(.plain).disabled(fixing.context == nil)
             .appears()
         }
     }
