@@ -30,7 +30,7 @@ struct GuessRow: View {
             .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect).onTapGesture(perform: open)
             YesNo(state: state, answer: answer, undo: undo)
         }
-        .frame(minHeight: Metrics.listRow)
+        .frame(minHeight: Metrics.FlatRow.bulkRow)
         .opacity(isDimmed ? 0.6 : 1)
         .motion(Motion.standard, value: state)
     }
