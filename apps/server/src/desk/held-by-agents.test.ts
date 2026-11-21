@@ -1,12 +1,7 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
-import {
-  agentOf,
-  agentsNow,
-  HOLD_DAYS,
-  heldByAgents,
-  heldStampOf,
-} from "../host/desk-read";
+import { agentsNow } from "../host/agents-now";
+import { agentOf, HOLD_DAYS, heldByAgents } from "../host/desk-read";
 import { register } from "./agent-actions";
 import { tick } from "./desk-clock";
 import { setup, started } from "./test-desk";
@@ -21,7 +16,7 @@ const agentOn = (desk: ReturnType<typeof setup>["desk"], subject: object) =>
     runtime: "fake",
     ...subject,
   });
-test("every subject is a fact for the hold rule: when its agent ended, who started it, how it ended; none ended over HOLD_DAYS ago", async () => {
+test("every anchored step is a fact for the hold rule: when its assignment closed, who opened it, how it closed; a project's agent's own listening holds nothing; none closed over HOLD_DAYS ago", async () => {
   const { desk } = setup();
   const ended = new Date(clock().getTime() - 30 * DAY).toISOString();
   const handed = await started(desk, "obs_00000000b020");
@@ -44,13 +39,13 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
   };
   endedAt(handed, ended, ", opened_by = 'desk', outcome = ?", ["nothing left"]);
   endedAt(never, ended, ", why_not_started = 'x'");
-  const project = agentOn(desk, { project: "test-p" });
+  agentOn(desk, { project: "test-p" });
   const old = await started(desk, "obs_00000000b022");
   endedAt(
     old,
     new Date(clock().getTime() - (HOLD_DAYS + 1) * DAY).toISOString()
   );
-  const fact = { project: null, status: "ended" as const, whyNotStarted: null };
+  const fact = { status: "ended" as const, whyNotStarted: null };
   expect(heldByAgents(desk.db)).toEqual([
     {
       ...fact,
@@ -68,16 +63,6 @@ test("every subject is a fact for the hold rule: when its agent ended, who start
       outcome: null,
       step: "obs_00000000b021",
       whyNotStarted: "x",
-    },
-    {
-      ...fact,
-      agent: project,
-      closedAt: null,
-      openedBy: "owner",
-      outcome: null,
-      project: "test-p",
-      status: "active",
-      step: null,
     },
   ]);
 });
@@ -101,12 +86,4 @@ test("two active agents on one project: stopping one leaves it stopped, listed a
   expect(agentsNow(desk.db, clock().getTime()).map((a) => a.id)).toContain(
     first
   );
-});
-
-test("the hold stamp changes when a project's agent is re-pointed to another project (no anchor, no end written)", () => {
-  const { desk } = setup();
-  const id = agentOn(desk, { project: "test-p" });
-  const before = heldStampOf(desk.db);
-  desk.db.run("update agent set project = 'test-q' where id = ?", [id]);
-  expect(heldStampOf(desk.db)).not.toBe(before);
 });

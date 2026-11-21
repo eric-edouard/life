@@ -1,5 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { clock } from "../../core/clock";
+import { pushIdOf } from "../../sources/lifelog-push";
 import { rpc, token } from "./mcp-test-harness";
 
 // `read_inbox` over made-up checks: its counts, its pages, its version and a push's one card.
@@ -66,7 +67,7 @@ test("read_inbox with a pushId: that one card or none, the whole inbox's counts;
   const card = (ref: string, group: string) => ({
     deadline: null,
     group,
-    pushId: checks.pushIdOf(ref, "0".repeat(64)),
+    pushId: pushIdOf(ref, "0".repeat(64)),
     ref,
   });
   const second = card("b", "guessed person");

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { LIVE, parseTurnRef, type Store, writeLifelog } from "./lifelog";
 import { call, lifelogMissing } from "./lifelog-call";
 
@@ -243,7 +244,7 @@ function refresh() {
     })
     .catch((e: Error) => {
       if (!isDown) {
-        log("run.error", { error: e.message, step: "naming-queue" });
+        log("run.error", { ...errorOf(e), step: "naming-queue" });
       }
       isDown = true;
       throw e;

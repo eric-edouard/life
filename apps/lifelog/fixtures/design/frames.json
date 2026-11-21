@@ -72,9 +72,45 @@
   "DuoFoldOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoFoldPeople": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
+  },
+  "DuoFoldPeopleAZ": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Filter", "A to Z"]
+  },
+  "DuoFoldPeopleOrgs": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Organizations"]
+  },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
     "taps": ["Someone else…"]
+  },
+  "DuoFoldPeopleSort": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Filter"]
+  },
+  "DuoFoldPerson": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ]
+  },
+  "DuoFoldPersonAbout": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ],
+    "taps": ["About Camille"]
   },
   "DuoFoldPersonCreate": {
     "args": [
@@ -129,6 +165,58 @@
       "sending"
     ],
     "taps": ["Create"]
+  },
+  "DuoFoldPersonLatest": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ],
+    "taps": ["Earlier"]
+  },
+  "DuoFoldPersonLower": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab people -fixturePerson person:camille, then scroll to the end."
+  },
+  "DuoFoldPersonPictureChanged": {
+    "why": "Not built: the person read names no pictures by source yet (life#812)."
+  },
+  "DuoFoldPersonPictures": {
+    "why": "Not built: the person read names no pictures by source yet (life#812)."
+  },
+  "DuoFoldPersonReachMenu": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ],
+    "taps": ["Open WhatsApp: choose an account"]
+  },
+  "DuoFoldPersonReachMenuMail": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ],
+    "taps": ["Open Mail: choose an account"]
+  },
+  "DuoFoldPersonSmall": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:marc_fenn"
+    ]
   },
   "DuoFoldPersonWorksEdit": {
     "why": "Works at: deferred by ruling (a)."
@@ -204,11 +292,24 @@
   "DuoOrgNameCard": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_atelier"]
   },
+  "DuoPeople": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
+  },
+  "DuoPeopleAZ": {
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
+    "taps": ["Filter", "A to Z"]
+  },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonCreated": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
+  },
+  "DuoPersonLower": {
+    "why": "A scroll: by hand, as DuoFoldPersonLower, the Duo open."
+  },
+  "DuoPersonPictures": {
+    "why": "Not built: the person read names no pictures by source yet (life#812)."
   },
   "ImportantCard": {
     "why": "The switched stack (StackOnlyYou) is not built, and Life sends no whyNow: of this frame only the pill's flag is built."
@@ -227,6 +328,31 @@
   },
   "ImportantSwipe": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters, then a swipe to the right on Table for Mum’s 60th (the system's own swipe action)."
+  },
+  "PersonReachMenu": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ],
+    "taps": ["Open WhatsApp: choose an account"]
+  },
+  "PersonReachMenuMail": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ],
+    "taps": ["Open Mail: choose an account"]
+  },
+  "MatterIcon": {
+    "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_lease -fixtureSheet icon."
   },
   "ProjectFromMatter": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen."

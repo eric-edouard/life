@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 // One way to show a person or an organization, everywhere (`party_*` in the design's `parts.py`): one disc, and the
-// row, the answer, the chip and a draft's head built on it. Someone Life has not placed yet (a name being asked, a
+// row, the answer and the chip built on it. Someone Life has not placed yet (a name being asked, a
 // guess) is drawn by name only: never a picture.
 
 /// The one disc of a person or an organization, at 20, 28, 40 or 72: their picture when Life has one, else their
@@ -146,33 +146,6 @@ struct PartyChip: View {
             if let label { Text(label).foregroundStyle(Palette.muted) }
             PartyDisc(party, size: .chip).padding(.vertical, -2)
             Text(party.name).foregroundStyle(Palette.fg)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Who a draft goes to (`party_head`): the disc (40) with the app's mark, the name, and under it the app in words then
-/// the handle, one `muted` line whose handle is what is cut.
-struct PartyHead: View {
-    /// Who Life holds them to be, for the disc; none for someone it only guesses, drawn by name.
-    let party: Party?
-    /// The name he reads: the draft's own.
-    let name: String
-    let channel: String?
-    let handle: String?
-
-    var body: some View {
-        HStack(spacing: Metrics.Spacing.m) {
-            if let party {
-                PartyDisc(party, size: .row, badge: channel, ring: Palette.tile)
-            } else {
-                PartyDisc(name: name, size: .row, badge: channel, ring: Palette.tile)
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(.chip).foregroundStyle(Palette.fg)
-                Text([Channel.name(channel), handle].compactMap(\.self).joined(separator: " · "))
-                    .font(.small).foregroundStyle(Palette.muted).lineLimit(1).truncationMode(.tail)
-            }
         }
         .accessibilityElement(children: .combine)
     }

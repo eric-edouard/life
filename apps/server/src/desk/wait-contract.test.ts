@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { take } from "../core/lock";
+import { flagsOf } from "../host/agents-now";
 import {
   agentOf,
   currentAssignmentOf,
-  flagsOf,
   heldByAgents,
   holderOf,
   openTurn,
@@ -23,7 +23,6 @@ import { LOCK } from "../memory/memory-lock";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
 import { BEGIN_WITHIN_MS } from "./agent-wait";
 import {
-  endLostTurns,
   pollAnswers,
   pollMessages,
   readPeopleOnce,
@@ -32,6 +31,7 @@ import {
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { ANA, advance, ahead, asgOf, on, setup, started } from "./test-desk";
+import { endLostTurns } from "./turn-ends";
 
 /** Whether the hold rule holds a matter of one step, `step`, whose newest step is at `at` (the start of time by default). */
 const holds = (desk: Desk, step: string, at = "") =>
@@ -391,16 +391,18 @@ test("W16: a wake into a session that is gone starts a fresh one from the packet
   const { desk, fake, waiting } = setup();
   const id = await waiting();
   const old = agentOf(desk.db, id);
+  expect(fake.said.at(-1)?.title).toBe("Agent: Test brief: follow up with Ana");
   fake.sessions.delete(old?.session ?? "");
   writeNotes(desk, on(desk, id), "Test notes: Ana may answer Friday");
+  desk.db.run("update agent set name = 'Ana' where id = ?", [id]);
   advance(HOUR);
   await wakeDue(desk);
   const now = agentOf(desk.db, id);
   expect(now?.session).not.toBe(old?.session);
   expect(fake.said.at(-1)?.message).toContain("Test brief");
   expect(fake.said.at(-1)?.message).toContain("Ana may answer Friday");
-  // The fresh session carries the agent's title, the brief's first line, as the first one did.
-  expect(fake.said.at(-1)?.title).toBe("Test brief: follow up with Ana");
+  // A session's title is "Agent: " and the name he gave it, else its brief's first line (the first session's, above).
+  expect(fake.said.at(-1)?.title).toBe("Agent: Ana");
   expect(
     desk.db
       .query(

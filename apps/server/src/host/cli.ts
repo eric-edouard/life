@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { Engine } from "../core/names";
 import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
@@ -463,7 +464,7 @@ export async function main(more: typeof commands = {}) {
     console.error(e);
     log("run.error", {
       command: process.argv[2],
-      error: String(e),
+      ...errorOf(e),
       step: "crash",
     });
     process.exit(1);

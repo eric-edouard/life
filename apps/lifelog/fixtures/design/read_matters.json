@@ -7,6 +7,10 @@
         "by": "life",
         "text": "A kitchen quote that fits the budget."
       },
+      "icon": {
+        "by": "life",
+        "key": "hammer"
+      },
       "id": "matter_kitchen",
       "lastStepAt": "2026-11-18T14:02:00",
       "name": "Kitchen quote, Halden house",
@@ -43,6 +47,10 @@
       "goal": {
         "by": "life",
         "text": "The new passport in hand."
+      },
+      "icon": {
+        "by": "life",
+        "key": "id"
       },
       "id": "matter_passport",
       "lastStepAt": "2026-11-18T14:02:00",
@@ -104,6 +112,10 @@
         "by": "life",
         "text": "The signed lease is back with Hélène Aubert before 30 November."
       },
+      "icon": {
+        "by": "life",
+        "key": "key"
+      },
       "id": "matter_lease",
       "lastStepAt": "2026-11-18T14:02:00",
       "name": "Lease renewal, rue des Carmes",
@@ -140,6 +152,10 @@
       "goal": {
         "by": "life",
         "text": "A table for eight at Chez Odile on Friday 27th."
+      },
+      "icon": {
+        "by": "life",
+        "key": "food"
       },
       "id": "matter_table",
       "lastStepAt": "2026-11-18T14:02:00",
@@ -179,6 +195,10 @@
         "by": "life",
         "text": "Quote sent and accepted."
       },
+      "icon": {
+        "by": "life",
+        "key": "paper"
+      },
       "id": "matter_nora",
       "lastStepAt": "2026-11-18T14:02:00",
       "name": "Quote for Nora Keller",
@@ -209,6 +229,10 @@
         "by": "life",
         "text": "The bookshelf is in the flat."
       },
+      "icon": {
+        "by": "life",
+        "key": "box"
+      },
       "id": "matter_shelf",
       "lastStepAt": "2026-11-18T14:02:00",
       "name": "Bookshelf delivery",
@@ -228,6 +252,10 @@
       "goal": {
         "by": "life",
         "text": "Jun’s ops lead has met Priya Nair."
+      },
+      "icon": {
+        "by": "life",
+        "key": "people"
       },
       "id": "matter_intro",
       "lastStepAt": "2026-11-18T14:02:00",

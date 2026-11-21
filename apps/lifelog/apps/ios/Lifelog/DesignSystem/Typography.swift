@@ -10,6 +10,8 @@ struct TypeStep: Equatable {
     let weight: CGFloat
     let style: UIFont.TextStyle
     var hasFixedDigits = false
+    /// The system's monospaced face (`--font-mono`), for code in a context: the one step not in Manrope.
+    var isMono = false
 
     /// A card's title: thin.
     static let cardHeadline = TypeStep(size: 24, weight: 250, style: .title2)
@@ -54,10 +56,19 @@ struct TypeStep: Equatable {
     static let columnGlyph = TypeStep(size: 20, weight: 600, style: .title3)
     /// The number in a badge.
     static let badge = TypeStep(size: 11, weight: 700, style: .caption2)
+    /// A reach tile's app name, under its mark.
+    static let reachLabel = TypeStep(size: 11, weight: 600, style: .caption2)
 
     static let monoTime = TypeStep(size: 13, weight: 500, style: .footnote, hasFixedDigits: true)
     static let monoDetail = TypeStep(size: 12, weight: 500, style: .caption1, hasFixedDigits: true)
     static let monoSmall = TypeStep(size: 11, weight: 500, style: .caption2, hasFixedDigits: true)
+
+    /// A heading in a context (`#`, `##`): the sheet's head is its only top level.
+    static let contextHeading = TypeStep(size: 17, weight: 700, style: .headline)
+    /// Code inside a context's sentence.
+    static let codeInline = TypeStep(size: 14, weight: 450, style: .footnote, isMono: true)
+    /// A context's code block.
+    static let codeBlock = TypeStep(size: 13, weight: 450, style: .footnote, isMono: true)
 
     /// The step at a Dynamic Type size.
     func font(at size: DynamicTypeSize) -> Font {
@@ -66,7 +77,10 @@ struct TypeStep: Equatable {
             // The variation axis `wght` by its four-character tag.
             kCTFontVariationAttribute as UIFontDescriptor.AttributeName: [0x7767_6874: weight],
         ])
-        let base = UIFont(descriptor: descriptor, size: self.size)
+        let base =
+            isMono
+            ? UIFont.monospacedSystemFont(ofSize: self.size, weight: .regular)
+            : UIFont(descriptor: descriptor, size: self.size)
         let category = size.contentSizeCategory
         let scaled = UIFontMetrics(forTextStyle: style).scaledFont(
             for: base, compatibleWith: UITraitCollection(preferredContentSizeCategory: category))

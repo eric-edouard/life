@@ -14,6 +14,7 @@ import {
   MatterBatch,
   MatterDirectionBatch,
   type MatterStep,
+  type ProjectPin,
 } from "../records/matter";
 import { Correction } from "../records/observation";
 import { SEARCHABLE_AT } from "../records/unit";
@@ -175,6 +176,7 @@ interface HisPins {
   directions: DirectionPin[];
   icons: IconPin[];
   important: ImportantPin[];
+  projects: ProjectPin[];
 }
 
 /** A correction's pin: when, its steps and the matter's id when it was written. */
@@ -186,8 +188,8 @@ const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
 
 /**
  * What is pinned to matters' steps (`pinnedOf` finds each one's matter): the directions (`directionsOf`: Life's drafts,
- * then his `matter-direction`), his important marks (`matter-important`, on or off) and his icons (`matter-icon`, a key
- * or null), each with when it was written. Both files are folded incrementally (`readAppended`): a read parses only
+ * then his `matter-direction`), his important marks (`matter-important`, on or off), his icons (`matter-icon`, a key
+ * or null) and his projects (`matter-project`), each with when it was written. Both files are folded incrementally (`readAppended`): a read parses only
  * the lines appended since the last.
  */
 export function readMatterPins() {
@@ -208,6 +210,7 @@ export function readMatterPins() {
       directions: [...(last?.directions ?? [])],
       icons: [...(last?.icons ?? [])],
       important: [...(last?.important ?? [])],
+      projects: [...(last?.projects ?? [])],
     }),
     (pins, c) => {
       if (c.kind === "matter-direction") {
@@ -221,6 +224,8 @@ export function readMatterPins() {
         pins.important.push({ ...pinOf(c), important: c.important });
       } else if (c.kind === "matter-icon") {
         pins.icons.push({ ...pinOf(c), icon: c.icon });
+      } else if (c.kind === "matter-project") {
+        pins.projects.push({ ...pinOf(c), project: c.project });
       }
     }
   );

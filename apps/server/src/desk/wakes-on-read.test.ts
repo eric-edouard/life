@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { agentsNow } from "../host/desk-read";
+import { agentsNow } from "../host/agents-now";
 import {
   readAgentsOnSteps,
   readRegisteredAgents,
@@ -190,11 +190,7 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   expect(by(onMatter)).not.toHaveProperty("chatsSeen");
 
   // The matter's read carries the same lines, without what they are made of.
-  const [onIt] = readAgentsOnSteps(
-    ["obs_00000000c001"],
-    [],
-    await readPeople()
-  );
+  const [onIt] = readAgentsOnSteps(["obs_00000000c001"], await readPeople());
   expect(onIt?.wakesOn).toEqual(by(onMatter)?.wakesOn ?? []);
   expect(onIt).not.toHaveProperty("filters");
   expect(onIt).not.toHaveProperty("chatsSeen");
