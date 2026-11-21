@@ -4,15 +4,13 @@ import SwiftUI
 /// What he has typed or opened on a card.
 struct CardInput: Equatable {
     var isWritingOwnWords = false
+    /// The option that took him to his words, when one did: his words go with it; none for a general reply.
+    var option: String?
     var words = ""
     /// The context sheet is open (`ContextSheet`).
     var showsContext = false
-}
-
-/// A link on the ask and what it does: its context ("Why this reply?") or "Tell the agent…".
-struct AskLink {
-    let title: String
-    let run: () -> Void
+    /// The trip to his bank app from this card (`BankTrip`).
+    var bankTrip = BankTrip()
 }
 
 /// A card's answers inside its panel: the deadline's line, the first option filled, the others in one row when they are
@@ -24,7 +22,7 @@ struct CheckActions: View {
     @Binding var input: CardInput
     /// His answer is being sent or saved: its busy pill stands in for the answers.
     let isBusy: Bool
-    let links: [AskLink]
+    let links: [QuietChip]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
     /// The create sheet, with the name he would create, set to an organization or not.
@@ -35,6 +33,8 @@ struct CheckActions: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
     @Environment(\.askSheetZoom) private var sheetZoom
+    @AppStorage(Transfers.thai.storageKey) private var thaiBankApp = Transfers.thai.usual
+    @AppStorage(Transfers.iban.storageKey) private var ibanBankApp = Transfers.iban.usual
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -42,9 +42,12 @@ struct CheckActions: View {
         VStack(spacing: Metrics.Spacing.s) {
             if input.isWritingOwnWords {
                 Button {
-                    if let request = check.answer(words: words) { answer(request) }
+                    if let request = check.answer(words: words, option: input.option) { answer(request) }
                 } label: {
-                    Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
+                    // His words go to whoever hears them, never "Send": that is only ever the message itself.
+                    Text(
+                        check.group == .newMatter
+                            ? "Save the goal" : "Tell \(check.hearer(among: life.agents.value?.agents ?? []))")
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.isEmpty)
@@ -59,6 +62,10 @@ struct CheckActions: View {
             } else {
                 line
                 refusal
+                if let problem = input.bankTrip.problem {
+                    Text(problem).font(.small).foregroundStyle(Palette.flag)
+                        .frame(maxWidth: .infinity, alignment: .leading).appears()
+                }
                 DoneSeenLine(doneSeen: check.doneSeen)
                 // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
                 if check.doneSeen?.state == .looking {
@@ -116,16 +123,23 @@ struct CheckActions: View {
     /// The deadline in one line above the answers, with the link at its right end when the row under the thing had none.
     @ViewBuilder private var line: some View {
         let text = check.deadlineLine()
-        if text != nil || !links.isEmpty {
+        if isLookingAfterBank || text != nil || !links.isEmpty {
             // Under an accessibility size the links go under the words, and under each other, never cut.
             let layout =
                 typeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout(spacing: Metrics.Spacing.m))
             layout {
-                if let text { Text(text).font(.small).foregroundStyle(Palette.muted) }
+                if isLookingAfterBank {
+                    HStack(spacing: Metrics.Spacing.s) {
+                        Spinner(size: .small)
+                        Text("Looking for the payment…").font(.small).foregroundStyle(Palette.muted)
+                    }
+                } else if let text {
+                    Text(text).font(.small).foregroundStyle(Palette.muted)
+                }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
                 layout {
-                    ForEach(links, id: \.title) { link in TextLink(link.title, action: link.run) }
+                    ForEach(links, id: \.title) { $0 }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -183,12 +197,56 @@ struct CheckActions: View {
             .buttonStyle(.pill(.filled))
             .zoomSource(AskSheet.create(ref: check.ref, asOrganization: false), in: sheetZoom)
             others(shown.map(choice))
+        } else if let app = bankApp {
+            // His bank app is the one press; every answer sits quieter beside it.
+            Button {
+                goToBank(app)
+            } label: {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Text(
+                        check.payCode != nil && !input.bankTrip.isCodeSaved
+                            ? "Save QR and open \(app.name)" : "Open \(app.name)"
+                    )
+                    Image(systemName: "arrow.up.right").font(.smallStrong)
+                }
+            }
+            .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
+            if !shown.isEmpty { others(shown.map(choice)) }
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
                 .zoomSource(sheet(of: first), in: sheetZoom)
             let rest = shown.dropFirst().map(choice)
             if !rest.isEmpty { others(rest) }
         }
+    }
+
+    /// The app his pick opens for this card's kind of transfer (Settings > Apps); nil when the card names none.
+    private var bankApp: BankApp? {
+        check.transfers.map { $0 == .thai ? thaiBankApp : ibanBankApp }
+    }
+
+    /// Back from his bank app on a card Life looks for, it says so in the deadline's place: Life's watcher looks while
+    /// the card is open.
+    private var isLookingAfterBank: Bool { input.bankTrip.hasOpenedApp && check.isPaymentLookedFor }
+
+    /// Saves the card's QR to Photos the first time, then opens his bank app (`BankTrip.press`), on this card's trip.
+    private func goToBank(_ app: BankApp) {
+        let trip = $input.bankTrip
+        let save = Self.saving(check.payCode?.payload)
+        Task {
+            await BankTrip.press(
+                get: { trip.wrappedValue }, set: { trip.wrappedValue = $0 }, save: save,
+                open: {
+                    guard let url = app.url else { return false }
+                    return await UIApplication.shared.open(url)
+                }, appName: app.name)
+        }
+    }
+
+    /// The save of the card's QR to Photos, nil when the card draws none.
+    private static func saving(_ payload: String?) -> (@MainActor @Sendable () async -> String?)? {
+        guard let payload else { return nil }
+        return { await QRPicture.save(payload) }
     }
 
     /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
@@ -236,7 +294,10 @@ struct CheckActions: View {
         case nil:
             if let request = check.answer(option) { return answer(request) }
             // A note, or what this build doesn't know yet: his own words go back, never a dead button.
-            if [.note, .unknown].contains(option.takes), check.takesOwnWords { input.isWritingOwnWords = true }
+            if [.note, .unknown].contains(option.takes), check.takesOwnWords {
+                input.option = option.takes == .note ? option.id : nil
+                input.isWritingOwnWords = true
+            }
         }
     }
 }

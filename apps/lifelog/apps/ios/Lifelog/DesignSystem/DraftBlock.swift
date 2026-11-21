@@ -29,6 +29,10 @@ struct DraftBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
             ChatHead(check: check, draft: draft, look: look).padding(.bottom, Metrics.Spacing.s)
+            if check.replaces != nil {
+                // ponytail: the plain muted line until the final design pass draws it.
+                Text("Replaces an older draft").font(.small).foregroundStyle(Palette.muted)
+            }
             if draft.isMail { mail } else { chat }
         }
         .padding(isBoxed ? Metrics.Spacing.l : 0)

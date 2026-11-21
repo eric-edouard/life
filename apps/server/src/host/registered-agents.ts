@@ -3,6 +3,7 @@ import { DEFAULT_RADIUS_M } from "../core/distance";
 import { holder } from "../core/lock";
 import type { SourceName } from "../core/names";
 import { decisionsNow } from "../memory/decisions";
+import { cardsHearingOf } from "../memory/draft-contest";
 import {
   lastExchangeAtOf,
   readExchangeCounts,
@@ -98,7 +99,7 @@ export type WakeLine = AnswerLine | ListenLine;
 
 /** What `wakesOnOf` reads besides the filters: the event channels, who people are, the chats the agent has heard from, its open card and whether it has a wide net. */
 export interface WakesOnContext {
-  card?: { check: string; deadline: string; question: string };
+  cards: { check: string; deadline: string; question: string }[];
   channels: Pick<
     EventChannel,
     "hasPoint" | "hasRepo" | "name" | "quantities"
@@ -194,26 +195,28 @@ export function wakesOnOf(
   filters: EventFilter[],
   c: WakesOnContext
 ): WakeLine[] {
-  const { card, channels, hasNet } = c;
+  const { cards, channels, hasNet } = c;
   const lines = filters.flatMap((f): ListenLine[] => [
     ...messageLineOf(f, c),
     ...eventLinesOf(f, channels),
   ]);
   return [
     ...lines,
-    ...(card
-      ? [
-          {
-            card: card.question,
-            check: card.check,
-            deadline: card.deadline,
-            kind: "answer" as const,
-          },
-        ]
-      : []),
+    ...cards.map((card) => ({
+      card: card.question,
+      check: card.check,
+      deadline: card.deadline,
+      kind: "answer" as const,
+    })),
     ...(hasNet ? [{ kind: "wide_net" }] : []),
   ];
 }
+
+/** The open cards and the cards they merged (`cardsHearingOf`), whose agents wait on them too: the cards whose owners `withWakesOn` needs. */
+const openCardsHeardOf = (decisions: ReturnType<typeof decisionsNow>) =>
+  decisions
+    .filter((d) => d.state === "open")
+    .flatMap((d) => cardsHearingOf(d, decisions));
 
 /** `agents` without what only `wakesOn` is made of, with it: its lines while it waits, none otherwise (running, stopped, ended). `people` is read once by the caller; the wide net is only for an agent whose matter is found (`hasMatter`, as `netsOf` decides). */
 function withWakesOn(
@@ -226,20 +229,24 @@ function withWakesOn(
   decisions: ReturnType<typeof decisionsNow>
 ) {
   return agents.map(({ assignment, chatsSeen, filters, ...a }) => {
-    // Its open card: the one its assignment owns now (`cardOwnersOf`), whoever asked it.
-    const d = decisions.find(
-      (x) => x.state === "open" && owners[x.id]?.assignment === assignment
+    // Its open cards: the one its assignment owns now (`cardOwnersOf`), whoever asked it, and any that merged one of its.
+    const cards = decisions.filter(
+      (x) =>
+        x.state === "open" &&
+        cardsHearingOf(x, decisions).some(
+          (c) => owners[c.id]?.assignment === assignment
+        )
     );
     return {
       ...a,
       wakesOn:
         a.status === "waiting"
           ? wakesOnOf(filters, {
-              card: d && {
+              cards: cards.map((d) => ({
                 check: d.id,
                 deadline: d.deadline,
                 question: d.question,
-              },
+              })),
               channels: EVENT_CHANNELS,
               hasNet: hasMatter(a.steps),
               people,
@@ -250,8 +257,11 @@ function withWakesOn(
   });
 }
 
-/** A registered agent as read now, with what will wake it, and the matter its first anchor finds, when its subject is one. */
-export type RegisteredAgent = ReturnType<typeof withWakesOn>[number] & {
+/** A registered agent as read now, with what will wake it, and the matter its anchors find (the one he chose on a tie), when its subject is one. */
+export type RegisteredAgent = Omit<
+  ReturnType<typeof withWakesOn>[number],
+  "matterId"
+> & {
   matter: { id: string; name: string; status: string } | null;
 };
 
@@ -278,7 +288,7 @@ export async function readRegisteredAgents(
   }
 ): Promise<RegisteredAgents> {
   const decisions = given?.decisions ?? decisionsNow();
-  const openDecisions = decisions.filter((d) => d.state === "open");
+  const openDecisions = openCardsHeardOf(decisions);
   const read = readDesk(
     (db) => ({
       agents: agentsNow(db, now.getTime(), true),
@@ -312,8 +322,8 @@ export async function readRegisteredAgents(
     decisions
   );
   return {
-    agents: agents.map((a) => {
-      const v = find(a.steps);
+    agents: agents.map(({ matterId, ...a }) => {
+      const v = find(a.steps, matterId ?? undefined);
       return {
         ...a,
         matter: v ? { id: v.id, name: v.name, status: v.status } : null,
@@ -326,7 +336,9 @@ export async function readRegisteredAgents(
 }
 
 /** An agent in two parts: what it works on (with its id and status), then where it stands, what it waits for and until when, its last turn, its link. */
-function partsOf(a: AgentNow & { matter?: RegisteredAgent["matter"] }) {
+function partsOf(
+  a: Omit<AgentNow, "matterId"> & { matter?: RegisteredAgent["matter"] }
+) {
   const last = a.lastTurn;
   return {
     detail: [
@@ -366,7 +378,7 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
 /** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
 export function readAgentsOnSteps(steps: string[], people: People) {
   const decisions = decisionsNow();
-  const openDecisions = decisions.filter((d) => d.state === "open");
+  const openDecisions = openCardsHeardOf(decisions);
   const read = readDesk(
     (db) => ({
       agents: agentsOnSteps(db, steps, clock().getTime(), true),
@@ -374,9 +386,11 @@ export function readAgentsOnSteps(steps: string[], people: People) {
     }),
     null
   );
-  // The matter is the one read, found: an agent anchored on it has its wide net.
+  // The matter is the one read, found: an agent anchored on it has its wide net. The chosen matter stays the desk's.
   return read.state === "ok" && read.value
-    ? withWakesOn(read.value, people, (s) => s.length > 0, decisions)
+    ? withWakesOn(read.value, people, (s) => s.length > 0, decisions).map(
+        ({ matterId: _, ...a }) => a
+      )
     : [];
 }
 
@@ -609,11 +623,11 @@ function readDeskRows(
     return {
       // An agent's turns by the assignment it works on now; a hand-out by its own.
       anchors: [
-        ...[...new Set(turns.map((t) => t.agent_id))].map(
-          (id) =>
-            [id, anchorsOf(db, currentAssignmentOf(db, id)?.id ?? "")] as const
-        ),
-        ...handed.map((s) => [s.id, anchorsOf(db, s.id)] as const),
+        ...[...new Set(turns.map((t) => t.agent_id))].map((id) => {
+          const s = currentAssignmentOf(db, id);
+          return [id, s ?? null, anchorsOf(db, s?.id ?? "")] as const;
+        }),
+        ...handed.map((s) => [s.id, s, anchorsOf(db, s.id)] as const),
       ],
       // Each card by the assignment that asked it (`assignmentOfCard`).
       cards: all.flatMap((d) => {
@@ -631,9 +645,17 @@ function readDeskRows(
   ) {
     return [];
   }
-  const anchors = new Map(read.value.anchors);
+  const anchors = new Map(
+    read.value.anchors.map(([id, s, steps]) => [
+      id,
+      { prefer: s?.matter_id ?? undefined, steps },
+    ])
+  );
   const find = matterFinderOf(book);
-  const matterOf = (id: string) => find(anchors.get(id) ?? []);
+  const matterOf = (id: string) => {
+    const a = anchors.get(id);
+    return find(a?.steps ?? [], a?.prefer);
+  };
   const owned = read.value.cards;
   const cards = {
     answered: new Set(

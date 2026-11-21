@@ -213,9 +213,9 @@ struct CardView: View {
         return taken
     }
 
+    /// His tap is over (`isDone`): Life answered, or his send was seen in its chat and only the answer was lost.
     private var isDone: Bool {
-        guard let taken = notes.taken, case .succeeded = life.state(of: taken.key) else { return false }
-        return true
+        notes.taken.map { life.state(of: $0.key).isDone(isSend: $0.isSend) } ?? false
     }
 
     private func input(_ ref: String) -> Binding<CardInput> {

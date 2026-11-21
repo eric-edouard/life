@@ -27,6 +27,7 @@ struct SettingsView: View {
     @State private var isLiveLogsOpen = false
     /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
     @State private var problems: String?
+    @State private var isAppsOpen = false
 
     var body: some View {
         ScrollView {
@@ -36,6 +37,7 @@ struct SettingsView: View {
                 connections
                 allows
                 sending
+                cards
                 pendant
                 RowGroup(label: "Appearance", surface: .sheet) {
                     SegmentedChoice(
@@ -61,6 +63,7 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
         .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage() }
         .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
+        .navigationDestination(isPresented: $isAppsOpen) { AppsPage() }
         #if DEBUG
             .task {
                 switch LifeFixture.page {
@@ -68,6 +71,7 @@ struct SettingsView: View {
                 case "server": page = .server
                 case "diagnostics": isDiagnosticsOpen = true
                 case "logs": isLiveLogsOpen = true
+                case "apps": isAppsOpen = true
                 default: break
                 }
             }
@@ -263,6 +267,20 @@ struct SettingsView: View {
                 RowSwitch(title: "Face ID before Send", isOn: asksFaceIDToSend) { asksFaceIDToSend = $0 }
             }
             .accessibilityIdentifier("settings.switch.faceIDToSend")
+        }
+    }
+
+    // MARK: Cards
+
+    private var cards: some View {
+        RowGroup(label: "Cards", surface: .sheet) {
+            Button {
+                isAppsOpen = true
+            } label: {
+                Row(title: "Apps", icon: "square.grid.2x2", detail: "The bank app a transfer opens") { RowValue() }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.apps")
         }
     }
 

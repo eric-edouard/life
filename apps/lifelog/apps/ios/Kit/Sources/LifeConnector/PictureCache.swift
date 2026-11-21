@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// The pictures people and organizations show (`read_person_pictures`), on disk by id in the app group's caches, so the
-/// notification extension draws the ones the app kept. An id names one picture's bytes, so a kept file is never stale
+/// The pictures people and organizations show (`read_person_pictures`), on disk by id in the app group's caches, where
+/// they have always been kept. An id names one picture's bytes, so a kept file is never stale
 /// and is kept for good (the system may clear caches; a picture then comes again). Only the app fetches (`api`).
 @MainActor @Observable
 public final class PictureCache {

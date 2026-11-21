@@ -54,6 +54,11 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
         public let isDefault: Bool
     }
 
+    public enum Role: String, UnknownTolerant, Sendable {
+        case personal, caretaker
+        case unknown
+    }
+
     public struct Matter: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
@@ -70,6 +75,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     /// Why its first turn never began (it was ended); nil when it began.
     public let notStarted: String?
     public let project: String?
+    /// Its standing role, which the app names it by ("the Personal agent"); nil for any other agent.
+    public let role: Role?
     /// The matter its first anchor finds, when its subject is one (not in a matter's own `agents`).
     public let matter: Matter?
     public let wait: Wait?
