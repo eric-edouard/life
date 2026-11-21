@@ -15,6 +15,9 @@ import { localDate, time } from "./zones";
 
 /** A conversation of at least this many characters, with someone else talking, gets a summary. */
 export const SUMMARY_FROM_CHARS = 15_000;
+/** Whether a conversation (its parts) is long enough for a summary (`SUMMARY_FROM_CHARS`): the summaries' one gate. */
+export const isSummarised = (parts: readonly SpokenPart[]) =>
+  parts.reduce((n, p) => n + p.chars, 0) >= SUMMARY_FROM_CHARS;
 /** A part holds at most this many characters: a longer conversation is cut at its longest silence. */
 export const CONVERSATION_PART_CHARS = 150_000;
 
@@ -105,8 +108,8 @@ function cutsOf(sizes: number[], gaps: number[]) {
 }
 
 /**
- * The parts a spoken conversation is read in, or none when it does not qualify (under `SUMMARY_FROM_CHARS`, or no
- * line but his). Its words are fetched from lifelog (`turnLines`): a voice lifelog heard from a screen, nearby or as an
+ * The parts a spoken conversation is read in, whatever its length (the summaries keep the long ones, `isSummarised`), or
+ * none when no line is anyone's but his. Its words are fetched from lifelog (`turnLines`): a voice lifelog heard from a screen, nearby or as an
  * announcement is left out, one it never classified or heard over a phone is kept. A voice no one named is `V1`, `V2`… by its
  * first line (distinct per recording and label); a failed fetch throws.
  */
@@ -164,8 +167,7 @@ export async function spokenPartsOf(
       who,
     };
   });
-  const chars = shown.reduce((n, s) => n + s.size, 0);
-  if (chars < SUMMARY_FROM_CHARS || shown.every((s) => s.speaker === OWNER)) {
+  if (shown.every((s) => s.speaker === OWNER)) {
     return [];
   }
   let from = 0;
