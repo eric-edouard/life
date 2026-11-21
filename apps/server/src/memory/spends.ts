@@ -1,6 +1,7 @@
-import { listUsdOf } from "../core/prices";
+import { HOUR_PRICES, listUsdOf, priceOn } from "../core/prices";
 import type { ReadCounts, Tokens } from "../models/model-call";
 import type { RouterSpent } from "../models/routers";
+import type { VoiceSpending } from "../sources/lifelog-spending";
 
 // Model spending (decision 83): each record that used a paid or metered resource read as one spend, where it is
 // logged. A `model.run` line (every model call), a `model.local` line (the describer, Apple's model), a desk turn (an
@@ -168,6 +169,85 @@ export function spendOfTurn(t: TurnSpent): Spend {
       ? equivalentOf(t.model, t.ended_at, tokens)
       : { reported: false }),
   };
+}
+
+/** Scribe's seconds as a billed spend at its rate on the day; a send that may have been billed (no seconds) is not reported. */
+function scribeOf(at: string, billableSeconds: number | null): Spend {
+  const rate = priceOn(HOUR_PRICES, "scribe", at.slice(0, 10))?.usdPerHour;
+  return {
+    at,
+    basis: "billed",
+    calls: 1,
+    kind: "voice",
+    provider: "elevenlabs",
+    ...(billableSeconds === null || rate === undefined
+      ? { reported: false }
+      : { reported: true, usd: (billableSeconds / 3600) * rate }),
+  };
+}
+
+const VOICE_RUNTIME: Record<string, "claude" | "codex"> = {
+  anthropic: "claude",
+  "claude-code": "claude",
+  codex: "codex",
+  openai: "codex",
+};
+
+/**
+ * Voice's spends (its `GET /spending`): a settled job's Scribe seconds billed and a speech job's own work at $0; a send
+ * that may have been billed not reported; an unsettled job none (its day waits); a heard note's Scribe seconds; its
+ * model runs on his plans, at list price.
+ */
+export function spendsOfVoice(v: VoiceSpending): Spend[] {
+  return [
+    ...v.jobs.flatMap((j): Spend[] => {
+      if (j.outcome === "unsettled") {
+        return [];
+      }
+      const speech: Spend[] =
+        j.transcriber === "speech"
+          ? [
+              {
+                at: j.at,
+                basis: "billed",
+                calls: 1,
+                kind: "voice",
+                provider: "speech",
+                reported: true,
+                usd: 0,
+              },
+            ]
+          : [];
+      const scribe =
+        j.outcome === "maybe_billed"
+          ? [scribeOf(j.at, null)]
+          : j.billableSeconds > 0
+            ? [scribeOf(j.at, j.billableSeconds)]
+            : [];
+      return [...speech, ...scribe];
+    }),
+    ...v.voiceNotes
+      .filter((n) => n.billableSeconds !== 0)
+      .map((n) => scribeOf(n.at, n.billableSeconds)),
+    ...v.modelRuns.map((r): Spend => {
+      const runtime = VOICE_RUNTIME[r.provider] ?? "claude";
+      const tokens = {
+        cached: 0,
+        input: r.inputTokens,
+        output: r.outputTokens,
+      };
+      return {
+        at: r.at,
+        basis: "equivalent",
+        calls: 1,
+        kind: "voice",
+        ms: r.latencyMs ?? undefined,
+        provider: runtime,
+        tokens,
+        ...equivalentOf(`${runtime}:${r.model}`, r.at, tokens),
+      };
+    }),
+  ];
 }
 
 /**

@@ -50,6 +50,16 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
     read: "2026-11-21",
     source: CLAUDE,
   },
+  // Voice's model on the Mac names the model whole.
+  {
+    cached: 0.1,
+    from: "2026-01-01",
+    input: 2,
+    item: "claude:claude-sonnet-5-5",
+    output: 10,
+    read: "2026-11-21",
+    source: CLAUDE,
+  },
   {
     cached: 0.01,
     from: "2026-11-03",

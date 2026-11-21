@@ -190,6 +190,8 @@ export const transcriptionJobs = sqliteTable(
     // A source's jobs from a capture time on (page-processing.ts, the pages a window holds).
     index("transcription_jobs_source_end").on(t.sourceId, t.captureEnd),
     index("transcription_jobs_source_last").on(t.sourceId, t.lastPage),
+    // What a span of days spent (`GET /spending`).
+    index("transcription_jobs_admitted").on(t.admittedAt),
   ]
 );
 
@@ -708,6 +710,8 @@ export const intelligenceRuns = sqliteTable(
   },
   (t) => [
     index("intelligence_runs_conversation").on(t.conversationId, t.createdAt),
+    // What a span of days spent (`GET /spending`).
+    index("intelligence_runs_created").on(t.createdAt),
     // At most one run in flight per conversation.
     uniqueIndex("intelligence_runs_one_running")
       .on(t.conversationId)

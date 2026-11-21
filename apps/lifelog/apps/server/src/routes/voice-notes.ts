@@ -37,10 +37,14 @@ export function voiceNoteRoutes({
   /** Words as text, from a transcript in Scribe's shape. */
   const textFrom = (raw: unknown) =>
     textOf(parseTranscript(raw).transcript.words).trim();
-  /** Settles a claimed note with `text`, and answers it. */
-  const settle = (key: string, text: string) => {
+  /** Settles a claimed note with `text` and what it took (`spent`; none for a lost answer: it may have been billed), and answers it. */
+  const settle = (
+    key: string,
+    text: string,
+    spent: { billableSeconds: number; route: string; seconds: number } | {} = {}
+  ) => {
     db.update(voiceNoteHearings)
-      .set({ doneAt: clock(), text })
+      .set({ ...spent, doneAt: clock(), text })
       .where(eq(voiceNoteHearings.key, key))
       .run();
     return text;
@@ -118,12 +122,13 @@ export function voiceNoteRoutes({
             .run();
           return;
         }
-        record(db, "voice_note.heard", {
+        const spent = {
           billableSeconds: outcome.billableSeconds,
           route: route.kind,
           seconds,
-        });
-        settle(key, textFrom(outcome.transcript));
+        };
+        record(db, "voice_note.heard", spent);
+        settle(key, textFrom(outcome.transcript), spent);
       },
     });
     return heard.kind === "heard"

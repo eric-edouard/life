@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { spendOfTurn, spendsOf, spendsOfLine } from "./spends";
+import { spendOfTurn, spendsOf, spendsOfLine, spendsOfVoice } from "./spends";
 
 const AT = "2026-11-21T10:00:00.000Z";
 const tokens = { cached: 0, input: 1_000_000, output: 0 };
@@ -148,4 +148,69 @@ test("a call made in a processing run's step is the night's; any other the dayti
     runs
   ).map((s) => s.kind);
   expect(kinds).toEqual(["night", "daytime"]);
+});
+
+test("Voice's spends: a settled job's Scribe seconds at the day's rate, a speech job's own work at $0, a maybe-billed send not reported, an unsettled job none; a note's seconds; its model runs at list price", () => {
+  const spends = spendsOfVoice({
+    jobs: [
+      {
+        at: AT,
+        billableSeconds: 3600,
+        outcome: "billed",
+        seconds: 3000,
+        transcriber: "scribe",
+      },
+      {
+        at: AT,
+        billableSeconds: 0,
+        outcome: "billed",
+        seconds: 600,
+        transcriber: "speech",
+      },
+      {
+        at: AT,
+        billableSeconds: 60,
+        outcome: "maybe_billed",
+        seconds: 60,
+        transcriber: "scribe",
+      },
+      {
+        at: AT,
+        billableSeconds: 60,
+        outcome: "unsettled",
+        seconds: 60,
+        transcriber: "scribe",
+      },
+    ],
+    modelRuns: [
+      {
+        at: AT,
+        inputTokens: 1_000_000,
+        latencyMs: 5,
+        model: "claude-sonnet-5-5",
+        outputTokens: 0,
+        provider: "claude-code",
+      },
+    ],
+    voiceNotes: [
+      { at: AT, billableSeconds: 1800, route: "whole", seconds: 1800 },
+      { at: AT, billableSeconds: null, route: null, seconds: null },
+    ],
+  });
+  expect(
+    spends.map((s) => [
+      s.provider,
+      s.basis,
+      s.reported,
+      s.usd ?? s.equivalentUsd,
+    ])
+  ).toEqual([
+    ["elevenlabs", "billed", true, 0.2],
+    ["speech", "billed", true, 0],
+    ["elevenlabs", "billed", false, undefined],
+    ["elevenlabs", "billed", true, 0.1],
+    ["elevenlabs", "billed", false, undefined],
+    ["claude", "equivalent", true, 2],
+  ]);
+  expect(spends.every((s) => s.kind === "voice")).toBe(true);
 });
