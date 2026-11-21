@@ -199,8 +199,12 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   }
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
-    expect(text).toContain("act only after his Go");
-    // His word of 21 Nov 2026: the plan card reads well.
+    expect(text).toContain(
+      "Act only after his `start`; on his `decline`, `finish`"
+    );
+    // The plan card's rules are in the brief: an agent with its door alone has no `fetch`.
+    expect(text).toContain('{"id":"start","label":"Start the plan"}');
+    // His word of 21 Nov 2026: the plan card reads well. Its steps stay in its `context` too, for an app that does not draw `plan` yet.
     expect(text).toContain(
       "Write that card's plan in Markdown in its `context`: a short heading, numbered steps, what you wait on, and what you will ask him; its question stays one line."
     );

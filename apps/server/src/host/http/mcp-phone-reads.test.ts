@@ -210,6 +210,42 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       state: "open",
       title: "Pay the deposit",
     },
+    // A plan card with its steps (`plan`) and what they were gathered from: its options' roles on the wire.
+    {
+      agent: "agt_000000000001",
+      asker: "Orbit",
+      at: "2026-10-14T10:00:00.000Z",
+      context:
+        "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      deadline: "2099-01-02T09:00:00.000Z",
+      gathered: { text: "From Kit's quote and two others" },
+      id: "dec_000000000003",
+      kind: "asked",
+      links: [],
+      onSilence: null,
+      options: [
+        { id: "start", label: "Start the plan" },
+        { id: "decline", label: "Not this plan" },
+      ],
+      plan: [
+        {
+          by: "agent",
+          channel: "whatsapp",
+          text: "Ask Kit for the quote",
+          when: "today",
+        },
+        { by: "owner", channel: "payment", text: "Pay the deposit" },
+        {
+          by: "agent",
+          text: "Book the repair",
+          when: "once Kit answers, by Thu",
+        },
+      ],
+      question: "Start with this plan?",
+      schemaVersion: 3,
+      state: "open",
+      title: "Mend the strap",
+    },
   ],
   dismissed: [],
   doubted: new Set(),
@@ -368,7 +404,7 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
-  plans: new Set(["dec_000000000002"]),
+  plans: new Set(["dec_000000000002", "dec_000000000003"]),
   samePersons: [
     {
       guess: "person:inf_kit",
