@@ -10,6 +10,11 @@
       "tokens": 1000
     },
     {
+      "equivalent": {
+        "amount": 1.5,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
       "kind": "agents",
       "tokens": 500000
     },

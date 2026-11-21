@@ -13,7 +13,7 @@ the phone bundles it. State is never shown by color alone.
 ## Navigation
 
 One tab, **Pendant**: a minimal shell until the new screens replace it. The Library, People, Presses, conversation
-reader, export and spending screens are gone (the cuts and the look, 18 Nov 2026); Backup & restore stays, in Settings. No
+reader and export screens are gone (the cuts and the look, 18 Nov 2026; Spending came back as Life's model spending, in Settings); Backup & restore stays, in Settings. No
 Settings tab: the few settings live on the Pendant screen.
 
 ## Screens

@@ -463,5 +463,30 @@
   },
   "DuoPersonTall": {
     "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
+  },
+  "DuoFoldSpending": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureSheet",
+      "settings",
+      "-fixturePage",
+      "spending"
+    ]
+  },
+  "DuoFoldSettingsSpending": {
+    "why": "Settings scrolled to its Spending row, after Your data: a scroll, which design:shots does not do. By hand: -fixtureLife ok -fixtureSheet settings, then scroll to the row."
+  },
+  "DuoFoldSpendingLower": {
+    "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
+  },
+  "DuoFoldSpendingEnd": {
+    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
+  },
+  "DuoFoldAgentSpend": {
+    "why": "The line needs the agents' spending in read_registered_agents.json (the designer's to write), and the frame is the agent's page at its end. By hand, once written: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen -fixtureSheet agent, then scroll to the end."
+  },
+  "DuoFoldMatterSpend": {
+    "why": "The line needs the matter's spending in read_matter.json (the designer's to write), and the frame is the page at its end. By hand, once written: -fixtureLife ok -fixtureTab matters -fixtureMatter matter_kitchen, then scroll to the end."
   }
 }
