@@ -77,6 +77,10 @@ private var utc: Calendar {
     let paired = try draft(#""text":"@Ann𠮷, then @Ann","mentions":[{"name":"Ann"}]"#).textRuns
     #expect(paired.map(\.text) == ["@Ann", "𠮷, then @Ann"])
     #expect(paired.map(\.isMention) == [true, false])
+    // Code unit for code unit, as the send's `indexOf`: a decomposed `é` is not the `é` it names.
+    let decomposed = try draft(#""text":"@Cafe\u0301, then @Café","mentions":[{"name":"Café"}]"#).textRuns
+    #expect(decomposed.map(\.text) == ["@Cafe\u{301}, then ", "@Café"])
+    #expect(decomposed.map(\.isMention) == [false, true])
     // A mention the send would not find ends the search there.
     #expect(try draft(#""text":"@Anna only","mentions":[{"name":"Ann"}]"#).textRuns.map(\.isMention) == [false])
 }
@@ -108,6 +112,12 @@ private var utc: Calendar {
     let confirmedThenDropped = ActionState<ActionProof>.failed(
         ActionFailure(.streamDropped), steps: [step("handed", true), step("confirmed", true)])
     #expect(DraftDelivery(confirmedThenDropped) == .sent)
+    // Confirmed, then the request timed out: its result says "Sent." too, and offers no retry (the buttons' `.sent`).
+    let confirmedThenTimedOut = ActionState<ActionProof>.failed(
+        ActionFailure(reason: "No answer", retry: .allowed, mayHaveHappened: true),
+        steps: [step("handed", true), step("confirmed", true)])
+    #expect(DraftDelivery(confirmedThenTimedOut) == .sent && DraftDelivery(confirmedThenTimedOut).word == "Sent.")
+    #expect(DraftDelivery(dropped).word == "May have gone.")
     #expect(DraftDelivery(.failed(ActionFailure(reason: "Someone wrote", retry: .no), steps: [])) == .notSent)
 }
 

@@ -90,16 +90,18 @@ extension Check.Draft {
     }
 
     /// The draft's words cut at each mention it names, found as the send finds them (`mentionsAt`,
-    /// `sources/matrix-content.ts`): in order, each after the one before, a name only whole (`@Ann` isn't in `@Anna`);
-    /// a mention not found ends the search.
+    /// `sources/matrix-content.ts`): in order, each after the one before, code unit for code unit as JavaScript's `indexOf`
+    /// (`.literal`: a decomposed `é` is not `é`), a name only whole (`@Ann` isn't in `@Anna`); a mention not found ends
+    /// the search.
     public var textRuns: [TextRun] {
         guard let text else { return [] }
         var runs: [TextRun] = []
         var from = text.startIndex
         mentions: for mention in mentions ?? [] {
-            var at = text.range(of: "@" + mention.name, range: from..<text.endIndex)
+            var at = text.range(of: "@" + mention.name, options: .literal, range: from..<text.endIndex)
             while let found = at, text.utf16.isWordUnit(at: found.upperBound) {
-                at = text.range(of: "@" + mention.name, range: text.index(after: found.lowerBound)..<text.endIndex)
+                at = text.range(
+                    of: "@" + mention.name, options: .literal, range: text.index(after: found.lowerBound)..<text.endIndex)
             }
             guard let at else { break mentions }
             if from < at.lowerBound { runs.append(TextRun(text: String(text[from..<at.lowerBound]), isMention: false)) }
@@ -185,6 +187,17 @@ public enum DraftDelivery: Sendable, Equatable {
                 ? .sent : failure.mayHaveHappened || failure.isSameTap ? .mayHaveGone : .notSent
         case .idle, .running:
             self = passed.contains("confirmed") ? .sent : passed.contains("handed") ? .handed : .notSent
+        }
+    }
+}
+
+extension DraftDelivery {
+    /// A send that ended, in one word for its result screen and its notification: the bubble's, so they never differ.
+    public var word: String {
+        switch self {
+        case .sent: "Sent."
+        case .mayHaveGone: "May have gone."
+        case .notSent, .handed: "Not sent."
         }
     }
 }
