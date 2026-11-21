@@ -25,12 +25,27 @@ export const MainSessionAsk = z
 export type MainSessionAsk = z.infer<typeof MainSessionAsk>;
 
 /**
- * The answer kinds of this slice: `reply` (its words) and `error` (what failed; his words are kept on the phone). The
- * rest of the design's list (`done`, `fix`, `agent`, `card`, `question`) comes with what makes each; `offline` is the
- * phone's own state, never on the wire.
+ * What the session adds to its answer at its door (`answer`, its one tool): why and the refs it rests on, or, with
+ * `answers`, the likely answers that make it a question. Its words are always its text after its last tool call.
+ */
+export const AnswerExtras = z
+  .object({
+    answers: z.array(z.string().trim().min(1).max(80)).min(2).max(4).optional(),
+    sources: z.array(z.string().min(1).max(200)).max(5).optional(),
+    why: z.string().trim().min(1).max(300).optional(),
+  })
+  .strict();
+export type AnswerExtras = z.infer<typeof AnswerExtras>;
+
+/**
+ * The answer, one kind of a closed list the phone draws natively: `reply` (its words, a line of why, the refs it rests
+ * on), `question` (its words, with likely answers he may tap) and `error` (what failed; his words are kept on the phone).
+ * The design's act kinds (`done`, `agent`, `card`, `fix`) come with the acts that make them; `offline` is the phone's
+ * own state, never on the wire.
  */
 export type MainSessionAnswer =
-  | { kind: "reply"; words: string }
+  | { kind: "reply"; sources?: string[]; why?: string; words: string }
+  | { answers: string[]; kind: "question"; question: string }
   | { kind: "error"; what: string };
 
 /**

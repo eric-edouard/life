@@ -74,21 +74,11 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
 
 @Test func everyKindOfAnswerIsReadFromItsFields() {
     #expect(
-        TellAnswer(#"{"kind":"reply","words":"**31 January**","why":"Since 2 October.","sources":["doc:1"]}"#)
-            == .reply(words: "**31 January**", why: "Since 2 October.", sources: ["doc:1"]))
-    #expect(
-        TellAnswer(#"{"kind":"done","what":"Call the notary","undo":"u1"}"#)
-            == .done(what: "Call the notary", undo: "u1"))
-    #expect(
-        TellAnswer(#"{"kind":"agent","agent":"Personal","told":"Add the keys","back":"the card"}"#)
-            == .agent(agent: "Personal", told: "Add the keys", back: "the card"))
-    #expect(TellAnswer(#"{"kind":"card","card":"dec_1"}"#) == .card(ref: "dec_1"))
-    #expect(TellAnswer(#"{"kind":"card"}"#) == .unknown)
-    #expect(
-        TellAnswer(#"{"kind":"fix","before":"cousin","after":"fitter","places":3,"undo":"u2"}"#)
-            == .fix(before: "cousin", after: "fitter", places: 3, undo: "u2"))
+        TellAnswer(#"{"kind":"reply","words":"**31 January**","why":"Since 2 October.","sources":["obs_1"]}"#)
+            == .reply(words: "**31 January**", why: "Since 2 October.", sources: ["obs_1"]))
     #expect(
         TellAnswer(#"{"kind":"question","question":"Which plan?","answers":["Kitchen","Flat"]}"#)
-            == .question(words: "Which plan?", answers: ["Kitchen", "Flat"]))
-    #expect(TellAnswer(#"{"kind":"fix","before":"a","after":"b","places":1}"#).line == "Fixed in **1 place**")
+            == .question(question: "Which plan?", answers: ["Kitchen", "Flat"]))
+    #expect(TellAnswer(#"{"kind":"error","what":"No Mac."}"#) == .error(what: "No Mac."))
+    #expect(TellAnswer(#"{"kind":"done","what":"Called"}"#) == .unknown)
 }
