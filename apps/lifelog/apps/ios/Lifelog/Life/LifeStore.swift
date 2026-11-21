@@ -25,6 +25,8 @@ final class LifeStore {
     private(set) var prose: [String: ReadState<Prose>] = [:]
     /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
     private(set) var reach: [String: ReadState<ReachPage>] = [:]
+    /// Every matter open with someone, by their ref: read on All once their `now` left some out.
+    private(set) var openWith: [String: ReadState<MatterList>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -218,24 +220,29 @@ final class LifeStore {
         await load({ self.latest[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
     }
 
-    /// Every account of theirs: the `reach` part from `first`, page after page to its end.
+    /// Every account of theirs: the `reach` part from `first`, page after page to its end; a page that fails stops it
+    /// there, and the next call reads it again.
     func refreshReach(from first: String) async {
-        var next: String? = first
-        while let page = next {
-            await load({ self.reach[page, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(page) }
-            next = reach[page]?.value?.next
+        while let ref = reachChain(from: first).toRead {
+            await load({ self.reach[ref, default: ReadState()].apply($0) }, key: nil) { try await $0.readPart(ref) }
+            if reach[ref]?.value == nil { return }
         }
     }
 
-    /// The `reach` part's pages read so far, from `first` in order.
-    func reachPages(from first: String) -> [ReachPage] {
-        var pages: [ReachPage] = []
-        var next: String? = first
-        while let ref = next, let page = reach[ref]?.value {
-            pages.append(page)
-            next = page.next
+    /// The `reach` part's pages read so far, from `first`, and what comes next.
+    func reachChain(from first: String) -> PageChain<ReachPage> {
+        PageChain(from: first, states: reach, next: \.next)
+    }
+
+    /// Their `latest` pages read so far, from the first, paging back, and what comes next.
+    func latestChain(of subject: String) -> PageChain<LatestPage> {
+        PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
+    }
+
+    func refreshOpenWith(_ ref: String) async {
+        await load({ self.openWith[ref, default: ReadState()].apply($0) }, key: nil) {
+            try await $0.readMatters(person: ref)
         }
-        return pages
     }
 
     func refreshProse(_ ref: String) async {
@@ -571,7 +578,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
-        (people, person, latest, prose, reach) = (ReadState(), [:], [:], [:], [:])
+        (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         parties.startOver()
         holds.clear()
         onStep(.reading)

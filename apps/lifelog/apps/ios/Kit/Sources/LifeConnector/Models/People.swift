@@ -214,6 +214,16 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     /// How many matters are open with them, those Life left out included.
     public var openCount: Int { open.count + (more["open"] ?? 0) }
 
+    /// Whether `now` left some open matters out, so All reads them all (`read_matters` of them).
+    public var isOpenCut: Bool { (more["open"] ?? 0) > 0 }
+
+    /// The open matters a page shows: three, or on All every one: `now`'s own, or, when it left some out, `all` once
+    /// read (`now`'s until then).
+    public func openShown(isAll: Bool, all: [MatterRow]?) -> [MatterRow] {
+        guard isAll else { return Array(open.prefix(3)) }
+        return isOpenCut ? all ?? open : open
+    }
+
     /// Their first name, as a page's labels say it ("Open with Camille").
     public var firstName: String { row.party.name.split(separator: " ").first.map(String.init) ?? row.party.name }
 

@@ -29,13 +29,17 @@ struct PersonPage: View {
     }
 
     private func page(_ now: PersonNow) -> some View {
-        // Every account, once `now` sent the `reach` part's ref for those it had no room for.
-        let (reach, details) = now.withEveryAccount(now.moreReach.map { life.reachPages(from: $0) })
+        // Every account, once `now` sent the `reach` part's ref for those it had no room for and every page arrived.
+        let chain = now.moreReach.map { life.reachChain(from: $0) }
+        let (reach, details) = now.withEveryAccount(chain?.whole)
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     Who(row: now.row)
                     if !reach.isEmpty { ReachTiles(reach: reach) }
+                    if case .failed = chain?.next, let first = now.moreReach {
+                        PartRetry(what: "Some of their accounts") { await life.refreshReach(from: first) }
+                    }
                 }
                 OpenWith(now: now)
                 Lately(lines: now.situation.map(\.text))
@@ -139,7 +143,8 @@ private struct ReachTiles: View {
     }
 }
 
-/// What is open with them: at most three rows of the Matters list, all of them on "All n".
+/// What is open with them: at most three rows of the Matters list; "All n" shows every one, read whole once `now` left
+/// some out.
 private struct OpenWith: View {
     let now: PersonNow
     @State private var isAll = false
@@ -148,11 +153,13 @@ private struct OpenWith: View {
     @Environment(AppRouter.self) private var router
 
     var body: some View {
-        if !now.open.isEmpty {
+        let ref = now.row.party.ref
+        let rows = now.openShown(isAll: isAll, all: life.openWith[ref]?.value?.matters)
+        if now.openCount > 0 {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Open with \(now.firstName)").font(.small).foregroundStyle(Palette.muted)
                     .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xs)
-                ForEach(isAll ? now.open : Array(now.open.prefix(3))) { row in
+                ForEach(rows) { row in
                     Button {
                         router.open(matter: row.id)
                     } label: {
@@ -161,13 +168,24 @@ private struct OpenWith: View {
                     .buttonStyle(.plain)
                     .appears()
                 }
-                if !isAll, now.openCount > 3 {
-                    TextLink("All \(now.openCount)", isOnward: true) { isAll = true }
-                        .padding(.horizontal, Metrics.gutter)
+                Group {
+                    if !isAll, now.openCount > rows.count {
+                        TextLink("All \(now.openCount)", isOnward: true) { isAll = true }
+                    } else if isAll, now.isOpenCut, life.openWith[ref]?.value == nil {
+                        if life.openWith[ref]?.hasFailed == true {
+                            PartRetry(what: "The other matters") { await life.refreshOpenWith(ref) }
+                        } else {
+                            Spinner()
+                        }
+                    }
                 }
+                .padding(.horizontal, Metrics.gutter)
             }
             .padding(.horizontal, -Metrics.gutter)
-            .motion(Motion.standard, value: isAll)
+            .motion(Motion.standard, value: rows.map(\.id))
+            .task(id: isAll) {
+                if isAll, now.isOpenCut { await life.refreshOpenWith(ref) }
+            }
         }
     }
 }
@@ -309,7 +327,9 @@ private struct Latest: View {
     var body: some View {
         let ref = subject + "/latest"
         Group {
-            if let page = life.latest[ref]?.value, !page.latest.isEmpty {
+            if life.latest[ref]?.hasFailed == true {
+                PartRetry(what: "Their latest exchanges") { await life.refreshLatest(ref) }
+            } else if let page = life.latest[ref]?.value, !page.latest.isEmpty {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                     Text("Latest").font(.small).foregroundStyle(Palette.muted)
                     ForEach(page.latest) { item in ExchangeView(item: item, when: SaidWords.moment(item.at)) }
@@ -328,8 +348,8 @@ private struct Latest: View {
     }
 }
 
-/// One exchange as it reads: where and when (the app's mark, the out-arrow to the chat), then its words, two lines at
-/// most each, his on the right on `fillTint`, theirs on the left on `tile`: a chat's sides, not bubbles. A conversation
+/// One exchange as it reads: where and when (the app's mark, the out-arrow to the chat), then every message, two
+/// lines at most each, his on the right on `fillTint`, theirs on the left on `tile`: a chat's sides, not bubbles. A conversation
 /// in person is its summary.
 struct ExchangeView: View {
     let item: LatestPage.Item
@@ -355,7 +375,7 @@ struct ExchangeView: View {
             if let summary = item.summary {
                 said(summary, isHis: false)
             }
-            ForEach(Array((item.lines ?? []).prefix(2).enumerated()), id: \.offset) { _, line in
+            ForEach(Array((item.lines ?? []).enumerated()), id: \.offset) { _, line in
                 said(line.text, isHis: line.by == .him)
             }
         }
