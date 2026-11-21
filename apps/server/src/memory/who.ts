@@ -320,45 +320,67 @@ export function aboutNow(
   });
 }
 
-/** Who a lifelog person id is: the id, else the name lifelog gave it (the directory knows the id of few people). The one rule. */
+/**
+ * Who a lifelog person id is: the id, else the name lifelog gave it (`voiceNamesIn`: the directory knows the id of few
+ * people), which the caller passes as `name`. The one rule.
+ */
 export const voicePersonOf = (
   resolve: (s: string) => string | null,
   id: string | null | undefined,
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
+/** A queue item as a voice card reads it: lifelog's, with the voice naming's guesses (`guessed`) and the names lifelog gives its person ids (`names`), both from `withVoiceGuesses`. */
+interface VoiceCardItem {
+  guessed?: readonly string[];
+  likely: readonly string[];
+  name: string | null;
+  names?: ReadonlyMap<string, string>;
+  personId: string | null;
+}
+
 /**
  * The person a voice card asks about, what its "Yes" names (its `subject`): the one person lifelog's suggestion (its
  * person, else the name it heard, as `resolve` reads it, a new person's too) and the voice naming's guesses for its
  * voices (`guessed`, `withVoiceGuesses`; only someone known today) agree on, and only when lifelog knows them by an id
- * (its person or one of its `likely`), so "Yes" assigns that id, never a name; none otherwise. Only ever a question to
- * him ("Is this X?"): his tap is the answer.
+ * (`voiceIdOf`), so "Yes" assigns that id, never a name; none otherwise. Only ever a question to him ("Is this X?"): his tap is the answer.
  */
 export function voiceSuggestionOf(
   people: Pick<People, "names" | "refOf" | "resolve">,
-  item: {
-    guessed?: readonly string[];
-    likely: readonly string[];
-    name: string | null;
-    personId: string | null;
-  }
+  item: VoiceCardItem
 ) {
   const named = new Set(
     [
-      voicePersonOf(people.resolve, item.personId, item.name),
+      voicePersonOf(
+        people.resolve,
+        item.personId,
+        item.names?.get(item.personId ?? "") ?? item.name
+      ),
       ...(item.guessed ?? [])
         .map((g) => people.refOf(g))
         .filter((r) => people.names.has(r)),
     ].filter((r) => r !== null)
   );
   const [one] = named;
-  return named.size === 1 &&
-    [item.personId, ...item.likely].some(
-      (id) => id && voicePersonOf(people.resolve, id, null) === one
-    )
+  return named.size === 1 && voiceIdOf(people, item, one as string)
     ? (one as string)
     : null;
 }
+
+/**
+ * The lifelog person id a voice answer naming `ref` assigns ("Yes", "Someone else…"): the card's own ids first (its
+ * person, its `likely`), then any id lifelog gives a name (`names`), each read as `voicePersonOf`; none when lifelog knows
+ * them by no id.
+ */
+export const voiceIdOf = (
+  people: Pick<People, "resolve">,
+  item: Pick<VoiceCardItem, "likely" | "names" | "personId">,
+  ref: string
+) =>
+  [item.personId, ...item.likely, ...(item.names?.keys() ?? [])].find(
+    (id): id is string =>
+      !!id && voicePersonOf(people.resolve, id, item.names?.get(id)) === ref
+  );
 
 /**
  * A voice card's ref: its lifelog group, the recordings his answer would change (a digest of its voices) and the person
@@ -367,12 +389,8 @@ export function voiceSuggestionOf(
  */
 export const voiceCardRefOf = (
   people: Pick<People, "names" | "refOf" | "resolve">,
-  item: {
-    guessed?: readonly string[];
+  item: VoiceCardItem & {
     id: string;
-    likely: readonly string[];
-    name: string | null;
-    personId: string | null;
     voices: { jobId: string; speakerLabel: string }[];
   }
 ) => {

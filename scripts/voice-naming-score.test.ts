@@ -20,6 +20,7 @@ const g = (voice: string, o: Partial<Guessed> = {}): Guessed => ({
   answer: "person:ann",
   at: "2026-10-10T00:00:00.000Z",
   confidence: "sure",
+  keys: [`${voice}#0`],
   likeness: true,
   part: 1,
   person: "person:ann",
@@ -129,4 +130,17 @@ test("by group: one card per part and answer, its name the one person its sure o
   expect(reportOf(s).join("\n")).toContain(
     "by group: 4 answered groups, a name shown on 2, his answer on 1"
   );
+});
+
+test("by group reads each turn's newest guess, as the card does: a voice whose turns are guessed two people shows no name", () => {
+  const s = scoreOf([
+    // Voice x, two turns: the newest guess (Ann) covers only the first; the second's newest is an older Bob guess.
+    g("x", { keys: ["x#0"] }),
+    g("x", {
+      at: "2026-10-09T00:00:00.000Z",
+      keys: ["x#0", "x#1"],
+      person: "person:bob",
+    }),
+  ]);
+  expect(s.byGroup).toEqual({ groups: 1, right: 0, shown: 0 });
 });

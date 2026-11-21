@@ -144,18 +144,22 @@ export function speakerTurns(store: Store, since: Date) {
     .all(since.toISOString());
 }
 
-/** The newest name lifelog gave each person id, from `speakerTurns`' rows. */
-export function voiceNamesOf(
-  rows: { at: string; id: string; name: string | null }[]
-) {
-  const newest = new Map<string, { at: string; name: string }>();
-  for (const { at, id, name } of rows) {
-    if (name && at >= (newest.get(id)?.at ?? "")) {
-      newest.set(id, { at, name });
-    }
-  }
-  return new Map([...newest].map(([id, { name }]) => [id, name]));
-}
+/** The newest name lifelog gave each person id in the store's turns: who an id is when Life's directory does not know it (`voicePersonOf`). */
+export const voiceNamesIn = (store: Store): ReadonlyMap<string, string> =>
+  new Map(
+    store.db
+      .query<{ id: string; name: string }, []>(
+        // SQLite takes the bare column from the row holding max(): each id's newest name. ponytail: a scan of every turn
+        // (tens of ms at a year of speech), once per inbox read and answer; an index on person_id when it shows.
+        `select person_id as id, person_name as name, max(start_at) from turns
+          where person_id is not null and person_name is not null group by person_id`
+      )
+      .all()
+      .map((r) => [r.id, r.name])
+  );
+
+/** `voiceNamesIn` on the store, read once. */
+export const readVoiceNames = () => withStore(voiceNamesIn);
 
 /** Whether lifelog now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
 export function isTurnNamed(store: Store, ref: string) {
@@ -303,7 +307,7 @@ export async function answerNamingQueue(
 
 /**
  * The UTC months (`YYYY-MM`) a read of these jobs' speech can be filed under (a reply goes in its first message's month):
- * from their conversation's start to their last turn. A job the store does not hold has none.
+ * from their first conversation's start to their last turn. A job the store does not hold has none.
  */
 export const readJobMonths = (jobIds: readonly string[]) =>
   withStore((store) => {
@@ -311,7 +315,7 @@ export const readJobMonths = (jobIds: readonly string[]) =>
       { from: string | null; to: string | null },
       [string]
     >(
-      `select c.start_at as "from", max(t.start_at) as "to" from turns t
+      `select min(c.start_at) as "from", max(t.start_at) as "to" from turns t
         join conversations c on c.id = t.conversation_id where t.job_id = ?`
     );
     return [

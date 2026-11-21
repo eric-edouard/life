@@ -1,11 +1,9 @@
 import { LIFE_ASKER } from "../core/names";
-import {
-  type NamingQueueItem,
-  namingQueueGuessesOf,
-} from "../sources/lifelog-voices";
+import { namingQueueGuessesOf } from "../sources/lifelog-voices";
 import type { Quote } from "./check-quotes";
 import { plain } from "./doubts";
 import { type Check, LIFE_CHECKS, preTickedOf } from "./life-checks";
+import type { GuessedQueueItem } from "./voice-guesses";
 import {
   type People,
   voiceCardRefOf,
@@ -19,7 +17,7 @@ import { localDate } from "./zones";
 /** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
 export const voiceChecksOf = (
   people: Pick<People, "nameOf" | "names" | "partyOf" | "refOf" | "resolve">,
-  voices: readonly (NamingQueueItem & { guessed?: readonly string[] })[]
+  voices: readonly GuessedQueueItem[]
 ) =>
   voices
     .filter((item) => item.kind !== "several")
@@ -27,7 +25,7 @@ export const voiceChecksOf = (
       const known = voiceSuggestionOf(people, item);
       const likely = namingQueueGuessesOf(item)
         .flatMap((id) => {
-          const ref = voicePersonOf(people.resolve, id, null);
+          const ref = voicePersonOf(people.resolve, id, item.names?.get(id));
           return ref ? [ref] : [];
         })
         .filter((ref, i, all) => all.indexOf(ref) === i)
@@ -61,7 +59,12 @@ export const voiceChecksOf = (
             kind: "voice",
             subject:
               known &&
-              known === voicePersonOf(people.resolve, item.personId, null)
+              known ===
+                voicePersonOf(
+                  people.resolve,
+                  item.personId,
+                  item.names?.get(item.personId ?? "")
+                )
                 ? known
                 : null,
           },

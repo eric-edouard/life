@@ -6,6 +6,7 @@ import {
   readJobMonths,
   readNamingQueue,
   readNamingQueueNow,
+  readVoiceNames,
 } from "./lifelog-voices";
 import { lifelogServer } from "./store-fixtures";
 
@@ -101,23 +102,50 @@ test("a voice's guesses: its best guess first, each once", () => {
   ).toEqual([DANA, KOFI]);
 });
 
-test("a job's months run from its conversation's start to its last turn; a job not held has none", async () => {
+test("a job's months run from its first conversation's start to its last turn; a job not held has none", async () => {
   await withStore(({ db }) => {
-    db.run(
-      "insert or replace into conversations (id, start_at, end_at, kind, state) values ('c-months', '2026-08-31T23:00:00.000Z', '2026-09-01T01:00:00.000Z', 'speech', 'live')"
-    );
-    for (const [i, at] of [
-      "2026-08-31T23:30:00.000Z",
-      "2026-09-01T00:30:00.000Z",
-    ].entries()) {
+    for (const [id, start] of [
+      ["c-months-2", "2026-09-01T00:10:00.000Z"],
+      ["c-months", "2026-07-31T23:00:00.000Z"],
+    ] as const) {
       db.run(
-        "insert or replace into turns (job_id, turn_index, conversation_id, start_at) values ('j-months', ?, 'c-months', ?)",
-        [i, at]
+        "insert or replace into conversations (id, start_at, end_at, kind, state) values (?, ?, ?, 'speech', 'live')",
+        [id, start, start]
+      );
+    }
+    // The job's last turn sits in the later conversation: its months still start at the first one.
+    for (const [i, conversation, at] of [
+      [0, "c-months", "2026-07-31T23:30:00.000Z"],
+      [1, "c-months-2", "2026-09-01T00:30:00.000Z"],
+    ] as const) {
+      db.run(
+        "insert or replace into turns (job_id, turn_index, conversation_id, start_at) values ('j-months', ?, ?, ?)",
+        [i, conversation, at]
       );
     }
   });
   expect(await readJobMonths(["j-months", "j-none"])).toEqual([
+    "2026-07",
     "2026-08",
     "2026-09",
   ]);
+});
+
+test("the name lifelog gave a person id is its newest turn's, and a turn with no name leaves it", async () => {
+  await withStore(({ db }) => {
+    for (const [i, at, id, name] of [
+      [0, "2026-10-02T00:00:00.000Z", "p-names-1", "Dana"],
+      [1, "2026-10-01T00:00:00.000Z", "p-names-1", "Dani"],
+      [2, "2026-10-03T00:00:00.000Z", "p-names-1", null],
+      [3, "2026-10-01T00:00:00.000Z", "p-names-2", null],
+    ] as const) {
+      db.run(
+        "insert or replace into turns (job_id, turn_index, conversation_id, start_at, person_id, person_name) values ('j-names', ?, 'c-months', ?, ?, ?)",
+        [i, at, id, name]
+      );
+    }
+  });
+  const names = await readVoiceNames();
+  expect(names.get("p-names-1")).toBe("Dana");
+  expect(names.has("p-names-2")).toBe(false);
 });

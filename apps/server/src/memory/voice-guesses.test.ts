@@ -295,8 +295,15 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
       ],
     } as unknown as NamingQueueItem;
     const months = async () => ["2026-08", "2026-10"];
-    const [guessed] = await withVoiceGuesses([item], folder, months);
+    const lifelogNames = new Map([["lf-new", "Dana"]]);
+    const [guessed] = await withVoiceGuesses(
+      [item],
+      folder,
+      months,
+      async () => lifelogNames
+    );
     expect(guessed?.guessed).toEqual(["person:dana", "person:kofi"]);
+    expect(guessed?.names).toBe(lifelogNames);
     // Only the months its recordings can be filed under are read.
     const [one] = await withVoiceGuesses([item], folder, async () => [
       "2026-10",
@@ -332,6 +339,14 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
     );
     // Someone lifelog knows by no id: no name, so "Yes" never names a person by name.
     expect(card({ likely: [] })).toBeNull();
+    // An id his directory does not know is who lifelog names it (life#963): "Is this Dana?", by that id.
+    expect(card({ likely: ["lf-new"] })).toBeNull();
+    expect(card({ likely: ["lf-new"], names: lifelogNames })).toBe(
+      "person:dana"
+    );
+    expect(card({ name: null, names: lifelogNames, personId: "lf-new" })).toBe(
+      "person:dana"
+    );
     // A month file torn mid-line: the read throws (the inbox keeps lifelog's suggestion, an answer refuses).
     appendFileSync(join(folder, "2026-08.jsonl"), "{not json\n");
     await expect(withVoiceGuesses([item], folder, months)).rejects.toThrow();

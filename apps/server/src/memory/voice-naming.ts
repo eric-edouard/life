@@ -9,7 +9,7 @@ import {
   readVoices,
   type VoiceRow,
   voiceKey,
-  voiceNamesOf,
+  voiceNamesIn,
 } from "../sources/lifelog-voices";
 import {
   directChats,
@@ -164,8 +164,8 @@ interface Context {
   /** Persons in an active fact whose evidence is not a recording, by day. */
   facts: Map<string, Set<string>>;
   heard: { at: string; ref: string }[];
-  /** The newest name lifelog gave each person id (`voiceNamesOf`), for the id the directory does not know. */
-  names: Map<string, string>;
+  /** The newest name lifelog gave each person id (`voiceNamesIn`), for the id the directory does not know. */
+  names: ReadonlyMap<string, string>;
   /** The people who spoke in person, by local day. */
   onDay: Map<string, Set<string>>;
   people: People;
@@ -258,8 +258,11 @@ async function readContext(
   const since = new Date(Date.parse(first) - HEARD_WITHIN);
   const events = chats ?? (await readWithPeople(since)).events;
   const direct = directChats(events, people.resolve);
-  const turns = await withStore(
-    (store) => heardTurnsOf(store, people.resolve, since),
+  const { names, turns } = await withStore(
+    (store) => ({
+      names: voiceNamesIn(store),
+      turns: heardTurnsOf(store, people.resolve, since),
+    }),
     open
   );
   const heard = (await readHeardInPerson(turns, direct)).map((t) => ({
@@ -285,7 +288,7 @@ async function readContext(
     direct,
     events,
     heard,
-    names: voiceNamesOf(turns),
+    names,
     onDay: heardOnDayOf(heard),
     people,
   };

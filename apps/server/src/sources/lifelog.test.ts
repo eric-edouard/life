@@ -35,7 +35,6 @@ import {
   ConversationAnswer,
   NamingQueueItem,
   Voices,
-  voiceNamesOf,
 } from "./lifelog-voices";
 import {
   conversation,
@@ -756,16 +755,6 @@ test("the newest turn is read without creating or changing the store: no store, 
   expect(await newestTurn(join(dir, "watch"))).toBeNull();
   expect(existsSync(join(dir, "watch"))).toBe(false);
   rmSync(dir, { force: true, recursive: true });
-});
-
-test("the name lifelog gave a person id is the newest one, and no name leaves the id out", () => {
-  const names = voiceNamesOf([
-    { at: "2026-10-02T00:00:00.000Z", id: "p1", name: "Dana" },
-    { at: "2026-10-01T00:00:00.000Z", id: "p1", name: "Dani" },
-    { at: "2026-10-03T00:00:00.000Z", id: "p1", name: null },
-    { at: "2026-10-01T00:00:00.000Z", id: "p2", name: null },
-  ]);
-  expect([...names]).toEqual([["p1", "Dana"]]);
 });
 
 test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: the same fields, each of the type it holds", async () => {
