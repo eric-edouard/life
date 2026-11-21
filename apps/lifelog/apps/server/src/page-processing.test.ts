@@ -341,9 +341,13 @@ async function lateOverBothSpans(stop: "none" | "fails" | "retreats") {
       ? new Error("the worker stopped")
       : undefined;
   });
-  // Not `rejects`: it waits without letting the worker's answers in.
-  const error = await labelAll(labelBatch).catch((e: Error) => e);
-  expect(String(error).includes("the worker stopped")).toBe(stop === "fails");
+  if (stop === "fails") {
+    // Not `rejects`: it waits without letting the worker's answers in.
+    const error = await labelAll(labelBatch).catch((e: Error) => e);
+    expect(String(error)).toContain("the worker stopped");
+  } else {
+    await labelAll(labelBatch);
+  }
   vouched = Number.POSITIVE_INFINITY;
   await labelAll(labelBatch);
   return { pieces: pieces(), sent: sent.toSorted(), timeline: timeline() };
