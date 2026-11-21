@@ -215,7 +215,8 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       agent: "agt_000000000001",
       asker: "Orbit",
       at: "2026-10-14T10:00:00.000Z",
-      context: "What I read: [Kit's quote](life:unit_000000000001).",
+      context:
+        "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
       deadline: "2099-01-02T09:00:00.000Z",
       gathered: { text: "From Kit's quote and two others" },
       id: "dec_000000000003",

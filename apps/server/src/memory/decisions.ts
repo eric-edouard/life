@@ -580,7 +580,7 @@ function answerProblemOf(
     (options.length === 0 &&
       !note &&
       "pick an option or give his words as `note`.") ||
-    (d.plan && options.length > 1 && "a plan card takes one pick.") ||
+    (d.plan && new Set(options).size > 1 && "a plan card takes one pick.") ||
     (acts.includes("send") &&
       via !== "connector" &&
       "a draft is sent only on his own answer, through `answer_check` in his app.") ||

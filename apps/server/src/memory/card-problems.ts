@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { DAY, HOUR } from "../core/clock";
-import type { Ask, Option } from "./card-request";
+import { type Ask, type Option, PLAN_OPTIONS } from "./card-request";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
 import { NEED_KINDS, payeeWordsOf } from "./needs";
 
@@ -103,12 +103,6 @@ function lookProblemOf(
   );
 }
 
-/** The plan card's two options, as it gives them (the recommended first): each id is what his pick is, his app's `role` of it (`decisionCardOf`), and its label the words he taps. */
-export const PLAN_OPTIONS = [
-  { id: "start", label: "Start the plan" },
-  { id: "decline", label: "Not this plan" },
-] as const;
-
 /** A plan card's option `id` as his app's role of it: `start` or `decline`; none for another id. */
 export const planRoleOf = (id: string) =>
   PLAN_OPTIONS.find((o) => o.id === id)?.id;
@@ -122,13 +116,15 @@ function planProblemOf(
   if (!(ask.plan || ask.gathered)) {
     return false;
   }
-  const given = ask.options.map((o) => ({ id: o.id, label: o.label }));
   return (
     (!isPlan &&
       '`plan` and `gathered` are only on an assignment\'s plan card, its first card (fetch("ask/plan"))') ||
     (!ask.plan &&
       'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))') ||
-    (JSON.stringify(given) !== JSON.stringify(PLAN_OPTIONS) &&
+    ((ask.options.length !== PLAN_OPTIONS.length ||
+      PLAN_OPTIONS.some(
+        (p) => !ask.options.some((o) => o.id === p.id && o.label === p.label)
+      )) &&
       `a plan card's options are exactly ${JSON.stringify(PLAN_OPTIONS)} (fetch("ask/plan"))`) ||
     (ask.options.some((o) => o.ends || o.looks || o.outgoing || o.takes) &&
       'a plan card\'s options have no mark (fetch("ask/plan"))') ||

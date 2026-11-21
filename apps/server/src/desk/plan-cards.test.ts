@@ -80,7 +80,8 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     { by: "agent", text: "Book the repair", when: "once Kit answers, by Thu" },
   ];
   const card = (over: Record<string, unknown> = {}) => ({
-    context: "What I read: Kit's quote.",
+    context:
+      "## Mend the watch\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: Kit's quote.",
     deadline: ahead(DAY),
     gathered: { text: "From Kit's quote and two others" },
     onSilence: null,
