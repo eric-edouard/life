@@ -36,6 +36,7 @@ import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
 import { placesOf } from "../memory/places";
+import { projectSituations } from "../memory/project-situations";
 import { area, topicsOf } from "../memory/read-area-page";
 import { day } from "../memory/read-day";
 import { writeRecordedDays } from "../memory/recorded-days";
@@ -468,6 +469,7 @@ const HANDLERS: Record<string, Handler> = {
         radiusM: count(v.radius),
       })
     ),
+  "project-situations": step(async () => projectSituations(await readPeople())),
   /** `recorded-days`: asks lifelog again which days the pendant recorded (the night does; this is its first build and a replay). */
   "recorded-days": step(writeRecordedDays),
   repos: (values, rest) =>

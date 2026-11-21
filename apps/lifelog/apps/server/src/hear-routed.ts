@@ -1,17 +1,63 @@
 // Scribe's words for the turns the speech service routed (route-turns.ts), cut from the audio and sent
 // once, without a webhook: the one paid step after the speech service, for a recording's block
-// (jobs.ts) and a chat voice note (routes/voice-notes.ts) alike.
+// (jobs.ts), a chat voice note (routes/voice-notes.ts) and a field's dictation (routes/dictation.ts)
+// alike.
 import type { Db } from "@lifelog/db";
 import { cutOggOpus, oggOpusSeconds } from "./audio";
 import { billableSeconds, type Config } from "./config";
-import { transcribeNow } from "./elevenlabs";
+import { ownerZoneAt } from "./diagnostics";
+import { parseTranscript, textOf, transcribeNow } from "./elevenlabs";
 import { record } from "./events";
-import { scribeRanges, transcriptOf, uncut } from "./route-turns";
-import type { Unsent } from "./scribe-slots";
-import type { Heard } from "./speech-service";
+import {
+  barOf,
+  routeTurns,
+  scribeRanges,
+  transcriptOf,
+  uncut,
+  unheardOf,
+} from "./route-turns";
+import type { Priority, Unsent } from "./scribe-slots";
+import { type Heard, transcribeBlock, type Unanswered } from "./speech-service";
+
+/** Words as text, from a transcript in Scribe's shape. */
+export const textFrom = (raw: unknown) =>
+  textOf(parseTranscript(raw).transcript.words).trim();
+
+/**
+ * A short recording the owner waits for (a chat voice note, a field's dictation), heard by the
+ * speech service and routed by where the owner was `at`: the Mac's words, and the turns Scribe must
+ * hear (none: the words are final). The caller sends those through `hearRouted` and keeps what it
+ * must; nothing is kept here.
+ */
+export async function hearOnTheMac(
+  { config, db }: { config: Config; db: Db },
+  bytes: Uint8Array,
+  {
+    at,
+    priority,
+    signal,
+  }: { at: Date; priority: Priority; signal: AbortSignal }
+): Promise<
+  | Unanswered
+  | { heard: Heard; route: string; routed: Heard["turns"]; text: string }
+> {
+  const said = await transcribeBlock(config, bytes, signal, priority);
+  if ("error" in said) {
+    return said;
+  }
+  const route = routeTurns(said.heard, barOf(ownerZoneAt(db, at)));
+  const routed = route.kind === "whole" ? said.heard.turns : route.routed;
+  return {
+    heard: said.heard,
+    route: route.kind,
+    routed,
+    text: textFrom(transcriptOf(said.heard, routed, null)),
+  };
+}
 
 // What hearing the routed turns came to: `heard`, the transcript (`maybeBilled` when Scribe may have
-// billed turns that came back without words), or `later`: Scribe took nothing now and billed nothing,
+// billed turns that came back without words; `unheard`, how many routed turns Scribe had to hear have
+// none of its words, whatever it answered: `unheardOf`), or `later`: Scribe took nothing now and billed nothing,
 // fine to send again.
 type Routed =
   | {
@@ -20,6 +66,7 @@ type Routed =
       kind: "heard";
       maybeBilled: boolean;
       transcript: ReturnType<typeof transcriptOf>;
+      unheard: number;
     }
   | { error: string; kind: "later" };
 
@@ -55,6 +102,7 @@ export async function hearRouted(
       kind: "heard" as const,
       maybeBilled: false,
       transcript: transcriptOf(heard, routed, null),
+      unheard: unheardOf(routed, heard.words, []),
     };
     settle(local);
     return local;
@@ -80,6 +128,7 @@ export async function hearRouted(
       keyterms,
     });
     if (said.kind === "done") {
+      const words = uncut(said.transcript.words, cut.spans);
       return {
         billableSeconds: billed,
         error: null,
@@ -87,8 +136,9 @@ export async function hearRouted(
         maybeBilled: false,
         transcript: transcriptOf(heard, routed, {
           languageCode: said.transcript.languageCode,
-          words: uncut(said.transcript.words, cut.spans),
+          words,
         }),
+        unheard: unheardOf(routed, heard.words, words),
       };
     }
     if (said.later) {
@@ -100,6 +150,7 @@ export async function hearRouted(
       kind: "heard",
       maybeBilled: said.billed,
       transcript: transcriptOf(heard, routed, null),
+      unheard: unheardOf(routed, heard.words, []),
     };
   }
 }

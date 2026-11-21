@@ -7,7 +7,9 @@ import { DESK_STORE } from "../core/paths";
 import { pathInside } from "../core/platform";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
+import type { Decision } from "../memory/decision-lines";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
+import type { BeingFixed } from "../memory/life-checks";
 import type {
   AgentChange,
   AgentRole,
@@ -65,7 +67,6 @@ export interface AssignmentRow {
   /** How it closed, in the agent's words (`finish`) or the desk's ("its matter is done"); null for one never started. */
   outcome: string | null;
   plan_done: number | null;
-  plan_now: string | null;
   plan_total: number | null;
   /** His words when he gave it, when he did. */
   said: string | null;
@@ -402,7 +403,7 @@ export const agentInRole = (db: Database, role: AgentRole) =>
     .get(role);
 
 /** The caretaker's assignments, of every caretaker it ever had: a complaint received by one is received for good. */
-const CARETAKER_EVENTS = `select e.*, s.closed_at, s.plan_now, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
+const CARETAKER_EVENTS = `select e.*, s.closed_at, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
 
 /** Where complaint `ask` was received (its receipt: the event row the desk queued for a caretaker's assignment), or null before. */
 export const complaintReceiptOf = (db: Database, ask: string) =>
@@ -414,15 +415,52 @@ export const complaintReceiptOf = (db: Database, ask: string) =>
 
 /**
  * His complaints the caretaker is at work on, in the order received: each received for an assignment still open, its
- * event not dropped; with its assignment's line (`plan_now`) only when this complaint is all that assignment holds, so
- * a line is never shown on a complaint it is not about. Bounded: the caretaker's open assignments.
+ * event not dropped, with that assignment and whether it is all that assignment holds. Bounded: the caretaker's open
+ * assignments. A few rows: the inbox's key holds them.
  */
 export const complaintsAtWork = (db: Database) =>
   db
-    .query<{ ask: string; line: string | null; since: string }, []>(
-      `select e.event_id as ask, e.received_at as since, case when (select count(*) from event x where x.assignment_id = e.assignment and x.name = '${COMPLAINT_RECEIVED}') = 1 then e.plan_now end as line from (${CARETAKER_EVENTS} and s.closed_at is null and e.dropped_at is null) e order by e.received_at, e.event_id`
+    .query<
+      { alone: number; ask: string; assignment: string; since: string },
+      []
+    >(
+      `select e.event_id as ask, e.received_at as since, e.assignment, (select count(*) from event x where x.assignment_id = e.assignment and x.name = '${COMPLAINT_RECEIVED}') = 1 as alone from (${CARETAKER_EVENTS} and s.closed_at is null and e.dropped_at is null) e order by e.received_at, e.event_id`
     )
     .all();
+
+/**
+ * His complaints at work (`complaintsAtWork`) as cards show them (`BeingFixed`): each with the newest open card of
+ * `cards` its assignment owns (`cardOwnersOf`), its question as the line and its `context`, only when the complaint is
+ * all that assignment holds, so a card is never shown on a complaint it may not be about; else both null. The rows and
+ * the owners are read in one transaction: one moment of the desk.
+ */
+export function beingFixedOf(
+  db: Database,
+  cards: readonly Pick<
+    Decision,
+    "agent" | "assignment" | "context" | "id" | "question" | "state"
+  >[]
+): BeingFixed[] {
+  const open = cards.filter((d) => d.state === "open");
+  const [atWork, owners] = db.transaction(() => {
+    const rows = complaintsAtWork(db);
+    return [
+      rows,
+      rows.some((w) => w.alone) ? cardOwnersOf(db, open) : {},
+    ] as const;
+  })();
+  return atWork.map(({ alone, ask, assignment, since }) => {
+    const card = alone
+      ? open.findLast((d) => owners[d.id]?.assignment === assignment)
+      : undefined;
+    return {
+      ask,
+      context: card?.context || null,
+      line: card?.question ?? null,
+      since,
+    };
+  });
+}
 
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>

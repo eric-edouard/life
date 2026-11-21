@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { DAY, HOUR } from "../core/clock";
-import type { Ask, Option } from "./card-request";
+import { type Ask, type Option, PLAN_OPTIONS } from "./card-request";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
 import { NEED_KINDS, payeeWordsOf } from "./needs";
 
@@ -12,11 +12,7 @@ const WHITESPACE = /\s+/;
 const DONE_SEEN_NOT_BUILT = ["call", "mail", "message", "visit"];
 
 /** What a request uses that the asks contract has and Life does not build yet, named; false when nothing. */
-export function notBuiltOf(r: {
-  doneSeenBy?: unknown;
-  options?: unknown;
-  plan?: unknown;
-}) {
+export function notBuiltOf(r: { doneSeenBy?: unknown; options?: unknown }) {
   const options = (Array.isArray(r.options) ? r.options : []).filter(
     (o): o is Record<string, unknown> => typeof o === "object" && o !== null
   );
@@ -24,7 +20,6 @@ export function notBuiltOf(r: {
     (o) => o.takes !== undefined && o.takes !== "note"
   );
   return (
-    (r.plan !== undefined && "`plan`") ||
     (options.some((o) => "cost" in o || "effect" in o || "pick" in o) &&
       "an option's `cost`, `effect` and `pick`") ||
     (takes && `\`takes: ${JSON.stringify(takes.takes)}\` (only \`note\`)`) ||
@@ -37,7 +32,9 @@ export function notBuiltOf(r: {
 const PAGE_OF_FIELD: Record<string, string> = {
   doneSeenBy: "payment",
   draft: "draft",
+  gathered: "plan",
   options: "options",
+  plan: "plan",
 };
 
 /** Where to read about the first field `error` refused: its ask page (`fetch("ask/<name>")`), a need's by its kind. */
@@ -51,8 +48,12 @@ export function pageHintOf(request: { needs?: unknown }, error: z.ZodError) {
   return page ? ` Read fetch("ask/${page}").` : "";
 }
 
-/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. */
-export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
+/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. `isPlan`: it is an assignment's plan card (the door's `asksPlanOf`). */
+export function cardProblemOf(
+  ask: z.infer<typeof Ask>,
+  now: Date,
+  isPlan = false
+) {
   const ids = ask.options.map((o) => o.id);
   const ahead = Date.parse(ask.deadline) - now.getTime();
   const silence = ask.options.find((o) => o.id === ask.onSilence);
@@ -64,6 +65,7 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
     (silence?.outgoing &&
       "`onSilence` never takes an `outgoing` option: on silence nothing goes out") ||
     lookProblemOf(ask, silence) ||
+    planProblemOf(ask, isPlan, silence) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
       "a `draft` needs the one option that sends it marked `outgoing`") ||
@@ -98,6 +100,38 @@ function lookProblemOf(
     (ask.doneSeenBy === "payment" &&
       payeeWordsOf(ask.needs).length === 0 &&
       '`doneSeenBy: "payment"` needs the payee\'s name as the bank shows it: the `account`\'s `holder` or the `link`\'s `vendor` (fetch("ask/payment"))')
+  );
+}
+
+/** A plan card's option `id` as his app's role of it: `start` or `decline`; none for another id. */
+export const planRoleOf = (id: string) =>
+  PLAN_OPTIONS.find((o) => o.id === id)?.id;
+
+/** What breaks the plan card's rules (`fetch("ask/plan")`): `plan` and `gathered` on it alone, and with `plan`, its two options, `start` and `decline`; false when nothing does. A plan card without them reads as before: its plan in `context`. */
+function planProblemOf(
+  ask: z.infer<typeof Ask>,
+  isPlan: boolean,
+  silence?: z.infer<typeof Option>
+) {
+  if (!(ask.plan || ask.gathered)) {
+    return false;
+  }
+  return (
+    (!isPlan &&
+      '`plan` and `gathered` are only on an assignment\'s plan card, its first card (fetch("ask/plan"))') ||
+    (!ask.plan &&
+      'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))') ||
+    ((ask.options.length !== PLAN_OPTIONS.length ||
+      PLAN_OPTIONS.some(
+        (p) => !ask.options.some((o) => o.id === p.id && o.label === p.label)
+      )) &&
+      `a plan card's options are exactly ${JSON.stringify(PLAN_OPTIONS)} (fetch("ask/plan"))`) ||
+    (ask.options.some((o) => o.ends || o.looks || o.outgoing || o.takes) &&
+      'a plan card\'s options have no mark (fetch("ask/plan"))') ||
+    (silence?.id === "start" &&
+      "`onSilence` never takes `start`: on silence no plan starts") ||
+    (ask.doneSeenBy &&
+      "a plan card has no `doneSeenBy`: only his pick answers it")
   );
 }
 

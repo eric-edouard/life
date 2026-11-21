@@ -152,6 +152,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       goal: "Open the shop by May.",
       id: "shop-fit-out",
       name: "Shop fit-out",
+      situation: [],
       status: "active",
     });
     expect((await openMatters({})).project).toBeUndefined();
@@ -464,6 +465,7 @@ test("a matter he marked important comes first, with no open step too; its parke
       goal: undefined,
       id: "shop",
       name: "Shop",
+      situation: [],
       status: "parked",
     });
   } finally {
