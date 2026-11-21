@@ -127,6 +127,8 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_person_pictures",
     "read_places_visited",
     "read_processing_runs",
+    "read_project",
+    "read_projects",
     "read_registered_agents",
     "request_decision",
     "search",
