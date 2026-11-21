@@ -232,3 +232,29 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     people.open(nil)
     #expect(people.page == nil && people.path.isEmpty)
 }
+
+@Test func eachSearchSourceStandsAloneAndOnlyReadOnesSayNothing() throws {
+    let list = try decoded(PeopleList.self, wireText("life/read_people_and_organizations.json"))
+    var people = ReadState<PeopleList>()
+    people.apply(.succeeded(list, .now))
+    var matters = ReadState<MatterList>()
+    matters.apply(.failed(.unreachable))
+    // People found while the matters' read failed: the people show, the matters offer Try again, nothing is "none".
+    let found = SearchPart(people) { $0.people }
+    let failed = SearchPart(matters) { $0.matching("ana") }
+    guard case .found(let rows) = found, case .failed = failed else {
+        Issue.record("each source should stand alone")
+        return
+    }
+    #expect(!rows.isEmpty && !found.isNothing && !failed.isNothing)
+    // A new pairing clears the people found: the same query reads again, and until then it is reading, never "none".
+    let cleared = SearchPart(nil as ReadState<PeopleList>?) { $0.people }
+    guard case .reading = cleared else {
+        Issue.record("a read not asked yet is reading")
+        return
+    }
+    #expect(!cleared.isNothing)
+    var none = ReadState<PeopleList>()
+    none.apply(.succeeded(try decoded(PeopleList.self, #"{"people":[]}"#), .now))
+    #expect(SearchPart(none) { $0.people }.isNothing)
+}
