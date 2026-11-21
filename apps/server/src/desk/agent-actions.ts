@@ -171,6 +171,9 @@ export function openAssignment(
   return id;
 }
 
+/** Where the Personal agent's sessions start when none is named: its home in his agents repo (`agentHomeOf`), else under the desk's folders. */
+const personalHome = () =>
+  join(settings().desk?.agentsRepo ?? DESK_AGENT_FOLDERS, "personal");
 /** What the Personal agent's home holds until direction writes its rules (his word of 20 Nov 2026). */
 const PERSONAL_RULES_PLACEHOLDER =
   "The rules of this agent are being written.\n";
@@ -225,7 +228,10 @@ export function register(
     throw new Error("Not done: the desk keeps 50 agents active at most.");
   }
   const { folder, id } = db.transaction(() => {
-    const made = insertAgent(db, a);
+    const made = insertAgent(db, {
+      ...a,
+      folder: a.folder ?? (a.role === "personal" ? personalHome() : undefined),
+    });
     openAssignment(desk, made.id, { openedBy: "owner", steps: a.steps });
     return made;
   })();
