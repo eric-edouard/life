@@ -223,15 +223,17 @@ final class LifeStore {
         // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
         if inbox.loadedAt != before, let asked = inbox.loadedAt, let read = inbox.value, read.isWhole {
             let open = Set(read.checks.compactMap(\.pushId))
-            await removeNotifications(deliveredBefore: asked) { !open.contains($0) }
+            await Self.removeNotifications(deliveredBefore: asked) { !open.contains($0) }
         }
     }
     /// A card answered anywhere (here, in another app, by its deadline, withdrawn) leaves his notifications too: on a
     /// whole read, only one delivered before the read was asked (a card newer than the read is not in it), or on Life's
     /// push naming the cards that left (`NotificationRoute.removed`), which spares the result of his answer from a
     /// notification (`sparingResults`): every tap shows its result.
-    func removeNotifications(
-        deliveredBefore asked: Date = .distantFuture, sparingResults: Bool = false, where isGone: (String) -> Bool
+    /// Off the main actor: the notification center's calls are synchronous IPC (`IncidentNotifier.remove`).
+    @concurrent nonisolated static func removeNotifications(
+        deliveredBefore asked: Date = .distantFuture, sparingResults: Bool = false,
+        where isGone: @Sendable (String) -> Bool
     ) async {
         let center = UNUserNotificationCenter.current()
         let gone = await center.deliveredNotifications().filter {
@@ -447,8 +449,10 @@ final class LifeStore {
             do {
                 let read = try text.get()
                 if let held, versioned?.isUnchanged(by: read) == true { return update(.succeeded(held, asked)) }
-                let value = try V.parsed(read)
-                if isKept { cache.store(read, key: key, asked: asked) }
+                let kept = isKept ? cache : nil
+                let value = try await Self.parsed(read, as: V.self, keptIn: kept, key: key, asked: asked)
+                // Another Life paired while it was decoded: nothing of this one applies.
+                guard pairing == parties.generation.current else { return }
                 parties.remember(value.parties, at: asked, pairing: pairing)
                 update(.succeeded(value, asked))
             } catch let error as MCPError {
@@ -458,6 +462,15 @@ final class LifeStore {
                 update(.failed(.failed("Life's answer was not what this app reads.")))
             }
         }
+    }
+
+    /// A read's text decoded, and kept for a cold start (`cache`), off the main actor: a large inbox costs frames there.
+    @concurrent private nonisolated static func parsed<V: ParsedRead>(
+        _ text: String, as: V.Type, keptIn cache: ReadCache?, key: String, asked: Date
+    ) async throws -> V {
+        let value = try V.parsed(text)
+        cache?.store(text, key: key, asked: asked)
+        return value
     }
 
     // MARK: Actions
