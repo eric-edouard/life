@@ -310,11 +310,13 @@ async function waitForChange(
  * fact is written (`report`), then `started`, `not_started` or `unconfirmed`; another change `done`, `unconfirmed`, or
  * refused (a throw). A start on a matter first saves his words as its goal (`goal_saved`): the one place a start's goal
  * is written. Each call is a new ask: a repeated start for a matter its agent already holds answers with that agent.
+ * `tellLifeRef`: his words came through Tell Life (the main session's door), the ask's ref (`tellLifeRefOf`).
  */
 export async function changeRegisteredAgent(
   { said, ...rest }: RegisteredAgentChange,
   call: ToolCall = { report: () => undefined },
-  limitMs = WAIT_MS
+  limitMs = WAIT_MS,
+  tellLifeRef?: string
 ) {
   const why = off("desk");
   if (why) {
@@ -333,10 +335,12 @@ export async function changeRegisteredAgent(
     }
   }
   const line = ask(
-    requested("connector", said),
+    tellLifeRef
+      ? { at: clock().toISOString(), quote: said, ref: tellLifeRef }
+      : requested("connector", said),
     { agent: DESK_AGENT, agentChange: change, confidence: "high" },
     "connector",
-    "asked in a chat"
+    tellLifeRef ? "asked through Tell Life" : "asked in a chat"
   );
   if (change.action === "hand_over") {
     // A move takes minutes (the old agent's notes, the new one's start): its phase is read, never waited for here.

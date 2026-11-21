@@ -72,6 +72,15 @@ test("English is heard on the Mac alone, ahead of other work, and nothing of it 
   expect(speech.priorities).toEqual(["interactive"]);
   expect(sends()).toHaveLength(0);
   expect(keptIn("Morning")).toEqual([]);
+  const heard = env.db.$client
+    .query(`select fields from events where name = 'dictation.heard'`)
+    .all()
+    .map((row) => JSON.parse((row as { fields: string }).fields));
+  expect(heard.at(-1)).toMatchObject({
+    route: "local",
+    speechMs: expect.any(Number),
+    totalMs: expect.any(Number),
+  });
 });
 
 test("a Thai turn waits for the held slot, then goes to Scribe once, ahead of an older ordinary waiter", async () => {
