@@ -186,8 +186,10 @@ public struct LifeActions: Sendable {
         } catch {
             let error = MCPError.of(error)
             var failure = ActionFailure(error)
-            // A move's ask may have been recorded before its answer dropped: a second would be refused as under way.
-            failure.mayHaveHappened = failure.mayHaveHappened || (request.action == .handOver && error == .streamDropped)
+            // A move's ask may have reached Life before the connection went (only offline is sure it did not): a second
+            // would be refused as under way.
+            let mayHaveReached = failure.retry == .allowed && error != .offline
+            failure.mayHaveHappened = failure.mayHaveHappened || (request.action == .handOver && mayHaveReached)
             emit(.failed(failure))
         }
     }

@@ -41,8 +41,8 @@ struct MatterPage: View {
 
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
-        // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
-        let agent = matter.agents.first
+        // Its holder; else Life lists the active one first, else the newest past one: an ended agent shows how it ended.
+        let agent = matter.agents.first { $0.id == matter.holder?.agent.id } ?? matter.agents.first
         let canStart = agent?.isOver ?? true
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -355,6 +355,8 @@ private struct AgentRow: View {
 
     @Environment(LifeStore.self) private var life
     @State private var asking: MoveChoice?
+    /// The move he last asked here: Try again repeats only it.
+    @State private var tried: MoveChoice?
 
     var body: some View {
         let id = matter.row.id
@@ -365,7 +367,8 @@ private struct AgentRow: View {
         let holder = matter.holder?.agent.name ?? agent.runtimeName.name
         let ask = asking.map { MoveWords.ask($0, matter: matter.row.name, holder: holder) }
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            failure(move: move, call: call, choice: choice)
+            let failed = MoveReceipt.failure(call: call.failure, shown: move, tried: tried, offered: choice)
+            if let failed { MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } }) }
             if let choice {
                 Menu {
                     Button("Open \(holder)", action: open)
@@ -401,8 +404,7 @@ private struct AgentRow: View {
         // While it moves, the page reads the matter and the agents every 3 s, until the move rests or the page goes.
         .task(id: isUnderWay) {
             guard isUnderWay else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3))
+            while (try? await Task.sleep(for: .seconds(3))) != nil {
                 async let a: Void = life.refreshMatter(id)
                 async let b: Void = life.refreshAgents()
                 _ = await (a, b)
@@ -411,37 +413,13 @@ private struct AgentRow: View {
     }
 
     private func go(_ choice: MoveChoice) {
+        tried = choice
         let said =
             switch choice {
             case .runtime(let runtime): "Move it to \(runtime.name)."
             case .back(_, let name): "Move it back to the \(name)."
             }
         Task { await life.move(matter: matter.row.id, to: choice, said: said) }
-    }
-
-    /// Why the move, or the tap's own call, failed, in `flag`; Try again repeats the same move, only when nothing may
-    /// have gone (a call that may have gone is never sent blind).
-    @ViewBuilder private func failure(
-        move: AgentMove?, call: ActionState<ActionProof>, choice: MoveChoice?
-    ) -> some View {
-        let failed: (reason: String, canTryAgain: Bool)? =
-            if case .failed(let failure, _) = call {
-                (failure.reason, failure.canTryAgain)
-            } else if let move, move.phase == .failed {
-                (move.reason ?? "It did not move.", true)
-            } else {
-                nil
-            }
-        if let failed {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
-                Text(failed.reason).font(.small).foregroundStyle(Palette.flag).fixedSize(
-                    horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                if failed.canTryAgain, let choice {
-                    QuietChip("Try again", symbol: "arrow.clockwise") { go(choice) }
-                }
-            }
-        }
     }
 
     private func row(_ move: AgentMove?, trailing: String) -> some View {
@@ -473,5 +451,26 @@ private struct AgentRow: View {
         .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
         .accessibilityElement(children: .combine)
         .motion(Motion.standard, value: underWay)
+    }
+}
+
+/// Why a move or a switch, or its call, failed, in `flag`, with Try again when it repeats the same one (`MoveReceipt.failure`).
+struct MoveFailureLine: View {
+    let reason: String
+    let retry: (() -> Void)?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
+            Text(reason).font(.small).foregroundStyle(Palette.flag).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if let retry { QuietChip("Try again", symbol: "arrow.clockwise", action: retry) }
+        }
+    }
+}
+
+extension ActionState {
+    /// Why it failed, when it did.
+    var failure: ActionFailure? {
+        if case .failed(let failure, _) = self { failure } else { nil }
     }
 }

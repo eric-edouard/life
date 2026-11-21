@@ -90,8 +90,57 @@ private func agents(status: String = "waiting", role: String? = nil, extra: [Str
         AgentMove.shown(receipt: receipt, read: older, refused: refused, now: at)
             == AgentMove(id: "ask_1", phase: .failed, reason: "No agent holds this matter."))
     // Asked, not applied yet: its notes, then, past its patience, the read again (never a spinner for good).
-    #expect(AgentMove.shown(receipt: receipt, read: older, refused: [], now: at) == AgentMove(id: "ask_1", phase: .notes))
+    #expect(
+        AgentMove.shown(receipt: receipt, read: older, refused: [], now: at) == AgentMove(id: "ask_1", phase: .notes))
     let late = at.addingTimeInterval(MoveReceipt.patience)
     #expect(AgentMove.shown(receipt: receipt, read: older, refused: [], now: late) == older)
     #expect(AgentMove.shown(receipt: receipt, read: nil, refused: [], now: late) == nil)
+}
+
+@Test func aReceiptSettlesOnceByWhatTheReadShows() {
+    let at = Date(timeIntervalSince1970: 1_800_000_000)
+    let receipt = MoveReceipt(id: "ask_1", at: at)
+    #expect(receipt.settled(by: AgentMove(id: "ask_1", phase: .notes), read: nil) == .kept)
+    #expect(receipt.settled(by: AgentMove(id: "ask_1", phase: .done), read: nil) == .done)
+    // A failed move the read holds stays the read's; one only a refusal holds is said.
+    let failed = AgentMove(id: "ask_1", phase: .failed, reason: "The agent is stopped.")
+    #expect(receipt.settled(by: failed, read: failed) == .failed(say: nil))
+    #expect(receipt.settled(by: failed, read: nil) == .failed(say: "The agent is stopped."))
+    // Past its patience the read shows another move, or none.
+    #expect(receipt.settled(by: AgentMove(id: "ask_0", phase: .done), read: nil) == .gone)
+    #expect(receipt.settled(by: nil, read: nil) == .gone)
+}
+
+@Test func anAskWhoseAnswerWasLostTakesTheMoveTheReadShowsUnderWay() {
+    let at = Date(timeIntervalSince1970: 1_800_000_000)
+    let lost = MoveReceipt(id: nil, at: at)
+    let earlier = AgentMove(id: "ask_0", phase: .done)
+    // Before the desk applies it: its notes, kept, within its patience; then the read's again.
+    let pending = AgentMove.shown(receipt: lost, read: earlier, refused: [], now: at)
+    #expect(pending?.phase == .notes)
+    #expect(lost.settled(by: pending, read: earlier) == .kept)
+    let late = at.addingTimeInterval(MoveReceipt.patience)
+    #expect(AgentMove.shown(receipt: lost, read: earlier, refused: [], now: late) == earlier)
+    #expect(lost.settled(by: earlier, read: earlier) == .gone)
+    // The desk applied it: the move under way is his.
+    let applied = AgentMove(id: "ask_1", phase: .notes)
+    let shown = AgentMove.shown(receipt: lost, read: applied, refused: [], now: at)
+    #expect(shown == applied)
+    #expect(lost.settled(by: shown, read: applied) == .found(MoveReceipt(id: "ask_1", at: at)))
+}
+
+@Test func tryAgainRepeatsOnlyTheMoveHeAskedWhileItIsStillOffered() {
+    let back = MoveChoice.back(agent: "agt_old", name: "Halden house agent")
+    let failed = AgentMove(id: "ask_1", phase: .failed, reason: "The Halden house agent has ended.")
+    // Moving back failed because that agent ended: the other program is offered now, never sent by Try again.
+    let ended = MoveReceipt.failure(call: nil, shown: failed, tried: back, offered: .runtime(.claude))
+    #expect(ended?.reason == "The Halden house agent has ended." && ended?.retry == nil)
+    #expect(MoveReceipt.failure(call: nil, shown: failed, tried: back, offered: back)?.retry == back)
+    // Asked elsewhere: he picks afresh.
+    #expect(MoveReceipt.failure(call: nil, shown: failed, tried: nil, offered: back)?.retry == nil)
+    // A call that may have gone is never sent again blind.
+    let mayHaveGone = ActionFailure(reason: "The connection dropped.", retry: .allowed, mayHaveHappened: true)
+    #expect(MoveReceipt.failure(call: mayHaveGone, shown: nil, tried: back, offered: back)?.retry == nil)
+    #expect(
+        MoveReceipt.failure(call: nil, shown: AgentMove(id: "ask_1", phase: .notes), tried: back, offered: back) == nil)
 }

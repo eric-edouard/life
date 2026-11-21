@@ -67,51 +67,60 @@ extension LifeStore {
         await refreshAgents()
     }
 
-    /// Asks the move; once Life answers, its receipt shows it, so the call's own state is forgotten.
+    /// Asks the move; once Life answers, its receipt shows it, so the call's own state is forgotten. An answer lost on
+    /// the way may still have reached Life: its receipt, with no id, takes the move the reads show under way.
     private func handOver(_ id: String, _ request: AgentRequest) async {
         await perform(.move(id)) { [runner] in await runner.changeAgent(request, emit: $0) }
-        if case .succeeded(.agent(let result), _) = state(of: .move(id)), let move = result.move {
-            moveReceipts[id] = MoveReceipt(id: move, at: now())
+        switch state(of: .move(id)) {
+        case .succeeded(.agent(let result), _):
+            moveReceipts[id] = MoveReceipt(id: result.move, at: now())
             forget(.move(id))
+        case .failed(let failure, _) where failure.mayHaveHappened:
+            moveReceipts[id] = MoveReceipt(id: nil, at: now())
+        default: break
         }
     }
 
-    /// Ends each receipt the reads show ended: done says so once (the matter's or the agent's reads follow); failed is
-    /// left to the read, which holds it for its hour, or said here when only a refusal holds it; past its patience it
-    /// is the read's.
-    func endMoves() async {
-        for (id, receipt) in moveReceipts {
-            let words: String
-            let shown: AgentMove?
-            if let read = matter[id]?.value {
-                shown = moveShown(ofMatter: id)
-                words = MoveWords.moved(read.row.name, to: read.holder?.agent.runtimeName ?? .unknown)
-            } else if let agent = agents.value?.agents.first(where: { $0.id == id }) {
-                shown = switchShown(of: id)
-                words = MoveWords.switched(agent.name ?? agent.runtimeName.name, to: agent.runtimeName)
-            } else {
-                continue
-            }
-            guard let shown, shown.id == receipt.id else {
+    /// Settles his receipts against what was just read (`matterRead`: that matter's read; nil: the agents', which hold
+    /// the refusals), each once and before any read after: done says so once (then the inbox and the pages showing it
+    /// read again); failed is the read's to hold for its hour, or said here when only a refusal holds it; past its
+    /// patience it is the read's, a matter's only by its own fresh read.
+    func settleMoves(matterRead: String? = nil) {
+        var followUp: [String] = []
+        for (id, receipt) in moveReceipts where matterRead == nil || id == matterRead {
+            let isMatter = matter[id] != nil
+            let read = isMatter ? matter[id]?.value?.move : agents.value?.agents.first { $0.id == id }?.switch
+            let shown = isMatter ? moveShown(ofMatter: id) : switchShown(of: id)
+            switch receipt.settled(by: shown, read: read) {
+            case .kept: break
+            case .found(let found):
+                moveReceipts[id] = found
+                forget(.move(id))
+            case .gone: if !isMatter || id == matterRead { moveReceipts[id] = nil }
+            case .failed(let say):
                 moveReceipts[id] = nil
-                continue
-            }
-            switch shown.phase {
+                if let say { show(SaidBack(words: say, undo: nil)) }
             case .done:
                 moveReceipts[id] = nil
-                show(SaidBack(words: words, undo: nil, isDone: true))
-                // A card's mark follows its new holder; the pages showing a switched agent read it again.
-                async let inbox: Void = refreshInbox()
-                await refreshPages(showing: id)
-                await inbox
-            case .failed:
-                moveReceipts[id] = nil
-                let isRead = matter[id]?.value?.move?.id == receipt.id || switchReadId(id) == receipt.id
-                if !isRead { show(SaidBack(words: shown.reason ?? "It did not move.", undo: nil)) }
-            default: break
+                show(SaidBack(words: movedWords(id), undo: nil, isDone: true))
+                followUp.append(id)
             }
+        }
+        guard !followUp.isEmpty else { return }
+        // A card's mark follows its new holder; the pages showing a switched agent read it again.
+        Task {
+            async let inbox: Void = refreshInbox()
+            for id in followUp { await refreshPages(showing: id) }
+            await inbox
         }
     }
 
-    private func switchReadId(_ id: String) -> String? { agents.value?.agents.first { $0.id == id }?.switch?.id }
+    private func movedWords(_ id: String) -> String {
+        if let read = matter[id]?.value {
+            return MoveWords.moved(read.row.name, to: read.holder?.agent.runtimeName ?? .unknown)
+        }
+        let agent = agents.value?.agents.first { $0.id == id }
+        return MoveWords.switched(
+            agent?.name ?? agent?.runtimeName.name ?? "agent", to: agent?.runtimeName ?? .unknown)
+    }
 }

@@ -109,7 +109,7 @@ final class LifeStore {
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
-    /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`endMoves`).
+    /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`settleMoves`).
     var moveReceipts: [String: MoveReceipt] = [:]
 
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
@@ -240,7 +240,7 @@ final class LifeStore {
     }
     func refreshAgents() async {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
-        await endMoves()
+        settleMoves()
     }
 
     func refreshSpending() async {
@@ -349,7 +349,7 @@ final class LifeStore {
         await load(update, key: key) {
             try await $0.readMatter(id)
         }
-        await endMoves()
+        settleMoves(matterRead: id)
     }
 
     func refreshProject(_ id: String) async {
@@ -455,6 +455,7 @@ final class LifeStore {
         case .complaint(let ref): fields["kind"] = "complaint"; fields["ref"] = ref
         case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
         case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
+        case .move(let id): fields["kind"] = "move"; fields["ref"] = id
         case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
         case .project(let id): fields["kind"] = "project"; fields["ref"] = id
         }

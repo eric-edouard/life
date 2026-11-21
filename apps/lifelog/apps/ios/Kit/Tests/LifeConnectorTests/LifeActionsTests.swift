@@ -397,6 +397,8 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
     life.changes = [
         { _ in #"{"action":"hand_over","agent":null,"move":"ask_1","state":"asked"}"# },
         { _ in throw MCPError.streamDropped },
+        { _ in throw MCPError.unreachable },
+        { _ in throw MCPError.offline },
     ]
     let move = AgentRequest(action: .handOver, step: "matter_1", runtime: "codex", said: "Move it to Codex.")
     let asked = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
@@ -412,6 +414,14 @@ private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
         return
     }
     #expect(failure.mayHaveHappened && !failure.canTryAgain)
+    // A connection lost before Life's headers may have reached it too; only offline is sure it did not.
+    let lost = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
+    let offline = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
+    guard case .failed(let unreachable, _) = lost, case .failed(let notSent, _) = offline else {
+        Issue.record("\(lost) \(offline)")
+        return
+    }
+    #expect(unreachable.mayHaveHappened && notSent.canTryAgain)
 }
 
 @Test func anEditIsOneStep() async {

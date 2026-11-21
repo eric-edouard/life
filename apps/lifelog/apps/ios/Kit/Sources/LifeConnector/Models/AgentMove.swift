@@ -27,28 +27,72 @@ public struct AgentMove: Decodable, Sendable, Equatable {
     /// The move a screen shows. With his `receipt`: the read's move of its id; else its ask refused before the desk
     /// wrote a move (`refused`), failed with the desk's words; else asked and not applied yet, as its notes, for
     /// `MoveReceipt.patience`. Past that, or with none, the read's own move (one asked from another app shows too), so
-    /// a page opened after the move's hour, or after a newer move, never waits on it.
+    /// a page opened after the move's hour, or after a newer move, never waits on it. A receipt whose id was lost
+    /// (`id` nil) takes the read's move under way as its own.
     public static func shown(
         receipt: MoveReceipt?, read: AgentMove?, refused: [RegisteredAgents.Refusal], now: Date
     ) -> AgentMove? {
         guard let receipt, read?.id != receipt.id else { return read }
-        if let refusal = refused.first(where: { $0.ask == receipt.id }) {
-            return AgentMove(id: receipt.id, phase: .failed, reason: refusal.error)
+        guard let id = receipt.id else {
+            if read?.phase.isUnderWay == true { return read }
+            return receipt.isPending(now) ? AgentMove(id: "", phase: .notes) : read
         }
-        guard now.timeIntervalSince(receipt.at) < MoveReceipt.patience else { return read }
-        return AgentMove(id: receipt.id, phase: .notes)
+        if let refusal = refused.first(where: { $0.ask == id }) {
+            return AgentMove(id: id, phase: .failed, reason: refusal.error)
+        }
+        return receipt.isPending(now) ? AgentMove(id: id, phase: .notes) : read
     }
 }
 
-/// His move as Life answered his tap (`hand_over`'s `move`, the ask's id), and when.
+/// His move as Life answered his tap (`hand_over`'s `move`, the ask's id), and when; nil when the answer was lost
+/// though the ask may have reached Life.
 public struct MoveReceipt: Sendable, Equatable {
     /// How long an ask the reads don't show yet counts as under way: the desk applies it within its 5 s tick.
     public static let patience: TimeInterval = 60
 
-    public let id: String
+    public let id: String?
     public let at: Date
 
-    public init(id: String, at: Date) { (self.id, self.at) = (id, at) }
+    public init(id: String?, at: Date) { (self.id, self.at) = (id, at) }
+
+    func isPending(_ now: Date) -> Bool { now.timeIntervalSince(at) < Self.patience }
+
+    /// What a read's `shown` move (`AgentMove.shown` over it) settles of this receipt, once, as the read lands.
+    public enum Settled: Equatable, Sendable {
+        /// Still waiting on the reads.
+        case kept
+        /// A lost id found: the read's move under way is his.
+        case found(MoveReceipt)
+        /// Done: said once.
+        case done
+        /// Failed; `say` when only a refusal holds it (the read holds a failed move itself for its hour).
+        case failed(say: String?)
+        /// Past its patience with nothing shown: the read's.
+        case gone
+    }
+
+    public func settled(by shown: AgentMove?, read: AgentMove?) -> Settled {
+        guard let shown, shown.id == id || (id == nil && shown.id == read?.id && shown.phase.isUnderWay) else {
+            return id == nil && shown?.id == "" ? .kept : .gone
+        }
+        if id == nil { return .found(MoveReceipt(id: shown.id, at: at)) }
+        switch shown.phase {
+        case .done: return .done
+        case .failed: return .failed(say: read?.id == id ? nil : shown.reason ?? "It did not move.")
+        default: return .kept
+        }
+    }
+
+    /// Why the last move failed, and the move Try again repeats: the one he asked (`tried`), only while it is still
+    /// the one offered and nothing may have gone; a move asked elsewhere, or one no longer offered, he picks afresh.
+    public static func failure<Choice: Equatable>(
+        call: ActionFailure?, shown: AgentMove?, tried: Choice?, offered: Choice?
+    ) -> (reason: String, retry: Choice?)? {
+        let reason = call?.reason ?? (shown?.phase == .failed ? shown?.reason ?? "It did not move." : nil)
+        guard let reason else { return nil }
+        let isSafe = call.map(\.canTryAgain) ?? true
+        return (reason, isSafe && tried != nil && tried == offered ? tried : nil)
+    }
 }
 
 /// An agent as a move names it: its id, its name ("Halden house agent"), its short name, its program.
@@ -141,7 +185,9 @@ public enum MoveWords {
         }
     }
 
-    public static func moved(_ matter: String, to runtime: RuntimeName) -> String { "\(matter) moved to \(runtime.name)" }
+    public static func moved(_ matter: String, to runtime: RuntimeName) -> String {
+        "\(matter) moved to \(runtime.name)"
+    }
 
     /// The one ask before `agent` ("Halden house agent") switches to `runtime`.
     public static func switchAsk(_ agent: String, to runtime: RuntimeName) -> (title: String, message: String) {
@@ -151,5 +197,7 @@ public enum MoveWords {
         )
     }
 
-    public static func switched(_ agent: String, to runtime: RuntimeName) -> String { "The \(agent) is on \(runtime.name)" }
+    public static func switched(_ agent: String, to runtime: RuntimeName) -> String {
+        "The \(agent) is on \(runtime.name)"
+    }
 }
