@@ -341,7 +341,7 @@ struct PlanBlock: View {
             }
             .frame(width: Metrics.FlatRow.slot)
             VStack(alignment: .leading, spacing: 2) {
-                Text(step.text).font(isHis ? .bodyBold : .body15).foregroundStyle(isHis ? Palette.fg : Palette.muted)
+                Text(step.text).font(isHis ? .leadBold : .body15).foregroundStyle(isHis ? Palette.fg : Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 if let when = step.when { Text(when).font(.small).foregroundStyle(Palette.muted) }
             }
@@ -349,7 +349,7 @@ struct PlanBlock: View {
             if let channel = step.channel { Self.place(channel) }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(isHis ? "You: \(step.text)" : step.text)
+        .accessibilityLabel(step.spoken)
     }
 
     /// Where a step happens: a source's own mark, or the glyph of a payment, a place or a file.

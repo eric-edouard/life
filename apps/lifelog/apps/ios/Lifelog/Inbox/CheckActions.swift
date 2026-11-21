@@ -132,7 +132,9 @@ struct CheckActions: View {
     }
 
     private struct Choice: Identifiable {
-        let id: String
+        /// His own words, or an option by its id: an option may be called anything, so the two never share an id.
+        enum ID: Hashable { case ownWords, option(String) }
+        let id: ID
         let label: String
         /// The sheet the tap opens, which zooms out of this answer; nil for an answer.
         var sheet: AskSheet?
@@ -140,7 +142,7 @@ struct CheckActions: View {
     }
 
     private func choice(_ option: Check.Option) -> Choice {
-        Choice(id: option.id, label: label(of: option), sheet: sheet(of: option)) { tap(option) }
+        Choice(id: .option(option.id), label: label(of: option), sheet: sheet(of: option)) { tap(option) }
     }
 
     /// The sheet a tap on `option` opens, if any (`tap` goes by it).
@@ -155,14 +157,43 @@ struct CheckActions: View {
     }
 
     /// The options the answers draw, in Kit's order: a new matter's goal edit is the goal's pencil, never an answer.
-    private var shown: [Check.Option] {
+    private static func shown(_ check: Check) -> [Check.Option] {
         check.optionsInOrder.filter { !(check.group == .newMatter && $0.takes == .note) }
+    }
+    private var shown: [Check.Option] { Self.shown(check) }
+
+    /// What leads the answers, the one press: the people it may be, "Create <name>", his bank app, else the first option.
+    private enum Lead { case people, create(String), bank(Transfers), first(Check.Option), none }
+
+    private static func lead(of check: Check) -> Lead {
+        if check.isNamingFilled, !check.likelyPeople.isEmpty { return .people }
+        if check.createsByName, let name = check.askedName { return .create(name) }
+        if let transfers = check.transfers { return .bank(transfers) }
+        return shown(check).first.map { .first($0) } ?? .none
+    }
+
+    /// The answers float in the card's bottom bar (decision 97) when they are one short zone: no people to pick, and
+    /// the quiet ones fit one row (`isOneRow`); a taller group stays at the end of the card's scroll.
+    static func fitsBar(_ check: Check) -> Bool {
+        let options = shown(check)
+        let quiet: [Check.Option]
+        switch lead(of: check) {
+        case .people: return false
+        case .first: quiet = Array(options.dropFirst())
+        case .create, .bank, .none: quiet = options
+        }
+        return isOneRow((check.takesOwnWords ? [check.tellTitle] : []) + quiet.map(\.label))
+    }
+
+    /// At most three answers, each of three words or fewer.
+    private static func isOneRow(_ labels: [String]) -> Bool {
+        labels.count <= 3 && labels.allSatisfy { $0.split(separator: " ").count <= 3 }
     }
 
     /// His own words, the first quiet answer on a question: "Tell the agent…", or "Tell Life…".
     private var tell: Choice? {
         guard check.takesOwnWords else { return nil }
-        return Choice(id: "own words", label: check.tellTitle) {
+        return Choice(id: .ownWords, label: check.tellTitle) {
             input.option = nil
             input.isWritingOwnWords = true
         }
@@ -174,14 +205,15 @@ struct CheckActions: View {
     }
 
     @ViewBuilder private var options: some View {
-        if !people.isEmpty {
+        switch Self.lead(of: check) {
+        case .people:
             ForEach(people, id: \.ref) { person in
                 PartyPick(party: person) {
                     if let request = check.answer(naming: .person(person.ref)) { answer(request) }
                 }
             }
             others(shown.map(choice))
-        } else if check.createsByName, let name = check.askedName {
+        case .create(let name):
             // "Create <name>" opens the create sheet: not an answer yet, so nothing is held.
             Button {
                 create(name, false)
@@ -191,7 +223,8 @@ struct CheckActions: View {
             .buttonStyle(.pill(.filled))
             .zoomSource(AskSheet.create(ref: check.ref, asOrganization: false), in: sheetZoom)
             others(shown.map(choice))
-        } else if let app = bankApp {
+        case .bank(let transfers):
+            let app = transfers == .thai ? thaiBankApp : ibanBankApp
             // His bank app is the one press; every answer sits quieter beside it.
             Button {
                 goToBank(app)
@@ -206,16 +239,13 @@ struct CheckActions: View {
             }
             .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
             others(shown.map(choice))
-        } else if let first = shown.first {
+        case .first(let first):
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
                 .zoomSource(sheet(of: first), in: sheetZoom)
             others(shown.dropFirst().map(choice))
+        case .none:
+            EmptyView()
         }
-    }
-
-    /// The app his pick opens for this card's kind of transfer (Settings > Apps); nil when the card names none.
-    private var bankApp: BankApp? {
-        check.transfers.map { $0 == .thai ? thaiBankApp : ibanBankApp }
     }
 
     /// Back from his bank app on a card Life looks for, it says so in the deadline's place: Life's watcher looks while
@@ -257,7 +287,7 @@ struct CheckActions: View {
     /// fewer, and the row holds them; else rows of 48; nothing when there are none.
     @ViewBuilder private func others(_ answers: [Choice]) -> some View {
         let rest = (tell.map { [$0] } ?? []) + answers
-        let isShort = rest.count <= 3 && rest.allSatisfy { $0.label.split(separator: " ").count <= 3 }
+        let isShort = Self.isOneRow(rest.map(\.label))
         let stack = VStack(spacing: Metrics.Spacing.s) {
             ForEach(rest) { choice in
                 Button(choice.label, action: choice.run).buttonStyle(.pill(.quiet, size: .row))

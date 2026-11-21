@@ -168,9 +168,13 @@ struct CheckCard: View {
         }
     }
 
-    /// Answers that can grow taller than a bar should be (people to pick, an accessibility text size) end the scroll.
+    /// Answers that can grow taller than a bar should be (people to pick, quiet answers past one row, a refused answer,
+    /// an accessibility text size) end the scroll.
     private var isAnswersInBar: Bool {
-        !typeSize.isAccessibilitySize && !(check.isNamingFilled && !check.likelyPeople.isEmpty)
+        guard !typeSize.isAccessibilitySize, CheckActions.fitsBar(check) else { return false }
+        // A refused answer stands above the answers, with what was written since: it reads in the page.
+        if case .failed = life.state(of: .answer(ref: check.ref)) { return false }
+        return true
     }
 
     /// The pager's dots (a spinner while a tapped push is checked: how many asks wait is not known yet), then the

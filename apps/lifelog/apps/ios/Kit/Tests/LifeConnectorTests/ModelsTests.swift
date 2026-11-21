@@ -71,6 +71,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(plan.planSteps.map(\.by) == [.agent, .owner, .agent])
     #expect(plan.planSteps.map(\.channel) == ["whatsapp", "payment", nil])
     #expect(plan.planSteps.last?.when == "once Kit answers, by Thu")
+    #expect(plan.planSteps.last?.spoken == "The agent: \(plan.planSteps.last!.text), once Kit answers, by Thu")
+    #expect(plan.planSteps[1].spoken == "You: \(plan.planSteps[1].text), payment")
     #expect(plan.gathered?.text == "From Kit's quote and two others")
     #expect(inbox.checks.first { $0.ref == "dec_000000000002" }?.planSteps.isEmpty == true)
     #expect(plan.optionsInOrder.map(\.role) == [.start, .decline] && plan.filled?.label == "Start the plan")
