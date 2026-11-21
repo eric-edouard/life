@@ -70,6 +70,8 @@ final class AppRouter {
     /// The sheet open over a matter, by its id: here, not in the matter's page, so a fold that collapses the page keeps the
     /// sheet and the start it shows. One value, so one sheet replaces the other (Try again) in a single update.
     var matterSheet: MatterSheet?
+    /// The event sheet of an appointment Life added to his calendar, over the tab he was on: from its push, or its row.
+    var appointment: AppointmentKey?
 
     func open(matter id: String) {
         sheet = nil

@@ -134,6 +134,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
         try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
             == client(Check.DoneSeen.State.self))
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
+    #expect(
+        try quoted("host/appointments-calendar.ts", /(?s)type Changed =(.*?)\};/) == client(AppointmentChange.Result.self))
     #expect(try quoted("records/truth.ts", /status: z\.enum\(\[([^\]]*)\]/) == client(ProjectStatus.self))
     // `wait_decision` is worked out when read (`nextStepNow`), never stored.
     #expect(
