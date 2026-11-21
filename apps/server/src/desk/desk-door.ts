@@ -13,6 +13,7 @@ import {
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
+import { isHisWordsPlanOf } from "../host/inbox";
 import { MOVE_NOTES } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { AgentWait } from "../records/registered-agent";
@@ -28,7 +29,6 @@ import {
 } from "./agent-actions";
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
-import { isHisWordsPlanOf } from "./first-turns";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
 // An agent is known by its key alone, `HMAC(deskKey, its id)`: derived, never stored, given to its session only in the

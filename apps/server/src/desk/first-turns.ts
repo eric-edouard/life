@@ -1,10 +1,10 @@
 import type { AgentRow, AssignmentRow } from "../host/desk-read";
-import { ASK_SPOKEN } from "../host/events";
+import { isHisWordsPlanOf } from "../host/inbox";
 import { askPageOf } from "../memory/card-request";
 import type { Desk } from "./desk-store";
 
 // What an assignment's first turn does, as its contract tells it (`agent-actions.ts`), and whether the door lets it
-// wait or finish before a card (`desk-door.ts`): a plan card first, unless his own words are its plan.
+// wait or finish before a card (`desk-door.ts`): a plan card first, unless his own words are its plan (`isHisWordsPlanOf`).
 
 /** The one sentence of the contract that differs: what a first turn does when he asked for the agent (his plan card, then his `start`). */
 const PLAN_FIRST_TURN = ` Your first turn only reads and asks your plan card. ${askPageOf("ask/plan")} Act only after his \`start\`; on his \`decline\`, \`finish\`; on his own words instead, read them and ask a follow-up card (no \`plan\`: only the first card is the plan card).`;
@@ -24,22 +24,6 @@ const CARETAKER_FIRST_TURN =
 /** ... and the Personal agent's on his spoken ask: his words are its plan (his decision of 21 Nov 2026). */
 const SPOKEN_ASK_FIRST_TURN =
   " Your first turn reads each spoken ask it was woken on (`ask.spoken`: `fetch` its `ref`) and starts on it: his words are your plan, so ask no plan card and wait for no `start`. Anything outward still goes to him first, as a card on the exact content.";
-
-/**
- * Whether his own words are assignment `s`'s plan, so its first turn asks no plan card and may wait or finish without
- * one: the caretaker's (his complaint, his yes of 20 Nov 2026), and the Personal agent's once it holds his spoken ask
- * (his decision of 21 Nov 2026). Every outward act still goes through a card on the exact content.
- */
-export const isHisWordsPlanOf = (
-  db: Desk["db"],
-  a: Pick<AgentRow, "role"> | null,
-  s: Pick<AssignmentRow, "id">
-) =>
-  a?.role === "caretaker" ||
-  (a?.role === "personal" &&
-    db
-      .query("select 1 from event where assignment_id = ? and name = ?")
-      .get(s.id, ASK_SPOKEN) !== null);
 
 /** What an assignment's first turn does: the caretaker's by its role, the Personal agent's on his spoken ask (`isHisWordsPlanOf`); else his plan card first when he opened it, one card of what it found when the desk did, either card's plan in Markdown. */
 export function firstTurnOf(

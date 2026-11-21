@@ -5,6 +5,7 @@ import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
 import type { HeldRead } from "../memory/life-checks";
 import {
+  type AgentRow,
   type AssignmentRow,
   agentOf,
   assignmentOf,
@@ -16,6 +17,7 @@ import {
   heldStampOf,
   readDesk,
 } from "./desk-read";
+import { ASK_SPOKEN } from "./events";
 import { countsAsAskedOf, movedInOf } from "./move-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
@@ -51,13 +53,29 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
   );
 }
 
-/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened or moved to its agent (`movedInOf`), not the caretaker's. */
+/**
+ * Whether his own words are assignment `s`'s plan, so its first turn asks no plan card and may wait or finish without
+ * one: the caretaker's (his complaint, his yes of 20 Nov 2026), and the Personal agent's once it holds his spoken ask
+ * (his decision of 21 Nov 2026). Every outward act still goes through a card on the exact content.
+ */
+export const isHisWordsPlanOf = (
+  db: Database,
+  a: Pick<AgentRow, "role"> | null,
+  s: Pick<AssignmentRow, "id">
+) =>
+  a?.role === "caretaker" ||
+  (a?.role === "personal" &&
+    db
+      .query("select 1 from event where assignment_id = ? and name = ?")
+      .get(s.id, ASK_SPOKEN) !== null);
+
+/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened or moved to its agent (`movedInOf`), unless his own words are its plan (`isHisWordsPlanOf`). */
 export const opensWithPlan = (
   db: Database,
   s: Pick<AssignmentRow, "agent_id" | "id" | "opened_by">
 ) =>
   (s.opened_by === "owner" || movedInOf(db, s) !== null) &&
-  agentOf(db, s.agent_id)?.role !== "caretaker";
+  !isHisWordsPlanOf(db, agentOf(db, s.agent_id) ?? null, s);
 
 /** Each desk agent's open card as its holder's (its assignment's agent, else its asker): who, and that agent's session now, if any (never a link the card was asked with). */
 export const cardHoldersOf = (
