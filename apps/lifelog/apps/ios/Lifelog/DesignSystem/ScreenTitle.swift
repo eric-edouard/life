@@ -20,9 +20,9 @@ struct ScreenTitle: View {
 }
 
 extension View {
-    /// The screen's title on its blurred header: a bar at the top of the column, which the content starts under and
-    /// scrolls beneath, softened by the system's own scroll edge (strongest at the top, gone at its foot, no line); solid
-    /// `bg` with Reduce Transparency. On a list screen only: a page whose first line is its name (a matter, a person, an
+    /// The screen's title in the system's own top bar (`safeAreaBar`): the content starts under it and scrolls beneath,
+    /// softened by iOS's soft scroll edge alone (decision 96: a blur growing toward the edge, invisible at rest, no band,
+    /// tint or line; Reduce Transparency is the system's to draw). On a list screen only: a page whose first line is its name (a matter, a person, an
     /// agent) and a sheet (its `SheetHeader`) have none. A nil name keeps the bar empty, so a column whose title moves
     /// to its neighbour (the Inbox's ask beside its list) keeps its identity through a fold.
     func screenTitle(_ name: String?, state: String? = nil) -> some View {
@@ -33,7 +33,6 @@ extension View {
 private struct ScreenTitleBar: ViewModifier {
     let name: String?
     let state: String?
-    @Environment(\.accessibilityReduceTransparency) private var isSolid
 
     func body(content: Content) -> some View {
         content
@@ -41,7 +40,6 @@ private struct ScreenTitleBar: ViewModifier {
                 if let name {
                     ScreenTitle(name: name, state: state)
                         .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.l)
-                        .background(isSolid ? Palette.bg : .clear)
                 }
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
