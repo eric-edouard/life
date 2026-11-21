@@ -20,16 +20,19 @@ private struct ShellBar: ViewModifier {
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if hasPendant || hasSettings {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        if hasPendant {
-                            PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
-                        }
-                        if hasSettings {
-                            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-                                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
-                                .accessibilityIdentifier("top.settings")
-                        }
+                // One item each, never a group: the closed Duo's side column took the group's first item only and left
+                // the gear alone in a bar of its own over the screen's title.
+                if hasPendant {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
+                    }
+                }
+                if hasSettings {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                            .labelStyle(.iconOnly)
+                            .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
+                            .accessibilityIdentifier("top.settings")
                     }
                 }
             }
@@ -51,6 +54,7 @@ struct PendantItem: View {
     let open: () -> Void
 
     @Environment(CaptureStore.self) private var capture
+    @Environment(AppRouter.self) private var router
 
     private struct Face {
         var symbol: String
@@ -70,6 +74,10 @@ struct PendantItem: View {
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
+        // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`).
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
+            if $0 != .zero { router.pendantFrame = $0 }
+        }
     }
 
     /// One thing, the most pressing first: something that needs him, a low battery, then the state.
@@ -85,10 +93,12 @@ struct PendantItem: View {
             return Face(symbol: "battery.25percent", spoken: "battery low, \(percent) percent", color: Palette.flag)
         }
         switch reading.state {
-        case .outOfRange, .notConnected: return Face(symbol: "wifi.slash", spoken: "out of reach")
-        case .noPendant: return Face(symbol: "link.badge.plus", spoken: "no pendant")
+        // The pendant's own mark, dimmed, while it is not recording for a reason of its own: never "…" (that is More).
+        case .outOfRange, .notConnected:
+            return Face(symbol: "record.circle", spoken: "out of reach", color: Palette.muted)
+        case .noPendant: return Face(symbol: "record.circle", spoken: "no pendant", color: Palette.muted)
         case .notRecording: return Face(symbol: "pause.circle", spoken: "paused")
-        case .checking: return Face(symbol: "ellipsis.circle", spoken: "waiting")
+        case .checking: return Face(symbol: "record.circle", spoken: "waiting", color: Palette.muted)
         case .full: return Face(symbol: "exclamationmark.circle", spoken: "full")
         case .recording:
             if case .catchingUp = SyncSummary(facts.status.sync, lastCaughtUp: facts.lastCaughtUp) {

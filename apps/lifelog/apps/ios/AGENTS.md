@@ -102,6 +102,7 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
 - A server enum decodes unknown values as `unknown` (`UnknownTolerant`) and belongs in the mirror list of
   `ContractTests.swift` (lifelog's against its `openapi.json` in `mirroredEnumsMatchTheSpec`, Life's against `apps/server/src` in `lifesEnumsAreTheServers`), which also checks
   every path the client calls.
+- The top group is one `ToolbarItem` per control, never a `ToolbarItemGroup`: the closed Duo's side column took a group's first item only and left the gear in a bar of its own over the screen's title. Tell Life stands on the Pendant's vertical line (`AppRouter.pendantFrame`), so it is in that column too.
 - The toolbar API is `toolbarMinimizationBehavior(_:for:)`; the WWDC docs' `toolbarMinimizeBehavior` doesn't compile.
 - A read that failed after one landed, or Life out of reach, is said by the designed `Toast` over the pane (`StaleNote`, `staleToast`), Retry in its capsule; never a band in the layout. A matter's agent spins only while its turn runs (`AgentStatus.running`); waiting, it is its program's mark, still. A call (`tel:`, FaceTime) asks first; a chat opens at once. Back from a person opened from elsewhere returns to the tab he came from (`AppRouter.closePerson`).
 - An Omi drains through the same `DrainCoordinator` as the Limitless Pendant, by its `DeviceCodec`. **Any work on the

@@ -67,8 +67,7 @@ struct MatterPage: View {
             }
             .matterPageColumn()
         }
-        // Pinned below the content, full width, on the page's own colour: nothing shows through or around them; the
-        // content fades into it above.
+        // Floating over the content, which runs to the screen's foot under the system's soft scroll edge.
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
@@ -88,7 +87,6 @@ struct MatterPage: View {
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
-            .background(Palette.bg.ignoresSafeArea(edges: .bottom))
         }
     }
 
