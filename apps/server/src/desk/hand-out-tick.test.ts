@@ -10,7 +10,7 @@ import { rmSync } from "node:fs";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
-import { agentOf, assignmentOf, readNotes } from "../host/desk-read";
+import { agentOf, agentsNow, assignmentOf, readNotes } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
@@ -598,6 +598,10 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
         status: "ended",
       });
       expect(agentOf(desk.db, personal)?.status).toBe("active");
+      // Regression, 21 Nov 2026: the folded agent holds no assignment; the agents read skips it instead of failing whole.
+      expect(agentsNow(desk.db, clock().getTime()).map((a) => a.id)).toEqual([
+        personal,
+      ]);
       // The card stays on its matter: his answer wakes the agent that holds it now.
       await answerWithResult(
         card,

@@ -600,16 +600,16 @@ const statusSinceOf = (
     waiting: last?.ended_at,
   })[status] ?? null;
 
-/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`currentAssignmentOf`): its last turn, its anchors and its events dropped in the last day. */
+/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`currentAssignmentOf`): its last turn, its anchors and its events dropped in the last day; none once folded away (it holds none). */
 function nowOf(
   db: Database,
   a: AgentRow,
   now: number,
   isForWakes: boolean
-): AgentRead {
+): AgentRead | [] {
   const s = currentAssignmentOf(db, a.id);
   if (!s) {
-    throw new Error(`${a.id} has no assignment`);
+    return [];
   }
   const last = db
     .query<TurnRow, [string]>(
@@ -674,7 +674,7 @@ export function agentsNow(db: Database, now: number, isForWakes = false) {
       )
       .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
   ];
-  return rows.map((a) => nowOf(db, a, now, isForWakes));
+  return rows.flatMap((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** How many past agents a matter's or a project's read lists, after its active ones. */
@@ -695,7 +695,7 @@ export function agentsOnSteps(
       `select distinct a.* from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
     )
     .all(...steps, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now, isForWakes));
+    .flatMap((a) => nowOf(db, a, now, isForWakes));
 }
 
 /** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */
@@ -712,7 +712,7 @@ export function agentsOnProjects(
       `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
     )
     .all(...projects, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now, false));
+    .flatMap((a) => nowOf(db, a, now, false));
 }
 
 /** A line a scheduled task or a session posted for the report (`bun life desk report-line`): one per source per day. */
