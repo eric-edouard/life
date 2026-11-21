@@ -106,23 +106,12 @@ final class Supervisor {
     nightly = p
   }
 
-  /// The helper's output, as the LaunchAgents kept it: ~/Library/Logs/life-<name>.log; past 10 MB it becomes
-  /// life-<name>.old.log (one previous file kept).
-  // ponytail: rotated only when a process starts; a service up for weeks grows past the cap until it restarts.
+  /// The helper's output: ~/Library/Logs/life-<name>.log, opened to append (`O_APPEND`), so the server's one
+  /// rotation rule (`rotateProcessLogs`, core/service.ts) can empty it while the helper writes.
   private func log(_ name: String) -> FileHandle? {
-    let files = FileManager.default
-    let base = "Library/Logs/life-\(name.replacingOccurrences(of: " ", with: "-"))"
-    let url = files.homeDirectoryForCurrentUser.appending(path: "\(base).log")
-    if let size = (try? files.attributesOfItem(atPath: url.path))?[.size] as? Int, size > 10_000_000 {
-      let old = files.homeDirectoryForCurrentUser.appending(path: "\(base).old.log")
-      try? files.removeItem(at: old)
-      try? files.moveItem(at: url, to: old)
-    }
-    if !files.fileExists(atPath: url.path) {
-      files.createFile(atPath: url.path, contents: nil)
-    }
-    let h = try? FileHandle(forWritingTo: url)
-    h?.seekToEndOfFile()
-    return h
+    let path = FileManager.default.homeDirectoryForCurrentUser
+      .appending(path: "Library/Logs/life-\(name.replacingOccurrences(of: " ", with: "-")).log").path
+    let fd = open(path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+    return fd < 0 ? nil : FileHandle(fileDescriptor: fd, closeOnDealloc: true)
   }
 }

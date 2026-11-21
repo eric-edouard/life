@@ -13,11 +13,11 @@ import { DESK_AGENT } from "../core/names";
 import { DESK_STORE } from "../core/paths";
 import { secretIn } from "../core/secret";
 import { setSettings } from "../core/settings";
+import { agentsNow } from "../host/agents-now";
 import { ask, asksFor } from "../host/asks";
 import { complain, type Misread } from "../host/complaints";
 import {
   agentInRole,
-  agentsNow,
   complaintReceiptOf,
   complaintsAtWork,
   currentAssignmentOf,

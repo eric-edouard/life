@@ -4,6 +4,7 @@ import {
   DECISIONS_VERSION,
   type Decision,
   type Withdrawn,
+  withdrawnOf,
 } from "./decision-lines";
 import type { StoredDraft } from "./draft";
 
@@ -123,13 +124,11 @@ export const mergeWithdrawalsOf = (
 ): Withdrawn[] =>
   merged
     ? [
-        {
-          at: now.toISOString(),
-          id: merged.held.id,
-          kind: "withdrawn",
-          schemaVersion: DECISIONS_VERSION,
-          why: `merged with ${merged.waiting.id} into ${id}`,
-        },
+        withdrawnOf(
+          merged.held.id,
+          now,
+          `merged with ${merged.waiting.id} into ${id}`
+        ),
       ]
     : [];
 

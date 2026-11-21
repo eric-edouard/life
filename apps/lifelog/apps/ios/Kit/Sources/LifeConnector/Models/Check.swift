@@ -119,6 +119,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let from: String?
         public let cc: String?
         public let subject: String?
+        /// The chat's last messages when the card was asked, oldest first (`[]` for a new chat; a mail's: the one it
+        /// answers); nil on a card asked before Life stamped them, which then shows the draft alone.
+        public let recent: [Recent]?
     }
 
     /// A Contacts card as Life holds it (`contactsCard`, `memory/check-asks.ts`): never a network identity, a card has no chat.
@@ -193,6 +196,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// A new matter's goal, the one Start hands the agent.
     public let goal: String?
     public let draft: Draft?
+    /// A draft card's chat as the card heads it; nil for other cards.
+    public let head: Head?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.

@@ -143,7 +143,7 @@ export interface Check {
   confirm: Check[];
   /** A Contacts card's own name and handles, from the one `ContactNow`; null for every other kind. Never a network identity (a card has no chat). */
   contactsCard?: { handles: string[]; name: string } | null;
-  /** Why it asks, what was tried, what it rests on: folded on his card. An agent's words, or Life's own for its guesses. */
+  /** Why it asks, what was tried, what it rests on: folded on his card, in Markdown. An agent's words, or Life's own for its guesses, with the words a guess rests on quoted (`checksOf`). */
   context: string | null;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
@@ -153,8 +153,6 @@ export interface Check {
   doneSeenBy?: "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
-  /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
-  evidence: { from: string; quote: string } | null;
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
   goal: string | null;
   group: CheckGroup;
@@ -225,14 +223,12 @@ export interface BeingFixed {
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
 
-/** An ending check always has its evidence: the later step's words. */
-export const isEndingKind = (
-  c: Check
-): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
-  c.kind === "ending";
+/** Whether a check asks if a step is done (never in the nightly email). */
+export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
 
 /** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
+  cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
   complaints?: readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;

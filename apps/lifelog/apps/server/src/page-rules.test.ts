@@ -46,16 +46,18 @@ test("parity: Silero in the worker labels each piece as Kit's Core ML model does
       .flatMap((s) => pieces(s))
       .map(async (p) => {
         const reach: Interval = [p.start - 219, p.end + 20];
-        const probabilities = await label({
-          continues: false,
-          end: p.end,
-          final: true,
-          packets: [
+        const probabilities = await label(
+          {
+            continues: false,
+            end: p.end,
+            final: true,
+            start: p.start,
+            stream: `parity#${p.first}`,
+          },
+          () => [
             ...packetsIn(runs, (page) => records[page]?.frames ?? [], reach),
-          ],
-          start: p.start,
-          stream: `parity#${p.first}`,
-        });
+          ]
+        );
         return {
           p,
           probabilities: probabilities?.probabilities ?? new Float32Array(),
