@@ -44,14 +44,8 @@ import {
   withComplaintFields,
   withMisreadSealed,
 } from "./complaint-checks";
-import { type Decision, doneSeenShownOf } from "./decision-lines";
-import {
-  DECISIONS,
-  decisionsNow,
-  doneSeenByOf,
-  isOnMatter,
-  notSentOf,
-} from "./decisions";
+import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
+import { decisionsNow, doneSeenByOf, isOnMatter, notSentOf } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
 import {

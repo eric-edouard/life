@@ -18,11 +18,8 @@ import {
   pollDecisions,
 } from "../host/events";
 import { readRegisteredAgents } from "../host/registered-agents";
-import {
-  answerDecision,
-  DECISIONS,
-  requestDecision,
-} from "../memory/decisions";
+import { DECISIONS } from "../memory/decision-lines";
+import { answerDecision, requestDecision } from "../memory/decisions";
 import { CONTEST_WAIT } from "../memory/draft-contest";
 // biome-ignore lint/performance/noNamespaceImport: a test stands in for Life's reading of a draft's chat
 import * as draftSend from "../memory/draft-send";

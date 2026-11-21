@@ -13,7 +13,8 @@ import {
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
-import { DECISIONS, requestDecision } from "./decisions";
+import { DECISIONS } from "./decision-lines";
+import { requestDecision } from "./decisions";
 import {
   findMessageIn,
   findRef,
