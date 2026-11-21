@@ -182,8 +182,8 @@ export const PageSection = z.enum([
  * memory/corrections.jsonl: what the owner told Life, append-only, written by a Claude session when he says it in
  * conversation (`bun life memory correct`) and by the pages step when it finds him editing a page file. Every
  * rebuild respects it. `wrong` and `not-important` hide observations (on one page when `page` is set, else
- * everywhere); `outdated` says observations were true and are not anymore (a promise kept, a to-do done): each is
- * retired as history, by itself; `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
+ * everywhere); `outdated` says observations were true and are not anymore (a promise kept, a to-do done; `outcome` `dropped`: his
+ * word that it won't be done and is no longer wanted, his Drop; absent, the reason is not said): each is retired as history, by itself; `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
  * `not-this-person` that it is not, `not-worth-naming` that a name Life cannot place is never asked (his "Don't name"), `same-person` that two person refs are one (`from` folds into `to`); `reread`
  * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
  * `matter-direction` is his goal or next step for a matter, pinned by its steps (all of them, as `read_matter` lists
@@ -214,6 +214,7 @@ export const Correction = z
         ...Correcting,
         kind: z.literal("outdated"),
         observations: z.array(ObservationId).min(1),
+        outcome: z.literal("dropped").optional(),
       })
       .strict(),
     z

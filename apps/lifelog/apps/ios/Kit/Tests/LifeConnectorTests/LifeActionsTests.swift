@@ -46,6 +46,12 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         try wireText("life/read_people_and_organizations.json")
     }
     func readPart(_ ref: String) async throws -> String { try wireText("life/read_people_and_organizations_now.json") }
+    func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {
+        try wireText("life/read_appointments.json")
+    }
+    func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String {
+        try wireText("life/change_appointment_removed.json")
+    }
 
     func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void

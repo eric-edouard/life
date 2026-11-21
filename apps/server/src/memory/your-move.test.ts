@@ -63,7 +63,7 @@ const moves = (over: Partial<CheckInputs> = {}) =>
   checksOf({ ...base, ...over }).filter((c) => c.group === "your move");
 const idsOf = (c?: Check) => c?.options.map((o) => o.id);
 
-test("a dormant matter whose open step is his shows one your move card: his step, Done, Hand to an agent, Not now", () => {
+test("a dormant matter whose open step is his shows one your move card: his step, Done, Hand to an agent, Not now, Drop", () => {
   const [card, ...more] = moves();
   expect(more).toEqual([]);
   expect(card).toMatchObject({
@@ -84,6 +84,7 @@ test("a dormant matter whose open step is his shows one your move card: his step
     { ends: "step", id: "done", label: "Mark as done", takes: null },
     { id: "start", label: "Hand to an agent", takes: null },
     { id: "not-now", label: "Not now", takes: null },
+    { ends: "step", id: "drop", label: "Drop", takes: null },
   ]);
   // One card per matter: while it is offered as a new matter, that card asks first; once the offer ends, his move.
   const running = { matters: [{ ...MATTER, status: "moving" as const }] };
@@ -125,10 +126,10 @@ test("an agent working on it holds it; an agent waiting on him shows his move; a
       { ...MATTER, nextStep: { ...MATTER.nextStep, kind: "wait_owner" } },
     ],
   });
-  expect(waits.map(idsOf)).toEqual([["done", "not-now"]]);
+  expect(waits.map(idsOf)).toEqual([["done", "not-now", "drop"]]);
   const closed = [holdOn(WAIT.ref, { closedAt: "2026-10-22T00:00:00Z" })];
   expect(moves({ heldByAgents: closed }).map(idsOf)).toEqual([
-    ["done", "start", "not-now"],
+    ["done", "start", "not-now", "drop"],
   ]);
   const handOut = { isForHandOut: (id: string) => id === MATTER.id };
   for (const over of [
@@ -137,10 +138,12 @@ test("an agent working on it holds it; an agent waiting on him shows his move; a
     { dismissed: [[OWN.ref]] },
     { ...handOut, matters: [{ ...MATTER, status: "moving" as const }] },
   ]) {
-    expect(moves(over).map(idsOf)).toEqual([["done", "not-now"]]);
+    expect(moves(over).map(idsOf)).toEqual([["done", "not-now", "drop"]]);
   }
   // The hand-out never takes a dormant matter: it keeps its Start.
-  expect(moves(handOut).map(idsOf)).toEqual([["done", "start", "not-now"]]);
+  expect(moves(handOut).map(idsOf)).toEqual([
+    ["done", "start", "not-now", "drop"],
+  ]);
 });
 
 test("Not now hides it until its day, and a new step on the matter brings it back early", () => {

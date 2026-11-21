@@ -4,9 +4,8 @@ import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
-  type NamingQueueItem,
-  namingQueueGuessesOf,
   readNamingQueueNow,
+  readVoiceNames,
 } from "../sources/lifelog-voices";
 import {
   answerDecision,
@@ -19,8 +18,8 @@ import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
-import { withVoiceGuesses } from "./voice-guesses";
-import { type People, readPeople, voiceCardRefOf, voicePersonOf } from "./who";
+import { type GuessedQueueItem, withVoiceGuesses } from "./voice-guesses";
+import { type People, readPeople, voiceCardRefOf, voiceIdOf } from "./who";
 import { dayNow } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
@@ -50,7 +49,7 @@ export type AddDirectoryEntry = (
   fields?: { relation?: string }
 ) => Promise<string>;
 
-/** Closes by his word the steps a your move card's Mark as done closes (`yourMoveClosingOf`, read by host before the plan: host's `endByHisWord`); gives the lines written. */
+/** Closes by his word the steps a your move card's Mark as done, or Drop, closes (`yourMoveClosingOf`, read by host before the plan with the option he picked: host's `endByHisWord`); gives the lines written. */
 export type EndYourMove = () => Promise<unknown[]>;
 
 /** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start and a your move's end (his own token's `answer_check` only). */
@@ -136,7 +135,7 @@ const correct = (said: object[], a: CheckAnswer) =>
 
 /** A voice's queue item, as lifelog gives it now, and the people it was read with. */
 interface Voice {
-  item: NamingQueueItem;
+  item: GuessedQueueItem;
   people: People;
 }
 
@@ -196,8 +195,11 @@ async function answerVoice(
   ];
 }
 
-/** Who a voice's answer names: a new person by `name`, else the lifelog person that is Life's `person`, else that person by their name. */
-function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
+/**
+ * Who a voice's answer names: a new person by `name`, else the lifelog id of Life's `person` (`voiceIdOf`: the card's
+ * own, else the one id lifelog gives one of their names), else that person by their name.
+ */
+async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
     return { kind: "confirm", name: a.name } as const;
   }
@@ -205,9 +207,16 @@ function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
-  const id = namingQueueGuessesOf(item).find(
-    (x) => x && voicePersonOf(people.resolve, x, null) === ref
-  );
+  const aliases =
+    people.truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
+  const id =
+    voiceIdOf(people, item, ref) ??
+    voiceIdOf(
+      people,
+      item,
+      ref,
+      await readVoiceNames([], [people.nameOf(ref), ...aliases])
+    );
   return id
     ? ({ kind: "assign", personId: id } as const)
     : ({ kind: "confirm", name: people.nameOf(ref) } as const);
@@ -241,7 +250,7 @@ async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
   return v;
 }
 
-/** What a your move card's Mark as done closes: its step, while it is still open on its matter (`openStepsOf`). */
+/** What a your move card's Mark as done, or Drop, closes: its step, while it is still open on its matter (`openStepsOf`). */
 export async function yourMoveClosingOf(
   c: Pick<Check, "matter" | "ref" | "subject">
 ) {
@@ -250,6 +259,16 @@ export async function yourMoveClosingOf(
     throw new Error(`Not done: ${c.subject} is no longer open.`);
   }
   return closing;
+}
+
+/** Mark as done or Drop on a your move card: only through his own answer_check, which gives `endYourMove`. */
+function endYourMoveOf(x: WriterExtras) {
+  if (!x.endYourMove) {
+    throw new Error(
+      "Not done: Mark as done and Drop come only through his own answer_check."
+    );
+  }
+  return x.endYourMove();
 }
 
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
@@ -406,16 +425,10 @@ const WRITERS: {
     "this-is": (c, a, { voice }) =>
       answerVoice(c, voice, (v) => thisIs(v, c, a)),
   },
-  // Done and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
+  // Done, Drop and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
   "your move": {
-    done: (_c, _a, x) => {
-      if (!x.endYourMove) {
-        throw new Error(
-          "Not done: Mark as done comes only through his own answer_check."
-        );
-      }
-      return x.endYourMove();
-    },
+    done: (_c, _a, x) => endYourMoveOf(x),
+    drop: (_c, _a, x) => endYourMoveOf(x),
     "not-now": async (c, a) => {
       const v = await yourMoveMatterOf(c);
       return correct(

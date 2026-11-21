@@ -30,9 +30,12 @@ struct BulkCard: View {
                     .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
                 ForEach(Check.bulkGroups(shown), id: \.first?.ref) { group in
                     if let heading = kind.bulkHeading(group[0].preTicked) {
-                        Text(heading).font(.small)
-                            .foregroundStyle(group[0].preTicked == nil ? Palette.flag : Palette.muted)
-                            .accessibilityAddTraits(.isHeader)
+                        HStack {
+                            Text(heading).accessibilityAddTraits(.isHeader)
+                            Spacer(minLength: 0)
+                            Text("\(group.count)")
+                        }
+                        .font(.small).foregroundStyle(group[0].preTicked == nil ? Palette.flag : Palette.muted)
                     }
                     VStack(spacing: 0) { ForEach(group) { row($0) } }
                         .padding(.horizontal, Metrics.Spacing.s)
@@ -114,37 +117,66 @@ struct BulkCard: View {
             },
             open: { opened = check.ref }
         ) {
-            VStack(alignment: .leading, spacing: 2) {
-                if kind == .voice, let clip = check.clips.first {
-                    VoiceLine(clip: clip)
-                } else {
-                    Text(check.said?.text ?? check.question).font(.leadBold).foregroundStyle(Palette.fg).lineLimit(1)
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if kind == .voice, let clip = check.clips.first {
+                        VoiceLine(clip: clip)
+                    } else {
+                        Text(check.said?.text ?? check.question).font(.leadBold).foregroundStyle(Palette.fg)
+                            .lineLimit(1)
+                    }
+                    detail(of: check)
                 }
-                Text(detail(of: check)).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+                // A voice's sign is its Play; any other row opens its own card.
+                if kind != .voice {
+                    Spacer(minLength: Metrics.Spacing.s)
+                    Image(systemName: "chevron.right").font(.smallStrong)
+                        .foregroundStyle(Palette.muted)
+                }
             }
         }
     }
 
-    /// The row's muted line: when and how long for a voice, what came since for any other, then the answer it gives.
-    private func detail(of check: Check) -> String {
+    /// The row's muted line: when and how long for a voice, what came since for any other, then the answer it gives. An
+    /// answer that is a person says it first, then their disc and name ("Yes, <disc> <who> · Fri 13 Nov"); the length
+    /// leaves to make room.
+    @ViewBuilder private func detail(of check: Check) -> some View {
         let clip = check.clips.first
         let about =
             kind == .voice
             ? [clip?.at.map { SaidWords.day($0) }, clip?.lengthText]
             : [check.since?.text ?? check.matter?.name]
-        return (about + [answerWords(of: check)]).compactMap(\.self).joined(separator: " · ")
+        let answer = answerOf(check)
+        if let person = answer.person {
+            HStack(spacing: Metrics.Spacing.xs) {
+                if let lead = answer.lead { Text(lead) }
+                PartyDisc(name: person, size: .chip)
+                Text(person).font(.smallStrong).foregroundStyle(Palette.fg)
+                Text(about.prefix(1).compactMap(\.self).joined(separator: " · ")).lineLimit(1)
+            }
+            .font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+        } else {
+            Text((about + [answer.words]).compactMap(\.self).joined(separator: " · "))
+                .font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+        }
     }
 
     /// His answer on the row's own card, else "Yes, done", "Don't name", "Yes, <who>" ("Is this <who>? Yes" when Life
-    /// names no candidate); nil when nothing is ticked.
-    private func answerWords(of check: Check) -> String? {
+    /// names no candidate); nothing when nothing is ticked. `person` is a name to show with its disc.
+    private func answerOf(_ check: Check) -> (lead: String?, person: String?, words: String?) {
         let chosen = notes.chosen[check.ref]
-        if let chosen, chosen.request.options != ["is-them"] { return chosen.heldWords }
+        if let chosen {
+            if chosen.request.options != ["is-them"] {
+                let who = check.likelyPeople.first { $0.ref == chosen.request.person }?.name
+                return (nil, who, who == nil && kind != .ending ? chosen.heldWords : nil)
+            }
+        }
         guard let option = chosen == nil ? check.preTickedOption : check.options.first(where: { $0.id == "is-them" })
-        else { return nil }
-        guard option.id == "is-them" else { return option.label }
+        else { return (nil, nil, nil) }
+        // An ending's "Yes, done" is its group's heading, never said on each row.
+        guard option.id == "is-them" else { return (nil, nil, kind == .ending ? nil : option.label) }
         let who = check.likelyPeople.first { $0.ref == check.subject }?.name
-        return who.map { "\(option.label), \($0)" } ?? "\(check.question) \(option.label)"
+        return who.map { ("\(option.label),", $0, nil) } ?? (nil, nil, "\(check.question) \(option.label)")
     }
 
     private var answers: some View {
@@ -158,6 +190,10 @@ struct BulkCard: View {
                 Text("\(failed.count) not answered: \(why)")
                     .font(.small).foregroundStyle(Palette.flag).frame(maxWidth: .infinity, alignment: .leading)
                     .appears()
+            }
+            if kind == .ending, !ticked.isEmpty {
+                Text("Life read an ending for each ticked one").font(.small).foregroundStyle(Palette.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             Button(ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
                 answer(ticked.map(\.request))
@@ -177,7 +213,7 @@ private struct VoiceLine: View {
     var body: some View {
         if let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {
             SpokenWords(
-                text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .inline
+                text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .line
             )
             .font(.lead)
         } else {
@@ -202,6 +238,7 @@ extension CheckGroup {
         case (_, nil): "Needs you"
         case (.voice, "not-relevant"): "Heard once"
         case (.voice, "is-them"): "Probably them"
+        case (.ending, "outdated"): "Look done"
         default: nil
         }
     }
