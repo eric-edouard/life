@@ -26,7 +26,10 @@ import {
   unfinishedMoves,
 } from "../host/move-read";
 import { decisionsNow } from "../memory/decisions";
+import { readMatterBook } from "../memory/matters";
 import { oneMatter } from "../memory/read-matters";
+import { readPeople } from "../memory/who";
+import { dayNow } from "../memory/zones";
 import type { AgentChange } from "../records/registered-agent";
 import { insertAgent, stopOpenRun } from "./agent-actions";
 import { type Desk, endWhenIdle, moveAssignment } from "./desk-store";
@@ -284,12 +287,18 @@ function commitSwitch(desk: Desk, m: MoveRow, a: AgentRow) {
   })();
 }
 
-/** The matter's name, for its new agent: the matter its anchors find (the one he chose taking a tie), else its first step. */
+/** The matter's name, for its new agent: the open matter its anchors find (the one he chose taking a tie), else its first step. */
 async function matterNameOf(db: Desk["db"], assignment: string) {
   const steps = anchorsOf(db, assignment);
   const prefer = assignmentOf(db, assignment)?.matter_id ?? undefined;
+  // The open matters, as the move found its assignment (`assignmentOnMatter`).
+  const book = (await readMatterBook(await readPeople(), dayNow())).filter(
+    (m) => m.open
+  );
   return (
-    (await oneMatter(steps, { prefer }))?.name ?? steps[0] ?? "moved matter"
+    (await oneMatter(steps, { book, prefer }))?.name ??
+    steps[0] ??
+    "moved matter"
   );
 }
 

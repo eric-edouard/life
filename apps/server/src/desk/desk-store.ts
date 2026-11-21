@@ -246,7 +246,7 @@ export const writeWait = (
 
 /**
  * Ends agent `agent` (`status`, `outcome`) when it holds no open assignment and no matter it gave away by a move that
- * may still roll back to it (applied, not failed, its new holder's first turn not begun: decision 78): the one ending
+ * may still roll back to it (committed, not failed, its new holder's first turn not begun: decision 78): the one ending
  * rule, after a close or a move.
  */
 export const endWhenIdle = (
@@ -259,7 +259,7 @@ export const endWhenIdle = (
     `update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = ?
       and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)
       and not exists (select 1 from move m join agent_change c on c.ask = m.ask where m.agent_id = agent.id
-        and m.assignment_id is not null and c.error is null and m.failed is null
+        and m.assignment_id is not null and m.moved_at is not null and c.error is null and m.failed is null
         and not exists (select 1 from turn t where t.move = m.ask and t.cause <> 'move_notes' and t.begun_at is not null))`,
     [status, clock().toISOString(), outcome, agent]
   );

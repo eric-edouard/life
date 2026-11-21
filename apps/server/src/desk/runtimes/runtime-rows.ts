@@ -409,15 +409,21 @@ const SECOND_LIFE_CODEX = {
   web_search: "disabled",
 };
 
+/** Whether `e` is a file or folder that is not there. */
+const isMissing = (e: unknown) => (e as { code?: string }).code === "ENOENT";
+
 const codexRow = (isOwn: boolean): Row => {
   const home = isOwn ? join(HOME, ".codex") : CODEX_HOME;
-  /** The session's rollout, plain or compressed (Codex compresses idle ones), if Codex has one. */
+  /** The session's rollout, plain or compressed (Codex compresses idle ones), if Codex has one; a scan that fails otherwise throws (the session's state is then unknown, never gone). */
   const rolloutOf = (ref: string) => {
     try {
       return new Bun.Glob(`*/*/*/rollout-*-${ref}.jsonl{,.zst}`)
         .scanSync(join(home, "sessions"))
         .next().value;
-    } catch {
+    } catch (e) {
+      if (!isMissing(e)) {
+        throw e;
+      }
       // no sessions folder yet
     }
   };
@@ -433,15 +439,18 @@ const codexRow = (isOwn: boolean): Row => {
     lines.pop();
     return lines;
   };
-  /** Whether the rollout holds his running turn: open and written to within `OPEN_FOR`. A file gone or being rewritten is not. */
+  /** Whether the rollout holds his running turn: open and written to within `OPEN_FOR`. A file gone is not; one that can't be read (being rewritten) throws: its state is unknown, never idle. */
   const isOpenNow = (path: string) => {
     try {
       return (
         clock().getTime() - statSync(join(home, "sessions", path)).mtimeMs <
           OPEN_FOR && isRolloutTurnOpen(rolloutLines(path))
       );
-    } catch {
-      return false;
+    } catch (e) {
+      if (isMissing(e)) {
+        return false;
+      }
+      throw e;
     }
   };
   return {
@@ -450,12 +459,13 @@ const codexRow = (isOwn: boolean): Row => {
     header: (key) => `Bearer ${key}`,
     link: (ref) => `codex://threads/${ref}`,
     onlyDoorPrefix: isOwn ? undefined : "mcp.desk.",
-    readSessionState(ref) {
+    // biome-ignore lint/suspicious/useAwait: async, so a read that throws is a rejected state
+    async readSessionState(ref) {
       const path = rolloutOf(ref);
       if (!path) {
-        return Promise.resolve("gone");
+        return "gone";
       }
-      return Promise.resolve(isOpenNow(path) ? "running" : "idle");
+      return isOpenNow(path) ? "running" : "idle";
     },
     spawn: async (a) => {
       const adapter = adapterOf("codex-acp");

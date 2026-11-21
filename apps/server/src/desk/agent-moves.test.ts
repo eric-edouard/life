@@ -5,13 +5,13 @@ import { clock, DAY, iso, MIN } from "../core/clock";
 import { openReadOnly } from "../core/sqlite";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import { isOldShape } from "../host/desk-shape";
-import { opensWithPlan } from "../host/inbox";
+import { opensWithPlan, planCardsOf } from "../host/inbox";
 import {
   assignmentOnMatter,
   MOVE_REASONS,
   matterMoveReadOf,
 } from "../host/move-read";
-import { recordDoneSeen } from "../memory/decisions";
+import { decisionsNow, recordDoneSeen } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on which agent takes a matter
 import * as readMatters from "../memory/read-matters";
 import type { AgentChange } from "../records/registered-agent";
@@ -32,7 +32,17 @@ import { type Desk, openDesk } from "./desk-store";
 import { foldAssignments } from "./matter-net";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { stepMoves } from "./store-step";
-import { ANA, advance, ahead, on, setup, toDo, withBook } from "./test-desk";
+import {
+  ANA,
+  advance,
+  ahead,
+  matterView,
+  on,
+  setup,
+  toDo,
+  withBook,
+  withMatters,
+} from "./test-desk";
 
 // Moving a matter between runtimes (decision 78): its old agent's notes turn, the commit, the new agent's first turn,
 // done or rolled back; never half-moved. Made-up agents and matters.
@@ -392,7 +402,7 @@ test("the old holder is kept until the move is done: a rollback finds it active,
 // as the agent that takes the matter.
 test("the old holder's cards on a matter moved away are refused, though its agent takes that matter", async () => {
   await withBook([toDo(STEP, "I'll fix the boiler")], MATTER, async () => {
-    const { desk, end, old } = await holding();
+    const { assignment, desk, end, old } = await holding();
     const own = openAssignment(desk, old, { openedBy: "owner" });
     const takes = spyOn(readMatters, "agentForMatterOf").mockReturnValue(
       () => old
@@ -407,6 +417,12 @@ test("the old holder's cards on a matter moved away are refused, though its agen
       if (!s) {
         throw new Error("no own assignment");
       }
+      await expect(cardHomeOf(desk.db, s, STEP)).rejects.toThrow(
+        "not on a matter you hold"
+      );
+      // Its new holder stopped: still its alone.
+      const to = assignmentOf(desk.db, assignment)?.agent_id ?? "";
+      desk.db.run("update agent set status = 'stopped' where id = ?", [to]);
       await expect(cardHomeOf(desk.db, s, STEP)).rejects.toThrow(
         "not on a matter you hold"
       );
@@ -487,7 +503,51 @@ test("after a move, a card seen done before it does not count as asked, and a de
     }
     expect(hasAsked(desk.db, moved)).toBe(false);
     expect(opensWithPlan(desk.db, moved)).toBe(true);
+    // The door takes the new holder's plan card, and the inbox shows it as its plan.
+    const plan = await askDecision(desk, moved, {
+      context: "## Fix the boiler\n1. Call the plumber",
+      deadline: iso(clock().getTime() + DAY),
+      onSilence: null,
+      options: [
+        { id: "start", label: "Start the plan" },
+        { id: "decline", label: "Not this plan" },
+      ],
+      plan: [{ by: "agent", text: "Call the plumber" }],
+      question: "Start with this plan?",
+      title: "Fix the boiler",
+    });
+    expect([...planCardsOf(desk.db, decisionsNow())]).toContain(plan.id);
   });
+});
+
+// Confirming round (decision 78, PR A): the move found the open matter, but its new agent was named after a smaller,
+// closed matter sharing the step.
+test("a matter's new agent is named after the open matter the move found, never a closed one sharing its step", async () => {
+  const views = [
+    { ...matterView("matter_00000000000a", [STEP, "obs_00000000a079"]) },
+    { ...matterView("matter_00000000000b", [STEP]), open: false },
+  ];
+  await withMatters(views, async () => {
+    const { assignment, desk, end, old } = await holding();
+    move(desk, { runtime: "other", steps: [STEP] });
+    await advanceMoves(desk);
+    await wakeDue(desk);
+    await end(old);
+    await advanceMoves(desk);
+    const to = assignmentOf(desk.db, assignment)?.agent_id ?? "";
+    expect(to).not.toBe(old);
+    expect(agentOf(desk.db, to)?.name).toBe("Matter matter_00000000000a");
+  });
+});
+
+// Confirming round (decision 78, PR A): a matter that closed during the notes kept its old holder active, holding nothing.
+test("a matter that closes during the notes fails the move, and its old holder, left with nothing, ends", async () => {
+  const { assignment, desk, old } = await holding();
+  move(desk, { runtime: "other", steps: [STEP] });
+  await closeAssignment(desk, assignment, "test: done");
+  await advanceMoves(desk);
+  expect(phaseOf(desk).move).toBeUndefined();
+  expect(agentOf(desk.db, old)?.status).toBe("ended");
 });
 
 test("the store step gives a store of the shape before moves its tables, behind a dated copy; openDesk refuses it before", () => {

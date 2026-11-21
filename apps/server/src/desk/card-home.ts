@@ -1,6 +1,7 @@
 import {
   type AssignmentRow,
   anchorsOf,
+  assignmentOf,
   openAssignments,
   standingAgents,
 } from "../host/desk-read";
@@ -47,16 +48,18 @@ export async function cardHomeOf(
   );
   const v = held?.w ?? find([given]);
   const own = mine.find((m) => anchorsOf(db, m.a.id).length === 0)?.a;
-  // A matter he moved to another agent is that agent's alone (decision 78), whoever's project it is.
-  const pinned = pinnedAssignmentsOf(db);
+  // A matter he moved to another agent is that agent's alone (decision 78), whoever's project it is, its holder stopped too.
   const isMovedAway =
     v &&
-    openAssignments(db).some(
-      (a) =>
+    [...pinnedAssignmentsOf(db)].some((id) => {
+      const a = assignmentOf(db, id);
+      return (
+        a &&
+        a.closed_at === null &&
         a.agent_id !== s.agent_id &&
-        pinned.has(a.id) &&
         find(anchorsOf(db, a.id), pick(a))?.id === v.id
-    );
+      );
+    });
   const home =
     held?.a ??
     (v &&

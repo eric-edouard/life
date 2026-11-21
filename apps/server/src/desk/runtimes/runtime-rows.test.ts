@@ -269,6 +269,12 @@ test("a codex session is running while its rollout's last turn is open and fresh
   expect(await row.readSessionState("ref-none")).toBe("gone");
   // A half-written last line never throws.
   expect(await row.readSessionState("ref-half")).toBe("running");
+  // A rollout that can't be read is not idle: its state is unknown (a runtime switch waits on it).
+  writeFileSync(
+    join(dir, "rollout-2026-01-01T00-00-00-ref-broken.jsonl.zst"),
+    "not zstd"
+  );
+  await expect(row.readSessionState("ref-broken")).rejects.toThrow();
 });
 
 test("the desk launches the program on the PATH, never one in node_modules/.bin (Life's pinned Codex under `bun run`)", () => {
