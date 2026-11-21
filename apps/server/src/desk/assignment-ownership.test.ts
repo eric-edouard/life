@@ -113,8 +113,8 @@ test("a card asked before the desk kept its owner stays its agent's first assign
   expect(assignmentOfCard(desk.db, card)).toBe(first);
 });
 
-// Verdict on PR 841: a card with no desk row of its owner (a store from before it was asked) went to its agent's first
-// assignment. The line names the assignment that asked it.
+// Verdict on PR 841: the card's line is written before the desk's row of it commits; the desk stopping between them
+// left the card to its agent's first assignment. The line names the assignment that asked it.
 test("a card whose owner row never committed stays with the assignment that asked it, not its agent's first", async () => {
   const { desk } = setup();
   const id = standing(desk, {});
