@@ -338,7 +338,7 @@ test("a pin on the second of two matters holding the same step lands on it, and 
 });
 
 // life#817: his next step may carry a context, a card's Markdown with live `life:` links.
-test("his next step's context is kept with it; one without has none; a dead life: link is refused before anything is written", async () => {
+test("his next step's context is kept with it; one without keeps it while the kind and wait stay, has none once they change (life#1005); a dead life: link is refused before anything is written", async () => {
   const next = (nextStep: object) =>
     correct({
       correction: { kind: "matter-direction", matter: matter.id, nextStep },
@@ -355,7 +355,9 @@ test("his next step's context is kept with it; one without has none; a dead life
     text: "Call the plumber",
   });
   expect(contextNow()).toBe("He said so [here](life:matter_aaaaaaaaaaaa).");
-  await next({ kind: "do", text: "Pay the plumber" });
+  await next({ kind: "do", text: "Call the plumber today" });
+  expect(contextNow()).toBe("He said so [here](life:matter_aaaaaaaaaaaa).");
+  await next({ kind: "wait_owner", text: "Pay the plumber", waitsOn: "cash" });
   expect(contextNow()).toBeUndefined();
   await expect(
     next({
@@ -372,5 +374,5 @@ test("his next step's context is kept with it; one without has none; a dead life
       text: "Call again",
     })
   ).rejects.toThrow("20000");
-  expect(readCorrections()).toHaveLength(2);
+  expect(readCorrections()).toHaveLength(3);
 });

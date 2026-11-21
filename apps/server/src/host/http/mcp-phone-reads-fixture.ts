@@ -193,7 +193,11 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
           vendor: "Reef Pay",
         },
         { copy: true, kind: "text", label: "Reference", text: "DEP-12" },
-        { kind: "qr", source: "Reef's WhatsApp of 14 Oct" },
+        {
+          kind: "qr",
+          ref: "msg:whatsapp|whatsapp:155@s.whatsapp.net/M7",
+          source: "Reef's WhatsApp of 14 Oct",
+        },
       ],
       onSilence: null,
       options: [

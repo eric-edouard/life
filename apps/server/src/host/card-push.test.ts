@@ -106,6 +106,31 @@ test("an unnamed voice pushes alone and counts in the badge", async () => {
   expect(push.mock.calls).toEqual([[{ badge: 3, ...alone(3, "voice") }]]);
 });
 
+test("a voice card whose question changes (a new suggested person, a grown group) is not pushed again; its old notification is removed (life#1011)", async () => {
+  const asked = (ref: string) => ({
+    ...card(1, "voice"),
+    pushId: lifelog.pushIdOf(ref),
+    ref,
+  });
+  open = [asked("voice:g1~0a1b2c3d")];
+  await pushNewCards();
+  open = [asked("voice:g1~0a1b2c3d"), asked("voice:g2~0a1b2c3d")];
+  await pushNewCards();
+  expect(push).toHaveBeenCalledTimes(1);
+  open = [asked("voice:g1~0a1b2c3d~person:kit"), asked("voice:g2~4e5f6a7b")];
+  await pushNewCards();
+  expect(push.mock.calls.slice(1)).toEqual([
+    [
+      {
+        removed: [
+          lifelog.pushIdOf("voice:g1~0a1b2c3d"),
+          lifelog.pushIdOf("voice:g2~0a1b2c3d"),
+        ],
+      },
+    ],
+  ]);
+});
+
 test("his notification settings: off pushes nothing, quiet is passive, urgent is time-sensitive within 3 hours", async () => {
   setSettings({ notifications: { "guessed person": "quiet", voice: "off" } });
   try {
