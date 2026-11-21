@@ -34,7 +34,7 @@ export function queue(
 ) {
   for (const w of wakes) {
     const { changes } = db.run(
-      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) select ?1, ?2, ?3, ?4, ?5 where not exists (select 1 from event e join assignment s on s.id = e.assignment_id where e.event_id = ?2 and s.agent_id = (select agent_id from assignment where id = ?1))",
+      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) select ?1, ?2, ?3, ?4, ?5 where exists (select 1 from assignment where id = ?1 and closed_at is null) and not exists (select 1 from event e join assignment s on s.id = e.assignment_id where e.event_id = ?2 and s.agent_id = (select agent_id from assignment where id = ?1))",
       [
         w.assignment,
         w.eventId,

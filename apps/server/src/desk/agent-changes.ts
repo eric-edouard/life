@@ -31,7 +31,7 @@ import {
 } from "./agent-actions";
 import { applyHandOver, type HandOverFacts } from "./agent-moves";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
-import { standingAgentOf } from "./role-agents";
+import { ownAssignmentOf, standingAgentOf } from "./role-agents";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
 // ledger, read here every tick from the desk's own cursor and applied once, in code. What was done, or why not, is the
@@ -206,12 +206,7 @@ function rePoint(desk: Desk, id: string, c: AgentChange) {
     return;
   }
   writeSubject(desk, id, "", c);
-  const hasOwn = db
-    .query<{ id: string }, [string]>(
-      "select id from assignment where agent_id = ? and closed_at is null and id not in (select assignment_id from anchor) limit 1"
-    )
-    .get(id);
-  if (!hasOwn) {
+  if (!ownAssignmentOf(db, id)) {
     openAssignment(desk, id, { openedBy: "owner" });
   }
 }

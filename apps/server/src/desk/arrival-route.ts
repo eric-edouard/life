@@ -1,4 +1,6 @@
 import { clock, daysBefore, HOUR } from "../core/clock";
+import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { readUnitsOf } from "../memory/memory-files";
 import {
   type ConfirmedArrival,
@@ -108,26 +110,41 @@ export async function pollArrivals(
   const routed = facts.flatMap((f) =>
     queued.has(f.id) ? [] : [{ f, related: arrivalNetsOf(f, nets) }]
   );
-  const newest = routed.reduce((a, r) => (r.f.at > a ? r.f.at : a), "");
-  const blocked = routed.some((r) => r.related.length === 0)
-    ? await roleStartBlockOf(desk, "personal", () => newest)
-    : undefined;
-  desk.db.transaction(() => {
-    let place: ReturnType<typeof roleAssignmentOf> | undefined;
-    const personal = () => {
-      place ??= roleAssignmentOf(desk, "personal", PERSONAL_BRIEF, blocked);
-      return "assignment" in place ? place.assignment : undefined;
-    };
+  const toMatters = routed.filter((r) => r.related.length > 0);
+  const toPersonal = routed.filter((r) => r.related.length === 0);
+  // A matter's arrivals first, alone: `queue` skips an assignment that closed meanwhile, left for the next poll.
+  desk.db.transaction(() =>
     queue(
       desk.db,
       ARRIVAL_CONFIRMED,
-      routed.flatMap(({ f, related }) => {
-        const assignment = matterOrPersonalOf(
-          related,
-          related.length > 0 ? undefined : personal()
-        );
+      toMatters.flatMap(({ f, related }) => {
+        const assignment = matterOrPersonalOf(related, undefined);
         return assignment ? [{ assignment, eventId: f.id, payload: f }] : [];
       })
-    );
-  })();
+    )
+  )();
+  if (toPersonal.length === 0) {
+    return;
+  }
+  const newest = toPersonal.reduce((a, r) => (r.f.at > a ? r.f.at : a), "");
+  const blocked = await roleStartBlockOf(desk, "personal", () => newest);
+  try {
+    desk.db.transaction(() => {
+      const place = roleAssignmentOf(desk, "personal", PERSONAL_BRIEF, blocked);
+      if ("assignment" in place) {
+        queue(
+          desk.db,
+          ARRIVAL_CONFIRMED,
+          toPersonal.map(({ f }) => ({
+            assignment: place.assignment,
+            eventId: f.id,
+            payload: f,
+          }))
+        );
+      }
+    })();
+  } catch (error) {
+    // Registering the Personal agent failed (its home not made): its arrivals wait for the next poll.
+    log("desk.arrivals", { ...errorOf(error), ok: false });
+  }
 }

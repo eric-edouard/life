@@ -1,4 +1,4 @@
-import { afterEach, expect, setSystemTime, test } from "bun:test";
+import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import {
   appendFileSync,
   existsSync,
@@ -25,6 +25,8 @@ import {
 } from "./arrival-route";
 import { readPeopleOnce } from "./desk-clock";
 import { matterOrPersonalOf, queue } from "./event-queue";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matterNet from "./matter-net";
 import {
   PERSONAL_BRIEF,
   roleAssignmentOf,
@@ -154,6 +156,56 @@ test("no Personal agent is registered while the start is blocked or the desk is 
   }
   expect(place()).toEqual({ why: "the desk keeps 50 agents active at most" });
   expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
+});
+
+test("a matter's arrival is queued though the Personal agent cannot be registered, whose arrivals wait; none goes onto a closed assignment", async () => {
+  const s = setup();
+  const agent = await s.waiting();
+  const asg = asgOf(s.desk, agent);
+  s.desk.runtimes.claude = s.fake.runtime;
+  // Personal's home cannot be made: its registration throws.
+  setSettings({
+    desk: {
+      agentsRepo: "/dev/null/agents",
+      defaultRuntime: "claude",
+      runtimes: {},
+    },
+  });
+  const nets = spyOn(matterNet, "netsOf").mockResolvedValue([
+    { assignment: asg, people: new Set(["person:ana"]), vectors: [] },
+  ] as never);
+  try {
+    const poll = (id: string, people: string[]) =>
+      pollArrivals(s.desk, readPeopleOnce(), {
+        arrivals: [
+          {
+            at: clock().toISOString(),
+            messages: [`whatsapp|${id}`],
+            people,
+            unit: "unit_0000000000a1",
+          },
+        ],
+        units: [unitOf()],
+      });
+    const queuedIds = () =>
+      s.desk.db
+        .query<{ event_id: string }, []>("select event_id from event")
+        .all()
+        .map((r) => r.event_id);
+    await poll("whatsapp:1", ["person:ana"]);
+    await poll("whatsapp:2", ["person:bo"]);
+    expect(queuedIds()).toEqual(["whatsapp:1"]);
+    expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
+    s.desk.db.run("update assignment set closed_at = ? where id = ?", [
+      clock().toISOString(),
+      asg,
+    ]);
+    await poll("whatsapp:3", ["person:ana"]);
+    expect(queuedIds()).toEqual(["whatsapp:1"]);
+  } finally {
+    nets.mockRestore();
+    setSettings({ desk: null });
+  }
 });
 
 const unitOf = (): Unit =>

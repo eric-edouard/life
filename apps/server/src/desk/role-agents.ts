@@ -1,10 +1,4 @@
-import {
-  agentInRole,
-  anchorsOf,
-  isFull,
-  openAssignments,
-  runtimeOf,
-} from "../host/desk-read";
+import { agentInRole, isFull, runtimeOf } from "../host/desk-read";
 import type { AgentRole } from "../records/registered-agent";
 import { openAssignment, register } from "./agent-actions";
 import type { Desk } from "./desk-store";
@@ -70,10 +64,17 @@ export function roleAssignmentOf(
   }
   const id =
     a?.id ?? register(desk, { brief, role, runtime: runtimeOf({}) ?? "" });
-  const [own] = openAssignments(db)
-    .filter((s) => s.agent_id === id && anchorsOf(db, s.id).length === 0)
-    .toSorted((x, y) => x.opened_at.localeCompare(y.opened_at));
   return {
-    assignment: own?.id ?? openAssignment(desk, id, { openedBy: "owner" }),
+    assignment:
+      ownAssignmentOf(db, id) ??
+      openAssignment(desk, id, { openedBy: "owner" }),
   };
 }
+
+/** Agent `agent`'s own open assignment (no anchors), the first opened: where its role's work goes. */
+export const ownAssignmentOf = (db: Desk["db"], agent: string) =>
+  db
+    .query<{ id: string }, [string]>(
+      "select id from assignment where agent_id = ? and closed_at is null and id not in (select assignment_id from anchor) order by opened_at limit 1"
+    )
+    .get(agent)?.id;
