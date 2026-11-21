@@ -77,6 +77,9 @@ struct RootView: View {
             }
         }
         .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }
+        // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
+        // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
         // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
         .environment(router)
