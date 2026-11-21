@@ -48,9 +48,7 @@
         "name": "Shop fit-out",
         "status": "active"
       },
-      "projects": [
-        "Shop fit-out"
-      ],
+      "projects": ["Shop fit-out"],
       "status": "moving",
       "agent": "agt_000000000001",
       "blockingChecks": 1,
@@ -63,9 +61,7 @@
     "name": "Shop fit-out",
     "situation": [
       {
-        "cites": [
-          "obs_000000000005"
-        ],
+        "cites": ["obs_000000000005"],
         "text": "The shop is quoting the watch repair; the call to them is done."
       }
     ],

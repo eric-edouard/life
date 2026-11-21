@@ -56,9 +56,7 @@
       "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
-      "links": [
-        "https://agents.example.test/s/1"
-      ],
+      "links": ["https://agents.example.test/s/1"],
       "session": "https://agents.example.test/s/1",
       "onMatters": [
         {
@@ -91,9 +89,7 @@
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
       "ridesOn": {
-        "matterIds": [
-          "matter_aaaaaaaaaaaa"
-        ],
+        "matterIds": ["matter_aaaaaaaaaaaa"],
         "matters": 1,
         "observations": 0,
         "pages": 0
@@ -113,9 +109,7 @@
       },
       "confirm": [
         {
-          "about": [
-            "+33600000001"
-          ],
+          "about": ["+33600000001"],
           "asker": "life",
           "at": null,
           "clips": [],
@@ -412,36 +406,12 @@
           "text": "It's the shop, about the watch.",
           "until": "2026-10-14T08:00:04.000Z",
           "words": [
-            [
-              0,
-              300,
-              4
-            ],
-            [
-              350,
-              500,
-              4
-            ],
-            [
-              550,
-              900,
-              6
-            ],
-            [
-              950,
-              1200,
-              6
-            ],
-            [
-              1250,
-              1400,
-              4
-            ],
-            [
-              1450,
-              1900,
-              7
-            ]
+            [0, 300, 4],
+            [350, 500, 4],
+            [550, 900, 6],
+            [950, 1200, 6],
+            [1250, 1400, 4],
+            [1450, 1900, 7]
           ]
         }
       ],
@@ -505,9 +475,7 @@
       }
     },
     {
-      "about": [
-        "Sam"
-      ],
+      "about": ["Sam"],
       "asker": "life",
       "at": null,
       "clips": [
@@ -520,28 +488,7 @@
           },
           "text": "Sam fixed the strap.",
           "until": "2026-10-12T09:00:33.000Z",
-          "words": [
-            [
-              0,
-              400,
-              3
-            ],
-            [
-              450,
-              900,
-              6
-            ],
-            [
-              950,
-              1100,
-              4
-            ],
-            [
-              1150,
-              1600,
-              7
-            ]
-          ]
+          "words": [[0, 400, 3], [450, 900, 6], [950, 1100, 4], [1150, 1600, 7]]
         }
       ],
       "contactsCard": null,
@@ -625,16 +572,12 @@
       }
     },
     {
-      "about": [
-        "+33600000009"
-      ],
+      "about": ["+33600000009"],
       "asker": "life",
       "at": null,
       "clips": [],
       "contactsCard": {
-        "handles": [
-          "+33600000009"
-        ],
+        "handles": ["+33600000009"],
         "name": "Lou"
       },
       "context": "It is the Contacts card Lou.",
@@ -744,9 +687,7 @@
       "question": "Sign the lease renewal",
       "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
       "ridesOn": {
-        "matterIds": [
-          "matter_bbbbbbbbbbbb"
-        ],
+        "matterIds": ["matter_bbbbbbbbbbbb"],
         "matters": 1,
         "observations": 0,
         "pages": 0
@@ -816,9 +757,7 @@
       "question": "Is this done?",
       "ref": "obs_000000000005",
       "ridesOn": {
-        "matterIds": [
-          "matter_aaaaaaaaaaaa"
-        ],
+        "matterIds": ["matter_aaaaaaaaaaaa"],
         "matters": 1,
         "observations": 1,
         "pages": 0
@@ -856,9 +795,7 @@
       }
     },
     {
-      "about": [
-        "+33600000001"
-      ],
+      "about": ["+33600000001"],
       "asker": "life",
       "at": null,
       "clips": [],
@@ -918,9 +855,7 @@
       }
     },
     {
-      "about": [
-        "+33600000001"
-      ],
+      "about": ["+33600000001"],
       "asker": "life",
       "at": null,
       "clips": [],
@@ -1049,9 +984,7 @@
       "question": "Start an agent on this?",
       "ref": "matter_cccccccccccc",
       "ridesOn": {
-        "matterIds": [
-          "matter_cccccccccccc"
-        ],
+        "matterIds": ["matter_cccccccccccc"],
         "matters": 1,
         "observations": 0,
         "pages": 0

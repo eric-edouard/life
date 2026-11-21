@@ -23,9 +23,7 @@
       "runtime": "claude",
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
-      "steps": [
-        "obs_000000000005"
-      ],
+      "steps": ["obs_000000000005"],
       "title": "Get Gran's watch mended",
       "wait": null,
       "wakesOn": []
@@ -73,9 +71,7 @@
           "personAsWritten": "Gran"
         },
         {
-          "apps": [
-            "whatsapp"
-          ],
+          "apps": ["whatsapp"],
           "calls": true,
           "chat": {
             "app": "whatsapp",
@@ -186,9 +182,7 @@
       "question": "Start an agent on this?",
       "ref": "matter_cccccccccccc",
       "ridesOn": {
-        "matterIds": [
-          "matter_cccccccccccc"
-        ],
+        "matterIds": ["matter_cccccccccccc"],
         "matters": 1,
         "observations": 0,
         "pages": 0

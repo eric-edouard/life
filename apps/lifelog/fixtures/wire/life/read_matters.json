@@ -48,9 +48,7 @@
         "name": "Shop fit-out",
         "status": "active"
       },
-      "projects": [
-        "Shop fit-out"
-      ],
+      "projects": ["Shop fit-out"],
       "status": "moving",
       "agent": "agt_000000000001",
       "blockingChecks": 1,
