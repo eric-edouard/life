@@ -41,7 +41,7 @@ struct RootView: View {
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
                 NavigationStack {
-                    SearchScreen(query: query, scope: scope).shellBar("Search", hasSettings: false)
+                    SearchScreen(query: query, scope: scope).shellBar("", hasSettings: false)
                         .searchable(text: $query, prompt: "Search")
                         .searchScopes($scope, activation: .onSearchPresentation) {
                             ForEach(SearchScope.allCases, id: \.self) { Text($0.word).tag($0) }

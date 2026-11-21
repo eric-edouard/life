@@ -1,4 +1,5 @@
 import { SECOND } from "../core/clock";
+import type { Correction } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { FileEntry, Unit } from "../records/unit";
 import { readImportedConversation } from "../sources/assistants";
@@ -240,4 +241,11 @@ export async function contextProblemOf(context: string, reads: SharedReads) {
       return `the link life:${id} opens nothing (${found.why}): a \`life:\` link is a ref \`fetch\` opens`;
     }
   }
+}
+
+/** Why his correction's next step can't be shown: its `context` (a `matter-direction`'s), by a card's rule; none when it has none or can. */
+export function nextStepContextProblemOf(c: Correction, reads: SharedReads) {
+  const context =
+    c.kind === "matter-direction" ? c.nextStep?.context : undefined;
+  return context === undefined ? undefined : contextProblemOf(context, reads);
 }

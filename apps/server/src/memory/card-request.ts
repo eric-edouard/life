@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTime } from "../records/fields";
+import { ContextMarkdown, isoDateTime } from "../records/fields";
 import { MessageDraft, oneLine } from "./draft";
 import { NEED_KINDS, NEED_KINDS_LINE, Need, needPageOf } from "./needs";
 
@@ -31,7 +31,7 @@ export const Ask = z
       .string()
       .regex(/^agt_[0-9a-f]+$/)
       .optional(),
-    context: z.string().max(20_000).default(""),
+    context: ContextMarkdown.default(""),
     deadline: isoDateTime,
     /** How Life sees the card's step done: `payment` (it looks in his accounts for the `amount` need paid to the payee), or `tap` (only his word). */
     doneSeenBy: z.enum(["payment", "tap"]).optional(),

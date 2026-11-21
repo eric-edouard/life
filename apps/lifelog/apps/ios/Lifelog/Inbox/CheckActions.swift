@@ -11,12 +11,6 @@ struct CardInput: Equatable {
     var bankTrip = BankTrip()
 }
 
-/// A link on the ask and what it does: its context ("Why this reply?") or "Tell the agent…".
-struct AskLink {
-    let title: String
-    let run: () -> Void
-}
-
 /// A card's answers inside its panel: the deadline's line, the first option filled, the others in one row when they are
 /// few and short and fit, else each on a row of its own. An option that takes more than a tap asks for it: who it is
 /// ("Same as…"), or his words. `links` are the ask's links that the row under the thing does not hold: at the right end
@@ -26,7 +20,7 @@ struct CheckActions: View {
     @Binding var input: CardInput
     /// His answer is being sent or saved: its busy pill stands in for the answers.
     let isBusy: Bool
-    let links: [AskLink]
+    let links: [QuietChip]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
     /// The create sheet, with the name he would create, set to an organization or not.
@@ -140,7 +134,7 @@ struct CheckActions: View {
                 }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
                 layout {
-                    ForEach(links, id: \.title) { link in TextLink(link.title, action: link.run) }
+                    ForEach(links, id: \.title) { $0 }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

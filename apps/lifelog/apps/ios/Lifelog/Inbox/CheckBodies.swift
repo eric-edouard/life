@@ -192,7 +192,7 @@ struct PersonIdentityBlock: View {
                 .accessibilityElement(children: .combine)
             }
             if let url = identity.openUrl {
-                TextLink("Open in \(network ?? "its app")", isOutward: true, isMuted: false) { openURL(url) }
+                TextLink("Open in \(network ?? "its app")", to: .outside) { openURL(url) }
             }
         }
     }

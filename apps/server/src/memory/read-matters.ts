@@ -408,17 +408,25 @@ export async function oneMatter<A>(
 ) {
   const people = await readPeople();
   const v = matterOfSteps(await readMatterBook(people, dayNow()), refs, prefer);
-  return (
-    v && {
-      ...rowOf(v, people, openDecisions(), await readIcons?.([v])),
-      agents: agentsOf(refsOf(v), people),
-      communicationStyles: communicationStylesOf(
-        knownPeopleOf(v, people),
-        people.nameOf
-      ),
-      steps: v.steps.map((s) =>
-        s.with ? { ...s, with: people.partyOf(s.with) } : s
-      ),
-    }
-  );
+  if (!v) {
+    return;
+  }
+  const row = rowOf(v, people, openDecisions(), await readIcons?.([v]));
+  // His next step's context, on one matter's read only (never in the list); none on a wait for his decision.
+  const context =
+    row.nextStep?.kind === "wait_decision" ? undefined : v.nextStep?.context;
+  return {
+    ...row,
+    ...(context && row.nextStep
+      ? { nextStep: { ...row.nextStep, context } }
+      : {}),
+    agents: agentsOf(refsOf(v), people),
+    communicationStyles: communicationStylesOf(
+      knownPeopleOf(v, people),
+      people.nameOf
+    ),
+    steps: v.steps.map((s) =>
+      s.with ? { ...s, with: people.partyOf(s.with) } : s
+    ),
+  };
 }
