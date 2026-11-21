@@ -1,0 +1,142 @@
+{
+  "people": [
+    {
+      "kind": "person",
+      "name": "Camille Vance",
+      "ref": "person:camille",
+      "line": "Partner",
+      "picture": {
+        "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+      },
+      "level": "inner",
+      "lastExchangeAt": "2026-11-17T09:14:00",
+      "needsYou": true
+    },
+    {
+      "kind": "person",
+      "name": "Jun Watanabe",
+      "ref": "person:jun_watanabe",
+      "line": "Friend, you see him most Saturdays",
+      "picture": {
+        "id": "a9893f5eb81c6184b825788f704c678b"
+      },
+      "level": "inner",
+      "lastExchangeAt": "2026-11-14T11:30:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Annick Vance",
+      "ref": "person:annick",
+      "line": "Camille’s mother",
+      "picture": {
+        "id": "69c417eadc421481e9a79b1444258bb3"
+      },
+      "level": "inner",
+      "lastExchangeAt": "2026-11-08T18:00:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Idris Benali",
+      "ref": "person:idris",
+      "line": "Kitchen fitter",
+      "picture": {
+        "id": "59400481f8a16e09515dc886a44c1393"
+      },
+      "level": "regular",
+      "lastExchangeAt": "2026-11-16T14:20:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Hélène Aubert",
+      "ref": "person:helène_aubert",
+      "line": "Landlord",
+      "level": "regular",
+      "lastExchangeAt": "2026-11-15T10:05:00",
+      "needsYou": true
+    },
+    {
+      "kind": "person",
+      "name": "Nora Keller",
+      "ref": "person:nora_keller",
+      "line": "Client",
+      "picture": {
+        "id": "9d80c65fa3d41f254bfbde4054864eba"
+      },
+      "level": "regular",
+      "lastExchangeAt": "2026-11-13T16:40:00",
+      "needsYou": false
+    },
+    {
+      "kind": "organization",
+      "name": "Atelier Morel",
+      "ref": "person:atelier_morel",
+      "line": "Architects on Nora Keller’s house",
+      "level": "regular",
+      "lastExchangeAt": "2026-11-16T09:10:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Bastien Morel",
+      "ref": "person:bastien",
+      "line": "Founder, Atelier Morel",
+      "picture": {
+        "id": "04f62921efb80bf5e97b0bb91b04e881"
+      },
+      "level": "acquaintance",
+      "lastExchangeAt": "2026-11-16T09:10:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Marc Fenn",
+      "ref": "person:marc_fenn",
+      "line": "Camille’s brother",
+      "level": "acquaintance",
+      "lastExchangeAt": "2026-11-09T20:15:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Inès Carvalho",
+      "ref": "person:ines",
+      "line": "Site manager, Atelier Morel",
+      "level": "acquaintance",
+      "lastExchangeAt": "2026-11-05T12:00:00",
+      "needsYou": false
+    },
+    {
+      "kind": "organization",
+      "name": "Blue Reef Diving Co.",
+      "ref": "person:blue_reef",
+      "line": "Dive school, Koh Tao",
+      "level": "acquaintance",
+      "lastExchangeAt": "2026-09-02T08:00:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Marc Delmas",
+      "ref": "person:marc_delmas",
+      "line": "Fitter, works with Idris Benali",
+      "level": "faded",
+      "lastExchangeAt": "2026-05-12T09:00:00",
+      "needsYou": false
+    },
+    {
+      "kind": "person",
+      "name": "Paul Girard",
+      "ref": "person:paul_girard",
+      "line": "Old flatmate",
+      "picture": {
+        "id": "8062f1c6dcc2a2ab1b1a1f4b5cfe325a"
+      },
+      "level": "faded",
+      "lastExchangeAt": "2026-08-20T19:00:00",
+      "needsYou": false
+    }
+  ]
+}
