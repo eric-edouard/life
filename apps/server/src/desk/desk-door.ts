@@ -310,17 +310,7 @@ function doorServer(desk: Desk, id: string) {
     }),
     ({ agent, said, to }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      const told = tellAgent(
-        desk,
-        agent,
-        words,
-        tellLifeRefOf(turn?.id ?? -1, "tell_agent", {
-          agent,
-          to,
-          words,
-        }),
-        to
-      );
+      const told = tellAgent(desk, agent, words, turn?.id ?? -1, to);
       if (!("error" in told)) {
         acted(turn, { agent: agentNameOf(agent), kind: "agent", told: words });
       }
