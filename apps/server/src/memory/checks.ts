@@ -5,32 +5,32 @@ import { LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
-import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { readContactStores } from "../sources/contacts";
 import { pushIdOf } from "../sources/lifelog-push";
 import { readNamingQueue } from "../sources/lifelog-voices";
 import {
-  type AtOrganization,
   atOrganizationAsksOf,
   readAtOrganizationPairs,
 } from "./at-organization";
 import { planRoleOf } from "./card-problems";
 import { cardAskOf, guessAskOf } from "./check-asks";
 import {
+  type CheckInputs,
   type Ctx,
   ctxOf,
   keptBy,
+  type Line,
   type MatterId,
   NO_SAID,
   type Ranked,
   ranked,
   ridingOf,
+  type Where,
 } from "./check-context";
 import { literalOf, withQuoteOf } from "./check-quotes";
 import {
   isEndingOpen,
-  type NameContext,
   nameGroupsOf,
   readSentences,
   saidOfLine,
@@ -56,9 +56,7 @@ import {
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
-import type { AgentHold } from "./held-matters";
 import {
-  type BeingFixed,
   type CardHolders,
   type Check,
   type CheckKind,
@@ -66,13 +64,7 @@ import {
   type HeldRead,
   LIFE_CHECKS,
 } from "./life-checks";
-import {
-  directionDueOf,
-  type MatterStepNow,
-  type MatterView,
-  matterBookOf,
-  matterFinderOf,
-} from "./matter-read";
+import { directionDueOf, matterBookOf, matterFinderOf } from "./matter-read";
 import {
   MATTER_BOOK_READS,
   mattersNow,
@@ -98,19 +90,9 @@ import { isOneOfHis, isParkedMatterOf } from "./read-matters";
 import { lifeLinksOf } from "./refs";
 import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
-import { type GuessedQueueItem, withVoiceGuesses } from "./voice-guesses";
-import {
-  type People,
-  readPeople,
-  readUnresolvedPeople,
-  type Shown,
-} from "./who";
-import {
-  readPlaces,
-  type YourMoveInputs,
-  yourMoveChecksOf,
-  yourMoveStepsOf,
-} from "./your-move";
+import { withVoiceGuesses } from "./voice-guesses";
+import { readPeople, readUnresolvedPeople } from "./who";
+import { readPlaces, yourMoveChecksOf, yourMoveStepsOf } from "./your-move";
 import { dayNow } from "./zones";
 
 // The checks: everything waiting on his word, in one shape, with no limit: a guess of Life's his word would settle,
@@ -118,112 +100,7 @@ import { dayNow } from "./zones";
 // new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
 // store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
 
-/** A kept line as the checks read it. */
-export type Line = Pick<
-  Shown,
-  | "about"
-  | "confidence"
-  | "date"
-  | "id"
-  | "quote"
-  | "speaker"
-  | "subjects"
-  | "text"
-  | "unit"
-> & { source: Pick<Shown["source"], "channel"> };
-
-/** Where and when a record was said, in words: "whatsapp, 7 Sep". */
-type Where = string;
-
-/** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
-export interface CheckInputs {
-  /** Refs of the fact-check answers he gave (any answer settles that line's check). */
-  answered: ReadonlySet<string>;
-  /** The people of his directory who may be at an organization of it (`atOrganizationPairsOf`), worked out once by the reader. */
-  atOrganizations: readonly AtOrganization[];
-  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now, with its session (`HeldRead.cardHolders`). */
-  decisions: readonly (Decision & { session?: string })[];
-  /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
-  dismissed: readonly (readonly string[])[];
-  /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
-  doubted: ReadonlySet<string>;
-  /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
-  endings: ReadonlyMap<string, { later: string; quote: string }>;
-  /** His complaints at work with the caretaker, by the cause each names (`causeOf`): that card shows it being fixed. */
-  fixing?: ReadonlyMap<string, BeingFixed>;
-  /** Every registered agent's anchors as facts (host's `heldByAgents`), for the hold rule (`isHeldOf`); null while the desk is off or unreadable: then no new matter is offered. */
-  heldByAgents: readonly AgentHold[] | null;
-  /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
-  isDirectionDue: (matter: string) => boolean;
-  /** Whether the hand-out takes a matter (by its id): `desk.handOut` is set and it is one of his (`isOneOfHis`); it then gets no Start. */
-  isForHandOut: (matter: string) => boolean;
-  /** Whether a matter (by its id) is of a parked or done project (`isParkedMatterOf`): the hand-out starts none, nor is one offered, nor is his move asked. */
-  isParked: (matter: string) => boolean;
-  /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
-  kept: ReadonlySet<string>;
-  lines: readonly Line[];
-  matters: readonly (Pick<
-    MatterView,
-    | "goal"
-    | "id"
-    | "lone"
-    | "name"
-    | "newestOpenStep"
-    | "nextStep"
-    | "open"
-    | "owedTo"
-    | "projects"
-    | "status"
-    | "waitingOn"
-    | "with"
-  > & {
-    important?: boolean;
-    openSteps?: YourMoveInputs["matters"][number]["openSteps"];
-    steps: Pick<MatterStepNow, "at" | "day" | "quote" | "ref">[];
-  })[];
-  /** What each name check shows of its sentence, by the name's key (`readNameContexts`); a name whose unit could not be read has none. */
-  nameContexts: ReadonlyMap<string, NameContext>;
-  /** The names Life cannot place, one group per name (`nameGroupsOf`), worked out once by the reader. */
-  nameGroups: ReturnType<typeof nameGroupsOf<Line>>;
-  notNow?: YourMoveInputs["notNow"];
-  paged: ReadonlySet<string>;
-  people: Pick<
-    People,
-    | "ambiguousCards"
-    | "candidatesFor"
-    | "contacts"
-    | "isGuess"
-    | "nameOf"
-    | "names"
-    | "partyOf"
-    | "refOf"
-    | "resolve"
-  > & {
-    inferred: Pick<
-      InferredPerson,
-      | "at"
-      | "confidence"
-      | "evidence"
-      | "id"
-      | "name"
-      | "namesAndHandles"
-      | "relation"
-    >[];
-  };
-  places?: YourMoveInputs["places"];
-  /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
-  plans?: ReadonlySet<string>;
-  /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
-  samePersons: ReturnType<typeof samePersonPairsOf>;
-  /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
-  titles: ReadonlyMap<string, string>;
-  /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
-  today: string;
-  /** The voices lifelog asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
-  voices: readonly GuessedQueueItem[];
-  /** Where a record that is not a line was said: units and episodes, by id. */
-  where: ReadonlyMap<string, Where>;
-}
+export type { CheckInputs, Line };
 
 /** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({

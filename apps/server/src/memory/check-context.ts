@@ -1,12 +1,136 @@
 import type { CheckGroup } from "../core/names";
 import { LIFE_ASKER } from "../core/names";
+import type { InferredPerson } from "../records/observation";
+import type { AtOrganization } from "./at-organization";
 import type { Quote } from "./check-quotes";
-import type { CheckInputs, Line } from "./checks";
-import { type Check, LIFE_CHECKS, preTickedOf } from "./life-checks";
-import { matterPeopleOf } from "./matter-read";
+import type { NameContext, nameGroupsOf } from "./check-sentences";
+import type { Decision } from "./decision-lines";
+import type { AgentHold } from "./held-matters";
+import {
+  type BeingFixed,
+  type Check,
+  LIFE_CHECKS,
+  preTickedOf,
+} from "./life-checks";
+import {
+  type MatterStepNow,
+  type MatterView,
+  matterPeopleOf,
+} from "./matter-read";
 import { newMatterOffersOf } from "./read-matters";
+import type { samePersonPairsOf } from "./same-person";
+import type { GuessedQueueItem } from "./voice-guesses";
+import type { People, Shown } from "./who";
+import type { YourMoveInputs } from "./your-move";
 
 // What every kind of check builder shares (`checks.ts`): the lookups made once (`Ctx`) and a guess ranked by what rides on it.
+
+/** A kept line as the checks read it. */
+export type Line = Pick<
+  Shown,
+  | "about"
+  | "confidence"
+  | "date"
+  | "id"
+  | "quote"
+  | "speaker"
+  | "subjects"
+  | "text"
+  | "unit"
+> & { source: Pick<Shown["source"], "channel"> };
+
+/** Where and when a record was said, in words: "whatsapp, 7 Sep". */
+export type Where = string;
+
+/** Everything the checks are worked out from; `checksNow` reads it, `checksOf` is pure over it. */
+export interface CheckInputs {
+  /** Refs of the fact-check answers he gave (any answer settles that line's check). */
+  answered: ReadonlySet<string>;
+  /** The people of his directory who may be at an organization of it (`atOrganizationPairsOf`), worked out once by the reader. */
+  atOrganizations: readonly AtOrganization[];
+  /** The open decisions (`decisionsNow`), each as asked by the agent holding it now, with its session (`HeldRead.cardHolders`). */
+  decisions: readonly (Decision & { session?: string })[];
+  /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
+  dismissed: readonly (readonly string[])[];
+  /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
+  doubted: ReadonlySet<string>;
+  /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
+  endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** His complaints at work with the caretaker, by the cause each names (`causeOf`): that card shows it being fixed. */
+  fixing?: ReadonlyMap<string, BeingFixed>;
+  /** Every registered agent's anchors as facts (host's `heldByAgents`), for the hold rule (`isHeldOf`); null while the desk is off or unreadable: then no new matter is offered. */
+  heldByAgents: readonly AgentHold[] | null;
+  /** Whether a matter's next step is not checked yet (`directionDueOf`, by the matter's id): none is offered while it is due. */
+  isDirectionDue: (matter: string) => boolean;
+  /** Whether the hand-out takes a matter (by its id): `desk.handOut` is set and it is one of his (`isOneOfHis`); it then gets no Start. */
+  isForHandOut: (matter: string) => boolean;
+  /** Whether a matter (by its id) is of a parked or done project (`isParkedMatterOf`): the hand-out starts none, nor is one offered, nor is his move asked. */
+  isParked: (matter: string) => boolean;
+  /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
+  kept: ReadonlySet<string>;
+  lines: readonly Line[];
+  matters: readonly (Pick<
+    MatterView,
+    | "goal"
+    | "id"
+    | "lone"
+    | "name"
+    | "newestOpenStep"
+    | "nextStep"
+    | "open"
+    | "owedTo"
+    | "projects"
+    | "status"
+    | "waitingOn"
+    | "with"
+  > & {
+    important?: boolean;
+    openSteps?: YourMoveInputs["matters"][number]["openSteps"];
+    steps: Pick<MatterStepNow, "at" | "day" | "quote" | "ref">[];
+  })[];
+  /** What each name check shows of its sentence, by the name's key (`readNameContexts`); a name whose unit could not be read has none. */
+  nameContexts: ReadonlyMap<string, NameContext>;
+  /** The names Life cannot place, one group per name (`nameGroupsOf`), worked out once by the reader. */
+  nameGroups: ReturnType<typeof nameGroupsOf<Line>>;
+  notNow?: YourMoveInputs["notNow"];
+  paged: ReadonlySet<string>;
+  people: Pick<
+    People,
+    | "ambiguousCards"
+    | "candidatesFor"
+    | "contacts"
+    | "isGuess"
+    | "nameOf"
+    | "names"
+    | "partyOf"
+    | "refOf"
+    | "resolve"
+  > & {
+    inferred: Pick<
+      InferredPerson,
+      | "at"
+      | "confidence"
+      | "evidence"
+      | "id"
+      | "name"
+      | "namesAndHandles"
+      | "relation"
+    >[];
+  };
+  places?: YourMoveInputs["places"];
+  /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
+  plans?: ReadonlySet<string>;
+  /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
+  samePersons: ReturnType<typeof samePersonPairsOf>;
+  /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
+  titles: ReadonlyMap<string, string>;
+  /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
+  today: string;
+  /** The voices lifelog asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
+  voices: readonly GuessedQueueItem[];
+  /** Where a record that is not a line was said: units and episodes, by id. */
+  where: ReadonlyMap<string, Where>;
+}
 
 export interface Ranked {
   /** What the guess also rests on, for its cause (`causeOf`): an ending's later step. */
