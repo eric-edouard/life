@@ -64,18 +64,23 @@ type Row = Record<string, unknown>;
  */
 const sceneOf = (o: {
   before?: boolean;
+  /** How many turns c1 holds: 20 (20,000 characters, long), fewer for a short conversation. */
+  count?: number;
   id?: string;
   name?: string;
   others?: number;
+  /** Voice's naming queue: its groups. */
+  queue?: (job: string) => Row[];
   voices?: (job: string, before: string) => Row[];
 }) => {
+  const count = o.count ?? 20;
   n += 1;
   const store = join(dir, `store-${n}`);
   const where = join(dir, `trial-${n}`);
   const [job, before] = [`job-${n}`, `job-${n}-0`];
   const every = (o.others ?? 1) + 1;
-  const turnsOf = (jobId: string, from: string, count: number, c: string) =>
-    Array.from({ length: count }, (_, t) => ({
+  const turnsOf = (jobId: string, from: string, length: number, c: string) =>
+    Array.from({ length }, (_, t) => ({
       ...turnFixture(
         t,
         new Date(Date.parse(from) + t * MIN).toISOString(),
@@ -86,12 +91,12 @@ const sceneOf = (o: {
       ),
       jobId,
     }));
-  const turns = turnsOf(job, "2026-10-10T10:00:00.000Z", 20, "c1");
+  const turns = turnsOf(job, "2026-10-10T10:00:00.000Z", count, "c1");
   const earlier = o.before
     ? turnsOf(before, "2026-10-09T10:00:00.000Z", 6, "c0")
     : [];
-  const transcript = (count: number) => () => ({
-    turns: Array.from({ length: count }, (_, t) => ({
+  const transcript = (length: number) => () => ({
+    turns: Array.from({ length }, (_, t) => ({
       speakerId: `speaker_${t % every}`,
       text: `remark ${t} ${"w".repeat(1000)}`,
     })),
@@ -101,7 +106,8 @@ const sceneOf = (o: {
     "/conversations/c0": () => ({ latestRun: null }),
     "/conversations/c1": () => ({ latestRun: null }),
     [`/transcription-jobs/${before}/transcript`]: transcript(6),
-    [`/transcription-jobs/${job}/transcript`]: transcript(20),
+    [`/transcription-jobs/${job}/transcript`]: transcript(count),
+    "/naming-queue": () => o.queue?.(job) ?? [],
     ...(o.voices ? { "/speakers/voices": () => o.voices?.(job, before) } : {}),
   });
   const open = () => openStore(store);
@@ -172,7 +178,11 @@ const run = async (s: Scene, reply: (i: NamingInput) => unknown) => {
 };
 
 /** What code knows beside the model's input, when it knows nothing. */
-const NOTHING_KNOWN = { noOne: new Set<string>(), onCall: [] };
+const NOTHING_KNOWN = {
+  evidence: new Map(),
+  members: new Map(),
+  noOne: new Set<string>(),
+};
 
 test("an unnamed voice is a V in the lines; its reply is kept only as far as it checks, stored under the unnamed turn's key; nothing is asked twice", async () => {
   const t = sceneOf({
@@ -387,31 +397,53 @@ test('the hidden run hides a voice he answered "A stranger" and does not check i
   ]);
 });
 
-test("a likely guess with no likeness and no call is stored weak; with likeness or on a call it stays likely; sure stays sure", () => {
-  const withInput: NamingInput = {
+test("how sure a stored guess is comes from the signals code counted for that voice and person, never the model's word alone", () => {
+  const stored = (confidence: string, signals: number, elsewhere = false) =>
+    checkedVoices({ voices: [entry({ confidence })] }, input, {
+      ...NOTHING_KNOWN,
+      evidence: new Map([["V1 person:dana", { elsewhere, signals }]]),
+    }).voices[0]?.confidence;
+  expect(stored("sure", 2)).toBe("sure");
+  expect(stored("sure", 2, true)).toBe("likely");
+  expect(stored("sure", 1)).toBe("likely");
+  expect(stored("likely", 0)).toBe("weak");
+  // Nothing counted: weak.
+  expect(
+    checkedVoices({ voices: [entry({})] }, input, NOTHING_KNOWN).voices[0]
+      ?.confidence
+  ).toBe("weak");
+  // Him or no one: as the model said.
+  expect(
+    checkedVoices({ voices: [entry({ person: "me" })] }, input, NOTHING_KNOWN)
+      .voices[0]?.confidence
+  ).toBe("sure");
+});
+
+test("a group's guess is stored under each of its recording voices, citing that voice's lines, else its first", () => {
+  const grouped = {
     ...input,
-    voices: [
-      { likeness: [{ person: "person:dana", score: 0.8 }], voice: "V1" },
-      { likeness: [], voice: "V2" },
-    ],
+    lines: [...input.lines.slice(0, 2), "[2] 10:02 V1: yes"],
   };
-  const confidenceOf = (
-    voice: string,
-    confidence: string,
-    onCall: string[] = []
-  ) =>
-    checkedVoices(
-      {
-        voices: [entry({ confidence, lines: [voice === "V1" ? 1 : 2], voice })],
-      },
-      withInput,
-      { noOne: new Set(), onCall }
-    ).voices[0]?.confidence;
-  expect(confidenceOf("V2", "likely")).toBe("weak");
-  expect(confidenceOf("V1", "likely")).toBe("likely");
-  expect(confidenceOf("V2", "likely", ["person:dana"])).toBe("likely");
-  expect(confidenceOf("V2", "sure")).toBe("sure");
-  expect(confidenceOf("V2", "weak")).toBe("weak");
+  const { voices } = checkedVoices(
+    { voices: [entry({ confidence: "weak", lines: [1] })] },
+    grouped,
+    {
+      ...NOTHING_KNOWN,
+      members: new Map([
+        [
+          "V1",
+          new Map([
+            ["V1", [1]],
+            ["V2", [2]],
+          ]),
+        ],
+      ]),
+    }
+  );
+  expect(voices as unknown[]).toEqual([
+    entry({ confidence: "weak", lines: [1], voice: "V1" }),
+    entry({ confidence: "weak", lines: [2], voice: "V2" }),
+  ]);
 });
 
 test("an older Lifelog Host with no voices route stops the step with a plain message", async () => {
@@ -519,4 +551,64 @@ test("again asks a part with a stored reply once more, and the newest line is th
     stepOf(() => ({ voices: [] }))
   );
   expect(readReplies(s.where).flat()).toHaveLength(2);
+});
+
+test("Voice's group is one V for the model, with the name it heard, and its guess is stored for each recording voice", async () => {
+  const s = sceneOf({
+    others: 2,
+    queue: (job) => [
+      {
+        clips: [],
+        conversations: 1,
+        evidence: [],
+        id: "group-1",
+        isLikely: false,
+        kind: "new_person",
+        likely: [],
+        name: "Zed",
+        personId: null,
+        voices: ["speaker_1", "speaker_2"].map((speakerLabel) => ({
+          conversationId: "c1",
+          jobId: job,
+          speakerLabel,
+        })),
+        words: 100,
+      },
+    ],
+    voices: (job) => [row(job), row(job, { speakerLabel: "speaker_2" })],
+  });
+  await run(s, () => ({
+    voices: [{ confidence: "sure", lines: [1, 2], person: "me", voice: "V1" }],
+  }));
+  const [shown] = asked;
+  expect(shown?.lines.join("\n")).not.toContain(" V2: ");
+  expect(shown?.voices).toEqual([{ heard: "Zed", likeness: [], voice: "V1" }]);
+  expect(storedVoices(s.where)).toEqual([
+    [
+      { confidence: "sure", lines: [1], person: "me", voice: "V1" },
+      { confidence: "sure", lines: [2], person: "me", voice: "V2" },
+    ],
+  ]);
+});
+
+test("a short conversation is read only near a call or a plan; the people he wrote to before it are offered with their chats' titles", async () => {
+  const s = sceneOf({ count: 4, voices: (job) => [row(job)] });
+  expect((await workOf(s)).counts.calls).toBe(0);
+  const plan: SourceEvent = {
+    at: "2026-10-10T09:30:00.000Z",
+    chat: "+15550000001",
+    chatName: "Dana / Dee",
+    fromMe: false,
+    id: "m1",
+    sender: "+15550000001",
+    source: "whatsapp",
+    text: "on my way",
+  };
+  const work = await workOf(s, [plan]);
+  expect(work.counts.calls).toBe(1);
+  const shown = work.asked[0]?.call.input as NamingInput;
+  expect(shown.people).toMatchObject([
+    { chats: ["Dana / Dee"], name: "dana", ref: "person:dana" },
+  ]);
+  expect(shown.messages.join("\n")).toContain("on my way");
 });
