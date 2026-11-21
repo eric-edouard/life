@@ -61,6 +61,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
     #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
+    // The plan card: the second decision is its assignment's first card; the first is not.
+    #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
+    #expect(inbox.checks.last?.isPlan == nil)
     #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
     #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
     #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
