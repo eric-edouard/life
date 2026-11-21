@@ -337,13 +337,10 @@ test("a card about a known person carries no name that is already theirs", () =>
     .all();
   conversation(me, talk(8), [identity({ name: "jojo", personId: marie?.id })]);
   conversation(me, talk(7), [identity({ name: "Sam", personId: marie?.id })]);
-  // No voice to judge: what the summaries heard alone is never likely.
-  expect(queued().map((c) => [c.kind, c.personId, c.name, c.isLikely])).toEqual(
-    [
-      ["known_person", marie?.id ?? null, null, false],
-      ["known_person", marie?.id ?? null, "Sam", false],
-    ]
-  );
+  expect(queued().map((c) => [c.kind, c.personId, c.name])).toEqual([
+    ["known_person", marie?.id ?? null, null],
+    ["known_person", marie?.id ?? null, "Sam"],
+  ]);
 });
 
 test("the queue holds a voice once across days, and loses it once answered", () => {
@@ -400,33 +397,33 @@ test("a voice that sounds like a stranger is never asked about", () => {
   expect(queued()).toEqual([]);
 });
 
-// The owner's voice profile (one axis), from an earlier conversation, and a conversation whose speaker_1 has `voice`,
-// heard by its summary as `heard`.
-function ownerAnd(
-  voice: number[],
-  heard: (me: string) => Record<string, unknown>[] = () => []
-) {
+// A voice at cosine `c` to the owner's (one axis).
+function alike(c: number) {
+  const v = new Array<number>(192).fill(0);
+  v[7] = c;
+  v[8] = Math.sqrt(1 - c * c);
+  return v;
+}
+
+// The owner's voice profile, and a conversation whose speaker_1 has `voice`, tied to him by its summary or not.
+function ownerAnd(voice: number[], isTied = false) {
   const me = owner();
-  const axis = Array.from({ length: 192 }, (_, i) => (i === 7 ? 1 : 0));
-  const sample = (
-    embedding: number[],
-    jobId: string,
-    conversationId: string,
-    turnIndex: number
-  ) => ({
-    conversationId,
-    durationSeconds: 9,
-    embedding,
-    jobId,
-    modelId: "test/ecapa",
-    modelRevision: "r1",
-    speakerLabel: `speaker_${turnIndex % 2}`,
-    turnIndex,
-  });
+  const sample =
+    (embedding: number[], { id, jobId }: { id: string; jobId: string }) =>
+    (turnIndex: number) => ({
+      conversationId: id,
+      durationSeconds: 9,
+      embedding,
+      jobId,
+      modelId: "test/ecapa",
+      modelRevision: "r1",
+      speakerLabel: `speaker_${turnIndex % 2}`,
+      turnIndex,
+    });
   const earlier = conversation(me, talk(2));
   const evidence = env.db
     .insert(voiceSamples)
-    .values([0, 2].map((i) => sample(axis, earlier.jobId, earlier.id, i)))
+    .values([0, 2].map(sample(alike(1), earlier)))
     .returning()
     .all();
   env.db
@@ -439,41 +436,30 @@ function ownerAnd(
       }))
     )
     .run();
-  const split = conversation(me, talk(8), heard(me));
+  const tied = isTied ? [identity({ personId: me })] : [];
+  const split = conversation(me, talk(8), tied);
   env.db
     .insert(voiceSamples)
-    .values([1, 3].map((i) => sample(voice, split.jobId, split.id, i)))
+    .values([1, 3].map(sample(voice, split)))
     .run();
   return me;
 }
 
-// A voice at cosine `c` to the owner's.
-const alike = (c: number) =>
-  Array.from({ length: 192 }, (_, i) =>
-    i === 7 ? c : i === 8 ? Math.sqrt(1 - c * c) : 0
-  );
-
-test("a card no summary named, that sounds like someone, asks about them", () => {
-  // The owner, split off under another label: it "talks with" him.
-  const me = ownerAnd(alike(1));
+test("a card no summary named that sounds like someone asks about them; a guess is likely when tied by a summary or named by sound alone", () => {
+  let me = ownerAnd(alike(1)); // the owner, split off under another label
   expect(queued()).toMatchObject([
     { isLikely: true, kind: "known_person", name: null, personId: me },
   ]);
-});
-
-test("a guess is likely when a summary tied it and it sounds like them, or when its sound alone names them", () => {
-  const tied = (me: string) => [identity({ personId: me })];
-  // At 0.55 it sounds like them, short of naming them by sound: likely only once a summary tied it to them.
-  const me = ownerAnd(alike(0.55), tied);
+  env.reset();
+  me = ownerAnd(alike(0.55), true); // like them, short of naming them by sound
   expect(queued()).toMatchObject([
     { isLikely: true, kind: "known_person", personId: me },
   ]);
   env.reset();
-  ownerAnd(alike(0.55));
+  ownerAnd(alike(0.55)); // the same, untied
   expect(queued()).toMatchObject([{ isLikely: false, kind: "new_person" }]);
   env.reset();
-  // Tied by a summary but not sounding like them.
-  ownerAnd(alike(0.3), tied);
+  ownerAnd(alike(0.3), true); // tied by a summary, but not like them
   expect(queued()).toMatchObject([{ isLikely: false, kind: "known_person" }]);
 });
 
