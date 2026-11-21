@@ -43,7 +43,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Effort | Claude's effort config | `set_thinking_level` (DeepSeek's thinking through OpenRouter) | on par |
 | Usage and context (decision 83) | prompt reply's tokens (unstable ACP field) and `usage_update` context; spend is an `equivalent` at list price | each `message_end` carries input, output, cache read and write and its cost in dollars; `get_session_stats` gives the turn's context. Spend becomes `billed`, exact | better |
 | Subagents | the Task tool | none built in; pi's `examples/extensions/subagent/` spawns pi processes. Fix: ship it with the same extension loaded in each child, so the guard holds there too | gap |
-| Web search and fetch | built-in WebSearch and WebFetch | none built in. Fix: two extension tools, `web_fetch` (Bun's fetch to Markdown) and `web_search` (the SerpAPI key the owner keeps); never OpenRouter's web plugin, which ZDR does not cover | gap |
+| Web search and fetch | built-in WebSearch and WebFetch | none built in. Fix: two extension tools, `web_fetch` (Bun's fetch, a page as its text) and `web_search` (the SerpAPI key the owner keeps); never OpenRouter's web plugin, which ZDR does not cover | gap |
 | Browser use | Claude in Chrome (a Claude feature) | Playwriter on the owner's Chrome, by shell and skill, as Codex agents do; the guard reads its command text like any shell call | on par |
 | Computer use | Claude's computer-use MCP | `agent-desktop` by shell; the guard's rule already names it | on par |
 | Images | pasted or read images | `images[]` on `prompt`; V4.1 Flash takes image input | on par |
@@ -196,7 +196,7 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 | 1 | `pi-extension.ts`: the guard in `tool_call`, the door, Life's provider with its routing on every request, a repo's `.pi` never trusted; tests in a real pi (#1173) | hard (strict path) |
 | 2 | `pi-runtime.ts` over RPC behind the one runtime (`session-runtime.ts`, split from ACP's), pi pinned and bundled, `pi` in `RuntimeName` and the phone's list, SECURITY.md's and AGENTS.md's lines (decision 3) | hard (strict path) |
 | 3 | a move that names its target, spending as `billed` from OpenRouter with its desk store step | hard (strict path: a store step) |
-| 4 | parity in the extension (`pi-parity.ts`), his own Life only: his Claude `PreToolUse` hooks on each shell call, `web_fetch`, `web_search` (SerpAPI, his key), his global instructions (`CLAUDE.md`, imports followed) as the agent folder's `AGENTS.md` | standard |
+| 4 | parity in the extension (`claude-hooks.ts`, `web-tools.ts`), his own Life only: his Claude `PreToolUse` hooks on each shell call, `web_fetch`, `web_search` (SerpAPI, his key), his global instructions (`CLAUDE.md`, imports followed) as the agent folder's `AGENTS.md` | standard |
 | 4b | subagents (the extension loaded in each child) and the Life connector's read grant in `mcp.json` (strict path: `host/http/`) | hard |
 | 5 | folded into PR 2 | |
 | 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |

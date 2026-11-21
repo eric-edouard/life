@@ -18,6 +18,13 @@ const answer = (t: string) => ({
   details: {},
 });
 
+/** The tool call's signal, ended also past `FETCH_WITHIN_MS`. */
+const withinOf = (signal: AbortSignal | undefined) =>
+  AbortSignal.any([
+    ...(signal ? [signal] : []),
+    AbortSignal.timeout(FETCH_WITHIN_MS),
+  ]);
+
 /** The first `FETCH_BYTES` of a body, as text. */
 async function readCapped(body: ReadableStream<Uint8Array> | null) {
   const parts: Uint8Array[] = [];
@@ -37,10 +44,7 @@ async function readCapped(body: ReadableStream<Uint8Array> | null) {
 /** `url`'s status and text: a page's text, a textual body as it is, any other body by its type alone. */
 export async function webFetch(url: string, signal?: AbortSignal) {
   const r = await fetch(url, {
-    signal: AbortSignal.any([
-      ...(signal ? [signal] : []),
-      AbortSignal.timeout(FETCH_WITHIN_MS),
-    ]),
+    signal: withinOf(signal),
   });
   const type = r.headers.get("content-type") ?? "";
   if (!TEXTUAL.test(type)) {
@@ -84,7 +88,11 @@ export function registerWebTools(
         engine: "google",
         q: params.query,
       }).toString();
-      const r = (await (await fetch(u, { signal })).json()) as {
+      const r = (await (
+        await fetch(u, {
+          signal: withinOf(signal),
+        })
+      ).json()) as {
         error?: string;
         organic_results?: { link: string; snippet?: string; title: string }[];
       };

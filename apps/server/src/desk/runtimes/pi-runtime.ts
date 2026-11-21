@@ -130,18 +130,22 @@ const CLAUDE_HOME = join(HOME, ".claude");
 const readTextIfThere = (path: string) => {
   try {
     return readFileSync(path, "utf8");
-  } catch {}
+  } catch {
+    // not there: none
+  }
 };
 
 /** How deep `@` imports are followed, as Claude Code follows them. */
 const IMPORT_DEPTH = 5;
+/** A line that is an `@` import: the path it names. */
+const IMPORT_LINE = /^@(\S+)$/;
 
 /** `file`'s text, each line that is an `@` import replaced by the file it names (from `file`'s folder, `~/` from home). */
 function readWithImports(file: string, depth: number): string | undefined {
   return readTextIfThere(file)
     ?.split("\n")
     .map((l) => {
-      const at = /^@(\S+)$/.exec(l.trim())?.[1];
+      const at = IMPORT_LINE.exec(l.trim())?.[1];
       if (!at || depth === 0) {
         return l;
       }
@@ -432,10 +436,10 @@ const openOf =
     const send = (line: object) =>
       child.stdin.write(`${JSON.stringify(line)}\n`);
     const ask = (line: { message?: string; type: string }) =>
-      new Promise<PiLine>((resolve) => {
+      new Promise<PiLine>((answer) => {
         asked += 1;
         const id = `life-${asked}`;
-        answers.set(id, resolve);
+        answers.set(id, answer);
         send({ ...line, id });
       });
     const settle = (e: RunEnd) => {
