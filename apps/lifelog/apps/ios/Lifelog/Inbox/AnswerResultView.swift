@@ -190,6 +190,8 @@ extension Taken {
         case .newMatter:
             staysOpen
                 ? "Goal saved." : request.options == ["dismiss"] ? "Dismissed." : "Started."
+        case .yourMove:
+            request.options == ["not-now"] ? "Hidden for now." : request.options == ["start"] ? "Started." : "Done."
         case .name, .guessedPerson, .samePerson: "Saved."
         case .decision, .unknown: "Answered."
         }
