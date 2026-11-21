@@ -54,7 +54,8 @@ struct RootView: View {
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack()
-            case .settings: SettingsSheet()
+            // A sheet is outside the tabs' environment: Settings' pages open matters and agents too.
+            case .settings: SettingsSheet().environment(router)
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }

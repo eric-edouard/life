@@ -117,8 +117,9 @@ public enum SpendWords {
     public static func tokens(_ count: Int) -> String {
         if count < 1000 { return "\(count) tokens" }
         if count < 100_000 { return "\(Int((Double(count) / 1000).rounded())) k tokens" }
-        return (Double(count) / 1_000_000).formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "en_US")))
-            + " M tokens"
+        let millions = (Double(count) / 1_000_000).formatted(
+            .number.precision(.fractionLength(1)).locale(Locale(identifier: "en_US")))
+        return millions + " M tokens"
     }
 
     /// "≈ $61 at list price", whole dollars from $1; "≈ $61 at list price, not billed" where billing could be read in.
@@ -251,12 +252,24 @@ public struct ModelSpending: Decodable, Sendable, Equatable, ParsedRead, NamesPa
             }
         }
         let order = SpendKind.allCases
-        let kinds = byKind.sorted { order.firstIndex(of: $0.kind) ?? 0 < order.firstIndex(of: $1.kind) ?? 0 }
+        // Voice work not settled yet shows on a Voice row even before any of it settled.
+        let voice = ByKind(kind: .voice, billed: SpendAmount(amount: 0), equivalent: nil, tokens: nil)
+        let held = byKind + (unsettled > 0 && !byKind.contains { $0.kind == .voice } ? [voice] : [])
+        // The agents run on his plans: a plan's unreported turn makes their list price a floor too.
+        let isPlanUnreported = byProvider.contains { $0.equivalent != nil && !$0.reported }
+        let kinds = held.sorted { order.firstIndex(of: $0.kind) ?? 0 < order.firstIndex(of: $1.kind) ?? 0 }
             .map { kind in
                 guard let billed = kind.billed else {
+                    // An older Life sends no list price for them: their tokens alone, never "≈ $0".
+                    let price = kind.equivalent.map {
+                        [
+                            SpendWords.listPrice($0.amount, isBilled: false),
+                            isPlanUnreported ? SpendWords.notReported : nil,
+                        ].compactMap(\.self).joined(separator: ", ")
+                    }
                     return SpendLine(
                         title: kind.kind.name, value: SpendWords.tokens(kind.tokens ?? 0),
-                        detail: SpendWords.listPrice(kind.equivalent?.amount ?? 0, isBilled: false))
+                        detail: price ?? "Not billed")
                 }
                 return SpendLine(
                     title: kind.kind.name, value: SpendWords.dollars(billed.amount),

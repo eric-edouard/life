@@ -785,7 +785,8 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
-        (inbox, matters, matter, agents, project, spending) = (ReadState(), ReadState(), [:], ReadState(), [:], ReadState())
+        (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()

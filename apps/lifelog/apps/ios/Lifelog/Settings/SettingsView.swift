@@ -63,8 +63,8 @@ struct SettingsView: View {
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
-        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage() }
-        .navigationDestination(isPresented: $isSpendingOpen) { SpendingPage() }
+        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage { page = .life } }
+        .navigationDestination(isPresented: $isSpendingOpen) { SpendingPage { page = .life } }
         .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
         .navigationDestination(isPresented: $isAppsOpen) { AppsPage() }
         #if DEBUG

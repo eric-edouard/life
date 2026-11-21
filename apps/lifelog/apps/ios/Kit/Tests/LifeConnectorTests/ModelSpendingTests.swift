@@ -37,17 +37,35 @@ private let britain = Locale(identifier: "en_GB")
     #expect(sections[4].lines.map(\.opens) == [.matter("matter_000000000001")])
 }
 
+/// A month's read of these kinds and providers, and nothing else, as the page's lines.
+private func lines(_ kinds: String, providers: String = "[]", unsettled: Int = 0) throws -> [SpendLine] {
+    let zero = #"{"amount":0,"basis":"billed","currency":"USD"}"#
+    return try decoded(
+        ModelSpending.self,
+        #"{"today":\#(zero),"month":\#(zero),"days":[],"byKind":\#(kinds),"byProvider":\#(providers),"unsettled":\#(unsettled),"topAgents":[],"topMatters":[],"observedAt":"2026-11-18T10:00:00.000Z"}"#
+    ).sections.flatMap(\.lines)
+}
+
 /// The Mac's own models are one row at $0, naming what ran there.
 @Test func theMacsModelsAreOneRow() throws {
-    let zero = #"{"amount":0,"basis":"billed","currency":"USD"}"#
-    let spending = try decoded(
-        ModelSpending.self,
-        #"{"today":\#(zero),"month":\#(zero),"days":[],"byKind":[],"unsettled":0,"topAgents":[],"topMatters":[],"observedAt":"2026-11-18T10:00:00.000Z","byProvider":[{"provider":"describer","billed":\#(zero),"reported":true},{"provider":"apple","billed":\#(zero),"reported":true}]}"#
-    )
+    let free = #""billed":{"amount":0,"basis":"billed","currency":"USD"},"reported":true"#
+    let mac = try lines("[]", providers: #"[{"provider":"describer",\#(free)},{"provider":"apple",\#(free)}]"#)
+    #expect(mac == [SpendLine(title: "On this Mac", value: "$0", detail: "Photos, the arrival reader", isZero: true)])
+}
+
+/// What the read doesn't know is said: an older Life's agents row has no list price (their tokens alone, never "≈ $0"),
+/// a plan's unpriced turn makes theirs a floor, and Voice work not settled shows before any of it settled.
+@Test func spendingSaysWhatItDoesNotKnow() throws {
     #expect(
-        spending.sections.map(\.lines) == [
-            [SpendLine(title: "On this Mac", value: "$0", detail: "Photos, the arrival reader", isZero: true)]
+        try lines(#"[{"kind":"agents","tokens":500000}]"#) == [
+            SpendLine(title: "Agents", value: "0.5 M tokens", detail: "Not billed")
         ])
+    let price = #""equivalent":{"amount":1.2,"basis":"equivalent","currency":"USD"}"#
+    let plans = #"[{"provider":"codex",\#(price),"tokens":500000,"reported":false}]"#
+    let agents = #"[{"kind":"agents","tokens":500000,\#(price)}]"#
+    #expect(try lines(agents, providers: plans).last?.detail == "≈ $1 at list price, not billed, not all reported")
+    let voice = SpendLine(title: "Voice", value: "$0", detail: "2 not settled yet", isZero: true)
+    #expect(try lines("[]", unsettled: 2) == [voice])
 }
 
 @Test func spendingsFiguresReadAsTheFramesSayThem() {
@@ -76,7 +94,7 @@ private let britain = Locale(identifier: "en_GB")
             == "This session, since 14 Nov: 2.2 M tokens on Claude, ≈ $30 at list price, not billed")
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
     #expect(matter.spending?.tokens == 0 && matter.spendingLine == nil)
-    let unreported = try decoded(
-        TokenSpending.self, #"{"tokens":0,"reported":false,"equivalent":{"amount":0,"basis":"equivalent","currency":"USD"}}"#)
+    let none = #""equivalent":{"amount":0,"basis":"equivalent","currency":"USD"}"#
+    let unreported = try decoded(TokenSpending.self, #"{"tokens":0,"reported":false,\#(none)}"#)
     #expect(unreported.words() == "0 tokens, ≈ $0 at list price, not billed, not all reported")
 }

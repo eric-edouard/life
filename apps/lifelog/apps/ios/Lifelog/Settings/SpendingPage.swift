@@ -6,12 +6,15 @@ import SwiftUI
 /// (`ModelSpending.sections`: billed and his plans' tokens never added). A top agent opens its sheet over its matter, a
 /// top matter its page.
 struct SpendingPage: View {
+    /// Settings' Life page, for "Pair with Life".
+    let pair: () -> Void
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ReadScreen(
-            shown: life.spending.shown(), retry: { await life.refreshSpending() },
+            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: pair,
             loading: { Spinner().foregroundStyle(Palette.fg).frame(maxHeight: .infinity) },
             empty: { EmptyView() },
             content: page
@@ -19,7 +22,10 @@ struct SpendingPage: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.sheet)
         .screenTitle("Spending")
-        .task(id: life.parties.generation.current) { await life.refreshSpending() }
+        // On entry, on a new pairing, and back in front: "Today" is never yesterday's.
+        .task(id: [AnyHashable(life.parties.generation.current), AnyHashable(scenePhase == .active)]) {
+            if scenePhase == .active { await life.refreshSpending() }
+        }
     }
 
     private func page(_ spending: ModelSpending) -> some View {
@@ -87,11 +93,12 @@ private struct SpendFigures: View {
             Chart(spending.days, id: \.day) { day in
                 BarMark(x: .value("Day", day.day), y: .value("Billed", day.billed.amount))
                     .foregroundStyle(day.day == spending.days.last?.day ? Palette.fg : Color.fillTint)
+                    .accessibilityLabel(spending.dayLabel(day.day))
+                    .accessibilityValue(SpendWords.dollars(day.billed.amount))
             }
             .chartXAxis(.hidden).chartYAxis(.hidden)
             .chartXSelection(value: $picked)
             .frame(height: Metrics.trend)
-            .accessibilityHidden(true)
             HStack {
                 Text(spending.days.first.map { spending.dayLabel($0.day) } ?? "")
                 Spacer()
