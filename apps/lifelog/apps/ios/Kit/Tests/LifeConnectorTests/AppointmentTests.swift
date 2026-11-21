@@ -8,16 +8,17 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     try LibraryStore.feedDecoder.decode(type, from: Data(text.utf8))
 }
 
-/// An appointment as the wire carries it, with `fields` over the made-up dinner.
-private func dinner(_ fields: String = "") throws -> Appointment {
-    try decoded(
-        Appointment.self,
+/// An appointment as the wire carries it: the made-up dinner, a field of it replaced by `swap` (its old text, its new).
+private func dinner(swapping swap: (String, String)? = nil) throws -> Appointment {
+    var text =
         #"{"appointment":"apt_000000000001","pushId":"0123456789abcdef","title":"Dinner with Camille","#
-            + #""startsAt":"2026-11-20T19:00:00.000Z","endsAt":"2026-11-20T21:00:00.000Z","allDay":false,"#
-            + #""where":"Chez Lou","link":null,"matterId":"matter_mum60","addedAt":"2026-11-18T10:00:00.000Z","#
-            + #""removedAt":null,"from":{"at":"2026-11-18T09:58:00.000Z","chat":"!room:life.test","#
-            + #""message":"msg:whatsapp|m1","text":"Friday 8pm at Chez Lou?","#
-            + #""sender":{"kind":"person","name":"Camille Test","ref":"person:test-camille"}}\#(fields)}"#)
+        + #""startsAt":"2026-11-20T19:00:00.000Z","endsAt":"2026-11-20T21:00:00.000Z","allDay":false,"#
+        + #""where":"Chez Lou","link":null,"matterId":"matter_mum60","addedAt":"2026-11-18T10:00:00.000Z","#
+        + #""removedAt":null,"from":{"at":"2026-11-18T09:58:00.000Z","chat":"!room:life.test","#
+        + #""message":"msg:whatsapp|m1","text":"Friday 8pm at Chez Lou?","#
+        + #""sender":{"kind":"person","name":"Camille Test","ref":"person:test-camille"}}}"#
+    if let swap { text = text.replacingOccurrences(of: swap.0, with: swap.1) }
+    return try decoded(Appointment.self, text)
 }
 
 @Test func theEventSheetsReadDecodesAsLifeWroteIt() throws {
@@ -39,7 +40,11 @@ private func dinner(_ fields: String = "") throws -> Appointment {
     #expect(try dinner().line(in: paris) == "Dinner with Camille, Fri 20:00")
     #expect(try dinner().when(in: paris) == "Fri 20 Nov, 20:00")
     // An all-day one is its own day, wherever the phone is.
-    let trip = try dinner(#","allDay":true,"startsAt":"2026-11-20","endsAt":"2026-11-23""#)
+    let trip = try dinner(
+        swapping: (
+            #""startsAt":"2026-11-20T19:00:00.000Z","endsAt":"2026-11-20T21:00:00.000Z","allDay":false"#,
+            #""startsAt":"2026-11-20","endsAt":"2026-11-23","allDay":true"#
+        ))
     let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
     #expect(trip.line(in: tokyo) == "Dinner with Camille, Fri" && trip.when(in: tokyo) == "All day, Fri 20 Nov")
     #expect(try dinner().mapsURL?.absoluteString == "https://maps.apple.com/?q=Chez%20Lou")

@@ -329,7 +329,9 @@ final class LifeStore {
 
     /// An appointment Life added to his calendar (`read_appointments`): read when its sheet opens, kept by the sheet.
     func readAppointment(_ key: AppointmentKey, _ update: @escaping (ReadState<Appointment>.Event) -> Void) async {
-        await load(update, key: "read_appointments-\(key.id)", isKept: false) { try await $0.readAppointment(key, at: nil) }
+        await load(update, key: "read_appointments-\(key.id)", isKept: false) {
+            try await $0.readAppointment(key, at: nil)
+        }
     }
 
     /// His Remove (`isOn` false) or Undo of one, from its sheet or its notification: Life's `failed` fails it, with

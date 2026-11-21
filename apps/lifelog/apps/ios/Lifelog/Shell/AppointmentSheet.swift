@@ -95,21 +95,30 @@ struct AppointmentSheet: View {
     @ViewBuilder private func actions(_ appointment: Appointment) -> some View {
         let state = life.state(of: .appointment(appointment.id))
         VStack(spacing: Metrics.Spacing.s) {
-            if let calendar = appointment.calendarURL, !appointment.isRemoved {
-                Button("Open in Calendar") { openURL(calendar) }.buttonStyle(.pill(.quiet))
-            }
             if appointment.isRemoved {
                 Text(CalendarNotification.removed).font(.small).foregroundStyle(Palette.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button(appointment.isRemoved ? "Undo" : "Remove", role: appointment.isRemoved ? nil : .destructive) {
-                Task {
-                    guard case .succeeded = await life.changeAppointment(appointment.id, isOn: appointment.isRemoved)
-                    else { return }
-                    await load()
+            // Remove is plain text, not coral (his word).
+            HStack(spacing: Metrics.Spacing.s) {
+                if let calendar = appointment.calendarURL, !appointment.isRemoved {
+                    Button {
+                        openURL(calendar)
+                    } label: {
+                        Label("Open in Calendar", systemImage: "calendar")
+                    }
+                    .buttonStyle(.pill(.quiet))
                 }
+                Button(appointment.isRemoved ? "Undo" : "Remove") {
+                    Task {
+                        guard
+                            case .succeeded = await life.changeAppointment(appointment.id, isOn: appointment.isRemoved)
+                        else { return }
+                        await load()
+                    }
+                }
+                .buttonStyle(.pill(.quiet, isBusy: state.isRunning))
             }
-            .buttonStyle(.pill(.quiet, isBusy: state.isRunning))
             if case .failed(let failure, _) = state {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
                     .frame(maxWidth: .infinity, alignment: .leading)
