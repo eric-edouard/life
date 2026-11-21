@@ -36,7 +36,9 @@ struct ProjectPage: View {
                     selection: Binding(
                         get: { status.isUnderway ? .active : status },
                         set: { choice in choose(choice, head: head, status: status) }),
-                    title: \.shownWord)
+                    title: \.shownWord
+                )
+                .disabled(life.whyOutOfReach != nil)
                 if let line = meaning(of: status) {
                     Text(line).font(.small).foregroundStyle(Palette.muted).appears()
                 }

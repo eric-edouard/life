@@ -11,6 +11,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
     @ViewBuilder let content: (Value) -> Content
 
     @Environment(AppRouter.self) private var router
+    @Environment(LifeStore.self) private var life
 
     private static func reason(_ why: ReadState<Value>.Why) -> String {
         switch why {
@@ -22,6 +23,8 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
     var body: some View {
         // Each face fades out as the next fades in (loading to content: the spinner goes as the content comes).
         ZStack { face.appears(Motion.fade).id(faceName) }
+            // The network back: what is on show is read again, whatever screen it is.
+            .onChange(of: life.hasPath) { _, hasPath in if hasPath { Task { await retry() } } }
     }
 
     /// Which face shows, so a new face fades in and a new value of the same face changes in place.
@@ -37,11 +40,19 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         }
     }
 
+    /// Out of reach, what shows is what was last read and nothing can be done on it: said above it, in place.
+    private func withOutOfReach(_ shown: some View) -> some View {
+        VStack(spacing: 0) {
+            if let why = life.whyOutOfReach { StaleNote(since: nil, because: why, retry: retry) }
+            shown
+        }
+    }
+
     @ViewBuilder private var face: some View {
         switch shown {
         case .loading: loading
-        case .loaded(let value): content(value)
-        case .empty: empty
+        case .loaded(let value): withOutOfReach(content(value))
+        case .empty: withOutOfReach(empty)
         case .stale(let value, let since, let why):
             VStack(spacing: 0) {
                 StaleNote(since: since, because: Self.reason(why), retry: retry)
@@ -86,16 +97,16 @@ struct Notice: View {
     }
 }
 
-/// What was read last, when the latest try failed: the old value stays below.
+/// What was read last, when the latest try failed or Life is out of reach (`since` unknown): the old value stays below.
 struct StaleNote: View {
-    let since: Date
+    let since: Date?
     let because: String
     let retry: () async -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "clock.arrow.circlepath").foregroundStyle(Palette.muted).accessibilityHidden(true)
-            Text("Read at \(since.formatted(.dateTime.hour().minute())). \(because)")
+            Text((since.map { "Read at \($0.formatted(.dateTime.hour().minute())). " } ?? "") + because)
                 .font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             QuietChip("Retry", symbol: "arrow.clockwise") { Task { await retry() } }

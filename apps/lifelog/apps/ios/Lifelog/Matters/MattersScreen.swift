@@ -174,6 +174,7 @@ struct MattersScreen: View {
                         Task { await life.setImportant(row.id, !isMarked) }
                     }
                     .tint(Color.pick)
+                    .disabled(life.whyOutOfReach != nil)
                 }
             }
         }

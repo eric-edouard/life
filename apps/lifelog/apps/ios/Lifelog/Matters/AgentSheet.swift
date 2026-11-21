@@ -232,7 +232,7 @@ struct AgentSheet: View {
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
             }
-            .disabled(state.isRunning)
+            .disabled(state.isRunning || life.whyOutOfReach != nil)
             if let link = agent.link.flatMap(URL.init(string:)) {
                 TextLink("Open in \(agent.runtimeName.name)", to: .outside) { openURL(link) }
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)

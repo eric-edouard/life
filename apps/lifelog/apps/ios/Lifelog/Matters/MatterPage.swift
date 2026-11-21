@@ -32,6 +32,7 @@ struct MatterPage: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     let isOn = life.isImportant(id, as: row.important)
                     MarkItem(isOn: isOn) { Task { await life.setImportant(id, !isOn) } }
+                        .disabled(life.whyOutOfReach != nil)
                 }
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
@@ -51,7 +52,7 @@ struct MatterPage: View {
                 if let agent {
                     AgentRow(agent: agent) { router.matterSheet = .agent(id) }
                 }
-                GoalAndNext(matter: matter)
+                GoalAndNext(matter: matter).disabled(life.whyOutOfReach != nil)
                 People(people: row.people)
                 Steps(steps: matter.steps)
             }
@@ -74,6 +75,8 @@ struct MatterPage: View {
                     DoneButton(id: id)
                 }
                 .controlSize(.large)
+                // Read-only while Life is out of reach (`ReadScreen` says why).
+                .disabled(life.whyOutOfReach != nil)
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)

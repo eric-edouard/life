@@ -44,9 +44,29 @@ extension SyncStore {
     var summary: ConnectionSummary {
         ConnectionSummary(
             isPaired: isPaired, isRefused: tokenRefused,
-            network: pull.isEstablished && network != .none ? .none : network,
+            network: pull.isEstablished && path.network != .none ? .none : path.network,
             uploading: (uploads?.unsent ?? .zero) > .zero || uploads?.lastError != nil,
             editsWaiting: pending.waiting.count, lastPull: feed.pulledAt)
+    }
+}
+
+/// The phone's network path, followed once for the whole app: the pendant's sync and Life's store both read it.
+@Observable
+final class NetworkPath {
+    private(set) var network = ConnectionSummary.Network.unknown
+
+    /// Follows the path for the life of the app; `back` runs each time it returns from none.
+    func follow(back: () -> Void) async {
+        #if DEBUG
+            // `-offline` fails every request as if there were no network: show what the owner sees then.
+            if SyncStore.OfflineProtocol.isRequested { return network = .none }
+        #endif
+        for await path in NWPathMonitor() {
+            let next = ConnectionSummary.Network(path)
+            let isBack = network == .none && next != .none
+            if next != network { network = next }
+            if isBack { back() }
+        }
     }
 }
 
