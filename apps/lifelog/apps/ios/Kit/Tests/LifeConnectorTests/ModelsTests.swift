@@ -661,29 +661,10 @@ private func asks(
     #expect(check.askedName == "Sam Vale")
 }
 
-/// "Wrong…" is on Life's own cards only, and his press sends the card's seal back exactly as `Misread`
-/// (`host/complaints.ts`) takes it: his words as `note`, no option.
-@Test func lifesOwnCardsCarryTheirSealAndAComplaintSendsItBack() throws {
+/// "Wrong…" is on Life's own cards only (it opens Tell Life on the card).
+@Test func wrongIsOnLifesOwnCardsOnly() throws {
     let checks = try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
     #expect(checks.allSatisfy { ($0.misread != nil) == ($0.asker == "life") })
-    let voice = try #require(checks.first { $0.group == .voice })
-    #expect(voice.complaint(words: "  ", report: true) == nil)
-    #expect(voice.complaint(words: String(repeating: "a", count: 4_001), report: true) == nil)
-    let request = try #require(voice.complaint(words: " Not her. ", report: true))
-    let sent = try #require(
-        JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
-    #expect(sent["ref"] as? String == voice.ref)
-    #expect((sent["options"] as? [String])?.isEmpty == true)
-    #expect(sent["note"] as? String == "Not her.")
-    let value = try #require(sent["value"] as? [String: Any])
-    #expect(Set(value.keys) == ["kind", "cause", "shown", "seal", "report"])
-    #expect(value["kind"] as? String == "misread" && value["report"] as? Bool == true)
-    let misread = try #require(voice.misread)
-    #expect(
-        [value["cause"], value["shown"], value["seal"]].map { $0 as? String }
-            == [misread.cause, misread.shown, misread.seal])
-    let decision = try #require(checks.first { $0.group == .decision })
-    #expect(decision.complaint(words: "Wrong", report: false) == nil)
 }
 
 /// A card the caretaker is fixing says so, with the caretaker's open question and its context when it has one.

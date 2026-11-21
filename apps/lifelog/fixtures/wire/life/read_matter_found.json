@@ -194,16 +194,14 @@
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
       },
+      "misread": {
+        "cause": "e33422a9ac5b7ce7"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves",
-      "misread": {
-        "cause": "e33422a9ac5b7ce7",
-        "seal": "78325163f18215a3cc69046d1c766cd8",
-        "shown": "fbb39df191312464"
-      }
+      "urgency": "improves"
     }
   ]
 }
