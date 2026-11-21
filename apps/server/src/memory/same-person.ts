@@ -102,22 +102,27 @@ export function samePersonPairsOf(
       other: string;
     }
   >();
-  for (const [guess, g] of guesses) {
+  /** Who a guess may be: someone going by its whole name, or someone his word or a linked reading knows by its name (`called`). */
+  const othersOf = (g: { name: string }) => {
+    if (isDescription(g.name)) {
+      return [];
+    }
     // A name alone is weak: his directory or his Contacts going by a first name asks nothing, nor a name two of his
     // people share that a guess links to one of them; only his word or a reading linked to one person does.
-    const reads = isDescription(g.name) ? null : people.readingNow(g.name);
+    const reads = people.readingNow(g.name);
     const isLinked =
       reads?.by === "his word" || (reads?.by === "guess" && !reads.isShared);
-    const others = [
-      ...(isWholeName(g.name) && !isDescription(g.name)
-        ? (byName.get(nameKey(g.name)) ?? [])
-        : []
-      ).map(({ ref }) => ({ called: null, ref })),
+    return [
+      ...(isWholeName(g.name) ? (byName.get(nameKey(g.name)) ?? []) : []).map(
+        ({ ref }) => ({ called: null, ref })
+      ),
       ...(reads && isLinked && !people.isGuess(reads.ref)
         ? [{ called: g.name, ref: reads.ref }]
         : []),
     ];
-    for (const { called, ref } of others) {
+  };
+  for (const [guess, g] of guesses) {
+    for (const { called, ref } of othersOf(g)) {
       const other = canon(ref);
       const both = [guess, other].sort().join("|");
       // Of two guesses, the card asks of the one with handles, the smaller id when both have.
