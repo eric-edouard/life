@@ -3,11 +3,6 @@ import SwiftUI
 
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
 /// never a border, and nothing tappable under 44 points.
-extension Color {
-    /// The one selected look of a control (his mark on): the page's ink stronger than `fillTint`, as the design's `--pick`.
-    static let pick = Palette.fg.opacity(0.16)
-}
-
 /// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
 /// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {

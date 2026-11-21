@@ -786,10 +786,11 @@ export async function forward(kind: string, a: Fix) {
   return await writeLifelog(...f.request(a));
 }
 
-/** One write to lifelog, logged before and after. */
+/** One write to lifelog, logged before and after: its body's field names, never their values or lifelog's answer. */
 export async function writeLifelog(...[method, path, body]: Write) {
-  log("lifelog.write", { body, method, path, phase: "before" });
+  const fields = body && typeof body === "object" ? Object.keys(body) : [];
+  log("lifelog.write", { fields, method, path, phase: "before" });
   const after = await call(path, 60, body, method);
-  log("lifelog.write", { after, method, path, phase: "after" });
+  log("lifelog.write", { fields, method, path, phase: "after" });
   return after;
 }

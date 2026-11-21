@@ -13,16 +13,16 @@ import { DESK_AGENT } from "../core/names";
 import { DESK_STORE } from "../core/paths";
 import { secretIn } from "../core/secret";
 import { setSettings } from "../core/settings";
+import { agentsNow } from "../host/agents-now";
 import { ask, asksFor } from "../host/asks";
 import { complain, type Misread } from "../host/complaints";
 import {
   agentInRole,
-  agentsNow,
   complaintReceiptOf,
   complaintsAtWork,
   currentAssignmentOf,
 } from "../host/desk-read";
-import { cut } from "../host/http/mcp-tool";
+import { argNamesOf } from "../host/http/mcp-tool";
 import {
   type MisreadShown,
   withMisreadSealed,
@@ -357,7 +357,7 @@ test("a crash after the ask, before its row and receipt: the desk's next tick wr
 
 test("his complaint's words stay out of the call log, the caretaker's notes out of its row; its packet names Life's data and no plan", async () => {
   const logged = JSON.stringify(
-    cut({ note: WORDS, ref: "name:dre", value: ON_CARD })
+    argNamesOf({ note: WORDS, ref: "name:dre", value: ON_CARD })
   );
   expect(logged).not.toContain("cousin");
   const id = agentInRole(desk.db, "caretaker")?.id ?? "";

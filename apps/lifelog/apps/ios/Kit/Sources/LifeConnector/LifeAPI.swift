@@ -94,12 +94,18 @@ public protocol LifeAPI: Sendable {
     func readMatters() async throws -> String
     /// One project's matters, with its page's head.
     func readMatters(project: String) async throws -> String
+    /// The matters open with one person or organization, by their ref (`person:ana`), every one.
+    func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
     /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
     func readPersonPictures(_ ids: [String]) async throws -> String
+    /// The people and organizations Life knows, closest first; with a query, the ones it matches and `others`.
+    func readPeopleAndOrganizations(query: String?) async throws -> String
+    /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
+    func readPart(_ ref: String) async throws -> String
 
     /// His answer, to the Life it was decided for (`origin`, a `PairedLife`'s) and no other.
     func answerCheck(
@@ -142,12 +148,21 @@ public struct MCPLifeAPI: LifeAPI {
     public func readMatters(project: String) async throws -> String {
         try await client.call("read_matters", ["project": project])
     }
+    public func readMatters(person: String) async throws -> String {
+        // Life's `person` takes a name, alias or id: the ref's id (`ana`), never the ref itself.
+        let id = person.hasPrefix("person:") ? String(person.dropFirst("person:".count)) : person
+        return try await client.call("read_matters", ["person": id])
+    }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
     public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
     }
+    public func readPeopleAndOrganizations(query: String?) async throws -> String {
+        try await client.call("read_people_and_organizations", query.map { ["query": $0] } ?? [:])
+    }
+    public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
 
     public func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void

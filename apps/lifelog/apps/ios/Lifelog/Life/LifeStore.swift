@@ -17,6 +17,17 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
+    private(set) var people = ReadState<PeopleList>()
+    private(set) var person: [String: ReadState<PersonNow>] = [:]
+    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
+    /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
+    private(set) var latest: [String: ReadState<LatestPage>] = [:]
+    private(set) var prose: [String: ReadState<Prose>] = [:]
+    /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
+    private(set) var reach: [String: ReadState<ReachPage>] = [:]
+    /// Every matter open with someone, by their ref: read on All once their `now` left some out.
+    private(set) var openWith: [String: ReadState<MatterList>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -29,14 +40,16 @@ final class LifeStore {
         case agent(String)
         case edit(matter: String, Edit)
         case project(String)
-        enum Edit: Hashable { case goal, next, done, important }
+        enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
-    /// What his last mark or project status did, said back for four seconds (`Toast`), with its Undo (the opposite
-    /// change), or why it was not done.
+    /// What his last mark, project status or matter icon did, said back for four seconds (`Toast`), with its Undo (the
+    /// opposite change), or why it was not done.
     struct SaidBack: Identifiable, Equatable {
         enum Undo: Equatable {
             case important(matter: String, Bool)
+            /// His icon to put back (nil: Life's pick), and the one it replaces.
+            case icon(matter: String, String?, was: String?)
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
         }
         let id = UUID()
@@ -48,6 +61,10 @@ final class LifeStore {
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
     private let marking = PendingTaps<Bool>()
     private let statusing = PendingTaps<ProjectStatus>()
+    /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
+    private let iconing = PendingTaps<String?>()
+    /// His icon picks Life took, until a read of the matter shows them.
+    private var writtenIcons = WrittenIcons()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
     private(set) var actions = ActionBook<ActionKey>()
@@ -124,6 +141,7 @@ final class LifeStore {
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
+        restore({ self.people.apply($0) }, key: Self.peopleKey)
         if let kept = cache.load(Self.answeredKey) {
             answered = (try? JSONDecoder().decode(AnsweredCards.self, from: Data(kept.text.utf8))) ?? answered
         }
@@ -211,6 +229,63 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
+    func refreshPeople() async {
+        await load({ self.people.apply($0) }, key: Self.peopleKey) {
+            try await $0.readPeopleAndOrganizations(query: nil)
+        }
+    }
+
+    func refreshPerson(_ ref: String) async {
+        let key = "read_people_and_organizations-\(ref)"
+        let update = { (event: ReadState<PersonNow>.Event) in self.person[ref, default: ReadState()].apply(event) }
+        if person[ref] == nil { restore(update, key: key) }
+        await load(update, key: key) { try await $0.readPart(ref + "/now") }
+    }
+
+    func refreshLatest(_ ref: String) async {
+        await load({ self.latest[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+            try await $0.readPart(ref)
+        }
+    }
+
+    /// Every account of theirs: the `reach` part page after page to its end, from `first` on a visit (the accounts may
+    /// have changed on the Mac since), or from the page that failed on Try again (`isRetry`). A page that fails stops
+    /// it there; the pages read before stand until their new read lands.
+    func refreshReach(from first: String, isRetry: Bool = false) async {
+        var next = isRetry ? reachChain(from: first).toRead : first
+        while let ref = next {
+            await load({ self.reach[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+                try await $0.readPart(ref)
+            }
+            guard reach[ref]?.phase == .loaded else { return }
+            next = reach[ref]?.value?.next
+        }
+    }
+
+    /// The `reach` part's pages read so far, from `first`, and what comes next.
+    func reachChain(from first: String) -> PageChain<ReachPage> {
+        PageChain(from: first, states: reach, next: \.next)
+    }
+
+    /// Their `latest` pages read so far, from the first, paging back, and what comes next.
+    func latestChain(of subject: String) -> PageChain<LatestPage> {
+        PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
+    }
+
+    func refreshOpenWith(_ ref: String) async {
+        await load(
+            { self.openWith[ref, default: ReadState()].apply($0) }, key: "read_matters-person-\(ref)", isKept: false
+        ) {
+            try await $0.readMatters(person: ref)
+        }
+    }
+
+    func refreshProse(_ ref: String) async {
+        await load({ self.prose[ref, default: ReadState()].apply($0) }, key: ref, isKept: false) {
+            try await $0.readPart(ref)
+        }
+    }
+
     /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
     func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
         update(.started)
@@ -219,6 +294,18 @@ final class LifeStore {
         }
         if case .failed(.notPaired) = event { pairedOrigin = nil }
         update(event)
+    }
+
+    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
+    /// replaces this one's, which then applies nothing.
+    func findPeople(_ query: String) async {
+        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
+        await load(
+            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
+            key: "read_people_and_organizations-query-\(query)", isKept: false
+        ) {
+            try await $0.readPeopleAndOrganizations(query: query)
+        }
     }
 
     func refreshMatter(_ id: String) async {
@@ -241,6 +328,7 @@ final class LifeStore {
     private static let inboxKey = "read_inbox"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
+    private static let peopleKey = "read_people_and_organizations"
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
@@ -254,19 +342,19 @@ final class LifeStore {
         if inbox.value != nil { setBadge(badge) }
     }
 
-    private func restore<V: Decodable & Sendable & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
+    private func restore<V: ParsedRead & NamesParties>(_ update: (ReadState<V>.Event) -> Void, key: String) {
         guard let kept = cache.load(key),
-            let value = try? LibraryStore.feedDecoder.decode(V.self, from: Data(kept.text.utf8))
+            let value = try? V.parsed(kept.text)
         else { return }
         parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
         update(.succeeded(value, kept.at))
     }
 
     /// The read `key`, one pass at a time (`ReadFlights`): its value applies as of when its pass began, and is kept for a
-    /// cold start. A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
+    /// cold start unless `isKept` is false (a part of a page, read again on each visit). A read of the Life paired before this one applies nothing, not even its failure: no save, no screen,
     /// no reset (`PairingGeneration`).
-    private func load<V: Decodable & Sendable & NamesParties>(
-        _ update: @escaping (ReadState<V>.Event) -> Void, key: String,
+    private func load<V: ParsedRead & NamesParties>(
+        _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true,
         fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
         await flights.run(key) { [self] in
@@ -275,8 +363,8 @@ final class LifeStore {
             guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
             do {
                 let read = try text.get()
-                let value = try LibraryStore.feedDecoder.decode(V.self, from: Data(read.utf8))
-                cache.store(read, key: key, asked: asked)
+                let value = try V.parsed(read)
+                if isKept { cache.store(read, key: key, asked: asked) }
                 parties.remember(value.parties, at: asked, pairing: pairing)
                 update(.succeeded(value, asked))
             } catch let error as MCPError {
@@ -480,6 +568,29 @@ final class LifeStore {
         }
     }
 
+    /// His icon pick on `id` under way, from his tap until Life's reads say it: the key, or nil (Life picks again);
+    /// none (the outer nil) when no pick is under way.
+    func iconPicking(_ id: String) -> String?? { iconing[id] }
+
+    /// His pick on `row` before the next one, which that one's Undo puts back: the pick last written until a read
+    /// shows it, so a read that failed after the write never hands Undo the row from before it.
+    func earlierIconPick(of row: MatterRow) -> String? {
+        writtenIcons.earlierPick(of: row, loadedAt: matter[row.id]?.loadedAt)
+    }
+
+    /// His icon for a matter (a key of `MatterIcons`, or nil: Life picks again), said back with Undo, which puts back
+    /// his pick it replaced (`was`, nil when the icon was Life's or none). One pick per matter at a time, through its
+    /// reads: a second one before them would take its `was` from the read before the first.
+    func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
+        let api = api
+        let isSent = await iconing.run(id, showing: icon) {
+            await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
+            if case .succeeded = state(of: .edit(matter: id, .icon)) { writtenIcons.wrote(icon, on: id, at: now()) }
+        }
+        guard isSent else { return }
+        say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))
+    }
+
     // MARK: His mark, a project's status
 
     /// Whether a matter is marked, his tap first.
@@ -540,6 +651,7 @@ final class LifeStore {
         saidBack = nil
         switch said.undo {
         case .important(let id, let isOn)?: await setImportant(id, isOn, saysBack: false)
+        case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
         case nil: break
@@ -639,6 +751,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { COMPLAINT_RETRIED } from "../core/paths";
 import {
   type AssignmentRow,
@@ -107,7 +108,7 @@ export async function receiveComplaints(desk: Desk) {
   try {
     recordComplaints(pending.map((p) => p.a));
   } catch (error) {
-    log("desk.complaints", { error: String(error), ok: false });
+    log("desk.complaints", { ...errorOf(error), ok: false });
     return;
   }
   const runtime = runtimeOf({});
