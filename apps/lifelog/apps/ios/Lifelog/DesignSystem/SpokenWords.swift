@@ -10,7 +10,8 @@ struct SpokenWords: View {
         case box
         /// A 28 Play (in a 44 hit area) at the right of the words.
         case inline
-        /// Like `inline`, with a 48 Play, and the words on one line, cut with an ellipsis (a bulk card's voice row).
+        /// Like `inline`, with a 48 Play, and the words on one line, cut with an ellipsis (a bulk card's voice row): no bold, no
+        /// tap to seek, no `emphasis`.
         case line
     }
 

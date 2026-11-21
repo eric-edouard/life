@@ -152,7 +152,7 @@ struct BulkCard: View {
                 if let lead = answer.lead { Text(lead) }
                 PartyDisc(name: person, size: .chip)
                 Text(person).font(.smallStrong).foregroundStyle(Palette.fg)
-                Text(([nil] + about.prefix(1)).compactMap(\.self).joined(separator: " · ")).lineLimit(1)
+                Text(about.prefix(1).compactMap(\.self).joined(separator: " · ")).lineLimit(1)
             }
             .font(.small).foregroundStyle(Palette.muted).lineLimit(1)
         } else {
@@ -168,7 +168,7 @@ struct BulkCard: View {
         if let chosen {
             if chosen.request.options != ["is-them"] {
                 let who = check.likelyPeople.first { $0.ref == chosen.request.person }?.name
-                return (nil, who, who == nil ? chosen.heldWords : nil)
+                return (nil, who, who == nil && kind != .ending ? chosen.heldWords : nil)
             }
         }
         guard let option = chosen == nil ? check.preTickedOption : check.options.first(where: { $0.id == "is-them" })
@@ -191,7 +191,7 @@ struct BulkCard: View {
                     .font(.small).foregroundStyle(Palette.flag).frame(maxWidth: .infinity, alignment: .leading)
                     .appears()
             }
-            if kind == .ending {
+            if kind == .ending, !ticked.isEmpty {
                 Text("Life read an ending for each ticked one").font(.small).foregroundStyle(Palette.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
