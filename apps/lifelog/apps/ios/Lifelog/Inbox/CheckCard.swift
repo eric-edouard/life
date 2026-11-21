@@ -119,7 +119,7 @@ struct CheckCard: View {
                 draft: draft, identity: check.networkIdentity, isGuess: check.isRecipientGuessed, isBoxed: false)
         }
         if !(check.needs ?? []).isEmpty {
-            if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.isCodeSaved) }
+            if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.bankTrip.isCodeSaved) }
             let rows = check.shownNeedRows
             if !rows.isEmpty { NeedsBlock(rows: rows) }
         }

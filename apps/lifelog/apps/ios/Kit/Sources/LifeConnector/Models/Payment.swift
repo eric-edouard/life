@@ -72,10 +72,13 @@ public enum BankApp: String, CaseIterable, Sendable {
 }
 
 extension Check {
-    private var account: Need? { needs?.first { $0.kind == .account } }
-    private var invoice: Need? { needs?.first { $0.kind == .amount && $0.value != nil } }
+    private var accountIndex: Int? { needs?.firstIndex { $0.kind == .account } }
+    private var invoiceIndex: Int? { needs?.firstIndex { $0.kind == .amount && $0.value != nil } }
     /// The QR the card draws: the first with its text.
-    private var drawnQR: Need? { needs?.first { $0.kind == .qr && $0.payload != nil && $0.source != nil } }
+    private var drawnQRIndex: Int? { needs?.firstIndex { $0.kind == .qr && $0.payload != nil && $0.source != nil } }
+    private func need(at index: Int?) -> Need? { index.flatMap { needs?[$0] } }
+    private var account: Need? { need(at: accountIndex) }
+    private var invoice: Need? { need(at: invoiceIndex) }
 
     /// Which bank app the card's filled answer opens, by its account's `scheme`; nil when it names none it knows.
     public var transfers: Transfers? {
@@ -86,37 +89,64 @@ extension Check {
         }
     }
 
-    /// The payee's QR, when Life sent its text: the card draws it, with the amount and the name around it.
+    /// The payee's QR, when Life sent its text: the card draws it, with the amount and the name around it. A PromptPay
+    /// code's own amount is shown as the code asks it; the card's amount shows when the code asks none, and beside it
+    /// in `invoiceAmount` when the code asks another amount or currency.
     public var payCode: PayCode? {
-        guard let qr = drawnQR, let payload = qr.payload, let source = qr.source else { return nil }
-        var amount = invoice?.line
-        // Only a Thai code's amount is read (PromptPay: tag 53 is 764, baht), against a card's amount in baht.
-        if let invoice, invoice.currency == "THB", let asked = Self.emvBahtAmount(payload), asked != invoice.value {
-            amount = Self.amountWords(asked, currency: "THB")
+        guard let qr = need(at: drawnQRIndex), let payload = qr.payload, let source = qr.source else { return nil }
+        guard let asked = Self.promptPayBaht(payload) else {
+            return PayCode(
+                payload: payload, source: source, amount: invoice?.line, invoiceAmount: nil, payee: account?.holder)
         }
+        let isInvoice = invoice.map { $0.currency == "THB" && Self.isSameMoney($0.value, asked) } ?? true
         return PayCode(
-            payload: payload, source: source, amount: amount,
-            invoiceAmount: amount == invoice?.line ? nil : invoice?.line, payee: account?.holder)
+            payload: payload, source: source, amount: Self.amountWords(asked, currency: "THB"),
+            invoiceAmount: isInvoice ? nil : invoice?.line, payee: account?.holder)
     }
 
-    /// The rows under the question: every need's, less the QR, the account and the amount its hero shows (`payCode`).
+    /// Whether Life looks for this card's payment (`doneSeenBy`): it looks for the card's amount, so not when the QR
+    /// asks another.
+    public var isPaymentLookedFor: Bool {
+        doneSeenBy == .payment && invoice != nil && payCode?.invoiceAmount == nil
+    }
+
+    /// The rows under the question: every need's, less the one QR, account and amount the code's hero shows.
     public var shownNeedRows: [NeedRow] {
-        let shown = payCode == nil ? [] : [drawnQR, account, invoice].compactMap { $0 }
-        return (needs ?? []).filter { need in !shown.contains { $0 == need } }.flatMap(\.rows)
+        let shown = payCode == nil ? [] : Set([drawnQRIndex, accountIndex, invoiceIndex].compactMap { $0 })
+        return (needs ?? []).enumerated().filter { !shown.contains($0.offset) }.flatMap(\.element.rows)
     }
 
-    /// The baht amount an EMV payment code asks (tag 54, with tag 53 the currency 764): nil when it asks none, in
-    /// another currency, or is no EMV code.
-    static func emvBahtAmount(_ payload: String) -> Double? {
-        var fields: [Substring: Substring] = [:]
-        var rest = Substring(payload)
-        while rest.count >= 4, let length = Int(rest.dropFirst(2).prefix(2)) {
+    /// The baht a PromptPay code asks (Bank of Thailand's EMV QR: a merchant account, tag 29 or 30, whose tag 00 is
+    /// PromptPay's id; tag 53 the currency 764; tag 54 the amount): nil for any other code, one that asks no amount,
+    /// or text that is not a whole, well-formed EMV code.
+    static func promptPayBaht(_ payload: String) -> Double? {
+        guard let fields = emvFields(payload), fields["53"] == "764",
+            let account = fields["29"] ?? fields["30"], emvFields(account)?["00"]?.hasPrefix("A000000677") == true,
+            let amount = fields["54"], !amount.isEmpty, amount.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
+            let value = Double(amount), value.isFinite, value > 0
+        else { return nil }
+        return value
+    }
+
+    /// An EMV code's fields by tag: each two digits of tag, two of length, then exactly that many characters, to the
+    /// end; nil when any part is not.
+    static func emvFields(_ text: String) -> [String: String]? {
+        var fields: [String: String] = [:]
+        var rest = Substring(text)
+        while !rest.isEmpty {
+            let head = rest.prefix(4)
+            guard head.count == 4, head.allSatisfy({ $0.isASCII && $0.isNumber }), let length = Int(head.suffix(2))
+            else { return nil }
             let value = rest.dropFirst(4).prefix(length)
             guard value.count == length else { return nil }
-            fields[rest.prefix(2)] = value
+            fields[String(head.prefix(2))] = String(value)
             rest = rest.dropFirst(4 + length)
         }
-        return fields["53"] == "764" ? fields["54"].flatMap { Double($0) } : nil
+        return fields
+    }
+
+    private static func isSameMoney(_ a: Double?, _ b: Double) -> Bool {
+        a.map { ($0 * 100).rounded() == (b * 100).rounded() } ?? false
     }
 
     /// An amount the code asks, as Life words a card's (`amountWordsOf`, `memory/needs.ts`): Life sends no words for a
@@ -125,5 +155,43 @@ extension Check {
         let cents = value.rounded() == value ? 0 : 2
         return value.formatted(.number.precision(.fractionLength(cents)).locale(Locale(identifier: "en_US")))
             + " \(currency)"
+    }
+}
+
+/// His trip to the bank app from one card: the QR saved to Photos, the app opened, a press under way, or why the last
+/// one did not go. Kept per card (by its ref), so a view drawn again never starts a second trip.
+public struct BankTrip: Equatable, Sendable {
+    public var isCodeSaved = false
+    public var hasOpenedApp = false
+    public var isUnderWay = false
+    public var problem: String?
+
+    public init() {}
+
+    /// One press: saves the QR the first time (`save` gives his words for why it did not go, nil when saved), then
+    /// opens the app. A press while one is under way does nothing; after a failed open, only the open is tried again.
+    /// `get` and `set` read and write this card's trip, which may outlive the view that pressed.
+    @MainActor
+    public static func press(
+        get: @MainActor () -> BankTrip, set: @MainActor (BankTrip) -> Void,
+        save: (@MainActor () async -> String?)?, open: @MainActor () async -> Bool, appName: String
+    ) async {
+        func change(_ edit: (inout BankTrip) -> Void) {
+            var trip = get()
+            edit(&trip)
+            set(trip)
+        }
+        guard !get().isUnderWay else { return }
+        change { $0.isUnderWay = true }
+        defer { change { $0.isUnderWay = false } }
+        if let save, !get().isCodeSaved {
+            if let problem = await save() { return change { $0.problem = problem } }
+            change { $0.isCodeSaved = true }
+        }
+        let opened = await open()
+        change {
+            $0.hasOpenedApp = $0.hasOpenedApp || opened
+            $0.problem = opened ? nil : "\(appName) did not open. Is it on this phone?"
+        }
     }
 }

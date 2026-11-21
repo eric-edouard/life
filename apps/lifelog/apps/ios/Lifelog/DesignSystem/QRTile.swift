@@ -43,10 +43,12 @@ enum QRPicture {
     }
 
     /// Saves the code, 16 pixels a module with four modules of white around it, so his bank app reads it from Photos.
-    /// Throws his words for why it did not go.
-    static func save(_ payload: String) async throws(Problem) {
-        guard let image = modules(payload) else { throw .notDrawn }
-        guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else { throw .notAllowed }
+    /// Gives his words for why it did not go, nil when saved.
+    static func save(_ payload: String) async -> String? {
+        guard let image = modules(payload) else { return "This QR can't be drawn." }
+        guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
+            return "Not saved: allow adding to Photos in Settings."
+        }
         let module: CGFloat = 16
         let side = CGFloat(image.width + 8) * module
         let format = UIGraphicsImageRendererFormat()
@@ -63,20 +65,9 @@ enum QRPicture {
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAsset(from: picture)
             }
+            return nil
         } catch {
-            throw .notSaved
-        }
-    }
-
-    enum Problem: Error {
-        case notDrawn, notAllowed, notSaved
-
-        var words: String {
-            switch self {
-            case .notDrawn: "This QR can't be drawn."
-            case .notAllowed: "Not saved: allow adding to Photos in Settings."
-            case .notSaved: "Not saved to your photos."
-            }
+            return "Not saved to your photos."
         }
     }
 }

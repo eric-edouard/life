@@ -7,10 +7,8 @@ struct CardInput: Equatable {
     var words = ""
     /// The context sheet is open (`ContextSheet`).
     var showsContext = false
-    /// The trip to his bank app from this card: the QR saved to Photos, the app opened, or why either did not go.
-    var isCodeSaved = false
-    var hasOpenedBankApp = false
-    var bankTripProblem: String?
+    /// The trip to his bank app from this card (`BankTrip`).
+    var bankTrip = BankTrip()
 }
 
 /// A link on the ask and what it does: its context ("Why this reply?") or "Tell the agent…".
@@ -39,8 +37,6 @@ struct CheckActions: View {
     @Environment(\.askSheetZoom) private var sheetZoom
     @AppStorage(Transfers.thai.storageKey) private var thaiBankApp = Transfers.thai.usual
     @AppStorage(Transfers.iban.storageKey) private var ibanBankApp = Transfers.iban.usual
-    /// A save or an open is under way: one at a time.
-    @State private var isGoingToBank = false
 
     private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -65,7 +61,7 @@ struct CheckActions: View {
             } else {
                 line
                 refusal
-                if let problem = input.bankTripProblem {
+                if let problem = input.bankTrip.problem {
                     Text(problem).font(.small).foregroundStyle(Palette.flag)
                         .frame(maxWidth: .infinity, alignment: .leading).appears()
                 }
@@ -195,12 +191,13 @@ struct CheckActions: View {
             } label: {
                 HStack(spacing: Metrics.Spacing.s) {
                     Text(
-                        check.payCode != nil && !input.isCodeSaved ? "Save QR and open \(app.name)" : "Open \(app.name)"
+                        check.payCode != nil && !input.bankTrip.isCodeSaved
+                            ? "Save QR and open \(app.name)" : "Open \(app.name)"
                     )
                     Image(systemName: "arrow.up.right").font(.smallStrong)
                 }
             }
-            .buttonStyle(.pill(.filled, isBusy: isGoingToBank)).disabled(isGoingToBank)
+            .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
             if !shown.isEmpty { others(shown.map(choice)) }
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
@@ -216,31 +213,20 @@ struct CheckActions: View {
     }
 
     /// Back from his bank app on a card Life looks for, it says so in the deadline's place: Life's watcher looks while
-    /// the card is open. Not when the QR asks another amount than the one Life looks for.
-    private var isLookingAfterBank: Bool {
-        input.hasOpenedBankApp && check.doneSeenBy == .payment && check.payCode?.invoiceAmount == nil
-    }
+    /// the card is open.
+    private var isLookingAfterBank: Bool { input.bankTrip.hasOpenedApp && check.isPaymentLookedFor }
 
-    /// Saves the card's QR to Photos the first time, then opens his bank app; either one that fails says why.
+    /// Saves the card's QR to Photos the first time, then opens his bank app (`BankTrip.press`), on this card's trip.
     private func goToBank(_ app: BankApp) {
-        isGoingToBank = true
+        let trip = $input.bankTrip
+        let save = check.payCode.map { code in { @MainActor in await QRPicture.save(code.payload) } }
         Task {
-            defer { isGoingToBank = false }
-            if let code = check.payCode, !input.isCodeSaved {
-                do throws(QRPicture.Problem) {
-                    try await QRPicture.save(code.payload)
-                } catch {
-                    input.bankTripProblem = error.words
-                    return
-                }
-                input.isCodeSaved = true
-            }
-            if let url = app.url, await UIApplication.shared.open(url) {
-                input.hasOpenedBankApp = true
-                input.bankTripProblem = nil
-            } else {
-                input.bankTripProblem = "\(app.name) did not open. Is it on this phone?"
-            }
+            await BankTrip.press(
+                get: { trip.wrappedValue }, set: { trip.wrappedValue = $0 }, save: save,
+                open: {
+                    guard let url = app.url else { return false }
+                    return await UIApplication.shared.open(url)
+                }, appName: app.name)
         }
     }
 
