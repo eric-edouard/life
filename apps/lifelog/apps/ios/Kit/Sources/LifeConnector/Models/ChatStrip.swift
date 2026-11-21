@@ -202,6 +202,24 @@ extension DraftDelivery {
     }
 }
 
+extension ActionState where Proof == ActionProof {
+    /// Whether his tap is over: Life answered, or the draft he sent (`isSend`) was seen in its chat
+    /// (`DraftDelivery.sent`) and only Life's answer was lost. The card then moves on, offering nothing again.
+    public func isDone(isSend: Bool) -> Bool {
+        switch self {
+        case .succeeded: true
+        case .failed: isSend && DraftDelivery(self) == .sent
+        case .idle, .running: false
+        }
+    }
+
+    /// Whether the result offers his tap again (Try again): Life allows it, nothing may have happened, and it is not done.
+    public func offersRetry(isSend: Bool) -> Bool {
+        guard case .failed(let failure, _) = self else { return false }
+        return failure.canTryAgain && !isDone(isSend: isSend)
+    }
+}
+
 extension ActionProof {
     /// Life's answer says the draft was sent.
     public var isSent: Bool {

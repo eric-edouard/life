@@ -112,6 +112,11 @@ private var utc: Calendar {
     let confirmedThenDropped = ActionState<ActionProof>.failed(
         ActionFailure(.streamDropped), steps: [step("handed", true), step("confirmed", true)])
     #expect(DraftDelivery(confirmedThenDropped) == .sent)
+    // …so his tap is done: the card moves on and nothing is offered again. Unconfirmed, the same drop repeats the tap.
+    #expect(confirmedThenDropped.isDone(isSend: true) && !confirmedThenDropped.offersRetry(isSend: true))
+    #expect(!dropped.isDone(isSend: true) && dropped.offersRetry(isSend: true))
+    // Not a send: a dropped answer is never done by a send's ticks.
+    #expect(!confirmedThenDropped.isDone(isSend: false))
     // Confirmed, then the request timed out: its result says "Sent." too, and offers no retry (the buttons' `.sent`).
     let confirmedThenTimedOut = ActionState<ActionProof>.failed(
         ActionFailure(reason: "No answer", retry: .allowed, mayHaveHappened: true),

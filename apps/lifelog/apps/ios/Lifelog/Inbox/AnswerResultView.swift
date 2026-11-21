@@ -38,9 +38,10 @@ struct AnswerResultView: View {
             // A new state fades the last one out and rises in its place (`Motion.resultFace`).
             ZStack(alignment: .topLeading) {
                 switch state {
-                // A send Life saw in its chat is sent, even when its answer was lost on the way.
-                case .failed(let failure, _) where !(taken.isSend && DraftDelivery(state) == .sent): face { failed(failure) }
-                // A send stays one face from the tap to its proof: the ticks land in the bubble itself.
+                // A send stays one face from the tap to its proof, the ticks landing in the bubble itself; one Life saw
+                // in its chat is sent, even when its answer was lost on the way.
+                case _ where taken.isSend && (state.isRunning || state.isDone(isSend: true)): face { sending }
+                case .failed(let failure, _): face { failed(failure) }
                 case _ where taken.isSend: face { sending }
                 case .succeeded(let proof, _): face { done(proof) }
                 case .idle, .running: face { working }
@@ -132,11 +133,11 @@ struct ResultButtons: View {
             switch state {
             case .succeeded:
                 EmptyView()
-            // Seen in its chat: nothing to try again.
-            case .failed where taken.isSend && DraftDelivery(state) == .sent:
+            // Seen in its chat: done, nothing to try again.
+            case .failed where state.isDone(isSend: taken.isSend):
                 EmptyView()
             case .failed(let failure, _):
-                if failure.canTryAgain {
+                if state.offersRetry(isSend: taken.isSend) {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))
                     Button("Keep for later", action: keepForLater).buttonStyle(.pill(.quiet))
                 } else if failure.mayHaveHappened, let url = taken.check.networkIdentity?.openUrl {
