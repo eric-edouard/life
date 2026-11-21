@@ -1,13 +1,4 @@
 {
-  "spending": {
-    "equivalent": {
-      "amount": 0,
-      "basis": "equivalent",
-      "currency": "USD"
-    },
-    "reported": true,
-    "tokens": 0
-  },
   "goal": {
     "by": "life",
     "text": "Gran has her watch back"
@@ -26,10 +17,10 @@
   },
   "nextStep": {
     "by": "owner",
-    "context": "The shop said Friday ([the call](life:obs_000000000005)).",
     "kind": "wait_event",
     "text": "The shop's quote",
-    "waitsOn": "the shop"
+    "waitsOn": "the shop",
+    "context": "The shop said Friday ([the call](life:obs_000000000005))."
   },
   "people": {
     "owedTo": [
@@ -175,6 +166,15 @@
     }
   ],
   "communicationStyles": [],
+  "spending": {
+    "equivalent": {
+      "amount": 0,
+      "basis": "equivalent",
+      "currency": "USD"
+    },
+    "reported": true,
+    "tokens": 0
+  },
   "steps": [
     {
       "at": "2026-10-02T10:00:00.000Z",
@@ -347,6 +347,7 @@
               "takes": "person or name"
             }
           ],
+          "preTicked": null,
           "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
@@ -368,8 +369,8 @@
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
-            "shown": "36753a6bc8e9027f"
+            "seal": "11cea1d8bb774eacfa1fa073d27a07da",
+            "shown": "cbd8453c56018bc0"
           },
           "confirm": [],
           "networkIdentity": {
@@ -450,6 +451,7 @@
           "takes": null
         }
       ],
+      "preTicked": "outdated",
       "question": "Is this done?",
       "ref": "obs_000000000005",
       "ridesOn": {
@@ -486,8 +488,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "1addffdfdc12fcfa",
-        "seal": "0066f68ef90e6b612b4096522ce249fd",
-        "shown": "928771774c0f909f"
+        "seal": "e21321a5e0f38ca459ff1815d7677715",
+        "shown": "92b74ff9de2dc75c"
       }
     }
   ]

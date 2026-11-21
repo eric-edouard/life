@@ -1,6 +1,7 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { agentOf } from "../host/desk-read";
+import { EVENTS_SETTLE } from "./agent-wait";
 import { pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { advance, setup } from "./test-desk";
 
@@ -32,6 +33,7 @@ test("an event wake says nothing of it", async () => {
   advance(HOUR);
   write();
   await pollMessages(desk, readPeopleOnce());
+  advance(EVENTS_SETTLE);
   await wakeDue(desk);
   const wake = fake.said.at(-1)?.message ?? "";
   expect(wake).toContain("Woken by the desk: event.");

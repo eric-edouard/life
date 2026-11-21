@@ -222,8 +222,11 @@ let reading: Promise<NamingQueueItem[]> | undefined;
 let answered = 0;
 let isDown = false;
 
-/** One `GET /naming-queue`, nothing kept; throws when it fails. */
-const getQueue = async () =>
+/**
+ * The queue as lifelog gives it now (`GET /naming-queue`), nothing kept: for an answer, which reads it in its turn
+ * (`answerCheck`), never the kept list; throws when lifelog cannot be read.
+ */
+export const readNamingQueueNow = async () =>
   lifelogMissing()
     ? []
     : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
@@ -234,7 +237,7 @@ const getQueue = async () =>
  */
 function refresh() {
   const since = answered;
-  reading ??= getQueue()
+  reading ??= readNamingQueueNow()
     .then((queue) => {
       if (since === answered) {
         kept = queue;
@@ -263,18 +266,6 @@ function refresh() {
 export async function readNamingQueue() {
   const next = refresh().catch(() => kept ?? []);
   return kept ?? (await next);
-}
-
-/** The queue as lifelog gives it now, for an answer: never the kept list, nor one an answer sent meanwhile made old; throws when lifelog cannot be read. */
-export async function readNamingQueueNow() {
-  const since = answered;
-  const queue = await getQueue();
-  if (since !== answered) {
-    throw new Error(
-      "Not done: another voice answer landed meanwhile; try again."
-    );
-  }
-  return queue;
 }
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */

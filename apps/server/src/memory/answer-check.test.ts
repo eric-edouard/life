@@ -328,6 +328,70 @@ const item: NamingQueueItem = {
   words: 9,
 };
 
+// Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
+// landed, so all land, and one that fails does not stop the next.
+test("voice answers given at once are read and answered one at a time, and all land", async () => {
+  const resolve = () => null;
+  const items = ["v1", "v2", "v3"].map((id, i) => ({
+    ...item,
+    id,
+    voices: [{ conversationId: "c1", jobId: `job-${i}`, speakerLabel: "A" }],
+  }));
+  let open = [...items];
+  const seen: string[] = [];
+  const voices = await import("../sources/lifelog-voices");
+  const queue = spyOn(voices, "readNamingQueueNow").mockImplementation(
+    async () => {
+      const now = open;
+      await Bun.sleep(1);
+      seen.push(`read ${now.map((i) => i.id).join()}`);
+      return now;
+    }
+  );
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    resolve,
+  } as never);
+  const send = spyOn(voices, "answerNamingQueue").mockImplementation(
+    async ([v]) => {
+      // The first answer is slow and fails: the next still waits for it, then lands.
+      if (v?.jobId === "job-0") {
+        await Bun.sleep(20);
+        seen.push("fail v1");
+        throw new Error("lifelog is down");
+      }
+      open = open.filter((i) => i.voices[0]?.jobId !== v?.jobId);
+      seen.push(`answer ${v?.jobId}`);
+      return { ok: true };
+    }
+  );
+  try {
+    const answers = await Promise.allSettled(
+      items.map((i) =>
+        answerCheck(check(voiceCardRefOf(resolve, i), "voice"), {
+          options: ["not-relevant"],
+        })
+      )
+    );
+    expect(answers.map((a) => a.status)).toEqual([
+      "rejected",
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(seen).toEqual([
+      "read v1,v2,v3",
+      "fail v1",
+      "read v1,v2,v3",
+      "answer job-1",
+      "read v1,v3",
+      "answer job-2",
+    ]);
+  } finally {
+    queue.mockRestore();
+    people.mockRestore();
+    send.mockRestore();
+  }
+});
+
 // life#765: a typed name is resolved with the people the voice answer already read: one read, not two.
 test("a voice answer naming someone by a typed name reads his people once", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
