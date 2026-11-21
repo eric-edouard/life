@@ -13,16 +13,14 @@ struct CardInput: Equatable {
     var bankTrip = BankTrip()
 }
 
-/// A card's answers inside its panel: the deadline's line, the first option filled, the others in one row when they are
-/// few and short and fit, else each on a row of its own. An option that takes more than a tap asks for it: who it is
-/// ("Same as…"), or his words. `links` are the ask's links that the row under the thing does not hold: at the right end
-/// of the deadline's line.
+/// A card's answers, in one zone (decision 98): the deadline's line, the first option filled, then the quiet ones, his
+/// own words first ("Tell the agent…" on a question), in one row when they are few and short and fit, else each on a
+/// row of its own. An option that takes more than a tap asks for it: who it is ("Same as…"), or his words.
 struct CheckActions: View {
     let check: Check
     @Binding var input: CardInput
     /// His answer is being sent or saved: its busy pill stands in for the answers.
     let isBusy: Bool
-    let links: [QuietChip]
     let answer: (AnswerRequest) -> Void
     let sameAs: () -> Void
     /// The create sheet, with the name he would create, set to an organization or not.
@@ -120,29 +118,16 @@ struct CheckActions: View {
         }
     }
 
-    /// The deadline in one line above the answers, with the link at its right end when the row under the thing had none.
+    /// The deadline in one line above the answers.
     @ViewBuilder private var line: some View {
-        let text = check.deadlineLine()
-        if isLookingAfterBank || text != nil || !links.isEmpty {
-            // Under an accessibility size the links go under the words, and under each other, never cut.
-            let layout =
-                typeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout(spacing: Metrics.Spacing.m))
-            layout {
-                if isLookingAfterBank {
-                    HStack(spacing: Metrics.Spacing.s) {
-                        Spinner(size: .small)
-                        Text("Looking for the payment…").font(.small).foregroundStyle(Palette.muted)
-                    }
-                } else if let text {
-                    Text(text).font(.small).foregroundStyle(Palette.muted)
-                }
-                if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                layout {
-                    ForEach(links, id: \.title) { $0 }
-                }
+        if isLookingAfterBank {
+            HStack(spacing: Metrics.Spacing.s) {
+                Spinner(size: .small)
+                Text("Looking for the payment…").font(.small).foregroundStyle(Palette.muted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        } else if let text = check.deadlineLine() {
+            Text(text).font(.small).foregroundStyle(Palette.muted).frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -169,9 +154,18 @@ struct CheckActions: View {
         return nil
     }
 
-    /// The options the answers draw: a new matter's goal edit is the goal's pencil, never an answer.
+    /// The options the answers draw, in Kit's order: a new matter's goal edit is the goal's pencil, never an answer.
     private var shown: [Check.Option] {
-        check.options.filter { !(check.group == .newMatter && $0.takes == .note) }
+        check.optionsInOrder.filter { !(check.group == .newMatter && $0.takes == .note) }
+    }
+
+    /// His own words, the first quiet answer on a question: "Tell the agent…", or "Tell Life…".
+    private var tell: Choice? {
+        guard check.takesOwnWords else { return nil }
+        return Choice(id: "own words", label: check.tellTitle) {
+            input.option = nil
+            input.isWritingOwnWords = true
+        }
     }
 
     /// The people it may be, each one tap away, when the card fills no answer of its own ("Yes"): a Contacts card, a voice, a name.
@@ -211,12 +205,11 @@ struct CheckActions: View {
                 }
             }
             .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
-            if !shown.isEmpty { others(shown.map(choice)) }
+            others(shown.map(choice))
         } else if let first = shown.first {
             Button(label(of: first)) { tap(first) }.buttonStyle(.pill(.filled))
                 .zoomSource(sheet(of: first), in: sheetZoom)
-            let rest = shown.dropFirst().map(choice)
-            if !rest.isEmpty { others(rest) }
+            others(shown.dropFirst().map(choice))
         }
     }
 
@@ -260,9 +253,10 @@ struct CheckActions: View {
         }
     }
 
-    /// One row of 44 (`AnswerRow`) when there are at most three, each of three words or fewer, and the row holds them;
-    /// else rows of 48.
-    @ViewBuilder private func others(_ rest: [Choice]) -> some View {
+    /// His own words first, then `rest`: one row of 44 (`AnswerRow`) when there are at most three, each of three words or
+    /// fewer, and the row holds them; else rows of 48; nothing when there are none.
+    @ViewBuilder private func others(_ answers: [Choice]) -> some View {
+        let rest = (tell.map { [$0] } ?? []) + answers
         let isShort = rest.count <= 3 && rest.allSatisfy { $0.label.split(separator: " ").count <= 3 }
         let stack = VStack(spacing: Metrics.Spacing.s) {
             ForEach(rest) { choice in
@@ -270,7 +264,9 @@ struct CheckActions: View {
                     .zoomSource(choice.sheet, in: sheetZoom)
             }
         }
-        if isShort && !typeSize.isAccessibilitySize {
+        if rest.isEmpty {
+            EmptyView()
+        } else if isShort && !typeSize.isAccessibilitySize {
             ViewThatFits(in: .horizontal) {
                 AnswerRow {
                     ForEach(rest) { choice in

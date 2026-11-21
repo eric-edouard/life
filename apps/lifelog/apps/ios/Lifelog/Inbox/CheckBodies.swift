@@ -303,3 +303,68 @@ struct DoneSeenLine: View {
         }
     }
 }
+
+/// A plan's steps, one row each, in order (decision 98): his with the white dot, in bold; the agent's with the asking
+/// agent's program mark (monochrome, as `RuntimeName.mark` requires), dimmer; a step's `when` as a muted second line, and where it happens at the row's end. Under them, the
+/// source chip (`gathered`), which opens the card's context; plain words when the context already shows beside the card.
+struct PlanBlock: View {
+    let steps: [Check.PlanStep]
+    /// The asking agent's mark (`RuntimeName.mark`).
+    let agentMark: String?
+    let gathered: Check.Gathered?
+    /// Opens the context; nil when it shows beside the card.
+    let openContext: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { _, step in row(step) }
+            if let gathered {
+                if let openContext {
+                    QuietChip(gathered.text, symbol: "doc.text.magnifyingglass", isMuted: true, action: openContext)
+                } else {
+                    Text(gathered.text).font(.small).foregroundStyle(Palette.muted)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func row(_ step: Check.PlanStep) -> some View {
+        let isHis = step.by == .owner
+        return HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.m) {
+            Group {
+                if isHis {
+                    StateDot(color: Palette.fg)
+                } else if let agentMark {
+                    Image(symbol: agentMark).foregroundStyle(Palette.icon).accessibilityHidden(true)
+                }
+            }
+            .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(step.text).font(isHis ? .bodyBold : .body15).foregroundStyle(isHis ? Palette.fg : Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let when = step.when { Text(when).font(.small).foregroundStyle(Palette.muted) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let channel = step.channel { Self.place(channel) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(isHis ? "You: \(step.text)" : step.text)
+    }
+
+    /// Where a step happens: a source's own mark, or the glyph of a payment, a place or a file.
+    @ViewBuilder private static func place(_ channel: String) -> some View {
+        let glyph: String? =
+            switch channel {
+            case "payment": "creditcard"
+            case "place": "mappin.and.ellipse"
+            case "file": "doc"
+            default: nil
+            }
+        if let glyph {
+            Image(systemName: glyph).font(.small).foregroundStyle(Palette.muted).accessibilityHidden(true)
+        } else {
+            NetworkMark(network: channel)
+        }
+    }
+}
