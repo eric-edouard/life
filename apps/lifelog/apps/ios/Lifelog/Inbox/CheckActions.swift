@@ -219,7 +219,7 @@ struct CheckActions: View {
     /// Saves the card's QR to Photos the first time, then opens his bank app (`BankTrip.press`), on this card's trip.
     private func goToBank(_ app: BankApp) {
         let trip = $input.bankTrip
-        let save = check.payCode.map { code in { @MainActor in await QRPicture.save(code.payload) } }
+        let save = Self.saving(check.payCode?.payload)
         Task {
             await BankTrip.press(
                 get: { trip.wrappedValue }, set: { trip.wrappedValue = $0 }, save: save,
@@ -228,6 +228,12 @@ struct CheckActions: View {
                     return await UIApplication.shared.open(url)
                 }, appName: app.name)
         }
+    }
+
+    /// The save of the card's QR to Photos, nil when the card draws none.
+    private static func saving(_ payload: String?) -> (@MainActor @Sendable () async -> String?)? {
+        guard let payload else { return nil }
+        return { await QRPicture.save(payload) }
     }
 
     /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
