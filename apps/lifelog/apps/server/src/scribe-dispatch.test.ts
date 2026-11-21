@@ -42,23 +42,19 @@ type App = ReturnType<typeof appWith>;
 
 // Dictation's paid send: it holds its slot from its grant (`posted`) until `free()`.
 function dictate(app: App) {
-  let free: () => void = () => undefined;
-  let started: () => void = () => undefined;
-  const posted = new Promise<void>((resolve) => {
-    started = resolve;
-  });
+  const posted = Promise.withResolvers<void>();
+  // Freed before its grant too, so a test's cleanup always frees it.
+  const held = Promise.withResolvers<void>();
   const done = app.s.worker.paidSend(
     "dictation",
     { priority: "interactive", waitMs: 10 * MIN },
     () => null,
     () => {
-      started();
-      return new Promise<void>((end) => {
-        free = end;
-      });
+      posted.resolve();
+      return held.promise;
     }
   );
-  return { done, free: () => free(), posted };
+  return { done, free: () => held.resolve(), posted: posted.promise };
 }
 const within = (ms: number, what: Promise<unknown>) =>
   Promise.race([what.then(() => true), Bun.sleep(ms).then(() => false)]);
@@ -292,11 +288,14 @@ test("the POST starts its clock: a block that waited 5 minutes for its slot is n
   await dictation.posted;
   const jobId = await admitFragment(app, speechAudio(10), 1);
   const working = app.s.worker.work();
-  expect(await until(() => speech.blocks === 1)).toBe(true);
-  expect(await heardLogged(jobId)).toBe(true);
-  setSystemTime(start + 5 * MIN);
   try {
+    expect(await until(() => speech.blocks === 1)).toBe(true);
+    expect(await heardLogged(jobId)).toBe(true);
+    setSystemTime(start + 5 * MIN);
+  } finally {
     dictation.free();
+  }
+  try {
     await working;
     const sent = jobRow(jobId);
     expect(sent).toMatchObject({ state: "submitted", transcriber: "scribe" });

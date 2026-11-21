@@ -317,14 +317,14 @@ test("a read stops at its time, each ask bounded by what is left; the rest are a
   const repos = ["acme/a", "acme/b", "acme/c", "acme/d"];
   const read = githubActivityReader({ readMs: 500, run });
   const asked = () => g.asked.map((cmd) => cmd.at(-1));
+  const ask = (repo: string) => `repos/${repo}/events?per_page=100`;
   try {
     await read(repos, T0);
+    expect(asked()).toEqual(repos.slice(0, 2).map(ask));
     await read(repos, T0 + 1000);
   } finally {
     timer.mockRestore();
   }
-  expect(asked()).toEqual(
-    repos.map((repo) => `repos/${repo}/events?per_page=100`)
-  );
+  expect(asked()).toEqual(repos.map(ask));
   expect(g.timeouts).toEqual([500, 200, 500, 200]);
 });
