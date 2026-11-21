@@ -67,8 +67,7 @@ struct MatterPage: View {
             }
             .matterPageColumn()
         }
-        // Pinned below the content, full width, on the page's own colour: nothing shows through or around them; the
-        // content fades into it above.
+        // Floating over the content, which runs to the screen's foot under the system's soft scroll edge.
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
@@ -88,7 +87,6 @@ struct MatterPage: View {
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
-            .background(Palette.bg.ignoresSafeArea(edges: .bottom))
         }
     }
 
@@ -148,8 +146,8 @@ struct MatterPage: View {
             HStack(spacing: 6) {
                 MetaIconButton(symbol: row.symbol, label: "Change the icon") { router.matterSheet = .icon(id) }
                 HStack(spacing: 0) {
-                    Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
-                        Palette.muted)
+                    Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small)
+                        .foregroundStyle(Palette.muted).lineLimit(1)
                     if let project = row.project {
                         TextLink(project.name, to: .page) {
                             // A done project has no chip: its Details, then.
@@ -159,6 +157,7 @@ struct MatterPage: View {
                                 router.open(project: ProjectChips.Chip.identity(.project, project.id))
                             }
                         }
+                        .lineLimit(1).layoutPriority(1)
                     }
                 }
             }

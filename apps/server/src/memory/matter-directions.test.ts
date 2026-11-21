@@ -429,6 +429,57 @@ test("a blind Life pin is due once; his own pin never is, and an outside record 
   ).toEqual([]);
 });
 
+test("an open step's date passing after the latest pin makes the matter due once, his pin too; a date passed before it does not (his rule of 21 Nov 2026)", () => {
+  const dated = step("obs_00000000e101", "2026-11-16T09:00:00.000Z", {
+    when: "2026-11-19",
+  });
+  const v = view("matter_00000000e101", {
+    goal: { at: "2026-11-17T02:00:00.000Z", by: "life", text: "Done" },
+    openSteps: [dated],
+    status: "stuck",
+    steps: [dated],
+  });
+  const drafted = pinOf(v, { laterShown: [] });
+  expect(dueIds([v], [drafted], [], "2026-11-19")).toEqual([]);
+  expect(dueIds([v], [drafted], [], "2026-11-20")).toEqual([v.id]);
+  expect(dueIds([v], [pinOf(v, { by: "owner" })], [], "2026-11-20")).toEqual([
+    v.id,
+  ]);
+  // Drafted again once the date passed: nothing new.
+  const again = pinOf(v, { at: "2026-11-20T02:00:00.000Z", laterShown: [] });
+  expect(dueIds([v], [again], [], "2026-11-25")).toEqual([]);
+  // A step that ended is not looked into again for its date.
+  const ended = {
+    ...v,
+    openSteps: [],
+    steps: [
+      { ...dated, ending: { at: "2026-11-16T12:00:00.000Z", by: "todo_item" } },
+    ],
+  } as MatterView;
+  expect(
+    dueIds([ended], [pinOf(ended, { laterShown: [] })], [], "2026-11-20")
+  ).toEqual([]);
+});
+
+test("his next step after Life read a matter over brings his move back: the latest pin is his, with no endingRecords", () => {
+  const v = waiting("00000000e201");
+  const over = pinOf(v, {
+    endingRecords: [],
+    laterShown: [],
+    nextStep: undefined,
+  });
+  const his = pinOf(v, {
+    at: "2026-11-18T09:00:00.000Z",
+    by: "owner",
+    nextStep: { kind: "do", text: "Call Sam" },
+  });
+  const find = matterFinderOf([v]);
+  expect(directionsOf(find, [over]).get(v)?.latest?.endingRecords).toEqual([]);
+  expect(
+    directionsOf(find, [over, his]).get(v)?.latest?.endingRecords
+  ).toBeUndefined();
+});
+
 test("only the newest 12 later records are compared: an older one outside them never keeps a direction due", () => {
   const v = waiting("00000000e002");
   const records = Array.from({ length: 13 }, (_, i) => said(i + 17));

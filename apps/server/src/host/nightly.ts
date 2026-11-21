@@ -535,7 +535,7 @@ export async function runNight(
     await placeMatters(window, evidence.failed).catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "memory.matters" })
     );
-    // Where each running matter is going and what moves it now, drafted again only for a matter with a new step. A
+    // Where each running matter is going and what moves it now, drafted again only for a matter with a new step, ending or passed date. A
     // failure is logged and never stops the night.
     steps.at = "matter directions";
     // The matter records are read once for both steps; a failure of the read stops neither (each reads them itself).

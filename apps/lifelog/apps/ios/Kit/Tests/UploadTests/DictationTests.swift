@@ -45,6 +45,18 @@ import Testing
         "a text equal as Swift compares it but not byte for byte takes nothing of the kept indices")
 }
 
+/// The crash of 21 Nov: Send empties the text, the field's caret stays where the last words ended, and the next run
+/// kept that caret with the empty text. A caret outside its text, or inside a character, lands at the end.
+@Test func aCaretLeftFromAnEarlierTextLandsAtTheEnd() {
+    let earlier = "The keys are here."
+    let stale = earlier.endIndex..<earlier.endIndex
+    #expect(DictatedText.inserting("Hello", into: "", at: ("", stale))?.text == "Hello")
+    #expect(DictatedText.inserting("there", into: "Hi", at: ("Hi", stale))?.text == "Hi there")
+    let accent = "caf\u{E9}"
+    let inside = accent.utf8.index(accent.utf8.startIndex, offsetBy: 4)
+    #expect(DictatedText.inserting("now", into: accent, at: (accent, inside..<inside))?.text == "caf\u{E9} now")
+}
+
 /// A fake microphone and Mac: each `begin` and each ask waits until the test lets it go.
 @MainActor private final class Rig {
     var begins: [CheckedContinuation<Void, Never>] = []
