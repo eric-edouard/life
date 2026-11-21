@@ -276,5 +276,7 @@ test("a card shown as its holder's opens the holder's session, not the asker's",
   expect(
     holderLinksOf([claude, "https://example.com/doc"], claude, codex)
   ).toEqual([codex, "https://example.com/doc"]);
-  expect(holderLinksOf([claude], claude, undefined)).toEqual([]);
+  expect(
+    holderLinksOf([claude, "https://example.com/doc"], claude, undefined)
+  ).toEqual([claude, "https://example.com/doc"]);
 });

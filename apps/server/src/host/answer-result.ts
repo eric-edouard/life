@@ -74,11 +74,9 @@ function askerOf(d: Decision) {
   const read = readDesk(
     (db) => {
       const s = assignmentOf(db, assignmentOfCard(db, d) ?? "");
-      // Told to the agent holding its card now (after a fold or a move), whoever asked it.
-      return {
-        holder: s?.agent_id ?? agent,
-        told: eventHeard(db, s?.id ?? "", `${d.id}.answered`),
-      };
+      const heard = eventHeard(db, s?.id ?? "", `${d.id}.answered`);
+      // Told to the agent whose turn took it, else the one holding its card now (after a fold or a move), whoever asked it.
+      return { holder: heard.by ?? s?.agent_id ?? agent, told: heard.told };
     },
     { holder: agent, told: "not_yet" as const }
   );

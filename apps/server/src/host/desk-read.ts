@@ -585,21 +585,24 @@ export function readDesk<T>(read: (db: Database) => T, empty: T): DeskRead<T> {
   }
 }
 
-/** Whether the desk has queued the event `eventId` for assignment `id` (`queued`) and then started a turn for it (`woken`: a turn of cause `answer` begun after), else `not_yet`. */
-export function eventHeard(db: Database, id: string, eventId: string) {
+/** Whether the desk has queued the event `eventId` for assignment `id` (`queued`) and then started a turn for it (`woken`, with `by` the agent of the first turn of cause `answer` begun after), else `not_yet`. */
+export function eventHeard(
+  db: Database,
+  id: string,
+  eventId: string
+): { by?: string; told: "not_yet" | "queued" | "woken" } {
   const e = db
     .query<{ received_at: string }, [string, string]>(
       "select received_at from event where assignment_id = ? and event_id = ?"
     )
     .get(id, eventId);
   if (!e) {
-    return "not_yet";
+    return { told: "not_yet" };
   }
-  return db
-    .query<{ n: number }, [string, string]>(
-      "select count(*) as n from turn where assignment_id = ? and cause = 'answer' and started_at >= ?"
+  const t = db
+    .query<{ agent_id: string }, [string, string]>(
+      "select agent_id from turn where assignment_id = ? and cause = 'answer' and started_at >= ? order by started_at limit 1"
     )
-    .get(id, e.received_at)?.n
-    ? "woken"
-    : "queued";
+    .get(id, e.received_at);
+  return t ? { by: t.agent_id, told: "woken" } : { told: "queued" };
 }

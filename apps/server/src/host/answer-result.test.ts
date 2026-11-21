@@ -369,8 +369,8 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
       ]
     );
     db.run(
-      "insert into turn (assignment_id, cause, started_at) values (?, ?, ?)",
-      ["asg_test", "answer", "2026-11-18T09:00:05.000Z"]
+      "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, ?, ?)",
+      ["agt_0123456789ab", "asg_test", "answer", "2026-11-18T09:00:05.000Z"]
     );
     expect((await call(id3, ["wait"]).result).asker).toMatchObject({
       told: "woken",
@@ -379,6 +379,11 @@ test("a registered agent's asker: not yet without a desk, queued then woken as t
     const { id: id4 } = await card("desk", "agt_0123456789ab");
     db.run("insert into card values (?, 'asg_test')", [id4]);
     db.run("update assignment set agent_id = 'agt_00000000fe11'");
+    // The one that woke on it stays the one told, after its card moved on.
+    expect((await call(id3, ["wait"]).result).asker).toMatchObject({
+      agent: "agt_0123456789ab",
+      told: "woken",
+    });
     expect((await call(id4, ["wait"]).result).asker).toMatchObject({
       agent: "agt_00000000fe11",
     });
