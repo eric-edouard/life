@@ -204,8 +204,8 @@ export interface Check {
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
-  /** On Life's own cards only (none of an agent's, the caretaker's included): what his "Wrong…" (`answer_check`'s `misread`) sends back: `cause` (what its guess rests on, `causeOf`) and, on the inbox's cards, `shown` (the card as shown, a digest) and `seal` (`withMisreadSealed`); null on an agent's. */
-  misread?: { cause: string; seal?: string; shown?: string } | null;
+  /** On Life's own cards only (none of an agent's, the caretaker's included): `cause`, what its guess rests on (`causeOf`), which shows his "Wrong…" (to Tell Life) and marks it being fixed; null on an agent's. */
+  misread?: { cause: string } | null;
   /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
   needs?: ReturnType<typeof needsShownOf>;
   /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */

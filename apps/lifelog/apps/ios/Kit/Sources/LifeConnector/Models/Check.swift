@@ -297,16 +297,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
-    /// What his "Wrong…" sends back with his words: on Life's own cards only, nil on an agent's.
+    /// Set on Life's own cards only, nil on an agent's: it offers "Wrong…", which opens Tell Life on the card.
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
     public let beingFixed: BeingFixed?
 
-    /// A card of Life's as Life showed it (`withMisreadSealed`, `memory/complaint-checks.ts`): sent back as read.
+    /// What a card of Life's rests on (`causeOf`, `memory/complaint-checks.ts`).
     public struct Misread: Decodable, Sendable, Equatable {
         public let cause: String
-        public let shown: String
-        public let seal: String
     }
 
     /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's open card on it, its question
@@ -504,14 +502,6 @@ extension Check {
             return AnswerRequest(ref: ref, options: [picked.id], note: words)
         }
         return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
-    }
-
-    /// His "Wrong…" with his words and his tick on the report: nil on a card that is not Life's own.
-    public func complaint(words: String, report: Bool) -> AnswerRequest? {
-        // Life takes at most 4,000 UTF-16 units of his words: more never goes, however often it is tried.
-        guard let misread, let words = words.wordsOrNil, words.utf16.count <= 4_000 else { return nil }
-        let value = Complaint(cause: misread.cause, shown: misread.shown, seal: misread.seal, report: report)
-        return AnswerRequest(ref: ref, options: [], note: words, value: value)
     }
 
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their

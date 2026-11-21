@@ -562,7 +562,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt at his press, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, card, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt when made, its `instruction.ref` `complaint:<its key>`; lines before 22 Nov 2026, his press of "Wrong…", also hold `shown` and `isAsShown`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
@@ -579,10 +579,10 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 ## complaints.jsonl
 
-The complaint record: one row per complaint (his "Wrong…", an ask in `ledger.jsonl`), appended only by `recordComplaints`
+The complaint record: one row per complaint (his words through Tell Life, an ask in `ledger.jsonl`), appended only by `recordComplaints`
 (`memory/complaint-record.ts`), run by the desk as it receives a complaint, before its receipt, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
 card's group, `unknown` when it had left; `stage` the step that makes that kind of card (`links`, `episodes`, `names`,
-`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version at his press (null when none; a
+`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version when he complained (null when none; a
 guessed person's, the prompt its guess was made with, else `unknown`), as the ask froze them (`stageOf`). No words, no card. A last line cut short is dropped, finished when it is a whole row;
 whole JSON that is not a row, or a bad earlier line, stops it, kept as it is.
 

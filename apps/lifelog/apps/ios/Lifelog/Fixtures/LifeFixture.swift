@@ -118,8 +118,6 @@
     nonisolated private final class FixtureAPI: LifeAPI, Sendable {
         let scenario: String
         private let answered = Mutex(Set<String>())
-        /// His "Wrong…" the caretaker received, by card: the card stays, being fixed.
-        private let fixing = Mutex([String: String]())
         private let started = Mutex(false)
         private let wholeReads = Mutex(0)
         /// His marks and the projects' statuses as he set them here, over the design data.
@@ -360,16 +358,10 @@
             return json(matter)
         }
 
-        /// The open asks as Life holds them now: less those he answered; one whose "Wrong…" the caretaker has no longer blocks.
+        /// The open asks as Life holds them now: less those he answered.
         private func checksNow() -> [[String: Any]] {
-            let (left, fixing) = (answered.withLock { $0 }, fixing.withLock { $0 })
-            return Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }.map { check in
-                guard let ask = fixing[check["ref"] as? String ?? ""] else { return check }
-                var check = check
-                check["beingFixed"] = ["ask": ask, "since": at(18, 14, 3), "line": NSNull()]
-                check["urgency"] = "improves"
-                return check
-            }
+            let left = answered.withLock { $0 }
+            return Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
         }
 
         /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
@@ -489,11 +481,6 @@
                 if draft == nil, LifeFixture.answer == "failed" { throw MCPError.refused("Your Mac did not take it.") }
                 if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
-            }
-            if answer.isComplaint {
-                let ask = "complaint:" + answerKey
-                fixing.withLock { $0[answer.ref] = ask }
-                return json(["ask": ask, "reached": "caretaker"])
             }
             if draft != nil, Self.refused.contains(LifeFixture.answer) {
                 let send: [String: Any] =

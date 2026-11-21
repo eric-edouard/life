@@ -7,14 +7,6 @@ public enum ActionProof: Sendable, Equatable {
     case agent(AgentChangeResult)
     /// A change recorded (a goal, a next step, a matter done, a to-do item).
     case recorded
-    /// His "Wrong…": the caretaker received his complaint (its receipt), Life's ask `ask`.
-    case complaintReceipt(ask: String)
-}
-
-/// What `answer_check` returns for his "Wrong…" (`complain`, `host/complaints.ts`), only once the caretaker has it.
-private struct Reached: Decodable {
-    let ask: String
-    let reached: String
 }
 
 /// His actions on Life, as one machine each: they run the calls, turn progress and results into `ActionState` events and
@@ -58,26 +50,16 @@ public struct LifeActions: Sendable {
     ) async {
         emit(.started)
         var dropped = ActionFailure(reason: "", retry: .allowed)
-        var tried = request
         for attempt in 0..<Self.tries {
             if attempt > 0 {
                 // The same tap again, with the same key: the screen and the phone's log say it was repeated and why.
                 let detail = ["of": "\(Self.tries)", "try": "\(attempt + 1)", "why": dropped.reason]
                 emit(.passed("connection_retry", at: now(), detail: detail))
                 await pause(.seconds(2))
-                // A repeat of his "Wrong…" says so: it is no press of his.
-                tried.value?.repeated = true
             }
             guard await isPaired() else { return emit(.failed(ActionFailure(.notPaired))) }
             do {
-                let text = try await api.answerCheck(tried, answerKey: key, at: origin, onProgress: progress(emit))
-                // His "Wrong…" has one proof: the caretaker has it. Anything else may be tried again under its key.
-                if request.isComplaint {
-                    guard let reached = decode(Reached.self, text), reached.reached == "caretaker" else {
-                        return emit(.failed(Self.unreadable))
-                    }
-                    return emit(.succeeded(.complaintReceipt(ask: reached.ask)))
-                }
+                let text = try await api.answerCheck(request, answerKey: key, at: origin, onProgress: progress(emit))
                 guard let result = decode(AnswerResult.self, text) else {
                     return emit(.failed(Self.unreadable))
                 }

@@ -2,11 +2,11 @@ import Testing
 
 @testable import LifeConnector
 
-/// His "Wrong…" running when the phone is paired again: the new Life's card under the same ref starts at rest, and the
-/// old press's late failure never lands on it.
+/// An answer running when the phone is paired again: the new Life's card under the same ref starts at rest, and the
+/// old tap's late failure never lands on it.
 @Test func aLateEndOfAnActionFromAnEarlierPairingNeverLandsOnTheNewOne() {
     var book = ActionBook<String>()
-    let key = "complaint name:alex"
+    let key = "name:alex"
     let (began, again) = (book.begin(key), book.begin(key))
     #expect(began && !again)
     let begun = book.pairing

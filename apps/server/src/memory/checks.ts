@@ -39,11 +39,7 @@ import {
 } from "./check-sentences";
 import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
-import {
-  fixingOf,
-  withComplaintFields,
-  withMisreadSealed,
-} from "./complaint-checks";
+import { fixingOf, withComplaintFields } from "./complaint-checks";
 import { type Decision, doneSeenShownOf } from "./decision-lines";
 import {
   DECISIONS,
@@ -528,14 +524,11 @@ async function readChecks(
   return inboxChecksOf(await withNetworkIdentities(checks, people), key);
 }
 
-/** The inbox's cards as finally shown (their network identities attached): with their push ids and urgency, then their "Wrong…" sealed on all of it (`withMisreadSealed`). */
+/** The inbox's cards as finally shown (their network identities attached): with their push ids and urgency. */
 export const inboxChecksOf = (identified: readonly Check[], key: string) =>
-  withMisreadSealed(
-    identified.map((c) => ({
-      ...c,
-      contactsCard: c.contactsCard ?? null,
-      pushId: pushIdOf(c.ref, key),
-      urgency: urgencyOf(c),
-    })),
-    key
-  );
+  identified.map((c) => ({
+    ...c,
+    contactsCard: c.contactsCard ?? null,
+    pushId: pushIdOf(c.ref, key),
+    urgency: urgencyOf(c),
+  }));

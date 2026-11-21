@@ -62,8 +62,9 @@ checkout. It also refuses a little too much: any call that names a messaging sit
 instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches the sessions the desk starts in their environment, and the Life plugin's module (never the model) for a session he opens himself: the door's `/session/<ref>` gives it to any process of his that knows the session's id, as `desk.key` already does. The key names an agent; it is no wall between his own processes.
-His complaint ("Wrong…" on a card of Life's) is his hand-over to the caretaker, a registered agent like the others,
-which the desk registers on his first complaint: it reads his words and the card as Life showed it through its door,
+His complaint (his words through Tell Life; "Wrong…" on a card of Life's opens it) is his hand-over to the caretaker, a
+registered agent like the others, which the desk registers on his first complaint: it reads his words and the card on
+his screen as Life read it through its door,
 only a complaint its own assignment received, as data; the complaint is never listed, fed to the change feed or pulled
 by another agent, and his tick on the anonymized report only asks the caretaker for a card with its exact text.
 Besides the desk, Life starts no agent, except the question cases' agent a developer's script starts to measure Life

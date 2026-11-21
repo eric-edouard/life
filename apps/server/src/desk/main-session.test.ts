@@ -504,7 +504,7 @@ test("on his words the main session acts through its door: each act's `said` mus
   expect(decisionsNow().find((d) => d.question === "Friday?")?.asker).toBe(
     OWNER_ASKER
   );
-  // The complaint reached the caretaker, on his words alone: no card, no seal.
+  // The complaint reached the caretaker, on his words alone: no card.
   expect(results.complain).toContain('\\"reached\\":\\"caretaker\\"');
   const complaint = readLedger().find(isComplaint);
   expect(complaint?.instruction?.quote).toBe("The names keep coming out wrong");
