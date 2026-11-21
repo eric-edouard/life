@@ -120,6 +120,7 @@ export interface CheckInputs {
   places?: YourMoveInputs["places"];
   /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
   plans?: ReadonlySet<string>;
+  rank?: YourMoveInputs["rank"];
   /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
   samePersons: ReturnType<typeof samePersonPairsOf>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
@@ -141,6 +142,8 @@ export interface Ranked {
   matter?: string;
   /** What it rests on, quoted into its context by `checksOf`. */
   quote?: Quote;
+  /** For the order: a your move card's matter's place in his ranking (`YourMoveInputs.rank`). */
+  rank?: number;
 }
 
 export type MatterId = CheckInputs["matters"][number];

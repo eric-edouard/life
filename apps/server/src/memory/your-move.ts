@@ -115,6 +115,8 @@ export interface YourMoveInputs {
   }[];
   /** The places of appointments by the observation they were read from (`readPlaces`). */
   places?: ReadonlyMap<string, string>;
+  /** Each open matter's place in his ranking (`rankedMattersOf`, as `read_matters` orders), by id: the order of the cards. */
+  rank?: ReadonlyMap<string, number>;
   today: string;
 }
 
@@ -186,7 +188,7 @@ type SaidLine = Parameters<typeof saidOfLine>[0];
  * as the question and `subject`, the matter's next step and what it waits on in its context, a `place` need from an
  * appointment read from its step, its `when` as the deadline; Mark as done ends that step, Hand to an agent starts one
  * on the matter (only while the desk is readable, no agent holds it, he did not dismiss its offer and the hand-out does
- * not take it), Not now hides it. Ranked by `since`. Pure.
+ * not take it), Not now hides it. Ranked by the matter's place in his ranking (`rank`), then `since`. Pure.
  */
 export function yourMoveChecksOf(
   c: YourMoveInputs & {
@@ -261,6 +263,8 @@ export function yourMoveChecksOf(
       unit: line?.unit,
       where: line ? whereOf(line) : plain(step.day),
     };
-    return [{ check, day: since, matter: v.id, quote }];
+    return [
+      { check, day: since, matter: v.id, quote, rank: c.rank?.get(v.id) },
+    ];
   });
 }

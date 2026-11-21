@@ -85,6 +85,7 @@ import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
 import { PROJECT_SITUATIONS } from "./project-situation-read";
 import { isOneOfHis, isParkedMatterOf } from "./read-matters";
+import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { lifeLinksOf } from "./refs";
 import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
@@ -334,7 +335,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ basis, check, day, matter: pick, quote }) => {
+      .map(({ basis, check, day, matter: pick, quote, rank }) => {
         const context = withQuoteOf(
           check.context,
           (id) => inputs.where.has(id),
@@ -353,9 +354,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
         return {
           ...withComplaintFields(card, inputs.fixing, basis, quote?.text),
           day,
+          rank,
         };
       })
-  ).map(({ day: _, ...check }) => check);
+  ).map(({ day: _, rank: __, ...check }) => check);
   return withDraftConfirms(found, c.people);
 };
 
@@ -513,6 +515,14 @@ async function readChecks(
     people,
     places: readPlaces(),
     plans: held?.plans(all),
+    rank: new Map(
+      rankedMattersOf(
+        matters.filter((v) => v.open),
+        people.nameOf,
+        today,
+        rankContextOf(people)
+      ).map((v, i) => [v.id, i])
+    ),
     samePersons: samePersonPairsOf(people),
     titles,
     today,

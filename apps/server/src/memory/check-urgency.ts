@@ -40,7 +40,7 @@ const LAST_BLOCKING_RANK = RANK["your move"];
 export const urgencyOf = (c: Rankable): Urgency =>
   inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
-/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
+/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by its matter's place in his ranking (`rank`, which weighs its dates), then by deadline, then the longest waiting. */
 const isMove = (c: Rankable) => c.group === "your move";
 /** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
 const isImportant = (c: Orderable) =>
@@ -51,6 +51,8 @@ interface Orderable extends Rankable {
   day: string;
   deadline: string | null;
   matter: { id: string; important?: boolean } | null;
+  /** A your move card's matter's place in his ranking (`rankedMattersOf`); none: after every ranked one. */
+  rank?: number;
   ref: string;
   ridesOn: {
     matterIds: string[];
@@ -60,12 +62,15 @@ interface Orderable extends Rankable {
   };
 }
 
+const rankOf = (c: Orderable) => c.rank ?? Number.MAX_SAFE_INTEGER;
+
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
   Number(isMove(a) && inboxRankOf(b) < RANK["your move"]) -
     Number(isMove(b) && inboxRankOf(a) < RANK["your move"]) ||
   Number(!isImportant(a)) - Number(!isImportant(b)) ||
+  (isMove(a) && isMove(b) ? rankOf(a) - rankOf(b) : 0) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   inboxRankOf(a) - inboxRankOf(b) ||

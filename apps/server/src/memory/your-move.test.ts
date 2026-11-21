@@ -328,3 +328,36 @@ test("Mark as done closes only the card's step, never its siblings", async () =>
     people.mockRestore();
   }
 });
+
+// Regression cases stack-2-admin-cover-ranked and stack-3-low-paperwork-ranked (his data, docs/evals/cases): his moves
+// in his ranking's order, never by age alone. Made-up matters.
+test("your move cards follow his ranking (`rank`), not the oldest step: a high-ranked admin step above an older low one", () => {
+  const step = (n: number, day: string, text: string) => ({
+    ...OWN,
+    at: `${day}T09:00:00.000Z`,
+    day,
+    ref: `obs_00000000009${n}`,
+    text,
+  });
+  const matter = (n: number, s: ReturnType<typeof step>) => ({
+    ...MATTER,
+    id: `matter_00000000009${n}`,
+    newestOpenStep: s,
+    openSteps: [s],
+    steps: [s],
+  });
+  // Older, but low in his ranking: the scooter's papers; newer, high: the health cover he marked high.
+  const papers = matter(1, step(1, "2026-10-01", "Register the scooter"));
+  const cover = matter(2, step(2, "2026-10-18", "Find health insurance"));
+  const order = (rank?: Map<string, number>) =>
+    moves({ matters: [papers, cover], rank }).map((c) => c.matter?.id);
+  expect(order()).toEqual([papers.id, cover.id]);
+  expect(
+    order(
+      new Map([
+        [cover.id, 0],
+        [papers.id, 40],
+      ])
+    )
+  ).toEqual([cover.id, papers.id]);
+});
