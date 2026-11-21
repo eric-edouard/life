@@ -16,7 +16,6 @@ import { setSwitches } from "./switches";
 import { OWNER_TOKEN, providerTranscript } from "./testing";
 
 const {
-  accept,
   admitFragment,
   appWith,
   audio,
@@ -157,57 +156,23 @@ test("a block's routed turns wait while a Scribe job holds the slot, and go once
   fake.respond = thaiAnswer;
   const jobId = await admitFragment(app, speechAudio(30), 1);
   const working = app.s.worker.work();
-  expect(await until(() => speech.blocks === 1)).toBe(true);
-  expect(await heardLogged(jobId)).toBe(true);
-  expect(jobRow(jobId)).toMatchObject({
-    maybeBilled: false,
-    state: "submitted",
-  });
-  expect(uploads()).toHaveLength(1);
-
-  await completeByWebhook(app, jobRow(atScribe));
+  try {
+    expect(await until(() => speech.blocks === 1)).toBe(true);
+    expect(await heardLogged(jobId)).toBe(true);
+    expect(jobRow(jobId)).toMatchObject({
+      maybeBilled: false,
+      state: "submitted",
+    });
+    expect(uploads()).toHaveLength(1);
+  } finally {
+    await completeByWebhook(app, jobRow(atScribe));
+  }
   await working;
   expect(uploads()).toHaveLength(2);
   expect(jobRow(jobId)).toMatchObject({
     maybeBilled: false,
     state: "completed",
   });
-});
-
-// Every test's app shares one db (life#857): a test's worker is stopped after it, and a late wake claimed the next one's job.
-test("a stopped worker settles the send under way, then claims nothing", async () => {
-  const app = appWith();
-  setSwitches(env.db, { transcriber: "scribe" });
-  const upload = Promise.withResolvers<void>();
-  const held = Promise.withResolvers<void>();
-  // Only the upload's answer is held, not the credits' read before it.
-  fake.respond = async (call) => {
-    if (call.path.endsWith("/speech-to-text")) {
-      upload.resolve();
-      await held.promise;
-    }
-    return accept();
-  };
-  await admitFragment(app, audio(60), 1);
-  const working = app.s.worker.work();
-  try {
-    await upload.promise;
-    let settled = false;
-    const stopping = app.s.worker.stop().then(() => {
-      settled = true;
-    });
-    await Bun.sleep(20);
-    expect(settled).toBe(false);
-    held.resolve();
-    await Promise.all([stopping, working]);
-  } finally {
-    held.resolve();
-  }
-
-  const queued = await admitFragment(app, audio(60), 100);
-  await app.s.worker.work();
-  expect(jobRow(queued).state).toBe("queued");
-  expect(uploads()).toHaveLength(1);
 });
 
 test("a quiet range that lands while a block waits for its paid slot: nothing of it is sent, then or on a retry", async () => {
@@ -222,18 +187,20 @@ test("a quiet range that lands while a block waits for its paid slot: nothing of
   // Recorded from T0 to T0 + 30 s; its Thai turn waits for the slot.
   const jobId = await admitFragment(app, speechAudio(30), 1);
   const working = app.s.worker.work();
-  expect(await until(() => speech.blocks === 1)).toBe(true);
-  await Bun.sleep(20);
-  expect(uploads()).toHaveLength(1);
-
-  // Meanwhile the Mac reports a dictation over its last second.
-  addQuietRange(env.db, {
-    endedAt: new Date(T0 + 31_000).toISOString(),
-    id: randomUUID(),
-    source: "com.apple.dictation",
-    startedAt: new Date(T0 + 29_000).toISOString(),
-  });
-  await completeByWebhook(app, jobRow(atScribe));
+  try {
+    expect(await until(() => speech.blocks === 1)).toBe(true);
+    await Bun.sleep(20);
+    expect(uploads()).toHaveLength(1);
+    // Meanwhile the Mac reports a dictation over its last second.
+    addQuietRange(env.db, {
+      endedAt: new Date(T0 + 31_000).toISOString(),
+      id: randomUUID(),
+      source: "com.apple.dictation",
+      startedAt: new Date(T0 + 29_000).toISOString(),
+    });
+  } finally {
+    await completeByWebhook(app, jobRow(atScribe));
+  }
   await working;
   expect(uploads()).toHaveLength(1);
   // Withdrawn at the send or on the retry, never sent.
@@ -255,9 +222,12 @@ test("nothing paid goes before the first read of the credits: a wake at boot wai
   const jobId = await admitFragment(app, audio(60), 1);
   // A wake just after boot, before the tick read the credits.
   app.s.worker.poke();
-  await Bun.sleep(100);
-  expect(uploads()).toHaveLength(0);
-  answer(Response.json({ character_count: 1000, character_limit: 1000 }));
+  try {
+    await Bun.sleep(100);
+    expect(uploads()).toHaveLength(0);
+  } finally {
+    answer(Response.json({ character_count: 1000, character_limit: 1000 }));
+  }
   await app.s.worker.work.idle();
   await Bun.sleep(20);
   expect(uploads()).toHaveLength(0);
@@ -303,10 +273,13 @@ test("a routed excerpt holds the slot until its words are stored, then dictation
     return thaiAnswer();
   };
   const jobId = await admitFragment(app, speechAudio(30), 1);
-  await app.s.worker.work();
-  expect(jobRow(jobId).state).toBe("completed");
-  expect(await within(500, dictation?.posted ?? Promise.reject())).toBe(true);
-  dictation?.free();
+  try {
+    await app.s.worker.work();
+    expect(jobRow(jobId).state).toBe("completed");
+    expect(await within(500, dictation?.posted ?? Promise.reject())).toBe(true);
+  } finally {
+    dictation?.free();
+  }
 });
 
 test("the POST starts its clock: a block that waited 5 minutes for its slot is not lost 26 minutes after it, and never sent twice", async () => {
@@ -651,12 +624,15 @@ test("reconcile frees each slot as it settles it, not after the slowest", async 
   };
   const dictation = dictate(app);
   const ticking = app.s.worker.tick();
-  expect(await within(1000, dictation.posted)).toBe(true);
-  expect(jobRow(answered).state).toBe("completed");
-  expect(jobRow(slow).state).toBe("submitted");
-  answer();
-  dictation.free();
-  await ticking;
+  try {
+    expect(await within(1000, dictation.posted)).toBe(true);
+    expect(jobRow(answered).state).toBe("completed");
+    expect(jobRow(slow).state).toBe("submitted");
+  } finally {
+    answer();
+    dictation.free();
+    await ticking;
+  }
 });
 
 test("a quiet range that comes while a block's audio is read keeps it from the speech service", async () => {

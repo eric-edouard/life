@@ -776,7 +776,7 @@ export function jobWorker(
     poke,
     stop() {
       stopped = true;
-      return work.idle();
+      return work.idle().then(() => clearTimeout(wake));
     },
     // Every 5 minutes: the credits, what reconcile settles, then whatever can go.
     tick: async () => {

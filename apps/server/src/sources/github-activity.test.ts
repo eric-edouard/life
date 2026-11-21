@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { HOUR, MIN } from "../core/clock";
 import { ACTIVITY_REPOS_MAX, githubActivityReader } from "./github";
 
@@ -25,18 +25,17 @@ const event = (
 
 /**
  * A made-up `gh`: each repo's events and ETag, an owner's repos, what fails (a repo or an owner), what is cut short (a
- * repo whose answer is killed halfway), how long each answer takes, and every command and timeout it was given.
+ * repo whose answer is killed halfway), and every command and timeout it was given.
  */
 function fakeGh() {
   const feeds = new Map<string, { etag: string; events: unknown[] }>();
   const owners = new Map<string, string[]>();
   const failing = new Set<string>();
   const cut = new Set<string>();
-  const slow = { ms: 0 };
   const asked: string[][] = [];
   const timeouts: number[] = [];
   const answer = (code: number, stdout: string, killed: unknown = null) =>
-    Bun.sleep(slow.ms).then(() => ({ code, killed, stderr: "", stdout }));
+    Promise.resolve({ code, killed, stderr: "", stdout });
   const run = (cmd: string[], o: { timeout: number }) => {
     asked.push(cmd);
     timeouts.push(o.timeout);
@@ -70,7 +69,6 @@ function fakeGh() {
     feeds,
     owners,
     run: run as never,
-    slow,
     timeouts,
   };
 }
@@ -309,16 +307,24 @@ test("an answer cut short keeps no ETag: the next ask has the last good one, and
 
 test("a read stops at its time, each ask bounded by what is left; the rest are asked on the next read", async () => {
   const g = fakeGh();
-  // Real time: margins wide enough for a loaded Mac's scheduling.
-  g.slow.ms = 300;
+  // A clock each answer moves by 300 ms, so the read's budget is spent by the asks alone.
+  let now = 0;
+  const timer = spyOn(performance, "now").mockImplementation(() => now);
+  const run = ((cmd: string[], o: { timeout: number }) => {
+    now += 300;
+    return (g.run as (c: string[], t: { timeout: number }) => unknown)(cmd, o);
+  }) as never;
   const repos = ["acme/a", "acme/b", "acme/c", "acme/d"];
-  const read = githubActivityReader({ readMs: 500, run: g.run });
-  await read(repos, T0);
-  expect(g.asked.length).toBeLessThan(repos.length);
-  expect(Math.max(...g.timeouts)).toBeLessThanOrEqual(500);
-  const first = g.asked.length;
-  await read(repos, T0 + 1000);
-  expect(g.asked[first]?.at(-1)).toBe(
-    `repos/${repos[first]}/events?per_page=100`
+  const read = githubActivityReader({ readMs: 500, run });
+  const asked = () => g.asked.map((cmd) => cmd.at(-1));
+  try {
+    await read(repos, T0);
+    await read(repos, T0 + 1000);
+  } finally {
+    timer.mockRestore();
+  }
+  expect(asked()).toEqual(
+    repos.map((repo) => `repos/${repo}/events?per_page=100`)
   );
+  expect(g.timeouts).toEqual([500, 200, 500, 200]);
 });
