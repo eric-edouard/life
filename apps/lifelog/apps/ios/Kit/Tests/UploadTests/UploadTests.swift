@@ -1022,6 +1022,7 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
     let intents: [OwnerIntent] = [
         .vocabulary(["Nok", "Izipizi"]), .switches(transcription: false),
         .playbackQuiet(from: at(1).date, to: at(2).date),
+        .dictationQuiet(from: at(3).date, to: at(4).date),
     ]
     for intent in intents { try await library.enqueue(intent) }
     let kept = try await library.outbox()
@@ -1031,6 +1032,9 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
         try json(try #require(try entry.intent.request(id: entry.id, at: entry.createdAt).body))
     }
     #expect(try body(kept[2])["id"] as? String == kept[2].id.uuidString.lowercased(), "the range's id is the edit's")
+    #expect(try body(kept[2])["source"] as? String == "playback")
+    // The phone's dictation, kept on the server for a reinstall.
+    #expect(try body(kept[3])["source"] as? String == "dictation")
     let switches = PendingEdits([
         OutboxEntry(intent: .switches(transcription: false)),
         OutboxEntry(intent: .switches(openAppAfterMinutes: 30)),

@@ -378,3 +378,75 @@ extension Array {
         ClockSync(firstPageIndex: 20, phoneMillis: base, deviceMillisBeforeSet: nil), deviceID: device)
     #expect(try await ClockModel.load(store, deviceID: device, from: 30).anchors.map(\.pageIndex) == [8])
 }
+
+@Test func aDictationIsEncodedInMemoryAsTheSameOggAsAFileExactlyAsLongAndCappedAtTenMinutes() async throws {
+    // 1.23 s of a tone in uneven chunks: a partial last page, and a last packet short of 20 ms.
+    let tone = (0..<19_680).map { Float(sin(Double($0) * 0.05)) * 0.3 }
+    let recording = try DictationRecording()
+    for chunk in stride(from: 0, to: tone.count, by: 1_000) {
+        try recording.append(Array(tone[chunk..<min(chunk + 1_000, tone.count)]))
+    }
+    #expect(recording.millis == 1_230)
+    #expect(recording.level > 0.1)
+    let memory = try recording.finish()
+
+    // The same samples through the file writer give the same bytes.
+    let url = FileManager.default.temporaryDirectory.appending(path: "dictation-\(UUID().uuidString).ogg")
+    let encoder = try OpusPacketEncoder(bitRate: PreparedAudio.bitRate)
+    let writer = try OggOpusWriter(url: url, preSkip: encoder.leadingSamples)
+    for chunk in stride(from: 0, to: tone.count, by: 1_000) {
+        try writer.append(encoder.encode(Array(tone[chunk..<min(chunk + 1_000, tone.count)])))
+    }
+    try writer.append(encoder.encode(nil))
+    _ = try writer.finish(totalSamples: tone.count)
+    #expect(memory == (try Data(contentsOf: url)))
+    #expect(try AVAudioFile(forReading: url).length == AVAudioFramePosition(1_230 * 48))
+
+    let long = try DictationRecording()
+    let minute = [Float](repeating: 0, count: 60 * PendantAudio.sampleRate)
+    for _ in 0..<11 { try long.append(minute) }
+    #expect(long.millis == DictationRecording.capMillis)
+}
+
+@MainActor @Test func aLatePlaybackStopNeverLetsGoOfTheSessionADictationTookAfterIt() throws {
+    var applied: [AudioSessionOwner.Use?] = []
+    var playbackEnded = 0
+    let owner = AudioSessionOwner { applied.append($0) }
+    let playback = try owner.take(.playback) { playbackEnded += 1 }
+    let recording = try owner.take(.recording) {}
+    #expect(playbackEnded == 1, "the newer lease ends the player")
+    owner.release(playback)
+    #expect(applied == [.playback, .recording], "the player's late stop leaves the microphone on")
+    owner.release(recording)
+    #expect(applied == [.playback, .recording, nil])
+
+    // An interruption ends the holder and lets the session go once.
+    var recordingEnded = 0
+    _ = try owner.take(.recording) { recordingEnded += 1 }
+    owner.interrupt()
+    owner.interrupt()
+    #expect(recordingEnded == 1 && applied.suffix(2) == [.recording, nil])
+
+    // A set-up that fails leaves no holder.
+    let failing = AudioSessionOwner { if $0 != nil { throw AudioPipelineError.unsupportedInput } }
+    #expect(throws: AudioPipelineError.unsupportedInput) { _ = try failing.take(.recording) {} }
+}
+
+@Test func theMicrophoneIsResampledTo16kHzMonoTheSameInPiecesAsWhole() throws {
+    // A fake input: 44.1 kHz mono, one second of a tone, as the tap hands it.
+    let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1))
+    func buffer(_ from: Int, _ count: Int) throws -> AVAudioPCMBuffer {
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)))
+        buffer.frameLength = AVAudioFrameCount(count)
+        for index in 0..<count { buffer.floatChannelData![0][index] = Float(sin(Double(from + index) * 0.03)) * 0.3 }
+        return buffer
+    }
+    let whole = try Resampler(from: format).samples(of: buffer(0, 44_100))
+    let pieces = try Resampler(from: format)
+    let pieced = try stride(from: 0, to: 44_100, by: 1_024).flatMap {
+        try pieces.samples(of: buffer($0, min(1_024, 44_100 - $0)))
+    }
+    #expect(abs(whole.count - 16_000) < 64 && abs(pieced.count - whole.count) < 64)
+    let shared = min(whole.count, pieced.count) - 64
+    #expect(zip(whole.prefix(shared), pieced.prefix(shared)).allSatisfy { abs($0 - $1) < 1e-4 })
+}

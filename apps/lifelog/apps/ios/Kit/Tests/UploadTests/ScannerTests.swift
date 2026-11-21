@@ -151,6 +151,19 @@ struct ScannerFixture {
     #expect(try await covered())
 }
 
+@Test func pendantSpeechDuringADictationOnThisPhoneIsNeverUploadedAndItsStretchShrinksAtStop() async throws {
+    let fixture = try ScannerFixture()
+    try await fixture.store(0..<30)
+    let scanner = try fixture.scanner()
+    // Stored before the microphone opens, up to the cap; at Stop, cut to the real end (same start).
+    try await fixture.library.setQuiet(.dictation, at(10)..<at(620))
+    let capped = try await scanner.scan().kept(in: at(0)..<at(30))
+    #expect(capped == [at(0)..<at(10)])
+    try await fixture.library.setQuiet(.dictation, at(10)..<at(14))
+    let cut = try await scanner.scan().kept(in: at(0)..<at(30))
+    #expect(cut == [at(0)..<at(10), at(14)..<at(30)])
+}
+
 @Test func onlyAPauseCountsNeverALateResume() {
     #expect(TimelineScanner.pauses([RecordingChange(.resumed, at: at(1.5))]).isEmpty)
     #expect(TimelineScanner.pauses([RecordingChange(.paused, at: at(1.5))]) == [at(1.5)])

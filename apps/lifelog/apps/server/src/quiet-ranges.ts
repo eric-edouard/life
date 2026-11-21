@@ -1,5 +1,5 @@
 // Quiet ranges: stretches the owner spent dictating to the Mac (its events, turned into ranges by
-// dictation.ts) or the phone played a recording out loud (`POST /quiet-ranges`). Words inside one
+// dictation.ts), or the phone played a recording out loud or was dictated to (`POST /quiet-ranges`). Words inside one
 // are hidden (transcript.ts `keptWords`). The Mac also vouches for time: every dictation before its
 // watermark is already among the ranges, or the Mac is asleep.
 
@@ -37,7 +37,9 @@ export const quietRangeInput = z
       .string()
       .min(1)
       .max(200)
-      .describe('The dictating app\'s bundle id, or "playback" from the phone'),
+      .describe(
+        'The dictating app\'s bundle id, or "playback" or "dictation" from the phone'
+      ),
     startedAt: z.iso.datetime({ offset: true }),
   })
   .refine((r) => Date.parse(r.endedAt) > Date.parse(r.startedAt), {

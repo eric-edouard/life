@@ -44,14 +44,17 @@ public enum PreparedAudio {
 }
 
 /// A minimal Ogg Opus muxer (RFC 7845) for 16 kHz mono packets of 20 ms: OpusHead, OpusTags, then audio pages of up
-/// to 50 packets. The last page's granule position trims the stream to its exact length.
+/// to 50 packets. The last page's granule position trims the stream to its exact length. Into a file, or into memory
+/// (`url` nil: a dictation's audio never touches the disk).
 final class OggOpusWriter {
     private static let serial: UInt32 = 0x6C69_6665  // fixed, so output is deterministic
     private static let packetsPerPage = 50
     /// Granule positions count 48 kHz samples.
     private static let granulesPerSample = 3
 
-    private let handle: FileHandle
+    private let handle: FileHandle?
+    /// The stream so far, when written into memory.
+    private(set) var data = Data()
     private let preSkip: Int
     private var hasher = SHA256()
     private var bytes = 0
@@ -59,10 +62,15 @@ final class OggOpusWriter {
     private var packets = 0
     private var pending: [Data] = []
 
-    init(url: URL, preSkip: Int) throws {
-        FileManager.default.createFile(atPath: url.path, contents: nil)
-        handle = try FileHandle(forWritingTo: url)
-        try handle.truncate(atOffset: 0)
+    init(url: URL?, preSkip: Int) throws {
+        if let url {
+            FileManager.default.createFile(atPath: url.path, contents: nil)
+            let handle = try FileHandle(forWritingTo: url)
+            try handle.truncate(atOffset: 0)
+            self.handle = handle
+        } else {
+            handle = nil
+        }
         self.preSkip = preSkip * Self.granulesPerSample
         var head = Data("OpusHead".utf8)
         head += [1, 1]  // version, channels
@@ -90,7 +98,7 @@ final class OggOpusWriter {
     /// Writes the last page and returns the file's SHA-256 (hex) and size.
     func finish(totalSamples: Int) throws -> (String, Int) {
         try page(pending, granule: Int64(preSkip + totalSamples * Self.granulesPerSample), flags: 0x04)
-        try handle.close()
+        try handle?.close()
         return (hasher.finalize().map { String(format: "%02x", $0) }.joined(), bytes)
     }
 
@@ -110,7 +118,7 @@ final class OggOpusWriter {
         page += lacing
         for packet in packets { page += packet }
         page.replaceSubrange(22..<26, with: Self.littleEndian(Self.crc(page)))
-        try handle.write(contentsOf: page)
+        if let handle { try handle.write(contentsOf: page) } else { data += page }
         hasher.update(data: page)
         bytes += page.count
         sequence += 1

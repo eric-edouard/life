@@ -46,27 +46,27 @@ public actor LibraryStore {
 
     // MARK: Quiet ranges
 
-    /// Stores a stretch this app played a recording out loud. A span still playing grows: it replaces the one stored
-    /// with the same start, so the latest end wins.
-    public func setPlaybackQuiet(_ range: Range<CaptureInstant>) throws {
+    /// What a quiet range of this phone's own is: a recording it played out loud, or the owner dictating to it.
+    public enum QuietSource: String, Sendable { case playback, dictation }
+
+    /// Stores a stretch the uploader leaves out, in capture time: this app playing a recording out loud, or the owner
+    /// dictating to it (#802: the phone drops what the Pendant heard then). A span still going grows or shrinks: it
+    /// replaces the one stored with the same source and start, so the latest end wins.
+    public func setQuiet(_ source: QuietSource, _ range: Range<CaptureInstant>) throws {
         guard !range.isEmpty else { return }
-        try db.transaction {
-            try db.run(
-                "DELETE FROM quiet_ranges WHERE start_ms = ?1 AND source = 'playback'", [.int(range.lowerBound.millis)])
-            try db.run(
-                "INSERT OR IGNORE INTO quiet_ranges (start_ms, end_ms, source) VALUES (?1, ?2, 'playback')",
-                [.int(range.lowerBound.millis), .int(range.upperBound.millis)])
-        }
+        try db.run(
+            "INSERT OR REPLACE INTO quiet_ranges (source, start_ms, end_ms) VALUES (?1, ?2, ?3)",
+            [.text(source.rawValue), .int(range.lowerBound.millis), .int(range.upperBound.millis)])
     }
 
     /// Stretches uploads leave out overlapping `range`, sorted by start: the feed's quiet ranges (the Mac's dictation,
-    /// and the playback ranges the server has) and this phone's playback ones.
+    /// and the ranges the server has from this phone) and this phone's own.
     public func quietRanges(in range: Range<CaptureInstant>) throws -> [Range<CaptureInstant>] {
         try db.query(
             """
-            SELECT start_ms, end_ms FROM quiet_ranges WHERE source = 'playback' AND start_ms < ?2 AND end_ms > ?1
+            SELECT start_ms, end_ms FROM quiet_ranges WHERE start_ms < ?2 AND end_ms > ?1
             UNION SELECT start_ms, end_ms FROM feed_rows WHERE kind = 'quietRanges' AND start_ms < ?2 AND end_ms > ?1
-            ORDER BY start_ms
+            ORDER BY start_ms, end_ms
             """, [.int(range.lowerBound.millis), .int(range.upperBound.millis)]
         ) { CaptureInstant(millis: $0.int(0))..<CaptureInstant(millis: $0.int(1)) }
     }
@@ -265,6 +265,20 @@ public actor LibraryStore {
         """
         DROP INDEX feed_rows_conversation;
         CREATE INDEX feed_rows_conversation ON feed_rows (kind, conversation, start_ms);
+        """,
+        // The phone's own quiet ranges keyed by source and start (Nov 21): a dictation and a playback span with the
+        // same bounds are two rows, and a span still going replaces itself.
+        """
+        CREATE TABLE quiet_ranges_by_source (
+            source TEXT NOT NULL,
+            start_ms INTEGER NOT NULL,
+            end_ms INTEGER NOT NULL,
+            PRIMARY KEY (source, start_ms)
+        ) WITHOUT ROWID;
+        INSERT OR REPLACE INTO quiet_ranges_by_source (source, start_ms, end_ms)
+            SELECT source, start_ms, MAX(end_ms) FROM quiet_ranges GROUP BY source, start_ms;
+        DROP TABLE quiet_ranges;
+        ALTER TABLE quiet_ranges_by_source RENAME TO quiet_ranges;
         """,
     ]
 }

@@ -44,6 +44,8 @@ public enum AudioPipelineError: Error, Equatable {
     case pageChanged(UInt64)
     /// An audio file is not 16 kHz mono, so it can't be placed sample-exactly.
     case notSixteenKilohertzMono
+    /// The microphone's format can't be turned into 16 kHz mono.
+    case unsupportedInput
 }
 
 /// Audio that could not be decoded. It is played and analyzed as silence, and always recorded.
