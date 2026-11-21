@@ -124,6 +124,7 @@ private func need(_ json: String) throws -> Check.Need {
 @Test func anAppShowsItsNameAndOpensOnlyAnHTTPSLink() throws {
     let rows = try need(#"{"kind":"app","line":"In Grab","name":"Grab","url":"https://grab.example.test/a"}"#).rows
     #expect(rows.map(\.text) == ["Grab"])
+    #expect(rows[0].detail == "grab.example.test")
     #expect(rows[0].action == .open(URL(string: "https://grab.example.test/a")!, label: "Open grab.example.test"))
     #expect(try need(#"{"kind":"app","line":"In Grab","name":"Grab","url":"grab://x"}"#).rows[0].action == nil)
 }

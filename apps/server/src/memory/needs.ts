@@ -111,7 +111,7 @@ const KINDS: {
   app: {
     about: "an app to do the step in (name, link)",
     line: (n) => `In ${n.name}`,
-    page: '`{kind: "app", name, url?}`: a step he does in another app (a bank app, a booking app). `name` as the app is called; `url` an `https` link into it (a universal link or its store page), opened by his own tap, never a custom scheme. Never guess a link. Example: `{"kind":"app","name":"Grab","url":"https://grab.onelink.me/2695613898"}`.',
+    page: '`{kind: "app", name, url?}`: a step he does in another app (a bank app, a booking app). `name` as the app is called; `url` an `https` link into it (a universal link or its store page), opened by his own tap (his phone shows its host), never a custom scheme. Never guess a link. Example: `{"kind":"app","name":"Grab","url":"https://grab.example.com/open"}`.',
   },
   link: {
     about: "a web page to open (url, vendor)",
