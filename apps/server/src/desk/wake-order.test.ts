@@ -1,6 +1,7 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { DAY, HOUR, MIN } from "../core/clock";
+import { agentOf } from "../host/desk-read";
 import { DECISION_ANSWERED, DRAFT_CONTESTED } from "../host/events";
 import { answerDecision, requestDecision } from "../memory/decisions";
 import { register } from "./agent-actions";
@@ -65,6 +66,24 @@ test("his answer starts ahead of three older contests, which wait for the next t
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
   expect(contested.filter((c) => turns(c).length > 1)).toHaveLength(2);
+});
+
+test("his answer while the session runs elsewhere (his app) starts no second process on it: it stays queued and runs once the session is idle", async () => {
+  const { desk, fake, queue, turns, waiting } = setup();
+  const id = await waiting(DAY);
+  const session = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
+  if (session) {
+    session.running = true;
+  }
+  advance(MIN);
+  queue(id, "dec_5.answered", DECISION_ANSWERED);
+  await wakeDue(desk);
+  expect(turns(id)).toHaveLength(1);
+  if (session) {
+    session.running = false;
+  }
+  await wakeDue(desk);
+  expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
 });
 
 test("his answer while its agent is stopped is queued once, and wakes it when he resumes it", async () => {

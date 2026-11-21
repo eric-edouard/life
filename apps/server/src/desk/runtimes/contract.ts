@@ -46,7 +46,7 @@ export interface Runtime {
     agent: Agent,
     brief: string
   ) => Promise<Run & { link: string; ref: string }>;
-  /** Whether the session runs a turn now (the desk's or his), is idle, or is no longer known (deleted, archived). */
+  /** Whether the session is live now (the desk's turn, or his app or CLI running it, between his turns too), idle, or no longer known (deleted, archived). */
   state: (ref: string) => Promise<"running" | "idle" | "gone">;
   /** Stops the desk's own run of the session, if one runs (never his app's process). */
   stop: (ref: string) => Promise<void>;
