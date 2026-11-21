@@ -3,6 +3,9 @@
 // process speaking ACP, whose prompt reply is the run's end (`ended`), which the desk's clock takes as the turn's end
 // (`turnEnded`, `desk-clock.ts`).
 
+/** `send`'s refusal of a session live elsewhere (his app, a terminal): the wake waits for it, never a failed turn. */
+export class SessionLive extends Error {}
+
 /** How a run ended: `ok` false when it failed (`why`: its stop reason or error), and what it used (none when it failed or the runtime can't say). */
 export interface RunEnd {
   ok: boolean;
@@ -39,7 +42,7 @@ export interface Agent {
 export interface Runtime {
   /** Why the program can't run now (not installed, not answering); none when it can: the same meaning as `SendPath.block`. */
   block: () => Promise<string | undefined>;
-  /** Launches `message` in the session now, answering once the run is launched (`Run.begun` says when the turn is under way); refused while anything else runs it. */
+  /** Launches `message` in the session now, answering once the run is launched (`Run.begun` says when the turn is under way); refused with `SessionLive` while anything else runs it. */
   send: (agent: Agent, ref: string, message: string) => Promise<Run>;
   /** Starts a session in `agent.folder` with `brief` as its first message, answering once its run is launched: its ref, and a link that opens it. */
   start: (

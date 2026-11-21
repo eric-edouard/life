@@ -66,6 +66,7 @@ import {
   pollRecordings,
   relatedMessages,
 } from "./matter-net";
+import { SessionLive } from "./runtimes/contract";
 import {
   endLostTurns,
   endUnbegunTurns,
@@ -394,11 +395,10 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
   if (!woken) {
     return false;
   }
-  await launch(desk, woken, state);
-  return true;
+  return await launch(desk, woken, state);
 }
 
-/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */
+/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. False: the session was live elsewhere, so the turn went and the wake waits. */
 async function launch(
   desk: Desk,
   {
@@ -497,13 +497,10 @@ async function launch(
     }
   } catch (error) {
     // His app took the session between `wake`'s read and the send: the turn never ran, so it goes and the wake waits.
-    if (
-      a.session &&
-      state !== "gone" &&
-      (await runtime?.state(a.session).catch(() => null)) === "running"
-    ) {
+    // ponytail: one taken after the send's own read, in the milliseconds before ACP resumes it, still runs beside it.
+    if (error instanceof SessionLive) {
       db.run("delete from turn where id = ? and begun_at is null", [turn]);
-      return;
+      return false;
     }
     log("desk.runtime", {
       agent: a.id,
@@ -513,6 +510,7 @@ async function launch(
     });
     await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
   }
+  return true;
 }
 
 /**
