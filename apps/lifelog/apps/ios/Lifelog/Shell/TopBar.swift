@@ -75,7 +75,9 @@ struct PendantItem: View {
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
         // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`).
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { router.pendantFrame = $0 }
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
+            if $0 != .zero { router.pendantFrame = $0 }
+        }
     }
 
     /// One thing, the most pressing first: something that needs him, a low battery, then the state.
