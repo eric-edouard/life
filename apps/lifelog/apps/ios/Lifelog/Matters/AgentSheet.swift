@@ -215,7 +215,7 @@ struct AgentSheet: View {
             }
             .disabled(state.isRunning)
             if let link = agent.link.flatMap(URL.init(string:)) {
-                TextLink("Open in \(agent.runtimeName.name)", isOutward: true) { openURL(link) }
+                TextLink("Open in \(agent.runtimeName.name)", to: .outside) { openURL(link) }
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }
         }

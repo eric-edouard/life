@@ -86,38 +86,83 @@ struct CountBadge: View {
     }
 }
 
-/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app, a chevron for a page of
-/// the app it opens (`isOnward`).
+/// A link, 44 high (decision 85): its words in `fg`, 13 / 600, then where it goes, always: a chevron for a page of the
+/// app, an arrow for something outside it. An action is a `QuietChip`.
 struct TextLink: View {
+    enum Goes { case page, outside }
+
     let title: String
-    var isOutward = false
-    var isOnward = false
-    var isMuted = true
+    let goes: Goes
     let action: () -> Void
 
-    init(
-        _ title: String, isOutward: Bool = false, isOnward: Bool = false, isMuted: Bool = true,
-        action: @escaping () -> Void
-    ) {
+    init(_ title: String, to goes: Goes, action: @escaping () -> Void) {
         self.title = title
-        self.isOutward = isOutward
-        self.isOnward = isOnward
+        self.goes = goes
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) { Self.label(title, to: goes) }
+    }
+
+    /// The link's look, for a system link that navigates itself (`NavigationLink`).
+    static func label(_ title: String, to goes: Goes) -> some View {
+        Text("\(title) \(Image(systemName: goes == .page ? "chevron.right" : "arrow.up.right"))")
+            .font(.smallStrong).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
+    }
+}
+
+/// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph then its words, 13 / 600, on a `fillTint`
+/// capsule 32 high in a 44 tap area, no border; `isMuted` for a line that says where something came from.
+struct QuietChip: View {
+    let title: String
+    let symbol: String
+    var isMuted = false
+    let action: () -> Void
+
+    init(_ title: String, symbol: String, isMuted: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.symbol = symbol
         self.isMuted = isMuted
         self.action = action
     }
 
-    private var label: Text {
-        if isOutward { return Text("\(title) \(Image(systemName: "arrow.up.right"))") }
-        if isOnward { return Text("\(title) \(Image(systemName: "chevron.right"))") }
-        return Text(verbatim: title)
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: symbol).font(.chip).accessibilityHidden(true)
+                Text(title).font(.smallStrong)
+            }
+            .foregroundStyle(isMuted ? Palette.muted : Palette.fg)
+            .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+            .background(Color.fillTint, in: .capsule)
+            .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A line added to a list (decision 85): a plus in a 24 `fillTint` circle, then its words in `fg`.
+struct AddRow: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
     }
 
     var body: some View {
         Button(action: action) {
-            label
-                .font(.smallStrong).foregroundStyle(isOutward && isMuted ? Palette.muted : Palette.fg)
-                .frame(minHeight: 44)
+            HStack(spacing: Metrics.Spacing.m) {
+                Image(systemName: "plus").font(.smallStrong).frame(width: 24, height: 24)
+                    .background(Color.fillTint, in: .circle).accessibilityHidden(true)
+                Text(title).font(.body15)
+            }
+            .foregroundStyle(Palette.fg)
+            .frame(maxWidth: .infinity, minHeight: Metrics.tapTarget, alignment: .leading).contentShape(.rect)
         }
+        .buttonStyle(.plain)
     }
 }
 
