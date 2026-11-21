@@ -3,22 +3,30 @@ import SwiftUI
 
 /// The People tab: everyone Life knows (his directory's people and organizations and everyone with a page), closest first
 /// or A to Z, with one control for all, people or organizations; beside them, or over them on a compact width, the one
-/// on show. The groups and the order are Kit's (`PeopleList.groups`); this draws them.
+/// on show. The groups and the order are Kit's (`PeopleList.groups`); this draws them. The pose is measured before
+/// anything is drawn, so nothing is chosen for him on a pose that is not his.
 struct PeopleScreen: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        GeometryReader { window in
+            PeopleColumns(
+                isSplit: PeopleList.isSplit(
+                    isRegularWidth: sizeClass == .regular, width: window.size.width, height: window.size.height))
+        }
+    }
+}
+
+/// The list and the one on show: beside it (`isSplit`), or pushed over it as folded (compact, or the open Duo upright:
+/// decision 93).
+private struct PeopleColumns: View {
+    let isSplit: Bool
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
     @State private var order = PeopleList.Order.closeness
     @State private var kind = PeopleList.Kind.all
     @State private var visibility = NavigationSplitViewVisibility.all
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    /// The window taller than wide: the iPhone Duo open upright.
-    @State private var isUpright = false
-
-    /// A person beside the list (regular width, sideways), or pushed over it as folded (compact, or the open Duo
-    /// upright: decision 93). The one place the pose decides.
-    private var isSplit: Bool { sizeClass == .regular && !isUpright }
-
     var body: some View {
         @Bindable var router = router
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.personColumn) {
@@ -43,8 +51,15 @@ struct PeopleScreen: View {
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {
-                NavigationStack {
+                NavigationStack(path: $router.personPath) {
                     PersonPage(ref: ref, hasSettings: isSplit).id(ref)
+                        .navigationDestination(for: AppRouter.PersonRoute.self) { route in
+                            switch route {
+                            case .part(let part, let title): ProsePage(ref: part, title: title)
+                            case .latest(let subject): LatestScreen(subject: subject)
+                            case .writing(let subject): WritingPage(subject: subject)
+                            }
+                        }
                 }
             } else {
                 Notice(title: "No one chosen.", detail: "Pick someone from the list.").background(Palette.bg)
@@ -54,23 +69,19 @@ struct PeopleScreen: View {
         .navigationSplitViewStyle(.balanced)
         // Stacked, the split view collapses as on a compact width: the list full screen, a tap pushes the page.
         .environment(\.horizontalSizeClass, isSplit ? .regular : .compact)
-        .onGeometryChange(for: Bool.self) {
-            $0.size.height > $0.size.width
-        } action: {
-            isUpright = $0
-        }
         // The tabs hide while a person fills a compact width and come back with the list (as in Matters).
         .toolbarVisibility(!isSplit && router.personColumn == .detail ? .hidden : .automatic, for: .tabBar)
         // Beside the list there is always someone, one of the rows on show unless opened from elsewhere.
-        .onChange(of: isSplit, initial: true) { fillSelection(was: life.people.value) }
-        .onChange(of: life.people.value) { was, _ in fillSelection(was: was) }
-        .onChange(of: kind) { fillSelection(was: life.people.value) }
+        .onChange(of: isSplit, initial: true) { fillSelection() }
+        .onChange(of: life.people.value) { fillSelection() }
+        .onChange(of: kind) { fillSelection() }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
 
-    private func fillSelection(was: PeopleList?) {
-        guard isSplit, let list = life.people.value else { return }
-        let ref = list.selectionOf(router.person, kind: kind, order: order, was: was)
+    private func fillSelection() {
+        guard let list = life.people.value else { return }
+        let ref = list.selectionOf(
+            router.person, isFromElsewhere: router.isPersonFromElsewhere, kind: kind, order: order, isSplit: isSplit)
         if ref != router.person { router.select(person: ref) }
     }
 

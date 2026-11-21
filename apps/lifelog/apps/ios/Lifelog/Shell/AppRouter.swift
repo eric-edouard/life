@@ -1,3 +1,4 @@
+import LifeConnector
 import Observation
 import SwiftUI
 
@@ -34,6 +35,15 @@ final class AppRouter {
         case project(String)
     }
 
+    /// What is pushed on the person on show: a part of what Life holds about them (prose, by its ref, with its
+    /// title), how each writes to the other, or their exchanges paging back from `latest`.
+    enum PersonRoute: Hashable {
+        case part(ref: String, title: String)
+        case latest(String)
+        /// How each writes to the other, from their `now`, by the person's ref.
+        case writing(String)
+    }
+
     var tab = Tab.inbox
     /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
     var matter: String?
@@ -43,9 +53,18 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
-    /// The person or organization on show in the People tab, by ref, and which column a compact width shows.
-    var person: String?
+    /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
+    /// width shows.
+    private var people = PageStack<PersonRoute>()
+    var person: String? { people.page }
+    var personPath: [PersonRoute] {
+        get { people.path }
+        set { people.path = newValue }
+    }
     var personColumn = NavigationSplitViewColumn.sidebar
+    /// Whether he opened the person on show from elsewhere (a matter's chip, an agent's wake row), not from the list's
+    /// rows: beside the list they then stay through a segment or a read that leaves them out (`PeopleList.selectionOf`).
+    private(set) var isPersonFromElsewhere = false
     /// The sheet open over a matter, by its id: here, not in the matter's page, so a fold that collapses the page keeps the
     /// sheet and the start it shows. One value, so one sheet replaces the other (Try again) in a single update.
     var matterSheet: MatterSheet?
@@ -63,11 +82,14 @@ final class AppRouter {
         matterSheet = nil
         tab = .people
         select(person: ref)
+        isPersonFromElsewhere = true
     }
 
-    /// The one way the person on show changes: a compact width then shows them too, so a fold keeps them on screen.
+    /// The one way the person on show changes, from the list unless `open(party:)` says otherwise: their page starts
+    /// bare, even when they were on show, and a compact width then shows them too, so a fold keeps them on screen.
     func select(person ref: String?) {
-        person = ref
+        people.open(ref)
+        isPersonFromElsewhere = false
         personColumn = ref == nil ? .sidebar : .detail
     }
 

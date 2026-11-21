@@ -116,6 +116,20 @@ export const Stored = z.union([Line, Historical]);
 export type Asked = z.infer<typeof Asked>;
 export type Answered = z.infer<typeof Answered>;
 export type Withdrawn = z.infer<typeof Withdrawn>;
+/** A withdrawal of card `id` at `now`, and why (`more`: who answered in its chat, the card that replaced it). */
+export const withdrawnOf = (
+  id: string,
+  now: Date,
+  why: string,
+  more: Pick<Withdrawn, "answeredInChatAt" | "replacedBy"> = {}
+): Withdrawn => ({
+  ...more,
+  at: now.toISOString(),
+  id,
+  kind: "withdrawn",
+  schemaVersion: DECISIONS_VERSION,
+  why,
+});
 export type SendFailed = z.infer<typeof SendFailed>;
 type Send = z.infer<typeof Sent> | SendFailed;
 export type Ended = z.infer<typeof Ended>;

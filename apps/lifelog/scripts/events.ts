@@ -50,8 +50,13 @@ const lines: Line[] = events.map((e) => ({
     .join(" ")}`,
 }));
 
-const macLog = Bun.file(`${homedir()}/Library/Logs/lifelog-quiet.log`);
-const macText = (await macLog.exists()) ? await macLog.text() : "";
+// The kept copy first: Life's rotation (`rotateProcessLogs`) moves the older lines there.
+let macText = "";
+for (const name of ["lifelog-quiet.old.log", "lifelog-quiet.log"]) {
+  const file = Bun.file(`${homedir()}/Library/Logs/${name}`);
+  // biome-ignore lint/performance/noAwaitInLoops: the older file first
+  macText += (await file.exists()) ? `${await file.text()}\n` : "";
+}
 for (const raw of macText.split("\n")) {
   const [, at, text] = raw.match(MAC_LINE) ?? [];
   if (at && text && new Date(at) >= since) {

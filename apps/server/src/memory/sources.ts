@@ -138,7 +138,8 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     chatLinkOf: whatsappLinkOf,
     group: isWhatsappGroup,
-    handleOf: phoneOf,
+    // A 1:1 chat's handle: its phone, else its `@lid` (read as its phone where the bridge knows it).
+    handleOf: (key: string) => phoneOf(key) ?? whatsappHandleOf(key),
     incoming: (from?: number) => incomingArchived("whatsapp", "id", from),
     kind: "chat",
     label: "WhatsApp",

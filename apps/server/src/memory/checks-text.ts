@@ -23,7 +23,7 @@ export function checksText(list: Check[]) {
       ...(c.about.length > 0 ? [`   about: ${c.about.join(", ")}`] : []),
       ...(c.goal ? [`   goal: ${c.goal}`] : []),
       ...(c.said ? [`   ${c.said.by ?? "?"}: "${c.said.text}"`] : []),
-      ...(c.evidence ? [`   "${c.evidence.quote}" (${c.evidence.from})`] : []),
+      ...(c.context ? [`   ${c.context.replaceAll("\n", "\n   ")}`] : []),
       `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.options.map((o) => o.id).join(" | ")}`,
       "",
     ]),

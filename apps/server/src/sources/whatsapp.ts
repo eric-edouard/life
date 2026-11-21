@@ -94,6 +94,22 @@ const phonesOfLids = (dir: string) =>
     "select ZLID as key, ZPHONENUMBER as phone from ZWAADDRESSBOOKCONTACT where ZLID <> '' and ZPHONENUMBER <> ''"
   );
 
+/** The phone behind each WhatsApp `<n>@lid` its bridge knows (`whatsmeow_lid_map`), as `+<digits>`: none while the bridge isn't on this Mac. */
+export const readLidPhones = (bridges = BRIDGES) =>
+  withBridgeDb(
+    "whatsapp",
+    (db) =>
+      new Map(
+        db
+          .query<{ lid: string; pn: string }, []>(
+            "select lid, pn from whatsmeow_lid_map"
+          )
+          .all()
+          .map((r) => [`${r.lid}@lid`, `+${r.pn}`] as const)
+      ),
+    bridges
+  ) ?? new Map<string, string>();
+
 /** Whether a chat is a group: a group's id is `…@g.us`. */
 export const isWhatsappGroup = (chat: string) => chat.endsWith("@g.us");
 /**

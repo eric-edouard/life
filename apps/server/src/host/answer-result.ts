@@ -33,7 +33,12 @@ import {
   WAIT_MS,
 } from "./change-registered-agent";
 import { endByHisWord, QUICK_MS, ticksLimitMsOf } from "./correct-matter";
-import { assignmentOfCard, eventHeard, readDesk } from "./desk-read";
+import {
+  assignmentOf,
+  assignmentOfCard,
+  eventHeard,
+  readDesk,
+} from "./desk-read";
 import { lookForDone } from "./done-seen";
 import type { ToolCall } from "./http/mcp-tool";
 import { openCheckOf } from "./inbox";
@@ -67,8 +72,13 @@ function askerOf(d: Decision) {
     return { name: d.asker, told: "on_its_next_poll" };
   }
   const read = readDesk(
-    (db) => eventHeard(db, assignmentOfCard(db, d) ?? "", `${d.id}.answered`),
-    "not_yet"
+    (db) => {
+      const s = assignmentOf(db, assignmentOfCard(db, d) ?? "");
+      const heard = eventHeard(db, s?.id ?? "", `${d.id}.answered`);
+      // Told to the agent whose turn took it, else the one holding its card now (after a fold or a move), whoever asked it.
+      return { holder: heard.by ?? s?.agent_id ?? agent, told: heard.told };
+    },
+    { holder: agent, told: "not_yet" as const }
   );
   if (read.state !== "ok") {
     return {
@@ -79,11 +89,11 @@ function askerOf(d: Decision) {
     };
   }
   return {
-    agent,
+    agent: read.value.holder,
     at: at(),
     name: d.asker,
-    told: read.value,
-    ...(read.value === "not_yet"
+    told: read.value.told,
+    ...(read.value.told === "not_yet"
       ? { why: "the desk has not queued it yet" }
       : {}),
   };
