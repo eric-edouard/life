@@ -2,7 +2,11 @@ import { clock, SECOND } from "../core/clock";
 import { readLines } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import type { AssignmentRow } from "../host/desk-read";
+import {
+  type AssignmentRow,
+  assignmentOf,
+  currentAssignmentOf,
+} from "../host/desk-read";
 import { ASK_SPOKEN } from "../host/events";
 import { askOf, LEDGER, parseLedgerEntry } from "../memory/memory-files";
 import { isSpokenAsk, type LedgerEntry } from "../records/ledger-entry";
@@ -32,7 +36,9 @@ import {
 // agent, so an ask is received once. From its own cursor (at most `ROWS_PER_TICK` new lines a tick, plus the asks that
 // wait), each ask is placed alone: one waits while the embedder could not read the nets and it is under
 // `SPOKEN_ROUTE_WAIT` old, or while no Personal place can be made (stopped, a full desk, a runtime that does not
-// answer); never dropped, no age limit. An assignment that closes gives back what it never handed (`giveBack`).
+// answer); never dropped, no age limit. An assignment that closes gives back what it never handed (`giveBack`). His
+// words through Tell Life that the main session handed to one agent (`after.to`) are never routed: they go to that
+// assignment, else its agent's open one, else they wait (`toldPlaceOf`).
 
 const ROWS_PER_TICK = 1000;
 /** How long a spoken ask waits for the embedder to place it by meaning, from when it was recorded; then the Personal agent. */
@@ -48,10 +54,30 @@ const receiptOf = (db: Desk["db"], ask: string) =>
     )
     .get(ASK_SPOKEN, ask);
 
+/**
+ * Where his words the main session handed to one agent go (`after.to`, an assignment): there while it is open, else its
+ * agent's open assignment now; none (its agent ended): they wait. Null for a spoken ask, which is routed by meaning.
+ */
+function toldPlaceOf(db: Desk["db"], a: LedgerEntry) {
+  const { to } = a.after;
+  if (typeof to !== "string") {
+    return null;
+  }
+  const s = assignmentOf(db, to);
+  if (!s || s.closed_at === null) {
+    return s?.id ?? null;
+  }
+  const now = currentAssignmentOf(db, s.agent_id);
+  return now?.closed_at === null ? now.id : null;
+}
+
 /** An `ask.spoken` event's facts: where his words are and why it came here, never the words. */
 const payloadOf = (
   a: LedgerEntry,
-  by: Exclude<WakeWhy, { why: "wait" | "person" }> | { why: "personal" }
+  by:
+    | Exclude<WakeWhy, { why: "wait" | "person" }>
+    | { why: "personal" }
+    | { why: "told" }
 ) => ({
   ask: a.id,
   at: a.instruction?.at,
@@ -100,10 +126,32 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
     readLines(LEDGER, cursor.line, cursor.line + ROWS_PER_TICK),
     parseLedgerEntry
   );
-  const asks = [
+  const all = [
     ...cursor.waiting.flatMap((id) => askOf(id) ?? []),
     ...rows.flatMap((a) => (a && isSpokenAsk(a) ? [a] : [])),
   ].filter((a) => !receiptOf(db, a.id));
+  // His words the main session handed to one agent go to it alone, never by meaning (`toldPlaceOf`).
+  db.transaction(() =>
+    queue(
+      db,
+      ASK_SPOKEN,
+      all.flatMap((a) => {
+        const assignment = toldPlaceOf(db, a);
+        return assignment
+          ? [
+              {
+                assignment,
+                eventId: a.id,
+                payload: payloadOf(a, { why: "told" }),
+              },
+            ]
+          : [];
+      })
+    )
+  )();
+  const asks = all.filter(
+    (a) => a.after.to === undefined && !receiptOf(db, a.id)
+  );
   const left = (a: LedgerEntry) =>
     Date.parse(a.at) + SPOKEN_ROUTE_WAIT - clock().getTime();
   // Bounded by the soonest ask's own wait, so none is held past it; one already past it gets a short try.
@@ -181,7 +229,7 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
     const ids = [
       ...new Set([
         ...readSpokenAsksCursor(db).waiting,
-        ...asks.map((a) => a.id),
+        ...all.map((a) => a.id),
       ]),
     ].filter((id) => !receiptOf(db, id));
     saveSpokenAsksCursor(db, {
@@ -190,7 +238,7 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
     });
     return ids;
   })();
-  const received = asks.filter((a) => receiptOf(db, a.id)).length;
+  const received = all.filter((a) => receiptOf(db, a.id)).length;
   if (received > 0) {
     log("desk.asks", { received, waiting });
   }
@@ -199,6 +247,7 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
 /**
  * Spoken ask `ask` as the agent it was routed to reads it through its door (`read_spoken_ask`): only one received on
  * assignment `s` (its `ask.spoken` event there). His words, verbatim, as data; `ref` opens the recording around them.
+ * His words through Tell Life (`after.to`) read the same way.
  */
 export function readSpokenAsk(
   { db }: Desk,
@@ -212,7 +261,8 @@ export function readSpokenAsk(
   return {
     at: a.instruction.at,
     confidence: a.after.confidence,
-    ref: a.instruction.ref,
+    // His words through Tell Life were typed or heard on his phone: no recording opens around them.
+    ...(a.after.to === undefined ? { ref: a.instruction.ref } : {}),
     until: a.timing?.ended,
     words: a.instruction.quote,
   };

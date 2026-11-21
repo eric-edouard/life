@@ -588,8 +588,7 @@
       "projects",
       "-fixtureMatter",
       "matter_table"
-    ],
-    "taps": ["Start an agent"]
+    ]
   },
   "DuoFoldStarted": {
     "args": [

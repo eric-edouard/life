@@ -70,6 +70,10 @@ final class DictationCapture {
             try Task.checkCancellation()
             guard ContinuousClock.now < opened + cap else { throw Failure.tooLate }
             capture.lease = try AudioSessionOwner.shared.take(.recording) { [weak capture] in capture?.stopOnItsOwn() }
+            if LiveWords.shared.isOn {
+                capture.mic.onSamples = { LiveWords.shared.feed($0) }
+                LiveWords.shared.begin { try await ServerClient.production.liveWordsToken() }
+            }
             try capture.mic.start { [weak capture] in capture?.stopOnItsOwn() }
         } catch {
             _ = try? await capture.finish()
@@ -135,6 +139,8 @@ final class DictationCapture {
         deadline?.cancel()
         let heard: Result<Data, any Error>
         do { heard = .success(try await mic.stop()) } catch { heard = .failure(error) }
+        // After the microphone's last samples have gone to the socket.
+        LiveWords.shared.end()
         lease.map(AudioSessionOwner.shared.release)
         lease = nil
         // From the monotonic clock: a wall clock set back can't make the stretch end before it starts.

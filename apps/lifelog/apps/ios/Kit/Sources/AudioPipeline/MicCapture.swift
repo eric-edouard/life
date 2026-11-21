@@ -11,6 +11,8 @@ public final class MicCapture {
     static let queued = 100
 
     public let recording: DictationRecording
+    /// Told each run of 16 kHz mono samples as it is recorded (his words shown live).
+    public var onSamples: (@MainActor ([Float]) -> Void)?
     private let engine = AVAudioEngine()
     private var feed: Task<Void, Never>?
     private var sink: Buffers.Continuation?
@@ -29,9 +31,10 @@ public final class MicCapture {
         }
         self.sink = sink
         let recording = recording
+        let heard = onSamples
         feed = Task { [weak self] in
             do {
-                try await Self.take(buffers, with: resampler, into: recording)
+                try await Self.take(buffers, with: resampler, into: recording, also: heard)
             } catch {
                 self?.failure = error
                 ended()
@@ -69,10 +72,12 @@ public final class MicCapture {
     /// The buffers in order into `recording`; the first that fails ends it, and its error is thrown.
     static func take(
         _ buffers: some AsyncSequence<AVReadOnlyAudioPCMBuffer, any Error>, with resampler: Resampler,
-        into recording: DictationRecording
+        into recording: DictationRecording, also: (@MainActor ([Float]) -> Void)? = nil
     ) async throws {
         for try await buffer in buffers {
-            try recording.append(resampler.samples(of: AVAudioPCMBuffer(copying: buffer)))
+            let samples = try resampler.samples(of: AVAudioPCMBuffer(copying: buffer))
+            try recording.append(samples)
+            also?(samples)
         }
     }
 }

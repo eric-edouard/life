@@ -27,6 +27,19 @@ export const QUICK_MS = 5000;
 export const ticksLimitMsOf = (open: readonly MatterStepNow[]) =>
   open.filter((s) => s.kind === "todo_item").length * TICK_LIMIT_MS;
 
+/** The corrections only his own word writes, whatever they name: his marks on a matter, which project it is of, and his Not now on its card. */
+const HIS_ONLY_KINDS = new Set([
+  "matter-icon",
+  "matter-important",
+  "matter-project",
+  "your-move-not-now",
+]);
+
+/** Whether a memory correction is his alone (his token, or his words through Tell Life), through `correctMatter`: one on a whole matter, or one of his marks. */
+export const isHisOnly = (correction: Record<string, unknown>) =>
+  correction.matter !== undefined ||
+  HIS_ONLY_KINDS.has(String(correction.kind));
+
 /** His correction, written once it parses and its next step's `context` opens (`nextStepContextProblemOf`): the door of his own words. */
 export async function recordHisCorrection(
   said: unknown,
