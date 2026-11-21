@@ -27,6 +27,7 @@ import {
   Sent,
   Stored,
   Withdrawn,
+  withdrawnOf,
 } from "./decision-lines";
 import { isSendable } from "./draft";
 import {
@@ -364,23 +365,19 @@ export function withdrawDraftsAnsweredInChat(
   const lines = open.flatMap(({ d }, i): Withdrawn[] => {
     const his = found[i]?.find((e) => e.fromMe);
     return his
-      ? [
-          {
-            answeredInChatAt: his.at,
-            at: now.toISOString(),
-            id: d.id,
-            kind: "withdrawn",
-            schemaVersion: DECISIONS_VERSION,
-            why: ANSWERED_IN_CHAT,
-          },
-        ]
+      ? [withdrawnOf(d.id, now, ANSWERED_IN_CHAT, { answeredInChatAt: his.at })]
       : [];
   });
+  appendWithdrawals(lines, "life");
+  return lines.map((l) => l.id);
+}
+
+/** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
+function appendWithdrawals(lines: Withdrawn[], by: string) {
   appendJsonl(DECISIONS, Withdrawn, lines);
   for (const l of lines) {
-    log("decision.withdrawn", { by: "life", id: l.id });
+    log("decision.withdrawn", { by, id: l.id });
   }
-  return lines.map((l) => l.id);
 }
 
 /** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
@@ -416,16 +413,7 @@ function withdrawDecision(asker: string, request: object, now: Date) {
   if (d.asker !== asker || d.agent !== w.data.agent) {
     throw new Error(`Not done: ${d.id} was asked by another agent.`);
   }
-  appendJsonl(DECISIONS, Withdrawn, [
-    {
-      at: now.toISOString(),
-      id: d.id,
-      kind: "withdrawn",
-      schemaVersion: DECISIONS_VERSION,
-      why: w.data.why,
-    },
-  ]);
-  log("decision.withdrawn", { by: "asker", id: d.id });
+  appendWithdrawals([withdrawnOf(d.id, now, w.data.why)], "asker");
   return { id: d.id };
 }
 
@@ -535,6 +523,9 @@ async function askCard(
       schemaVersion: DECISIONS_VERSION,
     },
   ]);
+  if (merged) {
+    log("decision.withdrawn", { by: "merge", id: merged.held.id });
+  }
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
@@ -739,19 +730,15 @@ export async function answerDecision(
   }
   // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
   // contest opened): one draft per chat when it goes.
-  appendJsonl(
-    DECISIONS,
-    Withdrawn,
+  appendWithdrawals(
     decisionsNow(now)
       .filter((x) => x.id !== id && isPending(x) && isSameChat(x, d))
-      .map((x) => ({
-        at: now.toISOString(),
-        id: x.id,
-        kind: "withdrawn" as const,
-        replacedBy: id,
-        schemaVersion: DECISIONS_VERSION,
-        why: "he sent a newer draft into its chat instead",
-      }))
+      .map((x) =>
+        withdrawnOf(x.id, now, "he sent a newer draft into its chat instead", {
+          replacedBy: id,
+        })
+      ),
+    "send"
   );
   const outcome = await deliver(stored.draft, id, {
     onStep,
