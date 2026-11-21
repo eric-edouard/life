@@ -313,3 +313,33 @@ test("a pin on the second of two matters holding the same step lands on it, and 
     [null, false, "The quote is signed."],
   ]);
 });
+
+// life#817: his next step may carry a context, a card's Markdown with live `life:` links; Life's drafts carry none.
+test("his next step's context is kept with it; one without has none; a dead life: link is refused before anything is written", async () => {
+  const next = (nextStep: object) =>
+    correct({
+      correction: { kind: "matter-direction", matter: matter.id, nextStep },
+      kind: "memory",
+    });
+  const contextNow = () =>
+    directionsOf(
+      matterFinderOf([matter] as never),
+      readMatterPins().directions
+    ).get(matter as never)?.nextStep?.context;
+  await next({
+    context: "He said so [here](life:matter_aaaaaaaaaaaa).",
+    kind: "do",
+    text: "Call the plumber",
+  });
+  expect(contextNow()).toBe("He said so [here](life:matter_aaaaaaaaaaaa).");
+  await next({ kind: "do", text: "Pay the plumber" });
+  expect(contextNow()).toBeUndefined();
+  await expect(
+    next({
+      context: "See [this](life:unit_0000000000ff).",
+      kind: "do",
+      text: "Call again",
+    })
+  ).rejects.toThrow("the link life:unit_0000000000ff opens nothing");
+  expect(readCorrections()).toHaveLength(2);
+});

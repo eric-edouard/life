@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDate, isoDateTime, MadeBy, slug } from "./fields";
+import { ContextMarkdown, isoDate, isoDateTime, MadeBy, slug } from "./fields";
 import type { MatterIconKey } from "./matter-icon";
 
 // Memory's matters (memory/matters.jsonl, docs/SCHEMA.md): the running things of his life he never declared, found by
@@ -60,15 +60,24 @@ export const GoalText = z.string().trim().min(1).max(200);
  */
 export const NextStepKind = z.enum(["do", "wait_event", "wait_owner"]);
 
-/** A matter's next step: one line saying what moves it now, its kind, and for a wait what it waits on. */
-export const NextStep = z
+const NextStepFields = z
   .object({
     kind: NextStepKind,
     text: z.string().trim().min(1).max(200),
     waitsOn: z.string().trim().min(1).max(120).optional(),
   })
-  .strict()
-  .refine((n) => n.kind === "do" || n.waitsOn, "a wait says what it waits on");
+  .strict();
+const isWaitNamed = (n: { kind: string; waitsOn?: string }) =>
+  n.kind === "do" || !!n.waitsOn;
+const WAIT_NAMED = "a wait says what it waits on";
+
+/** A matter's next step as Life drafts it: one line saying what moves it now, its kind, and for a wait what it waits on. */
+export const DraftedNextStep = NextStepFields.refine(isWaitNamed, WAIT_NAMED);
+
+/** A matter's next step: Life's draft or his word, which alone may carry a `context` (Markdown, its `life:` links checked when he gives it). */
+export const NextStep = NextStepFields.extend({
+  context: ContextMarkdown.optional(),
+}).refine(isWaitNamed, WAIT_NAMED);
 export type NextStep = z.infer<typeof NextStep>;
 
 /** The parts of a direction as Life drafts it (`MatterDirectionDraft`): the goal, then a next step or the records that show the matter is over. */
@@ -85,7 +94,7 @@ export const MatterDirectionFields = z.object({
   /** The ids of the later records a "looks over" draft cites (a few; none when the matter's own steps show it). */
   endingRecords: z.array(z.string().min(1)).max(3).optional(),
   goal: GoalText,
-  nextStep: NextStep.optional(),
+  nextStep: DraftedNextStep.optional(),
 });
 
 /** Whether a draft says exactly one of: what moves the matter now, or that it looks over. */

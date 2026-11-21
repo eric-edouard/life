@@ -1,4 +1,9 @@
 import {
+  nextStepContextProblemOf,
+  readsOnce,
+  type SharedReads,
+} from "../memory/find-refs";
+import {
   type MatterStepNow,
   matterOfSteps,
   openStepsOf,
@@ -19,6 +24,18 @@ export const QUICK_MS = 5000;
 /** The most the ticks of his word on the steps `open` may take: one per to-do item (`TICK_LIMIT_MS`). */
 export const ticksLimitMsOf = (open: readonly MatterStepNow[]) =>
   open.filter((s) => s.kind === "todo_item").length * TICK_LIMIT_MS;
+
+/** His correction, written once its next step's `context` opens (`nextStepContextProblemOf`): the door of his own words. */
+export async function recordHisCorrection(
+  said: unknown,
+  reads: SharedReads = readsOnce()
+) {
+  const problem = await nextStepContextProblemOf(said, reads);
+  if (problem) {
+    throw new Error(`Not done: ${problem}.`);
+  }
+  return recordCorrection(said);
+}
 
 /**
  * His word that the steps `open` (`openStepsOf`) are done, through the writers that already exist: their to-do items
@@ -82,11 +99,10 @@ export async function correctMatter(
     said.kind === "matter-project"
   ) {
     report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
-    const written = await recordCorrection({
-      ...said,
-      matter: v.id,
-      steps: v.steps.map((s) => s.ref),
-    });
+    const written = await recordHisCorrection(
+      { ...said, matter: v.id, steps: v.steps.map((s) => s.ref) },
+      { book: async () => book, people: async () => people }
+    );
     report({ step: "recorded" });
     return [written];
   }

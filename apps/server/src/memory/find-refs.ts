@@ -212,3 +212,12 @@ export async function contextProblemOf(context: string, reads: SharedReads) {
     }
   }
 }
+
+/** Why his correction's next step can't be shown: its `context` (a `matter-direction`'s), by a card's rule; none when it has none or can. */
+export function nextStepContextProblemOf(said: unknown, reads: SharedReads) {
+  const context = (said as { nextStep?: { context?: unknown } } | null)
+    ?.nextStep?.context;
+  return typeof context === "string"
+    ? contextProblemOf(context, reads)
+    : undefined;
+}
