@@ -54,11 +54,7 @@ export interface Message {
   at: string;
   bulk?: boolean;
   fromMe: boolean;
-  /** Mail only: see `SourceEvent.hasOwnerWrittenInThread`. */
-  hasOwnerWrittenInThread?: boolean;
   id: string;
-  /** The sender is someone he knows: a person `resolve` names, or (mail) one his Contacts hold. */
-  known: boolean;
   sender: string;
   text: string;
   /** Mail only: see `SourceEvent.transaction`. */
@@ -155,9 +151,11 @@ export const isAgentReport = (sender: string) =>
 const NO_REPLY =
   /(^|[-_.+])(no[-_.]?repl(y|ay)|do[-_.]?not[-_.]?reply|ne[-_.]?pas[-_.]?repondre|mailer-daemon|notifications?|failed-payments)([-_.+]|$)/i;
 
+const isNoReply = (handle: string) => NO_REPLY.test(handle.split("@")[0] ?? "");
+
 /** Whether a mail handle is a sender no one answers or owes: a no-reply address, or his agents' reports. */
 export const isMailerHandle = (handle: string) =>
-  isAgentReport(handle) || NO_REPLY.test(handle.split("@")[0] ?? "");
+  isAgentReport(handle) || isNoReply(handle);
 
 /** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */
 export const MARKED = "[He asked Life to keep what he says here.]";
@@ -482,9 +480,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       at: e.at,
       bulk: e.bulk,
       fromMe: e.fromMe,
-      hasOwnerWrittenInThread: e.hasOwnerWrittenInThread,
       id: e.id,
-      known: !!e.contact || resolve(e.sender, e.source) !== null,
       sender: e.sender,
       text: e.text,
       transaction: e.transaction,
@@ -609,10 +605,8 @@ export const lifeChat = () => settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
-  messages: (Pick<Message, "bulk" | "fromMe" | "sender"> &
-    Partial<
-      Pick<Message, "hasOwnerWrittenInThread" | "known" | "transaction">
-    >)[];
+  messages: (Pick<Message, "bulk" | "fromMe" | "sender" | "text"> &
+    Partial<Pick<Message, "transaction">>)[];
   unit: Pick<Unit, "source" | "title">;
 }
 /** Mail the owner never wrote in on that day, other than his agents' reports (the model judges those: he asked for their to-dos). */
@@ -634,9 +628,25 @@ export const isLifeOutput = (
 const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   t.messages.every((m) => isLifeMail(m.sender, t.unit.title));
-/** No line from him or from anyone he knows, in a thread he never wrote in. */
-export const isFromStrangers = (t: Pick<Thread, "messages">) =>
-  !t.messages.some((m) => m.known || m.fromMe || m.hasOwnerWrittenInThread);
+/** A login code: a short message that says so, or a mail whose subject says it is one (a long mail with a promo code in it is not). */
+const isOneTimeCodeOf = (
+  m: Pick<Message, "text">,
+  unit: Pick<Unit, "source" | "title">
+) =>
+  (m.text.length <= OTP_MAX && OTP.test(m.text)) ||
+  (kindOf(unit.source) === "mail" &&
+    CODE_SUBJECT.test(unit.title) &&
+    m.text.length <= CODE_MAIL_MAX);
+/**
+ * An automated message, by what it says itself, true for anyone: a no-reply sender, a list or bulk header, or a login
+ * code; a transaction (an order, a booking, a bank notice) never is: its facts and appointments are read.
+ */
+export const isAutomatedOf = (
+  m: Pick<Message, "bulk" | "sender" | "text" | "transaction">,
+  unit: Pick<Unit, "source" | "title">
+) =>
+  !m.transaction &&
+  (isNoReply(m.sender) || Boolean(m.bulk) || isOneTimeCodeOf(m, unit));
 /** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered that day. */
 const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
 /** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */
@@ -671,26 +681,21 @@ const RULES: [
     (b) =>
       kindOf(b.unit.source) !== "voice" && b.unit.stats.chars < SHORT_CHARS,
   ],
-  // Only short messages (a long mail with a promo code in it is not a login code), or a mail whose subject says it is one.
   [
     "one-time-code",
     (b) =>
       b.messages.length > 0 &&
-      b.messages.every(
-        (m) =>
-          (m.text.length <= OTP_MAX && OTP.test(m.text)) ||
-          (kindOf(b.unit.source) === "mail" &&
-            CODE_SUBJECT.test(b.unit.title) &&
-            m.text.length <= CODE_MAIL_MAX)
-      ),
+      b.messages.every((m) => isOneTimeCodeOf(m, b.unit)),
   ],
   ["newsletter", newsletter],
-  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in (on any day), other than a
-  // transaction (a bulk one is still a newsletter, above): search still finds it.
+  // Automated mail (`isAutomatedOf`: no one answers it, no transaction in it) in a thread he never wrote in that day:
+  // search still finds it. Whoever sent it is no test: a stranger's mail is read.
   [
-    "not-a-person",
+    "automated",
     (b) =>
-      isMail(b) && !b.messages.some((m) => m.transaction) && isFromStrangers(b),
+      isMail(b) &&
+      b.messages.length > 0 &&
+      b.messages.every((m) => isAutomatedOf(m, b.unit)),
   ],
 ];
 

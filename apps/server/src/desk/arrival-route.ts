@@ -1,13 +1,16 @@
 import { clock, daysBefore, HOUR } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { wroteSince } from "../memory/draft-send";
 import { readUnitsOf } from "../memory/memory-files";
 import {
   type ConfirmedArrival,
   readConfirmedArrivals,
 } from "../memory/read-replies";
 import { localDate } from "../memory/zones";
+import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import type { Descriptor } from "../sources/contract";
 import type { Desk } from "./desk-store";
 import { matterOrPersonalOf, queue, type ReadPeople } from "./event-queue";
 import { netsOf } from "./matter-net";
@@ -55,6 +58,37 @@ export function arrivalFactsOf(
   };
 }
 
+/**
+ * Whether he wrote in an arrival's chat after its newest line (`events`: what was written there since before it, oldest
+ * first): he answered, so no agent wakes. Unseen newest line (older than the read): after the confirm.
+ */
+export function hasAnsweredOf(
+  events: Pick<SourceEvent, "at" | "fromMe" | "id">[],
+  f: Pick<ArrivalFacts, "at" | "id">
+) {
+  const after = events.find((e) => e.id === f.id)?.at ?? f.at;
+  return events.some((e) => e.fromMe && e.at > after);
+}
+
+/**
+ * What was written in each arrival's chat from an hour before its confirm (its lines were read minutes before it), or
+ * nothing when a source can't be read now: the arrival then wakes as before.
+ */
+function answersOf(facts: ArrivalFacts[], sources?: Descriptor[]) {
+  try {
+    return wroteSince(
+      facts.map((f) => ({
+        draft: { channel: f.source, chat: f.chat },
+        since: new Date(Date.parse(f.at) - HOUR),
+      })),
+      ...(sources ? [sources] : [])
+    );
+  } catch (error) {
+    log("desk.arrivals", { ...errorOf(error), ok: false });
+    return [];
+  }
+}
+
 /** Of `nets`, the ones whose people wrote an arrival's lines, as `matterOrPersonalOf` ranks them. */
 export const arrivalNetsOf = (
   facts: Pick<ArrivalFacts, "people">,
@@ -75,7 +109,13 @@ export const arrivalNetsOf = (
 export async function pollArrivals(
   desk: Desk,
   readPeopleNow: ReadPeople,
-  o: { arrivals?: ConfirmedArrival[]; now?: Date; units?: Unit[] } = {}
+  o: {
+    arrivals?: ConfirmedArrival[];
+    now?: Date;
+    /** The chat sources read for his answers (default: the enabled ones). */
+    sources?: Descriptor[];
+    units?: Unit[];
+  } = {}
 ) {
   const now = o.now ?? clock();
   const since = new Date(now.getTime() - LOOK_BACK).toISOString();
@@ -106,9 +146,18 @@ export async function pollArrivals(
       .all(...facts.map((f) => f.id))
       .map((r) => r.event_id)
   );
+  const unqueued = facts.filter((f) => !queued.has(f.id));
+  if (unqueued.length === 0) {
+    return;
+  }
+  // ponytail: an answered arrival is never queued, so its chat is read again on each poll until it leaves the
+  // look-back; one hour of a chat is cheap.
+  const wrote = answersOf(unqueued, o.sources);
   const nets = await netsOf(desk, people);
-  const routed = facts.flatMap((f) =>
-    queued.has(f.id) ? [] : [{ f, related: arrivalNetsOf(f, nets) }]
+  const routed = unqueued.flatMap((f, i) =>
+    hasAnsweredOf(wrote[i] ?? [], f)
+      ? []
+      : [{ f, related: arrivalNetsOf(f, nets) }]
   );
   const toMatters = routed.filter((r) => r.related.length > 0);
   const toPersonal = routed.filter((r) => r.related.length === 0);
