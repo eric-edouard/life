@@ -470,7 +470,9 @@ extension Array {
     await #expect(throws: AudioPipelineError.unsupportedInput) {
         try await MicCapture.take(buffers, with: Resampler(from: format), into: recording)
     }
-    #expect(abs(recording.millis - 100) <= 2, "the first buffer only")
+    // The converter holds back its filter's delay, so the first buffer alone gives what one fresh resampler gives.
+    let first = try Resampler(from: format).samples(of: AVAudioPCMBuffer(copying: buffer(format)))
+    #expect(recording.millis == Int64(first.count / PendantAudio.samplesPerMilli), "the first buffer only")
 
     // A queue with no room left ends the stream with an overrun, after what it holds.
     let (full, tap) = MicCapture.Buffers.makeStream(bufferingPolicy: .bufferingOldest(1))
