@@ -97,7 +97,7 @@ function withoutGroups(
       })),
       isGuess,
       nameOf,
-      names: new Map(),
+      names: new Map([["person:dana", "Dana"]]),
       partyOf: partyOf(
         { isOrganization: () => false, nameOf, refOf, relationOf: () => null },
         [],
