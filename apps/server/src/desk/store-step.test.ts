@@ -22,9 +22,10 @@ import {
 } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import { AgentWait } from "../records/registered-agent";
-import { openDesk, SCHEMA } from "./desk-store";
+import { MOVE_TABLES, openDesk, SCHEMA } from "./desk-store";
 import {
   stepMatterIds,
+  stepMoves,
   stepRoles,
   stepStore,
   stepTurnModel,
@@ -398,9 +399,13 @@ test("the later steps, run in any order on a store from before all of them, end 
       "one_agent_per_role on agent (role) where role is not null",
       "one_personal_agent on agent (is_personal) where is_personal = 1"
     )
-    .replace("context_used integer,\n  model text", "context_used integer")
+    .replace(MOVE_TABLES, "")
+    .replace(
+      "context_used integer,\n  model text,\n  move text",
+      "context_used integer"
+    )
     .replace("  matter_id text,\n", "");
-  const steps = [stepRoles, stepTurnModel, stepMatterIds];
+  const steps = [stepRoles, stepTurnModel, stepMatterIds, stepMoves];
   const shapeAfter = (order: typeof steps) => {
     const dir = mkdtempSync(join(tmpdir(), "life-step-"));
     const path = join(dir, "desk.sqlite");
@@ -413,11 +418,19 @@ test("the later steps, run in any order on a store from before all of them, end 
     const after = openDesk(path);
     const shape = after
       .query<{ sql: string }, []>(
-        "select m.name || ':' || group_concat(c.name || ' ' || c.type, ',') as sql from sqlite_master m, pragma_table_info(m.name) c where m.type = 'table' group by m.name order by m.name"
+        "select m.name || '.' || c.name || ' ' || c.type as sql from sqlite_master m, pragma_table_info(m.name) c where m.type = 'table' union all select 'index ' || name from sqlite_master where type = 'index' and sql is not null order by 1"
       )
       .all();
     after.close();
     return shape;
   };
-  expect(shapeAfter(steps.toReversed())).toEqual(shapeAfter(steps));
+  // Each step first and each last: every rotation of the order and of its reverse.
+  const want = shapeAfter(steps);
+  for (const order of [steps, steps.toReversed()]) {
+    for (const i of order.keys()) {
+      expect(shapeAfter([...order.slice(i), ...order.slice(0, i)])).toEqual(
+        want
+      );
+    }
+  }
 });

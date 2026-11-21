@@ -14,6 +14,7 @@ import {
   type TurnRow,
   turnOf,
 } from "../host/desk-read";
+import { MOVE_NOTES } from "../host/move-read";
 import type { TurnOutcome } from "../records/registered-agent";
 import { commitAgentFiles, keepHanded, stopOpenRun } from "./agent-actions";
 import {
@@ -66,8 +67,8 @@ function watchedIn(db: Desk["db"]) {
 const markBegun = (db: Desk["db"], turn: number) =>
   db.transaction(() => {
     const t = db
-      .query<Pick<TurnRow, "assignment_id" | "started_at">, [number]>(
-        "select assignment_id, started_at from turn where id = ? and begun_at is null and ended_at is null"
+      .query<Pick<TurnRow, "assignment_id" | "cause" | "started_at">, [number]>(
+        "select assignment_id, cause, started_at from turn where id = ? and begun_at is null and ended_at is null"
       )
       .get(turn);
     if (!t) {
@@ -75,6 +76,10 @@ const markBegun = (db: Desk["db"], turn: number) =>
     }
     db.run("update turn set begun_at = ? where id = ?", [now(), turn]);
     log("desk.turn", { assignment: t.assignment_id, phase: "begun", turn });
+    // A move's notes turn is handed no event: they wait for the holder after the move.
+    if (t.cause === MOVE_NOTES) {
+      return;
+    }
     db.run(
       "update event set handed = handed + 1 where assignment_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
       [t.assignment_id, t.started_at]
@@ -130,8 +135,8 @@ function close(
     ]
   ).changes;
   keepHanded(db, t, ended > 0 && outcome !== "failed");
-  if (ended === 0) {
-    return false;
+  if (ended === 0 || outcome === "notes") {
+    return ended > 0;
   }
   log("desk.turn", {
     assignment: t.assignment_id,
@@ -156,7 +161,8 @@ function close(
  * which never began.
  */
 function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
-  if (lastTurns(db, t.assignment_id, 2).length !== 1 || t.begun_at) {
+  // A move's first turn that never began rolls the move back instead (`agent-moves.ts`).
+  if (lastTurns(db, t.assignment_id, 2).length !== 1 || t.begun_at || t.move) {
     return false;
   }
   closeAssignmentRow(db, t.assignment_id, {
@@ -187,6 +193,12 @@ export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
     return;
   }
   const { usage } = end;
+  // A move's notes turn ends as written, however its run ended: no reminder, no default wait, no retry.
+  if (t.cause === MOVE_NOTES) {
+    close(desk, t, "notes", usage);
+    commitAgentFiles(a, s);
+    return;
+  }
   // The session's first call, once: from the first run that reports one, whether or not that turn is reminded.
   if (typeof usage?.contextFirst === "number" && t.session) {
     db.run(

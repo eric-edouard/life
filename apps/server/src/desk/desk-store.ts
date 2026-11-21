@@ -23,6 +23,33 @@ import type { Runtime } from "./runtimes/contract";
 export const ONE_AGENT_PER_ROLE =
   "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')";
 
+/** A move's tables (`desk/agent-moves.ts`, the store step `stepMoves`): its row, and each runtime's last block. */
+export const MOVE_TABLES = `
+create table if not exists move (
+  ask text primary key,
+  agent_id text not null,
+  assignment_id text,
+  to_agent text,
+  to_runtime text,
+  from_runtime text,
+  from_model text,
+  from_effort text,
+  from_session text,
+  from_link text,
+  asked_at text not null,
+  moved_at text,
+  failed_at text,
+  failed text
+);
+create index if not exists move_by_assignment on move (assignment_id);
+create index if not exists move_by_agent on move (agent_id);
+create table if not exists runtime_block (
+  runtime text primary key,
+  why text,
+  checked_at text not null
+);
+`;
+
 export const SCHEMA = `
 create table if not exists agent (
   id text primary key,
@@ -102,7 +129,8 @@ create table if not exists turn (
   tokens_cached integer,
   tokens_out integer,
   context_used integer,
-  model text
+  model text,
+  move text
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);
@@ -143,7 +171,7 @@ create table if not exists handed_step (
   step text not null,
   primary key (assignment_id, step)
 );
-`;
+${MOVE_TABLES}`;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
 export interface Desk {

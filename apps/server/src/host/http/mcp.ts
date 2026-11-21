@@ -74,6 +74,7 @@ import {
   agentLinesOnProjects,
   readActiveAgentOf,
   readAgentsOnSteps,
+  readMatterMove,
   readRegisteredAgents,
 } from "../registered-agents";
 import { lifeStatus } from "../status/life";
@@ -380,7 +381,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included; `nextStep` also has `context`, Markdown with `life:<ref>` links, when his word gave one), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, `with` (a party), and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it.",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them (`blockingChecks` included; `nextStep` also has `context`, Markdown with `life:<ref>` links, when his word gave one), then `checks` (every open check about it, each as `read_inbox` gives it: a new matter's offer to work on it included), `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, `with` (a party), and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link). Each agent has `wakesOn`: what will wake it, exhaustively (each message or call it listens for, by person, chat, app or words; a payment; his answer to its open card; anything near its matter), and `statusSince`; then `communicationStyles`: how he writes with each of its people he knows (lines; none when none has one): a draft to them follows it. Then who holds it and its move: `holder` (`id`, `name`, `short`, `runtime`, and `movedFrom` `{id, name, short, runtime}` when he moved it there; null when no agent holds it), `moveTo` (the runtime it can move to, `change_registered_agent` `hand_over`) or `moveBlocked` (`{runtime, reason}`: why not now), and `move` (its newest: `id`, `phase` notes, starting, done or failed, `reason` when failed; while under way and an hour after).",
     z.object({
       id: z
         .string()
@@ -399,7 +400,14 @@ export function buildServer(readsOnly = false) {
       }
       const open = await openChecksNow();
       const [row] = matterRowsNowOf([matter], open);
-      return { ...row, checks: checksOnMatterOf(open, matter.id) };
+      return {
+        ...row,
+        ...readMatterMove({
+          id: matter.id,
+          steps: matter.steps.map((s) => s.ref),
+        }),
+        checks: checksOnMatterOf(open, matter.id),
+      };
     }
   );
   appointmentTools(server);

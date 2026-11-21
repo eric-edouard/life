@@ -92,6 +92,8 @@ export interface TurnRow {
   id: number;
   /** The model it ran on, as `<runtime>:<model>` (`default`: the runtime's own), snapshotted at its start; null before the column. */
   model: string | null;
+  /** The move it belongs to: a move's notes turn, or its first turn after the commit; null for every other. */
+  move: string | null;
   outcome: string | null;
   reminded_at: string | null;
   session: string | null;

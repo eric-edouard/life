@@ -57,6 +57,8 @@ const hisGoal = {
 const goalsSaved = () =>
   readCorrections().map(({ at: _a, schemaVersion: _v, ...c }) => c);
 
+let book: { mockRestore: () => void };
+
 beforeAll(async () => {
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   rmSync(CORRECTIONS, { force: true });
@@ -73,13 +75,18 @@ beforeAll(async () => {
     "2099-01-01T00:00:00.000Z",
     personal,
   ]);
-  spyOn(await import("../memory/matters"), "readMatterBook").mockResolvedValue([
+  book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
     ...[1, 2, 3, 4].map(matter),
     { ...matter(5), goal: hisGoal },
   ] as never);
 });
 
 afterAll(() => {
+  // Restored: a later file's matters are its own (a leaked book hid them).
+  book.mockRestore();
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: null });
