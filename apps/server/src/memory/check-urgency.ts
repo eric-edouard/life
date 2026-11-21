@@ -15,6 +15,7 @@ interface Rankable {
 }
 
 const RANK: Record<CheckGroup, number> = {
+  "at organization": 4,
   "contacts card": 1,
   decision: 0,
   ending: 6,
@@ -28,7 +29,7 @@ const RANK: Record<CheckGroup, number> = {
 /**
  * A check's kind, first to last: an agent's decision; a voice nobody has named, a name with no person or an ambiguous
  * Contacts card, mixed (these block); then his own step on a matter (`your move`); then one person Life holds twice
- * (`same person`: it bends every reader), then a guess in use (a guessed person, a voice lifelog suggests a person for), a
+ * (`same person`: it bends every reader), then a guess in use (a guessed person, a voice lifelog suggests a person for, someone who may be at an organization), a
  * new matter's offer, and last "is this done?". What blocks, and the inbox's order (`inboxOrderOf`), go by it.
  */
 export const inboxRankOf = (c: Rankable) =>

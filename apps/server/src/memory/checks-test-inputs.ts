@@ -63,6 +63,7 @@ function withoutGroups(
   const refOf = (r: string) => over.folds?.[r] ?? r;
   return {
     answered: new Set(),
+    atOrganizations: [],
     decisions: [],
     dismissed: [],
     doubted: new Set(),

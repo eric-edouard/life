@@ -12,6 +12,7 @@ import { git } from "../core/proc";
 import { loadTruth } from "../memory/read-truth";
 import {
   addDirectoryEntryByHisWord,
+  addOrganizationPersonByHisWord,
   changeDirectoryEntry,
   DirectoryEntryChange,
 } from "./change-directory-entry";
@@ -337,4 +338,24 @@ test("his picture pick on a person and an organization, through the one schema t
       said,
     })
   ).rejects.toThrow("a project's `people` are ids");
+});
+
+test("his Yes on an at organization card adds that one member with the card's role, kept beside the others and committed with his tap; someone there already is refused, their role kept (life#874)", async () => {
+  const yes = () =>
+    addOrganizationPersonByHisWord(
+      "person:test-garage",
+      "person:me",
+      "Owner",
+      '"Yes" to "Is Test Owner at Test Garage as Owner?"'
+    );
+  expect(await yes()).toStartWith("Done");
+  const garage = (await loadTruth()).organizations.find(
+    (o) => o.id === "test-garage"
+  );
+  expect(garage?.people).toEqual([
+    { id: "test-ana", role: "manager", until: 2025 },
+    { id: "me", role: "Owner" },
+  ]);
+  expect(log()).toContain('"Yes" to "Is Test Owner at Test Garage as Owner?"');
+  await expect(yes()).rejects.toThrow("me is already at test-garage");
 });

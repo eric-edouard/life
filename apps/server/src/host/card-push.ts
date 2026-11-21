@@ -37,6 +37,7 @@ const FORGET_DAYS = 30;
 const ALONE = 5;
 /** Life's level for a kind he left out of `notifications`: full push, an agent's decision urgent, an appointment added quiet. */
 export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
+  "at organization": "normal",
   calendar: "quiet",
   "contacts card": "normal",
   decision: "urgent",
