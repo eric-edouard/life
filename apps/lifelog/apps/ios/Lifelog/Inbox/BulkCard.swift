@@ -245,6 +245,7 @@ struct BulkCard: View {
     }
 
     private func send(_ request: AnswerRequest, as words: String, on check: Check) {
+        guard !life.saysOutOfReach() else { return }
         life.forget(.answer(ref: check.ref))
         notes.guessed[check.ref] = words
         life.hold(request, as: words)

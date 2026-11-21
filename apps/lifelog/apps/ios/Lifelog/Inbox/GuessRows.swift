@@ -55,7 +55,7 @@ struct YesNo: View {
                 chip("No", fill: Color.fillTint) { answer(false) }
             }
         case .held:
-            chip("Undo", fill: Palette.pick, isHeld: true, action: undo)
+            chip("Undo", fill: Color.pick, isHeld: true, action: undo)
         case .answered(let yes):
             HStack(spacing: 6) {
                 if yes {
@@ -98,7 +98,7 @@ struct SamePersonTile: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             Text("One person, a second account?").font(.small).foregroundStyle(Palette.muted)
             if let person = check.likelyPeople.first {
-                PartyRow(person) { EmptyView() }
+                PartyRow(person)
             }
             HStack(spacing: Metrics.Spacing.m) {
                 PartyDisc(name: account, size: .row)
