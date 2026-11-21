@@ -393,20 +393,35 @@ test("talk: one process kept across prompts, its updates heard as they come, the
   expect(await rt.state(first.ref)).toBe("idle");
 });
 
-test("talk and keep racing open one process; a stopped kept session's old timer never drops the next one mid-answer; a ref switch while answering is refused", async () => {
+// A launch bound well under the test's 30 s, so a two-launch case that stalls fails at its launch, named, never as a
+// test timeout (#1150).
+const LAUNCH_BOUND_MS = 10_000;
+
+test("talk and keep racing open one process; a ref switch while answering is refused", async () => {
   const dir = made();
-  const rt = acpRuntime(rowFor(dir), LAUNCH_WITHIN_MS, 300);
-  const first = await rt.talk(agentIn(), null, "[answer]", () => undefined);
-  await first.ended;
-  await rt.stop(first.ref);
+  const rt = acpRuntime(rowFor(dir), LAUNCH_BOUND_MS, 300);
   const [, run] = await Promise.all([
-    rt.keep(agentIn(), first.ref),
-    rt.talk(agentIn(), first.ref, "[hang]", () => undefined),
+    rt.keep(agentIn(), null),
+    rt.talk(agentIn(), null, "[hang]", () => undefined),
   ]);
-  expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
+  expect(kindsOf(dir).filter((k) => k === "initialize")).toHaveLength(1);
   await expect(rt.keep(agentIn(), "another-session")).rejects.toThrow(
     "is answering"
   );
+  await Bun.sleep(600); // past the keep's timer: the talk cleared it
+  expect(await rt.state(run.ref)).toBe("running");
+  await rt.stop(run.ref);
+  expect(await run.ended).toEqual({ ok: false, why: "cancelled" });
+});
+
+test("a stopped kept session's old timer never drops the next one mid-answer", async () => {
+  const dir = made();
+  const rt = acpRuntime(rowFor(dir), LAUNCH_BOUND_MS, 300);
+  const first = await rt.talk(agentIn(), null, "[answer]", () => undefined);
+  await first.ended;
+  await rt.stop(first.ref);
+  const run = await rt.talk(agentIn(), first.ref, "[hang]", () => undefined);
+  expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
   await Bun.sleep(600);
   expect(await rt.state(first.ref)).toBe("running");
   await rt.stop(first.ref);
