@@ -38,7 +38,7 @@ struct CardArrangement<Region: View, Bar: View>: View {
             }
         } else {
             // iOS 27.0 has no arrangement: the card alone at every width, its context behind the card's "Why" row.
-            region.safeAreaInset(edge: .bottom, spacing: 0) { if let bar { rowOf(bar).background(Palette.bg) } }
+            region.safeAreaBar(edge: .bottom, spacing: 0) { if let bar { rowOf(bar) } }
         }
     }
 
@@ -63,9 +63,8 @@ private struct AnswersRow<Row: View>: ViewModifier {
         GeometryReader { region in
             // Stacked: the region spans the arrangement's width, not its height.
             let isStacked = region.size.width > bounds.width - 1 && region.size.height < bounds.height - 1
-            content.safeAreaInset(edge: .bottom, spacing: 0) {
-                if let row, isStacked == isLower { row.background(Palette.bg) }
-            }
+            // The system's bar, so what scrolls under it softens at its edge (decision 96).
+            content.safeAreaBar(edge: .bottom, spacing: 0) { if let row, isStacked == isLower { row } }
         }
     }
 }

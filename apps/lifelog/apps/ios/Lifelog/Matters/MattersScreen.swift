@@ -19,9 +19,10 @@ struct MattersScreen: View {
     /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
         @Bindable var router = router
+        let shown = life.matters.shown(isEmpty: { $0.matters.isEmpty })
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
             ReadScreen(
-                shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
+                shown: shown, retry: { await life.refreshMatters() },
                 loading: { RowsPlaceholder() },
                 empty: { NoMattersNotice() },
                 content: { list in content(list) }
@@ -29,12 +30,10 @@ struct MattersScreen: View {
             .background(Palette.bg)
             // A swipe's mark, said back with Undo.
             .saysBack()
-            // Beside the matter, the Pendant and Settings are the matter column's (the list's bar keeps its title).
-            .shellBar(
-                "Matters", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular, isTitleLarge: true
-            )
-            // The filter on, under the title: "Important".
-            .navigationSubtitle(filter.shownName ?? "")
+            // The filter on is the title's state word ("Important"), else how many run.
+            .screenTitle("Matters", state: filter.shownName ?? shown.onScreen.map { "\($0.matters.count) running" })
+            // Beside the matter, the Pendant and Settings are the matter column's.
+            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
             .filterBar(isFiltered: filter != .everything, identifier: "matters.filter") { filterChoices }
         } detail: {
             if let id = router.matter {
