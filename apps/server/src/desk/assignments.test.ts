@@ -642,6 +642,22 @@ test("a card whose write fails leaves neither its owner nor its anchor, and the 
   }
 });
 
+// Catch-up review of PR 841: a card on a step of an assignment's matter found the smaller matter sharing that step, so
+// it was refused or filed elsewhere. A subject on a matter the agent holds is that matter.
+test("a card on a step its assignment's matter shares with a smaller matter is filed there, on that matter", async () => {
+  const { desk, id, onA } = await twoAssignments();
+  desk.db.run(
+    "insert into anchor (assignment_id, step, added_at) values (?, 'obs_a2', ?)",
+    [onA().id, clock().toISOString()]
+  );
+  const matters = [...MATTERS, matterView("mat_small", ["obs_a2"])];
+  await withMatters(matters, async () => {
+    const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
+    expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
+    expect(decisionsNow().find((d) => d.id === card)?.matter).toBe("mat_a");
+  });
+});
+
 // Regression: a closed assignment kept its anchors, so it refused its agent's other assignment a step it can never ask on.
 test("a step goes to its sibling assignment while that one is open, and is free once it closes", async () => {
   const { desk, id, onA, own } = await twoAssignments();
