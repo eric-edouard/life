@@ -142,7 +142,7 @@ export async function correctMatter(
     limitSeconds: Math.ceil((ticksLimitMsOf(open) + QUICK_MS) / 1000),
     plan: [
       ...(open.some((s) => s.kind === "todo_item")
-        ? ["todo_items_ticked"]
+        ? [closedStepOf(false)]
         : []),
       "recorded",
     ],
@@ -150,7 +150,7 @@ export async function correctMatter(
   const written = await endByHisWord(
     open,
     typeof said.note === "string" ? said.note : undefined,
-    (done, of, key) => report({ done, key, of, step: "todo_items_ticked" })
+    (done, of, key) => report({ done, key, of, step: closedStepOf(false) })
   );
   report({ step: "recorded" });
   return written;

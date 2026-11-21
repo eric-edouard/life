@@ -284,7 +284,7 @@ function planOf(
       "recorded",
       ...(act === "send" && known.draft ? sendStepsOf(known.draft) : []),
       ...(act === "end" && closing.some((s) => s.kind === "todo_item")
-        ? ["todo_items_ticked"]
+        ? [closedStepOf(false)]
         : []),
       ...(act === "end" ? ["ended"] : []),
       ...(act === "look" ? ["looking", "done_seen"] : []),
@@ -361,7 +361,7 @@ async function decisionActOf(
       closing,
       `"${d.options.find((o) => o.id === a.options[0])?.label}" on "${d.title}" (${d.id})`,
       (ticked, of, key) =>
-        report({ at: at(), done: ticked, key, of, step: "todo_items_ticked" })
+        report({ at: at(), done: ticked, key, of, step: closedStepOf(false) })
     );
   };
   const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
