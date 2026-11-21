@@ -52,7 +52,7 @@ struct CheckCard: View {
             if isAnswersInBar {
                 // Taller than the screen allows (a row of wide labels stacks), the bar scrolls rather than grows.
                 ScrollView { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
-                    .scrollBounceBehavior(.basedOnSize).frame(maxHeight: 320)
+                    .scrollBounceBehavior(.basedOnSize).frame(maxHeight: Metrics.answerBarMax)
             }
         }
         .sheet(item: $input.context) { context in

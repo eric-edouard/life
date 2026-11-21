@@ -14,6 +14,8 @@ enum Metrics {
     static let listRow: CGFloat = 60
     /// The height of Spending's bars, a day each.
     static let trend: CGFloat = 72
+    /// The tallest the card's answer bar grows before it scrolls.
+    static let answerBarMax: CGFloat = 320
 
     /// The Pendant sheet's tiles: a stat tile's height, the light's square, the storage ring.
     enum Tile {
