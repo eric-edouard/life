@@ -23,8 +23,19 @@ import {
   vector,
 } from "./columns";
 
+import { macEngines, transcribers } from "./processing-switches";
+
 // biome-ignore lint/performance/noBarrelFile: the schema index is the tables contract.
 export { appleHealth } from "./apple-health";
+export {
+  type DictationHeard,
+  dictationHearings,
+  type MacEngine,
+  macEngines,
+  processingSwitches,
+  type Transcriber,
+  transcribers,
+} from "./processing-switches";
 
 // Pendant pages: [[first, last], …] inclusive, sorted, touching ones joined. Admission never buys a
 // page a job or fragment already holds, failed or not (cutter.ts `holderOf`, under the one writer).
@@ -97,17 +108,6 @@ export const jobStates = [
 export type JobState = (typeof jobStates)[number];
 // Named, never `not in` the others: `in` seeks the state index, `not in` reads every job.
 export const unfinishedJobStates = ["queued", "submitted"] as const;
-
-// Who transcribes a block: ElevenLabs Scribe whole, or the speech service with Scribe for the turns
-// it routes (route-turns.ts). The owner's switch picks it; a job keeps the one it was sent with.
-export const transcribers = ["scribe", "speech"] as const;
-export type Transcriber = (typeof transcribers)[number];
-// Where a field's dictation on the phone is heard: on the Mac after each pause (`POST
-// /dictation/transcript`), or instantly, the phone streaming it to ElevenLabs' realtime Scribe with a
-// token the Mac mints only then (`POST /live-words/token`). Not `transcriber`: that routes the
-// Pendant's jobs.
-export const dictationHearings = ["mac", "instant"] as const;
-export type DictationHeard = (typeof dictationHearings)[number];
 
 export interface TranscriptionSettings {
   keyterms: string[];
@@ -598,31 +598,10 @@ export const macWatch = sqliteTable("mac_watch", {
     ),
 });
 
-// The owner's two switches, one row (switches.ts). Transcription: audio to ElevenLabs and voices to
-// apps/identity. AI: summaries on the Mac. Off, that work waits. No row: both on.
-export const macEngines = ["claude", "codex"] as const;
-export type MacEngine = (typeof macEngines)[number];
 // Two latest observations, not a usage history. No writer since PR 595 (the subscription widgets were cut); a later migration drops the table.
 export const subscriptionUsage = sqliteTable("subscription_usage", {
   engine: text("engine", { enum: macEngines }).primaryKey(),
   reading: json("reading").notNull(),
-});
-
-export const processingSwitches = sqliteTable("processing_switches", {
-  ai: boolean("ai").notNull(),
-  dictationHeard: text("dictation_heard", { enum: dictationHearings })
-    .notNull()
-    .default("mac"),
-  engine: text("engine", { enum: macEngines }).notNull().default("claude"),
-  id: integer("id").primaryKey().default(1),
-  // Minutes the Pendant's audio may wait on the phone before the server asks the owner to open
-  // the app (latency.ts); 0 is off. Its default is `switches.ts` DEFAULTS.
-  openAppAfterMinutes: integer("open_app_after_minutes").notNull(),
-  transcriber: text("transcriber", { enum: transcribers })
-    .notNull()
-    .default("scribe"),
-  transcription: boolean("transcription").notNull(),
-  updatedAt: instant("updated_at").notNull().$defaultFn(clock),
 });
 
 // Intelligence run lifecycle.
