@@ -61,13 +61,33 @@ life#940, and the skill on the Mac is updated.
       pre-tick likely guesses "Yes", and pre-tick every voice heard once "Don't name", with no 7-day wait.
       **Its first PR is a live bug:** two voice answers at the same moment make one fail. Voice answers must go one at a
       time on the server.
-2. **Voice naming with context.** Fable's report is `~/Life/docs/memory-rework/voice-naming-with-context-2026-11-21.md`,
-   committed. Root cause: the context never reaches the guessing step (a chat's plan doesn't make someone a candidate,
-   one token per recording instead of Voice's groups, short conversations never read), and stored guesses never reach
-   the card. On the night of 20 Nov, with the chats added, it named the voice right twice of twice for $0.001.
-   Five PRs. PR 1 needs no model: the card uses the heard name and the stored guesses, "Is this X?". PRs 2 to 4 need his
-   yes: a prompt version with a hidden-run trial of about $1, a third daytime model step, and a new trigger prompt
-   version. Silent naming stays off until 99 in 100 right.
+2. **Voice naming with context.** Fable's report: `~/Life/docs/memory-rework/voice-naming-with-context-2026-11-21.md`
+   (committed in the data repo; read its sections 1 to 6 before building).
+   - **Root cause:** the sound and the model are fine. The context never reaches the guessing step, and the guess never
+     reaches the card. Five gaps, four of them "knows but doesn't use":
+     - a chat's plan doesn't make someone a candidate (`possibleSpeakersOf`);
+     - one token per recording instead of Voice's groups (76 instead of 7 that night);
+     - conversations under 15,000 characters are never read, so short calls are skipped;
+     - 487 stored guess reads are shown nowhere, and `voiceSuggestionOf` drops a name Voice calls "new person";
+     - guesses were only ever judged for silent naming, never as a one-tap "Is this X?".
+   - **Proof:** on the night of 20 Nov, with the chats added, his engine named the friend he had planned to meet, "sure", 3 minutes after the voice
+     arrived, twice of twice, for $0.001. One wrong guess in 14. Apple's on-device model reads "about to meet, where,
+     on the way" well, but it can't tell who a voice is: it notes the expected company, and his engine names the voice.
+   - **Build plan** (each PR follows `work-on-code`; tests use made-up people and voices):
+
+     | PR | What | Tier | Measures | His decision |
+     |---|---|---|---|---|
+     | 1. The card uses what Life already knows | Name from Voice's heard name (exactly one known person) and the stored guesses summed over the group; shown only when they don't disagree. No model, no prompt | standard | Score script "by group" on his past answered voices | Yes to show a guessed name on a card |
+     | 2. Expected company and groups in the input | People from chats and calls in the window (6 h before to the end) with chat titles and appointments; tokens are Voice's groups; calls with slack; any length when a call or plan is near; confidence by counted signals in code | standard | `voice-naming-score.ts --hidden --trial` on 14 days, on a copy, against 16 Nov (9 of 9, 79 of 86); about 100 calls, about $1 | Yes to the new prompt version and that one trial |
+     | 3. Asked when the voice appears | The watcher asks a few minutes after a group reaches 150 words or a conversation closes; daily cap; the night catches up | standard | Minutes from first word to card; calls and cost a day | Yes to a third daytime model step |
+     | 4. Apple notes who he's about to be with | One more question on the arrival trigger (together soon, where, arriving), stored with the arrival replies, feeding PRs 2 and 3 | standard | A week of Apple's "together soon" against the night's episodes | Yes to a new trigger prompt version |
+     | 5. Bulk card rows and learning | "Probably them" filled by sure guesses; the same person's small groups as rows; a weekly score per level; a level under its bar steps down | hard | Taps saved a week; right and wrong per level | Sure rows start ticked: **already yes** (21 Nov). Silent naming later, with numbers, and his yes |
+
+     **Order:** 1 alone first (small, and fixes today's top "Leo" card), then 2 (the real gain), then 3 and 4 together,
+     then 5. It builds on the voices-in-bulk card (item 1.6 above), whose concurrency fix lands first.
+   - **Found on the way:** one person's Instagram account is a separate guessed person in Life (the report names
+     them), which caused the one wrong guess. The fix is a same-person card for him; it should come first among guesses. Not ours to correct by hand.
+     Voice could also link a person's groups across a language switch (Voice's side, later).
 3. **Spoken asks PR 2 and PR 3** (branch `spoken-asks`, its PLAN.md lists the 8 refinements by PR). PR 3 needs a
    Life.app swap.
 4. **The phone's performance fixes 4 to 8** (branch `phone-perf-4`, which doesn't compile yet; brief:
