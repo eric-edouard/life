@@ -26,6 +26,7 @@ import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
 import {
   type Brief,
   CALL_SLACK,
+  EXPECTED_BEFORE,
   expectedCompanyOf,
   expectedWindowOf,
   HEARD_WITHIN,
@@ -44,6 +45,7 @@ import {
   makeReplies,
   READS,
   readReplyIndex,
+  readTogetherSoon,
   replyOf,
 } from "./read-replies";
 import { begin, chunks, readsOf, type Step } from "./run";
@@ -209,6 +211,8 @@ interface Context {
   pictured: Map<string, Set<string>>;
   /** Voice's naming queue item of each voice in one (`voiceKey`): its group. */
   queue: Map<string, NamingQueueItem>;
+  /** The keys of the messages the arrival trigger read as together soon (`readTogetherSoon`). */
+  together: ReadonlySet<string>;
 }
 
 const addTo = <K, V>(m: Map<K, Set<V>>, k: K, v: V) =>
@@ -332,6 +336,7 @@ async function readContext(
     onDay: heardOnDayOf(heard),
     people,
     queue,
+    together: readTogetherSoon(iso(Date.parse(first) - EXPECTED_BEFORE)),
   };
 }
 
@@ -447,25 +452,25 @@ const callsNear = (
 
 /**
  * Whether a spoken conversation is worth a naming read: a long one (`isSummarised`) always; a short one only when a call
- * is near it (`callsNear`) or a one-to-one message came in the `PLANNED_WITHIN` before it began (someone on the way).
+ * is near it (`callsNear`) or a plan to meet came before it began (`isPlannedBefore`: someone on the way).
  */
 export function isWorthNaming(
   parts: SpokenPart[],
-  c: Pick<Context, "direct" | "events" | "people">
+  c: Pick<Context, "direct" | "events" | "people" | "together">
 ) {
   const [began, ended] = [parts[0]?.at ?? "", parts.at(-1)?.until ?? ""];
   return (
     isSummarised(parts) ||
     callsNear(c, began, ended).lines.length > 0 ||
     [...c.direct.values()].some((list) =>
-      isPlannedBefore(list, Date.parse(began))
+      isPlannedBefore(list, Date.parse(began), c.together)
     )
   );
 }
 
 /**
  * What code counts for a voice group (its lines `lines`, its recording voices `voices`) and each person offered: the
- * signals (a one-to-one message in the `PLANNED_WITHIN` before its first line; a word of their name or chat title said
+ * signals (a plan to meet before its first line, `isPlannedBefore`; a word of their name or chat title said
  * in a line not its own; on a call near the part; its sound like them: its queue item's `isLikely`, else, in no item, its
  * likeness at `SOUNDS_LIKE` or more), and whether a sound points to someone else. Keyed `${voice} ${person}`.
  */
@@ -501,7 +506,11 @@ function evidenceOf(
       )
     );
     for (const person of o.possible) {
-      const planned = isPlannedBefore(c.direct.get(person) ?? [], first);
+      const planned = isPlannedBefore(
+        c.direct.get(person) ?? [],
+        first,
+        c.together
+      );
       const named = isNameSaid(others, [
         c.people.nameOf(person),
         ...(o.chats.get(person) ?? []),
@@ -543,7 +552,7 @@ export function namingOf(
     voices.map((v) => [voiceKey(v.jobId, v.speakerLabel), v])
   );
   const calls = callsNear(c, part.at, part.until);
-  const expected = expectedCompanyOf(c.direct, began, ended);
+  const expected = expectedCompanyOf(c.direct, began, ended, c.together);
   const chats = new Map(expected.map((e) => [e.ref, e.chats]));
   const possible = possibleSpeakersOf(
     {

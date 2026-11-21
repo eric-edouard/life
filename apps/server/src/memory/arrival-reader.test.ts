@@ -23,7 +23,11 @@ import {
   readRecentVoice,
 } from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
-import { readConfirmedArrivals, readReplies } from "./read-replies";
+import {
+  readConfirmedArrivals,
+  readReplies,
+  readTogetherSoon,
+} from "./read-replies";
 import { OWNER, type Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
 import { applyRules, messageUnits } from "./units";
@@ -282,6 +286,22 @@ test("a meeting goes to the appointment read alone, apart from the ask rule: a b
   // Read once: a second pass asks nothing and syncs nothing.
   expect(await s.read(events)).toBe(0);
   expect(s.calls).toEqual({ apple: 1, engine: 1 });
+});
+
+test("Apple's together soon is stored on the trigger line and read back as its message keys; it asks nothing more", async () => {
+  const s = sceneOf(
+    () => ({
+      os: "27.2",
+      reply: { author: "person", event: "no", quote: "", together: "yes" },
+    }),
+    true
+  );
+  const events = [msg("On my way, ETA 20 min")];
+  await s.read(events);
+  expect(s.calls).toEqual({ apple: 1, engine: 0 });
+  expect(readTogetherSoon(ago(60 * 24), s.where)).toEqual(
+    new Set([`whatsapp|${events[0]?.id}`])
+  );
 });
 
 test("an ask and a meeting in one read go to both reads; offline, both wait and are asked on the next pass", async () => {

@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import { DAY, MIN } from "../core/clock";
-import type { SourceEvent } from "../records/source";
+import { eventKey, type SourceEvent } from "../records/source";
 import {
   BRIEF_CHARS,
   CALLS_CHARS,
   expectedCompanyOf,
   isNameSaid,
+  isPlannedBefore,
   namingBriefOf,
   namingConfidenceOf,
   overlappingPhoneCallsOf,
@@ -237,7 +238,7 @@ test("a brief holds what he is to them, their language, family and home, how he 
   ).toBe("heard in person on 0 days, by call on 0 days");
 });
 
-test("his expected company: a one-to-one message or call from 6 hours before the conversation to its end, nearest its start first, with the chats' titles", () => {
+test("his expected company: a one-to-one message or call from 6 hours before the conversation to its end, those Apple read as together soon first, then nearest its start, with the chats' titles", () => {
   const message = (
     ref: string,
     at: string,
@@ -253,11 +254,36 @@ test("his expected company: a one-to-one message or call from 6 hours before the
     message("person:before", minute(-7 * 60)),
     message("person:after", minute(61)),
   ]);
-  expect(expectedCompanyOf(direct, FROM, TO)).toEqual([
-    { away: 20 * MIN, chats: ["Ana / Annie"], ref: "person:near" },
-    { away: 30 * MIN, chats: [], ref: "person:during" },
-    { away: 5 * 60 * MIN, chats: ["Far"], ref: "person:far" },
+  expect(expectedCompanyOf(direct, FROM, TO, new Set())).toEqual([
+    { away: 20 * MIN, chats: ["Ana / Annie"], ref: "person:near", soon: false },
+    { away: 30 * MIN, chats: [], ref: "person:during", soon: false },
+    { away: 5 * 60 * MIN, chats: ["Far"], ref: "person:far", soon: false },
   ]);
+  const far = direct.get("person:far")?.[0] as SourceEvent;
+  expect(
+    expectedCompanyOf(direct, FROM, TO, new Set([eventKey(far)])).map(
+      (e) => e.ref
+    )
+  ).toEqual(["person:far", "person:near", "person:during"]);
+});
+
+test("a plan to meet: a message in the 2 hours before, or one Apple read as together soon in the 6 hours before; never a call", () => {
+  const at = Date.parse(FROM);
+  const message = (min: number) => ({
+    ...callAt(minute(min), undefined),
+    phoneCall: undefined,
+  });
+  const soon = (e: SourceEvent) => new Set([eventKey(e)]);
+  expect(isPlannedBefore([message(-60)], at, new Set())).toBe(true);
+  expect(isPlannedBefore([message(-4 * 60)], at, new Set())).toBe(false);
+  expect(isPlannedBefore([message(-4 * 60)], at, soon(message(-4 * 60)))).toBe(
+    true
+  );
+  expect(isPlannedBefore([message(-7 * 60)], at, soon(message(-7 * 60)))).toBe(
+    false
+  );
+  expect(isPlannedBefore([message(10)], at, soon(message(10)))).toBe(false);
+  expect(isPlannedBefore([callAt(minute(-30), 60)], at, new Set())).toBe(false);
 });
 
 test("how sure a guess is, counted by code: sure needs the model's sure, two signals and nothing elsewhere; likely one signal", () => {

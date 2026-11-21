@@ -93,6 +93,8 @@ export const ArrivalTriggerReply = z
           /** Whether the lines set a meeting or an appointment (trigger v3 on; v2's lines lack it). */
           event: z.enum(["yes", "no"]).optional(),
           quote: z.string(),
+          /** Whether someone is about to be in the same place as him, today (trigger v4 on; earlier lines lack it). */
+          together: z.enum(["yes", "no"]).optional(),
         })
         .strict(),
       z.object({ refused: z.string() }).strict(),

@@ -1,5 +1,5 @@
 import { DAY, HOUR, MIN } from "../core/clock";
-import { chatGroups, type SourceEvent } from "../records/source";
+import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import type { DetailLine } from "./details";
 import { OWNER } from "./read-truth";
 import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
@@ -20,7 +20,7 @@ export const HEARD_WITHIN = 90 * DAY;
 /** A call this near a recording is near it: a phone's clock and the pendant's can be minutes apart. */
 export const CALL_SLACK = 5 * MIN;
 /** The expected company: his one-to-one chats and calls from this long before a conversation to its end. */
-const EXPECTED_BEFORE = 6 * HOUR;
+export const EXPECTED_BEFORE = 6 * HOUR;
 /** A one-to-one message this long before a voice starts is a plan to meet: a signal, and what makes a short conversation worth a read. */
 export const PLANNED_WITHIN = 2 * HOUR;
 /** A likeness this strong is Voice's own bar for "sounds like them" (its `isLikely`). */
@@ -83,22 +83,32 @@ export function overlappingPhoneCallsOf(
 export const expectedWindowOf = (began: string, ended: string) =>
   [Date.parse(began) - EXPECTED_BEFORE, Date.parse(ended)] as const;
 
-/** Whether one of `events` (one-to-one) is a message, not a call, in the `PLANNED_WITHIN` up to `at` (ms): a plan to meet. */
-export const isPlannedBefore = (events: readonly SourceEvent[], at: number) =>
+/**
+ * Whether one of `events` (one-to-one) is a plan to meet before `at` (ms): a message, not a call, in the `PLANNED_WITHIN`
+ * up to it, or one the arrival trigger read as together soon (`together`, its keys: `readTogetherSoon`) in the
+ * `EXPECTED_BEFORE` up to it.
+ */
+export const isPlannedBefore = (
+  events: readonly SourceEvent[],
+  at: number,
+  together: ReadonlySet<string>
+) =>
   events.some((e) => {
     const t = Date.parse(e.at);
-    return !e.phoneCall && t >= at - PLANNED_WITHIN && t <= at;
+    const within = together.has(eventKey(e)) ? EXPECTED_BEFORE : PLANNED_WITHIN;
+    return !e.phoneCall && t >= at - within && t <= at;
   });
 
 /**
  * The expected company of a conversation running from `began` to `ended`: everyone (a person ref, `direct`'s key) with a
- * one-to-one message or call from `EXPECTED_BEFORE` before it to its end, nearest to its start first, with the titles of
- * those chats.
+ * one-to-one message or call from `EXPECTED_BEFORE` before it to its end, those with a message the arrival trigger read
+ * as together soon (`together`) first, then nearest to its start, with the titles of those chats.
  */
 export function expectedCompanyOf(
   direct: Map<string, SourceEvent[]>,
   began: string,
-  ended: string
+  ended: string,
+  together: ReadonlySet<string>
 ) {
   const [from, to] = expectedWindowOf(began, ended);
   const start = Date.parse(began);
@@ -121,11 +131,17 @@ export function expectedCompanyOf(
                 ),
               ],
               ref,
+              soon: near.some((e) => together.has(eventKey(e))),
             },
           ]
         : [];
     })
-    .toSorted((a, b) => a.away - b.away || a.ref.localeCompare(b.ref));
+    .toSorted(
+      (a, b) =>
+        Number(b.soon) - Number(a.soon) ||
+        a.away - b.away ||
+        a.ref.localeCompare(b.ref)
+    );
 }
 
 /** What shows that a person could be in the room: each is a list of person refs. */

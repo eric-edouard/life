@@ -210,8 +210,8 @@ const linesOf = (
     .map((l) => readLineOf(b, l, nameOf))
     .filter((l) => keys.has(l.key));
 
-/** Apple's request for a read: the trigger prompt's instructions, and its two fields' guides. */
-function triggerRequest(lines: string[]): FoundationRequest {
+/** Apple's request for a read: the trigger prompt's instructions, and its fields' guides. */
+export function triggerRequest(lines: string[]): FoundationRequest {
   const [instructions = "", ...fields] = promptText(TRIGGER).split("\n## ");
   const guide = (name: string) =>
     (fields.find((f) => f.startsWith(`${name}\n`)) ?? "")
@@ -226,6 +226,11 @@ function triggerRequest(lines: string[]): FoundationRequest {
       },
       { description: guide("quote"), name: "quote" },
       { anyOf: ["yes", "no"], description: guide("event"), name: "event" },
+      {
+        anyOf: ["yes", "no"],
+        description: guide("together"),
+        name: "together",
+      },
     ],
     instructions: instructions.trim(),
     // A line over `READ_CHARS` is cut for Apple's context alone; the confirm reads it whole.
@@ -233,16 +238,17 @@ function triggerRequest(lines: string[]): FoundationRequest {
   };
 }
 
-/** Apple's answer as stored: its author and quote with the quote check, or why it gave none. */
+/** Apple's answer as stored: its author, quote, meeting and together soon, or why it gave none. */
 function triggerReplyOf(answer: FoundationAnswer) {
   if (!("reply" in answer)) {
     return { refused: answer.error };
   }
-  const { author, event, quote = "" } = answer.reply;
+  const { author, event, quote = "", together } = answer.reply;
   return {
     author: author === "person" ? "person" : "automated",
     event: event === "yes" ? "yes" : "no",
     quote,
+    together: together === "yes" ? "yes" : "no",
   };
 }
 

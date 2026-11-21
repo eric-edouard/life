@@ -12,9 +12,9 @@ import { directChats, readWithPeople } from "./closeness";
 import { exchangesOf } from "./exchanges";
 import { READ_REPLIES } from "./memory-files";
 import { isLocked } from "./memory-lock";
-import { CALL_SLACK, PLANNED_WITHIN } from "./naming-context";
+import { CALL_SLACK, EXPECTED_BEFORE } from "./naming-context";
 import { wordsOf } from "./page-format";
-import { READS, readRepliesSince } from "./read-replies";
+import { READS, readRepliesSince, readTogetherSoon } from "./read-replies";
 import { readCallsToday } from "./run-log";
 import {
   type SpokenPart,
@@ -149,10 +149,14 @@ export async function nameVoicesOnArrival(
     return finish(0);
   }
   const from = Math.min(...due.map((p) => Date.parse(p[0]?.at ?? "")));
-  const { events } = await readWithPeople(
-    new Date(from - PLANNED_WITHIN - CALL_SLACK)
-  );
-  const near = { direct: directChats(events, people.resolve), events, people };
+  const since = new Date(from - EXPECTED_BEFORE - CALL_SLACK);
+  const { events } = await readWithPeople(since);
+  const near = {
+    direct: directChats(events, people.resolve),
+    events,
+    people,
+    together: readTogetherSoon(since.toISOString()),
+  };
   const worth = due.filter((parts) => isWorthNaming(parts, near));
   if (worth.length === 0) {
     return finish(0);

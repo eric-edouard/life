@@ -7,6 +7,7 @@ import type { CallReads } from "../models/model-call";
 import { isPromptVersion, MAY_KEEP, promptText } from "../models/prompt-parts";
 import {
   ARRIVAL_CONFIRM_READ,
+  ARRIVAL_TRIGGER_READ,
   type ReadName,
   ReadReply,
 } from "../records/read-reply";
@@ -21,7 +22,7 @@ import { inBatches, type Step } from "./run";
 export const READS = {
   arrival_appointment: { prompt: "memory-arrival-appointment.v1" },
   arrival_confirm: { prompt: "memory-arrival-confirm.v2" },
-  arrival_trigger: { prompt: "memory-arrival-trigger.v3" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v4" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
@@ -131,6 +132,23 @@ export const readConfirmedArrivals = (since: string, where = READ_REPLIES) =>
   confirmedArrivalsOf(
     readRepliesSince(iso(Date.parse(since) - 2 * DAY), where)
   ).filter((a) => a.at >= since);
+
+/**
+ * The together soon notes (voice naming PR 4, his yes of 21 Nov 2026): the keys of the messages the current arrival
+ * trigger read as someone about to be in the same place as him, filed since `since`. The voice naming reads the live
+ * store, a trial's included: they are its input. Never a card or a push.
+ */
+export const readTogetherSoon = (since: string, where = READ_REPLIES) =>
+  new Set(
+    readRepliesSince(since, where).flatMap((l) =>
+      l.read === ARRIVAL_TRIGGER_READ &&
+      isPromptVersion(l.madeBy.prompt, READS.arrival_trigger.prompt) &&
+      "together" in l.reply &&
+      l.reply.together === "yes"
+        ? l.messages
+        : []
+    )
+  );
 
 /** A stored exchange: its place in the line that read it, and the keys of its messages. */
 interface Held {
