@@ -104,23 +104,18 @@ export interface ConfirmedArrival {
  * leave that day's confirmed units unread (an importance-1 reply keeping a promise). Read by extraction's choice of
  * units and the desk's wake, never decided twice.
  */
-export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
-  [
-    ...new Map(
-      lines
-        .filter(
-          (l) =>
-            l.read === ARRIVAL_CONFIRM_READ && l.reply.isActionable === true
-        )
-        .toSorted((a, b) => a.at.localeCompare(b.at))
-        .map((l) => [l.messages.at(-1), l])
-    ).values(),
-  ].map((l) => ({
-    at: l.at,
-    messages: l.messages,
-    people: l.people,
-    unit: l.unit,
-  }));
+export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] => [
+  ...new Map(
+    lines
+      .flatMap((l) =>
+        l.read === ARRIVAL_CONFIRM_READ && l.reply.isActionable === true
+          ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
+          : []
+      )
+      .toSorted((a, b) => a.at.localeCompare(b.at))
+      .map((a) => [a.messages.at(-1), a])
+  ).values(),
+];
 
 /**
  * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first line's month, at most two
