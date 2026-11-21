@@ -119,7 +119,7 @@ struct BulkCard: View {
     private func row(_ check: Check) -> some View {
         let isTicked = ticked.contains { $0.check.ref == check.ref }
         return TickRow(
-            isTicked: isTicked,
+            isTicked: isTicked, isTickable: check.preTickedOption != nil || notes.chosen[check.ref] != nil,
             tick: {
                 if isTicked {
                     notes.unticked.insert(check.ref)
@@ -132,29 +132,26 @@ struct BulkCard: View {
             },
             open: { opened = check.ref }
         ) {
-            HStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if kind == .voice, let clip = check.clips.first {
-                        VoiceLine(clip: clip)
-                    } else {
+            // A voice's sign is its Play, centred on the row; any other row opens its own card.
+            if kind == .voice, let clip = check.clips.first {
+                VoiceLine(clip: clip, below: AnyView(detail(of: check)))
+            } else {
+                HStack(spacing: Metrics.Spacing.s) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(check.said?.text ?? check.question).font(.leadBold).foregroundStyle(Palette.fg)
                             .lineLimit(1)
+                        detail(of: check)
                     }
-                    detail(of: check)
-                }
-                // A voice's sign is its Play; any other row opens its own card.
-                if kind != .voice {
-                    Spacer(minLength: Metrics.Spacing.s)
-                    Image(systemName: "chevron.right").font(.smallStrong)
-                        .foregroundStyle(Palette.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
                 }
             }
         }
     }
 
     /// The row's muted line: when and how long for a voice, what came since for any other, then the answer it gives. An
-    /// answer that is a person says it first, then their disc and name ("Yes, <disc> <who> · Fri 13 Nov"); the length
-    /// leaves to make room.
+    /// answer that is a person says it first, then their disc, name and what they are to him, which tells two of one
+    /// name apart ("Yes, <disc> <who> · <their line> · Fri 13 Nov"); the length leaves to make room.
     @ViewBuilder private func detail(of check: Check) -> some View {
         let clip = check.clips.first
         let about =
@@ -165,9 +162,9 @@ struct BulkCard: View {
         if let person = answer.person {
             HStack(spacing: Metrics.Spacing.xs) {
                 if let lead = answer.lead { Text(lead) }
-                PartyDisc(name: person, size: .chip)
-                Text(person).font(.smallStrong).foregroundStyle(Palette.fg)
-                Text(about.prefix(1).compactMap(\.self).joined(separator: " · ")).lineLimit(1)
+                PartyDisc(name: person.name, size: .chip)
+                Text(person.name).font(.smallStrong).foregroundStyle(Palette.fg)
+                Text(([person.line] + about.prefix(1)).compactMap(\.self).joined(separator: " · ")).lineLimit(1)
             }
             .font(.small).foregroundStyle(Palette.muted).lineLimit(1)
         } else {
@@ -177,12 +174,12 @@ struct BulkCard: View {
     }
 
     /// His answer on the row's own card, else "Yes, done", "Don't name", "Yes, <who>" ("Is this <who>? Yes" when Life
-    /// names no candidate); nothing when nothing is ticked. `person` is a name to show with its disc.
-    private func answerOf(_ check: Check) -> (lead: String?, person: String?, words: String?) {
+    /// names no candidate); nothing when nothing is ticked. `person` is who to show with their disc.
+    private func answerOf(_ check: Check) -> (lead: String?, person: Party?, words: String?) {
         let chosen = notes.chosen[check.ref]
         if let chosen {
             if chosen.request.options != ["is-them"] {
-                let who = check.likelyPeople.first { $0.ref == chosen.request.person }?.name
+                let who = check.likelyPeople.first { $0.ref == chosen.request.person }
                 return (nil, who, who == nil && kind != .ending ? chosen.heldWords : nil)
             }
         }
@@ -190,7 +187,7 @@ struct BulkCard: View {
         else { return (nil, nil, nil) }
         // An ending's "Yes, done" is its group's heading, never said on each row.
         guard option.id == "is-them" else { return (nil, nil, kind == .ending ? nil : option.label) }
-        let who = check.likelyPeople.first { $0.ref == check.subject }?.name
+        let who = check.likelyPeople.first { $0.ref == check.subject }
         return who.map { ("\(option.label),", $0, nil) } ?? (nil, nil, "\(check.question) \(option.label)")
     }
 
@@ -307,15 +304,21 @@ struct BulkCard: View {
 /// A voice row's first words, lit as they play, with its Play at the right (`SpokenWords`, one clip at a time).
 private struct VoiceLine: View {
     let clip: Check.Clip
+    /// The row's muted line under the words.
+    let below: AnyView
 
     var body: some View {
         if let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {
             SpokenWords(
-                text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .line
+                text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .line,
+                below: below
             )
             .font(.lead)
         } else {
-            Text("“\(clip.text)”").font(.lead).foregroundStyle(Palette.fg).lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("“\(clip.text)”").font(.lead).foregroundStyle(Palette.fg).lineLimit(1)
+                below
+            }
         }
     }
 }

@@ -113,7 +113,7 @@ struct AgentSheet: View {
             call: call, shown: move, tried: life.retryable(tried, call: call, shown: move), offered: other)
         return group("Settings") {
             FlatRow(lead: .symbol("cpu")) {
-                Text("Runs on").font(.rowName)
+                Text("Runs on").font(.rowName).lineLimit(1)
             } trailing: {
                 // Starting, it is on its new program already.
                 if let words = move.flatMap({ MoveWords.underWay($0, runtime: current) }) {
@@ -140,9 +140,9 @@ struct AgentSheet: View {
                             .tag(runtime)
                         }
                     }
-                    .pickerStyle(.menu).tint(Palette.muted)
+                    .pickerStyle(.menu).tint(Palette.muted).lineLimit(1).fixedSize()
                 } else {
-                    Text(current.name).font(.small).foregroundStyle(Palette.muted)
+                    Text(current.name).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
                 }
             }
             if let failed {

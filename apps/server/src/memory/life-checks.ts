@@ -81,7 +81,7 @@ export const LIFE_CHECKS = {
     options: [
       { id: "this-is", label: "Someone else…", takes: "person or name" },
       { id: "organization", label: "Organization", takes: null },
-      { id: "not-relevant", label: "Neither", takes: null },
+      { id: "not-relevant", label: "I don't care", takes: null },
     ],
     title: "Place a name",
   },

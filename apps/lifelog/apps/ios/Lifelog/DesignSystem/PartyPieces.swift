@@ -148,7 +148,9 @@ struct PartyChip: View {
         HStack(spacing: 6) {
             if let label { Text(label).foregroundStyle(Palette.muted) }
             PartyDisc(party, size: .chip).padding(.vertical, -2)
-            Text(party.name).foregroundStyle(Palette.fg)
+            // It opens their page: the link's look (`TextLink`), its name strong and the chevron after it.
+            Text("\(party.name) \(Image(systemName: "chevron.right"))").font(.smallStrong).foregroundStyle(Palette.fg)
+                .lineLimit(1)
         }
         .accessibilityElement(children: .combine)
     }

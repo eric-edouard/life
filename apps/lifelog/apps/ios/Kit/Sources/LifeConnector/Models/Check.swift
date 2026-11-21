@@ -418,11 +418,11 @@ extension Check {
     /// The option the row starts ticked with in a bulk ask, when Life pre-ticks one this card offers.
     public var preTickedOption: Option? { options.first { $0.id == preTicked } }
 
-    /// Rows of a bulk ask in its groups: one per pre-ticked option, in the order they first come, then the rows Life
-    /// ticks nothing on.
+    /// Rows of a bulk ask in its groups: the rows Life ticks nothing on first ("Needs you": only he can answer them),
+    /// then one per pre-ticked option, in the order they first come.
     public static func bulkGroups(_ checks: [Check]) -> [[Check]] {
         let ids = checks.compactMap(\.preTicked).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
-        return (ids.map(Optional.some) + [nil]).map { id in checks.filter { $0.preTicked == id } }
+        return ([nil] + ids.map(Optional.some)).map { id in checks.filter { $0.preTicked == id } }
             .filter { !$0.isEmpty }
     }
 

@@ -10,8 +10,8 @@ struct SpokenWords: View {
         case box
         /// A 28 Play (in a 44 hit area) at the right of the words.
         case inline
-        /// Like `inline`, with a 48 Play, and the words on one line, cut with an ellipsis (a bulk card's voice row): no bold, no
-        /// tap to seek, no `emphasis`.
+        /// Like `inline`, with a 48 Play at the row's right edge, centred on the words and the line under them (`below`),
+        /// the words on one line, cut with an ellipsis (a bulk card's voice row): no bold, no tap to seek, no `emphasis`.
         case line
     }
 
@@ -29,6 +29,8 @@ struct SpokenWords: View {
     var caption: String?
     /// Told when the recording plays to its end (not when it is stopped).
     var onEnded: (() -> Void)?
+    /// `line` only: the row's muted line under the words, so the Play centres on both.
+    var below: AnyView?
 
     /// Each word as shown (with the space after it) and whether it is part of a name, made once: `body` runs about
     /// 10 times a second while it plays.
@@ -37,8 +39,9 @@ struct SpokenWords: View {
     init(
         text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box,
         autoplay: Bool = false, emphasis: [String] = [], caption: String? = nil,
-        onEnded: (() -> Void)? = nil
+        onEnded: (() -> Void)? = nil, below: AnyView? = nil
     ) {
+        self.below = below
         self.text = text
         self.words = words
         self.job = job
@@ -82,6 +85,15 @@ struct SpokenWords: View {
                         playButton
                     }
                     spoken
+                }
+            } else if style == .line {
+                HStack(spacing: Metrics.Spacing.s) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        spoken
+                        below
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    playButton
                 }
             } else {
                 HStack(alignment: .top, spacing: style == .box ? 14 : 0) {

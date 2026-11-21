@@ -176,15 +176,17 @@ struct AddRow: View {
 struct Toast: View {
     let words: String
     var glyph = StateGlyph.ok
+    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`).
+    var action = "Undo"
     let undo: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 8) {
             glyph
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .flag ? 3 : 1)
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : 3)
             if let undo {
                 Button(action: undo) {
-                    Text("Undo").font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
+                    Text(action).font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
                         .background(Color.pick, in: .capsule).contentShape(.capsule)
                 }
                 .buttonStyle(.plain).fixedSize()
@@ -284,7 +286,7 @@ struct ColumnToast: View {
             }
             .buttonStyle(.plain).accessibilityLabel("Undo")
         }
-        .background(Palette.tile, in: .capsule)
+        .floatingGlass()
         .opacity(answered == nil ? 0 : 1).allowsHitTesting(answered != nil)
         .motion(Motion.standard, value: answered)
         .accessibilityElement(children: .contain).accessibilityLabel(answered.map { "Answered: \($0)" } ?? "")
@@ -329,12 +331,15 @@ struct MarkItem: View {
     let toggle: () -> Void
 
     var body: some View {
-        Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
+        let button = Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
             .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
-            .buttonStyle(.glassProminent).tint(isOn ? Color.pick : .clear)
-            .motion(Motion.standard, value: isOn)
-            .accessibilityAddTraits(isOn ? .isSelected : [])
-            .accessibilityIdentifier("matter.important")
+        // Off, the bar's own glass like its neighbours; on, the one selected look.
+        Group {
+            if isOn { button.buttonStyle(.glassProminent).tint(Color.pick) } else { button }
+        }
+        .motion(Motion.standard, value: isOn)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .accessibilityIdentifier("matter.important")
     }
 }
 
@@ -416,6 +421,19 @@ struct SegmentedChoice<Choice: Hashable>: View {
     var icon: (Choice) -> String? = { _ in nil }
 
     var body: some View {
+        // Always one line: with their symbols while they fit, else the words alone.
+        ViewThatFits(in: .horizontal) {
+            segments(withIcons: true)
+            segments(withIcons: false)
+        }
+        // The chosen segment sits inset in its 48 track.
+        .padding(4)
+        .background(Palette.tile, in: .capsule)
+        .motion(Motion.standard, value: selection)
+    }
+
+    /// Each segment as wide as its words, the room left shared out.
+    private func segments(withIcons: Bool) -> some View {
         HStack(spacing: 0) {
             ForEach(choices, id: \.self) { choice in
                 let isChosen = selection == choice
@@ -423,22 +441,21 @@ struct SegmentedChoice<Choice: Hashable>: View {
                     selection = isChosen ? nil : choice
                 } label: {
                     HStack(spacing: 6) {
-                        if let symbol = icon(choice) {
+                        if withIcons, let symbol = icon(choice) {
                             Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
                         }
-                        Text(title(choice)).font(.chip)
+                        Text(title(choice)).font(.chip).lineLimit(1)
                     }
+                    .fixedSize()
+                    .padding(.horizontal, 14)
                     .foregroundStyle(isChosen ? Palette.on : Palette.fg)
                     .frame(maxWidth: .infinity, minHeight: 40)
                     .background(isChosen ? Palette.fg : .clear, in: .capsule)
+                    .contentShape(.capsule)
                 }
                 .buttonStyle(.plain).accessibilityAddTraits(isChosen ? .isSelected : [])
             }
         }
-        // The chosen segment sits inset in its 48 track.
-        .padding(4)
-        .background(Palette.tile, in: .capsule)
-        .motion(Motion.standard, value: selection)
     }
 }
 
@@ -1071,24 +1088,27 @@ struct AnswerRow: Layout {
     private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
 }
 
-/// Where an ask stands among the asks: up to 8, a dot each (6, 6 apart, the current `fg`, the others `tint`); more,
-/// the words "3 of 24" in `muted`.
+/// Where an ask stands among the asks: a dot each (6, 6 apart, the current `fg`, the others `tint`), at most 7 at once,
+/// as the system's page control does: past 7 the row slides with the current ask, and a dot at an end with more asks
+/// beyond it is smaller. Never a count in words: "6 of 234" said nothing he could use.
 struct PagerDots: View {
     let current: Int
     let total: Int
 
+    private static let shown = 7
+
     var body: some View {
-        Group {
-            if total > 8 {
-                Text("\(current + 1) of \(total)").font(.small).foregroundStyle(Palette.muted)
-            } else {
-                HStack(spacing: 6) {
-                    ForEach(0..<total, id: \.self) { index in
-                        Circle().fill(index == current ? Palette.fg : Color.fillTint).frame(width: 6, height: 6)
-                    }
-                }
+        let first = min(max(current - Self.shown / 2, 0), max(total - Self.shown, 0))
+        let last = min(first + Self.shown, total) - 1
+        HStack(spacing: 6) {
+            // A half-open range: no asks draws no dot rather than trapping.
+            ForEach(first..<(last + 1), id: \.self) { index in
+                let isCut = (index == first && first > 0) || (index == last && last < total - 1)
+                Circle().fill(index == current ? Palette.fg : Color.fillTint)
+                    .frame(width: isCut ? 4 : 6, height: isCut ? 4 : 6).frame(width: 6, height: 6)
             }
         }
+        .motion(Motion.standard, value: current)
         .accessibilityElement().accessibilityLabel("\(current + 1) of \(total)")
     }
 }
