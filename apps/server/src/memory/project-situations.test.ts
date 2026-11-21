@@ -11,6 +11,7 @@ import {
 import { projectInputOf, projectTargetsOf } from "./project-situations";
 import { projectStepRefsOf } from "./read-matters";
 import { inputsOf, replyLines } from "./run";
+import { linesCitingOnly } from "./situations";
 import type { People } from "./who";
 
 const ID = "test-harbor";
