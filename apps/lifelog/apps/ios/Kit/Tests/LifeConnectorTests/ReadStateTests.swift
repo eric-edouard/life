@@ -109,3 +109,95 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     let waits = (0..<8).map { firstReadRetryDelay(attempt: $0) }
     #expect(waits == [1, 2, 4, 8, 16, 30, 30, 30].map { Duration.seconds($0) })
 }
+
+/// Reads asked one after the other, each told when it may finish.
+@MainActor private final class Reads {
+    var started = 0
+    var running = 0
+    var overlapped = false
+    var gates: [CheckedContinuation<Void, Never>] = []
+    var shown = ReadState<[Int]>()
+
+    func read() async {
+        started += 1
+        running += 1
+        overlapped = overlapped || running > 1
+        await withCheckedContinuation { gates.append($0) }
+        running -= 1
+    }
+
+    /// Lets the oldest waiting read finish, once one waits.
+    func finishNext() async {
+        while gates.isEmpty { await Task.yield() }
+        gates.removeFirst().resume()
+    }
+}
+
+/// Two inbox reads asked one after the other: the older lists an answered card, the newer not. The newer waits for the
+/// older and runs after it, so the older can never land last and bring the card back.
+@MainActor @Test func aLaterReadRunsAfterTheOneRunningSoTheOlderNeverLandsLast() async {
+    let flights = ReadFlights()
+    let reads = Reads()
+    let first = Task {
+        await flights.run("inbox") {
+            await reads.read(); reads.shown.apply(.succeeded([1], then))
+        }
+    }
+    while reads.started < 1 { await Task.yield() }
+    let second = Task {
+        await flights.run("inbox") {
+            await reads.read(); reads.shown.apply(.succeeded([], then.addingTimeInterval(1)))
+        }
+    }
+    for _ in 0..<10 { await Task.yield() }
+    #expect(reads.started == 1)
+    await reads.finishNext()
+    await reads.finishNext()
+    await first.value
+    await second.value
+    #expect(!reads.overlapped && reads.started == 2)
+    #expect(shown(reads.shown) == "empty")
+}
+
+/// Several asks during one read make one more pass, and each asker is free once the pass after its ask ended.
+@MainActor @Test func asksDuringAReadMakeOneMorePassAndNoneWaitsLonger() async {
+    let flights = ReadFlights()
+    let reads = Reads()
+    var done: [String] = []
+    let first = Task {
+        await flights.run("inbox", reads.read); done.append("first")
+    }
+    while reads.started < 1 { await Task.yield() }
+    let second = Task {
+        await flights.run("inbox", reads.read); done.append("second")
+    }
+    let third = Task {
+        await flights.run("inbox", reads.read); done.append("third")
+    }
+    let other = Task {
+        await flights.run("matters", reads.read); done.append("other")
+    }
+    await reads.finishNext()
+    await first.value
+    #expect(done == ["first"])
+    // The pass after it, for both later asks, and another kind's read beside it.
+    while reads.started < 3 { await Task.yield() }
+    await reads.finishNext()
+    await reads.finishNext()
+    await second.value
+    await third.value
+    await other.value
+    #expect(reads.started == 3)
+    #expect(Set(done) == ["first", "second", "third", "other"])
+}
+
+/// A card in hand (a tapped push's) shows with the read's own faces: loaded while it reads, stale when it failed.
+@Test func aValueInHandShowsWithTheReadsOwnPhase() {
+    var state = ReadState<[Int]>()
+    state.apply(.started)
+    #expect(shown(state.showing([7], at: then)) == "loaded [7]")
+    state.apply(.failed(.unreachable))
+    #expect(shown(state.showing([7], at: then)) == "stale [7] 1000 unreachable")
+    state.apply(.succeeded([1], then.addingTimeInterval(5)))
+    #expect(state.showing([7, 1], at: then).loadedAt == then.addingTimeInterval(5))
+}

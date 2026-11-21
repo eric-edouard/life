@@ -269,6 +269,55 @@ test("identity gets no audio a quiet range touches, nor an old job's", async () 
   ]);
 });
 
+test("a quiet range that lands while the audio is read keeps it from identity, and the next try marks the job done", async () => {
+  const jobId = job(conversation);
+  const at = jobRow(jobId).captureStart?.getTime() ?? 0;
+  const { get } = audio;
+  audio.get = (key) => {
+    audio.get = get;
+    env.db
+      .insert(quietRanges)
+      .values({
+        endedAt: new Date(at + 50_500),
+        id: crypto.randomUUID(),
+        source: "com.apple.dictation",
+        startedAt: new Date(at + 49_500),
+      })
+      .run();
+    return get(key);
+  };
+  expect(await sampler.job(jobId)).toBeNull();
+  expect([speech.ranges, cutAt(jobId)]).toEqual([[], null]);
+  expect(await sampler.job(jobId)).toBe(0);
+  expect(speech.ranges).toEqual([]);
+  expect(cutAt(jobId)).toEqual(expect.any(Date));
+});
+
+test("identity is checked before each request: a quiet range that lands during the first keeps the second from going", async () => {
+  // 26 clean turns of 2 s, each its own speaker: two requests of at most 25.
+  const jobId = job(
+    Array.from({ length: 26 }, (_, i) => turn(`speaker_${i}`, 2 * i, 2 * i + 2))
+  );
+  const at = jobRow(jobId).captureStart?.getTime() ?? 0;
+  const { cut } = speech;
+  speech.cut = (range) => {
+    speech.cut = cut;
+    env.db
+      .insert(quietRanges)
+      .values({
+        endedAt: new Date(at + 50_500),
+        id: crypto.randomUUID(),
+        source: "com.apple.dictation",
+        startedAt: new Date(at + 49_500),
+      })
+      .run();
+    return cut(range);
+  };
+  expect(await sampler.job(jobId)).toBeNull();
+  expect(speech.ranges.map((r) => r.length)).toEqual([25]);
+  expect(samplesOf(jobId)).toEqual([]);
+});
+
 test("a job's bucket audio is served, by range too; a job without any is not found", async () => {
   const app = createApp(
     services(testConfig("http://localhost:1"), env.db, { audio })

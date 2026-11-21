@@ -1,11 +1,12 @@
 // The chain's steps, for finding where something broke: every external call the server makes
 // (APNs, ElevenLabs), the Mac socket's states, quiet ranges, and what the
-// phone saw (POST /events). Each is one JSON line on stdout, for the server's log, and a row in
+// phone saw (POST /events). Each is one LogTape line on stdout (`voiceLine`, core/log-line.ts), for the server's log, and a row in
 // `events`, which outlives the log's rotation. Ids, states, counts, durations and status codes
 // only: never tokens, transcript text, audio or photos. Read them with `bun run events` (repo root).
 
 import { z } from "@hono/zod-openapi";
 import { clock } from "@life/server/src/core/clock";
+import { logWriter } from "@life/server/src/core/log-line";
 import type { Db } from "@lifelog/db";
 import { eventSources, events } from "@lifelog/db/schema";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
@@ -21,15 +22,16 @@ export type Fields = Record<string, Value>;
 export const tokenPrefix = (token: string) => token.slice(0, 8);
 
 // Logs and stores one event; never throws, so a chain step never fails for its log.
+/** Voice's lines, in Life's shape (core/log-line.ts), to this server's stdout: its supervisor's log. */
+const voiceLine = logWriter("voice", (line) => console.log(line));
+
 export function record(
   db: Db,
   name: string,
   fields: Fields = {},
   { at = clock(), id, source = "server" }: Partial<EventMeta> = {}
 ) {
-  console.log(
-    JSON.stringify({ at: at.toISOString(), event: name, source, ...fields })
-  );
+  voiceLine(name, { at: at.toISOString(), source, ...fields });
   try {
     db.insert(events)
       .values({ at, fields, id, name, source })

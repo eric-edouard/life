@@ -110,3 +110,15 @@ test("a marked matter's asks lead their tier, before a sooner deadline; what blo
   ]).map((c: { ref: string }) => c.ref);
   expect(order).toEqual(["marked", "due-soon", "unmarked", "offer-marked"]);
 });
+
+// Review of #782: matter grouping pulled a card the caretaker is fixing back ahead of an actionable one.
+test("a card the caretaker is fixing comes after every actionable card of its tier, its matter's included", () => {
+  const order = inboxOrderOf([
+    Object.assign(ask("fixing-on-m1", "name", { matter: "m1" }), {
+      beingFixed: {},
+    }),
+    ask("guess-on-m2", "guessed person", { matter: "m2" }),
+    ask("guess-on-m1", "guessed person", { matter: "m1", observations: 3 }),
+  ]).map((c: { ref: string }) => c.ref);
+  expect(order).toEqual(["guess-on-m1", "guess-on-m2", "fixing-on-m1"]);
+});

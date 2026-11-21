@@ -31,7 +31,7 @@ import { dayNow } from "./zones";
 // asks every still-open step again; one already ended is never open). A link never
 // deletes: what it ends is worked out when read (`endingsOf`).
 
-const PROMPT = "memory-links.v4";
+export const LINKS_PROMPT = "memory-links.v4";
 /** The most open steps, and later steps, one call is shown. */
 const OPEN_MAX = 40;
 const LATER_MAX = 40;
@@ -77,7 +77,7 @@ export function subjectWorkOf(
 ): SubjectWork | null {
   const judged = new Set(
     batches
-      .filter((b) => isPromptVersion(b.madeBy.prompt, PROMPT))
+      .filter((b) => isPromptVersion(b.madeBy.prompt, LINKS_PROMPT))
       .flatMap((b) => b.open.flatMap((o) => b.offered.map((l) => `${o} ${l}`)))
   );
   const isDue = (o: Shown, l: Shown) =>
@@ -298,7 +298,7 @@ export type LinkWork = NonNullable<Awaited<ReturnType<typeof readLinkWork>>>;
  * costs that matter's chunk only, never the night.
  */
 export async function links(pending: LinkWork) {
-  const step = await begin("links", "main", { prompt: PROMPT });
+  const step = await begin("links", "main", { prompt: LINKS_PROMPT });
   const shown = ({ at: _at, ...s }: Shown) => s;
   let found = 0;
   await inBatches(pending.work, step, async (w, dir) => {
@@ -316,7 +316,7 @@ export async function links(pending: LinkWork) {
                 matter: w.name,
                 open: open.map(shown),
               },
-              prompt: PROMPT,
+              prompt: LINKS_PROMPT,
               reads: readsOf(
                 [...later, ...open].map((s) => ({
                   source: "memory",
@@ -330,7 +330,7 @@ export async function links(pending: LinkWork) {
             {
               at: step.now.toISOString(),
               links: kept,
-              madeBy: step.madeBy(PROMPT),
+              madeBy: step.madeBy(LINKS_PROMPT),
               offered: later.map((o) => o.id),
               open: w.open.map((o) => o.id),
               schemaVersion: 1,

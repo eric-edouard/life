@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import type { Engine, SourceName } from "../core/names";
 import {
   askOnce,
@@ -39,8 +40,9 @@ export function recordRun(step: string, fields: Record<string, unknown>) {
       log("run.end", { ...summary, step });
       return summary;
     },
-    error(error: string, what: Record<string, unknown> = {}) {
-      log("run.error", { error, run, step, ...what });
+    /** A failure as `errorOf` keeps it: a model's by its type, Life's own by its first line. */
+    error(error: unknown, what: Record<string, unknown> = {}) {
+      log("run.error", { ...errorOf(error), run, step, ...what });
     },
     ms,
     now,
@@ -83,7 +85,7 @@ export async function ended<T extends Record<string, unknown>>(
     await rec.end({ ...result, outcome: "ok" });
     return result;
   } catch (e) {
-    await rec.end({ error: (e as Error).message, outcome: "failed" });
+    await rec.end({ ...errorOf(e), outcome: "failed" });
     throw e;
   }
 }
@@ -106,10 +108,9 @@ export function trackProcessingSteps(
       log("run.entered", { entered, run: rec.run, step: rec.step });
     },
     failed(e: unknown) {
-      const error = (e as Error).message;
-      rec.error(`${p.at}: ${error}`);
-      console.error(`${rec.step} failed at ${p.at}: ${error}`);
-      return { error, failedAt: p.at, outcome: "failed" as const };
+      rec.error(e, { failedAt: p.at });
+      console.error(`${rec.step} failed at ${p.at}: ${(e as Error).message}`);
+      return { ...errorOf(e), failedAt: p.at, outcome: "failed" as const };
     },
     async step<T extends { failed: number }>(
       name: string,
@@ -167,7 +168,7 @@ export async function begin(
         return await work();
       } catch (e) {
         stats.failed += 1;
-        rec.error((e as Error).message, what);
+        rec.error(e, what);
       }
     },
     dir,
