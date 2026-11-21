@@ -1,9 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
-import { appendJsonl, readAppended } from "../core/files";
+import { appendJsonl } from "../core/files";
 import { log } from "../core/log";
 import { payments } from "../payments/backend";
 import {
@@ -14,8 +13,17 @@ import {
 } from "./card-problems";
 import { Ask, Keep, type Option, Withdrawal } from "./card-request";
 import {
+  ADD_LIMIT_MS,
+  type AddEventByHisWord,
+  addedLineOf,
+  addNeverEndedOf,
+} from "./decision-add";
+import { readAll, voidedBy } from "./decision-fold";
+import {
+  Added,
   Answered,
   type Asked,
+  DECISIONS,
   DECISIONS_VERSION,
   type Decision,
   type DecisionState,
@@ -26,7 +34,6 @@ import {
   Line,
   SendFailed,
   Sent,
-  Stored,
   Withdrawn,
   withdrawnOf,
 } from "./decision-lines";
@@ -43,8 +50,7 @@ import {
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { cardRefsProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
-import { MEMORY } from "./memory-files";
-import { amountOf } from "./needs";
+import { amountOf, eventOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
@@ -52,7 +58,7 @@ import { amountOf } from "./needs";
 // `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn` (or Life's, when he
 // answered in a draft's chat himself: `withdrawDraftsAnsweredInChat`), and, when his
 // answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`), and when it
-// was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`). A send
+// was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`), and an `adds` option alone, the calendar write's (`added`, `addEventByHisWord`, written once, never retried). A send
 // that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
 // (his yes of 18 Nov 2026); `may have gone:` stays answered. A card Life sees done itself (`doneSeenBy`: a payment) gets
 // Life's outcome line `done-seen` (`recordDoneSeen`), never his answer: on his pick of its `looks` option alone, `seen` or
@@ -65,85 +71,7 @@ import { amountOf } from "./needs";
 // list. The file also holds earlier versions' lines: the old decisions page's (schemaVersion 1, before 2 Nov 2026) and
 // the cards before titles (schemaVersion 2, none in his data on 18 Nov 2026): kept, never read.
 
-export const DECISIONS = join(MEMORY, "decisions.jsonl");
-
 const PROJECT_OR_AREA = /^(?:project|area):/;
-
-/** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`: the card is open again, the answer kept in `voided`. */
-const voidedBy = (d: Omit<Decision, "state">, l: SendFailed | DoneSeen) => {
-  const outcome = l.kind === "done-seen" ? { doneSeen: l } : { notSent: l };
-  return {
-    ...d,
-    ...outcome,
-    answer: undefined,
-    send: undefined,
-    voided: [
-      ...(d.voided ?? []),
-      ...(d.answer ? [{ answer: d.answer, ...outcome }] : []),
-    ],
-  };
-};
-
-/** `d` with Life's look `l` read: the first `seen` stands; a `not_found` is an answer's look's outcome only, and voids it; else unchanged. */
-function withDoneSeen(d: Omit<Decision, "state">, l: DoneSeen) {
-  if (l.state === "seen" && d.doneSeen?.state !== "seen") {
-    return { ...d, doneSeen: l };
-  }
-  return l.state === "not_found" && d.answer && !d.doneSeen
-    ? voidedBy(d, l)
-    : d;
-}
-
-/** `d` with its line `l` read: the first answer, withdrawal and end stand; a `not sent:` outcome voids the answer. */
-function withLine(
-  d: Omit<Decision, "state">,
-  l: Exclude<z.infer<typeof Line>, Asked>
-): Omit<Decision, "state"> {
-  switch (l.kind) {
-    case "answered":
-      // A `not_found` that voided an earlier answer is no outcome of this one.
-      return d.answer
-        ? d
-        : {
-            ...d,
-            answer: l,
-            doneSeen: d.doneSeen?.state === "seen" ? d.doneSeen : undefined,
-          };
-    case "done-seen":
-      return withDoneSeen(d, l);
-    case "withdrawn":
-      return d.withdrawn ? d : { ...d, withdrawn: l };
-    case "kept":
-      return d.kept ? d : { ...d, kept: l };
-    case "send-failed":
-      return l.error.startsWith("not sent:")
-        ? voidedBy(d, l)
-        : { ...d, send: l };
-    case "sent":
-      return { ...d, send: l };
-    default:
-      return d.end ? d : { ...d, end: l };
-  }
-}
-
-/** Every decision as stored, by id, in the order asked: the first answer kept, until a `not sent:` outcome voids it. */
-const readAll = () =>
-  readAppended(
-    DECISIONS,
-    Stored,
-    (last?: Map<string, Omit<Decision, "state">>) => new Map(last),
-    (all, l) => {
-      if (l.schemaVersion !== DECISIONS_VERSION) {
-        return;
-      }
-      const d = all.get(l.id);
-      if (l.kind === "asked") {
-        all.set(l.id, l);
-      } else if (d) {
-        all.set(l.id, withLine(d, l));
-      }
-    }
-  );
 
 const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   if (d.answer) {
@@ -158,7 +86,7 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   return Date.parse(d.deadline) <= now.getTime() ? "lapsed" : "open";
 };
 
-type Act = "end" | "look" | "send";
+type Act = "add" | "end" | "look" | "send";
 
 /** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
 export const doneSeenByOf = (
@@ -173,6 +101,9 @@ const actOfOption = (
   d: Pick<Decision, "doneSeenBy" | "draft" | "needs">,
   o?: z.infer<typeof Option>
 ) => {
+  if (o?.adds && eventOf(d.needs)) {
+    return "add";
+  }
   if (o?.outgoing && isSendable(d.draft)) {
     return "send";
   }
@@ -201,9 +132,9 @@ export const actDueOf = (d: Omit<Decision, "state">) =>
 
 /** The outcome of his answer's act, as stored: the send's, the look's, or the end's. */
 export const actOutcomeOf = (
-  d: Pick<Decision, "doneSeen" | "end" | "send">,
+  d: Pick<Decision, "added" | "doneSeen" | "end" | "send">,
   act: Act
-) => ({ end: d.end, look: d.doneSeen, send: d.send })[act];
+) => ({ add: d.added, end: d.end, look: d.doneSeen, send: d.send })[act];
 
 /** An act with no outcome this long past its own limit never ended (a crash): the reads before it and the line's write. */
 const ACT_GRACE = MIN;
@@ -223,6 +154,7 @@ function withOutcomeOf(
     return d;
   }
   const limits = {
+    add: ADD_LIMIT_MS,
     end: END_LIMIT_MS,
     look: LOOK_LIMIT_MS,
     send: d.draft ? sendLimitMs(d.draft) : END_LIMIT_MS,
@@ -244,6 +176,9 @@ function withOutcomeOf(
       kind: "done-seen",
       state: "not_found",
     });
+  }
+  if (act === "add") {
+    return { ...d, added: addNeverEndedOf(d, line.at) };
   }
   return act === "send"
     ? {
@@ -566,10 +501,16 @@ function answerProblemOf(
   options: string[],
   note: string | undefined,
   {
+    canAdd,
     canEnd,
     canLook,
     via,
-  }: { canEnd: boolean; canLook: boolean; via: Answered["via"] }
+  }: {
+    canAdd: boolean;
+    canEnd: boolean;
+    canLook: boolean;
+    via: Answered["via"];
+  }
 ) {
   const unknown = options.filter((o) => !d.options.some((x) => x.id === o));
   const picked = d.options.filter((o) => options.includes(o.id));
@@ -585,6 +526,9 @@ function answerProblemOf(
     (acts.includes("send") &&
       via !== "connector" &&
       "a draft is sent only on his own answer, through `answer_check` in his app.") ||
+    (acts.includes("add") &&
+      !canAdd &&
+      "an event is added only on his own answer, through `answer_check` in his app.") ||
     (acts.includes("end") &&
       !canEnd &&
       "a step is closed only on his own answer, through `answer_check` in his app.") ||
@@ -671,6 +615,7 @@ export async function answerDecision(
   options: string[],
   note?: string,
   {
+    add,
     answerKey,
     deliver = sendDraft,
     end,
@@ -679,6 +624,7 @@ export async function answerDecision(
     onStep,
     via = "session",
   }: {
+    add?: AddEventByHisWord;
     answerKey?: string;
     deliver?: typeof sendDraft;
     end?: EndByHisWord;
@@ -690,6 +636,7 @@ export async function answerDecision(
 ) {
   const d = readOpenDecision(id, now);
   const problem = answerProblemOf(d, options, note, {
+    canAdd: Boolean(add),
     canEnd: Boolean(end),
     canLook: Boolean(look),
     via,
@@ -719,6 +666,12 @@ export async function answerDecision(
   log("decision.answered", { id, note: !!note, options: options.length, via });
   onStep?.("recorded");
   const act = actDueOf(stored);
+  if (act === "add" && add) {
+    const added = await addedLineOf(stored, () => add(stored));
+    appendJsonl(DECISIONS, Added, [added]);
+    onStep?.("added", added.error ? { error: added.error } : undefined);
+    return [line, added];
+  }
   if (act === "end" && end) {
     return [line, await endOnAnswer(stored, end, onStep)];
   }

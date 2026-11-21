@@ -299,6 +299,7 @@ outside the lock, schemaVersion 3, by `kind`:
   decision is open again and the next answer is the first (`notSent` holds it, `voided` every answer one voided, each with its outcome, so a repeat of any of those taps by its `answerKey` finds its own); any other
   outcome belongs to the answer it follows. With no outcome 5 minutes after his answer, the send never ended (worked out
   when read). A lapse a late `not sent:` voided settles at that line's `at`.
+- `added` (`answerDecision`, when his answer was an `adds` option alone, through his app, on a card with an `event` need): `id`, `at`, and `eventId` (the calendar event written) or `error`. Written once, never retried; with none 61 seconds after his answer, the write never ended (worked out when read).
 - `ended` (`answerDecision`, when his answer was an `ends` option alone, through his app): `id`, `at`, and `error` when
   closing failed (or found nothing open on a step not ended). It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
   its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his

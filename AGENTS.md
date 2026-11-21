@@ -175,7 +175,15 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   asks of it that name a change (`after.agentChange`) in code and keeps its own list. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
   2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked
   `(Life)`, free, until an agent confirms one with him (one he agreed in new lines is busy at once, his word of 21 Nov 2026); one he deletes is never written again), each at a place with its Google and Apple Maps links (`mapLinksOf`, his word of 21 Nov 2026). An appointment agreed in new lines is added within minutes (his word of 21 Nov 2026: `memory/arrival-appointments.ts`), the night taking over its id, with its source in the notes and a meeting link only as https copied exactly; never guests; one he deletes, in his calendar or by Remove (`change_appointment`, his token only), is never written again until his Undo; its first event pushes `calendar.added` with an opaque id only. They are its reading,
-  never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
+  never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). Also an
+  agent's event on his yes (his word of 21 Nov 2026: "They should be able to write on my calendar, yes. They should ask me
+  'do you want to add this to your calendar' and I can just say yes"): a card's one `event` need, with its 1 to 3 popup
+  reminders, written once into the same calendar when he picks the card's `adds` option alone in his app (`answer_check`,
+  his token only: `addEventByHisWord`, `host/card-event-calendar.ts`; the `added` line is the outcome, never retried),
+  marked `lifeOutput=card` so no sync or Past calendar ever rewrites it: an event he deletes stays deleted; never guests,
+  never mail. His refinement (21 Nov 2026): when Life is sure it just adds it, with no ask: that is the appointments
+  above (Life's own reading, its sureness `INFERRED_SURE_AT`'s kind, with his Remove and Undo); an agent has no sureness
+  under Life's rules, so an agent's event always asks, never added unasked. The one
   other act is a card's draft, sent on his answer (below).
 - **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
   (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, Gmail through gog for mail, or `gh` for an issue of a repo he listed in `githubRepos` (a comment, or a new issue with the subject as title; text only; his yes of 19 Nov 2026)** (his decision of 18 Nov 2026): a draft is

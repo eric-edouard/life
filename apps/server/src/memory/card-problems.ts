@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { DAY, HOUR } from "../core/clock";
 import { type Ask, type Option, PLAN_OPTIONS } from "./card-request";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
-import { NEED_KINDS, payeeWordsOf } from "./needs";
+import { eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
 
 // What breaks a card's rules beyond its shape (`requestDecision`), in words the asking agent can fix, each naming the
 // ask page that explains it (`fetch("ask/<name>")`, `card-request.ts`).
@@ -65,6 +65,7 @@ export function cardProblemOf(
     (silence?.outgoing &&
       "`onSilence` never takes an `outgoing` option: on silence nothing goes out") ||
     lookProblemOf(ask, silence) ||
+    addsProblemOf(ask, silence, now) ||
     planProblemOf(ask, isPlan, silence) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
@@ -77,6 +78,33 @@ export function cardProblemOf(
   );
 }
 
+/** What breaks the rules of an `adds` option and the `event` need it writes, in words the agent can fix; false when nothing does. */
+function addsProblemOf(
+  ask: z.infer<typeof Ask>,
+  silence: z.infer<typeof Option> | undefined,
+  now: Date
+) {
+  const adds = ask.options.filter((o) => o.adds);
+  const events = ask.needs?.filter((n) => n.kind === "event") ?? [];
+  const event = eventOf(ask.needs);
+  return (
+    (adds.length !== (events.length > 0 ? 1 : 0) &&
+      'one `event` need goes with exactly one `adds` option, and neither without the other (fetch("ask/event"))') ||
+    (events.length > 1 && "at most one `event` need") ||
+    (silence?.adds &&
+      "`onSilence` never takes an `adds` option: on silence nothing is added") ||
+    (adds.some((o) => o.outgoing || o.ends || o.looks || o.takes) &&
+      'an `adds` option has no other mark (fetch("ask/event"))') ||
+    (ask.draft && adds.length > 0 && "an `adds` card has no `draft`") ||
+    (event &&
+      !(
+        Date.parse(event.end) > Date.parse(event.start) &&
+        Date.parse(event.start) > now.getTime()
+      ) &&
+      'an `event` starts ahead and ends after it starts (fetch("ask/event"))')
+  );
+}
+
 /** What breaks the rules of a `looks` or `takes` option and of `doneSeenBy`, in words the agent can fix; false when nothing does. */
 function lookProblemOf(
   ask: z.infer<typeof Ask>,
@@ -84,7 +112,7 @@ function lookProblemOf(
 ) {
   const looks = ask.options.filter((o) => o.looks);
   const marks = (o: z.infer<typeof Option>) =>
-    [o.ends, o.looks, o.outgoing, o.takes].filter(Boolean).length;
+    [o.adds, o.ends, o.looks, o.outgoing, o.takes].filter(Boolean).length;
   return (
     ((silence?.looks || silence?.takes) &&
       "`onSilence` never takes a `looks` or `takes` option: on silence he did nothing and said nothing") ||
