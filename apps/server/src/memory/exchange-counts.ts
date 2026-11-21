@@ -175,3 +175,11 @@ export function writeExchangeCounts(
  */
 export const readExchangeCounts = () =>
   Stored.safeParse(readJson(EXCHANGE_COUNTS)).data ?? null;
+
+/** A ref's last counted exchange (its newest start) in the counts read once; undefined: none counted. */
+export const lastExchangeAtOf =
+  (counted: ReturnType<typeof readExchangeCounts>) => (ref: string) =>
+    (counted?.people[ref] ?? [])
+      .map((r) => r.start)
+      .toSorted()
+      .at(-1);

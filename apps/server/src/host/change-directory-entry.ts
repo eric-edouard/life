@@ -13,7 +13,13 @@ import { join } from "node:path";
 import { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
-import { directoryPartiesOf, integrity, loadTruth } from "../memory/read-truth";
+import {
+  directoryPartiesOf,
+  type Entry,
+  entriesOf,
+  integrity,
+  loadTruth,
+} from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
 import { slug } from "../records/fields";
 import { OrganizationPerson, PictureFrom } from "../records/truth";
@@ -105,16 +111,6 @@ function idOf(id: string | undefined, name: string) {
   return made ? slug.parse(made) : refuse("give an `id`.");
 }
 
-interface Entry {
-  aliases?: string[];
-  domains?: string[];
-  handles?: Record<string, unknown>;
-  id: string;
-  name?: string;
-  people?: { id: string }[];
-  projects?: string[];
-}
-
 /** The list each kind of entry is in, its file `<list>.yaml`. */
 const LISTS = {
   area: "areas",
@@ -122,9 +118,6 @@ const LISTS = {
   person: "people",
 } as const;
 type List = (typeof LISTS)[keyof typeof LISTS];
-
-const entriesOf = (text: string, key: List) =>
-  ((Bun.YAML.parse(text) as Record<string, unknown[]>)[key] ?? []) as Entry[];
 
 /** A list's file with `entry` added at the end of its list, or, with `id`, replacing that one entry (its comments go with it). */
 function withEntry(text: string, key: List, entry: object, id?: string) {
