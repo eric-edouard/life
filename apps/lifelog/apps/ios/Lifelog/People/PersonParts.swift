@@ -83,7 +83,10 @@ struct LatestScreen: View {
                         ExchangeView(item: item, when: SaidWords.time(item.at))
                     }
                     switch chain.next {
-                    case .more(let ref): TextLink("Earlier", to: .page) { Task { await life.refreshLatest(ref) } }
+                    case .more(let ref):
+                        QuietChip("Earlier", symbol: "clock.arrow.circlepath") {
+                            Task { await life.refreshLatest(ref) }
+                        }
                     case .reading: Spinner()
                     case .failed(let ref): PartRetry(what: "Earlier exchanges") { await life.refreshLatest(ref) }
                     case .end: EmptyView()
