@@ -86,6 +86,8 @@ export const StoredDraft = MessageDraft.extend({
     })
     .strict()
     .optional(),
+  /** How many people the chat holds, him included, when it is a group (the head's "N people"); absent for a 1:1 chat, one its network can't count, and cards asked before 21 Nov 2026. */
+  people: z.int().min(3).optional(),
   /** The message `onMessage` names: its sender, its first 300 characters and, for mail, its subject. */
   quoted: z
     .object({

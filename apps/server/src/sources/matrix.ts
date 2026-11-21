@@ -175,6 +175,25 @@ export function roomFeaturesOf(room: string, synapse = SYNAPSE) {
 }
 
 /**
+ * How many people a bridged room holds, him included: its joined ghosts (`ghost`, the bridge's ghost of an empty
+ * localpart, gives their common start), so neither his Matrix account nor the bridge's bot counts; none without the
+ * homeserver.
+ */
+export function roomPeopleOf(room: string, ghost: string, synapse = SYNAPSE) {
+  const prefix = ghost.slice(0, -`:${SERVER}`.length);
+  return withHomeserver(
+    synapse,
+    (hs) =>
+      hs
+        .query<{ n: number }, [string, number, string]>(
+          `select count(*) as n from current_state_events
+            where room_id = ? and type = 'm.room.member' and membership = 'join' and substr(state_key, 1, ?) = ?`
+        )
+        .get(room, prefix.length, prefix)?.n
+  );
+}
+
+/**
  * A Matrix user id's localpart as a bridge writes it from a network id (mautrix's `EncodeUserLocalpart`): lowercase,
  * digits and `-./` kept, an uppercase letter as `_` and itself lowercased, `_` doubled, anything else `=` and its hex.
  */
@@ -767,6 +786,12 @@ export function matrixSend(
           }
         }
       : undefined,
+    people: (chat) => {
+      const room = roomsOf()(chat);
+      return room
+        ? roomPeopleOf(room, ghostOf(bridge, ""), where().synapse)
+        : undefined;
+    },
     refusal: (d) => {
       const room = roomsOf()(d.chat);
       const named = namedBy(d, where(d));
