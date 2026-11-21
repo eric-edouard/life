@@ -40,7 +40,7 @@ const LAST_BLOCKING_RANK = RANK["your move"];
 export const urgencyOf = (c: Rankable): Urgency =>
   inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
-/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by its matter's place in his ranking (`rank`, which weighs its dates), then by deadline, then the longest waiting. */
+/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by its matter's place in his ranking (`matterRank`, which weighs its dates), then by deadline, then the longest waiting. */
 const isMove = (c: Rankable) => c.group === "your move";
 /** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
 const isImportant = (c: Orderable) =>
@@ -52,7 +52,7 @@ interface Orderable extends Rankable {
   deadline: string | null;
   matter: { id: string; important?: boolean } | null;
   /** A your move card's matter's place in his ranking (`rankedMattersOf`); none: after every ranked one. */
-  rank?: number;
+  matterRank?: number;
   ref: string;
   ridesOn: {
     matterIds: string[];
@@ -62,10 +62,11 @@ interface Orderable extends Rankable {
   };
 }
 
-/** Two your move cards: by their matters' place in his ranking (`rank`; an unranked one after); any other pair ties. */
+/** Two your move cards: by their matters' place in his ranking (`matterRank`; an unranked one after); any other pair ties. */
 const byMatterRank = (a: Orderable, b: Orderable) =>
   isMove(a) && isMove(b)
-    ? (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER)
+    ? (a.matterRank ?? Number.MAX_SAFE_INTEGER) -
+      (b.matterRank ?? Number.MAX_SAFE_INTEGER)
     : 0;
 
 /** Two asks of one kind: decisions and moves asked longest ago first; voices, names and cards by matters, then newest only; the rest by matters, lines, pages, then newest. */

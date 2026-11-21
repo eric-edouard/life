@@ -335,7 +335,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ basis, check, day, matter: pick, quote, rank }) => {
+      .map(({ basis, check, day, matter: pick, quote, matterRank }) => {
         const context = withQuoteOf(
           check.context,
           (id) => inputs.where.has(id),
@@ -354,10 +354,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
         return {
           ...withComplaintFields(card, inputs.fixing, basis, quote?.text),
           day,
-          rank,
+          matterRank,
         };
       })
-  ).map(({ day: _, rank: __, ...check }) => check);
+  ).map(({ day: _, matterRank: __, ...check }) => check);
   return withDraftConfirms(found, c.people);
 };
 
@@ -507,6 +507,14 @@ async function readChecks(
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept,
     lines,
+    matterRank: new Map(
+      rankedMattersOf(
+        matters.filter((v) => v.open),
+        people.nameOf,
+        today,
+        rankContextOf(people)
+      ).map((v, i) => [v.id, i])
+    ),
     matters,
     nameContexts,
     nameGroups,
@@ -515,14 +523,6 @@ async function readChecks(
     people,
     places: readPlaces(),
     plans: held?.plans(all),
-    rank: new Map(
-      rankedMattersOf(
-        matters.filter((v) => v.open),
-        people.nameOf,
-        today,
-        rankContextOf(people)
-      ).map((v, i) => [v.id, i])
-    ),
     samePersons: samePersonPairsOf(people),
     titles,
     today,
