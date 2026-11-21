@@ -674,15 +674,24 @@ export async function visits(q: VisitsQuery, timeoutS?: number) {
   );
 }
 
+/** A turn ref's job and index, without its instant. */
+const turnKeyOf = (ref: string) => {
+  const t = parseTurnRef(ref);
+  return t ? `${t.jobId}:${t.turnIndex}` : ref;
+};
+
 /**
  * Replaces the spans (marks) the hearing found in a conversation from `from` on (a span grows as he goes on): each
- * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.
+ * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row. With
+ * `wakeTurns` (the turns that hold a wake the hearing knows, by ref), only their marks are replaced: a mark of a wake
+ * no longer heard (a "hey <agent>" before 21 Nov 2026) stays.
  */
 export function writeMarks(
   store: Store,
   conversation: string,
   from: string,
-  marks: string[][]
+  marks: string[][],
+  wakeTurns?: readonly string[]
 ) {
   const now = () =>
     store.db
@@ -695,11 +704,20 @@ export function writeMarks(
       .join("\n");
   const before = now();
   store.db.transaction(() => {
-    store.db.run(
-      `delete from marks where (job_id, turn_index) in
-        (select job_id, turn_index from turns where conversation_id = ? and start_at >= ?)`,
-      [conversation, from]
-    );
+    const replaced = wakeTurns && new Set(wakeTurns.map(turnKeyOf));
+    for (const m of store.db
+      .query<{ job_id: string; turn_index: number }, [string, string]>(
+        `select m.job_id, m.turn_index from marks m join turns t using (job_id, turn_index)
+          where t.conversation_id = ? and t.start_at >= ?`
+      )
+      .all(conversation, from)) {
+      if (!replaced || replaced.has(`${m.job_id}:${m.turn_index}`)) {
+        store.db.run("delete from marks where job_id = ? and turn_index = ?", [
+          m.job_id,
+          m.turn_index,
+        ]);
+      }
+    }
     for (const refs of marks) {
       const wake = parseTurnRef(refs[0] ?? "");
       if (wake) {

@@ -179,7 +179,9 @@ export async function hear(
     store,
     conversation,
     from,
-    spans.map((a) => a.turns.flatMap((i) => turns[i]?.ref ?? []))
+    spans.map((a) => a.turns.flatMap((i) => turns[i]?.ref ?? [])),
+    // Only the marks of turns holding Life's wake are heard again: an older "hey <agent>" mark stays.
+    turns.filter((t) => wakeWords(t).length > 0).map((t) => t.ref)
   );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
   const misheard = turns.some(

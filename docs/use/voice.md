@@ -37,4 +37,4 @@ echo 'LIFELOG_TOKEN=<the token>' >> .env
 
 `bun life settings` shows the current list. Restart the watcher afterwards.
 
-Next: [set up your agent](agent.md).
+Next: [your agents](agent.md).

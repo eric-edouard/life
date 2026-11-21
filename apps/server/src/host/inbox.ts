@@ -55,8 +55,9 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
 
 /**
  * Whether his own words are assignment `s`'s plan, so its first turn asks no plan card and may wait or finish without
- * one: the caretaker's (his complaint, his yes of 20 Nov 2026), and the Personal agent's once it holds his spoken ask
- * (his decision of 21 Nov 2026). Every outward act still goes through a card on the exact content.
+ * one: the caretaker's (his complaint, his yes of 20 Nov 2026), and the Personal agent's own assignment (no anchors: a
+ * matter's assignment keeps its card, and its hand-out's time to ask) once it holds his spoken ask (his decision of 21
+ * Nov 2026). Every outward act still goes through a card on the exact content.
  */
 export const isHisWordsPlanOf = (
   db: Database,
@@ -66,7 +67,9 @@ export const isHisWordsPlanOf = (
   a?.role === "caretaker" ||
   (a?.role === "personal" &&
     db
-      .query("select 1 from event where assignment_id = ? and name = ?")
+      .query(
+        "select 1 from event where assignment_id = ?1 and name = ?2 and not exists (select 1 from anchor where assignment_id = ?1)"
+      )
       .get(s.id, ASK_SPOKEN) !== null);
 
 /** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened or moved to its agent (`movedInOf`), unless his own words are its plan (`isHisWordsPlanOf`). */

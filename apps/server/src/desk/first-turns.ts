@@ -23,7 +23,7 @@ const CARETAKER_FIRST_TURN =
 
 /** ... and the Personal agent's on his spoken ask: his words are its plan (his decision of 21 Nov 2026). */
 const SPOKEN_ASK_FIRST_TURN =
-  " Your first turn reads each spoken ask it was woken on (`ask.spoken`: `fetch` its `ref`) and starts on it: his words are your plan, so ask no plan card and wait for no `start`. Anything outward still goes to him first, as a card on the exact content.";
+  " Your first turn reads each spoken ask it was woken on (`ask.spoken`: `read_spoken_ask`) and starts on it: his words are your plan, so ask no plan card and wait for no `start`. Anything outward still goes to him first, as a card on the exact content.";
 
 /** What an assignment's first turn does: the caretaker's by its role, the Personal agent's on his spoken ask (`isHisWordsPlanOf`); else his plan card first when he opened it, one card of what it found when the desk did, either card's plan in Markdown. */
 export function firstTurnOf(

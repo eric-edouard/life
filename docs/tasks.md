@@ -42,7 +42,7 @@ to his agents through the desk, which starts and wakes them.
   when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
   stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
   his last press, leaves it waiting (his next press tries once more), and the answer says so. The
-  caretaker reads it through its door (`read_complaint`, only on the assignment that received it); while it holds it, the
+  caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads a spoken ask routed to it the same way, `read_spoken_ask`); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
   never handed to a turn: the desk receives them again.
 - Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`

@@ -2,6 +2,7 @@ import { clock, SECOND } from "../core/clock";
 import { readLines } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { AssignmentRow } from "../host/desk-read";
 import { ASK_SPOKEN } from "../host/events";
 import { askOf, LEDGER, parseLedgerEntry } from "../memory/memory-files";
 import { isSpokenAsk, type LedgerEntry } from "../records/ledger-entry";
@@ -193,4 +194,26 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
   if (received > 0) {
     log("desk.asks", { received, waiting });
   }
+}
+
+/**
+ * Spoken ask `ask` as the agent it was routed to reads it through its door (`read_spoken_ask`): only one received on
+ * assignment `s` (its `ask.spoken` event there). His words, verbatim, as data; `ref` opens the recording around them.
+ */
+export function readSpokenAsk(
+  { db }: Desk,
+  s: Pick<AssignmentRow, "id">,
+  ask: string
+) {
+  const a = receiptOf(db, ask)?.assignment_id === s.id ? askOf(ask) : undefined;
+  if (!(a?.instruction && isSpokenAsk(a))) {
+    return { error: `Not done: no spoken ask ${ask} was received here.` };
+  }
+  return {
+    at: a.instruction.at,
+    confidence: a.after.confidence,
+    ref: a.instruction.ref,
+    until: a.timing?.ended,
+    words: a.instruction.quote,
+  };
 }
