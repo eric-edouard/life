@@ -476,12 +476,6 @@
   "ToastImportantOff": {
     "why": "A phone frame: design:shots shoots the iPhone Duo only. Its state, by hand: -fixtureLife ok -fixtureTab projects -fixtureMatter matter_kitchen, then Important (the toast lasts 4 s)."
   },
-  "DuoPeopleTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
-  },
-  "DuoPersonTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
-  },
   "DuoFoldSpending": {
     "args": [
       "-fixtureLife",
