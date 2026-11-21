@@ -439,10 +439,15 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
   return true;
 }
 
-/** Launches move `move`'s notes turn `turn` of `a`: it resumes the old session only; with none to resume (`session` null), the turn ends at once and its notes stay as they are. */
+/** Launches move `move`'s notes turn `turn` of `a` on `s`: it resumes the old session only; with none to resume (`session` null), or a send that fails, the turn ends at once and its notes stay as they are. */
 async function launchNotes(
   desk: Desk,
-  { a, move, turn }: { a: AgentRow; move: string | null; turn: number },
+  {
+    a,
+    move,
+    s,
+    turn,
+  }: { a: AgentRow; move: string | null; s: AssignmentRow; turn: number },
   session: string | null
 ) {
   const runtime = desk.runtimes[a.runtime];
@@ -450,15 +455,25 @@ async function launchNotes(
     await turnEnded(desk, turn, { ok: true });
     return;
   }
-  watch(
-    desk,
-    turn,
-    await runtime.send(
-      sessionAgentOf(a),
-      session,
-      notesMessageOf(desk.db, move ?? "")
-    )
-  );
+  try {
+    watch(
+      desk,
+      turn,
+      await runtime.send(
+        sessionAgentOf(a),
+        session,
+        notesMessageOf(desk.db, move ?? "", s.id)
+      )
+    );
+  } catch (error) {
+    log("desk.runtime", {
+      agent: a.id,
+      ...errorOf(error),
+      ok: false,
+      what: "notes",
+    });
+    await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
+  }
 }
 
 /** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */

@@ -1,5 +1,6 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   type AgentRow,
   agentOf,
@@ -11,6 +12,7 @@ import {
 } from "../host/desk-read";
 import {
   assignmentOnMatter,
+  type MatterOfRefs,
   MOVE_REASONS,
   type MoveFailure,
   type MoveRow,
@@ -42,14 +44,22 @@ const STARTING_WITHIN = 30 * MIN;
 
 const now = () => clock().toISOString();
 
-/** What the notes turn of move `ask` is told, resuming the old agent's session: where it goes, write the notes, then stop. */
-export function notesMessageOf(db: Desk["db"], ask: string) {
+/** What the notes turn of move `ask` on assignment `assignment` is told, resuming the old agent's session: which work, where it goes, write the notes, then stop. */
+export function notesMessageOf(
+  db: Desk["db"],
+  ask: string,
+  assignment: string
+) {
+  const steps = anchorsOf(db, assignment);
+  const which = steps.length
+    ? `the matter of ${steps.join(", ")}`
+    : "your own work (no matter)";
   const m = moveOf(db, ask);
   const to = m?.to_agent ? agentOf(db, m.to_agent) : null;
   const where = to
     ? `the ${shortNameOf(to)} agent`
     : `a new agent on ${runtimeWordOf(m?.to_runtime ?? "")}`;
-  return `Woken by the desk: his word moves this to ${where}. Write your notes now with \`write_notes\`: where it stands, what you did, what you wait on and what comes next, so the next agent carries on from them. Then stop: this turn does nothing else.`;
+  return `Woken by the desk: his word moves your work to ${where}. This turn's notes are for ${which} (assignment ${assignment}). Write them now with \`write_notes\`: where it stands, what you did, what you wait on and what comes next, so the next agent carries on from them. Then stop: this turn does nothing else.`;
 }
 
 /** What a move reads before apply's transaction: why its target runtime can't run now (`Runtime.block`). */
@@ -57,6 +67,8 @@ export interface HandOverFacts {
   blocked?: string;
   /** The matter its `steps` find (his `matter`, else the finder's), read before the transaction. */
   matter?: string;
+  /** Which open matter an assignment's anchors find (`assignmentOnMatter`), read before the transaction. */
+  matterOf?: MatterOfRefs;
 }
 
 /** Why his move is refused, from the desk's facts (its sentence, `MOVE_REASONS`); null when it may go. */
@@ -137,7 +149,11 @@ export function applyHandOver(
     return { error: MOVE_REASONS.shape };
   }
   const s = c.steps
-    ? assignmentOnMatter(db, { id: facts.matter, steps: c.steps })
+    ? assignmentOnMatter(
+        db,
+        { id: facts.matter, steps: c.steps },
+        facts.matterOf ?? (() => undefined)
+      )
     : null;
   if (c.steps && !s) {
     return { error: MOVE_REASONS.noHolder };
@@ -188,6 +204,20 @@ async function fenceOpenTurn(
     await stopOpenRun(desk, agent, open);
     await turnEnded(desk, open.id, { ok: false, why });
   }
+}
+
+/**
+ * Whether agent `a`'s session is seen stopped (its runtime says idle or gone; none at all is), so a switch of its
+ * runtime, either way, never leaves two sessions on one agent's door. Anything else, a failed look included, waits.
+ */
+async function isSessionDone(desk: Desk, a: AgentRow) {
+  if (!a.session) {
+    return true;
+  }
+  const state = await desk.runtimes[a.runtime]
+    ?.state(a.session)
+    .catch(() => null);
+  return state === "idle" || state === "gone";
 }
 
 /** A matter move's commit: the agent he named, or a new one on its runtime in the old agent's folder, named after the matter (`name`); the matter's assignment moved to it and due now. */
@@ -254,10 +284,13 @@ function commitSwitch(desk: Desk, m: MoveRow, a: AgentRow) {
   })();
 }
 
-/** The matter's name, for its new agent: the matter its anchors find, else its first step. */
+/** The matter's name, for its new agent: the matter its anchors find (the one he chose taking a tie), else its first step. */
 async function matterNameOf(db: Desk["db"], assignment: string) {
   const steps = anchorsOf(db, assignment);
-  return (await oneMatter(steps))?.name ?? steps[0] ?? "moved matter";
+  const prefer = assignmentOf(db, assignment)?.matter_id ?? undefined;
+  return (
+    (await oneMatter(steps, { prefer }))?.name ?? steps[0] ?? "moved matter"
+  );
 }
 
 /**
@@ -300,16 +333,10 @@ async function advanceNotes(desk: Desk, m: MoveRow) {
       await matterNameOf(db, m.assignment_id)
     );
   }
-  // A switch keeps its agent's id and door: its old session must have stopped, whatever `stop` said.
-  const runtime = desk.runtimes[a.runtime];
-  if (
-    a.session &&
-    runtime &&
-    (await runtime.state(a.session).catch(() => null)) === "running"
-  ) {
-    return;
+  // A switch keeps its agent's id and door: its old session must be seen stopped first.
+  if (await isSessionDone(desk, a)) {
+    commitSwitch(desk, m, a);
   }
-  return commitSwitch(desk, m, a);
 }
 
 /** Moves `m` back, in one transaction: the matter to its old holder (an agent made for the move ended), or the agent's old runtime, model, effort and session; due now for the old holder. */
@@ -380,17 +407,29 @@ async function advanceStarting(desk: Desk, m: MoveRow) {
     (id) => !m.assignment_id || id === m.assignment_id,
     "its move rolled back"
   );
+  // A switch's new session is stopped (again each tick) until seen stopped: only then does the old one take its door back.
+  const switched = m.assignment_id ? null : agentOf(db, holder);
+  if (switched?.session) {
+    await desk.runtimes[switched.runtime]
+      ?.stop(switched.session)
+      .catch((e: Error) =>
+        log("desk.move", { ask: m.ask, ...errorOf(e), ok: false, what: "stop" })
+      );
+    if (!(await isSessionDone(desk, switched))) {
+      return;
+    }
+  }
   rollback(desk, m, failure);
 }
 
-/** Ends each old holder a done matter move left holding nothing (his answer 3: the matter stays with its new agent), "moved to the <name> agent", once no move of its is under way. */
+/** Ends each old holder (active or stopped) a done matter move left holding nothing (his answer 3: the matter stays with its new agent), "moved to the <name> agent", once no move of its is under way. */
 function endLeftHolders({ db }: Desk) {
   const busy = new Set(
     unfinishedMoves(db).flatMap((m) => [m.agent_id, m.to_agent ?? ""])
   );
   const left = db
     .query<{ agent_id: string; to_agent: string }, []>(
-      "select m.agent_id, m.to_agent from move m join agent a on a.id = m.agent_id where a.status = 'active' and m.assignment_id is not null and m.moved_at is not null and m.failed is null and not exists (select 1 from assignment s where s.agent_id = a.id and s.closed_at is null)"
+      "select m.agent_id, m.to_agent from move m join agent a on a.id = m.agent_id where a.status in ('active', 'stopped') and m.assignment_id is not null and m.moved_at is not null and m.failed is null and not exists (select 1 from assignment s where s.agent_id = a.id and s.closed_at is null)"
     )
     .all();
   for (const { agent_id, to_agent } of left) {

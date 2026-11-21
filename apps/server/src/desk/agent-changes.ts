@@ -17,6 +17,7 @@ import {
   runtimeOf,
   standingAgents,
 } from "../host/desk-read";
+import type { MatterOfRefs } from "../host/move-read";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
@@ -30,7 +31,7 @@ import {
   withdrawOpenCards,
   writeSubject,
 } from "./agent-actions";
-import { applyHandOver } from "./agent-moves";
+import { applyHandOver, type HandOverFacts } from "./agent-moves";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
@@ -228,7 +229,7 @@ function apply(
   ask: string,
   c: AgentChange,
   brief: string,
-  facts: { blocked?: string; matter?: string; taker?: string }
+  facts: HandOverFacts & { taker?: string }
 ): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
@@ -298,12 +299,12 @@ async function readTakerOf(db: Desk["db"]) {
   };
 }
 
-/** The matter some refs find, the book read once. */
-async function readMatterIdOf() {
+/** The open matter some refs find (`prefer` taking a tie), the book read once. */
+async function readMatterIdOf(): Promise<MatterOfRefs> {
   const find = matterFinderOf(
-    await readMatterBook(await readPeople(), dayNow())
+    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
   );
-  return (refs: readonly string[]) => find(refs)?.id;
+  return (refs, prefer) => find(refs, prefer)?.id;
 }
 
 /** What a start or a move reads before its transaction (a process, a book): a start on a matter, the agent that takes it (`readTakerOf`); else whether the runtime it names answers. */
@@ -314,9 +315,11 @@ async function startFactsOf(desk: Desk, change: unknown) {
   }
   if (c.data.action === "hand_over") {
     const { matter, runtime, steps } = c.data;
+    const matterOf = steps ? await readMatterIdOf() : undefined;
     return {
       blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined,
-      matter: steps ? (matter ?? (await readMatterIdOf())(steps)) : undefined,
+      matter: steps ? (matter ?? matterOf?.(steps)) : undefined,
+      matterOf,
     };
   }
   if (c.data.steps) {
@@ -334,7 +337,7 @@ async function startFactsOf(desk: Desk, change: unknown) {
 function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
-  facts: { blocked?: string; matter?: string; taker?: string }
+  facts: HandOverFacts & { taker?: string }
 ):
   | { agent?: string; error: string; failed?: unknown }
   | { agent?: string; id: string } {

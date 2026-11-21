@@ -4,6 +4,7 @@ import {
   openAssignments,
   standingAgents,
 } from "../host/desk-read";
+import { pinnedAssignmentsOf } from "../host/move-read";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
@@ -46,9 +47,21 @@ export async function cardHomeOf(
   );
   const v = held?.w ?? find([given]);
   const own = mine.find((m) => anchorsOf(db, m.a.id).length === 0)?.a;
+  // A matter he moved to another agent is that agent's alone (decision 78), whoever's project it is.
+  const pinned = pinnedAssignmentsOf(db);
+  const isMovedAway =
+    v &&
+    openAssignments(db).some(
+      (a) =>
+        a.agent_id !== s.agent_id &&
+        pinned.has(a.id) &&
+        find(anchorsOf(db, a.id), pick(a))?.id === v.id
+    );
   const home =
     held?.a ??
-    (v && agentForMatterOf(standingAgents(db), people.truth)(v) === s.agent_id
+    (v &&
+    !isMovedAway &&
+    agentForMatterOf(standingAgents(db), people.truth)(v) === s.agent_id
       ? own
       : undefined) ??
     (!v && own === s ? s : undefined);

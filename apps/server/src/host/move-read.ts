@@ -8,6 +8,7 @@ import {
   type AssignmentRow,
   agentChangeOf,
   agentOf,
+  anchorsOf,
   openAssignmentOfMatter,
   type TurnRow,
 } from "./desk-read";
@@ -230,10 +231,11 @@ export function countsAsAskedOf(
     isAsked(d) && (!since || d.at >= since || (endedAtOf(d) ?? since) >= since);
 }
 
-/** When card `d` stopped waiting on him: his answer, its withdrawal, its lapse (its deadline); none while open. */
+/** When card `d` stopped waiting on him: his answer, its withdrawal, its step seen done (`doneSeen`), its lapse (its deadline); none while open. */
 const endedAtOf = (d: Decision) =>
   d.answer?.at ??
   d.withdrawn?.at ??
+  (d.doneSeen?.state === "seen" ? d.doneSeen.at : undefined) ??
   (d.state === "lapsed" ? d.deadline : undefined);
 
 /** The assignments a matter move holds with their new agent (not failed): the fold leaves them (his answer 3 of decision 78). */
@@ -258,21 +260,38 @@ export const runtimeBlocksOf = (db: Database): Record<string, string | null> =>
       .map((r) => [r.runtime, r.why])
   );
 
-/** The open assignment on matter `id` (the matter he chose, `openAssignmentOfMatter`), else, for an assignment older than `matter_id`, the one holding its `steps` (anchored on any), its agent active or stopped. */
-export const assignmentOnMatter = (
-  db: Database,
-  { id, steps }: { id?: string; steps: string[] }
-) =>
-  (id ? openAssignmentOfMatter(db, id) : null) ?? assignmentOnSteps(db, steps);
+/** Which matter some refs find, the assignment's chosen matter taking a tie (`matterFinderOf` over the open matters). */
+export type MatterOfRefs = (
+  refs: readonly string[],
+  prefer?: string
+) => string | undefined;
 
-const assignmentOnSteps = (db: Database, steps: string[]) =>
-  steps.length === 0
-    ? null
-    : (db
-        .query<AssignmentRow, [string]>(
-          "select s.* from assignment s join agent a on a.id = s.agent_id where s.closed_at is null and a.status in ('active', 'stopped') and s.id in (select assignment_id from anchor where step in (select value from json_each(?))) order by a.status = 'active' desc, s.opened_at desc limit 1"
-        )
-        .get(JSON.stringify(steps)) ?? null);
+/**
+ * The open assignment on matter `id`: the one he chose it for (`openAssignmentOfMatter`), else one anchored on any of its
+ * `steps` whose anchors find that matter (`matterOf`, its own chosen matter taking a tie), so an assignment on another
+ * matter sharing a step is never taken; its agent active or stopped. No `id`: the first anchored on its steps.
+ */
+export function assignmentOnMatter(
+  db: Database,
+  { id, steps }: { id?: string; steps: string[] },
+  matterOf: MatterOfRefs
+) {
+  const chosen = id ? openAssignmentOfMatter(db, id) : null;
+  if (chosen || steps.length === 0) {
+    return chosen;
+  }
+  return (
+    db
+      .query<AssignmentRow, [string]>(
+        "select s.* from assignment s join agent a on a.id = s.agent_id where s.closed_at is null and a.status in ('active', 'stopped') and s.id in (select assignment_id from anchor where step in (select value from json_each(?))) order by a.status = 'active' desc, s.opened_at desc"
+      )
+      .all(JSON.stringify(steps))
+      .find(
+        (s) =>
+          !id || matterOf(anchorsOf(db, s.id), s.matter_id ?? undefined) === id
+      ) ?? null
+  );
+}
 
 /** An agent's names on the wire: `short` (its name, or its brief's first line) and `name` (`short` + " agent"). */
 const namesOf = (a: Pick<AgentRow, "brief" | "name">) => {
@@ -314,9 +333,10 @@ function shownMoveOf(db: Database, m: MoveRow | null | undefined, now: number) {
 export function matterMoveReadOf(
   db: Database,
   matter: { id?: string; steps: string[] },
-  now: number
+  now: number,
+  matterOf: MatterOfRefs
 ) {
-  const s = assignmentOnMatter(db, matter);
+  const s = assignmentOnMatter(db, matter, matterOf);
   const a = s && agentOf(db, s.agent_id);
   if (!(s && a)) {
     return { holder: null, move: undefined };

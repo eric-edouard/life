@@ -415,7 +415,8 @@ test("the later steps, run in any order on a store from before all of them, end 
     for (const step of order) {
       expect(step(path, dir)).toBe("migrated");
     }
-    const after = openDesk(path);
+    // Read as the steps left it: `openDesk` would make what a step forgot.
+    const after = new Database(path, { readonly: true });
     const shape = after
       .query<{ sql: string }, []>(
         "select m.name || '.' || c.name || ' ' || c.type as sql from sqlite_master m, pragma_table_info(m.name) c where m.type = 'table' union all select 'index ' || name from sqlite_master where type = 'index' and sql is not null order by 1"

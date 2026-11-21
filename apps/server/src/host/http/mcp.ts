@@ -402,10 +402,10 @@ export function buildServer(readsOnly = false) {
       const [row] = matterRowsNowOf([matter], open);
       return {
         ...row,
-        ...readMatterMove({
+        ...(await readMatterMove({
           id: matter.id,
           steps: matter.steps.map((s) => s.ref),
-        }),
+        })),
         checks: checksOnMatterOf(open, matter.id),
       };
     }

@@ -17,7 +17,7 @@ import {
   heldStampOf,
   readDesk,
 } from "./desk-read";
-import { countsAsAskedOf } from "./move-read";
+import { countsAsAskedOf, movedInOf } from "./move-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
@@ -52,11 +52,13 @@ export function planCardsOf(db: Database, list: readonly Decision[]) {
   );
 }
 
-/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened, not the caretaker's. */
+/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened or moved to its agent (`movedInOf`), not the caretaker's. */
 export const opensWithPlan = (
   db: Database,
-  s: Pick<AssignmentRow, "agent_id" | "opened_by">
-) => s.opened_by === "owner" && agentOf(db, s.agent_id)?.role !== "caretaker";
+  s: Pick<AssignmentRow, "agent_id" | "id" | "opened_by">
+) =>
+  (s.opened_by === "owner" || movedInOf(db, s) !== null) &&
+  agentOf(db, s.agent_id)?.role !== "caretaker";
 
 /** A card's links as its holder's: the asker's session link (`was`) becomes the holder's (`now`); with none, the links stay (a supporting link never takes the session's place). */
 export const holderLinksOf = (

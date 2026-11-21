@@ -405,9 +405,18 @@ export function readAgentsOnSteps(steps: string[], people: People) {
 }
 
 /** Who holds a matter's `steps` and its move (`matterMoveReadOf`); while the desk is off or unreadable, no holder. */
-export function readMatterMove(matter: { id: string; steps: string[] }) {
+export async function readMatterMove(matter: { id: string; steps: string[] }) {
+  const find = matterFinderOf(
+    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
+  );
   const read = readDesk(
-    (db) => matterMoveReadOf(db, matter, clock().getTime()),
+    (db) =>
+      matterMoveReadOf(
+        db,
+        matter,
+        clock().getTime(),
+        (refs, prefer) => find(refs, prefer)?.id
+      ),
     null
   );
   return (read.state === "ok" && read.value) || { holder: null };
