@@ -10,6 +10,7 @@ import {
 } from "./appointments";
 import {
   arrivalAppointmentsOf,
+  checkedAppointmentReply,
   isSameMeeting,
   meetingKeyOf,
 } from "./arrival-appointments";
@@ -431,4 +432,133 @@ test("a held appointment the night keeps as it was takes the arrival's id while 
     ).appointments.map((a) => a.id);
   expect(read(false)).toEqual(["apt_0000000000aa"]);
   expect(read(true)).toEqual(["apt_000000000001"]);
+});
+
+test("an appointment read's reply is kept only as the lines say it: quote found, link exact and https, at most 10 people", () => {
+  const lines = [
+    "10:02 Sam: Call on 2026-12-03 at 15:00 https://meet.example.com/abc-def",
+  ];
+  const said = {
+    agreed: true,
+    allDay: false,
+    end: null,
+    link: "https://meet.example.com/abc-def",
+    people: Array.from({ length: 12 }, (_, i) => `P${i}`),
+    place: null,
+    quote: "Call on 2026-12-03 at 15:00",
+    start: "2026-12-03 15:00",
+    title: "Call with Sam",
+    zone: null,
+  };
+  const read = { firstDay: "2026-12-01", lines };
+  const kept = checkedAppointmentReply(said, read);
+  expect(kept).toMatchObject({ end: "2026-12-03 16:00", link: said.link });
+  expect(kept.agreed && kept.people).toHaveLength(10);
+  expect(
+    checkedAppointmentReply(
+      { ...said, link: "http://meet.example.com/abc-def" },
+      read
+    )
+  ).toMatchObject({ link: null });
+  expect(
+    checkedAppointmentReply(
+      { ...said, link: "https://meet.example.com/other" },
+      read
+    )
+  ).toMatchObject({ link: null });
+  expect(
+    checkedAppointmentReply({ ...said, quote: "Dinner on Friday" }, read)
+  ).toEqual({
+    agreed: false,
+    refused: "its quote is not in one line",
+  });
+  expect(
+    checkedAppointmentReply({ ...said, start: "2026-11-30 15:00" }, read)
+  ).toMatchObject({ agreed: false });
+  expect(
+    checkedAppointmentReply({ ...said, allDay: true }, read)
+  ).toMatchObject({ agreed: false });
+  expect(checkedAppointmentReply({ isActionable: true }, read)).toMatchObject({
+    agreed: false,
+  });
+  // Not real days and times, or of two precisions: refused, never thrown.
+  for (const bad of [
+    { end: null, start: "tomorrow" },
+    { end: "2026-15-03 16:00", start: "2026-15-03 15:00" },
+    { end: "2026-12-03", start: "2026-12-03 15:00" },
+    { end: "2026-12-03 25:00", start: "2026-12-03 15:00" },
+  ]) {
+    expect(checkedAppointmentReply({ ...said, ...bad }, read)).toMatchObject({
+      agreed: false,
+    });
+  }
+  expect(
+    checkedAppointmentReply({ ...said, zone: "Mars/Olympus" }, read)
+  ).toMatchObject({ agreed: false });
+  // A link the lines hold only longer is dropped, the appointment kept; the quote is stored as the lines say it.
+  const cafe = {
+    firstDay: "2026-12-01",
+    lines: [
+      "10:02 Sam: Café North at 15:00 https://meet.example.com/room?key=abcdef.",
+    ],
+  };
+  expect(
+    checkedAppointmentReply(
+      {
+        ...said,
+        link: "https://meet.example.com/room?key=abc",
+        quote: "CAFE NORTH",
+      },
+      cafe
+    )
+  ).toMatchObject({ agreed: true, link: null, quote: "Café North" });
+  expect(
+    checkedAppointmentReply(
+      {
+        ...said,
+        link: "https://meet.example.com/room?key=abcdef",
+        quote: "Café North",
+      },
+      cafe
+    )
+  ).toMatchObject({ link: "https://meet.example.com/room?key=abcdef" });
+  // A quote across two messages is not one line's.
+  const two = {
+    firstDay: "2026-12-01",
+    lines: ["10:02 Lee: see you in the room", "10:03 Lee: at three"],
+  };
+  expect(
+    checkedAppointmentReply(
+      { ...said, quote: "the room\n10:03 Lee: at three" },
+      two
+    )
+  ).toMatchObject({ agreed: false });
+  // Links as the lines hold them whole: inside brackets, with its own parentheses; a broken one dropped alone.
+  const links = (line: string, link: string) =>
+    checkedAppointmentReply(
+      { ...said, link, quote: "Call at three" },
+      { firstDay: "2026-12-01", lines: [`10:02 Sam: Call at three ${line}`] }
+    );
+  expect(
+    links("<https://meet.example.com/a-b>", "https://meet.example.com/a-b")
+  ).toMatchObject({ link: "https://meet.example.com/a-b" });
+  expect(
+    links(
+      "(https://meet.example.com/room(foo))",
+      "https://meet.example.com/room(foo)"
+    )
+  ).toMatchObject({ link: "https://meet.example.com/room(foo)" });
+  expect(
+    links(
+      "https://meet.example.com/room(foo)",
+      "https://meet.example.com/room(foo"
+    )
+  ).toMatchObject({ agreed: true, link: null });
+  expect(links("https://?", "https://?")).toMatchObject({
+    agreed: true,
+    link: null,
+  });
+  expect(checkedAppointmentReply({ agreed: false }, read)).toEqual({
+    agreed: false,
+  });
 });

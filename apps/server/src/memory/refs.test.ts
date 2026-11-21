@@ -13,6 +13,7 @@ test("parseRef: one grammar, each kind from its ref", () => {
   expect(kind("entry_0123456789ab")).toBe("matter");
   expect(kind("obs_0123456789ab")).toBe("observation");
   expect(kind("unit_0123456789ab")).toBe("unit");
+  expect(kind("apt_0123456789ab")).toBe("appointment");
   expect(kind("file:whatsapp:120@g.us/S1")).toBe("file");
   expect(kind("job-1:3@2026-10-14T10:06:00.000Z")).toBe("turn");
   expect(kind("claude:w1")).toBe("conversation");
