@@ -1,9 +1,10 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { DAY, HOUR, MIN } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { logEvents, logFileOf } from "../core/log";
 import { currentAssignmentOf } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
 import { wakeDue } from "./desk-clock";
-import { advance, setup } from "./test-desk";
+import { advance, asgOf, setup } from "./test-desk";
 
 // A failed turn, its retries and what it drops (the wait contract, W11): a try counts only for a turn that began.
 // Made-up agents and events, over the fake runtime.
@@ -29,6 +30,21 @@ test("W11: an event handed to every failing turn that began is dropped, flagged,
     "failed",
     "failed",
     "failed",
+  ]);
+  // Each turn begun and ended is a log line; a failed one is an error.
+  const turnLines = logEvents(
+    logFileOf(clock().toISOString()),
+    "desk.turn"
+  ).filter((l) => l.assignment === asgOf(desk, id));
+  expect(turnLines.filter((l) => l.phase === "begun")).toHaveLength(5);
+  expect(
+    turnLines
+      .filter((l) => l.phase === "ended")
+      .map((l) => [l.outcome, l.ok])
+      .slice(-2)
+  ).toEqual([
+    ["failed", false],
+    ["failed", false],
   ]);
   const row = eventRow(id, "e1");
   expect(row?.handed).toBe(4);

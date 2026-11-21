@@ -225,7 +225,7 @@ beforeEach(() => {
   calendar = spyOn(google, "googleCalendar").mockReturnValue(
     fake as unknown as google.GoogleCalendar
   );
-  pushed = spyOn(push, "notifyPhone").mockResolvedValue(undefined);
+  pushed = spyOn(push, "notifyPhone").mockResolvedValue(true);
 });
 afterEach(() => {
   calendar.mockRestore();

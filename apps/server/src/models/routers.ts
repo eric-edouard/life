@@ -2,6 +2,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { MIN } from "../core/clock";
+import { log } from "../core/log";
 import {
   type Answer,
   add,
@@ -135,12 +136,14 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   let costUsd: number | undefined;
   let answer: Answer = { text: "" };
   const skipped = new Set<Router>();
+  let failed: Route | undefined;
   for (const route of hosts) {
     const { host, router } = route;
     const effort = route.effort ?? call.llm.effort;
     if (skipped.has(router)) {
       continue;
     }
+    logRetry(failed);
     let isForAnother: boolean;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
@@ -178,8 +181,16 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
     if (!isForAnother) {
       skipped.add(router);
     }
+    failed = route;
   }
   return { ...answer, refusal: refusals.join("; ") };
+}
+
+/** A `model.retry` line as the next host is asked after `failed`; never the refusal's text: it can be the model's words. */
+function logRetry(failed: Route | undefined) {
+  if (failed) {
+    log("model.retry", { failed: failed.host, router: failed.router });
+  }
 }
 
 /** The data of a server-sent event stream, one event at a time, to its end marker (comments, like keepalives, skipped). */

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isoDateTime } from "../records/fields";
 import type { SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
@@ -161,7 +162,7 @@ export function writeExchangeCounts(
     return { exchanges: Object.values(people).flat().length, failed: 0 };
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: "memory.exchange-counts",
     });
     return { exchanges: 0, failed: 1 };

@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { secretIn } from "../core/secret";
 import { writeLifelog } from "./lifelog";
 import { lifelogMissing } from "./lifelog-call";
@@ -22,12 +23,16 @@ export interface Push {
 export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
   createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
 
-/** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. */
+/** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. Whether lifelog took it. */
 export async function notifyPhone(push: Push) {
   if (lifelogMissing()) {
-    return;
+    return false;
   }
-  await writeLifelog("POST", "/notifications", push).catch((e) =>
-    log("lifelog.write", { error: String(e), phase: "failed" })
+  return await writeLifelog("POST", "/notifications", push).then(
+    () => true,
+    (e) => {
+      log("lifelog.write", { ...errorOf(e), phase: "failed" });
+      return false;
+    }
   );
 }

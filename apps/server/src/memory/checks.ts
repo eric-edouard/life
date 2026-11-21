@@ -28,9 +28,9 @@ import {
   withComplaintFields,
   withMisreadSealed,
 } from "./complaint-checks";
+import type { Decision } from "./decision-lines";
 import {
   DECISIONS,
-  type Decision,
   decisionCardOf,
   decisionsNow,
   isOnMatter,
