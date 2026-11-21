@@ -100,8 +100,8 @@ extension Check.Draft {
         mentions: for mention in mentions ?? [] {
             var at = text.range(of: "@" + mention.name, options: .literal, range: from..<text.endIndex)
             while let found = at, text.utf16.isWordUnit(at: found.upperBound) {
-                at = text.range(
-                    of: "@" + mention.name, options: .literal, range: text.index(after: found.lowerBound)..<text.endIndex)
+                let after = text.index(after: found.lowerBound)
+                at = text.range(of: "@" + mention.name, options: .literal, range: after..<text.endIndex)
             }
             guard let at else { break mentions }
             if from < at.lowerBound { runs.append(TextRun(text: String(text[from..<at.lowerBound]), isMention: false)) }
