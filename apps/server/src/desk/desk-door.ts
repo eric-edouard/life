@@ -20,7 +20,9 @@ import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { isHisWordsPlanOf } from "../host/inbox";
 import { MOVE_NOTES } from "../host/move-read";
 import { CARD, DecisionRequest } from "../memory/card-request";
+import { readsOnce, refsProblemOf } from "../memory/find-refs";
 import {
+  AnswerExtras,
   MainSessionAsk,
   type MainSessionLine,
 } from "../records/main-session-wire";
@@ -39,7 +41,12 @@ import {
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
 import { doorOf, keyOf } from "./door-keys";
-import { askMainSession, keepMainSession, MAIN_ASK } from "./main-session";
+import {
+  askMainSession,
+  keepAnswerExtras,
+  keepMainSession,
+  MAIN_ASK,
+} from "./main-session";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
 import { readSpokenAsk } from "./spoken-ask-intake";
@@ -48,7 +55,7 @@ import { readSpokenAsk } from "./spoken-ask-intake";
 // An agent is known by its key alone, `HMAC(deskKey, its id)` (`door-keys.ts`): derived, never stored, given to the
 // sessions the desk starts in the runtime's environment, and to the Life plugin for a session of the agent he opens
 // himself (`/session`, below). Its other path is the main session's (`MAIN_SESSION_PATH`, `main-session.ts`), for the
-// connector, by the local key. Eight tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
+// connector, by the local key. Nine tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
 // `complaint-intake.ts`; `read_spoken_ask`, of `spoken-ask-intake.ts`); everything else an agent does with its own tools.
 
 const BEARER = /^Bearer /;
@@ -75,10 +82,15 @@ function turnRefusalOf(
   ) {
     return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
   }
-  // Read-only for now (Tell Life, slice 1): the main session answers him and calls none of the door's tools, in a turn
-  // of its own or in his app (the Life plugin's door).
+  // Read-only for now (Tell Life, slice 1): the main session answers him and calls none of the door's tools but
+  // `answer`, on a turn of its words; `answer` is its alone.
   if (cause === MAIN_ASK || a?.role === "main") {
-    return "Not done: the main session only reads and answers him for now; it changes nothing.";
+    return name === "answer" && cause === MAIN_ASK
+      ? null
+      : "Not done: the main session only reads and answers him for now (`answer`, on a turn of his words); it changes nothing.";
+  }
+  if (name === "answer") {
+    return "Not done: `answer` is the main session's alone.";
   }
   const isEnd = name === "set_wait" || name === "finish";
   return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
@@ -136,7 +148,11 @@ function doorServer(desk: Desk, id: string) {
     name: string,
     description: string,
     input: S,
-    run: (args: z.infer<S>, s: AssignmentRow) => unknown
+    run: (
+      args: z.infer<S>,
+      s: AssignmentRow,
+      turn?: ReturnType<typeof openTurn>
+    ) => unknown
   ) =>
     tool(
       server,
@@ -160,7 +176,7 @@ function doorServer(desk: Desk, id: string) {
         if (refused) {
           throw new Error(refused);
         }
-        const r = await run(args as z.infer<S>, at.s);
+        const r = await run(args as z.infer<S>, at.s, at.turn);
         if (typeof r === "object" && r !== null && "error" in r) {
           throw new Error(String(r.error));
         }
@@ -195,6 +211,27 @@ function doorServer(desk: Desk, id: string) {
     `Ask the owner one decision (one open at a time per matter). ${CARD} The subject may be any matter you hold, or one of its steps (none given: this turn's matter's id, so for \`ends: "step"\` name the open step): a card on another assignment's matter is filed under it, and his answer wakes that one; a matter you do not hold is refused. Or \`withdraw\` (the id of a card of this turn's assignment; one filed under another is withdrawn from its turn) with \`why\`. His answer wakes you. A draft into a chat another agent's open card holds waits on it (the result's \`waits\`): its holder yields, merges or keeps; silent 10 minutes, yours is asked, replacing that card, and his Send withdraws it. \`draft.contested\` wakes you when another agent's card waits on yours: read it (\`read_card\`), then yield (\`withdraw\` yours), merge (one card for both: \`merges\` its id; yours is withdrawn and its agent hears his answer too) or keep (\`keep\` its id, with \`why\`: it waits until yours settles, and its agent reads why). \`draft.kept\`: the holder kept its card against yours: read why (\`read_card\` yours), then withdraw yours or let it wait.`,
     DecisionRequest,
     (ask, s) => askDecision(desk, s, ask)
+  );
+  door(
+    "answer",
+    "The main session only, on a turn of his words: what you add to your answer, called right before its text (your text after your last tool call is always its words). `why`: one line of why. `sources`: the refs it rests on (`fetch` opens each; a dead one is refused). `answers`: 2 to 4 likely answers he may tap, when you ask him something (a question shows no why or sources). A later call replaces it.",
+    AnswerExtras,
+    async (extras, _, turn) => {
+      const dead =
+        extras.sources &&
+        (await refsProblemOf(
+          extras.sources,
+          readsOnce(),
+          (ref) => `the source ${ref}`,
+          "a source"
+        ));
+      if (dead) {
+        return { error: `Not done: ${dead}.` };
+      }
+      if (turn) {
+        keepAnswerExtras(desk, turn.id, extras);
+      }
+    }
   );
   door(
     "read_packet",
