@@ -42,7 +42,7 @@ const readAll = () =>
   readAppended(
     TOLD_LIFE,
     ToldLife,
-    (last?: ToldLife[]) => last ?? [],
+    (last?: ToldLife[]) => [...(last ?? [])],
     (all, t) => {
       all.push(t);
     }
