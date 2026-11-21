@@ -416,9 +416,8 @@ export function jobWorker(
     () => poke()
   );
 
-  // Every paid send of the server (and of dictation): `slots.send` once the credits were first read
-  // (whatever woke the worker), with the switch and the credits checked again once it holds its slot,
-  // before the caller's own claim (`claimSend`).
+  // Every paid send (the server's and dictation's): `slots.send` once the credits were first read, the switch
+  // and the credits checked again once it holds its slot, before the caller's own claim (`claimSend`).
   const paidSend = async <T>(
     key: string,
     until: { priority: Priority; signal?: AbortSignal; waitMs: number },
