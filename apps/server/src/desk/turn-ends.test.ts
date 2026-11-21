@@ -1,9 +1,15 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock } from "../core/clock";
-import { currentAssignmentOf, turnOf } from "../host/desk-read";
+import {
+  agentOf,
+  currentAssignmentOf,
+  openTurn,
+  turnOf,
+} from "../host/desk-read";
 import { register } from "./agent-actions";
+import { wakeDue } from "./desk-clock";
 import { setup } from "./test-desk";
-import { turnEnded, watch } from "./turn-ends";
+import { endLostTurns, turnEnded, watch } from "./turn-ends";
 
 // A run's end and its start are bound to its own turn: a late one never touches the turn after it (decision 78's plan,
 // rule 4). Made up.
@@ -59,4 +65,28 @@ test("a run that begins after its turn was closed counts no event as handed", as
     desk.db.query<{ handed: number }, []>("select handed from event").get()
       ?.handed
   ).toBe(0);
+});
+
+// Regression (#912): a turn that ended with neither a wait nor `finish` while his app held the session lost its reminder.
+test("a turn ending with neither while his app holds the session is reminded once, when the session is idle", async () => {
+  const { desk, fake } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  await wakeDue(desk);
+  const ref = agentOf(desk.db, agent)?.session ?? "";
+  const turn = openTurn(desk.db, agent)?.id ?? 0;
+  const session = fake.sessions.get(ref);
+  const reminders = () =>
+    fake.said.filter((m) => m.message.startsWith("Before you stop")).length;
+  // The run ends; his app holds the session (it reads as running).
+  await turnEnded(desk, turn, { ok: true });
+  expect(turnOf(desk.db, turn)?.ended_at).toBeNull();
+  await endLostTurns(desk);
+  expect(reminders()).toBe(0);
+  if (session) {
+    session.running = false;
+  }
+  await endLostTurns(desk);
+  await endLostTurns(desk);
+  expect(reminders()).toBe(1);
+  expect(openTurn(desk.db, agent)?.id).toBe(turn);
 });
