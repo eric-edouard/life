@@ -13,6 +13,7 @@ private struct ShellBar: ViewModifier {
     let hasPendant: Bool
 
     @Environment(AppRouter.self) private var router
+    @Environment(\.topBarZoom) private var topBarZoom
 
     func body(content: Content) -> some View {
         content
@@ -21,9 +22,12 @@ private struct ShellBar: ViewModifier {
             .toolbar {
                 if hasPendant || hasSettings {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        if hasPendant { PendantItem { router.sheet = .pendant } }
+                        if hasPendant {
+                            PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
+                        }
                         if hasSettings {
                             Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
                                 .accessibilityIdentifier("top.settings")
                         }
                     }
@@ -113,4 +117,9 @@ private struct SideColumnReport: ViewModifier {
     func body(content: Content) -> some View {
         content.onChange(of: edge != nil && sizeClass != .regular, initial: true) { _, now in isInColumn = now }
     }
+}
+
+extension EnvironmentValues {
+    /// The namespace the top bar's Settings and Pendant buttons zoom their sheets out of (the root's).
+    @Entry var topBarZoom: Namespace.ID?
 }

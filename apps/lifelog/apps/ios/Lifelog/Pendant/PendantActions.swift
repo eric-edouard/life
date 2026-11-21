@@ -13,12 +13,12 @@ struct PendantActions {
     let capture: CaptureStore
     let sync: SyncStore
 
-    func recover(_ recovery: Recovery) {
+    func recover(_ recovery: Recovery) async {
         switch recovery {
         case .openSettings:
-            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
-        case .reconnect: Task { await capture.reconnect() }
-        case .syncNow: Task { await capture.syncNow() }
+            if let url = URL(string: UIApplication.openSettingsURLString) { _ = await UIApplication.shared.open(url) }
+        case .reconnect: await capture.reconnect()
+        case .syncNow: await capture.syncNow()
         }
     }
 

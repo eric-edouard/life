@@ -33,7 +33,7 @@ public struct ProjectChips: Decodable, Sendable, Equatable {
 
     public let all: Counts
     public let chips: [Chip]
-    public let version: String
+    public let version: String?
 
     /// How many projects are underway: the tab's state word ("3 underway").
     public var underway: Int { chips.filter { $0.kind == .project && $0.status?.isUnderway == true }.count }
@@ -95,7 +95,7 @@ public struct ProjectHeader: Decodable, Sendable, Equatable {
     }
 
     public let project: Head
-    public let version: String
+    public let version: String?
 }
 
 extension ProjectHeader: NamesParties, ParsedRead {

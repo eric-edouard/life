@@ -61,6 +61,7 @@ struct SpokenWords: View {
     }
 
     @Environment(PlaybackStore.self) private var playback
+    @Environment(LifeStore.self) private var life
     @State private var isFetching = false
     /// The audio could not be had: the Play shows it, and a tap tries again.
     @State private var failed = false
@@ -167,8 +168,13 @@ struct SpokenWords: View {
             let file = await ClipAudio.file(job)
             isFetching = false
             guard !Task.isCancelled else { return }
-            guard let file else { return failed = true }
-            playback.play(file, from: start + seconds, for: end - start - seconds, id: id, onEnd: onEnded)
+            guard let file,
+                playback.play(file, from: start + seconds, for: end - start - seconds, id: id, onEnd: onEnded)
+            else {
+                failed = true
+                life.show(.init(words: "Couldn’t play the recording. Try again.", undo: nil, isDone: false))
+                return
+            }
         }
     }
 }

@@ -7,8 +7,14 @@ import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
+import { readContactStores } from "../sources/contacts";
 import { pushIdOf } from "../sources/lifelog-push";
 import { readNamingQueue } from "../sources/lifelog-voices";
+import {
+  type AtOrganization,
+  atOrganizationAsksOf,
+  readAtOrganizationPairs,
+} from "./at-organization";
 import { planRoleOf } from "./card-problems";
 import { cardAskOf, guessAskOf } from "./check-asks";
 import { literalOf, type Quote, withQuoteOf } from "./check-quotes";
@@ -128,6 +134,8 @@ type Where = string;
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
+  /** The people of his directory who may be at an organization of it (`atOrganizationPairsOf`), worked out once by the reader. */
+  atOrganizations: readonly AtOrganization[];
   /** The open decisions (`decisionsNow`), each as asked by the agent holding it now, with its session (`HeldRead.cardHolders`). */
   decisions: readonly (Decision & { session?: string })[];
   /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
@@ -329,7 +337,7 @@ function ranked(
             onMatters: [],
             onSilence: null,
             options: [...LIFE_CHECKS[group].options],
-            preTicked: preTickedOf({ kind }),
+            preTicked: preTickedOf({ group, kind }),
             question: fields.question,
             ref: fields.ref,
             ridesOn: rides,
@@ -482,7 +490,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           ]
         : [];
     }),
-  /** The three guesses about who someone is: a guessed person, a Contacts card Life cannot place, a name it cannot place. */
+  /** The asks about who someone is: a guessed person, a Contacts card or a name Life cannot place, a same person, an at organization. */
   person: (c) => {
     const { people } = c;
     const byGuess = keptBy(c, (l) => guessedOf(l, people));
@@ -556,7 +564,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     const same = samePersonAsksOf(people, c.samePersons).flatMap((a) =>
       ranked(c, "same person", a, a.linesOf(byRef), a.refs, null)
     );
-    return [...guessed, ...cards, ...same, ...named];
+    const at = atOrganizationAsksOf(people, c.atOrganizations).flatMap((a) =>
+      ranked(c, "at organization", a, a.linesOf(byRef), a.refs, null)
+    );
+    return [...guessed, ...cards, ...same, ...at, ...named];
   },
   voice: (c) => voiceChecksOf(c.people, c.voices),
   "your move": (c) => yourMoveChecksOf(c, c.offered),
@@ -636,7 +647,8 @@ const checksKeyOf = (
   holders: CardHolders
 ) =>
   JSON.stringify([
-    readChangeStamp(CHECKS_READ),
+    // His Contacts, which the at organization cards read (`readAtOrganizationPairs`).
+    readChangeStamp([...CHECKS_READ, ...readContactStores()]),
     dayNow(),
     decisions.map((d) => d.id),
     held && [held.stamp, holders],
@@ -735,6 +747,7 @@ async function readChecks(
   const key = secretIn("pushIdKey");
   const checks = checksOf({
     answered,
+    atOrganizations: readAtOrganizationPairs(people),
     decisions,
     dismissed: readDismissedMatterPins(),
     doubted,

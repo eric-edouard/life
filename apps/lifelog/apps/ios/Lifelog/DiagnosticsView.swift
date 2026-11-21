@@ -53,6 +53,11 @@ struct DiagnosticsView: View {
                             separator: "\n")
                         copied = true
                     }
+                    .task(id: copied) {
+                        guard copied else { return }
+                        try? await Task.sleep(for: .seconds(1.5))
+                        copied = false
+                    }
                     .buttonStyle(.pill(.quiet))
                 }
                 Text(version).font(.note).foregroundStyle(Palette.muted)

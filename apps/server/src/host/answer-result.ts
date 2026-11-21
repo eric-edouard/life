@@ -6,6 +6,7 @@ import {
   type StartAgent,
   yourMoveClosingOf,
 } from "../memory/answer-check";
+import { atOrganizationPairOf } from "../memory/at-organization";
 import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
 import {
   actDueOf,
@@ -27,7 +28,10 @@ import { readMatterBook } from "../memory/matters";
 import { samePersonPairOf } from "../memory/same-person";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
-import { addDirectoryEntryByHisWord } from "./change-directory-entry";
+import {
+  addDirectoryEntryByHisWord,
+  addOrganizationPersonByHisWord,
+} from "./change-directory-entry";
 import {
   changeRegisteredAgent,
   START_STAGES,
@@ -222,6 +226,9 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
       step: c.subject,
       ...(a.options[0] === "not-now" ? { until } : {}),
     };
+  }
+  if (c.group === "at organization") {
+    return { answer: a.options[0], ...atOrganizationPairOf(c.ref) };
   }
   if (c.group === "voice") {
     const answered = done[0] as { personId?: string } | undefined;
@@ -455,6 +462,13 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   } = await answerCheck(open, a, "connector", {
     addDirectoryEntry: (kind, name, fields) =>
       addDirectoryEntryByHisWord(kind, name, `New ${kind}: ${name}`, fields),
+    addOrganizationPerson: (organization, person, role) =>
+      addOrganizationPersonByHisWord(
+        organization,
+        person,
+        role,
+        `"Yes" to "${open.question}" (${open.ref})`
+      ),
     answerKey,
     end,
     endYourMove: () =>

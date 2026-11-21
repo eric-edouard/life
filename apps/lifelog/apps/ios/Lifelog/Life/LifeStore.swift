@@ -233,7 +233,9 @@ final class LifeStore {
 
     func refreshInbox() async {
         let before = inbox.loadedAt
-        await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
+        await load({ self.inbox.apply($0) }, key: Self.inboxKey, held: { self.inbox.value }) {
+            try await $0.readInbox(ifNot: $1)
+        }
         // A read asked after the tap ends its check: a card that was not in hand opens now, one answered elsewhere gives
         // way to the next with a notice. One he answered here since stays as he left it.
         if let push = pushed, inbox.loadedAt != before, let read = inbox.value, let asked = inbox.loadedAt,
@@ -247,15 +249,17 @@ final class LifeStore {
         // Only a whole read made just now says what is no longer open: not a cached, failed, cancelled or cut-off one.
         if inbox.loadedAt != before, let asked = inbox.loadedAt, let read = inbox.value, read.isWhole {
             let open = Set(read.checks.compactMap(\.pushId))
-            await removeNotifications(deliveredBefore: asked) { !open.contains($0) }
+            await Self.removeNotifications(deliveredBefore: asked) { !open.contains($0) }
         }
     }
     /// A card answered anywhere (here, in another app, by its deadline, withdrawn) leaves his notifications too: on a
     /// whole read, only one delivered before the read was asked (a card newer than the read is not in it), or on Life's
     /// push naming the cards that left (`NotificationRoute.removed`), which spares the result of his answer from a
     /// notification (`sparingResults`): every tap shows its result.
-    func removeNotifications(
-        deliveredBefore asked: Date = .distantFuture, sparingResults: Bool = false, where isGone: (String) -> Bool
+    /// Off the main actor: the notification center's calls are synchronous IPC (`IncidentNotifier.remove`).
+    @concurrent nonisolated static func removeNotifications(
+        deliveredBefore asked: Date = .distantFuture, sparingResults: Bool = false,
+        where isGone: @Sendable (String) -> Bool
     ) async {
         let center = UNUserNotificationCenter.current()
         let gone = await center.deliveredNotifications().filter {
@@ -270,7 +274,9 @@ final class LifeStore {
         center.removeDeliveredNotifications(withIdentifiers: gone.map(\.request.identifier))
     }
     func refreshMatters() async {
-        await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
+        await load({ self.matters.apply($0) }, key: Self.mattersKey, held: { self.matters.value }) {
+            try await $0.readMatters(ifNot: $1)
+        }
     }
     func refreshAgents() async {
         let before = agents.loadedAt
@@ -412,7 +418,9 @@ final class LifeStore {
     }
 
     func refreshProjects() async {
-        await load({ self.projects.apply($0) }, key: Self.projectsKey) { try await $0.readProjects() }
+        await load({ self.projects.apply($0) }, key: Self.projectsKey, held: { self.projects.value }) {
+            try await $0.readProjects(ifNot: $1)
+        }
     }
 
     func refreshProjectHead(_ id: String) async {
@@ -421,7 +429,7 @@ final class LifeStore {
             self.projectHead[id, default: ReadState()].apply(event)
         }
         if projectHead[id] == nil { restore(update, key: key) }
-        await load(update, key: key) { try await $0.readProject(id) }
+        await load(update, key: key, held: { self.projectHead[id]?.value }) { try await $0.readProject(id, ifNot: $1) }
     }
 
     /// A chip's list: a project's matters, or an area's in no project (Life's one rule for both, `isInScope`).
@@ -432,8 +440,8 @@ final class LifeStore {
             self.scopedMatters[chip, default: ReadState()].apply(event)
         }
         if scopedMatters[chip] == nil { restore(update, key: key) }
-        await load(update, key: key) {
-            try await kind == .area ? $0.readMatters(area: id) : $0.readMatters(project: id)
+        await load(update, key: key, held: { self.scopedMatters[chip]?.value }) {
+            try await kind == .area ? $0.readMatters(area: id, ifNot: $1) : $0.readMatters(project: id, ifNot: $1)
         }
     }
 
@@ -471,19 +479,33 @@ final class LifeStore {
         _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true,
         fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
+        await load(update, key: key, isKept: isKept, held: { nil }) { api, _ in try await fetch(api) }
+    }
+
+    /// A versioned read (`VersionedRead`) is asked `ifNot` the version of the value `held` as its pass begins: while
+    /// Life says nothing changed, that value holds, read as of now, and its kept copy stays as it is.
+    private func load<V: ParsedRead & NamesParties>(
+        _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true, held: @escaping () -> V?,
+        fetch: @escaping @Sendable (any LifeAPI, _ ifNot: String?) async throws -> String
+    ) async {
         await flights.run(key) { [self] in
-            let (asked, pairing) = (now(), parties.generation.current)
+            let (asked, pairing, held) = (now(), parties.generation.current, held())
+            let versioned = held as? any VersionedRead
+            let ifNot = versioned?.version
             // Every read says whether Life could be reached (`whyOutOfReach`).
             let apply = { (event: ReadState<V>.Event) in
                 self.connection.note(event, asked: asked)
                 update(event)
             }
             apply(.started)
-            guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
+            guard let text = await parties.generation.answer({ try await fetch(api, ifNot) }) else { return }
             do {
                 let read = try text.get()
-                let value = try V.parsed(read)
-                if isKept { cache.store(read, key: key, asked: asked) }
+                if let held, versioned?.isUnchanged(by: read) == true { return apply(.succeeded(held, asked)) }
+                let kept = isKept ? cache : nil
+                let value = try await Self.parsed(read, as: V.self, keptIn: kept, key: key, asked: asked)
+                // Another Life paired while it was decoded: nothing of this one applies.
+                guard pairing == parties.generation.current else { return }
                 parties.remember(value.parties, at: asked, pairing: pairing)
                 apply(.succeeded(value, asked))
             } catch let error as MCPError {
@@ -493,6 +515,15 @@ final class LifeStore {
                 apply(.failed(.failed("Life's answer was not what this app reads.")))
             }
         }
+    }
+
+    /// A read's text decoded, and kept for a cold start (`cache`), off the main actor: a large inbox costs frames there.
+    @concurrent private nonisolated static func parsed<V: ParsedRead>(
+        _ text: String, as: V.Type, keptIn cache: ReadCache?, key: String, asked: Date
+    ) async throws -> V {
+        let value = try V.parsed(text)
+        cache?.store(text, key: key, asked: asked)
+        return value
     }
 
     // MARK: Actions
@@ -810,13 +841,20 @@ final class LifeStore {
             scopedMatters[$0.identity]?.value?.matters.contains { $0.id == id } == true
         }
         // Its project's header, if on show, read with or without its rows.
-        let project = (matter[id]?.value?.row ?? matters.value?.matters.first { $0.id == id })?.project?.id
+        let project = (matter[id]?.value?.row ?? listedRow(of: id))?.project?.id
         let head = project.flatMap { projectHead[$0] == nil ? nil : $0 }
         async let all: Void = refreshMatters()
         async let chips: Void = refreshProjects()
         for chip in held { await refreshScopedMatters(chip.kind, chip.id) }
         if let head { await refreshProjectHead(head) }
         _ = await (all, chips)
+    }
+
+    /// Matter `id`'s row as a list on hand has it (every running matter's, or a chip's): its page draws from it until
+    /// the matter's own read lands.
+    func listedRow(of id: String) -> MatterRow? {
+        let lists = [matters] + Array(scopedMatters.values)
+        return lists.lazy.compactMap { $0.value?.matters.first { $0.id == id } }.first
     }
 
     /// A matter's asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`), for its

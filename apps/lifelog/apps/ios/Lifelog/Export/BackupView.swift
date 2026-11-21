@@ -40,7 +40,7 @@ struct BackupView: View {
         .fileImporter(isPresented: $isChoosingBackup, allowedContentTypes: [.folder]) { result in
             switch result {
             case .success(let folder): store.restore(folder)
-            case .failure: break
+            case .failure(let error): store.fail(error)
             }
         }
     }
