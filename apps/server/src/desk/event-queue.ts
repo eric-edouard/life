@@ -115,6 +115,22 @@ export function routeOf<
 }
 
 /**
+ * The one assignment something new goes to (pure), shared by a confirmed arrival and his spoken ask: of the open
+ * assignments on a matter it relates to (`related`: by a person who wrote it, or by meaning, `matter-net.ts`), a
+ * person's first, then the closest meaning, then the lowest id; else the Personal agent's own (`personal`); else none.
+ */
+export const matterOrPersonalOf = (
+  related: { assignment: string; by: WakeWhy }[],
+  personal: string | undefined
+) =>
+  related.toSorted(
+    (x, y) =>
+      rankOf(x.by, undefined) - rankOf(y.by, undefined) ||
+      similarityOf(y.by) - similarityOf(x.by) ||
+      x.assignment.localeCompare(y.assignment)
+  )[0]?.assignment ?? personal;
+
+/**
  * Each open assignment's wakes by `events`: those its wait wants (`matcherOf`), from after it was opened (by the event's
  * instant, else by its day against the local day it was opened): nothing before is new to it; one assignment per agent
  * (`routeOf`). One already queued for the agent is refused by `queue`.

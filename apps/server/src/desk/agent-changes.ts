@@ -1,11 +1,9 @@
 import { existsSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
-import { DESK_AGENT_FOLDERS } from "../core/paths";
-import { settings } from "../core/settings";
 import { asksFor } from "../host/asks";
 import {
   agentChangeOf,
@@ -33,6 +31,7 @@ import {
 } from "./agent-actions";
 import { applyHandOver, type HandOverFacts } from "./agent-moves";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
+import { standingAgentOf } from "./role-agents";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
 // ledger, read here every tick from the desk's own cursor and applied once, in code. What was done, or why not, is the
@@ -75,22 +74,16 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
     return counted;
   }
   if (c.role === "personal") {
-    const other = desk.db
-      .query<{ id: string; status: string }, [string]>(
-        "select id, status from agent where role = 'personal' and status in ('active', 'stopped') and id <> ?"
-      )
-      .get(self ?? "");
-    return other ? `the Personal agent is ${other.id} (${other.status})` : null;
+    const other = standingAgentOf(desk.db, "personal");
+    return other && other.id !== self
+      ? `the Personal agent is ${other.id} (${other.status})`
+      : null;
   }
   const holder = holderOf(desk.db, c.steps ?? []);
   return holder && holder !== self
     ? `that matter is already held by ${holder}`
     : null;
 }
-
-/** Where the Personal agent's sessions start when he names no folder: its home in his agents repo (`agentHomeOf`), else under the desk's folders. */
-const personalHome = () =>
-  join(settings().desk?.agentsRepo ?? DESK_AGENT_FOLDERS, "personal");
 
 /**
  * Starts on his words (`brief`). On a matter: an assignment of the agent that takes it (`taker`, `agentForOf`), his words
@@ -159,7 +152,7 @@ export function start(
   const id = register(desk, {
     brief,
     effort: c.effort,
-    folder: c.folder ?? (c.role === "personal" ? personalHome() : undefined),
+    folder: c.folder,
     model: c.model,
     name: c.name,
     project: c.project,

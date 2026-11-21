@@ -1,9 +1,4 @@
 import { clock, daysBefore, HOUR } from "../core/clock";
-import {
-  type AssignmentRow,
-  anchorsOf,
-  openAssignments,
-} from "../host/desk-read";
 import { readUnitsOf } from "../memory/memory-files";
 import {
   type ConfirmedArrival,
@@ -12,8 +7,13 @@ import {
 import { localDate } from "../memory/zones";
 import type { Unit } from "../records/unit";
 import type { Desk } from "./desk-store";
-import { queue, type ReadPeople } from "./event-queue";
+import { matterOrPersonalOf, queue, type ReadPeople } from "./event-queue";
 import { netsOf } from "./matter-net";
+import {
+  PERSONAL_BRIEF,
+  roleAssignmentOf,
+  roleStartBlockOf,
+} from "./role-agents";
 
 // A confirmed arrival's one wake (his yes of 20 Nov 2026): the arrival reader's confirmed answer (never Apple's alone)
 // chooses one agent, decided here once, beside the hand-out. The wake holds the event's facts, never its words.
@@ -53,47 +53,22 @@ export function arrivalFactsOf(
   };
 }
 
-/**
- * The one assignment a confirmed arrival goes to (pure): one on a matter whose people wrote its lines (the wide net's
- * people, `netsOf`; the lowest assignment id among several), else the Personal agent's own. None: nothing. A waiting
- * agent whose wait matches the message is not here: its `message.received` came first, from the message poll's own
- * matcher over the message itself, and `pollArrivals` queues nothing for a message already queued.
- */
-export function arrivalRouteOf(
-  facts: ArrivalFacts,
-  o: {
-    netPeople: { assignment: string; people: ReadonlySet<string> }[];
-    personal: string | undefined;
-  }
-) {
-  return (
-    o.netPeople
-      .filter((n) => facts.people.some((p) => n.people.has(p)))
-      .map((n) => n.assignment)
-      .toSorted()[0] ?? o.personal
-  );
-}
-
-/** The Personal agent's own open assignment (no anchors), if any: the first opened. */
-const personalOf = (desk: Desk, assignments: AssignmentRow[]) => {
-  const personal = new Set(
-    desk.db
-      .query<{ id: string }, []>("select id from agent where role = 'personal'")
-      .all()
-      .map((r) => r.id)
-  );
-  return assignments
-    .filter(
-      (s) => personal.has(s.agent_id) && anchorsOf(desk.db, s.id).length === 0
-    )
-    .toSorted((x, y) => x.opened_at.localeCompare(y.opened_at))[0]?.id;
-};
+/** Of `nets`, the ones whose people wrote an arrival's lines, as `matterOrPersonalOf` ranks them. */
+export const arrivalNetsOf = (
+  facts: Pick<ArrivalFacts, "people">,
+  nets: { assignment: string; people: ReadonlySet<string> }[]
+) =>
+  nets
+    .filter((n) => facts.people.some((p) => n.people.has(p)))
+    .map((n) => ({ assignment: n.assignment, by: { why: "person" as const } }));
 
 /**
  * Queues `arrival.confirmed` for the confirmed arrivals of the last 12 hours, each to one assignment
- * (`arrivalRouteOf`). An arrival whose message the desk already queued for any agent (its `message.received`, a
- * `matter.related`, or this event on an earlier poll) is never queued again, so no agent is woken twice and a
- * restart, or a recipient that closed, routes nothing anew.
+ * (`matterOrPersonalOf`: a matter's whose people wrote its lines, else the Personal agent's own, the desk registering
+ * the Personal agent when none stands, `roleAssignmentOf`). An arrival whose message the desk already queued for any
+ * agent (its `message.received`, a `matter.related`, or this event on an earlier poll) is never queued again, so no
+ * agent is woken twice and a restart, or a recipient that closed, routes nothing anew; one with nowhere to go now (the
+ * Personal agent stopped, or none can be started) is tried again at the next poll.
  */
 export async function pollArrivals(
   desk: Desk,
@@ -101,10 +76,6 @@ export async function pollArrivals(
   o: { arrivals?: ConfirmedArrival[]; now?: Date; units?: Unit[] } = {}
 ) {
   const now = o.now ?? clock();
-  const assignments = openAssignments(desk.db);
-  if (assignments.length === 0) {
-    return;
-  }
   const since = new Date(now.getTime() - LOOK_BACK).toISOString();
   const arrivals = o.arrivals ?? readConfirmedArrivals(since);
   if (arrivals.length === 0) {
@@ -134,11 +105,29 @@ export async function pollArrivals(
       .map((r) => r.event_id)
   );
   const nets = await netsOf(desk, people);
-  const personal = personalOf(desk, assignments);
-  const wakes = facts.flatMap((f) => {
-    const assignment =
-      !queued.has(f.id) && arrivalRouteOf(f, { netPeople: nets, personal });
-    return assignment ? [{ assignment, eventId: f.id, payload: f }] : [];
-  });
-  desk.db.transaction(() => queue(desk.db, ARRIVAL_CONFIRMED, wakes))();
+  const routed = facts.flatMap((f) =>
+    queued.has(f.id) ? [] : [{ f, related: arrivalNetsOf(f, nets) }]
+  );
+  const newest = routed.reduce((a, r) => (r.f.at > a ? r.f.at : a), "");
+  const blocked = routed.some((r) => r.related.length === 0)
+    ? await roleStartBlockOf(desk, "personal", () => newest)
+    : undefined;
+  desk.db.transaction(() => {
+    let place: ReturnType<typeof roleAssignmentOf> | undefined;
+    const personal = () => {
+      place ??= roleAssignmentOf(desk, "personal", PERSONAL_BRIEF, blocked);
+      return "assignment" in place ? place.assignment : undefined;
+    };
+    queue(
+      desk.db,
+      ARRIVAL_CONFIRMED,
+      routed.flatMap(({ f, related }) => {
+        const assignment = matterOrPersonalOf(
+          related,
+          related.length > 0 ? undefined : personal()
+        );
+        return assignment ? [{ assignment, eventId: f.id, payload: f }] : [];
+      })
+    );
+  })();
 }
