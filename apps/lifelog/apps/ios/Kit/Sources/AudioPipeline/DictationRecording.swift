@@ -25,9 +25,10 @@ public final class DictationRecording {
         let room = Int(Self.capMillis) * PendantAudio.samplesPerMilli - samples
         let taken = Array(new.prefix(max(0, room)))
         guard !taken.isEmpty else { return }
-        level = (taken.reduce(0) { $0 + $1 * $1 } / Float(taken.count)).squareRoot()
-        samples += taken.count
         try writer.append(encoder.encode(taken))
+        // Counted only once encoded.
+        samples += taken.count
+        level = (taken.reduce(0) { $0 + $1 * $1 } / Float(taken.count)).squareRoot()
     }
 
     /// The whole stream, trimmed to the samples taken.

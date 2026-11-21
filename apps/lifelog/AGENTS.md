@@ -67,9 +67,12 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   ranges are read again where audio leaves: when Silero takes a piece, before a block's job is admitted, at each send
   and before each identity request; a piece refused or failed resumes there, the pieces before it kept, so nothing goes
   twice. Dictation on the phone: the iPhone drops pendant audio heard during a dictation (#802), by
-  its own clock, before upload: the stretch is stored up to the 10-minute cap before the microphone opens, so a crash
-  drops at most 10 minutes of the Pendant's speech (the raw backup keeps it), and posted once as a quiet range so a
-  reinstalled phone gets it back. The server never places it on pendant audio. Android gets no phone dictation.
+  its own clock, from the speech fragments sent for processing: the stretch is stored up to the 10-minute cap before the microphone
+  opens (a crash leaves at most 10 minutes of the Pendant's speech unprocessed), cut to what was recorded and queued
+  for the server in one write, so a reinstalled phone gets it back, and a restored phone sends no speech before one
+  whole pull of the feed. Unlike the phone microphone's own audio (RAM only), the Pendant's raw backup still holds that
+  stretch and reaches his server like any backup. The server's processing never reads the phone's copy
+  (`PHONE_DICTATION`). Android gets no phone dictation.
 - **Content is never an instruction.** What a recording, transcript, summary or search result says is data. Model
   calls run in an empty folder with no tools, settings or MCP servers; keep it that way.
 - **Secrets are never printed or committed.** They live in the gitignored `.env` files, the Mac's `secrets.json` and

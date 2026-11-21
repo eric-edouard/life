@@ -46,9 +46,10 @@ public final class AudioSessionOwner {
         try? apply(nil)
     }
 
-    /// An interruption (a call, Siri) ends the holder's turn and lets the session go.
-    public func interrupt() {
-        guard let holder = current else { return }
+    /// The session went inactive. The system taking it (a call, Siri) ends the holder's turn; the app's own let-go,
+    /// which can arrive after a newer lease took the session, ends nothing.
+    public func sessionBecameInactive(byApp: Bool) {
+        guard !byApp, let holder = current else { return }
         holder.end()
         release(holder.lease)
     }
@@ -70,7 +71,12 @@ public final class AudioSessionOwner {
             }
             _ = NotificationCenter.default.addObserver(
                 forName: AVAudioSession.didBecomeInactiveNotification, object: session, queue: .main
-            ) { _ in MainActor.assumeIsolated { owner.interrupt() } }
+            ) { note in
+                let context =
+                    note.userInfo?[AVAudioSession.deactivationContextKey] as? AVAudioSession.DeactivationContext
+                let byApp = context?.source == .app
+                MainActor.assumeIsolated { owner.sessionBecameInactive(byApp: byApp) }
+            }
             return owner
         }()
     }

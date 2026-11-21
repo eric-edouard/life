@@ -151,17 +151,36 @@ struct ScannerFixture {
     #expect(try await covered())
 }
 
-@Test func pendantSpeechDuringADictationOnThisPhoneIsNeverUploadedAndItsStretchShrinksAtStop() async throws {
+@Test(arguments: [3, -3] as [Int64])
+func aDictationIsLeftOutWhereTheSkewedPendantClockPlacesItsSpeechAndShrinksAtItsEnd(skew: Int64) async throws {
     let fixture = try ScannerFixture()
-    try await fixture.store(0..<30)
+    // The Pendant's clock runs `skew` seconds off the phone's; the set closing the epoch reads by how much.
+    try await fixture.source.recordClockSync(
+        ClockSync(firstPageIndex: 30, phoneMillis: base + 30_000, deviceMillisBeforeSet: base + 30_000 + skew * 1000),
+        deviceID: "pendant-1")
+    try await fixture.store(0..<30, shift: skew)
     let scanner = try fixture.scanner()
-    // Stored before the microphone opens, up to the cap; at Stop, cut to the real end (same start).
-    try await fixture.library.setQuiet(.dictation, at(10)..<at(620))
-    let capped = try await scanner.scan().kept(in: at(0)..<at(30))
-    #expect(capped == [at(0)..<at(10)])
-    try await fixture.library.setQuiet(.dictation, at(10)..<at(14))
-    let cut = try await scanner.scan().kept(in: at(0)..<at(30))
-    #expect(cut == [at(0)..<at(10), at(14)..<at(30)])
+    // Stored up to the cap before the microphone opens; at its end, cut to what was recorded (same start).
+    try await fixture.library.setQuiet(.dictation, at(10)..<at(620), open: true)
+    #expect(try await scanner.scan().kept(in: at(0)..<at(30)) == [at(0)..<at(10)])
+    try await fixture.library.closeDictation(at(10)..<at(14))
+    #expect(try await scanner.scan().kept(in: at(0)..<at(30)) == [at(0)..<at(10), at(14)..<at(30)])
+}
+
+@Test func speechWhoseClockNothingBoundsIsNotSentNearADictationAndALongOpenEpochWidensIt() async throws {
+    // No set at all: nothing bounds the clock, so nothing within a day of the dictation goes.
+    let never = try ScannerFixture()
+    try await never.store(0..<30)
+    try await never.library.setQuiet(.dictation, at(10)..<at(14))
+    #expect(try await never.scanner().scan().kept(in: at(0)..<at(30)).isEmpty)
+
+    // Set 10 hours before, not read since: up to 3.6 s of drift either way, left out around the dictation too.
+    let open = try ScannerFixture()
+    try await open.source.recordClockSync(
+        ClockSync(firstPageIndex: 0, phoneMillis: base - 36_000_000, deviceMillisBeforeSet: nil), deviceID: "pendant-1")
+    try await open.store(0..<30)
+    try await open.library.setQuiet(.dictation, at(10)..<at(14))
+    #expect(try await open.scanner().scan().kept(in: at(0)..<at(30)) == [at(0)..<at(6.4), at(17.6)..<at(30)])
 }
 
 @Test func onlyAPauseCountsNeverALateResume() {

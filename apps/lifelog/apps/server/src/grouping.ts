@@ -14,6 +14,7 @@ import {
   isPendant,
   transcriptionJobs as jobs,
   ownerEdits,
+  PHONE_DICTATION,
   quietRanges,
   sources,
   timelineSpans,
@@ -364,6 +365,7 @@ const dictationRanges = (db: Pick<Db, "select">, after: number) =>
     .where(
       and(
         ne(quietRanges.source, "playback"),
+        ne(quietRanges.source, PHONE_DICTATION),
         Number.isFinite(after)
           ? gt(quietRanges.endedAt, new Date(after))
           : undefined

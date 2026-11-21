@@ -15,6 +15,7 @@ import {
   transcriptionJobs as jobs,
   macWatch,
   ownerEdits,
+  PHONE_DICTATION,
   people,
   quietRanges,
   speakerAssignments,
@@ -29,6 +30,7 @@ import {
   isNull,
   lt,
   lte,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -431,7 +433,13 @@ function loadTurns(
   const quiet = db
     .select()
     .from(quietRanges)
-    .where(and(lt(quietRanges.startedAt, to), gt(quietRanges.endedAt, from)))
+    .where(
+      and(
+        ne(quietRanges.source, PHONE_DICTATION),
+        lt(quietRanges.startedAt, to),
+        gt(quietRanges.endedAt, from)
+      )
+    )
     .all();
   const holder = holdersOf(db, starts);
   const names = namesIn(

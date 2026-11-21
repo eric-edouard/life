@@ -6,8 +6,13 @@
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
-import { type Dictation, macWatch, quietRanges } from "@lifelog/db/schema";
-import { and, eq, gt, lt } from "drizzle-orm";
+import {
+  type Dictation,
+  macWatch,
+  PHONE_DICTATION,
+  quietRanges,
+} from "@lifelog/db/schema";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { z } from "zod";
 import { logChange, logPlacedIn } from "./change-log";
 import {
@@ -60,7 +65,9 @@ function insertQuietRange(
     .onConflictDoNothing()
     .returning({ id: quietRanges.id })
     .all();
-  if (stored.length > 0) {
+  if (stored.length > 0 && range.source === PHONE_DICTATION) {
+    logChange(tx, "quietRange", range.id);
+  } else if (stored.length > 0) {
     const span: [Date, Date] = [range.startedAt, range.endedAt];
     // Dictation is not conversation: grouping covers it again (the tick, if nothing sooner).
     if (range.source !== "playback") {
@@ -227,7 +234,10 @@ export function macView(
   };
 }
 
-// The quiet ranges touching [start, end), as epoch-ms intervals.
+// What the server's processing leaves out: every quiet range but the phone's copy of its own dictation.
+export const processedQuiet = ne(quietRanges.source, PHONE_DICTATION);
+
+// The quiet ranges processing leaves out touching [start, end), as epoch-ms intervals.
 export const quietIn = (
   db: Pick<Db, "select">,
   [start, end]: [number, number]
@@ -237,6 +247,7 @@ export const quietIn = (
     .from(quietRanges)
     .where(
       and(
+        processedQuiet,
         lt(quietRanges.startedAt, new Date(end)),
         gt(quietRanges.endedAt, new Date(start))
       )

@@ -811,14 +811,13 @@ private func status(at seconds: Double) -> CaptureStatus {
     let run = status(at: 400)
 
     // The edit goes first, never behind uploads. The feed first, so fragments leave out the newest dictation; offline
-    // there (a GET tries twice), the speech still goes, then the timeline saying it went, and the run stops.
+    // there (a GET tries twice) before any whole pull, no speech goes (#802: a restored phone may lack the server's
+    // ranges of its own dictation), and the run stops.
     RebuildServer.hosts.withLock { $0[host, default: .init()].failures["/changes"] = [0, 0] }
     await #expect(throws: URLError.self) { try await driver.run(run) }
-    let title = "/vocabulary"
     let first = RebuildServer.hosts.withLock { $0[host]?.requests ?? [] }.map(\.path)
-    let steps = [title, "/changes", "/sources/pendant-1/speech/0", "/sources/pendant-1/timeline"]
-    #expect(steps.compactMap { first.firstIndex(of: $0) } == steps.compactMap { first.firstIndex(of: $0) }.sorted())
-    #expect(steps.allSatisfy(first.contains), "\(first)")
+    #expect(first.firstIndex(of: "/vocabulary") ?? .max < first.firstIndex(of: "/changes") ?? .min, "\(first)")
+    #expect(RebuildServer.requests(host, "PUT", "/sources/pendant-1/speech/").isEmpty)
     #expect(try await fixture.library.outbox().isEmpty)
     #expect(try await fixture.library.feedCursor() == nil)
     #expect(try await fixture.library.unsentLocations(limit: 10).fixes.count == 1)
@@ -839,7 +838,7 @@ private func status(at seconds: Double) -> CaptureStatus {
         $0.1["steps"]?.split(separator: ", ").map { $0.split(separator: " ")[0] }
     }
     #expect(runs.count == 3)
-    #expect(runs.first == ["outbox", "audio", "upload"])
+    #expect(runs.first == ["outbox", "audio"])
     #expect(runs.last == ["outbox", "audio", "feed", "upload", "locations"])
     let sent = logged.filter { $0.0 == "upload.sent" }.map(\.1)
     #expect(sent.map { $0["firstPage"] } == ["0"])
@@ -850,6 +849,27 @@ private func status(at seconds: Double) -> CaptureStatus {
     #expect(try await driver.run(run) == false)
     try await fixture.store(20..<22, shift: 100)
     #expect(try await driver.run(run) == false)
+}
+
+@Test func aRestoredPhoneSendsNoSpeechUntilOnePullReachesTheFeedsEnd() async throws {
+    let host = "restored-\(UUID().uuidString).test"
+    let fixture = try ScannerFixture()
+    try await fixture.store(0..<20)
+    let driver = Driver(
+        library: fixture.library, client: RebuildServer.client(host),
+        capture: .init(worker: fixture.worker, uploader: try makeUploader(fixture, host: host)))
+    // The first page comes; the one after it, which would hold the range of a dictation on the old phone, doesn't.
+    RebuildServer.hosts.withLock {
+        $0[host, default: .init()].feed = #"{"cursor":"1","more":true}"#
+        $0[host]?.failures["/changes"] = [200, 0, 0]
+    }
+    await #expect(throws: URLError.self) { try await driver.run(status(at: 400)) }
+    #expect(try await fixture.library.feedCursor() == "1")
+    #expect(RebuildServer.requests(host, "PUT", "/sources/pendant-1/speech/").isEmpty)
+    // Once the feed's end is reached, speech goes.
+    RebuildServer.hosts.withLock { $0[host]?.feed = #"{"cursor":"2","more":false}"# }
+    try await driver.run(status(at: 400))
+    #expect(!RebuildServer.requests(host, "PUT", "/sources/pendant-1/speech/").isEmpty)
 }
 
 @Test(.timeLimit(.minutes(1)))

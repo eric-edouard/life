@@ -197,6 +197,8 @@ public actor TimelineScanner {
 
     /// `SpeechPolicy.keptAudio` of `range` alone. Speech is padded and short cuts are bridged, so it reads a margin
     /// around `range` wide enough that nothing outside can change what is kept inside.
+    static let unboundedReach: Int64 = 86_400_000
+
     func kept(in range: Range<CaptureInstant>, frontier: CaptureInstant?) async throws -> [Range<CaptureInstant>] {
         let margin = policy.minimumCutMillis + 2 * policy.paddingMillis
         let wide = range.lowerBound.advanced(by: -margin)..<range.upperBound.advanced(by: margin)
@@ -208,8 +210,28 @@ public actor TimelineScanner {
         let windows = try windows(overlapping: [
             wide.lowerBound.advanced(by: -policy.paddingMillis)..<wide.upperBound.advanced(by: policy.paddingMillis)
         ])
-        let quiet = try await library.quietRanges(in: range)
-        return policy.keptAudio(spans: spans, windows: windows, quietRanges: quiet).map { $0.clamped(to: range) }
+        // A quiet range is left out where the Pendant's clock places it, give or take its error bound (the pad covers
+        // whole-second stamps). Speech whose clock nothing bounds isn't sent while this phone's dictation is within a
+        // day of it (#802). ponytail: a day is a guess for a clock never read; the raw backup still holds that audio.
+        let near =
+            range.lowerBound.advanced(by: -Self.unboundedReach)..<range.upperBound.advanced(by: Self.unboundedReach)
+        let quiet = try await library.quietRanges(in: near)
+        let dictated = try await library.hasDictation(in: near)
+        let model = ClockModel(syncs: try store.clock(deviceID: deviceID).map(\.sync))
+        var placed: [CaptureSpan] = []
+        var slack: Int64 = 0
+        for span in spans {
+            let bound = model.errorBound(
+                deviceMillis: span.interval.lowerBound.millis, pageIndex: span.pages.lowerBound)
+            guard let bound else {
+                if !dictated { placed.append(span) }
+                continue
+            }
+            placed.append(span)
+            slack = max(slack, bound)
+        }
+        let widened = quiet.map { $0.lowerBound.advanced(by: -slack)..<$0.upperBound.advanced(by: slack) }
+        return policy.keptAudio(spans: placed, windows: windows, quietRanges: widened).map { $0.clamped(to: range) }
             .filter { !$0.isEmpty }
     }
 

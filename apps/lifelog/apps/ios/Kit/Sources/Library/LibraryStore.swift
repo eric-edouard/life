@@ -52,11 +52,27 @@ public actor LibraryStore {
     /// Stores a stretch the uploader leaves out, in capture time: this app playing a recording out loud, or the owner
     /// dictating to it (#802: the phone drops what the Pendant heard then). A span still going grows or shrinks: it
     /// replaces the one stored with the same source and start, so the latest end wins.
-    public func setQuiet(_ source: QuietSource, _ range: Range<CaptureInstant>) throws {
+    /// `open`: a dictation still recording, closed by `closeDictation` (ServerAPI), which also queues it for the server.
+    public func setQuiet(_ source: QuietSource, _ range: Range<CaptureInstant>, open: Bool = false) throws {
         guard !range.isEmpty else { return }
         try db.run(
-            "INSERT OR REPLACE INTO quiet_ranges (source, start_ms, end_ms) VALUES (?1, ?2, ?3)",
-            [.text(source.rawValue), .int(range.lowerBound.millis), .int(range.upperBound.millis)])
+            "INSERT OR REPLACE INTO quiet_ranges (source, start_ms, end_ms, open) VALUES (?1, ?2, ?3, ?4)",
+            [.text(source.rawValue), .int(range.lowerBound.millis), .int(range.upperBound.millis), .int(open ? 1 : 0)])
+    }
+
+    /// Whether this phone's own dictation overlaps `range`.
+    public func hasDictation(in range: Range<CaptureInstant>) throws -> Bool {
+        try db.query(
+            "SELECT 1 FROM quiet_ranges WHERE source = 'dictation' AND start_ms < ?2 AND end_ms > ?1 LIMIT 1",
+            [.int(range.lowerBound.millis), .int(range.upperBound.millis)]
+        ) { _ in true }.first ?? false
+    }
+
+    /// The dictations a crash left open, with the capped end they were stored with.
+    public func openDictations() throws -> [Range<CaptureInstant>] {
+        try db.query("SELECT start_ms, end_ms FROM quiet_ranges WHERE source = 'dictation' AND open = 1") {
+            CaptureInstant(millis: $0.int(0))..<CaptureInstant(millis: $0.int(1))
+        }
     }
 
     /// Stretches uploads leave out overlapping `range`, sorted by start: the feed's quiet ranges (the Mac's dictation,
@@ -273,6 +289,7 @@ public actor LibraryStore {
             source TEXT NOT NULL,
             start_ms INTEGER NOT NULL,
             end_ms INTEGER NOT NULL,
+            open INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (source, start_ms)
         ) WITHOUT ROWID;
         INSERT OR REPLACE INTO quiet_ranges_by_source (source, start_ms, end_ms)

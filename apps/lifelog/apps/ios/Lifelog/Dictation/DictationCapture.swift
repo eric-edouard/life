@@ -1,65 +1,100 @@
 import AVFAudio
 import AudioPipeline
 import Library
+import ServerAPI
 import Timeline
 
 /// One dictation from this phone's microphone. The Pendant hears the owner too, so the stretch is left out of its
-/// uploads (#802): stored in the library up to the cap before the microphone opens (a failed write keeps it closed),
-/// cut to the real end at `finish`, and posted once through the outbox so a reinstalled phone gets it back from the
-/// feed. A crash leaves the capped stretch: at most 10 minutes of the Pendant's speech never uploaded (the raw backup
-/// keeps it).
+/// speech uploads (#802): stored in the library up to the cap before the microphone opens (a failed write keeps it
+/// closed), then at the end cut to what was recorded and queued for the server in the same write, so a reinstalled
+/// phone gets it back from the feed. A crash leaves the capped stretch, closed at the next launch: at most 10 minutes
+/// of the Pendant's speech never sent for processing (its raw backup still reaches his server).
 final class DictationCapture {
-    enum Failure: Error { case denied, noLibrary }
+    enum Failure: Error { case denied, noLibrary, tooLate }
 
     /// Whole-second Omi stamps and the Pendant clock's drift from the phone's, on both edges.
     static let pad: Int64 = 2_000
+    private static let cap = Duration.milliseconds(DictationRecording.capMillis)
 
     private let library: LibraryStore
     private let sync: SyncStore?
-    /// One start for the stretch and the recording, and one deadline: the stretch runs to `start + cap + pad`, the
-    /// microphone closes at `start + cap` at the latest.
+    /// One start for the stretch and the recording: the stretch runs to `start + cap + pad`, and the microphone
+    /// closes by `opened + cap` on the monotonic clock, both taken before anything else.
     private let start: CaptureInstant
+    private let opened: ContinuousClock.Instant
     private let mic: MicCapture
     private var lease: AudioSessionOwner.Lease?
     private var deadline: Task<Void, Never>?
     private var closing: Task<Data, any Error>?
+    /// Told once when it stopped on its own; the caller then takes the words with `finish`.
+    private let ended: @MainActor () -> Void
 
-    private init(library: LibraryStore, sync: SyncStore?, mic: MicCapture) {
-        (self.library, self.sync, self.mic) = (library, sync, mic)
-        start = CaptureInstant(.now)
+    private init(
+        library: LibraryStore, sync: SyncStore?, mic: MicCapture, start: CaptureInstant,
+        opened: ContinuousClock.Instant, ended: @escaping @MainActor () -> Void
+    ) {
+        (self.library, self.sync, self.mic, self.start, self.opened, self.ended) =
+            (library, sync, mic, start, opened, ended)
     }
 
-    /// Asks for the microphone, stores the stretch, then opens it. `ended` is told when it stops on its own (the cap,
-    /// a call, the microphone lost, playback taking the session): the caller then calls `finish`.
+    /// Closes the dictations a crash left open, once per launch, before any of this launch opens.
+    static func recover(library: LibraryStore?) async {
+        await recovery(library).value
+    }
+
+    private static var recovering: Task<Void, Never>?
+    private static func recovery(_ library: LibraryStore?) -> Task<Void, Never> {
+        if let recovering { return recovering }
+        let task = Task {
+            do { try await library?.closeInterruptedDictations() } catch { _ = report(error) }
+        }
+        recovering = task
+        return task
+    }
+
+    /// Asks for the microphone, stores the stretch, then opens it, unless the caller went away meanwhile. `ended` is
+    /// told once the microphone closed on its own (the cap, a call, the microphone lost, playback taking the session).
     static func begin(
         library: LibraryStore?, sync: SyncStore?, ended: @escaping @MainActor () -> Void
     ) async throws -> DictationCapture {
+        let (start, opened) = (CaptureInstant(.now), ContinuousClock.now)
         guard await AVAudioApplication.requestRecordPermission() else { throw Failure.denied }
         guard let library else { throw Failure.noLibrary }
-        let capture = DictationCapture(library: library, sync: sync, mic: try MicCapture())
-        try await capture.store(until: capture.start.advanced(by: DictationRecording.capMillis))
+        await recover(library: library)
+        let capture = DictationCapture(
+            library: library, sync: sync, mic: try MicCapture(), start: start, opened: opened, ended: ended)
+        try await library.setQuiet(
+            .dictation, capture.stretch(until: start.advanced(by: DictationRecording.capMillis)), open: true)
         do {
-            capture.lease = try AudioSessionOwner.shared.take(.recording, end: ended)
-            try capture.mic.start(ended: ended)
+            try Task.checkCancellation()
+            guard ContinuousClock.now < opened + cap else { throw Failure.tooLate }
+            capture.lease = try AudioSessionOwner.shared.take(.recording) { [weak capture] in capture?.stopOnItsOwn() }
+            try capture.mic.start { [weak capture] in capture?.stopOnItsOwn() }
         } catch {
             _ = try? await capture.finish()
             throw error
         }
-        capture.deadline = Task {
-            try? await Task.sleep(for: .milliseconds(DictationRecording.capMillis))
-            if !Task.isCancelled { ended() }
+        capture.deadline = Task { [weak capture] in
+            try? await Task.sleep(until: opened + cap, clock: .continuous)
+            if !Task.isCancelled { capture?.stopOnItsOwn() }
         }
         appEvent("dictation.opened")
         return capture
     }
 
-    /// Closes the microphone and returns what it heard (Ogg Opus); the stretch shrinks to the real end. Called again,
-    /// it returns the same.
+    /// Closes the microphone and returns what it heard (Ogg Opus). Called again, it returns the same.
     func finish() async throws -> Data {
         if let closing { return try await closing.value }
         let closing = Task { try await close() }
         self.closing = closing
         return try await closing.value
+    }
+
+    /// The microphone closes itself before the field hears of it.
+    private func stopOnItsOwn() {
+        guard closing == nil else { return }
+        closing = Task { try await close() }
+        ended()
     }
 
     private func close() async throws -> Data {
@@ -68,16 +103,21 @@ final class DictationCapture {
         do { heard = .success(try await mic.stop()) } catch { heard = .failure(error) }
         lease.map(AudioSessionOwner.shared.release)
         lease = nil
-        let end = min(CaptureInstant(.now), start.advanced(by: DictationRecording.capMillis))
-        // A failed write keeps the capped stretch: more left out, never less.
-        try? await store(until: end)
-        let stretch = start.advanced(by: -Self.pad).date..<end.advanced(by: Self.pad).date
-        await sync?.perform(.dictationQuiet(from: stretch.lowerBound, to: stretch.upperBound))
-        appEvent("dictation.closed", ["seconds": "\(start.distance(to: end) / 1000)"])
+        // From the monotonic clock: a wall clock set back can't make the stretch end before it starts.
+        let elapsed = min(opened.duration(to: .now), Self.cap)
+        let end = start.advanced(by: Int64(elapsed / .milliseconds(1)))
+        do {
+            try await library.closeDictation(stretch(until: end))
+            sync?.run()
+        } catch {
+            // The open stretch stays capped, and the next launch closes and queues it: more left out, never less.
+            _ = report(error)
+        }
+        appEvent("dictation.closed", ["seconds": "\(elapsed.components.seconds)"])
         return try heard.get()
     }
 
-    private func store(until end: CaptureInstant) async throws {
-        try await library.setQuiet(.dictation, start.advanced(by: -Self.pad)..<end.advanced(by: Self.pad))
+    private func stretch(until end: CaptureInstant) -> Range<CaptureInstant> {
+        start.advanced(by: -Self.pad)..<end.advanced(by: Self.pad)
     }
 }

@@ -420,11 +420,14 @@ extension Array {
     owner.release(recording)
     #expect(applied == [.playback, .recording, nil])
 
-    // An interruption ends the holder and lets the session go once.
+    // The app's own let-go of an earlier turn, arriving late, ends nothing; the system taking the session ends the
+    // holder and lets it go, once.
     var recordingEnded = 0
     _ = try owner.take(.recording) { recordingEnded += 1 }
-    owner.interrupt()
-    owner.interrupt()
+    owner.sessionBecameInactive(byApp: true)
+    #expect(recordingEnded == 0)
+    owner.sessionBecameInactive(byApp: false)
+    owner.sessionBecameInactive(byApp: false)
     #expect(recordingEnded == 1 && applied.suffix(2) == [.recording, nil])
 
     // A set-up that fails leaves no holder.
@@ -449,4 +452,32 @@ extension Array {
     #expect(abs(whole.count - 16_000) < 64 && abs(pieced.count - whole.count) < 64)
     let shared = min(whole.count, pieced.count) - 64
     #expect(zip(whole.prefix(shared), pieced.prefix(shared)).allSatisfy { abs($0 - $1) < 1e-4 })
+}
+
+@MainActor @Test func aBufferThatCantBeTakenEndsTheRecordingAndNothingAfterItIsTaken() async throws {
+    let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+    let other = try #require(AVAudioFormat(standardFormatWithSampleRate: 22_050, channels: 1))
+    func buffer(_ format: AVAudioFormat) throws -> AVReadOnlyAudioPCMBuffer {
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800))
+        buffer.frameLength = 4_800
+        for index in 0..<4_800 { buffer.floatChannelData![0][index] = Float(sin(Double(index) * 0.03)) * 0.3 }
+        return AVReadOnlyAudioPCMBuffer(copying: buffer)
+    }
+    let recording = try DictationRecording()
+    let (buffers, sink) = MicCapture.Buffers.makeStream()
+    for next in [format, other, format] { sink.yield(try buffer(next)) }
+    sink.finish()
+    await #expect(throws: AudioPipelineError.unsupportedInput) {
+        try await MicCapture.take(buffers, with: Resampler(from: format), into: recording)
+    }
+    #expect(abs(recording.millis - 100) <= 2, "the first buffer only")
+
+    // A queue with no room left ends the stream with an overrun, after what it holds.
+    let (full, tap) = MicCapture.Buffers.makeStream(bufferingPolicy: .bufferingOldest(1))
+    for _ in 0..<2 { MicCapture.offer(try buffer(format), to: tap) }
+    let overrun = try DictationRecording()
+    await #expect(throws: AudioPipelineError.microphoneOverrun) {
+        try await MicCapture.take(full, with: Resampler(from: format), into: overrun)
+    }
+    #expect(overrun.millis > 0)
 }

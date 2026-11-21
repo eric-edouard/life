@@ -101,6 +101,21 @@ public struct OutboxEntry: Sendable, Equatable {
 
 /// The outbox, in `library.sqlite`: durable, in the order the edits were made.
 extension LibraryStore {
+    /// A dictation's stretch at its end (#802), stored and queued for the server in one write, so a reinstalled phone
+    /// gets it back from the feed whatever happens after.
+    public func closeDictation(_ range: Range<CaptureInstant>, at now: Date = .now) throws {
+        try db.transaction {
+            try setQuiet(.dictation, range)
+            try enqueue(.dictationQuiet(from: range.lowerBound.date, to: range.upperBound.date), at: now)
+        }
+    }
+
+    /// Closes the dictations a crash left open at the capped end they were stored with. Run at launch, before any
+    /// dictation of this process opens.
+    public func closeInterruptedDictations() throws {
+        for range in try openDictations() { try closeDictation(range) }
+    }
+
     /// Queues an edit under `id`. The same id twice is one edit.
     public func enqueue(_ intent: OwnerIntent, id: UUID = UUID(), at now: Date = .now) throws {
         try db.run(

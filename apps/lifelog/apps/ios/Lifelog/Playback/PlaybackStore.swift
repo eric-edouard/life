@@ -65,7 +65,13 @@ final class PlaybackStore {
         _ file: URL, from start: Double = 0, for length: Double? = nil, id: String? = nil, onEnd: (() -> Void)? = nil
     ) {
         // The app's one session, shared with dictation (the Pendant's capture is Bluetooth, not AVAudioSession).
-        lease = try? AudioSessionOwner.shared.take(.playback) { [weak self] in self?.stop() }
+        // Without its turn at the session nothing plays.
+        do {
+            lease = try AudioSessionOwner.shared.take(.playback) { [weak self] in self?.stop() }
+        } catch {
+            _ = report(error)
+            return
+        }
         let item = AVPlayerItem(url: file)
         itemEnd.map(NotificationCenter.default.removeObserver)
         itemEnd = NotificationCenter.default.addObserver(

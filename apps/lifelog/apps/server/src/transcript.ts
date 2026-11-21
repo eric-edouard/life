@@ -5,6 +5,7 @@ import type { Db } from "@lifelog/db";
 import {
   type JobMap,
   transcriptionJobs as jobs,
+  PHONE_DICTATION,
   quietRanges,
   type Turn,
   type TurnRef,
@@ -13,7 +14,7 @@ import {
   unfinishedJobStates,
   type Word,
 } from "@lifelog/db/schema";
-import { and, asc, gt, gte, inArray, lt, min } from "drizzle-orm";
+import { and, asc, gt, gte, inArray, lt, min, ne } from "drizzle-orm";
 import { textOf } from "./elevenlabs";
 import { assignmentsByJob, speakerOf, voiceId } from "./people";
 
@@ -189,7 +190,13 @@ const quietIn = (db: Db, from: Date, to: Date) =>
   db
     .select()
     .from(quietRanges)
-    .where(and(lt(quietRanges.startedAt, to), gt(quietRanges.endedAt, from)))
+    .where(
+      and(
+        ne(quietRanges.source, PHONE_DICTATION),
+        lt(quietRanges.startedAt, to),
+        gt(quietRanges.endedAt, from)
+      )
+    )
     .all()
     .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const);
 

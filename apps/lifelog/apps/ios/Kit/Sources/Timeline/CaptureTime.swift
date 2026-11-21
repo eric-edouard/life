@@ -133,6 +133,20 @@ public struct ClockModel: Sendable, Equatable {
             deviceMillis: anchor.deviceMillis + uptime - anchor.uptimeMillis, pageIndex: anchor.pageIndex)
     }
 
+    /// The most a crystal drifts: its spec is ±20 to 50 ppm.
+    /// ponytail: a fixed bound with room; a drift measured from the closed epochs would tighten it.
+    public static let maxDrift = 100e-6
+
+    /// The most `captureInstant(deviceMillis:pageIndex:)` can be off, in ms, beyond whole-second stamps: none when the
+    /// closing reading of its epoch corrects it; else the drift since the set that opened the epoch; `nil` when
+    /// neither exists, so nothing bounds it.
+    public func errorBound(deviceMillis: Int64, pageIndex: UInt64) -> Int64? {
+        let next = syncs.firstIndex { $0.firstPageIndex > pageIndex } ?? syncs.count
+        if next < syncs.count, syncs[next].deviceMillisBeforeSet != nil { return 0 }
+        guard next > 0 else { return nil }
+        return Int64((Double(max(0, deviceMillis - syncs[next - 1].phoneMillis)) * Self.maxDrift).rounded(.up))
+    }
+
     /// Capture time of an RTC reading stamped on page `pageIndex`; `nil` when the RTC value is not trustworthy.
     public func captureInstant(deviceMillis: Int64, pageIndex: UInt64) -> CaptureInstant? {
         guard deviceMillis > Self.earliestPlausibleMillis else { return nil }

@@ -542,13 +542,18 @@ export const conversationJobs = sqliteView("conversation_jobs", {
 // Mac helper (apps/mac-quiet) already padded. The phone leaves it out of the audio it sends, and
 // words already bought inside it are hidden wherever transcripts are read. Never edited; the
 // helper's own id makes a retried post a no-op.
+// The phone's copy of its own dictation (#802), kept only so a reinstalled phone gets it back from the
+// feed: the phone already left that audio out by its own clock, so the server's processing never reads
+// it, and another source's audio at the same instant stays eligible.
+export const PHONE_DICTATION = "dictation";
+
 export const quietRanges = sqliteTable(
   "quiet_ranges",
   {
     createdAt,
     endedAt: instant("ended_at").notNull(),
     id: uuid("id").primaryKey(),
-    // The dictating app's bundle id.
+    // The dictating app's bundle id; "playback" or "dictation" from the phone.
     source: text("source").notNull(),
     startedAt: instant("started_at").notNull(),
   },

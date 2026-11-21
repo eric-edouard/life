@@ -213,8 +213,8 @@ reverse it, change its entry here in the same commit.
   the pendant's audio, and never uploads what it covers. The server never places a dictation on pendant audio itself:
   it would have to infer which remote clock stamped that audio, and three review rounds found that inference wrong (a
   clock measured late, audio buffered under an older clock, a clock with no measurement). The phone posts the stretch
-  as a quiet range (source `dictation`) only so a reinstalled phone gets it back from the feed; the server hides its
-  words like any quiet range. Android gets no phone dictation for now.
+  as a quiet range (source `dictation`) only so a reinstalled phone gets it back from the feed; the server's processing
+  never reads it, so another source's audio at that instant stays eligible. Android gets no phone dictation for now.
 
 ## People, places and search
 

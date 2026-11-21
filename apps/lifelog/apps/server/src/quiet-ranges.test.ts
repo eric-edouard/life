@@ -86,10 +86,11 @@ test("a retried post is stored once and answers the same", async () => {
   expect(rows.length).toBe(1);
 });
 
-test("Mac dictation marks the Pendant's grouping dirty; playback doesn't", () => {
+test("Mac dictation marks the Pendant's grouping dirty; playback and the phone's dictation copy don't", () => {
   env.db.insert(sources).values({ id: "dev1" }).run();
   const dirty = () => env.db.select().from(sources).all()[0]?.dirtyFrom ?? null;
   addQuietRange(env.db, { ...range(1000, 5000), source: "playback" });
+  addQuietRange(env.db, { ...range(1000, 5000), source: "dictation" });
   expect(dirty()).toBeNull();
   addQuietRange(env.db, {
     ...range(6000, 9000),

@@ -18,12 +18,23 @@ import {
   transcriptionJobs as jobs,
   joinTouching,
   type PageRanges,
+  PHONE_DICTATION,
   quietRanges,
   sources,
   speechFragments,
   type TranscriptionSettings,
 } from "@lifelog/db/schema";
-import { and, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { joinOggOpus, oggOpusSeconds } from "./audio";
 import {
   type AudioStore,
@@ -558,6 +569,7 @@ export function touchesQuiet(db: Db, map: JobMap) {
     .from(quietRanges)
     .where(
       and(
+        ne(quietRanges.source, PHONE_DICTATION),
         lt(quietRanges.startedAt, new Date(range.end)),
         gt(quietRanges.endedAt, new Date(range.start))
       )
