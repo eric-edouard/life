@@ -1,5 +1,5 @@
+import type { CheckInputs } from "../../memory/check-context";
 import { nameGroupsOf } from "../../memory/check-sentences";
-import type { CheckInputs } from "../../memory/checks";
 import { nameRow } from "../../memory/checks-test-inputs";
 import { networkIdentityOf } from "../../memory/network-identity";
 import { partyOf } from "../../memory/party";

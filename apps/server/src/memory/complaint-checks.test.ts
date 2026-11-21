@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
+import type { CheckInputs } from "./check-context";
 import { urgencyOf } from "./check-urgency";
-import { type CheckInputs, checksOf } from "./checks";
+import { checksOf } from "./checks";
 import { about, inputs, line, nameRow } from "./checks-test-inputs";
 import { causeOf } from "./complaint-checks";
 import type { Check } from "./life-checks";
