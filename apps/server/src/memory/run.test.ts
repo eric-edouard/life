@@ -48,7 +48,8 @@ test("a failure is the run's error, and its end says it failed", async () => {
   rec.error("offline", { unit: "u1" });
   rec.end({ error: "offline", failedAt: "triage", outcome: "failed" });
   expect(await read(step, rec.run)).toMatchObject({
-    errors: [{ error: "offline", unit: "u1" }],
+    // A run's read shows an error by its type; its words stay in the log on the Mac.
+    errors: [{ errorType: "Error", unit: "u1" }],
     outcome: "failed",
     result: { failedAt: "triage" },
   });
@@ -66,13 +67,14 @@ test("a processing run fails at the processing step whose step failed anything, 
   rec.end(failure);
   expect(failure).toEqual({
     error: "2 failed",
+    errorType: "Error",
     failedAt: "extract",
     outcome: "failed",
   });
   expect(await read(step, rec.run)).toMatchObject({
     errors: [
-      { error: "offline", step: `${step}.push` },
-      { error: "extract: 2 failed" },
+      { errorType: "Error", step: `${step}.push` },
+      { errorType: "Error", failedAt: "extract" },
     ],
     outcome: "failed",
     result: { failedAt: "extract" },

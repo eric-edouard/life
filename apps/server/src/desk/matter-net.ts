@@ -4,6 +4,7 @@ import { closestOf, type Embedder, embedAll } from "../core/embedder";
 import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   agentOf,
   anchorsOf,
@@ -138,7 +139,7 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
         queries.set(t, vectors[i] ?? []);
       }
     } catch (error) {
-      log("desk.net", { error: String(error), ok: false, what: "embed" });
+      log("desk.net", { ...errorOf(error), ok: false, what: "embed" });
       return null;
     }
   }
@@ -260,7 +261,7 @@ async function relatedOf(
       );
       isWhole = true;
     } catch (error) {
-      log("desk.net", { error: String(error), ok: false, what: "embed" });
+      log("desk.net", { ...errorOf(error), ok: false, what: "embed" });
     }
   }
   const vectorOf = new Map(compared.map((t, i) => [t, vectors[i]]));
@@ -356,7 +357,7 @@ export async function relatedRecordings(
   try {
     spoken = await spokenLines(units, people.resolve, people.truth);
   } catch (error) {
-    log("desk.net", { error: String(error), ok: false, what: "voice" });
+    log("desk.net", { ...errorOf(error), ok: false, what: "voice" });
     return [];
   }
   const wakes = await Promise.all(

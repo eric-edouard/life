@@ -1032,7 +1032,7 @@ function outputCards(r: Reads): Card[] {
         [!mailedTo(), { tone: "idle", word: "kept on the Mac" }],
         [true, { tone: "ok", word: "sending" }]
       ),
-      content: mails.map((m) => String(m.subject ?? m.key ?? "")),
+      content: mails.map((m) => String(m.key ?? "")),
       facts: [
         { label: "Sent today", value: String(mails.length) },
         {

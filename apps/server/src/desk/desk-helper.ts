@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, HOUR, MIN } from "../core/clock";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import type { RuntimeName } from "../core/names";
 import { off } from "../core/outputs";
 import { dayNow } from "../memory/zones";
@@ -59,7 +60,7 @@ export async function desk() {
     log("desk.store_step", { done: stepStore() });
     log("desk.store_step", { done: stepRoles(), step: "roles" });
   } catch (error) {
-    log("desk.store_step", { error: String(error), ok: false });
+    log("desk.store_step", { ...errorOf(error), ok: false });
     console.error(`${clock().toISOString()} desk: ${String(error)}`);
     await new Promise(() => setInterval(() => undefined, HOUR));
   }

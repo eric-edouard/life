@@ -62,7 +62,7 @@ const ENTRIES: Record<
   { content?: (e: LogLine) => string; title: (e: LogLine) => string }
 > = {
   "email.sent": {
-    content: (e) => String(e.subject ?? ""),
+    content: (e) => String(e.key ?? ""),
     title: () => "email sent",
   },
   "mcp.call": {

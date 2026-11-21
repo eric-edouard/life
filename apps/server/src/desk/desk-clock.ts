@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
 import { isOwnLife } from "../core/platform";
 import {
@@ -251,7 +252,7 @@ export async function pollCalls(
       )
     )();
   } catch (error) {
-    log("desk.runtime", { error: String(error), ok: false, what: "calls" });
+    log("desk.runtime", { ...errorOf(error), ok: false, what: "calls" });
   }
 }
 
@@ -384,6 +385,7 @@ const markBegun = (db: Desk["db"], turn: number) =>
       return;
     }
     db.run("update turn set begun_at = ? where id = ?", [now(), turn]);
+    log("desk.turn", { assignment: t.assignment_id, phase: "begun", turn });
     db.run(
       "update event set handed = handed + 1 where assignment_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
       [t.assignment_id, t.started_at]
@@ -407,7 +409,7 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
     .catch((error: unknown) =>
       log("desk.runtime", {
         agent: id,
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         what: "end",
       })
@@ -542,7 +544,7 @@ async function launch(
       } catch (error) {
         log("desk.runtime", {
           agent: a.id,
-          error: String(error),
+          ...errorOf(error),
           ok: false,
           what: "session",
         });
@@ -567,11 +569,11 @@ async function launch(
   } catch (error) {
     log("desk.runtime", {
       agent: a.id,
-      error: String(error),
+      ...errorOf(error),
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, a.id, { ok: false, why: (error as Error).message });
+    await turnEnded(desk, a.id, { ok: false, why: errorOf(error).error });
   }
 }
 
@@ -680,6 +682,14 @@ function close(
   if (ended === 0) {
     return false;
   }
+  log("desk.turn", {
+    assignment: t.assignment_id,
+    ok: outcome !== "failed",
+    outcome,
+    phase: "ended",
+    tokensOut: usage?.tokensOut,
+    turn: t.id,
+  });
   db.run(
     outcome === "waited" || outcome === "finished"
       ? "update event set consumed_at = ? where assignment_id = ? and handed > 0 and consumed_at is null and dropped_at is null"
@@ -777,7 +787,7 @@ async function isReminded(desk: Desk, t: TurnRow, a: AgentRow) {
     } catch (error) {
       log("desk.runtime", {
         agent: a.id,
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         what: "remind",
       });
