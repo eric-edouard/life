@@ -138,7 +138,9 @@ final class LifeStore {
     /// The phone's network path, which the pendant's sync follows too.
     private let path: NetworkPath
     /// How the newest settled read of Life ended: with the path, whether Life can be reached (`whyOutOfReach`).
-    private var connection = LifeConnection()
+    /// Kept out of observation (its `asked` moves on every read); `lost` is the part a screen watches, set only when it changes.
+    @ObservationIgnored private var connection = LifeConnection()
+    private var lost: MCPError?
     /// One read of each kind at a time, plus one more pass.
     @ObservationIgnored private let flights: ReadFlights
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
@@ -185,7 +187,10 @@ final class LifeStore {
     /// Why Life cannot be reached now (no internet, or the newest read found the Mac out of reach), nil when it can. While
     /// it is not nil the app is read-only: no tap on a screen acts (`refusedOutOfReach`), its controls are off, and every
     /// read screen says why.
-    var whyOutOfReach: String? { connection.whyNot(hasPath: hasPath) }
+    var whyOutOfReach: String? {
+        _ = lost  // the observed part of `connection`
+        return connection.whyNot(hasPath: hasPath)
+    }
     var isOutOfReach: Bool { whyOutOfReach != nil }
     /// Whether Life answers: its inbox read, the one every screen starts from.
     var link: LinkState { outcome.link(hasRead: inbox.value != nil) }
@@ -496,6 +501,7 @@ final class LifeStore {
             // Every read says whether Life could be reached (`whyOutOfReach`).
             let apply = { (event: ReadState<V>.Event) in
                 self.connection.note(event, asked: asked)
+                if self.lost != self.connection.lost { self.lost = self.connection.lost }
                 update(event)
             }
             apply(.started)
@@ -940,7 +946,7 @@ final class LifeStore {
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
-        (answered, pushed, moveReceipts, connection) = (AnsweredCards(), nil, [:], LifeConnection())
+        (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
         holds.clear()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.

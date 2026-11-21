@@ -48,7 +48,21 @@ private func dinner(swapping swap: (String, String)? = nil) throws -> Appointmen
     let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
     #expect(trip.line(in: tokyo) == "Dinner with Camille, Fri" && trip.when(in: tokyo) == "All day, Fri 20 Nov")
     #expect(try dinner().mapsURL?.absoluteString == "https://maps.apple.com/?q=Chez%20Lou")
-    #expect(try dinner().calendarURL?.scheme == "calshow")
+    #expect(try dinner().calendarURL()?.scheme == "calshow")
+}
+
+@Test func anAllDayOneOpensCalendarOnItsOwnDayWherePhoneIsAndAnOffsetIsRead() throws {
+    let trip = try dinner(
+        swapping: (
+            #""startsAt":"2026-11-20T19:00:00.000Z","endsAt":"2026-11-20T21:00:00.000Z","allDay":false"#,
+            #""startsAt":"2026-11-20","endsAt":"2026-11-23","allDay":true"#
+        ))
+    let la = try #require(TimeZone(identifier: "America/Los_Angeles"))
+    // Midnight of 20 Nov in Los Angeles (UTC-8) is 08:00 UTC; UTC's midnight would open the 19th there.
+    let midnight = Date(timeIntervalSince1970: 1_795_132_800 + 8 * 3600)
+    #expect(trip.calendarURL(in: la)?.absoluteString == "calshow:\(Int(midnight.timeIntervalSinceReferenceDate))")
+    let offset = try dinner(swapping: ("2026-11-20T19:00:00.000Z", "2026-11-20T20:00:00.000+01:00"))
+    #expect(offset.start == (try dinner()).start)
 }
 
 @Test func removeFromItsNotificationSaysHowItWent() throws {
