@@ -130,6 +130,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited",
     "read_processing_runs",
     "read_registered_agents",
+    "read_resource_samples",
     "request_decision",
     "search",
     "tell_life",
@@ -169,6 +170,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
     "read_registered_agents()",
+    "read_resource_samples()",
     "request_decision(context,deadline,doneSeenBy,draft,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
@@ -276,17 +278,26 @@ test("a call logs who asked, its arguments' names, and what surfaced without its
   expect(JSON.stringify(told)).not.toContain("Lyon");
 });
 
-test("read_log_lines: his token reads the log newest first, both shapes, as his app shows them; an agent's is refused", async () => {
-  const call = async (over: Record<string, unknown>, args: object) =>
-    (
-      await rpc(await token(over), "tools/call", {
-        arguments: args,
-        name: "read_log_lines",
-      })
-    ).json.result;
-  const agent = await call({}, {});
-  expect(agent).toMatchObject({ isError: true });
-  expect(agent.content[0].text).toContain("paired as an agent");
+test("read_log_lines: his token reads the log newest first, both shapes, as his app shows them; an agent's is refused, as for read_resource_samples", async () => {
+  const call = async (
+    over: Record<string, unknown>,
+    args: object,
+    name = "read_log_lines"
+  ) =>
+    (await rpc(await token(over), "tools/call", { arguments: args, name })).json
+      .result;
+  for (const agent of await Promise.all(
+    ["read_log_lines", "read_resource_samples"].map((n) => call({}, {}, n))
+  )) {
+    expect(agent).toMatchObject({ isError: true });
+    expect(agent.content[0].text).toContain("paired as an agent");
+  }
+  expect(
+    JSON.parse(
+      (await call({ agent: undefined }, {}, "read_resource_samples")).content[0]
+        .text
+    )
+  ).toMatchObject({ hour: [] });
   // A made-up day after every other, so it is the newest: the phone's fixture. A line before LogTape, then one of it.
   const day = join(LOG_DIR, "2099-01-01.jsonl");
   writeFileSync(
@@ -756,6 +767,7 @@ test("built to serve reads only (the question cases' agent), the connector regis
   expect(names).toContain("search");
   // His log is his token's alone: never on a server with no token.
   expect(names).not.toContain("read_log_lines");
+  expect(names).not.toContain("read_resource_samples");
 });
 
 test("change_directory_entry is his: an agent's token is refused, and `said` is required; truth/ stays as it was", async () => {

@@ -139,6 +139,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | the unnamed turn's key | `<turn ref> voice:<label>`, how a turn nobody named is kept in a voice naming (`unnamedTurnKey`, `memory/units.ts`), beside `turnKey` (`<turn ref> <author>`) for a named one. A voice renamed changes it, so its part is asked again. | |
 | conversation part | One call's worth of a spoken conversation: at most `CONVERSATION_PART_CHARS` (150,000) characters, cut at its longest silence, lines numbered from 0 (`spokenPartsOf`). Named by the ref of its first turn; a part after the first is given the summary of the one before. Not a read part (though `person:me/conversation/<ref>` opens its summary as one). | |
 | log line | One line of Life's event log (`LIFE_STATE_DIR/log/<UTC day>.jsonl`, `log`, `core/log.ts`) or Voice's server log, written through LogTape (`logWriter`, `core/log-line.ts`): `time`, `level`, `category`, `msg` (a template of its own fields), then metadata only (ids, kinds, counts, durations, statuses, an error by `errorOf`), never words, argument values or bodies. `read_log_lines` shows it to his app (`shownLineOf`). Not a process log (`~/Library/Logs`). | |
+| resource sample | One `resource.sample` line a minute (`sampleResources`, `host/resource-sample.ts`): CPU % and memory per group of Life's processes, and the Mac's load, memory, swap, disk, battery and heat. `read_resource_samples` serves the last hour. Not the status snapshot's MacBook card. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
 | conversation-day | A voice unit: one conversation's turns on one local day, titled by its conversation label, its words fetched only when its day is read. | |
 | conversation label | The first line of a conversation-day's text and its unit's title, made by code: "Conversation at 14:05", with " with Sam, Mai" when anybody but the owner spoke (`conversationLabel`, `memory/units.ts`). Not lifelog's generated title or the owner's own title, which Life does not read. | |
@@ -288,7 +289,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
+| appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel, or by day from new lines that agree it (the arrival reader's `arrival_appointment` read): a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, `memory/arrival-appointments.ts`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `pastCalendar` setting). Life's output, never a source. | |
 | processing run | One scheduled batch of processing steps: `nightly` (`PROCESSING_RUNS`; `backfill` names past runs still in the log). | |
 | processing step | One part of a processing run (`episodes`, `extract`, `pages`), shown as a step on the status card (`processingSteps`, tracked by `trackProcessingSteps`). Not a matter step. | |

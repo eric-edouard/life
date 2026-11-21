@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import { readChangeStamp } from "../core/files";
 import { type CheckGroup, LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
@@ -6,6 +5,7 @@ import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
+import { pushIdOf } from "../sources/lifelog-push";
 import {
   type NamingQueueItem,
   readNamingQueue,
@@ -592,10 +592,6 @@ export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
   id: string
 ) =>
   list.filter((c) => c.matter?.id === id || c.ridesOn.matterIds.includes(id));
-
-/** A card's id for a push: 16 hex of an HMAC of its ref under a key that never leaves the Mac. The phone matches it against the inbox; it is never the ref. */
-export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
-  createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
 
 /** A check as the inbox lists it: with its `pushId` and its `urgency`. */
 export type InboxCheck = Check & { pushId: string; urgency: Urgency };

@@ -98,7 +98,6 @@ import type { Extracted, Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
 import { checks } from "../todo-list/backend";
-import { syncAppointments } from "./appointments-calendar";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
@@ -247,12 +246,6 @@ export async function nightly(days: number, force = false) {
     code =
       (await locked(() => runNight(days, now, day, force))) ?? Number(force);
   }
-  // The appointments first, with their own catch: the Past calendar's whole sync after the night must not spend
-  // Google's rate limit before them.
-  await syncAppointments(now).then(
-    (r) => r && console.log(JSON.stringify({ appointments: r })),
-    (e) => log("run.error", { ...errorOf(e), step: "appointments" })
-  );
   // The Past calendar follows the episodes each tick, those ending in the last 3 days, and the whole of it after the
   // night (past-calendar.ts); a failure only logs, the next tick tries again.
   await syncPast(
