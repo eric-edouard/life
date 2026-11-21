@@ -162,7 +162,8 @@ export async function complain(
 
 /**
  * His complaint through Tell Life (the main session's `complain`, his words `said` found in his ask): on card `ref` when
- * one was on his screen (read now: null when it left), else on nothing but his words; one per ask `key` (a second call
+ * one was on his screen (read now: null when it left; its cause Life's own, so it shows as being fixed), else on nothing
+ * but his words; one per ask `key` (a second call
  * under it is the first). `report`: he asked for the anonymized report to the developer. `{ ask, reached }` once the
  * desk received it for the caretaker, as a press's.
  */
@@ -186,6 +187,8 @@ export async function complainThroughTellLife(
       agent: DESK_AGENT,
       complaint: {
         card,
+        // The card's own cause as Life reads it now, so it shows as being fixed; none on his words alone.
+        ...(card?.misread ? { cause: card.misread.cause } : {}),
         ...stageOf(card),
         ref: ref ?? "",
         report,

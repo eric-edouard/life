@@ -122,8 +122,8 @@ export const isSpokenAsk = (a: LedgerEntry) =>
  * What his complaint names besides his words (`after.complaint`): the card's `ref`, the `cause` and the card he saw
  * (`shown`), each as his app sent their digests (`Check.misread`); the card as Life read it at his press (`card`; null
  * when it had left), and whether that was the one he saw (`isAsShown`); his tick on "Send an anonymized report to the
- * developer" (`report`). Through Tell Life (the main session's `complain`) the desk read the card itself, so there is
- * no `cause`, `shown` or `isAsShown`, and `ref` is empty when no card was on his screen.
+ * developer" (`report`). Through Tell Life (the main session's `complain`) Life read the card itself: its `cause` is the
+ * card's own (none on his words alone), with no `shown` or `isAsShown`, and `ref` is empty when no card was on his screen.
  */
 export interface Complaint {
   card: unknown;

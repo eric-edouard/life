@@ -10,7 +10,11 @@ import {
   WAIT_MS,
 } from "../host/change-registered-agent";
 import { complainThroughTellLife } from "../host/complaints";
-import { correctMatter, recordHisCorrection } from "../host/correct-matter";
+import {
+  correctMatter,
+  isHisOnly,
+  recordHisCorrection,
+} from "../host/correct-matter";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -57,6 +61,7 @@ import {
   keepMainSession,
   MAIN_ASK,
   tellAgent,
+  tellLifeRefOf,
 } from "./main-session";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
@@ -258,11 +263,15 @@ function doorServer(desk: Desk, id: string) {
       if (change.agent === id) {
         return { error: "Not done: the main session never changes itself." };
       }
+      const words = hisWordsOf(turn, said);
       return changeRegisteredAgent(
-        { ...change, said: hisWordsOf(turn, said) },
+        { ...change, said: words },
         undefined,
         WAIT_MS,
-        "tell-life"
+        tellLifeRefOf(turn?.id ?? -1, "change_registered_agent", {
+          change,
+          words,
+        })
       );
     }
   );
@@ -273,7 +282,15 @@ function doorServer(desk: Desk, id: string) {
       agent: RegisteredAgentChange.shape.agent.unwrap(),
       said: z.string().min(1).max(8000),
     }),
-    ({ agent, said }, _, turn) => tellAgent(desk, agent, hisWordsOf(turn, said))
+    ({ agent, said }, _, turn) => {
+      const words = hisWordsOf(turn, said);
+      return tellAgent(
+        desk,
+        agent,
+        words,
+        tellLifeRefOf(turn?.id ?? -1, "tell_agent", { agent, words })
+      );
+    }
   );
   door(
     "correct_memory",
@@ -284,7 +301,7 @@ function doorServer(desk: Desk, id: string) {
     }),
     async ({ correction, said }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      if (correction.matter === undefined) {
+      if (!isHisOnly(correction)) {
         return { done: [await recordHisCorrection(correction)] };
       }
       return {

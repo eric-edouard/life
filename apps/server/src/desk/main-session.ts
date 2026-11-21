@@ -1,9 +1,9 @@
 import { clock } from "../core/clock";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
 import { ask as recordAsk } from "../host/asks";
-import { requested } from "../host/change-todo-item";
 import {
   agentOf,
   assignmentOf,
@@ -216,6 +216,10 @@ async function answer(
     ? await runtime.state(a.session).catch(() => null)
     : "gone";
   const isFresh = state === "gone" || a.brief !== MAIN_BRIEF;
+  // A session kept warm on an older brief is closed first, so the new one starts from this brief alone.
+  if (isFresh && a.session && state !== "gone") {
+    await runtime.stop(a.session).catch(() => undefined);
+  }
   let words = "";
   const hear = (u: Update) => {
     if (u.kind === "words") {
@@ -325,12 +329,25 @@ export function askMainSession(
 }
 
 /**
+ * The ref of an ask of the desk one of the main session's acts records on its turn `turn`: one per turn, act and its
+ * arguments, so two acts never share an ask (a ref made from the time alone would, within a millisecond) and the same
+ * act called again in its turn records once.
+ */
+export const tellLifeRefOf = (turn: number, act: string, args: unknown) =>
+  `tell-life:${turn}:${act}:${digest("sha256", JSON.stringify(args), 12)}`;
+
+/**
  * His words `said` (found in his ask) to agent `agent`, from the main session's `tell_agent`: one ask of the desk in the
  * ledger with the assignment they go `to` (its own, else the one it works on now), which the spoken-ask intake places
  * there (`toldPlaceOf`) and the agent reads as data (`read_spoken_ask`). Refused for an agent not active, or the main
  * session itself.
  */
-export function tellAgent(desk: Desk, agent: string, said: string) {
+export function tellAgent(
+  desk: Desk,
+  agent: string,
+  said: string,
+  ref: string
+) {
   const a = agentOf(desk.db, agent);
   if (a?.status !== "active" || a.role === "main") {
     return { error: `Not done: ${agent} is not an active agent of his.` };
@@ -341,7 +358,7 @@ export function tellAgent(desk: Desk, agent: string, said: string) {
     return { error: `Not done: ${agent} holds no open assignment.` };
   }
   const line = recordAsk(
-    requested("tell-life", said),
+    { at: clock().toISOString(), quote: said, ref },
     { agent: DESK_AGENT, to },
     "connector",
     "his words through Tell Life to one agent"
