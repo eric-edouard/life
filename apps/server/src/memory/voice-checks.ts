@@ -55,8 +55,16 @@ export const voiceChecksOf = (
         options: LIFE_CHECKS.voice.options.filter(
           (o) => who || o.id !== "is-them"
         ),
+        // "Yes" is pre-ticked only on the person lifelog's likeness scored (`personId`), never on a name heard beside it.
         preTicked: preTickedOf(
-          { kind: "voice", subject: who ? known : null },
+          {
+            kind: "voice",
+            subject:
+              known &&
+              known === voicePersonOf(people.resolve, item.personId, null)
+                ? known
+                : null,
+          },
           item
         ),
         question: who ? `Is this ${who}?` : "Who is this?",
