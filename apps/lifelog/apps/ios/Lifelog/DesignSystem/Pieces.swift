@@ -1025,6 +1025,35 @@ struct Placeholder: View {
     }
 }
 
+/// A list still loading, in its own shape: one grouped card of rows (`groupedRow`), each its leading slot (a 28 icon, or
+/// a 40 disc for people) and two lines, so the list fades in over it.
+struct RowsPlaceholder: View {
+    var rows = 6
+    var hasDisc = false
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(spacing: Metrics.Spacing.m) {
+                    Placeholder(width: hasDisc ? PartyDisc.Size.row.rawValue : 28, height: hasDisc ? 40 : 22)
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                        Placeholder(width: 170, height: 14)
+                        Placeholder(width: 230, height: 11)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, Metrics.Spacing.l).frame(minHeight: Metrics.listRow)
+            }
+        }
+        .card()
+        .padding(.horizontal, Metrics.Spacing.m)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .readingWidth()
+        .accessibilityElement().accessibilityLabel(label)
+    }
+}
+
 extension View {
     /// A screen's content at a readable width, centred, whatever width it is given (a folded phone, an unfolded Duo, a split's
     /// column): it fills a narrow container and stops growing in a wide one.

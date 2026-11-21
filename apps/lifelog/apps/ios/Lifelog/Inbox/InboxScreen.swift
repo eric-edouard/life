@@ -65,10 +65,12 @@ struct InboxScreen: View {
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
             .toolbar {
-                if inSideColumn, #available(iOS 27.1, *) {
+                // Only while there is something to undo: an empty capsule still took the column's room, and the column
+                // put the Pendant's neighbours in an overflow menu (seen in `design:shots`).
+                let said = life.saidBack?.undo == nil ? nil : life.saidBack
+                if inSideColumn, life.latestHeld != nil || said != nil, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
                         // A held answer, else a project he parked from a card (`saidBack`).
-                        let said = life.saidBack?.undo == nil ? nil : life.saidBack
                         ColumnToast(answered: life.latestHeld?.held.label ?? said?.words) {
                             if let held = life.latestHeld { undo(held.ref) } else { said.flatMap(life.undoing)?() }
                         }
@@ -84,9 +86,10 @@ struct InboxScreen: View {
             // A project parked from a card's "Tell the agent…", said back with Undo.
             .saidBackToast(inSideColumn: inSideColumn)
             .toolbar {
+                // Back to the list of asks: the one Back of a list and its detail (his word, 21 Nov), never a sidebar's toggle.
                 if sizeClass != .regular {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }
+                        Button("Asks", systemImage: "chevron.backward") { router.inboxColumn = .sidebar }
                     }
                 }
             }

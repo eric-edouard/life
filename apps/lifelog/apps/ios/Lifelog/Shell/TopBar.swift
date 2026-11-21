@@ -20,22 +20,38 @@ private struct ShellBar: ViewModifier {
             .navigationTitle(label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // One item each, never a group: the closed Duo's side column took the group's first item only and left
-                // the gear alone in a bar of its own over the screen's title.
+                // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
+                // said to fit the column: a button the zoom wraps reads as a custom view, which the system keeps in a
+                // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
                 if hasPendant {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
-                    }
+                    if #available(iOS 27.1, *) { pendant.axisBehavior(.verticalPreferred) } else { pendant }
                 }
                 if hasSettings {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-                            .labelStyle(.iconOnly)
-                            .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
-                            .accessibilityIdentifier("top.settings")
-                    }
+                    if #available(iOS 27.1, *) { settings.axisBehavior(.verticalPreferred) } else { settings }
                 }
             }
+    }
+}
+
+extension ShellBar {
+    private var pendant: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
+        }
+    }
+
+    private var settings: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
+                .labelStyle(.iconOnly)
+                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
+                .accessibilityIdentifier("top.settings")
+                // Under the Pendant in the column: Tell Life stands below the lower of the two.
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
+                    if $0.width > 0, $0.minX > 0 { router.settingsFrame = $0 }
+                }
+                .onDisappear { router.settingsFrame = nil }
+        }
     }
 }
 
@@ -74,9 +90,11 @@ struct PendantItem: View {
         }
         .accessibilityLabel("Pendant, \(face.spoken)")
         .accessibilityIdentifier("top.pendant")
-        // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`).
+        // Where the system put it, so Tell Life stands on its vertical line, below it (`AppRouter.pendantFrame`). Only an
+        // item on screen: a collapsed split view keeps its hidden column's item laid out at the leading edge, which drew
+        // Tell Life over the content's left edge (seen in `design:shots`, the Inbox's moves).
         .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
-            if $0 != .zero { router.pendantFrame = $0 }
+            if $0.width > 0, $0.minX > 0 { router.pendantFrame = $0 }
         }
     }
 
