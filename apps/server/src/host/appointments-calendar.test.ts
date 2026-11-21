@@ -363,14 +363,14 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   agreed("2031-06-01 10:00", ["whatsapp|m1"]);
   await syncAppointments(NOW);
   const [event, first] = [...events][0] ?? [];
-  const writeNight = (id: string) =>
+  const writeNight = (nightId: string) =>
     Bun.write(
       APPOINTMENTS,
       JSON.stringify({
         appointments: [
           appointment({
             end: "2031-06-01 11:00",
-            id,
+            id: nightId,
             start: "2031-06-01 10:00",
           }),
         ],
