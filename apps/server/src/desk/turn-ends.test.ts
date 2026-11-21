@@ -135,6 +135,16 @@ test("a reminder held by his app is dropped when he stops the agent: its turn en
   expect(turnOf(desk.db, turn)?.ended_at).not.toBeNull();
 });
 
+test("a reminder held by his app ends with the agent when its session finishes it", async () => {
+  const { agent, desk, reminders, turn } = await heldAtTheEnd();
+  desk.db.run("update turn set outcome = 'finished' where id = ?", [turn]);
+  desk.db.run("update agent set status = 'ended' where id = ?", [agent]);
+  await endLostTurns(desk);
+  expect(reminders()).toBe(0);
+  expect(turnOf(desk.db, turn)?.outcome).toBe("finished");
+  expect(turnOf(desk.db, turn)?.ended_at).not.toBeNull();
+});
+
 test("a reminded turn's tokens are both runs'", async () => {
   const { agent, desk, fake, release, turn } = await heldAtTheEnd();
   release();

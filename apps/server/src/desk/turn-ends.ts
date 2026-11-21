@@ -264,7 +264,7 @@ async function isReminded(desk: Desk, t: TurnRow, a: AgentRow) {
     } catch (error) {
       if (error instanceof SessionLive) {
         desk.db.run(
-          "update turn set reminded_at = null, outcome = 'default_wait' where id = ?",
+          "update turn set reminded_at = null, outcome = coalesce(outcome, 'default_wait') where id = ?",
           [t.id]
         );
         watchedIn(desk.db).delete(t.id);
@@ -298,16 +298,18 @@ const eachOpenTurn = (
  * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; one whose reminder waits for his
  * app's hold (`isReminded`) is reminded. One still running (a session of his, or a killed turn's CLI not yet exited) is
  * left to the begin limit; a runtime that can't say now is looked at again at the next poll. A reminder that waits on an
- * agent stopped or ended since is dropped: its turn ends with the default wait.
+ * agent stopped or ended since is dropped: its turn ends by its outcome (a wait or `finish` his app's session gave it,
+ * else the default wait).
  */
 export async function endLostTurns(desk: Desk) {
   const watching = watchedIn(desk.db);
   await Promise.all(
     desk.db
       .query<{ id: number }, []>(
-        "select t.id from turn t join agent a on a.id = t.agent_id where t.ended_at is null and t.outcome = 'default_wait' and a.status <> 'active'"
+        "select t.id from turn t join agent a on a.id = t.agent_id where t.ended_at is null and t.outcome is not null and a.status <> 'active'"
       )
       .all()
+      .filter(({ id }) => !watching.has(id))
       .map(({ id }) => turnEnded(desk, id, { ok: true }))
   );
   await eachOpenTurn(desk, async (a, t, runtime) => {
