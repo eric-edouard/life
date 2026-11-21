@@ -353,8 +353,8 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(one).toContain(
     'Every card also offers Drop it, marked `ends: "matter"`'
   );
-  expect(one).not.toContain("Start with this plan?");
-  expect(two).toContain("Start with this plan?");
+  expect(one).not.toContain("Start the plan");
+  expect(two).toContain("Start the plan");
   expect(two).not.toContain("Life handed you this matter");
   expect(byId(desk, handed ?? "").opened_by).toBe("desk");
 });
@@ -497,8 +497,27 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
   const step = "obs_00000000f031";
   await withBook(
     [toDo(step, "I'll send the invoice")],
-    { id: "matter_00000000f031", steps: [step] },
+    { id: "matter_00000000f031", projects: ["test-bakery"], steps: [step] },
     async () => {
+      // Its project's matter: the agent takes it, so its own assignment asks on it.
+      const readTruth = await import("../memory/read-truth");
+      const made = await readTruth.loadTruth();
+      using _truth = spyOn(readTruth, "loadTruth").mockResolvedValue({
+        ...made,
+        projects: [
+          ...made.projects,
+          {
+            chats: [],
+            deadlines: [],
+            id: "test-bakery",
+            name: "Test bakery",
+            notes: "",
+            people: [],
+            repos: [],
+            status: "active",
+          },
+        ],
+      } as never);
       const agent = register(desk, {
         brief: "Test brief: the bakery",
         project: "test-bakery",

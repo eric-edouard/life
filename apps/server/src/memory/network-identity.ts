@@ -5,6 +5,7 @@ import { readUnitsFor } from "./memory-files";
 import type { Party } from "./party";
 import { chatUnitsFor, readPersonUnits } from "./person-units";
 import { OWNER } from "./read-truth";
+import { samePersonPairOf } from "./same-person";
 import { isDirect, SOURCES, sourceOf } from "./sources";
 import { type Message, oneLineOf, UNKNOWN } from "./units";
 import type { People } from "./who";
@@ -67,10 +68,13 @@ export function networkIdentityOf(
   ownerName: string
 ): NetworkIdentity {
   const source = sourceOf(unit.source);
+  // The chat's handle, else its last sender's; of the two, one the network opens first (a WhatsApp `@lid` opens nothing).
+  const handles = [
+    source.handleOf?.(unit.key),
+    messages.findLast((m) => !m.fromMe)?.sender,
+  ].filter((h): h is string => !!h);
   const handle =
-    source.handleOf?.(unit.key) ??
-    messages.findLast((m) => !m.fromMe)?.sender ??
-    null;
+    handles.find((h) => source.chatLinkOf?.(h)) ?? handles[0] ?? null;
   // A chat-day's title is its chat's name, else its key: a key is no name.
   const shownName = unit.title === unit.key ? null : unit.title;
   const last = messages.at(-1);
@@ -92,7 +96,11 @@ export function networkIdentityOf(
 
 /** What the index files a check's person as: their ref now, and each of their handles while no one is known by it. */
 const refsOf = (c: PersonCheck, refOf: People["refOf"]) =>
-  new Set([refOf(c.ref), ...c.about.map((h) => `${UNKNOWN}${h}`)]);
+  new Set([
+    // A same person card's ref is the pair: its chat is the guess's.
+    refOf(samePersonPairOf(c.ref).guess || c.ref),
+    ...c.about.map((h) => `${UNKNOWN}${h}`),
+  ]);
 
 /**
  * Each person check's network identity, by its ref (a decision's `confirm` guesses too). Reads one bounded query of
@@ -143,7 +151,9 @@ export async function readNetworkIdentities(
             t.check.ref,
             {
               ...networkIdentityOf(read.built.unit, read.built.messages, owner),
-              party: people.partyOf(t.check.ref),
+              party: people.partyOf(
+                samePersonPairOf(t.check.ref).guess || t.check.ref
+              ),
             },
           ] as const)
         : null;

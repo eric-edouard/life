@@ -74,19 +74,7 @@ export function googleCalendar(calendar: string, account: string) {
     },
     /** Whether event `id` is still there: false only when Google says it is gone; any other failure throws. */
     async exists(id: string) {
-      const r = await exec(
-        ...gogCall("calendar", account, ["event", calendar, id])
-      );
-      if (r.code !== 0) {
-        if (GONE.test(r.stderr)) {
-          return false;
-        }
-        throw new Error(`gog calendar event: ${r.stderr.trim().slice(-400)}`);
-      }
-      return (
-        (JSON.parse(r.stdout) as { event?: { status?: string } }).event
-          ?.status !== "cancelled"
-      );
+      return (await this.read(id)) !== null;
     },
     /** Life's events from `from` to `to` (RFC3339): every one with private properties, or only those matching `filter` (`key=value`). */
     async list(from: string, to: string, filter?: string) {
@@ -115,8 +103,35 @@ export function googleCalendar(calendar: string, account: string) {
       } while (page);
       return held;
     },
+    /** Event `id`'s private properties; null only when Google says it is gone; any other failure throws. */
+    async read(id: string) {
+      const r = await exec(
+        ...gogCall("calendar", account, ["event", calendar, id])
+      );
+      if (r.code !== 0) {
+        if (GONE.test(r.stderr)) {
+          return null;
+        }
+        throw new Error(`gog calendar event: ${r.stderr.trim().slice(-400)}`);
+      }
+      const { event } = JSON.parse(r.stdout) as {
+        event?: {
+          extendedProperties?: { private?: Record<string, string> };
+          status?: string;
+        };
+      };
+      return event?.status === "cancelled"
+        ? null
+        : { props: event?.extendedProperties?.private ?? {} };
+    },
+    /** Deletes event `id`; one Google says is gone already counts as deleted. */
     async remove(id: string) {
-      await run(["delete", calendar, id, "--force"]);
+      const r = await exec(
+        ...gogCall("calendar", account, ["delete", calendar, id, "--force"])
+      );
+      if (r.code !== 0 && !GONE.test(r.stderr)) {
+        throw new Error(`gog calendar delete: ${r.stderr.trim().slice(-400)}`);
+      }
     },
     async update(id: string, f: EventFields, props: Record<string, string>) {
       await run(["update", calendar, id, ...flagsOf(f, props, true)]);

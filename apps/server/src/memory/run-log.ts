@@ -1,11 +1,26 @@
+import { closeSync, fstatSync, openSync, readSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
-import { clock, daysBefore } from "../core/clock";
-import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
+import { clock, daysBefore, HOUR } from "../core/clock";
+import {
+  LOG_DIR,
+  type LogEvent,
+  logDays,
+  logEvents,
+  logFileOf,
+} from "../core/log";
+import {
+  LOG_LEVELS,
+  type LogLevel,
+  type ShownLine,
+  shownLineOf,
+} from "../core/log-line";
 import type { Quota } from "../models/llm";
 import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./memory-files";
 import { lockedSince } from "./memory-lock";
+import { spendsOfLine } from "./spends";
 import { lastDays, localDate, localTime } from "./zones";
 
 // Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: processing runs, their steps,
@@ -335,8 +350,8 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
 }
 
 /**
- * The model calls (`model.run` lines) summed by run id, or by `groupOf` (the source-use table's run and day): the one
- * fold of what calls spent and read. A call with no `costUsd` is unpriced.
+ * The model calls (`model.run` lines, read as spends: `spendsOfLine`) summed by run id, or by `groupOf` (the source-use
+ * table's run and day): the one fold of what calls spent and read. A billed spend with no cost is unpriced.
  */
 export function modelCallsOf(
   events: LogEvent[],
@@ -345,16 +360,18 @@ export function modelCallsOf(
   const by = new Map<string, Calls>();
   for (const e of events) {
     const key = e.kind === "model.run" && e.run && groupOf(e);
-    if (key) {
-      const cost = e.costUsd as number | undefined;
+    const spends = key ? spendsOfLine(e, "daytime") : [];
+    // A call is unpriced once, whichever of its routers' tries sent no cost.
+    const isUnpriced = spends.some((s) => s.basis === "billed" && !s.reported);
+    for (const s of spends) {
       by.set(
-        key,
-        addCalls(by.get(key) ?? NO_CALLS, {
-          calls: 1,
-          costUsd: cost ?? 0,
-          reads: (e.reads as ReadCounts | undefined) ?? {},
-          tokens: (e.tokens as Tokens | undefined) ?? NONE,
-          unpriced: cost === undefined ? 1 : 0,
+        key as string,
+        addCalls(by.get(key as string) ?? NO_CALLS, {
+          calls: s.calls,
+          costUsd: s.usd ?? 0,
+          reads: s.reads ?? {},
+          tokens: s.tokens ?? NONE,
+          unpriced: isUnpriced && s.calls > 0 ? 1 : 0,
         })
       );
     }
@@ -444,3 +461,156 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
 }
 
 const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
+
+// --- log lines -----------------------------------------------------------------------------------------------------
+
+/** The day files one `read_log_lines` call reads at most: the rest is the next page's. */
+const LOG_DAYS_PER_READ = 2;
+/** Where a page of log lines ends: a day's file and the byte its last line read starts at (null: the file's end). */
+const LogCursor = z.tuple([z.string(), z.int().nonnegative().nullable()]);
+
+export interface LogLinesQuery {
+  cursor?: string;
+  limit?: number;
+  minLevel?: LogLevel;
+  process?: string;
+}
+
+/** One stored line as `q` shows it, or undefined: filtered out, or not a line (a bad line never stops a reader). */
+function shownOf(raw: string, q: LogLinesQuery) {
+  let shown: ShownLine | undefined;
+  try {
+    shown = shownLineOf(JSON.parse(raw));
+  } catch {
+    return;
+  }
+  const isShown =
+    shown &&
+    LOG_LEVELS.indexOf(shown.level) >=
+      LOG_LEVELS.indexOf(q.minLevel ?? "info") &&
+    (!q.process || shown.category[0] === q.process);
+  return isShown ? shown : undefined;
+}
+
+/**
+ * The event log's lines as his app is shown them (`shownLineOf`), newest first, at least `minLevel` and of `process`
+ * (a category's first word) when given. Reads at most `LOG_DAYS_PER_READ` day files per page: a page may be short,
+ * and its `cursor` (a day's file and a byte in it, so lines appended meanwhile never shift it) goes on; null when no
+ * older line is left.
+ */
+export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
+  const limit = q.limit ?? PAGE;
+  const from = decode(q.cursor, LogCursor, null);
+  const days = (await logDays(dir)).filter((n) => !from || n <= from[0]);
+  const lines: ShownLine[] = [];
+  for (const name of days.slice(0, LOG_DAYS_PER_READ)) {
+    const stop = name === from?.[0] ? from[1] : null;
+    for (const { end, raw } of linesFromEnd(join(dir, name), stop)) {
+      if (lines.length === limit) {
+        return logPage(lines, [name, end]);
+      }
+      const shown = shownOf(raw, q);
+      if (shown) {
+        lines.push(shown);
+      }
+    }
+  }
+  const older = days[LOG_DAYS_PER_READ];
+  return logPage(lines, older ? [older, null] : null);
+}
+
+const logPage = (
+  lines: ShownLine[],
+  next: z.infer<typeof LogCursor> | null
+) => ({
+  cursor: next && encode(next),
+  lines,
+  observedAt: clock().toISOString(),
+});
+
+const BLOCK = 64 * 1024;
+const NEWLINE = 10;
+
+/**
+ * A file's lines from its end, newest first, read back a block at a time, each with the byte after its newline
+ * (`end`, a page's cursor); only those ending by `stop` when given. A torn last line (no newline yet) is left out.
+ */
+function* linesFromEnd(path: string, stop: number | null = null) {
+  let fd: number;
+  try {
+    fd = openSync(path, "r");
+  } catch {
+    return;
+  }
+  try {
+    const { size } = fstatSync(fd);
+    let pos = Math.min(size, stop ?? size);
+    let rest = Buffer.alloc(0);
+    // Until a newline is seen, the end is a torn line still being written: skipped, as `linesOf` does.
+    let isTorn = true;
+    const block = Buffer.alloc(BLOCK);
+    while (pos > 0) {
+      const n = Math.min(BLOCK, pos);
+      pos -= n;
+      readSync(fd, block, 0, n, pos);
+      // A newline byte is never inside a UTF-8 character, so a cut between blocks never splits one wrongly.
+      const buf = Buffer.concat([block.subarray(0, n), rest]);
+      let end: number = isTorn ? buf.lastIndexOf(NEWLINE) : buf.length;
+      isTorn = end < 0;
+      let i = end > 0 ? buf.lastIndexOf(NEWLINE, end - 1) : -1;
+      while (i >= 0) {
+        if (end > i + 1) {
+          yield { end: pos + end + 1, raw: buf.toString("utf8", i + 1, end) };
+        }
+        end = i;
+        i = end > 0 ? buf.lastIndexOf(NEWLINE, end - 1) : -1;
+      }
+      rest = buf.subarray(0, Math.max(end, 0));
+    }
+    if (rest.length > 0) {
+      yield { end: rest.length + 1, raw: rest.toString("utf8") };
+    }
+  } finally {
+    closeSync(fd);
+  }
+}
+
+const LINE_TIME = /"(?:time|at)":"([^"]+)"/;
+const SAMPLE = '"kind":"resource.sample"';
+
+/**
+ * The resource samples of the last hour (`sampleResources`), oldest first, and the latest: read back from the end of
+ * today's log file (and yesterday's, across midnight) until a line older than the hour, never a whole day.
+ */
+export function readResourceSamples(now = clock(), dir = LOG_DIR) {
+  const since = new Date(now.getTime() - HOUR).toISOString();
+  const observedAt = now.toISOString();
+  const files = [now, new Date(now.getTime() - HOUR)]
+    .map((d) => logFileOf(d.toISOString()))
+    .filter((f, i, all) => all.indexOf(f) === i);
+  const back: Record<string, unknown>[] = [];
+  for (const file of files) {
+    for (const { raw: line } of linesFromEnd(join(dir, file))) {
+      const at = line.match(LINE_TIME)?.[1];
+      if (at !== undefined && at < since) {
+        break;
+      }
+      if (line.includes(SAMPLE) && at !== undefined && at <= observedAt) {
+        try {
+          const {
+            category: _c,
+            kind: _k,
+            level: _l,
+            msg: _m,
+            ...sample
+          } = JSON.parse(line);
+          back.push(sample);
+        } catch {
+          // A torn last line: the next read has it whole.
+        }
+      }
+    }
+  }
+  const hour = back.reverse();
+  return { hour, latest: hour.at(-1) ?? null, observedAt };
+}

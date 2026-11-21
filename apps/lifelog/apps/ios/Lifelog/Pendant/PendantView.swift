@@ -287,7 +287,7 @@ struct PendantScreen: View {
                 Button("Pair a pendant") { sheet = .pair }.buttonStyle(.pill(.filled))
                     .accessibilityIdentifier("pendant.pair")
             } else {
-                TextLink("Replace this pendant") { sheet = .replace }.frame(
+                QuietChip("Replace this pendant", symbol: "arrow.left.arrow.right") { sheet = .replace }.frame(
                     maxWidth: .infinity, minHeight: Metrics.tapTarget
                 )
                 .accessibilityIdentifier("pendant.replace")

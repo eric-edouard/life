@@ -35,7 +35,8 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 - What stays bounded: the nightly deletes each run's model files and each eval's judge calls (`LIFE_STATE_DIR/memory/runs`, `/evals`) after 30 days and the
   event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each
-  `~/Library/Logs/life-*.log` becomes `life-*.old.log` past 10 MB when its process starts; a bridge
+  process log in `~/Library/Logs` (`life-*`, `lifelog-*`, `com.ericedouard.life.*`) past 10 MB is copied to its `.old.log`
+  and emptied in place by the watcher's minute (`rotateProcessLogs`; both apps' supervisors open them to append); a bridge
   logs to its own capped `logs/bridge.log`, only its errors to the bridges job's log. The backup hashes only files whose
   size or mtime changed since the last staging (`stage`'s `previous`).
 
@@ -63,7 +64,7 @@ every Keychain secret in its environment:
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, Messenger, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. A busy store is waited for up to 5 s; a store failing for an hour turns the archive card and the source cards red (the nightly email lists every open incident). See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector. |
-| `desk` (kept running while his `desk` setting is set) | The desk (`apps/server/src/desk/`): every 5 s starts the registered agents' turns that are due (his answer and a new agent's first turn first, then an event, a deadline, a retry), at most 3 a tick, before its polls, none while its runtime's `block` says it can't run; a failed turn is retried after 5, 10 and 20 minutes, and an event is dropped only after 4 turns that began failed to take it (a turn that never began, offline or out of quota, counts none), while his answer, its retries spent, is tried again every 20 minutes, never at once, and is still dropped after `MAX_HANDED` (4) turns that began failed to take it; every 5 s reads his answers to their decisions (and their lapses), every 30 s the new messages and his pendant's new recordings (the voice units of today and yesterday), into their queues (an agent's wait, and the wide net for an agent on a matter: `matter.related`, `desk/matter-net.ts`), and ends the turns a restart left behind. It serves the door on `127.0.0.1:46202`. Its store is `LIFE_STATE_DIR/desk/desk.sqlite`, its key `LIFE_STATE_DIR/desk/desk.key`. Every 5 s it applies his word about his agents (`change_registered_agent`, his asks of `desk`), each once (a start asks its runtime's `block` first; an agent whose first turn never begins, or not within the desk's begin limit, is ended and its run stopped, why in `why_not_started`); every 5 s, before the hand-out, it receives his new complaints for the caretaker (`receiveComplaints`; at most 1,000 ledger lines a tick); with `desk.handOut` set, at most every 10 minutes it looks for a matter to start an agent on (`handOutNext`; under either cap it reads no matter). A scheduled task posts a line for the report with `bun life desk report-line '{"source":…,"line":…,"link":…}'`. A tick over 5 minutes exits it, and the app starts it again. Off, the app starts none. |
+| `desk` (kept running while his `desk` setting is set) | The desk (`apps/server/src/desk/`): every 5 s starts the registered agents' turns that are due (his answer and a new agent's first turn first, then an event, a deadline, a retry), at most 3 a tick, before its polls, none while its runtime's `block` says it can't run; a failed turn is retried after 5, 10 and 20 minutes, and an event is dropped only after 4 turns that began failed to take it (a turn that never began, offline or out of quota, counts none), while his answer, its retries spent, is tried again every 20 minutes, never at once, and is still dropped after `MAX_HANDED` (4) turns that began failed to take it; every 5 s reads his answers to their decisions (and their lapses), every 30 s the new messages and his pendant's new recordings (the voice units of today and yesterday), into their queues (an agent's wait, and the wide net for an agent on a matter: `matter.related`, `desk/matter-net.ts`), and ends the turns a restart left behind. It serves the door on `127.0.0.1:46202`. Its store is `LIFE_STATE_DIR/desk/desk.sqlite`, its key `LIFE_STATE_DIR/desk/desk.key`; `LIFE_STATE_DIR/desk/complaint-retried` holds when he last pressed "Wrong…" again under a press's key (written by `complain`), a press for a caretaker that never started. Every 5 s it applies his word about his agents (`change_registered_agent`, his asks of `desk`), each once (a start asks its runtime's `block` first; an agent whose first turn never begins, or not within the desk's begin limit, is ended and its run stopped, why in `why_not_started`); every 5 s, before the hand-out, it receives his new complaints for the caretaker (`receiveComplaints`; at most 1,000 ledger lines a tick); with `desk.handOut` set, at most every 10 minutes it looks for a matter to start an agent on (`handOutNext`; under either cap it reads no matter). A scheduled task posts a line for the report with `bun life desk report-line '{"source":…,"line":…,"link":…}'`. A tick over 5 minutes exits it, and the app starts it again. Off, the app starts none. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
 **One Life per Mac.** The archive, the watcher and the desk each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
@@ -95,7 +96,7 @@ are never touched. Both are refused with his own data (`isOwnLife`: the app's da
 never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh simulator
 (the newest iOS runtime's first iPhone), pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
 scenario's steps with agent-device. `found-to-closed`, the one so far: the matter's page offers the new matter, Start, the
-agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
+agent's plan card, Start the plan, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
 failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
 
@@ -276,9 +277,10 @@ late with harm), or spoken asks above about one a day for a month.
   allmodels' abliterated one on Refuseless then Hopper at high (his choice, 8 Nov 2026): about half the price, the abliterated model for what the plain one refuses. `isOnline`
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
-- Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, when its router sends one, its
-  cost (`costUsd`; a call without it is unpriced) on its `model.run` line, with its run. A run's use is the sum of its
-  calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
+- Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, through a router, what each router
+  it tried took (`spentByRouter`: dollars, tokens, and whether every try sent its cost; one that didn't is unpriced, its
+  dollars a floor) on its `model.run` line, with its run.
+  Each line is read as spends (`memory/spends.ts`). A run's use is the sum of its calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
   shows). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under it,
   then the spend by source; the quota lines appear only for an engine that has one (`hasQuota`).
 - `bun life memory source-use [--days 7] [--json]`: what each source costs a day (items and units, readers, model
@@ -337,7 +339,7 @@ first.
 - It says which days it read, counts as new only observations whose source line was first cited since the last good
   night (`newSince`: a re-read announces nothing again), and has Done (the matters that ended on its day, and how:
   `doneOf`, also in `read_day`), Actions, Code (yesterday's commits by project) and "Last backup" sections.
-- Its Agents section ends, after the desk health rows (`host/desk-health.ts`: the oddities, the agent coverage, the number of matters that need him with last night's from the nightly's `run.end`), with the tokens of the agents' turns that ended since the last report (`tokensSince`, every row): one row per day of his (`localDate`) and one per matter (by its id), "no matter" for an agent anchored on none. Before them, when the desk handed out any matter since the last report (`handOutRowsOf`, every row): how many started and how many have an answered card, then one row for each that never began or ended having asked no card (worked out from the agent rows and the decisions), by its matter's name and why.
+- Its Agents section ends with the tokens of the agents' turns that ended since the last report (`tokensSince`, every row): one row per day of his (`localDate`) and one per matter (by its id), "no matter" for an agent anchored on none; then the desk health rows (`host/desk-health.ts`: the oddities, the agent coverage, the number of matters that need him with last night's from the nightly's `run.end`); then the people rows (`peopleRowsOf`): Life's guesses, not folded, with no live evidence unit left (against the night's own read of the live units); of his directory changed since the last report (`readDirectoryChangesSince`: one `git log -1` and two `git show`s of one commit), a person with no handle and an organization with nobody linked; a current link to an organization with no counted exchange in a year, the night its year runs out (his days) or when the link changed, and only from counts built that night. Before them, when the desk handed out any matter since the last report (`handOutRowsOf`, every row): how many started and how many have an answered card, then one row for each that never began or ended having asked no card (worked out from the agent rows and the decisions), by its matter's name and why.
 
 ## Measuring
 
@@ -474,8 +476,10 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete). Each pass takes at most 256 missing texts, newest
   first; hash progress survives restarts. Normalized float32 partitions hold at most 4,096 rows, and exact search
   merges bounded best candidates without loading or sorting every vector.
-- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
-  its conversation as it is now, 5 turns before it. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
+- `fetch <id> [--from-turn n] [--at instant] [--until instant]`: a conversation's or a unit's lines, 200 at a time. A
+  turn ref (an ask's `ref`) opens its conversation as it is now, 5 turns before it. `--at`/`--until` cut a recording to
+  a span, such as a call's (a recording cut): its turns that overlap it, a turn crossing an edge kept to its words
+  wholly inside, then at the span's first turn for a turn ref; anything else refuses them. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
   search cites it) gives it whole from its export copy, the assistant's replies too, kept or not by the import; a page
   is at most 200 lines and 50,000 characters.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the

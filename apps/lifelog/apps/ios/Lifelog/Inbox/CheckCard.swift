@@ -19,6 +19,8 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
     let create: (String, _ asOrganization: Bool) -> Void
+    /// "Wrong…" on a card of Life's: its sheet, hosted with the asks' sheets.
+    let wrong: () -> Void
     /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
     /// underway: parks it.
     var dropProject: (() -> Void)?
@@ -40,6 +42,7 @@ struct CheckCard: View {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         question
                         tile(scrolls: false)
+                        beingFixed
                         matterRow
                         actions
                     }
@@ -49,6 +52,7 @@ struct CheckCard: View {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     question
                     tile(scrolls: true)
+                    beingFixed
                     matterRow
                     Spacer(minLength: 0)
                     // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
@@ -88,8 +92,10 @@ struct CheckCard: View {
             || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
     }
 
-    /// A guessed person with the chat the network shows them in: that is the thing.
-    private var identity: Check.NetworkIdentity? { check.group == .guessedPerson ? check.networkIdentity : nil }
+    /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
+    private var identity: Check.NetworkIdentity? {
+        check.group == .guessedPerson || check.group == .samePerson ? check.networkIdentity : nil
+    }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
     /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
@@ -114,11 +120,12 @@ struct CheckCard: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let draft = check.draft {
-            DraftBlock(
-                draft: draft, identity: check.networkIdentity, isGuess: check.isRecipientGuessed, isBoxed: false)
+        DraftBlock(check: check, isBoxed: false)
+        if !(check.needs ?? []).isEmpty {
+            if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.bankTrip.isCodeSaved) }
+            let rows = check.shownNeedRows
+            if !rows.isEmpty { NeedsBlock(rows: rows) }
         }
-        if let needs = check.needs, !needs.isEmpty { NeedsBlock(needs: needs) }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)
         case .newMatter:
@@ -144,22 +151,42 @@ struct CheckCard: View {
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
         }
         TextField(
-            check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
+            check.group == .newMatter
+                ? "The goal"
+                : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
+            text: $input.words, axis: .vertical
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
         .onAppear { isWriting = true }
     }
 
+    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    @ViewBuilder private var beingFixed: some View {
+        if let fixing = check.beingFixed {
+            HStack(spacing: Metrics.Spacing.s) {
+                StateGlyph.busy
+                Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
+            }
+            .appears()
+        }
+    }
+
     // MARK: The row under the thing, and the link
 
     /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
-    /// it has one and it is not shown beside it; then "Tell the agent…" on an agent's question.
-    private var askLinks: [AskLink] {
-        var links: [AskLink] = []
+    /// it has one and it is not shown beside it; then "Tell the agent…" (or "Tell Life…") on a question: a general reply.
+    private var askLinks: [QuietChip] {
+        var links: [QuietChip] = []
         if !isContextBeside, let title = check.contextLinkTitle {
-            links.append(AskLink(title: title) { input.showsContext = true })
+            links.append(QuietChip(title, symbol: "questionmark.circle") { input.showsContext = true })
         }
-        if check.takesOwnWords { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
+        if check.takesOwnWords {
+            links.append(
+                QuietChip(check.tellTitle, symbol: "text.alignleft") {
+                    input.option = nil
+                    input.isWritingOwnWords = true
+                })
+        }
         return links
     }
 
@@ -175,7 +202,7 @@ struct CheckCard: View {
                 HStack(spacing: Metrics.Spacing.m) {
                     matterPill.fixedSize()
                     Spacer(minLength: Metrics.Spacing.m)
-                    if let link = askLinks.first { TextLink(link.title, action: link.run).fixedSize() }
+                    if let link = askLinks.first { link.fixedSize() }
                 }
                 .preference(key: LinkBesideMatter.self, value: true)
                 HStack(spacing: 0) {
@@ -203,7 +230,7 @@ struct CheckCard: View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
             links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
-            sameAs: sameAs, create: create
+            sameAs: sameAs, create: create, wrong: wrong
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }

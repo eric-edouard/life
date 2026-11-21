@@ -128,7 +128,7 @@ struct StartAgentSheet: View {
             )
             .font(.body15).foregroundStyle(Palette.muted)
             if let link {
-                TextLink("Open in \(took?.name ?? "its app")", isOutward: true) { openURL(link) }
+                TextLink("Open in \(took?.name ?? "its app")", to: .outside) { openURL(link) }
             }
             Button("Done") { dismiss() }.buttonStyle(.pill(.filled))
         }

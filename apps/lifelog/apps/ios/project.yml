@@ -94,6 +94,7 @@ targets:
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: lifelog notes where you were every few minutes while your Pendant records, even with the app closed, so each conversation shows where it happened.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: lifelog shows the photos and screenshots you took during a conversation beside what was said. They stay in your library.
         INFOPLIST_KEY_NSMicrophoneUsageDescription: lifelog listens only while you dictate into a field, to write down what you say. The recording is not kept.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Life saves a payee's QR code to your photos, so your bank app can read it.
         INFOPLIST_KEY_NSFaceIDUsageDescription: Life asks for Face ID before it sends a message in your name from a notification.
         INFOPLIST_KEY_NSHealthShareUsageDescription: lifelog reads your sleep and workouts to send them to your own server for Life.
     info:
@@ -203,11 +204,11 @@ targets:
     # A draft drawn whole, as on the card's screen: its view and the pieces it is drawn with.
     sources:
       - NotificationContent
-      - Lifelog/Inbox/DraftBlock.swift
-      - Lifelog/DesignSystem/PartyPieces.swift
+      - Lifelog/DesignSystem/DraftBlock.swift
+      - Lifelog/DesignSystem/Motion.swift
       - Lifelog/DesignSystem/Typography.swift
       - Lifelog/DesignSystem/NetworkMark.swift
-      # The apps' own marks, for a draft's recipient.
+      # The apps' own marks, for a draft's chat.
       - Lifelog/Marks.xcassets
       - Lifelog/DesignSystem/Fonts/Manrope.ttf
       - Shared/Palette.swift
@@ -239,6 +240,8 @@ targets:
           NSExtensionAttributes:
             UNNotificationExtensionCategory: [life.card, life.card.send]
             UNNotificationExtensionInitialContentSizeRatio: 0.01
+            # The chat's head is a button: it opens the chat in its app.
+            UNNotificationExtensionUserInteractionEnabled: true
     entitlements:
       path: NotificationContent/NotificationContent.entitlements
       properties:

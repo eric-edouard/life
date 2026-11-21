@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { clock, daysBefore } from "@life/server/src/core/clock";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
-import { APP_FOLDERS, MACHINE_DIR } from "@life/server/src/core/platform";
+import {
+  APP_FOLDERS,
+  MACHINE_DIR,
+  pathInside,
+} from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 import { PUBLIC_PORT } from "@life/server/src/host/http/http";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
@@ -37,7 +41,7 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 // (The landlord transcript ran on 22 Oct with an earlier, shorter prompt.)
 
 const out = resolve(process.argv[2] ?? "");
-const inside = (root: string) => !relative(root, out).startsWith("..");
+const inside = (root: string) => pathInside(root, out) !== null;
 const live = [
   OWNER_DATA_DIR,
   LIFE_STATE_DIR,

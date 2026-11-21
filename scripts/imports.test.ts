@@ -39,11 +39,11 @@ const MODEL_CALL_FILES = [
 ];
 // Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
 const CAPS: Record<string, number> = {
-  "apps/lifelog/apps/server/src/jobs.test.ts": 1111,
+  "apps/lifelog/apps/server/src/jobs.test.ts": 1104,
   "apps/lifelog/apps/server/src/people.test.ts": 988,
   "apps/lifelog/apps/server/src/people.ts": 1177,
   "apps/lifelog/packages/db/src/schema/index.ts": 1077,
-  "apps/server/src/host/status/snapshot.ts": 1175,
+  "apps/server/src/host/status/snapshot.ts": 1142,
   "apps/server/src/memory/units.test.ts": 1188,
 };
 
@@ -161,19 +161,21 @@ test("only the payments backend imports money, and only money.ts runs the money 
 
 // A voice guess stays a guess (docs/glossary.md, "voice guess"): what acts on his word is pinned to its writers, so a
 // file that reads or makes guesses (`voice-naming.ts`, `naming-context.ts`, `voice-guesses.ts`) can never be one of them:
-// only the connector forwards a correction to lifelog, and only the command, the connector (with his word on a whole
-// matter, `correct-matter.ts`), his answer to a check (`answer-check.ts`) and a start's goal (`change-registered-agent.ts`)
-// record one.
+// only the connector forwards a correction to lifelog, and only his word (the command and the connector, through
+// `recordHisCorrection`, which checks a next step's context), his answer to a check (`answer-check.ts`) and a start's
+// goal (`change-registered-agent.ts`) record one.
 test("forward and recordCorrection have only their known importers", () => {
   expect(importers(["forward"], "lifelog")).toEqual([
     "apps/server/src/host/http/mcp.ts",
   ]);
   expect(importers(["recordCorrection"], "memory-files")).toEqual([
     "apps/server/src/host/change-registered-agent.ts",
-    "apps/server/src/host/command.ts",
     "apps/server/src/host/correct-matter.ts",
-    "apps/server/src/host/http/mcp.ts",
     "apps/server/src/memory/answer-check.ts",
+  ]);
+  expect(importers(["recordHisCorrection"], "correct-matter")).toEqual([
+    "apps/server/src/host/command.ts",
+    "apps/server/src/host/http/mcp.ts",
   ]);
 });
 

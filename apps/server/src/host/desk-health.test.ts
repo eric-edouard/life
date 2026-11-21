@@ -3,6 +3,7 @@ import type { AgentHold } from "../memory/held-matters";
 import { type MatterView, matterFinderOf } from "../memory/matter-read";
 import type { HandOutFacts } from "../memory/read-matters";
 import type { AgentStatus } from "../records/registered-agent";
+import { Organization, Person } from "../records/truth";
 import {
   activeOnIdleMatterOf,
   coverageOf,
@@ -10,11 +11,12 @@ import {
   heldByTwoOf,
   lastNeedsYouOf,
   needsYouRowOf,
+  peopleRowsOf,
   splitAnchorsOf,
   stoppedOnRunningOf,
 } from "./desk-health";
 
-// The desk health rules, each pure. Made-up matters, agents and decisions.
+// The desk health rules, each pure. Made-up matters, agents, decisions and people.
 
 const matter = (id: string, over: Partial<MatterView> = {}) =>
   ({
@@ -189,4 +191,100 @@ test("the number's row shows last night's only when one was written", () => {
   expect(lastNeedsYouOf([end()])).toBeUndefined();
   expect(lastNeedsYouOf([end(2), end(4, "memory.extract"), end()])).toBe(2);
   expect(lastNeedsYouOf([end(2), end(0)])).toBe(0);
+});
+
+// Verdict on PR 841: the health rules found an agent's matter from its steps alone, so an agent on the running matter
+// he chose, sharing its step with a done one, read as idle. Each rule takes the chosen matter on a tie.
+test("an agent on the matter he chose, sharing its step with a done one, is at work; a card on it is not on an idle matter", () => {
+  const shared = [
+    { at: "2026-11-18T09:00:00.000Z", ref: "obs_shared" },
+  ] as unknown as MatterView["steps"];
+  const tied = matterFinderOf([
+    matter("over", { open: false, status: "done", steps: shared }),
+    matter("chosen", { steps: shared }),
+  ]);
+  const on = {
+    ...agent("agt_1", "waiting", ["obs_shared"]),
+    matter: { id: "chosen" },
+  };
+  expect(activeOnIdleMatterOf([on], tied)).toEqual([]);
+  expect(splitAnchorsOf([on], tied)).toEqual([]);
+  expect(
+    decisionOnIdleMatterOf(
+      [
+        {
+          id: "dec_1",
+          matter: "chosen",
+          question: "Go?",
+          subject: "obs_shared",
+        },
+      ],
+      tied
+    )
+  ).toEqual([]);
+  // With no matter chosen, the done one is found: the oddity the pick prevents.
+  expect(activeOnIdleMatterOf([{ ...on, matter: null }], tied)).toHaveLength(1);
+});
+
+test("the people rows: a guess with no live evidence, a changed person with no handle, a changed organization with nobody, a link whose year ran out since the last night or that changed and has", () => {
+  const truth = {
+    organizations: [
+      Organization.parse({ id: "acme", name: "Acme", people: [] }),
+      Organization.parse({
+        id: "bolt",
+        name: "Bolt",
+        people: [
+          { id: "ann", role: "Founder" },
+          { id: "bob", role: "Engineer" },
+          { id: "cid", role: "Engineer" },
+          { id: "dan", role: "Engineer", until: 2024 },
+          { id: "eve", role: "Engineer" },
+        ],
+      }),
+    ],
+    people: [
+      Person.parse({ id: "me", name: "Jean" }),
+      Person.parse({ id: "ann", name: "Ann" }),
+      Person.parse({
+        handles: { phone: ["+66600000009"] },
+        id: "bob",
+        name: "Bob",
+      }),
+      Person.parse({ id: "cid", name: "Cid" }),
+      Person.parse({ id: "dan", name: "Dan" }),
+      Person.parse({ id: "eve", name: "Eve" }),
+    ],
+  };
+  const last: Record<string, string> = {
+    // Its year ran out today, after the last night's day.
+    ann: "2025-11-21",
+    // Long ago, and nothing about the link changed: shown the night it ran out, not again.
+    bob: "2024-01-01",
+    // Ended, by his word: never shown.
+    dan: "2020-01-01",
+    // Within the year.
+    eve: "2026-03-01",
+  };
+  const input = {
+    changed: new Set(["acme", "ann", "bob", "bolt|cid", "bolt|eve", "me"]),
+    guesses: [
+      { evidence: ["unit_gone"], id: "inf_x", name: "X" },
+      { evidence: ["unit_gone", "unit_live"], id: "inf_y", name: "Y" },
+    ],
+    lastExchangeDay: (id: string) => last[id],
+    live: new Set(["unit_live"]),
+    sinceDay: "2026-11-20",
+    today: "2026-11-21",
+    truth,
+  };
+  const rows = peopleRowsOf(input).map((r) => `${r.name}: ${r.relation}`);
+  expect(rows).toEqual([
+    "People · X: a guess (inf_x) with no evidence left",
+    "People · Ann: in his directory with no handle",
+    "People · Acme: an organization with nobody linked",
+    "People · Ann: at Bolt: no counted exchange in a year, and the link has no end",
+    "People · Cid: at Bolt: no counted exchange in a year, and the link has no end",
+  ]);
+  // No counts tonight: nothing is said of the links.
+  expect(peopleRowsOf({ ...input, lastExchangeDay: null })).toHaveLength(3);
 });

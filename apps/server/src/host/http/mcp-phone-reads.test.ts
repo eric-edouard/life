@@ -115,7 +115,7 @@ const kitOnWhatsapp = new Map([
     },
   ],
 ]);
-/** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice. */
+/** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice, a same person. */
 const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   answered: new Set(),
   decisions: [
@@ -165,8 +165,9 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       subject: "obs_000000000005",
       title: "Kit is waiting for the quote.",
     },
-    // A transfer whose "I've paid" Life looked for and did not find yet: open again.
+    // A transfer whose "I've paid" Life looked for and did not find yet: open again. A registered agent's plan (`planCardsOf`).
     {
+      agent: "agt_000000000001",
       asker: "Orbit",
       at: "2026-10-14T09:00:00.000Z",
       context: "",
@@ -208,6 +209,42 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       schemaVersion: 3,
       state: "open",
       title: "Pay the deposit",
+    },
+    // A plan card with its steps (`plan`) and what they were gathered from: its options' roles on the wire.
+    {
+      agent: "agt_000000000001",
+      asker: "Orbit",
+      at: "2026-10-14T10:00:00.000Z",
+      context:
+        "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      deadline: "2099-01-02T09:00:00.000Z",
+      gathered: { text: "From Kit's quote and two others" },
+      id: "dec_000000000003",
+      kind: "asked",
+      links: [],
+      onSilence: null,
+      options: [
+        { id: "start", label: "Start the plan" },
+        { id: "decline", label: "Not this plan" },
+      ],
+      plan: [
+        {
+          by: "agent",
+          channel: "whatsapp",
+          text: "Ask Kit for the quote",
+          when: "today",
+        },
+        { by: "owner", channel: "payment", text: "Pay the deposit" },
+        {
+          by: "agent",
+          text: "Book the repair",
+          when: "once Kit answers, by Thu",
+        },
+      ],
+      question: "Start with this plan?",
+      schemaVersion: 3,
+      state: "open",
+      title: "Mend the strap",
     },
   ],
   dismissed: [],
@@ -367,6 +404,15 @@ const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
+  plans: new Set(["dec_000000000002", "dec_000000000003"]),
+  samePersons: [
+    {
+      guess: "person:inf_kit",
+      handles: ["+33600000001"],
+      lines: ["the watchmaker, +33600000001", "his partner"],
+      other: "person:partner",
+    },
+  ],
   titles: new Map([["unit_000000000001", "Gran"]]),
   today: "2026-10-14",
   voices: [
@@ -441,6 +487,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     notStarted: null,
     outcome: null,
     project: null,
+    role: "personal" as const,
     runtime: "claude",
     status: "running" as const,
     statusSince: "2026-10-13T09:00:00.000Z",
@@ -456,6 +503,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     link: null,
     model: null,
     project: "shop-fit-out",
+    role: null,
     status: "waiting" as const,
     statusSince: "2026-10-14T09:00:00.000Z",
     steps: [],
@@ -573,6 +621,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         nextStep: {
           at: "2026-10-13T09:00:00.000Z",
           by: "owner",
+          // His word's context: on read_matter only, never in read_matters' list.
+          context: "The shop said Friday ([the call](life:obs_000000000005)).",
           kind: "wait_event",
           text: "The shop's quote",
           waitsOn: "the shop",

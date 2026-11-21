@@ -17,6 +17,7 @@
   },
   "nextStep": {
     "by": "owner",
+    "context": "The shop said Friday ([the call](life:obs_000000000005)).",
     "kind": "wait_event",
     "text": "The shop's quote",
     "waitsOn": "the shop"
@@ -65,6 +66,7 @@
       "notStarted": null,
       "outcome": null,
       "project": null,
+      "role": "personal",
       "runtime": "claude",
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
@@ -89,6 +91,7 @@
       "notStarted": null,
       "outcome": null,
       "project": "shop-fit-out",
+      "role": null,
       "runtime": "claude",
       "status": "waiting",
       "statusSince": "2026-10-14T09:00:00.000Z",
@@ -244,9 +247,9 @@
         "text": "Here is the signed quote.",
         "to": "Kit"
       },
-      "evidence": null,
       "goal": null,
       "group": "decision",
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
@@ -260,6 +263,7 @@
       "onSilence": "no",
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "gathered": null,
       "needs": [],
       "notSent": null,
       "options": [
@@ -275,6 +279,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
@@ -303,13 +308,9 @@
           "asker": "life",
           "at": null,
           "clips": [],
-          "context": "Life read their messages as Kit, the watchmaker (70% sure).",
+          "context": "Life read their messages as Kit, the watchmaker (70% sure).\n\n> Kit here, from the shop\n\n*[whatsapp, 2 Oct](life:unit_000000000001)*",
           "deadline": null,
           "draft": null,
-          "evidence": {
-            "from": "whatsapp, 2 Oct",
-            "quote": "Kit here, from the shop"
-          },
           "goal": null,
           "group": "guessed person",
           "kind": "person",
@@ -347,12 +348,17 @@
           "since": null,
           "subject": null,
           "title": "Know who someone is",
-          "lifeLinks": [],
+          "lifeLinks": [
+            {
+              "kind": "unit",
+              "ref": "unit_000000000001"
+            }
+          ],
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "3d9583390e9c79af83238cf7a4a8352f",
-            "shown": "25fe8d96124c400c"
+            "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
+            "shown": "36753a6bc8e9027f"
           },
           "confirm": [],
           "networkIdentity": {
@@ -404,13 +410,9 @@
       "at": null,
       "clips": [],
       "contactsCard": null,
-      "context": "A later step seems to show it done.",
+      "context": "A later step seems to show it done.\n\n> Called them.\n\n*an earlier message*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "an earlier message",
-        "quote": "Called them."
-      },
       "goal": null,
       "group": "ending",
       "kind": "ending",
@@ -473,8 +475,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "1addffdfdc12fcfa",
-        "seal": "59a8c4a7ae0010f623c8cc1b4f0741bb",
-        "shown": "c22e02368640bc0c"
+        "seal": "0066f68ef90e6b612b4096522ce249fd",
+        "shown": "928771774c0f909f"
       }
     }
   ]

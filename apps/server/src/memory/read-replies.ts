@@ -19,8 +19,9 @@ import { inBatches, type Step } from "./run";
 
 /** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`, the voice naming's `memory/voice-naming.ts`. */
 export const READS = {
+  arrival_appointment: { prompt: "memory-arrival-appointment.v1" },
   arrival_confirm: { prompt: "memory-arrival-confirm.v2" },
-  arrival_trigger: { prompt: "memory-arrival-trigger.v2" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v3" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },

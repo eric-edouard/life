@@ -93,7 +93,7 @@ const KINDS: {
   qr: {
     about: "a payee's QR code (source)",
     line: (n) => `QR code from ${n.source}${n.payload ? `: ${n.payload}` : ""}`,
-    page: '`{kind: "qr", source, payload?}`: a QR code the payee sent. `source` where it is, in a few words with the message\'s id (`"Kit\'s WhatsApp of 20 Nov, <id>"`); `payload` the code\'s text when you read it. His phone shows it as words for now: give the `account` and `amount` beside it.',
+    page: '`{kind: "qr", source, payload?}`: a QR code the payee sent. `source` where it is, in a few words with the message\'s id (`"Kit\'s WhatsApp of 20 Nov, <id>"`); `payload` the code\'s text when you read it. His phone draws the code from `payload` (its amount too, for a PromptPay code) and saves it to his photos for his bank app; without `payload` it shows `source` as words. Give the `account` (its `scheme` picks the bank app, its `holder` is the name shown under the code) and the `amount` beside it.',
   },
   text: {
     about: "a reference or code (text, label, copy)",

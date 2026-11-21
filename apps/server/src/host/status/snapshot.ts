@@ -34,9 +34,10 @@ import { openChecksNow } from "../inbox";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { ASK, type Card, type Fact, firstOf, type Tone } from "./card";
+import { crashCard } from "./crash-card";
 import { deskCard } from "./desk-card";
 import { lifeStatus } from "./life";
-import { macState, sleeps } from "./mac";
+import { macCard, macState, sleeps } from "./mac";
 
 // The status snapshot (`apps/server/src/host/http/status-reads.ts` serves it to the app): every part of Life as a card in a group, each with its
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
@@ -1068,32 +1069,6 @@ function outputCards(r: Reads): Card[] {
   ];
 }
 
-function macCards(r: Reads): Card[] {
-  const down = r.mac.services.filter((s) => !s.running);
-  return [
-    {
-      ...(down.length
-        ? {
-            ask: ASK(
-              `${down.map((s) => s.name).join(", ")} not running on the Mac`
-            ),
-            tone: "bad",
-            word: `${down.length} down`,
-          }
-        : { tone: "ok", word: "online" }),
-      facts: [
-        { at: r.mac.awakeSince, label: "Awake since" },
-        { label: "Battery", value: r.mac.battery },
-        { label: "Disk free", value: `${r.mac.freeGb} GB` },
-      ],
-      group: "mac",
-      headline: "online",
-      id: "mac",
-      name: "MacBook",
-    },
-  ];
-}
-
 /** The last 24 h: runs, failures (the watcher's retries apart), sends and the Mac's sleeps. */
 function todayOf(r: Reads): Tick[] {
   return [
@@ -1136,26 +1111,18 @@ const RANK: Record<Tone, number> = {
   warn: 2,
 };
 
-/**
- * The cards in red, something of Life's broken now: the alert mails them (`redReport`); amber and idle don't. A run's
- * (pipeline) counts its own tries and mails once out of them; the Mac's repeats the archive's and the watcher's.
- */
-export const redCards = (cards: Card[]) =>
-  cards.filter(
-    (c) => c.tone === "bad" && c.group !== "pipeline" && c.group !== "mac"
-  );
-
 /** Everything in the status snapshot now. */
 export async function snapshot(now = clock()) {
   const r = await reads(now);
   const cards = [
     ...sourceCards(r),
     ...captureCards(r),
+    crashCard(r.errorsToday, r.t),
     ...pipelineCards(r),
     ...memoryCards(r),
     ...outputCards(r),
     deskCard(r.t),
-    ...macCards(r),
+    macCard(r.mac),
   ];
   // One rule for a card in trouble: the app's menu and window list them.
   const trouble = cards

@@ -4,16 +4,22 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { writeWhole } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
-import { directoryPartiesOf, integrity, loadTruth } from "../memory/read-truth";
+import {
+  directoryPartiesOf,
+  type Entry,
+  entriesOf,
+  integrity,
+  loadTruth,
+} from "../memory/read-truth";
 import { recordToldLife } from "../memory/told-life";
 import { slug } from "../records/fields";
 import { OrganizationPerson, PictureFrom } from "../records/truth";
@@ -105,16 +111,6 @@ function idOf(id: string | undefined, name: string) {
   return made ? slug.parse(made) : refuse("give an `id`.");
 }
 
-interface Entry {
-  aliases?: string[];
-  domains?: string[];
-  handles?: Record<string, unknown>;
-  id: string;
-  name?: string;
-  people?: { id: string }[];
-  projects?: string[];
-}
-
 /** The list each kind of entry is in, its file `<list>.yaml`. */
 const LISTS = {
   area: "areas",
@@ -122,9 +118,6 @@ const LISTS = {
   person: "people",
 } as const;
 type List = (typeof LISTS)[keyof typeof LISTS];
-
-const entriesOf = (text: string, key: List) =>
-  ((Bun.YAML.parse(text) as Record<string, unknown[]>)[key] ?? []) as Entry[];
 
 /** A list's file with `entry` added at the end of its list, or, with `id`, replacing that one entry (its comments go with it). */
 function withEntry(text: string, key: List, entry: object, id?: string) {
@@ -368,13 +361,6 @@ const whatOf = (a: Change) =>
 
 /** One change at a time: two calls would each read the file the other is about to write. */
 let queue: Promise<unknown> = Promise.resolve();
-
-/** Writes whole or not at all: a temp file beside it, then a rename. */
-function writeWhole(path: string, text: string) {
-  const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, text);
-  renameSync(temp, path);
-}
 
 /**
  * Applies one change he asked for in his own words (`said`): validated on a copy of truth/ first, then written, kept as

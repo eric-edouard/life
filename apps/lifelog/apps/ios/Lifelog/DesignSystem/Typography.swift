@@ -23,6 +23,8 @@ struct TypeStep: Equatable {
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
     /// The first line of a sheet ("Starting", "Who?"): bold.
     static let sheetQuestion = TypeStep(size: 22, weight: 650, style: .title3)
+    /// A list screen's short title on its blurred header (`ScreenTitle`): "Inbox", "Matters".
+    static let screenTitle = TypeStep(size: 22, weight: 700, style: .title2)
     /// A screen's name where the system's large title would be: "Settings", a matter's name.
     static let screenName = TypeStep(size: 30, weight: 650, style: .title1)
     /// Words he or someone said, a message, a goal he edits.
@@ -56,6 +58,8 @@ struct TypeStep: Equatable {
     static let columnGlyph = TypeStep(size: 20, weight: 600, style: .title3)
     /// The number in a badge.
     static let badge = TypeStep(size: 11, weight: 700, style: .caption2)
+    /// A reach tile's app name, under its mark.
+    static let reachLabel = TypeStep(size: 11, weight: 600, style: .caption2)
 
     static let monoTime = TypeStep(size: 13, weight: 500, style: .footnote, hasFixedDigits: true)
     static let monoDetail = TypeStep(size: 12, weight: 500, style: .caption1, hasFixedDigits: true)
