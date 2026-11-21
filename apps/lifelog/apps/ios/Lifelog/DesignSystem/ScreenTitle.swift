@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A screen's short title (decision 84): its name, and at most one state word beside it, muted ("Inbox 4 waiting",
-/// "Matters 7 running"). A name, never a sentence; nothing else beside it, since the bars hold the buttons.
+/// "Projects 3 underway"). A name, never a sentence; nothing else beside it, since the bars hold the buttons.
 struct ScreenTitle: View {
     let name: String
     var state: String?
