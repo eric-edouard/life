@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { writeJson } from "../../core/files";
+import { readChangeStamp, writeJson } from "../../core/files";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import type { CheckInputs } from "../../memory/checks";
@@ -13,6 +13,7 @@ import {
 } from "../../memory/network-identity";
 import { PERSON_PICTURES, partyOf, pictureFileOf } from "../../memory/party";
 import {
+  PROJECT_SITUATIONS,
   projectSituationPath,
   promptNameNow,
 } from "../../memory/project-situation-read";
@@ -532,7 +533,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   });
   const spies = [
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
-    spyOn(checks, "checksAndKeyNow").mockResolvedValue({
+    spyOn(checks, "checksAndKeyNow").mockImplementation(async () => ({
       // As the inbox shows them (`inboxChecksOf`: push ids, urgency, the "Wrong…" sealed), under a made-up key.
       checks: checks.inboxChecksOf(
         checks.checksOf(madeUpInbox).map((c) =>
@@ -545,8 +546,9 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         ),
         "0".repeat(64)
       ),
-      key: "the phone's reads",
-    }),
+      // The key moves with the project situations, as the real one does (`CHECKS_READ`).
+      key: `the phone's reads ${readChangeStamp([PROJECT_SITUATIONS])}`,
+    })),
     spyOn(who, "readPeople").mockResolvedValue({
       isGuess: () => false,
       isKnownToHim: () => true,
@@ -714,6 +716,9 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     ).toEqual(rows);
     // The project head with its situation (made-up): a stored one is shown while a matter of the project still holds
     // the step it cites (a new one moves the checks' key, which `checks-key.test.ts` holds).
+    const emptyVersion = JSON.parse(
+      await read("read_matters", { project: "shop-fit-out" })
+    ).version;
     writeJson(projectSituationPath("shop-fit-out"), {
       built: "2026-10-14T00:00:00.000Z",
       inputs: "0123456789abcdef",
@@ -743,6 +748,15 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       },
     ]);
     expectWire("read_matters_project", withSituation);
+    // The phone that held the empty head hears the new situation, never `unchanged`.
+    expect(
+      JSON.parse(
+        await read("read_matters", {
+          ifNot: emptyVersion,
+          project: "shop-fit-out",
+        })
+      ).unchanged
+    ).toBeUndefined();
     rmSync(projectSituationPath("shop-fit-out"), { force: true });
     expectWire(
       "read_matter",

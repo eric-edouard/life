@@ -40,7 +40,7 @@ const matter = (
   ({
     name: "Boat repair",
     open: true,
-    openSteps: [],
+    openSteps: [step(S1)],
     projects: [ID],
     status: "moving",
     steps: [step(S1)],
@@ -179,6 +179,33 @@ test("a matter too large for one call keeps its project's situation: its steps a
   const t = targetOf(big);
   expect(t.matters).toHaveLength(1);
   expect(JSON.stringify(projectInputOf(t, [])).length).toBeLessThan(30_000);
+});
+
+test("a matter open only for being recent is not shown: its closing with the clock regenerates nothing", () => {
+  const sibling = matter({ name: "Paint", steps: [step(S2, "Painted")] });
+  const recent = { ...sibling, openSteps: [] } as MatterView;
+  const base = digestOf([matter(), recent]);
+  expect(digestOf([matter(), { ...recent, open: false } as MatterView])).toBe(
+    base
+  );
+  expect(digestOf([matter()])).toBe(base);
+});
+
+test("the size a matter is packed at is what the call renders: names and statuses too", () => {
+  const books = Array.from({ length: 200 }, (_, i) =>
+    matter({
+      name: "N".repeat(100),
+      openSteps: [step(`obs_${String(i).padStart(12, "0")}`, "x".repeat(150))],
+      status: "moving",
+    })
+  );
+  const [t] = projectTargetsOf(books, people(project("active")), []);
+  const rendered = JSON.stringify(
+    t?.matters.map((v) => ({ ...v, name: v.name, status: v.status }))
+  );
+  expect(t?.matters.length).toBeGreaterThan(0);
+  expect(t?.matters.length).toBeLessThan(200);
+  expect(rendered.length).toBeLessThan(40_000);
 });
 
 test("an open decision shows as his pending decision, not the draft next step", () => {
