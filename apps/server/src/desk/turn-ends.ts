@@ -309,13 +309,14 @@ const eachOpenTurn = (
  */
 export async function endLostTurns(desk: Desk) {
   const watching = watchedIn(desk.db);
-  for (const { id } of desk.db
-    .query<{ id: number }, []>(
-      "select t.id from turn t join agent a on a.id = t.agent_id where t.ended_at is null and t.outcome = 'default_wait' and a.status <> 'active'"
-    )
-    .all()) {
-    await turnEnded(desk, id, { ok: true });
-  }
+  await Promise.all(
+    desk.db
+      .query<{ id: number }, []>(
+        "select t.id from turn t join agent a on a.id = t.agent_id where t.ended_at is null and t.outcome = 'default_wait' and a.status <> 'active'"
+      )
+      .all()
+      .map(({ id }) => turnEnded(desk, id, { ok: true }))
+  );
   await eachOpenTurn(desk, async (a, t, runtime) => {
     if (watching.has(t.id)) {
       return;
