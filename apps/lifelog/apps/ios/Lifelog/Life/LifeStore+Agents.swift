@@ -10,7 +10,8 @@ extension LifeStore {
         }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshAgents()
-        _ = await (a, b)
+        async let c: Void = refreshListsOf(id)
+        _ = await (a, b, c)
     }
 
     func stopAgent(_ agent: String) async {
@@ -24,11 +25,16 @@ extension LifeStore {
         await refreshPages(showing: agent)
     }
 
-    /// The agents read again, and the matter pages that draw `agent` from their own read.
+    /// The agents read again, and the matter pages that draw `agent` from their own read, with their lists and
+    /// project headers' spinners.
     private func refreshPages(showing agent: String) async {
         let pages = matter.filter { $0.value.value?.agents.contains { $0.id == agent } == true }.keys
         async let agents: Void = refreshAgents()
-        for id in pages { await refreshMatter(id) }
+        for id in pages {
+            async let page: Void = refreshMatter(id)
+            async let lists: Void = refreshListsOf(id)
+            _ = await (page, lists)
+        }
         await agents
     }
 
@@ -114,10 +120,12 @@ extension LifeStore {
             }
         }
         guard !followUp.isEmpty else { return }
-        // A card's mark follows its new holder; the pages showing a switched agent read it again.
+        // A card's mark follows its new holder; a moved matter's lists, and the pages showing a switched agent, read again.
         Task {
             async let inbox: Void = refreshInbox()
-            for id in followUp { await refreshPages(showing: id) }
+            for id in followUp {
+                if matter[id] != nil { await refreshListsOf(id) } else { await refreshPages(showing: id) }
+            }
             await inbox
         }
     }
