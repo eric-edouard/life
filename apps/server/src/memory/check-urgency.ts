@@ -40,7 +40,7 @@ const LAST_BLOCKING_RANK = RANK["your move"];
 export const urgencyOf = (c: Rankable): Urgency =>
   inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
-/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by deadline, then the longest waiting. */
+/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by its matter's place in his ranking (`matterRank`, which weighs its dates), then by deadline, then the longest waiting. */
 const isMove = (c: Rankable) => c.group === "your move";
 /** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
 const isImportant = (c: Orderable) =>
@@ -51,6 +51,8 @@ interface Orderable extends Rankable {
   day: string;
   deadline: string | null;
   matter: { id: string; important?: boolean } | null;
+  /** A your move card's matter's place in his ranking (`rankedMattersOf`); none: after every ranked one. */
+  matterRank?: number;
   ref: string;
   ridesOn: {
     matterIds: string[];
@@ -60,24 +62,35 @@ interface Orderable extends Rankable {
   };
 }
 
+/** Two your move cards: by their matters' place in his ranking (`matterRank`; an unranked one after); any other pair ties. */
+const byMatterRank = (a: Orderable, b: Orderable) =>
+  isMove(a) && isMove(b)
+    ? (a.matterRank ?? Number.MAX_SAFE_INTEGER) -
+      (b.matterRank ?? Number.MAX_SAFE_INTEGER)
+    : 0;
+
+/** Two asks of one kind: decisions and moves asked longest ago first; voices, names and cards by matters, then newest only; the rest by matters, lines, pages, then newest. */
+const withinKind = (a: Orderable, b: Orderable) =>
+  inboxRankOf(a) === RANK.decision || isMove(a)
+    ? a.day.localeCompare(b.day)
+    : b.ridesOn.matters - a.ridesOn.matters ||
+      (inboxRankOf(a) === RANK.name
+        ? 0
+        : b.ridesOn.observations - a.ridesOn.observations ||
+          b.ridesOn.pages - a.ridesOn.pages) ||
+      b.day.localeCompare(a.day);
+
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
   Number(isMove(a) && inboxRankOf(b) < RANK["your move"]) -
     Number(isMove(b) && inboxRankOf(a) < RANK["your move"]) ||
   Number(!isImportant(a)) - Number(!isImportant(b)) ||
+  byMatterRank(a, b) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   inboxRankOf(a) - inboxRankOf(b) ||
-  (inboxRankOf(a) === RANK.decision || isMove(a)
-    ? a.day.localeCompare(b.day)
-    : b.ridesOn.matters - a.ridesOn.matters ||
-      // Voices, names and cards share a rank: by matters, then newest only.
-      (inboxRankOf(a) === RANK.name
-        ? 0
-        : b.ridesOn.observations - a.ridesOn.observations ||
-          b.ridesOn.pages - a.ridesOn.pages) ||
-      b.day.localeCompare(a.day)) ||
+  withinKind(a, b) ||
   a.ref.localeCompare(b.ref);
 
 /** A matter's place among its tier's asks: those the caretaker is fixing, and its your move card, keep to their own group, never pulled ahead with its other asks. */

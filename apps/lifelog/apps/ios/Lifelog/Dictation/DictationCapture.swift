@@ -83,8 +83,8 @@ final class DictationCapture {
         return capture
     }
 
-    /// The recording's loudness now, 0 to 1: the field's stream.
-    var level: Float { mic.recording.level }
+    /// The recording's loudness since last asked, 0 to 1: the field's stream.
+    func level() -> Float { mic.recording.takeLevel() }
 
     /// One run of a field's dictation (`Dictation`), its start's failures in the field's words.
     static func run(library: LibraryStore?, sync: SyncStore?) -> Dictation.Begin {
@@ -104,7 +104,7 @@ final class DictationCapture {
                 // The stretch's write, the encoder: nothing a call explains.
                 throw Dictation.StartFailure.notStarted
             }
-            return DictationRun(level: { capture.level }, finish: capture.finish)
+            return DictationRun(level: capture.level, finish: capture.finish)
         }
     }
 

@@ -14,7 +14,8 @@ import { agentOf, assignmentOf, readNotes } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
-import { DECISIONS, decisionsNow } from "../memory/decisions";
+import { DECISIONS } from "../memory/decision-lines";
+import { decisionsNow } from "../memory/decisions";
 import { readCorrections, recordCorrection } from "../memory/memory-files";
 import { handOutGateOf, readHandOutMatters } from "../memory/read-matters";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
