@@ -12,6 +12,7 @@ public struct Inbox: Decodable, Sendable, Equatable {
     public var badge: Int { blocking ?? total }
     /// Every open card is in it, none cut off by the read's limit: only then does a card it lacks no longer wait.
     public var isWhole: Bool { checks.count >= total }
+    public let version: String?
 }
 
 /// The card a tapped push opens.
@@ -45,13 +46,14 @@ public struct PushedCard: Sendable, Equatable {
         guard let check, !answeredSinceTap.contains(check.ref),
             read?.checks.contains(where: { $0.ref == check.ref }) != true
         else { return read }
-        let read = read ?? Inbox(checks: [], counts: [:], total: 0, deadlinesToday: 0, blocking: 0)
+        let read = read ?? Inbox(checks: [], counts: [:], total: 0, deadlinesToday: 0, blocking: 0, version: nil)
         var counts = read.counts
         counts[check.group.rawValue, default: 0] += 1
         return Inbox(
             checks: [check] + read.checks, counts: counts, total: read.total + 1,
-            deadlinesToday: read.deadlinesToday, blocking: read.blocking.map { $0 + (check.urgency == .blocks ? 1 : 0) }
-        )
+            deadlinesToday: read.deadlinesToday,
+            blocking: read.blocking.map { $0 + (check.urgency == .blocks ? 1 : 0) },
+            version: nil)
     }
 
     /// What a read asked at `asked` makes of it: nil while it says nothing yet (asked before the tap, or cut off by its

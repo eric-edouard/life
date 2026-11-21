@@ -94,6 +94,7 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
 /// `read_matters`: the running matters, most pressing first.
 public struct MatterList: Decodable, Sendable, Equatable {
     public let matters: [MatterRow]
+    public let version: String?
 
     /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
     public func matching(_ query: String) -> [MatterRow] {

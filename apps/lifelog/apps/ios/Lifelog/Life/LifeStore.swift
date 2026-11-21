@@ -207,7 +207,9 @@ final class LifeStore {
 
     func refreshInbox() async {
         let before = inbox.loadedAt
-        await load({ self.inbox.apply($0) }, key: Self.inboxKey) { try await $0.readInbox() }
+        await load({ self.inbox.apply($0) }, key: Self.inboxKey, held: { self.inbox.value }) {
+            try await $0.readInbox(ifNot: $1)
+        }
         // A read asked after the tap ends its check: a card that was not in hand opens now, one answered elsewhere gives
         // way to the next with a notice. One he answered here since stays as he left it.
         if let push = pushed, inbox.loadedAt != before, let read = inbox.value, let asked = inbox.loadedAt,
@@ -244,7 +246,9 @@ final class LifeStore {
         center.removeDeliveredNotifications(withIdentifiers: gone.map(\.request.identifier))
     }
     func refreshMatters() async {
-        await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
+        await load({ self.matters.apply($0) }, key: Self.mattersKey, held: { self.matters.value }) {
+            try await $0.readMatters(ifNot: $1)
+        }
     }
     func refreshAgents() async {
         let before = agents.loadedAt
@@ -364,7 +368,9 @@ final class LifeStore {
     }
 
     func refreshProjects() async {
-        await load({ self.projects.apply($0) }, key: Self.projectsKey) { try await $0.readProjects() }
+        await load({ self.projects.apply($0) }, key: Self.projectsKey, held: { self.projects.value }) {
+            try await $0.readProjects(ifNot: $1)
+        }
     }
 
     func refreshProjectHead(_ id: String) async {
@@ -373,7 +379,7 @@ final class LifeStore {
             self.projectHead[id, default: ReadState()].apply(event)
         }
         if projectHead[id] == nil { restore(update, key: key) }
-        await load(update, key: key) { try await $0.readProject(id) }
+        await load(update, key: key, held: { self.projectHead[id]?.value }) { try await $0.readProject(id, ifNot: $1) }
     }
 
     /// A chip's list: a project's matters, or an area's in no project (Life's one rule for both, `isInScope`).
@@ -384,8 +390,8 @@ final class LifeStore {
             self.scopedMatters[chip, default: ReadState()].apply(event)
         }
         if scopedMatters[chip] == nil { restore(update, key: key) }
-        await load(update, key: key) {
-            try await kind == .area ? $0.readMatters(area: id) : $0.readMatters(project: id)
+        await load(update, key: key, held: { self.scopedMatters[chip]?.value }) {
+            try await kind == .area ? $0.readMatters(area: id, ifNot: $1) : $0.readMatters(project: id, ifNot: $1)
         }
     }
 
@@ -423,12 +429,24 @@ final class LifeStore {
         _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true,
         fetch: @escaping @Sendable (any LifeAPI) async throws -> String
     ) async {
+        await load(update, key: key, isKept: isKept, held: { nil }) { api, _ in try await fetch(api) }
+    }
+
+    /// A versioned read (`VersionedRead`) is asked `ifNot` the version of the value `held` as its pass begins: while
+    /// Life says nothing changed, that value holds, read as of now, and its kept copy stays as it is.
+    private func load<V: ParsedRead & NamesParties>(
+        _ update: @escaping (ReadState<V>.Event) -> Void, key: String, isKept: Bool = true, held: @escaping () -> V?,
+        fetch: @escaping @Sendable (any LifeAPI, _ ifNot: String?) async throws -> String
+    ) async {
         await flights.run(key) { [self] in
-            let (asked, pairing) = (now(), parties.generation.current)
+            let (asked, pairing, held) = (now(), parties.generation.current, held())
+            let versioned = held as? any VersionedRead
+            let ifNot = versioned?.version
             update(.started)
-            guard let text = await parties.generation.answer({ try await fetch(api) }) else { return }
+            guard let text = await parties.generation.answer({ try await fetch(api, ifNot) }) else { return }
             do {
                 let read = try text.get()
+                if let held, versioned?.isUnchanged(by: read) == true { return update(.succeeded(held, asked)) }
                 let value = try V.parsed(read)
                 if isKept { cache.store(read, key: key, asked: asked) }
                 parties.remember(value.parties, at: asked, pairing: pairing)

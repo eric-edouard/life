@@ -908,3 +908,16 @@ private func asks(
     }
     #expect(unpaired == nil)
 }
+
+/// Asked `ifNot` its version, Life's "nothing changed" keeps the read held; any other answer is a new read, and an
+/// inbox changed on the phone is no longer Life's version.
+@Test func anUnchangedAnswerKeepsTheReadHeld() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let version = try #require(inbox.version)
+    let unchanged = #"{"unchanged":true,"version":"\#(version)"}"#
+    #expect(inbox.isUnchanged(by: unchanged))
+    #expect(!inbox.isUnchanged(by: #"{"unchanged":true,"version":"other"}"#))
+    #expect(!inbox.isUnchanged(by: try wireText("life/read_inbox.json")))
+    #expect(!inbox.without([inbox.checks[0].ref]).isUnchanged(by: unchanged))
+    #expect(try decoded(MatterList.self, wireText("life/read_matters.json")).version != nil)
+}

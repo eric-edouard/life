@@ -21,13 +21,13 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     /// Awaited before each `read_person_pictures` answers: a test holds a call there.
     var picturesHeld: @Sendable () async -> Void = {}
 
-    func readInbox() async throws -> String { "{}" }
+    func readInbox(ifNot: String?) async throws -> String { "{}" }
     func readInbox(pushId: String, at origin: URL?) async throws -> String { "{}" }
-    func readMatters() async throws -> String { "{}" }
-    func readMatters(project: String) async throws -> String { "{}" }
-    func readMatters(area: String) async throws -> String { "{}" }
-    func readProjects() async throws -> String { "{}" }
-    func readProject(_ id: String) async throws -> String { "{}" }
+    func readMatters(ifNot: String?) async throws -> String { "{}" }
+    func readMatters(project: String, ifNot: String?) async throws -> String { "{}" }
+    func readMatters(area: String, ifNot: String?) async throws -> String { "{}" }
+    func readProjects(ifNot: String?) async throws -> String { "{}" }
+    func readProject(_ id: String, ifNot: String?) async throws -> String { "{}" }
     func readMatters(person: String) async throws -> String { "{}" }
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }
