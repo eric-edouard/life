@@ -2,7 +2,7 @@ import Foundation
 import Library
 
 /// How close someone is to him, as Life judged it (`ClosenessLevel`, `records/observation.ts`), closest first.
-public enum ClosenessLevel: String, UnknownTolerant, Sendable {
+public enum ClosenessLevel: String, UnknownTolerant, Sendable, CaseIterable {
     case inner, regular, acquaintance, faded
     case unknown
 
@@ -73,8 +73,9 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         public var id: String { label ?? "" }
     }
 
-    /// The rows of `kind`, in `order`: by closeness, Life's own order under each level ("Regular", "Acquaintances",
-    /// "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for any other). One group per label.
+    /// The rows of `kind`, in `order`: by closeness, Life's own order under each `ClosenessLevel`, in its order
+    /// ("Regular", "Acquaintances", "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for
+    /// any other). One group per level or letter.
     public func groups(_ order: Order, _ kind: Kind) -> [Group] {
         let rows = people.filter { row in
             switch kind {
@@ -85,18 +86,9 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         }
         switch order {
         case .closeness:
-            let byLevel = Dictionary(grouping: rows) { row -> String? in
-                switch row.level {
-                case .inner: nil
-                case .regular: "Regular"
-                case .acquaintance: "Acquaintances"
-                case .faded: "Faded"
-                case .unknown, nil: "Not judged yet"
-                }
-            }
-            let levels: [String?] = [nil, "Regular", "Acquaintances", "Faded", "Not judged yet"]
-            return levels.compactMap { label in
-                byLevel[label].map { Group(label: label, rows: $0) }
+            let byLevel = Dictionary(grouping: rows) { $0.level ?? .unknown }
+            return ClosenessLevel.allCases.compactMap { level in
+                byLevel[level].map { Group(label: Self.label(of: level), rows: $0) }
             }
         case .alphabet:
             let byName: (PersonRow, PersonRow) -> Bool = {
@@ -105,6 +97,36 @@ public struct PeopleList: Decodable, Sendable, Equatable {
             return Dictionary(grouping: rows) { Self.letter(of: $0.party.name) }
                 .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
                 .map { Group(label: $0.key, rows: $0.value.sorted(by: byName)) }
+        }
+    }
+
+    /// Whether the person on show stands beside the list: a regular width that is not taller than wide. Upright, the
+    /// open Duo stacks as folded (decision 93): the list full screen, a tap pushes the page.
+    public static func isSplit(isRegularWidth: Bool, width: Double, height: Double) -> Bool {
+        isRegularWidth && width >= height
+    }
+
+    /// Who stands beside the list once the list, its control or the pose changed: stacked (`isSplit` false), `shown` as
+    /// it is; beside it, `shown` while `kind`'s rows hold them or while he opened them from elsewhere (`isFromElsewhere`:
+    /// a matter's chip, an agent's wake row); else the first row, so a segment that leaves them out, or a read that
+    /// dropped them, never leaves a page with no row chosen.
+    public func selectionOf(_ shown: String?, isFromElsewhere: Bool, kind: Kind, order: Order, isSplit: Bool)
+        -> String?
+    {
+        guard isSplit else { return shown }
+        let rows = groups(order, kind).flatMap(\.rows)
+        if let shown, isFromElsewhere || rows.contains(where: { $0.id == shown }) { return shown }
+        return rows.first?.id
+    }
+
+    /// A level's small label over its group; the closest have none (they are simply first).
+    private static func label(of level: ClosenessLevel) -> String? {
+        switch level {
+        case .inner: nil
+        case .regular: "Regular"
+        case .acquaintance: "Acquaintances"
+        case .faded: "Faded"
+        case .unknown: "Not judged yet"
         }
     }
 

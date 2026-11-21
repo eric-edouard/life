@@ -190,6 +190,7 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   const q = (used: number) => ({ resetsAt: "2026-10-20T00:00:00.000Z", used });
   const call = (run: string, input: number, more = {}) => ({
     at: step,
+    engine: "openrouter",
     kind: "model.run",
     run,
     tokens: tokens(input),
@@ -336,6 +337,7 @@ test("a night's use holds every step it ran, listed or not (17 Nov 2026: appoint
     ev("run.start", "memory.appointments", child, { run: id(child) }),
     {
       at: child,
+      engine: "openrouter",
       kind: "model.run",
       reads: { memory: 2 },
       run: id(child),

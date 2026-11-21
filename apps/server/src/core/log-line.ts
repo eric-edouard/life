@@ -11,9 +11,9 @@ import { clock } from "./clock";
 // `msg` (LogTape's raw template, its placeholders the line's own fields), then the fields. Pure of paths and settings,
 // so Voice's server imports it without Life's (`paths.ts` needs Life's code folder); each app owns its sink.
 
-/** The ids Life's records carry: observations, episodes, units, matters, ledger entries (`entry_`) and conversations (UUIDs). */
+/** The ids Life's records carry: observations, episodes, units, matters, ledger entries (`entry_`), appointments and conversations (UUIDs). */
 export const IDS =
-  /\b(?:obs|ep|unit|entry|matter)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
+  /\b(?:obs|ep|unit|entry|matter|apt)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 
 export const LOG_LEVELS = ["info", "warn", "error"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];

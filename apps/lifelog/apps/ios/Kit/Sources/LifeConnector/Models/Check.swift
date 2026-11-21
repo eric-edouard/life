@@ -7,6 +7,7 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case contactsCard = "contacts card"
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
+    case samePerson = "same person"
     case unknown
 }
 
@@ -273,7 +274,7 @@ extension Check {
         switch group {
         case .ending: return "Why done?"
         case .newMatter: return "What Life saw"
-        case .guessedPerson, .name, .voice, .contactsCard:
+        case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
         case .decision, .unknown: return "Why it asks"

@@ -106,8 +106,14 @@ export function arrivalAppointmentsOf(lines: ReadReply[]) {
 }
 
 /** The arrival appointments read in the last `ARRIVAL_APPOINTMENT_DAYS` (a read is filed by its first line's month, at most two days before it). */
-export function readArrivalAppointments(now: Date, where = READ_REPLIES) {
-  const since = iso(now.getTime() - ARRIVAL_APPOINTMENT_DAYS * DAY);
+export function readArrivalAppointments(
+  now: Date,
+  where = READ_REPLIES,
+  /** Read back to here instead when it is earlier: the sheet of an event written before the window. */
+  from?: string
+) {
+  const window = iso(now.getTime() - ARRIVAL_APPOINTMENT_DAYS * DAY);
+  const since = from && from < window ? from : window;
   return arrivalAppointmentsOf(
     readRepliesSince(iso(Date.parse(since) - 2 * DAY), where).filter(
       (l) => l.at >= since
