@@ -1,13 +1,27 @@
 import { afterAll, beforeEach, expect, test } from "bun:test";
+import { clock } from "../core/clock";
+import { DESK_AGENT } from "../core/names";
 import { setSettings } from "../core/settings";
-import { agentInRole, openTurn } from "../host/desk-read";
+import { ask } from "../host/asks";
+import { requested } from "../host/change-todo-item";
+import {
+  agentChangeOf,
+  agentInRole,
+  agentWaitOf,
+  currentAssignmentOf,
+  openTurn,
+} from "../host/desk-read";
 import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
+import { MOVE_REASONS } from "../host/move-read";
 import type { MainSessionLine } from "../records/main-session-wire";
+import type { AgentChange } from "../records/registered-agent";
+import { applyAgentChanges } from "./agent-changes";
 import { wakeDue } from "./desk-clock";
 import { doorFetch } from "./desk-door";
 import { doorOf } from "./door-keys";
 import { askMainSession, keepMainSession, MAIN_BRIEF } from "./main-session";
+import { SessionLive } from "./runtimes/contract";
 import { setup } from "./test-desk";
 import { endLostTurns } from "./turn-ends";
 
@@ -57,7 +71,7 @@ async function asked(words: string, play: (ref: string) => void, key?: string) {
   return { answer: await answer, lines, ref };
 }
 
-test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends answered with its tokens", async () => {
+test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends replied with its tokens", async () => {
   const { answer, lines, ref } = await asked("Where is my passport?", (r) => {
     t.fake.hear(r, { kind: "words", text: "Let me look." });
     t.fake.hear(r, {
@@ -144,6 +158,34 @@ test("one ask at a time; a retry under its key replays its lines and ends with t
   expect(t.fake.said).toHaveLength(1);
 });
 
+test("an ask its session would not take keeps no retry key: the retry asks again; the main session holds no wait", async () => {
+  await asked("Hello", (r) => t.fake.hear(r, { kind: "words", text: "Hi." }));
+  const { talk } = t.fake.runtime;
+  t.fake.runtime.talk = () =>
+    Promise.reject(new SessionLive("session is running"));
+  expect(
+    await askMainSession(t.desk, { key: "k", words: "Again" }, () => undefined)
+  ).toEqual({
+    kind: "error",
+    what: "Life's main session is busy or closed: send your words again.",
+  });
+  t.fake.runtime.talk = talk;
+  const again = askMainSession(
+    t.desk,
+    { key: "k", words: "Again" },
+    () => undefined
+  );
+  await Bun.sleep(5);
+  const ref = t.fake.said.at(-1)?.ref ?? "";
+  expect(t.fake.said.at(-1)?.message).toContain('"Again"');
+  t.fake.hear(ref, { kind: "words", text: "Hi again." });
+  t.fake.exit(ref);
+  expect(await again).toEqual({ kind: "reply", words: "Hi again." });
+  const a = main();
+  const s = a && currentAssignmentOf(t.desk.db, a.id);
+  expect(a && s && agentWaitOf(a, s)).toBeNull();
+});
+
 test("a failed run answers an error and ends its turn failed; a run with no words answers that it gave none", async () => {
   const { answer } = await asked("Hello", (r) =>
     t.fake.hear(r, { kind: "thinking" })
@@ -209,7 +251,9 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
 });
 
 test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a busy ask is not kept by its key, and a key with other words is refused", async () => {
-  expect(await keepMainSession(t.desk)).toBeUndefined();
+  expect(await keepMainSession(t.desk)).toBe(
+    "Life's main session opens on your first words."
+  );
   expect(main()).toBeFalsy();
   const first = await asked("Hello", (r) =>
     t.fake.hear(r, { kind: "words", text: "Hi." })
@@ -248,4 +292,40 @@ test("presence registers nothing; a turn launching is never ended by the lost tu
   t.fake.hear(first.ref, { kind: "words", text: "Ok." });
   t.fake.exit(first.ref);
   expect(await again).toEqual({ kind: "reply", words: "Ok." });
+});
+
+test("presence of a stopped main session, or one whose runtime can't run, says why and keeps nothing", async () => {
+  await asked("Hello", (r) => t.fake.hear(r, { kind: "words", text: "Hi." }));
+  const id = main()?.id ?? "";
+  // Its runtime is gone from the desk.
+  t.desk.runtimes = {};
+  expect(await keepMainSession(t.desk)).toBe(MOVE_REASONS.blocked("claude"));
+  t.desk.runtimes = { claude: t.fake.runtime };
+  t.desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
+  expect(await keepMainSession(t.desk)).toBe("Life's main session is stopped.");
+  expect(t.fake.kept).toEqual([]);
+});
+
+test("his word never re-points the main session: it takes no other subject", async () => {
+  await asked("Hello", (r) => t.fake.hear(r, { kind: "words", text: "Hi." }));
+  const agent = main()?.id ?? "";
+  const refused = async (agentChange: AgentChange) => {
+    const { id } = ask(
+      requested("main-re-point", "Test: re-point", clock().toISOString()),
+      { agent: DESK_AGENT, agentChange, confidence: "high" },
+      "connector",
+      "asked in a chat",
+      clock().getTime()
+    );
+    await applyAgentChanges(t.desk);
+    return agentChangeOf(t.desk.db, id)?.error;
+  };
+  const error = "the main agent takes no other subject";
+  expect(await refused({ action: "re_point", agent, project: "test-p" })).toBe(
+    error
+  );
+  expect(
+    await refused({ action: "re_point", agent, steps: ["obs_00000000a101"] })
+  ).toBe(error);
+  expect(main()?.project).toBeNull();
 });

@@ -1,6 +1,6 @@
 import type { Correction } from "../records/observation";
+import type { CheckInputs } from "./check-context";
 import { type NameRow, nameGroupsOf } from "./check-sentences";
-import type { CheckInputs } from "./checks";
 import type { AgentHold } from "./held-matters";
 import { partyOf } from "./party";
 import { guessTestOf, latestInUseOf } from "./ref-kinds";

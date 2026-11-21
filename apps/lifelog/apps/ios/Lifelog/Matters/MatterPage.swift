@@ -249,6 +249,8 @@ private struct EditableLine: View {
             }
             if case .failed(let failure, _) = state {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
+            } else if !isEditing, case .succeeded = state {
+                Label("Saved", systemImage: "checkmark").font(.small).foregroundStyle(Palette.ok)
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 16)

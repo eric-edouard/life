@@ -1,12 +1,13 @@
 import { expect, setSystemTime, spyOn, test } from "bun:test";
 import { yourMoveClosingOf } from "./answer-check";
+import type { CheckInputs } from "./check-context";
 import {
   blockingCountOf,
   inboxOf,
   inboxOrderOf,
   urgencyOf,
 } from "./check-urgency";
-import { type CheckInputs, checksOf, type InboxCheck } from "./checks";
+import { checksOf, type InboxCheck } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import type { Check } from "./life-checks";
 import { Need, needsShownOf } from "./needs";
@@ -235,7 +236,7 @@ test("a place need takes only https links, and its line names it with its addres
   ).toBe("Paint shop, 1 Main Rd");
 });
 
-test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge counts it only with a deadline", () => {
+test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge always counts it", () => {
   const card = (
     ref: string,
     group: Check["group"],
@@ -280,15 +281,15 @@ test("your move comes after every agent's decision, by deadline then the longest
     "guess",
   ]);
   expect(list.map((c) => urgencyOf(c))).toEqual([
-    "improves",
-    "improves",
+    "blocks",
+    "blocks",
     "blocks",
     "blocks",
     "improves",
     "blocks",
     "blocks",
   ]);
-  expect(blockingCountOf(list)).toBe(4);
+  expect(blockingCountOf(list)).toBe(6);
 });
 
 test("Mark as done closes only the card's step, never its siblings", async () => {

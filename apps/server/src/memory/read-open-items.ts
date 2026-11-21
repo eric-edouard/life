@@ -34,7 +34,7 @@ const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
   if (e.by === "link") {
     return ` (probably ended ${on}: "${oneLineOf(e.quote, QUOTE_MAX)}")`;
   }
-  if (e.by === "ticked") {
+  if (e.by === "todo_item") {
     return ` (${e.dropped ? "dropped" : "ticked"} ${on})`;
   }
   return e.replacedBy

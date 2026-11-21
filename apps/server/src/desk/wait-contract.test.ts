@@ -7,6 +7,7 @@ import { take } from "../core/lock";
 import { flagsOf } from "../host/agents-now";
 import {
   agentOf,
+  agentWaitOf,
   currentAssignmentOf,
   heldByAgents,
   holderOf,
@@ -124,7 +125,10 @@ test("W5: the reminded turn ending with nothing gets the default wait: old filte
   expect(turns(id).at(-1)?.outcome).toBe("default_wait");
   expect(a?.wait_until).toBe(ahead(DAY));
   expect(JSON.parse(a?.wait_events ?? "")).toEqual([ANA]);
-  expect(a && flagsOf(a, null, 0, clock().getTime()).defaultWait).toBe(true);
+  const g = agentOf(desk.db, id);
+  expect(
+    a && g && flagsOf(agentWaitOf(g, a), null, 0, clock().getTime()).defaultWait
+  ).toBe(true);
 });
 
 test("W6: a failure mid-turn leaves its events queued and retries at 5 minutes", async () => {
@@ -422,9 +426,8 @@ test("W17: a turn silent for 61 minutes is flagged, never killed", async () => {
   await wakeDue(desk);
   advance(61 * MIN);
   await wakeDue(desk);
-  const a = currentAssignmentOf(desk.db, id);
   const open = openTurn(desk.db, id);
-  expect(a && flagsOf(a, open, 0, clock().getTime()).silent).toBe(true);
+  expect(flagsOf(null, open, 0, clock().getTime()).silent).toBe(true);
   expect(open).not.toBeNull();
   expect(fake.sessions.get(agentOf(desk.db, id)?.session ?? "")?.running).toBe(
     true

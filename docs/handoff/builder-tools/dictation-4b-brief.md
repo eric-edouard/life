@@ -38,7 +38,7 @@ Line numbers moved on main (a People tab landed), so `rg -n "TextField|searchabl
 
 ## Rules
 - **Do not edit** (other builders): LifeStore.swift, RootView.swift, NotificationRoute.swift, IncidentNotifier.swift, the MCPClient/MCPError/ActionState/LifeActions/OAuth layer. If Search needs RootView, ask the coordinator.
-- Heavy jobs go only through `…/scratchpad/heavy.sh`. No simulator boots, no device install, no xcodebuild beyond the gate's own. While iterating, run only the changed tests. Push once; the pre-push hook is the gate.
+- Heavy jobs go only through `tools/heavy.sh`. No simulator boots, no device install, no xcodebuild beyond the gate's own. While iterating, run only the changed tests. Push once; the pre-push hook is the gate.
 - `env -u GITHUB_TOKEN` for git and gh. Never print the environment. Made-up data only.
 - Split at about 800 lines. The PR body has a `## Debt plan` and lists device benchmarks as open: stop-to-editable p50/p95 for local, mixed and Thai speech, idle and saturated; the audio session on a real iPhone (a call, AirPods, playback then capture).
 - A screen change gets a design review (`apps/ios/AGENTS.md`) before its debt verdict; the coordinator schedules it.

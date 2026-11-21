@@ -93,6 +93,19 @@ export function isGroupDue(
   });
 }
 
+/** What the pass reads and calls outside memory, one place so a test injects each (the watcher passes none). */
+const OUTSIDE = {
+  callsToday: readCallsToday,
+  isOnline,
+  isWorthNaming,
+  near: readWithPeople,
+  queue: readNamingQueue,
+  spoken: spokenPartsOf,
+  voiceNaming,
+  work: readVoiceNamingWork,
+};
+export type Outside = typeof OUTSIDE;
+
 /**
  * The day's voice naming (his yes of 21 Nov 2026 to a third daytime model step), on the watcher's voice read: a
  * conversation holding a voice group is read when lifelog closed it (once per process: `examined`, its first turn's
@@ -105,9 +118,11 @@ export async function nameVoicesOnArrival(
   voice: RecentVoice,
   people: People,
   examined: Set<string>,
-  where = READ_REPLIES
+  where = READ_REPLIES,
+  outside: Partial<Outside> = {}
 ) {
-  const queue = await readNamingQueue();
+  const o = { ...OUTSIDE, ...outside };
+  const queue = await o.queue();
   const jobs = new Set(queue.flatMap((i) => i.voices.map((v) => v.jobId)));
   const recent = recentConversationsOf(voice);
   // Only conversations still read: the set never outgrows the voice read.
@@ -140,7 +155,7 @@ export async function nameVoicesOnArrival(
   };
   for (const c of held) {
     // biome-ignore lint/performance/noAwaitInLoops: a few conversations, one fetch of words each
-    const parts = await spokenPartsOf(c.turns, people);
+    const parts = await o.spoken(c.turns, people);
     if (parts.length > 0 && (c.closed || isGroupDue(parts, queue, asked))) {
       due.push(parts);
     }
@@ -149,24 +164,22 @@ export async function nameVoicesOnArrival(
     return finish(0);
   }
   const from = Math.min(...due.map((p) => Date.parse(p[0]?.at ?? "")));
-  const { events } = await readWithPeople(
-    new Date(from - PLANNED_WITHIN - CALL_SLACK)
-  );
+  const { events } = await o.near(new Date(from - PLANNED_WITHIN - CALL_SLACK));
   const near = { direct: directChats(events, people.resolve), events, people };
-  const worth = due.filter((parts) => isWorthNaming(parts, near));
+  const worth = due.filter((parts) => o.isWorthNaming(parts, near));
   if (worth.length === 0) {
     return finish(0);
   }
-  const left = NAMINGS_A_DAY - (await readCallsToday([PROMPT]));
-  if (left <= 0 || !(await isOnline())) {
+  const left = NAMINGS_A_DAY - (await o.callsToday([PROMPT]));
+  if (left <= 0 || !(await o.isOnline())) {
     return 0;
   }
-  const work = await readVoiceNamingWork({ parts: worth }, people, where);
+  const work = await o.work({ parts: worth }, people, where);
   if (work.asked.length === 0) {
     return finish(0);
   }
   if (isLocked()) {
     return 0;
   }
-  return finish((await voiceNaming(work, left, where)).calls);
+  return finish((await o.voiceNaming(work, left, where)).calls);
 }

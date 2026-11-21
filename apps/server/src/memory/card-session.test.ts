@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { type CheckInputs, checksOf } from "./checks";
+import type { CheckInputs } from "./check-context";
+import { checksOf } from "./checks";
 import { decision, inputs } from "./checks-test-inputs";
 
 test("a registered agent's card opens its holder's session, never the link it was asked with; another ask opens its first link", () => {

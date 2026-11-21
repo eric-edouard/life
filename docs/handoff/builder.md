@@ -108,7 +108,7 @@ The briefs are in `builder-tools/helper-resume.md` (the queue as it stood) unles
 
 ## Tools
 
-The scripts are code blocks in [`builder-tools.md`](builder-tools.md), and the plans and briefs are in [`builder-tools/`](builder-tools/). The scratchpad path is written as `$TOOLS` and the Mac user's home as `$HOME`.
+The scripts are in [`tools/`](../../tools/) (listed in [`builder-tools.md`](builder-tools.md)), and the plans and briefs are in [`builder-tools/`](builder-tools/).
 
 - **`heavy.sh <cmd>`** runs every test, tsc, swift or xcodebuild job, one slot at a time, starting under load 60.
   - Lanes: `HEAVY_LANE=land` for a landing check, `light` for a job under a minute, `release` for the Life.app and phone builds.
@@ -128,6 +128,6 @@ The scripts are code blocks in [`builder-tools.md`](builder-tools.md), and the p
 
 ## How to resume
 
-1. Copy each script out of `docs/handoff/builder-tools.md` into the new session's scratchpad, replace `$TOOLS` with that folder's path, and `chmod +x` them.
+1. Use the scripts in `tools/` as they are.
 2. Land #924 (`land-train.sh 924`), then run #930's verdict and train it. Then ask the owner to install on his phone: the build carries the Live logs crash fix.
 3. Resume `matter-handoff-phone` from its `PLAN.md`, then the decision-98 batches in the order above, keeping at most 3 helpers and landing in trains.

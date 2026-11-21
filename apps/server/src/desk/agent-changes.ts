@@ -21,7 +21,7 @@ import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
-import { AgentChange } from "../records/registered-agent";
+import { AgentChange, hasFixedSubject } from "../records/registered-agent";
 import {
   openAssignment,
   register,
@@ -64,10 +64,11 @@ const subjectCountRefusal = (c: AgentChange) =>
     ? null
     : 'name exactly one subject: a matter (`step`), a project, or `role: "personal"`';
 
-/** Why a subject is refused: not exactly one (`subjectCountRefusal`); a re-point of the caretaker (`self`), which takes no other subject; another Personal agent active or stopped; the matter held by another active agent. */
+/** Why a subject is refused: not exactly one (`subjectCountRefusal`); a re-point of an agent that takes no other subject (`self`, `hasFixedSubject`); another Personal agent active or stopped; the matter held by another active agent. */
 function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
-  if (self && agentOf(desk.db, self)?.role === "caretaker") {
-    return "the caretaker takes no other subject";
+  const role = self ? (agentOf(desk.db, self)?.role ?? null) : null;
+  if (hasFixedSubject(role)) {
+    return `the ${role} agent takes no other subject`;
   }
   const counted = subjectCountRefusal(c);
   if (counted) {

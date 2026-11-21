@@ -193,7 +193,7 @@
       "text": "Call the shop",
       "ending": {
         "at": "2026-10-14T10:00:00.000Z",
-        "by": "ticked"
+        "by": "todo_item"
       },
       "with": {
         "kind": "person",

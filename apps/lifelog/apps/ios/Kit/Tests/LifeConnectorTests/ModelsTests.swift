@@ -49,12 +49,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
     #expect(inbox.total == 12)
-    #expect(inbox.blocking == 6)
-    #expect(inbox.badge == 6)
+    #expect(inbox.blocking == 7)
+    #expect(inbox.badge == 7)
     #expect(inbox.counts.values.reduce(0, +) == 12)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
             .improves,
         ])
     let decision = try #require(inbox.checks.first)
@@ -181,7 +181,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(matter.row.name == "Mend Gran's watch")
     #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
-    #expect(matter.steps[1].ending?.by == .ticked)
+    #expect(matter.steps[1].ending?.by == .todoItem)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
     #expect(matter.agents.first?.runtime == "claude")
     #expect(matter.agents.first?.notStarted == nil)
@@ -639,6 +639,16 @@ private func asks(
         .ordered(deferred: [])
     #expect(one.folded().bulk.isEmpty)
     #expect(one.folded(working: [.guessedPerson]).bulk.keys.contains("g1"))
+    // Same person has no filter chip of its own: it is the guessed people's.
+    #expect(order.kinds == [.guessedPerson] && order.only(.guessedPerson).checks.count == 3)
+}
+
+/// A group's heading on the bulk card follows the answer Life pre-ticks on it.
+@Test func theBulkCardHeadsEachGroupByItsPreTickedAnswer() {
+    #expect(
+        CheckGroup.voice.bulkHeading(nil) == "Needs you" && CheckGroup.voice.bulkHeading("is-them") == "Probably them")
+    #expect(CheckGroup.voice.bulkHeading("not-relevant") == "Heard once")
+    #expect(CheckGroup.ending.bulkHeading("outdated") == "Look done" && CheckGroup.ending.bulkHeading("x") == nil)
 }
 
 /// A name card with no one to suggest offers "Create <name>", the longest name it asks about.

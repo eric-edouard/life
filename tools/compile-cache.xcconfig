@@ -1,0 +1,4 @@
+// heavy.sh: content-addressed compile cache, independent of the worktree's path (Xcode 26+).
+COMPILATION_CACHE_ENABLE_CACHING = YES
+SWIFT_ENABLE_PREFIX_MAPPING = YES
+CLANG_ENABLE_PREFIX_MAPPING = YES
