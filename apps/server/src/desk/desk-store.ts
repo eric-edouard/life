@@ -9,7 +9,7 @@ import { assignmentOfCard, readCursor } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
-import { COMPLAINT_RECEIVED } from "../host/events";
+import { ASK_SPOKEN, COMPLAINT_RECEIVED } from "../host/events";
 import type { Decision } from "../memory/decision-lines";
 import { askPlaceOf } from "../memory/memory-files";
 import type { AgentWait } from "../records/registered-agent";
@@ -22,6 +22,33 @@ import type { Runtime } from "./runtimes/contract";
 /** At most one active or stopped agent of each role: the fresh schema's, and `stepRoles`'. */
 export const ONE_AGENT_PER_ROLE =
   "create unique index if not exists one_agent_per_role on agent (role) where role is not null and status in ('active', 'stopped')";
+
+/** A move's tables (`desk/agent-moves.ts`, the store step `stepMoves`): its row, and each runtime's last block. */
+export const MOVE_TABLES = `
+create table if not exists move (
+  ask text primary key,
+  agent_id text not null,
+  assignment_id text,
+  to_agent text,
+  to_runtime text,
+  from_runtime text,
+  from_model text,
+  from_effort text,
+  from_session text,
+  from_link text,
+  asked_at text not null,
+  moved_at text,
+  failed_at text,
+  failed text
+);
+create index if not exists move_by_assignment on move (assignment_id);
+create index if not exists move_by_agent on move (agent_id);
+create table if not exists runtime_block (
+  runtime text primary key,
+  why text,
+  checked_at text not null
+);
+`;
 
 export const SCHEMA = `
 create table if not exists agent (
@@ -60,6 +87,7 @@ create table if not exists assignment (
   closed_at text,
   outcome text,
   why_not_started text,
+  matter_id text,
   check (closed_at is not null or wait_until is not null)
 );
 create index if not exists assignment_by_agent on assignment (agent_id, closed_at);
@@ -101,7 +129,8 @@ create table if not exists turn (
   tokens_cached integer,
   tokens_out integer,
   context_used integer,
-  model text
+  model text,
+  move text
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);
@@ -142,7 +171,7 @@ create table if not exists handed_step (
   step text not null,
   primary key (assignment_id, step)
 );
-`;
+${MOVE_TABLES}`;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
 export interface Desk {
@@ -183,23 +212,50 @@ export const saveCursor = (db: Database, name: string, value: string | null) =>
 export const COMPLAINTS_CURSOR = "complaints";
 
 /**
- * Gives back the complaints assignment `id` received and never handed to a turn (the caretaker finished, or its first
- * turn never began, while one came): their receipts go and the intake's cursor steps back to the first of them, so the
- * next tick receives them again, for a caretaker that will read them. In the caller's transaction.
+ * The desk's cursor over the ledger for his spoken asks (`desk/spoken-ask-intake.ts`): how many lines it has read, and
+ * the asks read that still wait for a place (`waiting`), so one that waits never holds the scan.
  */
-function giveBackComplaints(db: Database, id: string) {
+const SPOKEN_ASKS_CURSOR = "spoken-asks";
+export interface SpokenAsksCursor {
+  line: number;
+  waiting: string[];
+}
+export const readSpokenAsksCursor = (db: Database): SpokenAsksCursor =>
+  JSON.parse(readCursor(db, SPOKEN_ASKS_CURSOR) ?? '{"line":0,"waiting":[]}');
+export const saveSpokenAsksCursor = (db: Database, c: SpokenAsksCursor) =>
+  saveCursor(db, SPOKEN_ASKS_CURSOR, JSON.stringify(c));
+
+/**
+ * Gives back what assignment `id` received from an intake and never handed to a turn (its agent finished, or its first
+ * turn never began, while one came): his complaints and his spoken asks. Their receipts (the event rows) go, and each
+ * intake takes them again on its next tick, for an agent that will read them: the complaints' cursor steps back to the
+ * first of them, the spoken asks join the asks that wait. In the caller's transaction.
+ */
+function giveBack(db: Database, id: string) {
   const back = db
-    .query<{ event_id: string }, [string, string]>(
-      "delete from event where assignment_id = ? and name = ? and handed = 0 and consumed_at is null and dropped_at is null returning event_id"
+    .query<{ event_id: string; name: string }, [string, string, string]>(
+      "delete from event where assignment_id = ? and name in (?, ?) and handed = 0 and consumed_at is null and dropped_at is null returning event_id, name"
     )
-    .all(id, COMPLAINT_RECEIVED)
-    .flatMap((e) => askPlaceOf(e.event_id) ?? []);
-  if (back.length > 0) {
+    .all(id, COMPLAINT_RECEIVED, ASK_SPOKEN);
+  const complaints = back.flatMap((e) =>
+    e.name === COMPLAINT_RECEIVED ? (askPlaceOf(e.event_id) ?? []) : []
+  );
+  if (complaints.length > 0) {
     saveCursor(
       db,
       COMPLAINTS_CURSOR,
-      String(Math.min(Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0), ...back))
+      String(
+        Math.min(Number(readCursor(db, COMPLAINTS_CURSOR) ?? 0), ...complaints)
+      )
     );
+  }
+  const asks = back.flatMap((e) => (e.name === ASK_SPOKEN ? e.event_id : []));
+  if (asks.length > 0) {
+    const c = readSpokenAsksCursor(db);
+    saveSpokenAsksCursor(db, {
+      ...c,
+      waiting: [...new Set([...c.waiting, ...asks])],
+    });
   }
 }
 
@@ -215,7 +271,11 @@ export const writeWait = (
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
   );
 
-/** Ends agent `agent` (`status`, `outcome`) when it holds no open assignment: the one ending rule, after a close or a move. */
+/**
+ * Ends agent `agent` (`status`, `outcome`) when it holds no open assignment and no matter it gave away by a move that
+ * may still roll back to it (committed, not failed, its new holder's first turn not begun: decision 78): the one ending
+ * rule, after a close or a move.
+ */
 export const endWhenIdle = (
   db: Database,
   agent: string,
@@ -223,13 +283,17 @@ export const endWhenIdle = (
   outcome: string | null
 ) =>
   db.run(
-    "update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = ? and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)",
+    `update agent set status = ?, stopped_at = null, ended_at = ?, outcome = ? where id = ?
+      and not exists (select 1 from assignment s where s.agent_id = agent.id and s.closed_at is null)
+      and not exists (select 1 from move m join agent_change c on c.ask = m.ask where m.agent_id = agent.id
+        and m.assignment_id is not null and m.moved_at is not null and c.error is null and m.failed is null
+        and not exists (select 1 from turn t where t.move = m.ask and t.cause <> 'move_notes' and t.begun_at is not null))`,
     [status, clock().toISOString(), outcome, agent]
   );
 
 /**
  * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), gives back the
- * complaints it never handed (`giveBackComplaints`), and ends its agent when it holds no open assignment after: the one
+ * complaints and spoken asks it never handed (`giveBack`), and ends its agent when it holds no open assignment after: the one
  * way anything closes, in the caller's transaction. Its agent must be
  * active, or, for a stopped agent he replaced by a new start (`replaced`), stopped: it then ends `handed_over`.
  * Whether it closed.
@@ -251,7 +315,7 @@ export function closeAssignmentRow(
     "update assignment set closed_at = ?, outcome = ?, why_not_started = ? where id = ?",
     [clock().toISOString(), end.outcome, end.whyNotStarted ?? null, id]
   );
-  giveBackComplaints(db, id);
+  giveBack(db, id);
   endWhenIdle(
     db,
     s.agent_id,

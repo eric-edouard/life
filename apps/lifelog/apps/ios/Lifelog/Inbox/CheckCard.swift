@@ -1,11 +1,12 @@
 import LifeConnector
 import SwiftUI
 
-/// One check as the Ask panel, whatever its kind: the question first, nothing above it; the thing it is about on `tile`,
-/// which hugs what it holds and scrolls when that is taller than the room; one row under it (the matter, and the one
-/// link, to its context sheet); then, at the bottom, its answers. Its look
-/// comes from what the check holds (a draft, a sentence, clips, a group), never from a kind of its own. His taps
-/// leave through `answer`; this view keeps nothing of the answer. At an accessibility text size the whole panel scrolls.
+/// One check as the Ask panel, whatever its kind, one full-height scroll with nothing scrolling inside it (decisions 97,
+/// 98): the matter chip, then the question, the thing it is about on `tile` at full length, and the link to its context
+/// under it; its answers float in the bottom bar over the scroll, whose end scrolls clear above them, unless they can
+/// grow tall (people to pick, an accessibility text size): then they end the scroll. Its look comes from what the check
+/// holds (a draft, a sentence, clips, a plan, a group), never from a kind of its own. His taps leave through `answer`;
+/// this view keeps nothing of the answer.
 struct CheckCard: View {
     let check: Check
     /// The runtime of the agent that asked, when the card's matter has one.
@@ -32,49 +33,28 @@ struct CheckCard: View {
     @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
-    /// Whether the link found room beside the matter; else it moves to the deadline's line.
-    @State private var isLinkBesideMatter = true
 
     var body: some View {
-        Group {
-            if typeSize.isAccessibilitySize {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                        question
-                        tile(scrolls: false)
-                        beingFixed
-                        matterRow
-                        actions
-                    }
-                    .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
-                }
-            } else {
-                VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    question
-                    tile(scrolls: true)
-                    beingFixed
-                    matterRow
-                    Spacer(minLength: 0)
-                    // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
-                    Group {
-                        if life.isCheckingPush {
-                            Spinner(size: .small).foregroundStyle(Palette.fg)
-                        } else if let page {
-                            PagerDots(current: page.current, total: page.total)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .motion(Motion.standard, value: life.isCheckingPush)
-                    actions
-                }
-                .padding(.horizontal, Metrics.Spacing.s).padding(.top, Metrics.Spacing.m)
-                .padding(.bottom, Metrics.Spacing.s).readingWidth()
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                if !input.isWritingOwnWords, check.matter != nil { matterPill }
+                question
+                tile
+                beingFixed
+                if !input.isWritingOwnWords, let link = contextLink { link }
+                if !isAnswersInBar { answers }
             }
+            .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
         }
-        .sheet(isPresented: $input.showsContext) {
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollEdgeEffectStyle(.soft, for: .vertical)
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
+        }
+        .sheet(item: $input.context) { context in
             ContextSheet(
-                title: check.contextLinkTitle ?? "", markdown: check.context ?? "", lifeLinks: check.lifeLinks ?? [],
-                appLink: check.links.first.flatMap(URL.init(string:)), appName: runtimeName?.name)
+                title: context.title, markdown: context.markdown, lifeLinks: context.lifeLinks,
+                appLink: context.session.flatMap(URL.init(string:)), appName: runtimeName?.name)
         }
     }
 
@@ -88,8 +68,10 @@ struct CheckCard: View {
 
     /// Whether a field of the ask has a thing of its own to draw; its context is behind its link, never the thing.
     private var hasThing: Bool {
-        check.draft != nil || !(check.needs ?? []).isEmpty || !check.clips.isEmpty || check.said != nil
-            || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
+        !check.planSteps.isEmpty || check.draft != nil || !(check.needs ?? []).isEmpty || !check.clips.isEmpty
+            || check.said != nil
+            || identity != nil || check.contactsCard != nil
+            || ([.newMatter, .yourMove].contains(check.group) && check.goal != nil)
     }
 
     /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
@@ -97,31 +79,30 @@ struct CheckCard: View {
         check.group == .guessedPerson || check.group == .samePerson ? check.networkIdentity : nil
     }
 
-    /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
-    /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
-    @ViewBuilder private func tile(scrolls: Bool) -> some View {
+    /// The thing on `tile`, at its full length: his own words while he writes them, else what the ask is about; no tile
+    /// when it has nothing.
+    @ViewBuilder private var tile: some View {
         if input.isWritingOwnWords || hasThing {
-            let thing = VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 if input.isWritingOwnWords { ownWords } else { content }
             }
             .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-            if scrolls {
-                ViewThatFits(in: .vertical) {
-                    thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-                    ScrollView { thing }.scrollBounceBehavior(.basedOnSize)
-                        .scrollEdgeEffectStyle(.soft, for: .vertical)
-                        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-                        .clipShape(.rect(cornerRadius: Metrics.Radius.passage))
-                }
-            } else {
-                thing.background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
-            }
+            .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
         }
     }
 
     @ViewBuilder private var content: some View {
+        if !check.planSteps.isEmpty {
+            PlanBlock(
+                steps: check.planSteps, agentMark: check.agentMark(runtime: runtimeName), gathered: check.gathered,
+                openContext: isContextBeside ? nil : { input.context = check.ownContext })
+        }
         DraftBlock(check: check, isBoxed: false)
-        if let needs = check.needs, !needs.isEmpty { NeedsBlock(needs: needs) }
+        if !(check.needs ?? []).isEmpty {
+            if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.bankTrip.isCodeSaved) }
+            let rows = check.shownNeedRows
+            if !rows.isEmpty { NeedsBlock(rows: rows) }
+        }
         switch check.group {
         case .ending: EndingBlock(said: check.said, since: check.since)
         case .newMatter:
@@ -129,6 +110,7 @@ struct CheckCard: View {
                 input.words = check.goal ?? ""
                 input.isWritingOwnWords = true
             }
+        case .yourMove: NewMatterBlock(goal: check.goal, said: check.said)
         case .name: NameBlock(said: check.said, names: check.about ?? [], clip: check.clips.first)
         default:
             if let said = check.said { SaidBlock(said: said) }
@@ -146,16 +128,22 @@ struct CheckCard: View {
             }
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
         }
-        TextField(
-            check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
+        DictationField(
+            prompt: check.group == .newMatter
+                ? "The goal"
+                : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
+            text: $input.words, axis: .vertical, focused: $isWriting
         )
-        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
+        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
         .onAppear { isWriting = true }
     }
 
-    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    /// His "Wrong…" the caretaker is at work on, under the tile: the caretaker's open question as a chip that opens its
+    /// context when it has one, else its line with the spinner.
     @ViewBuilder private var beingFixed: some View {
-        if let fixing = check.beingFixed {
+        if let context = check.fixContext {
+            QuietChip(context.title, symbol: "questionmark.circle") { input.context = context }.appears()
+        } else if let fixing = check.beingFixed {
             HStack(spacing: Metrics.Spacing.s) {
                 StateGlyph.busy
                 Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
@@ -164,42 +152,14 @@ struct CheckCard: View {
         }
     }
 
-    // MARK: The row under the thing, and the link
+    // MARK: The matter, the link, the answers
 
-    /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
-    /// it has one and it is not shown beside it; then "Tell the agent…" on an agent's question.
-    private var askLinks: [AskLink] {
-        var links: [AskLink] = []
-        if !isContextBeside, let title = check.contextLinkTitle {
-            links.append(AskLink(title: title) { input.showsContext = true })
-        }
-        if check.takesOwnWords { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
-        return links
-    }
-
-    private var isRowShown: Bool {
-        !input.isWritingOwnWords && !isContextBeside && (check.matter != nil || !askLinks.isEmpty)
-    }
-
-    /// The matter as a pill and, at its right, the first link; when both do not fit, the pill alone and the links move to
-    /// the deadline's line above the answers.
-    @ViewBuilder private var matterRow: some View {
-        if isRowShown {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Metrics.Spacing.m) {
-                    matterPill.fixedSize()
-                    Spacer(minLength: Metrics.Spacing.m)
-                    if let link = askLinks.first { TextLink(link.title, action: link.run).fixedSize() }
-                }
-                .preference(key: LinkBesideMatter.self, value: true)
-                HStack(spacing: 0) {
-                    matterPill
-                    Spacer(minLength: 0)
-                }
-                .preference(key: LinkBesideMatter.self, value: false)
-            }
-            .onPreferenceChange(LinkBesideMatter.self) { isLinkBesideMatter = $0 }
-        }
+    /// The link to its context, in the code's words for what it asks ("Why this reply?"), under the thing it explains;
+    /// none when the context shows beside the card, or when a plan's source chip already opens it (one way to it).
+    private var contextLink: QuietChip? {
+        guard !isContextBeside, check.gathered == nil || check.planSteps.isEmpty, let title = check.contextLinkTitle
+        else { return nil }
+        return QuietChip(title, symbol: "questionmark.circle") { input.context = check.ownContext }
     }
 
     @ViewBuilder private var matterPill: some View {
@@ -213,17 +173,33 @@ struct CheckCard: View {
         }
     }
 
-    private var actions: some View {
-        CheckActions(
-            check: check, input: $input, isBusy: isBusy,
-            links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
-            sameAs: sameAs, create: create, wrong: wrong
-        )
-        .padding(.bottom, Metrics.Spacing.xs)
+    /// Answers that can grow taller than a bar should be (people to pick, quiet answers past one row, a refused answer,
+    /// an accessibility text size) end the scroll.
+    private var isAnswersInBar: Bool {
+        guard !typeSize.isAccessibilitySize, CheckActions.fitsBar(check) else { return false }
+        // A refused answer stands above the answers, with what was written since: it reads in the page.
+        if case .failed = life.state(of: .answer(ref: check.ref)) { return false }
+        return true
     }
-}
 
-private struct LinkBesideMatter: PreferenceKey {
-    static let defaultValue = true
-    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = nextValue() }
+    /// The pager's dots (a spinner while a tapped push is checked: how many asks wait is not known yet), then the
+    /// answers.
+    private var answers: some View {
+        VStack(spacing: Metrics.Spacing.m) {
+            Group {
+                if life.isCheckingPush {
+                    Spinner(size: .small).foregroundStyle(Palette.fg)
+                } else if let page {
+                    PagerDots(current: page.current, total: page.total)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .motion(Motion.standard, value: life.isCheckingPush)
+            CheckActions(
+                check: check, input: $input, isBusy: isBusy, answer: answer, sameAs: sameAs, create: create,
+                wrong: wrong
+            )
+        }
+        .padding(.bottom, Metrics.Spacing.s)
+    }
 }

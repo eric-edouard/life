@@ -120,14 +120,16 @@ public struct CardNotification: Sendable, Equatable {
     /// options and its Send. One that needs a person, a name or his words opens the card instead.
     public static func buttons(_ check: Check) -> [(id: String, label: String)] {
         check.options.compactMap {
-            isOneTap($0) ? ("\(optionPrefix)\($0.id)", $0.label) : isSend($0, of: check) ? (send, $0.label) : nil
+            isOneTap($0, of: check)
+                ? ("\(optionPrefix)\($0.id)", $0.label) : isSend($0, of: check) ? (send, $0.label) : nil
         }
     }
 
     /// Needs nothing more than the tap, and acts on nothing outward.
-    /// A tap that is his word a step is done waits for Undo in the app: never a notification's button.
-    private static func isOneTap(_ option: Check.Option) -> Bool {
-        option.takes == nil && option.outgoing != true && option.ends == nil
+    /// A tap that is his word a step is done waits for Undo in the app, and a hand-over to an agent hands the goal only
+    /// the card shows: never a notification's button.
+    private static func isOneTap(_ option: Check.Option, of check: Check) -> Bool {
+        option.takes == nil && option.outgoing != true && option.ends == nil && !check.isHandOver(option)
     }
 
     /// Sends the card's draft, shown whole above it; never on a card that asks who its recipient is (`confirm`).
@@ -153,7 +155,7 @@ public struct CardNotification: Sendable, Equatable {
     /// Reply…: his own words, typed or dictated. A category's button, so the Watch shows it.
     public static var replyAction: UNTextInputNotificationAction {
         UNTextInputNotificationAction(
-            identifier: reply, title: "Reply…", options: [.authenticationRequired], textInputButtonTitle: "Send",
+            identifier: reply, title: "Reply…", options: [.authenticationRequired], textInputButtonTitle: "Tell",
             textInputPlaceholder: "Your words")
     }
 
@@ -181,7 +183,8 @@ public struct CardNotification: Sendable, Equatable {
         if action == send {
             return asksFaceID && category == sendCategory ? nil : sendOption(check).flatMap(check.answer)
         }
-        guard let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }), isOneTap(option)
+        guard let option = check.options.first(where: { "\(optionPrefix)\($0.id)" == action }),
+            isOneTap(option, of: check)
         else { return nil }
         return check.answer(option)
     }

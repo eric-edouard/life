@@ -10,6 +10,10 @@ enum Metrics {
     static let dot: CGFloat = 9
     /// The smallest tap target.
     static let tapTarget: CGFloat = 44
+    /// A row of a list (a grouped inset card): the asks, the matters, the people.
+    static let listRow: CGFloat = 60
+    /// The height of Spending's bars, a day each.
+    static let trend: CGFloat = 72
 
     /// The Pendant sheet's tiles: a stat tile's height, the light's square, the storage ring.
     enum Tile {

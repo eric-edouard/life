@@ -14,9 +14,13 @@ final class LifeStore {
     private(set) var inbox = ReadState<Inbox>()
     private(set) var matters = ReadState<MatterList>()
     private(set) var matter: [String: ReadState<Matter>] = [:]
-    /// A project's page: its matters with its head, by the project's id.
-    private(set) var project: [String: ReadState<MatterList>] = [:]
+    /// The Projects tab: its chips, a project chip's header by the project's id, and a chip's matters by its identity.
+    private(set) var projects = ReadState<ProjectChips>()
+    private(set) var projectHead: [String: ReadState<ProjectHeader>] = [:]
+    private(set) var scopedMatters: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
+    private(set) var spending = ReadState<ModelSpending>()
     /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
@@ -38,6 +42,8 @@ final class LifeStore {
         case complaint(ref: String)
         case start(matter: String)
         case agent(String)
+        /// His move of a matter, or his runtime switch of an agent, by the matter's or the agent's id.
+        case move(String)
         case edit(matter: String, Edit)
         case project(String)
         /// His Remove or Undo of an appointment Life added to his calendar, by its id.
@@ -56,8 +62,10 @@ final class LifeStore {
         }
         let id = UUID()
         let words: String
-        /// Nil when it was not done: the words say why.
+        /// Nil when it was not done (the words say why), or when it has no Undo.
         let undo: Undo?
+        /// Done (its glyph a tick) or not (a flag).
+        let isDone: Bool
     }
     private(set) var saidBack: SaidBack?
     /// His mark or a project's status from his tap until Life's reads say it: shown at once, one tap per item at a time.
@@ -79,9 +87,9 @@ final class LifeStore {
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
         await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life could not do on it is said back here.
-        if let warning = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWarning {
-            self?.show(SaidBack(words: warning, undo: nil))
+        // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
+        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
+            self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
         }
         Task { await self?.refreshAfterAnswer() }
     }
@@ -106,6 +114,11 @@ final class LifeStore {
     /// Answers that have ended: a page that draws asks from its own read reads again when it changes.
     private(set) var answersEnded = 0
 
+    /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`settleMoves`).
+    var moveReceipts: [String: MoveReceipt] = [:]
+    /// The moves he asked from this phone (their ids): Try again repeats only one of them.
+    var movesAskedHere: Set<String> = []
+
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
 
@@ -116,11 +129,11 @@ final class LifeStore {
     private let approve: Approve
     private let api: any LifeAPI
     private let cache: ReadCache
-    private let runner: LifeActions
-    private let now: @Sendable () -> Date
+    let runner: LifeActions
+    let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// One read of each kind at a time, plus one more pass.
-    @ObservationIgnored private let flights = ReadFlights()
+    @ObservationIgnored private let flights: ReadFlights
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
     private var taps = AnswerTaps()
 
@@ -139,6 +152,7 @@ final class LifeStore {
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
+        flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
@@ -147,6 +161,7 @@ final class LifeStore {
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
+        restore({ self.projects.apply($0) }, key: Self.projectsKey)
         restore({ self.people.apply($0) }, key: Self.peopleKey)
         if let kept = cache.load(Self.answeredKey) {
             answered = (try? JSONDecoder().decode(AnsweredCards.self, from: Data(kept.text.utf8))) ?? answered
@@ -176,18 +191,20 @@ final class LifeStore {
         async let a: Void = refreshInbox()
         async let b: Void = refreshMatters()
         async let c: Void = refreshAgents()
-        _ = await (a, b, c)
+        async let d: Void = refreshProjects()
+        _ = await (a, b, c, d)
     }
 
-    /// Whether a first read of the inbox, matters or agents is still missing and worth trying again.
-    var needsRetry: Bool { inbox.needsRetry || matters.needsRetry || agents.needsRetry }
+    /// Whether a first read of the inbox, matters, agents or chips is still missing and worth trying again.
+    var needsRetry: Bool { inbox.needsRetry || matters.needsRetry || agents.needsRetry || projects.needsRetry }
 
     /// Reads again only what has nothing to show yet.
     func retryFirstReads() async {
         async let a: Void = inbox.needsRetry ? refreshInbox() : ()
         async let b: Void = matters.needsRetry ? refreshMatters() : ()
         async let c: Void = agents.needsRetry ? refreshAgents() : ()
-        _ = await (a, b, c)
+        async let d: Void = projects.needsRetry ? refreshProjects() : ()
+        _ = await (a, b, c, d)
     }
 
     func refreshInbox() async {
@@ -232,7 +249,15 @@ final class LifeStore {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
     }
     func refreshAgents() async {
+        let before = agents.loadedAt
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
+        // Only a fresh read settles his moves, never the cached one a failed read leaves.
+        if agents.loadedAt != before { settleMoves() }
+    }
+
+    func refreshSpending() async {
+        if spending.phase == .idle { restore({ self.spending.apply($0) }, key: Self.spendingKey) }
+        await load({ self.spending.apply($0) }, key: Self.spendingKey) { try await $0.readSpending() }
     }
 
     func refreshPeople() async {
@@ -334,27 +359,64 @@ final class LifeStore {
         }
     }
 
+    /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
+    /// as live would lie). Nil when another pairing began meanwhile: it applies nothing.
+    func readLogLines(_ query: LogQuery) async -> Result<LogPage, MCPError>? {
+        guard let answer = await parties.generation.answer({ try await api.readLogLines(query) }) else { return nil }
+        do {
+            return .success(try LibraryStore.feedDecoder.decode(LogPage.self, from: Data(answer.get().utf8)))
+        } catch {
+            let error =
+                error is DecodingError ? .failed("Life's answer was not what this app reads.") : MCPError.of(error)
+            if error == .notPaired { pairedOrigin = nil }
+            return .failure(error)
+        }
+    }
+
     func refreshMatter(_ id: String) async {
         let key = "read_matter-\(id)"
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
         // Offline, a matter not read yet since launch still shows what was last read, as stale.
         if matter[id] == nil { restore(update, key: key) }
+        let before = matter[id]?.loadedAt
         await load(update, key: key) {
             try await $0.readMatter(id)
         }
+        if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
     }
 
-    func refreshProject(_ id: String) async {
-        let key = "read_matters-project-\(id)"
-        let update = { (event: ReadState<MatterList>.Event) in self.project[id, default: ReadState()].apply(event) }
-        if project[id] == nil { restore(update, key: key) }
-        await load(update, key: key) { try await $0.readMatters(project: id) }
+    func refreshProjects() async {
+        await load({ self.projects.apply($0) }, key: Self.projectsKey) { try await $0.readProjects() }
+    }
+
+    func refreshProjectHead(_ id: String) async {
+        let key = "read_project-\(id)"
+        let update = { (event: ReadState<ProjectHeader>.Event) in
+            self.projectHead[id, default: ReadState()].apply(event)
+        }
+        if projectHead[id] == nil { restore(update, key: key) }
+        await load(update, key: key) { try await $0.readProject(id) }
+    }
+
+    /// A chip's list: a project's matters, or an area's in no project (Life's one rule for both, `isInScope`).
+    func refreshScopedMatters(_ kind: ProjectChips.Chip.Kind, _ id: String) async {
+        let chip = ProjectChips.Chip.identity(kind, id)
+        let key = "read_matters-\(chip)"
+        let update = { (event: ReadState<MatterList>.Event) in
+            self.scopedMatters[chip, default: ReadState()].apply(event)
+        }
+        if scopedMatters[chip] == nil { restore(update, key: key) }
+        await load(update, key: key) {
+            try await kind == .area ? $0.readMatters(area: id) : $0.readMatters(project: id)
+        }
     }
 
     private static let inboxKey = "read_inbox"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
+    private static let projectsKey = "read_projects"
     private static let peopleKey = "read_people_and_organizations"
+    private static let spendingKey = "read_spending"
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
@@ -406,7 +468,7 @@ final class LifeStore {
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
     /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
-    private func perform(
+    func perform(
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
     ) async {
@@ -426,44 +488,7 @@ final class LifeStore {
         emit.finish()
         await consumer.value
         guard pairing == actions.pairing else { return }
-        if let ended = actions[key] { traceOf(key, tap: tap, ended, began: began, limit: limit) }
-    }
-
-    /// One `life.action` event per action that ended: what it was, how it ended, how long it took against its limit, and
-    /// each step with the seconds it passed after the start. Ids, states and counts only; the kind of a lost connection, never its words.
-    private func traceOf(
-        _ key: ActionKey, tap: String?, _ ended: ActionState<ActionProof>, began: Date, limit: Date?
-    ) {
-        let finished = now()
-        var fields = [
-            "seconds": String(format: "%.1f", finished.timeIntervalSince(began)),
-            "steps": ended.steps.map { step in
-                "\(step.id)@" + (step.passedAt.map { String(format: "%.1f", $0.timeIntervalSince(began)) } ?? "-")
-            }.joined(separator: ","),
-        ]
-        switch key {
-        case .answer(let ref): fields["kind"] = "answer"; fields["ref"] = ref
-        case .complaint(let ref): fields["kind"] = "complaint"; fields["ref"] = ref
-        case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
-        case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
-        case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
-        case .project(let id): fields["kind"] = "project"; fields["ref"] = id
-        case .appointment(let id): fields["kind"] = "appointment"; fields["ref"] = id
-        }
-        if let tap { fields["key"] = String(tap.prefix(8)) }
-        if let limit {
-            fields["limit"] = String(format: "%.0f", limit.timeIntervalSince(began))
-            fields["late"] = limit < finished ? "yes" : "no"
-        }
-        switch ended {
-        case .succeeded: fields["outcome"] = "succeeded"
-        case .failed(let failure, _):
-            fields["outcome"] = "failed"
-            fields["reason"] = failure.isSameTap ? failure.kind : failure.step ?? "-"
-            fields["mayHaveHappened"] = failure.mayHaveHappened ? "yes" : "no"
-        default: fields["outcome"] = "unfinished"
-        }
-        appEvent("life.action", fields)
+        if let ended = actions[key] { traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit) }
     }
 
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
@@ -529,12 +554,14 @@ final class LifeStore {
         await refreshAfterAnswer()
     }
 
-    /// What an answer changes, read again: the inbox and the matters. The matter page on show reads itself again when `answersEnded` changes.
+    /// What an answer changes, read again: the inbox, the matters and the chips. The matter page, and the header and
+    /// list of the chip on show, read themselves again when `answersEnded` changes.
     private func refreshAfterAnswer() async {
         answersEnded += 1
         async let inbox: Void = refreshInbox()
         async let matters: Void = refreshMatters()
-        _ = await (inbox, matters)
+        async let chips: Void = refreshProjects()
+        _ = await (inbox, matters, chips)
     }
 
     // MARK: Held answers
@@ -542,35 +569,13 @@ final class LifeStore {
     /// His answer to such a row, sent in four seconds unless he undoes it.
     func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label, for: pairedLife) }
 
+    /// A bulk card's answers, held as one: one toast, one Undo.
+    func hold(_ requests: [AnswerRequest], as label: String) { holds.hold(requests, as: label, for: pairedLife) }
+
     func undo(_ ref: String) { holds.undo(ref) }
 
     /// Every held answer, at once: the screen is going, or the app.
     func sendHeld() async { await holds.sendAll() }
-
-    /// Starts an agent on a matter with the goal he saw, which Life saves as his: `goal_saved`, then the desk's stages.
-    func startAgent(on id: String, goal: String, runtime: String? = nil, model: String? = nil) async {
-        await perform(.start(matter: id)) { [runner] in
-            await runner.startAgent(matter: id, goal: goal, runtime: runtime, model: model, emit: $0)
-        }
-        async let a: Void = refreshMatter(id)
-        async let b: Void = refreshAgents()
-        _ = await (a, b)
-    }
-
-    func stopAgent(_ agent: String) async {
-        await change(agent, AgentRequest(action: .stop, agent: agent, said: "Stop it."))
-    }
-    func resumeAgent(_ agent: String) async {
-        await change(agent, AgentRequest(action: .resume, agent: agent, said: "Resume it."))
-    }
-    private func change(_ agent: String, _ request: AgentRequest) async {
-        await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
-        // The matter page draws the agent from its own read, so that read is refreshed too.
-        let pages = matter.filter { $0.value.value?.agents.contains { $0.id == agent } == true }.keys
-        async let agents: Void = refreshAgents()
-        for id in pages { await refreshMatter(id) }
-        await agents
-    }
 
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
@@ -636,7 +641,7 @@ final class LifeStore {
                 await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
             }
             async let a: Void = refreshMatter(id)
-            async let b: Void = refreshMatters()
+            async let b: Void = refreshListsOf(id)
             async let c: Void = refreshInbox()
             _ = await (a, b, c)
         }
@@ -661,9 +666,11 @@ final class LifeStore {
             await perform(.project(id)) { [runner] in
                 await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
             }
-            async let a: Void = refreshProject(id)
-            async let b: Void = refreshMatters()
-            _ = await (a, b)
+            async let a: Void = refreshProjects()
+            async let b: Void = refreshProjectHead(id)
+            async let c: Void = refreshScopedMatters(.project, id)
+            async let d: Void = refreshMatters()
+            _ = await (a, b, c, d)
         }
         guard isSent else { return }
         say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
@@ -689,16 +696,16 @@ final class LifeStore {
     private func say(_ key: ActionKey, _ words: String?, undo: SaidBack.Undo) {
         let said: SaidBack? =
             switch state(of: key) {
-            case .succeeded: words.map { SaidBack(words: $0, undo: undo) }
-            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil)
+            case .succeeded: words.map { SaidBack(words: $0, undo: undo, isDone: true) }
+            case .failed(let failure, _): SaidBack(words: failure.reason, undo: nil, isDone: false)
             default: nil
             }
         guard let said else { return }
         show(said)
     }
 
-    /// Shows `said` for 4 s, flagged when it has no Undo.
-    private func show(_ said: SaidBack) {
+    /// Shows `said` for 4 s, flagged when not done.
+    func show(_ said: SaidBack) {
         saidBack = said
         Task {
             try? await Task.sleep(for: .seconds(4))
@@ -712,8 +719,24 @@ final class LifeStore {
     ) async {
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
         async let a: Void = refreshMatter(id)
-        async let b: Void = refreshMatters()
+        async let b: Void = refreshListsOf(id)
         _ = await (a, b)
+    }
+
+    /// Every list a change to matter `id` can move, read again: All, the chips and their counts, and each chip's list
+    /// and project header read with it on show (its rank, flag, agent, or its leaving once done).
+    func refreshListsOf(_ id: String) async {
+        let held = (projects.value?.chips ?? []).filter {
+            scopedMatters[$0.identity]?.value?.matters.contains { $0.id == id } == true
+        }
+        // Its project's header, if on show, read with or without its rows.
+        let project = (matter[id]?.value?.row ?? matters.value?.matters.first { $0.id == id })?.project?.id
+        let head = project.flatMap { projectHead[$0] == nil ? nil : $0 }
+        async let all: Void = refreshMatters()
+        async let chips: Void = refreshProjects()
+        for chip in held { await refreshScopedMatters(chip.kind, chip.id) }
+        if let head { await refreshProjectHead(head) }
+        _ = await (all, chips)
     }
 
     /// A matter's asks less those his answers took out since it was read: the Inbox's rule (`answersNewer`), for its
@@ -761,6 +784,9 @@ final class LifeStore {
     var inboxShown: ReadState<Inbox>.Shown {
         readOnShow.shown(isEmpty: { $0.without(answersNewer(than: inbox.loadedAt)).checks.isEmpty })
     }
+    /// How many asks wait, as the inbox read on screen said, less his answers: none from a pushed card alone or once
+    /// the pairing is lost (`ReadState.waiting`). The Inbox's title.
+    var waiting: Int? { inbox.waiting(less: answersNewer(than: inbox.loadedAt)) }
     var inboxOnShow: Inbox? { readOnShow.value?.without(answersNewer(than: inbox.loadedAt)) }
     private var readOnShow: ReadState<Inbox> {
         guard let pushed,
@@ -782,9 +808,11 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
-        (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
+        (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
+        spending = ReadState()
         (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
-        (answered, pushed) = (AnsweredCards(), nil)
+        (answered, pushed, moveReceipts) = (AnsweredCards(), nil, [:])
         parties.startOver()
         holds.clear()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.

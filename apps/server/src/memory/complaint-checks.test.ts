@@ -63,7 +63,12 @@ test("“Wrong…” is on Life's own cards alone; its cause holds through a cou
   const fixing = new Map([
     [
       name.misread?.cause ?? "",
-      { ask: "entry_00000000000f", line: null, since: "2026-11-20T09:00:00Z" },
+      {
+        ask: "entry_00000000000f",
+        context: null,
+        line: null,
+        since: "2026-11-20T09:00:00Z",
+      },
     ],
   ]);
   const fixed = checksOf(of({ fixing }));

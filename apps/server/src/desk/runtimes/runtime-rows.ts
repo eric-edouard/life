@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
@@ -26,11 +26,12 @@ import type { Agent } from "./contract";
 // call, a hook of the session's own flags, never written into his config. A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup,
 // since his connectors and files reach his own Life: its door alone, none of his settings, rules, MCP servers, sessions
 // or environment, and never handed to his apps.
-// ponytail: his own turn in the Claude or Codex app starts no process of the desk's: Claude's counts as running while a
-// process holds the session and the transcript's last turn is open, Codex's while the rollout's last turn is open and
-// was written in the last 10 minutes (`isOpenNow`), so a tool call silent for longer reads idle and the desk may send
-// beside it. And an app holding a session open while idle keeps its own copy: his next message there may continue from
-// it, missing the desk's turn (the same for Claude's warm process).
+// ponytail: his own use of a session in the Claude or Codex app starts no process of the desk's: Claude's counts as running
+// while any process runs the CLI on it (the app keeps one while he has the session open, between his turns too, so a
+// session he left open holds its agent's wakes until the app lets that process go); Codex's app runs no process per
+// session, so Codex's counts as running while the rollout's last turn is open and was written in the last 10 minutes
+// (`isOpenNow`): a tool call silent for longer, or the app open between his turns, reads idle and the desk may send
+// beside it.
 
 export type SessionState = "running" | "idle" | "gone";
 
@@ -82,9 +83,46 @@ export async function readCliBlock(program: string) {
     : `${program} --version failed: ${r.stderr.slice(-200) || r.code}`;
 }
 
-/** Whether some process holds session `ref` (its id is in the command line): the desk's turn, his, or an app's warm one. */
+/** Claude's own record of each live interactive session (the app's, a terminal's): `<pid>.json`, gone at its exit. */
+const CLAUDE_SESSIONS = join(HOME, ".claude", "sessions");
+
+/** Whether process `pid` runs (EPERM: it runs as someone else). */
+const isAlive = (pid: unknown) => {
+  try {
+    return typeof pid === "number" && process.kill(pid, 0);
+  } catch (error) {
+    return (error as { code?: string }).code === "EPERM";
+  }
+};
+
+/**
+ * Whether a process runs Claude on session `ref`: Claude's own record names a live one (his app or a terminal, between
+ * his turns too, however it was opened), or a Claude command line names it after a resume or session flag (the desk's
+ * own runs, which write no record). A child naming the id only in a path (a dev server under its scratchpad) is neither.
+ * ponytail: a record left by a crash whose pid is reused holds the session until that process ends (a wait, never a loss).
+ */
 export async function isHeld(ref: string) {
-  const { code, stderr } = await exec(["pgrep", "-f", ref]);
+  let names: string[] = [];
+  try {
+    names = readdirSync(CLAUDE_SESSIONS).filter((n) => n.endsWith(".json"));
+  } catch {
+    // no record yet
+  }
+  for (const n of names) {
+    try {
+      const r = JSON.parse(readFileSync(join(CLAUDE_SESSIONS, n), "utf8"));
+      if (r.sessionId === ref && isAlive(r.pid)) {
+        return true;
+      }
+    } catch {
+      // gone or being written: the next look says
+    }
+  }
+  const { code, stderr } = await exec([
+    "pgrep",
+    "-f",
+    `claude.*(--resume|--session-id|-r)[= ]${ref}`,
+  ]);
   // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
   if (code !== 0 && code !== 1) {
     throw new Error(`pgrep: ${stderr}`);
@@ -218,59 +256,10 @@ const transcriptOf = (ref: string) => {
   return path ? join(PROJECTS, path) : undefined;
 };
 
-/** The session's transcript, if Claude wrote one. */
-const readTranscript = (ref: string) => {
-  const path = transcriptOf(ref);
-  try {
-    return path ? readFileSync(path, "utf8") : undefined;
-  } catch {
-    // gone between the glob and the read
-  }
-};
-
-interface Entry {
-  isSidechain?: boolean;
-  message?: { content?: unknown; stop_reason?: string | null };
-  type?: string;
-}
-
-/** A transcript's entries of the main conversation (a subagent's are sidechain). */
-const entriesOf = (lines: string) =>
-  lines
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => JSON.parse(l) as Entry)
-    .filter((e) => !e.isSidechain);
-
-/** His interrupt, which ends a turn with no answer. */
-const isInterrupt = (e: Entry) =>
-  e.type === "user" &&
-  JSON.stringify(e.message?.content ?? "").includes(
-    "[Request interrupted by user"
-  );
-
-/**
- * Whether a transcript's last turn is still open: its last message is not a finished answer (an assistant message that
- * stopped for a reason other than a tool call) nor his interrupt. A message with no stop reason yet, or a line still
- * being written, counts as open.
- */
-export function isTurnOpen(lines: string) {
-  let last: Entry | undefined;
-  try {
-    last = entriesOf(lines).findLast(
-      (e) => e.type === "user" || e.type === "assistant"
-    );
-  } catch {
-    return true;
-  }
-  const stop = last?.message?.stop_reason;
-  const isAnswer = last?.type === "assistant" && !!stop && stop !== "tool_use";
-  return !!last && !(isAnswer || isInterrupt(last));
-}
-
 /**
  * Opens session `ref` in the Claude app, so its link works: once no process runs it (the CLI refuses while one does),
- * under a pseudo-terminal (it refuses without one). It lists the session in the app, which keeps a process warm for it.
+ * under a pseudo-terminal (it refuses without one). It lists the session in the app; a process the app keeps for it
+ * holds the next wake (`isHeld`).
  */
 async function handOff(a: Agent, ref: string) {
   const r = await exec(
@@ -337,15 +326,11 @@ const claudeRow = (isOwn: boolean): Row => ({
   mode: isOwn ? "bypassPermissions" : undefined,
   onlyDoorPrefix: isOwn ? undefined : "mcp__desk__",
   async readSessionState(ref) {
-    const lines = readTranscript(ref);
-    if (
-      (await isHeld(ref)) &&
-      // No transcript yet: the process alone says.
-      (lines === undefined || isTurnOpen(lines))
-    ) {
+    // A process running it is his live session (or an orphaned run): never a second one beside it, between turns too.
+    if (await isHeld(ref)) {
       return "running";
     }
-    return lines === undefined ? "gone" : "idle";
+    return transcriptOf(ref) ? "idle" : "gone";
   },
   spawn: async (a) => {
     const adapter = adapterOf("claude-agent-acp");
@@ -409,15 +394,21 @@ const SECOND_LIFE_CODEX = {
   web_search: "disabled",
 };
 
+/** Whether `e` is a file or folder that is not there. */
+const isMissing = (e: unknown) => (e as { code?: string }).code === "ENOENT";
+
 const codexRow = (isOwn: boolean): Row => {
   const home = isOwn ? join(HOME, ".codex") : CODEX_HOME;
-  /** The session's rollout, plain or compressed (Codex compresses idle ones), if Codex has one. */
+  /** The session's rollout, plain or compressed (Codex compresses idle ones), if Codex has one; a scan that fails otherwise throws (the session's state is then unknown, never gone). */
   const rolloutOf = (ref: string) => {
     try {
       return new Bun.Glob(`*/*/*/rollout-*-${ref}.jsonl{,.zst}`)
         .scanSync(join(home, "sessions"))
         .next().value;
-    } catch {
+    } catch (e) {
+      if (!isMissing(e)) {
+        throw e;
+      }
       // no sessions folder yet
     }
   };
@@ -433,15 +424,18 @@ const codexRow = (isOwn: boolean): Row => {
     lines.pop();
     return lines;
   };
-  /** Whether the rollout holds his running turn: open and written to within `OPEN_FOR`. A file gone or being rewritten is not. */
+  /** Whether the rollout holds his running turn: open and written to within `OPEN_FOR`. A file gone is not; one that can't be read (being rewritten) throws: its state is unknown, never idle. */
   const isOpenNow = (path: string) => {
     try {
       return (
         clock().getTime() - statSync(join(home, "sessions", path)).mtimeMs <
           OPEN_FOR && isRolloutTurnOpen(rolloutLines(path))
       );
-    } catch {
-      return false;
+    } catch (e) {
+      if (isMissing(e)) {
+        return false;
+      }
+      throw e;
     }
   };
   return {
@@ -450,12 +444,13 @@ const codexRow = (isOwn: boolean): Row => {
     header: (key) => `Bearer ${key}`,
     link: (ref) => `codex://threads/${ref}`,
     onlyDoorPrefix: isOwn ? undefined : "mcp.desk.",
-    readSessionState(ref) {
+    // biome-ignore lint/suspicious/useAwait: async, so a read that throws is a rejected state
+    async readSessionState(ref) {
       const path = rolloutOf(ref);
       if (!path) {
-        return Promise.resolve("gone");
+        return "gone";
       }
-      return Promise.resolve(isOpenNow(path) ? "running" : "idle");
+      return isOpenNow(path) ? "running" : "idle";
     },
     spawn: async (a) => {
       const adapter = adapterOf("codex-acp");

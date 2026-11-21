@@ -29,7 +29,6 @@ import {
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
-import { recordCorrection } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { readMentions } from "../memory/mentions";
 import { hearVoiceNotes } from "../memory/message-files";
@@ -37,6 +36,7 @@ import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
 import { placesOf } from "../memory/places";
+import { projectSituations } from "../memory/project-situations";
 import { area, topicsOf } from "../memory/read-area-page";
 import { day } from "../memory/read-day";
 import { writeRecordedDays } from "../memory/recorded-days";
@@ -64,6 +64,7 @@ import {
 } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { personaReadingsOf, personas } from "../personal/personas";
+import { recordHisCorrection } from "./correct-matter";
 import { openCheckOf, openChecksNow } from "./inbox";
 import { readPeopleAndOrganizations } from "./matter-rows";
 import { nightly } from "./nightly";
@@ -100,6 +101,7 @@ const OPTIONS = {
   steps: { type: "string" },
   to: { type: "string" },
   types: { type: "string" },
+  until: { type: "string" },
   who: { type: "string" },
 } as const;
 
@@ -248,7 +250,7 @@ const HANDLERS: Record<string, Handler> = {
   /** `correct '<json>'`: appends what the owner said to memory/corrections.jsonl (checked, stamped). */
   async correct(_values, rest) {
     try {
-      const said = await recordCorrection(JSON.parse(rest.join(" ")));
+      const said = await recordHisCorrection(JSON.parse(rest.join(" ")));
       console.log(`recorded ${said.kind} in memory/corrections.jsonl`);
       return 0;
     } catch (e) {
@@ -302,7 +304,9 @@ const HANDLERS: Record<string, Handler> = {
             id,
             count(values["from-turn"]),
             count(values.limit),
-            readPeopleAndOrganizations
+            readPeopleAndOrganizations,
+            undefined,
+            { at: values.at, until: values.until }
           )
         : null
     ),
@@ -465,6 +469,7 @@ const HANDLERS: Record<string, Handler> = {
         radiusM: count(v.radius),
       })
     ),
+  "project-situations": step(async () => projectSituations(await readPeople())),
   /** `recorded-days`: asks lifelog again which days the pendant recorded (the night does; this is its first build and a replay). */
   "recorded-days": step(writeRecordedDays),
   repos: (values, rest) =>
@@ -517,7 +522,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | hear-voice-notes --from d [--to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|latest|reach|page|persona|story|year|month|evidence] [--span YYYY[-MM] | <accounts to skip, for reach>] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | hear-voice-notes --from d [--to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] [--at instant] [--until instant] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|latest|reach|page|persona|story|year|month|evidence] [--span YYYY[-MM] | <accounts to skip, for reach>] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

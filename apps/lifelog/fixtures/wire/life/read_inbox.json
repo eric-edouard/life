@@ -57,6 +57,7 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "session": "https://agents.example.test/s/1",
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",
@@ -67,6 +68,7 @@
       "onSilence": "no",
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "gathered": null,
       "needs": [],
       "notSent": null,
       "options": [
@@ -82,6 +84,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
@@ -138,6 +141,7 @@
               "takes": "person or name"
             }
           ],
+          "preTicked": null,
           "question": "Is this Kit?",
           "ref": "person:inf_kit",
           "ridesOn": {
@@ -159,8 +163,8 @@
           "matter": null,
           "misread": {
             "cause": "01b070ee5ba7f83a",
-            "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
-            "shown": "36753a6bc8e9027f"
+            "seal": "11cea1d8bb774eacfa1fa073d27a07da",
+            "shown": "cbd8453c56018bc0"
           },
           "confirm": [],
           "networkIdentity": {
@@ -230,6 +234,7 @@
         "state": "not_found"
       },
       "doneSeenBy": "payment",
+      "gathered": null,
       "needs": [
         {
           "bank": "Test Bank",
@@ -282,6 +287,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Pay the dive course deposit?",
       "ref": "dec_000000000002",
@@ -299,6 +305,89 @@
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
+      "urgency": "blocks",
+      "misread": null
+    },
+    {
+      "said": null,
+      "since": null,
+      "about": [],
+      "agent": "agt_000000000001",
+      "asker": "Orbit",
+      "at": "2026-10-14T10:00:00.000Z",
+      "clips": [],
+      "context": "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      "deadline": "2099-01-02T09:00:00.000Z",
+      "draft": null,
+      "goal": null,
+      "group": "decision",
+      "isPlan": true,
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "onMatters": [],
+      "onSilence": null,
+      "doneSeen": null,
+      "doneSeenBy": "tap",
+      "gathered": {
+        "text": "From Kit's quote and two others"
+      },
+      "needs": [],
+      "notSent": null,
+      "options": [
+        {
+          "id": "start",
+          "label": "Start the plan",
+          "role": "start",
+          "takes": null
+        },
+        {
+          "id": "decline",
+          "label": "Not this plan",
+          "role": "decline",
+          "takes": null
+        }
+      ],
+      "plan": [
+        {
+          "by": "agent",
+          "channel": "whatsapp",
+          "text": "Ask Kit for the quote",
+          "when": "today"
+        },
+        {
+          "by": "owner",
+          "channel": "payment",
+          "text": "Pay the deposit"
+        },
+        {
+          "by": "agent",
+          "text": "Book the repair",
+          "when": "once Kit answers, by Thu"
+        }
+      ],
+      "replaces": null,
+      "question": "Start with this plan?",
+      "ref": "dec_000000000003",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Mend the strap",
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f0bf086db1fae378",
       "urgency": "blocks",
       "misread": null
     },
@@ -359,6 +448,7 @@
           "takes": null
         }
       ],
+      "preTicked": null,
       "question": "Who is this?",
       "ref": "voice:v1~b9462232",
       "ridesOn": {
@@ -380,8 +470,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "f094d10b549822d0",
-        "seal": "06aecb13618c16175b419d4d94e7a240",
-        "shown": "c10722054d0faaa9"
+        "seal": "42a5e8f78ece8af1b5aeba6ab16d3132",
+        "shown": "86274fa91b8f9d39"
       }
     },
     {
@@ -445,6 +535,7 @@
           "takes": null
         }
       ],
+      "preTicked": null,
       "question": "Who is \"Sam\"?",
       "ref": "name:sam",
       "ridesOn": {
@@ -476,8 +567,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "3b404043a79bbfd0",
-        "seal": "2bb405c4a689ec81c89e2ca3b19a1014",
-        "shown": "834a471ddb92c007"
+        "seal": "8d9536fffa9a5425876e0107d59581c0",
+        "shown": "9a27c302925f6934"
       }
     },
     {
@@ -522,6 +613,7 @@
           "takes": "person or name"
         }
       ],
+      "preTicked": null,
       "question": "Whose contact is this?",
       "ref": "person:con_lou",
       "ridesOn": {
@@ -542,8 +634,8 @@
       "urgency": "blocks",
       "misread": {
         "cause": "eab9c455c7fa456b",
-        "seal": "40ccb5518e057d06cf05d8036c9fe753",
-        "shown": "17c0d25543bac3c2"
+        "seal": "e2f83acc4e8268f776a5d35d9ed56188",
+        "shown": "8f3df0eb9c85e59d"
       }
     },
     {
@@ -581,6 +673,7 @@
           "takes": null
         }
       ],
+      "preTicked": "outdated",
       "question": "Is this done?",
       "ref": "obs_000000000005",
       "ridesOn": {
@@ -617,8 +710,142 @@
       "urgency": "improves",
       "misread": {
         "cause": "1addffdfdc12fcfa",
-        "seal": "0066f68ef90e6b612b4096522ce249fd",
-        "shown": "928771774c0f909f"
+        "seal": "e21321a5e0f38ca459ff1815d7677715",
+        "shown": "92b74ff9de2dc75c"
+      }
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "A step of yours is open on this matter.\n\n> I must sign the lease\n\n*11 Oct*",
+      "deadline": null,
+      "draft": null,
+      "goal": "Renew the lease",
+      "group": "your move",
+      "kind": "your move",
+      "likelyPeople": [],
+      "links": [],
+      "needs": [],
+      "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_bbbbbbbbbbbb",
+          "name": "Renew the lease"
+        }
+      ],
+      "onSilence": null,
+      "options": [
+        {
+          "ends": "step",
+          "id": "done",
+          "label": "Mark as done",
+          "takes": null
+        },
+        {
+          "id": "start",
+          "label": "Hand to an agent",
+          "takes": null
+        },
+        {
+          "id": "not-now",
+          "label": "Not now",
+          "takes": null
+        }
+      ],
+      "question": "Sign the lease renewal",
+      "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
+      "ridesOn": {
+        "matterIds": ["matter_bbbbbbbbbbbb"],
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-10-11",
+        "by": null,
+        "channel": null,
+        "text": "I must sign the lease",
+        "to": null
+      },
+      "since": null,
+      "subject": "obs_000000000010",
+      "title": "Renew the lease",
+      "lifeLinks": [],
+      "matter": {
+        "id": "matter_bbbbbbbbbbbb",
+        "name": "Renew the lease"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f686b7df91114fb8",
+      "urgency": "improves",
+      "misread": {
+        "cause": "3f8aa0d63fc5994e",
+        "seal": "c19022c99aed8381216d4fd6996bbec8",
+        "shown": "93d796e1f5113d66"
+      }
+    },
+    {
+      "about": ["+33600000001"],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "contactsCard": null,
+      "context": "They go by the same whole name; nothing Life holds joins them.",
+      "deadline": null,
+      "draft": null,
+      "goal": null,
+      "group": "same person",
+      "kind": "person",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "name": "Robin",
+          "ref": "person:partner"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "id": "same-person",
+          "label": "Same person",
+          "takes": null
+        },
+        {
+          "id": "not-this-person",
+          "label": "Different people",
+          "takes": null
+        }
+      ],
+      "preTicked": null,
+      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
+      "ref": "same:person:inf_kit~person:partner",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": null,
+      "since": null,
+      "subject": null,
+      "title": "Join one person",
+      "lifeLinks": [],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "87f3c9ef6bcd1334",
+      "urgency": "improves",
+      "misread": {
+        "cause": "6c04307dd5deaa49",
+        "seal": "69ee232dbf76050e245f4e575a8f126b",
+        "shown": "58832ec04f1a4a76"
       }
     },
     {
@@ -655,6 +882,7 @@
           "takes": "person or name"
         }
       ],
+      "preTicked": null,
       "question": "Is this Kit?",
       "ref": "person:inf_kit",
       "ridesOn": {
@@ -697,67 +925,8 @@
       "urgency": "improves",
       "misread": {
         "cause": "01b070ee5ba7f83a",
-        "seal": "ef85ca1a8cbc5acf81ad1caff6536606",
-        "shown": "36753a6bc8e9027f"
-      }
-    },
-    {
-      "about": ["+33600000001"],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "contactsCard": null,
-      "context": "They go by the same whole name; nothing Life holds joins them.",
-      "deadline": null,
-      "draft": null,
-      "goal": null,
-      "group": "same person",
-      "kind": "person",
-      "likelyPeople": [
-        {
-          "kind": "person",
-          "name": "Robin",
-          "ref": "person:partner"
-        }
-      ],
-      "links": [],
-      "notSent": null,
-      "onMatters": [],
-      "onSilence": null,
-      "options": [
-        {
-          "id": "same-person",
-          "label": "Same person",
-          "takes": null
-        },
-        {
-          "id": "not-this-person",
-          "label": "Different people",
-          "takes": null
-        }
-      ],
-      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
-      "ref": "same:person:inf_kit~person:partner",
-      "ridesOn": {
-        "matterIds": [],
-        "matters": 0,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": null,
-      "since": null,
-      "subject": null,
-      "title": "Join one person",
-      "lifeLinks": [],
-      "matter": null,
-      "confirm": [],
-      "networkIdentity": null,
-      "pushId": "87f3c9ef6bcd1334",
-      "urgency": "improves",
-      "misread": {
-        "cause": "6c04307dd5deaa49",
-        "seal": "09f6b6dae58b36c9da13e4e5608df57a",
-        "shown": "868e9f1e31ca2ebc"
+        "seal": "11cea1d8bb774eacfa1fa073d27a07da",
+        "shown": "cbd8453c56018bc0"
       }
     },
     {
@@ -833,18 +1002,19 @@
       }
     }
   ],
-  "blocking": 5,
+  "blocking": 6,
   "counts": {
-    "decision": 2,
+    "decision": 3,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
     "ending": 1,
-    "guessed person": 1,
+    "your move": 1,
     "same person": 1,
+    "guessed person": 1,
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 9,
-  "version": "df9664ab458b74bf"
+  "total": 11,
+  "version": "f626596cd02d6039"
 }

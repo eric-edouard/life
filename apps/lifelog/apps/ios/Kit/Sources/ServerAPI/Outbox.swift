@@ -31,7 +31,7 @@ public enum Outbox {
     }
 }
 
-/// Something the owner did that the server must apply: the switches, the vocabulary, a playback quiet range.
+/// Something the owner did that the server must apply: the switches, the vocabulary, a quiet range of this phone.
 public enum OwnerIntent: Sendable, Equatable, Codable {
     /// The owner turns transcription on or off, or sets when the server asks him to open the app; `nil` leaves one as
     /// it is. (`ai` and `engine` are the server's own: no screen writes them.)
@@ -40,6 +40,9 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
     case vocabulary([String])
     /// A stretch this app played a recording out loud, padded: never transcription. Its id is the edit's.
     case playbackQuiet(from: Date, to: Date)
+    /// A stretch the owner dictated to this phone, padded, in capture time: the phone drops the Pendant's audio of it
+    /// (#802), and the server's copy brings it back to a reinstalled phone through the feed. Its id is the edit's.
+    case dictationQuiet(from: Date, to: Date)
 
     /// The request it becomes. `id` is the edit's uuid (a playback range's id); `at`, when the
     /// owner made it.
@@ -56,7 +59,10 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
             body = ["terms": terms]
         case .playbackQuiet(let from, let to):
             (method, path) = ("POST", "quiet-ranges")
-            body = QuietBody(id: lower(id), startedAt: from, endedAt: to)
+            body = QuietBody(id: lower(id), startedAt: from, endedAt: to, source: "playback")
+        case .dictationQuiet(let from, let to):
+            (method, path) = ("POST", "quiet-ranges")
+            body = QuietBody(id: lower(id), startedAt: from, endedAt: to, source: "dictation")
         }
         return (method, path, try body.map { try ServerClient.encode($0) })
     }
@@ -70,7 +76,7 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
         var id: String
         var startedAt: Date
         var endedAt: Date
-        var source = "playback"
+        var source: String
     }
 }
 
@@ -95,6 +101,21 @@ public struct OutboxEntry: Sendable, Equatable {
 
 /// The outbox, in `library.sqlite`: durable, in the order the edits were made.
 extension LibraryStore {
+    /// A dictation's stretch at its end (#802), stored and queued for the server in one write, so a reinstalled phone
+    /// gets it back from the feed whatever happens after.
+    public func closeDictation(_ range: Range<CaptureInstant>, at now: Date = .now) throws {
+        try db.transaction {
+            try setQuiet(.dictation, range)
+            try enqueue(.dictationQuiet(from: range.lowerBound.date, to: range.upperBound.date), at: now)
+        }
+    }
+
+    /// Closes the dictations a crash left open at the capped end they were stored with. Run at launch, before any
+    /// dictation of this process opens.
+    public func closeInterruptedDictations() throws {
+        for range in try openDictations() { try closeDictation(range) }
+    }
+
     /// Queues an edit under `id`. The same id twice is one edit.
     public func enqueue(_ intent: OwnerIntent, id: UUID = UUID(), at now: Date = .now) throws {
         try db.run(

@@ -35,14 +35,26 @@ import {
   readEndedCalls,
   readMessageEvents,
 } from "../host/events";
+import {
+  MOVE_NOTES,
+  moveFirstTurnOf,
+  moveOn,
+  notesTurnsOf,
+} from "../host/move-read";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
-import { CONTEST_WAIT } from "../memory/draft-contest";
+import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
 import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
 import { recordingsOf } from "../sources/lifelog-speech";
-import { firstTurnOf, matterRecordOf, readPacket } from "./agent-actions";
+import { matterRecordOf, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
+import {
+  advanceMoves,
+  movedLineOf,
+  notesMessageOf,
+  writeRuntimeBlocks,
+} from "./agent-moves";
 import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
 import { receiveComplaints } from "./complaint-intake";
@@ -57,6 +69,7 @@ import {
   unreadLinesOf,
   type WakeWhy,
 } from "./event-queue";
+import { firstTurnOf } from "./first-turns";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import {
   endAgentsOnOverMatters,
@@ -66,6 +79,8 @@ import {
   pollRecordings,
   relatedMessages,
 } from "./matter-net";
+import { SessionLive } from "./runtimes/contract";
+import { receiveSpokenAsks } from "./spoken-ask-intake";
 import {
   endLostTurns,
   endUnbegunTurns,
@@ -242,7 +257,8 @@ export function pollAnswers({ db }: Desk) {
     read: pollDecisions(name, readCursor(db, name), DESK_AGENT),
   }));
   // Read after the polls, so every decision they return is known.
-  const cards = new Map(decisionsNow().map((d) => [d.id, d]));
+  const all = decisionsNow();
+  const cards = new Map(all.map((d) => [d.id, d]));
   const wakesOf = (
     ids: (string | undefined)[],
     eventId: string,
@@ -260,15 +276,19 @@ export function pollAnswers({ db }: Desk) {
       queue(
         db,
         name,
-        read.events.flatMap((e) => [
-          ...wakesOf([e.data.id], e.eventId, e.data),
-          // The merged card's agent hears his answer, never the holder's words or its `onSilence`.
-          ...wakesOf([cards.get(e.data.id)?.merges], e.eventId, {
-            ...e.data,
-            onSilence: null,
-            question: undefined,
-          }),
-        ])
+        read.events.flatMap((e) => {
+          const card = cards.get(e.data.id);
+          const [, ...merged] = card ? cardsHearingOf(card, all) : [];
+          return [
+            ...wakesOf([e.data.id], e.eventId, e.data),
+            // The merged card's agent hears his answer, never the holder's words or its `onSilence`.
+            ...wakesOf(
+              merged.map((m) => m.id),
+              e.eventId,
+              { ...e.data, onSilence: null, question: undefined }
+            ),
+          ];
+        })
       );
       saveCursor(db, name, read.cursor);
     })();
@@ -339,6 +359,23 @@ function dueOf(db: Desk["db"], agent: string, assignment: string) {
   ) {
     return null;
   }
+  const m = moveOn(db, s);
+  if (m && !m.moved_at) {
+    // A move's notes phase: one notes turn on each assignment it covers, at once; then nothing until the commit.
+    return notesTurnsOf(db, m).some((t) => t.assignment_id === s.id)
+      ? null
+      : {
+          a,
+          at: Date.parse(m.asked_at),
+          cause: MOVE_NOTES,
+          events: [],
+          move: m.ask,
+          rank: 1,
+          s,
+        };
+  }
+  // A committed move's first turn names it: its holder's first turn on what moved.
+  const move = m && !moveFirstTurnOf(db, m) ? m.ask : null;
   const turns = lastTurns(db, s.id);
   const events = queuedEvents(db, s.id);
   const d = nextWakeOf(s, turns, events);
@@ -349,10 +386,10 @@ function dueOf(db: Desk["db"], agent: string, assignment: string) {
   let rank = 2;
   if (events.some((e) => e.name === DECISION_ANSWERED)) {
     rank = 0;
-  } else if (d.cause === "answer" || turns.length === 0) {
+  } else if (d.cause === "answer" || turns.length === 0 || move) {
     rank = 1;
   }
-  return { ...d, a, events, rank, s };
+  return { ...d, a, events, move, rank, s };
 }
 
 /**
@@ -381,31 +418,84 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
       return null;
     }
     const id = db.run(
-      "insert into turn (agent_id, assignment_id, session, cause, started_at, model) values (?, ?, ?, ?, ?, ?)",
-      [a.id, s.id, due.a.session, due.cause, now(), turnModelOf(due.a)]
+      "insert into turn (agent_id, assignment_id, session, cause, started_at, model, move) values (?, ?, ?, ?, ?, ?, ?)",
+      [
+        a.id,
+        s.id,
+        due.a.session,
+        due.cause,
+        now(),
+        turnModelOf(due.a),
+        due.move,
+      ]
     ).lastInsertRowid;
     return { ...due, turn: Number(id) };
   })();
   if (!woken) {
     return false;
   }
-  await launch(desk, woken, state);
+  return woken.cause === MOVE_NOTES
+    ? await launchNotes(desk, woken, state === "gone" ? null : a.session)
+    : await launch(desk, woken, state);
+}
+
+/** Launches move `move`'s notes turn `turn` of `a` on `s`: it resumes the old session only; with none to resume (`session` null), or a send that fails, the turn ends at once and its notes stay as they are. False: the session was live elsewhere, so the turn went and the wake waits. */
+async function launchNotes(
+  desk: Desk,
+  {
+    a,
+    move,
+    s,
+    turn,
+  }: { a: AgentRow; move: string | null; s: AssignmentRow; turn: number },
+  session: string | null
+) {
+  const runtime = desk.runtimes[a.runtime];
+  if (!(session && runtime)) {
+    await turnEnded(desk, turn, { ok: true });
+    return true;
+  }
+  try {
+    watch(
+      desk,
+      turn,
+      await runtime.send(
+        sessionAgentOf(a),
+        session,
+        notesMessageOf(desk.db, move ?? "", s.id)
+      )
+    );
+  } catch (error) {
+    if (error instanceof SessionLive) {
+      desk.db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      return false;
+    }
+    log("desk.runtime", {
+      agent: a.id,
+      ...errorOf(error),
+      ok: false,
+      what: "notes",
+    });
+    await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
+  }
   return true;
 }
 
-/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */
+/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. False: the session was live elsewhere, so the turn went and the wake waits. */
 async function launch(
   desk: Desk,
   {
     a,
     cause,
     events,
+    move,
     s,
     turn,
   }: {
     a: AgentRow;
     cause: string;
     events: EventRow[];
+    move: string | null;
     s: AssignmentRow;
     turn: number;
   },
@@ -425,6 +515,7 @@ async function launch(
     }
     const { session } = a;
     const isFresh = !session || state === "gone";
+    const moved = move ? movedLineOf(db, move) : [];
     // A fresh session's packet holds the whole matter, read once for what it shows and what the turn is shown; a matter
     // given to a session already open (handed out, or his Start) opens with what its first turn does.
     const isFirst = !lastTurns(db, s.id).some((t) => t.id < turn);
@@ -433,13 +524,14 @@ async function launch(
         ? null
         : [
             await matterRecordOf(desk, s, turn),
-            ...(isFirst ? [firstTurnOf(a, s.opened_by).trim()] : []),
+            ...(isFirst ? [firstTurnOf(db, a, s).trim()] : []),
           ].join("\n");
     if (isFresh) {
       const started = await runtime.start(
         sessionAgentOf(a),
         [
           await readPacket(desk, s, isOwnLife(), turn),
+          ...moved,
           ...sinceLineOf(since),
           ...unreadLinesOf(db, s),
         ].join("\n\n")
@@ -484,13 +576,19 @@ async function launch(
           wakeMessageOf(
             cause,
             events,
-            record ? [record] : sinceLineOf(since),
+            record ? [record, ...moved] : [...sinceLineOf(since), ...moved],
             unreadLinesOf(db, s)
           )
         )
       );
     }
   } catch (error) {
+    // His app took the session between `wake`'s read and the send: the turn never ran, so it goes and the wake waits.
+    // ponytail: one taken after the send's own read, in the milliseconds before ACP resumes it, still runs beside it.
+    if (error instanceof SessionLive) {
+      db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      return false;
+    }
     log("desk.runtime", {
       agent: a.id,
       ...errorOf(error),
@@ -499,6 +597,7 @@ async function launch(
     });
     await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
   }
+  return true;
 }
 
 /**
@@ -537,19 +636,25 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, his complaints for the caretaker (before the hand-out may take the last place), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
- * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the calls that ended, the recordings, the
+ * One tick of the clock: his word about his agents, each move one step on (`advanceMoves`), his complaints for the caretaker and his spoken asks for their agent (before the hand-out may take the last place), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
+ * agent's first turn never waits behind the polls), then, when their poll is due, what each runtime's block is, the messages, the calls that ended, the recordings, the
  * assignments whose matter is over for them, the fold (each matter to the agent that takes it), the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
+  await advanceMoves(desk);
   await receiveComplaints(desk);
+  const people = readPeopleOnce();
+  // A failure here never holds his answers or the turns due.
+  await receiveSpokenAsks(desk, people).catch((error: unknown) =>
+    log("desk.asks", { ...errorOf(error), ok: false })
+  );
   await handOutNext(desk);
   pollAnswers(desk);
   await endUnbegunTurns(desk);
   await wakeDue(desk);
   if (isPollDue) {
-    const people = readPeopleOnce();
+    await writeRuntimeBlocks(desk);
     // A message a wait wants gets its `message.received` before any arrival falls back to another agent.
     if (await pollMessages(desk, people)) {
       await pollArrivals(desk, people);

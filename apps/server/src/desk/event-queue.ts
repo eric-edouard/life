@@ -34,7 +34,7 @@ export function queue(
 ) {
   for (const w of wakes) {
     const { changes } = db.run(
-      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) select ?1, ?2, ?3, ?4, ?5 where not exists (select 1 from event e join assignment s on s.id = e.assignment_id where e.event_id = ?2 and s.agent_id = (select agent_id from assignment where id = ?1))",
+      "insert or ignore into event (assignment_id, event_id, name, payload, received_at) select ?1, ?2, ?3, ?4, ?5 where exists (select 1 from assignment where id = ?1 and closed_at is null) and not exists (select 1 from event e join assignment s on s.id = e.assignment_id where e.event_id = ?2 and s.agent_id = (select agent_id from assignment where id = ?1))",
       [
         w.assignment,
         w.eventId,
@@ -113,6 +113,22 @@ export function routeOf<
   }
   return wakes.filter((w) => picked.has(w));
 }
+
+/**
+ * The one assignment something new goes to (pure), shared by a confirmed arrival and his spoken ask: of the open
+ * assignments on a matter it relates to (`related`: by a person who wrote it, or by meaning, `matter-net.ts`), a
+ * person's first, then the closest meaning, then the lowest id; else the Personal agent's own (`personal`); else none.
+ */
+export const matterOrPersonalOf = (
+  related: { assignment: string; by: WakeWhy }[],
+  personal: string | undefined
+) =>
+  related.toSorted(
+    (x, y) =>
+      rankOf(x.by, undefined) - rankOf(y.by, undefined) ||
+      similarityOf(y.by) - similarityOf(x.by) ||
+      x.assignment.localeCompare(y.assignment)
+  )[0]?.assignment ?? personal;
 
 /**
  * Each open assignment's wakes by `events`: those its wait wants (`matcherOf`), from after it was opened (by the event's

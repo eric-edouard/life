@@ -43,11 +43,9 @@ private struct PeopleColumns: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            // Beside a person, the Pendant and Settings are the person's column (the list's bar keeps its title).
-            .shellBar(
-                "People", hasSettings: !isSplit, hasPendant: !isSplit, isTitleLarge: true
-            )
-            .navigationSubtitle(order == .alphabet ? "A to Z" : "")
+            .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
+            // Beside a person, the Pendant and Settings are the person's column.
+            .shellBar("", hasSettings: !isSplit, hasPendant: !isSplit)
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {
@@ -117,9 +115,10 @@ private struct PeopleColumns: View {
                     ForEach(Array(group.rows.enumerated()), id: \.element.id) { at, row in
                         VStack(alignment: .leading, spacing: 0) {
                             if at == 0, let label = group.label { ListLabel(label) }
-                            PersonRowButton(row: row, isChosen: isSplit && router.person == row.id) {
-                                router.select(person: row.id)
-                            }
+                            PersonRowButton(row: row) { router.select(person: row.id) }
+                                .buttonStyle(
+                                    .groupedRow(
+                                        at: at, of: group.rows.count, isChosen: isSplit && router.person == row.id))
                         }
                         .readingWidth()
                         .appears()
@@ -137,10 +136,9 @@ private struct PeopleColumns: View {
 }
 
 /// One person or organization as a row of a list that opens their page: `PartyRow`, the flag dot when something with
-/// them waits on him, the chosen one's fill beside the page.
+/// them waits on him. Its list sets it in its card (`.buttonStyle(.groupedRow(…))`).
 struct PersonRowButton: View {
     let row: PersonRow
-    var isChosen = false
     let open: () -> Void
 
     var body: some View {
@@ -148,17 +146,9 @@ struct PersonRowButton: View {
             PartyRow(party: row.party) {
                 if row.needsYou { StateDot(color: Palette.flag) }
             }
-            .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.m)
-            .contentShape(.rect)
-            .background {
-                RoundedRectangle(cornerRadius: Metrics.Radius.passage).fill(isChosen ? Palette.card : .clear)
-                    .padding(.horizontal, Metrics.Spacing.s)
-            }
+            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
         }
-        .buttonStyle(.plain)
-        .motion(Motion.standard, value: isChosen)
         .accessibilityValue(row.needsYou ? "Needs you" : "")
-        .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 }
 

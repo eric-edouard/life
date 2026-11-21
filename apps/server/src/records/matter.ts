@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDate, isoDateTime, MadeBy, slug } from "./fields";
+import { ContextMarkdown, isoDate, isoDateTime, MadeBy, slug } from "./fields";
 import type { MatterIconKey } from "./matter-icon";
 
 // Memory's matters (memory/matters.jsonl, docs/SCHEMA.md): the running things of his life he never declared, found by
@@ -60,9 +60,14 @@ export const GoalText = z.string().trim().min(1).max(200);
  */
 export const NextStepKind = z.enum(["do", "wait_event", "wait_owner"]);
 
-/** A matter's next step: one line saying what moves it now, its kind, and for a wait what it waits on. */
+/**
+ * A matter's next step, Life's draft or his word: one line saying what moves it now, its kind, for a wait what it waits
+ * on, and its `context` (Markdown, as a card's: its `life:` links checked before it is written; Life's drafts from
+ * `memory-matter-directions.v3`).
+ */
 export const NextStep = z
   .object({
+    context: ContextMarkdown.optional(),
     kind: NextStepKind,
     text: z.string().trim().min(1).max(200),
     waitsOn: z.string().trim().min(1).max(120).optional(),

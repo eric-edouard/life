@@ -2,7 +2,10 @@
 // label is his app's button, a few words for him; what choosing it does, in words a model reads, is in `answer_check`'s
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
+import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { PlanStep } from "./card-request";
 import type { Decision } from "./decision-lines";
 import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
@@ -24,6 +27,8 @@ export interface CheckOption {
   label: string;
   looks?: true;
   outgoing?: true;
+  /** On a plan card's two options: `start` the plan, or `decline` it (the option role). */
+  role?: "decline" | "start";
   takes: "note" | "person" | "person or name" | null;
 }
 
@@ -104,6 +109,16 @@ export const LIFE_CHECKS = {
     ],
     title: "Name a voice",
   },
+  // A matter's step that is his: "Hand to an agent" only while an agent could take it (`checks.ts` drops it otherwise).
+  "your move": {
+    context: "A step of yours is open on this matter.",
+    options: [
+      { ends: "step", id: "done", label: "Mark as done", takes: null },
+      { id: "start", label: "Hand to an agent", takes: null },
+      { id: "not-now", label: "Not now", takes: null },
+    ],
+    title: "Your move",
+  },
 } as const satisfies Record<
   Exclude<CheckGroup, "decision">,
   { context: string | null; options: CheckOption[]; title: string }
@@ -114,7 +129,8 @@ export type CheckKind =
   | "ending"
   | "new matter"
   | "person"
-  | "voice";
+  | "voice"
+  | "your move";
 /** A matter as a card names it: its id, its name, and `important` when he marked it. */
 export interface CheckMatter {
   id: string;
@@ -161,6 +177,8 @@ export interface Check {
   doneSeenBy?: "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
+  /** On a plan card: what its plan was gathered from, one line (the source chip), which opens its `context`; null on a decision with none; absent on every other kind. */
+  gathered?: { text: string } | null;
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
   goal: string | null;
   group: CheckGroup;
@@ -173,7 +191,7 @@ export interface Check {
   lifeLinks: { kind: RefKind; ref: string }[];
   /** Who it may be, as parties (`partyOf`): a voice's likely people, a Contacts card's candidates, the people who go by a name; none for other kinds. */
   likelyPeople: Party[];
-  /** Where to look or act (the agent's link first). */
+  /** Where to look, as asked (a registered agent's: the session it asked from first; what "Open in" opens is `session`). */
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
@@ -195,6 +213,10 @@ export interface Check {
   onSilence: string | null;
   /** What he can answer (`CheckOption`: his button's label and what his answer takes); with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`; on Life's own cards, his complaint, `misread`). */
   options: CheckOption[];
+  /** A plan card's steps, in order (`PlanStep`); null on a decision with none (an older plan card: its plan is in `context`); absent on every other kind. */
+  plan?: z.infer<typeof PlanStep>[] | null;
+  /** The pre-ticked answer: the option id a bulk card starts this row ticked with (`preTickedOf`), worked out when read, never stored; null or absent: unticked. */
+  preTicked?: string | null;
   /** What he decides, in one sentence (a guess's worded by a template, no model). */
   question: string;
   /** What his answer acts on: a decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
@@ -212,6 +234,8 @@ export interface Check {
   };
   /** The sentence the ask is about, as said: a name's own line (verbatim), the open step of an ending, the step a new matter began with; null for every other kind. */
   said: Said | null;
+  /** A decision's session, what its "Open in" opens: a registered agent's card, its holder's session now (host's `cardHoldersOf`), never a link it was asked with; any other ask, its first link; absent when none, and on every other kind. */
+  session?: string;
   /** What follows the open step an ending check asks about, "since then": what makes Life think it is done, with who said it and when; null for every other kind. */
   since: Said | null;
   /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
@@ -223,6 +247,9 @@ export interface Check {
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */
 export interface BeingFixed {
   ask: string;
+  /** The caretaker's open card's `context`, beside its question (`line`); null with no card. */
+  context: string | null;
+  /** The caretaker's open card's question on that complaint's assignment; null with none (the plain "fixing this"). */
   line: string | null;
   since: string;
 }
@@ -231,13 +258,43 @@ export interface BeingFixed {
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
 
+/**
+ * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
+ * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (lifelog's
+ * `isLikely`), "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
+ * one conversation with no name heard, "Don't name"; null for anything else.
+ */
+export function preTickedOf(
+  c: Pick<Check, "kind"> & Partial<Pick<Check, "subject">>,
+  voice?: Pick<NamingQueueItem, "conversations" | "isLikely" | "kind" | "name">
+): string | null {
+  if (c.kind === "ending") {
+    return "outdated";
+  }
+  if (c.kind !== "voice" || !voice) {
+    return null;
+  }
+  if (c.subject && voice.isLikely) {
+    return "is-them";
+  }
+  return voice.kind === "new_person" && voice.conversations === 1 && !voice.name
+    ? "not-relevant"
+    : null;
+}
+
 /** Whether a check asks if a step is done (never in the nightly email). */
 export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
+/** Open cards by id, each as its holder's: the agent and its session now, if any. */
+export type CardHolders = Readonly<
+  Record<string, { agent: string; session?: string }>
+>;
+
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
 export interface HeldRead {
-  cardHolders?: Readonly<Record<string, { agent: string; links: string[] }>>;
-  complaints?: readonly BeingFixed[];
+  /** Each of the open `decisions` a registered agent asked, as its holder's, with that agent's session now (host's `cardHoldersOf`): given the one list the inbox reads, so a card asked meanwhile is never shown without it. */
+  cardHolders?: (decisions: readonly Decision[]) => CardHolders;
+  complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
   plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
   stamp: string;

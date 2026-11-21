@@ -23,6 +23,8 @@ struct TypeStep: Equatable {
     static let tileFigure = TypeStep(size: 26, weight: 650, style: .title2, hasFixedDigits: true)
     /// The first line of a sheet ("Starting", "Who?"): bold.
     static let sheetQuestion = TypeStep(size: 22, weight: 650, style: .title3)
+    /// A list screen's short title on its blurred header (`ScreenTitle`): "Inbox", "Matters".
+    static let screenTitle = TypeStep(size: 22, weight: 700, style: .title2)
     /// A screen's name where the system's large title would be: "Settings", a matter's name.
     static let screenName = TypeStep(size: 30, weight: 650, style: .title1)
     /// Words he or someone said, a message, a goal he edits.
@@ -65,9 +67,9 @@ struct TypeStep: Equatable {
 
     /// A heading in a context (`#`, `##`): the sheet's head is its only top level.
     static let contextHeading = TypeStep(size: 17, weight: 700, style: .headline)
-    /// Code inside a context's sentence.
+    /// Code inside a context's sentence, and a log line's message in full (its detail).
     static let codeInline = TypeStep(size: 14, weight: 450, style: .footnote, isMono: true)
-    /// A context's code block.
+    /// A context's code block, and a line of the live log.
     static let codeBlock = TypeStep(size: 13, weight: 450, style: .footnote, isMono: true)
 
     /// The step at a Dynamic Type size.

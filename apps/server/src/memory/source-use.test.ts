@@ -44,7 +44,7 @@ const call = (at: string, id: string, more: Record<string, unknown>) => ({
   ...more,
 });
 
-test("source use: items and units a day as median and max, reads per unit, a call split over its sources by unit share, the memory row, unpriced calls, a step grouped under its night", () => {
+test("source use: items and units a day as median and max, reads per unit, a call split over its sources by unit share, the memory row, calls not reported, a step grouped under its night", () => {
   const events = [
     run("run.start", "memory.nightly", "2026-11-17T00:31:00.000Z", N),
     run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
@@ -55,7 +55,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
     }),
     run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
     run("run.end", "memory.nightly", "2026-11-17T00:50:00.000Z", N),
-    // By hand, its router's reply without its cost: unpriced.
+    // By hand, its router's reply without its cost: not reported.
     run("run.start", "memory.closeness", "2026-11-18T09:00:00.000Z", C),
     call("2026-11-18T09:01:00.000Z", C, { reads: { memory: 5 } }),
   ] as LogEvent[];
@@ -78,10 +78,10 @@ test("source use: items and units a day as median and max, reads per unit, a cal
     items: { max: 40, median: 10 },
     model: [{ calls: 1, step: "extract (nightly)" }],
     modelFree: ["gather", "CHATS", "SEARCHED", "WITH_PEOPLE", "events"],
+    notReported: 0,
     readsPerUnit: 0.5,
     units: { max: 4, median: 2 },
     unitsRead: 3,
-    unpriced: 0,
   });
   expect(of("whatsapp")?.usdADay).toBeCloseTo(0.1);
   expect(of("whatsapp")?.usdWorstDay).toBeCloseTo(0.3);
@@ -98,15 +98,15 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   expect(of("memory")).toMatchObject({
     model: [{ calls: 1, step: "closeness (alone)" }],
     modelFree: [],
+    notReported: 1,
     unitsRead: 5,
-    unpriced: 1,
     usdADay: 0,
   });
   const text = sourceUseText(use, 3);
   expect(text).toContain("model: extract (nightly) ×1");
   expect(text).toContain("Agent turns: not counted here");
   expect(sourceUseLine(use)).toEqual([
-    "By source, last 24 h: whatsapp $0.10 (3 units read), lifelog $0.03 (1 units read), memory $0.00 (5 units read, 1 calls unpriced)",
+    "By source, last 24 h: whatsapp $0.10 (3 units read), lifelog $0.03 (1 units read), memory $0.00 (5 units read, 1 not reported)",
   ]);
 });
 
@@ -131,4 +131,24 @@ test("source use: one step's single-source calls of a day are each charged to th
   const use = sourceUseOf(events, [], [chat, imessage], ["2026-11-17"]);
   expect(use.find((u) => u.source === "whatsapp")?.usdADay).toBeCloseTo(0.01);
   expect(use.find((u) => u.source === "imessage")?.usdADay).toBeCloseTo(0.5);
+});
+
+test("source use: each call split by its own units' share, never pooled with another call of the same sources", () => {
+  const events = [
+    run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
+    call("2026-11-17T00:41:00.000Z", X, {
+      costUsd: 1,
+      reads: { lifelog: 1, whatsapp: 9 },
+    }),
+    call("2026-11-17T00:42:00.000Z", X, {
+      costUsd: 9,
+      reads: { lifelog: 9, whatsapp: 1 },
+    }),
+    run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
+  ] as LogEvent[];
+  const use = sourceUseOf(events, [], [chat, voice], ["2026-11-17"]);
+  const usd = (s: string) => use.find((u) => u.source === s)?.usdADay;
+  // 0.9 + 0.9 and 0.1 + 8.1.
+  expect(usd("whatsapp")).toBeCloseTo(1.8);
+  expect(usd("lifelog")).toBeCloseTo(8.2);
 });

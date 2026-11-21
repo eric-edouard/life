@@ -81,38 +81,83 @@ struct CountBadge: View {
     }
 }
 
-/// A 44-high text button: `fg` for an action, `muted` with an arrow for a jump out of the app, a chevron for a page of
-/// the app it opens (`isOnward`).
+/// A link, 44 high (decision 85): its words in `fg`, 13 / 600, then where it goes, always: a chevron for a page of the
+/// app, an arrow for something outside it. An action is a `QuietChip`.
 struct TextLink: View {
+    enum Goes { case page, outside }
+
     let title: String
-    var isOutward = false
-    var isOnward = false
-    var isMuted = true
+    let goes: Goes
     let action: () -> Void
 
-    init(
-        _ title: String, isOutward: Bool = false, isOnward: Bool = false, isMuted: Bool = true,
-        action: @escaping () -> Void
-    ) {
+    init(_ title: String, to goes: Goes, action: @escaping () -> Void) {
         self.title = title
-        self.isOutward = isOutward
-        self.isOnward = isOnward
+        self.goes = goes
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) { Self.label(title, to: goes) }
+    }
+
+    /// The link's look, for a system link that navigates itself (`NavigationLink`).
+    static func label(_ title: String, to goes: Goes) -> some View {
+        Text("\(title) \(Image(systemName: goes == .page ? "chevron.right" : "arrow.up.right"))")
+            .font(.smallStrong).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
+    }
+}
+
+/// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph then its words, 13 / 600, on a `fillTint`
+/// capsule 32 high in a 44 tap area, no border; `isMuted` for a line that says where something came from.
+struct QuietChip: View {
+    let title: String
+    let symbol: String
+    var isMuted = false
+    let action: () -> Void
+
+    init(_ title: String, symbol: String, isMuted: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.symbol = symbol
         self.isMuted = isMuted
         self.action = action
     }
 
-    private var label: Text {
-        if isOutward { return Text("\(title) \(Image(systemName: "arrow.up.right"))") }
-        if isOnward { return Text("\(title) \(Image(systemName: "chevron.right"))") }
-        return Text(verbatim: title)
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: symbol).font(.chip).accessibilityHidden(true)
+                Text(title).font(.smallStrong)
+            }
+            .foregroundStyle(isMuted ? Palette.muted : Palette.fg)
+            .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+            .background(Color.fillTint, in: .capsule)
+            .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A line added to a list (decision 85): a plus in a 24 `fillTint` circle, then its words in `fg`.
+struct AddRow: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
     }
 
     var body: some View {
         Button(action: action) {
-            label
-                .font(.smallStrong).foregroundStyle(isOutward && isMuted ? Palette.muted : Palette.fg)
-                .frame(minHeight: 44)
+            HStack(spacing: Metrics.Spacing.m) {
+                Image(systemName: "plus").font(.smallStrong).frame(width: 24, height: 24)
+                    .background(Color.fillTint, in: .circle).accessibilityHidden(true)
+                Text(title).font(.body15)
+            }
+            .foregroundStyle(Palette.fg)
+            .frame(maxWidth: .infinity, minHeight: Metrics.tapTarget, alignment: .leading).contentShape(.rect)
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -183,7 +228,7 @@ private struct SaidBackToast: ViewModifier {
         content.overlay(alignment: .top) {
             ZStack {
                 if let said = life.saidBack, !inSideColumn || said.undo == nil {
-                    Toast(words: said.words, glyph: said.undo == nil ? .flag : .ok, undo: life.undoing(said))
+                    Toast(words: said.words, glyph: said.isDone ? .ok : .flag, undo: life.undoing(said))
                         .appears().id(said.id)
                 }
             }
@@ -285,16 +330,65 @@ struct MarkItem: View {
     }
 }
 
-/// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters.
-struct ListLabel: View {
+/// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters. Its
+/// one action, when it has one, is a chip at the right ("All 5", "More": the label row, decision 98).
+struct ListLabel<Action: View>: View {
     let text: String
+    @ViewBuilder var action: Action
 
-    init(_ text: String) { self.text = text }
+    init(_ text: String, @ViewBuilder action: () -> Action) {
+        self.text = text
+        self.action = action()
+    }
 
     var body: some View {
-        Text(text).font(.small).foregroundStyle(Palette.muted)
-            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
-            .accessibilityAddTraits(.isHeader)
+        HStack(spacing: Metrics.Spacing.s) {
+            Text(text).font(.small).foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            action
+        }
+        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+    }
+}
+
+extension ListLabel where Action == EmptyView {
+    init(_ text: String) { self.init(text) {} }
+}
+
+extension View {
+    /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
+    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset from the column's edges;
+    /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
+    /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
+    /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
+    func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> some View {
+        let top = index == 0 ? Metrics.Radius.card : 0
+        let foot = index == count - 1 ? Metrics.Radius.card : 0
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: top, bottomLeadingRadius: foot, bottomTrailingRadius: foot, topTrailingRadius: top)
+        return frame(minHeight: Metrics.listRow).contentShape(.rect)
+            .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
+            .background(Palette.card, in: shape)
+            .padding(.horizontal, Metrics.Spacing.m)
+            .motion(Motion.standard, value: isChosen)
+            .accessibilityAddTraits(isChosen ? .isSelected : [])
+    }
+}
+
+/// A tapped row of a grouped inset list: its label in `groupedRow`, the whole row the tap.
+struct GroupedRowStyle: ButtonStyle {
+    let index: Int
+    let count: Int
+    var isChosen = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.groupedRow(at: index, of: count, isChosen: isChosen)
+    }
+}
+
+extension ButtonStyle where Self == GroupedRowStyle {
+    static func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> GroupedRowStyle {
+        GroupedRowStyle(index: index, count: count, isChosen: isChosen)
     }
 }
 
@@ -486,27 +580,6 @@ private struct FilterBar<Choices: View>: ViewModifier {
     }
 }
 
-/// A filter chip: its name; filled when it holds a choice.
-struct FilterChip: View {
-    let name: String
-    var isOn = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(name)
-                .font(.chip)
-                .foregroundStyle(isOn ? Palette.on : Palette.fg)
-                .padding(.horizontal, 15)
-                .frame(minHeight: 40)
-                .background(isOn ? Palette.fg : Palette.card, in: .capsule)
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .fixedSize()
-    }
-}
-
 /// One line of proof or progress: a check that passed, one under way, one waiting, one that failed.
 struct CheckLine: Identifiable, Equatable {
     enum Mark { case passed, running, waiting, failed }
@@ -660,6 +733,8 @@ struct Row<Trailing: View>: View {
     var state = RowState.known
     /// His mark: `SmallFlag` after the name, on its last line.
     var isMarked = false
+    /// A list's row takes its height from its list (`groupedRow`); a settings row keeps 56, or 64 with a second line.
+    var isInList = false
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -681,7 +756,7 @@ struct Row<Trailing: View>: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .frame(minHeight: state == .known && detail == nil ? 56 : 64)
+        .frame(minHeight: isInList ? nil : (state == .known && detail == nil ? 56 : 64))
         .contentShape(.rect)
     }
 
@@ -805,7 +880,8 @@ struct RowGroup<Content: View>: View {
     }
 }
 
-/// A one-line field: 48 high capsule, no outline, its fill by the surface it sits on.
+/// A one-line field with the microphone (`DictationField`): 48 high capsule, no outline, its fill by the surface it
+/// sits on.
 struct Field: View {
     let prompt: String
     @Binding var text: String
@@ -816,7 +892,7 @@ struct Field: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon { Image(systemName: icon).foregroundStyle(Palette.muted).accessibilityHidden(true) }
-            TextField(prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
+            DictationField(prompt: prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
         }
         .padding(.horizontal, 20)
         .frame(minHeight: 48)
@@ -842,6 +918,25 @@ struct SheetHeader: View {
             CloseButton(close: close)
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+extension View {
+    /// A sheet on the one-scroll rule (decision 97): this view is the one scroll's content, at the gutter; `head` (its
+    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar, each over the system's soft edge, so nothing
+    /// scrolls inside and the content's end scrolls clear of the buttons.
+    func sheetScroll<Head: View, Buttons: View>(
+        @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
+    ) -> some View {
+        let content = self.padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        let bottom = buttons().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        return ScrollView { content }
+            .scrollBounceBehavior(.basedOnSize)
+            .safeAreaBar(edge: .top, spacing: 0) { top }
+            .safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+            .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 }
 

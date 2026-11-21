@@ -48,6 +48,35 @@ import Testing
     #expect(holds.latest == "z")
 }
 
+/// A bulk ask's answers are held as one: one toast, and Undo of any brings back all of them, never others.
+@MainActor @Test func answersHeldTogetherAreUndoneTogether() async {
+    let sent = Sent()
+    let holds = HeldAnswers(delay: .seconds(60)) { sent.requests.append($0.request) }
+    holds.hold(AnswerRequest(ref: "alone", options: ["yes"]), as: "Yes")
+    holds.hold(["a", "b", "c"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "3 answered")
+    #expect(holds.held["a"]?.label == "3 answered" && holds.latest == "c")
+    holds.undo("c")
+    #expect(Set(holds.held.keys) == ["alone"] && holds.latest == "alone")
+    await holds.sendAll()
+    #expect(sent.requests.map(\.ref) == ["alone"])
+}
+
+/// One tap's answers go together when their time is up, never some before an Undo of the rest; one of them held again
+/// alone leaves the tap: the tap's Undo leaves it, its own timer sends it.
+@MainActor @Test func aTapsAnswersAreReleasedTogetherAndOneHeldAgainLeavesIt() async throws {
+    let sent = Sent()
+    let holds = HeldAnswers(delay: .milliseconds(40)) { sent.requests.append($0.request) }
+    holds.hold(["a", "b"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "2 answered")
+    holds.hold(AnswerRequest(ref: "b", options: ["false"]), as: "Not yet")
+    holds.undo("a")
+    #expect(Set(holds.held.keys) == ["b"])
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(sent.requests.map(\.options) == [["false"]])
+    holds.hold(["c", "d"].map { AnswerRequest(ref: $0, options: ["outdated"]) }, as: "2 answered")
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(sent.requests.map(\.ref).sorted() == ["b", "c", "d"] && holds.held.isEmpty)
+}
+
 /// A released answer is held or being sent at every step, until its send ended: no frame brings its card back.
 @MainActor @Test func aReleasedAnswerIsUnderWayUntilItsSendEnded() async {
     var sent = false
@@ -132,7 +161,7 @@ import Testing
 
 /// His Done held for Undo, then released: Life recorded it but did not end its step. Its end says so in Life's words,
 /// and the answer stands, never offered again (#753).
-@MainActor @Test func aReleasedDoneThatLifeCouldNotEndSaysLifesReason() async {
+@MainActor @Test func aReleasedDoneThatLifeCouldNotEndSaysLifesReason() async throws {
     let life = FakeLife()
     life.answers = [
         { _ in
@@ -149,11 +178,12 @@ import Testing
     holds.hold(AnswerRequest(ref: "dec_000000000002", options: ["done"]), as: "Done")
     await holds.sendAll()
     let ended = state.withLock { $0 }
-    #expect(ended.heldAnswerWarning == "Your answer was recorded. Reminders did not take the change.")
+    let said = try #require(ended.heldAnswerWords)
+    #expect(said.words == "Your answer was recorded. Reminders did not take the change." && !said.isDone)
     guard case .succeeded = ended else {
         Issue.record("expected it answered, got \(ended)")
         return
     }
     #expect(life.keys.withLock { $0 } == ["tap-1"])
-    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWarning == nil)
+    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWords == nil)
 }

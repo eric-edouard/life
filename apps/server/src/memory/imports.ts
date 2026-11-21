@@ -3,13 +3,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  renameSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { appendJsonl } from "../core/files";
+import { appendJsonl, writeWhole } from "../core/files";
 import { digest } from "../core/hash";
 import { hold, release } from "../core/lock";
 import { settings } from "../core/settings";
@@ -262,8 +260,7 @@ export async function importExport(folder: string) {
     const name = hasExportCopy(source, dir)
       ? `conversations.${digest("sha256", copy, 12)}.json`
       : "conversations.json";
-    writeFileSync(join(dir, `${name}.tmp`), copy);
-    renameSync(join(dir, `${name}.tmp`), join(dir, name));
+    writeWhole(join(dir, name), copy);
   }
   const step = await begin(
     "import",

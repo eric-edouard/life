@@ -6,7 +6,12 @@ import {
   filtersOf,
   type TurnRow,
 } from "../host/desk-read";
-import { DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT } from "../host/events";
+import {
+  ASK_SPOKEN,
+  DECISION_EVENTS,
+  DRAFT_CONTESTED,
+  DRAFT_KEPT,
+} from "../host/events";
 import { AgentWait } from "../records/registered-agent";
 
 // The wait contract's rules (docs: the desk spec, section 6), pure: rows and the time in, a decision out. The clock
@@ -19,6 +24,11 @@ const WAIT_TO = 7 * DAY;
 const DEFAULT_WAIT = DAY;
 /** An event other than his answer wakes an agent once this has passed since its last turn. */
 const EVENT_GAP = 10 * MIN;
+/**
+ * An event wakes an agent once its queue has been quiet this long (at most `EVENT_GAP` after the first), so a burst of
+ * messages, or his own reply in the chat, is in before the agent drafts.
+ */
+export const EVENTS_SETTLE = 5 * MIN;
 /** A failed turn is tried again after each of these, then the default wait stands. */
 const RETRIES = [5 * MIN, 10 * MIN, 20 * MIN];
 /** An event is handed to this many turns that began and did not consume it (once, then again 3 times at most), then dropped. */
@@ -40,9 +50,9 @@ export function waitOf(input: unknown, now: number) {
     : { wait: parsed.data };
 }
 
-/** A queued event as an agent reads it: its name and its facts. */
+/** A queued event as an agent reads it: its name and its facts; a spoken ask heard with low confidence says to confirm it. */
 export const eventLineOf = (e: Pick<EventRow, "name" | "payload">) =>
-  `${e.name} ${e.payload}`;
+  `${e.name} ${e.payload}${e.name === ASK_SPOKEN && JSON.parse(e.payload).confidence === "low" ? " (heard with low confidence: confirm it with him on a card before acting)" : ""}`;
 
 /** An assignment's default wait: its old filters, 24 hours, flagged. */
 export const defaultWaitOf = (
@@ -76,13 +86,13 @@ export const BEGIN_WITHIN_MS = 5 * MIN;
 export const isBeginLate = (t: TurnRow, now: number) =>
   !(t.begun_at || t.ended_at) && now - at(t.started_at) > BEGIN_WITHIN_MS;
 
-const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT];
+const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT, ASK_SPOKEN];
 
 /**
  * When an assignment's next turn is due and why, from its own turns and events, or null while its turn runs: a failed
  * turn's retry; else the soonest of his answer (at once, or, its retries spent, the last retry's gap after the last
- * failure), another event (10 minutes after its last turn) and its deadline. Whether its agent's session runs another
- * turn is the clock's to check.
+ * failure), another event (5 minutes after the newest, at most 10 after the first, and 10 after its last turn) and its
+ * deadline. Whether its agent's session runs another turn is the clock's to check.
  */
 export function nextWakeOf(
   s: Pick<AssignmentRow, "opened_at" | "wait_until">,
@@ -100,7 +110,8 @@ export function nextWakeOf(
       cause: "retry",
     };
   }
-  // His answer to its decision, its lapse or its withdrawal, and a card's contest (`draft.contested`, 10 minutes to act): each wakes the agent at once.
+  // His answer to its decision, its lapse or its withdrawal, a card's contest (`draft.contested`, 10 minutes to act) and
+  // his spoken ask: each wakes the agent at once.
   const answer = events.find((e) => AT_ONCE.includes(e.name));
   if (answer) {
     // Its retries spent (turns that never began drop nothing), his answer is tried again at the last retry's gap, never at once.
@@ -115,9 +126,10 @@ export function nextWakeOf(
   if (!first) {
     return deadline;
   }
+  const newest = Math.max(...events.map((e) => at(e.received_at)));
   const event = {
     at: Math.max(
-      at(first.received_at),
+      Math.min(newest + EVENTS_SETTLE, at(first.received_at) + EVENT_GAP),
       last?.ended_at ? at(last.ended_at) + EVENT_GAP : 0
     ),
     cause: "event",

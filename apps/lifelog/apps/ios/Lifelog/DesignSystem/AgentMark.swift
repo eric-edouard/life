@@ -28,13 +28,15 @@ extension Check {
     }
 }
 
-/// An agent as he reads it: its program's mark in `fg`, then the program's name in `ai`. The caller sets the font.
+/// An agent as he reads it: its program's mark in `fg`, then its name in `ai` ("Halden house agent"; the program's when
+/// none is read). The caller sets the font.
 struct AgentLabel: View {
     let runtime: RuntimeName
+    var name: String?
 
     var body: some View {
         Label {
-            Text(runtime.name)
+            Text(name ?? runtime.name)
         } icon: {
             Image(symbol: runtime.mark).foregroundStyle(Palette.fg)
         }

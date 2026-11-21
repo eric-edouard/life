@@ -86,20 +86,22 @@ function parseMessageRef(id: string): Ref | { error: string } {
     : { error: `"${id}" is not a message ref (msg:<source>|<message id>)` };
 }
 
-/** The `life:` link destinations of a Markdown text, as a Markdown reader finds them (never in code), percent-decoded, each once. */
+/** The `life:` destinations of a Markdown text's links and images (the phone opens both), as a Markdown reader finds them (never in code), percent-decoded, each once. */
 export function lifeRefsOf(markdown: string) {
   const refs = new Set<string>();
-  Bun.markdown.render(markdown, {
-    link: (_: unknown, { href }: { href: string }) => {
-      if (href.startsWith(LIFE)) {
-        try {
-          refs.add(decodeURIComponent(href.slice(LIFE.length)));
-        } catch {
-          refs.add(href.slice(LIFE.length));
-        }
+  const add = (href: string) => {
+    if (href.startsWith(LIFE)) {
+      try {
+        refs.add(decodeURIComponent(href.slice(LIFE.length)));
+      } catch {
+        refs.add(href.slice(LIFE.length));
       }
-      return "";
-    },
+    }
+    return "";
+  };
+  Bun.markdown.render(markdown, {
+    image: (_: unknown, { src }: { src: string }) => add(src),
+    link: (_: unknown, { href }: { href: string }) => add(href),
   });
   return [...refs];
 }

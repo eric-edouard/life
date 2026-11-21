@@ -77,11 +77,12 @@ processing run writes nothing itself: open its `children`.
 ## log lines
 
 `read_log_lines`, his token only (an agent's is refused; the question cases' tokenless server has none): the event
-log's lines, newest first, `{lines, cursor, observedAt}`, for his app's live log. Each line is worked out when read
+log's lines, newest first, `{lines, cursor, head, observedAt}`, for his app's live log. Each line is worked out when read
 from the stored one (`shownLineOf`, `core/log-line.ts`), never its other fields (arguments, bodies, error words):
 
 | Field | What |
 |---|---|
+| `id` | its place in the log, so unique: passed as `cursor`, it reads the lines before it (the phone keeps reading older lines after it dropped its oldest) |
 | `at` | when it was written (UTC) |
 | `level` | `info`, `warn` (a refused call) or `error` (a run error, an `error`, `ok: false`) |
 | `category` | the part of Life, then what it is about (`["desk","turn"]`, `["mcp","read_day"]`): LogTape's category without `life`. Its first word is one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command |
@@ -94,7 +95,9 @@ its kind and step, its message its kind, step and why as a class (a refusal's, a
 `limit` 1-100 (default 50), `min_level` (`info`, `warn`, `error`), `process` (a category's first word). The cursor is a
 day's file and a byte in it, so lines appended meanwhile never shift it; a page reads at most 2 days, so it may be
 short with a cursor still set; null when nothing older is left. With no cursor, the first page is the newest lines,
-newest first.
+newest first, and `head` is the log's end as read (a torn last line waits until whole). Passed back as `after`, a poll
+reads only the lines written since, in one call when nothing came, however far back its filter last matched. The log's own reads that went through (`mcp.call` of `read_log_lines`, info) are left out, or the
+phone's live log, polling, would show its own polling.
 
 ## resource samples
 
@@ -116,6 +119,20 @@ A field is null when its tool failed (or, for `battery`, there is none); never a
 It reads back from the end of today's log file (and yesterday's across midnight) until a line older than the hour,
 never a whole day. A local model's run is its own line, `model.local` (`describer`, `foundation`: duration, requests,
 whether the model ran for every request: Apple's from its replies, a refusal counted as run).
+
+## model spending
+
+`read_spending {month?}`, his token only (an agent's is refused; the tokenless server has none): what Life costs in one
+month (default his current one), decision 83's wire. Two bases, never added: `billed` (a provider's dollars; the Mac's
+models at $0) and `equivalent` (his Claude and Codex plans' tokens at list price, `core/prices.ts`). An amount is
+`{amount, currency: "USD", basis}`. `today` and `month` are billed; `days` each day held (the current month: the 1st to
+today, read live until the night rolls a day up into `LIFE_STATE_DIR/spending/<day>.json`; a past month: its day files
+only); `byProvider` (`billed` or `equivalent`, `tokens`, `reported`: false when one of its spends came without its
+amount, what was reported still counting); `byKind` (`night`, `daytime`, `agents`, `voice`; the agents in `tokens` and `equivalent`, the rest `billed`); `topAgents` and
+`topMatters`, at most 5 each by tokens, with `tokens` and `equivalent` (a turn's matter is its assignment's). Reads at
+most one month: its day files, live days and the desk's turns ended in it (`turn_by_ended`). `read_registered_agents`
+gives each agent its current session's `spending` (`since`, `tokens`, `equivalent`, `provider`), `read_matter` its
+agents' turns' (`tokens`, `equivalent`).
 
 ## changes
 

@@ -1,0 +1,19 @@
+{
+  "all": {
+    "needYou": 2,
+    "open": 3
+  },
+  "chips": [
+    {
+      "area": "home",
+      "id": "shop-fit-out",
+      "kind": "project",
+      "name": "Shop fit-out",
+      "status": "active",
+      "matters": 1,
+      "needYou": 1,
+      "agentAtWork": true
+    }
+  ],
+  "version": "0ac17308f397039b"
+}

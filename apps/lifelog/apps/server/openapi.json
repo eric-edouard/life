@@ -1325,6 +1325,15 @@
         },
         "required": ["text"]
       },
+      "DictationWords": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      },
       "IngestState": {
         "type": "object",
         "properties": {
@@ -1561,6 +1570,9 @@
           "id": {
             "type": "string"
           },
+          "isLikely": {
+            "type": "boolean"
+          },
           "kind": {
             "type": "string",
             "enum": ["new_person", "known_person", "several"]
@@ -1612,6 +1624,7 @@
           "evidence",
           "exchanges",
           "id",
+          "isLikely",
           "kind",
           "likely",
           "name",
@@ -2351,12 +2364,15 @@
             "type": "string",
             "format": "uuid"
           },
+          "isPhoneDictation": {
+            "type": "boolean"
+          },
           "startedAt": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": ["endedAt", "id", "startedAt"]
+        "required": ["endedAt", "id", "isPhoneDictation", "startedAt"]
       },
       "Switches": {
         "type": "object",
@@ -2485,7 +2501,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "The dictating app's bundle id, or \"playback\" from the phone"
+            "description": "The dictating app's bundle id, or \"playback\" or \"dictation\" from the phone"
           },
           "startedAt": {
             "type": "string",
@@ -3190,6 +3206,107 @@
           }
         },
         "required": ["terms"]
+      },
+      "Spending": {
+        "type": "object",
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "billableSeconds": {
+                  "type": "number"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": ["billed", "maybe_billed"]
+                },
+                "seconds": {
+                  "type": "number"
+                },
+                "transcriber": {
+                  "type": "string",
+                  "enum": ["scribe", "speech"]
+                }
+              },
+              "required": [
+                "at",
+                "billableSeconds",
+                "outcome",
+                "seconds",
+                "transcriber"
+              ]
+            }
+          },
+          "modelRuns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "inputTokens": {
+                  "type": "number"
+                },
+                "latencyMs": {
+                  "type": ["number", "null"]
+                },
+                "model": {
+                  "type": "string"
+                },
+                "outputTokens": {
+                  "type": "number"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": ["claude-code", "codex"]
+                }
+              },
+              "required": [
+                "at",
+                "inputTokens",
+                "latencyMs",
+                "model",
+                "outputTokens",
+                "provider"
+              ]
+            }
+          },
+          "unsettled": {
+            "type": "number",
+            "description": "Jobs queued or sent and model runs under way or waiting, in the span: not counted yet"
+          },
+          "voiceNotes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "billableSeconds": {
+                  "type": ["number", "null"]
+                },
+                "route": {
+                  "type": ["string", "null"]
+                },
+                "seconds": {
+                  "type": ["number", "null"]
+                }
+              },
+              "required": ["at", "billableSeconds", "route", "seconds"]
+            }
+          }
+        },
+        "required": ["jobs", "modelRuns", "unsettled", "voiceNotes"]
       },
       "Recorded": {
         "type": "object",
@@ -4114,6 +4231,74 @@
           },
           "503": {
             "description": "Not now: send it again later",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dictation/transcript": {
+      "post": {
+        "description": "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of all other work, by the speech service and Scribe for the turns it routes as Thai by where the owner is now. lifelog keeps no audio and no words, only operational events (its length, route, billable seconds, turns left unheard and Scribe's outcome). ElevenLabs keeps what Scribe is sent (the Thai turns, or all of it when mostly Thai, with vocabulary hints that can name people) under its ordinary retention; zero retention is enterprise-only. The words are whole or not given. 503 when the speech service or transcription is off or busy, or the words need Scribe while its credits are out or no slot frees: nothing was billed. 502 when Scribe left any routed turn without words: the owner says it again. The device token only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Its words; empty when nothing was heard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictationWords"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not Ogg Opus, or longer than 10 minutes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 16 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Some of its words are missing: say it again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not now, nothing billed: say it again",
             "content": {
               "application/json": {
                 "schema": {
@@ -5570,6 +5755,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Vocabulary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spending": {
+      "get": {
+        "description": "What Voice spent from `from` to `to` (at most 31 days): its settled transcription jobs by admission (`maybe_billed`: a send it may have been billed for), the chat voice notes it heard, by their answer (no seconds: maybe billed), and its settled model runs on the Mac, by start; `unsettled`, how many jobs and runs are not settled yet. A failed job that billed nothing is left out.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Spending"
                 }
               }
             }

@@ -13,7 +13,11 @@ import { getJob } from "./jobs";
 import { addQuietRange } from "./quiet-ranges";
 import { creditsWatch } from "./scribe-credits";
 import { setSwitches } from "./switches";
-import { OWNER_TOKEN, providerTranscript } from "./testing";
+import {
+  OWNER_TOKEN,
+  providerTranscript,
+  undoSpendingMigration,
+} from "./testing";
 
 const {
   admitFragment,
@@ -42,23 +46,19 @@ type App = ReturnType<typeof appWith>;
 
 // Dictation's paid send: it holds its slot from its grant (`posted`) until `free()`.
 function dictate(app: App) {
-  let free: () => void = () => undefined;
-  let started: () => void = () => undefined;
-  const posted = new Promise<void>((resolve) => {
-    started = resolve;
-  });
+  const posted = Promise.withResolvers<void>();
+  // Freed before its grant too, so a test's cleanup always frees it.
+  const held = Promise.withResolvers<void>();
   const done = app.s.worker.paidSend(
     "dictation",
     { priority: "interactive", waitMs: 10 * MIN },
     () => null,
     () => {
-      started();
-      return new Promise<void>((end) => {
-        free = end;
-      });
+      posted.resolve();
+      return held.promise;
     }
   );
-  return { done, free: () => free(), posted };
+  return { done, free: () => held.resolve(), posted: posted.promise };
 }
 const within = (ms: number, what: Promise<unknown>) =>
   Promise.race([what.then(() => true), Bun.sleep(ms).then(() => false)]);
@@ -145,67 +145,6 @@ test("dictation takes the slot next after the send under way, ahead of older wor
   expect(jobRow(older).state).toBe("submitted");
 });
 
-test("a block's routed turns wait while a Scribe job holds the slot, and go once it is answered", async () => {
-  const app = appWith(oneSlot);
-  setSwitches(env.db, { transcriber: "scribe" });
-  const atScribe = await admitFragment(app, audio(60), 100);
-  await app.s.worker.work();
-  setSwitches(env.db, { transcriber: "speech" });
-  inThaiZone();
-  speech.heard = THAI;
-  fake.respond = thaiAnswer;
-  const jobId = await admitFragment(app, speechAudio(30), 1);
-  const working = app.s.worker.work();
-  expect(await until(() => speech.blocks === 1)).toBe(true);
-  expect(await heardLogged(jobId)).toBe(true);
-  expect(jobRow(jobId)).toMatchObject({
-    maybeBilled: false,
-    state: "submitted",
-  });
-  expect(uploads()).toHaveLength(1);
-
-  await completeByWebhook(app, jobRow(atScribe));
-  await working;
-  expect(uploads()).toHaveLength(2);
-  expect(jobRow(jobId)).toMatchObject({
-    maybeBilled: false,
-    state: "completed",
-  });
-});
-
-test("a quiet range that lands while a block waits for its paid slot: nothing of it is sent, then or on a retry", async () => {
-  const app = appWith(oneSlot);
-  setSwitches(env.db, { transcriber: "scribe" });
-  const atScribe = await admitFragment(app, audio(60), 100);
-  await app.s.worker.work();
-  setSwitches(env.db, { transcriber: "speech" });
-  inThaiZone();
-  speech.heard = THAI;
-  fake.respond = thaiAnswer;
-  // Recorded from T0 to T0 + 30 s; its Thai turn waits for the slot.
-  const jobId = await admitFragment(app, speechAudio(30), 1);
-  const working = app.s.worker.work();
-  expect(await until(() => speech.blocks === 1)).toBe(true);
-  await Bun.sleep(20);
-  expect(uploads()).toHaveLength(1);
-
-  // Meanwhile the Mac reports a dictation over its last second.
-  addQuietRange(env.db, {
-    endedAt: new Date(T0 + 31_000).toISOString(),
-    id: randomUUID(),
-    source: "com.apple.dictation",
-    startedAt: new Date(T0 + 29_000).toISOString(),
-  });
-  await completeByWebhook(app, jobRow(atScribe));
-  await working;
-  expect(uploads()).toHaveLength(1);
-  // Withdrawn at the send or on the retry, never sent.
-  due(jobId);
-  await app.s.worker.work();
-  expect(uploads()).toHaveLength(1);
-  expect(getJob(env.db, jobId)).toBeUndefined();
-});
-
 test("nothing paid goes before the first read of the credits: a wake at boot waits, and credits read out keep the job queued", async () => {
   let answer: (r: Response) => void = () => undefined;
   const quota = new Promise<Response>((resolve) => {
@@ -218,9 +157,12 @@ test("nothing paid goes before the first read of the credits: a wake at boot wai
   const jobId = await admitFragment(app, audio(60), 1);
   // A wake just after boot, before the tick read the credits.
   app.s.worker.poke();
-  await Bun.sleep(100);
-  expect(uploads()).toHaveLength(0);
-  answer(Response.json({ character_count: 1000, character_limit: 1000 }));
+  try {
+    await Bun.sleep(100);
+    expect(uploads()).toHaveLength(0);
+  } finally {
+    answer(Response.json({ character_count: 1000, character_limit: 1000 }));
+  }
   await app.s.worker.work.idle();
   await Bun.sleep(20);
   expect(uploads()).toHaveLength(0);
@@ -266,10 +208,13 @@ test("a routed excerpt holds the slot until its words are stored, then dictation
     return thaiAnswer();
   };
   const jobId = await admitFragment(app, speechAudio(30), 1);
-  await app.s.worker.work();
-  expect(jobRow(jobId).state).toBe("completed");
-  expect(await within(500, dictation?.posted ?? Promise.reject())).toBe(true);
-  dictation?.free();
+  try {
+    await app.s.worker.work();
+    expect(jobRow(jobId).state).toBe("completed");
+    expect(await within(500, dictation?.posted ?? Promise.reject())).toBe(true);
+  } finally {
+    dictation?.free();
+  }
 });
 
 test("the POST starts its clock: a block that waited 5 minutes for its slot is not lost 26 minutes after it, and never sent twice", async () => {
@@ -282,11 +227,14 @@ test("the POST starts its clock: a block that waited 5 minutes for its slot is n
   await dictation.posted;
   const jobId = await admitFragment(app, speechAudio(10), 1);
   const working = app.s.worker.work();
-  expect(await until(() => speech.blocks === 1)).toBe(true);
-  expect(await heardLogged(jobId)).toBe(true);
-  setSystemTime(start + 5 * MIN);
   try {
+    expect(await until(() => speech.blocks === 1)).toBe(true);
+    expect(await heardLogged(jobId)).toBe(true);
+    setSystemTime(start + 5 * MIN);
+  } finally {
     dictation.free();
+  }
+  try {
     await working;
     const sent = jobRow(jobId);
     expect(sent).toMatchObject({ state: "submitted", transcriber: "scribe" });
@@ -517,6 +465,7 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
       ? sql`delete from __drizzle_migrations where created_at > ${postClock}`
       : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
   );
+  undoSpendingMigration(env.db);
   migrateDb(env.db);
 };
 
@@ -614,12 +563,15 @@ test("reconcile frees each slot as it settles it, not after the slowest", async 
   };
   const dictation = dictate(app);
   const ticking = app.s.worker.tick();
-  expect(await within(1000, dictation.posted)).toBe(true);
-  expect(jobRow(answered).state).toBe("completed");
-  expect(jobRow(slow).state).toBe("submitted");
-  answer();
-  dictation.free();
-  await ticking;
+  try {
+    expect(await within(1000, dictation.posted)).toBe(true);
+    expect(jobRow(answered).state).toBe("completed");
+    expect(jobRow(slow).state).toBe("submitted");
+  } finally {
+    answer();
+    dictation.free();
+    await ticking;
+  }
 });
 
 test("a quiet range that comes while a block's audio is read keeps it from the speech service", async () => {

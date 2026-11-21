@@ -9,7 +9,8 @@ import {
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
-import { holderLinksOf } from "../host/inbox";
+import { cardHoldersOf } from "../host/inbox";
+import { decisionsNow } from "../memory/decisions";
 import {
   askDecision,
   openAssignment,
@@ -112,6 +113,33 @@ test("a card asked before the desk kept its owner stays its agent's first assign
   expect(assignmentOfCard(desk.db, card)).toBe(first);
 });
 
+// Verdict on PR 841: the card's line is written before the desk's row of it commits; the desk stopping between them
+// left the card to its agent's first assignment. The line names the assignment that asked it.
+test("a card whose owner row never committed stays with the assignment that asked it, not its agent's first", async () => {
+  const { desk } = setup();
+  const id = standing(desk, {});
+  const second = openAssignment(desk, id, { openedBy: "owner" });
+  const s = assignmentOf(desk.db, second);
+  if (!s) {
+    throw new Error("no second assignment");
+  }
+  const asked = await askDecision(desk, s, {
+    context: "A made-up reason to ask.",
+    deadline: iso(clock().getTime() + DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: go on?",
+    title: "a test",
+  });
+  desk.db.run("delete from card where decision_id = ?", [asked.id]);
+  const card = decisionsNow().find((d) => d.id === asked.id);
+  expect(card?.assignment).toBe(second);
+  expect(assignmentOfCard(desk.db, card ?? { id: "" })).toBe(second);
+  await withdrawOpenCards(desk.db, s, "test over");
+});
+
 test("a fold onto an agent leaves its own older card on its own assignment", async () => {
   const { desk } = setup();
   desk.embedder = null;
@@ -157,15 +185,17 @@ test("a fold onto an agent leaves its own older card on its own assignment", asy
   );
 });
 
-test("a repeated Start reports the open assignment it found, never a newer closed one on another of its steps", () => {
+test("a repeated Start reports the open assignment it found, never a newer closed one on another of its steps, even on the matter he chose", () => {
   const { desk } = setup();
   const id = standing(desk, {});
   const open = openAssignment(desk, id, {
+    matter: "matter_00000000b001",
     openedBy: "owner",
     steps: ["obs_test_d1"],
   });
   advance(MIN);
   const closed = openAssignment(desk, id, {
+    matter: "matter_00000000a001",
     openedBy: "owner",
     steps: ["obs_test_d2"],
   });
@@ -177,10 +207,14 @@ test("a repeated Start reports the open assignment it found, never a newer close
     "insert into agent_change (ask, agent_id, applied_at) values ('entry_test', ?, ?)",
     [id, clock().toISOString()]
   );
-  expect(
-    readStartFacts(desk.db, "entry_test", ["obs_test_d1", "obs_test_d2"])
-      .assignment?.id
-  ).toBe(open);
+  for (const matter of [undefined, "matter_00000000a001"]) {
+    expect(
+      readStartFacts(desk.db, "entry_test", {
+        matter,
+        steps: ["obs_test_d1", "obs_test_d2"],
+      }).assignment?.id
+    ).toBe(open);
+  }
 });
 
 test("a fold shows its card as asked by the new holder, and the agent it emptied is still read", async () => {
@@ -270,13 +304,110 @@ test("each open card is its own assignment's, so an agent holding two shows each
   );
 });
 
-test("a card shown as its holder's opens the holder's session, not the asker's", () => {
-  const claude = "https://claude.ai/code/session_test";
-  const codex = "codex://threads/test";
-  expect(
-    holderLinksOf([claude, "https://example.com/doc"], claude, codex)
-  ).toEqual([codex, "https://example.com/doc"]);
-  expect(
-    holderLinksOf([claude, "https://example.com/doc"], claude, undefined)
-  ).toEqual([claude, "https://example.com/doc"]);
+test("a folded card opens its holder's session now, or none: never a session it was asked from", () => {
+  const { desk } = setup();
+  const asker = standing(desk, {});
+  const holder = standing(desk, { project: "test-shop" });
+  const held = openAssignment(desk, holder, {
+    openedBy: "owner",
+    steps: ["obs_test_fold"],
+  });
+  desk.db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
+    "dec_test_fold",
+    held,
+  ]);
+  // The asker's session was replaced since it asked (its old link stays on its cards).
+  desk.db.run("update agent set link = 'fake://asker-new' where id = ?", [
+    asker,
+  ]);
+  const cards = [
+    { agent: asker, id: "dec_test_fold" },
+    { agent: asker, id: "dec_test_own" },
+  ];
+  const shown = () => Object.fromEntries(cardHoldersOf(desk.db, cards));
+  // The holder has no session yet: none, never the asker's.
+  expect(shown()).toEqual({
+    dec_test_fold: { agent: holder },
+    dec_test_own: { agent: asker, session: "fake://asker-new" },
+  });
+  desk.db.run("update agent set link = 'fake://holder' where id = ?", [holder]);
+  expect(shown().dec_test_fold).toEqual({
+    agent: holder,
+    session: "fake://holder",
+  });
+});
+
+/** A made-up card on `subject`, asked from assignment `s`'s turn. */
+const askOn = (
+  desk: ReturnType<typeof setup>["desk"],
+  s: Parameters<typeof askDecision>[1],
+  subject: string
+) =>
+  askDecision(desk, s, {
+    context: "A made-up reason to ask.",
+    deadline: iso(clock().getTime() + DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: go on?",
+    subject,
+    title: "a test",
+  });
+
+test("a card goes on any matter its agent holds, filed under the assignment holding it; another is refused", async () => {
+  const { desk } = setup();
+  const [a, b, c, d] = ["a", "b", "c", "d"].map(
+    (x) => `obs_00000000f0${x}${x}`
+  ) as [string, string, string, string];
+  await withBook(
+    [
+      toDo(a, "I'll tune the piano"),
+      toDo(b, "I'll pay the plumber"),
+      toDo(c, "I'll renew the insurance"),
+      toDo(d, "I'll water the plants"),
+    ],
+    { id: "matter_00000000f0aa", steps: [a] },
+    async () => {
+      const personal = standing(desk, { role: "personal" });
+      const own = openAssignments(desk.db).find((s) => s.agent_id === personal);
+      const onA = assignmentOf(
+        desk.db,
+        openAssignment(desk, personal, { openedBy: "owner", steps: [a] })
+      );
+      const onB = openAssignment(desk, personal, {
+        openedBy: "desk",
+        steps: [b],
+      });
+      const other = standing(desk, {});
+      const onD = assignmentOf(
+        desk.db,
+        openAssignment(desk, other, { openedBy: "owner", steps: [d] })
+      );
+      if (!(own && onA && onD)) {
+        throw new Error("no assignments");
+      }
+      const ownerOf = (id: string) =>
+        cardOwnersOf(desk.db, [{ agent: personal, id }])[id]?.assignment;
+      // Woken on A, asks on B's matter: filed under B.
+      expect(ownerOf((await askOn(desk, onA, b)).id)).toBe(onB);
+      // A matter under no project, which the Personal agent takes: filed under its own assignment.
+      expect(ownerOf((await askOn(desk, onA, c)).id)).toBe(own.id);
+      // Another agent, on a matter it neither is assigned nor takes (the Personal agent takes it): refused.
+      await expect(askOn(desk, onD, c)).rejects.toThrow(
+        "is not on a matter you hold"
+      );
+      // Nor from its own assignment.
+      const otherOwn = openAssignments(desk.db).find(
+        (s) => s.agent_id === other && s.id !== onD.id
+      );
+      if (!otherOwn) {
+        throw new Error("no own assignment");
+      }
+      await expect(askOn(desk, otherOwn, c)).rejects.toThrow(
+        "is not on a matter you hold"
+      );
+      await withdrawOpenCards(desk.db, { agent_id: personal }, "test over");
+    }
+  );
 });

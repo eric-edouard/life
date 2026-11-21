@@ -30,20 +30,20 @@ struct SearchScreen: View {
     private var asked: String { query.trimmingCharacters(in: .whitespaces) }
 
     var body: some View {
-        let people = peopleRead
-        let isNothing =
-            !asked.isEmpty && (people == nil || people?.value?.isNoOne == true)
-            && (scope == .people || life.matters.value?.matching(query).isEmpty == true)
+        // One reading of what shows, for the rows, "Nothing holds" and the title's count alike. Unpaired, one notice says
+        // so: the people's.
+        let results = SearchResults(
+            query: query, people: peopleRead, matters: scope == .people ? nil : life.matters, isPaired: life.isPaired)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if isNothing {
+                if results.isNothing {
                     Text("Nothing holds “\(asked)”.").font(.body15).foregroundStyle(Palette.muted)
                         .padding(Metrics.gutter)
                         .appears()
                 }
-                if let people {
+                if let people = results.people {
                     ReadScreen(
-                        shown: people.shown(isEmpty: \.isNoOne), retry: { await readPeople() },
+                        shown: people, retry: { await readPeople() },
                         loading: { Placeholder().padding(Metrics.gutter) },
                         empty: {
                             if asked.isEmpty {
@@ -55,15 +55,14 @@ struct SearchScreen: View {
                         content: { list in peopleRows(list) }
                     )
                 }
-                // Unpaired, one notice says so: the people's.
-                if scope != .people, people == nil || life.isPaired {
+                if let matters = results.matters {
                     ReadScreen(
-                        shown: life.matters.shown(isEmpty: { $0.matching(query).isEmpty }),
-                        retry: { await life.refreshMatters() },
+                        shown: matters, retry: { await life.refreshMatters() },
                         loading: { Placeholder().padding(Metrics.gutter) },
                         empty: { if asked.isEmpty { NoMattersNotice() } },
-                        content: { list in
-                            matterRows(list.matching(query), isLabelled: people?.value?.people.isEmpty == false)
+                        content: { _ in
+                            matterRows(
+                                results.matterRows ?? [], isLabelled: results.people?.onScreen?.isNoOne == false)
                         }
                     )
                 }
@@ -73,6 +72,7 @@ struct SearchScreen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Palette.bg)
+        .screenTitle("Search", state: results.count.map { $0 == 1 ? "1 result" : "\($0) results" })
         // Each source on its own: the matters once per pairing, the people a moment after he stops typing (a newer
         // query replaces the read under way), and again on a new pairing.
         .task(id: life.parties.generation.current) {
@@ -107,9 +107,10 @@ struct SearchScreen: View {
             // Only seen by Life (in his Contacts, named by someone): quieter, and never a page to open.
             if let others = list.others, !others.isEmpty {
                 ListLabel("Others Life has seen")
-                ForEach(others, id: \.ref) { party in
+                ForEach(Array(others.enumerated()), id: \.element.ref) { at, party in
                     PartyRow(party, isDim: true)
-                        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.m)
+                        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
+                        .groupedRow(at: at, of: others.count)
                         .appears()
                 }
             }
@@ -120,13 +121,13 @@ struct SearchScreen: View {
     private func matterRows(_ rows: [MatterRow], isLabelled: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if !rows.isEmpty, isLabelled { ListLabel("Matters") }
-            ForEach(rows) { row in
+            ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
                 Button {
                     router.open(matter: row.id)
                 } label: {
-                    MatterRowView(row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
+                    MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.groupedRow(at: at, of: rows.count))
                 .appears()
             }
         }
@@ -136,8 +137,9 @@ struct SearchScreen: View {
     @ViewBuilder private func section(_ label: String, _ rows: [PersonRow]) -> some View {
         if !rows.isEmpty {
             ListLabel(label)
-            ForEach(rows) { row in
-                PersonRowButton(row: row) { router.open(party: row.id) }.appears()
+            ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
+                PersonRowButton(row: row) { router.open(party: row.id) }
+                    .buttonStyle(.groupedRow(at: at, of: rows.count)).appears()
             }
         }
     }

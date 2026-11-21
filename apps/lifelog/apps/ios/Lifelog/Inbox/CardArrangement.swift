@@ -38,7 +38,7 @@ struct CardArrangement<Region: View, Bar: View>: View {
             }
         } else {
             // iOS 27.0 has no arrangement: the card alone at every width, its context behind the card's "Why" row.
-            region.safeAreaInset(edge: .bottom, spacing: 0) { if let bar { rowOf(bar).background(Palette.bg) } }
+            region.safeAreaBar(edge: .bottom, spacing: 0) { if let bar { rowOf(bar) } }
         }
     }
 
@@ -63,9 +63,8 @@ private struct AnswersRow<Row: View>: ViewModifier {
         GeometryReader { region in
             // Stacked: the region spans the arrangement's width, not its height.
             let isStacked = region.size.width > bounds.width - 1 && region.size.height < bounds.height - 1
-            content.safeAreaInset(edge: .bottom, spacing: 0) {
-                if let row, isStacked == isLower { row.background(Palette.bg) }
-            }
+            // The system's bar, so what scrolls under it softens at its edge (decision 96).
+            content.safeAreaBar(edge: .bottom, spacing: 0) { if let row, isStacked == isLower { row } }
         }
     }
 }
@@ -88,8 +87,8 @@ struct ContextRegion: View {
                     ContextView(markdown: context, lifeLinks: check.lifeLinks ?? []) { opened = $0 }
                 }
                 if let id = check.matter?.id, let matter = life.matter[id]?.value { matterBlock(matter) }
-                if let link = check.links.first.flatMap(URL.init(string:)) {
-                    TextLink("Open in \(runtimeName?.name ?? "its app")", isOutward: true) { openURL(link) }
+                if let link = check.session.flatMap(URL.init(string:)) {
+                    TextLink("Open in \(runtimeName?.name ?? "its app")", to: .outside) { openURL(link) }
                 }
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)

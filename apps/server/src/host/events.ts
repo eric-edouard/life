@@ -1,6 +1,6 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { clock, HOUR, iso } from "../core/clock";
+import { clock, HOUR } from "../core/clock";
 import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -16,11 +16,12 @@ import {
 import { directChats } from "../memory/closeness";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import { cardsHearingOf } from "../memory/draft-contest";
 import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources, SOURCES } from "../memory/sources";
-import { isLifeOutput, speakerOf } from "../memory/units";
+import { callSpanOf, isLifeOutput, speakerOf } from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import { eventKey, type SourceEvent } from "../records/source";
@@ -46,6 +47,8 @@ export const DRAFT_KEPT = "draft.kept";
 export const CALL_ENDED = "call.ended";
 /** His complaint (his "Wrong…" on a card of Life's), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
 export const COMPLAINT_RECEIVED = "complaint.received";
+/** His spoken ask ("hey Life"), routed to one agent: the desk's event alone, facts only (where his words are, never them; `desk/spoken-ask-intake.ts`). */
+export const ASK_SPOKEN = "ask.spoken";
 /** How far back a call that began is looked at: the desk asks again each poll, so a late pendant sync still wakes. */
 export const CALLS_BACK = 12 * HOUR;
 /** Each decision event: the state it reports and what it tells its asker. */
@@ -176,7 +179,10 @@ const DecisionPayload = z.object({
     .string()
     .nullable()
     .describe("The option you said you take if he doesn't answer"),
-  question: z.string(),
+  question: z
+    .string()
+    .optional()
+    .describe("The card's question: absent on the card that merged yours"),
   replacedBy: z
     .string()
     .optional()
@@ -215,7 +221,7 @@ const outcomesOf = (
 export const decisionCursorOf = (at: Date) => encode({ at: at.getTime() });
 
 /**
- * The decisions `agent` asked that got his answer (`decision.answered`), lapsed (`decision.lapsed`) or were withdrawn
+ * The decisions `agent` asked, or that merged one it asked (`cardsHearingOf`), that got his answer (`decision.answered`), lapsed (`decision.lapsed`) or were withdrawn
  * because he answered in the chat (`decision.withdrawn`) since `cursor`
  * (none: from now), all of them: an agent has few, so one page. The new cursor is now, the window half-open, so an
  * answer recorded in the same instant comes on the next poll.
@@ -239,13 +245,19 @@ export function pollDecisions(
   );
   const states: readonly Decision["state"][] =
     DECISION_EVENT_OF[name]?.states ?? [];
-  const settled = settledBetween(decisionsNow(now), from, now).filter(
-    (d) => d.asker === agent && states.includes(d.state)
+  const all = decisionsNow(now);
+  // Its own cards, and the cards that merged one of its own: their answer is its too.
+  const settled = settledBetween(all, from, now).filter(
+    (d) =>
+      states.includes(d.state) &&
+      cardsHearingOf(d, all).some((c) => c.asker === agent)
   );
   return {
     cursor: decisionCursorOf(now),
     events: settled.map((d) => {
       const at = d.answer?.at ?? settledAtOf(d) ?? d.deadline;
+      // A merged card's asker hears his answer, never the holder's words or its `onSilence`.
+      const isOwn = d.asker === agent;
       return {
         data: {
           ...(d.answer
@@ -260,8 +272,8 @@ export function pollDecisions(
           at,
           ...outcomesOf(d),
           id: d.id,
-          onSilence: d.onSilence,
-          question: d.question,
+          onSilence: isOwn ? d.onSilence : null,
+          question: isOwn ? d.question : undefined,
           ...(d.withdrawn?.replacedBy
             ? { replacedBy: d.withdrawn.replacedBy }
             : {}),
@@ -455,7 +467,7 @@ export async function readMessageEvents<T>(
       }
     }
   );
-  const read = feeds.flatMap((f) => f.rows(f.from).map(([, e]) => e));
+  const read = feeds.flatMap((f) => Array.from(f.rows(f.from), ([, e]) => e));
   // A chat's voice note is heard before it is matched, so a wait on words sees what was said; past the bound it goes
   // as it is (the arrival pass hears it).
   const chats = new Set(
@@ -610,10 +622,7 @@ export function readEndedCalls(
       if (!e.phoneCall?.seconds) {
         return [];
       }
-      const [at, until] = [
-        iso(Date.parse(e.at)),
-        iso(Date.parse(e.at) + e.phoneCall.seconds * 1000),
-      ];
+      const { at, until } = callSpanOf(e);
       return [
         {
           ...messagePayloadOf(e, people),

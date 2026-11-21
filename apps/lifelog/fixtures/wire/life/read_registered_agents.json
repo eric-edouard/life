@@ -16,6 +16,7 @@
       "notStarted": null,
       "outcome": null,
       "project": null,
+      "role": "personal",
       "runtime": "claude",
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
@@ -27,6 +28,17 @@
         "id": "matter_aaaaaaaaaaaa",
         "name": "Mend Gran's watch",
         "status": "moving"
+      },
+      "spending": {
+        "equivalent": {
+          "amount": 0,
+          "basis": "equivalent",
+          "currency": "USD"
+        },
+        "reported": true,
+        "tokens": 0,
+        "provider": "claude",
+        "since": null
       }
     },
     {
@@ -45,6 +57,7 @@
       "notStarted": null,
       "outcome": null,
       "project": "shop-fit-out",
+      "role": null,
       "runtime": "claude",
       "status": "waiting",
       "statusSince": "2026-10-14T09:00:00.000Z",
@@ -116,7 +129,18 @@
           "kind": "wide_net"
         }
       ],
-      "matter": null
+      "matter": null,
+      "spending": {
+        "equivalent": {
+          "amount": 0,
+          "basis": "equivalent",
+          "currency": "USD"
+        },
+        "reported": true,
+        "tokens": 0,
+        "provider": "claude",
+        "since": null
+      }
     }
   ],
   "desk": "ok",

@@ -1,4 +1,4 @@
-import type { RunEnd, Runtime } from "./contract";
+import { type RunEnd, type Runtime, SessionLive } from "./contract";
 
 // A runtime for tests: sessions in memory. The test plays the agent (its door calls and its turn's end) and sets what
 // the runtime does: fail, forget a session, run a turn of his, end a run (with the usage it reports).
@@ -62,7 +62,10 @@ export function fakeRuntime() {
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
       async send(_agent, ref, message) {
         const s = sessions.get(ref);
-        if (fake.isFailing || !s || s.running) {
+        if (s?.running) {
+          throw new SessionLive(`session ${ref} is running`);
+        }
+        if (fake.isFailing || !s) {
           throw new Error(`cannot run ${ref}`);
         }
         s.running = true;

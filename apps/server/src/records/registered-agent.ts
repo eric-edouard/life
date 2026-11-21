@@ -111,14 +111,20 @@ export type AgentRole = "personal" | "caretaker";
 /** Who opened an assignment: he did (`owner`: his word, his Start), or the desk did itself (`desk`, the hand-out). */
 export type OpenedBy = "owner" | "desk";
 
-/** How an agent turn ended: it set a wait or finished, the desk set the default wait, or it failed (its process failed, or ended unheard). */
-export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";
+/** How an agent turn ended: it set a wait or finished, the desk set the default wait, it failed (its process failed, or ended unheard), or it was a move's notes turn (`notes`, however its run ended). */
+export type TurnOutcome =
+  | "waited"
+  | "finished"
+  | "default_wait"
+  | "failed"
+  | "notes";
 
 /**
  * His word about a registered agent (`change_registered_agent`), as stored in his ask for the desk (`after.agentChange`):
  * start one on a subject (exactly one of a matter's `steps`, its anchors, which go to the agent that takes the matter,
- * `agentForOf`; a `project`; or `role` `personal`, the Personal agent), stop, resume, re-point, rename (`name`), or change its
- * model. The desk applies it once (`desk/agent-changes.ts`).
+ * `agentForOf`; a `project`; or `role` `personal`, the Personal agent), stop, resume, re-point, rename (`name`), change its
+ * model, or move (`hand_over`: a matter's `steps` to a new agent on a `runtime` or to the `agent` he names; or an `agent`
+ * to a `runtime`). The desk applies it once (`desk/agent-changes.ts`, a move in `desk/agent-moves.ts`).
  */
 export const AgentChange = z
   .object({
@@ -129,6 +135,7 @@ export const AgentChange = z
       "re_point",
       "rename",
       "change_model",
+      "hand_over",
     ]),
     agent: z
       .string()
@@ -136,6 +143,8 @@ export const AgentChange = z
       .optional(),
     effort: z.string().min(1).optional(),
     folder: z.string().min(1).optional(),
+    /** The matter he named, by its id, beside its `steps`: kept on the assignment (`matter_id`), it settles a tie between matters sharing steps. */
+    matter: z.string().min(1).optional(),
     model: z.string().min(1).optional(),
     name: z.string().min(1).max(60).optional(),
     project: z.string().min(1).optional(),

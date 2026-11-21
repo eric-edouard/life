@@ -128,7 +128,7 @@ async function readDays(files: string[]) {
         )
       ).values(),
     ];
-    const costUsd = calls.reduce((n, c) => n + c.costUsd, 0);
+    const costUsd = calls.reduce((n, c) => n + c.billedUsd, 0);
     const tokens = calls.reduce((t, c) => add(t, c.tokens), NONE);
     return {
       ...read,

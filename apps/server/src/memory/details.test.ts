@@ -4,6 +4,7 @@ import type { Contact } from "../sources/contacts";
 import {
   birthdaysNear,
   birthdayText,
+  detailRefOf,
   detailsOf,
   nextBirthday,
   readDetailsOf,
@@ -14,6 +15,7 @@ import { cardOwnerOf } from "./who";
 const contact = (over: Partial<Contact> = {}): Contact => ({
   addresses: [],
   birthday: null,
+  company: null,
   handles: ["+33 6 11 11 11 11"],
   id: "card-ana",
   labels: {},
@@ -147,5 +149,77 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
     "Birthdays (this day and the next 7):",
     "- born",
     "",
+  ]);
+});
+
+test("a work line opens the organization of his directory its company is; a family line, the person its name resolves to", () => {
+  const known: Record<string, string> = {
+    Anne: "person:anne",
+    "Atelier Test": "person:atelier",
+    "Shop Test": "person:shop-test",
+  };
+  const organization = (id: string, name: string, aliases: string[] = []) => ({
+    aliases,
+    id,
+    name,
+  });
+  const refOf = detailRefOf({
+    isOrganization: (r: string) => r.startsWith("person:atelier"),
+    resolve: (name: string) => known[name] ?? null,
+    truth: {
+      organizations: [
+        organization("atelier", "Atelier Test"),
+        organization("atelier-inc", "Atelier Test, Inc."),
+        organization("atelier-uk", "Atelier Test (UK)", ["Atelier UK"]),
+      ],
+    },
+  } as unknown as Parameters<typeof detailRefOf>[0]);
+  const refs = (...over: Partial<Contact>[]) =>
+    detailsOf({ contacts: over.map((o) => contact(o)), refOf }).flatMap((l) =>
+      l.kind === "work" || l.kind === "family" ? [[l.text, l.ref ?? null]] : []
+    );
+  // The company as Contacts holds it, whole, by his directory's name or alias: one holding another's name opens its own.
+  expect(
+    refs({
+      company: "Atelier Test, Inc.",
+      work: "Engineer, Atelier Test, Inc.",
+    })
+  ).toEqual([["Engineer, Atelier Test, Inc.", "person:atelier-inc"]]);
+  expect(
+    refs({ company: "Atelier Test (UK)", work: "Engineer, Atelier Test (UK)" })
+  ).toEqual([["Engineer, Atelier Test (UK)", "person:atelier-uk"]]);
+  expect(refs({ company: "atelier uk", work: "atelier uk" })).toEqual([
+    ["atelier uk", "person:atelier-uk"],
+  ]);
+  // Two cards showing one line: the ref the one with a company gives.
+  expect(
+    refs(
+      { work: "Designer, Atelier Test" },
+      { company: "Atelier Test", work: "Designer, Atelier Test" }
+    )
+  ).toEqual([["Designer, Atelier Test", "person:atelier"]]);
+  // A company Life knows but not of his directory, or none: no ref.
+  expect(refs({ company: "Shop Test", work: "Baker, Shop Test" })).toEqual([
+    ["Baker, Shop Test", null],
+  ]);
+  expect(refs({ work: "Baker" })).toEqual([["Baker", null]]);
+  // The relation's name as Contacts holds it, with or without its label: a name holding ": " is never cut.
+  expect(
+    refs({
+      related: [
+        { label: "Mother", name: "Anne" },
+        { label: null, name: "Anne" },
+        { label: "Mother", name: "Stage: Anne" },
+        { label: "Sister", name: "Anne-Marie" },
+        { label: "Partner", name: "Atelier Test" },
+      ],
+    })
+  ).toEqual([
+    ["Mother: Anne", "person:anne"],
+    ["Anne", "person:anne"],
+    // A part of a name never counts; an organization is no family.
+    ["Mother: Stage: Anne", null],
+    ["Sister: Anne-Marie", null],
+    ["Partner: Atelier Test", null],
   ]);
 });

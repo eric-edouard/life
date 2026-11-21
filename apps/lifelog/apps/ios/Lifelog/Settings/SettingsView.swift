@@ -24,6 +24,11 @@ struct SettingsView: View {
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
+    @State private var isLiveLogsOpen = false
+    @State private var isSpendingOpen = false
+    /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
+    @State private var problems: String?
+    @State private var isAppsOpen = false
 
     var body: some View {
         ScrollView {
@@ -33,6 +38,7 @@ struct SettingsView: View {
                 connections
                 allows
                 sending
+                cards
                 pendant
                 RowGroup(label: "Appearance", surface: .sheet) {
                     SegmentedChoice(
@@ -44,6 +50,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.appearance")
                 }
                 yourData
+                spending
                 help
             }
             .motion(Motion.standard, value: needsYouRows)
@@ -56,12 +63,19 @@ struct SettingsView: View {
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
+        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage { page = .life } }
+        .navigationDestination(isPresented: $isSpendingOpen) { SpendingPage { page = .life } }
+        .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
+        .navigationDestination(isPresented: $isAppsOpen) { AppsPage() }
         #if DEBUG
             .task {
                 switch LifeFixture.page {
                 case "life": page = .life
                 case "server": page = .server
                 case "diagnostics": isDiagnosticsOpen = true
+                case "logs": isLiveLogsOpen = true
+                case "spending": isSpendingOpen = true
+                case "apps": isAppsOpen = true
                 default: break
                 }
             }
@@ -260,6 +274,20 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Cards
+
+    private var cards: some View {
+        RowGroup(label: "Cards", surface: .sheet) {
+            Button {
+                isAppsOpen = true
+            } label: {
+                Row(title: "Apps", icon: "square.grid.2x2", detail: "The bank app a transfer opens") { RowValue() }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.apps")
+        }
+    }
+
     // MARK: Pendant
 
     private var pendant: some View {
@@ -367,6 +395,19 @@ struct SettingsView: View {
         }
     }
 
+    /// What Life costs: one plain row, no figure on it (a figure is never in front of him unless he opens it).
+    private var spending: some View {
+        RowGroup(surface: .sheet) {
+            Button {
+                isSpendingOpen = true
+            } label: {
+                Row(title: "Spending", icon: "chart.bar") { RowValue() }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.spending")
+        }
+    }
+
     /// The backup row's value; nil until the status is read.
     private var backupValue: String? {
         guard sync.server != nil else { return "Not paired" }
@@ -376,6 +417,18 @@ struct SettingsView: View {
         if Calendar.current.isDateInToday(at) { return "Today, \(time)" }
         if Calendar.current.isDateInYesterday(at) { return "Yesterday, \(time)" }
         return at.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    /// "2 problems" from one page of the log's problems; "100+" when the page is full of the last hour's. Nil when there
+    /// are none, or the read failed: the row never says none it does not know.
+    private func problemsLastHour() async -> String? {
+        let query = LogQuery(minLevel: .warn)
+        let hourAgo = Date().addingTimeInterval(-3600)
+        guard case .success(let page)? = await life.readLogLines(query) else { return nil }
+        let count = page.lines.count { !($0.at < hourAgo) }
+        if count == 0 { return nil }
+        if count == 1 { return "1 problem" }
+        return count == query.limit ? "\(count)+ problems" : "\(count) problems"
     }
 
     private var help: some View {
@@ -390,6 +443,21 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.diagnostics")
+            Button {
+                isLiveLogsOpen = true
+            } label: {
+                // A problem in the last hour: a flag dot and how many.
+                Row(title: "Live logs", icon: "waveform.path") {
+                    if let problems {
+                        StateDot(color: Palette.flag)
+                        RowValue(text: problems)
+                    } else {
+                        RowValue()
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.liveLogs")
         }
     }
 }

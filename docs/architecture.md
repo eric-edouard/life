@@ -81,6 +81,7 @@ flowchart LR
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live and the situation was made by the variant the add-ons choose now (a toggle hides it at once), the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
+- **Project situations** (`project-situations.ts`, after the matter directions): the situation for a project underway that shows a running matter today (the clock's eligibility), one call per project from its directory entry and the open matters under it, dormant ones too (goal, next step as it reads now, newest 30 open steps and 12 steps, so a large matter still fits), each line citing steps (`memory-project-situation.v1`). Rebuilt whole when the evidence's digest changes, never from its last version and never on the clock: the digest holds refs, never a name or a status, so a matter going dormant or a rename rebuilds nothing. The night reads the matter records once for the directions and this step (a night with nothing changed reads no history again), at most 30,000 characters a project, and no call when the digest is unchanged: nothing grows with the years. Shown at the head of `read_matters` of that project and in the packet of an agent whose matter or project it is, as data. An area gets none.
 - **Communication styles** (`memory/communication-styles.ts`, `memory/communication-styles/`, core, no add-on; shown in the person read's `now`; his request of 16 Nov 2026: drafts in his voice for everyone with a page): one call per person with a page reads their newest 120 1:1 chat messages and 30 mails, both ways (the night's `readWithPeople`; Life's own output and the agent's reports left out, so drafts never learn from drafts), and writes how he writes to them and how they write to him, each point quoted from that writer's own chat messages and checked. Rebuilt whole per person at most weekly, when those messages changed; at most 200 calls a night, the newest first. Describes the writing, never the person.
 - **Personas** (`personal/personas.ts`): a gist first (his request of 9 Nov 2026), then what each person with a page is like, what they want and can give (and what goes each
   way between them and him), what keeps happening between them (both sides, his part named), for an agent who reads them before he meets, calls or
@@ -276,7 +277,7 @@ app and the legacy portrait (`/me`) were removed on 8 Nov 2026; the server versi
 
 His own apps (the iPhone app first) read Life as a client of the connector, never through a second API: paired like any
 app (`bun life pair`, OAuth with PKCE), they call `/mcp`'s tools at the connector's origin and read the same answers the
-models read. The reads an app shows (`read_matters`, `read_matter`, `read_inbox`, `read_registered_agents`) answer
+models read. The reads an app shows (`read_matters`, `read_projects`, `read_project`, `read_matter`, `read_inbox`, `read_registered_agents`) answer
 in JSON, sent once as text; it acts through the same tools (`answer_check`, `change_registered_agent`,
 `correct_memory`, `change_todo_item`).
 

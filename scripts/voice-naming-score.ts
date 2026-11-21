@@ -50,6 +50,8 @@ export interface Guessed {
   confidence: "sure" | "likely" | "weak";
   /** Whether lifelog had a likeness to offer for it. */
   likeness: boolean;
+  /** The stored line (one part of a conversation) it was read from. */
+  part: number;
   person: string;
   /** The person lifelog named it as by sound (`basis: recognized`), for the doubted names. */
   recognized: string | null;
@@ -84,6 +86,32 @@ const newestPerVoice = (list: Guessed[]) => [
 ];
 
 /**
+ * By group, as a voice card would ask (who.ts `voiceSuggestionOf`): his answered voices, each by its newest guess, of
+ * one part with the same answer, a person or no one, as one card; the name it shows is the one person every sure or
+ * likely guess of the group names (none when two disagree). Lifelog's own name for a voice since answered is not known.
+ */
+function byGroupOf(kept: Guessed[]) {
+  // Each voice by its newest guess, as the card reads it, in the part that guess was made in.
+  const groups = [
+    ...Map.groupBy(
+      newestPerVoice(kept.filter((g) => g.answer)),
+      (g) => `${g.part} ${g.answer}`
+    ).values(),
+  ];
+  const shown = groups.flatMap((list) => {
+    const named = new Set(list.filter(namesOther).map((g) => g.person));
+    return named.size === 1
+      ? [{ answer: list[0]?.answer, person: [...named][0] }]
+      : [];
+  });
+  return {
+    groups: groups.length,
+    right: shown.filter((s) => s.person === s.answer).length,
+    shown: shown.length,
+  };
+}
+
+/**
  * The score, counts only. Over answered voices (a person, whole voice, not mixed, not turn by turn): wrong per 100 at
  * sure and at likely, by voice (each counted once, by its newest guess) and by guess. `me` guesses, voices with no
  * likeness, guesses on voices answered `not_relevant`, the strangers' ("A stranger": how many were guessed a person or me), the talking words named right, and the doubted names are apart.
@@ -115,6 +143,7 @@ export function scoreOf(all: Guessed[]) {
     strangers.filter((g) => g.person !== "unknown" && g.confidence === c)
       .length;
   return {
+    byGroup: byGroupOf(kept),
     byGuess: levels(persons),
     byVoice: levels(byVoice),
     doubted: {
@@ -161,6 +190,7 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
     `answered person voices: ${s.voices}`,
     ...at("by voice", s.byVoice),
     ...at("by guess", s.byGuess),
+    `by group: ${s.byGroup.groups} answered groups, a name shown on ${s.byGroup.shown}, his answer on ${s.byGroup.right}`,
     ...at("no likeness, by voice", s.noLikeness),
     `me guesses (sure or likely, all wrong on a person he answered): ${s.meGuesses}`,
     `talking words named right: ${s.words.right} of ${s.words.all}`,
@@ -215,8 +245,10 @@ const WORD = /\S+/g;
  */
 async function gather(lines: ReadReply[]) {
   const people = await readPeople();
+  let parts = 0;
   const per = [] as {
     g: ReturnType<typeof voiceGuessesOf>[number];
+    part: number;
     row?: VoiceRow;
   }[];
   for (const group of chunks(lines, 8)) {
@@ -233,11 +265,12 @@ async function gather(lines: ReadReply[]) {
       })
     );
     for (const [i, line] of group.entries()) {
+      parts += 1;
       const byVoice = new Map(
         (rows[i] ?? []).map((r) => [voiceKey(r.jobId, r.speakerLabel), r])
       );
       for (const g of voiceGuessesOf(line)) {
-        per.push({ g, row: byVoice.get(g.voice) });
+        per.push({ g, part: parts, row: byVoice.get(g.voice) });
       }
     }
   }
@@ -282,7 +315,7 @@ async function gather(lines: ReadReply[]) {
     ),
   ];
   const words = await transcripts(jobs.map((jobId) => ({ jobId })));
-  const guessed = per.map(({ g, row }) => {
+  const guessed = per.map(({ g, part, row }) => {
     const answer = answerOf(row);
     if (!answer && ownAnswerOf(row)?.kind === "person") {
       unplaced.add(g.voice);
@@ -299,6 +332,7 @@ async function gather(lines: ReadReply[]) {
       at: g.at,
       confidence: g.confidence,
       likeness: (row?.likeness.length ?? 0) > 0,
+      part,
       person:
         g.person === "me" || g.person === "unknown"
           ? g.person

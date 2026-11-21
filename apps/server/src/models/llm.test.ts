@@ -389,7 +389,7 @@ const inside = (dir: string, root: string) => `${dir}/`.startsWith(`${root}/`);
 
 test("a model call has no tools, no MCP, no settings, no secrets, and runs in an empty folder outside the repo and his data", async () => {
   const [claude, codex] = await spawnBoth();
-  // A subscription call is unpriced: claude's notional cost is not logged.
+  // A subscription call is not billed: claude's list-price equivalent is worked out when read (memory/spends.ts).
   const [claudeLine] = readFileSync(
     join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`),
     "utf8"

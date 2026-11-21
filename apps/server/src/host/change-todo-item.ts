@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
+import { oneAtATime } from "../core/lock";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { kindOf } from "../memory/sources";
 import { normalize } from "../memory/units";
@@ -290,7 +291,7 @@ export const AutoAdded = Change.pick({
 export type AutoAdded = z.infer<typeof AutoAdded>;
 
 /** One auto-add at a time: the cap and the dedupe read the ledger, and only `changeTodoItem` appends to it. */
-let autoAdding: Promise<unknown> = Promise.resolve();
+const autoAdding = oneAtATime();
 
 /**
  * The auto-add permission's add (the connector's `change_todo_item` with `obs`), from the observation as `read_observation` reads it: the
@@ -304,7 +305,7 @@ export function autoAddTodoItem(
   }: { observation: Observation; status: { state: string } },
   change: AutoAdded
 ) {
-  const run = autoAdding.then(async () => {
+  return autoAdding(async () => {
     const actions = await readLedger();
     const old = autoAddedFrom(actions, o.id);
     if (old) {
@@ -332,6 +333,4 @@ export function autoAddTodoItem(
       why: "the standing grant: the owner's own spoken to-do",
     });
   });
-  autoAdding = run.catch(() => undefined);
-  return run;
 }

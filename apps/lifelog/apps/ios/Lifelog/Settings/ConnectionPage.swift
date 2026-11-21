@@ -119,6 +119,7 @@ struct ConnectionPage: View {
         case .switches: "A setting"
         case .vocabulary: "The word list"
         case .playbackQuiet: "A played-out stretch"
+        case .dictationQuiet: "A dictated stretch"
         }
     }
 

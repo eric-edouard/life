@@ -29,6 +29,7 @@ import type { Push } from "./lifelog-push";
 import { Recorded } from "./lifelog-recorded";
 import { Hits, searchVoice } from "./lifelog-search";
 import { endedOnSilence, isConversationClosed } from "./lifelog-speech";
+import { VoiceSpending } from "./lifelog-spending";
 import {
   Clip,
   ConversationAnswer,
@@ -533,6 +534,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
     ...drift(ours(Clip), answer("/turns/clip", "get"), defs, "turns-clip"),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
+    ...drift(ours(VoiceSpending), answer("/spending", "get"), defs, "spending"),
     ...drift(
       ours(VoiceNoteWords),
       answer("/voice-notes/transcript", "post"),
@@ -663,6 +665,30 @@ test("a turn holds the marks whose wake it is, as lifelog has the turn now: regr
     })
   );
   expect(marked("c2")).toEqual([[], []]);
+});
+
+test("a hearing replaces only the marks of turns holding a wake it knows: an older wake's mark stays", () => {
+  const s = store();
+  const R0 = "job-1:0@2026-10-14T10:01:00.000Z";
+  const R1 = "job-1:1@2026-10-14T10:06:00.000Z";
+  apply(
+    s,
+    pageFixture({
+      conversations: [conversation("c1")],
+      turns: [
+        turnFixture(0, "2026-10-14T10:01:00.000Z", null, null, "c1", true),
+        turnFixture(1, "2026-10-14T10:06:00.000Z", null, null, "c1", true),
+      ],
+    })
+  );
+  writeMarks(s, "c1", "", [[R0], [R1]]);
+  // Heard again: only R1 holds a wake the hearing knows ("hey Life"); R0 was a "hey <agent>" before 21 Nov 2026.
+  writeMarks(s, "c1", "", [], [R1]);
+  expect(
+    readConversations(s, since)
+      .find((c) => c.id === "c1")
+      ?.turns.map((t) => t.marks)
+  ).toEqual([[R0], []]);
 });
 
 test("lifelog's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {

@@ -91,18 +91,9 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
     public var isParked: Bool { project.map { !$0.status.isUnderway && $0.status != .unknown } ?? false }
 }
 
-/// `read_matters`: the running matters, most pressing first; of one project, its page's head too.
+/// `read_matters`: the running matters, most pressing first.
 public struct MatterList: Decodable, Sendable, Equatable {
-    /// A project's page: its name, status as stored and his goal naming it.
-    public struct ProjectHead: Decodable, Sendable, Equatable {
-        public let id: String
-        public let name: String
-        public let status: ProjectStatus
-        public let goal: String?
-    }
-
     public let matters: [MatterRow]
-    public let project: ProjectHead?
 
     /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
     public func matching(_ query: String) -> [MatterRow] {
@@ -111,34 +102,6 @@ public struct MatterList: Decodable, Sendable, Equatable {
         return matters.filter { row in
             ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + row.parties.map(\.name))
                 .contains { $0.localizedStandardContains(query) }
-        }
-    }
-
-    /// The matters `filter` lets through, in the list's order, by his mark as shown (`isMarked`: his tap first).
-    public func shown(filter: MatterFilter, isMarked: (MatterRow) -> Bool) -> [MatterRow] {
-        matters.filter { filter.passes($0, isMarked: isMarked($0)) }
-    }
-
-    /// The filter menu's areas, over every running matter, most matters first.
-    public var areasByCount: [String] {
-        let counts = matters.flatMap { $0.areas ?? [] }.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
-        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map(\.key)
-    }
-}
-
-/// What the Matters list's filter menu chooses: everything, what needs him, what he marked, what an agent works on, or
-/// one area.
-public enum MatterFilter: Hashable, Sendable {
-    case everything, needsYou, important, agentWorking
-    case area(String)
-
-    func passes(_ row: MatterRow, isMarked: Bool) -> Bool {
-        switch self {
-        case .everything: true
-        case .needsYou: row.needsYou == true
-        case .important: isMarked
-        case .agentWorking: row.agent != nil
-        case .area(let area): row.areas?.contains(area) == true
         }
     }
 }
@@ -177,8 +140,16 @@ public struct Matter: Decodable, Sendable, Equatable {
     public let agents: [RegisteredAgent]
     /// Every open check about it, of every kind (`checksOnMatterOf`, `memory/checks.ts`).
     public let checks: [Check]
+    /// What its agents' turns spent of his plans; nil when the desk can't be read.
+    public let spending: TokenSpending?
+    /// The agent of its open assignment (none: no agent holds it, or an older Life), where it can move, or why not now,
+    /// and its newest move (decision 78).
+    public let holder: MatterHolder?
+    public let moveTo: String?
+    public let moveBlocked: MoveBlocked?
+    public let move: AgentMove?
 
-    private enum Key: String, CodingKey { case steps, agents, checks }
+    private enum Key: String, CodingKey { case steps, agents, checks, spending, holder, moveTo, moveBlocked, move }
 
     public init(from decoder: any Decoder) throws {
         row = try MatterRow(from: decoder)
@@ -186,5 +157,10 @@ public struct Matter: Decodable, Sendable, Equatable {
         steps = try container.decode([MatterStep].self, forKey: .steps)
         agents = try container.decode([RegisteredAgent].self, forKey: .agents)
         checks = try container.decode([Check].self, forKey: .checks)
+        spending = try container.decodeIfPresent(TokenSpending.self, forKey: .spending)
+        holder = try container.decodeIfPresent(MatterHolder.self, forKey: .holder)
+        moveTo = try container.decodeIfPresent(String.self, forKey: .moveTo)
+        moveBlocked = try container.decodeIfPresent(MoveBlocked.self, forKey: .moveBlocked)
+        move = try container.decodeIfPresent(AgentMove.self, forKey: .move)
     }
 }

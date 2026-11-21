@@ -57,7 +57,11 @@ struct DiagnosticsView: View {
                 }
                 Text(version).font(.note).foregroundStyle(Palette.muted)
                 #if DEBUG
-                    NavigationLink("Capture dump") { CaptureDump() }.font(.note).foregroundStyle(Palette.muted)
+                    NavigationLink {
+                        CaptureDump()
+                    } label: {
+                        TextLink.label("Capture dump", to: .page)
+                    }
                 #endif
             }
             .padding(.horizontal, Metrics.gutter)

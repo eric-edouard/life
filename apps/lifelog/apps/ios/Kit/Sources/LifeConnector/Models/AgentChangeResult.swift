@@ -1,11 +1,11 @@
 import Foundation
 import Library
 
-/// What `change_registered_agent` returns (`host/change-registered-agent.ts`): a start's stages and how it ended, or
-/// another change's `done` / `unconfirmed`.
+/// What `change_registered_agent` returns (`host/change-registered-agent.ts`): a start's stages and how it ended,
+/// another change's `done` / `unconfirmed`, or a move's `asked` (its phase is then read on `read_matter`).
 public struct AgentChangeResult: Decodable, Sendable, Equatable {
     public enum State: String, UnknownTolerant, Sendable {
-        case started, done, unconfirmed
+        case started, done, unconfirmed, asked
         case notStarted = "not_started"
         case unknown
     }
@@ -31,9 +31,11 @@ public struct AgentChangeResult: Decodable, Sendable, Equatable {
     public let failed: Failure?
     /// A start that did not happen left nothing running.
     public let nothingRunning: Bool?
+    /// A move's id (`hand_over`, answered `asked`): his receipt, which the reads' move of that id then shows.
+    public let move: String?
 
-    public init(action: String, state: State, agent: String?) {
-        (self.action, self.state, self.agent) = (action, state, agent)
+    public init(action: String, state: State, agent: String?, move: String? = nil) {
+        (self.action, self.state, self.agent, self.move) = (action, state, agent, move)
         (runtime, stages, failed, nothingRunning) = (nil, nil, nil, nil)
     }
 }

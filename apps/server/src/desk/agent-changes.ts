@@ -1,11 +1,9 @@
 import { existsSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
-import { DESK_AGENT_FOLDERS } from "../core/paths";
-import { settings } from "../core/settings";
 import { asksFor } from "../host/asks";
 import {
   agentChangeOf,
@@ -17,6 +15,7 @@ import {
   runtimeOf,
   standingAgents,
 } from "../host/desk-read";
+import type { MatterOfRefs } from "../host/move-read";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
@@ -30,7 +29,9 @@ import {
   withdrawOpenCards,
   writeSubject,
 } from "./agent-actions";
+import { applyHandOver, type HandOverFacts } from "./agent-moves";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
+import { ownAssignmentOf, standingAgentOf } from "./role-agents";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
 // ledger, read here every tick from the desk's own cursor and applied once, in code. What was done, or why not, is the
@@ -73,22 +74,16 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
     return counted;
   }
   if (c.role === "personal") {
-    const other = desk.db
-      .query<{ id: string; status: string }, [string]>(
-        "select id, status from agent where role = 'personal' and status in ('active', 'stopped') and id <> ?"
-      )
-      .get(self ?? "");
-    return other ? `the Personal agent is ${other.id} (${other.status})` : null;
+    const other = standingAgentOf(desk.db, "personal");
+    return other && other.id !== self
+      ? `the Personal agent is ${other.id} (${other.status})`
+      : null;
   }
   const holder = holderOf(desk.db, c.steps ?? []);
   return holder && holder !== self
     ? `that matter is already held by ${holder}`
     : null;
 }
-
-/** Where the Personal agent's sessions start when he names no folder: its home in his agents repo (`agentHomeOf`), else under the desk's folders. */
-const personalHome = () =>
-  join(settings().desk?.agentsRepo ?? DESK_AGENT_FOLDERS, "personal");
 
 /**
  * Starts on his words (`brief`). On a matter: an assignment of the agent that takes it (`taker`, `agentForOf`), his words
@@ -120,6 +115,7 @@ export function start(
       };
     }
     openAssignment(desk, taker, {
+      matter: c.matter,
       openedBy: "owner",
       said: brief,
       steps: c.steps,
@@ -156,7 +152,7 @@ export function start(
   const id = register(desk, {
     brief,
     effort: c.effort,
-    folder: c.folder ?? (c.role === "personal" ? personalHome() : undefined),
+    folder: c.folder,
     model: c.model,
     name: c.name,
     project: c.project,
@@ -210,22 +206,18 @@ function rePoint(desk: Desk, id: string, c: AgentChange) {
     return;
   }
   writeSubject(desk, id, "", c);
-  const hasOwn = db
-    .query<{ id: string }, [string]>(
-      "select id from assignment where agent_id = ? and closed_at is null and id not in (select assignment_id from anchor) limit 1"
-    )
-    .get(id);
-  if (!hasOwn) {
+  if (!ownAssignmentOf(db, id)) {
     openAssignment(desk, id, { openedBy: "owner" });
   }
 }
 
-/** Applies one change in the store; what it touched, or why not. */
+/** Applies one change (his ask `ask`) in the store; what it touched, or why not. */
 function apply(
   desk: Desk,
+  ask: string,
   c: AgentChange,
   brief: string,
-  facts: { blocked?: string; taker?: string }
+  facts: HandOverFacts & { taker?: string }
 ): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
@@ -245,6 +237,8 @@ function apply(
   switch (c.action) {
     case "start":
       return start(desk, c, brief, facts);
+    case "hand_over":
+      return applyHandOver(desk, ask, c, facts);
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
@@ -287,20 +281,39 @@ async function readTakerOf(db: Desk["db"]) {
   const people = await readPeople();
   const find = matterFinderOf(await readMatterBook(people, dayNow()));
   const take = agentForMatterOf(standingAgents(db), people.truth);
-  return (refs: readonly string[]) => {
-    const v = find(refs);
+  return (refs: readonly string[], prefer?: string) => {
+    const v = find(refs, prefer);
     return v && take(v);
   };
 }
 
-/** What a start reads before its transaction (a process, a book): on a matter, the agent that takes it (`readTakerOf`); else whether its runtime answers. */
+/** The open matter some refs find (`prefer` taking a tie), the book read once. */
+async function readMatterIdOf(): Promise<MatterOfRefs> {
+  const find = matterFinderOf(
+    (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
+  );
+  return (refs, prefer) => find(refs, prefer)?.id;
+}
+
+/** What a start or a move reads before its transaction (a process, a book): a start on a matter, the agent that takes it (`readTakerOf`); else whether the runtime it names answers. */
 async function startFactsOf(desk: Desk, change: unknown) {
   const c = AgentChange.safeParse(change);
-  if (!(c.success && c.data.action === "start")) {
+  if (!(c.success && ["start", "hand_over"].includes(c.data.action))) {
     return {};
   }
+  if (c.data.action === "hand_over") {
+    const { matter, runtime, steps } = c.data;
+    const matterOf = steps ? await readMatterIdOf() : undefined;
+    return {
+      blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined,
+      matter: steps ? (matter ?? matterOf?.(steps)) : undefined,
+      matterOf,
+    };
+  }
   if (c.data.steps) {
-    return { taker: (await readTakerOf(desk.db))(c.data.steps) };
+    return {
+      taker: (await readTakerOf(desk.db))(c.data.steps, c.data.matter),
+    };
   }
   const runtime = runtimeOf(c.data);
   return {
@@ -312,7 +325,7 @@ async function startFactsOf(desk: Desk, change: unknown) {
 function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
-  facts: { blocked?: string; taker?: string }
+  facts: HandOverFacts & { taker?: string }
 ):
   | { agent?: string; error: string; failed?: unknown }
   | { agent?: string; id: string } {
@@ -340,7 +353,7 @@ function applyAsk(
     return {
       agent: parsed.data.agent,
       ...desk.db.transaction(() =>
-        apply(desk, parsed.data, ask.quote, facts)
+        apply(desk, ask.id, parsed.data, ask.quote, facts)
       )(),
     };
   } catch (e) {

@@ -195,7 +195,8 @@ export const PageSection = z.enum([
  * `matter-project` is his word of which project of his directory a matter is of, pinned by its steps: the latest for a
  * matter wins, and its projects are that one alone (`matterBookOf`), so the agent that takes it follows (`agentForOf`);
  * his word only. These four keep the matter's id beside its steps (`PINNED`): between matters holding the same steps,
- * the one he picked.
+ * the one he picked. `your-move-not-now` is his "Not now" on a your move card, pinned by its matter and steps: that card
+ * hides until `until` (a local day, exclusive), or until the matter gets a step not in `steps`.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -276,6 +277,14 @@ export const Correction = z
         ...Correcting,
         kind: z.literal("new-matter-dismissed"),
         steps: z.array(z.string().min(1)).min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("your-move-not-now"),
+        until: isoDate,
+        ...PINNED,
       })
       .strict(),
     z

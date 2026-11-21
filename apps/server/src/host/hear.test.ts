@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { setSettings, settings } from "../core/settings";
+import { DESK_AGENT } from "../core/names";
 import { LEDGER, tasksOf } from "../memory/memory-files";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
@@ -11,44 +11,6 @@ import {
   pageFixture,
 } from "../sources/store-fixtures";
 import { hear, spansIn, speechIn, type Turn, wakes } from "./hear";
-
-test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
-  for (const said of [
-    "hey Orbit, book a table",
-    "Hey, Orbit.",
-    "HEY ORBIT",
-    "so... hey — orbit, remind me",
-    "and then hey orbit",
-    "hey, zorba: call",
-    "Hej Orbit test.",
-    "hei orbit",
-    "Hey, or bit remind me",
-    "Hé Orbit, rappelle-moi",
-    "ey Orbit",
-  ]) {
-    expect(wakes().wake.test(said)).toBe(true);
-  }
-  for (const said of [
-    "ok Orbit, book a table",
-    "Orbit, book a table",
-    "we use Stripe Orbit",
-    "they orbit",
-    "hey there Orbit",
-    "Orbit hey",
-    "hey orbites",
-    "hey zorbas",
-    "envoie-le à Orbit",
-    "a Orbit",
-    "Orbit is okay.",
-    "they Orbit",
-    "okey Orbit",
-    "the Orbit",
-    "hay Orbit",
-    "ok, or bit",
-  ]) {
-    expect(wakes().wake.test(said)).toBe(false);
-  }
-});
 
 test('"hey Life" wakes Life as lifelog writes it (audit of 21 Oct), never an idiom', () => {
   for (const said of [
@@ -100,15 +62,15 @@ test("a turn is his, someone else's when lifelog named anyone (by id or name), e
 test("his wake is high confidence, an unattributed one low, someone else's is no ask", () => {
   const asks = spansIn(
     [
-      turn(0, "me", "hey Orbit, call the bank"),
-      turn(60, "unknown", "hey Orbit, water the plant"),
-      turn(120, "other", "hey Orbit, buy me a car"),
+      turn(0, "me", "hey Life, call the bank"),
+      turn(60, "unknown", "hey Life, water the plant"),
+      turn(120, "other", "hey Life, buy me a car"),
     ],
     ""
   );
   expect(asks.map((a) => [a.quote, a.confidence])).toEqual([
-    ["hey Orbit, call the bank", "high"],
-    ["hey Orbit, water the plant", "low"],
+    ["hey Life, call the bank", "high"],
+    ["hey Life, water the plant", "low"],
   ]);
   expect(asks[0]).toMatchObject({
     at: new Date(AT).toISOString(),
@@ -117,73 +79,37 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-test('"hey Life" is a span for Life to keep, with no agent: a mark, never an ask', () => {
-  const [kept, asked] = spansIn(
-    [
-      turn(0, "me", "hey Life, remember the neighbour's cat is Pixel"),
-      turn(60, "me", "hey Orbit, call the bank"),
-    ],
-    ""
-  );
-  expect(kept).toMatchObject({
-    agent: undefined,
-    confidence: "high",
-    turns: [0],
-  });
-  expect(asked?.agent).toBe("Orbit");
-});
-
-test("with two agents, the turn's first wake word picks its agent", () => {
-  const before = settings().agents ?? null;
-  try {
-    setSettings({
-      agents: { ...before, Comet: { misheard: [], wake: ["comet"] } },
-    });
-    const asks = spansIn(
-      [
-        turn(0, "me", "hey Comet, plan the trip"),
-        turn(60, "me", "hey Orbit, call the bank"),
-        turn(120, "me", "hey Comet, hey Orbit, both of you"),
-      ],
-      ""
-    );
-    expect(asks.map((a) => a.agent)).toEqual(["Comet", "Orbit", "Comet"]);
-  } finally {
-    setSettings({ agents: before });
-  }
-});
-
-// audit-4-hej-agent: lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
-test("“Hej Orbit” from an unattributed voice is a low ask, from a named other none; “hey, or bit” is his low ask only", () => {
+// audit-4-hej-agent: lifelog wrote his "hey Life" as "Hej Life" (no speaker) and "Hey, live": no ask was made.
+test("“Hej Life” from an unattributed voice is a low ask, from a named other none; “hey, live” is his low ask only", () => {
   const asks = spansIn(
     [
-      turn(0, "unknown", "Hej Orbit test."),
-      turn(60, "other", "Hej Orbit, buy me a car"),
-      turn(120, "me", "Hé Orbit, rappelle-moi"),
-      turn(180, "me", "Hey, or bit remind me to call"),
-      turn(240, "unknown", "hey, or bit you're here"),
+      turn(0, "unknown", "Hej Life test."),
+      turn(60, "other", "Hej Life, buy me a car"),
+      turn(120, "me", "Hé Life, rappelle-moi"),
+      turn(180, "me", "Hey, live remind me to call"),
+      turn(240, "unknown", "hey, live you're here"),
     ],
     ""
   );
   expect(asks.map((a) => [a.quote, a.confidence])).toEqual([
-    ["Hej Orbit test.", "low"],
-    ["Hé Orbit, rappelle-moi", "high"],
-    ["Hey, or bit remind me to call", "low"],
+    ["Hej Life test.", "low"],
+    ["Hé Life, rappelle-moi", "high"],
+    ["Hey, live remind me to call", "low"],
   ]);
 });
 
-test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “hey Orbit”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
+test("his own “hey Live” is lifelog mishearing “hey Life”: a low ask, never someone else's, an unattributed one or a plain Live", () => {
   const asks = spansIn(
     [
-      turn(0, "me", "Hey Zorba, add milk to the list"),
-      turn(60, "me", "Zorba, can you pass me the salt?"),
-      turn(65, "other", "hey Zorba, sure"),
-      turn(70, "me", "thanks Zorba, or bit we eat"),
-      turn(130, "unknown", "hey Zorba, call me back"),
-      turn(190, "me", "hey Orbit, book a table"),
-      turn(195, "me", "hey Zorba, and a taxi"),
-      turn(260, "me", "hey Zorba, hey Orbit, book it"),
-      turn(320, "unknown", "hey Zorba, hey Orbit, book it"),
+      turn(0, "me", "Hey Live, add milk to the list"),
+      turn(60, "me", "Live, can you pass me the salt?"),
+      turn(65, "other", "hey Live, sure"),
+      turn(70, "me", "thanks Live, live we eat"),
+      turn(130, "unknown", "hey Live, call me back"),
+      turn(190, "me", "hey Life, book a table"),
+      turn(195, "me", "hey Live, and a taxi"),
+      turn(260, "me", "hey Live, hey Life, book it"),
+      turn(320, "unknown", "hey Live, hey Life, book it"),
     ],
     ""
   );
@@ -199,21 +125,21 @@ test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “he
 test("an ask runs over his following turns until another speaker, a 15 s pause or a new wake", () => {
   const turns = [
     turn(0, "other", "what should we do?"),
-    turn(5, "me", "Hey, Orbit."),
+    turn(5, "me", "Hey, Life."),
     turn(10, "me", "find a flight to Oslo"),
     turn(25, "me", "for Friday"),
     turn(30, "other", "and a hotel"),
     turn(35, "me", "not this one"),
-    turn(100, "me", "hey orbit, remind me"),
+    turn(100, "me", "hey life, remind me"),
     turn(110, "me", "to call mum"),
     turn(126, "me", "too late for the ask"),
-    turn(130, "me", "hey Orbit, one more"),
+    turn(130, "me", "hey Life, one more"),
     turn(135, "unknown", "an unattributed turn ends his ask"),
   ];
   expect(spansIn(turns, "").map((a) => [a.turns, a.quote])).toEqual([
-    [[1, 2, 3], "Hey, Orbit. find a flight to Oslo for Friday"],
-    [[6, 7], "hey orbit, remind me to call mum"],
-    [[9], "hey Orbit, one more"],
+    [[1, 2, 3], "Hey, Life. find a flight to Oslo for Friday"],
+    [[6, 7], "hey life, remind me to call mum"],
+    [[9], "hey Life, one more"],
   ]);
   // Only wakes at or after the hearing's start: earlier ones were heard before.
   expect(
@@ -224,7 +150,7 @@ test("an ask runs over his following turns until another speaker, a 15 s pause o
 test("the pause is measured from a turn's end; the ask keeps when its last turn ended and when all of it arrived", () => {
   const [ask] = spansIn(
     [
-      turn(0, "me", "hey Orbit, plan the week:", 30),
+      turn(0, "me", "hey Life, plan the week:", 30),
       turn(40, "me", "Monday is the dentist", 3),
       turn(70, "me", "after a long pause"),
     ],
@@ -273,8 +199,8 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
-        { speakerId: null, text: "hey Orbit, water the plant" },
-        { speakerId: null, text: "hey Zorba, call the bank" },
+        { speakerId: null, text: "hey Life, water the plant" },
+        { speakerId: null, text: "hey Live, call the bank" },
       ],
     }),
   });
@@ -294,13 +220,13 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
     expect(
       (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))).heard
     ).toBe(false);
-    expect(quotes()).toEqual(["hey Zorba, call the bank"]);
+    expect(quotes()).toEqual(["hey Live, call the bank"]);
     expect(
       (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))).heard
     ).toBe(true);
     expect(quotes()).toEqual([
-      "hey Zorba, call the bank",
-      "hey Orbit, water the plant",
+      "hey Live, call the bank",
+      "hey Life, water the plant",
     ]);
   } finally {
     server.close();
@@ -311,7 +237,7 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
 test("his misheard wake with no speaker yet waits for lifelog to name him", async () => {
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
-      turns: [{ speakerId: null, text: "hey Zorba, buy milk" }],
+      turns: [{ speakerId: null, text: "hey Live, buy milk" }],
     }),
   });
   const store = lifelogStore();
@@ -335,7 +261,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
     expect(
       (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:00Z"))).heard
     ).toBe(true);
-    expect(quotes()).toEqual(["hey Zorba, buy milk"]);
+    expect(quotes()).toEqual(["hey Live, buy milk"]);
   } finally {
     server.close();
     rmSync(LEDGER, { force: true });
@@ -359,7 +285,7 @@ test("his ask heard in a conversation is also marked, its whole span; heard agai
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
-        { speakerId: null, text: "hey Orbit, the stones are for Nina" },
+        { speakerId: null, text: "hey Life, the stones are for Nina" },
         { speakerId: null, text: "and the vote is Sunday" },
         { speakerId: null, text: "ok" },
       ],
@@ -397,8 +323,34 @@ test("his ask heard in a conversation is also marked, its whole span; heard agai
     expect(marked()).toHaveLength(2);
     // The same span is his one ask.
     expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
-      "hey Orbit, the stones are for Nina and the vote is Sunday",
+      "hey Life, the stones are for Nina and the vote is Sunday",
     ]);
+  } finally {
+    server.close();
+    rmSync(LEDGER, { force: true });
+  }
+});
+
+test('"hey Life" heard is one ask of the desk, from the conversation it was said in', async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [{ speakerId: null, text: "hey Life, book the test dentist" }],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    pageFixture({
+      conversations: [conversation("c1")],
+      turns: [fed(0, "2026-10-19T10:00:00.000Z", "p-me", "Me", "c1", true)],
+    }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  try {
+    await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"));
+    expect(
+      tasksOf().map((t) => [t.ask.after.agent, t.ask.after.conversation])
+    ).toEqual([[DESK_AGENT, "c1"]]);
   } finally {
     server.close();
     rmSync(LEDGER, { force: true });

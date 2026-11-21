@@ -1,7 +1,9 @@
 import { afterAll, expect, test } from "bun:test";
+import { withStore } from "./lifelog";
 import {
   answerNamingQueue,
   namingQueueGuessesOf,
+  readJobMonths,
   readNamingQueue,
   readNamingQueueNow,
 } from "./lifelog-voices";
@@ -14,6 +16,7 @@ const item = {
   conversations: 2,
   evidence: [],
   id: "job-1:speaker_1",
+  isLikely: false,
   kind: "known_person",
   likely: [DANA, KOFI],
   name: null,
@@ -72,19 +75,16 @@ test("the inbox's queue: the first read waits, then the last list comes at once 
   await expect(readNamingQueueNow()).rejects.toThrow();
 });
 
-test("an answered voice leaves the kept list; a read started before the answer neither brings it back nor reaches an answer", async () => {
+test("an answered voice leaves the kept list; a read started before the answer does not bring it back", async () => {
   const voice = { conversationId: "c1", jobId: "job-3", speakerLabel: "A" };
   const listed = [{ ...item, id: "job-3:A", voices: [voice] }];
   queue = () => listed;
   await until(() => shows("job-3:A"));
   holdQueue();
   expect(ids(await readNamingQueue())).toEqual(["job-3:A"]);
-  const forAnswer = readNamingQueueNow();
-  await until(() => held.length === 2);
+  await until(() => held.length === 1);
   await answerNamingQueue([voice], { kind: "ignore" });
   await answerGet(listed);
-  await answerGet(listed);
-  await expect(forAnswer).rejects.toThrow("another voice answer");
   // Every read until the display's old read has settled (a new one starts) shows the answered voice gone.
   const seen: string[][] = [];
   await until(async () => {
@@ -99,4 +99,25 @@ test("a voice's guesses: its best guess first, each once", () => {
   expect(
     namingQueueGuessesOf({ ...item, likely: [KOFI, DANA, KOFI] } as never)
   ).toEqual([DANA, KOFI]);
+});
+
+test("a job's months run from its conversation's start to its last turn; a job not held has none", async () => {
+  await withStore(({ db }) => {
+    db.run(
+      "insert or replace into conversations (id, start_at, end_at, kind, state) values ('c-months', '2026-08-31T23:00:00.000Z', '2026-09-01T01:00:00.000Z', 'speech', 'live')"
+    );
+    for (const [i, at] of [
+      "2026-08-31T23:30:00.000Z",
+      "2026-09-01T00:30:00.000Z",
+    ].entries()) {
+      db.run(
+        "insert or replace into turns (job_id, turn_index, conversation_id, start_at) values ('j-months', ?, 'c-months', ?)",
+        [i, at]
+      );
+    }
+  });
+  expect(await readJobMonths(["j-months", "j-none"])).toEqual([
+    "2026-08",
+    "2026-09",
+  ]);
 });

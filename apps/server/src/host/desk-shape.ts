@@ -17,13 +17,33 @@ export const isBeforeAssignments = (db: Database) =>
 export const isBeforeRoles = (db: Database) =>
   hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
 
+/** Whether the store's assignments predate the matter he chose (`stepMatterIds` reshapes it): assignments and no `matter_id`. */
+export const isBeforeMatterIds = (db: Database) =>
+  hasColumn(db, "assignment", "id") &&
+  !hasColumn(db, "assignment", "matter_id");
+
 /** Whether the store's turns predate their model (`stepTurnModel` adds it): a store that has turns and no `turn.model`. */
 export const isBeforeTurnModel = (db: Database) =>
   hasColumn(db, "turn", "id") && !hasColumn(db, "turn", "model");
 
+/** Whether the store's agents predate moves (`stepMoves` reshapes it, decision 78): agents, and no `move` table or no `turn.move`. */
+export const isBeforeMoves = (db: Database) =>
+  hasColumn(db, "agent", "id") &&
+  !(
+    db
+      .query(
+        "select 1 from sqlite_master where type = 'table' and name = 'move'"
+      )
+      .get() && hasColumn(db, "turn", "move")
+  );
+
 /** Whether the store at `db` is of an old shape: only the desk helper's store steps (`desk/store-step.ts`) change it. */
 export const isOldShape = (db: Database) =>
-  isBeforeAssignments(db) || isBeforeRoles(db) || isBeforeTurnModel(db);
+  isBeforeAssignments(db) ||
+  isBeforeRoles(db) ||
+  isBeforeTurnModel(db) ||
+  isBeforeMatterIds(db) ||
+  isBeforeMoves(db);
 
 /** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
 export const NOT_MIGRATED =

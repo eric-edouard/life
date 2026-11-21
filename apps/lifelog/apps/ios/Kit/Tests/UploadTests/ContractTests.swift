@@ -125,10 +125,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
-    // A need's kinds; `qr` shows its line until the phone draws the code.
     let needs = try source("memory/needs.ts")
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
-    #expect(kinds.subtracting(["qr"]) == client(Check.Need.Kind.self))
+    #expect(kinds == client(Check.Need.Kind.self))
+    #expect(try quoted("memory/needs.ts", /scheme: z\s*\.enum\(\[([^\]]*)\]/) == client(Check.Need.Scheme.self))
+    #expect(try quoted("memory/life-checks.ts", /doneSeenBy\?: ([^;]*);/) == client(Check.DoneSeenBy.self))
     // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
     #expect(
         try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
@@ -146,14 +147,27 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // An agent as read: the stored statuses, with `active` read as running or waiting.
     let stored = try quoted("records/registered-agent.ts", /export type AgentStatus = ([^;]*);/)
     #expect(stored.subtracting(["active"]).union(["running", "waiting"]) == client(AgentStatus.self))
+    let roles = try quoted("records/registered-agent.ts", /export type AgentRole = ([^;]*);/)
+    #expect(roles == client(RegisteredAgent.Role.self))
     #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))
+    // A move's phase, worked out when read (`movePhaseOf`).
+    let phases = try source("host/move-read.ts").matches(of: /phase: "([a-z]+)" as const/).map { String($0.output.1) }
+    #expect(Set(phases) == client(MovePhase.self))
     #expect(
         try quoted("host/desk-read.ts", /(?s)export type DeskRead<T> =(.*?value: T \});/)
             == client(RegisteredAgents.Desk.self))
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
+    // Model spending's providers and kinds (`read_spending`).
+    #expect(try quoted("memory/spends.ts", /SPEND_PROVIDERS = \[([^\]]*)\]/) == client(SpendProvider.self))
+    #expect(try quoted("memory/spends.ts", /export type SpendKind = ([^;]*);/) == client(SpendKind.self))
+    // A log line's level, and the processes the Live logs menu lists.
+    #expect(try quoted("core/log-line.ts", /LOG_LEVELS = \[([^\]]*)\]/) == client(LogLevel.self))
+    #expect(
+        try quoted("core/log-line.ts", /const PROCESSES = new Set\(\[([^\]]*)\]/)
+            == Set(LogProcess.allCases.map(\.rawValue)))
     #expect(
         try quoted("records/observation.ts", /ClosenessLevel = z\.enum\(\[([^\]]*)\]/) == client(ClosenessLevel.self))
     // A person's details by kind: the keys of `LABELS`; a line of `latest`, his or theirs.

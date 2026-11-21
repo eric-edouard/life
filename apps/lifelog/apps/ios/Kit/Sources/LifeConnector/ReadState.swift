@@ -107,31 +107,59 @@ public struct ReadState<Value: Sendable>: Sendable {
     }
 }
 
+extension ReadState.Shown {
+    /// The value on screen, loaded or stale; nil when the screen shows none (loading, empty, failed, not paired). What a
+    /// screen says about its read (a title's count) reads this, never `ReadState.value`, which outlives a lost pairing.
+    public var onScreen: Value? {
+        switch self {
+        case .loaded(let value), .stale(let value, _, _): value
+        case .loading, .empty, .unreachable, .failed, .notPaired: nil
+        }
+    }
+}
+
+extension ReadState where Value == Inbox {
+    /// How many asks wait, as the inbox read last said (`total`) less his answers, while a read is on screen: nil before
+    /// any read said (a pushed card alone, whose one-card inbox counts only itself) and once the pairing is lost.
+    public func waiting(less answered: Set<String>) -> Int? {
+        shown().onScreen.map { $0.without(answered).total }
+    }
+}
+
 /// One read of each kind at a time, plus one more pass: a read asked while one of its kind runs never runs beside it
 /// (the later of two would not always land last, and an older read would win). It joins the pass queued after the
 /// running one, or queues it, and returns once that pass ended: several asks during one read make one more pass.
+/// A pass belongs to the pairing it was asked in: queued when he pairs again (the same Life too), it never begins, so a
+/// queued ask of the old pairing (its person's ref, say) is never sent; the new pairing's asks make passes of their own.
 @MainActor
 public final class ReadFlights {
-    /// Each kind's last pass, running or queued.
-    private var last: [String: Task<Void, Never>] = [:]
+    private struct Flight: Hashable {
+        let key: String
+        let pairing: Int
+    }
+    private let generation: PairingGeneration
+    /// Each kind's last pass in a pairing, running or queued.
+    private var last: [Flight: Task<Void, Never>] = [:]
     /// The kinds whose last pass has not started yet.
-    private var queued: Set<String> = []
+    private var queued: Set<Flight> = []
 
-    public init() {}
+    public init(generation: PairingGeneration) { self.generation = generation }
 
     public func run(_ key: String, _ read: @escaping @MainActor () async -> Void) async {
-        if queued.contains(key), let pass = last[key] { return await pass.value }
-        let before = last[key]
-        queued.insert(key)
+        let flight = Flight(key: key, pairing: generation.current)
+        if queued.contains(flight), let pass = last[flight] { return await pass.value }
+        let before = last[flight]
+        queued.insert(flight)
         // Its own task: a screen that leaves cancels its wait, never the read that others wait on too.
-        let pass = Task {
+        let pass = Task { [generation] in
             await before?.value
-            queued.remove(key)
+            queued.remove(flight)
+            guard generation.current == flight.pairing else { return }
             await read()
         }
-        last[key] = pass
+        last[flight] = pass
         await pass.value
-        if last[key] == pass { last[key] = nil }
+        if last[flight] == pass { last[flight] = nil }
     }
 }
 

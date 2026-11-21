@@ -8,13 +8,9 @@ import { voiceNoteHearings } from "@lifelog/db/schema/voice-note-hearings";
 import { eq } from "drizzle-orm";
 import { oggOpusSeconds } from "../audio";
 import { Sha256 } from "../config";
-import { ownerZoneAt } from "../diagnostics";
-import { parseTranscript, textOf } from "../elevenlabs";
 import { record } from "../events";
-import { hearRouted } from "../hear-routed";
-import { barOf, routeTurns, transcriptOf } from "../route-turns";
+import { hearOnTheMac, hearRouted, textFrom } from "../hear-routed";
 import type { Services } from "../services";
-import { transcribeBlock } from "../speech-service";
 import { blockKeyterms } from "../vocabulary";
 import { ApiError, json, router, sizeLimit } from "./common";
 
@@ -34,13 +30,18 @@ export function voiceNoteRoutes({
   db,
   worker,
 }: Pick<Services, "config" | "db" | "worker">) {
-  /** Words as text, from a transcript in Scribe's shape. */
-  const textFrom = (raw: unknown) =>
-    textOf(parseTranscript(raw).transcript.words).trim();
-  /** Settles a claimed note with `text`, and answers it. */
-  const settle = (key: string, text: string) => {
+  /** Settles a claimed note with `text` and what it took (`spent`; none for a lost answer: it may have been billed), and answers it. */
+  const settle = (
+    key: string,
+    text: string,
+    spent: Partial<{
+      billableSeconds: number | null;
+      route: string;
+      seconds: number;
+    }> = {}
+  ) => {
     db.update(voiceNoteHearings)
-      .set({ doneAt: clock(), text })
+      .set({ ...spent, doneAt: clock(), text })
       .where(eq(voiceNoteHearings.key, key))
       .run();
     return text;
@@ -79,20 +80,22 @@ export function voiceNoteRoutes({
       signal,
     }: { at: string; key: string; seconds: number; signal: AbortSignal }
   ): Promise<Said> {
-    const said = await transcribeBlock(config, bytes, signal);
+    const said = await hearOnTheMac({ config, db }, bytes, {
+      at: new Date(at),
+      priority: "ordinary",
+      signal,
+    });
     if ("error" in said) {
       return said.error === "invalid_audio"
         ? { invalid: true, message: said.message }
         : busy("the speech service is busy or off");
     }
-    const route = routeTurns(said.heard, barOf(ownerZoneAt(db, new Date(at))));
-    const routed = route.kind === "whole" ? said.heard.turns : route.routed;
-    const localText = textFrom(transcriptOf(said.heard, routed, null));
+    const { heard: macHeard, route, routed, text: localText } = said;
     if (routed.length === 0) {
       record(db, "voice_note.heard", { route: "local", seconds });
       return { text: localText };
     }
-    const heard = await hearRouted({ config, db }, bytes, said.heard, routed, {
+    const heard = await hearRouted({ config, db }, bytes, macHeard, routed, {
       keyterms: blockKeyterms(db),
       ref: { voiceNote: key.slice(0, 12) },
       send: (post) =>
@@ -118,12 +121,17 @@ export function voiceNoteRoutes({
             .run();
           return;
         }
-        record(db, "voice_note.heard", {
-          billableSeconds: outcome.billableSeconds,
-          route: route.kind,
+        const spent = {
+          // A send Scribe may have billed without saying: its seconds are not known to be billed.
+          billableSeconds: outcome.maybeBilled ? null : outcome.billableSeconds,
+          route,
           seconds,
+        };
+        record(db, "voice_note.heard", {
+          ...spent,
+          billableSeconds: outcome.billableSeconds,
         });
-        settle(key, textFrom(outcome.transcript));
+        settle(key, textFrom(outcome.transcript), spent);
       },
     });
     return heard.kind === "heard"

@@ -5,7 +5,7 @@ import {
 } from "../sources/lifelog-voices";
 import type { Quote } from "./check-quotes";
 import { plain } from "./doubts";
-import { type Check, LIFE_CHECKS } from "./life-checks";
+import { type Check, LIFE_CHECKS, preTickedOf } from "./life-checks";
 import {
   type People,
   voiceCardRefOf,
@@ -18,13 +18,13 @@ import { localDate } from "./zones";
 
 /** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
 export const voiceChecksOf = (
-  people: Pick<People, "nameOf" | "partyOf" | "resolve">,
-  voices: readonly NamingQueueItem[]
+  people: Pick<People, "nameOf" | "names" | "partyOf" | "refOf" | "resolve">,
+  voices: readonly (NamingQueueItem & { guessed?: readonly string[] })[]
 ) =>
   voices
     .filter((item) => item.kind !== "several")
     .map((item) => {
-      const known = voiceSuggestionOf(people.resolve, item);
+      const known = voiceSuggestionOf(people, item);
       const likely = namingQueueGuessesOf(item)
         .flatMap((id) => {
           const ref = voicePersonOf(people.resolve, id, null);
@@ -55,8 +55,20 @@ export const voiceChecksOf = (
         options: LIFE_CHECKS.voice.options.filter(
           (o) => who || o.id !== "is-them"
         ),
+        // "Yes" is pre-ticked only on the person lifelog's likeness scored (`personId`), never on a name heard beside it.
+        preTicked: preTickedOf(
+          {
+            kind: "voice",
+            subject:
+              known &&
+              known === voicePersonOf(people.resolve, item.personId, null)
+                ? known
+                : null,
+          },
+          item
+        ),
         question: who ? `Is this ${who}?` : "Who is this?",
-        ref: voiceCardRefOf(people.resolve, item),
+        ref: voiceCardRefOf(people, item),
         ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
         said: null,
         since: null,

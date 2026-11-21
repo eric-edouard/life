@@ -1,11 +1,11 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { z } from "zod";
+import { writeWhole } from "./files";
 import {
   Engine,
   NotifyKind,
   NotifyLevel,
-  ROLE_ASKERS,
   RuntimeName,
   SourceName,
 } from "./names";
@@ -18,53 +18,10 @@ import { HOME } from "./platform";
 
 export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
-const NON_WORD = /\W+/g;
-/**
- * Life's own wake ("hey Life", `hear.ts`), shaped like an agent's: it marks what he says next for Life to keep and wakes
- * no agent. "live" is how lifelog wrote it on 21 Oct (audit 4).
- */
-export const LIFE_WAKE = { misheard: ["live"], wake: ["life"] };
-/** A wake word as heard, compared: lower case, one space between words. */
-export const asHeard = (w: string) =>
-  w.toLowerCase().replace(NON_WORD, " ").trim();
-
 export const Settings = z
   .object({
     /** Who mails him his agents' reports: their mail is judged, not dropped as `not-a-person`. */
     agentReportSenders: z.array(z.email()).default([]),
-    /**
-     * His agents by name (what Life calls each): the words that wake it ("hey <word>", `hear.ts`) and how lifelog
-     * mishears them (a misheard wake counts only on his own turn, as low confidence). An agent is known on the
-     * connector by its pairing (`bun life pair <agent>`) and pulls its asks (`read_agent_asks`). Without one nothing
-     * wakes an agent. `onAsk`, when set, is the agent's own command, started (detached, no argument) once per new ask.
-     */
-    agents: z
-      .record(
-        z.string().min(1),
-        z
-          .object({
-            misheard: z.array(z.string()).default([]),
-            onAsk: z.array(z.string()).min(1).optional(),
-            wake: z.array(z.string()).min(1),
-          })
-          .strict()
-      )
-      .refine((agents) => !ROLE_ASKERS.some((role) => role in agents), {
-        message: `an agent may not be named ${ROLE_ASKERS.join(", ")}: those are roles`,
-      })
-      .refine(
-        (agents) => {
-          const words = [LIFE_WAKE, ...Object.values(agents)].flatMap((a) => [
-            ...new Set([...a.wake, ...a.misheard].map(asHeard)),
-          ]);
-          return new Set(words).size === words.length;
-        },
-        {
-          message:
-            "two agents, or an agent and Life, share a wake or misheard word",
-        }
-      )
-      .optional(),
     /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`). */
     appointmentsCalendar: z
       .object({ account: z.string(), calendar: z.string() })
@@ -240,12 +197,7 @@ export function readSettings(path = SETTINGS): Settings {
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
 export function writeSettings(path: string, value: unknown) {
-  // Each process its own temp file: the app starts several at once, each may rename an old file.
-  writeFileSync(
-    `${path}.${process.pid}.tmp`,
-    `${JSON.stringify(value, null, 2)}\n`
-  );
-  renameSync(`${path}.${process.pid}.tmp`, path);
+  writeWhole(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 let read: Settings | undefined;
@@ -289,6 +241,3 @@ export function connector() {
 const TILDE = /^~(?=\/|$)/;
 /** A path from settings, `~/` expanded. */
 export const expand = (path: string) => path.replace(TILDE, HOME);
-
-/** His agents' names, in the settings' order. */
-export const agentNames = () => Object.keys(settings().agents ?? {});

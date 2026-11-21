@@ -8,7 +8,14 @@ extension Check {
     /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
-            case account, amount, link, text
+            case account, amount, link, place, text, qr
+            case unknown
+        }
+
+        /// How an account is paid (`scheme`, the asks contract): his phone picks the bank app by it (`Check.transfers`).
+        public enum Scheme: String, UnknownTolerant, Sendable {
+            case thAccount = "th_account"
+            case promptpay, iban, swift, other
             case unknown
         }
 
@@ -18,13 +25,22 @@ extension Check {
         let bank: String?
         let number: String?
         let holder: String?
+        let scheme: Scheme?
         let value: Double?
+        let currency: String?
         let label: String?
         let text: String?
         let url: URL?
         let vendor: String?
         /// A text need he copies (a reference, a code).
         let copy: Bool?
+        /// A QR code's text, and where the payee sent it.
+        let payload: String?
+        let source: String?
+        /// A place's map and ride links (https, each opened by his tap).
+        let googleMapsUrl: URL?
+        let appleMapsUrl: URL?
+        let boltUrl: URL?
 
         public init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -33,16 +49,27 @@ extension Check {
             bank = try? c.decodeIfPresent(String.self, forKey: .bank)
             number = try? c.decodeIfPresent(String.self, forKey: .number)
             holder = try? c.decodeIfPresent(String.self, forKey: .holder)
+            scheme = try? c.decodeIfPresent(Scheme.self, forKey: .scheme)
             value = try? c.decodeIfPresent(Double.self, forKey: .value)
+            currency = try? c.decodeIfPresent(String.self, forKey: .currency)
             label = try? c.decodeIfPresent(String.self, forKey: .label)
             text = try? c.decodeIfPresent(String.self, forKey: .text)
-            url = (try? c.decodeIfPresent(String.self, forKey: .url)).flatMap { $0.flatMap(URL.init(string:)) }
             vendor = try? c.decodeIfPresent(String.self, forKey: .vendor)
             copy = try? c.decodeIfPresent(Bool.self, forKey: .copy)
+            payload = try? c.decodeIfPresent(String.self, forKey: .payload)
+            source = try? c.decodeIfPresent(String.self, forKey: .source)
+            func link(_ key: CodingKeys) -> URL? {
+                (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
+            }
+            url = link(.url)
+            googleMapsUrl = link(.googleMapsUrl)
+            appleMapsUrl = link(.appleMapsUrl)
+            boltUrl = link(.boltUrl)
         }
 
         private enum CodingKeys: String, CodingKey {
-            case kind, line, bank, number, holder, value, label, text, url, vendor, copy
+            case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, copy, payload,
+                source, googleMapsUrl, appleMapsUrl, boltUrl
         }
 
         /// The rows the card draws, decided here once: the view only draws them. A need whose fields say nothing
@@ -90,7 +117,19 @@ extension Check {
                                 action: copy == true ? .copy(text, label: "Copy \(label ?? "it")") : nil)
                         ]
                     } ?? []
-            case .unknown:
+            case .place:
+                // Its name, then each link Life gave, https only.
+                let links = [("Google Maps", googleMapsUrl), ("Apple Maps", appleMapsUrl), ("Bolt", boltUrl)]
+                    .compactMap { name, url in
+                        url.flatMap {
+                            $0.scheme?.lowercased() == "https"
+                                ? NeedRow(
+                                    glyph: .link, text: name, action: .open($0, label: "Open in \(name)")) : nil
+                        }
+                    }
+                rows = [NeedRow(glyph: .note, text: line)] + links
+            // The code itself is the card's hero (`Check.payCode`); without its text, its line.
+            case .qr, .unknown:
                 rows = []
             }
             return rows.isEmpty ? [NeedRow(glyph: .note, text: line)] : rows

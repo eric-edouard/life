@@ -1,3 +1,9 @@
+import { clock } from "../core/clock";
+import {
+  nextStepContextProblemOf,
+  readsOnce,
+  type SharedReads,
+} from "../memory/find-refs";
 import {
   type MatterStepNow,
   matterOfSteps,
@@ -7,6 +13,7 @@ import { readMatterBook } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { Correction } from "../records/observation";
 import { TICK_LIMIT_MS, tickTodoItems } from "./change-todo-item";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -19,6 +26,24 @@ export const QUICK_MS = 5000;
 /** The most the ticks of his word on the steps `open` may take: one per to-do item (`TICK_LIMIT_MS`). */
 export const ticksLimitMsOf = (open: readonly MatterStepNow[]) =>
   open.filter((s) => s.kind === "todo_item").length * TICK_LIMIT_MS;
+
+/** His correction, written once it parses and its next step's `context` opens (`nextStepContextProblemOf`): the door of his own words. */
+export async function recordHisCorrection(
+  said: unknown,
+  reads: SharedReads = readsOnce()
+) {
+  // Its kind, fields and caps first, so no link is opened for a line that would be refused; `recordCorrection` stamps it again.
+  const parsed = Correction.parse({
+    ...(said as object),
+    at: clock().toISOString(),
+    schemaVersion: 1,
+  });
+  const problem = await nextStepContextProblemOf(parsed, reads);
+  if (problem) {
+    throw new Error(`Not done: ${problem}.`);
+  }
+  return recordCorrection(said);
+}
 
 /**
  * His word that the steps `open` (`openStepsOf`) are done, through the writers that already exist: their to-do items
@@ -82,11 +107,10 @@ export async function correctMatter(
     said.kind === "matter-project"
   ) {
     report({ limitSeconds: QUICK_MS / 1000, plan: ["recorded"] });
-    const written = await recordCorrection({
-      ...said,
-      matter: v.id,
-      steps: v.steps.map((s) => s.ref),
-    });
+    const written = await recordHisCorrection(
+      { ...said, matter: v.id, steps: v.steps.map((s) => s.ref) },
+      { book: async () => book, people: async () => people }
+    );
     report({ step: "recorded" });
     return [written];
   }

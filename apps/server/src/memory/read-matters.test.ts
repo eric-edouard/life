@@ -7,8 +7,10 @@ import {
   type HandOutFacts,
   type HandOutMatter,
   handOutGateOf,
+  isInScope,
   isOneOfHis,
   isParkedMatterOf,
+  namedIdOf,
   needsYouOf,
   oneMatter,
   openMatters,
@@ -152,6 +154,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       goal: "Open the shop by May.",
       id: "shop-fit-out",
       name: "Shop fit-out",
+      situation: [],
       status: "active",
     });
     expect((await openMatters({})).project).toBeUndefined();
@@ -178,9 +181,12 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     // Host's agents on it, given the matter's steps.
     expect(
       (
-        await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
-          refs.includes("obs_000000000005") ? [{ id: "agt_000000000001" }] : []
-        )
+        await oneMatter(["matter_aaaaaaaaaaaa"], {
+          agentsOf: (refs) =>
+            refs.includes("obs_000000000005")
+              ? [{ id: "agt_000000000001" }]
+              : [],
+        })
       )?.agents
     ).toEqual([{ id: "agt_000000000001" }]);
     expect(
@@ -215,9 +221,9 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     expect(await iconsWith(up)).toEqual([his, { by: "life", key: "home" }]);
     expect(
       (
-        await oneMatter(["matter_aaaaaaaaaaaa"], undefined, (vs) =>
-          readLifeIcons(vs, up)
-        )
+        await oneMatter(["matter_aaaaaaaaaaaa"], {
+          readIcons: (vs) => readLifeIcons(vs, up),
+        })
       )?.icon
     ).toEqual(his);
   } finally {
@@ -461,6 +467,7 @@ test("a matter he marked important comes first, with no open step too; its parke
       goal: undefined,
       id: "shop",
       name: "Shop",
+      situation: [],
       status: "parked",
     });
   } finally {
@@ -468,4 +475,34 @@ test("a matter he marked important comes first, with no open step too; its parke
     book.mockRestore();
     rank.mockRestore();
   }
+});
+
+test("a scope holds the matters of an area, of a project, or of an area in no project: the one rule of the list and the chips' counts", () => {
+  const truth = {
+    projects: [{ id: "shop" }, { id: "old" }],
+  } as unknown as Parameters<typeof isInScope>[0];
+  const home = { areas: ["home"], projects: [] as string[] };
+  const homeShop = { areas: ["home"], projects: ["shop"] };
+  const work = { areas: ["work"], projects: [] as string[] };
+  const unknown = { areas: ["home"], projects: ["not-in-directory"] };
+  const all = [home, homeShop, work, unknown];
+  const of = (s: Parameters<typeof isInScope>[1]) =>
+    all.filter(isInScope(truth, s));
+  expect(of({})).toEqual(all);
+  expect(of({ area: "home" })).toEqual([home, homeShop, unknown]);
+  expect(of({ project: "shop" })).toEqual([homeShop]);
+  expect(of({ area: "home", noProject: true })).toEqual([home, unknown]);
+});
+
+test("a project is found by its id or its name, accents and case aside", () => {
+  const list = [{ id: "cafe-co", name: "Café Co" }];
+  expect(namedIdOf(list, "Cafe co")).toBe("cafe-co");
+  expect(namedIdOf(list, "cafe-co")).toBe("cafe-co");
+  expect(namedIdOf(list, "nope")).toBeUndefined();
+  // An exact id beats another project's name that reads alike.
+  const two = [
+    { id: "a", name: "Cafe" },
+    { id: "cafe", name: "Other" },
+  ];
+  expect(namedIdOf(two, "cafe")).toBe("cafe");
 });

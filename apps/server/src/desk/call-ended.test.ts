@@ -12,6 +12,7 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { openAssignment } from "./agent-actions";
+import { EVENTS_SETTLE } from "./agent-wait";
 import { pollCalls, pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { openDesk, writeWait } from "./desk-store";
 import { ANA, advance, ahead, asgOf, chatSource, setup, T0 } from "./test-desk";
@@ -161,6 +162,7 @@ test("a message and the call that ended make one turn that says both", async () 
   await pollMessages(desk, readPeopleOnce());
   await poll();
   expect(queued()).toHaveLength(1);
+  advance(EVENTS_SETTLE);
   await wakeDue(desk);
   const said = fake.said.at(-1)?.message ?? "";
   expect(said).toContain("message.received");
@@ -177,14 +179,18 @@ test("two calls that ended make one wake that carries both", async () => {
     jobs: [job("j1", 1), job("j2", 5), job("j3", 9)],
     turns: [turn("j1", 0, 6), turn("j2", 0, 22, "c2"), turn("j3", 0, 40, "c3")],
   });
-  advance(60 * MIN);
+  advance(50 * MIN); // before its deadline (60 minutes), so the wake is the calls'
   await poll();
   expect(queued().map((e) => e.event_id)).toEqual([
     "whatsapp:call5.ended",
     "whatsapp:call20.ended",
   ]);
   await wakeDue(desk);
+  expect(turns(agent)).toHaveLength(1);
+  advance(EVENTS_SETTLE);
+  await wakeDue(desk);
   expect(turns(agent)).toHaveLength(2);
+  expect(turns(agent).at(-1)?.cause).toBe("event");
   expect(fake.said.at(-1)?.message.match(/call\.ended/g)).toHaveLength(2);
 });
 

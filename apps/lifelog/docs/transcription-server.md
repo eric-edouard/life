@@ -57,7 +57,7 @@ runs.
   counts there from its POST (`request_sent_at`) until its answer, or 30 minutes once ElevenLabs gave it a transcription
   id; one without an id, or that may have been billed, until it is settled. Sends still submitted from before 20 Nov 2026,
   stamped at their claim, are marked maybe billed (migration `legacy_scribe_sends`, after `post_clock`, which moved their clock 10 minutes on): no POST clock says them lost. A Scribe job the old worker had queued again, still holding its provider ids, fails the same way, also one the old retry had cleared of its ids ("lost by the provider"), and is logged in the feed (migration `legacy_scribe_requeued`). Every Scribe send of
-  the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat voice note's. Its audio is
+  the server goes one way (`scribe-slots.ts` `send`): a job's, a block's routed turns, a chat voice note's, a field's dictation. Its audio is
   read first and checked again (a quiet range that came meanwhile, the transcriber switched), then it takes a slot,
   then the switch, the credits and the quiet ranges are checked again and its row records the POST, which goes; its
   answer is stored before the slot is freed. A block at the speech service takes none until its turns leave for
@@ -156,7 +156,7 @@ steps, problems). `fixtures/wire/status-live.json` is its shape. `pipeline` hold
 
 ## Spending
 
-No route serves it since PR 595 cut the phone's spending screen. The ledgers stay: `transcription_jobs.billable_seconds`
+The phone reads no route of it since PR 595; Life's model spending reads `GET /spending` (`docs/voice-source.md`). The ledgers stay: `transcription_jobs.billable_seconds`
 (keyterms at their extra price; `maybe_billed` jobs count) and the token cost on each intelligence run, at the prices in
 `apps/server/src/config.ts`.
 

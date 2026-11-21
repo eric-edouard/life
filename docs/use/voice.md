@@ -12,9 +12,8 @@ With voice on, Life also gets:
 
 - what was said in conversations, searchable word for word;
 - where you were, from the places lifelog saw you stay;
-- "hey" and your agent's name, which hands what you say next to [your agent](agent.md) and marks it as one to
-  remember;
-- "hey Life", which marks what you say next as one to remember, without asking anyone to act.
+- "hey Life", which marks what you say next as one to remember and hands it to the right agent: the one on the matter
+  it is about, else your Personal agent. Your phone says "<agent> heard you" when that agent starts on it.
 
 ## In the app
 
@@ -38,4 +37,4 @@ echo 'LIFELOG_TOKEN=<the token>' >> .env
 
 `bun life settings` shows the current list. Restart the watcher afterwards.
 
-Next: [set up your agent](agent.md).
+Next: [your agents](agent.md).

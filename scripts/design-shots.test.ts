@@ -1,7 +1,20 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { DESIGN_DATA, FRAME_MAP, readAppFrames } from "./design-shots";
+import {
+  DESIGN_DATA,
+  FRAME_MAP,
+  parseArgs,
+  readAppFrames,
+} from "./design-shots";
+import { buildApp, sourceStamp } from "./simulator";
 
 const appFrames = readAppFrames();
 
@@ -20,6 +33,22 @@ test("every flag a frame launches with is one the app's fixture reads", () => {
     (frame.args ?? []).filter((arg) => arg.startsWith("-"))
   );
   expect(flags.filter((flag) => !read.has(flag))).toEqual([]);
+});
+
+test("the live-logs and plan frames stay named (a merge once dropped seven)", () => {
+  const kept = [
+    "DuoFoldSettingsLogs",
+    "DuoFoldLogs",
+    "DuoFoldLogsPaused",
+    "DuoFoldLogsProblems",
+    "DuoFoldLogDetail",
+    "DuoFoldLogsEmpty",
+    "DuoFoldLogsOffline",
+    "DuoFoldStackPlan",
+    "StackPlan",
+    "StackPlanLong",
+  ];
+  expect(kept.filter((name) => !appFrames[name])).toEqual([]);
 });
 
 test.skipIf(!existsSync(FRAME_MAP))(
@@ -85,3 +114,20 @@ test.skipIf(!existsSync(CREATE_FLOW))(
     ).toBe(who?.value as string);
   }
 );
+
+test("the simulator stays booted unless --shutdown; a built app is taken as given", () => {
+  expect(parseArgs(["A", "--app", "/x/lifelog.app", "B"])).toEqual({
+    app: "/x/lifelog.app",
+    asked: ["A", "B"],
+    shutdownAfter: false,
+  });
+  expect(parseArgs(["--shutdown"]).shutdownAfter).toBe(true);
+});
+
+test("a build of the same sources is reused, without building", async () => {
+  const dd = mkdtempSync(join(tmpdir(), "dd-"));
+  const app = join(dd, "Build/Products/Debug-iphonesimulator/lifelog.app");
+  mkdirSync(app, { recursive: true });
+  writeFileSync(join(dd, ".source-stamp"), await sourceStamp());
+  expect(await buildApp("none", dd)).toBe(app);
+});

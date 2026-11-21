@@ -177,31 +177,35 @@ struct OpenMatters: View {
         let rows = now.openShown(isAll: isAll, all: life.openWith[ref]?.value?.matters)
         if now.openCount > 0 {
             VStack(alignment: .leading, spacing: 0) {
-                Text(label).font(.small).foregroundStyle(Palette.muted)
-                    .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xs)
-                ForEach(rows) { row in
-                    Button {
-                        router.open(matter: row.id)
-                    } label: {
-                        MatterRowView(row: row, isChosen: false, isMarked: life.isImportant(row.id, as: row.important))
-                    }
-                    .buttonStyle(.plain)
-                    .appears()
-                }
-                Group {
+                ListLabel(label) {
                     if !isAll, now.openCount > rows.count {
-                        TextLink("All \(now.openCount)", isOnward: true) { isAll = true }
-                    } else if isAll, now.isOpenCut, life.openWith[ref]?.value == nil {
+                        QuietChip("All \(now.openCount)", symbol: "chevron.down") { isAll = true }
+                    }
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
+                        Button {
+                            router.open(matter: row.id)
+                        } label: {
+                            MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
+                        }
+                        .buttonStyle(.groupedRow(at: at, of: rows.count))
+                        .appears()
+                    }
+                }
+                if isAll, now.isOpenCut, life.openWith[ref]?.value == nil {
+                    Group {
                         if life.openWith[ref]?.hasFailed == true {
                             PartRetry(what: "The other matters") { await life.refreshOpenWith(ref) }
                         } else {
                             Spinner()
                         }
                     }
+                    .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
                 }
-                .padding(.horizontal, Metrics.gutter)
             }
-            .padding(.horizontal, -Metrics.gutter)
+            // The card on the page's gutter: a list keeps its inset from its column's edges.
+            .padding(.horizontal, -Metrics.Spacing.m)
             .motion(Motion.standard, value: rows.map(\.id))
             .task(id: isAll) {
                 if isAll, now.isOpenCut { await life.refreshOpenWith(ref) }
@@ -217,15 +221,17 @@ private struct Lately: View {
 
     var body: some View {
         if !lines.isEmpty {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-                Text("Lately").font(.small).foregroundStyle(Palette.muted)
+            VStack(alignment: .leading, spacing: 0) {
+                ListLabel("Lately") {
+                    if !isWhole { QuietChip("More", symbol: "chevron.down") { isWhole = true } }
+                }
+                .padding(.horizontal, -Metrics.Spacing.m)
                 Text(lines.joined(separator: " ")).font(.body15).foregroundStyle(Palette.fg)
                     .lineLimit(isWhole ? nil : 4).fixedSize(horizontal: false, vertical: true)
-                if !isWhole { TextLink("More") { isWhole = true } }
+                    .padding(Metrics.Spacing.l)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card()
             }
-            .padding(Metrics.Spacing.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .card()
             .motion(Motion.standard, value: isWhole)
         }
     }
@@ -304,11 +310,10 @@ private struct Knows: View {
         }
         let rows = parts + [writing].compactMap(\.self)
         if !rows.isEmpty {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-                Text("What Life knows").font(.small).foregroundStyle(Palette.muted)
+            VStack(alignment: .leading, spacing: 0) {
+                ListLabel("What Life knows")
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.offset) { at, row in
-                        if at > 0 { Hairline() }
                         NavigationLink(value: row.route) {
                             HStack(spacing: Metrics.Spacing.m) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -319,15 +324,15 @@ private struct Knows: View {
                                 Image(systemName: "chevron.right").font(.small).foregroundStyle(Palette.muted)
                                     .accessibilityHidden(true)
                             }
-                            .padding(.vertical, Metrics.Spacing.m)
+                            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
                             .contentShape(.rect)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.groupedRow(at: at, of: rows.count))
                     }
                 }
-                .padding(.horizontal, Metrics.Spacing.l)
-                .card()
             }
+            // The card on the page's gutter: a list keeps its inset from its column's edges.
+            .padding(.horizontal, -Metrics.Spacing.m)
         }
     }
 }
@@ -360,8 +365,7 @@ struct Latest: View {
                     }
                     if count == nil, page.nextBefore != nil {
                         NavigationLink(value: AppRouter.PersonRoute.latest(subject)) {
-                            Text("Earlier \(Image(systemName: "chevron.right"))").font(.smallStrong)
-                                .foregroundStyle(Palette.fg)
+                            TextLink.label("Earlier", to: .page)
                         }
                         .buttonStyle(.plain)
                     }

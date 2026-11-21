@@ -96,6 +96,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         let sync = sync
         AppDependencyManager.shared.add(dependency: sync)
+        // A dictation a crash left open is closed and queued for the server before any upload reads it.
+        Task { [library] in await DictationCapture.recover(library: library) }
     }
 
     private static func libraryAtLaunch() -> LibraryStore? {

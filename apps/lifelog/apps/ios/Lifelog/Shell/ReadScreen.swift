@@ -6,18 +6,13 @@ import SwiftUI
 struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: View {
     let shown: ReadState<Value>.Shown
     let retry: () async -> Void
+    /// What "Pair with Life" does: opens Settings, unless the screen is inside it (its Life page then).
+    var pair: (() -> Void)?
     @ViewBuilder let loading: Loading
     @ViewBuilder let empty: Empty
     @ViewBuilder let content: (Value) -> Content
 
     @Environment(AppRouter.self) private var router
-
-    private static func reason(_ why: ReadState<Value>.Why) -> String {
-        switch why {
-        case .unreachable: "Your Mac is out of reach."
-        case .failed(let reason): reason
-        }
-    }
 
     var body: some View {
         // Each face fades out as the next fades in (loading to content: the spinner goes as the content comes).
@@ -44,7 +39,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .empty: empty
         case .stale(let value, let since, let why):
             VStack(spacing: 0) {
-                StaleNote(since: since, because: Self.reason(why), retry: retry)
+                StaleNote(since: since, because: why.words, retry: retry)
                 content(value)
             }
         case .unreachable:
@@ -57,8 +52,18 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .notPaired:
             Notice(
                 title: "Not paired with Life.",
-                detail: "Inbox and Matters need Life on your Mac.",
-                action: ("Pair with Life", { router.sheet = .settings }))
+                detail: "Inbox and Projects need Life on your Mac.",
+                action: ("Pair with Life", { if let pair { pair() } else { router.sheet = .settings } }))
+        }
+    }
+}
+
+extension ReadState.Why {
+    /// Why the value on screen is old, in a few words.
+    var words: String {
+        switch self {
+        case .unreachable: "Your Mac is out of reach."
+        case .failed(let reason): reason
         }
     }
 }
@@ -98,7 +103,7 @@ struct StaleNote: View {
             Text("Read at \(since.formatted(.dateTime.hour().minute())). \(because)")
                 .font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            TextLink("Retry") { Task { await retry() } }
+            QuietChip("Retry", symbol: "arrow.clockwise") { Task { await retry() } }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 2)

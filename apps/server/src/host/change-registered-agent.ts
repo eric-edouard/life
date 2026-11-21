@@ -31,11 +31,16 @@ import type { ToolCall } from "./http/mcp-tool";
 // (his subject's matter or project); which agent, its status, the runtime and the folder are the desk's.
 
 /** What the connector takes: the change, with a matter named by any of its ids (`step`), and his words. */
-export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
+export const RegisteredAgentChange = AgentChange.omit({
+  matter: true,
+  steps: true,
+}).extend({
   action: AgentChange.shape.action.describe(
-    "start (on `step`: the matter goes to the agent that takes it, its project's, else the Personal agent; on `project`: a new agent, in `folder`, else its project's repo, else its own; or `role` `personal`: the Personal agent, in its home), stop, resume, re_point (a new `step`, `project` or `role` `personal`), rename (`name`), change_model"
+    "start (on `step`: the matter goes to the agent that takes it, its project's, else the Personal agent; on `project`: a new agent, in `folder`, else its project's repo, else its own; or `role` `personal`: the Personal agent, in its home), stop, resume, re_point (a new `step`, `project` or `role` `personal`), rename (`name`), change_model, hand_over (a move: `step` with `runtime`, the matter to a new agent of its own there, its old agent writing its notes first; `step` with `agent`, the matter to that agent; or `agent` with `runtime`, the whole agent to that runtime; answered at once with the move's id, its phase then on `read_matter`'s `move` or the agent's `switch`)"
   ),
-  agent: AgentChange.shape.agent.describe("The agent (agt_…), all but start"),
+  agent: AgentChange.shape.agent.describe(
+    "The agent (agt_…), all but start; with hand_over and a `step`, the agent the matter moves to"
+  ),
   effort: AgentChange.shape.effort.describe(
     "Its effort, when its runtime takes one (start, change_model); none: the desk's default"
   ),
@@ -87,6 +92,7 @@ async function matterNamed(step: string) {
   const refs = v.steps.map((s) => s.ref);
   return {
     goal: v.goal,
+    id: v.id,
     refs,
     steps: refs.includes(step)
       ? [step, ...refs.filter((r) => r !== step)]
@@ -125,6 +131,7 @@ async function withSubject({
   }
   const matter = step ? await matterNamed(step) : undefined;
   change.steps = matter?.steps;
+  change.matter = matter?.id;
   return { change, matter };
 }
 
@@ -142,6 +149,7 @@ async function saveGoal(
     await recordCorrection({
       goal: said,
       kind: "matter-direction",
+      matter: matter.id,
       steps: matter.refs,
     });
   }
@@ -243,7 +251,7 @@ async function waitForStart(
                 ? a.role === change.role
                 : a.project === change.project
             ),
-        s: readStartFacts(db, line.id, change.steps),
+        s: readStartFacts(db, line.id, change),
       }),
       null
     );
@@ -330,6 +338,15 @@ export async function changeRegisteredAgent(
     "connector",
     "asked in a chat"
   );
+  if (change.action === "hand_over") {
+    // A move takes minutes (the old agent's notes, the new one's start): its phase is read, never waited for here.
+    return {
+      action: "hand_over",
+      agent: change.agent ?? null,
+      move: line.id,
+      state: "asked",
+    };
+  }
   return isStart
     ? waitForStart(line, change, call, limitMs)
     : waitForChange(line, change, limitMs);

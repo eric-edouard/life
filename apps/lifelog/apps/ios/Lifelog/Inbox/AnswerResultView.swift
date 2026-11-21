@@ -15,7 +15,7 @@ struct Taken: Equatable {
     var staysOpen: Bool { check.keepsOpen(after: request) }
     /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
     var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
-    var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
+    var isStart: Bool { check.options.contains { request.options == [$0.id] && check.isHandOver($0) } }
     /// His word that the step or matter is done: held for Undo wherever the card is shown.
     var isEnding: Bool { check.isEnding(request) }
     var context: ActionCopy.Context {
@@ -38,8 +38,10 @@ struct AnswerResultView: View {
             // A new state fades the last one out and rises in its place (`Motion.resultFace`).
             ZStack(alignment: .topLeading) {
                 switch state {
+                // A send stays one face from the tap to its proof, the ticks landing in the bubble itself; one Life saw
+                // in its chat is sent, even when its answer was lost on the way.
+                case _ where taken.isSend && (state.isRunning || state.isDone(isSend: true)): face { sending }
                 case .failed(let failure, _): face { failed(failure) }
-                // A send stays one face from the tap to its proof: the ticks land in the bubble itself.
                 case _ where taken.isSend: face { sending }
                 case .succeeded(let proof, _): face { done(proof) }
                 case .idle, .running: face { working }
@@ -74,17 +76,18 @@ struct AnswerResultView: View {
         stepLines
     }
 
-    /// The action's steps as they pass; "Asking Life" until Life names them, never once it answered.
+    /// The action's steps as they pass; "Asking Life" only while the request runs.
     private var stepLines: some View {
         let asking = [CheckLine(id: "asking", text: "Asking Life", mark: .running)]
-        return CheckLines(lines: lines.isEmpty && state.isWaitingOnLife ? asking : lines).padding(.top, 8)
+        return CheckLines(lines: lines.isEmpty && state.isRunning ? asking : lines).padding(.top, 8)
     }
 
     /// A send, from his tap to its proof: the draft in its chat, its ticks as the send's steps pass, then Life's word.
     @ViewBuilder private var sending: some View {
-        if case .succeeded(let proof, _) = state {
-            Text(taken.doneWord(proof)).font(.statusWord).foregroundStyle(Palette.ok).lit().appears()
-            Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted).appears()
+        if !state.isRunning, state != .idle {
+            let result = taken.result(state)
+            Text(result.word).font(.statusWord).foregroundStyle(Palette.ok).lit().appears()
+            Text(result.line).font(.lead).foregroundStyle(Palette.muted).appears()
         } else {
             Text(taken.check.question).font(.cardQuestion).foregroundStyle(Palette.fg)
         }
@@ -102,7 +105,7 @@ struct AnswerResultView: View {
     }
 
     @ViewBuilder private func failed(_ failure: ActionFailure) -> some View {
-        Text(taken.failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
+        Text(taken.failedWord(failure, state)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
         if taken.isSend {
             // A send says only Life's reason, then the words, "Not sent" or "May have gone" where the ticks would be.
             Text(failure.reason).font(.lead).foregroundStyle(Palette.muted)
@@ -130,8 +133,11 @@ struct ResultButtons: View {
             switch state {
             case .succeeded:
                 EmptyView()
+            // Seen in its chat: done, nothing to try again.
+            case .failed where state.isDone(isSend: taken.isSend):
+                EmptyView()
             case .failed(let failure, _):
-                if failure.canTryAgain {
+                if state.offersRetry(isSend: taken.isSend) {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))
                     Button("Keep for later", action: keepForLater).buttonStyle(.pill(.quiet))
                 } else if failure.mayHaveHappened, let url = taken.check.networkIdentity?.openUrl {
@@ -155,7 +161,7 @@ extension Taken {
     func result(_ state: ActionState<ActionProof>) -> (word: String, line: String) {
         switch state {
         case .succeeded(let proof, _): (doneWord(proof), summary(proof))
-        case .failed(let failure, _): (failedWord(failure), failedLine(failure, state))
+        case .failed(let failure, _): (failedWord(failure, state), failedLine(failure, state))
         case .running: ("Check first.", "It stays here.")
         case .idle: ("Not saved.", "It stays here.")
         }
@@ -184,6 +190,7 @@ extension Taken {
         case .newMatter:
             staysOpen
                 ? "Goal saved." : request.options == ["dismiss"] ? "Dismissed." : "Started."
+        case .yourMove: request.options == ["not-now"] ? "Hidden for now." : isStart ? "Started." : "Done."
         case .name, .guessedPerson, .samePerson: "Saved."
         case .decision, .unknown: "Answered."
         }
@@ -196,11 +203,11 @@ extension Taken {
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }
+        if isStart { return "An agent works toward the goal." }
+        if let snoozed = result.changed?.snoozed() { return snoozed }
         if check.group == .newMatter {
-            return request.options == ["start"]
-                ? "An agent works toward the goal."
-                : staysOpen
-                    ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
+            return staysOpen
+                ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
         }
         if request.options.isEmpty { return "Your words went to \(context.asker ?? "the asker")." }
         let label = check.options.first { request.options.contains($0.id) }?.label
@@ -218,14 +225,17 @@ extension Taken {
     }
 
     /// Only what Life said: a call that never gave its answer may have run, so it claims nothing.
-    func failedWord(_ failure: ActionFailure) -> String {
-        if failure.mayHaveHappened { return isSend ? "May have gone." : "Check first." }
+    /// A send's word is its bubble's (`DraftDelivery`): a draft Life saw in its chat is "Sent." whatever came after.
+    func failedWord(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
+        if isSend { return DraftDelivery(state).word }
+        if failure.mayHaveHappened { return "Check first." }
         if failure.isSameTap { return "No answer from Life." }
         if isStart { return AgentWords.notStarted + "." }
-        return isSend ? "Not sent." : "Not saved."
+        return "Not saved."
     }
 
     func failedLine(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
+        if isSend, DraftDelivery(state) == .sent { return "Life saw it in the chat. Its answer was lost on the way." }
         if failure.mayHaveHappened { return "Check before answering again. It stays here." }
         if failure.isSameTap { return "Life may have it: trying again repeats the same tap. It stays here." }
         if isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {

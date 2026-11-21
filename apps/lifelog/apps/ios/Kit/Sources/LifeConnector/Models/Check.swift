@@ -8,6 +8,8 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
     case samePerson = "same person"
+    /// A matter's open step that is his: it stays in his inbox until done, handed over or put off.
+    case yourMove = "your move"
     case unknown
 }
 
@@ -41,6 +43,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
 
         public enum Ends: String, UnknownTolerant, Sendable {
             case step, matter
+            case unknown
+        }
+
+        /// What a plan card's option is to his app (`role`): the start of the plan, or its decline.
+        public let role: Role?
+
+        public enum Role: String, UnknownTolerant, Sendable {
+            case start, decline
             case unknown
         }
     }
@@ -88,7 +98,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct LifeLink: Decodable, Sendable, Equatable {
         /// What a ref names (`RefKind`, `memory/refs.ts`).
         public enum Kind: String, UnknownTolerant, Sendable {
-            case ask, conversation, file, matter, message, observation, person, turn, unit
+            case appointment, ask, conversation, file, matter, message, observation, person, turn, unit
             case unknown
         }
         public let ref: String
@@ -199,6 +209,47 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let draft: Draft?
     /// A draft card's chat as the card heads it; nil for other cards.
     public let head: Head?
+    /// The older draft card into the same chat that this one replaces (his Send withdraws it); nil for most cards.
+    public let replaces: String?
+    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
+    /// other kinds, or from a Life that predates it.
+    public let isPlan: Bool?
+    /// A plan card's steps, in order; nil on an older plan card, which shows as any decision.
+    public let plan: [PlanStep]?
+    /// A plan card's one line on what its plan rests on: the source chip that opens `context`.
+    public let gathered: Gathered?
+
+    /// One step of a plan (`PlanStep`, `memory/card-request.ts`): who does it, its words, when (a muted second line),
+    /// and where it happens: a source as a draft's `channel`, or `payment`, `place`, `file`.
+    public struct PlanStep: Decodable, Sendable, Equatable {
+        public enum By: String, UnknownTolerant, Sendable {
+            case agent, owner
+            case unknown
+        }
+        public let text: String
+        public let by: By
+        public let when: String?
+        public let channel: String?
+
+        /// The row as VoiceOver reads it: who does it, when known, its words, when and where.
+        public var spoken: String {
+            let who: String? =
+                switch by {
+                case .owner: "You"
+                case .agent: "The agent"
+                case .unknown: nil
+                }
+            return ([who.map { "\($0): \(text)" } ?? text] + [when, channel].compactMap(\.self)).joined(separator: ", ")
+        }
+    }
+
+    public struct Gathered: Decodable, Sendable, Equatable {
+        public let text: String
+    }
+
+    /// The steps the card draws, whenever it holds them: `isPlan` is false while Life can't read its desk, and a card
+    /// with no steps (an older plan card too) draws as any decision.
+    public var planSteps: [PlanStep] { plan ?? [] }
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
@@ -208,9 +259,15 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// The matters the answer rides on, by name.
     public let onMatters: [MatterRef]?
     public let options: [Option]
+    /// The option a bulk ask starts this row ticked with (`preTickedOf`, the server's rule); nil: not ticked, or from a
+    /// Life that predates it.
+    public let preTicked: String?
     public let clips: [Clip]
     public let likelyPeople: [Party]
     public let links: [String]
+    /// What its "Open in" opens: a registered agent's card, the session of the agent holding it now; any other ask, its
+    /// first link; nil when none, or from a Life that predates it.
+    public let session: String?
     /// The `life:` links of `context`, each with its kind; empty from a Life that predates them.
     public let lifeLinks: [LifeLink]?
     public let matter: MatterRef?
@@ -227,6 +284,15 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let needs: [Need]?
     /// Life's outcome when it sees the step done itself (a payment it looks for); nil when it does not.
     public let doneSeen: DoneSeen?
+    /// How Life sees a decision's step done now: `payment`, it looks in his accounts while the card is open; `tap`, only
+    /// his word; nil on every other kind.
+    public let doneSeenBy: DoneSeenBy?
+
+    public enum DoneSeenBy: String, UnknownTolerant, Sendable {
+        case payment, tap
+        case unknown
+    }
+
     /// What his "Wrong…" sends back with his words: on Life's own cards only, nil on an agent's.
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
@@ -239,11 +305,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let seal: String
     }
 
-    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's own line, when it has one.
+    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's open card on it, its question
+    /// (`line`) and its Markdown (`context`, with `life:` links); both nil when it has none, or holds more than one complaint.
     public struct BeingFixed: Decodable, Sendable, Equatable {
         public let ask: String
         public let since: Date?
         public let line: String?
+        public let context: String?
     }
 
     /// Life's outcome on a step it sees done itself (`doneSeen`, the asks contract): never his answer.
@@ -266,6 +334,49 @@ extension Check {
         return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
     }
 
+    /// Life asks it itself, or he asked it through his own app: no agent hears his words on it.
+    public var isLifesOwn: Bool {
+        agent == nil && ["life", "owner"].contains { asker.caseInsensitiveCompare($0) == .orderedSame }
+    }
+
+    /// Who hears his own words on it (decision 75), as the answer names it ("Tell the Personal agent"): its holder by
+    /// its standing role, any other agent "the agent"; Life on Life's own question.
+    public func hearer(among agents: [RegisteredAgent]) -> String {
+        if isLifesOwn { return "Life" }
+        switch agents.first(where: { $0.id == agent })?.role {
+        case .personal?: return "the Personal agent"
+        case .caretaker?: return "the caretaker"
+        default: return "the agent"
+        }
+    }
+
+    /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
+    public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
+
+    /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
+    public struct OpenedContext: Identifiable, Equatable, Sendable {
+        public let title: String
+        public let markdown: String
+        /// Its `life:` links' kinds; none for the caretaker's, whose links open by ref all the same.
+        public let lifeLinks: [LifeLink]
+        /// What its "Open in" opens; nil for the caretaker's.
+        public let session: String?
+
+        public var id: String { markdown }
+    }
+
+    /// The card's own context, as its link opens it.
+    public var ownContext: OpenedContext {
+        OpenedContext(
+            title: contextLinkTitle ?? "", markdown: context ?? "", lifeLinks: lifeLinks ?? [], session: session)
+    }
+
+    /// The caretaker's open question's context, under that question; nil with none.
+    public var fixContext: OpenedContext? {
+        guard let line = beingFixed?.line, let context = beingFixed?.context else { return nil }
+        return OpenedContext(title: line, markdown: context, lifeLinks: [], session: nil)
+    }
+
     /// The words of the link that opens its context: the code's, by what it asks, never the agent's (the context
     /// sheet's table, decision 81); nil with no context, so a card with none has no link.
     public var contextLinkTitle: String? {
@@ -273,7 +384,7 @@ extension Check {
         if draft != nil { return "Why this reply?" }
         switch group {
         case .ending: return "Why done?"
-        case .newMatter: return "What Life saw"
+        case .newMatter, .yourMove: return "What Life saw"
         case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
@@ -281,8 +392,25 @@ extension Check {
         }
     }
 
-    /// The option the card fills (the first): the one answer it asks for, the others sit quieter.
-    public var filled: Option? { options.first }
+    /// The options in the order the answers draw them: a plan's start first (its asker may send decline first), the
+    /// rest as sent.
+    public var optionsInOrder: [Option] {
+        options.filter { $0.role == .start } + options.filter { $0.role != .start }
+    }
+
+    /// The option the card fills (the first in order): the one answer it asks for, the others sit quieter.
+    public var filled: Option? { optionsInOrder.first }
+
+    /// The option the row starts ticked with in a bulk ask, when Life pre-ticks one this card offers.
+    public var preTickedOption: Option? { options.first { $0.id == preTicked } }
+
+    /// Rows of a bulk ask in its groups: one per pre-ticked option, in the order they first come, then the rows Life
+    /// ticks nothing on.
+    public static func bulkGroups(_ checks: [Check]) -> [[Check]] {
+        let ids = checks.compactMap(\.preTicked).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        return (ids.map(Optional.some) + [nil]).map { id in checks.filter { $0.preTicked == id } }
+            .filter { !$0.isEmpty }
+    }
 
     /// The option he picks by naming someone (`takes` a person, or a person or a name), when the card has one.
     public var namingOption: Option? { options.first { $0.takes == .person || $0.takes == .personOrName } }
@@ -291,8 +419,16 @@ extension Check {
     public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
 
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
+    /// A your move card's "Hand to an agent" hands over the goal it shows, as a new matter's Start does.
     public func answer(_ option: Option) -> AnswerRequest? {
-        option.takes == nil ? AnswerRequest(ref: ref, options: [option.id]) : nil
+        guard option.takes == nil else { return nil }
+        let goal = isHandOver(option) ? self.goal : nil
+        return AnswerRequest(ref: ref, options: [option.id], note: goal)
+    }
+
+    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand to an agent.
+    public func isHandOver(_ option: Option) -> Bool {
+        option.id == "start" && (group == .newMatter || group == .yourMove)
     }
 
     /// His answer naming who it is, through the option that takes it: a person Life knows, or a typed name, which is a
@@ -346,10 +482,12 @@ extension Check {
         return option.map { AnswerRequest(ref: ref, options: [$0.id], note: note, name: name) }
     }
 
-    /// His own words: a decision's note (no option), or the option that takes them (a new matter's goal).
-    public func answer(words: String) -> AnswerRequest? {
-        if let option = options.first(where: { $0.takes == .note }) {
-            return AnswerRequest(ref: ref, options: [option.id], note: words)
+    /// His own words: with the option he picked that takes them (`option`), else a decision's note (no option); a new
+    /// matter's goal goes with its own option that takes them.
+    public func answer(words: String, option: String? = nil) -> AnswerRequest? {
+        let picked = options.first { $0.takes == .note && (group == .decision ? $0.id == option : true) }
+        if let picked {
+            return AnswerRequest(ref: ref, options: [picked.id], note: words)
         }
         return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
     }

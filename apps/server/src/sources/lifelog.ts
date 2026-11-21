@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "../core/clock";
+import { clock, HOUR, iso } from "../core/clock";
 import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -470,7 +470,7 @@ export function readConversations(
       .all(from),
     (t) => t.conversation_id
   );
-  // His spans ("hey Life" or "hey <agent>") by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  // His spans ("hey Life") by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
   const marks = new Map(
     db
       .query<{ job_id: string; refs: string; turn_index: number }, []>(
@@ -541,6 +541,43 @@ export function turnsBetween(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
+    .map((t) => lifelogTurn(t, byId));
+}
+
+/**
+ * Whether turn `t` overlaps the span from `?1` to `?2` (ISO, `?2` exclusive): begun before its end, and begun inside it
+ * or still going at its start. `?3` is the earliest start read (`overlapArgs`), so the start index bounds the scan. The
+ * one test of a call's turns: the desk's (`recordingsOf`) and `fetch`'s (`turnsOverlapping`).
+ */
+export const OVERLAPS =
+  "t.start_at >= ?3 and t.start_at < ?2 and (t.start_at >= ?1 or coalesce(t.end_at, t.start_at) > ?1)";
+
+/** ponytail: a turn is taken to run at most an hour; one begun earlier is not read as crossing a span's start. */
+const LONGEST_TURN = HOUR;
+
+/** `OVERLAPS`' arguments for the span `from`..`to` (`from` "" for an open start). */
+export const overlapArgs = (
+  from: string,
+  to: string
+): [string, string, string] => [
+  from,
+  to,
+  from ? iso(Date.parse(from) - LONGEST_TURN) : "",
+];
+
+/** The turns of a conversation that overlap `from`..`to` (`OVERLAPS`; "" and "9999" leave a side open), in order. */
+export function turnsOverlapping(
+  store: Store,
+  conversationId: string,
+  from: string,
+  to: string,
+  byId: Map<string, string> = new Map()
+): LifelogTurn[] {
+  return store.db
+    .query<LifelogTurnRow, [string, string, string, string]>(
+      `select t.* from turns t where ${OVERLAPS} and t.conversation_id = ?4 order by t.start_at, t.job_id, t.turn_index`
+    )
+    .all(...overlapArgs(from, to), conversationId)
     .map((t) => lifelogTurn(t, byId));
 }
 
@@ -637,15 +674,24 @@ export async function visits(q: VisitsQuery, timeoutS?: number) {
   );
 }
 
+/** A turn ref's job and index, without its instant. */
+const turnKeyOf = (ref: string) => {
+  const t = parseTurnRef(ref);
+  return t ? `${t.jobId}:${t.turnIndex}` : ref;
+};
+
 /**
  * Replaces the spans (marks) the hearing found in a conversation from `from` on (a span grows as he goes on): each
- * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.
+ * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row. With
+ * `wakeTurns` (the turns that hold a wake the hearing knows, by ref), only their marks are replaced: a mark of a wake
+ * no longer heard (a "hey <agent>" before 21 Nov 2026) stays.
  */
 export function writeMarks(
   store: Store,
   conversation: string,
   from: string,
-  marks: string[][]
+  marks: string[][],
+  wakeTurns?: readonly string[]
 ) {
   const now = () =>
     store.db
@@ -658,11 +704,20 @@ export function writeMarks(
       .join("\n");
   const before = now();
   store.db.transaction(() => {
-    store.db.run(
-      `delete from marks where (job_id, turn_index) in
-        (select job_id, turn_index from turns where conversation_id = ? and start_at >= ?)`,
-      [conversation, from]
-    );
+    const replaced = wakeTurns && new Set(wakeTurns.map(turnKeyOf));
+    for (const m of store.db
+      .query<{ job_id: string; turn_index: number }, [string, string]>(
+        `select m.job_id, m.turn_index from marks m join turns t using (job_id, turn_index)
+          where t.conversation_id = ? and t.start_at >= ?`
+      )
+      .all(conversation, from)) {
+      if (!replaced || replaced.has(`${m.job_id}:${m.turn_index}`)) {
+        store.db.run("delete from marks where job_id = ? and turn_index = ?", [
+          m.job_id,
+          m.turn_index,
+        ]);
+      }
+    }
     for (const refs of marks) {
       const wake = parseTurnRef(refs[0] ?? "");
       if (wake) {

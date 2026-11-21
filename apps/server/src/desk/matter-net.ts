@@ -15,6 +15,7 @@ import {
 } from "../host/desk-read";
 import { isOnOrAfter } from "../host/event-channels";
 import type { MessagePayload } from "../host/events";
+import { pinnedAssignmentsOf } from "../host/move-read";
 import { decisionsNow } from "../memory/decisions";
 import { MATTER_OVER_OUTCOME } from "../memory/held-matters";
 import {
@@ -103,7 +104,13 @@ interface MatterFold {
 }
 const kept = new WeakMap<
   Database,
-  { ends: MatterEnd[]; folds: MatterFold[]; key: string; nets: Net[] }
+  {
+    ends: MatterEnd[];
+    folds: MatterFold[];
+    isWhole: boolean;
+    key: string;
+    nets: Net[];
+  }
 >();
 
 /** The outcome of an agent ended because its matter is done: by his word or its own steps' endings, never a link's "probably". */
@@ -163,13 +170,13 @@ async function readOnMatters(desk: Desk, people: People) {
     return steps.length > 0 ? [{ a, steps }] : [];
   });
   if (onMatters.length === 0) {
-    return { ends: [], folds: [], nets: [] };
+    return { ends: [], folds: [], isWhole: true, nets: [] };
   }
   const standing = standingAgents(db);
   const key = JSON.stringify([
     readChangeStamp(MATTER_BOOK_READS),
     dayNow(),
-    onMatters.map(({ a, steps }) => [a.id, a.agent_id, steps]),
+    onMatters.map(({ a, steps }) => [a.id, a.agent_id, a.matter_id, steps]),
     standing,
   ]);
   const was = kept.get(db);
@@ -185,12 +192,13 @@ async function readOnMatters(desk: Desk, people: People) {
       ? agentForMatterOf(standing, people.truth)
       : () => undefined;
   const embedder = embedderOf(desk);
+  const pinned = pinnedAssignmentsOf(db);
   let isWhole = true;
   const nets: Net[] = [];
   const ends: MatterEnd[] = [];
   const folds: MatterFold[] = [];
   for (const { a, steps } of onMatters) {
-    const v = find(steps);
+    const v = find(steps, a.matter_id ?? undefined);
     const ended = v ?? endedStepsOf(steps, records, today);
     const outcome = ended && endOutcomeOf(a.opened_by, ended);
     if (outcome) {
@@ -200,7 +208,8 @@ async function readOnMatters(desk: Desk, people: People) {
       continue;
     }
     const to = take(v);
-    if (to && to !== a.agent_id) {
+    // A matter he moved stays with its new agent (`pinnedAssignmentsOf`, his answer 3 of decision 78).
+    if (to && to !== a.agent_id && !pinned.has(a.id)) {
       folds.push({ assignment: a.id, to });
     }
     const net = netOf(v);
@@ -214,7 +223,7 @@ async function readOnMatters(desk: Desk, people: People) {
       vectors: vectors ?? [],
     });
   }
-  const read = { ends, folds, key, nets };
+  const read = { ends, folds, isWhole, key, nets };
   if (isWhole) {
     kept.set(db, read);
   }
@@ -225,6 +234,12 @@ async function readOnMatters(desk: Desk, people: People) {
 export const netsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).nets;
 
+/** The nets (`netsOf`), and whether the embedder made every one's vectors (`isWhole`). */
+export async function readNets(desk: Desk, people: People) {
+  const { isWhole, nets } = await readOnMatters(desk, people);
+  return { isWhole, nets };
+}
+
 /** The open assignments to close on their matter, each with its outcome (`readOnMatters`). */
 export const matterEndsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).ends;
@@ -233,7 +248,7 @@ export const matterEndsOf = async (desk: Desk, people: People) =>
 type Why = Exclude<WakeWhy, { why: "wait" }>;
 
 /** `why` as a wake's payload shows it: a similarity to two places (`routeOf` ranks the full one). */
-const shownOf = (why: Why) =>
+export const wakeWhyShownOf = (why: Why) =>
   why.why === "meaning"
     ? { ...why, similarity: Math.round(why.similarity * 100) / 100 }
     : why;
@@ -285,6 +300,21 @@ async function relatedOf(
   return { isWhole, related };
 }
 
+/** For each of his own words (no person: only meaning matches), the nets it is close to (`relatedOf`), and `isWhole`. */
+export async function relatedWords(desk: Desk, nets: Net[], texts: string[]) {
+  const { isWhole, related } = await relatedOf(
+    desk,
+    nets,
+    texts.map((text) => ({ person: null, text }))
+  );
+  return {
+    isWhole,
+    related: related.map((r) =>
+      r.map(({ assignment, ...why }) => ({ assignment, by: why as WakeWhy }))
+    ),
+  };
+}
+
 /** The new messages each net relates to (`relatedOf`), each from when its assignment was opened on: one wake each, its facts and why (`by`, for `routeOf`). */
 export async function relatedMessages(
   desk: Desk,
@@ -310,7 +340,7 @@ export async function relatedMessages(
               assignment,
               by: why as WakeWhy,
               eventId: x.m.id,
-              payload: { ...x.m, ...shownOf(why) },
+              payload: { ...x.m, ...wakeWhyShownOf(why) },
             },
           ]
         : []
@@ -395,7 +425,12 @@ export async function relatedRecordings(
                 assignment,
                 by: why as WakeWhy,
                 eventId: `${u.id}@${at}`,
-                payload: { at, id: u.id, source: u.source, ...shownOf(why) },
+                payload: {
+                  at,
+                  id: u.id,
+                  source: u.source,
+                  ...wakeWhyShownOf(why),
+                },
               },
             ]
           : []

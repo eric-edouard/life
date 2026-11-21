@@ -1,430 +1,31 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readChangeStamp, writeJson } from "../../core/files";
+import { HOME } from "../../core/platform";
 import { setSettings } from "../../core/settings";
-import { nameGroupsOf } from "../../memory/check-sentences";
-import type { CheckInputs } from "../../memory/checks";
-import { nameRow } from "../../memory/checks-test-inputs";
 import { isSealed, type MisreadShown } from "../../memory/complaint-checks";
+import { withNetworkIdentity } from "../../memory/network-identity";
+import { PERSON_PICTURES, pictureFileOf } from "../../memory/party";
 import {
-  networkIdentityOf,
-  withNetworkIdentity,
-} from "../../memory/network-identity";
-import { PERSON_PICTURES, partyOf, pictureFileOf } from "../../memory/party";
+  PROJECT_SITUATIONS,
+  projectSituationPath,
+  promptNameNow,
+} from "../../memory/project-situation-read";
 import { Misread } from "../complaints";
 import type { WakeLine } from "../registered-agents";
+import {
+  GRAN_PICTURE,
+  kitOnWhatsapp,
+  madeUpBase,
+  madeUpInbox,
+  madeUpPartyOf,
+  ROBIN_PICTURE,
+} from "./mcp-phone-reads-fixture";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
 
 // The phone's reads, as real answers (`wire-fixture.ts`).
-
-/** Gran's person in lifelog, a voice's likely speaker. */
-const GRAN_VOICE = "00000000-0000-4000-8000-000000000001";
-const line = (id: string, text: string, over = {}) => ({
-  about: undefined,
-  confidence: 0.9,
-  date: "2026-10-12",
-  id,
-  quote: `"${text}" said Gran`,
-  source: { channel: "whatsapp" as const },
-  speaker: "person:gran",
-  subjects: [],
-  text,
-  unit: "unit_000000000001",
-  ...over,
-});
-const lines = [
-  line("obs_000000000005", "Call the shop"),
-  line("obs_000000000006", "Kit sends the quote", {
-    subjects: ["person:inf_kit"],
-  }),
-  line("obs_000000000007", "Lou's number changed", {
-    subjects: ["person:con_lou"],
-  }),
-  line("obs_000000000008", "Sam fixed the strap"),
-];
-const matter = {
-  lone: false,
-  open: true,
-  owedTo: [],
-  projects: [] as string[],
-  status: "moving" as const,
-  waitingOn: [],
-  with: [],
-};
-const KIT_CHAT = "33600000001@s.whatsapp.net";
-/** Gran's WhatsApp picture, his pick for her; Robin's, which he hides. */
-const GRAN_PICTURE = "00000000000000000000000000000a02";
-const ROBIN_PICTURE = "00000000000000000000000000000b01";
-const nameOf = (r: string) =>
-  (
-    ({
-      "person:con_lou": "Lou",
-      "person:gran": "Gran",
-      "person:inf_kit": "Kit",
-      "person:partner": "Robin",
-      "person:sam_ito": "Sam Ito",
-      "person:sam_lee": "Sam Lee",
-    }) as Record<string, string>
-  )[r] ?? r;
-/** Gran shows two pictures and his pick is her WhatsApp one; Robin shows one, his pick `none`; Sam Lee shows his Contacts one. */
-const madeUpPartyOf = partyOf(
-  {
-    isOrganization: () => false,
-    nameOf,
-    refOf: (r) => r,
-    relationOf: (r) =>
-      ({
-        "person:gran": "Your grandmother",
-        "person:inf_kit": "the watchmaker",
-        "person:sam_lee": "The neighbour",
-      })[r] ?? null,
-  },
-  [
-    { id: "gran", pictureFrom: "whatsapp" },
-    { id: "partner", pictureFrom: "none" },
-  ],
-  () => ({
-    "person:gran": [
-      { id: "00000000000000000000000000000a01", source: "contacts" },
-      { id: GRAN_PICTURE, source: "whatsapp" },
-    ],
-    "person:partner": [{ id: ROBIN_PICTURE, source: "contacts" }],
-    "person:sam_lee": [
-      { id: "00000000000000000000000000000c01", source: "contacts" },
-    ],
-  })
-);
-const kitOnWhatsapp = new Map([
-  [
-    "person:inf_kit",
-    {
-      ...networkIdentityOf(
-        { key: KIT_CHAT, source: "whatsapp", title: "Kit Watches" },
-        [
-          {
-            at: "2026-10-12T09:05:00.000Z",
-            fromMe: false,
-            sender: "+33600000001",
-            text: "Kit here, from the shop",
-          },
-        ],
-        "Dana"
-      ),
-      party: madeUpPartyOf("person:inf_kit"),
-    },
-  ],
-]);
-/** One check of every kind: a decision with a draft to a guessed person, an ending, a new matter, a guessed person, a Contacts card, a name, a voice, a same person. */
-const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
-  answered: new Set(),
-  decisions: [
-    {
-      asker: "Orbit",
-      at: "2026-10-13T09:00:00.000Z",
-      context:
-        "He asked for it by Friday: [his message](life:msg:whatsapp|whatsapp:155@s.whatsapp.net/M1).",
-      deadline: "2099-01-01T09:00:00.000Z",
-      draft: {
-        channel: "whatsapp",
-        chat: "33600000001@s.whatsapp.net",
-        file: {
-          mime: "application/pdf",
-          name: "quote.pdf",
-          path: "/tmp/quote.pdf",
-          sha256: "0".repeat(64),
-          size: 52_000,
-        },
-        quoted: { sender: "Kit", text: "Can you send the quote?" },
-        recent: [
-          {
-            at: "2026-10-12T17:00:00.000Z",
-            file: { kind: "photo", name: "IMG_0001.HEIC", size: 1_200_000 },
-            sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
-          },
-          {
-            at: "2026-10-12T17:01:00.000Z",
-            sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
-            text: "Can you send the quote?",
-          },
-        ],
-        text: "Here is the signed quote.",
-        to: "Kit",
-      },
-      id: "dec_000000000001",
-      kind: "asked",
-      links: ["https://agents.example.test/s/1"],
-      onSilence: "no",
-      options: [
-        { id: "yes", label: "Send it", outgoing: true },
-        { id: "no", label: "Not now" },
-      ],
-      question: "Send Kit the signed quote?",
-      schemaVersion: 3,
-      state: "open",
-      subject: "obs_000000000005",
-      title: "Kit is waiting for the quote.",
-    },
-    // A transfer whose "I've paid" Life looked for and did not find yet: open again. A registered agent's plan (`planCardsOf`).
-    {
-      agent: "agt_000000000001",
-      asker: "Orbit",
-      at: "2026-10-14T09:00:00.000Z",
-      context: "",
-      deadline: "2099-01-02T09:00:00.000Z",
-      doneSeen: {
-        at: "2026-10-14T10:00:00.000Z",
-        id: "dec_000000000002",
-        kind: "done-seen",
-        schemaVersion: 3,
-        state: "not_found",
-      },
-      doneSeenBy: "payment",
-      id: "dec_000000000002",
-      kind: "asked",
-      links: [],
-      needs: [
-        {
-          bank: "Test Bank",
-          holder: "Blue Reef Test Co.",
-          kind: "account",
-          number: "012-3-45678-9",
-        },
-        { currency: "THB", kind: "amount", value: 4500 },
-        {
-          kind: "link",
-          url: "https://pay.example.test/i/12",
-          vendor: "Reef Pay",
-        },
-        { copy: true, kind: "text", label: "Reference", text: "DEP-12" },
-        { kind: "qr", source: "Reef's WhatsApp of 14 Oct" },
-      ],
-      onSilence: null,
-      options: [
-        { id: "paid", label: "I've paid", looks: true },
-        { id: "other", label: "Paid another way", takes: "note" },
-        { id: "drop", label: "Drop it" },
-      ],
-      question: "Pay the dive course deposit?",
-      schemaVersion: 3,
-      state: "open",
-      title: "Pay the deposit",
-    },
-  ],
-  dismissed: [],
-  doubted: new Set(),
-  endings: new Map([
-    ["obs_000000000005", { later: "ep_000000000001", quote: "Called them." }],
-  ]),
-  heldByAgents: [
-    {
-      agent: "agt_000000000001",
-      closedAt: null,
-      openedBy: "owner",
-      outcome: null,
-      status: "active",
-      step: "obs_000000000005",
-      whyNotStarted: null,
-    },
-  ],
-  isDirectionDue: () => false,
-  isForHandOut: () => false,
-  isParked: () => false,
-  kept: new Set(lines.map((l) => l.id)),
-  lines,
-  matters: [
-    {
-      ...matter,
-      id: "matter_aaaaaaaaaaaa",
-      // His important mark: on the row and on a card's matter.
-      important: true,
-      name: "Mend Gran's watch",
-      steps: [
-        {
-          at: "2026-10-12T09:00:00.000Z",
-          day: "2026-10-12",
-          quote: "Call the shop",
-          ref: "obs_000000000005",
-        },
-      ],
-    },
-    {
-      ...matter,
-      goal: {
-        at: "2026-10-13T02:00:00.000Z",
-        by: "life",
-        text: "Gran's photo is framed.",
-      },
-      id: "matter_cccccccccccc",
-      name: "Frame Gran's photo",
-      newestOpenStep: {
-        at: "2026-10-12T02:00:00.000Z",
-        day: "2026-10-12",
-        kind: "to_do",
-        quote: "Gran wants it framed",
-        ref: "obs_000000000009",
-        text: "Frame Gran's photo",
-      },
-      nextStep: {
-        at: "2026-10-13T02:00:00.000Z",
-        by: "life",
-        kind: "do",
-        text: "Ask the shop for a quote",
-      },
-      steps: [
-        {
-          at: "2026-10-12T09:00:00.000Z",
-          day: "2026-10-12",
-          quote: "Gran wants it framed",
-          ref: "unit_000000000002",
-        },
-      ],
-    },
-  ],
-  nameContexts: new Map([
-    [
-      "sam",
-      {
-        after: [
-          {
-            at: "2026-10-12T09:01:00.000Z",
-            by: "You",
-            channel: "whatsapp" as const,
-            text: "Great, thanks.",
-            to: "Gran",
-          },
-        ],
-        before: [
-          {
-            at: "2026-10-12T09:00:00.000Z",
-            by: "Gran",
-            channel: "whatsapp" as const,
-            text: "The strap broke again.",
-            to: "Gran",
-          },
-        ],
-        clips: [
-          {
-            at: "2026-10-12T09:00:30.000Z",
-            audio: { end: 3.5, jobId: "job-2", start: 0.5 },
-            text: "Sam fixed the strap.",
-            until: "2026-10-12T09:00:33.000Z",
-            words: [
-              [0, 400, 3],
-              [450, 900, 6],
-              [950, 1100, 4],
-              [1150, 1600, 7],
-            ],
-          },
-        ],
-        said: {
-          at: "2026-10-12T09:00:30.000Z",
-          by: "Gran",
-          channel: "whatsapp" as const,
-          text: "Sam fixed the strap.",
-          to: "Gran",
-        },
-      },
-    ],
-  ]),
-  paged: new Set(),
-  people: {
-    ambiguousCards: [
-      { card: "person:con_lou", people: ["person:gran", "person:partner"] },
-    ],
-    candidatesFor: (name: string) =>
-      name === "Sam" ? ["person:sam_lee", "person:sam_ito"] : [],
-    contacts: [
-      {
-        card: "con_lou",
-        handles: ["+33600000009"],
-        id: "person:con_lou",
-        name: "Lou",
-      },
-    ],
-    inferred: [
-      {
-        at: "2026-10-02T10:00:00.000Z",
-        confidence: 0.7,
-        evidence: [
-          { quote: "Kit here, from the shop", unit: "unit_000000000001" },
-        ],
-        id: "inf_kit",
-        name: "Kit",
-        namesAndHandles: ["+33600000001"],
-        relation: "the watchmaker",
-      },
-    ],
-    isGuess: (ref: string) => ref === "person:inf_kit",
-    nameOf,
-    names: new Map([["person:con_lou", "Lou"]]),
-    partyOf: madeUpPartyOf,
-    refOf: (r: string) => r,
-    resolve: (s: string) =>
-      (
-        ({
-          [GRAN_VOICE]: "person:gran",
-          "+33600000001": "person:inf_kit",
-        }) as Record<string, string>
-      )[s] ?? null,
-  },
-  plans: new Set(["dec_000000000002"]),
-  samePersons: [
-    {
-      guess: "person:inf_kit",
-      handles: ["+33600000001"],
-      lines: ["the watchmaker, +33600000001", "his partner"],
-      other: "person:partner",
-    },
-  ],
-  titles: new Map([["unit_000000000001", "Gran"]]),
-  today: "2026-10-14",
-  voices: [
-    {
-      clips: [
-        {
-          at: "2026-10-14T08:00:00.000Z",
-          audio: { end: 4.5, jobId: "job-1", start: 1.2 },
-          text: "It's the shop, about the watch.",
-          until: "2026-10-14T08:00:04.000Z",
-          words: [
-            [0, 300, 4],
-            [350, 500, 4],
-            [550, 900, 6],
-            [950, 1200, 6],
-            [1250, 1400, 4],
-            [1450, 1900, 7],
-          ],
-        },
-      ],
-      conversations: 2,
-      evidence: [
-        {
-          at: "2026-10-14T08:00:00.000Z",
-          conversationId: "c1",
-          text: "It's the shop, about the watch.",
-        },
-      ],
-      id: "v1",
-      kind: "new_person",
-      likely: [GRAN_VOICE],
-      name: null,
-      personId: null,
-      voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
-      words: 40,
-    },
-  ],
-  where: new Map([["unit_000000000001", "whatsapp, 2 Oct"]]),
-};
-const madeUpInbox: CheckInputs = {
-  ...madeUpBase,
-  nameGroups: nameGroupsOf({
-    ...madeUpBase,
-    hisUnitsOf: (units) => new Set(units),
-    people: { ...madeUpBase.people, corrections: [] },
-    unresolved: [nameRow("Sam", "obs_000000000008")],
-  }),
-};
 
 test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_agents and read_person_pictures answer what Kit's models decode", async () => {
   const checks = await import("../../memory/checks");
@@ -451,6 +52,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     notStarted: null,
     outcome: null,
     project: null,
+    role: "personal" as const,
     runtime: "claude",
     status: "running" as const,
     statusSince: "2026-10-13T09:00:00.000Z",
@@ -466,6 +68,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     link: null,
     model: null,
     project: "shop-fit-out",
+    role: null,
     status: "waiting" as const,
     statusSince: "2026-10-14T09:00:00.000Z",
     steps: [],
@@ -537,7 +140,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   });
   const spies = [
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
-    spyOn(checks, "checksAndKeyNow").mockResolvedValue({
+    spyOn(checks, "checksAndKeyNow").mockImplementation(async () => ({
       // As the inbox shows them (`inboxChecksOf`: push ids, urgency, the "Wrong…" sealed), under a made-up key.
       checks: checks.inboxChecksOf(
         checks.checksOf(madeUpInbox).map((c) =>
@@ -550,18 +153,38 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         ),
         "0".repeat(64)
       ),
-      key: "the phone's reads",
-    }),
+      // The key moves with the project situations, as the real one does (`CHECKS_READ`).
+      key: `the phone's reads ${readChangeStamp([PROJECT_SITUATIONS])}`,
+    })),
     spyOn(who, "readPeople").mockResolvedValue({
       isGuess: () => false,
       isKnownToHim: () => true,
       nameOf: (r: string) => r.replace("person:", ""),
       partyOf: madeUpPartyOf,
       truth: {
-        areas: [],
+        areas: [{ id: "home", name: "Home" }],
+        chats: [{ id: "shop-group", name: "Shop group", whatsapp: "1@g.us" }],
         me: { goals: "1. The shop opens in spring (`shop-fit-out`)." },
+        organizations: [],
+        people: [
+          {
+            aliases: [],
+            handles: {},
+            id: "partner",
+            name: "Partner",
+            projects: [],
+          },
+        ],
         projects: [
-          { id: "shop-fit-out", name: "Shop fit-out", status: "active" },
+          {
+            area: "home",
+            chats: ["shop-group"],
+            id: "shop-fit-out",
+            name: "Shop fit-out",
+            people: ["partner"],
+            repos: ["shop-site", "owner/shop-notes"],
+            status: "active",
+          },
         ],
       },
     } as never),
@@ -583,6 +206,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         nextStep: {
           at: "2026-10-13T09:00:00.000Z",
           by: "owner",
+          // His word's context: on read_matter only, never in read_matters' list.
+          context: "The shop said Friday ([the call](life:obs_000000000005)).",
           kind: "wait_event",
           text: "The shop's quote",
           waitsOn: "the shop",
@@ -669,7 +294,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
           "mcp-protocol-version": "2026-07-28",
         }
       );
-      expect(json.result.isError).toBe(false);
+      expect(json.result.isError, JSON.stringify(json.result)).toBe(false);
       return json.result.content[0].text as string;
     };
     const inbox = await read("read_inbox");
@@ -717,10 +342,57 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(
       JSON.parse(await read("read_matters", { ifNot: "older" })).matters
     ).toEqual(rows);
-    expectWire(
-      "read_matters_project",
+    // The project head with a made-up situation: shown while a matter of the project holds the step it cites.
+    const emptyVersion = JSON.parse(
       await read("read_matters", { project: "shop-fit-out" })
-    );
+    ).version;
+    writeJson(projectSituationPath("shop-fit-out"), {
+      built: "2026-10-14T00:00:00.000Z",
+      inputs: "0123456789abcdef",
+      lines: [
+        {
+          cites: ["obs_000000000005"],
+          text: "The shop is quoting the watch repair; the call to them is done.",
+        },
+        { cites: ["obs_gonegonegone"], text: "A step no matter holds." },
+      ],
+      madeBy: {
+        engine: "claude",
+        model: "m",
+        prompt: promptNameNow(),
+        run: "r",
+      },
+      project: "shop-fit-out",
+      schemaVersion: 1,
+    });
+    const withSituation = await read("read_matters", {
+      project: "shop-fit-out",
+    });
+    expect(JSON.parse(withSituation).project.situation).toEqual([
+      {
+        cites: ["obs_000000000005"],
+        text: "The shop is quoting the watch repair; the call to them is done.",
+      },
+    ]);
+    expectWire("read_matters_project", withSituation);
+    const chips = JSON.parse(await read("read_projects"));
+    expectWire("read_projects", chips);
+    mkdirSync(join(HOME, "Work", "shop-site", ".git"), { recursive: true });
+    // The folders are under his home (a test's is temporary), and the version hashes them: both held fixed.
+    const headerText = await read("read_project", { project: "shop-fit-out" });
+    const headerVersion = JSON.parse(headerText).version;
+    const header = JSON.parse(headerText.replaceAll(HOME, "/Users/owner"));
+    expectWire("read_project", { ...header, version: "fixed" });
+    // A phone that held the empty head hears the new situation.
+    expect(
+      JSON.parse(
+        await read("read_matters", {
+          ifNot: emptyVersion,
+          project: "shop-fit-out",
+        })
+      ).unchanged
+    ).toBeUndefined();
+    rmSync(projectSituationPath("shop-fit-out"), { force: true });
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })
@@ -730,7 +402,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       await read("read_matter", { id: "matter_cccccccccccc" })
     );
     expectWire("read_registered_agents", await read("read_registered_agents"));
-    // Gran's picture as kept (made-up bytes), and Robin's, gone since.
     mkdirSync(PERSON_PICTURES, { recursive: true });
     writeFileSync(
       join(PERSON_PICTURES, pictureFileOf(GRAN_PICTURE)),
@@ -742,6 +413,22 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         ids: [GRAN_PICTURE, ROBIN_PICTURE],
       })
     );
+    // The agent's turn ends with its assignment still open: the desk's stamp is the same, yet both reads move.
+    const gone = { ...agent, status: "waiting" as const };
+    spyOn(agents, "readRegisteredAgents").mockResolvedValue({
+      agents: [{ ...gone, matter: null }],
+      desk: "ok",
+      helper: "running",
+      refused: [],
+    });
+    spyOn(agents, "readAgentsOnSteps").mockReturnValue([gone] as never);
+    const heldChips = await read("read_projects", { ifNot: chips.version });
+    expect(JSON.parse(heldChips).unchanged).toBeUndefined();
+    const heldHeader = await read("read_project", {
+      ifNot: headerVersion,
+      project: "shop-fit-out",
+    });
+    expect(JSON.parse(heldHeader).unchanged).toBeUndefined();
   } finally {
     setSettings({ payments: null });
     for (const spy of spies) {

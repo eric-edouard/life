@@ -4,13 +4,14 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { writeWhole } from "../core/files";
+import { oneAtATime } from "../core/lock";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
 import {
@@ -360,23 +361,14 @@ const whatOf = (a: Change) =>
   `${a.action} ${a.kind} ${a.id ?? a.name ?? ("number" in a ? a.number : undefined) ?? ""}`.trim();
 
 /** One change at a time: two calls would each read the file the other is about to write. */
-let queue: Promise<unknown> = Promise.resolve();
-
-/** Writes whole or not at all: a temp file beside it, then a rename. */
-function writeWhole(path: string, text: string) {
-  const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, text);
-  renameSync(temp, path);
-}
+const inTurn = oneAtATime();
 
 /**
  * Applies one change he asked for in his own words (`said`): validated on a copy of truth/ first, then written, kept as
  * what he told Life, and committed in his data repo. Returns what changed; throws, changing nothing, when it is refused.
  */
 export function changeDirectoryEntry(a: Change) {
-  const run = queue.then(() => apply(a));
-  queue = run.catch(() => undefined);
-  return run;
+  return inTurn(() => apply(a));
 }
 
 /**

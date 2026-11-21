@@ -113,13 +113,21 @@ export const googleMapsUrlOf = (p: MapPlace) => {
   );
 };
 
-/** The one-tap map lines of an event's description (Google Maps, Apple Maps); none with no place. */
-export function mapLinksOf(p: MapPlace): string[] {
+/** Google Maps and Apple Maps on a place (`googleMapsUrlOf`, Apple's by its name else its coordinates); none with neither. */
+export function mapUrlsOf(p: MapPlace) {
   const [q, google] = [linkNameOf(p) ?? pointOf(p), googleMapsUrlOf(p)];
   if (!(q && google)) {
-    return [];
+    return;
   }
   const point = pointOf(p);
   const apple = `https://maps.apple.com/?q=${encodeURIComponent(q)}${point ? `&ll=${point}` : ""}`;
-  return [`Google Maps: ${google}`, `Apple Maps: ${apple}`];
+  return { apple, google };
+}
+
+/** The one-tap map lines of an event's description (Google Maps, Apple Maps); none with no place. */
+export function mapLinksOf(p: MapPlace): string[] {
+  const urls = mapUrlsOf(p);
+  return urls
+    ? [`Google Maps: ${urls.google}`, `Apple Maps: ${urls.apple}`]
+    : [];
 }

@@ -217,10 +217,19 @@ private func page(_ cursor: Int, _ arrays: [String: [String]]) -> Data {
     let dictation = #"{"id":"\#(id(7))","startedAt":"\#(iso(0))","endedAt":"\#(iso(5))"}"#
     try await store.apply(feed: page(1, ["quietRanges": [dictation]])) { _ in }
     // Stored as it plays, then closed a little shorter than the last guess: one range, the latest end.
-    try await store.setPlaybackQuiet(at(10)..<at(40))
-    try await store.setPlaybackQuiet(at(10)..<at(70))
-    try await store.setPlaybackQuiet(at(10)..<at(55))
+    try await store.setQuiet(.playback, at(10)..<at(40))
+    try await store.setQuiet(.playback, at(10)..<at(70))
+    try await store.setQuiet(.playback, at(10)..<at(55))
     #expect(try await store.quietRanges(in: at(0)..<at(100)) == [at(0)..<at(5), at(10)..<at(55)])
+}
+
+@Test func aDictationOnThisPhoneIsLeftOutBesideAPlaybackOfTheSameBoundsAndShrinksAtItsEnd() async throws {
+    let store = try LibraryStore(directory: temporaryDirectory())
+    // Stored with its cap before the mic opens, then its real end at Stop.
+    try await store.setQuiet(.dictation, at(20)..<at(620))
+    try await store.setQuiet(.playback, at(20)..<at(620))
+    try await store.setQuiet(.dictation, at(20)..<at(32))
+    #expect(try await store.quietRanges(in: at(0)..<at(1000)) == [at(20)..<at(32), at(20)..<at(620)])
 }
 
 @Test func locationHistoryIsSentOnceAndADepartureAgain() async throws {

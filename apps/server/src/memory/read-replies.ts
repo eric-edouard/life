@@ -87,6 +87,12 @@ export const readRepliesSince = (since: string, where = READ_REPLIES) =>
     .filter((f) => f >= readReplyPath(since, where))
     .flatMap(readReplyFile);
 
+/** The stored lines of the month files of `months` (`YYYY-MM`), one list each as `readReplies` gives it (none: empty). */
+export const readRepliesOfMonths = (
+  months: readonly string[],
+  where = READ_REPLIES
+) => [...new Set(months)].map((m) => readReplyFile(readReplyPath(m, where)));
+
 /** A confirmed arrival: new lines of a unit his engine confirmed hold an ask, a promise or a wait for him. */
 export interface ConfirmedArrival {
   at: string;
@@ -98,17 +104,24 @@ export interface ConfirmedArrival {
 }
 
 /**
- * The one rule of what is a confirmed arrival: a confirm line of the current prompt that says `isActionable`. Read by
- * extraction's choice of units and the desk's wake, never decided twice.
+ * The one rule of what is a confirmed arrival: a confirm line, of any prompt version, that says `isActionable`, the
+ * newest (by `at`) of those ending at the same message (the desk's wake id), so a message wakes one agent. An older
+ * prompt's yes still counts: the reader reads only today's lines, so a prompt bumped before the night would otherwise
+ * leave that day's confirmed units unread (an importance-1 reply keeping a promise). Read by extraction's choice of
+ * units and the desk's wake, never decided twice.
  */
-export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
-  lines.flatMap((l) =>
-    l.read === ARRIVAL_CONFIRM_READ &&
-    l.reply.isActionable === true &&
-    isPromptVersion(l.madeBy.prompt, READS.arrival_confirm.prompt)
-      ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
-      : []
-  );
+export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] => [
+  ...new Map(
+    lines
+      .flatMap((l) =>
+        l.read === ARRIVAL_CONFIRM_READ && l.reply.isActionable === true
+          ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
+          : []
+      )
+      .toSorted((a, b) => a.at.localeCompare(b.at))
+      .map((a) => [a.messages.at(-1), a])
+  ).values(),
+];
 
 /**
  * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first line's month, at most two

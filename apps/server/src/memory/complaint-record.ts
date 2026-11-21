@@ -38,6 +38,7 @@ const STAGES: Record<CheckGroup, { prompt: string | null; stage: string }> = {
   "new matter": { prompt: MATTERS_PROMPT, stage: "matters" },
   "same person": { prompt: null, stage: "names" },
   voice: { prompt: null, stage: "voice naming" },
+  "your move": { prompt: MATTERS_PROMPT, stage: "matters" },
 };
 
 export const ComplaintRow = z

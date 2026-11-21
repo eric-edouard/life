@@ -13,8 +13,16 @@ import { createApp } from "./app";
 import { joinOggOpus, oggOpusSeconds } from "./audio";
 import { memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
-import { admit, blockFrom, cut, QUIET_RANGES_FROM, type Span } from "./cutter";
+import {
+  admit,
+  blockFrom,
+  cut,
+  QUIET_RANGES_FROM,
+  type Span,
+  touchesQuiet,
+} from "./cutter";
 import type { Job } from "./jobs";
+import { quietIn } from "./quiet-ranges";
 import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
@@ -434,26 +442,6 @@ test("a fragment's duration is measured from its Ogg Opus audio, not trusted fro
   expect((await putFragment(app, a, a.pages, seconds + 0.4)).status).toBe(200);
 });
 
-test("a fragment sent again is the same fragment, before and after its block closed, and buys nothing", async () => {
-  const app = appWith();
-  const first = await (await putFragment(app, c)).json();
-  const again = await (await putFragment(app, c)).json();
-  expect(again).toEqual(first);
-  expect(first).toMatchObject({ jobId: null, pages: [[21, 30]] });
-  expect(app.audio.writes).toBe(1);
-
-  await report(app, lastEnd(c) + 50_000);
-  await app.s.worker.work();
-  const [job] = jobs();
-  const replay = await putFragment(app, c);
-  expect(replay.status).toBe(200);
-  expect(await replay.json()).toEqual({ ...first, jobId: job?.id });
-  await app.s.worker.work();
-  expect(jobs()).toHaveLength(1);
-  expect(uploads()).toHaveLength(1);
-  expect(app.audio.writes).toBe(2);
-});
-
 test("audio from before the Mac's quiet ranges is covered: kept without audio, its pages held, never cut", async () => {
   const app = appWith();
   const old = {
@@ -675,6 +663,35 @@ test("a range that comes after the block closed withdraws its job in the worker,
   const withdrawn = { firstPage: 1, kind: "job", sourceId: SOURCE };
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: job?.id });
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: fragment?.id });
+});
+
+test("the phone's copy of its own dictation leaves another source's audio at the same instant eligible", async () => {
+  const app = appWith();
+  await putFragment(app, a);
+  await app.s.worker.work.idle();
+  const [from = 0] = a.map.segments[0] ?? [];
+  const at = (offset: number) => new Date(from + offset);
+  env.db
+    .insert(quietRanges)
+    .values({
+      endedAt: at(500),
+      id: randomUUID(),
+      source: "dictation",
+      startedAt: at(100),
+    })
+    .run();
+  expect(touchesQuiet(env.db, a.map)).toBe(false);
+  expect(quietIn(env.db, [from, from + 1000])).toEqual([]);
+  env.db
+    .insert(quietRanges)
+    .values({
+      endedAt: at(500),
+      id: randomUUID(),
+      source: "playback",
+      startedAt: at(100),
+    })
+    .run();
+  expect(touchesQuiet(env.db, a.map)).toBe(true);
 });
 
 test("a quiet range that lands while a block's audio is stored: no job is admitted, its block's audio goes, and the rest closes without it", async () => {

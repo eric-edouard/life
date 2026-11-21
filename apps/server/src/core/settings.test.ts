@@ -36,27 +36,6 @@ test("settings set with one bad part writes nothing", () => {
   expect(readSettings()).toEqual(before);
 });
 
-test("two agents may not share a wake or misheard word, whatever its case and punctuation", () => {
-  const agents = (comet: string[]) => ({
-    agents: {
-      Comet: { wake: comet },
-      Orbit: { misheard: ["or bit"], wake: ["orbit"] },
-    },
-  });
-  expect(Settings.safeParse(agents(["comet"])).success).toBe(true);
-  expect(Settings.safeParse(agents(["Orbit!"])).success).toBe(false);
-  expect(Settings.safeParse(agents(["or-bit"])).success).toBe(false);
-});
-
-test("no agent takes a role asker's name (owner, desk, life)", () => {
-  expect(
-    Settings.safeParse({ agents: { owner: { wake: ["owner"] } } }).success
-  ).toBe(false);
-  expect(
-    Settings.safeParse({ agents: { Comet: { wake: ["comet"] } } }).success
-  ).toBe(true);
-});
-
 test("the historical engine is optional and strict, independent of the ordinary engine", () => {
   expect(
     Settings.parse({ engine: "openrouter" }).backfillEngine

@@ -44,6 +44,17 @@ const Text = z
     text: z.string().min(1).max(500),
   })
   .strict();
+const https = z.url({ protocol: /^https$/ });
+const Place = z
+  .object({
+    address: oneLine(200).optional(),
+    appleMapsUrl: https.optional(),
+    boltUrl: https.optional(),
+    googleMapsUrl: https.optional(),
+    kind: z.literal("place"),
+    name: oneLine(120),
+  })
+  .strict();
 const Qr = z
   .object({
     kind: z.literal("qr"),
@@ -56,6 +67,7 @@ export const Need = z.discriminatedUnion("kind", [
   Account,
   Amount,
   Link,
+  Place,
   Text,
   Qr,
 ]);
@@ -90,10 +102,15 @@ const KINDS: {
     line: (n) => `${n.vendor ? `${n.vendor}: ` : ""}${new URL(n.url).host}`,
     page: '`{kind: "link", url, vendor?}`: a page he opens by his own tap (a checkout, a login, a form), `https` or `http` only; `vendor` who runs it. His phone shows the page\'s host in full and never opens it by itself. Example: `{"kind":"link","url":"https://pay.example.com/i/123","vendor":"Fibrenet"}`.',
   },
+  place: {
+    about: "a place to go (name, links)",
+    line: (n) => (n.address ? `${n.name}, ${n.address}` : n.name),
+    page: '`{kind: "place", name, address?, googleMapsUrl?, appleMapsUrl?, boltUrl?}`: where he goes to do the step. `name` as the place is known; `address` only as written somewhere; the links `https` only, each opened by his own tap: Google Maps, Apple Maps, and a Bolt ride there. Never guess one. Example: `{"kind":"place","name":"Chatuchak vehicle office","googleMapsUrl":"https://www.google.com/maps/search/?api=1&query=Chatuchak%20vehicle%20office"}`.',
+  },
   qr: {
     about: "a payee's QR code (source)",
     line: (n) => `QR code from ${n.source}${n.payload ? `: ${n.payload}` : ""}`,
-    page: '`{kind: "qr", source, payload?}`: a QR code the payee sent. `source` where it is, in a few words with the message\'s id (`"Kit\'s WhatsApp of 20 Nov, <id>"`); `payload` the code\'s text when you read it. His phone shows it as words for now: give the `account` and `amount` beside it.',
+    page: '`{kind: "qr", source, payload?}`: a QR code the payee sent. `source` where it is, in a few words with the message\'s id (`"Kit\'s WhatsApp of 20 Nov, <id>"`); `payload` the code\'s text when you read it. His phone draws the code from `payload` (its amount too, for a PromptPay code) and saves it to his photos for his bank app; without `payload` it shows `source` as words. Give the `account` (its `scheme` picks the bank app, its `holder` is the name shown under the code) and the `amount` beside it.',
   },
   text: {
     about: "a reference or code (text, label, copy)",

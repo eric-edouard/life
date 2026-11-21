@@ -320,6 +320,7 @@ const item: NamingQueueItem = {
   conversations: 1,
   evidence: [],
   id: "v1",
+  isLikely: false,
   kind: "new_person",
   likely: [DANA_ID],
   name: null,
@@ -328,10 +329,81 @@ const item: NamingQueueItem = {
   words: 9,
 };
 
+/** The people a voice card's ref is read with, of a made-up `resolve`. */
+const whoOf = (resolve: (s: string) => string | null) => ({
+  names: new Map<string, string>(),
+  refOf: (r: string) => r,
+  resolve,
+});
+
+// Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
+// landed, so all land, and one that fails does not stop the next.
+test("voice answers given at once are read and answered one at a time, and all land", async () => {
+  const resolve = () => null;
+  const items = ["v1", "v2", "v3"].map((id, i) => ({
+    ...item,
+    id,
+    voices: [{ conversationId: "c1", jobId: `job-${i}`, speakerLabel: "A" }],
+  }));
+  let open = [...items];
+  const seen: string[] = [];
+  const voices = await import("../sources/lifelog-voices");
+  const queue = spyOn(voices, "readNamingQueueNow").mockImplementation(
+    async () => {
+      const now = open;
+      await Bun.sleep(1);
+      seen.push(`read ${now.map((i) => i.id).join()}`);
+      return now;
+    }
+  );
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    ...whoOf(resolve),
+  } as never);
+  const send = spyOn(voices, "answerNamingQueue").mockImplementation(
+    async ([v]) => {
+      // The first answer is slow and fails: the next still waits for it, then lands.
+      if (v?.jobId === "job-0") {
+        await Bun.sleep(20);
+        seen.push("fail v1");
+        throw new Error("lifelog is down");
+      }
+      open = open.filter((i) => i.voices[0]?.jobId !== v?.jobId);
+      seen.push(`answer ${v?.jobId}`);
+      return { ok: true };
+    }
+  );
+  try {
+    const answers = await Promise.allSettled(
+      items.map((i) =>
+        answerCheck(check(voiceCardRefOf(whoOf(resolve), i), "voice"), {
+          options: ["not-relevant"],
+        })
+      )
+    );
+    expect(answers.map((a) => a.status)).toEqual([
+      "rejected",
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(seen).toEqual([
+      "read v1,v2,v3",
+      "fail v1",
+      "read v1,v2,v3",
+      "answer job-1",
+      "read v1,v3",
+      "answer job-2",
+    ]);
+  } finally {
+    queue.mockRestore();
+    people.mockRestore();
+    send.mockRestore();
+  }
+});
+
 // life#765: a typed name is resolved with the people the voice answer already read: one read, not two.
 test("a voice answer naming someone by a typed name reads his people once", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
-  const voice = check(voiceCardRefOf(resolve, item), "voice");
+  const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
     "readNamingQueueNow"
@@ -342,7 +414,7 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
       typed === "Dana"
         ? { by: "his word", isShared: false, ref: "person:dana" }
         : undefined,
-    resolve,
+    ...whoOf(resolve),
   } as never);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -366,14 +438,14 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
 
 test("a voice's answer goes to lifelog for every turn of it: a known person is assigned, an unknown one confirmed by name, nothing is written", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
-  const voice = check(voiceCardRefOf(resolve, item), "voice");
+  const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
     "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: (r: string) => (r === "person:dana" ? "Dana" : "Kofi"),
-    resolve,
+    ...whoOf(resolve),
   } as never);
   const send = spyOn(
     await import("../sources/lifelog-voices"),
@@ -395,7 +467,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     queue.mockResolvedValueOnce([known]);
     const dana = {
       ...voice,
-      ref: voiceCardRefOf(resolve, known),
+      ref: voiceCardRefOf(whoOf(resolve), known),
       subject: "person:dana",
     };
     // "Yes" names the person on the card only: a typed name goes with "Someone else…".
@@ -499,6 +571,69 @@ test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start
       { goal: "Serviced and the leak fixed", kind: "matter-direction", steps },
       { kind: "new-matter-dismissed", steps },
     ]);
+  } finally {
+    book.mockRestore();
+    people.mockRestore();
+  }
+});
+
+test("your move: Mark as done ends its step through host, Not now pins his word for 3 days, Hand to an agent only while offered", async () => {
+  const steps: [string, string] = ["obs_000000000081", "obs_000000000082"];
+  const move = {
+    ...check("move:matter_000000000081/obs_000000000081", "your move"),
+    goal: "The garden fence is painted",
+    matter: { id: "matter_000000000081", name: "Garden fence" },
+    options: [{ id: "done" }, { id: "start" }, { id: "not-now" }],
+    subject: steps[0],
+  } as unknown as InboxCheck;
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue(
+    {} as never
+  );
+  const book = spyOn(
+    await import("./matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      id: "matter_000000000081",
+      open: true,
+      steps: steps.map((ref) => ({ ref })),
+    },
+  ] as never);
+  const ended: string[] = [];
+  try {
+    const { done } = await answerWith(
+      move,
+      { options: ["done"] },
+      "connector",
+      {
+        endYourMove: () => {
+          ended.push(move.subject ?? "");
+          return Promise.resolve([{ kind: "outdated" }]);
+        },
+      }
+    );
+    expect(done).toEqual([{ kind: "outdated" }]);
+    expect(ended).toEqual([steps[0]]);
+    await expect(
+      answerWith(move, { options: ["done"] }, "session")
+    ).rejects.toThrow("his own answer_check");
+    await answerCheck(move, { options: ["not-now"] });
+    const [line] = said();
+    expect(line).toMatchObject({
+      kind: "your-move-not-now",
+      matter: "matter_000000000081",
+      steps,
+    });
+    expect(
+      (line as { until: string }).until > new Date().toISOString().slice(0, 10)
+    ).toBe(true);
+    await answerCheck(move, { options: ["start"] });
+    expect(started).toEqual(["The garden fence is painted"]);
+    await expect(
+      answerCheck({ ...move, options: [{ id: "done" }] } as never, {
+        options: ["start"],
+      })
+    ).rejects.toThrow("while the card offers it");
   } finally {
     book.mockRestore();
     people.mockRestore();

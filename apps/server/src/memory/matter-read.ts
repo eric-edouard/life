@@ -51,8 +51,8 @@ type MatterStatus = (typeof STATUSES)[number];
 
 /** A step in this many days or less: the matter is moving. */
 const MOVING_DAYS = 14;
-/** An open step's date passed this many days ago or less: the matter is stuck; an older one has no say. */
-const STUCK_DAYS = 30;
+/** An open step's date passed this many days ago or less: the matter is stuck; an older one has no say (nor is it a your move card's deadline). */
+export const STUCK_DAYS = 30;
 /** A matter with nothing to do is done once its last step and every date are this many days past. */
 const QUIET_DAYS = 7;
 
@@ -495,7 +495,8 @@ const isOpenKind = (o: StepObservation) =>
  * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
  * unit can be a step of several matters), on a tie the one with the fewest steps (a matter inside a bigger one keeps
  * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). `prefer`,
- * a pin's matter id, breaks only a tie of the most held, before the size rule. Pure; built once for many lookups.
+ * the matter id a pin or an assignment (`matter_id`) was given, breaks only a tie of the most held, before the size
+ * rule. Pure; built once for many lookups.
  */
 export function matterFinderOf<V extends Found>(book: readonly V[]) {
   const holders = new Map<string, V[]>();
@@ -531,11 +532,12 @@ export function matterFinderOf<V extends Found>(book: readonly V[]) {
   };
 }
 
-/** The matter `refs` name (`matterFinderOf`), for one lookup. */
+/** The matter `refs` name (`matterFinderOf`, `prefer` its tie-breaker), for one lookup. */
 export const matterOfSteps = <V extends Found>(
   book: readonly V[],
-  refs: readonly string[]
-) => matterFinderOf(book)(refs);
+  refs: readonly string[],
+  prefer?: string
+) => matterFinderOf(book)(refs, prefer);
 
 /** Whether `v` got a step, or a step's ending, that `pin` was not drafted on: its next step is then out of date. Pure. */
 const isNewerThan = (

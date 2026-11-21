@@ -149,7 +149,7 @@ export async function complain(
     );
   }
   // His own Try again on a complaint the desk has not received is a press too: a caretaker that never started tries
-  // once more for it (`startFailureOf`). A replay of one received, or his app's repeat of a dropped call, is none.
+  // once more for it (`roleStartBlockOf`). A replay of one received, or his app's repeat of a dropped call, is none.
   const receipt =
     recorded && !m.repeated
       ? readDesk((db) => complaintReceiptOf(db, recorded.id), null)

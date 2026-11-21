@@ -1,3 +1,5 @@
+import { daysBefore } from "../core/clock";
+import { oneAtATime } from "../core/lock";
 import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
 import {
@@ -13,10 +15,11 @@ import {
 } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import type { Check, LIFE_CHECKS } from "./life-checks";
-import { matterOfSteps } from "./matter-read";
+import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
+import { withVoiceGuesses } from "./voice-guesses";
 import { type People, readPeople, voiceCardRefOf, voicePersonOf } from "./who";
 import { dayNow } from "./zones";
 
@@ -47,9 +50,13 @@ export type AddDirectoryEntry = (
   fields?: { relation?: string }
 ) => Promise<string>;
 
-/** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start (his own token's `answer_check` only). */
+/** Closes by his word the steps a your move card's Mark as done closes (`yourMoveClosingOf`, read by host before the plan: host's `endByHisWord`); gives the lines written. */
+export type EndYourMove = () => Promise<unknown[]>;
+
+/** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start and a your move's end (his own token's `answer_check` only). */
 interface WriterExtras {
   addDirectoryEntry?: AddDirectoryEntry;
+  endYourMove?: EndYourMove;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
   startAgent?: StartAgent;
   voice?: Voice;
@@ -139,9 +146,15 @@ interface Voice {
  */
 async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
   const people = await readPeople();
-  const queue = await readNamingQueueNow();
+  const queue = await withVoiceGuesses(await readNamingQueueNow()).catch(
+    (e: Error) => {
+      throw new Error(
+        `Not done: the voice guesses behind ${c.ref} cannot be read now (${e.message}).`
+      );
+    }
+  );
   const item = queue.find(
-    (i) => i.kind !== "several" && voiceCardRefOf(people.resolve, i) === c.ref
+    (i) => i.kind !== "several" && voiceCardRefOf(people, i) === c.ref
   );
   if (!item) {
     throw new Error(
@@ -150,6 +163,14 @@ async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
   }
   return { item, people };
 }
+
+/**
+ * One voice answer at a time in this process (the phone releases held answers at once): its read of lifelog's queue
+ * and its answer share a turn. ponytail: a turn waits for the ones before it, each a queue read (34 to 120 ms measured)
+ * and one write; a hung lifelog holds the rest up to its read limit, past the phone's 15 s idle wait (the answer still
+ * lands, the phone shows it failed). Answers from the CLI's own process are not in this chain.
+ */
+const voiceTurn = oneAtATime();
 
 /** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
 async function answerVoice(
@@ -201,6 +222,34 @@ async function newMatterOf(c: Pick<Check, "ref">) {
     throw new Error(`Not done: no matter ${c.ref} with a goal.`);
   }
   return { goal: v.goal, steps: v.steps.map((s) => s.ref) };
+}
+
+/** How long his "Not now" hides a your move card: it is back on the third day after. */
+export const NOT_NOW_DAYS = 3;
+
+/** The open matter a your move card is on, as it reads now: the one it named (`matter`), else the one holding its step. */
+async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
+  const open = (await readMatterBook(await readPeople(), dayNow())).filter(
+    (m) => m.open
+  );
+  const v =
+    open.find((m) => m.id === c.matter?.id) ??
+    matterOfSteps(open, [c.subject ?? ""], c.matter?.id);
+  if (!v) {
+    throw new Error(`Not done: no open matter holds ${c.ref} now.`);
+  }
+  return v;
+}
+
+/** What a your move card's Mark as done closes: its step, while it is still open on its matter (`openStepsOf`). */
+export async function yourMoveClosingOf(
+  c: Pick<Check, "matter" | "ref" | "subject">
+) {
+  const closing = openStepsOf(await yourMoveMatterOf(c), c.subject ?? "");
+  if (closing.length === 0) {
+    throw new Error(`Not done: ${c.subject} is no longer open.`);
+  }
+  return closing;
 }
 
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
@@ -357,6 +406,39 @@ const WRITERS: {
     "this-is": (c, a, { voice }) =>
       answerVoice(c, voice, (v) => thisIs(v, c, a)),
   },
+  // Done and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
+  "your move": {
+    done: (_c, _a, x) => {
+      if (!x.endYourMove) {
+        throw new Error(
+          "Not done: Mark as done comes only through his own answer_check."
+        );
+      }
+      return x.endYourMove();
+    },
+    "not-now": async (c, a) => {
+      const v = await yourMoveMatterOf(c);
+      return correct(
+        [
+          {
+            kind: "your-move-not-now",
+            matter: v.id,
+            steps: v.steps.map((s) => s.ref),
+            until: daysBefore(dayNow(), -NOT_NOW_DAYS),
+          },
+        ],
+        a
+      );
+    },
+    start: async (c, a, x) => {
+      if (!(x.startAgent && c.options.some((o) => o.id === "start"))) {
+        throw new Error(
+          "Not done: Hand to an agent comes only through his own answer_check, while the card offers it."
+        );
+      }
+      return [await x.startAgent(c, a.note ?? c.goal ?? c.title)];
+    },
+  },
 };
 
 /**
@@ -375,6 +457,7 @@ export async function answerCheck(
     addDirectoryEntry,
     answerKey,
     end,
+    endYourMove,
     look,
     onStep,
     startAgent,
@@ -410,14 +493,21 @@ export async function answerCheck(
       `Not done: pick one of ${Object.keys(writers).join(", ")} for ${ref}.`
     );
   }
-  const voice = check.group === "voice" ? await readVoice(check) : undefined;
-  const typed = await typedPersonOf(a, voice?.people);
-  const done = await write(check, typed.a, {
-    addDirectoryEntry,
-    onStep,
-    startAgent,
-    voice,
-  });
+  const answer = async (read?: Voice) => {
+    const typed = await typedPersonOf(a, read?.people);
+    const done = await write(check, typed.a, {
+      addDirectoryEntry,
+      endYourMove,
+      onStep,
+      startAgent,
+      voice: read,
+    });
+    return { done, typed, voice: read };
+  };
+  // A voice is read and answered in its turn: each reads lifelog's queue after the answer before it landed.
+  const { done, typed, voice } = await (check.group === "voice"
+    ? voiceTurn(async () => answer(await readVoice(check)))
+    : answer());
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }

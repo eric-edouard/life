@@ -263,8 +263,10 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 The decisions: a question an agent puts to him (`memory/decisions.ts`; each line's shape in `memory/decision-lines.ts`), append-only, one synchronous line each,
 outside the lock, schemaVersion 3, by `kind`:
 - `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, `desk`, or `owner` from his own app),
-  `agent` (`agt_…`, a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
-  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional, `memory/draft.ts`. What the
+  `agent` (`agt_…`, a registered agent's, optional), `assignment` (the desk's `asg_…` that asked it, which owns it when
+  the desk's `card` row is missing; optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
+  optional), `matter` (the matter it was asked on, as the ask resolved it: the finder's pick on a tie among the
+  matters its subject step rides on, which the inbox and his answer take; optional, cards before it have none), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional, `memory/draft.ts`. What the
   agent gives: `channel`, the source it goes through; `to`, the chat's name once stored; one of `text`, `file` (an
   absolute path) or `reaction` (an emoji, with `onMessage` and nothing else); `onMessage`, a message's id as `read_chats`
   gives it (replied to, or reacted to); `mentions` (`[{name, sender}]`, each an `@name` of `text`, in order); for mail,
@@ -280,7 +282,8 @@ outside the lock, schemaVersion 3, by `kind`:
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
   days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null), `contests` (Life's stamp:
   the open card of another asker that held the draft's chat when asked, which this one waits on, `memory/draft-contest.ts`),
-  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read). A `draft` needs
+  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
+  `plan` and `gathered` (an assignment's plan card only: its plan steps, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; its options are then `start` and `decline`; cards before 21 Nov 2026 have none, which is true of them). A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
   `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
@@ -345,7 +348,7 @@ its steps only, never a status. What is open, a matter's status, newest open ste
 
 Life's drafts of the matters' directions (`memory/matter-directions.ts`, its only writer), one line per call,
 append-only: `directions` (each `goal`, one line: where the matter is going; `nextStep`, what moves it now: `kind`
-`do`, `wait_event` or `wait_owner`, `text`, one line, and `waitsOn`, what a wait waits on (since v2 `nextStep` is optional: a matter that looks over has none and gives `endingRecords` instead, at most 3 ids of later records, possibly none, which the links step then reaches; exactly one of the two); `laterShown` (since v2, optional: the ids of the later records the draft was shown, the newest 12; a line without it is a blind one); `steps`, the matter's step
+`do`, `wait_event` or `wait_owner`, `text`, one line, `waitsOn`, what a wait waits on, and since v3 an optional `context`, Markdown as a card's, a context whose `life:` links open nothing dropped before the line is written (since v2 `nextStep` is optional: a matter that looks over has none and gives `endingRecords` instead, at most 3 ids of later records, possibly none, which the links step then reaches; exactly one of the two); `laterShown` (since v2, optional: the ids of the later records the draft was shown, the newest 12; a line without it is a blind one); `steps`, the matter's step
 ids when drafted: the pin, so a re-group keeps it; `matter`, from 21 Nov 2026 optional, its id when drafted, which only breaks
 a tie between matters holding as many of its steps), `at`, `madeBy`, `schemaVersion`. A running matter is
 drafted when it has none, or once it has a step, or a step's ending, newer than its latest pin, or, when that is Life's, once when it has no `laterShown`, or in its first 7 days (`NEW_MATTER_DAYS`) when one of its newest 12 later records is not in `laterShown`
@@ -400,8 +403,9 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `not-worth-naming` | `nameOrHandle` | His "Don't name" on a name check: that name is never asked (`nameGroupsOf`); a later `this-is` still places it |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
-| `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `matter` (its id, from 21 Nov 2026), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
+| `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `matter` (its id, from 21 Nov 2026), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`, and optionally `context`: Markdown as a card's, its `life:` links checked when written, shown on `read_matter` only) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
+| `your-move-not-now` | `matter`, `steps` (all of its step ids when he answered), `until` (a local day, exclusive) | His Not now on a your move card: that matter's card hides until `until`, or until the matter gets a step not in `steps` |
 | `matter-important` | `steps` (all of a matter's step ids when he marked it), `matter` (its id, from 21 Nov 2026), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
 | `matter-icon` | `steps` (all of a matter's step ids when he picked it), `matter` (its id), `icon` (a key of `MATTER_ICONS`, or null: Life picks again) | His icon for the matter those steps find (`chosenIconsOf`; a re-group keeps it): the latest wins; his token only, by the matter's id |
 | `matter-project` | `steps` (all of a matter's step ids when he said it), `matter` (its id), `project` (a project id of his directory) | His word of which project the matter those steps find is of (a re-group keeps it): the latest wins, and it is the matter's one project (`matterBookOf`), so the agent that takes it follows (`agentForOf`); his token only, by the matter's id |
@@ -472,6 +476,10 @@ night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and 
 rests on), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown: the episodes of importance 2 or more with them in the 30 days ending at their newest, a digest of the page and, while the `personas` add-on is on, the persona's readings; never the date), `built`, `madeBy`,
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
 no page. A reader drops a line whose episode is no longer live, and the whole situation when `madeBy.prompt` is not the variant now. His correction is a line on the page.
+
+## project-situations/<project>.json
+
+Where a project underway stands now, written by `project-situations.ts` each night when its inputs changed: `project` (its directory id), `lines` (each `text` and `cites`, the refs of the matter steps it rests on), `inputs` (a hash of the prompt's variant name and what was shown: the directory entry's deadlines, name, status and notes, and each running matter's name, goal, next step, open steps and newest 12 steps; never the date and never a matter's status, which follows the clock), `built`, `madeBy`, `schemaVersion`. Kept apart from `situations/`, whose files are all people's. Rewritten whole, never from its own last version; removed when the project is no longer underway or shows no running matter. A reader drops a line whose step no matter of the project holds any more, and the whole situation when `madeBy.prompt` is not the variant now.
 
 ## personas/<id>.json
 
@@ -552,7 +560,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (the agent it is for, a key of the `agents` setting, or `desk`, the built-in agent his word about a registered agent goes to, with `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt at his press, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt at his press, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
@@ -560,7 +568,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open to-do item had the title; nothing written) or `intent` (written by `changeTodoItem` just before a Reminders
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`
-  (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a `hey <agent>` heard; a
+  (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a "hey Life" heard, a `hey <agent>` until 21 Nov 2026; a
   nudge or a steer until 20 Oct) or `todo_list` (the owner's own change in his to-do list, with no `instruction`: state, never the owner's
   words). Intents, imports and his complaints are left out
   of `read_day`'s and the nightly's Actions and of the change feed (`isListed`, `isComplaint`).
@@ -688,9 +696,16 @@ runtime), current session and link, `status` `active`, `stopped`, `handed_over` 
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
 `wait_until`), `notes_path` (its notes file, in `desk.agentsRepo`, else under the desk's folders), `plan_done`,
-`plan_total`, `plan_now` (its runtime's plan, overwritten; null when none), `closed_at`, `outcome`, `why_not_started`;
+`plan_total`, `plan_now` (never written, never read: it goes with the next store step), `closed_at`, `outcome`, `why_not_started`,
+`matter_id` (the matter he chose for it, by Start or the hand-out, which the finder takes on a tie among its anchors'
+matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
-queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `draft.contested` (`{id, asker, channel, chat, held, until}`, event id `<card>.draft.contested`) and `draft.kept` (`{id, held}`), `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
-cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update, `model`: what it ran on as `<runtime>:<model>`, `default` for the runtime's own, snapshotted at its start; null before `stepTurnModel`), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written once, just before the card is written (dropped when it is not), `assignmentOfCard`; a card asked before has none and is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
+queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `draft.contested` (`{id, asker, channel, chat, held, until}`, event id `<card>.draft.contested`) and `draft.kept` (`{id, held}`), `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt), `ask.spoken` (his spoken ask for one agent, its ask's id as `event_id`, `{ask, ref, conversation, at, until, confidence, by}` as payload: the ask's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
+cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update, `model`: what it ran on as `<runtime>:<model>`, `default` for the runtime's own, snapshotted at its start; null before `stepTurnModel`), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
-`cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines). Never deleted by hand.
+`cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines; `spoken-asks`: JSON `{line, waiting}`, the ledger lines read and the spoken asks still waiting for a place), `move` (his
+move, decision 78, keyed by his ask: the agent it moves from or switches, the matter's `assignment_id` (none: a runtime
+switch), `to_agent` and `to_runtime`, a switch's `from_*` (runtime, model, effort, session, link) for its rollback,
+`asked_at`, `moved_at`, `failed_at` and `failed` (a `MoveFailure` code); its phase is worked out from it and its turns),
+`turn.move` (the move a notes turn or a first turn after the commit belongs to) and `runtime_block` (why each runtime
+could not run at the desk's last look, `why` null when it could). Never deleted by hand.

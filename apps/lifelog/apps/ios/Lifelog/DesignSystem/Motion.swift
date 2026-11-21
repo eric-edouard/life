@@ -28,6 +28,8 @@ enum Motion {
     /// A cross-fade (`standard`), carrying its own animation: what every transition becomes under Reduce Motion, where
     /// `motion(_:value:)` gives none, and the way a read's faces change.
     static let fade = AnyTransition.opacity.animation(standard)
+    /// A new line of the live log sliding in from the top.
+    static let logLine = Animation.spring(duration: 0.25)
     /// The transcript scrolling to follow the spoken passage.
     static let follow = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.7)
     /// One breath of the lit lens.

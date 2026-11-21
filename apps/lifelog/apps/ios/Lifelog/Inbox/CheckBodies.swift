@@ -138,11 +138,12 @@ struct EndingBlock: View {
     }
 }
 
-/// A new matter: the goal Start hands the agent, with a pencil that opens it as his words, and the sentence that started it.
+/// The goal Start or Hand to an agent hands the agent, and the sentence that started it; on a new matter, a pencil that
+/// opens the goal as his words.
 struct NewMatterBlock: View {
     let goal: String?
     let said: Check.Said?
-    let edit: () -> Void
+    var edit: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -155,7 +156,7 @@ struct NewMatterBlock: View {
                     }
                     .accessibilityElement(children: .combine)
                     Spacer(minLength: 0)
-                    RoundIconButton(symbol: "pencil", label: "Edit the goal", action: edit)
+                    if let edit { RoundIconButton(symbol: "pencil", label: "Edit the goal", action: edit) }
                 }
             }
             if let said { SaidBlock(said: said) }
@@ -192,7 +193,7 @@ struct PersonIdentityBlock: View {
                 .accessibilityElement(children: .combine)
             }
             if let url = identity.openUrl {
-                TextLink("Open in \(network ?? "its app")", isOutward: true, isMuted: false) { openURL(url) }
+                TextLink("Open in \(network ?? "its app")", to: .outside) { openURL(url) }
             }
         }
     }
@@ -214,15 +215,14 @@ struct ContactsCardBlock: View {
 }
 
 /// What he needs in hand to do the step, each fact a row: a muted glyph, the fact, and its one press (copy, or open a
-/// page, by his tap only). Which rows a need draws is `Need.rows`; a copy shows its check and "Copied <what>" for 2 s.
+/// page, by his tap only). Which rows the needs draw is `Check.shownNeedRows`; a copy shows its check and "Copied <what>"
+/// for 2 s.
 struct NeedsBlock: View {
-    let needs: [Check.Need]
+    let rows: [NeedRow]
 
     @Environment(\.openURL) private var openURL
     /// The row he just copied, and what went on the pasteboard.
     @State private var copied: (row: Int, text: String)?
-
-    private var rows: [NeedRow] { needs.flatMap(\.rows) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -301,6 +301,71 @@ struct DoneSeenLine: View {
         case .notFound: (.flag, "Not found yet.", Palette.flag)
         // Looking is the busy answer itself (`CheckActions`), never a second line.
         case .looking, .unknown: nil
+        }
+    }
+}
+
+/// A plan's steps, one row each, in order (decision 98): his with the white dot, in bold; the agent's with the asking
+/// agent's program mark (monochrome, as `RuntimeName.mark` requires), dimmer; a step's `when` as a muted second line, and where it happens at the row's end. Under them, the
+/// source chip (`gathered`), which opens the card's context; plain words when the context already shows beside the card.
+struct PlanBlock: View {
+    let steps: [Check.PlanStep]
+    /// The asking agent's mark (`RuntimeName.mark`).
+    let agentMark: String?
+    let gathered: Check.Gathered?
+    /// Opens the context; nil when it shows beside the card.
+    let openContext: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { _, step in row(step) }
+            if let gathered {
+                if let openContext {
+                    QuietChip(gathered.text, symbol: "doc.text.magnifyingglass", isMuted: true, action: openContext)
+                } else {
+                    Text(gathered.text).font(.small).foregroundStyle(Palette.muted)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func row(_ step: Check.PlanStep) -> some View {
+        let isHis = step.by == .owner
+        return HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
+            Group {
+                if isHis {
+                    StateDot(color: Palette.fg)
+                } else if let agentMark {
+                    Image(symbol: agentMark).foregroundStyle(Palette.icon).accessibilityHidden(true)
+                }
+            }
+            .frame(width: Metrics.FlatRow.slot)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(step.text).font(isHis ? .leadBold : .body15).foregroundStyle(isHis ? Palette.fg : Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let when = step.when { Text(when).font(.small).foregroundStyle(Palette.muted) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let channel = step.channel { Self.place(channel) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(step.spoken)
+    }
+
+    /// Where a step happens: a source's own mark, or the glyph of a payment, a place or a file.
+    @ViewBuilder private static func place(_ channel: String) -> some View {
+        let glyph: String? =
+            switch channel {
+            case "payment": "creditcard"
+            case "place": "mappin.and.ellipse"
+            case "file": "doc"
+            default: nil
+            }
+        if let glyph {
+            Image(systemName: glyph).font(.small).foregroundStyle(Palette.muted).accessibilityHidden(true)
+        } else {
+            NetworkMark(network: channel)
         }
     }
 }

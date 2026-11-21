@@ -10,7 +10,6 @@ import { CONNECTOR_WRITES } from "../../core/names";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decisions";
-import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
 import { apply, type Stay } from "../../sources/lifelog";
@@ -20,7 +19,6 @@ import {
   pageFixture,
   turnFixture,
 } from "../../sources/store-fixtures";
-import { ask } from "../asks";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -36,6 +34,7 @@ import {
 import { expectWire } from "./wire-fixture";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
+const HIS_ONLY = ["read_log_lines", "read_resource_samples", "read_spending"];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
@@ -113,7 +112,6 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_todo_item",
     "correct_memory",
     "fetch",
-    "read_agent_asks",
     "read_appointments",
     "read_area_page",
     "read_chats",
@@ -131,8 +129,11 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_person_pictures",
     "read_places_visited",
     "read_processing_runs",
+    "read_project",
+    "read_projects",
     "read_registered_agents",
     "read_resource_samples",
+    "read_spending",
     "request_decision",
     "search",
     "tell_life",
@@ -154,17 +155,16 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
-    "fetch(fromTurn,id,limit)",
-    "read_agent_asks(cursor,limit)",
+    "fetch(at,fromTurn,id,limit,until)",
     "read_appointments(appointment,pushId)",
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
     "read_life_status()",
-    "read_log_lines(cursor,limit,min_level,process)",
+    "read_log_lines(after,cursor,limit,min_level,process)",
     "read_matter(id)",
-    "read_matters(area,ifNot,person,project)",
+    "read_matters(area,ifNot,noProject,person,project)",
     "read_memory_changes(about,cursor,limit,run,since,types)",
     "read_new_events(arguments,cursor,event,limit)",
     "read_observation(id)",
@@ -173,24 +173,25 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_person_pictures(ids)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
+    "read_project(ifNot,project)",
+    "read_projects(ifNot)",
     "read_registered_agents()",
     "read_resource_samples()",
-    "request_decision(context,deadline,doneSeenBy,draft,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
+    "read_spending(month)",
+    "request_decision(context,deadline,doneSeenBy,draft,gathered,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
-  const claim = json.result.tools.find(
-    (t: { name: string }) => t.name === "read_observation"
-  );
+  const byName = (n: string) =>
+    json.result.tools.find((t: { name: string }) => t.name === n);
+  const claim = byName("read_observation");
   expect(claim.inputSchema).toMatchObject({
     properties: { id: { type: "string" } },
     required: ["id"],
   });
   // An item's id: Google Tasks' strings, or Reminders' numbers as the tool first took them.
-  const reminders = json.result.tools.find(
-    (t: { name: string }) => t.name === "change_todo_item"
-  );
+  const reminders = byName("change_todo_item");
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
@@ -290,9 +291,7 @@ test("read_log_lines: his token reads the log newest first, both shapes, as his 
   ) =>
     (await rpc(await token(over), "tools/call", { arguments: args, name })).json
       .result;
-  for (const agent of await Promise.all(
-    ["read_log_lines", "read_resource_samples"].map((n) => call({}, {}, n))
-  )) {
+  for (const agent of await Promise.all(HIS_ONLY.map((n) => call({}, {}, n)))) {
     expect(agent).toMatchObject({ isError: true });
     expect(agent.content[0].text).toContain("paired as an agent");
   }
@@ -378,9 +377,8 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
     await last(await token({ sub: "someone-else" }), "tools/list")
   ).toMatchObject({ ...asker, refused: "forbidden" });
   // A refusal is logged by its class, never its reason's words.
-  expect((await last(await token({}, -60), "tools/list")).refused).toBe(
-    "invalid"
-  );
+  const stale = await last(await token({}, -60), "tools/list");
+  expect(stale.refused).toBe("invalid");
   const before = logged().length;
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
@@ -411,57 +409,6 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   );
   expect(res?.headers.get("content-type")).toContain("text/event-stream");
   await res?.body?.cancel();
-});
-
-test("read_agent_asks: the paired agent's asks only, in the order recorded, each once past its cursor", async () => {
-  const said = (quote: string, agent: string, at: string) =>
-    ask(
-      { at, quote, ref: `test:${quote}` },
-      { agent, confidence: "high" },
-      "session",
-      "test"
-    );
-  const call = async (as: string, cursor?: string) =>
-    JSON.parse(
-      (
-        await rpc(as, "tools/call", {
-          arguments: cursor ? { cursor } : {},
-          name: "read_agent_asks",
-        })
-      ).json.result.content[0].text
-    );
-  const bearer = await token();
-  try {
-    said("call the bank", "Orbit", "2026-10-15T09:00:00.000Z");
-    said("water the plants", "Comet", "2026-10-15T09:01:00.000Z");
-    said("call the bank", "Orbit", "2026-10-15T09:00:00.000Z");
-    const first = await call(bearer);
-    expect(first.asks.map((a: { quote: string }) => a.quote)).toEqual([
-      "call the bank",
-    ]);
-    expect(first.asks[0]).toMatchObject({
-      confidence: "high",
-      spoke: "2026-10-15T09:00:00.000Z",
-    });
-    expect((await call(bearer, first.cursor)).asks).toEqual([]);
-    said("book the dentist", "Orbit", "2026-10-15T09:02:00.000Z");
-    const next = await call(bearer, first.cursor);
-    expect(next.asks.map((a: { quote: string }) => a.quote)).toEqual([
-      "book the dentist",
-    ]);
-    // An app paired without an agent reads the rest, but has no asks.
-    const bare = await token({ agent: undefined });
-    expect(
-      (
-        await rpc(bare, "tools/call", {
-          arguments: {},
-          name: "read_agent_asks",
-        })
-      ).json.result.content[0].text
-    ).toContain("paired without an agent");
-  } finally {
-    rmSync(LEDGER, { force: true });
-  }
 });
 
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
@@ -609,7 +556,7 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
     const names = json.result.tools.map((t: { name: string }) => t.name);
     expect(names).not.toContain("change_todo_item");
     expect(names).not.toContain("read_open_todo_items");
-    expect(names).toContain("read_agent_asks");
+    expect(names).toContain("read_inbox");
   } finally {
     setSettings({ todoList: on });
   }
@@ -770,8 +717,9 @@ test("built to serve reads only (the question cases' agent), the connector regis
   expect(names).toContain("read_people_and_organizations");
   expect(names).toContain("search");
   // His log is his token's alone: never on a server with no token.
-  expect(names).not.toContain("read_log_lines");
-  expect(names).not.toContain("read_resource_samples");
+  for (const n of HIS_ONLY) {
+    expect(names).not.toContain(n);
+  }
 });
 
 test("change_directory_entry is his: an agent's token is refused, and `said` is required; truth/ stays as it was", async () => {
