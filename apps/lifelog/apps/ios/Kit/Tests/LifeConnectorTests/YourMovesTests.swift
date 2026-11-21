@@ -49,7 +49,7 @@ private func matters() throws -> [MatterRow] {
     #expect(all.shown(.project("p1")).map(\.id) == ["c3", "c1"])
     #expect(all.shown(.person("person:camille")).map(\.id) == ["c3", "c1"])
     #expect(all.dead.map(\.id) == ["c2"])
-    #expect(all.moves[2].detail == "M a · 3 days")
+    #expect(all.moves[2].detail == "q · 3 days")
 }
 
 @Test func a_server_without_drop_offers_no_drop_answer() throws {
