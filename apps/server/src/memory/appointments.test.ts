@@ -280,7 +280,9 @@ test("on a tie with a held appointment, the reading keeps the held id, whose eve
     { appointments: [reply({ facts: ["obs_000000000001"] })] },
     {
       ...ctx,
-      arrivals: [{ facts: ["obs_000000000001"], id: "apt_0000000000aa" }],
+      arrivals: [
+        { facts: ["obs_000000000001"], id: "apt_0000000000aa", key: "x" },
+      ],
     }
   );
   expect(appointments.map((a) => a.id)).toEqual(["apt_000000000001"]);
