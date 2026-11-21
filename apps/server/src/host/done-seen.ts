@@ -1,7 +1,8 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
+import type { Decision } from "../memory/decision-lines";
 import {
-  type Decision,
   decisionsNow,
   doneSeenByOf,
   type LookForDone,
@@ -123,7 +124,7 @@ export async function lookForPaymentsDone(now = clock().getTime()) {
       recordDoneSeen(id, { eventId, state: "seen" });
     }
   } catch (e) {
-    log("run.error", { error: (e as Error).message, step: "watch.done-seen" });
+    log("run.error", { ...errorOf(e), step: "watch.done-seen" });
   } finally {
     looking = false;
   }

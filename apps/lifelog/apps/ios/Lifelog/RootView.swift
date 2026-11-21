@@ -3,7 +3,7 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home) and Matters tabs and the system's search tab, with the
+/// The bottom group, all system pieces: the Inbox (home), Matters and People tabs and the system's search tab, with the
 /// Settings and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
@@ -33,8 +33,9 @@ struct RootView: View {
             Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
                 InboxScreen()
             }
-            .badge(life.inbox.value?.badge ?? 0)
+            .badge(life.badge)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
+            Tab("People", systemImage: "person.2", value: AppRouter.Tab.people) { PeopleScreen() }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
@@ -93,9 +94,9 @@ struct RootView: View {
         .tint(Palette.fg)
     }
 
-    /// Held answers go now, and the app is kept awake until they are answered: a suspended app would lose them.
+    /// Held answers go now, and the app is kept awake until they and those already going are answered: a suspended app would lose them.
     private func sendHeldInBackground() async {
-        guard !life.held.isEmpty else { return }
+        guard life.hasAnswersUnderWay else { return }
         let app = UIApplication.shared
         let awake = Awake()
         awake.id = app.beginBackgroundTask(withName: "held answers") { awake.end() }
@@ -111,32 +112,33 @@ struct RootView: View {
         presented.dismiss(animated: true, completion: then)
     }
 
-    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever sheet was showing: the Inbox,
-    /// at the push's card.
+    /// The Inbox, at the push's card, set at once; any sheet over it closes meanwhile, as Mail and Messages do, so what
+    /// opens is in view without waiting for the sheet to go.
     private func open(_ route: NotificationRoute) {
-        dismissSheet {
-            router.tab = .inbox
-            switch route {
-            case .card(let pushId): Task { await life.open(pushId: pushId) }
-            case .inbox: Task { await life.refreshInbox() }
-            case .removed: break  // A background push: never shown, never tapped.
-            }
+        switch route {
+        case .card(let pushId, let card, let kept): Task { await life.open(pushId: pushId, card: card, life: kept) }
+        case .inbox: Task { await life.refreshInbox() }
+        case .removed: return  // A background push: never shown, never tapped.
         }
+        router.tab = .inbox
+        dismissSheet {}
     }
 }
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab matters|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureProject`, `-fixtureSheet`: open the screen a launch
+        /// `-fixtureTab matters|people|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureProject`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
         /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
             switch LifeFixture.tab {
             case "matters": router.tab = .matters
+            case "people": router.tab = .people
             case "search": router.tab = .search
             default: break
             }
             if let id = LifeFixture.matter { router.open(matter: id) }
+            if let ref = LifeFixture.person { router.open(party: ref) }
             if let project = LifeFixture.project { router.matterPath.append(.project(project)) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {
@@ -146,6 +148,7 @@ struct RootView: View {
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }
+            if LifeFixture.sheet == "icon" { router.matterSheet = LifeFixture.matter.map { .icon($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(
                     PairOffer.init)

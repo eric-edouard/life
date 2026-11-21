@@ -105,6 +105,9 @@ export type AgentWait = z.infer<typeof AgentWait>;
 /** A registered agent's status: `active` (a turn running or waiting), `stopped` (restarts on his word only), or done with. */
 export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 
+/** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his "Wrong…"). */
+export type AgentRole = "personal" | "caretaker";
+
 /** Who opened an assignment: he did (`owner`: his word, his Start), or the desk did itself (`desk`, the hand-out). */
 export type OpenedBy = "owner" | "desk";
 
@@ -113,9 +116,9 @@ export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";
 
 /**
  * His word about a registered agent (`change_registered_agent`), as stored in his ask for the desk (`after.agentChange`):
- * start one on a subject (exactly one of a matter's `steps`, its anchors, or a `project`), stop, resume, re-point,
- * or change its model. The desk applies it once (`desk/agent-changes.ts`); `hand_over` (to another runtime) is not
- * built and always refused, kept for the connector's stable arguments until its next batch drops it.
+ * start one on a subject (exactly one of a matter's `steps`, its anchors, which go to the agent that takes the matter,
+ * `agentForOf`; a `project`; or `personal`, the Personal agent), stop, resume, re-point, rename (`name`), or change its
+ * model. The desk applies it once (`desk/agent-changes.ts`).
  */
 export const AgentChange = z
   .object({
@@ -124,8 +127,8 @@ export const AgentChange = z
       "stop",
       "resume",
       "re_point",
+      "rename",
       "change_model",
-      "hand_over",
     ]),
     agent: z
       .string()
@@ -134,6 +137,8 @@ export const AgentChange = z
     effort: z.string().min(1).optional(),
     folder: z.string().min(1).optional(),
     model: z.string().min(1).optional(),
+    name: z.string().min(1).max(60).optional(),
+    personal: z.literal(true).optional(),
     project: z.string().min(1).optional(),
     runtime: z.string().min(1).optional(),
     steps: z.array(z.string().min(1)).min(1).optional(),

@@ -11,10 +11,10 @@ import { dirname } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
+import type { Decision } from "./decision-lines";
 import {
   answerDecision,
   DECISIONS,
-  type Decision,
   decisionsNow,
   notSentOf,
   requestDecision,
@@ -24,6 +24,9 @@ import {
 import type { StoredDraft } from "./draft";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as draftSend from "./draft-send";
+
+/** A chat that takes everything besides text. */
+const ALL = { file: true, mentions: true, reaction: true, reply: true };
 
 const DECISION_ID = /^dec_[0-9a-f]{12}$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
@@ -704,6 +707,7 @@ const kitChat = (messages: { fromMe: boolean; min: number }[]) => {
       limitMs: () => 1000,
       refusal: async () => undefined,
       send: async () => "$sent",
+      takes: () => ALL,
     },
     silentAfter: 0,
   } satisfies Descriptor as Descriptor;
@@ -765,12 +769,12 @@ test("someone else's message leaves the card open and his tap's send refused; hi
   expect(withdrawAt(9, kitChat([{ fromMe: true, min: 8 }]))).toEqual([id]);
 });
 
-test("a card with no draft is untouched, and a second draft into an open draft's chat is refused with that card's id", async () => {
+test("a card with no draft is untouched, and the same asker's second draft into its open draft's chat is refused with that card's id", async () => {
   const plain = await requestDecision("planner", ask(), NOW);
   const { id } = await draftCard();
   await expect(
     requestDecision(
-      "atlas",
+      "planner",
       ask({
         draft,
         options: [

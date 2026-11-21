@@ -5,6 +5,8 @@ import { dayNow, localDate } from "./zones";
 export type Urgency = "blocks" | "improves";
 
 interface Rankable {
+  /** His complaint on it at work with the caretaker: it then only improves. */
+  beingFixed?: unknown;
   group: CheckGroup;
   /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
   subject: string | null;
@@ -30,8 +32,9 @@ export const inboxRankOf = (c: Rankable) =>
     : RANK[c.group];
 
 const LAST_BLOCKING_RANK = RANK.name;
+/** What blocks: by its kind (`inboxRankOf`), unless the caretaker is at work on it (`beingFixed`). */
 export const urgencyOf = (c: Rankable): Urgency =>
-  inboxRankOf(c) <= LAST_BLOCKING_RANK ? "blocks" : "improves";
+  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
 
 interface Orderable extends Rankable {
   /** When it was asked (a decision's `at`), else its newest evidence. */
@@ -49,6 +52,7 @@ interface Orderable extends Rankable {
 
 const before = (a: Orderable, b: Orderable) =>
   Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
+  Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
   Number(!a.matter?.important) - Number(!b.matter?.important) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
@@ -64,13 +68,14 @@ const before = (a: Orderable, b: Orderable) =>
       b.day.localeCompare(a.day)) ||
   a.ref.localeCompare(b.ref);
 
+/** A matter's place among its tier's asks: those the caretaker is fixing keep to their own group, never pulled ahead with its actionable ones. */
 const matterKeyOf = (c: Orderable) => {
   const id = c.matter?.id ?? c.ridesOn.matterIds[0];
-  return id && `${urgencyOf(c)} ${id}`;
+  return id && `${urgencyOf(c)}${c.beingFixed ? " fixing" : ""} ${id}`;
 };
 
 /**
- * His inbox's order, the one rule: what blocks, then what improves. In each, an ask of a matter he marked important
+ * His inbox's order, the one rule: what blocks, then what improves, the asks the caretaker is fixing last. In each, an ask of a matter he marked important
  * first; then an ask with a deadline, soonest first; then by kind (`inboxRankOf`): decisions asked longest ago first;
  * unnamed voices, names and cards by the matters resting on them, then newest; the rest by matters, lines, pages, then
  * newest. Then a matter's asks follow its first one, in that order; an ask with no matter keeps its place.

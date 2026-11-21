@@ -7,6 +7,7 @@ import { git } from "../core/proc";
 import { FactCheckAnswer } from "../records/fact-check";
 import {
   isBookkeeping,
+  isComplaint,
   isTaskLine,
   LedgerEntry,
 } from "../records/ledger-entry";
@@ -427,7 +428,7 @@ function itemOf(
   }
   if (source === "ledger") {
     const a = LedgerEntry.parse(raw);
-    if (isBookkeeping(a)) {
+    if (isBookkeeping(a) || isComplaint(a)) {
       return null;
     }
     const run = typeof a.via === "string" ? null : a.via.run;

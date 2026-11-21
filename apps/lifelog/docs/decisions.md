@@ -319,3 +319,7 @@ reverse it, change its entry here in the same commit.
   record: the iPhone moves Kit's hand-written `ServerAPI` onto a generated Swift client (Apple's
   swift-openapi-generator) in one PR, so the client lands with its first caller. That generator drops a nullable
   property (`anyOf` with `type: null`, apple/swift-openapi-generator#817); the PR handles it or waits for the fix.
+- **A card's context is read by Apple's swift-markdown (21 Nov 2026, decision 81).** Kit's `ContextMarkdown` turns it
+  into the blocks the context sheet draws; `AttributedString(markdown:)` reads only inline text. It is the one package
+  from outside the repo, pinned exactly in `Kit/Package.swift` and `Kit/Package.resolved`, and kept in its own target so
+  the Watch and the extensions never link it.

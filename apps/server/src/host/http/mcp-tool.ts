@@ -1,6 +1,7 @@
 import type { AuthInfo, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { log } from "../../core/log";
+import { IDS } from "../../core/log-line";
 import { clip } from "../../memory/units";
 
 // How an MCP tool of Life's is registered: its arguments checked, its answer as text, every call logged (`mcp.call`).
@@ -56,15 +57,26 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
   }
 }
 
-/** The ids an answer cites: observations, episodes, units, matters, ledger entries (`entry_`: to-do items, tasks) and conversations (UUIDs). */
-const IDS =
-  /\b(?:obs|ep|unit|entry|matter)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
+/** A call's arguments as its `mcp.call` line keeps them: their names, never their values (his words can be in them). */
+export const argNamesOf = (args: unknown) =>
+  args && typeof args === "object" ? Object.keys(args) : [];
 
-/** The arguments with every string clipped to 200 chars. */
-export const cut = (args: unknown) =>
+/**
+ * The arguments with every string clipped to 200 chars: kept only by the question cases' isolated server (`READERS`),
+ * whose log is a temporary folder its bench reads back (`openedOf`, scripts/question-cases.ts) and then deletes.
+ */
+const cut = (args: unknown) =>
   JSON.parse(
     JSON.stringify(args, (_, v) => (typeof v === "string" ? clip(v, 200) : v))
   );
+
+/** A refused tool call's class on its `mcp.call` line, never its text (it can quote what was asked). */
+const refusalOf = (body: string) => {
+  if (body.startsWith("Invalid arguments")) {
+    return "invalid_arguments";
+  }
+  return body.startsWith("Not done") ? "not_done" : "error";
+};
 
 /** Who asked, on every `mcp.call` line: the OAuth client and its grant's agent claim. */
 export const callerOf = (auth?: AuthInfo) => ({
@@ -81,7 +93,7 @@ const unchecked = (s: z.ZodObject) => ({
 /** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
 export const READERS = new WeakSet<McpServer>();
 
-/** Registers one tool. Each call logs who asked (OAuth client, agent claim), the arguments, and what surfaced without its text: length, cited ids, error and, for an error, its first 300 chars (`refused`: the reason, never data), and the steps it reported with their ms. */
+/** Registers one tool. Each call logs who asked (OAuth client, agent claim), its arguments' names, and what surfaced without its text: length, cited ids, error and, for an error, its class (`refused`), and the steps it reported with their ms. */
 export function tool<S extends z.ZodObject>(
   server: McpServer,
   name: string,
@@ -148,12 +160,12 @@ export function tool<S extends z.ZodObject>(
       const body = result.content.map((c) => c.text).join("");
       log("mcp.call", {
         ...callerOf(ctx.http?.authInfo),
-        args: cut(args),
+        args: READERS.has(server) ? cut(args) : argNamesOf(args),
         chars: body.length,
         error: result.isError,
         ids: [...new Set(body.match(IDS))],
         ms: Math.round(performance.now() - started),
-        ...(result.isError ? { refused: clip(body, 300) } : {}),
+        ...(result.isError ? { refused: refusalOf(body) } : {}),
         ...(steps.length ? { steps } : {}),
         tool: name,
       });

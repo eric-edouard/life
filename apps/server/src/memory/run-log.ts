@@ -38,8 +38,23 @@ const omit = (e: LogEvent | undefined) => {
   if (!e) {
     return null;
   }
-  const { at: _a, kind: _k, run: _r, step: _s, ...rest } = e;
-  return rest;
+  const {
+    at: _a,
+    category: _c,
+    error,
+    errorType,
+    kind: _k,
+    level: _l,
+    msg: _m,
+    run: _r,
+    step: _s,
+    time: _t,
+    ...rest
+  } = e;
+  // An error leaves the Mac by its type only (a line before 21 Nov 2026 has none: `failed`); its words stay in the log.
+  return error || errorType
+    ? { ...rest, errorType: errorType ?? "failed" }
+    : rest;
 };
 
 /** What model calls spent and read, summed (`modelCallsOf`): how many, tokens, dollars, the calls with no cost (unpriced), units read by source. */

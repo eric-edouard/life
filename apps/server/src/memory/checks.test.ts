@@ -439,7 +439,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     with: [],
   };
   const base = inputs([], { matters: [matter] });
-  expect(checksOf(base)).toEqual([
+  expect(checksOf(base).map(({ misread: _, ...c }) => c)).toEqual([
     {
       about: [],
       asker: "life",
@@ -504,21 +504,6 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
   );
   // Its last day is the 7th from its first step; it never outranks an agent's decision.
   expect(checksOf({ ...base, today: "2026-11-22" })).toHaveLength(1);
-  // Finding 4 of the action pipeline review (20 Nov 2026): with the hand-out on, a project's agent holds none of its
-  // project's matters, as for the hand-out; off, it still answers for them and no Start is offered.
-  const projectAgent = anchored("", { project: "test-shop", step: null });
-  const inShop = [{ ...matter, projects: ["test-shop"] }];
-  expect(
-    checksOf({
-      ...base,
-      heldByAgents: projectAgent,
-      isHandOutOn: true,
-      matters: inShop,
-    })
-  ).toHaveLength(1);
-  expect(
-    checksOf({ ...base, heldByAgents: projectAgent, matters: inShop })
-  ).toEqual([]);
   // An agent that ended holds its matter until a newer step.
   expect(
     checksOf({

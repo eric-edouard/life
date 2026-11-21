@@ -211,3 +211,30 @@ private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":
             CardNotification.send, typed: nil, to: card, in: CardNotification.category, asksFaceID: true)
             == AnswerRequest(ref: card.ref, options: ["send"]))
 }
+
+/// The extension keeps with a card the origin of the read that found it: the read goes to the Life paired when the push
+/// came, or nowhere, so a pairing changed meanwhile gives no card rather than another Life's under this one's name.
+@Test func theExtensionStampsTheOriginItsReadWentTo() async throws {
+    let (a, b) = (newHost(), newHost())
+    let wire = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    let first = try #require((wire["checks"] as? [[String: Any]])?.first)
+    let body = wire.merging(["checks": [first.merging(["pushId": "push-1"]) { $1 }], "total": 1]) { $1 }
+    let inbox = String(decoding: try JSONSerialization.data(withJSONObject: body), as: UTF8.self)
+    let store = MemoryStore(credentials(host: a))
+    _ = Stub.session(host: b) { _ in .json(resultMessage(inbox)) }
+    let session = Stub.session(host: a) { _ in .json(resultMessage(inbox)) }
+    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    let api = MCPLifeAPI(client: MCPClient(session: life, urlSession: session))
+    let origin = testURL("https://\(a)")
+    let read = await CardNotification.read(pushId: "push-1", pairedWith: origin, asksFaceID: false) {
+        try await api.readInbox(pushId: "push-1", at: $0)
+    }
+    #expect(read?.life == origin && read?.card.title.isEmpty == false)
+    // Paired with B between the push and its read: the read refuses rather than reading B under A's name.
+    store.save(credentials(host: b, access: "access-b"))
+    let crossed = await CardNotification.read(pushId: "push-1", pairedWith: origin, asksFaceID: false) {
+        try await api.readInbox(pushId: "push-1", at: $0)
+    }
+    #expect(crossed == nil && !Stub.requested(b))
+}

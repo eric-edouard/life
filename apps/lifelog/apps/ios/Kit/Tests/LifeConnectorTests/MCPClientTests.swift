@@ -190,7 +190,7 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
         return .json(resultMessage("{}"))
     }
     let api = MCPLifeAPI(client: mcp)
-    _ = try await api.readInbox(pushId: "0123456789abcdef")
+    _ = try await api.readInbox(pushId: "0123456789abcdef", at: nil)
     _ = try await api.readInbox()
     let arguments = try sent.withLock {
         try $0.map { try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any]) }

@@ -37,6 +37,11 @@ export const Ask = z
     doneSeenBy: z.enum(["payment", "tap"]).optional(),
     draft: MessageDraft.optional(),
     links: z.array(z.url()).default([]),
+    /** The card waiting on yours (`draft.contested`) that this one asks for both: Life withdraws yours, and the waiting card's asker hears this card's answer too. */
+    merges: z
+      .string()
+      .regex(/^dec_[0-9a-f]{12}$/)
+      .optional(),
     /** What he needs in hand to do the step, in the order to show them (`needs.ts`). */
     needs: z.array(Need).min(1).max(8).optional(),
     onSilence: z.string().nullable().default(null),
@@ -55,13 +60,19 @@ export const Withdrawal = z
     withdraw: z.string().describe("A decision id you asked, to withdraw it"),
   })
   .strict();
+/** The holder's keep: the card waiting on its own (`draft.contested`) waits until its own settles, and its asker hears `why`. */
+export const Keep = Withdrawal.omit({ withdraw: true }).extend({
+  keep: z
+    .string()
+    .describe("A card waiting on yours (`draft.contested`), to keep yours"),
+});
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
 export const CARD = `One card: \`title\` (what you are trying to do, one line, 80 characters), \`question\` (what he decides, one line, 120, ending in a ?), \`options\` (2 to 4 \`{id, label}\`, a label at most five words, the recommended one first), \`context\` (required, in Markdown, 20,000 characters at most: why you ask, why you drafted this, what you tried, what it rests on; Life's things as \`[words](life:<ref>)\`, the ref as \`fetch\` takes it (\`unit_…\`, \`obs_…\`, \`matter_…\`, \`msg:<source>|<message id>\`, \`file:<ref>\`, a turn, \`person:<id>/now\`), each must open; web links as they are; quotes as \`> …\` then \`*source*\`), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option you take if he doesn't answer, or null), \`subject\` (a matter's id or one of its steps': it leaves his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message he approves, which Life sends on his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done: \`payment\` (Life looks in his accounts) or \`tap\` (only his word); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`takes\`). Read \`fetch("ask/<name>")\` before using any of them (\`draft\`, \`options\`, \`payment\`, or a need's kind). He can always answer in his own words instead (the answer's \`note\`).`;
 
 const PAGES: Record<string, string> = {
   draft:
-    "`draft`, the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text` (written as he writes to that person: the communication style in your packet, `read_matter`, atop `read_chats` with `who`, or `read_people_and_organizations`; never a tone of your own), a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`. A feature the chat can't take is refused when you ask. Mark the one option that sends it `outgoing: true`: Life sends it exactly as shown when he picks that option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error. A failed send is never retried: ask a new card.",
+    "`draft`, the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text` (always written as he writes to that person: the communication style in your packet, `read_matter`, atop `read_chats` with `who`, or `read_people_and_organizations`; never a tone of your own), a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`. What the chat takes besides text (a file, a reply, a reaction, mentions) is the chat's own: `read_chats` with its `chat` says. Where it takes them, a draft may be a reply (`onMessage` with `text`) or a lone emoji `reaction` on a message; where it doesn't, never: it is refused when you ask. Mark the one option that sends it `outgoing: true`: Life sends it exactly as shown when he picks that option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error. A failed send is never retried: ask a new card.",
   options:
     'An option is `{id, label}`, a label at most five words, the recommended one first. What his pick of it alone (no words of his added) does, at most one mark each: `outgoing: true`, it acts outside Life (sends, pays, books, deletes or changes something others see): with a `draft`, it sends it (`fetch("ask/draft")`). `ends: "step"` (`subject` one of its matter\'s open steps) or `ends: "matter"`, it means the step or the matter is done: his pick closes that step, or every open step of the matter, in Life, and `decision.answered` carries `end`, its error if it failed. `looks: true`, he says he did the step: Life looks for it done now (`doneSeenBy`, `fetch("ask/payment")`). `takes: "note"`, his pick comes with his words (`note`): nothing else is done with it. `onSilence` never names an `outgoing`, `ends`, `looks` or `takes` option: on silence nothing goes out, closes or is looked for.',
   payment: `A payment he makes (a transfer, a bill paid online): \`needs\` with the \`account\` (or a \`link\` to pay online), the \`amount\`, and a \`text\` for the reference; \`doneSeenBy: "payment"\`; options "I've paid" marked \`looks: true\` and "Drop it" (\`ends: "matter"\` when nothing else is left). On his pick of the \`looks\` option alone, Life looks in his accounts for money out of exactly that amount in that currency to the payee (each word of the \`account\`'s \`holder\`, else the \`link\`'s \`vendor\`, a whole word of the bank's merchant line, a leading title aside: give the name as the bank shows it), booked on or after the card's day. Seen: the card ends and \`decision.answered\` carries \`doneSeen\` (\`state: "seen"\`, its \`eventId\`, read it with \`read_payments\`). Not found: the card is open again for him to check later, and you hear nothing. While the card is open, Life also looks every few minutes (a statement can come in days late): seen, the card ends with no answer of his, and \`decision.answered\` carries \`doneSeen\` and no \`answer\`. While payments are off in his settings, nothing is looked for: the option is a plain answer. Once it is paid, if the payee should hear it, ask the next card: a \`draft\` telling them it's paid (\`fetch("ask/draft")\`). Example: \`{"title":"Pay the dive course deposit","question":"Pay the deposit by Monday?","needs":[{"kind":"account","bank":"Kasikornbank","number":"012-3-45678-9","holder":"Blue Reef Diving Co., Ltd.","scheme":"th_account"},{"kind":"amount","value":4500,"currency":"THB"},{"kind":"text","label":"Reference","text":"DEP-12","copy":true}],"doneSeenBy":"payment","options":[{"id":"paid","label":"I've paid","looks":true},{"id":"drop","label":"Drop it"}],"deadline":"…","subject":"…"}\`.`,
@@ -85,17 +96,20 @@ export const noAskPageOf = (id: string) =>
 /**
  * What an agent gives `request_decision` (the connector's, the door's): an `Ask` less the desk's stamp, published loose
  * where the contract grows (`needs`, `doneSeenBy`, an option's marks, `plan`), so a new kind never changes the tool's
- * arguments; `requestDecision` checks the rest with `Ask`, and refuses what is not built yet. Or a withdrawal.
+ * arguments; `requestDecision` checks the rest with `Ask`, and refuses what is not built yet. Or a withdrawal, or a keep.
  */
 export const DecisionRequest = Ask.omit({ agent: true })
   .partial()
   .extend({
     doneSeenBy: z.string().optional(),
+    keep: Keep.shape.keep.optional(),
     needs: z.array(z.looseObject({ kind: z.string() })).optional(),
     options: z
       .array(z.looseObject({ id: z.string(), label: z.string() }))
       .optional(),
     plan: z.array(z.looseObject({})).optional(),
-    why: Withdrawal.shape.why.optional().describe("With `withdraw`: why"),
+    why: Withdrawal.shape.why
+      .optional()
+      .describe("With `withdraw` or `keep`: why"),
     withdraw: Withdrawal.shape.withdraw.optional(),
   });
