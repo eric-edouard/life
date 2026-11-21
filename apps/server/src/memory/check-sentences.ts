@@ -130,6 +130,10 @@ export const saidOfLine = (
   to: titles.get(l.unit) ?? null,
 });
 
+/** Where and when a line was said, in words: "whatsapp, 7 Sep". */
+export const whereOf = (l: { date: string; source: { channel: string } }) =>
+  `${l.source.channel}, ${plain(l.date)}`;
+
 /** Words with no line of ours behind them (a step that is an episode's or a to-do item's): their day, nobody known. */
 export const saidOfQuote = (text: string, at: string | null): Said => ({
   at,

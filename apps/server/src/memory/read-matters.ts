@@ -125,17 +125,20 @@ function rowOf(
 
 /**
  * Whether a matter needs him: its next step is his decision or something only he does (`wait_decision`, `wait_owner`; a
- * stuck matter is stuck whatever its next step says), or a check about it blocks him (`blockingChecks`). The one rule,
+ * stuck matter is stuck whatever its next step says), a check about it blocks him (`blockingChecks`), or it holds his
+ * step (`isYourMove`: its your move card is open). The one rule,
  * for the row's flag dot and the Needs you filter on his phone, and for the night's count. Pure.
  */
 export const needsYouOf = (
   m: { nextStep?: { kind: string }; status: string },
-  blockingChecks: number
+  blockingChecks: number,
+  isYourMove = false
 ) =>
   (m.status !== "stuck" &&
     (m.nextStep?.kind === "wait_decision" ||
       m.nextStep?.kind === "wait_owner")) ||
-  blockingChecks > 0;
+  blockingChecks > 0 ||
+  isYourMove;
 
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);

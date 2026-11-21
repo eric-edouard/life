@@ -1,3 +1,4 @@
+import { daysBefore } from "../core/clock";
 import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
 import {
@@ -13,7 +14,7 @@ import {
 } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import type { Check, LIFE_CHECKS } from "./life-checks";
-import { matterOfSteps } from "./matter-read";
+import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
@@ -47,9 +48,13 @@ export type AddDirectoryEntry = (
   fields?: { relation?: string }
 ) => Promise<string>;
 
-/** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start (his own token's `answer_check` only). */
+/** Closes by his word the steps a your move card's Mark as done closes (`yourMoveClosingOf`, read by host before the plan: host's `endByHisWord`); gives the lines written. */
+export type EndYourMove = () => Promise<unknown[]>;
+
+/** What a writer is given besides the check and his answer: a voice's queue item with the people it was read with, the steps to report, the desk's start and a your move's end (his own token's `answer_check` only). */
 interface WriterExtras {
   addDirectoryEntry?: AddDirectoryEntry;
+  endYourMove?: EndYourMove;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
   startAgent?: StartAgent;
   voice?: Voice;
@@ -201,6 +206,34 @@ async function newMatterOf(c: Pick<Check, "ref">) {
     throw new Error(`Not done: no matter ${c.ref} with a goal.`);
   }
   return { goal: v.goal, steps: v.steps.map((s) => s.ref) };
+}
+
+/** How long his "Not now" hides a your move card: it is back on the third day after. */
+export const NOT_NOW_DAYS = 3;
+
+/** The open matter a your move card is on, as it reads now: the one it named (`matter`), else the one holding its step. */
+async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
+  const open = (await readMatterBook(await readPeople(), dayNow())).filter(
+    (m) => m.open
+  );
+  const v =
+    open.find((m) => m.id === c.matter?.id) ??
+    matterOfSteps(open, [c.subject ?? ""], c.matter?.id);
+  if (!v) {
+    throw new Error(`Not done: no open matter holds ${c.ref} now.`);
+  }
+  return v;
+}
+
+/** What a your move card's Mark as done closes: its step, while it is still open on its matter (`openStepsOf`). */
+export async function yourMoveClosingOf(
+  c: Pick<Check, "matter" | "ref" | "subject">
+) {
+  const closing = openStepsOf(await yourMoveMatterOf(c), c.subject ?? "");
+  if (closing.length === 0) {
+    throw new Error(`Not done: ${c.subject} is no longer open.`);
+  }
+  return closing;
 }
 
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
@@ -357,6 +390,39 @@ const WRITERS: {
     "this-is": (c, a, { voice }) =>
       answerVoice(c, voice, (v) => thisIs(v, c, a)),
   },
+  // Done and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
+  "your move": {
+    done: (_c, _a, x) => {
+      if (!x.endYourMove) {
+        throw new Error(
+          "Not done: Mark as done comes only through his own answer_check."
+        );
+      }
+      return x.endYourMove();
+    },
+    "not-now": async (c, a) => {
+      const v = await yourMoveMatterOf(c);
+      return correct(
+        [
+          {
+            kind: "your-move-not-now",
+            matter: v.id,
+            steps: v.steps.map((s) => s.ref),
+            until: daysBefore(dayNow(), -NOT_NOW_DAYS),
+          },
+        ],
+        a
+      );
+    },
+    start: async (c, a, x) => {
+      if (!(x.startAgent && c.options.some((o) => o.id === "start"))) {
+        throw new Error(
+          "Not done: Hand to an agent comes only through his own answer_check, while the card offers it."
+        );
+      }
+      return [await x.startAgent(c, a.note ?? c.goal ?? c.title)];
+    },
+  },
 };
 
 /**
@@ -375,6 +441,7 @@ export async function answerCheck(
     addDirectoryEntry,
     answerKey,
     end,
+    endYourMove,
     look,
     onStep,
     startAgent,
@@ -414,6 +481,7 @@ export async function answerCheck(
   const typed = await typedPersonOf(a, voice?.people);
   const done = await write(check, typed.a, {
     addDirectoryEntry,
+    endYourMove,
     onStep,
     startAgent,
     voice,
