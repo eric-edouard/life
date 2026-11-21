@@ -181,7 +181,7 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                TextField(label, text: $draft, axis: .vertical).focused($focused).font(.lead)
+                DictationField(prompt: label, text: $draft, axis: .vertical, focused: $focused).font(.lead)
                     .foregroundStyle(Palette.fg).lineLimit(1...6)
                 HStack(spacing: 8) {
                     Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
