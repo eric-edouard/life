@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync } from "node:fs";
+import { writeWhole } from "../core/files";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { COMPLAINTS, recordComplaints, stageOf } from "./complaint-record";
 import { INFERRED } from "./memory-files";
@@ -87,11 +88,11 @@ test("the tail is mended by bytes, behind rows that hold: after non-ASCII text a
   rmSync(COMPLAINTS, { force: true });
   try {
     const row = `${JSON.stringify({ ask: "entry_00000000000a", at: "2026-11-20T09:00:00.000Z", kind: "name", prompt: null, schemaVersion: 1, stage: "étape nommée" })}\n`;
-    writeFileSync(COMPLAINTS, `${row}{"ask":"entry_0`);
+    writeWhole(COMPLAINTS, `${row}{"ask":"entry_0`);
     expect(recordComplaints([])).toEqual([]);
     expect(readFileSync(COMPLAINTS, "utf8")).toBe(row);
     const bad = row.replace('"schemaVersion":1', '"schemaVersion":2');
-    writeFileSync(COMPLAINTS, `${bad}{"ask":"entry_0`);
+    writeWhole(COMPLAINTS, `${bad}{"ask":"entry_0`);
     expect(() => recordComplaints([])).toThrow("schemaVersion");
     expect(readFileSync(COMPLAINTS, "utf8")).toBe(`${bad}{"ask":"entry_0`);
   } finally {
@@ -120,7 +121,7 @@ test("a guessed person's prompt is the one its guess was made with, else unknown
   };
   rmSync(INFERRED, { force: true });
   try {
-    writeFileSync(INFERRED, `${JSON.stringify(guess)}\n`);
+    writeWhole(INFERRED, `${JSON.stringify(guess)}\n`);
     expect(
       stageOf({ group: "guessed person", ref: "person:inf_test-kit" })
     ).toEqual({

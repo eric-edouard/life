@@ -257,8 +257,11 @@ function withWakesOn(
   });
 }
 
-/** A registered agent as read now, with what will wake it, and the matter its first anchor finds, when its subject is one. */
-export type RegisteredAgent = ReturnType<typeof withWakesOn>[number] & {
+/** A registered agent as read now, with what will wake it, and the matter its anchors find (the one he chose on a tie), when its subject is one. */
+export type RegisteredAgent = Omit<
+  ReturnType<typeof withWakesOn>[number],
+  "matterId"
+> & {
   matter: { id: string; name: string; status: string } | null;
 };
 
@@ -319,8 +322,8 @@ export async function readRegisteredAgents(
     decisions
   );
   return {
-    agents: agents.map((a) => {
-      const v = find(a.steps);
+    agents: agents.map(({ matterId, ...a }) => {
+      const v = find(a.steps, matterId ?? undefined);
       return {
         ...a,
         matter: v ? { id: v.id, name: v.name, status: v.status } : null,
@@ -333,7 +336,9 @@ export async function readRegisteredAgents(
 }
 
 /** An agent in two parts: what it works on (with its id and status), then where it stands, what it waits for and until when, its last turn, its link. */
-function partsOf(a: AgentNow & { matter?: RegisteredAgent["matter"] }) {
+function partsOf(
+  a: Omit<AgentNow, "matterId"> & { matter?: RegisteredAgent["matter"] }
+) {
   const last = a.lastTurn;
   return {
     detail: [
@@ -381,9 +386,11 @@ export function readAgentsOnSteps(steps: string[], people: People) {
     }),
     null
   );
-  // The matter is the one read, found: an agent anchored on it has its wide net.
+  // The matter is the one read, found: an agent anchored on it has its wide net. The chosen matter stays the desk's.
   return read.state === "ok" && read.value
-    ? withWakesOn(read.value, people, (s) => s.length > 0, decisions)
+    ? withWakesOn(read.value, people, (s) => s.length > 0, decisions).map(
+        ({ matterId: _, ...a }) => a
+      )
     : [];
 }
 
@@ -616,11 +623,11 @@ function readDeskRows(
     return {
       // An agent's turns by the assignment it works on now; a hand-out by its own.
       anchors: [
-        ...[...new Set(turns.map((t) => t.agent_id))].map(
-          (id) =>
-            [id, anchorsOf(db, currentAssignmentOf(db, id)?.id ?? "")] as const
-        ),
-        ...handed.map((s) => [s.id, anchorsOf(db, s.id)] as const),
+        ...[...new Set(turns.map((t) => t.agent_id))].map((id) => {
+          const s = currentAssignmentOf(db, id);
+          return [id, s ?? null, anchorsOf(db, s?.id ?? "")] as const;
+        }),
+        ...handed.map((s) => [s.id, s, anchorsOf(db, s.id)] as const),
       ],
       // Each card by the assignment that asked it (`assignmentOfCard`).
       cards: all.flatMap((d) => {
@@ -638,9 +645,17 @@ function readDeskRows(
   ) {
     return [];
   }
-  const anchors = new Map(read.value.anchors);
+  const anchors = new Map(
+    read.value.anchors.map(([id, s, steps]) => [
+      id,
+      { prefer: s?.matter_id ?? undefined, steps },
+    ])
+  );
   const find = matterFinderOf(book);
-  const matterOf = (id: string) => find(anchors.get(id) ?? []);
+  const matterOf = (id: string) => {
+    const a = anchors.get(id);
+    return find(a?.steps ?? [], a?.prefer);
+  };
   const owned = read.value.cards;
   const cards = {
     answered: new Set(

@@ -1,9 +1,17 @@
-import { expect, test } from "bun:test";
-import { rmSync } from "node:fs";
-import { appendJsonl } from "../core/files";
+import { expect, spyOn, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { appendJsonl, readLineCount } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { isListed, LedgerEntry } from "../records/ledger-entry";
-import { changeFeed, feedPage, listSource, matchesFilter } from "./changes";
+import {
+  changeFeed,
+  feedPage,
+  fileSource,
+  listSource,
+  matchesFilter,
+} from "./changes";
 import { LEDGER } from "./memory-files";
 import { action } from "./record-fixtures";
 
@@ -178,4 +186,26 @@ test("a source the cursor has reached is not read", () => {
     (_s, l) => l
   );
   expect(page.items).toEqual(["a0"]);
+});
+
+// Regression (#852's verdict): a file source read every unread line at once, so a page of one item held them all while
+// it counted what remains. It holds one block of lines at a time now.
+test("a one-item page of a file holds one block of its lines at a time and counts exactly what remains", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), "life-feed-")), "f.jsonl");
+  const lines = Array.from({ length: 5000 }, (_, n) => `line ${n}`);
+  writeFileSync(path, `${lines.join("\n")}\n`);
+  readLineCount(path);
+  const spy = spyOn(await import("node:fs"), "readSync");
+  const page = feedPage([fileSource(path, "f")], {}, 1, (_s, line) =>
+    line.endsWith("7") ? line : null
+  );
+  const largest = Math.max(
+    ...spy.mock.calls.map((c) => Number((c as unknown[])[3]))
+  );
+  spy.mockRestore();
+  expect(page.items).toEqual(["line 7"]);
+  expect(page.remaining).toBe(499);
+  expect(largest).toBe(
+    Buffer.byteLength(`${lines.slice(1024, 2048).join("\n")}\n`)
+  );
 });

@@ -18,6 +18,7 @@ import { agentHomeOf } from "../host/desk-read";
 import {
   hasColumn,
   isBeforeAssignments,
+  isBeforeMatterIds,
   isBeforeRoles,
   isBeforeTurnModel,
 } from "../host/desk-shape";
@@ -28,8 +29,9 @@ import { ONE_AGENT_PER_ROLE, SCHEMA } from "./desk-store";
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
 // wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
 // caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
-// turn keeps the model it ran on (`turn.model`; older turns null). Only the desk helper runs them, at its
-// start, in that order; `openDesk` never migrates. Delete each once it has run on his store.
+// turn keeps the model it ran on (`turn.model`; older turns null). `stepMatterIds` (life#826): an assignment keeps the
+// matter he chose. Only the desk helper runs them, at its start, in that order (any order ends in one shape); `openDesk`
+// never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
 const REBUILT = ["agent", "session", "event", "turn", "anchor"];
@@ -240,4 +242,13 @@ export const stepRoles = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
 export const stepTurnModel = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
   stepOnce(path, state, isBeforeTurnModel, "desk-before-turn-model-", (db) =>
     db.run("alter table turn add column model text")
+  );
+
+/**
+ * Gives the store's assignments the matter he chose (`stepOnce`): `matter_id` added, null on every older row (no choice
+ * was kept; the finder's own pick would add nothing).
+ */
+export const stepMatterIds = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeMatterIds, "desk-before-matter-ids-", (db) =>
+    db.run("alter table assignment add column matter_id text")
   );

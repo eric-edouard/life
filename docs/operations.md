@@ -476,8 +476,10 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete). Each pass takes at most 256 missing texts, newest
   first; hash progress survives restarts. Normalized float32 partitions hold at most 4,096 rows, and exact search
   merges bounded best candidates without loading or sorting every vector.
-- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
-  its conversation as it is now, 5 turns before it. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
+- `fetch <id> [--from-turn n] [--at instant] [--until instant]`: a conversation's or a unit's lines, 200 at a time. A
+  turn ref (an ask's `ref`) opens its conversation as it is now, 5 turns before it. `--at`/`--until` cut a recording to
+  a span, such as a call's (a recording cut): its turns that overlap it, a turn crossing an edge kept to its words
+  wholly inside, then at the span's first turn for a turn ref; anything else refuses them. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
   search cites it) gives it whole from its export copy, the assistant's replies too, kept or not by the import; a page
   is at most 200 lines and 50,000 characters.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
