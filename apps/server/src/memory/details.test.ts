@@ -156,25 +156,48 @@ test("a work line opens the organization of his directory its company is; a fami
   const known: Record<string, string> = {
     Anne: "person:anne",
     "Atelier Test": "person:atelier",
-    "Atelier Test, Inc.": "person:atelier-inc",
     "Shop Test": "person:shop-test",
   };
+  const organization = (id: string, name: string, aliases: string[] = []) => ({
+    aliases,
+    id,
+    name,
+  });
   const refOf = detailRefOf({
     isOrganization: (r: string) => r.startsWith("person:atelier"),
     resolve: (name: string) => known[name] ?? null,
-    truth: { organizations: [{ id: "atelier" }, { id: "atelier-inc" }] },
+    truth: {
+      organizations: [
+        organization("atelier", "Atelier Test"),
+        organization("atelier-inc", "Atelier Test, Inc."),
+        organization("atelier-uk", "Atelier Test (UK)", ["Atelier UK"]),
+      ],
+    },
   } as unknown as Parameters<typeof detailRefOf>[0]);
-  const refs = (over: Partial<Contact>) =>
-    detailsOf({ contacts: [contact(over)], refOf }).flatMap((l) =>
+  const refs = (...over: Partial<Contact>[]) =>
+    detailsOf({ contacts: over.map((o) => contact(o)), refOf }).flatMap((l) =>
       l.kind === "work" || l.kind === "family" ? [[l.text, l.ref ?? null]] : []
     );
-  // The company as Contacts holds it, whole: a company holding another's name opens its own.
+  // The company as Contacts holds it, whole, by his directory's name or alias: one holding another's name opens its own.
   expect(
     refs({
       company: "Atelier Test, Inc.",
       work: "Engineer, Atelier Test, Inc.",
     })
   ).toEqual([["Engineer, Atelier Test, Inc.", "person:atelier-inc"]]);
+  expect(
+    refs({ company: "Atelier Test (UK)", work: "Engineer, Atelier Test (UK)" })
+  ).toEqual([["Engineer, Atelier Test (UK)", "person:atelier-uk"]]);
+  expect(refs({ company: "atelier uk", work: "atelier uk" })).toEqual([
+    ["atelier uk", "person:atelier-uk"],
+  ]);
+  // Two cards showing one line: the ref the one with a company gives.
+  expect(
+    refs(
+      { work: "Designer, Atelier Test" },
+      { company: "Atelier Test", work: "Designer, Atelier Test" }
+    )
+  ).toEqual([["Designer, Atelier Test", "person:atelier"]]);
   // A company Life knows but not of his directory, or none: no ref.
   expect(refs({ company: "Shop Test", work: "Baker, Shop Test" })).toEqual([
     ["Baker, Shop Test", null],

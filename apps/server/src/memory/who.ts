@@ -510,7 +510,10 @@ export async function readPeople() {
   const parties = directoryPartiesOf(truth);
   // The pictures, read once for every party and picture choice this read gives.
   let pictureIndex: PictureIndex | undefined;
-  const readPicturesOnce = () => (pictureIndex ??= readPictureIndex());
+  const readPicturesOnce = () => {
+    pictureIndex ??= readPictureIndex();
+    return pictureIndex;
+  };
   const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     parties,
     inferred,
@@ -587,7 +590,7 @@ export async function readPeople() {
     outsideDirectory,
     /** Whose a Contacts card is (`cardOwnerOf`). */
     ownerOfCard: cardOwnerOf({ canon, contacts, resolve }),
-    /** A ref as every app is shown it (`partyOf`); the pictures are read on the first. */
+    /** A ref as every app is shown it (`partyOf`), over the pictures read once. */
     partyOf: partyOf(
       { isOrganization, nameOf, refOf, relationOf },
       parties,

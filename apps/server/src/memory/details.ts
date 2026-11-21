@@ -7,7 +7,7 @@ import {
 } from "../sources/contacts";
 import { pagedNow } from "./closeness";
 import { handlesOf, phonesAndEmailsOf } from "./read-truth";
-import { PERSON } from "./units";
+import { nameKey, PERSON } from "./units";
 import type { People } from "./who";
 import { when } from "./zones";
 
@@ -110,29 +110,41 @@ export function detailsOf({
     ),
   ];
   const born = lines.find((l) => l.kind === "birthday");
-  return lines.filter(
-    (l, i) =>
-      (l.kind !== "birthday" || l === born) &&
-      lines.findIndex((m) => m.kind === l.kind && m.text === l.text) === i
-  );
+  const isSame = (l: DetailLine, m: DetailLine) =>
+    m.kind === l.kind && m.text === l.text;
+  return lines
+    .filter(
+      (l, i) =>
+        (l.kind !== "birthday" || l === born) &&
+        lines.findIndex((m) => isSame(l, m)) === i
+    )
+    .map(({ ref: _, ...l }) => {
+      // A line two cards repeat names whom the cards that name anyone agree on; none when they differ.
+      const refs = new Set(
+        lines.flatMap((m) => (isSame(l, m) && m.ref ? [m.ref] : []))
+      );
+      return refs.size === 1 ? { ...l, ref: [...refs][0] as string } : l;
+    });
 }
 
 /**
- * Whom a work or family detail names, by Contacts' own field: a company, the organization of his directory it names
- * whole; a relation's name, the person it resolves to (`resolve`), never an organization; else null.
+ * Whom a work or family detail names, by Contacts' own field: a company, the organization of his directory whose name or
+ * alias it is, whole (`nameKey`); a relation's name, the person it resolves to (`resolve`), never an organization; else null.
  */
 export function detailRefOf(
   people: Pick<People, "isOrganization" | "resolve" | "truth">
 ) {
-  const ours = new Set(people.truth.organizations.map((o) => `person:${o.id}`));
+  const organizations = new Map(
+    people.truth.organizations.flatMap((o) =>
+      [o.name, ...o.aliases].map((n) => [nameKey(n), `person:${o.id}`])
+    )
+  );
   return (kind: "family" | "work", name: string) => {
-    const r = people.resolve(name);
-    if (!r) {
-      return null;
+    if (kind === "work") {
+      return organizations.get(nameKey(name)) ?? null;
     }
-    return (kind === "work" ? ours.has(r) : !people.isOrganization(r))
-      ? r
-      : null;
+    const r = people.resolve(name);
+    return r && !people.isOrganization(r) ? r : null;
   };
 }
 
