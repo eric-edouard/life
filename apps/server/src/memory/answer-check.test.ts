@@ -460,6 +460,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     items.map((i) => ({
       ...i,
       guessed: i.personId === DANA_ID ? ["person:dana"] : [],
+      names: {},
     }))
   );
   const voices = [{ jobId: "job-1", speakerLabel: "A" }];
