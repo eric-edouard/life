@@ -159,3 +159,40 @@ export async function complain(
   }
   return await reached(asked.id, limitMs, report);
 }
+
+/**
+ * His complaint through Tell Life (the main session's `complain`, his words `said` found in his ask): on card `ref` when
+ * one was on his screen (read now: null when it left), else on nothing but his words; one per ask `key` (a second call
+ * under it is the first). `report`: he asked for the anonymized report to the developer. `{ ask, reached }` once the
+ * desk received it for the caretaker, as a press's.
+ */
+export async function complainThroughTellLife(
+  said: string,
+  ref: string | undefined,
+  report: boolean,
+  key: string,
+  limitMs = WAIT_MS
+) {
+  const why = off("desk");
+  if (why) {
+    throw new Error(`Not done: ${why}`);
+  }
+  const card = ref
+    ? ((await openChecksNow()).find((c) => c.ref === ref) ?? null)
+    : null;
+  const asked = ask(
+    { at: clock().toISOString(), quote: said, ref: `complaint:${key}` },
+    {
+      agent: DESK_AGENT,
+      complaint: {
+        card,
+        ...stageOf(card),
+        ref: ref ?? "",
+        report,
+      } satisfies Complaint,
+    },
+    "connector",
+    "his word through Tell Life that Life got something wrong"
+  );
+  return await reached(asked.id, limitMs, () => undefined);
+}
