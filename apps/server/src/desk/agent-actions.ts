@@ -64,8 +64,8 @@ const RECORD_STEP_CHARS = 200;
 const RECORD_NOTES_CHARS = 1500;
 
 /** Why the door refuses `set_wait` and `finish` until its assignment has a card: its plan card when it opens with a plan (`opensWithPlan`), else what it found. */
-export const askFirstMessageOf = (opensWithPlan: boolean) =>
-  opensWithPlan
+export const askFirstMessageOf = (isPlanFirst: boolean) =>
+  isPlanFirst
     ? "Not done: ask your plan first (`request_decision` with `plan`, options `start` and `decline`: your brief says how)."
     : "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over).";
 
