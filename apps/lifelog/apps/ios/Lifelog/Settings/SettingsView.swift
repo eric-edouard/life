@@ -24,6 +24,9 @@ struct SettingsView: View {
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
+    @State private var isLiveLogsOpen = false
+    /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
+    @State private var problems: String?
 
     var body: some View {
         ScrollView {
@@ -56,12 +59,15 @@ struct SettingsView: View {
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
+        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage() }
+        .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
         #if DEBUG
             .task {
                 switch LifeFixture.page {
                 case "life": page = .life
                 case "server": page = .server
                 case "diagnostics": isDiagnosticsOpen = true
+                case "logs": isLiveLogsOpen = true
                 default: break
                 }
             }
@@ -378,6 +384,18 @@ struct SettingsView: View {
         return at.formatted(date: .abbreviated, time: .shortened)
     }
 
+    /// "2 problems" from one page of the log's problems; "100+" when the page is full of the last hour's. Nil when there
+    /// are none, or the read failed: the row never says none it does not know.
+    private func problemsLastHour() async -> String? {
+        let query = LogQuery(minLevel: .warn)
+        let hourAgo = Date().addingTimeInterval(-3600)
+        guard case .success(let page)? = await life.readLogLines(query) else { return nil }
+        let count = page.lines.count { !($0.at < hourAgo) }
+        if count == 0 { return nil }
+        if count == 1 { return "1 problem" }
+        return count == query.limit ? "\(count)+ problems" : "\(count) problems"
+    }
+
     private var help: some View {
         RowGroup(label: "Help", surface: .sheet) {
             Row(title: "Build", icon: "info.circle") {
@@ -390,6 +408,21 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.diagnostics")
+            Button {
+                isLiveLogsOpen = true
+            } label: {
+                // A problem in the last hour: a flag dot and how many.
+                Row(title: "Live logs", icon: "waveform.path") {
+                    if let problems {
+                        StateDot(color: Palette.flag)
+                        RowValue(text: problems)
+                    } else {
+                        RowValue()
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("settings.liveLogs")
         }
     }
 }

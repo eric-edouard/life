@@ -312,6 +312,19 @@ final class LifeStore {
         }
     }
 
+    /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
+    /// as live would lie). Nil when another pairing began meanwhile: it applies nothing.
+    func readLogLines(_ query: LogQuery) async -> Result<LogPage, MCPError>? {
+        guard let answer = await parties.generation.answer({ try await api.readLogLines(query) }) else { return nil }
+        do {
+            return .success(try LibraryStore.feedDecoder.decode(LogPage.self, from: Data(answer.get().utf8)))
+        } catch {
+            let error = error is DecodingError ? .failed("Life's answer was not what this app reads.") : MCPError.of(error)
+            if error == .notPaired { pairedOrigin = nil }
+            return .failure(error)
+        }
+    }
+
     func refreshMatter(_ id: String) async {
         let key = "read_matter-\(id)"
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }

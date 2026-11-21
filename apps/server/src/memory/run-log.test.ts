@@ -418,7 +418,7 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     "2026-11-20T03:00:00.000Z",
     "2026-11-20T02:00:00.000Z",
   ]);
-  expect(first.lines.slice(0, 2)).toEqual([
+  expect(first.lines.slice(0, 2).map(({ id, ...l }) => l)).toEqual([
     {
       at: "2026-11-20T04:00:00.000Z",
       category: ["watch", "crash"],
@@ -434,6 +434,24 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
       parts: [{ text: "desk.turn" }],
     },
   ]);
+  // A line's id is its place: as a cursor it reads the lines before it, on that day and the older ones.
+  const second = first.lines[1];
+  const before = await readLogLines({ cursor: second?.id, limit: 1 }, dir);
+  expect(before.lines.map((l) => l.at)).toEqual([first.lines[2]?.at]);
+  // His app's live log never shows its own reads; a refused one stays.
+  appendFileSync(
+    join(dir, "2026-11-20.jsonl"),
+    line("2026-11-20T04:30:00.000Z", { kind: "mcp.call", tool: "read_log_lines" }) +
+      line("2026-11-20T04:31:00.000Z", {
+        error: true,
+        kind: "mcp.call",
+        refused: "forbidden",
+        tool: "read_log_lines",
+      })
+  );
+  expect(
+    (await readLogLines({ limit: 2 }, dir)).lines.map((l) => l.at)
+  ).toEqual(["2026-11-20T04:31:00.000Z", "2026-11-20T04:00:00.000Z"]);
   // A line appended while he pages never shifts the cursor.
   appendFileSync(
     join(dir, "2026-11-20.jsonl"),
@@ -448,7 +466,7 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     ({ cursor } = page);
   }
   expect(seen).toHaveLength(13);
-  expect(new Set(seen.map((l) => l.at)).size).toBe(13);
+  expect(new Set(seen.map((l) => l.id)).size).toBe(13);
   // Errors only: 2 days a page, so the first page holds the crash and moves on to the older days with none.
   const errors = await readLogLines({ minLevel: "error" }, dir);
   expect(errors.lines.map((l) => l.category)).toEqual([["watch", "crash"]]);

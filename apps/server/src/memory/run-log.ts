@@ -486,14 +486,22 @@ function shownOf(raw: string, q: LogLinesQuery) {
   }
   const isShown =
     shown &&
+    !isOwnRead(shown) &&
     LOG_LEVELS.indexOf(shown.level) >=
       LOG_LEVELS.indexOf(q.minLevel ?? "info") &&
     (!q.process || shown.category[0] === q.process);
   return isShown ? shown : undefined;
 }
 
+/** A read of the log that went through: left out, or his app's live log would show its own polling. */
+const isOwnRead = (l: ShownLine) =>
+  l.level === "info" &&
+  l.category[0] === "mcp" &&
+  l.category[1] === "read_log_lines";
+
 /**
- * The event log's lines as his app is shown them (`shownLineOf`), newest first, at least `minLevel` and of `process`
+ * The event log's lines as his app is shown them (`shownLineOf`), each with its `id` (its place in the log: passed as
+ * a cursor, it reads the lines before it), newest first, never the log's own reads, at least `minLevel` and of `process`
  * (a category's first word) when given. Reads at most `LOG_DAYS_PER_READ` day files per page: a page may be short,
  * and its `cursor` (a day's file and a byte in it, so lines appended meanwhile never shift it) goes on; null when no
  * older line is left.
@@ -502,7 +510,7 @@ export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
   const limit = q.limit ?? PAGE;
   const from = decode(q.cursor, LogCursor, null);
   const days = (await logDays(dir)).filter((n) => !from || n <= from[0]);
-  const lines: ShownLine[] = [];
+  const lines: (ShownLine & { id: string })[] = [];
   for (const name of days.slice(0, LOG_DAYS_PER_READ)) {
     const stop = name === from?.[0] ? from[1] : null;
     for (const { end, raw } of linesFromEnd(join(dir, name), stop)) {
@@ -511,7 +519,11 @@ export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
       }
       const shown = shownOf(raw, q);
       if (shown) {
-        lines.push(shown);
+        // Its place in the log: the cursor of the lines before it, so unique.
+        lines.push({
+          id: encode([name, end - Buffer.byteLength(raw) - 1]),
+          ...shown,
+        });
       }
     }
   }

@@ -82,6 +82,7 @@ from the stored one (`shownLineOf`, `core/log-line.ts`), never its other fields 
 
 | Field | What |
 |---|---|
+| `id` | its place in the log, so unique: passed as `cursor`, it reads the lines before it (the phone keeps reading older lines after it dropped its oldest) |
 | `at` | when it was written (UTC) |
 | `level` | `info`, `warn` (a refused call) or `error` (a run error, an `error`, `ok: false`) |
 | `category` | the part of Life, then what it is about (`["desk","turn"]`, `["mcp","read_day"]`): LogTape's category without `life`. Its first word is one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command |
@@ -94,7 +95,8 @@ its kind and step, its message its kind, step and why as a class (a refusal's, a
 `limit` 1-100 (default 50), `min_level` (`info`, `warn`, `error`), `process` (a category's first word). The cursor is a
 day's file and a byte in it, so lines appended meanwhile never shift it; a page reads at most 2 days, so it may be
 short with a cursor still set; null when nothing older is left. With no cursor, the first page is the newest lines,
-newest first.
+newest first. The log's own reads that went through (`mcp.call` of `read_log_lines`, info) are left out, or the
+phone's live log, polling, would show its own polling.
 
 ## resource samples
 

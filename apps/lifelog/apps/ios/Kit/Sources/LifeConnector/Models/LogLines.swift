@@ -32,7 +32,7 @@ public enum LogProcess: String, CaseIterable, Sendable {
 }
 
 /// One line of Life's log as `read_log_lines` shows it: never anyone's words, ids masked.
-public struct LogLine: Decodable, Sendable, Equatable, Hashable {
+public struct LogLine: Decodable, Sendable, Equatable, Hashable, Identifiable {
     /// A piece of the message: the template's words, or a value formatted on the Mac ("38 s", "3"), drawn apart.
     public enum Part: Decodable, Sendable, Equatable, Hashable {
         case text(String)
@@ -50,6 +50,8 @@ public struct LogLine: Decodable, Sendable, Equatable, Hashable {
         }
     }
 
+    /// Its place in the log, so unique: passed as a cursor, it reads the lines before it.
+    public let id: String
     public let at: Date
     public let level: LogLevel
     /// The part of Life, then what it is about: `["desk", "wake"]`.
@@ -58,8 +60,8 @@ public struct LogLine: Decodable, Sendable, Equatable, Hashable {
     public let message: String
     public let parts: [Part]
 
-    public init(at: Date, level: LogLevel, category: [String], message: String, parts: [Part]? = nil) {
-        (self.at, self.level, self.category, self.message) = (at, level, category, message)
+    public init(id: String, at: Date, level: LogLevel, category: [String], message: String, parts: [Part]? = nil) {
+        (self.id, self.at, self.level, self.category, self.message) = (id, at, level, category, message)
         self.parts = parts ?? [.text(message)]
     }
 
