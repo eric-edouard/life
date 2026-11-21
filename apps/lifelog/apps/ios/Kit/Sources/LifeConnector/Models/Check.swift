@@ -348,6 +348,30 @@ extension Check {
     /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
     public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
 
+    /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
+    public struct OpenedContext: Identifiable, Equatable, Sendable {
+        public let title: String
+        public let markdown: String
+        /// Its `life:` links' kinds; none for the caretaker's, whose links open by ref all the same.
+        public let lifeLinks: [LifeLink]
+        /// What its "Open in" opens; nil for the caretaker's.
+        public let session: String?
+
+        public var id: String { markdown }
+    }
+
+    /// The card's own context, as its link opens it.
+    public var ownContext: OpenedContext {
+        OpenedContext(
+            title: contextLinkTitle ?? "", markdown: context ?? "", lifeLinks: lifeLinks ?? [], session: session)
+    }
+
+    /// The caretaker's open question's context, under that question; nil with none.
+    public var fixContext: OpenedContext? {
+        guard let line = beingFixed?.line, let context = beingFixed?.context else { return nil }
+        return OpenedContext(title: line, markdown: context, lifeLinks: [], session: nil)
+    }
+
     /// The words of the link that opens its context: the code's, by what it asks, never the agent's (the context
     /// sheet's table, decision 81); nil with no context, so a card with none has no link.
     public var contextLinkTitle: String? {

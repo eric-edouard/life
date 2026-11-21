@@ -7,8 +7,8 @@ struct CardInput: Equatable {
     /// The option that took him to his words, when one did: his words go with it; none for a general reply.
     var option: String?
     var words = ""
-    /// The context sheet is open (`ContextSheet`).
-    var showsContext = false
+    /// The context the sheet shows (`ContextSheet`), copied when he opened it; nil while closed.
+    var context: Check.OpenedContext?
     /// The trip to his bank app from this card (`BankTrip`).
     var bankTrip = BankTrip()
 }

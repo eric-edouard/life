@@ -624,21 +624,32 @@ private func asks(_ urgencies: [(String, Urgency)], groups: [String: String] = [
 
 /// A card the caretaker is fixing says so, with the caretaker's open question and its context when it has one.
 @Test func aCardBeingFixedDecodes() throws {
-    func fixing(line: Any, context: Any) throws -> Check.BeingFixed? {
-        var inbox = try #require(
-            JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
-        var checks = try #require(inbox["checks"] as? [[String: Any]])
-        checks[2]["beingFixed"] = [
-            "ask": "ask_1", "since": "2026-11-20T09:00:00.000Z", "line": line, "context": context,
-        ]
-        inbox["checks"] = checks
-        let text = String(decoding: try JSONSerialization.data(withJSONObject: inbox), as: UTF8.self)
-        return try decoded(Inbox.self, text).checks[2].beingFixed
+    let plain = try decoded(
+        Check.BeingFixed.self, #"{"ask":"ask_1","since":"2026-11-20T09:00:00.000Z","line":null,"context":null}"#)
+    #expect(plain.ask == "ask_1" && plain.line == nil && plain.context == nil && plain.since != nil)
+    let asked = try decoded(
+        Check.BeingFixed.self,
+        #"{"ask":"ask_1","since":"2026-11-20T09:00:00.000Z","line":"Is this Ana?","context":"See [her](life:unit_1)."}"#
+    )
+    #expect(asked.line == "Is this Ana?" && asked.context == "See [her](life:unit_1).")
+}
+
+/// The caretaker's context he opened is copied at his tap: a refresh that drops it never empties the open sheet.
+@Test func anOpenedCaretakerContextOutlivesARefresh() throws {
+    let inbox = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    func card(context: Any) throws -> Check {
+        var (read, checks) = (inbox, try #require(inbox["checks"] as? [[String: Any]]))
+        checks[2]["beingFixed"] = ["ask": "ask_1", "line": "Is this Ana?", "context": context]
+        read["checks"] = checks
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: read), as: UTF8.self)
+        return try decoded(Inbox.self, text).checks[2]
     }
-    let plain = try fixing(line: NSNull(), context: NSNull())
-    #expect(plain?.ask == "ask_1" && plain?.line == nil && plain?.context == nil && plain?.since != nil)
-    let asked = try fixing(line: "Is this Ana?", context: "From [her chat](life:unit_1).")
-    #expect(asked?.line == "Is this Ana?" && asked?.context == "From [her chat](life:unit_1).")
+    let opened = try #require(try card(context: "See [her](life:unit_1).").fixContext)
+    let refreshed = try card(context: NSNull())
+    #expect(refreshed.fixContext == nil)
+    #expect(opened.title == "Is this Ana?" && opened.markdown == "See [her](life:unit_1).")
+    #expect(opened.lifeLinks.isEmpty && opened.session == nil)
 }
 
 /// A matter's icon, down the chain: his pick, Life's, the first area's icon, the folder. Only a key this app knows is
