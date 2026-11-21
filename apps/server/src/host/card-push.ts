@@ -8,7 +8,7 @@ import { errorOf } from "../core/log-line";
 import type { NotifyKind, NotifyLevel } from "../core/names";
 import { settings } from "../core/settings";
 import { blockingCountOf } from "../memory/check-urgency";
-import { type InboxCheck, pushIdOf } from "../memory/checks";
+import type { InboxCheck } from "../memory/checks";
 import { DECISIONS, decisionsNow } from "../memory/decisions";
 import type { StoredDraft } from "../memory/draft";
 import { isLocked } from "../memory/memory-lock";
@@ -18,6 +18,7 @@ import {
   notifyPhone,
   type Push,
   type PushLevel,
+  pushIdOf,
 } from "../sources/lifelog-push";
 import { openChecksNow } from "./inbox";
 
@@ -34,8 +35,9 @@ export const SEEN = join(WATCH, "seen-cards.json");
 const FORGET_DAYS = 30;
 /** Of Life's own checks new in one look, how many push alone; the rest share one push. An agent's decision always pushes alone. */
 const ALONE = 5;
-/** Life's level for a kind he left out of `notifications`: full push, an agent's decision urgent. */
+/** Life's level for a kind he left out of `notifications`: full push, an agent's decision urgent, an appointment added quiet. */
 export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
+  calendar: "quiet",
   "contacts card": "normal",
   decision: "urgent",
   "decision with a draft": "urgent",
