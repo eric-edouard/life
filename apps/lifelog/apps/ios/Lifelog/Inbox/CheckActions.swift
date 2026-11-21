@@ -235,7 +235,7 @@ struct CheckActions: View {
                 }
                 input.isCodeSaved = true
             }
-            if await UIApplication.shared.open(app.url) {
+            if let url = app.url, await UIApplication.shared.open(url) {
                 input.hasOpenedBankApp = true
                 input.bankTripProblem = nil
             } else {

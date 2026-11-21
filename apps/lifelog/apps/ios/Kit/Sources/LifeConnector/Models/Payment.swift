@@ -30,7 +30,12 @@ public enum Transfers: String, CaseIterable, Sendable {
     public var storageKey: String { "bankApp.\(rawValue)" }
 
     /// The app a transfer opens until he picks one.
-    public var usual: BankApp { BankApp.allCases.first { $0.transfers == self }! }
+    public var usual: BankApp {
+        switch self {
+        case .thai: .kplus
+        case .iban: .revolut
+        }
+    }
 }
 
 /// The bank apps a transfer card opens, one table: Settings > Apps lists them, the card's filled answer opens his pick.
@@ -56,12 +61,12 @@ public enum BankApp: String, CaseIterable, Sendable {
     /// The app's own link to its home: no public link fills a transfer (only-you catalogue, 20 Nov).
     /// ponytail: the Thai banks publish no scheme; these are the ones in use, unverified on a device. A failed open says
     /// so on the card; verify on his phone, then add them to `LSApplicationQueriesSchemes` if a probe is ever needed.
-    public var url: URL {
+    public var url: URL? {
         switch self {
-        case .kplus: URL(string: "kbank.kplus://")!
-        case .scbEasy: URL(string: "scbeasy://")!
-        case .revolut: URL(string: "revolut://")!
-        case .wise: URL(string: "wise://")!
+        case .kplus: URL(string: "kbank.kplus://")
+        case .scbEasy: URL(string: "scbeasy://")
+        case .revolut: URL(string: "revolut://")
+        case .wise: URL(string: "wise://")
         }
     }
 }
