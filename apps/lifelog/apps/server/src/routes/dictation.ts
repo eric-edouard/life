@@ -60,7 +60,7 @@ export function dictationRoutes({
             message: "the speech service is busy or off",
           };
     }
-    // Where the wait went: `sinceMs` the request's arrival (its body read included), `speechMs` the
+    // Where the wait went: `totalMs` the request's arrival (its body read included), `speechMs` the
     // speech service's part, so a slow dictation shows its stage (the Mac's load or the phone's upload).
     const timings = {
       speechMs: Math.round(performance.now() - sentAt),
