@@ -67,7 +67,7 @@ struct MatterPage: View {
                 }
                 .card()
                 People(people: row.people)
-                Timeline(steps: matter.steps).padding(.top, Metrics.Spacing.s)
+                StepTimeline(steps: matter.steps).padding(.top, Metrics.Spacing.s)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
             }
             .matterPageColumn()

@@ -5,7 +5,7 @@ import SwiftUI
 /// "Tue 17 Nov"), on one thin rail with a dot per step (open: `fg`, lit; an agent's: `ai`; past: `muted`); each step who
 /// it came from in `small` muted (the time at the right for today's, "Open" in `flag` on an open to-do), then the words
 /// said, else the fact. No heading, no numbers.
-struct Timeline: View {
+struct StepTimeline: View {
     /// Oldest first, as Life sends them.
     let steps: [MatterStep]
 
@@ -15,7 +15,7 @@ struct Timeline: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(order, id: \.self) { day in
                 let dated = days[day] ?? []
-                Text(Self.dayWords(dated.first?.at ?? .now)).font(.label).foregroundStyle(Palette.muted)
+                Text(Self.dayWords(day)).font(.label).foregroundStyle(Palette.muted)
                     .padding(.leading, 21).padding(.bottom, Metrics.Spacing.s)
                     .padding(.top, day == order.first ? 0 : Metrics.Spacing.xs)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -29,9 +29,12 @@ struct Timeline: View {
 
     private var rail: some View { Rectangle().fill(Palette.line).frame(width: 1).padding(.leading, 4) }
 
-    static func dayWords(_ at: Date) -> String {
-        Calendar.current.isDateInToday(at)
-            ? "Today" : at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    /// A step's day as Life dated it (`day`, his local day), in words: "Today", else "Tue 17 Nov".
+    static func dayWords(_ day: String) -> String {
+        guard let date = try? Date(day, strategy: Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
+        else { return day }
+        return Calendar.current.isDateInToday(date)
+            ? "Today" : date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
     }
 
     private struct StepLine: View {
@@ -44,7 +47,7 @@ struct Timeline: View {
                 dot(isOpen: isOpen).padding(.top, 4)
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
-                        Text(who).lineLimit(1)
+                        if let who { Text(who).lineLimit(1) }
                         if isOpen { Text("Open").fontWeight(.semibold).foregroundStyle(Palette.flag) }
                         Spacer(minLength: 0)
                         if Calendar.current.isDateInToday(step.at) {
@@ -67,9 +70,10 @@ struct Timeline: View {
             .accessibilityElement(children: .combine)
         }
 
-        /// Who the step came from: the person, else what kind of step it is.
-        private var who: String {
-            step.with?.name ?? (step.kind == "agent" ? "Agent" : step.kind == "todo_item" ? "To-do list" : "You")
+        /// Who the step came from: the person, else an agent's or his to-do list's step by its kind; nothing else is
+        /// guessed.
+        private var who: String? {
+            step.with?.name ?? (step.kind == "agent" ? "Agent" : step.kind == "todo_item" ? "To-do list" : nil)
         }
 
         private func dot(isOpen: Bool) -> some View {
