@@ -201,18 +201,15 @@ export function pushNewDecisionsAtOnce() {
 /**
  * The watcher's minute: `pushNewCards`, whose inbox is read again only when what it is read from changed (`checksNow`),
  * a run's end, a desk start and a new day included. A run holding the memory lock (a night's writes are half done) is not
- * read: only a new decision still pushes, from its own lines; the run's end shows as the next full look.
+ * read: only a new open decision still pushes, from the decisions' lines; the run's end shows as the next full look.
  */
 export async function pushNewCardsIfChanged() {
-  const decisions = readLineCount(DECISIONS);
-  const moved = decisions !== decisionsLooked;
-  decisionsLooked = decisions;
+  decisionsLooked = readLineCount(DECISIONS);
   const failed = (e: Error) =>
     log("run.error", { ...errorOf(e), step: "watch.cards" });
+  // Every minute, not only on a new line: a waiting card that opens after `CONTEST_WAIT` writes none.
   if (isLocked()) {
-    if (moved) {
-      await pushNewDecisions().catch(failed);
-    }
+    await pushNewDecisions().catch(failed);
     return;
   }
   await pushNewCards().catch(failed);
