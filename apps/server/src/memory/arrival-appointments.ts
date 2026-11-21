@@ -141,11 +141,83 @@ const hourAfter = (local: string) =>
     .slice(0, 16)
     .replace("T", " ");
 
+const TIMED = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
+const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const URLS = /https:\/\/\S+/g;
+const TRAILING = /[).,;:!?'"\]]+$/;
+
+/** Whether `local` is a real calendar day (`YYYY-MM-DD`), or a real day and time (`YYYY-MM-DD HH:MM`) when `timed`. */
+const isLocalTime = (local: string, timed: boolean) => {
+  const shape = timed ? TIMED : DAY_ONLY;
+  const at = Date.parse(
+    `${local.replace(" ", "T")}${timed ? ":00" : "T00:00:00"}Z`
+  );
+  // A day or an hour out of range rolls over or fails to parse: written back, it is not the same text.
+  return (
+    shape.test(local) &&
+    !Number.isNaN(at) &&
+    iso(at).slice(0, local.length).replace("T", " ") === local
+  );
+};
+
+/** Whether `zone` is a time zone the platform knows. */
+const isZone = (zone: string) => {
+  try {
+    return (
+      new Intl.DateTimeFormat("en", { timeZone: zone }).resolvedOptions()
+        .timeZone !== ""
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** A link kept only when the lines hold it whole: an https address ending where the source's does. */
+const linkOf = (link: string | null, lines: string[]) =>
+  link?.startsWith("https://") &&
+  (lines.join("\n").match(URLS) ?? []).some(
+    (u) => u === link || u.replace(TRAILING, "") === link
+  )
+    ? link
+    : null;
+
+/** Why a reply that agrees is not kept, or null: its quote, its days and times, its zone. */
+function problemOf(
+  a: Extract<z.infer<typeof Said>, { agreed: true }>,
+  read: {
+    firstDay: string;
+    lines: string[];
+  }
+) {
+  const timed = !a.allDay;
+  if (locate(a.quote, read.lines) === null) {
+    return "its quote is not in the lines";
+  }
+  if (
+    !isLocalTime(a.start, timed) ||
+    (a.end !== null && !isLocalTime(a.end, timed))
+  ) {
+    return "its days and times are not real ones, or disagree";
+  }
+  if (a.zone !== null && !isZone(a.zone)) {
+    return "its zone is unknown";
+  }
+  if (a.start.slice(0, 10) < read.firstDay) {
+    return "it starts before the lines";
+  }
+  if ((a.end ?? a.start) < a.start) {
+    return "it ends before it starts";
+  }
+  return null;
+}
+
 /**
- * The appointment read's reply as stored (`makeReplies`' `checked`): one that agrees, with its quote found in the lines,
- * a start on or after the lines' first day, an end on or after it (an hour after a timed start when none is given, the
- * same day for a whole one), whole days written as days; a link kept only when https and copied exactly from the lines;
- * at most 10 people, by name. Any other reply is stored as not agreed with why (`refused`), so it is not asked again.
+ * The appointment read's reply as stored (`makeReplies`' `checked`): one that agrees, with its quote found in the lines
+ * (stored as the lines say it), real days and times on both ends, of one precision (whole days written as days), a zone
+ * the platform knows, a start on or after the lines' first day, an end on or after it (an hour after a timed start when
+ * none is given, the same day for a whole one); a link kept only when an https address the lines hold whole (else
+ * dropped, the appointment kept); at most 10 people, by name. Any other reply is stored as not agreed with why
+ * (`refused`), so it is not asked again.
  */
 export function checkedAppointmentReply(
   answer: unknown,
@@ -159,23 +231,18 @@ export function checkedAppointmentReply(
   if (!a.agreed) {
     return a;
   }
-  const end = a.end ?? (a.allDay ? a.start : hourAfter(a.start));
-  const link =
-    a.link?.startsWith("https://") && read.lines.join("\n").includes(a.link)
-      ? a.link
-      : null;
-  const why =
-    (locate(a.quote, read.lines) === null && "its quote is not in the lines") ||
-    (a.start.slice(0, 10) < read.firstDay && "it starts before the lines") ||
-    (end < a.start && "it ends before it starts") ||
-    (a.allDay !== !a.start.includes(" ") && "its days and times disagree");
+  const why = problemOf(a, read);
+  if (why) {
+    return { agreed: false, refused: why };
+  }
   const stored = Stored.safeParse({
     ...a,
-    end,
-    link,
+    end: a.end ?? (a.allDay ? a.start : hourAfter(a.start)),
+    link: linkOf(a.link, read.lines),
     people: a.people.slice(0, 10),
+    quote: locate(a.quote, read.lines)?.verbatim ?? a.quote,
   });
-  return why || !stored.success
-    ? { agreed: false, refused: why || "a field out of bounds" }
-    : stored.data;
+  return stored.success
+    ? stored.data
+    : { agreed: false, refused: "a field out of bounds" };
 }

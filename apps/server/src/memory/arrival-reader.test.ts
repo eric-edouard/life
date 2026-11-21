@@ -64,8 +64,8 @@ const sceneOf = (
   confirm = true,
   /** His engine fails its first call. */
   failsFirst = false,
-  /** His engine's answer to an appointment read. */
-  meeting: object = { agreed: false }
+  /** His engine's answer to an appointment read, or a call that may fail. */
+  meeting: object | (() => Promise<object>) = { agreed: false }
 ) => {
   trial += 1;
   const where = join(dir, `trial-${trial}`);
@@ -74,11 +74,15 @@ const sceneOf = (
     ask: (q: { input: { firstDay?: string; lines: string[] } }) => {
       shown.push(q.input.lines.join("\n"));
       calls.engine += 1;
-      return failsFirst && calls.engine === 1
-        ? Promise.reject(new Error("engine down"))
-        : Promise.resolve(
-            q.input.firstDay ? meeting : { isActionable: confirm }
-          );
+      if (failsFirst && calls.engine === 1) {
+        return Promise.reject(new Error("engine down"));
+      }
+      if (!q.input.firstDay) {
+        return Promise.resolve({ isActionable: confirm });
+      }
+      return typeof meeting === "function"
+        ? meeting()
+        : Promise.resolve(meeting);
     },
     attempt: (work: () => Promise<unknown>) => work().catch(() => undefined),
     dir: join(dir, "run"),
@@ -636,6 +640,41 @@ const twoAsks = () => [
   msg("Can you send the slides?"),
   msg("Can you send the budget?", { chat: "c2", id: "whatsapp:c2" }),
 ];
+test("an appointment read that fails is not counted, and is asked again on its own lines alone, new lines read apart", async () => {
+  let fails = true;
+  const s = sceneOf(
+    () => ({ detail: "no helper", error: "unavailable" }),
+    true,
+    false,
+    () => {
+      if (fails) {
+        fails = false;
+        return Promise.reject(new Error("engine down"));
+      }
+      return Promise.resolve(dinner());
+    }
+  );
+  const a = msg("Your table for 2 is booked at Riverside, 19:30");
+  expect(await s.read([a])).toBe(0);
+  expect(s.lines().map((l) => l.read)).toEqual(["arrival_confirm"]);
+  // A new line in the same chat: the failed read is asked on the first line's keys, the new line read on its own.
+  const b = msg("See you there");
+  expect(await s.read([a, b])).toBe(2);
+  expect(
+    s
+      .lines()
+      .map((l) => `${l.read} ${l.messages.join(",")}`)
+      .toSorted()
+  ).toEqual(
+    [
+      `arrival_appointment whatsapp|${a.id}`,
+      `arrival_appointment whatsapp|${b.id}`,
+      `arrival_confirm whatsapp|${a.id}`,
+      `arrival_confirm whatsapp|${b.id}`,
+    ].toSorted()
+  );
+});
+
 test("the day's cap counts both reads: one short of it, an ask and a meeting in one read make one call, the newest", async () => {
   const s = sceneOf(
     () => ({

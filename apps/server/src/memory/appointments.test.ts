@@ -481,6 +481,47 @@ test("an appointment read's reply is kept only as the lines say it: quote found,
   expect(checkedAppointmentReply({ isActionable: true }, read)).toMatchObject({
     agreed: false,
   });
+  // Not real days and times, or of two precisions: refused, never thrown.
+  for (const bad of [
+    { end: null, start: "tomorrow" },
+    { end: "2026-15-03 16:00", start: "2026-15-03 15:00" },
+    { end: "2026-12-03", start: "2026-12-03 15:00" },
+    { end: "2026-12-03 25:00", start: "2026-12-03 15:00" },
+  ]) {
+    expect(checkedAppointmentReply({ ...said, ...bad }, read)).toMatchObject({
+      agreed: false,
+    });
+  }
+  expect(
+    checkedAppointmentReply({ ...said, zone: "Mars/Olympus" }, read)
+  ).toMatchObject({ agreed: false });
+  // A link the lines hold only longer is dropped, the appointment kept; the quote is stored as the lines say it.
+  const cafe = {
+    firstDay: "2026-12-01",
+    lines: [
+      "10:02 Sam: Café North at 15:00 https://meet.example.com/room?key=abcdef.",
+    ],
+  };
+  expect(
+    checkedAppointmentReply(
+      {
+        ...said,
+        link: "https://meet.example.com/room?key=abc",
+        quote: "CAFE NORTH",
+      },
+      cafe
+    )
+  ).toMatchObject({ agreed: true, link: null, quote: "Café North" });
+  expect(
+    checkedAppointmentReply(
+      {
+        ...said,
+        link: "https://meet.example.com/room?key=abcdef",
+        quote: "Café North",
+      },
+      cafe
+    )
+  ).toMatchObject({ link: "https://meet.example.com/room?key=abcdef" });
   expect(checkedAppointmentReply({ agreed: false }, read)).toEqual({
     agreed: false,
   });

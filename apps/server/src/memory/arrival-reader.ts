@@ -379,33 +379,14 @@ export async function readArrivals(
     evidence.fileLines ?? readFiles(),
     new Set()
   ).due.map(eventKey);
-  // A line is read once Apple's trigger read it, or once both of his engine's reads did (Thai, no Apple model): a
-  // failed read is asked again on the next pass, the one made never.
-  const keysOf = (r: ReadReply["read"]) =>
-    new Set(stored.flatMap((l) => (l.read === r ? l.messages : [])));
-  const confirmedKeys = keysOf(ARRIVAL_CONFIRM_READ);
-  const appointmentKeys = keysOf(ARRIVAL_APPOINTMENT_READ);
-  const read = new Set([
-    ...keysOf(ARRIVAL_TRIGGER_READ),
-    ...[...confirmedKeys].filter((k) => appointmentKeys.has(k)),
-    ...waiting,
-  ]);
-  /** His engine's reads of a read sent straight to it, less the ones already made. */
-  const straightOf = (r: ArrivalRead) => [
-    ...(r.keys.every((k) => confirmedKeys.has(k)) ? [] : [confirmOf(r)]),
-    ...(r.keys.every((k) => appointmentKeys.has(k)) ? [] : [appointmentOf(r)]),
-  ];
-  const pending = pendingTriggers(stored, day);
+  const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
+  const pending = pendingReadsOf(stored, day);
   const pendingUnits = new Set(pending.map(({ t }) => t.unit));
   // Words are fetched only for a unit with a turn not read yet (fewer of its keys read than its turns), or a confirm
   // pending: a conversation read whole fetches nothing again.
   const readOfUnit = Map.groupBy(
     stored.flatMap((l) =>
-      "unit" in l
-        ? l.messages
-            .filter((k) => read.has(k))
-            .map((k) => ({ k, unit: l.unit }))
-        : []
+      "unit" in l ? l.messages.map((k) => ({ k, unit: l.unit })) : []
     ),
     (m) => m.unit
   );
@@ -472,7 +453,7 @@ export async function readArrivals(
   // Thai lines go to both of his engine's reads.
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
-    .flatMap(straightOf);
+    .flatMap((r) => [confirmOf(r), appointmentOf(r)]);
   const digest = promptDigestOf(promptText(TRIGGER));
   for (const [i, r] of forApple.entries()) {
     const answer = answers[i] as FoundationAnswer;
@@ -482,7 +463,7 @@ export async function readArrivals(
     }
     // No Apple model on this Mac: nothing stored, his engine reads it.
     if ("error" in answer && answer.error !== "refused") {
-      toConfirm.push(...straightOf(r));
+      toConfirm.push(confirmOf(r), appointmentOf(r));
       continue;
     }
     const reply = triggerReplyOf(answer);
@@ -529,41 +510,56 @@ export async function readArrivals(
     due: due.length,
     failed: failed.length,
   });
-  // How many appointment reads were made: the watcher then brings his calendar in line at once.
-  return taken.filter((a) => a.read === ARRIVAL_APPOINTMENT_READ).length;
+  // How many appointment reads were stored: the watcher then brings his calendar in line at once.
+  return taken.filter(
+    (a) => a.read === ARRIVAL_APPOINTMENT_READ && !failed.includes(a)
+  ).length;
 }
 
 const sameKeys = (a: string[], b: string[]) =>
   a.length === b.length && a.every((k, i) => k === b[i]);
 
 /**
- * Today's triggers that go on to a read of his engine (a confirm, an appointment read) not made yet (Life was offline,
- * or the cap was spent), each with the read it waits for. An earlier day's is the night's, never read when the next
- * day's allowance opens.
+ * The one rule of which of his engine's reads a read still waits for (Life was offline, the cap was spent, a call
+ * failed), each on the keys it was first read on, so new lines never join it: after Apple's trigger, the reads it
+ * sends on (`readsAfterOf`); after a read sent straight to his engine (Thai, no Apple model), the other of
+ * its two. Only today's: an earlier day's is the night's, never read when the next day's allowance opens.
  */
-function pendingTriggers(stored: ReadReply[], day: string) {
+function pendingReadsOf(stored: ReadReply[], day: string) {
   const isMade = (read: string, keys: string[]) =>
     stored.some((c) => c.read === read && sameKeys(c.messages, keys));
-  return stored.flatMap((l) =>
-    l.read === ARRIVAL_TRIGGER_READ && localDate(l.at) === day
-      ? [
-          ...(isTriggered(l.reply) && !isMade(ARRIVAL_CONFIRM_READ, l.messages)
-            ? [{ ask: confirmOf, t: l }]
-            : []),
-          ...(isEventTriggered(l.reply) &&
-          !isMade(ARRIVAL_APPOINTMENT_READ, l.messages)
-            ? [{ ask: appointmentOf, t: l }]
-            : []),
-        ]
-      : []
-  );
+  const isTriggerOf = (keys: string[]) => isMade(ARRIVAL_TRIGGER_READ, keys);
+  return stored.flatMap((t) => {
+    if (!("unit" in t) || localDate(t.at) !== day) {
+      return [];
+    }
+    const missing = (read: string, ask: (r: ArrivalRead) => Asked) =>
+      isMade(read, t.messages) ? [] : [{ ask, t }];
+    if (t.read === ARRIVAL_TRIGGER_READ) {
+      return [
+        ...(isTriggered(t.reply)
+          ? missing(ARRIVAL_CONFIRM_READ, confirmOf)
+          : []),
+        ...(isEventTriggered(t.reply)
+          ? missing(ARRIVAL_APPOINTMENT_READ, appointmentOf)
+          : []),
+      ];
+    }
+    if (isTriggerOf(t.messages)) {
+      return [];
+    }
+    return t.read === ARRIVAL_CONFIRM_READ
+      ? missing(ARRIVAL_APPOINTMENT_READ, appointmentOf)
+      : missing(ARRIVAL_CONFIRM_READ, confirmOf);
+  });
 }
+
 /**
  * The confirms of pending triggers, their lines read again from today's units by the same cutter (a reply never keeps
  * message text). Only when it gives back exactly the trigger's lines: otherwise the night reads the unit.
  */
 function pendingConfirms(
-  pending: ReturnType<typeof pendingTriggers>,
+  pending: ReturnType<typeof pendingReadsOf>,
   units: { built: Built[]; spoken: ReadonlyMap<string, SourceLine[]> },
   people: { nameOf: (ref: string) => string; resolve: Resolve }
 ): Asked[] {
