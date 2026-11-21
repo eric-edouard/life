@@ -175,7 +175,6 @@ test("Voice's spends: a settled job's Scribe seconds at the day's rate, a speech
         transcriber: "scribe",
       },
     ],
-    unsettled: 0,
     modelRuns: [
       {
         at: AT,
@@ -186,6 +185,7 @@ test("Voice's spends: a settled job's Scribe seconds at the day's rate, a speech
         provider: "claude-code",
       },
     ],
+    unsettled: 0,
     voiceNotes: [
       { at: AT, billableSeconds: 1800, route: "whole", seconds: 1800 },
       { at: AT, billableSeconds: null, route: null, seconds: null },

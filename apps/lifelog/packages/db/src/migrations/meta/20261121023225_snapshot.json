@@ -74,9 +74,7 @@
       "indexes": {
         "apple_health_id_unique": {
           "name": "apple_health_id_unique",
-          "columns": [
-            "id"
-          ],
+          "columns": ["id"],
           "isUnique": true
         }
       },
@@ -173,10 +171,7 @@
       "indexes": {
         "backup_files_source": {
           "name": "backup_files_source",
-          "columns": [
-            "source_id",
-            "kind"
-          ],
+          "columns": ["source_id", "kind"],
           "isUnique": false
         }
       },
@@ -220,10 +215,7 @@
       "indexes": {
         "change_log_kind_ref": {
           "name": "change_log_kind_ref",
-          "columns": [
-            "kind",
-            "ref"
-          ],
+          "columns": ["kind", "ref"],
           "isUnique": false
         }
       },
@@ -302,9 +294,7 @@
       "indexes": {
         "chapters_conversation": {
           "name": "chapters_conversation",
-          "columns": [
-            "conversation_id"
-          ],
+          "columns": ["conversation_id"],
           "isUnique": false
         }
       },
@@ -493,9 +483,7 @@
       "indexes": {
         "diagnostics_received_at": {
           "name": "diagnostics_received_at",
-          "columns": [
-            "received_at"
-          ],
+          "columns": ["received_at"],
           "isUnique": false
         }
       },
@@ -546,9 +534,7 @@
       "indexes": {
         "events_at": {
           "name": "events_at",
-          "columns": [
-            "at"
-          ],
+          "columns": ["at"],
           "isUnique": false
         }
       },
@@ -599,16 +585,12 @@
       "indexes": {
         "heartbeats_observed_at": {
           "name": "heartbeats_observed_at",
-          "columns": [
-            "observed_at"
-          ],
+          "columns": ["observed_at"],
           "isUnique": false
         },
         "heartbeats_received_at": {
           "name": "heartbeats_received_at",
-          "columns": [
-            "received_at"
-          ],
+          "columns": ["received_at"],
           "isUnique": false
         }
       },
@@ -659,11 +641,7 @@
       "indexes": {
         "intelligence_calls_once": {
           "name": "intelligence_calls_once",
-          "columns": [
-            "run_id",
-            "stage",
-            "key"
-          ],
+          "columns": ["run_id", "stage", "key"],
           "isUnique": true
         }
       },
@@ -672,12 +650,8 @@
           "name": "intelligence_calls_run_id_intelligence_runs_id_fk",
           "tableFrom": "intelligence_calls",
           "tableTo": "intelligence_runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -830,24 +804,17 @@
       "indexes": {
         "intelligence_runs_conversation": {
           "name": "intelligence_runs_conversation",
-          "columns": [
-            "conversation_id",
-            "created_at"
-          ],
+          "columns": ["conversation_id", "created_at"],
           "isUnique": false
         },
         "intelligence_runs_created": {
           "name": "intelligence_runs_created",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         },
         "intelligence_runs_one_running": {
           "name": "intelligence_runs_one_running",
-          "columns": [
-            "conversation_id"
-          ],
+          "columns": ["conversation_id"],
           "isUnique": true,
           "where": "state = 'running'"
         }
@@ -934,10 +901,7 @@
       "indexes": {
         "location_history_instant": {
           "name": "location_history_instant",
-          "columns": [
-            "observed_at",
-            "source"
-          ],
+          "columns": ["observed_at", "source"],
           "isUnique": true
         }
       },
@@ -1147,36 +1111,24 @@
       "indexes": {
         "page_pieces_last": {
           "name": "page_pieces_last",
-          "columns": [
-            "source_id",
-            "last_page"
-          ],
+          "columns": ["source_id", "last_page"],
           "isUnique": false
         },
         "page_pieces_end": {
           "name": "page_pieces_end",
-          "columns": [
-            "source_id",
-            "end_at"
-          ],
+          "columns": ["source_id", "end_at"],
           "isUnique": false
         },
         "page_pieces_span": {
           "name": "page_pieces_span",
-          "columns": [
-            "source_id",
-            "span_first"
-          ],
+          "columns": ["source_id", "span_first"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "page_pieces_source_id_first_page_pk": {
-          "columns": [
-            "source_id",
-            "first_page"
-          ],
+          "columns": ["source_id", "first_page"],
           "name": "page_pieces_source_id_first_page_pk"
         }
       },
@@ -1333,9 +1285,7 @@
       "indexes": {
         "quick_transcriptions_created_at": {
           "name": "quick_transcriptions_created_at",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -1386,16 +1336,12 @@
       "indexes": {
         "quiet_ranges_created_at": {
           "name": "quiet_ranges_created_at",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         },
         "quiet_ranges_started_at": {
           "name": "quiet_ranges_started_at",
-          "columns": [
-            "started_at"
-          ],
+          "columns": ["started_at"],
           "isUnique": false
         }
       },
@@ -1482,37 +1428,24 @@
       "indexes": {
         "raw_pages_labeled": {
           "name": "raw_pages_labeled",
-          "columns": [
-            "source_id",
-            "labeled",
-            "page_index"
-          ],
+          "columns": ["source_id", "labeled", "page_index"],
           "isUnique": false
         },
         "raw_pages_received": {
           "name": "raw_pages_received",
-          "columns": [
-            "source_id",
-            "received_at"
-          ],
+          "columns": ["source_id", "received_at"],
           "isUnique": false
         },
         "raw_pages_codec": {
           "name": "raw_pages_codec",
-          "columns": [
-            "source_id",
-            "codec"
-          ],
+          "columns": ["source_id", "codec"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "raw_pages_source_id_page_index_pk": {
-          "columns": [
-            "source_id",
-            "page_index"
-          ],
+          "columns": ["source_id", "page_index"],
           "name": "raw_pages_source_id_page_index_pk"
         }
       },
@@ -1669,16 +1602,12 @@
       "indexes": {
         "search_passages_conversation": {
           "name": "search_passages_conversation",
-          "columns": [
-            "conversation_id"
-          ],
+          "columns": ["conversation_id"],
           "isUnique": false
         },
         "search_passages_captured_from": {
           "name": "search_passages_captured_from",
-          "columns": [
-            "captured_from"
-          ],
+          "columns": ["captured_from"],
           "isUnique": false
         }
       },
@@ -1880,12 +1809,8 @@
           "name": "speaker_assignments_job_id_transcripts_job_id_fk",
           "tableFrom": "speaker_assignments",
           "tableTo": "transcripts",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "job_id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["job_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1893,12 +1818,8 @@
           "name": "speaker_assignments_person_id_people_id_fk",
           "tableFrom": "speaker_assignments",
           "tableTo": "people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2006,27 +1927,18 @@
       "indexes": {
         "speech_fragments_open": {
           "name": "speech_fragments_open",
-          "columns": [
-            "source_id",
-            "capture_start"
-          ],
+          "columns": ["source_id", "capture_start"],
           "isUnique": false,
           "where": "\"speech_fragments\".\"object_key\" is not null"
         },
         "speech_fragments_source_end": {
           "name": "speech_fragments_source_end",
-          "columns": [
-            "source_id",
-            "capture_end"
-          ],
+          "columns": ["source_id", "capture_end"],
           "isUnique": false
         },
         "speech_fragments_source_last": {
           "name": "speech_fragments_source_last",
-          "columns": [
-            "source_id",
-            "last_page"
-          ],
+          "columns": ["source_id", "last_page"],
           "isUnique": false
         }
       },
@@ -2035,12 +1947,8 @@
           "name": "speech_fragments_job_id_transcription_jobs_id_fk",
           "tableFrom": "speech_fragments",
           "tableTo": "transcription_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2122,19 +2030,14 @@
       "indexes": {
         "timeline_spans_start_at": {
           "name": "timeline_spans_start_at",
-          "columns": [
-            "start_at"
-          ],
+          "columns": ["start_at"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "timeline_spans_source_id_first_page_pk": {
-          "columns": [
-            "source_id",
-            "first_page"
-          ],
+          "columns": ["source_id", "first_page"],
           "name": "timeline_spans_source_id_first_page_pk"
         }
       },
@@ -2356,47 +2259,32 @@
       "indexes": {
         "transcription_jobs_provider_request_id_unique": {
           "name": "transcription_jobs_provider_request_id_unique",
-          "columns": [
-            "provider_request_id"
-          ],
+          "columns": ["provider_request_id"],
           "isUnique": true
         },
         "transcription_jobs_identity": {
           "name": "transcription_jobs_identity",
-          "columns": [
-            "audio_sha256",
-            "settings_hash"
-          ],
+          "columns": ["audio_sha256", "settings_hash"],
           "isUnique": true
         },
         "transcription_jobs_state": {
           "name": "transcription_jobs_state",
-          "columns": [
-            "state"
-          ],
+          "columns": ["state"],
           "isUnique": false
         },
         "transcription_jobs_source_end": {
           "name": "transcription_jobs_source_end",
-          "columns": [
-            "source_id",
-            "capture_end"
-          ],
+          "columns": ["source_id", "capture_end"],
           "isUnique": false
         },
         "transcription_jobs_source_last": {
           "name": "transcription_jobs_source_last",
-          "columns": [
-            "source_id",
-            "last_page"
-          ],
+          "columns": ["source_id", "last_page"],
           "isUnique": false
         },
         "transcription_jobs_admitted": {
           "name": "transcription_jobs_admitted",
-          "columns": [
-            "admitted_at"
-          ],
+          "columns": ["admitted_at"],
           "isUnique": false
         }
       },
@@ -2478,12 +2366,8 @@
           "name": "transcripts_job_id_transcription_jobs_id_fk",
           "tableFrom": "transcripts",
           "tableTo": "transcription_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2555,9 +2439,7 @@
       "indexes": {
         "turns_start_at": {
           "name": "turns_start_at",
-          "columns": [
-            "start_at"
-          ],
+          "columns": ["start_at"],
           "isUnique": false
         }
       },
@@ -2566,22 +2448,15 @@
           "name": "turns_job_id_transcription_jobs_id_fk",
           "tableFrom": "turns",
           "tableTo": "transcription_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "turns_job_id_turn_index_pk": {
-          "columns": [
-            "job_id",
-            "turn_index"
-          ],
+          "columns": ["job_id", "turn_index"],
           "name": "turns_job_id_turn_index_pk"
         }
       },
@@ -2647,9 +2522,7 @@
       "indexes": {
         "voice_profiles_sample_id_unique": {
           "name": "voice_profiles_sample_id_unique",
-          "columns": [
-            "sample_id"
-          ],
+          "columns": ["sample_id"],
           "isUnique": true
         }
       },
@@ -2658,12 +2531,8 @@
           "name": "voice_profiles_person_id_people_id_fk",
           "tableFrom": "voice_profiles",
           "tableTo": "people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2671,12 +2540,8 @@
           "name": "voice_profiles_sample_id_voice_samples_id_fk",
           "tableFrom": "voice_profiles",
           "tableTo": "voice_samples",
-          "columnsFrom": [
-            "sample_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sample_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2762,10 +2627,7 @@
       "indexes": {
         "voice_samples_turn": {
           "name": "voice_samples_turn",
-          "columns": [
-            "job_id",
-            "turn_index"
-          ],
+          "columns": ["job_id", "turn_index"],
           "isUnique": true
         }
       },
@@ -2774,12 +2636,8 @@
           "name": "voice_samples_job_id_transcripts_job_id_fk",
           "tableFrom": "voice_samples",
           "tableTo": "transcripts",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "job_id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["job_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2851,9 +2709,7 @@
       "indexes": {
         "voice_note_hearings_done": {
           "name": "voice_note_hearings_done",
-          "columns": [
-            "done_at"
-          ],
+          "columns": ["done_at"],
           "isUnique": false
         }
       },
