@@ -245,3 +245,21 @@ private final class Recording: Sendable {
     await rig.until { rig.dictation.levels.last == 1 }
     rig.dictation.cancel()
 }
+
+/// The long spinner of 21 Nov: an answer that never comes ends in "Not written" after a bounded time, never a spinner.
+@MainActor @Test func anAnswerThatNeverComesEndsInAFailureAfterABoundedTime() async {
+    let dictation = Dictation(
+        begin: { _ in DictationRun(level: { 0.1 }) { Data("ogg".utf8) } },
+        words: { _ in
+            try await Task.sleep(for: .seconds(3600))
+            return "never"
+        },
+        refused: { false })
+    dictation.answerWithin = .milliseconds(50)
+    dictation.tap()
+    for _ in 0..<10_000 where dictation.phase != .listening { await Task.yield() }
+    dictation.tap()
+    #expect(dictation.phase == .writing)
+    for _ in 0..<2_000 where dictation.problem == nil { try? await Task.sleep(for: .milliseconds(5)) }
+    #expect(dictation.problem == .notWritten && dictation.phase == .rest)
+}
