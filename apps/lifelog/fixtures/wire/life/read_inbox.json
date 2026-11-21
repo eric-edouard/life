@@ -67,6 +67,7 @@
       "onSilence": "no",
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "gathered": null,
       "needs": [],
       "notSent": null,
       "options": [
@@ -82,6 +83,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
@@ -230,6 +232,7 @@
         "state": "not_found"
       },
       "doneSeenBy": "payment",
+      "gathered": null,
       "needs": [
         {
           "bank": "Test Bank",
@@ -282,6 +285,7 @@
           "takes": null
         }
       ],
+      "plan": null,
       "replaces": null,
       "question": "Pay the dive course deposit?",
       "ref": "dec_000000000002",
@@ -299,6 +303,89 @@
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
+      "urgency": "blocks",
+      "misread": null
+    },
+    {
+      "said": null,
+      "since": null,
+      "about": [],
+      "agent": "agt_000000000001",
+      "asker": "Orbit",
+      "at": "2026-10-14T10:00:00.000Z",
+      "clips": [],
+      "context": "What I read: [Kit's quote](life:unit_000000000001).",
+      "deadline": "2099-01-02T09:00:00.000Z",
+      "draft": null,
+      "goal": null,
+      "group": "decision",
+      "isPlan": true,
+      "kind": "decision",
+      "likelyPeople": [],
+      "links": [],
+      "onMatters": [],
+      "onSilence": null,
+      "doneSeen": null,
+      "doneSeenBy": "tap",
+      "gathered": {
+        "text": "From Kit's quote and two others"
+      },
+      "needs": [],
+      "notSent": null,
+      "options": [
+        {
+          "id": "start",
+          "label": "Start the plan",
+          "role": "start",
+          "takes": null
+        },
+        {
+          "id": "decline",
+          "label": "Not this plan",
+          "role": "decline",
+          "takes": null
+        }
+      ],
+      "plan": [
+        {
+          "by": "agent",
+          "channel": "whatsapp",
+          "text": "Ask Kit for the quote",
+          "when": "today"
+        },
+        {
+          "by": "owner",
+          "channel": "payment",
+          "text": "Pay the deposit"
+        },
+        {
+          "by": "agent",
+          "text": "Book the repair",
+          "when": "once Kit answers, by Thu"
+        }
+      ],
+      "replaces": null,
+      "question": "Start with this plan?",
+      "ref": "dec_000000000003",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Mend the strap",
+      "lifeLinks": [
+        {
+          "kind": "unit",
+          "ref": "unit_000000000001"
+        }
+      ],
+      "matter": null,
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f0bf086db1fae378",
       "urgency": "blocks",
       "misread": null
     },
@@ -833,9 +920,9 @@
       }
     }
   ],
-  "blocking": 5,
+  "blocking": 6,
   "counts": {
-    "decision": 2,
+    "decision": 3,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
@@ -845,6 +932,6 @@
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 9,
-  "version": "df9664ab458b74bf"
+  "total": 10,
+  "version": "3af0dc2c45cf8136"
 }

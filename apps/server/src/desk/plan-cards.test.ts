@@ -1,8 +1,14 @@
 import { expect, setSystemTime, test } from "bun:test";
+import { DAY } from "../core/clock";
 import { planCardsOf } from "../host/inbox";
 import type { Decision } from "../memory/decision-lines";
-import { openAssignment, register } from "./agent-actions";
-import { on, setup } from "./test-desk";
+import {
+  answerDecision,
+  decisionCardOf,
+  decisionsNow,
+} from "../memory/decisions";
+import { askDecision, openAssignment, register } from "./agent-actions";
+import { ahead, on, setup } from "./test-desk";
 
 // The plan card (life#816): an assignment he opened, its first card not withdrawn, worked out when read; never the
 // caretaker's, nor a hand-out's one card.
@@ -57,5 +63,100 @@ test("an open card is a plan when it is the first card not withdrawn of an assig
       }) as Decision
   );
   expect([...planCardsOf(desk.db, list)]).toEqual(["dec_test_plan"]);
+  setSystemTime();
+});
+
+// Regression (the plan card's wire): its steps and what they were gathered from round-trip from the door to his card,
+// its two options as his app's roles; a plan card needs `start` and `decline`, and no later card takes a plan.
+test("a plan card's `plan` and `gathered` reach his card, and only the plan card takes them", async () => {
+  const { desk } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const s = on(desk, agent);
+  const plan = [
+    {
+      by: "agent",
+      channel: "whatsapp",
+      text: "Ask Kit for the quote",
+      when: "today",
+    },
+    { by: "owner", channel: "payment", text: "Pay the deposit" },
+    { by: "agent", text: "Book the repair", when: "once Kit answers, by Thu" },
+  ];
+  const card = (over: Record<string, unknown> = {}) => ({
+    context: "What I read: Kit's quote.",
+    deadline: ahead(DAY),
+    gathered: { text: "From Kit's quote and two others" },
+    onSilence: null,
+    options: [
+      { id: "start", label: "Start the plan" },
+      { id: "decline", label: "Not this plan" },
+    ],
+    plan,
+    question: "Start with this plan?",
+    title: "Mend the watch",
+    ...over,
+  });
+  for (const options of [
+    [
+      { id: "go", label: "Go" },
+      { id: "decline", label: "Not this plan" },
+    ],
+    [
+      { id: "start", label: "Start the plan" },
+      { id: "stop", label: "Stop" },
+    ],
+  ]) {
+    await expect(askDecision(desk, s, card({ options }))).rejects.toThrow(
+      "exactly two: `start` and `decline`"
+    );
+  }
+  await expect(
+    askDecision(desk, s, card({ onSilence: "start" }))
+  ).rejects.toThrow("on silence no plan starts");
+  const { id } = await askDecision(desk, s, card());
+  const d = decisionsNow().find((x) => x.id === id);
+  expect(d && [...planCardsOf(desk.db, [d])]).toEqual([id]);
+  expect(d && decisionCardOf(d)).toMatchObject({
+    gathered: { text: "From Kit's quote and two others" },
+    options: [
+      { id: "start", role: "start" },
+      { id: "decline", role: "decline" },
+    ],
+    plan,
+  });
+  await answerDecision(id, ["start"]);
+  // The plan card is asked: a later card is no plan, and refuses one.
+  await expect(askDecision(desk, s, card())).rejects.toThrow(
+    "only on an assignment's plan card"
+  );
+  setSystemTime();
+});
+
+// Old plan cards, asked before `plan`: their plan is in `context`, and they read as ever, no role on their options.
+test("a plan card without `plan` still reads", async () => {
+  const { desk } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const { id } = await askDecision(desk, on(desk, agent), {
+    context: "## Plan\n1. Ask Kit",
+    deadline: ahead(DAY),
+    onSilence: null,
+    options: [
+      { id: "start", label: "Go" },
+      { id: "stop", label: "Stop the agent" },
+    ],
+    question: "Start with this plan?",
+    title: "Mend the watch",
+  });
+  const d = decisionsNow().find((x) => x.id === id);
+  expect(d && [...planCardsOf(desk.db, [d])]).toEqual([id]);
+  expect(d && decisionCardOf(d)).toMatchObject({
+    gathered: null,
+    options: [
+      { id: "start", takes: null },
+      { id: "stop", takes: null },
+    ],
+    plan: null,
+  });
+  expect(d && decisionCardOf(d).options[0]).not.toHaveProperty("role");
   setSystemTime();
 });

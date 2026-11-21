@@ -368,7 +368,7 @@ test("his complaint's words stay out of the call log, the caretaker's notes out 
   ).toBe("");
   const packet = await readPacket(desk, s as never, true);
   expect(packet).toContain("Your subject: Life's data.");
-  expect(packet).toContain("ask no plan and wait for no Go");
+  expect(packet).toContain("ask no plan card and wait for no `start`");
   expect(packet).not.toContain("asks your plan");
 });
 

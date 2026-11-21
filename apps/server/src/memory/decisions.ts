@@ -11,6 +11,7 @@ import {
   endsProblemOf,
   notBuiltOf,
   pageHintOf,
+  planRoleOf,
 } from "./card-problems";
 import { Ask, Keep, type Option, Withdrawal } from "./card-request";
 import {
@@ -421,8 +422,9 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
  * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
- * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim` is the desk's
- * (`Claim`); `prefer` the matter the asker works on, which the finder takes on a tie among the subject's matters.
+ * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `held` is the desk's, for a
+ * card an assignment asks: its `claim` (`Claim`); `prefer`, the matter it works on, which the finder takes on a tie
+ * among the subject's matters; and `isPlan`, whether it is the assignment's plan card (`asksPlanOf`).
  */
 export function requestDecision(
   asker: string,
@@ -430,8 +432,7 @@ export function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: Claim,
-  prefer?: string
+  held?: Held
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
@@ -439,7 +440,14 @@ export function requestDecision(
   }
   return request.keep
     ? Promise.try(() => keepDraft(asker, request, now))
-    : askCard(asker, request, now, readChat, claim, prefer);
+    : askCard(asker, request, now, readChat, held);
+}
+
+/** What the desk gives a card an assignment asks (`requestDecision`). */
+interface Held {
+  claim: Claim;
+  isPlan: boolean;
+  prefer?: string;
 }
 
 /** Whose a card is (the desk's claim): handed the subject Life will store, the card's id, the asker's own card a merge withdraws and the card's write, which it runs at once inside its own writes (whose card it is), or refuses by throwing. */
@@ -456,8 +464,11 @@ async function askCard(
   request: Record<string, unknown>,
   now: Date,
   readChat: typeof resolveDraft,
-  claim: Claim = (_subject, _id, _replacing, write) => write({}),
-  prefer?: string
+  {
+    claim = (_subject, _id, _replacing, write) => write({}),
+    isPlan = false,
+    prefer,
+  }: Partial<Held> = {}
 ) {
   const notBuilt = notBuiltOf(request);
   if (notBuilt) {
@@ -470,7 +481,7 @@ async function askCard(
     );
   }
   const ask = parsed.data;
-  const problem = cardProblemOf(ask, now);
+  const problem = cardProblemOf(ask, now, isPlan);
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
   }
@@ -640,13 +651,18 @@ export function doneSeenShownOf(l?: DoneSeen) {
   };
 }
 
-/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its options with what each takes, its last send that did not go, the older card it replaces ("Replaces an older draft"). */
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({
   doneSeen: doneSeenShownOf(d.doneSeen),
   doneSeenBy: doneSeenByOf(d),
+  gathered: d.gathered ?? null,
   needs: needsShownOf(d.needs),
   notSent: notSentOf(d),
-  options: d.options.map((o) => ({ ...o, takes: o.takes ?? null })),
+  options: d.options.map((o) => {
+    const role = d.plan && planRoleOf(o.id);
+    return { ...o, ...(role ? { role } : {}), takes: o.takes ?? null };
+  }),
+  plan: d.plan ?? null,
   replaces: d.replaces ?? null,
 });
 

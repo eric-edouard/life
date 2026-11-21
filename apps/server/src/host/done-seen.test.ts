@@ -350,9 +350,15 @@ test("a failed read is not found with its error; a look that never finished (a c
 });
 
 test("a card's parts are checked when asked, each refusal pointing at its page; what is not built yet says so", async () => {
-  await expect(transfer({ plan: [{ text: "Pay" }] })).rejects.toThrow(
-    "`plan` is not built yet"
-  );
+  // Regression (the plan card's wire): a card asked outside an assignment's plan card refuses its parts.
+  for (const over of [
+    { plan: [{ by: "owner", text: "Pay" }] },
+    { gathered: { text: "From the quote" } },
+  ]) {
+    await expect(transfer(over)).rejects.toThrow(
+      "only on an assignment's plan card"
+    );
+  }
   await expect(
     transfer({ options: [{ ...OPTIONS[0], takes: "file" }, OPTIONS[1]] })
   ).rejects.toThrow('`takes: "file"` (only `note`) is not built yet');
@@ -405,7 +411,12 @@ test("the card's rules are short and each part's are a fetch away", async () => 
   ).toContain('"currency":"THB"');
   expect(
     await openById("ask/plan", undefined, undefined, () => Promise.resolve(""))
-  ).toContain("no page ask/plan: ask/draft, ask/options, ask/payment");
+  ).toContain('{"id":"start","label":"Start the plan"}');
+  expect(
+    await openById("ask/visit", undefined, undefined, () => Promise.resolve(""))
+  ).toContain(
+    "no page ask/visit: ask/draft, ask/options, ask/payment, ask/plan"
+  );
 });
 
 test("Life's line of each need, in the agent's order: what a phone that doesn't know the kind draws", async () => {

@@ -199,11 +199,14 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   }
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
-    expect(text).toContain("act only after his Go");
-    // His word of 21 Nov 2026: the plan card reads well.
     expect(text).toContain(
-      "Write that card's plan in Markdown in its `context`: a short heading, numbered steps, what you wait on, and what you will ask him; its question stays one line."
+      "Act only after his `start`; on his `decline`, `finish`"
     );
+    // His word of 21 Nov 2026: the plan card reads well; its steps are `plan`, never repeated in its `context`.
+    expect(text).toContain(
+      "its steps as `plan`, what it rests on as `gathered`"
+    );
+    expect(text).not.toContain("Write that card's plan in Markdown");
     expect(text).toContain("name the matter before you act");
     expect(text).toContain("never with a Monitor");
     expect(text).toContain("`github` is a wait channel");
