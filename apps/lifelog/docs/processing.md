@@ -221,7 +221,7 @@ The phone sends what the owner dictated into a field (Ogg Opus, at most 10 minut
 `POST /dictation/transcript`, device token only. It is heard like a voice note (`hearOnTheMac`, then `hearRouted`),
 routed by where the owner is now, and ahead of everything else: the speech service's interactive place
 (`X-Priority: interactive`) and Scribe's (`interactive`, waiting up to 60 s for a slot). lifelog keeps no audio and no
-words, only operational events (`dictation.heard`: its length, route, billable seconds and turns left unheard;
+words, only operational events (`dictation.heard`: its length, route, billable seconds, turns left unheard and, when heard on the Mac alone, `speechMs` and `totalMs`, where its wait went;
 `elevenlabs.done` or `.failed`); the answer is `no-store`. Words come back only whole:
 any routed turn Scribe had to hear (one the router judged, or one whose speech-service words the merge drops) left
 without Scribe's words (Scribe failed, answered nothing for it, or its audio could not be cut)
