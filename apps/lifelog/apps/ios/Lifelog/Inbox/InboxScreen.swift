@@ -76,19 +76,12 @@ struct InboxScreen: View {
                     .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
                 }
             }
-            .shellBar("")
+            // Back to the list of asks: the one Back of a list and its detail (his word, 21 Nov), never a sidebar's toggle.
+            .shellBar("", onBack: sizeClass == .regular ? nil : { router.inboxColumn = .sidebar })
             .reportsSideColumn($inSideColumn)
             .navigationBarBackButtonHidden()
             // What he just answered or parked, said back; in the side column, the toast is the column's capsule.
             .saidBackToast(inSideColumn: inSideColumn)
-            .toolbar {
-                // Back to the list of asks: the one Back of a list and its detail (his word, 21 Nov), never a sidebar's toggle.
-                if sizeClass != .regular {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Asks", systemImage: "chevron.backward") { router.inboxColumn = .sidebar }
-                    }
-                }
-            }
         }
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.

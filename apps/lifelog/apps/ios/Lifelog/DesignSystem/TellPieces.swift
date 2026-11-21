@@ -127,6 +127,42 @@ struct TellStrandRow: View {
     }
 }
 
+/// The Tell Life button: a round glass disc with Life's voice mark, always at the bottom right corner of the root, in every pose
+/// (52 on the phone and open upright, 48 in the Duo's side column). It sinks under his thumb; a tap opens Tell Life.
+struct TellLifeButton: View {
+    @Environment(AppRouter.self) private var router
+    /// Pieces of work running, shown as a ring in `ai` and their count.
+    var running = 0
+    var size: CGFloat = 52
+
+    var body: some View {
+        Button {
+            router.isTellLifeOpen = true
+        } label: {
+            TellMark(size: 22).frame(width: size, height: size)
+                .overlay { if running > 0 { Circle().stroke(Palette.ai, lineWidth: 2) } }
+                .overlay(alignment: .topTrailing) {
+                    if running > 0 { Text("\(running)").font(.chip).foregroundStyle(Palette.ai).padding(4) }
+                }
+        }
+        .buttonStyle(SinkStyle())
+        .floatingGlass(in: Circle())
+        .sensoryFeedback(.impact(weight: .medium), trigger: router.isTellLifeOpen) { _, new in new }
+        .accessibilityLabel("Tell Life")
+        .accessibilityIdentifier("tell.life")
+    }
+}
+
+/// Sinks a little under the thumb.
+private struct SinkStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
+            .animation(.spring(duration: 0.2), value: configuration.isPressed)
+    }
+}
+
 /// What he said, waiting for the Mac: the mark and "Your words · waiting", in a quiet capsule.
 struct TellWaitingPill: View {
     let words: String
