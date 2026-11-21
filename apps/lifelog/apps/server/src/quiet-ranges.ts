@@ -99,9 +99,11 @@ export function addQuietRange(
   return quietView(row);
 }
 
-const quietView = (row: typeof quietRanges.$inferSelect) => ({
+/** A quiet range on the wire (the feed, the POST's answer): a restored phone tells its own dictation by `isPhoneDictation`. */
+export const quietView = (row: typeof quietRanges.$inferSelect) => ({
   endedAt: row.endedAt.toISOString(),
   id: row.id,
+  isPhoneDictation: row.source === PHONE_DICTATION,
   startedAt: row.startedAt.toISOString(),
 });
 

@@ -44,13 +44,18 @@ public final class MicCapture {
         try engine.start()
     }
 
-    /// Closes the microphone and returns the Ogg Opus stream of everything heard, or why it isn't whole.
-    public func stop() async throws -> Data {
+    /// Closes the microphone at once: nothing more is heard. `stop` then takes what was.
+    public func halt() {
         configChange.map(NotificationCenter.default.removeObserver)
         configChange = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         sink?.finish()  // what the tap handed over is still taken
+    }
+
+    /// Closes the microphone and returns the Ogg Opus stream of everything heard, or why it isn't whole.
+    public func stop() async throws -> Data {
+        halt()
         await feed?.value
         if let failure { throw failure }
         return try recording.finish()

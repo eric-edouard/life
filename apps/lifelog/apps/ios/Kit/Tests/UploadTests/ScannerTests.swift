@@ -167,12 +167,21 @@ func aDictationIsLeftOutWhereTheSkewedPendantClockPlacesItsSpeechAndShrinksAtIts
     #expect(try await scanner.scan().kept(in: at(0)..<at(30)) == [at(0)..<at(10), at(14)..<at(30)])
 }
 
-@Test func speechWhoseClockNothingBoundsIsNotSentNearADictationAndALongOpenEpochWidensIt() async throws {
-    // No set at all: nothing bounds the clock, so nothing within a day of the dictation goes.
+@Test func speechWhoseClockNothingBoundsIsNotSentOnceThePhoneWasDictatedToAndALongOpenEpochWidensIt() async throws {
+    // No set at all: nothing bounds the clock, so its speech goes only while the owner never dictated to this phone.
     let never = try ScannerFixture()
     try await never.store(0..<30)
+    #expect(try await never.scanner().scan().kept(in: at(0)..<at(30)) == [at(0)..<at(30)])
     try await never.library.setQuiet(.dictation, at(10)..<at(14))
     #expect(try await never.scanner().scan().kept(in: at(0)..<at(30)).isEmpty)
+
+    // A restored phone: its own dictation two days away came back from the feed, with no source.
+    let restored = try ScannerFixture()
+    try await restored.store(0..<30)
+    let far =
+        #"{"id":"q1","startedAt":"\#(at(172_800).date.formatted(.iso8601))","endedAt":"\#(at(172_804).date.formatted(.iso8601))","isPhoneDictation":true}"#
+    try await restored.library.apply(feed: Data(#"{"cursor":"1","more":false,"quietRanges":[\#(far)]}"#.utf8)) { _ in }
+    #expect(try await restored.scanner().scan().kept(in: at(0)..<at(30)).isEmpty)
 
     // Set 10 hours before, not read since: up to 3.6 s of drift either way, left out around the dictation too.
     let open = try ScannerFixture()

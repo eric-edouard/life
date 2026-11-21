@@ -39,7 +39,7 @@ import { textOf } from "./elevenlabs";
 import type { MacView } from "./mac-socket";
 import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
 import { placeName } from "./places";
-import { macView } from "./quiet-ranges";
+import { macView, quietView } from "./quiet-ranges";
 import { latestSummary, latestValid, rendererFor } from "./runs";
 import {
   keptWords,
@@ -152,11 +152,7 @@ export function feed(
     })),
     more: log.length === page,
     people: personRows.map(personRow),
-    quietRanges: quiet.map((q) => ({
-      endedAt: q.endedAt.toISOString(),
-      id: q.id,
-      startedAt: q.startedAt.toISOString(),
-    })),
+    quietRanges: quiet.map(quietView),
     removed: [
       ...gone("chapter", chapterRows),
       ...gone("job", jobRows),

@@ -19,7 +19,7 @@ final class DictationCapture {
     private let library: LibraryStore
     private let sync: SyncStore?
     /// One start for the stretch and the recording: the stretch runs to `start + cap + pad`, and the microphone
-    /// closes by `opened + cap` on the monotonic clock, both taken before anything else.
+    /// closes by `opened + cap` on the monotonic clock, both taken once the microphone is allowed, before the stretch.
     private let start: CaptureInstant
     private let opened: ContinuousClock.Instant
     private let mic: MicCapture
@@ -57,8 +57,9 @@ final class DictationCapture {
     static func begin(
         library: LibraryStore?, sync: SyncStore?, ended: @escaping @MainActor () -> Void
     ) async throws -> DictationCapture {
-        let (start, opened) = (CaptureInstant(.now), ContinuousClock.now)
         guard await AVAudioApplication.requestRecordPermission() else { throw Failure.denied }
+        // Taken once he allowed it: the time the permission sheet stays up is never left out.
+        let (start, opened) = (CaptureInstant(.now), ContinuousClock.now)
         guard let library else { throw Failure.noLibrary }
         await recover(library: library)
         let capture = DictationCapture(
@@ -90,9 +91,10 @@ final class DictationCapture {
         return try await closing.value
     }
 
-    /// The microphone closes itself before the field hears of it.
+    /// The microphone closes itself before the field, or playback taking the session, hears of it.
     private func stopOnItsOwn() {
         guard closing == nil else { return }
+        mic.halt()
         closing = Task { try await close() }
         ended()
     }

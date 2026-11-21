@@ -197,8 +197,6 @@ public actor TimelineScanner {
 
     /// `SpeechPolicy.keptAudio` of `range` alone. Speech is padded and short cuts are bridged, so it reads a margin
     /// around `range` wide enough that nothing outside can change what is kept inside.
-    static let unboundedReach: Int64 = 86_400_000
-
     func kept(in range: Range<CaptureInstant>, frontier: CaptureInstant?) async throws -> [Range<CaptureInstant>] {
         let margin = policy.minimumCutMillis + 2 * policy.paddingMillis
         let wide = range.lowerBound.advanced(by: -margin)..<range.upperBound.advanced(by: margin)
@@ -211,25 +209,19 @@ public actor TimelineScanner {
             wide.lowerBound.advanced(by: -policy.paddingMillis)..<wide.upperBound.advanced(by: policy.paddingMillis)
         ])
         // A quiet range is left out where the Pendant's clock places it, give or take its error bound (the pad covers
-        // whole-second stamps). Speech whose clock nothing bounds isn't sent while this phone's dictation is within a
-        // day of it (#802). ponytail: a day is a guess for a clock never read; the raw backup still holds that audio.
-        let near =
-            range.lowerBound.advanced(by: -Self.unboundedReach)..<range.upperBound.advanced(by: Self.unboundedReach)
-        let quiet = try await library.quietRanges(in: near)
-        let dictated = try await library.hasDictation(in: near)
+        // whole-second stamps). Speech whose clock nothing bounds (recorded before this phone first set the Pendant's
+        // clock) could be anywhere, so it isn't sent once the owner ever dictated to this phone, a restored copy
+        // included (#802); the Mac's ranges apply where its stamps say, as before. ponytail: that speech then waits
+        // for nothing; its raw backup still holds it.
         let model = ClockModel(syncs: try store.clock(deviceID: deviceID).map(\.sync))
-        var placed: [CaptureSpan] = []
-        var slack: Int64 = 0
-        for span in spans {
-            let bound = model.errorBound(
-                deviceMillis: span.interval.lowerBound.millis, pageIndex: span.pages.lowerBound)
-            guard let bound else {
-                if !dictated { placed.append(span) }
-                continue
-            }
-            placed.append(span)
-            slack = max(slack, bound)
+        let bounds = spans.map {
+            model.errorBound(deviceMillis: $0.interval.lowerBound.millis, pageIndex: $0.pages.lowerBound)
         }
+        let slack = bounds.compactMap { $0 }.max() ?? 0
+        let unboundedGoes = bounds.contains(nil) ? !(try await library.hasPhoneDictation()) : true
+        let placed = zip(spans, bounds).filter { $0.1 != nil || unboundedGoes }.map(\.0)
+        let quiet = try await library.quietRanges(
+            in: wide.lowerBound.advanced(by: -slack)..<wide.upperBound.advanced(by: slack))
         let widened = quiet.map { $0.lowerBound.advanced(by: -slack)..<$0.upperBound.advanced(by: slack) }
         return policy.keptAudio(spans: placed, windows: windows, quietRanges: widened).map { $0.clamped(to: range) }
             .filter { !$0.isEmpty }

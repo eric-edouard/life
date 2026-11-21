@@ -60,11 +60,15 @@ public actor LibraryStore {
             [.text(source.rawValue), .int(range.lowerBound.millis), .int(range.upperBound.millis), .int(open ? 1 : 0)])
     }
 
-    /// Whether this phone's own dictation overlaps `range`.
-    public func hasDictation(in range: Range<CaptureInstant>) throws -> Bool {
+    /// Whether the owner ever dictated to this phone: its own quiet ranges, or the feed's copy of them after a restore.
+    public func hasPhoneDictation() throws -> Bool {
         try db.query(
-            "SELECT 1 FROM quiet_ranges WHERE source = 'dictation' AND start_ms < ?2 AND end_ms > ?1 LIMIT 1",
-            [.int(range.lowerBound.millis), .int(range.upperBound.millis)]
+            """
+            SELECT 1 FROM quiet_ranges WHERE source = 'dictation'
+            UNION ALL SELECT 1 FROM feed_rows
+                WHERE kind = 'quietRanges' AND json_extract(CAST(json AS TEXT), '$.isPhoneDictation') = 1
+            LIMIT 1
+            """
         ) { _ in true }.first ?? false
     }
 

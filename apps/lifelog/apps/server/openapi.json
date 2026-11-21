@@ -2351,12 +2351,15 @@
             "type": "string",
             "format": "uuid"
           },
+          "isPhoneDictation": {
+            "type": "boolean"
+          },
           "startedAt": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": ["endedAt", "id", "startedAt"]
+        "required": ["endedAt", "id", "isPhoneDictation", "startedAt"]
       },
       "Switches": {
         "type": "object",
