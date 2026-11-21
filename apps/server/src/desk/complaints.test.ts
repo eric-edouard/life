@@ -224,6 +224,8 @@ test("a stopped caretaker leaves a press unreceived, his words kept, its plan sa
     "recorded",
     "plan",
   ]);
+  // Only the first plan says the limit: said again, it would move the phone's deadline.
+  expect(said.map((s) => s.limitSeconds)).toEqual([5.5, undefined, undefined]);
   desk.db.run("update agent set status = 'active' where id = ?", [caretaker]);
   const third = await press("key-3");
   expect(received().at(-1)?.event_id).toBe(third.ask);
@@ -435,6 +437,49 @@ test("a caretaker whose first launch fails is not registered again for the same 
     expect(complaintReceiptOf(desk.db, stuck.id)?.assignment).toBe(
       complaintReceiptOf(desk.db, next.id)?.assignment
     );
+  } finally {
+    fake.isFailing = false;
+    setSystemTime();
+  }
+});
+
+test("his retry under the key of a press whose caretaker never started tries once more: one complaint, one receipt", async () => {
+  desk.db.run("update event set handed = 1");
+  const last = agentInRole(desk.db, "caretaker");
+  if (last?.status === "active") {
+    desk.db.transaction(() =>
+      closeAssignmentRow(
+        desk.db,
+        currentAssignmentOf(desk.db, last.id)?.id ?? "",
+        { outcome: "all handled" }
+      )
+    )();
+  }
+  // Past every press so far: the last test's clock went ahead.
+  setSystemTime(new Date(clock().getTime() + 120_000));
+  fake.isFailing = true;
+  try {
+    const stuck = askedOnly("key-relaunch");
+    for (const _ of [1, 2, 3]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one tick after another
+      await receiveComplaints(desk);
+      await wakeDue(desk);
+    }
+    expect(agentInRole(desk.db, "caretaker")?.why_not_started).toBeTruthy();
+    expect(complaintReceiptOf(desk.db, stuck.id)).toBeNull();
+    // The runtime answers again; his "Try again" sends the same press, under its key.
+    fake.isFailing = false;
+    setSystemTime(new Date(clock().getTime() + 60_000));
+    expect(await press("key-relaunch")).toEqual({
+      ask: stuck.id,
+      reached: "caretaker",
+    });
+    expect(
+      readLedger().filter(
+        (a) => a.instruction?.ref === "complaint:key-relaunch"
+      )
+    ).toHaveLength(1);
+    expect(received().filter((r) => r.event_id === stuck.id)).toHaveLength(1);
   } finally {
     fake.isFailing = false;
     setSystemTime();

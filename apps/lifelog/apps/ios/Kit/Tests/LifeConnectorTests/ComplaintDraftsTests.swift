@@ -59,3 +59,22 @@ private func voiceCards() throws -> (first: Check, resealed: Check) {
     drafts.clear()
     #expect(drafts[card.ref] == nil)
 }
+
+/// A sheet closed untouched leaves nothing: the next opens on the card as it is then. One he wrote in, or sent, is kept.
+@Test @MainActor func aSheetClosedUntouchedLeavesNoDraft() throws {
+    let (card, resealed) = try voiceCards()
+    let drafts = ComplaintDrafts()
+    drafts.open(card)
+    drafts[card.ref]?.report = true
+    drafts.close(card.ref)
+    #expect(drafts[card.ref] == nil)
+    #expect(drafts.open(resealed))
+    #expect(drafts[card.ref]?.check == resealed)
+    drafts[card.ref]?.words = "Not her."
+    drafts.close(card.ref)
+    #expect(drafts[card.ref]?.words == "Not her.")
+    _ = drafts.press(card.ref, to: PairedLife(origin: testURL("https://a.example.test"), generation: 0))
+    drafts[card.ref]?.words = " "
+    drafts.close(card.ref)
+    #expect(drafts[card.ref]?.sent != nil)
+}

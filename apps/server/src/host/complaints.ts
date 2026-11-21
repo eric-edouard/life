@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
+import { COMPLAINT_RETRIED } from "../core/paths";
 import { isSealed } from "../memory/complaint-checks";
 import { stageOf } from "../memory/complaint-record";
 import { askOf } from "../memory/memory-files";
@@ -32,7 +33,7 @@ export const Misread = z
 export type Misread = z.infer<typeof Misread>;
 
 const POLL_MS = 500;
-/** The plan is said again this often while the desk has not received it: the phone gives up after 15 s with no byte. */
+/** The plan is said again this often while the desk has not received it (its steps only: a limit said again would move the phone's deadline); the phone gives up after 15 s with no byte. */
 const STILL_WAITING_MS = 5000;
 
 /**
@@ -77,9 +78,9 @@ async function reached(
         `Not done: ${why}. His words are recorded: try again with the same key.`
       );
     }
-    // The same plan again changes nothing on the phone and keeps its stream alive through a slow tick.
+    // The same steps again change nothing on the phone and keep its stream alive through a slow tick.
     if (waited > 0 && waited % STILL_WAITING_MS === 0) {
-      report(plan);
+      report({ plan: plan.plan });
     }
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's receipt
     await Bun.sleep(POLL_MS);
@@ -121,8 +122,9 @@ export async function complain(
     quote: note,
     ref: `complaint:${answerKey}`,
   };
+  const recorded = askOf(entryId(instruction.ref, "ask", ""));
   const asked =
-    askOf(entryId(instruction.ref, "ask", "")) ??
+    recorded ??
     ask(
       instruction,
       { agent: DESK_AGENT, complaint: await complaintNow(ref, m) },
@@ -141,6 +143,10 @@ export async function complain(
     throw new Error(
       "Not done: this key recorded another press; a new press takes a new key."
     );
+  }
+  // His retry is a press too: a caretaker that never started tries once more for it (`startFailureOf`).
+  if (recorded) {
+    await Bun.write(COMPLAINT_RETRIED, clock().toISOString());
   }
   return await reached(asked.id, limitMs, report);
 }

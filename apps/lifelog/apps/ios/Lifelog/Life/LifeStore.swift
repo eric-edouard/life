@@ -21,7 +21,7 @@ final class LifeStore {
     let parties: PartyBook
 
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
-    enum ActionKey: Hashable {
+    enum ActionKey: Hashable, Sendable {
         case answer(ref: String)
         /// His "Wrong…" on a card: apart from its answers, so they stay as they are while it goes.
         case complaint(ref: String)
@@ -50,7 +50,7 @@ final class LifeStore {
     private let statusing = PendingTaps<ProjectStatus>()
 
     /// Every action by what it acts on: its steps as they stream, then its proof or why not.
-    private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
+    private(set) var actions = ActionBook<ActionKey>()
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
     /// A tapped push, from the tap until a whole read asked after it lands: its card, as in hand, is shown meanwhile.
@@ -74,7 +74,7 @@ final class LifeStore {
     /// asks), so none flashes back; a read asked later says what is open.
     func answersNewer(than asked: Date?) -> Set<String> {
         holds.underWay.union(answered.newer(than: asked)).union(
-            actions.compactMap { key, state in
+            actions.states.compactMap { key, state in
                 if case .answer(let ref) = key, state.isRunning { ref } else { nil }
             })
     }
@@ -139,7 +139,7 @@ final class LifeStore {
 
     /// Forgets an action's result once the screen has shown it (the next card is up, the sheet is closed).
     func forget(_ key: ActionKey) {
-        if actions[key]?.isRunning != true { actions[key] = nil }
+        actions.forget(key)
     }
 
     /// The card a tapped push opened has been shown.
@@ -296,14 +296,14 @@ final class LifeStore {
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
     ) async {
-        guard actions[key]?.isRunning != true else { return }
+        guard actions.begin(key) else { return }
         let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
-        let began = now()
+        let (began, pairing) = (now(), actions.pairing)
         var limit: Date?
-        actions[key] = .running(steps: [], limit: nil)
         let consumer = Task {
+            // Applied only within its pairing: after another, its key may be a new tap's, on that Life's card.
             for await event in events {
-                actions[key, default: .idle].apply(event)
+                guard actions.apply(event, to: key, begunIn: pairing) else { continue }
                 if case .succeeded = event { succeeded() }
                 limit = actions[key]?.limit ?? limit
             }
@@ -311,6 +311,7 @@ final class LifeStore {
         await body { emit.yield($0) }
         emit.finish()
         await consumer.value
+        guard pairing == actions.pairing else { return }
         if let ended = actions[key] { traceOf(key, tap: tap, ended, began: began, limit: limit) }
     }
 
@@ -370,20 +371,24 @@ final class LifeStore {
     private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife?) async {
         let key = request.isComplaint ? ActionKey.complaint(ref: request.ref) : .answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
-        guard let life, life.generation == parties.generation.current else {
-            return await perform(key) { emit in
-                emit(.started)
-                emit(.failed(ActionFailure(.notPaired)))
-            }
-        }
-        let tap = taps.key(for: request)
+        guard let life, life.generation == parties.generation.current else { return await refuseUnpaired(key) }
+        let (tap, generation) = (taps.key(for: request), parties.generation)
         await perform(
             key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: life.generation) }
         ) {
             [runner] in
-            await runner.answer(request, key: tap, at: life.origin, emit: $0)
+            await runner.answer(
+                request, key: tap, at: life.origin, whilePaired: { generation.current == life.generation }, emit: $0)
         }
-        if let ended = actions[key] { taps.ended(request, as: ended) }
+        if life.generation == actions.pairing, let ended = actions[key] { taps.ended(request, as: ended) }
+    }
+
+    /// An action with no Life to go to: refused before anything leaves the phone, as not paired.
+    private func refuseUnpaired(_ key: ActionKey) async {
+        await perform(key) { emit in
+            emit(.started)
+            emit(.failed(ActionFailure(.notPaired)))
+        }
     }
 
     // MARK: His "Wrong…"
@@ -400,7 +405,8 @@ final class LifeStore {
     /// unchanged (its seal, its key, its Life), else a new one to the Life paired now. Its card stays (Life keeps it
     /// open, being fixed); the receipt is the draft's only while it still holds that press.
     func complain(_ ref: String) async {
-        guard let press = complaints.press(ref, to: pairedLife) else { return }
+        guard let life = pairedLife else { return await refuseUnpaired(.complaint(ref: ref)) }
+        guard let press = complaints.press(ref, to: life) else { return }
         await send(press.request, keepsCardOpen: true, for: press.life)
         if case .succeeded(.complaintReceipt(let ask), _) = state(of: .complaint(ref: ref)) {
             complaints.received(ask, for: press)
@@ -636,9 +642,10 @@ final class LifeStore {
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()
-        // His "Wrong…" presses and their keys were the last Life's: none goes on to this one.
-        complaints.clear()
+        // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.
+        actions.startOver(pairing: parties.generation.current)
         taps = AnswerTaps()
+        complaints.clear()
         onStep(.reading)
         await refresh()
     }

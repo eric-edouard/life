@@ -545,3 +545,34 @@ private func repairedDuringTheCall() -> (actions: LifeActions, a: URL, reachedB:
         return
     }
 }
+
+/// His "Wrong…" decided for one pairing, its connection dropped while the phone was paired again with a Life at the same
+/// address: its repeat is refused before it leaves the phone, so the new pairing's bearer never carries it.
+@Test func aComplaintsRepeatAfterARepairingAtTheSameAddressIsRefused() async {
+    let host = newHost()
+    let store = MemoryStore(credentials(host: host))
+    let generation = Mutex(0)
+    let bearers = Mutex<[String]>([])
+    let session = Stub.session(host: host) { seen in
+        bearers.withLock { $0.append(seen.headers.first { $0.key.lowercased() == "authorization" }?.value ?? "") }
+        store.save(credentials(host: host, access: "access-new"))
+        generation.withLock { $0 += 1 }
+        return .stream(failure: .networkConnectionLost)
+    }
+    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
+    let actions = LifeActions(api: MCPLifeAPI(client: MCPClient(session: life, urlSession: session)), pause: noPause)
+    let wrong = AnswerRequest(
+        ref: "name:alex", options: [], note: "Not her.",
+        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
+    let state = await run {
+        await actions.answer(
+            wrong, key: "tap-1", at: testURL("https://\(host)"), whilePaired: { generation.withLock { $0 } == 0 },
+            emit: $0)
+    }
+    #expect(bearers.withLock { $0 } == ["Bearer access-1"])
+    guard case .failed(let failure, _) = state else {
+        Issue.record("expected a refusal, got \(state)")
+        return
+    }
+    #expect(failure.kind == ActionFailure(.notPaired).kind)
+}

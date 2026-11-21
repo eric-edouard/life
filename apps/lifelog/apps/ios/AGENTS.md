@@ -73,8 +73,9 @@ The fixture's content is the design data (`apps/lifelog/fixtures/design/`, one J
   by Life's server tests (`WRITE_WIRE=1 bun test apps/server/src/host/http/mcp-phone-reads.test.ts`, and the answer and
   agent tests through `wire-fixture.ts`).
 - Every action on Life (an answer, a start, stop, resume, model, his edit of a matter) runs in `LifeActions` and shows
-  as an `ActionState` in `LifeStore.actions`: running with the steps as they stream, succeeded with proof, failed with
-  its step, reason and whether a retry is allowed. Only the server ends one; past its `limitSeconds` it is late, never
+  as an `ActionState` in `LifeStore.actions` (`ActionBook`, one pairing's: a new pairing empties it, and a late event of
+  an earlier one's action applies nothing; an answer's repeats go only while its pairing holds): running with the steps
+  as they stream, succeeded with proof, failed with its step, reason and whether a retry is allowed. Only the server ends one; past its `limitSeconds` it is late, never
   failed. An answer carries one `life/answerKey` (made at his tap, kept while the same tap repeats after a dropped
   connection, new after any result Life gave or for another answer to the same card; his "Wrong…" keeps its key after any failure until Life's complaint receipt, apart from the card's answers, and its sheet resends the press it froze), so Life sends nothing twice: a repeat of an answered card's same answer gets its first result under any key. Every action ends with one `life.action` event (steps with their seconds, limit, late, outcome): read it with `bun run events life.action` to see where a slow one spent its time. A
   card's buttons are its options' `label`s, and what an option `takes` (a person, a name, a note) is what the tap asks

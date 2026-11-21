@@ -199,23 +199,32 @@
             }
             // The table's agent exists only once he started one; every open check about it, of every kind.
             let isStarted = started.withLock { $0 }
-            let left = answered.withLock { $0 }
             var matter = DesignReplies.matter(
                 row, agents: Self.allAgents.filter { $0["id"] as? String != "agt_table" || isStarted },
-                steps: Self.matterRead["steps"] as? [String: Any] ?? [:],
-                checks: Self.checks.filter { !left.contains($0["ref"] as? String ?? "") })
+                steps: Self.matterRead["steps"] as? [String: Any] ?? [:], checks: checksNow())
             if id == "matter_table", isStarted { matter["agent"] = "agt_table" }
             // Nora's page stays short, so the agent's row shows above the fold.
             if id == "matter_nora" { matter["checks"] = Array((matter["checks"] as? [[String: Any]] ?? []).prefix(1)) }
             return json(matter)
         }
 
+        /// The open asks as Life holds them now: less those he answered; one whose "Wrong…" the caretaker has no longer blocks.
+        private func checksNow() -> [[String: Any]] {
+            let (left, fixing) = (answered.withLock { $0 }, fixing.withLock { $0 })
+            return Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }.map { check in
+                guard let ask = fixing[check["ref"] as? String ?? ""] else { return check }
+                var check = check
+                check["beingFixed"] = ["ask": ask, "since": at(18, 14, 3), "line": NSNull()]
+                check["urgency"] = "improves"
+                return check
+            }
+        }
+
         /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
         /// "The rest can wait" first), `empty` nothing.
         func inbox() -> String {
-            let (left, fixing) = (answered.withLock { $0 }, fixing.withLock { $0 })
-            var open = Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
-                .filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
+            let left = answered.withLock { $0 }
+            var open = checksNow().filter { scenario != "improves" || $0["urgency"] as? String == "improves" }
             // `groups`: a few that block, so the list shows "The rest can wait" and what only improves, in a screen.
             if scenario == "groups" {
                 var blocking = 0
@@ -242,11 +251,6 @@
                 var check = check
                 check["confirm"] = (check["confirm"] as? [[String: Any]] ?? []).filter {
                     !left.contains($0["ref"] as? String ?? "")
-                }
-                // His "Wrong…" the caretaker has: it no longer blocks.
-                if let ask = fixing[check["ref"] as? String ?? ""] {
-                    check["beingFixed"] = ["ask": ask, "since": at(18, 14, 3), "line": NSNull()]
-                    check["urgency"] = "improves"
                 }
                 if var matter = check["matter"] as? [String: Any] {
                     matter["important"] = marked.contains(matter["id"] as? String ?? "") ? true : nil

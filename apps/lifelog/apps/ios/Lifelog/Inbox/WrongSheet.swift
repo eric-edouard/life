@@ -62,11 +62,12 @@ struct WrongSheet: View {
         .onAppear { isWriting = true }
         // The receipt for his press: said, then the sheet closes. No draft (another Life was paired): nothing to show.
         .task(id: receipt) {
-            guard receipt != nil else { return }
-            try? await Task.sleep(for: .seconds(0.6))
+            guard receipt != nil, (try? await Task.sleep(for: .seconds(0.6))) != nil else { return }
             dismiss()
         }
         .onChange(of: draft == nil) { _, isGone in if isGone { dismiss() } }
+        // Closed untouched, it leaves nothing: the next sheet opens on the card as it is then.
+        .onDisappear { life.complaints.close(ref) }
     }
 
     private func reportBox(isOn: Bool) -> some View {

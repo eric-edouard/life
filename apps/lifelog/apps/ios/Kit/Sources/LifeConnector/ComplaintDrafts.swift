@@ -46,16 +46,25 @@ public final class ComplaintDrafts {
 
     /// What his tap sends on `ref`: the press as first sent while his words and tick are unchanged, else a new one on
     /// the card he opened, to `life` (the Life paired now). Nil while there is nothing to send.
-    public func press(_ ref: String, to life: PairedLife?) -> Press? {
+    public func press(_ ref: String, to life: PairedLife) -> Press? {
         guard var draft = drafts[ref], draft.receipt == nil else { return nil }
         let words = draft.words.trimmingCharacters(in: .whitespacesAndNewlines)
         if let sent = draft.sent, sent.request.note == words, sent.request.value?.report == draft.report { return sent }
-        guard let life, let request = draft.check.complaint(words: draft.words, report: draft.report) else {
+        guard let request = draft.check.complaint(words: draft.words, report: draft.report) else {
             return nil
         }
         draft.sent = Press(request: request, life: life)
         drafts[ref] = draft
         return draft.sent
+    }
+
+    /// The sheet on `ref` closed: a draft he never wrote in or sent is dropped, so the next sheet opens on the card as it
+    /// is then (the same ref may be another guess by then).
+    public func close(_ ref: String) {
+        guard let draft = drafts[ref], draft.sent == nil,
+            draft.words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+        drafts[ref] = nil
     }
 
     /// Life's receipt `ask` for `press`: kept only while its draft still holds that press (a late one after a new
