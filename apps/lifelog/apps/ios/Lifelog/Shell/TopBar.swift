@@ -46,6 +46,11 @@ extension ShellBar {
                 .labelStyle(.iconOnly)
                 .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
                 .accessibilityIdentifier("top.settings")
+                // Under the Pendant in the column: Tell Life stands below the lower of the two.
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) {
+                    if $0.width > 0, $0.minX > 0 { router.settingsFrame = $0 }
+                }
+                .onDisappear { router.settingsFrame = nil }
         }
     }
 }

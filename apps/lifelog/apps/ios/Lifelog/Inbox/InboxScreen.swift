@@ -65,10 +65,12 @@ struct InboxScreen: View {
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
             .toolbar {
-                if inSideColumn, #available(iOS 27.1, *) {
+                // Only while there is something to undo: an empty capsule still took the column's room, and the column
+                // put the Pendant's neighbours in an overflow menu (seen in `design:shots`).
+                let said = life.saidBack?.undo == nil ? nil : life.saidBack
+                if inSideColumn, life.latestHeld != nil || said != nil, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
                         // A held answer, else a project he parked from a card (`saidBack`).
-                        let said = life.saidBack?.undo == nil ? nil : life.saidBack
                         ColumnToast(answered: life.latestHeld?.held.label ?? said?.words) {
                             if let held = life.latestHeld { undo(held.ref) } else { said.flatMap(life.undoing)?() }
                         }
