@@ -28,7 +28,7 @@ struct TellLifeScreen: View {
             composer
         }
         .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-        .background(background)
+        .background(TellRoom())
         .motion(Motion.standard, value: tell.stage)
         .motion(Motion.standard, value: tell.answer)
         // The session is kept warm while the screen stays open, so his first words start at once.
@@ -44,15 +44,6 @@ struct TellLifeScreen: View {
         }
     }
 
-    /// The room: a faint `ai` glow behind the stage.
-    private var background: some View {
-        ZStack {
-            Palette.bg
-            RadialGradient(colors: [Palette.ai.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 280)
-        }
-        .ignoresSafeArea()
-    }
-
     @ViewBuilder private var stage: some View {
         VStack(spacing: Metrics.Spacing.l) {
             switch tell.stage {
@@ -65,7 +56,7 @@ struct TellLifeScreen: View {
                 TellLine(kind: .waiting)
                 head("Your Mac is offline")
                 note("This goes as soon as it's back.")
-                if let waiting = tell.waiting { waitingPill(waiting) }
+                if let waiting = tell.waiting { TellWaitingPill(words: waiting) }
             case .ready:
                 answer
             }
@@ -111,21 +102,10 @@ struct TellLifeScreen: View {
         Text(words).font(.note).foregroundStyle(Palette.muted)
     }
 
-    private func waitingPill(_ words: String) -> some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            TellMark(size: 16, color: Palette.muted)
-            Text("Your words · waiting").font(.small)
-        }
-        .foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.m).frame(height: 32)
-        .background(Color.fillTint, in: .capsule)
-        .accessibilityLabel("Your words are waiting: \(words)")
-    }
-
     /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
     private var composer: some View {
         DictationField(prompt: "Tell Life…", text: $draft, axis: .vertical, send: submit)
-            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
-            .background(Color.fillTint, in: .rect(cornerRadius: 28))
+            .tellComposer()
     }
 
     private func submit() {

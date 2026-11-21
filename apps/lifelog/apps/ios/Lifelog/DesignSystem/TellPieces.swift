@@ -120,3 +120,66 @@ struct TellStrandRow: View {
         }
     }
 }
+
+/// The Tell Life button: a glass disc, 56, with Life's voice mark, alone in the rail's free middle (decision 89), on
+/// every screen. It sinks under his thumb; a tap opens Tell Life.
+struct TellLifeButton: View {
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        Button {
+            router.isTellLifeOpen = true
+        } label: {
+            TellMark(size: 22).frame(width: 56, height: 56)
+        }
+        .buttonStyle(SinkStyle())
+        .floatingGlass(in: Circle())
+        .sensoryFeedback(.impact(weight: .medium), trigger: router.isTellLifeOpen) { _, new in new }
+        .accessibilityLabel("Tell Life")
+        .accessibilityIdentifier("tell.life")
+    }
+}
+
+/// Sinks a little under the thumb.
+private struct SinkStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
+            .animation(.spring(duration: 0.2), value: configuration.isPressed)
+    }
+}
+
+/// What he said, waiting for the Mac: the mark and "Your words · waiting", in a quiet capsule.
+struct TellWaitingPill: View {
+    let words: String
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            TellMark(size: 16, color: Palette.muted)
+            Text("Your words · waiting").font(.small)
+        }
+        .foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.m).frame(height: 32)
+        .background(Color.fillTint, in: .capsule)
+        .accessibilityLabel("Your words are waiting: \(words)")
+    }
+}
+
+/// The room Tell Life stands in: the page with a faint `ai` glow behind the stage.
+struct TellRoom: View {
+    var body: some View {
+        ZStack {
+            Palette.bg
+            RadialGradient(colors: [Palette.ai.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 280)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+extension View {
+    /// The composer's capsule: his words, the microphone and Send on a quiet fill.
+    func tellComposer() -> some View {
+        padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
+            .background(Color.fillTint, in: .rect(cornerRadius: 28))
+    }
+}
