@@ -79,7 +79,7 @@ extension CheckGroup {
         case .ending: "checkmark"
         case .newMatter: "plus"
         case .yourMove: "arrow.right.circle"
-        case .unknown: "circle"
+        case .atOrganization, .unknown: "circle"
         }
     }
 
@@ -95,7 +95,7 @@ extension CheckGroup {
         case .ending: "Is this done?"
         case .newMatter: "New matters"
         case .yourMove: "Your moves"
-        case .unknown: "Other"
+        case .atOrganization, .unknown: "Other"
         }
     }
 }
