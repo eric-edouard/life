@@ -143,6 +143,8 @@ export function spendsOfLine(
 export interface TurnSpent {
   agent_id: string;
   assignment_id: string;
+  /** What its provider billed (pi on OpenRouter); null on a plan's runtime, or a run that came without it. */
+  cost_usd: number | null;
   ended_at: string;
   model: string | null;
   /** Its session's runtime: who ran a turn from before `turn.model`. */
@@ -152,9 +154,14 @@ export interface TurnSpent {
   tokens_out: number | null;
 }
 
+/** A billed turn's dollars, or not reported when its provider gave none. */
+const billedOf = (usd: number | null) =>
+  usd === null ? { reported: false } : { reported: true, usd };
+
 /**
  * An agent's turn: its runtime's tokens (the desk keeps cache reads apart from `tokens_in`: input counts them here),
- * equivalent at its model's list price; one with no model, or no usage, has none.
+ * billed when its provider is (pi on OpenRouter: its dollars, or not reported without them), else equivalent at its
+ * model's list price; one with no model, or no usage, has none.
  */
 export function spendOfTurn(t: TurnSpent): Spend {
   const isUsed = t.tokens_in !== null || t.tokens_out !== null;
@@ -163,19 +170,22 @@ export function spendOfTurn(t: TurnSpent): Spend {
     input: (t.tokens_in ?? 0) + (t.tokens_cached ?? 0),
     output: t.tokens_out ?? 0,
   };
-  const runtime = t.model?.split(":")[0] ?? t.runtime;
+  const provider = providerOfRuntime(t.model?.split(":")[0] ?? t.runtime);
+  const isBilled = BILLED_ENGINES.has(provider);
   return {
     agent: t.agent_id,
     assignment: t.assignment_id,
     at: t.ended_at,
-    basis: "equivalent",
+    basis: isBilled ? "billed" : "equivalent",
     calls: 1,
     kind: "agents",
-    provider: providerOfRuntime(runtime),
+    provider,
     ...(isUsed ? { tokens } : {}),
-    ...(t.model && isUsed
-      ? equivalentOf(t.model, t.ended_at, tokens)
-      : { reported: false }),
+    ...(isBilled
+      ? billedOf(t.cost_usd)
+      : t.model && isUsed
+        ? equivalentOf(t.model, t.ended_at, tokens)
+        : { reported: false }),
   };
 }
 

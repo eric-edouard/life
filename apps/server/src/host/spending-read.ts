@@ -25,8 +25,8 @@ import {
 } from "./spending";
 
 // `read_spending` and the `spending` of an agent's and a matter's reads (decision 83's wire, canvas v126): billed
-// dollars and his plans' tokens at list price (`equivalent`) are two bases, never summed. Agents and matters run on his
-// plans: tokens and their equivalent only.
+// dollars and his plans' tokens at list price (`equivalent`) are two bases, never summed. Agents and matters: their
+// tokens, their plans' equivalent, and what OpenRouter billed for those on pi (`billed`, when any).
 
 /** An amount on one basis. */
 interface Amount<B extends Basis> {
@@ -92,10 +92,22 @@ function merged<T extends ProviderSpending | KindSpending>(
   return [...by.values()];
 }
 
-/** Turns as `{tokens, equivalent, reported}`: `reported` false when one has no price or usage (its equivalent a floor). */
+/**
+ * Turns as `{tokens, equivalent, billed?, reported}`: `billed` when any was billed (pi); `reported` false when one has
+ * no price, cost or usage (its amounts a floor).
+ */
 const turnSpendingOf = (turns: TurnSpent[]) => {
   const spends = turns.map(spendOfTurn);
+  const billed = spends.filter((s) => s.basis === "billed");
   return {
+    ...(billed.length
+      ? {
+          billed: amountOf(
+            billed.reduce((n, s) => n + (s.usd ?? 0), 0),
+            "billed"
+          ),
+        }
+      : {}),
     equivalent: amountOf(
       spends.reduce((n, s) => n + (s.equivalentUsd ?? 0), 0),
       "equivalent"
@@ -231,10 +243,15 @@ export async function readSpending(month = dayNow().slice(0, 7)) {
   );
   const { from = "", to } = dayRange(`${month}-01`, end);
   return {
-    // The agents run on his plans: their kind is shown in tokens and their list price, never a billed $0.
+    // The agents run on his plans (tokens and their list price, never a billed $0), and on pi billed by OpenRouter.
     byKind: kinds.map((k) => ({
       ...(k.kind === "agents"
-        ? { equivalent: amountOf(k.equivalentUsd, "equivalent") }
+        ? {
+            equivalent: amountOf(k.equivalentUsd, "equivalent"),
+            ...(k.billedUsd > 0
+              ? { billed: amountOf(k.billedUsd, "billed") }
+              : {}),
+          }
         : { billed: amountOf(k.billedUsd, "billed") }),
       kind: k.kind as SpendKind,
       ...(k.tokens > 0 ? { tokens: k.tokens } : {}),

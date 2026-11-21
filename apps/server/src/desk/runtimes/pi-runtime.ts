@@ -249,6 +249,7 @@ interface PiLine {
     usage?: {
       cacheRead: number;
       cacheWrite: number;
+      cost?: { total: number; totalFromProvider?: boolean };
       input: number;
       output: number;
       totalTokens: number;
@@ -290,11 +291,18 @@ function updateOf(l: PiLine): Update | undefined {
   }
 }
 
-/** Adds one model call's usage to the run's: its tokens, and its whole context as the first and last call saw it. */
+/**
+ * Adds one model call's usage to the run's: its tokens, its whole context as the first and last call saw it, and what
+ * OpenRouter billed for it (pi reads the response's cost: `totalFromProvider`), null once a call came without it.
+ */
 function addUsage(u: Usage, m: NonNullable<PiLine["message"]>["usage"]) {
   if (!m) {
     return;
   }
+  u.billedUsd =
+    m.cost?.totalFromProvider && u.billedUsd !== null
+      ? (u.billedUsd ?? 0) + m.cost.total
+      : null;
   u.tokensIn += m.input + m.cacheWrite;
   u.tokensCached += m.cacheRead;
   u.tokensOut += m.output;

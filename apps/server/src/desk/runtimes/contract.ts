@@ -24,6 +24,8 @@ export interface Run {
 
 /** The turn's tokens, and the whole context of its first and last call (null when the runtime reported none), kept as a record: no decision reads it. */
 export interface Usage {
+  /** Dollars the provider billed for the run (pi on OpenRouter): none on a plan's runtime; null when a call came without its cost. */
+  billedUsd?: number | null;
   contextFirst: number | null;
   contextLast: number | null;
   tokensCached: number;
