@@ -11,10 +11,10 @@ Inputs: the PR or branch and its worktree, or "the whole app" for an audit.
    end with `Design: unreviewable`.
 2. Read the diff's Swift (an audit: the screens' Swift). Screens must use `DesignSystem/` components, type steps,
    `Palette`, `Metrics` and `Motion`, and draw none of their own (a row, a button, a badge, a field, a state mark, a box).
-3. The designed stills: `bun run design:shots [Frame…]` at the worktree's root builds the app, photographs each frame
+3. The designed stills: `bun run design:shots [Frame…]` at the worktree's root builds the app (reused when its sources are unchanged, or `--app <path>`), photographs each frame
    the frame map reaches (`apps/lifelog/fixtures/design/frames.json`, joined by name to the designer's
    `frame-map.json`) and writes `derived/design-shots/index.html`: the design's picture beside the app's, with the
-   frame's state in words. Open each pair at full size and list every difference (words, order, missing or extra
+   frame's state in words. The simulator stays booted for the next run (`--shutdown` stops it). Open each pair at full size and list every difference (words, order, missing or extra
    pieces, colour, spacing, state), each marked "fix" or "kept: <reason>" (a ruling that defers it, or a known limit the
    frame map gives as its `why`). A frame listed as not mapped is captured by hand, below, or said why not.
 4. Everything else, by hand: transitions and the states no frame draws. Capture them yourself; never take the
