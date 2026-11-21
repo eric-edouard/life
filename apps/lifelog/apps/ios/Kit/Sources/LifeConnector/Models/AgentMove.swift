@@ -1,0 +1,141 @@
+import Foundation
+import Library
+
+/// Where a move stands (decision 78: a matter move or a runtime switch), as Life works it out when read (`movePhaseOf`,
+/// `host/move-read.ts`): the old agent writing its notes, the new holder starting, done, or failed (refused, or rolled
+/// back: the old holder holds it).
+public enum MovePhase: String, UnknownTolerant, Sendable {
+    case notes, starting, done, failed
+    case unknown
+
+    public var isUnderWay: Bool { self == .notes || self == .starting }
+}
+
+/// A move as a read shows it, while under way and for an hour after: a matter move's `move`, or a runtime switch's
+/// `switch` (with how many of its matters' notes are written, `done` of `total`, while in `notes`), and why it failed.
+public struct AgentMove: Decodable, Sendable, Equatable {
+    public let id: String
+    public let phase: MovePhase
+    public let reason: String?
+    public let done: Int?
+    public let total: Int?
+
+    public init(id: String, phase: MovePhase, reason: String? = nil, done: Int? = nil, total: Int? = nil) {
+        (self.id, self.phase, self.reason, self.done, self.total) = (id, phase, reason, done, total)
+    }
+
+    /// The move a screen shows. With his `receipt` (the move's id Life answered his tap with): the read's move of that
+    /// id; else its ask refused before the desk wrote a move (`refused`), failed with the desk's words; else asked and
+    /// not applied yet, as its notes. With none, the read's own move (one asked from another app shows too).
+    public static func shown(
+        receipt: String?, read: AgentMove?, refused: [RegisteredAgents.Refusal]
+    ) -> AgentMove? {
+        guard let receipt, read?.id != receipt else { return read }
+        if let refusal = refused.first(where: { $0.ask == receipt }) {
+            return AgentMove(id: receipt, phase: .failed, reason: refusal.error)
+        }
+        return AgentMove(id: receipt, phase: .notes)
+    }
+}
+
+/// An agent as a move names it: its id, its name ("Halden house agent"), its short name, its program.
+public struct NamedAgent: Decodable, Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let short: String?
+    public let runtime: String
+
+    public var runtimeName: RuntimeName { RuntimeName(rawValue: runtime) ?? .unknown }
+}
+
+/// The agent of a matter's open assignment, and the one he moved it from (`movedFrom`), if he did.
+public struct MatterHolder: Decodable, Sendable, Equatable {
+    public let agent: NamedAgent
+    public let movedFrom: NamedAgent?
+
+    private enum Key: String, CodingKey { case movedFrom }
+
+    public init(from decoder: any Decoder) throws {
+        agent = try NamedAgent(from: decoder)
+        movedFrom = try decoder.container(keyedBy: Key.self).decodeIfPresent(NamedAgent.self, forKey: .movedFrom)
+    }
+}
+
+/// Why nothing can move to the other program now (the desk's last look at it).
+public struct MoveBlocked: Decodable, Sendable, Equatable {
+    public let runtime: String
+    public let reason: String
+}
+
+/// Where his matter move takes a matter: to a new agent of its own on another program, or back to the agent he moved
+/// it from.
+public enum MoveChoice: Equatable, Sendable {
+    case runtime(RuntimeName)
+    case back(agent: String, name: String)
+}
+
+extension Matter {
+    /// The one move to offer: back to the agent he moved it from while `agents` (`read_registered_agents`) lists it not
+    /// over (the old holder is no longer anchored on the matter, so the matter's own agents can't tell), else to the
+    /// other program; none with no holder, or while the other program can't run.
+    public func moveChoice(among agents: [RegisteredAgent]) -> MoveChoice? {
+        guard let holder, moveBlocked == nil else { return nil }
+        if let from = holder.movedFrom, agents.contains(where: { $0.id == from.id && !$0.isOver }) {
+            return .back(agent: from.id, name: from.name)
+        }
+        return moveTo.flatMap(RuntimeName.init(rawValue:)).map { .runtime($0) }
+    }
+}
+
+/// A move's words, the one place the phone says them (the design of 20 Nov, `move-runtime-2026-11-20.md`).
+public enum MoveWords {
+    /// The menu's item for `choice`, and its subtitle (none for moving back).
+    public static func item(_ choice: MoveChoice) -> (title: String, subtitle: String?) {
+        switch choice {
+        case .runtime(let runtime): ("Move to \(runtime.name)", "A new agent, until it's done")
+        case .back(_, let name): ("Move back to \(name)", nil)
+        }
+    }
+
+    /// The one ask before a matter move of `matter`, now held by `holder` (its name, "Halden house agent").
+    public static func ask(_ choice: MoveChoice, matter: String, holder: String) -> (title: String, message: String) {
+        switch choice {
+        case .runtime(let runtime):
+            (
+                "Move \(matter) to \(runtime.name)?",
+                "The \(holder) writes its notes first. A new \(runtime.name) agent takes the matter until it's done."
+            )
+        case .back(_, let name):
+            (
+                "Move \(matter) back to the \(name)?",
+                "The \(holder) writes its notes first. The \(name) takes the matter again until it's done."
+            )
+        }
+    }
+
+    /// What a move under way is doing, on `runtime` (the holder's once it starts): a switch counts the notes it is on.
+    public static func underWay(_ move: AgentMove, runtime: RuntimeName) -> String? {
+        switch move.phase {
+        case .notes:
+            if let done = move.done, let total = move.total, total > 1 {
+                "Writing notes, \(min(done + 1, total)) of \(total)…"
+            } else {
+                "Writing its notes…"
+            }
+        case .starting: "Starting on \(runtime.name)…"
+        default: nil
+        }
+    }
+
+    public static func moved(_ matter: String, to runtime: RuntimeName) -> String { "\(matter) moved to \(runtime.name)" }
+
+    /// The one ask before `agent` ("Halden house agent") switches to `runtime`.
+    public static func switchAsk(_ agent: String, to runtime: RuntimeName) -> (title: String, message: String) {
+        (
+            "Switch the \(agent) to \(runtime.name)?",
+            "It writes its notes on each of its matters, then starts fresh on \(runtime.name). Its cards stay open."
+        )
+    }
+
+    public static func switched(_ agent: String, to runtime: RuntimeName) -> String { "The \(agent) is on \(runtime.name)" }
+}
