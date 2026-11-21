@@ -13,8 +13,9 @@ import type { Desk } from "./desk-store";
 
 /**
  * Where agent `s.agent_id`'s card on `given` goes (his rule of 21 Nov 2026: on any matter it holds): its open assignment
- * whose anchors find that matter (`s` first), else, on one it takes (`agentForMatterOf`), its own; none given, `s`. An own
- * assignment's other subjects stay the agent's to give (the caretaker's are no matter); any other is refused.
+ * whose anchors find the subject's matter (found as the card's writer finds it, `matterFinderOf`), else, on one it takes
+ * (`agentForMatterOf`), its own; none given, `s`. An own assignment's subjects no matter holds (a project, an area, the
+ * caretaker's) stay its agent's to give; any other is refused.
  */
 export async function cardHomeOf(
   db: Desk["db"],
@@ -32,13 +33,11 @@ export async function cardHomeOf(
     .map((a) => ({ a, w: find(anchorsOf(db, a.id)) }));
   const own = mine.find((m) => anchorsOf(db, m.a.id).length === 0)?.a;
   const home =
-    mine.find(
-      ({ w }) => w?.id === given || w?.steps.some((x) => x.ref === given)
-    )?.a ??
+    (v && mine.find(({ w }) => w?.id === v.id)?.a) ??
     (v && agentForMatterOf(standingAgents(db), people.truth)(v) === s.agent_id
       ? own
       : undefined) ??
-    (own === s ? s : undefined);
+    (!v && own === s ? s : undefined);
   if (!home) {
     throw new Error(
       `Not done: ${given} is not on a matter you hold: a card's subject is a matter of one of your assignments, or one your agent takes.`

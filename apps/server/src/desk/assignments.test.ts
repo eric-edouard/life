@@ -366,10 +366,15 @@ test("a turn cannot withdraw the card of its agent's other assignment", async ()
 // Regression: a card's owner was worked out from anchors, so a step its agent's other assignment was handed later took
 // the card over: its answer and its withdrawal. The desk now writes once which assignment asked it.
 test("a card stays its asking assignment's when its subject is later anchored on the agent's other one; his answer wakes the asker", async () => {
-  const { desk, onA, own } = await twoAssignments();
+  const t = await twoAssignments();
+  const { desk, onA } = t;
+  const b = assignmentOf(desk.db, onMatter(desk, t.id, "b", HOUR));
+  if (!b) {
+    throw new Error("no assignment on b");
+  }
+  const own = () => b;
   await withMatters(MATTERS, async () => {
     pollAnswers(desk);
-    // A matter none of its assignments holds: its own assignment's to give.
     const { id: card } = await askDecision(desk, own(), yesNo("obs_b1"));
     desk.db.run(
       "insert into anchor (assignment_id, step, added_at) values (?, 'obs_b1', ?)",
@@ -611,6 +616,8 @@ test("a card whose subject's anchor cannot be written is never written, and the 
 // Regression: a closed assignment kept its anchors, so it refused its agent's other assignment a step it can never ask on.
 test("a step goes to its sibling assignment while that one is open, and is free once it closes", async () => {
   const { desk, id, onA, own } = await twoAssignments();
+  // The Personal agent takes a matter under no project: once A closes, its own assignment.
+  desk.db.run("update agent set role = 'personal' where id = ?", [id]);
   await withMatters(MATTERS, async () => {
     const { id: first } = await askDecision(desk, own(), yesNo("obs_a1"));
     expect(assignmentOfCard(desk.db, { agent: id, id: first })).toBe(onA().id);

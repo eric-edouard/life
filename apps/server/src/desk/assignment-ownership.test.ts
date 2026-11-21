@@ -341,6 +341,16 @@ test("a card goes on any matter its agent holds, filed under the assignment hold
       await expect(askOn(desk, onD, c)).rejects.toThrow(
         "is not on a matter you hold"
       );
+      // Nor from its own assignment.
+      const otherOwn = openAssignments(desk.db).find(
+        (s) => s.agent_id === other && s.id !== onD.id
+      );
+      if (!otherOwn) {
+        throw new Error("no own assignment");
+      }
+      await expect(askOn(desk, otherOwn, c)).rejects.toThrow(
+        "is not on a matter you hold"
+      );
       await withdrawOpenCards(desk.db, { agent_id: personal }, "test over");
     }
   );
