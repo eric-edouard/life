@@ -229,10 +229,15 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let when: String?
         public let channel: String?
 
-        /// The row as VoiceOver reads it: who does it, its words, when and where.
+        /// The row as VoiceOver reads it: who does it, when known, its words, when and where.
         public var spoken: String {
-            let who = by == .owner ? "You" : "The agent"
-            return ([who + ": " + text] + [when, channel].compactMap(\.self)).joined(separator: ", ")
+            let who: String? =
+                switch by {
+                case .owner: "You"
+                case .agent: "The agent"
+                case .unknown: nil
+                }
+            return ([who.map { "\($0): \(text)" } ?? text] + [when, channel].compactMap(\.self)).joined(separator: ", ")
         }
     }
 

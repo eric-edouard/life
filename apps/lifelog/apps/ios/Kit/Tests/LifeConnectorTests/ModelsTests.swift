@@ -191,6 +191,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         #"[{"id":"no","label":"Not this plan","role":"decline"},{"id":"go","label":"Start the plan","role":"start"}]"#)
     #expect(reversed.optionsInOrder.map(\.id) == ["go", "no"] && reversed.filled?.id == "go")
     #expect(reversed.planSteps.map(\.by) == [.agent, .unknown])
+    #expect(reversed.planSteps.map(\.spoken) == ["The agent: Ask", "Pay"])
     let plain = try card(true, #"[{"id":"b","label":"B"},{"id":"a","label":"A"}]"#)
     #expect(plain.optionsInOrder.map(\.id) == ["b", "a"])
 }
