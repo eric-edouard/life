@@ -109,30 +109,32 @@ export const isComplaint = (a: LedgerEntry) =>
 
 /**
  * His spoken ask: a "hey Life" span the hearing recorded (`host/hear.ts`), an ask of the desk with the `conversation` it
- * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`). Never pulled (`asksFor`): the desk
+ * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`); or his words through Tell Life that the
+ * main session handed to one agent (`tell_agent`), with the assignment they go `to`. Never pulled (`asksFor`): the desk
  * reads it itself, as it does his complaints.
  */
 export const isSpokenAsk = (a: LedgerEntry) =>
   a.kind === "ask" &&
   a.after.agent === DESK_AGENT &&
-  a.after.conversation !== undefined;
+  (a.after.conversation !== undefined || a.after.to !== undefined);
 
 /**
  * What his complaint names besides his words (`after.complaint`): the card's `ref`, the `cause` and the card he saw
  * (`shown`), each as his app sent their digests (`Check.misread`); the card as Life read it at his press (`card`; null
  * when it had left), and whether that was the one he saw (`isAsShown`); his tick on "Send an anonymized report to the
- * developer" (`report`).
+ * developer" (`report`). Through Tell Life (the main session's `complain`) Life read the card itself: its `cause` is the
+ * card's own (none on his words alone), with no `shown` or `isAsShown`, and `ref` is empty when no card was on his screen.
  */
 export interface Complaint {
   card: unknown;
-  cause: string;
-  isAsShown: boolean;
+  cause?: string;
+  isAsShown?: boolean;
   /** The card's kind, the stage that made it and that stage's prompt, frozen at his press (`stageOf`). */
   kind: string;
   prompt: string | null;
   ref: string;
   report: boolean;
-  shown: string;
+  shown?: string;
   stage: string;
 }
 
