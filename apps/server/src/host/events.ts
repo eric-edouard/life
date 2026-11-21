@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clock, HOUR, iso } from "../core/clock";
 import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   decode,
   encode,
@@ -13,12 +14,8 @@ import {
   type Source,
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
-import {
-  type Decision,
-  decisionsNow,
-  settledAtOf,
-  settledBetween,
-} from "../memory/decisions";
+import type { Decision } from "../memory/decision-lines";
+import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
 import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
@@ -41,6 +38,10 @@ export const MESSAGE_RECEIVED = "message.received";
 export const DECISION_ANSWERED = "decision.answered";
 export const DECISION_LAPSED = "decision.lapsed";
 export const DECISION_WITHDRAWN = "decision.withdrawn";
+/** Another asker's card waits on the open card of the agent woken, both drafting into one chat: the desk's event alone, facts only (the waiting card's id, its asker, the chat, the held card, until when), never words (`pollContests`). */
+export const DRAFT_CONTESTED = "draft.contested";
+/** The holder kept its card against the waiting card of the agent woken: the desk's event alone, with the holder's why. */
+export const DRAFT_KEPT = "draft.kept";
 /** A call of his that ended, once lifelog holds its words: the desk's event alone (`pollCalls`), never the connector's. */
 export const CALL_ENDED = "call.ended";
 /** His complaint (his "Wrong…" on a card of Life's), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
@@ -65,7 +66,7 @@ const DECISION_EVENT_OF: Record<
   },
   [DECISION_WITHDRAWN]: {
     about:
-      "A decision you asked with a draft was withdrawn because he answered in its chat himself (`why`): read the chat again, then finish or ask something new.",
+      "A decision you asked with a draft was withdrawn for you (`why`): he answered in its chat himself, or another card took its place (`replacedBy`: the newer card he sent, or the holder's card that merged yours, whose answer you hear too): read the chat again, then finish or ask something new.",
     states: ["withdrawn"],
   },
 };
@@ -176,6 +177,12 @@ const DecisionPayload = z.object({
     .nullable()
     .describe("The option you said you take if he doesn't answer"),
   question: z.string(),
+  replacedBy: z
+    .string()
+    .optional()
+    .describe(
+      "Withdrawn because another card took its place: the newer card he sent, or the holder's card that merged yours"
+    ),
   send: z
     .object({ error: z.string().optional(), eventId: z.string().optional() })
     .optional()
@@ -255,6 +262,9 @@ export function pollDecisions(
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
+          ...(d.withdrawn?.replacedBy
+            ? { replacedBy: d.withdrawn.replacedBy }
+            : {}),
           ...(d.withdrawn ? { why: d.withdrawn.why } : {}),
         } satisfies z.infer<typeof DecisionPayload>,
         eventId: `${d.id}.${states[0]}`,
@@ -434,7 +444,7 @@ export async function readMessageEvents<T>(
         ];
       } catch (error) {
         log("source.read", {
-          error: String(error),
+          ...errorOf(error),
           ok: false,
           source: s.name,
           what: "events",
@@ -455,7 +465,7 @@ export async function readMessageEvents<T>(
     hearVoiceNotes(read.filter((e) => chats.has(e.source))),
     Bun.sleep(HEAR_VOICE_NOTES_MS),
   ]).catch((error) =>
-    log("source.read", { error: String(error), ok: false, what: "voice notes" })
+    log("source.read", { ...errorOf(error), ok: false, what: "voice notes" })
   );
   // What a filter matches is the text every reader sees: its files' lines included.
   const shown = new Map(
@@ -587,7 +597,7 @@ export function readEndedCalls(
       events = s.read(new Date(now - CALLS_BACK));
     } catch (error) {
       log("source.read", {
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         source: s.name,
         what: "calls",

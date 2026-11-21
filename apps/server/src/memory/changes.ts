@@ -596,8 +596,8 @@ export async function readObservation(id: string) {
     await readUnresolvedPeople(),
     directoryPartiesOf(people.truth),
     people.inferred,
-    people.corrections,
     people.contacts,
+    people,
     chats
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));

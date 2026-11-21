@@ -1,12 +1,15 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, iso, MIN } from "../core/clock";
+import { agentsNow, agentsOnSteps } from "../host/agents-now";
 import {
   agentOf,
   assignmentOf,
   assignmentOfCard,
+  cardOwnersOf,
   openAssignments,
   readStartFacts,
 } from "../host/desk-read";
+import { holderLinksOf } from "../host/inbox";
 import {
   askDecision,
   openAssignment,
@@ -178,4 +181,102 @@ test("a repeated Start reports the open assignment it found, never a newer close
     readStartFacts(desk.db, "entry_test", ["obs_test_d1", "obs_test_d2"])
       .assignment?.id
   ).toBe(open);
+});
+
+test("a fold shows its card as asked by the new holder, and the agent it emptied is still read", async () => {
+  const { desk } = setup();
+  desk.embedder = null;
+  const step = "obs_00000000f062";
+  await withBook(
+    [toDo(step, "I'll call the roofer")],
+    { id: "matter_00000000f062", steps: [step] },
+    async () => {
+      const old = register(desk, {
+        brief: "Test brief: the roof",
+        runtime: "fake",
+        steps: [step],
+      });
+      const personal = standing(desk, { role: "personal" });
+      const onMatter = openAssignments(desk.db).find((s) => s.agent_id === old);
+      if (!onMatter) {
+        throw new Error("no matter assignment");
+      }
+      const { id } = await askDecision(desk, onMatter, {
+        context: "A made-up reason to ask.",
+        deadline: iso(clock().getTime() + DAY),
+        options: [
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ],
+        question: "Test: call them?",
+        title: "a test",
+      });
+      await foldAssignments(desk, readPeopleOnce());
+      expect(cardOwnersOf(desk.db, [{ agent: old, id }])[id]).toEqual({
+        assignment: onMatter.id,
+        holder: personal,
+      });
+      expect(
+        agentsNow(desk.db, clock().getTime()).find((a) => a.id === old)
+      ).toMatchObject({ status: "ended", steps: [] });
+      await withdrawOpenCards(desk.db, { agent_id: personal }, "test over");
+    }
+  );
+});
+
+test("each open card is its own assignment's, so an agent holding two shows each one's on it", async () => {
+  const { desk } = setup();
+  const step = "obs_00000000f063";
+  await withBook(
+    [toDo(step, "I'll paint the fence")],
+    { id: "matter_00000000f063", steps: [step] },
+    async () => {
+      const id = standing(desk, {});
+      const own = openAssignments(desk.db).find((s) => s.agent_id === id);
+      const other = assignmentOf(
+        desk.db,
+        openAssignment(desk, id, { openedBy: "owner", steps: [step] })
+      );
+      if (!(own && other)) {
+        throw new Error("no assignments");
+      }
+      const ask = (s: typeof own) =>
+        askDecision(desk, s, {
+          context: "A made-up reason to ask.",
+          deadline: iso(clock().getTime() + DAY),
+          options: [
+            { id: "yes", label: "Yes" },
+            { id: "no", label: "No" },
+          ],
+          question: "Test: go on?",
+          title: "a test",
+        });
+      const a = await ask(own);
+      const b = await ask(other);
+      const owners = cardOwnersOf(desk.db, [
+        { agent: id, id: a.id },
+        { agent: id, id: b.id },
+      ]);
+      expect([owners[a.id]?.assignment, owners[b.id]?.assignment]).toEqual([
+        own.id,
+        other.id,
+      ]);
+      // The matter's read shows the agent by its assignment on that matter, so its card is B's, never its own A's.
+      const [onIt] = agentsOnSteps(desk.db, [step], clock().getTime(), true);
+      expect(onIt?.assignment).toBe(other.id);
+      expect(owners[b.id]?.assignment).toBe(other.id);
+      await withdrawOpenCards(desk.db, { agent_id: id }, "test over");
+    }
+  );
+});
+
+test("a card shown as its holder's opens the holder's session, not the asker's", () => {
+  const claude = "https://claude.ai/code/session_test";
+  const codex = "codex://threads/test";
+  expect(
+    holderLinksOf([claude, "https://example.com/doc"], claude, codex)
+  ).toEqual([codex, "https://example.com/doc"]);
+  expect(
+    holderLinksOf([claude, "https://example.com/doc"], claude, undefined)
+  ).toEqual([claude, "https://example.com/doc"]);
 });

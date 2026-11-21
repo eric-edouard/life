@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, daysBefore } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isoDateTime } from "../records/fields";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { type Recorded, readRecorded } from "../sources/lifelog-recorded";
@@ -58,7 +59,7 @@ export async function writeRecordedDays() {
     return { days: days.length, failed: 0 };
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: "memory.recorded-days",
     });
     return { days: 0, failed: 1 };

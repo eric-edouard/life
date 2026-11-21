@@ -1,6 +1,7 @@
 import { HOUR } from "../core/clock";
 import { FULL_DISK, unreadable } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
@@ -137,7 +138,8 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     chatLinkOf: whatsappLinkOf,
     group: isWhatsappGroup,
-    handleOf: phoneOf,
+    // A 1:1 chat's handle: its phone, else its `@lid` (read as its phone where the bridge knows it).
+    handleOf: (key: string) => phoneOf(key) ?? whatsappHandleOf(key),
     incoming: (from?: number) => incomingArchived("whatsapp", "id", from),
     kind: "chat",
     label: "WhatsApp",
@@ -453,7 +455,7 @@ export async function safely<T>(
     return rows;
   } catch (e) {
     log("source.read", {
-      error: (e as Error).message,
+      ...errorOf(e),
       ms: ms(),
       ok: false,
       source,

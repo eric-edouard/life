@@ -31,7 +31,7 @@ export const SECRETS = {
   matrix: join(MACHINE_DIR, "bridges", "owner.json"),
   /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
-  /** The key a card's push id is made with (`pushIdOf`, `memory/checks.ts`); it never leaves the Mac. */
+  /** The key a card's push id is made with (`pushIdOf`, `sources/lifelog-push.ts`); it never leaves the Mac. */
   pushIdKey: join(LIFE_STATE_DIR, "push-id.key"),
 };
 

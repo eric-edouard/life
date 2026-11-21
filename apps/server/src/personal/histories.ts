@@ -4,6 +4,7 @@ import { z } from "zod";
 import { readJson } from "../core/files";
 import { newestWithin, packed } from "../core/lists";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import type { SourceName } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import {
@@ -226,7 +227,7 @@ export async function readHistoryWork(
       readHistory(ref);
       return true;
     } catch (e) {
-      log("run.error", { error: (e as Error).message, step: "memory.history" });
+      log("run.error", { ...errorOf(e), step: "memory.history" });
       return false;
     }
   });

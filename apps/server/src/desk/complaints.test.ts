@@ -13,16 +13,16 @@ import { DESK_AGENT } from "../core/names";
 import { DESK_STORE } from "../core/paths";
 import { secretIn } from "../core/secret";
 import { setSettings } from "../core/settings";
+import { agentsNow } from "../host/agents-now";
 import { ask, asksFor } from "../host/asks";
 import { complain, type Misread } from "../host/complaints";
 import {
   agentInRole,
-  agentsNow,
   complaintReceiptOf,
   complaintsAtWork,
   currentAssignmentOf,
 } from "../host/desk-read";
-import { cut } from "../host/http/mcp-tool";
+import { argNamesOf } from "../host/http/mcp-tool";
 import {
   type MisreadShown,
   withMisreadSealed,
@@ -69,7 +69,17 @@ const ON_CARD: Misread = { ...SEALED, kind: "misread", report: false };
 async function press(
   key: string,
   over: Partial<Misread> = {},
-  { limitMs = 3000, ref = "name:dre", words = WORDS } = {}
+  {
+    limitMs = 3000,
+    ref = "name:dre",
+    report = () => undefined,
+    words = WORDS,
+  }: {
+    limitMs?: number;
+    ref?: string;
+    report?: (step: Record<string, unknown>) => void;
+    words?: string;
+  } = {}
 ) {
   const timer = setInterval(() => receiveComplaints(desk), 100);
   try {
@@ -77,7 +87,7 @@ async function press(
       ref,
       words,
       { ...ON_CARD, ...over },
-      { answerKey: key, report: () => undefined },
+      { answerKey: key, report },
       limitMs
     );
   } finally {
@@ -200,12 +210,22 @@ test("the same key with other words, tick or card, a card of an agent's, no key 
   expect(readLedger()).toHaveLength(before);
 });
 
-test("a stopped caretaker leaves a press unreceived, his words kept; it is received once it resumes; one a caretaker received is never received again after it finished, and a new press starts a new caretaker", async () => {
+test("a stopped caretaker leaves a press unreceived, his words kept, its plan said again every 5 s so the phone's stream stays open; it is received once it resumes; one a caretaker received is never received again after it finished, and a new press starts a new caretaker", async () => {
   const caretaker = agentInRole(desk.db, "caretaker")?.id ?? "";
   desk.db.run("update agent set status = 'stopped' where id = ?", [caretaker]);
-  await expect(press("key-3", {}, { limitMs: 500 })).rejects.toThrow(
-    "the desk has not received it in 0.5 s. His words are recorded"
+  const said: Record<string, unknown>[] = [];
+  await expect(
+    press("key-3", {}, { limitMs: 5500, report: (s) => said.push(s) })
+  ).rejects.toThrow(
+    "the desk has not received it in 5.5 s. His words are recorded"
   );
+  expect(said.map((s) => s.step ?? "plan")).toEqual([
+    "plan",
+    "recorded",
+    "plan",
+  ]);
+  // Only the first plan says the limit: said again, it would move the phone's deadline.
+  expect(said.map((s) => s.limitSeconds)).toEqual([5.5, undefined, undefined]);
   desk.db.run("update agent set status = 'active' where id = ?", [caretaker]);
   const third = await press("key-3");
   expect(received().at(-1)?.event_id).toBe(third.ask);
@@ -231,7 +251,7 @@ test("a stopped caretaker leaves a press unreceived, his words kept; it is recei
   expect(complaintsAtWork(desk.db)).toEqual([
     { ask: fourth.ask, line: "Reading the card", since: expect.any(String) },
   ]);
-});
+}, 15_000);
 
 test("the caretaker reads a complaint through its door only on the assignment that received it, and waits with no plan card first", async () => {
   const id = agentInRole(desk.db, "caretaker")?.id ?? "";
@@ -337,7 +357,7 @@ test("a crash after the ask, before its row and receipt: the desk's next tick wr
 
 test("his complaint's words stay out of the call log, the caretaker's notes out of its row; its packet names Life's data and no plan", async () => {
   const logged = JSON.stringify(
-    cut({ note: WORDS, ref: "name:dre", value: ON_CARD })
+    argNamesOf({ note: WORDS, ref: "name:dre", value: ON_CARD })
   );
   expect(logged).not.toContain("cousin");
   const id = agentInRole(desk.db, "caretaker")?.id ?? "";
@@ -417,6 +437,58 @@ test("a caretaker whose first launch fails is not registered again for the same 
     expect(complaintReceiptOf(desk.db, stuck.id)?.assignment).toBe(
       complaintReceiptOf(desk.db, next.id)?.assignment
     );
+  } finally {
+    fake.isFailing = false;
+    setSystemTime();
+  }
+});
+
+test("his own retry under the key of a press whose caretaker never started tries once more, a repeat or a replay never: one complaint, one receipt", async () => {
+  desk.db.run("update event set handed = 1");
+  const last = agentInRole(desk.db, "caretaker");
+  if (last?.status === "active") {
+    desk.db.transaction(() =>
+      closeAssignmentRow(
+        desk.db,
+        currentAssignmentOf(desk.db, last.id)?.id ?? "",
+        { outcome: "all handled" }
+      )
+    )();
+  }
+  // Past every press so far: the last test's clock went ahead.
+  setSystemTime(new Date(clock().getTime() + 120_000));
+  fake.isFailing = true;
+  try {
+    const stuck = askedOnly("key-relaunch");
+    for (const _ of [1, 2, 3]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one tick after another
+      await receiveComplaints(desk);
+      await wakeDue(desk);
+    }
+    expect(agentInRole(desk.db, "caretaker")?.why_not_started).toBeTruthy();
+    expect(complaintReceiptOf(desk.db, stuck.id)).toBeNull();
+    fake.isFailing = false;
+    setSystemTime(new Date(clock().getTime() + 60_000));
+    // The runtime answers again, but neither his app's repeat of a dropped call nor a replay of a complaint received
+    // long ago is his press: no caretaker is started for them.
+    const caretakers = agentInRole(desk.db, "caretaker")?.id;
+    await expect(
+      press("key-relaunch", { repeated: true }, { limitMs: 600 })
+    ).rejects.toThrow("has not received it");
+    expect((await press("key-1")).reached).toBe("caretaker");
+    await receiveComplaints(desk);
+    expect(agentInRole(desk.db, "caretaker")?.id).toBe(caretakers);
+    // His "Try again" sends the same press, under its key: the caretaker tries once more.
+    expect(await press("key-relaunch")).toEqual({
+      ask: stuck.id,
+      reached: "caretaker",
+    });
+    expect(
+      readLedger().filter(
+        (a) => a.instruction?.ref === "complaint:key-relaunch"
+      )
+    ).toHaveLength(1);
+    expect(received().filter((r) => r.event_id === stuck.id)).toHaveLength(1);
   } finally {
     fake.isFailing = false;
     setSystemTime();

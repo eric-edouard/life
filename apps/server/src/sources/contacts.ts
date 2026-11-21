@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { isThere } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import { Birthday } from "../records/fields";
@@ -243,7 +244,7 @@ function readFrom(file: string): Contact[] {
  */
 export function readContactRecords(dir = DIR): Contact[] {
   const failed = (e: unknown) =>
-    log("source.read", { error: String(e), ok: false, source: "contacts" });
+    log("source.read", { ...errorOf(e), ok: false, source: "contacts" });
   let files: string[] = [];
   try {
     files = databases(dir);

@@ -4,11 +4,11 @@ import { closestOf, type Embedder, embedAll } from "../core/embedder";
 import { readChangeStamp } from "../core/files";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   agentOf,
   anchorsOf,
   assignmentOf,
-  assignmentOfCard,
   openAssignments,
   openTurn,
   standingAgents,
@@ -35,7 +35,7 @@ import { spokenLines } from "../memory/words";
 import { dayNow } from "../memory/zones";
 import type { OpenedBy } from "../records/registered-agent";
 import { closeAssignment } from "./agent-actions";
-import { type Desk, moveAssignment } from "./desk-store";
+import { type Desk, endWhenIdle, moveAssignment } from "./desk-store";
 import {
   holdersOf,
   queue,
@@ -138,7 +138,7 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
         queries.set(t, vectors[i] ?? []);
       }
     } catch (error) {
-      log("desk.net", { error: String(error), ok: false, what: "embed" });
+      log("desk.net", { ...errorOf(error), ok: false, what: "embed" });
       return null;
     }
   }
@@ -260,7 +260,7 @@ async function relatedOf(
       );
       isWhole = true;
     } catch (error) {
-      log("desk.net", { error: String(error), ok: false, what: "embed" });
+      log("desk.net", { ...errorOf(error), ok: false, what: "embed" });
     }
   }
   const vectorOf = new Map(compared.map((t, i) => [t, vectors[i]]));
@@ -356,7 +356,7 @@ export async function relatedRecordings(
   try {
     spoken = await spokenLines(units, people.resolve, people.truth);
   } catch (error) {
-    log("desk.net", { error: String(error), ok: false, what: "voice" });
+    log("desk.net", { ...errorOf(error), ok: false, what: "voice" });
     return [];
   }
   const wakes = await Promise.all(
@@ -446,18 +446,10 @@ export async function foldAssignments(desk: Desk, readPeopleNow: ReadPeople) {
     }
     const outcome = `folded into the ${target.name ?? target.id} agent`;
     db.transaction(() => {
-      // Both agents' cards pinned to their owners first: a move changes which assignment is either agent's first.
-      for (const d of decisions) {
-        const owner =
-          (d.agent === s.agent_id || d.agent === to) && assignmentOfCard(db, d);
-        if (owner) {
-          db.run(
-            "insert or ignore into card (decision_id, assignment_id) values (?, ?)",
-            [d.id, owner]
-          );
-        }
+      const from = moveAssignment(db, s.id, to, decisions);
+      if (from) {
+        endWhenIdle(db, from, "ended", outcome);
       }
-      moveAssignment(db, s.id, to, outcome);
     })();
     log("desk.fold", { assignment, from: s.agent_id, to });
   }

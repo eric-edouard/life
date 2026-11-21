@@ -117,7 +117,7 @@ export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";
 /**
  * His word about a registered agent (`change_registered_agent`), as stored in his ask for the desk (`after.agentChange`):
  * start one on a subject (exactly one of a matter's `steps`, its anchors, which go to the agent that takes the matter,
- * `agentForOf`; a `project`; or `personal`, the Personal agent), stop, resume, re-point, rename (`name`), or change its
+ * `agentForOf`; a `project`; or `role` `personal`, the Personal agent), stop, resume, re-point, rename (`name`), or change its
  * model. The desk applies it once (`desk/agent-changes.ts`).
  */
 export const AgentChange = z
@@ -138,8 +138,8 @@ export const AgentChange = z
     folder: z.string().min(1).optional(),
     model: z.string().min(1).optional(),
     name: z.string().min(1).max(60).optional(),
-    personal: z.literal(true).optional(),
     project: z.string().min(1).optional(),
+    role: z.enum(["personal"]).optional(),
     runtime: z.string().min(1).optional(),
     steps: z.array(z.string().min(1)).min(1).optional(),
   })

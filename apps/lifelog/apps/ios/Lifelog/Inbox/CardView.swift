@@ -9,6 +9,8 @@ struct CardNotes: Equatable {
     /// The create sheet open over an ask: kept by the host, above its list of asks, so a read that takes the ask away
     /// (his answer) never closes it before it closes itself.
     var creating: Creating?
+    /// The card his "Wrong…" sheet is open on, kept by the host the same way; his draft is the store's.
+    var wrong: Check?
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
@@ -32,10 +34,11 @@ struct Creating: Identifiable, Equatable {
 }
 
 extension View {
-    /// The create sheet of `notes`, presented by the host of the asks (the Inbox, a matter's page); `leave` goes on from
-    /// the ask once it is created. The asks' sheets zoom out of the answer that opened them (`AskSheet`).
-    func createSheet(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
-        modifier(CreateSheetHost(notes: notes, leave: leave))
+    /// The asks' sheets of `notes`, presented by the host of the asks (the Inbox, a matter's page), above its reads: the
+    /// create sheet, whose `leave` goes on from the ask once it is created, and his "Wrong…" sheet. The asks' sheets zoom
+    /// out of the answer that opened them (`AskSheet`).
+    func askSheets(_ notes: Binding<CardNotes>, leave: @escaping (Taken) -> Void) -> some View {
+        modifier(AskSheetsHost(notes: notes, leave: leave))
     }
 }
 
@@ -47,11 +50,11 @@ enum AskSheet: Hashable {
 }
 
 extension EnvironmentValues {
-    /// The namespace the asks' sheets zoom in, set by their host (`createSheet`); nil where no host presents them.
+    /// The namespace the asks' sheets zoom in, set by their host (`askSheets`); nil where no host presents them.
     @Entry var askSheetZoom: Namespace.ID?
 }
 
-private struct CreateSheetHost: ViewModifier {
+private struct AskSheetsHost: ViewModifier {
     @Binding var notes: CardNotes
     let leave: (Taken) -> Void
     @Namespace private var zoom
@@ -59,6 +62,7 @@ private struct CreateSheetHost: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.askSheetZoom, zoom)
+            .sheet(item: $notes.wrong) { check in WrongSheet(ref: check.ref).sheetStack() }
             .sheet(item: $notes.creating) { creating in
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
                     request in
@@ -176,6 +180,10 @@ struct CardView: View {
                                 isBusy: life.state(of: .answer(ref: check.ref)).isRunning,
                                 answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
                                 create: { notes.creating = creating(check, $0, asOrganization: $1) },
+                                wrong: {
+                                    life.openComplaint(on: check)
+                                    notes.wrong = check
+                                },
                                 dropProject: dropProject(of: check),
                                 page: checks.count > 1 ? (index, checks.count) : nil
                             )
@@ -299,7 +307,7 @@ struct CardPage: View {
             // A pushed screen: Back, then the Pendant.
             .shellBar("", hasSettings: false)
             // Above the ask, so the matter's read that takes it away (his answer) never closes it before it does.
-            .createSheet($notes) { _ in leave() }
+            .askSheets($notes) { _ in leave() }
     }
 
     @ViewBuilder private var page: some View {

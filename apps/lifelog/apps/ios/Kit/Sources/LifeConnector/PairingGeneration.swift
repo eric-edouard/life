@@ -1,8 +1,10 @@
 import Foundation
+import Observation
 
 /// Which pairing with Life the phone is in: each new pairing is the next generation, and work begun in an older one (a
-/// read, a picture batch) applies nothing to the new Life, not even its failure.
-@MainActor
+/// read, a picture batch) applies nothing to the new Life, not even its failure. Observed, so a screen's reads start
+/// again on a new pairing, the same Life's too.
+@MainActor @Observable
 public final class PairingGeneration {
     public private(set) var current = 0
 

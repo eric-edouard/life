@@ -1,9 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
-import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { join } from "node:path";
+import { clock, DAY } from "../core/clock";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
+import { pathInside } from "../core/platform";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
@@ -14,7 +15,7 @@ import type {
   EventFilter,
   OpenedBy,
 } from "../records/registered-agent";
-import { CALL_ENDED, COMPLAINT_RECEIVED, MESSAGE_RECEIVED } from "./events";
+import { COMPLAINT_RECEIVED } from "./events";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
 // them: the desk reads through these, and host reads the store read-only (`readDesk`), so the desk off or its store
@@ -101,7 +102,7 @@ export interface EventRow {
 }
 
 /** The most agents the desk keeps active, and of each other kind a read lists: every read of them is bounded by it. */
-const MAX_ACTIVE = 50;
+export const MAX_ACTIVE = 50;
 
 /** Whether the desk keeps its most agents active: no other is registered then. */
 export const isFull = (db: Database) =>
@@ -130,11 +131,11 @@ export const handOutsSince = (db: Database, since: string) =>
     )
     .all(since);
 
-/** The open assignments the desk opened itself, of active agents, each with when its own first turn began (`first_begun_at`, null before). */
+/** The open assignments the desk opened itself, of active agents, each with when its holder's first turn on it began (`first_begun_at`: after the last turn another agent ran on it, so a moved one counts from its new holder; null before). Its limit: moved away and back before the other agent ran a turn, it counts from its first holder's old turn again. */
 export const handedOutActive = (db: Database) =>
   db
     .query<AssignmentRow & { first_begun_at: string | null }, []>(
-      "select s.*, (select min(t.begun_at) from turn t where t.assignment_id = s.id) as first_begun_at from assignment s join agent a on a.id = s.agent_id where s.opened_by = 'desk' and s.closed_at is null and a.status = 'active'"
+      "select s.*, (select min(t.begun_at) from turn t where t.assignment_id = s.id and t.id > (select coalesce(max(o.id), 0) from turn o where o.assignment_id = s.id and o.agent_id <> s.agent_id)) as first_begun_at from assignment s join agent a on a.id = s.agent_id where s.opened_by = 'desk' and s.closed_at is null and a.status = 'active'"
     )
     .all();
 
@@ -179,6 +180,9 @@ export const lastTurns = (db: Database, id: string, n = 4) =>
       "select * from turn where assignment_id = ? order by id desc limit ?"
     )
     .all(id, n);
+
+export const turnOf = (db: Database, id: number) =>
+  db.query<TurnRow, [number]>("select * from turn where id = ?").get(id);
 
 /** The desk turn running now for an agent, if any: its session takes one turn at a time. */
 export const openTurn = (db: Database, id: string) =>
@@ -226,8 +230,7 @@ export function agentHomeOf(
   agentsRepo: string,
   a: Pick<AgentRow, "folder" | "project">
 ) {
-  const inRepo = relative(agentsRepo, a.folder);
-  if (inRepo && !inRepo.startsWith("..") && !inRepo.startsWith("/")) {
+  if (pathInside(agentsRepo, a.folder)) {
     return a.folder;
   }
   return a.project ? join(agentsRepo, `project-${a.project}`) : null;
@@ -251,6 +254,26 @@ export const assignmentOfCard = (
         .get(d.agent)?.id ??
       null)
     : null;
+
+/**
+ * Where each of `cards` (his open ones) stands with the desk, by its id: the open assignment that owns it
+ * (`assignmentOfCard`, legacy cards included) and that assignment's agent, its holder, whoever asked it; none for a card
+ * no open assignment owns. The one read of a card's holder: the inbox shows it, and an agent's read finds its open card
+ * by its assignment. One lookup per card, by its key.
+ */
+export const cardOwnersOf = (
+  db: Database,
+  cards: readonly { agent?: string; id: string }[]
+): Record<string, { assignment: string; holder: string }> =>
+  Object.fromEntries(
+    cards.flatMap((d) => {
+      const id = assignmentOfCard(db, d);
+      const s = id ? assignmentOf(db, id) : null;
+      return s && s.closed_at === null
+        ? [[d.id, { assignment: s.id, holder: s.agent_id }]]
+        : [];
+    })
+  );
 
 /** Another open assignment of `s`'s agent anchored on `step`, if one is: a card on that step is that one's to ask (`askDecision`). */
 export const siblingOn = (
@@ -456,265 +479,6 @@ export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
   };
 }
 
-const LATE_AFTER = 10 * MIN;
-const SILENT_AFTER = HOUR;
-const at = (t: string) => new Date(t).getTime();
-
-/**
- * What shows amber for an agent, worked out when read, never stored: its default wait, a deadline over 10 minutes late
- * with no turn, a turn silent (no door call) for over an hour, and its dropped events.
- */
-export function flagsOf(
-  a: Pick<AssignmentRow, "wait_is_default" | "wait_until">,
-  open: TurnRow | null,
-  dropped: number,
-  now: number
-) {
-  const heard = open
-    ? Math.max(
-        ...[open.started_at, open.heard_at, open.reminded_at].map((t) =>
-          t ? at(t) : 0
-        )
-      )
-    : 0;
-  return {
-    defaultWait: a.wait_is_default === 1,
-    dropped,
-    late: !open && a.wait_until !== null && now - at(a.wait_until) > LATE_AFTER,
-    silent: open !== null && now - heard > SILENT_AFTER,
-  };
-}
-
-/** The wait as the connector shows it: its deadline and reason, never its filters (a chat id in them stays in the agent's packet). */
-const waitOf = (a: AgentRow, s: AssignmentRow) => {
-  const w = agentWaitOf(a, s);
-  return w && { isDefault: w.isDefault, reason: w.reason, until: w.until };
-};
-
-/** A registered agent as read now: what it works on, where it stands, what it waits for, its last turn, its link. */
-export interface AgentNow {
-  /** What shows amber: a default wait, a late deadline, a silent turn, a failed last turn, events dropped in the last day. */
-  amber: string[];
-  effort: string | null;
-  id: string;
-  lastTurn: {
-    cause: string;
-    endedAt: string | null;
-    outcome: string | null;
-    startedAt: string;
-  } | null;
-  link: string | null;
-  model: string | null;
-  /** The first line of its notes: what it took its subject to be; none for the caretaker (its notes are about his complaints). */
-  notes: string;
-  /** Why its first turn never began, when it did not (it was ended). */
-  notStarted: string | null;
-  /** How it ended, when it did. */
-  outcome: string | null;
-  project: string | null;
-  runtime: string;
-  status: Exclude<AgentStatus, "active"> | "running" | "waiting";
-  /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over), its stop (stopped); null for a stopped agent stopped before its stop time was stored, or one with no turn yet. */
-  statusSince: string | null;
-  /** The matter steps it was handed (its anchors), when its subject is a matter. */
-  steps: string[];
-  /** The first line of his brief. */
-  title: string;
-  wait: { isDefault: boolean; reason: string; until: string } | null;
-}
-
-/** What `wakesOn` is made of, beside an agent as read: its wait's filters, and for each chat they name the name and app of the agent's own newest event there (`seenChatsOf`). Not on the wire. */
-export type AgentRead = AgentNow & {
-  chatsSeen: Record<string, { name: string | null; source: string | null }>;
-  filters: EventFilter[];
-};
-
-/**
- * For each chat a filter of `s` names: its name and app from the newest event the desk queued for `s` there; none while
- * none of `s`'s newest `SEEN_EVENTS` came from it. Only for the reads of what wakes an agent.
- * ponytail: a chat last heard more than `SEEN_EVENTS` events ago shows no name (nothing deletes from `event`); a chat column on `event` would find it.
- */
-const SEEN_EVENTS = 200;
-function seenChatsOf(db: Database, s: AssignmentRow) {
-  const chats = new Set(filtersOf(s).flatMap((f) => f.chat ?? []));
-  if (chats.size === 0) {
-    return {};
-  }
-  const recent = db
-    .query<{ payload: string }, [string, number]>(
-      `select payload from event where assignment_id = ? and name in ('${MESSAGE_RECEIVED}', '${CALL_ENDED}') order by rowid desc limit ?`
-    )
-    .all(s.id, SEEN_EVENTS)
-    .map(
-      (r) =>
-        JSON.parse(r.payload) as {
-          chat?: string;
-          chatName?: string;
-          source?: string;
-        }
-    );
-  const seen: AgentRead["chatsSeen"] = {};
-  for (const chat of chats) {
-    const e = recent.find((x) => x.chat === chat);
-    if (e) {
-      seen[chat] = { name: e.chatName ?? null, source: e.source ?? null };
-    }
-  }
-  return seen;
-}
-
-const headOf = (s: string) => s.split("\n")[0]?.slice(0, 160) ?? "";
-
-/** What shows amber for `a` on its assignment `s` (`AgentNow.amber`): nothing unless it is active. */
-function amberOf(
-  a: AgentRow,
-  s: AssignmentRow,
-  last: TurnRow | undefined,
-  open: TurnRow | null,
-  dropped: number,
-  now: number
-) {
-  const f = flagsOf(s, open, dropped, now);
-  return a.status === "active"
-    ? [
-        ...(f.defaultWait ? ["default wait"] : []),
-        ...(f.late ? ["deadline late"] : []),
-        ...(f.silent ? ["turn silent over an hour"] : []),
-        ...(last?.outcome === "failed" ? ["last turn failed"] : []),
-        ...(f.dropped > 0 ? [`${f.dropped} events dropped`] : []),
-      ]
-    : [];
-}
-
-/** When `a`'s current status began (`AgentNow.statusSince`), from its last turn. */
-const statusSinceOf = (
-  a: AgentRow,
-  status: AgentNow["status"],
-  last: TurnRow | undefined
-) =>
-  ({
-    ended: a.ended_at,
-    handed_over: a.ended_at,
-    running: last?.started_at,
-    stopped: a.stopped_at,
-    waiting: last?.ended_at,
-  })[status] ?? null;
-
-/** Agent `a` as read now (`AgentNow`), by the assignment it works on (`currentAssignmentOf`): its last turn, its anchors and its events dropped in the last day. */
-function nowOf(
-  db: Database,
-  a: AgentRow,
-  now: number,
-  isForWakes: boolean
-): AgentRead {
-  const s = currentAssignmentOf(db, a.id);
-  if (!s) {
-    throw new Error(`${a.id} has no assignment`);
-  }
-  const last = db
-    .query<TurnRow, [string]>(
-      "select * from turn where agent_id = ? order by id desc limit 1"
-    )
-    .get(a.id);
-  const open = last && !last.ended_at ? last : null;
-  const dropped =
-    db
-      .query<{ n: number }, [string, string]>(
-        "select count(*) as n from event where assignment_id = ? and dropped_at >= ?"
-      )
-      .get(s.id, new Date(now - DAY).toISOString())?.n ?? 0;
-  const amber = amberOf(a, s, last ?? undefined, open, dropped, now);
-  const waiting = open ? "running" : "waiting";
-  const status = a.status === "active" ? waiting : a.status;
-  return {
-    amber,
-    ...modelOf(a),
-    chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
-    filters: filtersOf(s),
-    id: a.id,
-    lastTurn: last
-      ? {
-          cause: last.cause,
-          endedAt: last.ended_at,
-          outcome: last.outcome,
-          startedAt: last.started_at,
-        }
-      : null,
-    link: a.link,
-    // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
-    notes: a.role === "caretaker" ? "" : headOf(readNotes(s)),
-    notStarted: s.why_not_started,
-    outcome: a.outcome,
-    project: a.project,
-    runtime: a.runtime,
-    status,
-    statusSince: statusSinceOf(a, status, last ?? undefined),
-    steps: anchorsOf(db, s.id),
-    title: headOf(a.brief),
-    wait: waitOf(a, s),
-  };
-}
-
-/**
- * Every registered agent worth showing: the active ones, the newest stopped ones (50 each at most), and those ended in the
- * last 7 days (a handed-over agent is not listed: its successor is). `isForWakes` also reads what only `wakesOn` needs
- * (the chats a waiting agent has seen).
- */
-export function agentsNow(db: Database, now: number, isForWakes = false) {
-  const rows = [
-    ...activeAgents(db),
-    ...db
-      .query<AgentRow, [number]>(
-        "select * from agent where status = 'stopped' order by created_at desc limit ?"
-      )
-      .all(MAX_ACTIVE),
-    ...db
-      .query<AgentRow, [string, number]>(
-        "select * from agent where status = 'ended' and ended_at >= ? order by ended_at desc limit ?"
-      )
-      .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
-  ];
-  return rows.map((a) => nowOf(db, a, now, isForWakes));
-}
-
-/** How many past agents a matter's or a project's read lists, after its active ones. */
-const PAST_SHOWN = 10;
-
-/** The agents ever on any of `steps` (a matter's; not those handed over), active first, then the newest past ones. */
-export function agentsOnSteps(
-  db: Database,
-  steps: string[],
-  now: number,
-  isForWakes = false
-) {
-  if (steps.length === 0) {
-    return [];
-  }
-  return db
-    .query<AgentRow, (string | number)[]>(
-      `select distinct a.* from anchor n join assignment s on s.id = n.assignment_id join agent a on a.id = s.agent_id where a.status <> 'handed_over' and n.step in (${steps.map(() => "?").join(",")}) order by a.status = 'active' desc, a.created_at desc limit ?`
-    )
-    .all(...steps, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now, isForWakes));
-}
-
-/** The agents on any of `projects` (not those handed over), active first, then the newest past ones. */
-export function agentsOnProjects(
-  db: Database,
-  projects: string[],
-  now: number
-) {
-  if (projects.length === 0) {
-    return [];
-  }
-  return db
-    .query<AgentRow, (string | number)[]>(
-      `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
-    )
-    .all(...projects, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now, false));
-}
-
 /** A line a scheduled task or a session posted for the report (`bun life desk report-line`): one per source per day. */
 export interface ReportLine {
   day: string;
@@ -763,7 +527,7 @@ export function notesOutsideOf(path: string, state: string) {
             "select id, notes_path from assignment"
           )
           .all()
-          .filter((s) => relative(state, s.notes_path).startsWith(".."));
+          .filter((s) => pathInside(state, s.notes_path) === null);
   } finally {
     db.close();
   }
@@ -821,21 +585,24 @@ export function readDesk<T>(read: (db: Database) => T, empty: T): DeskRead<T> {
   }
 }
 
-/** Whether the desk has queued the event `eventId` for assignment `id` (`queued`) and then started a turn for it (`woken`: a turn of cause `answer` begun after), else `not_yet`. */
-export function eventHeard(db: Database, id: string, eventId: string) {
+/** Whether the desk has queued the event `eventId` for assignment `id` (`queued`) and then started a turn for it (`woken`, with `by` the agent of the first turn of cause `answer` begun after), else `not_yet`. */
+export function eventHeard(
+  db: Database,
+  id: string,
+  eventId: string
+): { by?: string; told: "not_yet" | "queued" | "woken" } {
   const e = db
     .query<{ received_at: string }, [string, string]>(
       "select received_at from event where assignment_id = ? and event_id = ?"
     )
     .get(id, eventId);
   if (!e) {
-    return "not_yet";
+    return { told: "not_yet" };
   }
-  return db
-    .query<{ n: number }, [string, string]>(
-      "select count(*) as n from turn where assignment_id = ? and cause = 'answer' and started_at >= ?"
+  const t = db
+    .query<{ agent_id: string }, [string, string]>(
+      "select agent_id from turn where assignment_id = ? and cause = 'answer' and started_at >= ? order by started_at limit 1"
     )
-    .get(id, e.received_at)?.n
-    ? "woken"
-    : "queued";
+    .get(id, e.received_at);
+  return t ? { by: t.agent_id, told: "woken" } : { told: "queued" };
 }

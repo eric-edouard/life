@@ -78,6 +78,15 @@ public struct ReadState<Value: Sendable>: Sendable {
         }
     }
 
+    /// A read tried, with nothing to show: it failed or the Mac was out of reach (never one not tried yet).
+    public var hasFailed: Bool {
+        guard value == nil else { return false }
+        switch phase {
+        case .unreachable, .failed: return true
+        case .idle, .loading, .loaded, .notPaired: return false
+        }
+    }
+
     /// What to show; `isEmpty` says when a loaded value has nothing in it.
     public func shown(isEmpty: (Value) -> Bool = { _ in false }) -> Shown {
         guard let value else {

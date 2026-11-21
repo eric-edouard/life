@@ -3,7 +3,7 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home) and Matters tabs and the system's search tab, with the
+/// The bottom group, all system pieces: the Inbox (home), Matters and People tabs and the system's search tab, with the
 /// Settings and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
@@ -16,6 +16,7 @@ struct RootView: View {
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
     @State private var query = ""
+    @State private var scope = SearchScope.all
 
     init() {
         // The Inbox's count is `flag` (it needs him), not the system's red; SwiftUI's `badge` takes no colour.
@@ -35,12 +36,16 @@ struct RootView: View {
             }
             .badge(life.badge)
             Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
+            Tab("People", systemImage: "person.2", value: AppRouter.Tab.people) { PeopleScreen() }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Matters too.
                 NavigationStack {
-                    SearchScreen(query: query).shellBar("Search", hasSettings: false)
-                        .searchable(text: $query, prompt: "Search matters")
+                    SearchScreen(query: query, scope: scope).shellBar("Search", hasSettings: false)
+                        .searchable(text: $query, prompt: "Search")
+                        .searchScopes($scope, activation: .onSearchPresentation) {
+                            ForEach(SearchScope.allCases, id: \.self) { Text($0.word).tag($0) }
+                        }
                 }
             }
         }
@@ -126,16 +131,18 @@ struct RootView: View {
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab matters|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureProject`, `-fixtureSheet`: open the screen a launch
+        /// `-fixtureTab matters|people|search`, `-fixtureCard`, `-fixtureMatter`, `-fixtureProject`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
         /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
             switch LifeFixture.tab {
             case "matters": router.tab = .matters
+            case "people": router.tab = .people
             case "search": router.tab = .search
             default: break
             }
             if let id = LifeFixture.matter { router.open(matter: id) }
+            if let ref = LifeFixture.person { router.open(party: ref) }
             if let project = LifeFixture.project { router.matterPath.append(.project(project)) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
             if let ref = LifeFixture.card {

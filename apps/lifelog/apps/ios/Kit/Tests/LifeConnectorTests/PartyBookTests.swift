@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Synchronization
 import Testing
 
@@ -116,4 +117,72 @@ private func gate() -> (wait: @Sendable () async -> Void, open: () -> Void) {
     open()
     await wanting.value
     #expect(life.pictureCalls.withLock { $0.count } == 1)
+}
+
+@MainActor @Test func aNewPairingOfTheSameLifeTellsTheScreensToReadAgain() {
+    let parties = book(FakeLife())
+    for _ in 0..<2 {
+        let told = Mutex(false)
+        withObservationTracking {
+            _ = parties.generation.current
+        } onChange: {
+            told.withLock { $0 = true }
+        }
+        parties.startOver()
+        #expect(told.withLock { $0 })
+    }
+}
+
+/// What the People tab holds open: the list and the person on show, as `LifeStore` keeps them.
+@MainActor private final class PeopleOpen {
+    var list = ReadState<PeopleList>()
+    var person = ReadState<PersonNow>()
+}
+
+/// People open, the same Life paired again: the list's and the person's reads under way then are dropped, and the
+/// reads the screens ask again (their `task(id:)` on the generation) land both fresh, run as `LifeStore.load` runs them:
+/// one pass per key, an answer kept only under the pairing it began in.
+@MainActor @Test func pairingTheSameLifeAgainWithPeopleOpenReadsTheListAndThePersonFresh() async {
+    let parties = book(FakeLife())
+    let (flights, open) = (ReadFlights(), PeopleOpen())
+    let said = Mutex("Idris Before")
+    let asking = Mutex(0)
+    let list = { (name: String) in #"{"people":[{"ref":"person:idris","name":"\#(name)","kind":"person"}]}"# }
+    let person = { (name: String) in #"{"ref":"person:idris","name":"\#(name)","kind":"person"}"# }
+    func read<V: ParsedRead>(
+        _ key: String, _ text: @escaping (String) -> String, held: (@Sendable () async -> Void)?,
+        into apply: @escaping @MainActor (ReadState<V>.Event) -> Void
+    ) async {
+        await flights.run(key) {
+            let asked = Date.now
+            guard
+                let answer = await parties.generation.answer({
+                    // What Life held when asked: an answer kept late would show the last pairing's.
+                    let now = said.withLock { $0 }
+                    asking.withLock { $0 += 1 }
+                    await held?()
+                    return text(now)
+                }), let value = try? V.parsed(answer.get())
+            else { return }
+            apply(.succeeded(value, asked))
+        }
+    }
+    let (listHeld, openList) = gate()
+    let (personHeld, openPerson) = gate()
+    let underList = Task { await read("people", list, held: listHeld) { open.list.apply($0) } }
+    let underPerson = Task { await read("person:idris", person, held: personHeld) { open.person.apply($0) } }
+    while asking.withLock({ $0 }) < 2 { await Task.yield() }
+    // He pairs the same Life again: the store starts over, then Life answers what it holds now.
+    parties.startOver()
+    (open.list, open.person) = (ReadState(), ReadState())
+    said.withLock { $0 = "Idris After" }
+    openList()
+    openPerson()
+    await underList.value
+    await underPerson.value
+    #expect(open.list.value == nil && open.person.value == nil)
+    await read("people", list, held: nil) { open.list.apply($0) }
+    await read("person:idris", person, held: nil) { open.person.apply($0) }
+    #expect(open.list.value?.people.map(\.party.name) == ["Idris After"])
+    #expect(open.person.value?.row.party.name == "Idris After")
 }
