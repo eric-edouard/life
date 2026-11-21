@@ -154,9 +154,17 @@ export interface TurnSpent {
   tokens_out: number | null;
 }
 
-/** A billed turn's dollars, or not reported when its provider gave none. */
-const billedOf = (usd: number | null) =>
-  usd === null ? { reported: false } : { reported: true, usd };
+/** What a turn cost: billed (its dollars, or not reported without them), else equivalent at its model's list price. */
+const turnCostOf = (t: TurnSpent, isBilled: boolean, tokens: Tokens | null) => {
+  if (isBilled) {
+    return t.cost_usd === null
+      ? { reported: false }
+      : { reported: true, usd: t.cost_usd };
+  }
+  return t.model && tokens
+    ? equivalentOf(t.model, t.ended_at, tokens)
+    : { reported: false };
+};
 
 /**
  * An agent's turn: its runtime's tokens (the desk keeps cache reads apart from `tokens_in`: input counts them here),
@@ -165,7 +173,7 @@ const billedOf = (usd: number | null) =>
  */
 export function spendOfTurn(t: TurnSpent): Spend {
   const isUsed = t.tokens_in !== null || t.tokens_out !== null;
-  const tokens = {
+  const tokens: Tokens = {
     cached: t.tokens_cached ?? 0,
     input: (t.tokens_in ?? 0) + (t.tokens_cached ?? 0),
     output: t.tokens_out ?? 0,
@@ -181,11 +189,7 @@ export function spendOfTurn(t: TurnSpent): Spend {
     kind: "agents",
     provider,
     ...(isUsed ? { tokens } : {}),
-    ...(isBilled
-      ? billedOf(t.cost_usd)
-      : t.model && isUsed
-        ? equivalentOf(t.model, t.ended_at, tokens)
-        : { reported: false }),
+    ...turnCostOf(t, isBilled, isUsed ? tokens : null),
   };
 }
 

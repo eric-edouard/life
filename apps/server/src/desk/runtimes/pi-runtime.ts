@@ -300,8 +300,8 @@ function addUsage(u: Usage, m: NonNullable<PiLine["message"]>["usage"]) {
     return;
   }
   u.billedUsd =
-    m.cost?.totalFromProvider && u.billedUsd !== null
-      ? (u.billedUsd ?? 0) + m.cost.total
+    m.cost?.totalFromProvider && typeof u.billedUsd === "number"
+      ? u.billedUsd + m.cost.total
       : null;
   u.tokensIn += m.input + m.cacheWrite;
   u.tokensCached += m.cacheRead;
@@ -461,6 +461,7 @@ const openOf =
           },
           onUpdate,
           usage: {
+            billedUsd: 0,
             contextFirst: null,
             contextLast: null,
             tokensCached: 0,

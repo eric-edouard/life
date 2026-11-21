@@ -60,7 +60,7 @@ export const RegisteredAgentChange = AgentChange.omit({
     '"personal": the Personal agent, as its subject (start, re_point): one at most; it takes every matter no project\'s agent takes'
   ),
   runtime: AgentChange.shape.runtime.describe(
-    "claude or codex; none: the desk's default"
+    "claude, codex or pi; none: the desk's default"
   ),
   said: z
     .string()

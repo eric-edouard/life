@@ -92,22 +92,18 @@ function merged<T extends ProviderSpending | KindSpending>(
   return [...by.values()];
 }
 
+/** The agents' billed dollars (on pi), shown beside their equivalent only when any. */
+const billedWhenAny = (usd: number) =>
+  usd > 0 ? { billed: amountOf(usd, "billed") } : {};
+
 /**
  * Turns as `{tokens, equivalent, billed?, reported}`: `billed` when any was billed (pi); `reported` false when one has
  * no price, cost or usage (its amounts a floor).
  */
 const turnSpendingOf = (turns: TurnSpent[]) => {
   const spends = turns.map(spendOfTurn);
-  const billed = spends.filter((s) => s.basis === "billed");
   return {
-    ...(billed.length
-      ? {
-          billed: amountOf(
-            billed.reduce((n, s) => n + (s.usd ?? 0), 0),
-            "billed"
-          ),
-        }
-      : {}),
+    ...billedWhenAny(spends.reduce((n, s) => n + (s.usd ?? 0), 0)),
     equivalent: amountOf(
       spends.reduce((n, s) => n + (s.equivalentUsd ?? 0), 0),
       "equivalent"
@@ -248,9 +244,7 @@ export async function readSpending(month = dayNow().slice(0, 7)) {
       ...(k.kind === "agents"
         ? {
             equivalent: amountOf(k.equivalentUsd, "equivalent"),
-            ...(k.billedUsd > 0
-              ? { billed: amountOf(k.billedUsd, "billed") }
-              : {}),
+            ...billedWhenAny(k.billedUsd),
           }
         : { billed: amountOf(k.billedUsd, "billed") }),
       kind: k.kind as SpendKind,

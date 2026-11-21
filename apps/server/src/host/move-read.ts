@@ -1,7 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { HOUR } from "../core/clock";
 import { RUNTIME_WORDS, RuntimeName } from "../core/names";
-import { settings } from "../core/settings";
 import type { Decision } from "../memory/decision-lines";
 import { isAsked } from "../memory/draft-contest";
 import {
@@ -12,6 +11,7 @@ import {
   anchorsOf,
   openAssignmentOfMatter,
   openAssignmentsOf,
+  runtimeOf,
   type TurnRow,
 } from "./desk-read";
 
@@ -299,15 +299,12 @@ const namesOf = (a: Pick<AgentRow, "brief" | "name">) => {
 
 /**
  * Where an agent on `runtime` can move (`moveTo`), or why not now (`moveBlocked`, from the desk's last look): the desk's
- * default runtime, or from it the first other (one move offered: the phone's menu shows one).
+ * default runtime (`runtimeOf`), and from the default, or with none, the first other (one move offered: the phone shows one).
  */
-export function moveTargetOf(
-  runtime: string,
-  defaultRuntime = settings().desk?.defaultRuntime ?? "claude"
-) {
-  return runtime === defaultRuntime
-    ? RuntimeName.options.find((r) => r !== runtime)
-    : defaultRuntime;
+export function moveTargetOf(runtime: string, defaultRuntime = runtimeOf({})) {
+  return defaultRuntime && runtime !== defaultRuntime
+    ? defaultRuntime
+    : RuntimeName.options.find((r) => r !== runtime);
 }
 
 function moveToOf(db: Database, runtime: string) {
