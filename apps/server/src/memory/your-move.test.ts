@@ -236,6 +236,17 @@ test("a place need takes only https links, and its line names it with its addres
   ).toBe("Paint shop, 1 Main Rd");
 });
 
+test("an app need takes an https link only, and its line names the app", () => {
+  expect(
+    Need.safeParse({ kind: "app", name: "Grab", url: "grab://x" }).success
+  ).toBe(false);
+  expect(
+    needsShownOf([
+      Need.parse({ kind: "app", name: "Grab", url: "https://g.example.com/a" }),
+    ])[0]?.line
+  ).toBe("In Grab");
+});
+
 test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge always counts it", () => {
   const card = (
     ref: string,
