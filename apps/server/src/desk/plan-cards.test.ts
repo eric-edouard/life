@@ -1,6 +1,6 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { planCardsOf } from "../host/inbox";
-import type { Decision } from "../memory/decisions";
+import type { Decision } from "../memory/decision-lines";
 import { openAssignment, register } from "./agent-actions";
 import { setup } from "./test-desk";
 
