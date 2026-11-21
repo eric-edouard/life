@@ -4,6 +4,9 @@ import SwiftUI
 /// The agents at work (AgentsList): each one's mark in a disc, its name, what it holds in words, the flag dot when one of
 /// its matters needs him. A row opens its page.
 struct AgentsScreen: View {
+    /// Beside the agent's page (a regular width): a row chooses the agent on show, and Back returns to the Projects list.
+    var isBeside = false
+
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
@@ -14,13 +17,22 @@ struct AgentsScreen: View {
             ForEach(Array(agents.enumerated()), id: \.element.id) { at, agent in
                 let held = HeldMatters(of: agent.id, in: rows)
                 Button {
-                    router.open(agent: agent.id)
+                    if isBeside {
+                        router.agentShown = agent.id
+                        router.matterPath = []
+                    } else {
+                        router.open(agent: agent.id)
+                    }
                 } label: {
                     AgentListRow(
                         runtime: agent.runtimeName, name: agent.name ?? agent.title,
                         line: held.words ?? agent.stateWord ?? "", needsYou: !held.needsYou.isEmpty)
                 }
-                .buttonStyle(.groupedRow(at: at, of: agents.count))
+                .buttonStyle(
+                    .groupedRow(
+                        at: at, of: agents.count,
+                        isChosen: isBeside && (router.agentShown ?? agents.first?.id) == agent.id)
+                )
                 .readingWidth().quietListRow()
             }
             Text("Life gives each matter to its project’s agent, else to the Personal agent.")
@@ -31,7 +43,14 @@ struct AgentsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(Palette.bg)
         .screenTitle("Agents")
-        .shellBar("", hasSettings: false)
+        .shellBar("", hasSettings: false, hasPendant: !isBeside)
+        .toolbar {
+            if isBeside {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Back", systemImage: "chevron.backward") { router.closeAgents() }.labelStyle(.iconOnly)
+                }
+            }
+        }
         .task {
             await life.refreshAgents()
             await life.refreshMatters()
@@ -43,6 +62,8 @@ struct AgentsScreen: View {
 /// `flag`), then its settings: the program it runs on, and what wakes it (the agent's sheet).
 struct AgentPage: View {
     let id: String
+    /// Beside the agents: the top group (Pendant, Settings) is this page's, in the column.
+    var hasSettings = false
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -75,7 +96,7 @@ struct AgentPage: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(Palette.bg)
-        .shellBar("", hasSettings: false)
+        .shellBar("", hasSettings: hasSettings)
         .task {
             await life.refreshAgents()
             await life.refreshMatters()
