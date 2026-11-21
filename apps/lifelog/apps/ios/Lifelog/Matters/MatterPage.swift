@@ -18,7 +18,10 @@ struct MatterPage: View {
         let state = life.matter[id] ?? ReadState()
         ReadScreen(
             shown: state.shown(), retry: { await life.refreshMatter(id) },
-            loading: { PagePlaceholder() },
+            // With its row on hand, what the row says shows at once; only its steps and asks wait for the read.
+            loading: {
+                if let row = life.listedRow(of: id) { rowPage(row) } else { PagePlaceholder() }
+            },
             empty: { Notice(title: "This matter is gone.", detail: "Life no longer lists it.") },
             content: { matter in page(matter) }
         )
@@ -49,20 +52,20 @@ struct MatterPage: View {
             ?? matter.agents.first
         let canStart = agent?.isOver ?? true
         return ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                header(matter)
+            LazyVStack(alignment: .leading, spacing: 14) {
+                header(row, openSince: matter.steps.first?.at)
                 asks(life.asks(ofMatter: id))
                 if let agent {
                     AgentRow(matter: matter, agent: agent) {
                         router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
                     }
                 }
-                GoalAndNext(matter: matter).offWhileOutOfReach()
+                GoalAndNext(row: row).offWhileOutOfReach()
                 People(people: row.people)
                 Steps(steps: matter.steps)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
             }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
+            .matterPageColumn()
         }
         // Pinned below the content, full width, on the page's own colour: nothing shows through or around them; the
         // content fades into it above.
@@ -86,6 +89,21 @@ struct MatterPage: View {
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
             .background(Palette.bg.ignoresSafeArea(edges: .bottom))
+        }
+    }
+
+    /// The page as its list row draws it, before the matter's read: its steps and asks are placeholders, its goal and
+    /// next step not yet editable.
+    private func rowPage(_ row: MatterRow) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                header(row, openSince: nil)
+                // Edited once the read lands: that face is a new view, which would not hold his words saved here.
+                GoalAndNext(row: row).disabled(true)
+                People(people: row.people)
+                Placeholder(height: 110)
+            }
+            .matterPageColumn()
         }
     }
 
@@ -115,10 +133,10 @@ struct MatterPage: View {
     }
 
     /// The name is the head; under it what he must do (one phrase), then its icon (a tap changes it), how long it has
-    /// been open, and its project, a link to its chip in the Projects tab (else its areas).
-    private func header(_ matter: Matter) -> some View {
-        let row = matter.row
-        let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
+    /// been open (since its first step, once read), and its project, a link to its chip in the Projects tab (else its
+    /// areas).
+    private func header(_ row: MatterRow, openSince: Date?) -> some View {
+        let days = openSince.map { Calendar.current.dateComponents([.day], from: $0, to: .now).day ?? 0 }
         let areas = row.project == nil ? (row.areas ?? []).joined(separator: ", ") : ""
         let open =
             ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self) + [areas].filter { !$0.isEmpty })
@@ -149,27 +167,34 @@ struct MatterPage: View {
     }
 }
 
+extension View {
+    /// The page's column, its row-drawn face's too.
+    fileprivate func matterPageColumn() -> some View {
+        padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
+    }
+}
+
 // MARK: Goal and next step
 
 /// His goal and next step for the matter, each edited in place: saving is an action with its own state, and a failure
 /// leaves his words in the field.
 private struct GoalAndNext: View {
-    let matter: Matter
+    let row: MatterRow
     @Environment(LifeStore.self) private var life
     @State private var opened: LifeLinkTarget?
 
     var body: some View {
         VStack(spacing: 0) {
             EditableLine(
-                label: "Goal", text: matter.row.goal?.text ?? "",
-                state: life.state(of: .edit(matter: matter.row.id, .goal)),
-                save: { text in await life.setGoal(of: matter.row.id, text) })
+                label: "Goal", text: row.goal?.text ?? "",
+                state: life.state(of: .edit(matter: row.id, .goal)),
+                save: { text in await life.setGoal(of: row.id, text) })
             Hairline()
             EditableLine(
-                label: "Next step", text: matter.row.nextStep?.text ?? "",
-                state: life.state(of: .edit(matter: matter.row.id, .next)),
-                save: { text in await life.setNextStep(of: matter.row.id, NextStepRequest(kind: "do", text: text)) })
-            if let context = matter.row.nextStep?.context {
+                label: "Next step", text: row.nextStep?.text ?? "",
+                state: life.state(of: .edit(matter: row.id, .next)),
+                save: { text in await life.setNextStep(of: row.id, NextStepRequest(kind: "do", text: text)) })
+            if let context = row.nextStep?.context {
                 ContextView(markdown: context, lifeLinks: []) { opened = $0 }
                     .padding(.horizontal, 20).padding(.bottom, 16)
             }
@@ -189,6 +214,9 @@ private struct EditableLine: View {
 
     @State private var isEditing = false
     @State private var draft = ""
+    /// His words Life saved, shown in place of `text` until a read changes it: a read asked before the save, landing
+    /// after it, shows the same old text and changes nothing.
+    @State private var saved: String?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -198,7 +226,7 @@ private struct EditableLine: View {
                 Spacer()
                 if !isEditing {
                     RoundIconButton(symbol: "pencil", label: "Edit \(label.lowercased())", size: 32) {
-                        draft = text; isEditing = true; focused = true
+                        draft = saved ?? text; isEditing = true; focused = true
                     }
                 }
             }
@@ -214,8 +242,9 @@ private struct EditableLine: View {
                     .disabled(state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
-                Text(text.isEmpty ? "Not set" : text).font(.lead)
-                    .foregroundStyle(text.isEmpty ? Palette.faint : Palette.fg).fixedSize(
+                let shown = saved ?? text
+                Text(shown.isEmpty ? "Not set" : shown).font(.lead)
+                    .foregroundStyle(shown.isEmpty ? Palette.faint : Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
             }
             if case .failed(let failure, _) = state {
@@ -224,7 +253,12 @@ private struct EditableLine: View {
         }
         .padding(.horizontal, 20).padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onChange(of: state) { if case .succeeded = $1 { isEditing = false } }
+        .onChange(of: state) {
+            guard case .succeeded = $1 else { return }
+            (saved, isEditing) = (draft.trimmingCharacters(in: .whitespacesAndNewlines), false)
+        }
+        // A read that says something new is Life's word on it.
+        .onChange(of: text) { saved = nil }
     }
 }
 
@@ -278,7 +312,7 @@ private struct Steps: View {
     let steps: [MatterStep]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        LazyVStack(alignment: .leading, spacing: 16) {
             HStack {
                 Caps("Steps")
                 Spacer()

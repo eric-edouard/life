@@ -28,6 +28,7 @@ export const COMPLAINTS = join(MEMORY, "complaints.jsonl");
 
 /** The stage that makes each kind of Life's card, and its prompt when a model's: where a complaint about it points. */
 const STAGES: Record<CheckGroup, { prompt: string | null; stage: string }> = {
+  "at organization": { prompt: null, stage: "organizations" },
   "contacts card": { prompt: null, stage: "contacts" },
   // An agent's card takes no complaint; a row of one would be a bug's.
   decision: { prompt: null, stage: "unknown" },

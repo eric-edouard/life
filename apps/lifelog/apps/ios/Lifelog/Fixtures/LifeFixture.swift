@@ -153,7 +153,7 @@
 
         // MARK: Reads
 
-        func readInbox() async throws -> String {
+        func readInbox(ifNot: String?) async throws -> String {
             try await gate()
             if let wait = ["slowInbox": 30, "slowPush": 5][scenario],
                 wholeReads.withLock({
@@ -171,19 +171,19 @@
             one["checks"] = (one["checks"] as? [[String: Any]] ?? []).filter { $0["pushId"] as? String == pushId }
             return json(one)
         }
-        func readMatters() async throws -> String { try await gate(); return matters() }
-        func readMatters(project: String) async throws -> String {
+        func readMatters(ifNot: String?) async throws -> String { try await gate(); return matters() }
+        func readMatters(project: String, ifNot: String?) async throws -> String {
             try await gate()
             return json(DesignReplies.matters(rowsNow().filter { Self.projectOf($0)?["id"] as? String == project }))
         }
         /// An area's matters in no project; the design data names areas, so its id is the name in lower case.
-        func readMatters(area: String) async throws -> String {
+        func readMatters(area: String, ifNot: String?) async throws -> String {
             try await gate()
             return json(DesignReplies.matters(rowsNow().filter { Self.projectOf($0) == nil && Self.isIn(area, $0) }))
         }
         /// The chips as Life orders them: the underway projects, those needing him first; the areas holding a matter in
         /// no project; then the parked or done projects. Worked out from the rows, as the server does from its matters.
-        func readProjects() async throws -> String {
+        func readProjects(ifNot: String?) async throws -> String {
             try await gate()
             let rows = rowsNow()
             func chip(_ kind: String, _ id: String, _ name: String, _ of: [[String: Any]]) -> [String: Any] {
@@ -222,7 +222,7 @@
         }
         /// A project's header: the design data's head, its first open decision on one of its matters, and the agents
         /// working on them (none while it is parked or done).
-        func readProject(_ id: String) async throws -> String {
+        func readProject(_ id: String, ifNot: String?) async throws -> String {
             try await gate()
             var head = Self.projectRead["project"] as? [String: Any] ?? [:]
             guard head["id"] as? String == id else { throw MCPError.failed("No such project.") }

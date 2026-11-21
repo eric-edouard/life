@@ -132,6 +132,15 @@ function databases(dir: string) {
   ].filter(existsSync);
 }
 
+/** The AddressBook files a change of a card writes (each database and its write-ahead log): for a reader's change stamp. */
+export const readContactStores = (dir = DIR) => {
+  try {
+    return databases(dir).flatMap((f) => [f, `${f}-wal`]);
+  } catch {
+    return [];
+  }
+};
+
 /** `sql`'s rows (`owner`, `line`) as each record's lines. */
 const linesBy = (db: Database, sql: string) =>
   Map.groupBy(

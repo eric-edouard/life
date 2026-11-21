@@ -94,19 +94,21 @@ public struct NextStepRequest: Encodable, Sendable, Equatable {
 
 /// Life's connector, typed: the one place tool names appear. Each gives the tool's JSON text, which `LibraryStore.feedDecoder` reads into
 /// the models and `ReadCache` keeps as it came. An action gives its progress messages to `onProgress` and takes the key of his tap.
+/// The versioned reads (`VersionedRead`) take `ifNot`, the version held: Life then answers only `{version, unchanged:
+/// true}` while nothing changed.
 public protocol LifeAPI: Sendable {
-    func readInbox() async throws -> String
+    func readInbox(ifNot: String?) async throws -> String
     /// The card a push names, from the Life at `origin` (nil: the one paired now).
     func readInbox(pushId: String, at origin: URL?) async throws -> String
-    func readMatters() async throws -> String
+    func readMatters(ifNot: String?) async throws -> String
     /// A project chip's matters.
-    func readMatters(project: String) async throws -> String
+    func readMatters(project: String, ifNot: String?) async throws -> String
     /// An area chip's matters: those of the area in no project.
-    func readMatters(area: String) async throws -> String
+    func readMatters(area: String, ifNot: String?) async throws -> String
     /// The Projects tab's chips (`ProjectChips`).
-    func readProjects() async throws -> String
+    func readProjects(ifNot: String?) async throws -> String
     /// A project chip's header and Details (`ProjectHeader`).
-    func readProject(_ id: String) async throws -> String
+    func readProject(_ id: String, ifNot: String?) async throws -> String
     /// The matters open with one person or organization, by their ref (`person:ana`), every one.
     func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
@@ -173,22 +175,28 @@ public struct MCPLifeAPI: LifeAPI {
     }
 
     /// Every open ask in one read (the server's most), so a tapped push finds its card and the screens count them all.
-    public func readInbox() async throws -> String { try await client.call("read_inbox", ["limit": 500]) }
+    public func readInbox(ifNot: String?) async throws -> String {
+        try await client.call("read_inbox", Versioned(limit: 500, ifNot: ifNot))
+    }
     /// Only the card a push names (none once answered), with the inbox's counts: what a notification reads, and what the
     /// app reads first when a push is tapped.
     public func readInbox(pushId: String, at origin: URL?) async throws -> String {
         try await client.call("read_inbox", ["pushId": pushId], at: origin)
     }
-    public func readMatters() async throws -> String { try await client.call("read_matters") }
-    public func readMatters(project: String) async throws -> String {
-        try await client.call("read_matters", ["project": project])
+    public func readMatters(ifNot: String?) async throws -> String {
+        try await client.call("read_matters", Versioned(ifNot: ifNot))
     }
-    public func readMatters(area: String) async throws -> String {
-        try await client.call("read_matters", MattersOfArea(area: area))
+    public func readMatters(project: String, ifNot: String?) async throws -> String {
+        try await client.call("read_matters", Versioned(project: project, ifNot: ifNot))
     }
-    public func readProjects() async throws -> String { try await client.call("read_projects") }
-    public func readProject(_ id: String) async throws -> String {
-        try await client.call("read_project", ["project": id])
+    public func readMatters(area: String, ifNot: String?) async throws -> String {
+        try await client.call("read_matters", Versioned(area: area, noProject: true, ifNot: ifNot))
+    }
+    public func readProjects(ifNot: String?) async throws -> String {
+        try await client.call("read_projects", Versioned(ifNot: ifNot))
+    }
+    public func readProject(_ id: String, ifNot: String?) async throws -> String {
+        try await client.call("read_project", Versioned(project: id, ifNot: ifNot))
     }
     public func readMatters(person: String) async throws -> String {
         // Life's `person` takes a name, alias or id: the ref's id (`ana`), never the ref itself.
@@ -290,9 +298,13 @@ public struct MCPLifeAPI: LifeAPI {
             "change_appointment", ["action": isOn ? "restore" : "remove", "appointment": appointment], at: origin)
     }
 
-    private struct MattersOfArea: Encodable, Sendable {
-        let area: String
-        let noProject = true
+    /// A versioned read's arguments; those left nil are not sent.
+    private struct Versioned: Encodable, Sendable {
+        var limit: Int?
+        var project: String?
+        var area: String?
+        var noProject: Bool?
+        let ifNot: String?
     }
 
     private struct Correct<C: Encodable & Sendable>: Encodable, Sendable {
