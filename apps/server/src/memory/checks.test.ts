@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import { pushIdOf } from "../sources/lifelog-push";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
 import {
@@ -31,6 +30,7 @@ import * as matters from "./matters";
 import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
 import { OWNER } from "./read-truth";
+import type { GuessedQueueItem } from "./voice-guesses";
 
 /** One registered agent anchored on `step`, active unless `over` says otherwise (`heldByAgents`' facts). */
 const anchored = (step: string, over: Partial<AgentHold> = {}) => [
@@ -291,7 +291,7 @@ test("open decisions come first, soonest deadline first, each naming the agent t
   ]);
 });
 
-const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
+const voice = (id: string, over: Partial<GuessedQueueItem> = {}) =>
   ({
     clips: [
       {
@@ -323,23 +323,24 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
     voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
     words: 40,
     ...over,
-  }) satisfies NamingQueueItem;
+  }) satisfies GuessedQueueItem;
 
 test("every voice in lifelog's queue is a check in the inbox, with its clips and the people it may be", () => {
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
-  items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
+  // The voice naming guessed Dana: only then is lifelog's suggestion a guess in use.
+  const guessed = (id: string, o: Partial<GuessedQueueItem>) =>
+    voice(id, { guessed: ["person:dana"], kind: "known_person", ...o });
+  items[0] = guessed("v0", { personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
   items[3] = voice("v3", { conversations: 1 });
-  items[4] = voice("v4", {
-    conversations: 1,
-    kind: "known_person",
-    personId: DANA_ID,
-  });
+  items[4] = guessed("v4", { conversations: 1, personId: DANA_ID });
   const likely = { isLikely: true, kind: "known_person" as const };
-  items[5] = voice("v5", { ...likely, personId: DANA_ID });
+  items[5] = guessed("v5", { ...likely, personId: DANA_ID });
   // Likely, but no guess in use (v6), or for a person Life cannot place, asked by a name heard beside it (v7): no "Yes".
   items[6] = voice("v6", { isLikely: true });
-  items[7] = voice("v7", { ...likely, name: DANA_ID, personId: "unplaced" });
+  items[7] = guessed("v7", { ...likely, name: DANA_ID, personId: "unplaced" });
+  // Lifelog's sound alone names Dana, nothing places her there (far from where he was, on no call): no "Is this Dana?".
+  items[8] = voice("v8", { ...likely, personId: DANA_ID });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
     inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
@@ -349,6 +350,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   const dana = "voice:v0";
   // Lifelog's suggestion in use is asked as a guess; the rest are asked who.
   expect(byRef(dana)?.question).toBe("Is this Dana?");
+  expect(byRef("voice:v8")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
   expect(byRef("voice:v2")?.question).toBe("Who is this?");

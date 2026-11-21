@@ -331,7 +331,7 @@ const item: NamingQueueItem = {
 
 /** The people a voice card's ref is read with, of a made-up `resolve`. */
 const whoOf = (resolve: (s: string) => string | null) => ({
-  names: new Map<string, string>(),
+  names: new Map([["person:dana", "Dana"]]),
   refOf: (r: string) => r,
   resolve,
   truth: { people: [] },
@@ -452,6 +452,16 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await import("../sources/lifelog-voices"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p" });
+  // The voice naming guessed Dana for the voices lifelog calls Dana: the card asks "Is this Dana?".
+  const guesses = spyOn(
+    await import("./voice-guesses"),
+    "withVoiceGuesses"
+  ).mockImplementation(async (items) =>
+    items.map((i) => ({
+      ...i,
+      guessed: i.personId === DANA_ID ? ["person:dana"] : [],
+    }))
+  );
   const voices = [{ jobId: "job-1", speakerLabel: "A" }];
   try {
     await answerCheck(voice, {
@@ -464,7 +474,12 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     });
     await answerCheck(voice, { name: "Zed", options: ["this-is"] });
     // "Yes" to the guess in use: the check's subject, with nothing else given.
-    const known = { ...item, kind: "known_person" as const, personId: DANA_ID };
+    const known = {
+      ...item,
+      guessed: ["person:dana"],
+      kind: "known_person" as const,
+      personId: DANA_ID,
+    };
     queue.mockResolvedValueOnce([known]);
     const dana = {
       ...voice,
@@ -521,6 +536,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     );
     expect(said()).toEqual([]);
   } finally {
+    guesses.mockRestore();
     send.mockRestore();
     people.mockRestore();
     queue.mockRestore();

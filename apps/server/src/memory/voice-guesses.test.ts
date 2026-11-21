@@ -334,10 +334,10 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
     expect(card({ guessed: ["person:dana", "person:zed"] })).toBe(
       "person:dana"
     );
-    // A heard name alone, nothing guessed.
-    expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBe(
-      "person:dana"
-    );
+    // Lifelog's suggestion alone, nothing guessed, names no one: its sound or a name heard says nothing of who could be
+    // there (a friend living far away, matched by sound to a recording made where he was): "Who is this?".
+    expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBeNull();
+    expect(card({ guessed: [], personId: "lf-dana" })).toBeNull();
     // Someone lifelog knows by no id: no name, so "Yes" never names a person by name.
     expect(card({ likely: [] })).toBeNull();
     // An id his directory does not know is who lifelog names it (life#963): "Is this Dana?", by that id.
