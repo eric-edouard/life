@@ -15,12 +15,14 @@ import { queuedEvents } from "../host/desk-read";
 import { UNITS } from "../memory/memory-files";
 import { dayStart, localDate } from "../memory/zones";
 import type { Unit } from "../records/unit";
+import type { Descriptor } from "../sources/contract";
 import { insertAgent } from "./agent-actions";
 import {
   ARRIVAL_CONFIRMED,
   type ArrivalFacts,
   arrivalFactsOf,
   arrivalNetsOf,
+  hasAnsweredOf,
   pollArrivals,
 } from "./arrival-route";
 import { readPeopleOnce } from "./desk-clock";
@@ -404,4 +406,67 @@ test("a confirm of yesterday's voice finds its unit and wakes: made this afterno
   expect(await wokenFor(1, 2, 2 * MIN)).toBe(1);
   // Polled at 12:01, confirmed at 00:02 of a unit of the day before yesterday (a pass begun at 23:59).
   expect(await wokenFor(12 * 60 + 1, 2, 719 * MIN)).toBe(1);
+});
+
+test("he answered after an arrival's newest line: no agent wakes; a line of his before it, or none, still wakes", async () => {
+  const at = "2026-11-18T09:05:00.000Z";
+  const line = (id: string, minute: number, fromMe: boolean) => ({
+    at: `2026-11-18T09:0${minute}:00.000Z`,
+    fromMe,
+    id,
+  });
+  const f = { at, id: "whatsapp:9" };
+  expect(
+    hasAnsweredOf([line("whatsapp:9", 1, false), line("w:10", 2, true)], f)
+  ).toBe(true);
+  expect(
+    hasAnsweredOf([line("w:8", 0, true), line("whatsapp:9", 1, false)], f)
+  ).toBe(false);
+  // His own newest line is a commitment: his next line never answers it.
+  expect(
+    hasAnsweredOf([line("whatsapp:9", 1, true), line("w:10", 2, true)], f)
+  ).toBe(false);
+  // The newest line unseen: only a line of his after the confirm counts.
+  expect(hasAnsweredOf([line("w:10", 2, true)], f)).toBe(false);
+
+  const s = setup();
+  s.desk.runtimes.claude = s.fake.runtime;
+  setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
+  try {
+    const now = clock();
+    const event = (id: string, fromMe: boolean, minutes: number) => ({
+      at: new Date(now.getTime() - minutes * MIN).toISOString(),
+      chat: "Test Ana",
+      fromMe,
+      id,
+      sender: fromMe ? "me" : "ana",
+      source: "whatsapp" as const,
+      text: "x",
+    });
+    const chat = {
+      kind: "chat",
+      label: "WhatsApp",
+      name: "whatsapp",
+      read: () => [event("whatsapp:1", false, 3), event("whatsapp:2", true, 1)],
+      silentAfter: 1,
+    } as unknown as Descriptor;
+    await pollArrivals(s.desk, readPeopleOnce(), {
+      arrivals: [
+        {
+          at: now.toISOString(),
+          messages: ["whatsapp|whatsapp:1"],
+          people: ["person:ana"],
+          unit: "unit_0000000000a1",
+        },
+      ],
+      sources: [chat],
+      units: [unitOf()],
+    });
+    expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
+    expect(
+      s.desk.db.query("select 1 from event where event_id = 'whatsapp:1'").all()
+    ).toEqual([]);
+  } finally {
+    setSettings({ desk: null });
+  }
 });
