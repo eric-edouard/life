@@ -1,12 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
+import { pathInside } from "../core/platform";
 import { commitPaths } from "../core/proc";
 import { settings } from "../core/settings";
 import {
@@ -115,7 +116,7 @@ export function writeSubject(
   { db }: Desk,
   agent: string,
   assignment: string,
-  s: { personal?: true; project?: string; steps?: string[] }
+  s: { project?: string; role?: "personal"; steps?: string[] }
 ) {
   const now = clock().toISOString();
   db.run("delete from anchor where assignment_id = ?", [assignment]);
@@ -129,7 +130,7 @@ export function writeSubject(
   }
   db.run("update agent set project = ?, role = ? where id = ?", [
     s.project ?? null,
-    s.personal ? "personal" : null,
+    s.role ?? null,
     agent,
   ]);
 }
@@ -428,8 +429,8 @@ export function commitAgentFiles(a: AgentRow, s: AssignmentRow) {
     return;
   }
   const paths = [agentHomeOf(repo, a), dirname(s.notes_path)].flatMap((p) => {
-    const inRepo = p ? relative(repo, p) : "..";
-    return inRepo.startsWith("..") ? [] : [inRepo || "."];
+    const inRepo = p ? pathInside(repo, p) : null;
+    return inRepo === null ? [] : [inRepo || "."];
   });
   try {
     commitPaths(repo, [...new Set(paths)], `desk: ${a.id}'s turn on ${s.id}`);

@@ -16,6 +16,7 @@ import type { Check, LIFE_CHECKS } from "./life-checks";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
+import { samePersonPairOf } from "./same-person";
 import { type People, readPeople, voiceCardRefOf, voicePersonOf } from "./who";
 import { dayNow } from "./zones";
 
@@ -316,6 +317,23 @@ const WRITERS: {
       return [
         await x.startAgent(c, a.note ?? (await newMatterOf(c)).goal.text),
       ];
+    },
+  },
+  // Bound to the pair he saw (`samePersonRefOf`): "Same person" folds the guess into the other; "Different people"
+  // says each of the guess's handles is not them, so the pair is never asked again.
+  "same person": {
+    "not-this-person": (c, a) =>
+      correct(
+        c.about.map((n) => ({
+          kind: "not-this-person",
+          nameOrHandle: n,
+          person: samePersonPairOf(c.ref).other,
+        })),
+        a
+      ),
+    "same-person": (c, a) => {
+      const { guess, other } = samePersonPairOf(c.ref);
+      return correct([{ from: guess, kind: "same-person", to: other }], a);
     },
   },
   voice: {

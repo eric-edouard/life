@@ -36,9 +36,12 @@ struct CheckList: View {
         } label: {
             Row(
                 title: check.question, icon: symbol(of: check),
-                detail: check.listLine()
+                detail: check.beingFixed == nil ? check.listLine() : "Being fixed"
             ) {
-                if let deadline = check.deadline {
+                // The caretaker is at work on it: it no longer waits on him, so no deadline.
+                if check.beingFixed != nil {
+                    StateGlyph.busy
+                } else if let deadline = check.deadline {
                     Text(DeadlineWords.when(deadline)).font(.small).foregroundStyle(Palette.flag)
                         .accessibilityLabel(DeadlineWords.spoken(deadline))
                 }
@@ -69,6 +72,7 @@ extension CheckGroup {
         case .name: "text.quote"
         case .guessedPerson: "person"
         case .contactsCard: "person.crop.rectangle"
+        case .samePerson: "person.2"
         case .ending: "checkmark"
         case .newMatter: "plus"
         case .unknown: "circle"
@@ -83,6 +87,7 @@ extension CheckGroup {
         case .name: "Names"
         case .guessedPerson: "People"
         case .contactsCard: "Contacts"
+        case .samePerson: "Same person?"
         case .ending: "Is this done?"
         case .newMatter: "New matters"
         case .unknown: "Other"
