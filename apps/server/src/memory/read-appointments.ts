@@ -3,12 +3,16 @@ import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
 import { pushIdOf } from "../sources/lifelog-push";
 import { readAppointmentEvents, readAppointments } from "./appointments";
-import { isSameMeeting, readArrivalAppointments } from "./arrival-appointments";
+import {
+  ARRIVAL_APPOINTMENT_DAYS,
+  readArrivalAppointments,
+} from "./arrival-appointments";
 import { span } from "./episode-span";
 import { matterOfSteps } from "./matter-read";
 import type { readMatterBook } from "./matters";
 import { readIndex } from "./memory-files";
 import { messageWordsOf } from "./message-files";
+import { isArrival, type Planned, plannedOf } from "./planned-appointments";
 import { clip, speakerOf } from "./units";
 import type { People } from "./who";
 
@@ -73,17 +77,36 @@ function writtenAppointmentOf(
     return null;
   }
   const firstAt = created.get(id);
+  // Every arrival the sync could have read when it first wrote it: its whole window before that.
   const arrivals = readArrivalAppointments(
     now,
     undefined,
-    firstAt && iso(Date.parse(firstAt) - 2 * DAY)
+    firstAt && iso(Date.parse(firstAt) - ARRIVAL_APPOINTMENT_DAYS * DAY)
   );
-  const night = readAppointments()?.appointments.find((x) => x.id === id);
-  const arrival =
-    arrivals.find((x) => x.id === id) ??
-    (night && arrivals.find((x) => isSameMeeting(x, night)));
-  const a = night ?? arrival;
-  return a ? { a, arrival, firstAt, id, last, night } : null;
+  const night = readAppointments()?.appointments ?? [];
+  // The sync's own choice (`plannedOf`); one already over is as it was read.
+  const a: Planned | undefined =
+    plannedOf(
+      night,
+      arrivals,
+      new Map(),
+      (k) => byAppointment.has(k),
+      now
+    ).find((p) => p.id === id) ??
+    night.find((x) => x.id === id) ??
+    arrivals.find((x) => x.id === id);
+  if (!a) {
+    return null;
+  }
+  const arrival = isArrival(a) ? a : a.arrival;
+  return {
+    a,
+    arrival,
+    firstAt,
+    id,
+    last,
+    observations: isArrival(a) ? [] : a.observations,
+  };
 }
 
 /** The appointment `q` names as the sheet shows it (`writtenAppointmentOf`); null when Life holds none. */
@@ -96,16 +119,16 @@ export async function readAppointmentSheet(
   if (!held) {
     return null;
   }
-  const { a, arrival, firstAt, id, last, night } = held;
+  const { a, arrival, firstAt, id, last, observations } = held;
   const when = span(
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
   );
-  const e = sourceMessageOf(arrival, night?.observations ?? [], reads);
+  const e = sourceMessageOf(arrival, observations, reads);
   const people = await reads.people();
   const matter = matterOfSteps(await reads.book(), [
     ...(arrival ? [arrival.unit] : []),
-    ...(night?.observations ?? []),
+    ...observations,
   ]);
   return {
     addedAt: firstAt ?? null,

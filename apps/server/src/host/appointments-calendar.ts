@@ -9,11 +9,7 @@ import {
   readAppointmentEvents,
   readAppointments,
 } from "../memory/appointments";
-import {
-  type ArrivalAppointment,
-  isSameMeeting,
-  readArrivalAppointments,
-} from "../memory/arrival-appointments";
+import { readArrivalAppointments } from "../memory/arrival-appointments";
 import {
   DESCRIPTION_MAX,
   type Draft,
@@ -23,9 +19,14 @@ import {
 } from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
 import { APPOINTMENT_EVENTS, APPOINTMENTS } from "../memory/memory-files";
+import {
+  isArrival,
+  type Planned,
+  plannedOf,
+} from "../memory/planned-appointments";
 import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
-import { type Appointment, AppointmentEvent } from "../records/appointment";
+import { AppointmentEvent } from "../records/appointment";
 import { notifyPhone, pushIdOf } from "../sources/lifelog-push";
 import { levelOf, NOTIFY_DEFAULTS } from "./card-push";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
@@ -43,11 +44,6 @@ const OUTPUT = { lifeOutput: "appointments" } as const;
 /** How far ahead Life lists its events. */
 const AHEAD = 400 * DAY;
 
-/** What the sync writes: one of the night's appointments (with `agreed` when he agreed it in new lines), or one agreed in new lines. */
-type Planned =
-  | (Appointment & { agreed?: { link: string | null; unit?: string } })
-  | ArrivalAppointment;
-const isArrival = (a: Planned): a is ArrivalAppointment => "messages" in a;
 /** Whether he agreed it in new lines, and its meeting link: kept on its event too (`lifeAgreed`, `lifeLink`, `lifeUnit`), past the window the arrival is read in. */
 const agreedOf = (a: Planned) =>
   isArrival(a) ? { link: a.link, unit: a.unit } : a.agreed;
@@ -172,52 +168,6 @@ export async function drafted<A extends Planned>(
   return kept;
 }
 
-/** Whether an appointment's event ends after `now` (its own instant, in its zone). */
-const isAhead = (a: Planned, now: Date) => {
-  const { allDay, to } = span(
-    { day: a.start.slice(0, 10), end: a.end, start: a.start },
-    a.zone ?? undefined
-  );
-  // A whole day ends at midnight where it is.
-  const end = allDay ? dayStart(to, a.zone ?? undefined) : new Date(to);
-  return end.getTime() > now.getTime();
-};
-
-/**
- * One draft per meeting: a night's appointment and an arrival of the same id or meeting (`isSameMeeting`) are one, with the night's
- * details, his agreement and its link, under the id that already has event lines (`hasEvent`), else the arrival's;
- * a night's appointment whose event says he agreed it (`agreedOn`) stays agreed; an arrival already over is left out.
- */
-export function plannedOf(
-  night: readonly Appointment[],
-  arrivals: readonly ArrivalAppointment[],
-  agreedOn: ReadonlyMap<string, { link: string | null; unit?: string }>,
-  hasEvent: (id: string) => boolean,
-  now: Date
-): Planned[] {
-  const ahead = arrivals.filter((a) => isAhead(a, now));
-  // One to one: an arrival joins one night's appointment at most, its own id's first, then one of its start.
-  const joined = new Set(
-    night.flatMap((n) => (ahead.some((x) => x.id === n.id) ? [n.id] : []))
-  );
-  const nights = night.map((n) => {
-    const a =
-      ahead.find((x) => x.id === n.id) ??
-      ahead.find((x) => isSameMeeting(x, n) && !joined.has(x.id));
-    if (!a) {
-      const agreed = agreedOn.get(n.id);
-      return agreed ? { ...n, agreed } : n;
-    }
-    joined.add(a.id);
-    return {
-      ...n,
-      agreed: { link: a.link, unit: a.unit },
-      id: hasEvent(n.id) ? n.id : a.id,
-    };
-  });
-  return [...nights, ...ahead.filter((a) => !joined.has(a.id))];
-}
-
 /** The push for an appointment's first event: an opaque id; the phone reads the event from the connector and writes the words. */
 async function pushAdded(d: AppointmentDraft, now: Date) {
   const setting = settings().notifications.calendar ?? NOTIFY_DEFAULTS.calendar;
@@ -268,13 +218,19 @@ async function sync(now: Date) {
       `lifeOutput=${OUTPUT.lifeOutput}`
     )
   ).filter((e) => !isDeleted(e.id, e.props.lifeAppointment));
+  // Of two events of one appointment, the one its last line wrote is kept, the other removed (a deleted one Google
+  // still lists after his Undo wrote it again).
+  const isWritten = (e: (typeof listed)[number]) =>
+    known.get(e.props.lifeAppointment ?? "")?.event === e.id;
   const held = heldOf(
-    listed.map((e) => ({
-      allDay: e.allDay,
-      hash: e.props.lifeHash,
-      id: e.id,
-      of: e.props.lifeAppointment ?? "",
-    }))
+    listed
+      .toSorted((a, b) => Number(isWritten(b)) - Number(isWritten(a)))
+      .map((e) => ({
+        allDay: e.allDay,
+        hash: e.props.lifeHash,
+        id: e.id,
+        of: e.props.lifeAppointment ?? "",
+      }))
   );
   // Confirmed: its event says so, or his Undo brings back one he had confirmed.
   const confirmed = new Set([

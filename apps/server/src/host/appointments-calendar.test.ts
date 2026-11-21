@@ -8,6 +8,7 @@ import {
   APPOINTMENTS,
   readReplyPath,
 } from "../memory/memory-files";
+import { plannedOf } from "../memory/planned-appointments";
 import { readAppointmentSheet } from "../memory/read-appointments";
 import { READS, storeReply } from "../memory/read-replies";
 import type { People } from "../memory/who";
@@ -18,7 +19,6 @@ import * as push from "../sources/lifelog-push";
 import {
   appointmentDraft,
   drafted,
-  plannedOf,
   removeAppointment,
   restoreAppointment,
   syncAppointments,
@@ -159,6 +159,12 @@ let events: Map<
   }
 >;
 let made = 0;
+/** The sheet's reads with nothing to open: its own fields only. */
+const noReads = {
+  book: () => Promise.resolve([]),
+  message: () => null,
+  people: () => Promise.resolve({} as People),
+};
 const fake = {
   create: (
     f: { allDay: boolean; busy: boolean; summary?: string },
@@ -427,6 +433,17 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   await writeNight("apt_000000000011");
   await syncAppointments(NOW);
   expect([...events.keys()]).toEqual([event ?? ""]);
+  // Its sheet shows what the calendar holds: the night's reading, under the arrival's id.
+  expect(
+    await readAppointmentSheet(
+      { appointment: first?.props.lifeAppointment ?? "" },
+      noReads,
+      NOW
+    )
+  ).toMatchObject({
+    link: "https://meet.example.com/kit-lou",
+    title: "Session at the clinic",
+  });
   expect(updates.at(-1)).toMatchObject({ busy: true, id: event });
   expect(updates.at(-1)?.description).toContain(
     "Meeting link: https://meet.example.com/kit-lou"
@@ -442,11 +459,7 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   // Its sheet, by its push's id, past the reply's window: the night's reading with the arrival's link, as written.
   const sheet = await readAppointmentSheet(
     { pushId: push.pushIdOf(id) },
-    {
-      book: () => Promise.resolve([]),
-      message: () => null,
-      people: () => Promise.resolve({} as People),
-    },
+    noReads,
     later
   );
   expect(sheet).toMatchObject({
@@ -458,11 +471,7 @@ test("the night's reading of an arrival's meeting keeps its event, busy, with it
   expect(
     await readAppointmentSheet(
       { appointment: "apt_00000000ffff" },
-      {
-        book: () => Promise.resolve([]),
-        message: () => null,
-        people: () => Promise.resolve({} as People),
-      },
+      noReads,
       later
     )
   ).toBeNull();
@@ -507,6 +516,11 @@ test("his Remove deletes the event and is never written over; his Undo writes it
   expect(await restoreAppointment(id, NOW)).toEqual({ result: "restored" });
   expect(lastOp(id)).toBe("created");
   expect(events.size).toBe(2);
+  // The next sync, Google still listing the deleted one first: the one his Undo wrote stays.
+  const written = readAppointmentEvents().byAppointment.get(id)?.event ?? "";
+  await syncAppointments(NOW);
+  expect([...events.keys()]).toEqual([written]);
+  expect(lastOp(id)).toBe("created");
   expect(pushed).toHaveBeenCalledTimes(1);
 });
 
@@ -557,6 +571,43 @@ test("Undo of one Life no longer holds is refused again; with the calendar off n
   const calls = calendar.mock.calls.length;
   expect(await syncAppointments(NOW)).toBeNull();
   expect(calendar.mock.calls.length).toBe(calls);
+});
+
+test("a night-only appointment he confirmed comes back confirmed after his Remove and Undo: its title, busy", async () => {
+  await Bun.write(
+    APPOINTMENTS,
+    JSON.stringify({
+      appointments: [
+        appointment({ end: "2031-03-12 11:00", start: "2031-03-12 10:00" }),
+      ],
+      built: ARRIVAL_AT,
+      inputs: "i",
+      madeBy: { model: "m", prompt: "p", run: "r" },
+      schemaVersion: 1,
+    })
+  );
+  await syncAppointments(NOW);
+  const [event, e] = [...events][0] ?? [];
+  expect(e).toMatchObject({
+    busy: false,
+    summary: "(Life) Session at the clinic",
+  });
+  events.set(event ?? "", {
+    ...(e as NonNullable<typeof e>),
+    props: { ...e?.props, lifeConfirmed: "yes" },
+  });
+  expect(await removeAppointment("apt_000000000001", NOW)).toEqual({
+    result: "removed",
+  });
+  expect(await restoreAppointment("apt_000000000001", NOW)).toEqual({
+    result: "restored",
+  });
+  const [back] = [...events.values()];
+  expect(back).toMatchObject({
+    busy: true,
+    props: { lifeConfirmed: "yes" },
+    summary: "Session at the clinic",
+  });
 });
 
 test("change_appointment is his token's only; read_appointments finds one by its push's id", async () => {
