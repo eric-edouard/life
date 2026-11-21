@@ -2,8 +2,8 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { filesIn, linesOf } from "./files";
 import { logWriter } from "./log-line";
+import { ROLE_ASKERS } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
-import { agentNames } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced for a year (the nightly drops older days):
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line, written through LogTape (`@logtape/logtape`): `time`, `level`,
@@ -154,9 +154,9 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   lifeLine(kind, fields);
 }
 
-/** Whether a connector call came from one of his agents: its grant's agent claim names one (`mcp.call`'s `agent`). */
+/** Whether a connector call came from one of his agents: its grant has an agent claim that is not a role's (`mcp.call`'s `agent`). */
 const isAgent = (agent: unknown) =>
-  typeof agent === "string" && agentNames().includes(agent);
+  typeof agent === "string" && !ROLE_ASKERS.includes(agent);
 /** A call of his agent's daily review: `read_day` read by the agent, with no error (`shownDays`, read-open-items.ts). */
 export const isReviewCall = (e: Call) =>
   e.tool === "read_day" && !e.error && isAgent(e.agent);

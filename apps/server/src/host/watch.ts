@@ -56,7 +56,7 @@ import { sampleResources } from "./resource-sample";
 // (`describeFilesOnArrival`), never awaited by the tick. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
-// It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
+// It also hears "hey Life": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
 // down never stops it (1 Nov: 20 h without one). Every 30 minutes his calendar follows the appointments. Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
