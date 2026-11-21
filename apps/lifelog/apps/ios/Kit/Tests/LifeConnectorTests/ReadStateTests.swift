@@ -260,8 +260,11 @@ private let later = then.addingTimeInterval(5)
     var connection = LifeConnection()
     connection.note(ReadState<[Int]>.Event.failed(.unreachable), asked: then)
     #expect(connection.whyNot(hasPath: true) == MCPError.unreachable.reason)
-    // A retry under way, one called off, or a phone with no pairing learns nothing about Life.
-    for nothing in [ReadState<[Int]>.Event.started, .failed(.cancelled), .failed(.notPaired)] {
+    // A retry under way, one called off, a phone with no pairing, a tunnel's 5xx or a timeout learn nothing about Life.
+    for nothing in [
+        ReadState<[Int]>.Event.started, .failed(.cancelled), .failed(.notPaired), .failed(.failed("502")),
+        .failed(.timedOut),
+    ] {
         connection.note(nothing, asked: later)
     }
     #expect(connection.lost == .unreachable)

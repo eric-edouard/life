@@ -145,7 +145,7 @@ final class LifeStore {
         cache: ReadCache = ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-reads")),
         pictures: URL = AppGroup.pictures,
         now: @escaping @Sendable () -> Date = { Date() },
-        path: NetworkPath = NetworkPath(),
+        path: NetworkPath,
         setBadge: @escaping @MainActor (Int) -> Void = { count in
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) }
         }
@@ -572,6 +572,13 @@ final class LifeStore {
 
     /// A tap on a screen while Life is out of reach: refused before anything leaves the phone or shows, with why. Only
     /// taps on a screen: an answer from a notification's button, or one held before Life went out of reach, is tried.
+    /// A tap that would hold or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
+    func saysOutOfReach() -> Bool {
+        guard let why = whyOutOfReach else { return false }
+        show(SaidBack(words: why, undo: nil, isDone: false))
+        return true
+    }
+
     /// `saysBack`: an action said back with Undo (`saidBack`) says why there too.
     func refusedOutOfReach(_ key: ActionKey, saysBack: Bool = false) async -> Bool {
         guard let why = whyOutOfReach else { return false }

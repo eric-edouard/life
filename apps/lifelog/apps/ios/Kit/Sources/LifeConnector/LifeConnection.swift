@@ -10,16 +10,16 @@ public struct LifeConnection: Sendable, Equatable {
 
     public init() {}
 
-    /// A read's event, the read asked at `asked`. A start, a cancel or a local "not paired" says nothing about Life,
-    /// so a retry under way keeps what the last read found.
+    /// A read's event, the read asked at `asked`. Only a value or Life's refusal says Life answered; a start, a cancel,
+    /// "not paired", a 5xx (a tunnel's, with the Mac asleep), a timeout or a dropped stream say nothing about it, so
+    /// what the last read found holds.
     public mutating func note<V>(_ event: ReadState<V>.Event, asked: Date) {
         guard !(asked < self.asked) else { return }
         switch event {
-        case .started, .failed(.cancelled), .failed(.notPaired): return
         case .failed(.unreachable): lost = .unreachable
         case .failed(.offline): lost = .offline
-        // Life answered: with a value, or with why not.
-        case .succeeded, .failed: lost = nil
+        case .succeeded, .failed(.refused): lost = nil
+        default: return
         }
         self.asked = asked
     }
