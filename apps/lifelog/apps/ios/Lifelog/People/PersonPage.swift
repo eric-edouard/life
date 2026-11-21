@@ -190,7 +190,7 @@ struct OpenMatters: View {
                 }
                 Group {
                     if !isAll, now.openCount > rows.count {
-                        TextLink("All \(now.openCount)", isOnward: true) { isAll = true }
+                        QuietChip("All \(now.openCount)", symbol: "chevron.down") { isAll = true }
                     } else if isAll, now.isOpenCut, life.openWith[ref]?.value == nil {
                         if life.openWith[ref]?.hasFailed == true {
                             PartRetry(what: "The other matters") { await life.refreshOpenWith(ref) }
@@ -221,7 +221,7 @@ private struct Lately: View {
                 Text("Lately").font(.small).foregroundStyle(Palette.muted)
                 Text(lines.joined(separator: " ")).font(.body15).foregroundStyle(Palette.fg)
                     .lineLimit(isWhole ? nil : 4).fixedSize(horizontal: false, vertical: true)
-                if !isWhole { TextLink("More") { isWhole = true } }
+                if !isWhole { QuietChip("More", symbol: "chevron.down") { isWhole = true } }
             }
             .padding(Metrics.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -360,8 +360,7 @@ struct Latest: View {
                     }
                     if count == nil, page.nextBefore != nil {
                         NavigationLink(value: AppRouter.PersonRoute.latest(subject)) {
-                            Text("Earlier \(Image(systemName: "chevron.right"))").font(.smallStrong)
-                                .foregroundStyle(Palette.fg)
+                            TextLink.label("Earlier", to: .page)
                         }
                         .buttonStyle(.plain)
                     }

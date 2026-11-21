@@ -88,7 +88,7 @@ struct ContextRegion: View {
                 }
                 if let id = check.matter?.id, let matter = life.matter[id]?.value { matterBlock(matter) }
                 if let link = check.links.first.flatMap(URL.init(string:)) {
-                    TextLink("Open in \(runtimeName?.name ?? "its app")", isOutward: true) { openURL(link) }
+                    TextLink("Open in \(runtimeName?.name ?? "its app")", to: .outside) { openURL(link) }
                 }
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
