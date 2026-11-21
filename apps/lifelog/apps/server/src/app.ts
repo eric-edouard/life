@@ -12,6 +12,7 @@ import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
 import { dictationRoutes } from "./routes/dictation";
 import { healthRoutes } from "./routes/health";
+import { liveWordsRoutes } from "./routes/live-words";
 import { pageRoutes } from "./routes/pages";
 import { placeRoutes } from "./routes/places";
 import { searchRoutes } from "./routes/search";
@@ -79,6 +80,7 @@ const UNSEARCHED = new Set([
   "/diagnostics",
   // Nothing of it is kept.
   "/dictation/transcript",
+  "/live-words/token",
   // It sweeps itself when AI comes back on.
   "/switches",
 ]);
@@ -179,6 +181,7 @@ export function createApp(s: Services) {
     .route("/", speechRoutes(s))
     .route("/", voiceNoteRoutes(s))
     .route("/", dictationRoutes(s))
+    .route("/", liveWordsRoutes(s))
     .route("/", pageRoutes(s))
     .route("/", backupRoutes(s))
     .route("/", speakerRoutes(s))

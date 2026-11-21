@@ -65,12 +65,24 @@ struct RootView: View {
                 GeometryReader { window in
                     let origin = window.frame(in: .global).origin
                     let pendant = router.pendantFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
-                    TellLifeButton()
+                    TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count)
                         .position(
                             x: pendant?.midX ?? window.size.width - Metrics.Spacing.m - 28,
                             y: max(window.size.height / 2, (pendant?.maxY ?? 0) + Metrics.Spacing.l + 28))
                 }
                 .ignoresSafeArea()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if life.isPaired, router.isTellLifeSmall, !router.isTellLifeOpen {
+                TellStrip(
+                    line: life.tell.answer?.line ?? "Working on it…", open: { router.isTellLifeOpen = true },
+                    close: {
+                        router.isTellLifeSmall = false
+                        router.tellContext = nil
+                    }
+                )
+                .appears(Motion.fade)
             }
         }
         .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }

@@ -80,6 +80,16 @@ final class AppRouter {
     /// Where the system put the Pendant (its frame in the window): in the side column of the closed Duo, or at the top
     /// bar's trailing end. Tell Life stands on its vertical line, below it; nil before the Pendant is drawn.
     var pendantFrame: CGRect?
+    /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
+    var isTellLifeSmall = false
+    /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
+    var tellContext: (ref: String, question: String)?
+
+    /// Tell Life on a card: his words go with that card on screen.
+    func tellLife(about ref: String, question: String) {
+        tellContext = (ref, question)
+        isTellLifeOpen = true
+    }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
     private var people = PageStack<PersonRoute>()
@@ -107,7 +117,9 @@ final class AppRouter {
             case .people: "people"
             case .search: "search"
             }
-        return TellScreen(tab: tab, open: tab == "projects" ? matter : tab == "people" ? person : nil)
+        return TellScreen(
+            tab: tab,
+            open: tellContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
     }
 
     func open(matter id: String) {
