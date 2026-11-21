@@ -296,7 +296,7 @@ struct CardView: View {
 
     /// A bulk card's answers, held as one for one Undo; the next ask is on show at once.
     private func submit(all requests: [AnswerRequest], from head: Check) {
-        guard !requests.isEmpty else { return }
+        guard !requests.isEmpty, !life.saysOutOfReach() else { return }
         // A new attempt: an earlier answer's failure on these rows is no longer theirs.
         requests.forEach { life.forget(.answer(ref: $0.ref)) }
         notes.sentInBulk.formUnion(requests.map(\.ref))
@@ -305,6 +305,7 @@ struct CardView: View {
     }
 
     private func submit(_ check: Check, _ request: AnswerRequest) {
+        guard !life.saysOutOfReach() else { return }
         let taken = Taken(
             check: check, request: request, nextRef: checks.ref(after: check.ref),
             runtimeName: life.runtimeName(of: check))

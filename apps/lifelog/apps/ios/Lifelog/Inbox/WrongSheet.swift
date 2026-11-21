@@ -102,6 +102,7 @@ struct WrongSheet: View {
             }
             .buttonStyle(.pill(.filled)).lineLimit(1).minimumScaleFactor(0.75)
             .disabled(draft.check.complaint(words: draft.words, report: draft.report) == nil)
+            .offWhileOutOfReach()
         }
     }
 }
