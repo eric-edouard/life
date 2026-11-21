@@ -21,7 +21,7 @@ struct TickRow<Content: View>: View {
             content.frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect).onTapGesture(perform: open)
                 .accessibilityAddTraits(.isButton).accessibilityAction(named: "Open", open)
         }
-        .frame(minHeight: Metrics.FlatRow.personRow)
+        .frame(minHeight: Metrics.FlatRow.bulkRow)
         .opacity(isTicked ? 1 : 0.45)
         .motion(Motion.standard, value: isTicked)
     }

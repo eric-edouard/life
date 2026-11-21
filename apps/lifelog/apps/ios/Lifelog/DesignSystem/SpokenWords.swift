@@ -10,6 +10,9 @@ struct SpokenWords: View {
         case box
         /// A 28 Play (in a 44 hit area) at the right of the words.
         case inline
+        /// Like `inline`, with a 48 Play, and the words on one line, cut with an ellipsis (a bulk card's voice row): no bold, no
+        /// tap to seek, no `emphasis`.
+        case line
     }
 
     /// The words and when each is said (contract `TimedWords`); without them the text is shown whole.
@@ -83,7 +86,7 @@ struct SpokenWords: View {
                 HStack(alignment: .top, spacing: style == .box ? 14 : 0) {
                     if style == .box { playButton }
                     spoken
-                    if style == .inline { playButton }
+                    if style != .box { playButton }
                 }
             }
         }
@@ -99,35 +102,45 @@ struct SpokenWords: View {
             let spokenIndex = words.spokenIndex(at: Int64((playback.position - start) * 1000))
             // Resting and ended, every word is lit; playing or paused, the words begun.
             let isLit = { (index: Int) in !isCurrent || (spokenIndex.map { index <= $0 } ?? false) }
-            FlowLayout {
-                // A word's position is its identity: the text is fixed for the view's life.
-                ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
-                    Group {
-                        if piece.isBold { Text(piece.text).font(.quoteBold) } else { Text(piece.text) }
-                    }
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.3)
-                    .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
-                    .motion(.easeOut(duration: 0.12), value: isLit(index))
-                    .contentShape(.rect)
-                    .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
+            if style == .line {
+                pieces.enumerated().reduce(Text("")) { line, item in
+                    let piece = Text(item.element.text).foregroundStyle(isLit(item.offset) ? Palette.fg : Palette.muted)
+                    return Text("\(line)\(piece)")
                 }
+                .lineLimit(1).accessibilityLabel(text)
+            } else {
+                FlowLayout {
+                    // A word's position is its identity: the text is fixed for the view's life.
+                    ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+                        Group {
+                            if piece.isBold { Text(piece.text).font(.quoteBold) } else { Text(piece.text) }
+                        }
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.3)
+                        .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
+                        .motion(.easeOut(duration: 0.12), value: isLit(index))
+                        .contentShape(.rect)
+                        .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(text)
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(text)
+        } else if style == .line {
+            Text("“\(text)”").lineLimit(1).foregroundStyle(Palette.fg)
         } else {
             WholeWords("“\(text)”").foregroundStyle(Palette.fg)
         }
     }
 
     private var playButton: some View {
-        let size: CGFloat = style == .box ? 48 : 28
+        let size: CGFloat = style == .inline ? 28 : 48
         return Button {
             if isPlaying { playback.pause() } else if isCurrent { playback.resume() } else { begin(at: 0) }
         } label: {
             Group {
                 if isFetching {
-                    Spinner(size: style == .box ? .regular : .small)
+                    Spinner(size: style == .inline ? .small : .regular)
                 } else if failed {
                     Image(systemName: "exclamationmark").font(.system(size: size * 0.36))
                 } else {
