@@ -71,7 +71,7 @@ public protocol LifeAPI: Sendable {
     func readMatters() async throws -> String
     /// One project's matters, with its page's head.
     func readMatters(project: String) async throws -> String
-    /// The matters open with one person or organization, by ref, every one.
+    /// The matters open with one person or organization, by their ref (`person:ana`), every one.
     func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
@@ -122,7 +122,9 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_matters", ["project": project])
     }
     public func readMatters(person: String) async throws -> String {
-        try await client.call("read_matters", ["person": person])
+        // Life's `person` takes a name, alias or id: the ref's id (`ana`), never the ref itself.
+        let id = person.hasPrefix("person:") ? String(person.dropFirst("person:".count)) : person
+        return try await client.call("read_matters", ["person": id])
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
