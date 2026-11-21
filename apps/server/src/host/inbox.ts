@@ -24,25 +24,23 @@ import {
  * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
  */
 export function planCardsOf(db: Database, list: readonly Decision[]) {
-  const plans = new Set<string>();
+  // One pass in the order asked: each assignment's first card not withdrawn, kept when open and his.
+  const firsts = new Map<string, Decision>();
   for (const d of list) {
-    const s = d.state === "open" ? assignmentOfCard(db, d) : null;
-    const opened = s ? assignmentOf(db, s) : null;
-    if (
-      !(s && opened?.opened_by === "owner") ||
-      agentOf(db, opened.agent_id)?.role === "caretaker"
-    ) {
-      continue;
-    }
-    // ponytail: one owner lookup per registered agent's card asked before it (a few a day); a `card` index by assignment if it grows.
-    const first = list.find(
-      (e) => e.state !== "withdrawn" && assignmentOfCard(db, e) === s
-    );
-    if (first?.id === d.id) {
-      plans.add(d.id);
+    const s = d.state === "withdrawn" ? null : assignmentOfCard(db, d);
+    if (s && !firsts.has(s)) {
+      firsts.set(s, d);
     }
   }
-  return plans;
+  return new Set(
+    [...firsts].flatMap(([s, d]) => {
+      const opened = d.state === "open" ? assignmentOf(db, s) : null;
+      return opened?.opened_by === "owner" &&
+        agentOf(db, opened.agent_id)?.role !== "caretaker"
+        ? [d.id]
+        : [];
+    })
+  );
 }
 
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
