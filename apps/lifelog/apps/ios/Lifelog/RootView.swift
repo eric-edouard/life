@@ -12,6 +12,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var router = AppRouter()
+    @Namespace private var topBarZoom
     @AppStorage("appearance") private var appearance = Appearance.auto
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
@@ -51,14 +52,15 @@ struct RootView: View {
         }
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
-            case .pendant: PendantView().sheetStack()
-            case .settings: SettingsSheet()
+            case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
+            case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
         // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
         .environment(router)
+        .environment(\.topBarZoom, topBarZoom)
         .environment(\.windowSizeClass, sizeClass)
         .preferredColorScheme(appearance.scheme)
         // A tapped notification, from a cold launch, the background or the foreground.

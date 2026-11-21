@@ -40,7 +40,7 @@ struct WrongSheet: View {
                     .padding(.top, Metrics.Spacing.l)
                 Group {
                     DictationField(prompt: "Say what is true…", text: words, axis: .vertical, focused: $isWriting)
-                        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
+                        .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...)
                         .padding(Metrics.Spacing.l)
                         .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
                         .padding(.top, Metrics.Spacing.m)
