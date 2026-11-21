@@ -9,6 +9,7 @@ struct ProjectsScreen: View {
     @Environment(AppRouter.self) private var router
 
     @State private var visibility = NavigationSplitViewVisibility.all
+    @State private var isRetrying = false
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     /// What he typed on a project's question (`AppRouter.projectAsk`).
@@ -227,7 +228,13 @@ struct ProjectsScreen: View {
                     FilterChip(name: "All", isOn: chosen == nil) { router.chip = nil }.id("")
                     // Life's chips could not be read: their retry, in their place.
                     if life.projects.hasFailed {
-                        QuietChip("Retry", symbol: "arrow.clockwise") { Task { await life.refreshProjects() } }
+                        QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {
+                            Task {
+                                isRetrying = true
+                                await life.refreshProjects()
+                                isRetrying = false
+                            }
+                        }
                     }
                     ForEach(life.projects.shown().onScreen?.chips ?? [], id: \.identity) { chip in
                         let status = chip.status.map { life.status(of: chip.id, as: $0) }

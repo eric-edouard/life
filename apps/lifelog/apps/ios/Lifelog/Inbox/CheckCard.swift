@@ -24,7 +24,7 @@ struct CheckCard: View {
     let wrong: () -> Void
     /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
     /// underway: parks it.
-    var dropProject: (() -> Void)?
+    var dropProject: (project: String, run: () -> Void)?
     /// Where it stands among the asks paged beside it (its index, how many); nil alone.
     var page: (current: Int, total: Int)?
 
@@ -46,6 +46,7 @@ struct CheckCard: View {
             }
             .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
         }
+        .motion(Motion.standard, value: input.isWritingOwnWords)
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
@@ -126,11 +127,14 @@ struct CheckCard: View {
 
     @ViewBuilder private var ownWords: some View {
         if let dropProject, check.group != .newMatter {
-            Button("I dropped this whole project") {
-                input.isWritingOwnWords = false
-                dropProject()
+            // Busy until Life says; it leaves once the project is parked, and a failure shows under it.
+            let state = life.state(of: .project(dropProject.project))
+            Button(state.isRunning ? "Parking…" : "I dropped this whole project", action: dropProject.run)
+                .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning)).fixedSize()
+                .disabled(state.isRunning)
+            if case .failed(let failure, _) = state {
+                Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
             }
-            .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
         }
         DictationField(
             prompt: check.group == .newMatter

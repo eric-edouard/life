@@ -270,18 +270,21 @@ struct CardView: View {
 
     /// "I dropped this whole project": the card's matter's project parked, when it is underway (from the matters read:
     /// a card names its matter, not its project).
-    private func dropProject(of check: Check) -> (() -> Void)? {
+    private func dropProject(of check: Check) -> (project: String, run: () -> Void)? {
         guard let id = check.matter?.id,
             let project = life.matters.value?.matters.first(where: { $0.id == id })?.project,
             project.status.isUnderway
         else { return nil }
-        return {
-            Task {
-                await life.setStatus(
-                    of: project.id, named: project.name, to: .parked, was: project.status,
-                    words: "\(project.name) parked")
+        return (
+            project.id,
+            {
+                Task {
+                    await life.setStatus(
+                        of: project.id, named: project.name, to: .parked, was: project.status,
+                        words: "\(project.name) parked")
+                }
             }
-        }
+        )
     }
 
     /// The create sheet for `check`, with the ask after it as he opened it, zooming out of the answer that opened it

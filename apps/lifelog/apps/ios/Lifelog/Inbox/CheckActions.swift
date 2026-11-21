@@ -48,7 +48,8 @@ struct CheckActions: View {
                             ? "Save the goal" : "Tell \(check.hearer(among: life.agents.value?.agents ?? []))")
                 }
                 .buttonStyle(.pill(.filled))
-                .disabled(words.isEmpty)
+                .disabled(words.isEmpty).offWhileOutOfReach()
+                // Only navigation: it stays on while Life is out of reach.
                 Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(
                     .pill(.quiet, size: .compact))
             } else if isBusy {
@@ -58,30 +59,34 @@ struct CheckActions: View {
                 }
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
-                line
-                refusal
-                if let problem = input.bankTrip.problem {
-                    Text(problem).font(.small).foregroundStyle(Palette.flag)
-                        .frame(maxWidth: .infinity, alignment: .leading).appears()
-                }
-                DoneSeenLine(doneSeen: check.doneSeen)
-                // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
-                if check.doneSeen?.state == .looking {
-                    Button {
-                    } label: {
-                        Text(check.doneSeen?.line ?? "Checking…")
-                    }
-                    .buttonStyle(.pill(.filled, isBusy: true)).disabled(true)
-                } else if check.doneSeen?.state != .seen {
-                    // Seen: Life ends the card; a stale read of it offers nothing to tap.
-                    options
-                }
+                Group { answersAndLines }.offWhileOutOfReach()
+                // Only navigation: "Wrong…" opens its sheet, which is itself off while Life is out of reach.
                 wrongButton
             }
         }
         .motion(Motion.standard, value: check.doneSeen?.state)
         .motion(Motion.standard, value: isBusy)
-        .offWhileOutOfReach()
+    }
+
+    @ViewBuilder private var answersAndLines: some View {
+        line
+        refusal
+        if let problem = input.bankTrip.problem {
+            Text(problem).font(.small).foregroundStyle(Palette.flag)
+                .frame(maxWidth: .infinity, alignment: .leading).appears()
+        }
+        DoneSeenLine(doneSeen: check.doneSeen)
+        // While Life looks, its answer stands busy in the filled answer's place: nothing to tap.
+        if check.doneSeen?.state == .looking {
+            Button {
+            } label: {
+                Text(check.doneSeen?.line ?? "Checking…")
+            }
+            .buttonStyle(.pill(.filled, isBusy: true)).disabled(true)
+        } else if check.doneSeen?.state != .seen {
+            // Seen: Life ends the card; a stale read of it offers nothing to tap.
+            options
+        }
     }
 
     /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.

@@ -178,12 +178,14 @@ import Testing
     holds.hold(AnswerRequest(ref: "dec_000000000002", options: ["done"]), as: "Done")
     await holds.sendAll()
     let ended = state.withLock { $0 }
-    let said = try #require(ended.heldAnswerWords)
+    let said = try #require(ended.heldAnswerWords(as: "Done"))
     #expect(said.words == "Your answer was recorded. Reminders did not take the change." && !said.isDone)
     guard case .succeeded = ended else {
         Issue.record("expected it answered, got \(ended)")
         return
     }
     #expect(life.keys.withLock { $0 } == ["tap-1"])
-    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWords == nil)
+    #expect(ActionState<ActionProof>.succeeded(.recorded, steps: []).heldAnswerWords(as: "Done")?.words == "Done")
+    let failure = ActionFailure(reason: "Life is out of reach.", retry: .no)
+    #expect(ActionState<ActionProof>.failed(failure, steps: []).heldAnswerWords(as: "Done")?.isDone == false)
 }

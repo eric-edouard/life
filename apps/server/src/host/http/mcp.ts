@@ -81,6 +81,7 @@ import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
+import { mainSessionTool } from "./mcp-main-session";
 import { personPicturesTool } from "./mcp-people";
 import { projectTools } from "./mcp-projects";
 import { spendingTool } from "./mcp-spending";
@@ -318,6 +319,7 @@ export function buildServer(readsOnly = false) {
   if (!readsOnly) {
     personPicturesTool(server);
     spendingTool(server, NOT_HIS);
+    mainSessionTool(server, NOT_HIS);
     // His app's live log; never on the question cases' tokenless server.
     tool(
       server,
@@ -763,6 +765,8 @@ export function createMcp(verify: Verify, issuer: string) {
   const app = new Hono()
     .all("/mcp", async (c) => {
       const req = c.req.raw;
+      // A call may run for minutes (Tell Life's turn): Bun's longest idle wait, not its 10 s default.
+      (c.env as Bun.Server<undefined> | undefined)?.timeout?.(req, 255);
       const auth = await authorize(req);
       if (!("refusal" in auth)) {
         return handler.fetch(req, { authInfo: auth });

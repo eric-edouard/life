@@ -297,7 +297,8 @@ struct BulkCard: View {
             }
             .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty).offWhileOutOfReach()
             .contentTransition(.numericText()).motion(Motion.standard, value: ticked.count)
-            Button("Go one by one") { notes.unfolded.insert(kind) }.buttonStyle(.pill(.quiet, size: .compact))
+            Button("Go one by one") { withAnimation(Motion.standard) { _ = notes.unfolded.insert(kind) } }
+                .buttonStyle(.pill(.quiet, size: .compact))
         }
         .padding(.bottom, Metrics.Spacing.s)
     }
@@ -315,29 +316,6 @@ private struct VoiceLine: View {
             .font(.lead)
         } else {
             Text("“\(clip.text)”").font(.lead).foregroundStyle(Palette.fg).lineLimit(1)
-        }
-    }
-}
-
-extension CheckGroup {
-    /// The bulk card's question.
-    var bulkQuestion: String {
-        switch self {
-        case .ending: "Are these done?"
-        case .voice: "Who are these voices?"
-        case .guessedPerson: "Are these the right people?"
-        default: "Answer these?"
-        }
-    }
-
-    /// A group's heading on the bulk card, by the answer Life pre-ticks on it (nil: none); nil draws none.
-    func bulkHeading(_ preTicked: String?) -> String? {
-        switch (self, preTicked) {
-        case (_, nil): "Needs you"
-        case (.voice, "not-relevant"): "Heard once"
-        case (.voice, "is-them"): "Probably them"
-        case (.ending, "outdated"): "Look done"
-        default: nil
         }
     }
 }

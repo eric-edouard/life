@@ -84,6 +84,7 @@ import { receiveSpokenAsks } from "./spoken-ask-intake";
 import {
   endLostTurns,
   endUnbegunTurns,
+  recordSession,
   sessionAgentOf,
   turnEnded,
   watch,
@@ -353,8 +354,10 @@ const wakeMessageOf = (
 function dueOf(db: Desk["db"], agent: string, assignment: string) {
   const a = agentOf(db, agent);
   const s = assignmentOf(db, assignment);
+  // The main session is woken only by his words (`main-session.ts`), never by the clock.
   if (
     !(a?.status === "active" && s?.closed_at === null && s.agent_id === a.id) ||
+    a.role === "main" ||
     openTurn(db, a.id)
   ) {
     return null;
@@ -538,34 +541,7 @@ async function launch(
       );
       // Watched first: its process runs, so a failed write below never ends it as not started.
       watch(desk, turn, started);
-      try {
-        db.transaction(() => {
-          db.run(
-            "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",
-            [now(), a.id]
-          );
-          db.run(
-            "insert into session (agent_id, runtime, ref, link, started_at) values (?, ?, ?, ?, ?)",
-            [a.id, a.runtime, started.ref, started.link, now()]
-          );
-          db.run("update agent set session = ?, link = ? where id = ?", [
-            started.ref,
-            started.link,
-            a.id,
-          ]);
-          db.run("update turn set session = ? where id = ?", [
-            started.ref,
-            turn,
-          ]);
-        })();
-      } catch (error) {
-        log("desk.runtime", {
-          agent: a.id,
-          ...errorOf(error),
-          ok: false,
-          what: "session",
-        });
-      }
+      recordSession(desk, a, turn, started);
     } else {
       watch(
         desk,
