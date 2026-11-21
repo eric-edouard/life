@@ -111,6 +111,8 @@ final class LifeStore {
 
     /// His moves Life answered, by the matter or agent moved, until the reads show them ended (`settleMoves`).
     var moveReceipts: [String: MoveReceipt] = [:]
+    /// The moves he asked from this phone (their ids): Try again repeats only one of them.
+    var movesAskedHere: Set<String> = []
 
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
@@ -239,8 +241,10 @@ final class LifeStore {
         await load({ self.matters.apply($0) }, key: Self.mattersKey) { try await $0.readMatters() }
     }
     func refreshAgents() async {
+        let before = agents.loadedAt
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
-        settleMoves()
+        // Only a fresh read settles his moves, never the cached one a failed read leaves.
+        if agents.loadedAt != before { settleMoves() }
     }
 
     func refreshSpending() async {
@@ -346,10 +350,11 @@ final class LifeStore {
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
         // Offline, a matter not read yet since launch still shows what was last read, as stale.
         if matter[id] == nil { restore(update, key: key) }
+        let before = matter[id]?.loadedAt
         await load(update, key: key) {
             try await $0.readMatter(id)
         }
-        settleMoves(matterRead: id)
+        if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
     }
 
     func refreshProject(_ id: String) async {

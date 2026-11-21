@@ -108,8 +108,9 @@ struct AgentSheet: View {
         let other = read.moveTo.flatMap(RuntimeName.init(rawValue:)).flatMap {
             isAtWork && !isSwitching && $0 != current ? $0 : nil
         }
+        let call = life.state(of: .move(agent.id)).failure
         let failed = MoveReceipt.failure(
-            call: life.state(of: .move(agent.id)).failure, shown: move, tried: tried, offered: other)
+            call: call, shown: move, tried: life.retryable(tried, call: call, shown: move), offered: other)
         return group("Settings") {
             FlatRow(lead: .symbol("cpu")) {
                 Text("Runs on").font(.rowName)

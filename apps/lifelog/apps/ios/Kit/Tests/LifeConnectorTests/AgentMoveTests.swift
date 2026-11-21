@@ -122,6 +122,8 @@ private func agents(status: String = "waiting", role: String? = nil, extra: [Str
     let late = at.addingTimeInterval(MoveReceipt.patience)
     #expect(AgentMove.shown(receipt: lost, read: earlier, refused: [], now: late) == earlier)
     #expect(lost.settled(by: earlier, read: earlier) == .gone)
+    // A first move: no read move yet, it still waits.
+    #expect(AgentMove.shown(receipt: lost, read: nil, refused: [], now: at)?.phase == .notes)
     // The desk applied it: the move under way is his.
     let applied = AgentMove(id: "ask_1", phase: .notes)
     let shown = AgentMove.shown(receipt: lost, read: applied, refused: [], now: at)

@@ -35,6 +35,11 @@ extension LifeStore {
     // MARK: Moves
 
     /// The move matter `id`'s page shows (`AgentMove.shown`).
+    /// What Try again may repeat: `tried` (his last ask here) only when what failed was his call, or a move he asked here.
+    func retryable<Choice>(_ tried: Choice?, call: ActionFailure?, shown: AgentMove?) -> Choice? {
+        call != nil || shown.map { movesAskedHere.contains($0.id) } ?? true ? tried : nil
+    }
+
     func moveShown(ofMatter id: String) -> AgentMove? {
         AgentMove.shown(
             receipt: moveReceipts[id], read: matter[id]?.value?.move, refused: agents.value?.refused ?? [], now: now())
@@ -74,6 +79,7 @@ extension LifeStore {
         switch state(of: .move(id)) {
         case .succeeded(.agent(let result), _):
             moveReceipts[id] = MoveReceipt(id: result.move, at: now())
+            if let move = result.move { movesAskedHere.insert(move) }
             forget(.move(id))
         case .failed(let failure, _) where failure.mayHaveHappened:
             moveReceipts[id] = MoveReceipt(id: nil, at: now())
@@ -95,6 +101,7 @@ extension LifeStore {
             case .kept: break
             case .found(let found):
                 moveReceipts[id] = found
+                if let move = found.id { movesAskedHere.insert(move) }
                 forget(.move(id))
             case .gone: if !isMatter || id == matterRead { moveReceipts[id] = nil }
             case .failed(let say):

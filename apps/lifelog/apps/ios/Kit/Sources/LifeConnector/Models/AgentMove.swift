@@ -32,11 +32,12 @@ public struct AgentMove: Decodable, Sendable, Equatable {
     public static func shown(
         receipt: MoveReceipt?, read: AgentMove?, refused: [RegisteredAgents.Refusal], now: Date
     ) -> AgentMove? {
-        guard let receipt, read?.id != receipt.id else { return read }
+        guard let receipt else { return read }
         guard let id = receipt.id else {
             if read?.phase.isUnderWay == true { return read }
             return receipt.isPending(now) ? AgentMove(id: "", phase: .notes) : read
         }
+        if read?.id == id { return read }
         if let refusal = refused.first(where: { $0.ask == id }) {
             return AgentMove(id: id, phase: .failed, reason: refusal.error)
         }

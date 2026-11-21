@@ -42,7 +42,10 @@ struct MatterPage: View {
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
         // Its holder; else Life lists the active one first, else the newest past one: an ended agent shows how it ended.
-        let agent = matter.agents.first { $0.id == matter.holder?.agent.id } ?? matter.agents.first
+        let holder = matter.holder?.agent.id
+        let agent =
+            matter.agents.first { $0.id == holder } ?? life.agents.value?.agents.first { $0.id == holder }
+            ?? matter.agents.first
         let canStart = agent?.isOver ?? true
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -367,7 +370,9 @@ private struct AgentRow: View {
         let holder = matter.holder?.agent.name ?? agent.runtimeName.name
         let ask = asking.map { MoveWords.ask($0, matter: matter.row.name, holder: holder) }
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            let failed = MoveReceipt.failure(call: call.failure, shown: move, tried: tried, offered: choice)
+            let failed = MoveReceipt.failure(
+                call: call.failure, shown: move, tried: life.retryable(tried, call: call.failure, shown: move),
+                offered: choice)
             if let failed { MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } }) }
             if let choice {
                 Menu {
