@@ -1,11 +1,16 @@
+import { join } from "node:path";
 import { z } from "zod";
 import { isoDateTime } from "../records/fields";
 import { Ask } from "./card-request";
 import { StoredDraft } from "./draft";
+import { MEMORY } from "./memory-files";
 import { amountOf, type Need } from "./needs";
 
 // The decisions' stored lines (`decisions.jsonl`, `decisions.ts` reads and writes them) and a decision as read: one
 // `asked` line and the lines after it, each kind's shape here.
+
+/** Where the decisions are stored: one line each, append-only. */
+export const DECISIONS = join(MEMORY, "decisions.jsonl");
 
 /** The version decision lines are written at; earlier lines (the old decisions page's, the cards before titles) are skipped. */
 export const DECISIONS_VERSION = 3;
@@ -82,6 +87,17 @@ export const SendFailed = Sent.omit({ eventId: true, kind: true })
       .optional(),
   })
   .strict();
+/** What his answer's `adds` option did (`addEventByHisWord`): the calendar event written (`eventId`), or `error` when it failed or never finished. Written once, never retried. */
+export const Added = z
+  .object({
+    at: isoDateTime,
+    error: z.string().min(1).optional(),
+    eventId: z.string().min(1).optional(),
+    id: DecisionId,
+    kind: z.literal("added"),
+    schemaVersion: z.literal(DECISIONS_VERSION),
+  })
+  .strict();
 /** What his answer's `ends` option closed (`endByHisWord`): `error` when it failed, or never finished. */
 export const Ended = z
   .object({
@@ -112,6 +128,7 @@ export const Line = z.discriminatedUnion("kind", [
   Sent,
   SendFailed,
   Ended,
+  Added,
   DoneSeen,
 ]);
 /** A line of an earlier version: skipped. */
@@ -138,6 +155,7 @@ export const withdrawnOf = (
 export type SendFailed = z.infer<typeof SendFailed>;
 type Send = z.infer<typeof Sent> | SendFailed;
 export type Ended = z.infer<typeof Ended>;
+export type Added = z.infer<typeof Added>;
 export type DoneSeen = z.infer<typeof DoneSeen>;
 
 export type DecisionState =
@@ -148,6 +166,8 @@ export type DecisionState =
   | "waiting"
   | "withdrawn";
 export type Decision = Asked & {
+  /** His answer's `adds` outcome (`added`). */
+  added?: Added;
   answer?: Answered;
   /** Life's newest look: the one his answer's look made, a `seen` that settled the card, or a `not_found` that voided his answer (the card is open again). */
   doneSeen?: DoneSeen;
