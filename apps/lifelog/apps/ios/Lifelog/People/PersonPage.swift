@@ -92,7 +92,9 @@ struct ReachTiles: View {
     var body: some View {
         if !reach.isEmpty { tiles }
         if let retryFrom {
-            PartRetry(what: "Some of their accounts") { await life.refreshReach(from: retryFrom) }
+            PartRetry(what: "Some of their accounts") {
+                await life.refreshReach(from: retryFrom, isRetry: true)
+            }
         }
     }
 

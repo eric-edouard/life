@@ -30,7 +30,7 @@ struct OrgPage: View {
                                 .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.xs)
                             ForEach(before) { member in MemberRow(member: member, isDim: true) }
                         }
-                        LeftOut(count: now.membersLeftOut, of: "people", isOnly: now.members.isEmpty)
+                        LeftOut(count: now.membersLeftOut, one: "person", many: "people", isOnly: now.members.isEmpty)
                     }
                     .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
                     .card()
@@ -85,7 +85,7 @@ private struct Domains: View {
                         .accessibilityLabel("Open \(domain)")
                     }
                 }
-                LeftOut(count: leftOut, of: "domains", isOnly: domains.isEmpty)
+                LeftOut(count: leftOut, one: "domain", many: "domains", isOnly: domains.isEmpty)
             }
             .padding(Metrics.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -94,16 +94,19 @@ private struct Domains: View {
     }
 }
 
-/// What Life had no room for in this read, said so a shortened list never reads as whole: "3 more people".
+/// What Life had no room for in this read, said so a shortened list never reads as whole: "3 more people", "1 more person".
 private struct LeftOut: View {
     let count: Int
-    let of: String
+    /// What it counts, one and many: "person", "people".
+    let one: String
+    let many: String
     /// Nothing of the list fit: the line stands for all of it ("3 people").
     let isOnly: Bool
 
     var body: some View {
         if count > 0 {
-            Text(isOnly ? "\(count) \(of)" : "\(count) more \(of)").font(.small).foregroundStyle(Palette.muted)
+            let what = count == 1 ? one : many
+            Text(isOnly ? "\(count) \(what)" : "\(count) more \(what)").font(.small).foregroundStyle(Palette.muted)
                 .padding(.vertical, Metrics.Spacing.s)
         }
     }

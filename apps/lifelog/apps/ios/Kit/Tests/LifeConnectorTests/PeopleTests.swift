@@ -248,30 +248,16 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     #expect(people.page == nil && people.path.isEmpty)
 }
 
-@Test func eachSearchSourceStandsAloneAndOnlyReadOnesSayNothing() throws {
-    let list = try decoded(PeopleList.self, wireText("life/read_people_and_organizations.json"))
-    var people = ReadState<PeopleList>()
-    people.apply(.succeeded(list, .now))
-    var matters = ReadState<MatterList>()
-    matters.apply(.failed(.unreachable))
-    // People found while the matters' read failed: the people show, the matters offer Try again, nothing is "none".
-    let found = SearchPart(people) { $0.people }
-    let failed = SearchPart(matters) { $0.matching("ana") }
-    guard case .found(let rows) = found, case .failed = failed else {
-        Issue.record("each source should stand alone")
-        return
-    }
-    #expect(!rows.isEmpty && !found.isNothing && !failed.isNothing)
-    // A new pairing clears the people found: the same query reads again, and until then it is reading, never "none".
-    let cleared = SearchPart(nil as ReadState<PeopleList>?) { $0.people }
-    guard case .reading = cleared else {
-        Issue.record("a read not asked yet is reading")
-        return
-    }
-    #expect(!cleared.isNothing)
-    var none = ReadState<PeopleList>()
-    none.apply(.succeeded(try decoded(PeopleList.self, #"{"people":[]}"#), .now))
-    #expect(SearchPart(none) { $0.people }.isNothing)
+@Test func aFindHoldingOnlyOthersIsSomeoneAndANewPairingAsksTheQueryAgain() throws {
+    // A match only among the others Life has seen is a match: search never says nothing holds above it.
+    let others = try decoded(
+        PeopleList.self, #"{"people":[],"others":[{"ref":"unknown:mara","name":"Mara","kind":"person"}]}"#)
+    #expect(!others.isNoOne)
+    #expect(try decoded(PeopleList.self, #"{"people":[],"others":[]}"#).isNoOne)
+    #expect(try decoded(PeopleList.self, #"{"people":[]}"#).isNoOne)
+    // The search's read of the people is its query and its pairing: the same query on a new pairing is a new read.
+    #expect(PeopleQuery(text: "mar", pairing: 1) != PeopleQuery(text: "mar", pairing: 2))
+    #expect(PeopleQuery(text: "mar", pairing: 2) == PeopleQuery(text: "mar", pairing: 2))
 }
 
 @Test func anOrganizationSaysWhatItsReadLeftOut() throws {
