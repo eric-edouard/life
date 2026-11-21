@@ -155,6 +155,26 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.agents[1].link == nil)
 }
 
+/// Decision 75: his words on a card go to whoever hears them, named by the card's holder (its standing role, as the
+/// desk sends it), never "Send"; Life's own question is told to Life; his word that a step is done is "Mark as done".
+@Test func aCardsAnswerNamesWhoHearsHisWordsAndADoneStepIsMarkAsDone() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
+    let agents = try decoded(RegisteredAgents.self, wireText("life/read_registered_agents.json")).agents
+    #expect(agents.map(\.role) == [.personal, nil])
+    let held = try #require(inbox.checks.first { $0.agent == agents[0].id })
+    #expect(held.hearer(among: agents) == "the Personal agent")
+    #expect(held.tellTitle == "Tell the agent…")
+    let lifes = try #require(inbox.checks.first { $0.isLifesOwn })
+    #expect(lifes.hearer(among: agents) == "Life")
+    #expect(lifes.tellTitle == "Tell Life…")
+    let other = try #require(inbox.checks.first { $0.agent == nil && !$0.isLifesOwn })
+    #expect(other.hearer(among: agents) == "the agent")
+    let done = try decoded(Check.Option.self, #"{"id":"done","label":"Done","ends":"step"}"#)
+    #expect(done.shownLabel == "Mark as done" && done.givenLabel == "Marked done")
+    let yes = try decoded(Check.Option.self, #"{"id":"yes","label":"Yes"}"#)
+    #expect(yes.shownLabel == "Yes" && yes.givenLabel == "Yes")
+}
+
 @Test func aValueOrAFieldLifeAddsNeverBreaksARead() throws {
     let text = #"""
         {"matters":[{"id":"m","name":"New kind","status":"on_ice","needsYou":false,"something":{"new":true},

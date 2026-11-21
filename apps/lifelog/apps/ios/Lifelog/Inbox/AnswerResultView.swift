@@ -164,7 +164,7 @@ extension Taken {
     /// His answer in its own words, for the toast that holds it: the option's, or who he named, or what he wrote.
     var heldWords: String {
         if let option = check.options.first(where: { request.options.contains($0.id) }), option.takes == nil {
-            return option.label
+            return option.givenLabel
         }
         if let person = check.likelyPeople.first(where: { $0.ref == request.person }) { return person.name }
         return request.name ?? (request.note == nil ? "Your answer" : "Your words")
@@ -203,7 +203,7 @@ extension Taken {
                     ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
         }
         if request.options.isEmpty { return "Your words went to \(context.asker ?? "the asker")." }
-        let label = check.options.first { request.options.contains($0.id) }?.label
+        let label = check.options.first { request.options.contains($0.id) }?.givenLabel
         return label.map { "\($0)." } ?? "Your answer is recorded."
     }
 

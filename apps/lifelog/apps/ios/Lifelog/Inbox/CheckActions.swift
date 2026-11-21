@@ -44,7 +44,10 @@ struct CheckActions: View {
                 Button {
                     if let request = check.answer(words: words) { answer(request) }
                 } label: {
-                    Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
+                    // His words go to whoever hears them, never "Send": that is only ever the message itself.
+                    Text(
+                        check.group == .newMatter
+                            ? "Save the goal" : "Tell \(check.hearer(among: life.agents.value?.agents ?? []))")
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.isEmpty)
@@ -191,14 +194,15 @@ struct CheckActions: View {
         }
     }
 
-    /// The server's words, except the filled naming answer with no candidate drawn: "Name them…" (a voice) or
-    /// "Someone I know…" (a name).
+    /// The server's words (`shownLabel`), except an option that takes his words ("Tell the agent…") and the filled
+    /// naming answer with no candidate drawn: "Name them…" (a voice) or "Someone I know…" (a name).
     private func label(of option: Check.Option) -> String {
-        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else { return option.label }
+        if option.takes == .note, check.takesOwnWords { return check.tellTitle }
+        guard check.isNamingFilled, people.isEmpty, option.id == check.namingOption?.id else { return option.shownLabel }
         switch check.group {
         case .voice: return "Name them…"
         case .name: return "Someone I know…"
-        default: return option.label
+        default: return option.shownLabel
         }
     }
 

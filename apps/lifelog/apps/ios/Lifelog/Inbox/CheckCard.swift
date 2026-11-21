@@ -145,7 +145,9 @@ struct CheckCard: View {
             .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
         }
         TextField(
-            check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
+            check.group == .newMatter
+                ? "The goal" : check.draft != nil ? "Tell the agent what to change…" : "Say it in your own words",
+            text: $input.words, axis: .vertical
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
         .onAppear { isWriting = true }
@@ -165,13 +167,16 @@ struct CheckCard: View {
     // MARK: The row under the thing, and the link
 
     /// The ask's links, by what each opens: its context, in the code's words for what it asks ("Why this reply?"), when
-    /// it has one and it is not shown beside it; then "Tell the agent…" on an agent's question.
+    /// it has one and it is not shown beside it; then "Tell the agent…" (or "Tell Life…") on a question, unless one of its
+    /// answers already opens his words.
     private var askLinks: [AskLink] {
         var links: [AskLink] = []
         if !isContextBeside, let title = check.contextLinkTitle {
             links.append(AskLink(title: title) { input.showsContext = true })
         }
-        if check.takesOwnWords { links.append(AskLink(title: "Tell the agent…") { input.isWritingOwnWords = true }) }
+        if check.takesOwnWords, !check.options.contains(where: { $0.takes == .note }) {
+            links.append(AskLink(title: check.tellTitle) { input.isWritingOwnWords = true })
+        }
         return links
     }
 

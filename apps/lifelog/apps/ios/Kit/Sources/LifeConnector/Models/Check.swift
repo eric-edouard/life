@@ -42,6 +42,12 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
             case step, matter
             case unknown
         }
+
+        /// Its words on a card: his word that a step he did is done is "Mark as done", whatever the asker wrote
+        /// (decision 75); any other, the asker's.
+        public var shownLabel: String { ends != nil ? "Mark as done" : label }
+        /// The same answer once given, as it is said back: "Marked done", else the asker's words.
+        public var givenLabel: String { ends != nil ? "Marked done" : label }
     }
 
     public struct Clip: Decodable, Sendable, Equatable {
@@ -264,6 +270,23 @@ extension Check {
         if let runtime { return runtime.name }
         return asker.caseInsensitiveCompare("life") == .orderedSame ? nil : asker
     }
+
+    /// Life asks it itself: no agent hears his words on it.
+    public var isLifesOwn: Bool { agent == nil && agentName(runtime: nil) == nil }
+
+    /// Who hears his own words on it (decision 75), as the answer names it ("Tell the Personal agent"): its holder by
+    /// its standing role, any other agent "the agent"; Life on Life's own question.
+    public func hearer(among agents: [RegisteredAgent]) -> String {
+        if isLifesOwn { return "Life" }
+        switch agents.first(where: { $0.id == agent })?.role {
+        case .personal?: return "the Personal agent"
+        case .caretaker?: return "the caretaker"
+        default: return "the agent"
+        }
+    }
+
+    /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
+    public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
 
     /// The words of the link that opens its context: the code's, by what it asks, never the agent's (the context
     /// sheet's table, decision 81); nil with no context, so a card with none has no link.
