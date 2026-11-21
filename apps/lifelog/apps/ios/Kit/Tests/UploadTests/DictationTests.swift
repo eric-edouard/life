@@ -1,16 +1,25 @@
 import Foundation
-import ServerAPI
+@testable import ServerAPI
 import Testing
 
 @Test func onlyWhatNeverReachedThePaidStepMayGoAgain() {
     let server = { (status: Int) in ServerClient.ClientError.server(status: status, code: nil, message: "") }
-    #expect(DictationFailure(server(503)) == .notReached, "busy: nothing billed")
+    let busy = ServerClient.ClientError.server(status: 503, code: "identity_busy", message: "")
+    #expect(DictationFailure(busy) == .notReached, "the route said busy: nothing billed")
+    #expect(DictationFailure(server(503)) == .notWritten, "a bare 503 may come from anything in between")
     #expect(DictationFailure(ServerClient.ClientError.notPaired) == .notReached)
     #expect(DictationFailure(URLError(.cannotConnectToHost)) == .notReached, "it never left the phone")
     #expect(DictationFailure(server(502)) == .notWritten, "Thai words missing")
     #expect(DictationFailure(server(400)) == .notWritten)
     #expect(DictationFailure(URLError(.timedOut)) == .notWritten, "it may have been heard")
     #expect(DictationFailure(URLError(.networkConnectionLost)) == .notWritten)
+}
+
+@Test func theAnswerOutwaitsTheServersSlotWaitAndItsHearing() throws {
+    let client = ServerClient(server: { URL(string: "https://wire.test") }) { "t" }
+    let request = try client.dictationRequest()
+    #expect(request.url?.path() == "/dictation/transcript" && request.httpMethod == "POST")
+    #expect(request.timeoutInterval > 60 + 120)
 }
 
 @Test func dictatedWordsGoWhereTheCaretIsWithASpaceWhereAWordWouldTouch() {
@@ -36,16 +45,19 @@ import Testing
     var recordings = 0
     var ended: (@MainActor () -> Void)?
     var refused = false
+    /// The last run's recording, alive only while something keeps the run.
+    weak var recording: Recording?
 
     lazy var dictation = Dictation(
         begin: { ended in
             self.ended = ended
             await withCheckedContinuation { self.begins.append($0) }
             self.recordings += 1
-            let bytes = Data("run \(self.recordings)".utf8)
+            let recording = Recording(Data("run \(self.recordings)".utf8))
+            self.recording = recording
             return DictationRun(level: { 0.1 }) {
                 self.finished += 1
-                return bytes
+                return recording.bytes
             }
         },
         words: { ogg in
@@ -59,6 +71,41 @@ import Testing
         for _ in 0..<10_000 where !condition() { await Task.yield() }
         #expect(condition())
     }
+}
+
+private final class Recording: Sendable {
+    let bytes: Data
+    init(_ bytes: Data) { self.bytes = bytes }
+}
+
+@MainActor @Test func nothingKeepsARunsRecordingOnceItLandedOrWasCancelled() async {
+    let rig = Rig()
+    rig.dictation.tap()
+    await rig.until { rig.begins.count == 1 }
+    rig.begins[0].resume()
+    await rig.until { rig.dictation.phase == .listening }
+    rig.dictation.tap()
+    await rig.until { rig.asks.count == 1 }
+    rig.asks[0].answer.resume(returning: .success("the keys"))
+    await rig.until { rig.dictation.landed != nil && rig.recording == nil }
+
+    rig.dictation.tap()
+    await rig.until { rig.begins.count == 2 }
+    rig.begins[1].resume()
+    await rig.until { rig.dictation.phase == .listening }
+    rig.dictation.tap()
+    await rig.until { rig.asks.count == 2 }
+    rig.dictation.cancel()  // while the Mac's answer is pending
+    await rig.until { rig.recording == nil }
+
+    rig.dictation.tap()
+    await rig.until { rig.begins.count == 3 }
+    rig.begins[2].resume()
+    await rig.until { rig.dictation.phase == .listening }
+    rig.dictation.cancel()  // while listening: this closes it
+    await rig.until { rig.recording == nil && rig.finished == 3 }
+    rig.asks[1].answer.resume(returning: .success("dropped"))
+    #expect(rig.finished == 3, "each run closed once")
 }
 
 @MainActor @Test func aRunPausedWhileTheMicrophoneIsAskedForClosesOnceAndItsWordsLand() async {

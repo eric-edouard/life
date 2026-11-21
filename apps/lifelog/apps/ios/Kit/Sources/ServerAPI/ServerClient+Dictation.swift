@@ -1,7 +1,7 @@
 import Foundation
 
-/// Why a field's dictation brought no words: `notReached`, nothing reached the server's paid step (it said busy, or the
-/// request never left the phone), so the same recording may go again; `notWritten`, it may have been heard and the
+/// Why a field's dictation brought no words: `notReached`, nothing reached the server's paid step (the route itself said
+/// `identity_busy`, or the request never left the phone), so the same recording may go again; `notWritten`, it may have been heard and the
 /// answer lost, or its words aren't whole, so the owner says it again and the same bytes never go twice.
 public enum DictationFailure: Error, Equatable {
     case notReached, notWritten
@@ -9,7 +9,7 @@ public enum DictationFailure: Error, Equatable {
     /// The one rule for what failed.
     public init(_ error: any Error) {
         switch error {
-        case ServerClient.ClientError.notPaired, ServerClient.ClientError.server(status: 503, _, _):
+        case ServerClient.ClientError.notPaired, ServerClient.ClientError.server(status: 503, "identity_busy", _):
             self = .notReached
         case let error as URLError
         where [.notConnectedToInternet, .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed].contains(error.code):
@@ -24,9 +24,16 @@ extension ServerClient {
     /// `DictationFailure` for when the same bytes may go again.
     public func dictationWords(_ ogg: Data) async throws -> String {
         struct Words: Decodable { var text: String }
+        return try decode(Words.self, try await send(try dictationRequest(), body: ogg)).text
+    }
+
+    /// Its request. The server may wait 60 s for a Scribe slot, then hear up to 10 minutes of audio: the phone waits
+    /// longer than that, so a queued answer isn't lost to its own timeout.
+    func dictationRequest() throws -> URLRequest {
         var request = try request("dictation/transcript", method: "POST")
         request.setValue("audio/ogg", forHTTPHeaderField: "Content-Type")
-        return try decode(Words.self, try await send(request, body: ogg)).text
+        request.timeoutInterval = 300
+        return request
     }
 }
 

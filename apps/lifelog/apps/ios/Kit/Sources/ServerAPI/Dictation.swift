@@ -59,10 +59,12 @@ public final class Dictation {
         }
     }
 
-    /// Words that came back, once each: the field puts them at its caret.
+    /// Words that came back, once each: the field puts them at its caret, then sends when the run was paused by a
+    /// swipe up (a field with a Send).
     public struct Landed: Equatable {
         public let id = UUID()
         public let words: String
+        public let sends: Bool
     }
 
     public typealias Begin = @MainActor (_ ended: @escaping @MainActor () -> Void) async throws -> DictationRun
@@ -79,8 +81,6 @@ public final class Dictation {
     public private(set) var sampledAt = Date.now
     public private(set) var runStarted = Date.now
     public private(set) var isRefused: Bool
-    /// Called once the words of a run paused by a swipe up landed (a field with a Send, as Tell Life will be).
-    public var send: (() -> Void)?
 
     /// Opens the microphone, asking for it the first time; the field sets it once its environment is known.
     public var begin: Begin
@@ -88,7 +88,9 @@ public final class Dictation {
     private let refused: @MainActor () -> Bool
     /// The current run; a task of any other changes nothing.
     private var run = 0
-    private var starting: Task<DictationRun?, Never>?
+    private var starting: Task<Void, Never>?
+    /// The current run's open microphone, held here alone until its pause or cancel takes it to close it.
+    private var opened: DictationRun?
     private var sampling: Task<Void, Never>?
     private var writing: Task<Void, Never>?
     private var sendsWhenLanded = false
@@ -128,21 +130,20 @@ public final class Dictation {
         let begin = begin
         starting = Task {
             do {
-                let opened = try await begin(ended)
-                guard run == current else {
-                    _ = try? await opened.finish()
-                    return nil
+                let run = try await begin(ended)
+                guard self.run == current else {
+                    _ = try? await run.finish()
+                    return
                 }
+                opened = run
                 if phase == .starting {
                     phase = .listening
-                    sample(opened)
+                    sample()
                 }
-                return opened
             } catch {
-                guard run == current else { return nil }
+                guard run == current else { return }
                 isRefused = refused()
                 (problem, phase) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest)
-                return nil
             }
         }
     }
@@ -154,24 +155,30 @@ public final class Dictation {
         phase = .writing
         sampling?.cancel()
         let starting = starting
+        self.starting = nil
         writing = Task {
-            guard let opened = await starting?.value else { return }
-            let ogg: Data
-            do {
-                ogg = try await opened.finish()
-            } catch {
-                // A recording with a hole is never sent.
-                if run == current { fail(.notWritten) }
-                return
-            }
-            guard run == current else { return }
-            await write(ogg, current)
+            await starting?.value
+            if let ogg = await closed(current) { await write(ogg, current) }
         }
     }
 
-    /// A swipe up from the microphone where the field has a Send: pause, then send once the words landed.
+    /// Takes the run's microphone, closes it and returns what it heard; nil when the run is no longer current or its
+    /// recording has a hole (never sent). Nothing keeps the run once this returns.
+    private func closed(_ current: Int) async -> Data? {
+        guard run == current, let run = opened else { return nil }
+        opened = nil
+        do {
+            let ogg = try await run.finish()
+            return self.run == current ? ogg : nil
+        } catch {
+            if self.run == current { fail(.notWritten) }
+            return nil
+        }
+    }
+
+    /// A swipe up from the microphone where the field has a Send: pause, and its words land with `sends`.
     public func swipeUp() {
-        guard send != nil, phase == .starting || phase == .listening else { return }
+        guard phase == .starting || phase == .listening else { return }
         sendsWhenLanded = true
         pause()
     }
@@ -182,10 +189,11 @@ public final class Dictation {
         run += 1
         sampling?.cancel()
         writing?.cancel()
-        let starting = starting
+        // A microphone still opening closes as it opens (its run is no longer current); an open one closes here; one
+        // the writing task took, there.
         starting?.cancel()
-        Task { _ = try? await starting?.value?.finish() }
-        (phase, sendsWhenLanded) = (.rest, false)
+        if let opened { Task { _ = try? await opened.finish() } }
+        (starting, opened, phase, sendsWhenLanded) = (nil, nil, .rest, false)
     }
 
     /// The problem line's link.
@@ -207,11 +215,7 @@ public final class Dictation {
         do {
             let text = try await words(ogg)
             guard run == current else { return }
-            (phase, landed) = (.rest, Landed(words: text))
-            if sendsWhenLanded {
-                sendsWhenLanded = false
-                send?()
-            }
+            (phase, landed, sendsWhenLanded) = (.rest, Landed(words: text, sends: sendsWhenLanded), false)
         } catch {
             guard run == current else { return }
             fail(DictationFailure(error) == .notReached ? .notReached(ogg) : .notWritten)
@@ -223,11 +227,11 @@ public final class Dictation {
     }
 
     /// The run's loudness every 60 ms, smoothed, on a log scale (speech sits far below full scale).
-    private func sample(_ opened: DictationRun) {
+    private func sample() {
         sampling = Task {
             var smoothed = 0.0
-            while !Task.isCancelled {
-                let decibels = 20 * log10(max(Double(opened.level()), 1e-5))
+            while !Task.isCancelled, let level = opened?.level() {
+                let decibels = 20 * log10(max(Double(level), 1e-5))
                 smoothed = 0.6 * smoothed + 0.4 * min(max((decibels + 50) / 40, 0), 1)
                 levels = Array((levels + [smoothed]).suffix(Self.samplesKept))
                 sampledAt = .now

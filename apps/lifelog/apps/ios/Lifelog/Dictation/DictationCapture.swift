@@ -98,12 +98,19 @@ final class DictationCapture {
                 throw Dictation.StartFailure.notStarted
             } catch is CancellationError {
                 throw CancellationError()
-            } catch {
-                // The session or the input wouldn't start: a call or another app holds the microphone.
+            } catch let error as NSError where Self.isAudioBusy(error) {
                 throw Dictation.StartFailure.busy
+            } catch {
+                // The stretch's write, the encoder: nothing a call explains.
+                throw Dictation.StartFailure.notStarted
             }
             return DictationRun(level: { capture.level }, finish: capture.finish)
         }
+    }
+
+    /// The audio session or the engine refused to start: a call or another app holds the microphone.
+    private static func isAudioBusy(_ error: NSError) -> Bool {
+        [NSOSStatusErrorDomain, "com.apple.coreaudio.avfaudio"].contains(error.domain)
     }
 
     /// Closes the microphone and returns what it heard (Ogg Opus). Called again, it returns the same.

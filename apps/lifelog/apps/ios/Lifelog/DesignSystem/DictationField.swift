@@ -27,8 +27,9 @@ struct DictationField: View {
         words: { try await ServerClient.production.dictationWords($0) },
         refused: { AVAudioApplication.shared.recordPermission == .denied })
     @State private var selection: TextSelection?
-    /// The caret when the run started: the keyboard goes away while he speaks, and the words land there.
-    @State private var caret: TextSelection?
+    /// The text and caret when the run started: the keyboard goes away while he speaks, and the words land there
+    /// (at the end when the text changed since).
+    @State private var caret: (text: String, selection: TextSelection?)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -40,7 +41,7 @@ struct DictationField: View {
                         .overlay(alignment: .leading) { if isOneLineBusy { ListeningLine(dictation: dictation) } }
                     if axis == .vertical, dictation.phase != .rest { ListeningLine(dictation: dictation).appears() }
                 }
-                DictationMic(dictation: dictation)
+                DictationMic(dictation: dictation, canSend: send != nil, start: start)
             }
         }
         .motion(Motion.standard, value: dictation.phase)
@@ -54,21 +55,10 @@ struct DictationField: View {
         }
         .sensoryFeedback(.success, trigger: dictation.landed)
         .sensoryFeedback(.error, trigger: dictation.problem) { _, new in new != nil }
-        .onAppear {
-            dictation.begin = DictationCapture.run(library: library, sync: sync)
-            dictation.send = send
-        }
+        .onAppear { dictation.begin = DictationCapture.run(library: library, sync: sync) }
         .onDisappear { dictation.cancel() }
-        .onChange(of: dictation.phase) { old, new in
-            guard old == .rest, new == .starting else { return }
-            caret = selection
-            // Speaking puts the keyboard away; the words arriving don't bring it back.
-            focused?.wrappedValue = false
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }
         .onChange(of: dictation.landed) { _, landed in
-            guard let landed else { return }
-            land(landed.words)
+            if let landed { land(landed) }
         }
     }
 
@@ -78,17 +68,33 @@ struct DictationField: View {
         if let focused { field.focused(focused) } else { field }
     }
 
-    /// The words at the caret he left, against the text as it is now.
-    private func land(_ words: String) {
+    /// A run from rest.
+    private func start() {
+        keepCaret()
+        dictation.start()
+    }
+
+    /// Keeps the caret for the words, and puts the keyboard away while he speaks: the words don't bring it back.
+    private func keepCaret() {
+        caret = (text, selection)
+        focused?.wrappedValue = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    /// The words at the caret he left, or at the end when the text changed since; then, on a swipe up, the Send.
+    private func land(_ landed: Dictation.Landed) {
         var range: Range<String.Index>?
-        if case .selection(let picked)? = caret?.indices, picked.upperBound <= text.endIndex { range = picked }
-        let (new, at) = DictatedText.inserting(words, into: text, at: range)
+        if let caret, caret.text == text, case .selection(let picked)? = caret.selection?.indices { range = picked }
+        let (new, at) = DictatedText.inserting(landed.words, into: text, at: range)
+        guard new != text else { return }
         text = new
         selection = TextSelection(insertionPoint: at)
-        AccessibilityNotification.Announcement(words).post()
+        AccessibilityNotification.Announcement(landed.words).post()
+        if landed.sends { send?() }
     }
 
     private func fix(_ problem: Dictation.Problem) {
+        if problem == .notWritten { keepCaret() }  // Speak again starts a run
         dictation.fix {
             if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
         }
@@ -113,8 +119,14 @@ private struct ProblemLine: View {
 /// goes on; a hold records while held and letting go pauses; with a Send, a swipe up sends.
 private struct DictationMic: View {
     let dictation: Dictation
+    let canSend: Bool
+    /// Starts a run from rest (the field keeps its caret first).
+    let start: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// His finger's travel while it is down; nil once it is up, or the system took the gesture away.
+    @GestureState private var drag: CGSize?
+    @State private var travel = CGSize.zero
     /// The phase when his finger went down, and since when: a quick press is a tap, a long one a hold.
     @State private var press: (wasRecording: Bool, at: Date)?
     @State private var isHolding = false
@@ -138,15 +150,17 @@ private struct DictationMic: View {
         .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
         .contentShape(.rect)
         .animation(reduceMotion ? nil : .spring(duration: 0.22), value: isHolding)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in pressed() }
-                .onEnded { value in letGo(swipedUp: value.translation.height < -Metrics.tapTarget) }
-        )
+        .gesture(DragGesture(minimumDistance: 0).updating($drag) { value, drag, _ in drag = value.translation })
+        // Ended or cancelled alike, the finger is up: a hold never outlives it.
+        .onChange(of: drag) { old, new in
+            if let new { travel = new }
+            if old == nil, new != nil { pressed() }
+            if old != nil, new == nil { letGo(swipedUp: travel.height < -Metrics.tapTarget) }
+        }
         .accessibilityElement()
         .accessibilityLabel(isRecording ? "Pause dictating" : dictation.phase == .writing ? "Writing" : "Dictate")
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction { dictation.tap() }
+        .accessibilityAction { dictation.phase == .rest ? start() : dictation.tap() }
     }
 
     @ViewBuilder private var glyph: some View {
@@ -163,7 +177,7 @@ private struct DictationMic: View {
         guard press == nil else { return }
         let at = Date.now
         press = (isRecording, at)
-        if dictation.phase == .rest { dictation.start() }
+        if dictation.phase == .rest { start() }
         Task {
             try? await Task.sleep(for: .seconds(Self.holdAfter))
             if press?.at == at, isRecording { isHolding = true }
@@ -174,7 +188,7 @@ private struct DictationMic: View {
         guard let press else { return }
         self.press = nil
         isHolding = false
-        if swipedUp && dictation.send != nil { return dictation.swipeUp() }
+        if swipedUp && canSend { return dictation.swipeUp() }
         let wasHold = Date.now.timeIntervalSince(press.at) >= Self.holdAfter
         // A tap that started the run keeps it going; a tap on a run, or the end of a hold, pauses.
         if press.wasRecording || wasHold { dictation.pause() }
