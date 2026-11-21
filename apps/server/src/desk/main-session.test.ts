@@ -687,6 +687,10 @@ test("`show` carries a list cut to rows Life shows, or a page, with the answer; 
   const rows = spyOn(matterRows, "readMatterRowsNow").mockResolvedValue({
     matters: [{ id: lawyer.id }, { id: "matter_cccccccccccc" }],
   } as never);
+  const people = spyOn(
+    matterRows,
+    "readPeopleAndOrganizations"
+  ).mockResolvedValue({ people: [{ ref: "person:test-ana" }] } as never);
   const checks = spyOn(inbox, "openChecksNow").mockResolvedValue([
     { ref: "dec_000000000001" },
   ] as never);
@@ -716,8 +720,14 @@ test("`show` carries a list cut to rows Life shows, or a page, with the answer; 
         refused.ask = await show({
           kind: "list",
           label: "x",
-          list: "asks",
+          list: "checks",
           refs: ["dec_000000000009"],
+        });
+        refused.people = await show({
+          kind: "list",
+          label: "x",
+          list: "people",
+          refs: ["person:test-ana", "person:test-nobody"],
         });
         refused.person = await show({
           id: "matter_cccccccccccc",
@@ -745,7 +755,10 @@ test("`show` carries a list cut to rows Life shows, or a page, with the answer; 
       words: "Your **two** first.",
     });
     expect(refused.matter).toContain("not among the matters his phone shows");
-    expect(refused.ask).toContain("not among the asks his phone shows");
+    expect(refused.ask).toContain("not among the checks his phone shows");
+    expect(refused.people).toContain(
+      "person:test-nobody: not among the people his phone shows"
+    );
     expect(refused.person).toContain("is not a person");
     expect(refused.project).toContain("is not a project of his");
     expect(refused.main).toContain("is not an agent of his");
@@ -757,6 +770,7 @@ test("`show` carries a list cut to rows Life shows, or a page, with the answer; 
     expect(readLedger().length).toBe(asks);
   } finally {
     rows.mockRestore();
+    people.mockRestore();
     checks.mockRestore();
     book.mockRestore();
   }

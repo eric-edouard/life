@@ -39,7 +39,7 @@ export type AnswerExtras = z.infer<typeof AnswerExtras>;
 
 /**
  * What his phone shows with the answer (the main session's `show`, which changes no data): one `page` (a matter, a
- * person or organization, a project, an agent, by `id`), or a `list` of one tab (`matters` on Projects, `asks` on the
+ * person or organization, a project, an agent, by `id`), or a `list` of one tab (`matters` on Projects, `checks` on the
  * Inbox, `people` on People) cut to the rows `refs` names, in that order, under `label`, its words, until he closes it.
  * The session picks the rows from Life's own reads; each is checked when shown (`showProblemOf`).
  */
@@ -55,7 +55,7 @@ export const MainSessionShow = z.discriminatedUnion("kind", [
     .object({
       kind: z.literal("list"),
       label: z.string().trim().min(1).max(60),
-      list: z.enum(["asks", "matters", "people"]),
+      list: z.enum(["checks", "matters", "people"]),
       refs: z.array(z.string().min(1).max(200)).min(1).max(50),
     })
     .strict(),
