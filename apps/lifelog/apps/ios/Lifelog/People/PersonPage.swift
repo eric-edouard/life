@@ -71,7 +71,7 @@ private struct PersonPlaceholder: View {
                     Who(row: row)
                 } else {
                     HStack(spacing: Metrics.Spacing.l) {
-                        Placeholder(width: 56, height: 56)
+                        Placeholder(width: PartyDisc.Size.head.rawValue, height: PartyDisc.Size.head.rawValue)
                         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
                             Placeholder(width: 180, height: 24, radius: 8)
                             Placeholder(width: 120, height: 14)
@@ -98,21 +98,20 @@ private struct PersonPlaceholder: View {
     }
 }
 
-/// Who: their picture (72) beside the name and who they are to him, then how close and their last exchange.
+/// Who: their picture (56) beside the name, and under it one small line: who they are to him, how close, their last
+/// exchange ("Partner · Close · last exchange Tue 17 Nov", `DuoFoldPerson`).
 private struct Who: View {
     let row: PersonRow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            HStack(spacing: Metrics.Spacing.l) {
-                PartyDisc(row.party, size: .page)
-                VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                    Text(row.party.name).font(.screenName).foregroundStyle(Palette.fg)
-                        .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                    if let line = row.party.line { Text(line).font(.body15).foregroundStyle(Palette.muted) }
-                }
+        HStack(spacing: Metrics.Spacing.l) {
+            PartyDisc(row.party, size: .head)
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                Text(row.party.name).font(.screenName).foregroundStyle(Palette.fg)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                let line = [row.party.line, row.standing()].compactMap(\.self).joined(separator: " · ")
+                if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
             }
-            if let standing = row.standing() { Text(standing).font(.body15).foregroundStyle(Palette.muted) }
         }
     }
 }

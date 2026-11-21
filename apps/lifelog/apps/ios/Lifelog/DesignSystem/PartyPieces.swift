@@ -12,7 +12,7 @@ import UIKit
 /// never in a list.
 struct PartyDisc: View {
     enum Size: CGFloat {
-        case chip = 20, pick = 28, row = 40, page = 72
+        case chip = 20, pick = 28, row = 40, head = 56, page = 72
 
         /// The initials' size, in the disc's own scale: they never grow with Dynamic Type.
         fileprivate var initials: Font {
@@ -21,6 +21,7 @@ struct PartyDisc: View {
                 case .chip: 9
                 case .pick: 11
                 case .row: 14
+                case .head: 20
                 case .page: 24
                 }
             return TypeStep(size: points, weight: 600, style: .caption2).font(at: .large)
