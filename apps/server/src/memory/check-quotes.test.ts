@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { readSentences } from "./check-sentences";
 import { type CheckInputs, checksOf } from "./checks";
-import { about, inputs, line, stepsOf } from "./checks-test-inputs";
+import { about, inputs, line, nameRow, stepsOf } from "./checks-test-inputs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as files from "./memory-files";
 import type { People } from "./who";
@@ -72,25 +72,49 @@ test("an ending quotes its later words: an episode's where plain and dated, a la
   ).toEndWith("\n\n> Sent it.\n\n*[whatsapp, 1 Oct](life:unit_000000000002)*");
 });
 
-test("a name's unit is read with the cards' sentences, so its quote can link it", async () => {
+test("a name's unit is read once, with the cards' sentences, and its quote links it", async () => {
+  const held = line({ quote: "Dre fixed it", unit: "unit_00000000000d" });
   const units = spyOn(files, "readUnitsFor").mockReturnValue([]);
   try {
     await readSentences({
       lines: [],
-      names: [
-        {
-          key: "dre",
-          last: line({ unit: "unit_00000000000d" }),
-          lines: [],
-          names: ["Dre"],
-        },
-      ] as never,
+      names: [{ key: "dre", last: held, lines: [], names: ["Dre"] }] as never,
       people: { inferred: [] } as unknown as People,
       steps: new Set(),
     });
-    // The last read is the sentences' own, whose units make where each was said (`CheckInputs.where`).
-    expect(units.mock.calls.at(-1)?.[0]).toContain("unit_00000000000d");
+    expect(units.mock.calls).toEqual([[["unit_00000000000d"]]]);
   } finally {
     units.mockRestore();
   }
+  const [name] = checksOf({
+    ...inputs([held], { unresolved: [nameRow("Dre", held.id)] }),
+    where: new Map([["unit_00000000000d", "whatsapp, 1 Oct"]]),
+  });
+  expect(name?.context).toBe(
+    "> Dre fixed it\n\n*[whatsapp, 1 Oct](life:unit_00000000000d)*"
+  );
+  expect(name?.lifeLinks).toEqual([{ kind: "unit", ref: "unit_00000000000d" }]);
+});
+
+test("a quote keeps its lines, each literal", () => {
+  const base = inputs([about(REF)], { inferred: [ID] });
+  const people = {
+    ...base.people,
+    inferred: base.people.inferred.map((p) => ({
+      ...p,
+      evidence: [
+        {
+          quote: "Here it is:\n[the form](https://form.example)",
+          unit: "unit_000000000001",
+        },
+      ],
+    })),
+  };
+  const [check] = checksOf({ ...base, people });
+  expect(check?.context).toEndWith(
+    "\n\n> Here it is:\n> \\[the form\\](https\\://form.example)\n\n*an earlier message*"
+  );
+  const html = Bun.markdown.html(check?.context ?? "", { autolinks: true });
+  expect(html).not.toContain("href");
+  expect(html).toContain("Here it is:\n[the form](https://form.example)");
 });

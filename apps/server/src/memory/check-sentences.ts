@@ -1,5 +1,6 @@
 import type { SourceName } from "../core/names";
 import type { Unresolved } from "../records/observation";
+import type { Unit } from "../records/unit";
 import { parseTurnRef } from "../sources/lifelog";
 import { readTurnClip } from "../sources/lifelog-voices";
 import type { Check, Said } from "./life-checks";
@@ -53,14 +54,13 @@ const saidOf = (
   to,
 });
 
-/** The contexts of `wanted`, by name key; a name whose unit cannot be read has none. */
+/** The contexts of `wanted`, by name key, from their units as read (`held`); a name whose unit was not read has none. */
 export async function readNameContexts(
   wanted: WantedName[],
-  people: People
+  people: People,
+  held: readonly Unit[]
 ): Promise<Map<string, NameContext>> {
-  const units = new Map(
-    readUnitsFor(wanted.map((w) => w.line.unit)).map((u) => [u.id, u])
-  );
+  const units = new Map(held.map((u) => [u.id, u]));
   const next = new Map<string, { context: NameContext; hash: string }>();
   const read = await readEach(
     wanted.map((w) => w.key),
@@ -251,19 +251,16 @@ export async function readSentences(c: {
   people: People;
   steps: ReadonlySet<string>;
 }) {
-  const nameContexts = await readNameContexts(
-    c.names.flatMap(({ key, last, names }) =>
-      last ? [{ key, line: last, names }] : []
-    ),
-    c.people
+  const wanted = c.names.flatMap(({ key, last, names }) =>
+    last ? [{ key, line: last, names }] : []
   );
   const said = c.lines.filter((o) => c.steps.has(o.id)).map((o) => o.unit);
-  // ponytail: a name's unit is read again here (once by `readNameContexts`), so its quote can link it; a few units a read.
   const units = readUnitsFor([
     ...c.people.inferred.flatMap((p) => p.evidence.map((e) => e.unit)),
-    ...c.names.flatMap(({ last }) => (last ? [last.unit] : [])),
+    ...wanted.map((w) => w.line.unit),
     ...said,
   ]);
+  const nameContexts = await readNameContexts(wanted, c.people, units);
   return {
     nameContexts,
     titles: new Map(

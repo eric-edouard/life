@@ -2,6 +2,7 @@
 // quoted after its own (`withQuoteOf`), once, by `checksOf`.
 
 const SPACES = /\s+/g;
+const LINE_BREAK = /\r?\n/;
 /** Markdown's marks, an autolink's `://` and `www.`. */
 const MARKS = /[\\`*_[\]<>#~&@]|:(?=\/\/)|(?<=\bwww)\./gi;
 const LIST_NUMBER = /^(\d+)([.)])/;
@@ -35,5 +36,11 @@ export function withQuoteOf(
   const where = literalOf(q.where ?? "an earlier message");
   const source =
     q.unit && isUnitRead(q.unit) ? `[${where}](life:${q.unit})` : where;
-  return `${context ? `${context}\n\n` : ""}> ${literalOf(q.text)}\n\n*${source}*`;
+  // Each recorded line stays a line of the quote, and literal.
+  const quoted = q.text
+    .trim()
+    .split(LINE_BREAK)
+    .map((l) => `>${l.trim() ? ` ${literalOf(l)}` : ""}`)
+    .join("\n");
+  return `${context ? `${context}\n\n` : ""}${quoted}\n\n*${source}*`;
 }
