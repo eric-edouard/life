@@ -129,10 +129,10 @@ export function start(
   const refused = subjectRefusal(desk, c);
   const runtime = runtimeOf(c);
   const repeat = desk.db
-    .query<{ id: string }, [string, string | null, number]>(
-      "select id from agent where status = 'active' and brief = ? and (project = ? or (role = 'personal' and ? = 1)) limit 1"
+    .query<{ id: string }, [string, string | null, string | null]>(
+      "select id from agent where status = 'active' and brief = ? and (project = ? or role = ?) limit 1"
     )
-    .get(brief, c.project ?? null, c.role === "personal" ? 1 : 0)?.id;
+    .get(brief, c.project ?? null, c.role ?? null)?.id;
   if (repeat) {
     return { id: repeat };
   }

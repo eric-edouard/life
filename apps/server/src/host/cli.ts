@@ -51,6 +51,7 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateAgentChangeRole } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -471,6 +472,11 @@ export async function main(more: typeof commands = {}) {
   process.on("uncaughtException", crashed);
   process.on("unhandledRejection", crashed);
   try {
+    // The desk asks' `personal` flag as `role` before the command reads anything (AGENTS.md, "A rename or a new field
+    // backfills"); the archive never waits, it never reads the ledger.
+    if (name !== "archive") {
+      await migrateAgentChangeRole();
+    }
     process.exit(await command());
   } catch (e) {
     crashed(e);

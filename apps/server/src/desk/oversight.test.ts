@@ -26,6 +26,7 @@ import {
   currentAssignmentOf,
   modelOf,
 } from "../host/desk-read";
+import { migrateAgentChangeRole } from "../host/migrate";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,
@@ -731,13 +732,18 @@ test("re_point with role personal marks an existing agent as the Personal agent,
             }).success
           ).toBe(false);
         }
-        expect((await applied(oldFlag(true) as never))?.error).toBe(
-          "only a change from `change_registered_agent` is applied"
-        );
+        // One the old connector took just before the upgrade: the start's migration names it by role, and it applies once.
+        const before = said(oldFlag(true) as never);
+        await migrateAgentChangeRole();
+        await applyAgentChanges(desk);
+        await applyAgentChanges(desk);
         expect(
-          (await applied({ action: "re_point", agent: mine, role: "personal" }))
-            ?.error
-        ).toBeNull();
+          desk.db
+            .query<{ error: string | null }, [string]>(
+              "select error from agent_change where ask = ?"
+            )
+            .all(before)
+        ).toEqual([{ error: null }]);
         expect(agentOf(desk.db, mine)).toMatchObject({
           project: null,
           role: "personal",
