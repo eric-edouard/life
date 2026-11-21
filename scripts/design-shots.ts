@@ -42,11 +42,13 @@ interface Frame {
 
 /**
  * How the app reaches a frame: its launch arguments, then labels pressed for a state no argument reaches, then text typed
- * into the field a label names (`fill`: label, text); or `why` it can't.
+ * into the field a label names (`fill`: label, text), then a scroll to an edge (`scroll`); or `why` it can't.
  */
 export interface AppFrame {
   args?: string[];
   fill?: [string, string];
+  /** `top` or `bottom`: the page scrolled to that edge, after the taps. */
+  scroll?: string;
   taps?: string[];
   why?: string;
 }
@@ -108,6 +110,10 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
     const [label, text] = app.fill;
     await device(["fill", `label="${label}"`, text]);
     await Bun.sleep(1500);
+  }
+  if (app.scroll) {
+    await device(["scroll", app.scroll]);
+    await Bun.sleep(1000);
   }
   const path = join(OUT, `${frame.name}.app.png`);
   await screenshot(udid, "primary", path);
