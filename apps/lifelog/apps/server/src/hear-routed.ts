@@ -14,6 +14,7 @@ import {
   scribeRanges,
   transcriptOf,
   uncut,
+  unheardOf,
 } from "./route-turns";
 import type { Priority, Unsent } from "./scribe-slots";
 import { type Heard, transcribeBlock, type Unanswered } from "./speech-service";
@@ -55,7 +56,8 @@ export async function hearOnTheMac(
 }
 
 // What hearing the routed turns came to: `heard`, the transcript (`maybeBilled` when Scribe may have
-// billed turns that came back without words), or `later`: Scribe took nothing now and billed nothing,
+// billed turns that came back without words; `unheard`, how many judged routed turns have none of
+// Scribe's words, whatever Scribe answered), or `later`: Scribe took nothing now and billed nothing,
 // fine to send again.
 type Routed =
   | {
@@ -64,6 +66,7 @@ type Routed =
       kind: "heard";
       maybeBilled: boolean;
       transcript: ReturnType<typeof transcriptOf>;
+      unheard: number;
     }
   | { error: string; kind: "later" };
 
@@ -99,6 +102,7 @@ export async function hearRouted(
       kind: "heard" as const,
       maybeBilled: false,
       transcript: transcriptOf(heard, routed, null),
+      unheard: unheardOf(routed, []),
     };
     settle(local);
     return local;
@@ -124,6 +128,7 @@ export async function hearRouted(
       keyterms,
     });
     if (said.kind === "done") {
+      const words = uncut(said.transcript.words, cut.spans);
       return {
         billableSeconds: billed,
         error: null,
@@ -131,8 +136,9 @@ export async function hearRouted(
         maybeBilled: false,
         transcript: transcriptOf(heard, routed, {
           languageCode: said.transcript.languageCode,
-          words: uncut(said.transcript.words, cut.spans),
+          words,
         }),
+        unheard: unheardOf(routed, words),
       };
     }
     if (said.later) {
@@ -144,6 +150,7 @@ export async function hearRouted(
       kind: "heard",
       maybeBilled: said.billed,
       transcript: transcriptOf(heard, routed, null),
+      unheard: unheardOf(routed, []),
     };
   }
 }

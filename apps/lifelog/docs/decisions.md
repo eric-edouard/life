@@ -216,7 +216,8 @@ reverse it, change its entry here in the same commit.
   a phone dictation. Android gets no phone dictation for now.
 - **A field's dictation is heard, never kept (21 Nov 2026).** What the owner dictates into the phone's field is his
   request for words, not the Pendant's capture: it goes to the speech service and, for Thai, to Scribe, ahead of all
-  other work (`POST /dictation/transcript`), and nothing of it is stored on the server. A lost answer is said again,
+  other work (`POST /dictation/transcript`), and none of its audio or words is stored on the server (ElevenLabs keeps
+  what Scribe hears, under its policy). Its words are whole or not given. A lost answer is said again,
   never sent to Scribe twice, so there is no claim or replay row (a voice note keeps one because Life asks again by
   itself).
 

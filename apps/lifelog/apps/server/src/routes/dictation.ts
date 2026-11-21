@@ -1,7 +1,9 @@
 // A field's dictation on the phone: the owner's words, heard while he waits at the field, ahead of
-// every other request (the speech service's interactive place, then Scribe's for Thai turns). Nothing
-// is kept: no audio, no words, no row. A lost answer is said again (the phone shows "Not written.
-// Please say it again."), never asked of Scribe twice.
+// every other request (the speech service's interactive place, then Scribe's for Thai turns). lifelog
+// keeps no audio and no words, only a `dictation.heard` event (its length and route); Scribe keeps
+// what it is sent under its ordinary policy (zero retention is enterprise-only). Its words are whole
+// or not given: a lost or partial answer is said again (the phone shows "Not written. Please say it
+// again."), never asked of Scribe twice.
 import { randomUUID } from "node:crypto";
 import { createRoute, z } from "@hono/zod-openapi";
 import { clock } from "@life/server/src/core/clock";
@@ -77,6 +79,7 @@ export function dictationRoutes({
               billableSeconds: outcome.billableSeconds,
               route: said.route,
               seconds,
+              unheard: outcome.unheard,
             });
           }
         },
@@ -85,9 +88,13 @@ export function dictationRoutes({
     if (heard.kind !== "heard") {
       return { error: "identity_busy", message: heard.error };
     }
-    // Words missing are never filled in later: the owner says it again.
-    return heard.error
-      ? { error: "transcription_failed", message: "its Thai words are missing" }
+    // A routed turn left without Scribe's words (Scribe failed, answered nothing for it, or its audio
+    // could not be cut) is never filled in later: the owner says it again.
+    return heard.unheard > 0
+      ? {
+          error: "transcription_failed",
+          message: "some of its words are missing",
+        }
       : { text: textFrom(heard.transcript) };
   }
 
@@ -96,9 +103,13 @@ export function dictationRoutes({
       description:
         "A field's dictation from the phone (Ogg Opus, at most 10 minutes): its words, heard ahead of " +
         "all other work, by the speech service and Scribe for the turns it routes as Thai by where the " +
-        "owner is now. Nothing is kept. 503 when the speech service or transcription is off or busy, " +
-        "or the words need Scribe while its credits are out or no slot frees: nothing was billed. 502 " +
-        "when Scribe failed to give the Thai words: the owner says it again. The device token only.",
+        "owner is now. lifelog keeps no audio and no words, only an event of its length and route. " +
+        "ElevenLabs keeps what Scribe is sent (the Thai turns, or all of it when mostly Thai, with " +
+        "vocabulary hints that can name people) under its ordinary retention; zero retention is " +
+        "enterprise-only. The words are whole or not given. 503 when the speech service or " +
+        "transcription is off or busy, or the words need Scribe while its credits are out or no slot " +
+        "frees: nothing was billed. 502 when Scribe left any routed turn without words: the owner says " +
+        "it again. The device token only.",
       method: "post",
       middleware: [sizeLimit(MAX_BYTES)] as const,
       path: "/dictation/transcript",
@@ -119,7 +130,7 @@ export function dictationRoutes({
         ),
         400: json(ApiError, "Not Ogg Opus, or longer than 10 minutes"),
         413: json(ApiError, "Over 16 MB"),
-        502: json(ApiError, "Its Thai words are missing: say it again"),
+        502: json(ApiError, "Some of its words are missing: say it again"),
         503: json(ApiError, "Not now, nothing billed: say it again"),
       },
     }),

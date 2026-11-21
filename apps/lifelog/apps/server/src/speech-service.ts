@@ -112,10 +112,16 @@ async function answerOf<T>(
       retryAfter: res.headers.get("Retry-After") ?? "5",
     };
   }
+  // A body cut off or not JSON reads as no answer.
   if (res.status === 400 || res.status === 413) {
-    return { error: "invalid_audio", message: await res.text() };
+    return {
+      error: "invalid_audio",
+      message: await res.text().catch(() => "unreadable"),
+    };
   }
-  const parsed = schema.safeParse(res.ok ? await res.json() : null);
+  const parsed = schema.safeParse(
+    res.ok ? await res.json().catch(() => null) : null
+  );
   return parsed.success
     ? { answer: parsed.data }
     : {

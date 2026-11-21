@@ -75,6 +75,8 @@ const UNSEARCHED = new Set([
   "/health/heartbeat",
   "/events",
   "/diagnostics",
+  // Nothing of it is kept.
+  "/dictation/transcript",
   // It sweeps itself when AI comes back on.
   "/switches",
 ]);

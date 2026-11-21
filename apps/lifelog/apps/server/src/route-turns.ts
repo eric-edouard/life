@@ -52,6 +52,16 @@ const turnAt = <T extends Span>(turns: T[], at: number) => {
   );
 };
 
+// Whether no word with text starts inside the turn.
+const isWordless = (turn: Span, words: { start: number; text: string }[]) =>
+  !words.some((w) => inside(turn, w.start) && w.text.trim() !== "");
+
+/** The routed turns the router judged (`judgedOf`) that `words` (Scribe's, in block seconds) leave wordless. */
+export const unheardOf = (
+  routed: HeardTurn[],
+  words: { start: number; text: string }[]
+) => judgedOf(routed).filter((t) => isWordless(t, words)).length;
+
 export type Route = { kind: "whole" } | { kind: "turns"; routed: HeardTurn[] };
 
 export type Judged = HeardTurn & { scores: NonNullable<HeardTurn["scores"]> };
@@ -69,9 +79,7 @@ export function featuresOf(
   const weight = seconds(rest) || 1;
   const mean = (f: (t: Judged) => number) =>
     rest.reduce((sum, t) => sum + f(t) * (t.end - t.start), 0) / weight;
-  const wordless = !words.some(
-    (w) => inside(turn, w.start) && w.text.trim() !== ""
-  );
+  const wordless = isWordless(turn, words);
   return [
     log(th),
     log(en + fr),

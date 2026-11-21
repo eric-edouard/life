@@ -1,14 +1,15 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { randomUUID } from "node:crypto";
-import { heartbeats } from "@lifelog/db/schema";
 import { createApp } from "../app";
-import { pendantOggOpus } from "../audio";
-import { services } from "../services";
 import {
   fakeElevenLabs,
   fakeSpeechService,
+  heardInBangkok,
   OWNER_TOKEN,
-  testConfig,
+  pendantOgg,
+  scribeThai,
+  speechServices,
+  spokenTurn,
+  spokenWord,
   testDb,
 } from "../testing";
 
@@ -27,37 +28,13 @@ beforeEach(() => {
   env.reset();
   scribe.calls.length = 0;
   speech.priorities.length = 0;
-  // Where Thai is spoken: the router's lower bar.
-  env.db
-    .insert(heartbeats)
-    .values({
-      body: { timeZone: "Asia/Bangkok" },
-      id: randomUUID(),
-      observedAt: new Date(0),
-      reason: "periodic",
-      receivedAt: new Date(0),
-    })
-    .run();
+  heardInBangkok(env.db);
 });
 
+const LONG = 60_000;
 const servicesWith = (overrides: Record<string, string> = {}) =>
-  services(
-    testConfig(`http://localhost:${scribe.server.port}`, {
-      IDENTITY_SECRET: "speech-test-secret",
-      IDENTITY_URL: `http://localhost:${speech.server.port}`,
-      ...overrides,
-    }),
-    env.db
-  );
-const said = (seconds: number) =>
-  pendantOggOpus(
-    Array.from(
-      { length: seconds * 50 },
-      (_, i) => new Uint8Array([8, i % 256, Math.floor(i / 256)])
-    ),
-    seconds * 1000
-  );
-const dictate = (a = createApp(servicesWith()), audio = said(60)) =>
+  speechServices(scribe, speech, env.db, overrides);
+const dictate = (a = createApp(servicesWith()), audio = pendantOgg(60)) =>
   a.request("/dictation/transcript", {
     body: audio as BodyInit,
     headers: {
@@ -66,30 +43,17 @@ const dictate = (a = createApp(servicesWith()), audio = said(60)) =>
     },
     method: "POST",
   });
-const turn = (start: number, end: number, language: "en" | "th") => ({
-  end,
-  language,
-  scores:
-    language === "th"
-      ? { en: 0.02, fr: 0.01, th: 0.9 }
-      : { en: 0.95, fr: 0.02, th: 0.001 },
-  speaker: "0",
-  start,
-});
-const thai = () =>
-  Response.json({
-    language_code: "tha",
-    language_probability: 0.9,
-    words: [
-      {
-        end: 0.8,
-        speaker_id: "speaker_0",
-        start: 0.5,
-        text: "สวัสดี",
-        type: "word",
-      },
-    ],
-  });
+// English, a Thai turn, French: only the Thai turn goes to Scribe.
+const MIXED = {
+  durationSeconds: 60,
+  models: {},
+  turns: [
+    spokenTurn(0, 10, "en"),
+    spokenTurn(10, 14, "th"),
+    spokenTurn(14, 60, "fr"),
+  ],
+  words: [spokenWord(1, "Hello"), spokenWord(15, "Salut")],
+};
 const sends = () =>
   scribe.calls.filter((c) => c.path.endsWith("/speech-to-text"));
 // Whatever the route touched, no table holds the dictation's words.
@@ -108,10 +72,10 @@ test("English is heard on the Mac alone, ahead of other work, and nothing of it 
   speech.heard = {
     durationSeconds: 3,
     models: {},
-    turns: [turn(0, 3, "en")],
-    words: [{ end: 1, start: 0.5, text: "Morning" }],
+    turns: [spokenTurn(0, 3, "en")],
+    words: [spokenWord(0.5, "Morning")],
   };
-  const res = await dictate(undefined, said(3));
+  const res = await dictate(undefined, pendantOgg(3));
   expect(res.status).toBe(200);
   expect(res.headers.get("Cache-Control")).toBe("no-store");
   expect(await res.json()).toEqual({ text: "Morning" });
@@ -120,44 +84,74 @@ test("English is heard on the Mac alone, ahead of other work, and nothing of it 
   expect(keptIn("Morning")).toEqual([]);
 });
 
-test("a Thai turn goes to Scribe once, after the waiting work, while a slot is held", async () => {
-  speech.heard = {
-    durationSeconds: 60,
-    models: {},
-    turns: [turn(0, 10, "en"), turn(10, 60, "th")],
-    words: [{ end: 1.3, start: 1, text: "Hello" }],
-  };
-  scribe.respond = thai;
+test("a Thai turn waits for the held slot, then goes to Scribe once, ahead of an older ordinary waiter", async () => {
+  speech.heard = MIXED;
+  scribe.respond = scribeThai;
   const s = servicesWith({ ELEVENLABS_SLOTS: "1" });
-  // The one slot is held: dictation waits for it rather than answering busy.
+  const order: string[] = [];
   let free: () => void = () => undefined;
-  const held = s.worker.paidSend(
-    "a block",
-    { priority: "ordinary", waitMs: 0 },
+  // The one slot is held, and an ordinary send waits for it.
+  await new Promise<void>((holding) => {
+    s.worker.paidSend(
+      "a block",
+      { priority: "ordinary", waitMs: LONG },
+      () => null,
+      () => {
+        holding();
+        return new Promise<void>((end) => {
+          free = end;
+        });
+      }
+    );
+  });
+  const older = s.worker.paidSend(
+    "another block",
+    { priority: "ordinary", waitMs: LONG },
     () => null,
-    () =>
-      new Promise<void>((end) => {
-        free = end;
-      })
+    () => {
+      order.push("ordinary");
+      return Promise.resolve();
+    }
   );
+  const { paidSend } = s.worker;
+  const joined = new Promise<void>((join) => {
+    s.worker.paidSend = (key, until, claim, post) => {
+      join();
+      return paidSend(key, until, claim, () => {
+        order.push("dictation");
+        return post();
+      });
+    };
+  });
   const asked = dictate(createApp(s));
-  await Bun.sleep(50);
+  await joined;
+  // Its wait joins the line once the credits' first read settles: within this turn's microtasks.
+  await Bun.sleep(0);
   expect(sends()).toHaveLength(0);
   free();
-  await held;
   const res = await asked;
+  await older;
   expect(res.status).toBe(200);
-  expect((await res.json()).text).toContain("สวัสดี");
+  expect((await res.json()).text).toBe("Hello สวัสดี Salut");
+  expect(order).toEqual(["dictation", "ordinary"]);
   expect(sends()).toHaveLength(1);
 });
 
-test("Scribe failing after it may have billed: the field says it again, never the Mac's words", async () => {
-  speech.heard = {
-    durationSeconds: 60,
-    models: {},
-    turns: [turn(0, 10, "en"), turn(10, 60, "th")],
-    words: [{ end: 1.3, start: 1, text: "Hello" }],
-  };
+test("Scribe answering no words for a Thai turn: the field says it again, never the Mac's words alone", async () => {
+  speech.heard = MIXED;
+  scribe.respond = () =>
+    Response.json({
+      language_code: "tha",
+      language_probability: 0.9,
+      words: [],
+    });
+  const res = await dictate();
+  expect(res.status).toBe(502);
+  expect((await res.json()).error).toBe("transcription_failed");
+});
+
+test("Scribe failing after it may have billed: 502; refusing: 503", async () => {
+  speech.heard = MIXED;
   scribe.respond = () => new Response("boom", { status: 500 });
   const res = await dictate();
   expect(res.status).toBe(502);
@@ -167,14 +161,21 @@ test("Scribe failing after it may have billed: the field says it again, never th
   expect(sends()).toHaveLength(2);
 });
 
-test("the speech service busy: 503; not Ogg Opus: 400", async () => {
+test("the speech service busy or its answer cut off: 503; not Ogg Opus: 400", async () => {
   speech.busy = true;
   try {
-    expect((await dictate(undefined, said(5))).status).toBe(503);
+    expect((await dictate(undefined, pendantOgg(5))).status).toBe(503);
   } finally {
     speech.busy = false;
+  }
+  speech.cutOff = true;
+  try {
+    expect((await dictate(undefined, pendantOgg(5))).status).toBe(503);
+  } finally {
+    speech.cutOff = false;
   }
   expect((await dictate(undefined, new Uint8Array([1, 2, 3]))).status).toBe(
     400
   );
+  expect(sends()).toHaveLength(0);
 });
