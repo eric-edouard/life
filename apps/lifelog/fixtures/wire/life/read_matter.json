@@ -47,7 +47,9 @@
     "name": "Shop fit-out",
     "status": "active"
   },
-  "projects": ["Shop fit-out"],
+  "projects": [
+    "Shop fit-out"
+  ],
   "status": "moving",
   "agents": [
     {
@@ -70,7 +72,9 @@
       "runtime": "claude",
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
-      "steps": ["obs_000000000005"],
+      "steps": [
+        "obs_000000000005"
+      ],
       "title": "Get Gran's watch mended",
       "wait": null,
       "wakesOn": []
@@ -118,7 +122,9 @@
           "personAsWritten": "Gran"
         },
         {
-          "apps": ["whatsapp"],
+          "apps": [
+            "whatsapp"
+          ],
           "calls": true,
           "chat": {
             "app": "whatsapp",
@@ -193,7 +199,7 @@
       "text": "Call the shop",
       "ending": {
         "at": "2026-10-14T10:00:00.000Z",
-        "by": "ticked"
+        "by": "todo_item"
       },
       "with": {
         "kind": "person",
@@ -262,7 +268,9 @@
       "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
-      "links": ["https://agents.example.test/s/1"],
+      "links": [
+        "https://agents.example.test/s/1"
+      ],
       "session": "https://agents.example.test/s/1",
       "onMatters": [
         {
@@ -295,7 +303,9 @@
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
       "ridesOn": {
-        "matterIds": ["matter_aaaaaaaaaaaa"],
+        "matterIds": [
+          "matter_aaaaaaaaaaaa"
+        ],
         "matters": 1,
         "observations": 0,
         "pages": 0
@@ -315,7 +325,9 @@
       },
       "confirm": [
         {
-          "about": ["+33600000001"],
+          "about": [
+            "+33600000001"
+          ],
           "asker": "life",
           "at": null,
           "clips": [],
@@ -455,7 +467,9 @@
       "question": "Is this done?",
       "ref": "obs_000000000005",
       "ridesOn": {
-        "matterIds": ["matter_aaaaaaaaaaaa"],
+        "matterIds": [
+          "matter_aaaaaaaaaaaa"
+        ],
         "matters": 1,
         "observations": 1,
         "pages": 0

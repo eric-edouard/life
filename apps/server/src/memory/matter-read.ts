@@ -120,7 +120,7 @@ export type ByWhom<T> = T & { at: string; by: "life" | "owner" };
 /** How a step ended, and when (`at`, the instant of the evidence, never of the run that found it): its observation retired (replaced, or a word that it is done), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. `dropped`: it won't be done (his Drop, or the item removed from his list), not done. */
 type StepEnding = { at: string } & (
   | { by: "record"; dropped?: true; replacedBy?: string; why: string }
-  | { by: "ticked"; dropped?: true }
+  | { by: "todo_item"; dropped?: true }
   | { by: "link"; quote: string }
 );
 
@@ -348,7 +348,7 @@ function stepsOf(
           ? undefined
           : {
               at: closedAt ?? at,
-              by: "ticked",
+              by: "todo_item",
               // Removed without being ticked: dropped; ticked, then cleared from his list: still done.
               ...(f.deleted && !f.completed ? { dropped: true as const } : {}),
             },

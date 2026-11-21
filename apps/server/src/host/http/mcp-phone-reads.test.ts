@@ -123,7 +123,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     step("episode", "Gran's watch", "2026-10-02", "ep_000000000001"),
     {
       ...step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
-      ending: { at: "2026-10-14T10:00:00.000Z", by: "ticked" },
+      ending: { at: "2026-10-14T10:00:00.000Z", by: "todo_item" },
       with: "person:partner",
     },
   ];

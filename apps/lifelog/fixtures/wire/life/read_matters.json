@@ -48,7 +48,9 @@
         "name": "Shop fit-out",
         "status": "active"
       },
-      "projects": ["Shop fit-out"],
+      "projects": [
+        "Shop fit-out"
+      ],
       "status": "moving",
       "agent": "agt_000000000001",
       "blockingChecks": 1,
@@ -69,9 +71,9 @@
       "id": "matter_bbbbbbbbbbbb",
       "name": "Renew the lease",
       "status": "waiting_on_someone",
-      "blockingChecks": 0,
+      "blockingChecks": 1,
       "needsYou": true
     }
   ],
-  "version": "4d92c5146f3f7ffa"
+  "version": "f2ee4342a610ec6a"
 }

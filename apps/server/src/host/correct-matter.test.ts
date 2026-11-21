@@ -12,7 +12,7 @@ import { readMatterPins } from "../memory/matters";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as todo from "./change-todo-item";
-import { endByHisWord } from "./correct-matter";
+import { closedStepOf, endByHisWord } from "./correct-matter";
 import { correct } from "./http/mcp";
 
 // 19 Nov 2026 (review C, B7 and R1): the phone decided which steps were open and sent only its obs_ ones, so a
@@ -58,6 +58,11 @@ afterEach(() => {
   book.mockRestore();
   tick.mockRestore();
   rmSync(CORRECTIONS, { force: true });
+});
+
+test("a Drop names the removed step of its progress plan, a done matter the ticked one", () => {
+  expect(closedStepOf(true)).toBe("todo_items_removed");
+  expect(closedStepOf(false)).toBe("todo_items_ticked");
 });
 
 test("a matter marked done by its id closes every open step as Life reads it: observations outdated, to-do items ticked", async () => {

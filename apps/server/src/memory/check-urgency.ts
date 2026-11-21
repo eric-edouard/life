@@ -7,8 +7,6 @@ export type Urgency = "blocks" | "improves";
 interface Rankable {
   /** His complaint on it at work with the caretaker: it then only improves. */
   beingFixed?: unknown;
-  /** A your move card's (its step's `when`); null: none. */
-  deadline?: string | null;
   group: CheckGroup;
   /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
   subject: string | null;
@@ -36,12 +34,10 @@ export const inboxRankOf = (c: Rankable) =>
     ? RANK["guessed person"]
     : RANK[c.group];
 
-const LAST_BLOCKING_RANK = RANK.name;
-/** What blocks: by its kind (`inboxRankOf`), a your move card only with a deadline, unless the caretaker is at work on it (`beingFixed`). */
+const LAST_BLOCKING_RANK = RANK["your move"];
+/** What blocks: by its kind (`inboxRankOf`), a your move card always (his word of 21 Nov 2026), unless the caretaker is at work on it (`beingFixed`). */
 export const urgencyOf = (c: Rankable): Urgency =>
-  (c.group === "your move"
-    ? Boolean(c.deadline)
-    : inboxRankOf(c) <= LAST_BLOCKING_RANK) && !c.beingFixed
+  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed
     ? "blocks"
     : "improves";
 

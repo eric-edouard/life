@@ -49,12 +49,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
     #expect(inbox.total == 11)
-    #expect(inbox.blocking == 6)
-    #expect(inbox.badge == 6)
+    #expect(inbox.blocking == 7)
+    #expect(inbox.badge == 7)
     #expect(inbox.counts.values.reduce(0, +) == 11)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -180,7 +180,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(matter.row.name == "Mend Gran's watch")
     #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
     #expect(matter.steps.count == 2)
-    #expect(matter.steps[1].ending?.by == .ticked)
+    #expect(matter.steps[1].ending?.by == .todoItem)
     #expect(matter.checks.map(\.group) == [.decision, .ending])
     #expect(matter.agents.first?.runtime == "claude")
     #expect(matter.agents.first?.notStarted == nil)

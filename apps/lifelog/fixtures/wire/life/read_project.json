@@ -32,7 +32,9 @@
     ],
     "situation": [
       {
-        "cites": ["obs_000000000005"],
+        "cites": [
+          "obs_000000000005"
+        ],
         "text": "The shop is quoting the watch repair; the call to them is done."
       }
     ],
