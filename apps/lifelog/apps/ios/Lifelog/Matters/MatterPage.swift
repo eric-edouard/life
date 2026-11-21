@@ -90,12 +90,14 @@ struct MatterPage: View {
         }
     }
 
-    /// The page as its list row draws it, before the matter's read: its steps and asks are placeholders.
+    /// The page as its list row draws it, before the matter's read: its steps and asks are placeholders, its goal and
+    /// next step not yet editable.
     private func rowPage(_ row: MatterRow) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(row, openSince: nil)
-                GoalAndNext(row: row)
+                // Edited once the read lands: that face is a new view, which would not hold his words saved here.
+                GoalAndNext(row: row).disabled(true)
                 People(people: row.people)
                 Placeholder(height: 110)
             }
