@@ -84,7 +84,7 @@ final class LifeStore {
     /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
     /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
     @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
-        let matter = self?.matterOf(card: held.request.ref)
+        let matter = self?.heldMatters.removeValue(forKey: held.request.ref) ?? nil
         await self?.send(held.request, for: held.life)
         // Its card is gone by now: what Life could not do on it, or when it comes back, is said back here.
         if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords {
@@ -188,9 +188,12 @@ final class LifeStore {
 
     /// Coming forward: every read, unless the inbox was read in the last 30 s (a card's push says what changed since).
     func refreshOnForeground() async {
-        if let read = inbox.loadedAt, now().timeIntervalSince(read) < 30 { return }
+        if let read = inbox.loadedAt, now().timeIntervalSince(read) < Self.foregroundReadsAfter { return }
         await refresh()
     }
+
+    /// How old the inbox's read must be for coming forward to read again.
+    private static let foregroundReadsAfter: TimeInterval = 30
 
     /// Every read, side by side.
     func refresh() async {
@@ -562,12 +565,24 @@ final class LifeStore {
     // MARK: Held answers
 
     /// His answer to such a row, sent in four seconds unless he undoes it.
-    func hold(_ request: AnswerRequest, as label: String) { holds.hold(request, as: label, for: pairedLife) }
+    func hold(_ request: AnswerRequest, as label: String) {
+        heldMatters[request.ref] = matterOf(card: request.ref)
+        holds.hold(request, as: label, for: pairedLife)
+    }
 
     /// A bulk card's answers, held as one: one toast, one Undo.
-    func hold(_ requests: [AnswerRequest], as label: String) { holds.hold(requests, as: label, for: pairedLife) }
+    func hold(_ requests: [AnswerRequest], as label: String) {
+        for request in requests { heldMatters[request.ref] = matterOf(card: request.ref) }
+        holds.hold(requests, as: label, for: pairedLife)
+    }
 
-    func undo(_ ref: String) { holds.undo(ref) }
+    /// Each held answer's matter, taken when he answered: by its send, a read may have dropped its card.
+    @ObservationIgnored private var heldMatters: [String: String?] = [:]
+
+    func undo(_ ref: String) {
+        heldMatters[ref] = nil
+        holds.undo(ref)
+    }
 
     /// Every held answer, at once: the screen is going, or the app.
     func sendHeld() async { await holds.sendAll() }
