@@ -1,9 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
+import { pathInside } from "../core/platform";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
@@ -229,8 +230,7 @@ export function agentHomeOf(
   agentsRepo: string,
   a: Pick<AgentRow, "folder" | "project">
 ) {
-  const inRepo = relative(agentsRepo, a.folder);
-  if (inRepo && !inRepo.startsWith("..") && !inRepo.startsWith("/")) {
+  if (pathInside(agentsRepo, a.folder)) {
     return a.folder;
   }
   return a.project ? join(agentsRepo, `project-${a.project}`) : null;
@@ -527,7 +527,7 @@ export function notesOutsideOf(path: string, state: string) {
             "select id, notes_path from assignment"
           )
           .all()
-          .filter((s) => relative(state, s.notes_path).startsWith(".."));
+          .filter((s) => pathInside(state, s.notes_path) === null);
   } finally {
     db.close();
   }
