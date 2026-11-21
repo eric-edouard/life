@@ -56,14 +56,13 @@ function sourceMessageOf(
 }
 
 /**
- * The appointment `q` names (its id, or its push's id), as the sheet shows it: only one the sync wrote (an event line),
- * as the calendar holds it: the night's reading, with the link and message of the arrival of the same id or meeting
- * (read back to its first event, past the arrival's window); null when Life holds none.
+ * The appointment `q` names (its id, or its push's id), only one the sync wrote (an event line), as the calendar holds
+ * it: the night's reading, and the arrival of the same id or meeting (read back to its first event, past the arrival's
+ * window); null when Life holds none.
  */
-export async function readAppointmentSheet(
+function writtenAppointmentOf(
   q: { appointment?: string; pushId?: string },
-  reads: AppointmentReads,
-  now = clock()
+  now: Date
 ) {
   const { byAppointment, created } = readAppointmentEvents();
   const id =
@@ -84,9 +83,20 @@ export async function readAppointmentSheet(
     arrivals.find((x) => x.id === id) ??
     (night && arrivals.find((x) => isSameMeeting(x, night)));
   const a = night ?? arrival;
-  if (!a) {
+  return a ? { a, arrival, firstAt, id, last, night } : null;
+}
+
+/** The appointment `q` names as the sheet shows it (`writtenAppointmentOf`); null when Life holds none. */
+export async function readAppointmentSheet(
+  q: { appointment?: string; pushId?: string },
+  reads: AppointmentReads,
+  now = clock()
+) {
+  const held = writtenAppointmentOf(q, now);
+  if (!held) {
     return null;
   }
+  const { a, arrival, firstAt, id, last, night } = held;
   const when = span(
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
