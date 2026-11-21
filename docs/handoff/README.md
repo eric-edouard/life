@@ -1,5 +1,7 @@
 # Life rework: master handoff (21 Nov 2026)
 
+**Newest first: [next-session-2026-11-21.md](next-session-2026-11-21.md)** (21 Nov afternoon: what landed, the new workflow, the queue, the 7 agents).
+
 Work stopped on 21 Nov 2026 at the owner's word ("gonna stop the work we do here to pick it up later"). Every session pushed
 its work and stopped. Start here, then read the three role handoffs:
 
