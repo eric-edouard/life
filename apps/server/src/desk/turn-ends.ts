@@ -53,21 +53,13 @@ export const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   title: `Agent: ${a.name ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });
 
-const turnsIn = (sets: WeakMap<Desk["db"], Set<number>>, db: Desk["db"]) => {
-  const turns = sets.get(db) ?? new Set<number>();
-  sets.set(db, turns);
-  return turns;
-};
 /** The turns whose run this process watches end (`Run.ended`): any other open turn was started before a restart. */
 const watched = new WeakMap<Desk["db"], Set<number>>();
-const watchedIn = (db: Desk["db"]) => turnsIn(watched, db);
-/**
- * The turns whose run ended with neither a wait nor `finish` while his app held the session (`SessionLive`): each stays
- * open, owed its one reminder, which `endLostTurns` sends once the session is idle.
- * ponytail: kept in memory; after a restart such a turn ends failed and is retried, so the agent is still woken.
- */
-const owed = new WeakMap<Desk["db"], Set<number>>();
-const owedIn = (db: Desk["db"]) => turnsIn(owed, db);
+function watchedIn(db: Desk["db"]) {
+  const turns = watched.get(db) ?? new Set<number>();
+  watched.set(db, turns);
+  return turns;
+}
 
 /**
  * Marks turn `turn` under way, once, and counts a try for each event queued before it was written (what it was handed):
@@ -131,18 +123,9 @@ function close(
 ) {
   const { db } = desk;
   watchedIn(db).delete(t.id);
-  owedIn(db).delete(t.id);
   const ended = db.run(
-    "update turn set ended_at = ?, outcome = ?, tokens_in = ?, tokens_cached = ?, tokens_out = ?, context_used = ? where id = ? and ended_at is null",
-    [
-      now(),
-      outcome,
-      usage?.tokensIn ?? null,
-      usage?.tokensCached ?? null,
-      usage?.tokensOut ?? null,
-      usage?.contextLast ?? null,
-      t.id,
-    ]
+    "update turn set ended_at = ?, outcome = ? where id = ? and ended_at is null",
+    [now(), outcome, t.id]
   ).changes;
   keepHanded(db, t, ended > 0 && outcome !== "failed");
   if (ended === 0 || outcome === "notes") {
@@ -163,6 +146,29 @@ function close(
     [now(), t.assignment_id]
   );
   return true;
+}
+
+/** Adds a run's tokens to open turn `turn`'s (a reminded turn runs twice); its context is its last run's. */
+function addUsage(db: Desk["db"], turn: number, usage: Usage | undefined) {
+  const [tokensIn, cached, out] = [
+    usage?.tokensIn ?? null,
+    usage?.tokensCached ?? null,
+    usage?.tokensOut ?? null,
+  ];
+  // coalesce(run + kept, run, kept): the sum, else whichever is known.
+  db.run(
+    "update turn set tokens_in = coalesce(? + tokens_in, ?, tokens_in), tokens_cached = coalesce(? + tokens_cached, ?, tokens_cached), tokens_out = coalesce(? + tokens_out, ?, tokens_out), context_used = coalesce(?, context_used) where id = ? and ended_at is null",
+    [
+      tokensIn,
+      tokensIn,
+      cached,
+      cached,
+      out,
+      out,
+      usage?.contextLast ?? null,
+      turn,
+    ]
+  );
 }
 
 /**
@@ -192,7 +198,7 @@ function afterFailure({ db }: Desk, a: AgentRow, s: AssignmentRow) {
 /**
  * The run of desk turn `turn` ended (`failed` when it did); nothing when that turn is already closed, so a late end never
  * touches the turn after it. A turn ends by `set_wait` or `finish`; with neither, the desk reminds it once, then sets
- * the default wait. The turn's tokens are the run's own (`RunEnd.usage`).
+ * the default wait. The turn's tokens are its runs' (`RunEnd.usage`).
  */
 export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
   const { db } = desk;
@@ -203,6 +209,7 @@ export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
     return;
   }
   const { usage } = end;
+  addUsage(db, t.id, usage);
   // A move's notes turn ends as written, however its run ended: no reminder, no default wait, no retry.
   if (t.cause === MOVE_NOTES) {
     close(desk, t, "notes", usage);
@@ -245,7 +252,8 @@ export async function turnEnded(desk: Desk, turn: number, end: RunEnd) {
 
 /**
  * Reminds turn `t` of `a` once to set a wait or finish, when it ended with neither: whether it was (the turn then runs
- * on). While his app holds the session the turn stays open, owed its reminder (`owed`): never closed for a hold.
+ * on). While his app holds the session the turn stays open, its outcome `default_wait` until the reminder is sent, so a
+ * hold never closes it: `endLostTurns` sends it once the session is idle, after a restart too.
  */
 async function isReminded(desk: Desk, t: TurnRow, a: AgentRow) {
   const runtime = desk.runtimes[a.runtime];
@@ -262,9 +270,11 @@ async function isReminded(desk: Desk, t: TurnRow, a: AgentRow) {
       return true;
     } catch (error) {
       if (error instanceof SessionLive) {
-        desk.db.run("update turn set reminded_at = null where id = ?", [t.id]);
+        desk.db.run(
+          "update turn set reminded_at = null, outcome = 'default_wait' where id = ?",
+          [t.id]
+        );
         watchedIn(desk.db).delete(t.id);
-        owedIn(desk.db).add(t.id);
         return true;
       }
       log("desk.runtime", {
@@ -292,12 +302,20 @@ const eachOpenTurn = (
 
 /**
  * Ends the desk turns this process does not watch and whose runtime runs nothing now (started before the helper or the
- * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; one owed its reminder (`owed`)
- * is reminded. One still running (a session of his, or a killed turn's CLI not yet exited) is left to the begin limit;
- * a runtime that can't say now is looked at again at the next poll.
+ * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; one whose reminder waits for his
+ * app's hold (`isReminded`) is reminded. One still running (a session of his, or a killed turn's CLI not yet exited) is
+ * left to the begin limit; a runtime that can't say now is looked at again at the next poll. A reminder that waits on an
+ * agent stopped or ended since is dropped: its turn ends with the default wait.
  */
 export async function endLostTurns(desk: Desk) {
   const watching = watchedIn(desk.db);
+  for (const { id } of desk.db
+    .query<{ id: number }, []>(
+      "select t.id from turn t join agent a on a.id = t.agent_id where t.ended_at is null and t.outcome = 'default_wait' and a.status <> 'active'"
+    )
+    .all()) {
+    await turnEnded(desk, id, { ok: true });
+  }
   await eachOpenTurn(desk, async (a, t, runtime) => {
     if (watching.has(t.id)) {
       return;
@@ -307,9 +325,7 @@ export async function endLostTurns(desk: Desk) {
         ? await runtime.state(t.session).catch(() => null)
         : "gone";
     if (state === "idle" || state === "gone") {
-      await turnEnded(desk, t.id, {
-        ok: !!t.outcome || owedIn(desk.db).has(t.id),
-      });
+      await turnEnded(desk, t.id, { ok: !!t.outcome });
       // A reminder sent just now runs on: it is watched again.
       if (!watching.has(t.id)) {
         await stopOpenRun(desk, a.id, t);

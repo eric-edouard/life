@@ -7,7 +7,9 @@ import {
   turnOf,
 } from "../host/desk-read";
 import { register } from "./agent-actions";
+import { MAX_HANDED } from "./agent-wait";
 import { wakeDue } from "./desk-clock";
+import { openDesk } from "./desk-store";
 import { setup } from "./test-desk";
 import { endLostTurns, turnEnded, watch } from "./turn-ends";
 
@@ -67,26 +69,71 @@ test("a run that begins after its turn was closed counts no event as handed", as
   ).toBe(0);
 });
 
-// Regression (#912): a turn that ended with neither a wait nor `finish` while his app held the session lost its reminder.
-test("a turn ending with neither while his app holds the session is reminded once, when the session is idle", async () => {
-  const { desk, fake } = setup();
+/** An agent whose first turn's run ends with neither a wait nor `finish` while his app holds its session (#912). */
+async function heldAtTheEnd() {
+  const made = setup();
+  const { desk, fake, queue } = made;
   const agent = register(desk, { brief: "Test brief", runtime: "fake" });
   await wakeDue(desk);
-  const ref = agentOf(desk.db, agent)?.session ?? "";
   const turn = openTurn(desk.db, agent)?.id ?? 0;
-  const session = fake.sessions.get(ref);
+  queue(agent, "evt_test");
+  // Handed to its last try: a turn closed now would drop it.
+  desk.db.run("update event set handed = ?", [MAX_HANDED]);
+  // The run ends; his app holds the session (it reads as running).
+  await turnEnded(desk, turn, { ok: true, usage: { tokensOut: 5 } });
+  const session = fake.sessions.get(agentOf(desk.db, agent)?.session ?? "");
   const reminders = () =>
     fake.said.filter((m) => m.message.startsWith("Before you stop")).length;
-  // The run ends; his app holds the session (it reads as running).
-  await turnEnded(desk, turn, { ok: true });
+  const release = () => {
+    if (session) {
+      session.running = false;
+    }
+  };
+  return { ...made, agent, release, reminders, turn };
+}
+
+// Regression (#912): a turn that ended with neither while his app held the session lost its reminder, and could drop
+// its events.
+test("a turn ending with neither while his app holds the session is reminded once, when the session is idle", async () => {
+  const { agent, desk, eventRow, release, reminders, turn } =
+    await heldAtTheEnd();
   expect(turnOf(desk.db, turn)?.ended_at).toBeNull();
   await endLostTurns(desk);
   expect(reminders()).toBe(0);
-  if (session) {
-    session.running = false;
-  }
+  release();
   await endLostTurns(desk);
   await endLostTurns(desk);
   expect(reminders()).toBe(1);
   expect(openTurn(desk.db, agent)?.id).toBe(turn);
+  expect(eventRow(agent, "evt_test")?.dropped_at).toBeNull();
+});
+
+test("a reminder held by his app survives a restart of the desk", async () => {
+  const { agent, desk, eventRow, path, release, reminders } =
+    await heldAtTheEnd();
+  const restarted = { ...desk, db: openDesk(path) };
+  release();
+  await endLostTurns(restarted);
+  expect(reminders()).toBe(1);
+  expect(eventRow(agent, "evt_test")?.dropped_at).toBeNull();
+});
+
+test("a reminder held by his app is dropped when he stops the agent: its turn ends with the default wait", async () => {
+  const { agent, desk, reminders, turn } = await heldAtTheEnd();
+  desk.db.run("update agent set status = 'stopped' where id = ?", [agent]);
+  await endLostTurns(desk);
+  expect(reminders()).toBe(0);
+  expect(turnOf(desk.db, turn)?.outcome).toBe("default_wait");
+  expect(turnOf(desk.db, turn)?.ended_at).not.toBeNull();
+});
+
+test("a reminded turn's tokens are both runs'", async () => {
+  const { agent, desk, fake, release, turn } = await heldAtTheEnd();
+  release();
+  await endLostTurns(desk);
+  fake.exit(agentOf(desk.db, agent)?.session ?? "", true, {
+    usage: { tokensOut: 7 },
+  });
+  await Bun.sleep(0);
+  expect(turnOf(desk.db, turn)?.tokens_out).toBe(12);
 });
