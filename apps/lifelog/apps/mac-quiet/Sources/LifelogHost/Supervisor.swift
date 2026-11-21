@@ -178,13 +178,10 @@ final class Supervisor {
         _ = await alive(20)
     }
 
+    /// Opened to append (`O_APPEND`), so Life's one rotation rule (`rotateProcessLogs`) can empty it while the child writes.
     private func log(_ child: Child) -> FileHandle? {
-        if !FileManager.default.fileExists(atPath: child.log.path) {
-            FileManager.default.createFile(atPath: child.log.path, contents: nil)
-        }
-        let handle = try? FileHandle(forWritingTo: child.log)
-        handle?.seekToEndOfFile()
-        return handle
+        let fd = open(child.log.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+        return fd < 0 ? nil : FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
 }
 

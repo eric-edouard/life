@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { isoDateTime } from "../records/fields";
 import type { SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
@@ -161,7 +162,7 @@ export function writeExchangeCounts(
     return { exchanges: Object.values(people).flat().length, failed: 0 };
   } catch (e) {
     log("run.error", {
-      error: (e as Error).message,
+      ...errorOf(e),
       step: "memory.exchange-counts",
     });
     return { exchanges: 0, failed: 1 };
@@ -174,3 +175,11 @@ export function writeExchangeCounts(
  */
 export const readExchangeCounts = () =>
   Stored.safeParse(readJson(EXCHANGE_COUNTS)).data ?? null;
+
+/** A ref's last counted exchange (its newest start) in the counts read once; undefined: none counted. */
+export const lastExchangeAtOf =
+  (counted: ReturnType<typeof readExchangeCounts>) => (ref: string) =>
+    (counted?.people[ref] ?? [])
+      .map((r) => r.start)
+      .toSorted()
+      .at(-1);

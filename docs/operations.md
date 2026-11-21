@@ -35,7 +35,8 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 - What stays bounded: the nightly deletes each run's model files and each eval's judge calls (`LIFE_STATE_DIR/memory/runs`, `/evals`) after 30 days and the
   event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each
-  `~/Library/Logs/life-*.log` becomes `life-*.old.log` past 10 MB when its process starts; a bridge
+  process log in `~/Library/Logs` (`life-*`, `lifelog-*`, `com.ericedouard.life.*`) past 10 MB is copied to its `.old.log`
+  and emptied in place by the watcher's minute (`rotateProcessLogs`; both apps' supervisors open them to append); a bridge
   logs to its own capped `logs/bridge.log`, only its errors to the bridges job's log. The backup hashes only files whose
   size or mtime changed since the last staging (`stage`'s `previous`).
 
@@ -337,7 +338,7 @@ first.
 - It says which days it read, counts as new only observations whose source line was first cited since the last good
   night (`newSince`: a re-read announces nothing again), and has Done (the matters that ended on its day, and how:
   `doneOf`, also in `read_day`), Actions, Code (yesterday's commits by project) and "Last backup" sections.
-- Its Agents section ends, after the desk health rows (`host/desk-health.ts`: the oddities, the agent coverage, the number of matters that need him with last night's from the nightly's `run.end`), with the tokens of the agents' turns that ended since the last report (`tokensSince`, every row): one row per day of his (`localDate`) and one per matter (by its id), "no matter" for an agent anchored on none. Before them, when the desk handed out any matter since the last report (`handOutRowsOf`, every row): how many started and how many have an answered card, then one row for each that never began or ended having asked no card (worked out from the agent rows and the decisions), by its matter's name and why.
+- Its Agents section ends with the tokens of the agents' turns that ended since the last report (`tokensSince`, every row): one row per day of his (`localDate`) and one per matter (by its id), "no matter" for an agent anchored on none; then the desk health rows (`host/desk-health.ts`: the oddities, the agent coverage, the number of matters that need him with last night's from the nightly's `run.end`); then the people rows (`peopleRowsOf`): Life's guesses, not folded, with no live evidence unit left (against the night's own read of the live units); of his directory changed since the last report (`readDirectoryChangesSince`: one `git log -1` and two `git show`s of one commit), a person with no handle and an organization with nobody linked; a current link to an organization with no counted exchange in a year, the night its year runs out (his days) or when the link changed, and only from counts built that night. Before them, when the desk handed out any matter since the last report (`handOutRowsOf`, every row): how many started and how many have an answered card, then one row for each that never began or ended having asked no card (worked out from the agent rows and the decisions), by its matter's name and why.
 
 ## Measuring
 

@@ -8,7 +8,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { clock } from "../core/clock";
 import { digest } from "../core/hash";
+import { logEvents, logFileOf } from "../core/log";
 import type { SourceEvent } from "../records/source";
 import { ME } from "../records/truth";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
@@ -602,6 +604,30 @@ test("a failure before the hand-off is not sent, whatever it says: the archive's
   )) as Error;
   expect(failed.message).toBe("not sent: database is locked");
   expect(send).not.toHaveBeenCalled();
+});
+
+test("each try of a send is one `draft.send` line: its outcome and channel, never the chat or the error's words", async () => {
+  const day = logFileOf(clock().toISOString());
+  const before = logEvents(day, "draft.send").length;
+  const sent = source("sendnet", [ana()], false);
+  const stored = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "Test Ana" },
+    NOW,
+    [sent]
+  );
+  await sendDraft(stored, "dec_a", { since: NOW }, [sent]);
+  const lost = source("sendnet", [ana()], false, undefined, () =>
+    Promise.reject(new Error("bridge went quiet"))
+  );
+  await sendDraft(stored, "dec_b", { since: NOW }, [lost]).catch(() => null);
+  await sendDraft(stored, "dec_c", { since: NOW }, []).catch(() => null);
+  const lines = logEvents(day, "draft.send").slice(before);
+  expect(lines).toMatchObject([
+    { channel: "sendnet", id: "dec_a", ok: true, outcome: "sent" },
+    { id: "dec_b", ok: false, outcome: "may have gone" },
+    { id: "dec_c", ok: false, outcome: "not sent" },
+  ]);
+  expect(JSON.stringify(lines)).not.toContain("Ana");
 });
 
 test("a subject is a chat's only when its source opens chats with one (a new issue's title); WhatsApp-like chats still refuse it", async () => {

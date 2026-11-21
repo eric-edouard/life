@@ -129,7 +129,7 @@ What only he can do (a payment by his hand, a call) an agent asks as a card whos
 
 An agent that finished a step of a matter closes it itself: a promise, a wait or a to-do note (an observation) with `correct_memory`, kind `outdated`, its id and a note of what was done; one of his to-do items with `change_todo_item`. It shows that night as done (`read_day`'s Done, the email's Done); he is not asked (his decision of 16 Nov 2026: Life should cut his load, and "is this done?" is load). An agent follows a matter by one of its records, never by the matter's id alone: a re-group gives matters new ids, and `read_matter` opens the matter holding a record.
 
-Agents are created only on his word: a project's, or the Personal agent (one at most, `personal: true`; its home `<agentsRepo>/personal/`). A matter goes to the agent that takes it (`agentForOf`, `memory/held-matters.ts`): the oldest active agent of the project it shows under (`projectOf`; his `matter-project` word first, `correct_memory` with `matter`), else the Personal agent, else none; his Start on a matter opens an assignment of that agent, his words its `said`. Every matter sits with that agent (the assignment fold, `foldAssignments`, `desk/matter-net.ts`, on the desk's message poll): an open matter assignment another agent holds moves to it once its agent has no turn running, with its wait, notes file and cards (his next answer wakes the new agent with the matter's record), and an agent left with nothing open ends "folded into the <name> agent". So a matter moves from the Personal agent to a project's new agent by itself.
+Agents are created only on his word: a project's, or the Personal agent (one at most, `role: "personal"`; its home `<agentsRepo>/personal/`). A matter goes to the agent that takes it (`agentForOf`, `memory/held-matters.ts`): the oldest active agent of the project it shows under (`projectOf`; his `matter-project` word first, `correct_memory` with `matter`), else the Personal agent, else none; his Start on a matter opens an assignment of that agent, his words its `said`. Every matter sits with that agent (the assignment fold, `foldAssignments`, `desk/matter-net.ts`, on the desk's message poll): an open matter assignment another agent holds moves to it once its agent has no turn running, with its wait, notes file and cards (his next answer wakes the new agent with the matter's record), and an agent left with nothing open ends "folded into the <name> agent". So a matter moves from the Personal agent to a project's new agent by itself.
 
 The desk also gives a matter to an agent itself, the hand-out (his word of 20 Nov 2026, `handOutNext`, `desk/hand-out-tick.ts`): only with `desk.handOut` set in his settings (`cardsWaiting`, `aDay`), at most one per look and one look per 10 minutes, on the first matter of his ranking (`readHandOutMatters`; a matter whose projects are all parked ranks last and is skipped) that passes `handOutGateOf` (`memory/read-matters.ts`, one gate for the hand-out and the new matter check: next step `do`, project not parked, direction not due since news may have overtaken it, not dismissed, not held, one of his (`isOneOfHis`: it involves someone he knows, `isKnownToHim`, never one only Life inferred, or holds an open step he said himself), and an agent takes it). It starts no agent: it opens an assignment (by `desk`) on the agent that takes the matter. "Held" is one rule for the hand-out and the new matter check (`isHeldOf`, `memory/held-matters.ts`, over the desk's anchors as facts, `heldByAgents`): an active or stopped agent's assignment holds its matter; one that closed holds it until the matter has a step newer than its close, so a try is not repeated on a matter nobody moved; one closed because its matter looked over holds nothing, nor one he asked for that never began. Only agents active, stopped or ended in the last 90 days are read (`HOLD_DAYS`): a try older than that may be repeated once, accepted to keep the read bounded; the inbox keys on a stamp of them (`heldStampOf`), never the list. A project's agent holds only what is assigned to it. While the hand-out is on, a new matter of his own gets no "Start an agent on this?" (the hand-out takes it); one that is not his still does. No hand-out while `cardsWaiting` of his agents' cards are in his inbox (`openChecksNow`: a card his inbox hides, its matter closed, does not count) or `aDay` given on his day. No word of his is recorded; its first turn reads, then asks one card (the prepared step, what only he can do, or that it looks over), and every send still needs his yes on that card. A handed-out assignment whose first turn began and asked no card within 2 hours is closed (`endAgentsWithoutCard`, `isCardOverdue`, through `closeAssignment`, which stops its run) with the outcome "no card within 2 hours", measured from its first turn's beginning, and its matter stays held like any closed try; one whose first turn never began holds its matter too (`isHeldOf`), so neither is tried again before the matter moves. Its agent stays: a standing agent's own assignment keeps it. The Personal agent may draft to a project's work contacts until that project has its own agent.
 
@@ -171,7 +171,10 @@ takes authority away.
 A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `pastCalendar` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
 properties `lifeEpisode` and `lifeHash`. A changed episode is updated in place, a gone one deleted; events without
-`lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. It reads nothing back and never alerts. If that calendar ever becomes a source, its
+`lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. An event's location is where he
+stayed most of it (else the episode's place), with one-tap Google and Apple Maps links at the end of its description, never clipped (`mapLinksOf`,
+`calendar-events.ts`: by coordinates when Life has them, else by name); a new description layout (`LAYOUT`) writes
+every event again, one call at a time. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeEpisode` are Life's output and must be dropped.
 
 ## Appointments
@@ -180,19 +183,26 @@ His request of 8 Nov 2026: what he is due at, from any channel, in his own calen
 week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads his active facts ahead (plans and
 bookings, never a hypothesis; recent undated plans too) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
 a later message (his tickets) moves the same appointment, which keeps its id by the facts it shares; a guessed time
-says so. `syncAppointments`
-(`apps/server/src/host/appointments-calendar.ts`, the `appointmentsCalendar` setting: account and calendar) brings that
-calendar in line each tick, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
+says so. By day, an appointment agreed in new lines (his word of 21 Nov 2026: the arrival reader's `arrival_appointment`
+read, `memory/arrival-appointments.ts`) joins them within minutes; the night takes over its id when its facts cite the
+same messages. `syncAppointments`
+(`apps/server/src/host/appointments-calendar.ts`, the `appointmentsCalendar` setting: account and calendar), run only by
+the watcher, every 30 minutes, brings that calendar in line, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
 `calendar-events.ts`), touching only events with `lifeOutput=appointments`:
 
-- Until confirmed an event is titled `(Life) …` and shown as free. An agent confirms one with him by setting the
+- Until confirmed an event is titled `(Life) …` and shown as free; one he agreed in new lines (the arrival's) is busy
+  at once (his word of 21 Nov 2026). An agent confirms one with him by setting the
   private property `lifeConfirmed=yes` (`gog calendar update <cal> <id> --private-prop=lifeConfirmed=yes`); Life keeps
   amending it, without the mark, as busy.
 - One deleted by him or an agent is his no: recorded `refused` (`appointment-events.jsonl`); no appointment citing all
   its facts is written again. One Life deletes is recorded `removed`, so it may come back.
+- Its first event pushes `calendar.added` (his `notifications` setting's `calendar`, quiet by default) with an opaque id;
+  the phone reads the event from the connector and writes the words. An arrival's event names the
+  unit it was read from and a meeting link copied exactly (https only), and stays until it ends.
 - Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
   while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot
   change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
+- Its location is the appointment's place, with Google and Apple Maps links by name in the description (`mapLinksOf`).
 - Only a popup reminder, never mail (it would come back as a message). No guests, no invites sent.
 - An event that ended is never touched.
 
@@ -223,8 +233,8 @@ permission.
   `message.received` with the arguments an agent filters on (`person`, `channels`, `chat`, `from_me`, `text_matches`),
   `events/poll` returns what matched past the agent's cursor: who, where and when, never the text (`events.ts`). Any
   paired app may poll. `decision.answered`, `decision.lapsed` and `decision.withdrawn`: a paired agent's own decisions settled since its cursor (an
-  instant; `request_decision` returns one), with his answer, its `onSilence`, or why Life withdrew it (he answered in its
-  draft's chat himself: the watcher reads each open draft card's chat every 30 s, `withdrawDraftsAnsweredInChat`), all in one page (`settledBetween`). A second card with a draft into a chat an open card's draft names is refused when asked. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
+  instant; `request_decision` returns one), with his answer, its `onSilence`, or why Life withdrew it (another card took its place, `replacedBy`, or he answered in its
+  draft's chat himself: the watcher reads each open draft card's chat every 30 s, `withdrawDraftsAnsweredInChat`), all in one page (`settledBetween`). A card with a draft into a chat another asker's open card holds waits on it (`waits` in the result: `on`, `until`, `why`; state `waiting`, not in his inbox): the holder hears `draft.contested` (a registered agent, at once, facts only), reads it (`read_card` at its door) and yields (withdraws its own), merges (`merges`: one card for both) or keeps (`keep` with `why`; the waiting card's agent hears `draft.kept`); silent 10 minutes, it is asked with `replaces` (the card shows "replaces an older draft"), and his Send of a card withdraws every other card into its chat (`replacedBy`, heard as `decision.withdrawn`); a send that runs holds the chat. The same asker's second card into its own card's chat, or a card into a chat where one waits, is refused. A paired agent or his own app's session is not woken: it reads the result's `waits`. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
   tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT).
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code

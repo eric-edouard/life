@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hasAddOn } from "../../core/add-ons";
 import { clock } from "../../core/clock";
 import { log } from "../../core/log";
+import { LOG_LEVELS } from "../../core/log-line";
 import { OWNER_ASKER } from "../../core/names";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
@@ -22,11 +23,10 @@ import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
 import { oneMatter } from "../../memory/read-matters";
 import { offersOf } from "../../memory/read-person-page";
-import { runs } from "../../memory/run-log";
+import { readLogLines, readResourceSamples, runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { enabledSources } from "../../memory/sources";
 import { recordToldLife } from "../../memory/told-life";
-import { clip } from "../../memory/units";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import { personalParts } from "../../personal/person-parts";
@@ -81,8 +81,8 @@ import { text } from "./http";
 import { personPicturesTool } from "./mcp-people";
 import {
   agentIn,
+  argNamesOf,
   callerOf,
-  cut,
   READERS,
   REVERSIBLE,
   type ToolCall,
@@ -324,6 +324,36 @@ export function buildServer(readsOnly = false) {
   );
   if (!readsOnly) {
     personPicturesTool(server);
+    // His app's live log; never on the question cases' tokenless server.
+    tool(
+      server,
+      "read_log_lines",
+      'His token only. For his app\'s live log, not for questions about his life: Life\'s event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `["desk","turn"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer.',
+      z.object({
+        cursor: z.string().optional(),
+        limit: z.int().min(1).max(100).optional().describe("Default 50"),
+        min_level: z.enum(LOG_LEVELS).optional().describe("Default info"),
+        process: z.string().optional().describe("A category's first word"),
+      }),
+      ({ cursor, limit, min_level: minLevel, process }, agent) => {
+        if (agent) {
+          throw new Error(NOT_HIS);
+        }
+        return readLogLines({ cursor, limit, minLevel, process });
+      }
+    );
+    tool(
+      server,
+      "read_resource_samples",
+      "His token only. What loads his Mac, for his app, not for questions about his life (JSON): `hour`, the last hour's samples at one a minute, oldest first, and `latest`. A sample: `time`; `procs`, per group of Life's processes (`life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>`) `[cpu %, rss MB]`; `load` (1, 5, 15 min), `memFree` (%), `swapMb`, `diskFreeGb`, `battery` (%), `power` (`ac`, `battery`), `thermal` (`nominal` or a warning level); any of them null when its tool failed.",
+      z.object({}),
+      async (_, agent) => {
+        if (agent) {
+          throw new Error(NOT_HIS);
+        }
+        return await readResourceSamples();
+      }
+    );
   }
   tool(
     server,
@@ -464,7 +494,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), in order (what blocks, then what improves; in each, deadlines first, soonest first; then a decision, oldest first; an unnamed voice, an unplaced name or card, together (these block); a guess in use, a new matter, \"is this done?\"; a matter's asks follow its first one); `counts` by group, `total`, `blocking` (how many block: the badge), `deadlinesToday` (how many are due by the end of his day). Every open ask is here: the decisions his agents ask (`decision`), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, its `words` ([start, end, length] in ms from the clip start, `TimedWords`); a voice, a name or a Contacts card's `likelyPeople`, who it may be, as parties (as `read_matters`' people); a person check's `networkIdentity`, who it is as their network shows them, from their newest 1:1 chat (a decision's draft has one too, from the chat it stored, with no message read: its `newest` is null), and a `contacts card`'s own `contactsCard` (`name`, `handles`; null on every other kind): `network`, `handle`, `shownName`, `chat` (as `read_chats` takes it), `newest` message (`by`, `at`, `text`) and `openUrl`, the network's own link to the chat (WhatsApp's `wa.me`), else null, and `party`, who Life holds the account to be, absent when no one), a step Life thinks is done (`ending`) and a running matter Life found that an agent could move (`new matter`, with its `goal`: start one on it, edit its goal, or dismiss it; also on `read_matter`'s `checks`). Each card's `urgency` is `blocks` (a worker waits on him, or Life cannot answer at all) or `improves` (Life already uses its guess, or asks whether a step is done: lower priority, never hidden). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `confirm` (on a decision whose draft goes to someone Life only guesses: that guess, one check asked beside it), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward, `looks` on one that makes Life look for the step done; with two or more, the first is recommended; what each does: `answer_check`), `needs` (what he needs in hand: each fact with `line`, Life's words of it), `doneSeenBy` (`payment`: Life looks in his accounts; `tap`: only his word) and `doneSeen` (`not_found`: Life did not see the step his last `looks` pick said was done, with Life's `line`), `context` (Markdown: why it asks, what was tried; its `life:<ref>` links open with `fetch`), `lifeLinks` (each of those links, `ref` and its `kind`: ask, conversation, file, matter, message, observation, person, turn or unit), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. `misread` (on Life's own cards only: what his \"Wrong…\" sends back with his words, `answer_check`) and `beingFixed` (his complaint the caretaker is at work on: `ask`, `since`, `line`; such a card no longer blocks). Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check` (his word that a card of Life's is wrong: its `misread`), and anything new he says with `tell_life`. Answered ones leave: read again for the next. `pushId` (from a push): just that card (none if answered), `limit` ignored. `version`: the inbox's; its order holds while it does, so `after` (the last card's `ref`) alone reads the next page; pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed (never with `after`: that page would not come).",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), in order (what blocks, then what improves; in each, deadlines first, soonest first; then a decision, oldest first; an unnamed voice, an unplaced name or card, together (these block); a guess in use, a new matter, \"is this done?\"; a matter's asks follow its first one); `counts` by group, `total`, `blocking` (how many block: the badge), `deadlinesToday` (how many are due by the end of his day). Every open ask is here: the decisions his agents ask (`decision`), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, its `words` ([start, end, length] in ms from the clip start, `TimedWords`); a voice, a name or a Contacts card's `likelyPeople`, who it may be, as parties (as `read_matters`' people); a person check's `networkIdentity`, who it is as their network shows them, from their newest 1:1 chat (a decision's draft has one too, from the chat it stored, with no message read: its `newest` is null), and a `contacts card`'s own `contactsCard` (`name`, `handles`; null on every other kind): `network`, `handle`, `shownName`, `chat` (as `read_chats` takes it), `newest` message (`by`, `at`, `text`) and `openUrl`, the network's own link to the chat (WhatsApp's `wa.me`), else null, and `party`, who Life holds the account to be, absent when no one), a step Life thinks is done (`ending`) and a running matter Life found that an agent could move (`new matter`, with its `goal`: start one on it, edit its goal, or dismiss it; also on `read_matter`'s `checks`). Each card's `urgency` is `blocks` (a worker waits on him, or Life cannot answer at all) or `improves` (Life already uses its guess, or asks whether a step is done: lower priority, never hidden). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `confirm` (on a decision whose draft goes to someone Life only guesses: that guess, one check asked beside it), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward, `looks` on one that makes Life look for the step done; with two or more, the first is recommended; what each does: `answer_check`), `needs` (what he needs in hand: each fact with `line`, Life's words of it), `doneSeenBy` (`payment`: Life looks in his accounts; `tap`: only his word) and `doneSeen` (`not_found`: Life did not see the step his last `looks` pick said was done, with Life's `line`), `context` (Markdown: why it asks, what was tried, the words a guess of Life's rests on quoted as `> …` then `*where*`; its `life:<ref>` links open with `fetch`), `lifeLinks` (each of those links, `ref` and its `kind`: ask, conversation, file, matter, message, observation, person, turn or unit), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. `misread` (on Life's own cards only: what his \"Wrong…\" sends back with his words, `answer_check`) and `beingFixed` (his complaint the caretaker is at work on: `ask`, `since`, `line`; such a card no longer blocks). Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check` (his word that a card of Life's is wrong: its `misread`), and anything new he says with `tell_life`. Answered ones leave: read again for the next. `pushId` (from a push): just that card (none if answered), `limit` ignored. `version`: the inbox's; its order holds while it does, so `after` (the last card's `ref`) alone reads the next page; pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed (never with `after`: that page would not come).",
     z.object({
       after: z.string().optional().describe("A card's ref: the page after it"),
       ifNot: IfNot,
@@ -488,7 +518,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "change_registered_agent",
-    "Only for what he asked in this chat, `said` his own words verbatim: start on a matter (`step`: the matter's id or a step's; it goes to the agent that takes it: its project's, else the Personal agent; his words, verbatim, are its goal, saved as his), or start a new agent on a project (in `folder`, else its project's repo, else a folder of its own) or as the Personal agent (`personal`, one at most), with `name`, `runtime`, `model`, `effort`, else the desk's defaults, his words its brief; `stop` or `resume` one; `re_point` it to another subject (`personal`: an agent he started becomes the Personal agent, refused while another is); `rename` it (`name`); `change_model`. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    "Only for what he asked in this chat, `said` his own words verbatim: start on a matter (`step`: the matter's id or a step's; it goes to the agent that takes it: its project's, else the Personal agent; his words, verbatim, are its goal, saved as his), or start a new agent on a project (in `folder`, else its project's repo, else a folder of its own) or as the Personal agent (`role` `personal`, one at most), with `name`, `runtime`, `model`, `effort`, else the desk's defaults, his words its brief; `stop` or `resume` one; `re_point` it to another subject (`role` `personal`: an agent he started becomes the Personal agent, refused while another is); `rename` it (`name`); `change_model`. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
     (a, agent, call) => {
       if (agent) {
@@ -501,14 +531,14 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "request_decision",
-    `Ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push to his phone). The one way to send a message for him: its \`draft\`, sent when he picks its outgoing option, on his phone or, in his own app, by \`answer_check\` once he approved the exact text in this chat. ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. Returns its id, and to an agent a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
+    `Ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push to his phone). The one way to send a message for him: its \`draft\`, sent when he picks its outgoing option, on his phone or, in his own app, by \`answer_check\` once he approved the exact text in this chat. ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. A draft into a chat another asker's open card holds waits on it (the result's \`waits\`): asked once that card settles, or after 10 minutes, replacing it (his Send withdraws it). Holding a chat yourself, \`keep\` a card waiting on yours (its id, with \`why\`), or ask one card for both with \`merges\` (its id). Returns its id, and to an agent a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
     DecisionRequest,
-    async ({ withdraw, why, ...ask }, agent) => {
+    async ({ keep, withdraw, why, ...ask }, agent) => {
       // Taken before the ask, so its answer is past the cursor.
       const cursor = agent && decisionCursorOf(clock());
       const asked = await requestDecision(
         agent ?? OWNER_ASKER,
-        withdraw ? { why, withdraw } : ask
+        withdraw || keep ? { ...(keep ? { keep } : { withdraw }), why } : ask
       );
       return cursor ? { ...asked, cursor } : asked;
     },
@@ -677,7 +707,7 @@ export function buildServer(readsOnly = false) {
       const result = await pollEvents(params, agentIn(ctx.http?.authInfo));
       log("mcp.call", {
         ...callerOf(ctx.http?.authInfo),
-        args: cut(params),
+        args: argNamesOf(params),
         ids: result.events.map((e) => e.eventId),
         ms: Math.round(performance.now() - started),
         tool: "events/poll",
@@ -694,10 +724,9 @@ export function buildServer(readsOnly = false) {
 export function createMcp(verify: Verify, issuer: string) {
   const { metadata, resource } = connector();
   const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
-  // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
+  // The SDK's own rejections (a request it refuses before any handler) are logged by their class: its text can quote the request.
   const handler = createMcpHandler(() => buildServer(), {
-    onerror: (e) =>
-      log("mcp.call", { error: true, refused: clip(e.message, 300) }),
+    onerror: () => log("mcp.call", { error: true, refused: "rejected" }),
   });
   /** The owner's token (its OAuth client, for the log), or why the request is refused; with the token either way. */
   async function authorize(req: Request) {
@@ -733,8 +762,7 @@ export function createMcp(verify: Verify, issuer: string) {
       }
       // A refused token is logged, never its body; none at all is OAuth discovery or a probe.
       if (auth.token) {
-        const refused = clip(`${auth.refusal}: ${auth.why}`, 300);
-        log("mcp.call", { error: true, refused });
+        log("mcp.call", { error: true, refused: auth.refusal });
       }
       return denied(auth);
     })

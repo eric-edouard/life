@@ -1,5 +1,6 @@
 import { type Embedder, embedBatches, similarityOf } from "../core/embedder";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { MATTER_ICONS, type MatterIconKey } from "../records/matter-icon";
 import { type MatterView, matterTextOf } from "./matter-read";
 import { embedderNow } from "./vectors";
@@ -108,7 +109,7 @@ async function pickAll(
     workEnded += 1;
     if (!hasLogged) {
       hasLogged = true;
-      log("matter.icons", { error: String(error), ok: false });
+      log("matter.icons", { ...errorOf(error), ok: false });
     }
   }
 }

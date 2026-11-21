@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { take } from "../core/lock";
+import { flagsOf } from "../host/agents-now";
 import {
   agentOf,
   currentAssignmentOf,
-  flagsOf,
   heldByAgents,
   holderOf,
   openTurn,
@@ -23,7 +23,6 @@ import { LOCK } from "../memory/memory-lock";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
 import { BEGIN_WITHIN_MS } from "./agent-wait";
 import {
-  endLostTurns,
   pollAnswers,
   pollMessages,
   readPeopleOnce,
@@ -32,6 +31,7 @@ import {
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { ANA, advance, ahead, asgOf, on, setup, started } from "./test-desk";
+import { endLostTurns } from "./turn-ends";
 
 /** Whether the hold rule holds a matter of one step, `step`, whose newest step is at `at` (the start of time by default). */
 const holds = (desk: Desk, step: string, at = "") =>

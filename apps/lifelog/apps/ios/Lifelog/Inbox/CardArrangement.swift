@@ -70,7 +70,8 @@ private struct AnswersRow<Row: View>: ViewModifier {
     }
 }
 
-/// What a card rests on: why Life asked, then its matter (goal, next step, newest steps) and the way into it.
+/// What a card rests on: its context, the same Markdown as the context sheet's, in place; then its matter (goal, next
+/// step, newest steps) and the way into it. A `life:` link opens that thing's page in a sheet.
 struct ContextRegion: View {
     let check: Check
     let runtimeName: RuntimeName?
@@ -78,12 +79,13 @@ struct ContextRegion: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.openURL) private var openURL
+    @State private var opened: LifeLinkTarget?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if let why = check.context, !why.isEmpty {
-                    Text(why).font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                if let context = check.context, check.contextLinkTitle != nil {
+                    ContextView(markdown: context, lifeLinks: check.lifeLinks ?? []) { opened = $0 }
                 }
                 if let id = check.matter?.id, let matter = life.matter[id]?.value { matterBlock(matter) }
                 if let link = check.links.first.flatMap(URL.init(string:)) {
@@ -95,6 +97,10 @@ struct ContextRegion: View {
             .readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)
+        .sheet(item: $opened) { target in
+            NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
+                .presentationDetents([.medium, .large])
+        }
         .task(id: check.matter?.id) { if let id = check.matter?.id { await life.refreshMatter(id) } }
     }
 
