@@ -17,7 +17,7 @@ its work and stopped. Start here, then read the three role handoffs:
   to 3 helper agents and landed its own PRs after a passing debt verdict (`work-on-code`).
 - **The Mac is the CI.** Life has no GitHub Actions; `bun run check` gates every push and merge. Heavy jobs (checks, app
   builds, Swift) went through the Builder's `heavy.sh`: one queued slot, lanes `land`, `light`, `release`. Several reviewed
-  PRs landed together as a "land train" (`land-train.sh`). Both scripts are kept in [builder-tools.md](builder-tools.md).
+  PRs landed together as a "land train" (`land-train.sh`). The scripts are in [`tools/`](../../tools/), listed in [builder-tools.md](builder-tools.md).
 - **Swaps.** After a server, desk or Voice batch merged, the session that landed it rebuilt Life.app from main and swapped
   it with rollback. Lifelog Host needs a separate swap when Voice's server changes. Both scripts are at the end of this file.
 - **Phone installs** only on his yes, once per batch.
