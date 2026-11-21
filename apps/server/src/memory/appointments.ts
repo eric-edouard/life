@@ -246,7 +246,7 @@ export const arrivalsCitedBy = (
   facts: readonly Pick<Observation, "id" | "source">[],
   arrivals: readonly Pick<
     ArrivalAppointment,
-    "id" | "messages" | "start" | "zone"
+    "allDay" | "end" | "id" | "messages" | "start" | "zone"
   >[]
 ) =>
   arrivals.map((a) => ({

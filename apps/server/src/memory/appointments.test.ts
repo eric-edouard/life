@@ -259,7 +259,12 @@ test("the night takes over an arrival's id when its facts cite the arrival's mes
     }),
     fact("obs_000000000001", { source: { channel: "whatsapp", ref: "m9" } }),
   ];
-  const meeting = { start: "2026-12-01 10:00", zone: null };
+  const meeting = {
+    allDay: false,
+    end: "2026-12-01 11:00",
+    start: "2026-12-01 10:00",
+    zone: null,
+  };
   const arrivals = arrivalsCitedBy(facts, [
     {
       id: "apt_0000000000aa",
