@@ -418,7 +418,7 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     "2026-11-20T03:00:00.000Z",
     "2026-11-20T02:00:00.000Z",
   ]);
-  expect(first.lines.slice(0, 2)).toEqual([
+  expect(first.lines.slice(0, 2)).toMatchObject([
     {
       at: "2026-11-20T04:00:00.000Z",
       category: ["watch", "crash"],
@@ -434,6 +434,29 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
       parts: [{ text: "desk.turn" }],
     },
   ]);
+  // A line's id is its place: as a cursor it reads the lines before it, on that day and the older ones.
+  const before = await readLogLines(
+    { cursor: first.lines[1]?.id, limit: 1 },
+    dir
+  );
+  expect(before.lines).toEqual(first.lines.slice(2, 3));
+  // His app's live log never shows its own reads; a refused one stays.
+  appendFileSync(
+    join(dir, "2026-11-20.jsonl"),
+    line("2026-11-20T04:30:00.000Z", {
+      kind: "mcp.call",
+      tool: "read_log_lines",
+    }) +
+      line("2026-11-20T04:31:00.000Z", {
+        error: true,
+        kind: "mcp.call",
+        refused: "forbidden",
+        tool: "read_log_lines",
+      })
+  );
+  expect(
+    (await readLogLines({ limit: 2 }, dir)).lines.map((l) => l.at)
+  ).toEqual(["2026-11-20T04:31:00.000Z", "2026-11-20T04:00:00.000Z"]);
   // A line appended while he pages never shifts the cursor.
   appendFileSync(
     join(dir, "2026-11-20.jsonl"),
@@ -448,7 +471,7 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
     ({ cursor } = page);
   }
   expect(seen).toHaveLength(13);
-  expect(new Set(seen.map((l) => l.at)).size).toBe(13);
+  expect(new Set(seen.map((l) => l.id)).size).toBe(13);
   // Errors only: 2 days a page, so the first page holds the crash and moves on to the older days with none.
   const errors = await readLogLines({ minLevel: "error" }, dir);
   expect(errors.lines.map((l) => l.category)).toEqual([["watch", "crash"]]);
@@ -461,6 +484,54 @@ test("log lines page back newest first by day and byte, none lost or repeated; f
   await expect(readLogLines({ cursor: "nonsense" }, dir)).rejects.toThrow(
     "bad cursor"
   );
+});
+
+test("a poll after a head reads only what came since, in one call however old the last match", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-log-head-"));
+  const line = (at: string, kind: string) =>
+    `${JSON.stringify({ at, kind, phase: "begun" })}\n`;
+  for (const d of ["2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"]) {
+    writeFileSync(
+      join(dir, `${d}.jsonl`),
+      line(
+        `${d}T01:00:00.000Z`,
+        d === "2026-11-17" ? "watch.tick" : "desk.turn"
+      )
+    );
+  }
+  const watch = { process: "watch" };
+  const first = await readLogLines(watch, dir);
+  expect(first.lines).toHaveLength(0);
+  const found = await readLogLines(
+    { ...watch, cursor: first.cursor ?? "" },
+    dir
+  );
+  expect(found.lines.map((l) => l.at)).toEqual(["2026-11-17T01:00:00.000Z"]);
+  // Nothing new: one call, an empty page, no cursor, whatever day the last match was on.
+  expect(
+    await readLogLines({ ...watch, after: first.head ?? "" }, dir)
+  ).toMatchObject({ cursor: null, lines: [] });
+  // New lines, on the head's day and a newer one; a torn one waits until whole.
+  appendFileSync(
+    join(dir, "2026-11-20.jsonl"),
+    line("2026-11-20T02:00:00.000Z", "watch.tick")
+  );
+  writeFileSync(
+    join(dir, "2026-11-21.jsonl"),
+    `${line("2026-11-21T01:00:00.000Z", "watch.tick")}{"at":"2026-11-21T02:00`
+  );
+  const next = await readLogLines({ ...watch, after: first.head ?? "" }, dir);
+  expect(next.lines.map((l) => l.at)).toEqual([
+    "2026-11-21T01:00:00.000Z",
+    "2026-11-20T02:00:00.000Z",
+  ]);
+  expect(next.cursor).toBeNull();
+  appendFileSync(
+    join(dir, "2026-11-21.jsonl"),
+    ':00.000Z","kind":"watch.tick"}\n'
+  );
+  const last = await readLogLines({ ...watch, after: next.head ?? "" }, dir);
+  expect(last.lines.map((l) => l.at)).toEqual(["2026-11-21T02:00:00.000Z"]);
 });
 
 test("a shown value is formatted on the server and ids are masked; the message stays within 160 characters", async () => {

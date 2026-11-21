@@ -208,6 +208,21 @@ switch off, the speech service busy or down, the credits used up for a note that
 at once (Life waits 180 s, mostly for the speech service): 503, nothing claimed, and Life asks again later. The note keeps
 its slot until its words are stored or its claim dropped; Life hanging up stops it at the speech service and before Scribe. Its token is Life's corrections token.
 
+### A field's dictation
+
+The phone sends what the owner dictated into a field (Ogg Opus, at most 10 minutes and 16 MB) to
+`POST /dictation/transcript`, device token only. It is heard like a voice note (`hearOnTheMac`, then `hearRouted`),
+routed by where the owner is now, and ahead of everything else: the speech service's interactive place
+(`X-Priority: interactive`) and Scribe's (`interactive`, waiting up to 60 s for a slot). lifelog keeps no audio and no
+words, only operational events (`dictation.heard`: its length, route, billable seconds and turns left unheard;
+`elevenlabs.done` or `.failed`); the answer is `no-store`. Words come back only whole:
+any routed turn Scribe had to hear (one the router judged, or one whose speech-service words the merge drops) left
+without Scribe's words (Scribe failed, answered nothing for it, or its audio could not be cut)
+answers 502, and the owner says it again; busy, off or out of credits answers 503 with nothing billed. A lost answer is
+never asked of Scribe again: the phone shows "Not written. Please say it again." ElevenLabs keeps what Scribe is sent
+(the Thai turns, or all of it when mostly Thai, with vocabulary hints that can name people) under its policy (zero
+retention, `enable_logging=false`, is for enterprise accounts only, so it is not asked).
+
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job.

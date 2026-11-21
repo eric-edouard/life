@@ -80,9 +80,11 @@ extension Check {
     private var account: Need? { need(at: accountIndex) }
     private var invoice: Need? { need(at: invoiceIndex) }
 
-    /// Which bank app the card's filled answer opens, by its account's `scheme`; nil when it names none it knows.
+    /// Which bank app the card's filled answer opens, by its account's `scheme`; nil when it names none it knows, and on
+    /// a plan, whose start is the filled answer.
     public var transfers: Transfers? {
-        switch account?.scheme {
+        guard filled?.role != .start else { return nil }
+        return switch account?.scheme {
         case .thAccount?, .promptpay?: .thai
         case .iban?, .swift?: .iban
         default: nil

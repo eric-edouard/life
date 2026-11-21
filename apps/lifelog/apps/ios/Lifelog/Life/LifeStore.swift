@@ -118,7 +118,7 @@ final class LifeStore {
     private let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// One read of each kind at a time, plus one more pass.
-    @ObservationIgnored private let flights = ReadFlights()
+    @ObservationIgnored private let flights: ReadFlights
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
     private var taps = AnswerTaps()
 
@@ -137,6 +137,7 @@ final class LifeStore {
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
+        flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
@@ -309,6 +310,20 @@ final class LifeStore {
             key: "read_people_and_organizations-query-\(query)", isKept: false
         ) {
             try await $0.readPeopleAndOrganizations(query: query)
+        }
+    }
+
+    /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
+    /// as live would lie). Nil when another pairing began meanwhile: it applies nothing.
+    func readLogLines(_ query: LogQuery) async -> Result<LogPage, MCPError>? {
+        guard let answer = await parties.generation.answer({ try await api.readLogLines(query) }) else { return nil }
+        do {
+            return .success(try LibraryStore.feedDecoder.decode(LogPage.self, from: Data(answer.get().utf8)))
+        } catch {
+            let error =
+                error is DecodingError ? .failed("Life's answer was not what this app reads.") : MCPError.of(error)
+            if error == .notPaired { pairedOrigin = nil }
+            return .failure(error)
         }
     }
 

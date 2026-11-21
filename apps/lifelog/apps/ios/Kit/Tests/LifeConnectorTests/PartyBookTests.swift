@@ -144,7 +144,7 @@ private func gate() -> (wait: @Sendable () async -> Void, open: () -> Void) {
 /// one pass per key, an answer kept only under the pairing it began in.
 @MainActor @Test func pairingTheSameLifeAgainWithPeopleOpenReadsTheListAndThePersonFresh() async {
     let parties = book(FakeLife())
-    let (flights, open) = (ReadFlights(), PeopleOpen())
+    let (flights, open) = (ReadFlights(generation: parties.generation), PeopleOpen())
     let said = Mutex("Idris Before")
     let asking = Mutex(0)
     let list = { (name: String) in #"{"people":[{"ref":"person:idris","name":"\#(name)","kind":"person"}]}"# }

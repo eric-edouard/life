@@ -33,7 +33,7 @@ import { askPageOf, type DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
 import { isAsked, isPending } from "../memory/draft-contest";
-import { oneMatter, readMatterProjectIds } from "../memory/read-matters";
+import { oneMatter, readPacketMatter } from "../memory/read-matters";
 import {
   loadTruth,
   PROJECT_NOTES_MAX,
@@ -658,15 +658,20 @@ async function projectLinesOf(project: string) {
 
 /**
  * A project in a packet, read as data: its line and his notes from his directory (`projectHeaderOf`, clipped to
- * `PROJECT_NOTES_MAX`); its running matters are `read_matters`'. Nothing for a project no longer in his directory.
+ * `PROJECT_NOTES_MAX`), then its situation (`readProjectSituationNow`); its running matters are `read_matters`'. Nothing for a project no longer in his directory.
  */
-function projectContextOf({ projects }: Pick<Truth, "projects">, id: string) {
+function projectContextOf(
+  { projects }: Pick<Truth, "projects">,
+  id: string,
+  situation: string
+) {
   const p = projects.find((x) => x.id === id);
   return p
     ? [
         [
           projectHeaderOf(p),
           clip(p.notes.trim(), PROJECT_NOTES_MAX),
+          situation,
           `Its running matters: \`read_matters\` with \`project: "${id}"\`.`,
         ]
           .filter(Boolean)
@@ -711,21 +716,23 @@ export async function readPacket(
   const steps = anchorsOf(db, s.id);
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
-  const prefer = s.matter_id ?? undefined;
-  const matter = isOnProject ? undefined : await oneMatter(steps, { prefer });
+  const truth = await loadTruth();
+  const { ids, matter, situations } = await readPacketMatter(
+    steps,
+    a.project,
+    isOnProject,
+    truth,
+    s.matter_id ?? undefined
+  );
   if (turn !== undefined && steps.length > 0) {
     pendingOf(db).set(s.id, {
       steps: (matter?.steps ?? []).map((x) => x.ref),
       turn,
     });
   }
-  const truth = await loadTruth();
-  const projects = [
-    ...new Set([
-      ...(a.project ? [a.project] : []),
-      ...(isOnProject ? [] : await readMatterProjectIds(steps, prefer)),
-    ]),
-  ].map((p) => projectContextOf(truth, p));
+  const projects = ids.map((p, i) =>
+    projectContextOf(truth, p, situations[i] ?? "")
+  );
   return [
     await subjectLineOf(a, isOnProject, matter, steps),
     ...projects.flat(),
