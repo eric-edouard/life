@@ -12,12 +12,16 @@ import * as memoryFiles from "../memory/memory-files";
 import { CORRECTIONS, MATTERS as MATTERS_FILE } from "../memory/memory-files";
 import { OWNER } from "../memory/read-truth";
 import { dayNow } from "../memory/zones";
+import type { MainSessionLine } from "../records/main-session-wire";
 import type { Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
 import { askDecision, register, setWait } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
+import { doorFetch } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
+import { doorOf } from "./door-keys";
+import { askMainSession } from "./main-session";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { turnEnded } from "./turn-ends";
 
@@ -301,4 +305,58 @@ export async function withBook(
     rmSync(MATTERS_FILE, { force: true });
     rmSync(CORRECTIONS, { force: true });
   }
+}
+
+/** On desk `t`, asks the main session `words`, then plays the session: `play` (its updates) and its run's end. */
+export async function askedOf(
+  t: ReturnType<typeof setup>,
+  words: string,
+  play: (ref: string) => unknown,
+  key?: string
+) {
+  const lines: MainSessionLine[] = [];
+  const answer = askMainSession(t.desk, { key, words }, (l) => lines.push(l));
+  // Let the ask reach the runtime.
+  for (let i = 0; i < 20 && !t.fake.said.length; i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: a poll
+    await Bun.sleep(5);
+  }
+  const ref = t.fake.said.at(-1)?.ref ?? "";
+  await play(ref);
+  t.fake.exit(ref, true, {
+    usage: {
+      contextFirst: 10,
+      contextLast: 20,
+      tokensCached: 1,
+      tokensIn: 2,
+      tokensOut: 3,
+    },
+  });
+  return { answer: await answer, lines, ref };
+}
+
+/** On desk `t`, agent `id` calls door tool `name` with `args`; the call's response text. */
+export async function callDoorOf(
+  t: ReturnType<typeof setup>,
+  id: string,
+  name: string,
+  args: unknown
+) {
+  const res = await doorFetch(t.desk)(
+    new Request(`http://127.0.0.1/mcp/${id}`, {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: { arguments: args, name },
+      }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${doorOf(id).key}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    })
+  );
+  return await res.text();
 }
