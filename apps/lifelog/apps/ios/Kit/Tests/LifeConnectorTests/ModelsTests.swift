@@ -626,6 +626,21 @@ private func asks(
     #expect(groups == [["v1"], ["v3"], ["v2"]])
 }
 
+/// A same person ask folds with the guessed people's (one screen of Yes or No rows); a kind he is answering row by row
+/// stays one card down to its last row.
+@Test func guessedPeopleAndSamePersonAsksShareOneBulkAsk() throws {
+    let order = try asks(
+        [("g1", .improves), ("s1", .improves), ("g2", .improves)],
+        groups: ["g1": "guessed person", "s1": "same person", "g2": "guessed person"],
+        preTicked: ["g1": "this-is", "s1": "same-person", "g2": "this-is"]
+    ).ordered(deferred: [])
+    #expect(order.folded().bulk.mapValues { $0.map(\.ref) } == ["g1": ["g1", "s1", "g2"]])
+    let one = try asks([("g1", .improves)], groups: ["g1": "guessed person"], preTicked: ["g1": "this-is"])
+        .ordered(deferred: [])
+    #expect(one.folded().bulk.isEmpty)
+    #expect(one.folded(working: [.guessedPerson]).bulk.keys.contains("g1"))
+}
+
 /// A name card with no one to suggest offers "Create <name>", the longest name it asks about.
 @Test func aNameWithNoOneToSuggestIsCreatedByItsWholeName() throws {
     let inbox = try JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any]

@@ -405,6 +405,16 @@ extension Check {
     /// The option the card fills (the first in order): the one answer it asks for, the others sit quieter.
     public var filled: Option? { optionsInOrder.first }
 
+    /// The kind of bulk card this ask folds into: a same person ask joins the guessed people's (one screen of "Is this
+    /// X?" rows, the same person one first); any other is its own group's.
+    public var bulkKind: CheckGroup { group == .samePerson ? .guessedPerson : group }
+
+    /// The person a guess row asks about: who Life holds the account to be, else the name the question gives.
+    public var guessedName: String {
+        if let name = networkIdentity?.party?.name ?? likelyPeople.first?.name { return name }
+        return question.replacingOccurrences(of: "Is this ", with: "").replacingOccurrences(of: "?", with: "")
+    }
+
     /// The option the row starts ticked with in a bulk ask, when Life pre-ticks one this card offers.
     public var preTickedOption: Option? { options.first { $0.id == preTicked } }
 
