@@ -637,13 +637,33 @@ export function directionsOf<V extends Found>(
       ...(p.nextStep || p.by === "life"
         ? {
             latest: p,
-            nextStep: p.nextStep && { ...p.nextStep, at: p.at, by: p.by },
+            nextStep: p.nextStep && {
+              ...contextKeptOf(p, was.nextStep),
+              ...p.nextStep,
+              at: p.at,
+              by: p.by,
+            },
           }
         : { latest: was.latest, nextStep: was.nextStep }),
     });
   }
   return out;
 }
+
+/**
+ * The earlier step's context his edit keeps (life#1005): his step with no context of its own, of the same kind and wait,
+ * is the same step reworded, so its "why" still holds; another kind or wait replaces its meaning, and Life's draft writes
+ * its own. ponytail: a `do` reworded into another action keeps the old context; telling them apart needs a model.
+ */
+const contextKeptOf = (p: DirectionPin, was: NextStep | undefined) =>
+  p.by === "owner" &&
+  p.nextStep &&
+  p.nextStep.context === undefined &&
+  was?.context !== undefined &&
+  was.kind === p.nextStep.kind &&
+  was.waitsOn === p.nextStep.waitsOn
+    ? { context: was.context }
+    : {};
 
 /**
  * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step newer than its latest pin; or, when
