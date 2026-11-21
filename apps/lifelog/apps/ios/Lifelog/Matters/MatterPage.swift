@@ -127,11 +127,10 @@ struct MatterPage: View {
                     if let project = row.project {
                         TextLink(project.name, to: .page) {
                             // A done project has no chip: its Details, then.
-                            let chip = ProjectChips.Chip.identity(.project, project.id)
-                            if life.projects.value?.chips.contains(where: { $0.identity == chip }) == true {
-                                router.open(project: chip)
-                            } else {
+                            if project.status == .done {
                                 router.openDetails(of: project.id)
+                            } else {
+                                router.open(project: ProjectChips.Chip.identity(.project, project.id))
                             }
                         }
                     }

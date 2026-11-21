@@ -37,15 +37,9 @@ struct ProjectsScreen: View {
         } detail: {
             detail
         }
-        // His word that a step is done, held for Undo after he left its ask: on the matter on show, or on a project's
-        // question, whose sheet closes back onto the list.
-        .heldToast(
-            shows: { ref in
-                life.matter[router.matter ?? ""]?.value?.checks.contains { $0.ref == ref } == true
-                    || life.projectHead.values.contains { $0.value?.project.ask?.ref == ref }
-            },
-            undo: { life.undo($0) }
-        )
+        // His word that a step is done, held for Undo after he left its ask (a matter's, or a project's question, whose
+        // sheet closes back onto the list): every answer held here was given on this tab.
+        .heldToast(shows: { _ in true }, undo: { life.undo($0) })
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
         // list on the matter, whatever the column widths: kept on purpose (the owner's call, 19 Nov 2026); the system's
         // sidebar button brings the list back.
@@ -110,7 +104,7 @@ struct ProjectsScreen: View {
 
     /// The chip chosen, as Life lists it now; none is All (or a chip Life no longer lists).
     private var chosen: ProjectChips.Chip? {
-        life.projects.value?.chips.first { $0.identity == router.chip }
+        life.projects.shown().onScreen?.chips.first { $0.identity == router.chip }
     }
 
     /// The read under a chip: All's is every running matter.
@@ -227,7 +221,11 @@ struct ProjectsScreen: View {
                 HStack(spacing: Metrics.Spacing.s) {
                     // All is on too when Life no longer lists the chip chosen (a project marked done).
                     FilterChip(name: "All", isOn: chosen == nil) { router.chip = nil }.id("")
-                    ForEach(life.projects.value?.chips ?? [], id: \.identity) { chip in
+                    // Life's chips could not be read: their retry, in their place.
+                    if life.projects.hasFailed {
+                        QuietChip("Retry", symbol: "arrow.clockwise") { Task { await life.refreshProjects() } }
+                    }
+                    ForEach(life.projects.shown().onScreen?.chips ?? [], id: \.identity) { chip in
                         let status = chip.status.map { life.status(of: chip.id, as: $0) }
                         FilterChip(
                             name: chip.name, icon: MatterIcons.areaSymbol(chip.area ?? chip.id),

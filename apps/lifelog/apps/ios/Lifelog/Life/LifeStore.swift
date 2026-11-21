@@ -712,14 +712,13 @@ final class LifeStore {
         let held = (projects.value?.chips ?? []).filter {
             scopedMatters[$0.identity]?.value?.matters.contains { $0.id == id } == true
         }
+        // Its project's header, if on show, read with or without its rows.
+        let project = (matter[id]?.value?.row ?? matters.value?.matters.first { $0.id == id })?.project?.id
+        let head = project.flatMap { projectHead[$0] == nil ? nil : $0 }
         async let all: Void = refreshMatters()
         async let chips: Void = refreshProjects()
-        for chip in held {
-            let hasHead = chip.kind == .project && projectHead[chip.id] != nil
-            async let rows: Void = refreshScopedMatters(chip.kind, chip.id)
-            async let head: Void = hasHead ? refreshProjectHead(chip.id) : ()
-            _ = await (rows, head)
-        }
+        for chip in held { await refreshScopedMatters(chip.kind, chip.id) }
+        if let head { await refreshProjectHead(head) }
         _ = await (all, chips)
     }
 

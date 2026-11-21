@@ -52,8 +52,11 @@ final class AppRouter {
     }
 
     var tab = Tab.inbox
-    /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All.
-    var chip: String?
+    /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All. Choosing one lets
+    /// its list choose the matter on show again.
+    var chip: String? {
+        didSet { isMatterFromElsewhere = false }
+    }
     /// The detail column's one page, and which column a compact width shows: the list or that page.
     private(set) var detail: Detail?
     /// The matter on show in the Projects tab, by id.
