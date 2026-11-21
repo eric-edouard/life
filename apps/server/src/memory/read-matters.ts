@@ -66,7 +66,8 @@ export interface MatterRow {
 type MatterProject = Pick<Project, "id" | "name" | "status">;
 
 /** The decisions he has not answered yet, for `nextStepNow`. */
-const openDecisions = () => decisionsNow().filter((d) => d.state === "open");
+export const openDecisions = () =>
+  decisionsNow().filter((d) => d.state === "open");
 
 /** `list`, or nothing when it is empty. */
 const some = <T>(list: T[]) => (list.length > 0 ? list : undefined);
@@ -260,14 +261,11 @@ export const projectStepRefsOf = (
   );
 
 /** What an agent's packet says of where each project in `projectIds` stands, in order (`readProjectSituationNow`): empty for one with no situation. */
-export async function readProjectSituationsNow(
+export function readProjectSituationsNow(
   truth: Pick<People["truth"], "projects">,
-  projectIds: readonly string[]
+  projectIds: readonly string[],
+  book: readonly MatterView[]
 ) {
-  const book =
-    projectIds.length > 0
-      ? await readMatterBook(await readPeople(), dayNow())
-      : [];
   return projectIds.map((id) => {
     const lines = readProjectSituationNow(
       id,
@@ -415,9 +413,40 @@ export async function readHandOutMatters(
 }
 
 /** The ids of the projects of the matter `refs` find (`matterOfSteps`); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
-export const readMatterProjectIds = async (refs: readonly string[]) =>
-  matterOfSteps(await readMatterBook(await readPeople(), dayNow()), refs)
-    ?.projects ?? [];
+export const readMatterProjectIds = async (
+  refs: readonly string[],
+  book?: readonly MatterView[]
+) =>
+  matterOfSteps(
+    book ?? (await readMatterBook(await readPeople(), dayNow())),
+    refs
+  )?.projects ?? [];
+
+/**
+ * What a packet reads of the matters, from one book: the matter `refs` find (`oneMatter`; none for an agent on its
+ * project), the ids of its projects with the agent's own `project`, and each one's situation text (`readProjectSituationsNow`), in order.
+ */
+export async function readPacketMatter(
+  refs: readonly string[],
+  project: string | null,
+  isOnProject: boolean,
+  truth: Pick<People["truth"], "projects">
+) {
+  const book = await readMatterBook(await readPeople(), dayNow());
+  const projectIds = [
+    ...new Set([
+      ...(project ? [project] : []),
+      ...(isOnProject ? [] : await readMatterProjectIds(refs, book)),
+    ]),
+  ];
+  return {
+    ids: projectIds,
+    matter: isOnProject
+      ? undefined
+      : await oneMatter(refs, undefined, undefined, book),
+    situations: readProjectSituationsNow(truth, projectIds, book),
+  };
+}
 
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
@@ -428,10 +457,15 @@ export const readMatterProjectIds = async (refs: readonly string[]) =>
 export async function oneMatter<A>(
   refs: readonly string[],
   agentsOf: (steps: string[], people: People) => A[] = () => [],
-  readIcons?: LifeIconsReader
+  readIcons?: LifeIconsReader,
+  /** The book when the caller read it already. */
+  read?: readonly MatterView[]
 ) {
   const people = await readPeople();
-  const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
+  const v = matterOfSteps(
+    read ?? (await readMatterBook(people, dayNow())),
+    refs
+  );
   return (
     v && {
       ...rowOf(v, people, openDecisions(), await readIcons?.([v])),

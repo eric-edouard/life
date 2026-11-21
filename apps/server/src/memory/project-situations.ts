@@ -5,8 +5,8 @@ import {
   ProjectSituationLine,
 } from "../records/situation";
 import { isUnderway } from "../records/truth";
-import { isRunning, type MatterView } from "./matter-read";
-import { readMatterBook } from "./matters";
+import { isRunning, type MatterView, nextStepNow } from "./matter-read";
+import { matterBookAgain, readMatterRecords } from "./matters";
 import { meContext } from "./model-context";
 import {
   PROJECT_SITUATIONS,
@@ -15,7 +15,7 @@ import {
   promptNameNow,
   readStored,
 } from "./project-situation-read";
-import { projectOf } from "./read-matters";
+import { openDecisions, projectOf } from "./read-matters";
 import { readMayKeep } from "./read-truth";
 import { begin, inBatches, inputsOf, readsOf, replyLines } from "./run";
 import { linesCitingOnly } from "./situations";
@@ -26,80 +26,114 @@ import type { People } from "./who";
 // (`isUnderway`) that shows a running matter, one call reads its directory entry and those matters as they read now and
 // writes where the project stands: what it is doing now, what is blocked and on whom, what was decided lately, the next
 // deadline; each line citing the matter steps it rests on. Rebuilt whole, never from its last version, and only when what
-// it was shown changed (never the clock, so a matter going dormant by days alone rebuilds nothing).
+// it was shown changed: its directory entry and the open matters under it, by refs, never the clock (a matter going
+// dormant by days alone, a renamed project or person rebuilds nothing). Who is eligible today (a running matter) is the clock's.
 // Nothing is sent. A project's situation is read by `read_matters` of that project and by an agent's packet.
 
 /** The most characters of matters one project's call is shown, the newest first. */
 const CALL_CHARS = 30_000;
 /** How many of a matter's newest steps the call sees, and how long each one's words. */
 const SHOWN_STEPS = 12;
+const SHOWN_OPEN = 30;
 const SHOWN_CHARS = 200;
 
-/** A matter as the call is shown it. `status` is shown but never digested: it moves with the clock. */
-const shownOf = (v: MatterView, nameOf: People["nameOf"]) => ({
-  ...(v.goal ? { goal: v.goal.text } : {}),
-  ...(v.nextStep ? { next_step: v.nextStep.text } : {}),
-  name: v.name,
-  open: v.openSteps.map((s) => ({
-    ...(s.when ? { due: s.when } : {}),
-    kind: s.kind,
-    ref: s.ref,
-    text: clip(s.text, SHOWN_CHARS),
-    ...(s.with ? { with: nameOf(s.with) } : {}),
-  })),
-  steps: v.steps.slice(-SHOWN_STEPS).map((s) => ({
-    day: s.day,
-    ...(s.ending ? { ended: true } : {}),
-    kind: s.kind,
-    ref: s.ref,
-    text: clip(s.text, SHOWN_CHARS),
-  })),
-});
+/**
+ * A matter as the call is shown it, its words bounded so a large matter still fits: the goal, the next step as it reads
+ * now (`nextStepNow`: his pending decision while a card is open), its newest open steps and steps. `withOf` names who a
+ * step is with: the call's names, the digest's refs. Never its name or status: those move with a rename or the clock.
+ */
+const shownOf = (
+  v: MatterView,
+  decisions: ReturnType<typeof openDecisions>,
+  withOf: (ref: string) => string
+) => {
+  const next = nextStepNow(v, decisions);
+  return {
+    ...(v.goal ? { goal: v.goal.text } : {}),
+    ...(next ? { next_step: next.text } : {}),
+    open: v.openSteps.slice(-SHOWN_OPEN).map((s) => ({
+      ...(s.when ? { due: s.when } : {}),
+      kind: s.kind,
+      ref: s.ref,
+      text: clip(s.text, SHOWN_CHARS),
+      ...(s.with ? { with: withOf(s.with) } : {}),
+    })),
+    steps: v.steps.slice(-SHOWN_STEPS).map((s) => ({
+      day: s.day,
+      ...(s.ending ? { ended: true } : {}),
+      kind: s.kind,
+      ref: s.ref,
+      text: clip(s.text, SHOWN_CHARS),
+    })),
+  };
+};
 
-/** Who gets a situation and what its call is shown: each project underway with its running matters, the newest within `CALL_CHARS`. */
+/** The steps a matter's call shows, whose refs a line may cite. */
+const shownStepsOf = (v: MatterView) => [
+  ...v.openSteps.slice(-SHOWN_OPEN),
+  ...v.steps.slice(-SHOWN_STEPS),
+];
+
+/**
+ * Who gets a situation and what its call is shown: each project underway with a running matter today (the clock's
+ * eligibility), shown all the open matters under it, dormant ones too (so one going dormant changes nothing), the
+ * newest within `CALL_CHARS`.
+ */
 export const projectTargetsOf = (
   book: readonly MatterView[],
-  people: People
+  people: People,
+  decisions: ReturnType<typeof openDecisions>
 ) => {
   const { truth } = people;
   const of = projectOf(truth);
   return truth.projects.filter(isUnderway).flatMap((p) => {
-    const matters = newestWithin(
-      book.filter((v) => isRunning(v) && of(v)?.id === p.id),
-      CALL_CHARS,
-      {
-        at: (v) => v.steps.at(-1)?.at ?? "",
-        size: (v) => JSON.stringify(shownOf(v, people.nameOf)).length,
-      }
-    );
+    const open = book.filter((v) => v.open && of(v)?.id === p.id);
+    if (!open.some(isRunning)) {
+      return [];
+    }
+    const matters = newestWithin(open, CALL_CHARS, {
+      at: (v) => v.steps.at(-1)?.at ?? "",
+      size: (v) => JSON.stringify(shownOf(v, decisions, String)).length,
+    });
     return matters.length === 0 ? [] : [{ matters, project: p }];
   });
 };
 
 type Target = ReturnType<typeof projectTargetsOf>[number];
 
-/** What a project's digest holds, and the call is shown besides `status` and `today`: its directory entry and its matters' words, never the clock. */
-export const projectInputOf = (t: Target, nameOf: People["nameOf"]) => ({
+/** What a project's digest holds: its directory entry's facts and its matters' words by refs, never a name, a status or the clock. */
+export const projectInputOf = (
+  t: Target,
+  decisions: ReturnType<typeof openDecisions>
+) => ({
   entry: {
     deadlines: t.project.deadlines,
-    name: t.project.name,
     notes: clip(t.project.notes.trim(), 2000),
+    project: t.project.id,
     status: t.project.status,
   },
-  matters: t.matters.map((v) => shownOf(v, nameOf)),
+  matters: t.matters.map((v) => shownOf(v, decisions, String)),
 });
 
-export async function projectSituations(people: People) {
+/** `records`: the matter records the night already read (`readMatterRecords`), read here when not given. */
+export async function projectSituations(
+  people: People,
+  records?: Awaited<ReturnType<typeof readMatterRecords>>
+) {
   const mayKeep = readMayKeep();
   const step = await begin("project-situation", "main", { prompt: PROMPT });
-  const book = await readMatterBook(people, step.today);
-  const targets = projectTargetsOf(book, people);
+  const decisions = openDecisions();
+  const targets = projectTargetsOf(
+    matterBookAgain(records ?? (await readMatterRecords(people)), step.today),
+    people,
+    decisions
+  );
   let written = 0;
   await inBatches(targets, step, (t, dir) =>
     step.attempt(
       async () => {
         const { project: p } = t;
-        const { entry, matters } = projectInputOf(t, people.nameOf);
+        const { entry, matters } = projectInputOf(t, decisions);
         // His words on what Life may keep are an input, like the person situation's.
         const inputs = inputsOf(promptNameNow(mayKeep), {
           entry,
@@ -109,17 +143,15 @@ export async function projectSituations(people: People) {
         if (readStored(p.id)?.inputs === inputs) {
           return;
         }
-        const shownRefs = t.matters.flatMap((v) => [
-          ...v.openSteps,
-          ...v.steps.slice(-SHOWN_STEPS),
-        ]);
+        const shownRefs = t.matters.flatMap(shownStepsOf);
         const reply = await step.ask({
           context: meContext(people.truth),
           dir,
           input: {
-            entry,
-            matters: t.matters.map((v, i) => ({
-              ...matters[i],
+            entry: { ...entry, name: t.project.name },
+            matters: t.matters.map((v) => ({
+              ...shownOf(v, decisions, people.nameOf),
+              name: v.name,
               status: v.status,
             })),
             today: step.today,

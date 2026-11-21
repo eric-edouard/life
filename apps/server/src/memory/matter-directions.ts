@@ -15,7 +15,11 @@ import {
   type MatterView,
   matterPeopleOf,
 } from "./matter-read";
-import { readMatterBookAndRecords } from "./matters";
+import {
+  matterBookAgain,
+  readMatterBookAndRecords,
+  type readMatterRecords,
+} from "./matters";
 import { MATTER_DIRECTIONS } from "./memory-files";
 import { meContext } from "./model-context";
 import { OWNER } from "./read-truth";
@@ -38,8 +42,14 @@ const SHOWN_STEPS = 12;
 const SHOWN_CHARS = 200;
 
 /** The matters due a direction tonight (`directionDueOf`), each with its later records (`laterShownOf`), and the records read. */
-export async function dueDirectionsOf(people: People, today: string) {
-  const { book, records } = await readMatterBookAndRecords(people, today);
+export async function dueDirectionsOf(
+  people: People,
+  today: string,
+  read?: Awaited<ReturnType<typeof readMatterRecords>>
+) {
+  const { book, records } = read
+    ? { book: matterBookAgain(read, today), records: read }
+    : await readMatterBookAndRecords(people, today);
   const isDue = directionDueOf(book, records, today);
   return book.flatMap((v) =>
     isDue(v.id)
@@ -104,9 +114,18 @@ const Drafted = MatterDirectionFields.extend({ matter: z.string() })
  */
 export async function matterDirections(
   people: People,
-  { all = false, today = dayNow() } = {}
+  {
+    all = false,
+    today = dayNow(),
+    records,
+  }: {
+    all?: boolean;
+    today?: string;
+    /** The matter records the night already read (`readMatterRecords`). */
+    records?: Awaited<ReturnType<typeof readMatterRecords>>;
+  } = {}
 ) {
-  const due = (await dueDirectionsOf(people, today)).map((d, i) => ({
+  const due = (await dueDirectionsOf(people, today, records)).map((d, i) => ({
     ...d,
     shown: shownOf(d.v, `m${i + 1}`, today, people.nameOf, d.later),
   }));

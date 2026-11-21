@@ -74,6 +74,7 @@ import {
 import { isLocked } from "./memory-lock";
 import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
+import { PROJECT_SITUATIONS } from "./project-situation-read";
 import {
   dismissedIdsOf,
   handOutGateOf,
@@ -647,13 +648,14 @@ export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
-/** Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
+/** Every file the checks read as stored (truth/ included; the project situations: a project head's answer is kept under this key), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
 const CHECKS_READ = [
   ...MATTER_BOOK_READS,
   CLOSENESS,
   DECISIONS,
   PAGES,
   PERSON_PICTURES_INDEX,
+  PROJECT_SITUATIONS,
   ZONES,
 ];
 

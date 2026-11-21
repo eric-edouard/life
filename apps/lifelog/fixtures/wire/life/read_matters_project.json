@@ -59,8 +59,13 @@
     "goal": "The shop opens in spring.",
     "id": "shop-fit-out",
     "name": "Shop fit-out",
-    "situation": [],
+    "situation": [
+      {
+        "cites": ["obs_000000000005"],
+        "text": "The shop is quoting the watch repair; the call to them is done."
+      }
+    ],
     "status": "active"
   },
-  "version": "0fd0f4c9bd96f06c"
+  "version": "50a6836fa7f86ea8"
 }

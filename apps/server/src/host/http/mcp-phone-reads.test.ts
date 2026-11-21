@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { writeJson } from "../../core/files";
 import { setSettings } from "../../core/settings";
 import { nameGroupsOf } from "../../memory/check-sentences";
 import type { CheckInputs } from "../../memory/checks";
@@ -11,6 +12,10 @@ import {
   withNetworkIdentity,
 } from "../../memory/network-identity";
 import { PERSON_PICTURES, partyOf, pictureFileOf } from "../../memory/party";
+import {
+  projectSituationPath,
+  promptNameNow,
+} from "../../memory/project-situation-read";
 import { Misread } from "../complaints";
 import type { WakeLine } from "../registered-agents";
 import { rpc, token } from "./mcp-test-harness";
@@ -707,10 +712,38 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(
       JSON.parse(await read("read_matters", { ifNot: "older" })).matters
     ).toEqual(rows);
-    expectWire(
-      "read_matters_project",
-      await read("read_matters", { project: "shop-fit-out" })
-    );
+    // The project head with its situation (made-up): a stored one is shown while a matter of the project still holds
+    // the step it cites (a new one moves the checks' key, which `checks-key.test.ts` holds).
+    writeJson(projectSituationPath("shop-fit-out"), {
+      built: "2026-10-14T00:00:00.000Z",
+      inputs: "0123456789abcdef",
+      lines: [
+        {
+          cites: ["obs_000000000005"],
+          text: "The shop is quoting the watch repair; the call to them is done.",
+        },
+        { cites: ["obs_gonegonegone"], text: "A step no matter holds." },
+      ],
+      madeBy: {
+        engine: "claude",
+        model: "m",
+        prompt: promptNameNow(),
+        run: "r",
+      },
+      project: "shop-fit-out",
+      schemaVersion: 1,
+    });
+    const withSituation = await read("read_matters", {
+      project: "shop-fit-out",
+    });
+    expect(JSON.parse(withSituation).project.situation).toEqual([
+      {
+        cites: ["obs_000000000005"],
+        text: "The shop is quoting the watch repair; the call to them is done.",
+      },
+    ]);
+    expectWire("read_matters_project", withSituation);
+    rmSync(projectSituationPath("shop-fit-out"), { force: true });
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })

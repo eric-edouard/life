@@ -1,14 +1,20 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { writeJson } from "../core/files";
 import { promptNameOf } from "../models/prompt-parts";
 import { ProjectSituationLine } from "../records/situation";
-import type { MatterView } from "./matter-read";
+import { type MatterView, nextStepNow } from "./matter-read";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matters from "./matters";
 import {
   projectSituationPath,
   readProjectSituationNow,
 } from "./project-situation-read";
-import { projectInputOf, projectTargetsOf } from "./project-situations";
+import {
+  projectInputOf,
+  projectSituations,
+  projectTargetsOf,
+} from "./project-situations";
 import { projectStepRefsOf } from "./read-matters";
 import { inputsOf, replyLines } from "./run";
 import { linesCitingOnly } from "./situations";
@@ -91,42 +97,136 @@ test("a project's steps are those of the matters showing under it, dormant or no
 test("only a project underway with a running matter gets a situation", () => {
   const running = matter();
   const dormant = matter({ status: "dormant" } as Partial<MatterView>);
-  expect(projectTargetsOf([running], people(project("active")))).toHaveLength(
-    1
+  expect(
+    projectTargetsOf([running], people(project("active")), [])
+  ).toHaveLength(1);
+  expect(
+    projectTargetsOf([running], people(project("waiting")), [])
+  ).toHaveLength(1);
+  expect(projectTargetsOf([running], people(project("parked")), [])).toEqual(
+    []
   );
-  expect(projectTargetsOf([running], people(project("waiting")))).toHaveLength(
-    1
+  expect(projectTargetsOf([running], people(project("done")), [])).toEqual([]);
+  expect(projectTargetsOf([dormant], people(project("active")), [])).toEqual(
+    []
   );
-  expect(projectTargetsOf([running], people(project("parked")))).toEqual([]);
-  expect(projectTargetsOf([running], people(project("done")))).toEqual([]);
-  expect(projectTargetsOf([dormant], people(project("active")))).toEqual([]);
   expect(
     projectTargetsOf(
       [matter({ projects: ["other"] })],
-      people(project("active"))
+      people(project("active")),
+      []
     )
   ).toEqual([]);
 });
 
+const digestOf = (book: MatterView[], notes = "", name = "Harbor") => {
+  const [t] = projectTargetsOf(
+    book,
+    people({ ...project("active", notes), name }),
+    []
+  );
+  if (!t) {
+    throw new Error("no target");
+  }
+  return inputsOf("p", projectInputOf(t, []));
+};
+
 test("the digest moves with the matters' words and the entry, never with a status that follows the clock", () => {
-  const digestOf = (m: MatterView, notes = "") => {
-    const [t] = projectTargetsOf([m], people(project("active", notes)));
-    if (!t) {
-      throw new Error("no target");
-    }
-    return inputsOf(
-      "p",
-      projectInputOf(t, (r) => r)
-    );
-  };
-  const base = digestOf(matter());
-  expect(digestOf(matter({ status: "stuck" } as Partial<MatterView>))).toBe(
+  const base = digestOf([matter()]);
+  expect(digestOf([matter({ status: "stuck" } as Partial<MatterView>)])).toBe(
     base
   );
-  expect(digestOf(matter({ steps: [step(S1), step(S2, "Paid")] }))).not.toBe(
+  expect(digestOf([matter({ steps: [step(S1), step(S2, "Paid")] })])).not.toBe(
     base
   );
-  expect(digestOf(matter(), "Owner note")).not.toBe(base);
+  expect(digestOf([matter()], "Owner note")).not.toBe(base);
+});
+
+test("a sibling matter going dormant, or a renamed project, matter or person, changes no digest", () => {
+  const sibling = matter({ name: "Paint", steps: [step(S2, "Paint bought")] });
+  const base = digestOf([matter(), sibling]);
+  const dormant = { ...sibling, status: "dormant" } as MatterView;
+  expect(digestOf([matter(), dormant])).toBe(base);
+  expect(digestOf([matter(), sibling], "", "Harbour")).toBe(base);
+  expect(
+    digestOf([{ ...matter(), name: "Hull repair" } as MatterView, sibling])
+  ).toBe(base);
+  // The step's person is a ref in the digest, a name only in the call.
+  const withAnna = matter({
+    openSteps: [{ ...step(S1), with: "person:anna" }],
+  } as Partial<MatterView>);
+  expect(JSON.stringify(projectInputOf(targetOf(withAnna), []))).toContain(
+    "person:anna"
+  );
+});
+
+const targetOf = (m: MatterView) => {
+  const [t] = projectTargetsOf([m], people(project("active")), []);
+  if (!t) {
+    throw new Error("no target");
+  }
+  return t;
+};
+
+test("a matter too large for one call keeps its project's situation: its steps are bounded", () => {
+  const openSteps = Array.from({ length: 500 }, (_, i) =>
+    step(`obs_${String(i).padStart(12, "0")}`, "x".repeat(400))
+  );
+  const big = matter({
+    openSteps,
+    steps: openSteps,
+  } as Partial<MatterView>);
+  const t = targetOf(big);
+  expect(t.matters).toHaveLength(1);
+  expect(JSON.stringify(projectInputOf(t, [])).length).toBeLessThan(30_000);
+});
+
+test("an open decision shows as his pending decision, not the draft next step", () => {
+  const m = matter({
+    nextStep: { kind: "do", text: "Send the quote" },
+  } as Partial<MatterView>);
+  const decisions = [{ question: "Approve the quote?", subject: S1 }] as never;
+  expect(
+    JSON.stringify(
+      projectInputOf(
+        {
+          ...targetOf(m),
+          matters: [m],
+        },
+        decisions
+      )
+    )
+  ).toContain("Approve the quote?");
+  expect(nextStepNow(m, [])?.text).toBe("Send the quote");
+});
+
+test("a night with nothing changed reads no history: the records come from the night, and a built situation is not asked again", async () => {
+  const models = await import("../models/llm");
+  const book = matter({ steps: [step(S1)] });
+  const bookOf = spyOn(matters, "matterBookAgain").mockReturnValue([book]);
+  const records = spyOn(matters, "readMatterRecords");
+  const ask = spyOn(models, "askOnce").mockResolvedValue({
+    lines: [{ cites: [S1], text: "The quote went out." }],
+  } as never);
+  const p = {
+    nameOf: (r: string) => r,
+    truth: {
+      areas: [],
+      me: { text: "" },
+      projects: [{ ...project("active"), notes: "", repos: [] }],
+    },
+  } as unknown as People;
+  try {
+    const night = {} as never;
+    await projectSituations(p, night);
+    await projectSituations(p, night);
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(records).not.toHaveBeenCalled();
+  } finally {
+    bookOf.mockRestore();
+    records.mockRestore();
+    ask.mockRestore();
+  }
 });
 
 test("a reply keeps only lines citing steps the call was shown", () => {

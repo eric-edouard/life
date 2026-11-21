@@ -131,6 +131,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(project.project?.name == "Shop fit-out")
     #expect(project.project?.status == .active)
     #expect(project.project?.goal == "The shop opens in spring.")
+    #expect(project.project?.situation?.map(\.text) == ["The shop is quoting the watch repair; the call to them is done."])
+    #expect(project.project?.situation?.first?.cites == ["obs_000000000005"])
+    // An older response has no `situation`: it decodes, with none.
+    let older = try decoded(MatterList.self, #"{"matters":[],"project":{"id":"p","name":"P","status":"active"},"version":"v"}"#)
+    #expect(older.project?.situation == nil)
     #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
 
     let matter = try decoded(Matter.self, wireText("life/read_matter.json"))

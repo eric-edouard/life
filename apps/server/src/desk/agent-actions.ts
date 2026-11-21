@@ -31,11 +31,7 @@ import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
 import { isPending } from "../memory/draft-contest";
-import {
-  oneMatter,
-  readMatterProjectIds,
-  readProjectSituationsNow,
-} from "../memory/read-matters";
+import { oneMatter, readPacketMatter } from "../memory/read-matters";
 import {
   loadTruth,
   PROJECT_NOTES_MAX,
@@ -729,21 +725,19 @@ export async function readPacket(
   const steps = anchorsOf(db, s.id);
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
-  const matter = isOnProject ? undefined : await oneMatter(steps);
+  const truth = await loadTruth();
+  const { ids, matter, situations } = await readPacketMatter(
+    steps,
+    a.project,
+    isOnProject,
+    truth
+  );
   if (turn !== undefined && steps.length > 0) {
     pendingOf(db).set(s.id, {
       steps: (matter?.steps ?? []).map((x) => x.ref),
       turn,
     });
   }
-  const truth = await loadTruth();
-  const ids = [
-    ...new Set([
-      ...(a.project ? [a.project] : []),
-      ...(isOnProject ? [] : await readMatterProjectIds(steps)),
-    ]),
-  ];
-  const situations = await readProjectSituationsNow(truth, ids);
   const projects = ids.map((p, i) =>
     projectContextOf(truth, p, situations[i] ?? "")
   );
