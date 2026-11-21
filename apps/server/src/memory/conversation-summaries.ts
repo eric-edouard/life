@@ -19,6 +19,7 @@ import { locate } from "./quote-check";
 import { type Asked, makeReplies, READS, readReplies } from "./read-replies";
 import { begin, chunks, readsOf, type Step } from "./run";
 import {
+  isSummarised,
   type SpokenPart,
   type SpokenTurn,
   spokenConversationsOf,
@@ -203,9 +204,10 @@ export type ConversationSummaryWork = Awaited<
 >;
 
 /**
- * The parts of every finished spoken conversation the night examines: those with a turn lifelog first brought in the
- * last 7 days (`from`, a day: every one from then), and those of a line that lost a key. Only these fetch words.
- * `counts`: what is pending in them, before the night's cap (what a run costs).
+ * The parts of every finished spoken conversation the night examines, whatever its length (the voice naming reads short
+ * ones too): those with a turn lifelog first brought in the last 7 days (`from`, a day: every one from then), and those
+ * of a line that lost a key. Only these fetch words. `counts`: the summaries pending in the long ones (`isSummarised`),
+ * before the night's cap (what a run costs).
  */
 export async function readConversationSummaryWork(
   now: Date,
@@ -238,17 +240,18 @@ export async function readConversationSummaryWork(
   }
   const found = parts.filter((p) => p.length > 0);
   const held = summaryOfKeys(current);
+  const summarised = found.filter(isSummarised);
   return {
     counts: {
-      conversations: found.length,
-      parts: found.flat().filter((p) => !held(p.keys)).length,
+      conversations: summarised.length,
+      parts: summarised.flat().filter((p) => !held(p.keys)).length,
     },
     parts: found,
   };
 }
 
 /**
- * The calls due now: for each conversation its first part with no stored summary (a part waits for the one before it,
+ * The calls due now: for each long conversation (`isSummarised`) its first part with no stored summary (a part waits for the one before it,
  * whose summary it is given), except the `skipped` (a part that failed tonight), newest first up to `cap`.
  */
 function pendingOf(
@@ -258,7 +261,7 @@ function pendingOf(
   skipped: Set<string>
 ) {
   const asked: Asked[] = [];
-  for (const parts of conversations) {
+  for (const parts of conversations.filter(isSummarised)) {
     const k = parts.findIndex((p) => !held(p.keys));
     const part = parts[k];
     if (part && !skipped.has(part.ref)) {

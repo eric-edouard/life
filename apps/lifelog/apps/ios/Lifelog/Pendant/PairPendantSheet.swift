@@ -15,7 +15,7 @@ struct PairPendantSheet: View {
     /// The first sync since this sheet opened: what makes Paired, for a resting Omi as for a ready Pendant.
     private var hasCaughtUp: Bool { capture.lastCaughtUp.map { !($0 < startedAt) } == true }
 
-    private enum Phase { case looking, pairing, paired, failed(String) }
+    private enum Phase: Hashable { case looking, pairing, paired, failed(String) }
 
     private var phase: Phase {
         if hasGivenUp && foundCount == 0 {
@@ -35,10 +35,11 @@ struct PairPendantSheet: View {
 
     var body: some View {
         content
+            .faces(phase)
             .sheetScroll {
                 SheetHeader(title: title, color: color) { dismiss() }
             } buttons: {
-                VStack(spacing: 10) { buttons }
+                VStack(spacing: 10) { buttons }.faces(phase)
             }
             .readingWidth()
             .background(Palette.sheet)
