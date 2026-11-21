@@ -27,7 +27,7 @@ struct ConnectionPage: View {
             VStack(alignment: .leading, spacing: 24) {
                 status
                 if address != nil {
-                    if let lines { RowGroup(surface: .sheet) { CheckLines(lines: lines).padding(16) } }
+                    if let lines { RowGroup(surface: .sheet) { CheckLines(lines: lines).padding(16) }.appears() }
                     RowGroup(surface: .sheet) {
                         Row(title: "Address") {
                             Text(address?.addressWords ?? "").font(.note).foregroundStyle(Palette.muted)
@@ -37,6 +37,8 @@ struct ConnectionPage: View {
                 }
                 actions
             }
+            .motion(Motion.standard, value: lines?.count)
+            .motion(Motion.standard, value: sync.pending.refused.count)
             .padding(.horizontal, Metrics.gutter)
             .padding(.top, 8)
             .padding(.bottom, 24)
@@ -105,12 +107,15 @@ struct ConnectionPage: View {
                 }
             }
         }
-        RowGroup(label: "Refused by the server", labelColor: Palette.flag, surface: .sheet) {
-            ForEach(sync.pending.refused, id: \.id) { edit in
-                Row(title: Self.name(edit.intent), detail: edit.refused) {
-                    RowButton(title: "OK") { Task { await sync.dismiss(edit.id) } }
+        if !sync.pending.refused.isEmpty {
+            RowGroup(label: "Refused by the server", labelColor: Palette.flag, surface: .sheet) {
+                ForEach(sync.pending.refused, id: \.id) { edit in
+                    Row(title: Self.name(edit.intent), detail: edit.refused) {
+                        RowButton(title: "OK") { Task { await sync.dismiss(edit.id) } }
+                    }
                 }
             }
+            .appears()
         }
     }
 
