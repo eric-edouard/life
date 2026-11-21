@@ -23,6 +23,7 @@ struct OrgPage: View {
                                 Label(line, systemImage: "building.2").font(.body15).foregroundStyle(Palette.muted)
                             }
                         }
+                        .stepsAsideForToast()
                     }
                     reach
                 }

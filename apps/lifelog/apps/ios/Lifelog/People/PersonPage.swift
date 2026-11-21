@@ -33,6 +33,7 @@ struct PersonPage: View {
             }
         )
         .background(Palette.bg)
+        .saysBack()
         .shellBar("", hasSettings: hasSettings)
         .task(id: life.parties.generation.current) { await life.refreshPerson(ref) }
         .task(id: state.value?.moreReach) {
@@ -114,6 +115,7 @@ private struct Who: View {
                 let line = [row.party.line, row.standing()].compactMap(\.self).joined(separator: " · ")
                 if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
             }
+            .stepsAsideForToast()
         }
     }
 }

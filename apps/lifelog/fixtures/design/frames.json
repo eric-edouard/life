@@ -487,7 +487,7 @@
       "pictures"
     ],
     "taps": ["WhatsApp picture"],
-    "ready": "Picture changed"
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonPictures": {
     "args": [
@@ -712,17 +712,7 @@
     "why": "A scroll: by hand, as DuoFoldPersonLower, the Duo open."
   },
   "DuoPersonPictures": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "people",
-      "-fixturePerson",
-      "person:camille",
-      "-fixtureSheet",
-      "pictures"
-    ],
-    "ready": "From Contacts, WhatsApp and Instagram"
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonTall": {
     "args": [

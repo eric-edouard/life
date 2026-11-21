@@ -100,11 +100,7 @@
         ]
       }
     ],
-    "open": [
-      "matter_lease",
-      "matter_table",
-      "matter_shelf"
-    ],
+    "open": ["matter_lease", "matter_table", "matter_shelf"],
     "more": {
       "open": 2
     },
@@ -194,10 +190,7 @@
         ]
       }
     ],
-    "open": [
-      "matter_nora",
-      "matter_kitchen"
-    ],
+    "open": ["matter_nora", "matter_kitchen"],
     "people": [
       {
         "party": {
@@ -231,9 +224,6 @@
         "until": 2025
       }
     ],
-    "domains": [
-      "ateliermorel.example",
-      "@ateliermorel.example"
-    ]
+    "domains": ["ateliermorel.example", "@ateliermorel.example"]
   }
 }

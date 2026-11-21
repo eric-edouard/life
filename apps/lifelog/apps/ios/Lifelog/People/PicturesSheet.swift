@@ -63,7 +63,7 @@ struct PicturesSheet: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if isInUse, !isWorking {
-                        Image(systemName: "checkmark").font(.small.weight(.bold)).foregroundStyle(Palette.sheet)
+                        Image(systemName: "checkmark").font(.small).fontWeight(.bold).foregroundStyle(Palette.sheet)
                             .frame(width: 24, height: 24).background(Palette.ok, in: .circle)
                             .offset(x: 4, y: -4)
                     }
