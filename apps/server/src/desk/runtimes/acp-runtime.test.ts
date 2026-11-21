@@ -8,9 +8,10 @@ import { BEGIN_WITHIN_MS } from "../agent-wait";
 import { tick, wakeDue } from "../desk-clock";
 import { doorOf } from "../door-keys";
 import { advance, setup } from "../test-desk";
-import { acpRuntime, LAUNCH_WITHIN_MS } from "./acp-runtime";
+import { acpRuntime } from "./acp-runtime";
 import type { Agent } from "./contract";
 import type { Row } from "./runtime-rows";
+import { LAUNCH_WITHIN_MS } from "./session-runtime";
 
 // The ACP runtime against a made-up ACP agent (`fake-acp-agent.ts`), one case per rule the wait contract leans on.
 // Nothing runs a real adapter.

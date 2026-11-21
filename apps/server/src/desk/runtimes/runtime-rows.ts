@@ -13,7 +13,7 @@ import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
 import { SEND_FACTS_ENV, SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
-import type { Agent } from "./contract";
+import { type Agent, DOOR_KEY_ENV } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
 // pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the
@@ -42,7 +42,7 @@ export interface Row {
   config: { effort: string; model: string };
   /** Opens a first turn's session in his app once no process holds it; none: the app lists it unasked. */
   handOff?: (a: Agent, ref: string) => Promise<void>;
-  /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env and sends the literal `${LIFE_DESK_KEY}`, which it expands. */
+  /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env (`DOOR_KEY_ENV`) and sends that variable's name, which it expands. */
   header: (key: string) => string;
   /** A link that opens session `ref` in his app. */
   link: (ref: string) => string;
@@ -291,7 +291,7 @@ async function handOff(a: Agent, ref: string) {
  * His login environment for an agent of his own Life, less `engine`'s keys: passed through, they would move the agent from
  * his subscription to paid API billing.
  */
-const loginEnvLess = async (engine: string[]) =>
+export const loginEnvLess = async (engine: string[]) =>
   Object.fromEntries(
     Object.entries(await readLoginEnv()).filter(([k]) => !engine.includes(k))
   );
@@ -306,8 +306,7 @@ const claudeRow = (isOwn: boolean): Row => ({
   config: { effort: "effort", model: "model" },
   // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
   handOff: isOwn && !WINDOWS ? handOff : undefined,
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: Claude expands it from the adapter's environment
-  header: () => "Bearer ${LIFE_DESK_KEY}",
+  header: () => `Bearer \${${DOOR_KEY_ENV}}`,
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
   // Every session of an agent, the fresh ones too, carries its title as its name in his app's list (`--name`).
   meta: (a) => ({
@@ -350,7 +349,7 @@ const claudeRow = (isOwn: boolean): Row => ({
         ...adapter.env,
         ...(isOwn ? guardEnv() : {}),
         CLAUDE_CODE_EXECUTABLE: readProgram("claude"),
-        LIFE_DESK_KEY: a.door.key,
+        [DOOR_KEY_ENV]: a.door.key,
         ...(isOwn
           ? {}
           : {
@@ -499,7 +498,7 @@ const codexRow = (isOwn: boolean): Row => {
 /** The runtimes' rows, by name: his own Life's, or a second Life's (`isOwn` false), whose isolation is data. */
 export const runtimeRowsOf = (
   isOwn = isOwnLife()
-): Record<RuntimeName, Row> => ({
+): Record<Exclude<RuntimeName, "pi">, Row> => ({
   claude: claudeRow(isOwn),
   codex: codexRow(isOwn),
 });

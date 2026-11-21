@@ -58,6 +58,18 @@ export const ROUTERS = {
 };
 export type Router = keyof typeof ROUTERS;
 const isRouter = (r: string): r is Router => Object.hasOwn(ROUTERS, r);
+/**
+ * The routing every OpenRouter request of Life's carries (the router's `provider` field): only `hosts`, in order, never
+ * another, none that keeps data (the owner's decision of 8 Nov 2026). The memory's calls ask one host at a time; the
+ * desk's pi agents send the route's hosts (`piRouteOf`, `llm.ts`).
+ */
+export const routingOf = (hosts: string[]) => ({
+  allow_fallbacks: false,
+  data_collection: "deny" as const,
+  only: hosts,
+  order: hosts,
+  zdr: true,
+});
 /** Room for a day's episodes and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
 export const MAX_TOKENS = 131_072;
 /** A host that sends no chunk for this long has died mid-reply (a router's keepalives are not chunks). */
@@ -277,13 +289,7 @@ async function askHost(
       body: JSON.stringify({
         ...body,
         model,
-        provider: {
-          allow_fallbacks: false,
-          data_collection: "deny",
-          only: [host],
-          order: [host],
-          zdr: true,
-        },
+        provider: routingOf([host]),
       }),
       headers: {
         authorization: `Bearer ${secret}`,

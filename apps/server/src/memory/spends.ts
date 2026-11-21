@@ -20,6 +20,14 @@ const SPEND_PROVIDERS = [
 ] as const;
 export type SpendProvider = (typeof SPEND_PROVIDERS)[number];
 export type Basis = "billed" | "equivalent";
+
+/** Who an agent's turns are spent with, by its runtime: Claude's and Codex's plans, or OpenRouter with Life's key (pi). */
+const RUNTIME_PROVIDERS: Partial<Record<string, SpendProvider>> = {
+  codex: "codex",
+  pi: "openrouter",
+};
+export const providerOfRuntime = (runtime: string | null): SpendProvider =>
+  RUNTIME_PROVIDERS[runtime ?? ""] ?? "claude";
 export type SpendKind = "night" | "daytime" | "agents" | "voice";
 
 export interface Spend {
@@ -163,7 +171,7 @@ export function spendOfTurn(t: TurnSpent): Spend {
     basis: "equivalent",
     calls: 1,
     kind: "agents",
-    provider: runtime === "codex" ? "codex" : "claude",
+    provider: providerOfRuntime(runtime),
     ...(isUsed ? { tokens } : {}),
     ...(t.model && isUsed
       ? equivalentOf(t.model, t.ended_at, tokens)

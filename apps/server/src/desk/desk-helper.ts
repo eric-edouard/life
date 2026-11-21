@@ -11,6 +11,7 @@ import { openDoor } from "./desk-door";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
+import { piRuntime } from "./runtimes/pi-runtime";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
 import {
   stepMatterIds,
@@ -25,9 +26,15 @@ import {
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
 
 /** The runtimes the desk drives, by name. */
-const RUNTIMES = Object.fromEntries(
-  Object.entries(runtimeRowsOf()).map(([name, row]) => [name, acpRuntime(row)])
-) as Record<RuntimeName, Runtime>;
+const RUNTIMES = {
+  ...Object.fromEntries(
+    Object.entries(runtimeRowsOf()).map(([name, row]) => [
+      name,
+      acpRuntime(row),
+    ])
+  ),
+  pi: piRuntime(),
+} as Record<RuntimeName, Runtime>;
 /** The clock ticks every 5 s (his answer starts a turn within 15 s); the messages are polled every 6th tick, 30 s. */
 const TICK_MS = 5000;
 const POLL_EVERY = 6;
