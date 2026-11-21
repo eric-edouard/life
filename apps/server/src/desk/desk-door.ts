@@ -8,8 +8,10 @@ import {
   type AgentRow,
   type AssignmentRow,
   agentOf,
+  agentOfSession,
   assignmentOf,
   currentAssignmentOf,
+  openAssignmentsOf,
   openTurn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
@@ -82,14 +84,6 @@ function turnRefusalOf(
     : null;
 }
 
-/** The open assignments of agent `id`, oldest first. */
-const openAssignmentsOf = (desk: Desk, id: string) =>
-  desk.db
-    .query<AssignmentRow, [string]>(
-      "select * from assignment where agent_id = ? and closed_at is null order by opened_at, rowid"
-    )
-    .all(id);
-
 const NO_TURN =
   "No desk turn of yours is running: he wrote in your session himself (the Life plugin serves your door there, its tools named `mcp__life__<tool>`). Your tools act on the assignment you name with `assignment`, or on your one open assignment.";
 
@@ -111,7 +105,7 @@ function assignmentOfCall(desk: Desk, id: string, named?: string) {
     }
     return { s, turn };
   }
-  const open = openAssignmentsOf(desk, id);
+  const open = openAssignmentsOf(desk.db, id);
   let s: AssignmentRow | null | undefined;
   if (named) {
     s = open.find((x) => x.id === named);
@@ -227,14 +221,6 @@ function doorServer(desk: Desk, id: string) {
   return server;
 }
 
-/** The agent whose session `ref` is (any of its sessions, an old one too), or none. */
-const agentOfSession = (desk: Desk, ref: string) =>
-  desk.db
-    .query<{ agent_id: string }, [string]>(
-      "select agent_id from session where ref = ?1 union select id from agent where session = ?1 limit 1"
-    )
-    .get(ref)?.agent_id;
-
 const FACTS_FOR_MS = 10 * MIN;
 let facts: { at: number; facts: SendFacts } | undefined;
 /** The send guard's facts, read again every `FACTS_FOR_MS`: reading Mail on every guarded call would slow each one. */
@@ -252,12 +238,12 @@ function guardFacts() {
  * is (`{ agent, key, url, matcher }`, the guard's tool matcher), else 404; by a loopback `Host` only, so no web page
  * reaches it. 404 for any other path.
  */
-export function doorFetch(desk: Desk) {
+export function doorFetch(desk: Desk, readFacts = guardFacts) {
   return async (req: Request) => {
     const url = new URL(req.url);
     const ref = SESSION_PATH.exec(url.pathname)?.[1];
     if (ref) {
-      const agent = LOOPBACK.has(url.hostname) && agentOfSession(desk, ref);
+      const agent = LOOPBACK.has(url.hostname) && agentOfSession(desk.db, ref);
       return agent
         ? Response.json({
             agent,
@@ -276,7 +262,7 @@ export function doorFetch(desk: Desk) {
     }
     if (path === "guard") {
       return Response.json({
-        refusal: sendRefusalOf(await req.json(), guardFacts()) ?? null,
+        refusal: sendRefusalOf(await req.json(), readFacts()) ?? null,
       });
     }
     return createMcpHandler(() => doorServer(desk, id), {}).fetch(req, {

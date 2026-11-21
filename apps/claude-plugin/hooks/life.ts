@@ -15,8 +15,12 @@ import {
 // the desk's send guard before every shell and MCP call, refusing them all when the guard fails. In any other session
 // every hook passes the event on untouched. It never starts a turn, sets a wait or decides: the desk does.
 
-/** A session's answer: its agent's door, none (no agent's), or `down` (an agent's whose desk can't be asked now: the guard's matcher it last gave). */
-type Seen = Door | null | { down: string };
+/**
+ * A session's answer: its agent's door; none (no agent's); `down` (an agent's whose desk can't be asked now: the
+ * guard's matcher it last gave); or `unknown` (never looked up, the desk can't be asked now). The last two are asked
+ * again after `RETRY_MS`.
+ */
+type Seen = Door | null | { down: string } | { unknown: true };
 
 /** How long a failed lookup stands before the desk is asked again. */
 const RETRY_MS = 30_000;
@@ -31,6 +35,8 @@ let isAgentProcess = false;
 const registered = new Map<string, Map<string, string>>();
 
 const isDown = (s: Seen): s is { down: string } => s !== null && "down" in s;
+const isDoor = (s: Seen): s is Door => s !== null && "key" in s;
+const isRetried = (s: Seen) => s !== null && !isDoor(s);
 
 const fetchOf =
   ($: EngineInterface): Fetch =>
@@ -55,19 +61,22 @@ async function lookUp($: EngineInterface, id: string): Promise<Seen> {
       return null;
     }
     const matcher = await $.store.get(known);
-    return typeof matcher === "string" ? { down: matcher } : null;
+    return typeof matcher === "string" ? { down: matcher } : { unknown: true };
   }
 }
 
 async function seenOf($: EngineInterface) {
   const id = await $.session.id();
   const kept = seen.get(id);
-  if (!kept || (isDown(await kept.seen) && Date.now() - kept.at > RETRY_MS)) {
+  if (
+    !kept ||
+    (isRetried(await kept.seen) && Date.now() - kept.at > RETRY_MS)
+  ) {
     seen.set(id, { at: Date.now(), seen: lookUp($, id) });
   }
   const s = await (seen.get(id)?.seen ?? null);
-  isAgentProcess ||= s !== null;
-  if (s && !isDown(s) && !registered.has(id)) {
+  isAgentProcess ||= isDoor(s) || isDown(s);
+  if (isDoor(s) && !registered.has(id)) {
     registered.set(id, await registerDoor($, s));
   }
   return { id, s };
@@ -116,22 +125,23 @@ export const register: Register = (on) => {
       return next(e);
     }
     const { s } = await seenOf($);
-    if (!s || isDown(s)) {
+    if (!isDoor(s)) {
       return next(e);
     }
     // The desk's own words: with several assignments open, the list of them in place of a packet.
     const packet = await callDoor(fetchOf($), s, "read_packet", {});
     return next({ ...e, context: [...(e.context ?? []), packet.text] });
-  });
+    // A context hook: on any failure his prompt goes on without the packet.
+  }).catch((_$, e, next) => next(e));
 
   on("tool.call", async ($, e, next) => {
     const tool = String(e.tool);
     const { id, s } = await seenOf($);
-    if (s === null) {
-      return next(e);
-    }
     if (isDown(s)) {
       return isGuarded(s.down, tool) ? { deny: DOWN } : next(e);
+    }
+    if (!isDoor(s)) {
+      return next(e);
     }
     // Its own door tools are answered by the door, whose rules hold; every other guarded call asks the guard.
     const own = registered.get(id)?.get(tool);

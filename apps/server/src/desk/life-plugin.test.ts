@@ -27,7 +27,11 @@ const desk: Desk = {
   db: openDesk(join(dir, "desk.sqlite")),
   runtimes: { fake: fakeRuntime().runtime },
 };
-const handle = doorFetch(desk);
+// His addresses and the repos agents post to, made up: the test never reads this Mac's Mail.
+const handle = doorFetch(desk, () => ({
+  ownAddresses: ["owner@example.test"],
+  postRepos: [],
+}));
 /** The plugin's fetch, served by the door in this process. */
 const fetch: Fetch = async (url, init) => {
   const r = await handle(new Request(url, init));
