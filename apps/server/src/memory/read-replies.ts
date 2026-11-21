@@ -98,24 +98,29 @@ export interface ConfirmedArrival {
 }
 
 /**
- * The one rule of what is a confirmed arrival: the latest confirm line ending at a message (the desk's wake id), of any
- * prompt version, says `isActionable`. An older prompt's yes still counts: the reader reads only today's lines, so a
- * prompt bumped before the night would otherwise leave that day's confirmed units unread (an importance-1 reply keeping
- * a promise); a newer read ending at the same message replaces it, so a message wakes one agent. Read by extraction's
- * choice of units and the desk's wake, never decided twice.
+ * The one rule of what is a confirmed arrival: a confirm line, of any prompt version, that says `isActionable`, the
+ * newest (by `at`) of those ending at the same message (the desk's wake id), so a message wakes one agent. An older
+ * prompt's yes still counts: the reader reads only today's lines, so a prompt bumped before the night would otherwise
+ * leave that day's confirmed units unread (an importance-1 reply keeping a promise). Read by extraction's choice of
+ * units and the desk's wake, never decided twice.
  */
 export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] =>
   [
     ...new Map(
       lines
-        .filter((l) => l.read === ARRIVAL_CONFIRM_READ)
+        .filter(
+          (l) =>
+            l.read === ARRIVAL_CONFIRM_READ && l.reply.isActionable === true
+        )
+        .toSorted((a, b) => a.at.localeCompare(b.at))
         .map((l) => [l.messages.at(-1), l])
     ).values(),
-  ].flatMap((l) =>
-    l.reply.isActionable === true
-      ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
-      : []
-  );
+  ].map((l) => ({
+    at: l.at,
+    messages: l.messages,
+    people: l.people,
+    unit: l.unit,
+  }));
 
 /**
  * The confirmed arrivals stored since the instant `since`. A confirm is filed by its first line's month, at most two

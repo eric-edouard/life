@@ -39,13 +39,14 @@ test("a confirm filed in last month's file (its first message's month) is still 
   ).toEqual(["unit_0000000000ed"]);
 });
 
-test("an older prompt's confirm still keeps its unit for the night (a bump before the night lost a kept promise); a later read ending at the same message replaces it, so a message wakes once", () => {
+test("an older prompt's confirm still keeps its unit for the night (a bump before the night lost a kept promise); one confirm per newest message, the newest by time, whatever its month file", () => {
   const where = join(dir, "older-prompt");
   const confirm = (
     prompt: string,
     at: string,
     isActionable: boolean,
-    chats: string[]
+    chats: string[],
+    firstAt = at
   ) =>
     storeReply(
       {
@@ -60,26 +61,27 @@ test("an older prompt's confirm still keeps its unit for the night (a bump befor
         starts: [0],
         unit: `unit_00000000${chats.at(-1)}`,
       } as ReadReply,
-      at,
+      firstAt,
       where
     );
-  const [older, newer] = [
-    "2026-11-10T10:00:00.000Z",
-    "2026-11-10T12:00:00.000Z",
-  ];
+  const older = "2026-11-01T01:00:00.000Z";
+  const newer = "2026-11-01T02:00:00.000Z";
   const current = READS.arrival_confirm.prompt;
   confirm("memory-arrival-confirm.v1", older, true, ["aaaa"]);
+  // A later no never takes back a yes: the unit stays read.
   confirm("memory-arrival-confirm.v1", older, true, ["cccc", "bbbb"]);
   confirm(current, newer, false, ["bbbb"]);
-  confirm("memory-arrival-confirm.v1", older, true, ["dddd", "eeee"]);
-  confirm(current, newer, true, ["eeee"]);
+  // The newer read wins though its first line files it in last month's file, read first.
+  confirm("memory-arrival-confirm.v1", older, true, ["eeee"]);
+  confirm(current, newer, true, ["dddd", "eeee"], "2026-10-31T23:50:00.000Z");
   expect(
-    readConfirmedArrivals("2026-11-10T00:00:00.000Z", where).map((a) => [
+    readConfirmedArrivals("2026-11-01T00:00:00.000Z", where).map((a) => [
       a.unit,
       a.messages.length,
     ])
   ).toEqual([
     ["unit_00000000aaaa", 1],
-    ["unit_00000000eeee", 1],
+    ["unit_00000000bbbb", 2],
+    ["unit_00000000eeee", 2],
   ]);
 });
