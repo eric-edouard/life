@@ -32,12 +32,23 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: tabs) {
-            Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
+            // The tabs' glyphs in line, as drawn: the system fills a tab's symbol unless its label says otherwise.
+            Tab(value: AppRouter.Tab.inbox) {
                 InboxScreen()
+            } label: {
+                TabLabel("Inbox", "tray")
             }
             .badge(life.badge)
-            Tab("Projects", systemImage: "list.bullet.indent", value: AppRouter.Tab.projects) { ProjectsScreen() }
-            Tab("People", systemImage: "person.2", value: AppRouter.Tab.people) { PeopleScreen() }
+            Tab(value: AppRouter.Tab.projects) {
+                ProjectsScreen()
+            } label: {
+                TabLabel("Projects", "list.bullet.indent")
+            }
+            Tab(value: AppRouter.Tab.people) {
+                PeopleScreen()
+            } label: {
+                TabLabel("People", "person.2")
+            }
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Projects too.
@@ -65,10 +76,14 @@ struct RootView: View {
                 GeometryReader { window in
                     let origin = window.frame(in: .global).origin
                     let pendant = router.pendantFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
+                    let gear = router.settingsFrame?.offsetBy(dx: -origin.x, dy: -origin.y)
+                    // The top group's foot: the gear's when it stands on the Pendant's line, under it.
+                    let foot = max(
+                        pendant?.maxY ?? 0, gear.map { abs($0.midX - (pendant?.midX ?? 0)) < 4 ? $0.maxY : 0 } ?? 0)
                     TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count)
                         .position(
                             x: pendant?.midX ?? window.size.width - Metrics.Spacing.m - 28,
-                            y: max(window.size.height / 2, (pendant?.maxY ?? 0) + Metrics.Spacing.l + 28))
+                            y: max(window.size.height / 2, foot + Metrics.Spacing.l + 28))
                 }
                 .ignoresSafeArea()
             }
@@ -216,4 +231,14 @@ enum Appearance: String {
         case .dark: .dark
         }
     }
+}
+
+/// A tab's title and its line glyph.
+private struct TabLabel: View {
+    let title: String
+    let symbol: String
+
+    init(_ title: String, _ symbol: String) { (self.title, self.symbol) = (title, symbol) }
+
+    var body: some View { Label(title, systemImage: symbol).environment(\.symbolVariants, .none) }
 }
