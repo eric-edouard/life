@@ -94,5 +94,7 @@ test("the watcher's voice read is cut as the night cuts it, closed only when lif
     [2, false],
     [1, true],
   ]);
-  expect(talks[0]?.ref).toBe("job-1:0@2026-11-21T01:00:00.000Z");
+  expect(talks[0]?.ref).toBe(
+    "job-1:0@2026-11-21T01:00:00.000Z job-2:0@2026-11-21T01:02:00.000Z"
+  );
 });

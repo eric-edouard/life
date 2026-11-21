@@ -1,4 +1,5 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
+import { isOnline } from "../models/llm";
 import { VOICE_NAMING_READ } from "../records/read-reply";
 import { turnRef } from "../sources/lifelog";
 import {
@@ -57,7 +58,10 @@ export function recentConversationsOf(voice: RecentVoice) {
     );
   return exchangesOf(turns, CONVERSATION_ENDS_AFTER).map((c) => ({
     closed: c.every((t) => voice.closed.has(t.conversation)),
-    ref: turnRef(c[0]?.jobId ?? "", c[0]?.turnIndex ?? 0, c[0]?.at ?? ""),
+    // Its first and last turns: a conversation joined by later speech is another.
+    ref: [c[0], c.at(-1)]
+      .map((t) => turnRef(t?.jobId ?? "", t?.turnIndex ?? 0, t?.at ?? ""))
+      .join(" "),
     turns: c,
   }));
 }
@@ -126,18 +130,23 @@ export async function nameVoicesOnArrival(
       )
   );
   const due: SpokenPart[][] = [];
+  // Closed conversations read whole this pass: examined only once the pass ends, not when a cap, the lock or a failure stops it.
+  const closing = held.filter((c) => c.closed).map((c) => c.ref);
+  const finish = (calls: number) => {
+    for (const ref of closing) {
+      examined.add(ref);
+    }
+    return calls;
+  };
   for (const c of held) {
     // biome-ignore lint/performance/noAwaitInLoops: a few conversations, one fetch of words each
     const parts = await spokenPartsOf(c.turns, people);
-    if (c.closed) {
-      examined.add(c.ref);
-    }
-    if (c.closed || isGroupDue(parts, queue, asked)) {
+    if (parts.length > 0 && (c.closed || isGroupDue(parts, queue, asked))) {
       due.push(parts);
     }
   }
   if (due.length === 0) {
-    return 0;
+    return finish(0);
   }
   const from = Math.min(...due.map((p) => Date.parse(p[0]?.at ?? "")));
   const { events } = await readWithPeople(
@@ -145,14 +154,19 @@ export async function nameVoicesOnArrival(
   );
   const near = { direct: directChats(events, people.resolve), events, people };
   const worth = due.filter((parts) => isWorthNaming(parts, near));
+  if (worth.length === 0) {
+    return finish(0);
+  }
   const left = NAMINGS_A_DAY - (await readCallsToday([PROMPT]));
-  if (worth.length === 0 || left <= 0) {
+  if (left <= 0 || !(await isOnline())) {
     return 0;
   }
   const work = await readVoiceNamingWork({ parts: worth }, people, where);
-  if (work.asked.length === 0 || isLocked()) {
+  if (work.asked.length === 0) {
+    return finish(0);
+  }
+  if (isLocked()) {
     return 0;
   }
-  const done = await voiceNaming(work, left, where);
-  return done.calls;
+  return finish((await voiceNaming(work, left, where)).calls);
 }
