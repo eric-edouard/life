@@ -1,12 +1,16 @@
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { clock, MIN } from "../core/clock";
 import { isOwnLife } from "../core/platform";
 import { same } from "../core/secret";
 import {
   type AgentRow,
   type AssignmentRow,
   agentOf,
+  agentOfSession,
   assignmentOf,
+  currentAssignmentOf,
+  openAssignmentsOf,
   openTurn,
 } from "../host/desk-read";
 import { EVENT_CHANNELS } from "../host/event-channels";
@@ -26,6 +30,7 @@ import {
   askFirstMessageOf,
   finish,
   hasAsked,
+  pendingCardOf,
   readCard,
   readPacket,
   setWait,
@@ -33,28 +38,33 @@ import {
 } from "./agent-actions";
 import { readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
-import { keyOf } from "./door-keys";
+import { doorOf, keyOf } from "./door-keys";
 import { askMainSession, keepMainSession, MAIN_ASK } from "./main-session";
+import { readSendFacts } from "./runtimes/runtime-rows";
+import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
 import { readSpokenAsk } from "./spoken-ask-intake";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
-// An agent is known by its key alone, `HMAC(deskKey, its id)`: derived, never stored, given to its session only in the
-// runtime's environment. Its one other path is the main session's (`MAIN_SESSION_PATH`, `main-session.ts`), for the
+// An agent is known by its key alone, `HMAC(deskKey, its id)` (`door-keys.ts`): derived, never stored, given to the
+// sessions the desk starts in the runtime's environment, and to the Life plugin for a session of the agent he opens
+// himself (`/session`, below). Its other path is the main session's (`MAIN_SESSION_PATH`, `main-session.ts`), for the
 // connector, by the local key. Eight tools, each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
 // `complaint-intake.ts`; `read_spoken_ask`, of `spoken-ask-intake.ts`); everything else an agent does with its own tools.
 
 const BEARER = /^Bearer /;
-const AGENT_PATH = /^\/mcp\/(agt_[0-9a-f]+)$/;
+const DOOR_PATH = /^\/(mcp|guard)\/(agt_[0-9a-f]+)$/;
+const SESSION_PATH = /^\/session\/([\w-]{1,100})$/;
+const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
 
 /**
- * Why the door refuses tool `name` on a turn of cause `cause` of `a` on `s`: a move's notes turn only writes its notes
+ * Why the door refuses tool `name` on a desk turn of cause `cause` (none outside one) of `a` on `s`: a move's notes turn only writes its notes
  * (`agent-moves.ts`); and his rule, an assignment's first turn ends on its plan (or card), asked, so it waits or
  * finishes only after (not when his words are its plan, `isHisWordsPlanOf`). Null: it may go.
  */
 function turnRefusalOf(
   desk: Desk,
   name: string,
-  cause: string,
+  cause: string | undefined,
   a: AgentRow | null,
   s: AssignmentRow
 ) {
@@ -75,10 +85,49 @@ function turnRefusalOf(
     : null;
 }
 
+const NO_TURN =
+  "No desk turn of yours is running: he wrote in your session himself (the Life plugin serves your door there, its tools named `mcp__life__<tool>`). Your tools act on the assignment you name with `assignment`, or on your one open assignment.";
+
+/** One open assignment as a line: its id, its matter, its wait and its open card. */
+const assignmentLineOf = (desk: Desk, s: AssignmentRow) =>
+  `- \`${s.id}\`: ${s.matter_id ? `matter ${s.matter_id}` : "your project"}; waits until ${s.wait_until ?? "nothing"} (${s.wait_reason ?? "no reason"}); open card: ${pendingCardOf(desk.db, s)?.id ?? "none"}`;
+
 /**
- * Agent `id`'s door: its six tools, registered as the connector's are (`tool()`), each refused unless the agent is
- * active (`read_packet` aside), and each acting on the assignment of its open desk turn: a turn names one matter, so
- * outside one nothing is done.
+ * The assignment a call acts on: its desk turn's (a name that is not it refused); outside one (he wrote in the agent's
+ * session himself), the open one it names (`assignment`), else its one open assignment, else, with none open, its
+ * newest; several open and none named is refused with their list.
+ */
+function assignmentOfCall(desk: Desk, id: string, named?: string) {
+  const turn = openTurn(desk.db, id);
+  if (turn) {
+    const s = assignmentOf(desk.db, turn.assignment_id);
+    if (!s || (named && named !== s.id)) {
+      throw new Error(`Not done: this desk turn is on ${turn.assignment_id}.`);
+    }
+    return { s, turn };
+  }
+  const open = openAssignmentsOf(desk.db, id);
+  let s: AssignmentRow | null | undefined;
+  if (named) {
+    s = open.find((x) => x.id === named);
+  } else if (open.length <= 1) {
+    s = open[0] ?? currentAssignmentOf(desk.db, id);
+  }
+  if (!s) {
+    const why = named
+      ? `${named} is not one of your open assignments`
+      : "You hold several: name one";
+    throw new Error(
+      `${NO_TURN} ${why}:\n${open.map((x) => assignmentLineOf(desk, x)).join("\n")}`
+    );
+  }
+  return { s, turn: undefined };
+}
+
+/**
+ * Agent `id`'s door: its tools, registered as the connector's are (`tool()`), each refused unless the agent is active
+ * (`read_packet` aside), and each acting on the assignment its call is on (`assignmentOfCall`): its desk turn's, or,
+ * outside one, the one named.
  */
 function doorServer(desk: Desk, id: string) {
   const server = new McpServer({ name: "desk", version: "1" });
@@ -92,29 +141,33 @@ function doorServer(desk: Desk, id: string) {
       server,
       name,
       description,
-      input,
-      async (args) => {
+      input.extend({
+        assignment: z
+          .string()
+          .optional()
+          .describe(
+            "Only outside a desk turn (he wrote in your session himself): which of your open assignments this is on; with one open, leave it out."
+          ),
+      }),
+      async ({ assignment, ...args }) => {
         const a = agentOf(desk.db, id);
         if (name !== "read_packet" && a?.status !== "active") {
           throw new Error(`Not done: ${id} is not active.`);
         }
-        // The assignment its turn is on, read once for the call.
-        const turn = openTurn(desk.db, id);
-        const s = turn && assignmentOf(desk.db, turn.assignment_id);
-        if (!s) {
-          throw new Error(
-            `Not done: no desk turn of ${id} is running: the desk wakes you on your assignment's events, its deadline or his answer, and your tools act on that turn's.`
-          );
-        }
-        const refused = turnRefusalOf(desk, name, turn.cause, a, s);
+        const at = assignmentOfCall(desk, id, assignment as string | undefined);
+        const refused = turnRefusalOf(desk, name, at.turn?.cause, a, at.s);
         if (refused) {
           throw new Error(refused);
         }
-        const r = await run(args, s);
+        const r = await run(args as z.infer<S>, at.s);
         if (typeof r === "object" && r !== null && "error" in r) {
           throw new Error(String(r.error));
         }
-        return (r as string | Record<string, unknown> | undefined) ?? "Done.";
+        const done =
+          (r as string | Record<string, unknown> | undefined) ?? "Done.";
+        return name === "read_packet" && !at.turn
+          ? `${NO_TURN}\n\n${done}`
+          : done;
       },
       name.startsWith("read_") ? READ_ONLY : WRITES
     );
@@ -169,11 +222,16 @@ function doorServer(desk: Desk, id: string) {
   return server;
 }
 
-/**
- * His words to the main session (`MAIN_SESSION_PATH`), from the connector, by the local key: a POST of `MainSessionAsk`.
- * With words, its lines as NDJSON, the last its `answer`, the request never timed out while it runs; with none, his
- * presence: the session kept open, `{kept}` and why not.
- */
+const FACTS_FOR_MS = 10 * MIN;
+let facts: { at: number; facts: SendFacts } | undefined;
+/** The send guard's facts, read again every `FACTS_FOR_MS`: reading Mail on every guarded call would slow each one. */
+function guardFacts() {
+  if (!facts || clock().getTime() - facts.at > FACTS_FOR_MS) {
+    facts = { at: clock().getTime(), facts: readSendFacts() };
+  }
+  return facts.facts;
+}
+
 /** The local key's gate, built once (`keyRefusal` reads the key once). */
 let refusal: ReturnType<typeof keyRefusal> | undefined;
 const refusalOf = () => {
@@ -181,6 +239,11 @@ const refusalOf = () => {
   return refusal;
 };
 
+/**
+ * His words to the main session (`MAIN_SESSION_PATH`), from the connector, by the local key: a POST of `MainSessionAsk`.
+ * With words, its lines as NDJSON, the last its `answer`, the request never timed out while it runs; with none, his
+ * presence: the session kept open, `{kept}` and why not.
+ */
 async function mainSessionFetch(
   desk: Desk,
   req: Request,
@@ -226,22 +289,41 @@ async function mainSessionFetch(
 }
 
 /**
- * The door's requests: `/mcp/<agt_…>` with that agent's key as a bearer, else 401, the same for an unknown agent and a
- * wrong key; `MAIN_SESSION_PATH` by the local key; 404 for any other path.
+ * The door's requests, each with that agent's key as a bearer (else 401, the same for an unknown agent and a wrong key):
+ * `/mcp/<agt_…>`, its tools; `POST /guard/<agt_…>`, the send guard's answer for one tool call (`{ refusal }`, null when
+ * it may run). And one without a key, for the Life plugin: `/session/<ref>`, the door of the agent whose session that
+ * is (`{ agent, key, url, matcher }`, the guard's tool matcher), else 404; by a loopback `Host` only, so no web page
+ * reaches it. `MAIN_SESSION_PATH`, by the local key (`mainSessionFetch`). 404 for any other path.
  */
-export function doorFetch(desk: Desk) {
-  return (req: Request, server?: Bun.Server<undefined>) => {
-    const path = new URL(req.url).pathname;
-    if (path === MAIN_SESSION_PATH) {
-      return mainSessionFetch(desk, req, server);
+export function doorFetch(desk: Desk, readFacts = guardFacts) {
+  return async (req: Request, server?: Bun.Server<undefined>) => {
+    const url = new URL(req.url);
+    if (url.pathname === MAIN_SESSION_PATH) {
+      return await mainSessionFetch(desk, req, server);
     }
-    const id = AGENT_PATH.exec(path)?.[1];
+    const ref = SESSION_PATH.exec(url.pathname)?.[1];
+    if (ref) {
+      const agent = LOOPBACK.has(url.hostname) && agentOfSession(desk.db, ref);
+      return agent
+        ? Response.json({
+            agent,
+            ...doorOf(agent),
+            matcher: SEND_GUARD_HOOK.matcher,
+          })
+        : text("not found", 404);
+    }
+    const [, path, id] = DOOR_PATH.exec(url.pathname) ?? [];
     if (!id) {
       return text("not found", 404);
     }
     const given = req.headers.get("authorization")?.replace(BEARER, "") ?? "";
     if (!(agentOf(desk.db, id) && same(given, keyOf(id)))) {
       return text("unauthorized", 401);
+    }
+    if (path === "guard") {
+      return Response.json({
+        refusal: sendRefusalOf(await req.json(), readFacts()) ?? null,
+      });
     }
     return createMcpHandler(() => doorServer(desk, id), {}).fetch(req, {
       authInfo: {
@@ -254,7 +336,8 @@ export function doorFetch(desk: Desk) {
   };
 }
 
-/** Serves the door on loopback (`DOOR_PORT`). */
+/** Serves the door on loopback (`;
+DOOR_PORT`). */
 export function openDoor(desk: Desk) {
   Bun.serve({
     development: false,

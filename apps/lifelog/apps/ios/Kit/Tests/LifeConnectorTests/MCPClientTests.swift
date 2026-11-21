@@ -191,13 +191,16 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     }
     let api = MCPLifeAPI(client: mcp)
     _ = try await api.readInbox(pushId: "0123456789abcdef", at: nil)
-    _ = try await api.readInbox()
+    _ = try await api.readInbox(ifNot: nil)
+    _ = try await api.readInbox(ifNot: "v1")
     let arguments = try sent.withLock {
         try $0.map { try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any]) }
     }
     #expect(arguments[0]["pushId"] as? String == "0123456789abcdef")
     #expect(arguments[0]["limit"] == nil)
     #expect(arguments[1]["limit"] as? Int == 500)
+    #expect(arguments[1]["ifNot"] == nil)
+    #expect(arguments[2]["ifNot"] as? String == "v1")
 }
 
 @Test func hisMarkAndAProjectsStatusGoAsLifeTakesThem() async throws {
@@ -212,10 +215,10 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     let api = MCPLifeAPI(client: mcp)
     _ = try await api.setImportant(matter: "matter_1", false) { _ in }
     _ = try await api.setProjectStatus("halden", .parked, said: "Parked the project Halden house") { _ in }
-    _ = try await api.readMatters(project: "halden")
+    _ = try await api.readMatters(project: "halden", ifNot: nil)
     _ = try await api.readMatters(person: "person:test-ana")
-    _ = try await api.readMatters(area: "home")
-    _ = try await api.readProject("halden")
+    _ = try await api.readMatters(area: "home", ifNot: "v2")
+    _ = try await api.readProject("halden", ifNot: nil)
     let calls = try sent.withLock {
         try $0.map { ($0.0, try #require(JSONSerialization.jsonObject(with: $0.1) as? [String: Any])) }
     }
@@ -226,6 +229,8 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     // An area chip's list: the area's matters in no project, by the one rule the chip's count used.
     #expect(calls[4].1["area"] as? String == "home")
     #expect(calls[4].1["noProject"] as? Bool == true)
+    #expect(calls[4].1["ifNot"] as? String == "v2")
+    #expect(calls[2].1.keys.sorted() == ["project"])
     #expect(calls[5].1["project"] as? String == "halden")
     // Life resolves a person by id (`test-ana`), never by the ref the phone holds.
     #expect(calls[3].1["person"] as? String == "test-ana")

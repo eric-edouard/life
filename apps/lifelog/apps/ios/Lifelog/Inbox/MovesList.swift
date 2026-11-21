@@ -276,7 +276,7 @@ struct MovesList: View {
     /// The option `id` on each of `moves` that offers it, held as one (one toast, one Undo).
     private func act(_ moves: [YourMoves.Move], _ id: String, words: String) {
         let requests = moves.compactMap { $0.answer(id) }
-        guard !requests.isEmpty else { return }
+        guard !requests.isEmpty, !life.saysOutOfReach() else { return }
         // A new attempt: an earlier refusal of these rows is no longer theirs.
         requests.forEach { life.forget(.answer(ref: $0.ref)) }
         sent.formUnion(requests.map(\.ref))
