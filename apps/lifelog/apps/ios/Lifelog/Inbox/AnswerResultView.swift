@@ -77,8 +77,7 @@ struct AnswerResultView: View {
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
         Text(taken.doneWord).font(.statusWord).foregroundStyle(Palette.ok).lit().padding(.top, 12)
-        Text(taken.summary(proof)).font(.lead)
-            .foregroundStyle(proof.tickRefused == nil ? Palette.muted : Palette.flag)
+        Text(taken.summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines).padding(.top, 8)
         if let changed = taken.counts(proof) {
             Text(changed).font(.body15).foregroundStyle(Palette.muted)
@@ -178,10 +177,6 @@ extension Taken {
 
     func summary(_ proof: ActionProof) -> String {
         guard case .answered(let result) = proof else { return "" }
-        // His answer stands; the to-do item it would tick stayed open, and Life says why.
-        if let refused = result.tickRefused {
-            return "Your answer is recorded, but the to-do item stayed open: \(refused)"
-        }
         if let send = result.send {
             let to = [check.draft?.to, send.channel.map(Channel.name)].compactMap(\.self)
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
@@ -223,12 +218,5 @@ extension Taken {
             return "Your goal is saved. It stays here."
         }
         return "It stays here."
-    }
-}
-
-extension ActionProof {
-    /// Why the to-do item an `ends` answer would tick stayed open (`AnswerResult.tickRefused`); nil for any other proof.
-    var tickRefused: String? {
-        if case .answered(let result) = self { result.tickRefused } else { nil }
     }
 }
