@@ -187,17 +187,15 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "tell_life(asked,said)",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
-  const claim = json.result.tools.find(
-    (t: { name: string }) => t.name === "read_observation"
-  );
+  const byName = (n: string) =>
+    json.result.tools.find((t: { name: string }) => t.name === n);
+  const claim = byName("read_observation");
   expect(claim.inputSchema).toMatchObject({
     properties: { id: { type: "string" } },
     required: ["id"],
   });
   // An item's id: Google Tasks' strings, or Reminders' numbers as the tool first took them.
-  const reminders = json.result.tools.find(
-    (t: { name: string }) => t.name === "change_todo_item"
-  );
+  const reminders = byName("change_todo_item");
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
@@ -383,9 +381,8 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
     await last(await token({ sub: "someone-else" }), "tools/list")
   ).toMatchObject({ ...asker, refused: "forbidden" });
   // A refusal is logged by its class, never its reason's words.
-  expect((await last(await token({}, -60), "tools/list")).refused).toBe(
-    "invalid"
-  );
+  const stale = await last(await token({}, -60), "tools/list");
+  expect(stale.refused).toBe("invalid");
   const before = logged().length;
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
