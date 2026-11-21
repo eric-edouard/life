@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
@@ -53,7 +53,12 @@ const entry = (o: Record<string, unknown> = {}) => ({
   ...o,
 });
 let made = 0;
-const line = (voices: unknown[], when: string, folder = where) => {
+const line = (
+  voices: unknown[],
+  when: string,
+  folder = where,
+  firstAt = at(0)
+) => {
   made += 1;
   storeReply(
     {
@@ -71,7 +76,7 @@ const line = (voices: unknown[], when: string, folder = where) => {
       schemaVersion: 1,
       starts: [0],
     } as ReadReply,
-    at(0),
+    firstAt,
     folder
   );
 };
@@ -264,10 +269,13 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
 test("a voice card asks about the one person lifelog's suggestion and the group's sure or likely guesses agree on", () => {
   const folder = mkdtempSync(join(tmpdir(), "voice-card-guesses-"));
   try {
+    line([entry()], "2026-10-11T00:00:00.000Z", folder);
+    // speaker_2's part is filed in an earlier month than the card's clips: still read.
     line(
-      [entry(), entry({ confidence: "weak", lines: [2], voice: "V2" })],
+      [entry({ confidence: "weak", lines: [2], voice: "V2" })],
       "2026-10-11T00:00:00.000Z",
-      folder
+      folder,
+      "2026-08-01T00:00:00.000Z"
     );
     const item = {
       clips: [{ at: at(1) }],
@@ -307,6 +315,9 @@ test("a voice card asks about the one person lifelog's suggestion and the group'
     expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBe(
       "person:dana"
     );
+    // A month file torn mid-line: no guesses, and the inbox still reads.
+    appendFileSync(join(folder, "2026-08.jsonl"), "{not json\n");
+    expect(withVoiceGuesses([item], folder)[0]?.guessed).toEqual([]);
   } finally {
     rmSync(folder, { force: true, recursive: true });
   }
