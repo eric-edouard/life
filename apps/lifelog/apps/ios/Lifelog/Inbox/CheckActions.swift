@@ -27,6 +27,9 @@ struct CheckActions: View {
     let create: (String, _ asOrganization: Bool) -> Void
     /// "Wrong…" on a card of Life's: its sheet.
     let wrong: () -> Void
+    /// The answer he gave while Life works on it: its button says so in place, working then Life's green word, and
+    /// the others wait dimmed (`answer-states-2026-11-20.md`); nil at rest.
+    var pressed: Taken?
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LifeStore.self) private var life
@@ -38,7 +41,10 @@ struct CheckActions: View {
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.s) {
-            if input.isWritingOwnWords {
+            if let pressed, pressedChoice == nil {
+                // His words or a person he named: the one answer, working then Life's green word.
+                pressedButton(pressed, kind: .filled, size: .large)
+            } else if input.isWritingOwnWords {
                 Button {
                     if let request = check.answer(words: words, option: input.option) { answer(request) }
                 } label: {
@@ -264,9 +270,7 @@ struct CheckActions: View {
             .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
             others(shown.map(choice))
         case .first(let first):
-            let lead = choice(first)
-            Button(action: lead.run) { lead.words }.buttonStyle(.pill(.filled))
-                .zoomSource(sheet(of: first), in: sheetZoom)
+            answerButton(choice(first), kind: .filled, size: .large)
             others(shown.dropFirst().map(choice))
         case .none:
             EmptyView()
@@ -314,10 +318,7 @@ struct CheckActions: View {
         let rest = (tell.map { [$0] } ?? []) + answers
         let isShort = Self.isOneRow(rest.map(\.label))
         let stack = VStack(spacing: Metrics.Spacing.s) {
-            ForEach(rest) { choice in
-                Button(action: choice.run) { choice.words }.buttonStyle(.pill(.quiet, size: .row))
-                    .zoomSource(choice.sheet, in: sheetZoom)
-            }
+            ForEach(rest) { choice in answerButton(choice, kind: .quiet, size: .row) }
         }
         if rest.isEmpty {
             EmptyView()
@@ -325,9 +326,7 @@ struct CheckActions: View {
             ViewThatFits(in: .horizontal) {
                 AnswerRow {
                     ForEach(rest) { choice in
-                        Button(action: choice.run) { choice.words }.buttonStyle(.pill(.quiet, size: .compact))
-                            .lineLimit(1).minimumScaleFactor(0.75)
-                            .zoomSource(choice.sheet, in: sheetZoom)
+                        answerButton(choice, kind: .quiet, size: .compact).lineLimit(1).minimumScaleFactor(0.75)
                     }
                 }
                 stack
@@ -335,6 +334,44 @@ struct CheckActions: View {
         } else {
             stack
         }
+    }
+
+    /// The option he pressed among those drawn, when he pressed one: else his answer (his words, a person) shows as
+    /// the one busy pill.
+    private var pressedChoice: String? {
+        guard let options = pressed?.request.options, options.count == 1, shown.contains(where: { $0.id == options[0] })
+        else { return nil }
+        return options[0]
+    }
+
+    /// One answer's button: at rest, or, once he pressed an answer, the pressed one working, then green with Life's
+    /// word (only on Life's say-so), and every other dimmed and off until it is over.
+    @ViewBuilder private func answerButton(_ choice: Choice, kind: PillStyle.Kind, size: PillStyle.Size) -> some View {
+        if let pressed, case .option(let id) = choice.id, id == pressedChoice {
+            pressedButton(pressed, kind: kind, size: size)
+        } else {
+            Button(action: choice.run) { choice.words }.buttonStyle(.pill(kind, size: size))
+                .zoomSource(choice.sheet, in: sheetZoom)
+                .opacity(pressed == nil ? 1 : 0.35).disabled(pressed != nil)
+        }
+    }
+
+    /// The answer he pressed, in place: "Saving…" with the spinner while Life works, then green with Life's word.
+    private func pressedButton(_ pressed: Taken, kind: PillStyle.Kind, size: PillStyle.Size) -> some View {
+        let state = life.state(of: pressed.key)
+        return Button {
+        } label: {
+            if case .succeeded(let proof, _) = state {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Image(systemName: "checkmark")
+                    Text(pressed.doneWord(proof).trimmingCharacters(in: CharacterSet(charactersIn: ".")))
+                }
+            } else {
+                Text("Saving…")
+            }
+        }
+        .buttonStyle(.pill(state.isDone(isSend: false) ? .done : kind, size: size, isBusy: state.isRunning))
+        .motion(Motion.standard, value: state.isDone(isSend: false))
     }
 
     /// One tap answers; an option that names someone opens "Same as…", and a name card's "Organization" its create sheet.

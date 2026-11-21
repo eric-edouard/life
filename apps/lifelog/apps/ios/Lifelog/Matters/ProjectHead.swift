@@ -36,15 +36,15 @@ struct ProjectHead: View {
                 HStack(spacing: Metrics.Spacing.s) {
                     Text(statusLine(head)).font(.small).foregroundStyle(Palette.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    // A round tinted button (decision 98): the whole circle is the tap.
+                    // The info glyph at the line's end, as drawn (`DuoFoldProjectsOne`), its tap 44 round.
                     Button {
                         router.openDetails(of: id)
                     } label: {
-                        Image(systemName: "info").font(.smallStrong).foregroundStyle(Palette.fg)
-                            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
-                            .background(Color.fillTint, in: .circle).contentShape(.circle)
+                        Image(systemName: "info.circle").font(.lead).foregroundStyle(Palette.muted)
+                            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).contentShape(.circle)
                     }
                     .buttonStyle(.plain).accessibilityLabel("Details")
+                    .padding(.trailing, -Metrics.Spacing.m)
                 }
             }
             .padding(.horizontal, Metrics.gutter)
@@ -90,15 +90,29 @@ struct ProjectHead: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Its agents, each by its program's mark (from the desk's read), its title and its live line.
+    /// Its agents as slim rows (the agent row of decision 98): its program's mark and its name in `ai`, its live line
+    /// under it, a chevron to its sheet over the matter it works on.
     private func agents(_ agents: [ProjectHeader.Head.Agent]) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(agents.enumerated()), id: \.element.id) { at, agent in
-                let runtime = life.agents.value?.agents.first { $0.id == agent.id }?.runtimeName ?? .unknown
-                Row(title: agent.title, icon: runtime.mark, iconTint: Palette.fg, detail: agent.line, isInList: true) {
-                    if agent.status == "running" { Spinner(size: .small).foregroundStyle(Palette.ai) }
+        VStack(spacing: Metrics.Spacing.s) {
+            ForEach(agents) { agent in
+                let registered = life.agents.value?.agents.first { $0.id == agent.id }
+                Button {
+                    if let matter = registered?.matter?.id { router.open(agent: agent.id, matter: matter) }
+                } label: {
+                    HStack(spacing: Metrics.Spacing.m) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            AgentLabel(runtime: registered?.runtimeName ?? .unknown, name: agent.title)
+                                .font(.bodyStrong).lineLimit(1)
+                            Text(agent.line).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        if agent.status == "running" { Spinner(size: .small).foregroundStyle(Palette.ai) }
+                        if registered?.matter != nil { RowValue() }
+                    }
+                    .padding(.horizontal, Metrics.Spacing.l)
                 }
-                .groupedRow(at: at, of: agents.count)
+                .buttonStyle(.groupedRow(at: 0, of: 1))
+                .disabled(registered?.matter == nil)
                 .accessibilityElement(children: .combine)
             }
         }

@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// One run of a field's dictation as `Dictation` drives it: its loudness now (0 to 1) and its end, which closes the
+/// One run of a field's dictation as `Dictation` drives it: its loudness since last asked (0 to 1) and its end, which closes the
 /// microphone and returns what it heard (Ogg Opus). The app's `DictationCapture` is the one real run.
 public struct DictationRun: Sendable {
     public let level: @MainActor () -> Float
@@ -222,18 +222,26 @@ public final class Dictation {
         }
     }
 
+    /// One bar, 0 to 1, from a moment's loudness (root mean square) on a log scale: the microphone is unprocessed
+    /// (`.measurement`, no gain control), so a quiet room sits near -60 dB and speech close to the phone near -20.
+    /// A bar rises at once and falls by half a bar at most: each syllable a peak, a pause a short slope to the dots.
+    // ponytail: -60 and -20 are set from the session's mode, not measured on his iPhone; move them if bars sit low.
+    nonisolated static func bar(_ level: Float, after last: Double) -> Double {
+        let heard = min(max((20 * log10(max(Double(level), 1e-6)) + 60) / 40, 0), 1)
+        return max(heard, last / 2)
+    }
+
     private func fail(_ problem: Problem) {
         (self.problem, phase, sendsWhenLanded) = (problem, .rest, false)
     }
 
-    /// The run's loudness every 60 ms, smoothed, on a log scale (speech sits far below full scale).
+    /// The run's loudness every 60 ms, one bar each (`bar`).
     private func sample() {
         sampling = Task {
-            var smoothed = 0.0
+            var last = 0.0
             while !Task.isCancelled, let level = opened?.level() {
-                let decibels = 20 * log10(max(Double(level), 1e-5))
-                smoothed = 0.6 * smoothed + 0.4 * min(max((decibels + 50) / 40, 0), 1)
-                levels = Array((levels + [smoothed]).suffix(Self.samplesKept))
+                last = Self.bar(level, after: last)
+                levels = Array((levels + [last]).suffix(Self.samplesKept))
                 sampledAt = .now
                 try? await Task.sleep(for: Self.sampleEvery)
             }
