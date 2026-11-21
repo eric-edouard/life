@@ -1,12 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
 import { log } from "../../core/log";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { piRouteOf } from "../../models/llm";
-import { routingOf } from "../../models/routers";
+import { MAX_TOKENS, routingOf } from "../../models/routers";
 import type { Agent, RunEnd, Runtime, Update, Usage } from "./contract";
 import {
   PI_EXTENSION_COMMAND,
@@ -59,9 +58,13 @@ const PI_EXTENSION = ["js", "ts"]
 /** The key pi's provider takes: Life's own, from its environment. */
 const KEY = "OPENROUTER_API_KEY";
 
-/** Where pi keeps the desk's sessions and settings, and the provider it asks. */
+/** The desk's word for pi's one model (the phone's choice, `RuntimeName.models`): the provider's model, whatever its id. */
+const PI_MODEL_WORD = "flash";
+
+/** Where pi keeps the desk's sessions and settings, the provider it asks, and the effort an agent naming none thinks at. */
 export interface PiPlace {
   dir: string;
+  effort?: string;
   provider: PiProvider;
 }
 
@@ -79,7 +82,7 @@ export function lifeProviderOf(): PiProvider {
         cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
         id: route.model,
         input: ["text", "image"],
-        maxTokens: 131_072,
+        maxTokens: MAX_TOKENS,
         name: route.model,
         reasoning: true,
       },
@@ -100,7 +103,6 @@ export interface PiRow extends SessionRow {
 const settingsOf = (isOwn: boolean) => ({
   // A repo's own `.pi` never loads (the extension refuses it too): it could rewrite a request.
   defaultProjectTrust: "never",
-  enableInstallTelemetry: false,
   extensions: [
     "-builtin:codemode",
     "-builtin:tool-search",
@@ -129,6 +131,7 @@ export function piRowOf(
   isOwn = isOwnLife(),
   place: PiPlace = {
     dir: join(LIFE_STATE_DIR, "desk", "pi"),
+    effort: piRouteOf().effort,
     provider: lifeProviderOf(),
   }
 ): PiRow {
@@ -151,6 +154,7 @@ export function piRowOf(
       const { code } = await exec([
         "pgrep",
         "-f",
+        "--",
         `--session(-id)?[= ][^ ]*${ref}`,
       ]);
       if (code === 0) {
@@ -162,9 +166,12 @@ export function piRowOf(
       if (!(PI_EXTENSION && model)) {
         throw new Error("Life's pi extension or its model is missing");
       }
-      if (a.model && a.model !== model.id) {
-        throw new Error(`pi runs ${model.id} only, not ${a.model}`);
+      if (a.model && a.model !== PI_MODEL_WORD) {
+        throw new Error(
+          `pi runs its one model (${PI_MODEL_WORD}), not ${a.model}`
+        );
       }
+      const effort = a.effort ?? place.effort;
       mkdirSync(agentDir, { recursive: true });
       writeFileSync(
         join(agentDir, "settings.json"),
@@ -189,7 +196,7 @@ export function piRowOf(
           ...(file
             ? ["--session", file]
             : ["--session-id", ref, "--name", a.title]),
-          ...(a.effort ? ["--thinking", a.effort] : []),
+          ...(effort ? ["--thinking", effort] : []),
           "-e",
           PI_EXTENSION,
           ...(isOwn
@@ -199,6 +206,9 @@ export function piRowOf(
         env: {
           ...(isOwn ? await loginEnvLess([KEY]) : {}),
           BUN_BE_BUN: "1",
+          // Each pi loads the extension fresh: jiti's file cache in the shared temporary folder is not shared by the
+          // pi processes the desk runs at once.
+          JITI_FS_CACHE: "false",
           PI_CODING_AGENT_DIR: agentDir,
           PI_OFFLINE: "1",
           PI_SKIP_VERSION_CHECK: "1",
@@ -219,7 +229,7 @@ interface PiLine {
   aborted?: boolean;
   assistantMessageEvent?: { delta?: string; type: string };
   command?: string;
-  data?: { commands?: { name: string }[] };
+  data?: { commands?: { name: string }[]; disposition?: string };
   error?: string;
   id?: string;
   isError?: boolean;
@@ -312,9 +322,19 @@ const openOf =
     const settle = (e: RunEnd) => {
       const c = current;
       current = undefined;
+      // Logged by its stop reason only, a code word: pi's error message can echo the call.
+      if (c && !e.ok) {
+        log("desk.runtime", {
+          agent: a.id,
+          error: c.stop ?? "ended",
+          ok: false,
+          what: "turn",
+        });
+      }
       c?.end(e);
     };
-    createInterface({ input: child.stdout }).on("line", (text) => {
+    /** One line pi printed: a response to what the runtime asked, else an event of the run. */
+    const hear = (text: string) => {
       let l: PiLine;
       try {
         l = JSON.parse(text) as PiLine;
@@ -347,8 +367,20 @@ const openOf =
         settle(
           isOk
             ? { ok: true, usage: c.usage }
-            : { ok: false, why: l.aborted ? "cancelled" : (c.stop ?? "error") }
+            : {
+                ok: false,
+                why: l.aborted ? "cancelled" : (c.why ?? c.stop ?? "error"),
+              }
         );
+      }
+    };
+    // Split on line feeds only (pi's rpc.md): a reader by lines would also split a JSON string at U+2028 or U+2029.
+    let rest = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+      const lines = (rest + chunk).split("\n");
+      rest = lines.pop() ?? "";
+      for (const line of lines) {
+        hear(line.endsWith("\r") ? line.slice(0, -1) : line);
       }
     });
     exited.then(() => settle({ ok: false, why: "pi exited" }));
@@ -400,14 +432,6 @@ const openOf =
           begun,
           end: (e) => {
             notBegun(new Error(e.why ?? "it ended before the turn began"));
-            if (!e.ok) {
-              log("desk.runtime", {
-                agent: a.id,
-                error: e.why,
-                ok: false,
-                what: "turn",
-              });
-            }
             end(e);
           },
           onUpdate,
@@ -423,6 +447,10 @@ const openOf =
       ask({ message, type: "prompt" }).then((r) => {
         if (r.success === false) {
           settle({ ok: false, why: r.error ?? "pi refused the prompt" });
+        }
+        // A prompt pi handled itself (an extension's command) starts no run: no `agent_settled` comes.
+        if (r.data?.disposition === "handled") {
+          settle({ ok: false, why: "pi handled the prompt as a command" });
         }
       });
       return { begun: began, ended };

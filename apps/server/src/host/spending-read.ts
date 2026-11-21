@@ -2,12 +2,13 @@ import type { Database } from "bun:sqlite";
 import { clock, daysBefore } from "../core/clock";
 import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
-import type { TurnSpent } from "../memory/spends";
 import {
   type Basis,
+  providerOfRuntime,
   type SpendKind,
   type SpendProvider,
   spendOfTurn,
+  type TurnSpent,
 } from "../memory/spends";
 import { readPeople } from "../memory/who";
 import { dayNow, dayRange } from "../memory/zones";
@@ -283,8 +284,7 @@ export function withAgentSpending(read: RegisteredAgents) {
       ...a,
       spending: {
         ...turnSpendingOf(turns.filter((t) => t.agent_id === a.id)),
-        provider:
-          a.runtime === "codex" ? ("codex" as const) : ("claude" as const),
+        provider: providerOfRuntime(a.runtime),
         since: sessions.find((s) => s.agent_id === a.id)?.started_at ?? null,
       },
     })),

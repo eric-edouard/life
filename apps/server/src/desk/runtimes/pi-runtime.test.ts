@@ -7,14 +7,19 @@ import { fakePiProvider } from "./fake-pi-provider";
 import { type PiRow, piRowOf, piRuntime } from "./pi-runtime";
 
 // The pi runtime over a real pi (the pinned one, run as the helper runs it) and a made-up provider that answers by the
-// prompt's words: `[hang]` streams nothing until aborted, anything else gets "hello". One case per rule the desk leans on.
+// prompt's words: `[hang]` streams nothing until aborted, `[sep]` an answer holding U+2028, anything else "hello". One
+// case per rule the desk leans on.
 
 setDefaultTimeout(30_000);
 
 const provider = fakePiProvider((_n, a) =>
   JSON.stringify(a.body.messages.at(-1)).includes("[hang]")
     ? "hang"
-    : { text: "hello" }
+    : {
+        text: JSON.stringify(a.body.messages.at(-1)).includes("[sep]")
+          ? "one\u2028two"
+          : "hello",
+      }
 );
 const KEY = "OPENROUTER_API_KEY";
 const kept = process.env[KEY];
@@ -105,4 +110,42 @@ test("no turn runs on a pi whose Life extension did not load", async () => {
   await expect(
     piRuntime(unguarded).start(agent, "Your brief.")
   ).rejects.toThrow();
+});
+
+test("an answer holding a line separator is heard whole", async () => {
+  const heard: Update[] = [];
+  const run = await piRuntime(row).talk(agent, null, "[sep]", (u) =>
+    heard.push(u)
+  );
+  expect(await run.ended).toMatchObject({ ok: true, usage: { tokensOut: 2 } });
+  expect(heard).toContainEqual({ kind: "words", text: "one\u2028two" });
+});
+
+test("a session another process keeps reads as running, and is never sent beside it", async () => {
+  const keeper = piRuntime(row);
+  const kept = await keeper.talk(agent, null, "Hi.", () => undefined);
+  await kept.ended;
+  const other = piRuntime(row);
+  expect(await other.state(kept.ref)).toBe("running");
+  await expect(other.send(agent, kept.ref, "A wake.")).rejects.toThrow();
+  await keeper.stop(kept.ref);
+  expect(await other.state(kept.ref)).toBe("idle");
+});
+
+test("a prompt pi takes as a command ends its turn at once", async () => {
+  const run = await piRuntime(row).start(agent, "/life-desk");
+  expect(await run.ended).toEqual({
+    ok: false,
+    why: "pi handled the prompt as a command",
+  });
+});
+
+test("pi runs its one model by the desk's word, and refuses another", async () => {
+  const pi = piRuntime(row);
+  expect(
+    (await (await pi.start({ ...agent, model: "flash" }, "Hi.")).ended).ok
+  ).toBe(true);
+  await expect(pi.start({ ...agent, model: "opus" }, "Hi.")).rejects.toThrow(
+    "one model"
+  );
 });

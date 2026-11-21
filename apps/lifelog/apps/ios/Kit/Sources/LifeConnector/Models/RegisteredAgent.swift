@@ -39,8 +39,8 @@ public enum RuntimeName: String, UnknownTolerant, Sendable {
                 Model(id: "gpt-6.2-astra", name: "GPT-6.2 Astra"), Model(id: "gpt-6.2-sol", name: "GPT-6.2 Sol"),
                 Model(id: "gpt-6-luna", name: "GPT-6 Luna"),
             ]
-        // pi runs the memory's model alone (`piRouteOf`, `llm.ts`).
-        case .pi: [Model(id: "deepseek/deepseek-v4.1-flash-1017", name: "DeepSeek V4.1 Flash")]
+        // pi runs one model, the memory's, by the desk's word for it (`PI_MODEL_WORD`, `pi-runtime.ts`).
+        case .pi: [Model(id: "flash", name: "DeepSeek Flash")]
         case .unknown: []
         }
     }
