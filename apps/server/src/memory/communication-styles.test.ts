@@ -12,7 +12,7 @@ import {
   styleLines,
   styleSampleOf,
 } from "./communication-styles";
-import type { Decision } from "./decisions";
+import type { Decision } from "./decision-lines";
 import { communicationStylePath } from "./memory-files";
 import { lifeChat } from "./units";
 

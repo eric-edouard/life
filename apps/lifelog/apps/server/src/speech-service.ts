@@ -128,14 +128,19 @@ async function answerOf<T>(
 const RANGES_PER_CALL = 25;
 
 // One embedding per `[start, end]` range (seconds) of an Ogg Opus file, in order; null for a range
-// the service could not use (past the end of the audio, or under half a second).
+// the service could not use (past the end of the audio, or under half a second). `isHeld` is asked
+// before each call, as the audio leaves: null when it held one back.
 export async function embedRanges(
   config: Config,
   ogg: Uint8Array,
-  ranges: [number, number][]
-): Promise<{ embeddings: (Embedding | null)[] } | Unanswered> {
+  ranges: [number, number][],
+  isHeld: () => boolean
+): Promise<{ embeddings: (Embedding | null)[] } | Unanswered | null> {
   const embeddings: (Embedding | null)[] = [];
   for (let i = 0; i < ranges.length; i += RANGES_PER_CALL) {
+    if (isHeld()) {
+      return null;
+    }
     // biome-ignore lint/performance/noAwaitInLoops: the service has one worker
     const said = await post(config, "/embed-ranges", ogg, Ranges, {
       headers: {

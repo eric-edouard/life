@@ -74,4 +74,53 @@ public enum MatterIcons {
 
     /// The SF Symbol of `key`; nil for a key this app does not know (Life may add keys: the area's icon shows).
     public static func symbol(_ key: String) -> String? { symbols[key] }
+
+    /// What a matter with neither an icon nor an area shows.
+    public static let fallback = "folder"
+
+    /// The symbol of an area, by its meaning (his areas are his own names); the folder for any other.
+    public static func areaSymbol(_ area: String) -> String {
+        switch area.lowercased() {
+        case "home": "house"
+        case "work": "briefcase"
+        case "family": "heart"
+        case "papers", "admin": "doc"
+        case "money": "banknote"
+        default: fallback
+        }
+    }
+}
+
+extension MatterRow {
+    /// Its icon when this app knows the key: the grid's chosen cell and who chose it. Nil (none, or a key Life added
+    /// since) shows the area's icon, unattributed.
+    public var knownIcon: Icon? { icon.flatMap { MatterIcons.symbol($0.key) == nil ? nil : $0 } }
+
+    /// What its row and page draw (the chain: his pick, Life's, the first area's icon, the folder; Life sends the first
+    /// two as `icon`).
+    public var symbol: String {
+        icon.flatMap { MatterIcons.symbol($0.key) } ?? areas?.first.map(MatterIcons.areaSymbol)
+            ?? MatterIcons.fallback
+    }
+
+    /// His own pick, which Undo puts back (nil when the icon is Life's or none), kept even for a key this app lacks.
+    public var ownerIconKey: String? { icon?.by == .owner ? icon?.key : nil }
+}
+
+/// His icon picks Life took, by matter, with when the write was seen to succeed: until a read of the matter loaded
+/// after it, that pick, not the row, is his pick before the next one (what Undo puts back). A read that failed after
+/// the write leaves the row from before it.
+public struct WrittenIcons: Sendable {
+    private var written: [String: (icon: String?, at: Date)] = [:]
+
+    public init() {}
+
+    /// Records his pick on `id` (nil: Life picks again) as Life took it, `at` once its write ended.
+    public mutating func wrote(_ icon: String?, on id: String, at: Date) { written[id] = (icon, at) }
+
+    /// His pick before the next one on `row`, read at `loadedAt`: the pick last written, unless the read came after it.
+    public func earlierPick(of row: MatterRow, loadedAt: Date?) -> String? {
+        guard let last = written[row.id], !(loadedAt.map { last.at < $0 } ?? false) else { return row.ownerIconKey }
+        return last.icon
+    }
 }

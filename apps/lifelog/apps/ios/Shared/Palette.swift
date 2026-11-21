@@ -24,7 +24,9 @@ nonisolated enum Palette {
     /// A line icon beside a row (components.md "Settings row"): `fg` at 85%.
     static let icon = fg.opacity(0.85)
 
-    private static func token(dark: UInt32, light: UInt32) -> Color {
+    /// A colour for dark and light. Life's own are the tokens above; the only other caller is a draft's chat, drawn in
+    /// its platform's own colours (`ChatLook`, decision 82).
+    static func token(dark: UInt32, light: UInt32) -> Color {
         #if os(watchOS)
             Color(uiColor: rgb(dark))
         #else
@@ -42,4 +44,7 @@ nonisolated enum Palette {
 extension Color {
     /// The quiet fill of a secondary button, a chip or a disc: the page's ink at a low strength, as the design's `--tint`.
     static let fillTint = Palette.fg.opacity(0.08)
+    /// The one selected look of a control (his mark on), and his past bubbles in a draft's chat: the page's ink
+    /// stronger than `fillTint`, as the design's `--pick`.
+    static let pick = Palette.fg.opacity(0.16)
 }

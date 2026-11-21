@@ -1,4 +1,5 @@
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   type AssignmentRow,
   agentInRole,
@@ -97,7 +98,7 @@ export async function receiveComplaints(desk: Desk) {
   try {
     recordComplaints(pending.map((p) => p.a));
   } catch (error) {
-    log("desk.complaints", { error: String(error), ok: false });
+    log("desk.complaints", { ...errorOf(error), ok: false });
     return;
   }
   const runtime = runtimeOf({});

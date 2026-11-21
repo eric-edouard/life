@@ -102,8 +102,8 @@ struct MatterPage: View {
         }
     }
 
-    /// The name is the head; under it what he must do (one phrase), how long it has been open, and its project, a link
-    /// to the project's page (else its areas).
+    /// The name is the head; under it what he must do (one phrase), then its icon (a tap changes it), how long it has
+    /// been open, and its project, a link to the project's page (else its areas).
     private func header(_ matter: Matter) -> some View {
         let row = matter.row
         let days = matter.steps.first.map { Calendar.current.dateComponents([.day], from: $0.at, to: .now).day ?? 0 }
@@ -115,12 +115,15 @@ struct MatterPage: View {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader).stepsAsideForToast()
             if !life.asks(ofMatter: id).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
-            HStack(spacing: 0) {
-                Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
-                    Palette.muted)
-                if let project = row.project {
-                    TextLink(project.name, isOnward: true, isMuted: false) {
-                        router.matterPath.append(.project(project.id))
+            HStack(spacing: 6) {
+                MetaIconButton(symbol: row.symbol, label: "Change the icon") { router.matterSheet = .icon(id) }
+                HStack(spacing: 0) {
+                    Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
+                        Palette.muted)
+                    if let project = row.project {
+                        TextLink(project.name, isOnward: true, isMuted: false) {
+                            router.matterPath.append(.project(project.id))
+                        }
                     }
                 }
             }
@@ -208,7 +211,9 @@ private struct EditableLine: View {
 private struct People: View {
     let people: MatterRow.People?
 
-    /// One small line of chips: "Owed to (disc) Ana Novak, with (disc) Sam Lee".
+    @Environment(AppRouter.self) private var router
+
+    /// One small line of chips, each opening that person's page: "Owed to (disc) Ana Novak, with (disc) Sam Lee".
     var body: some View {
         let groups: [(String, [Party])] = [
             ("Owed to", people?.owedTo ?? []), ("Waiting on", people?.waitingOn ?? []),
@@ -226,7 +231,12 @@ private struct People: View {
             FlowLayout(spacing: Metrics.Spacing.xs) {
                 ForEach(chips) { chip in
                     HStack(spacing: 0) {
-                        PartyChip(party: chip.party, label: chip.label)
+                        Button {
+                            router.open(party: chip.party.ref)
+                        } label: {
+                            PartyChip(party: chip.party, label: chip.label)
+                        }
+                        .buttonStyle(.plain)
                         if chip.id != chips.last?.id { Text(",").foregroundStyle(Palette.muted) }
                     }
                 }

@@ -171,7 +171,10 @@ takes authority away.
 A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `pastCalendar` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
 properties `lifeEpisode` and `lifeHash`. A changed episode is updated in place, a gone one deleted; events without
-`lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. It reads nothing back and never alerts. If that calendar ever becomes a source, its
+`lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. An event's location is where he
+stayed most of it (else the episode's place), with one-tap Google and Apple Maps links at the end of its description, never clipped (`mapLinksOf`,
+`calendar-events.ts`: by coordinates when Life has them, else by name); a new description layout (`LAYOUT`) writes
+every event again, one call at a time. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeEpisode` are Life's output and must be dropped.
 
 ## Appointments
@@ -193,6 +196,7 @@ calendar in line each tick, through the client the Past calendar shares (`google
 - Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
   while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot
   change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
+- Its location is the appointment's place, with Google and Apple Maps links by name in the description (`mapLinksOf`).
 - Only a popup reminder, never mail (it would come back as a message). No guests, no invites sent.
 - An event that ended is never touched.
 
@@ -223,8 +227,8 @@ permission.
   `message.received` with the arguments an agent filters on (`person`, `channels`, `chat`, `from_me`, `text_matches`),
   `events/poll` returns what matched past the agent's cursor: who, where and when, never the text (`events.ts`). Any
   paired app may poll. `decision.answered`, `decision.lapsed` and `decision.withdrawn`: a paired agent's own decisions settled since its cursor (an
-  instant; `request_decision` returns one), with his answer, its `onSilence`, or why Life withdrew it (he answered in its
-  draft's chat himself: the watcher reads each open draft card's chat every 30 s, `withdrawDraftsAnsweredInChat`), all in one page (`settledBetween`). A second card with a draft into a chat an open card's draft names is refused when asked. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
+  instant; `request_decision` returns one), with his answer, its `onSilence`, or why Life withdrew it (another card took its place, `replacedBy`, or he answered in its
+  draft's chat himself: the watcher reads each open draft card's chat every 30 s, `withdrawDraftsAnsweredInChat`), all in one page (`settledBetween`). A card with a draft into a chat another asker's open card holds waits on it (`waits` in the result: `on`, `until`, `why`; state `waiting`, not in his inbox): the holder hears `draft.contested` (a registered agent, at once, facts only), reads it (`read_card` at its door) and yields (withdraws its own), merges (`merges`: one card for both) or keeps (`keep` with `why`; the waiting card's agent hears `draft.kept`); silent 10 minutes, it is asked with `replaces` (the card shows "replaces an older draft"), and his Send of a card withdraws every other card into its chat (`replacedBy`, heard as `decision.withdrawn`); a send that runs holds the chat. The same asker's second card into its own card's chat, or a card into a chat where one waits, is refused. A paired agent or his own app's session is not woken: it reads the result's `waits`. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
   tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT).
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code

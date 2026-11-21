@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { settings } from "../core/settings";
@@ -312,7 +313,9 @@ function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
   facts: { blocked?: string; taker?: string }
-): { agent?: string; error: string } | { agent?: string; id: string } {
+):
+  | { agent?: string; error: string; failed?: unknown }
+  | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
     // One the connector took before the Personal agent was named by its role: never applied, his to ask again.
@@ -341,7 +344,7 @@ function applyAsk(
       )(),
     };
   } catch (e) {
-    return { agent: parsed.data.agent, error: (e as Error).message };
+    return { agent: parsed.data.agent, error: (e as Error).message, failed: e };
   }
 }
 
@@ -370,7 +373,22 @@ export async function applyAgentChanges(desk: Desk) {
     if (!r) {
       continue;
     }
-    log("desk.change", { ask: ask.id, ...r });
+    // A refusal is logged by its class: its sentence can quote a runtime's output.
+    // A refusal by its class (its sentence can quote a runtime's output); a change that threw is an error, by `errorOf`.
+    const {
+      error: refusal,
+      failed,
+      ...done
+    } = r as typeof r & {
+      error?: string;
+      failed?: unknown;
+    };
+    const why = refusal ? { refused: "refused" } : {};
+    log("desk.change", {
+      ask: ask.id,
+      ...done,
+      ...(failed ? errorOf(failed) : why),
+    });
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
       // His stop ends the turn under way too (his yes of 20 Nov 2026): its run is stopped, the turn closes `failed`.
       await stopOpenRun(desk, r.id);
@@ -381,7 +399,7 @@ export async function applyAgentChanges(desk: Desk) {
       ).catch((e: Error) =>
         log("desk.change", {
           ask: ask.id,
-          error: e.message,
+          ...errorOf(e),
           what: "withdraw",
         })
       );
