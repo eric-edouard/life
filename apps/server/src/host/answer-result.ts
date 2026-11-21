@@ -211,8 +211,9 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
     names: c.about,
     // A same person card's ref is the pair: its person is the other, whom the guess joins on "Same person".
     person:
-      a.person ??
-      (c.group === "same person" ? samePersonPairOf(c.ref).other : c.ref),
+      c.group === "same person"
+        ? samePersonPairOf(c.ref).other
+        : (a.person ?? c.ref),
   };
 }
 

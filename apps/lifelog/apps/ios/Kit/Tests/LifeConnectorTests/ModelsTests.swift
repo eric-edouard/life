@@ -308,6 +308,11 @@ private func everyKindOfCheck() throws -> [Check] {
 
     let ending = try card(.ending)
     #expect(ending.options.compactMap(ending.answer).map(\.options) == [["outdated"], ["false"]])
+
+    let same = try card(.samePerson)
+    #expect(same.options.compactMap(same.answer) == [
+        AnswerRequest(ref: same.ref, options: ["same-person"]), AnswerRequest(ref: same.ref, options: ["not-this-person"]),
+    ])
     #expect(ending.answer(words: "x") == nil && !ending.takesOwnWords)
 
     let found = try card(.newMatter)

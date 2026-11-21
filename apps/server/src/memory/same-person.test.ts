@@ -40,6 +40,7 @@ const pairsOf = (
     inferred: guesses,
     isGuess: over.isGuess ?? ((r) => r.startsWith("person:inf_")),
     isOrganization: () => false,
+    relationOf: () => null,
     truth: { people: directory } as never,
   }).map(({ guess, other }) => `${guess} ~ ${other}`);
 };
@@ -63,6 +64,32 @@ test("never asked: one name, a guess with no handle, a guess Life is sure of, a 
     pairsOf({ guesses: [{ ...kit, namesAndHandles: ["Kit Lee"] }] })
   ).toEqual([]);
   expect(pairsOf({ isGuess: () => false })).toEqual([]);
+  // A description is no name: two guesses described alike are not asked about.
+  const plumber = { ...kit, name: "the shop plumber" };
+  const plumber2 = {
+    ...inferred("inf_p2", ["+33600000005"]),
+    name: "the shop plumber",
+  };
+  expect(pairsOf({ directory: [], guesses: [plumber, plumber2] })).toEqual([]);
+  // His "No" on the guess's only handle, then his "Different people": the handle reads as no one, never asked again.
+  const one = { ...kit, namesAndHandles: ["+33600000001"] };
+  expect(
+    pairsOf({
+      corrections: [
+        said({
+          kind: "not-this-person",
+          nameOrHandle: "+33600000001",
+          person: "person:inf_kit",
+        }),
+        said({
+          kind: "not-this-person",
+          nameOrHandle: "+33600000001",
+          person: "person:kit-lee",
+        }),
+      ],
+      guesses: [one],
+    })
+  ).toEqual([]);
   expect(
     pairsOf({
       corrections: [

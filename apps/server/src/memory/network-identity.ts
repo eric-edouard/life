@@ -151,7 +151,9 @@ export async function readNetworkIdentities(
             t.check.ref,
             {
               ...networkIdentityOf(read.built.unit, read.built.messages, owner),
-              party: people.partyOf(t.check.ref),
+              party: people.partyOf(
+                samePersonPairOf(t.check.ref).guess || t.check.ref
+              ),
             },
           ] as const)
         : null;

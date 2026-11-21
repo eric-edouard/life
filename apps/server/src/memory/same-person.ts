@@ -19,8 +19,12 @@ export const samePersonPairOf = (ref: string) => {
 /** A chat's handle (a network's id, a bridge's sender, a phone, an address), not a name: what his "Different people" is written against. */
 const HANDLE = /^[@+_\d]|@/;
 const SPACES = /\s+/;
-/** A whole name: two words or more, as written ("Jean-Pierre" is one). */
-const isWholeName = (n: string) => n.trim().split(SPACES).length > 1;
+const LOWER = /^\p{Ll}/u;
+/** A whole name: two words or more as written ("Jean-Pierre" is one), none starting in lower case (a guess's description, "the shop plumber", is no name). */
+const isWholeName = (n: string) => {
+  const words = n.trim().split(SPACES);
+  return words.length > 1 && !words.some((w) => LOWER.test(w));
+};
 
 /**
  * Each guess in use (`isGuess`: not settled, not his word), not folded, not an organization, with a handle, and someone
@@ -37,6 +41,7 @@ export function samePersonPairsOf(
     | "inferred"
     | "isGuess"
     | "isOrganization"
+    | "relationOf"
     | "resolve"
     | "truth"
   >
@@ -48,24 +53,19 @@ export function samePersonPairsOf(
         canon(ref) === ref && people.isGuess(ref) && !people.isOrganization(ref)
     )
   );
+  // Its handles that still read as it: one he refused for it reads as no one, and is never asked about again.
   const handlesOf = (ref: string) => {
     const g = guesses.get(ref);
     return (g?.namesAndHandles ?? []).filter(
-      (h) => HANDLE.test(h) && nameKey(h) !== nameKey(g?.name ?? "")
+      (h) =>
+        HANDLE.test(h) &&
+        nameKey(h) !== nameKey(g?.name ?? "") &&
+        people.resolve(h) === ref
     );
   };
-  const lineOf = new Map<string, string>([
-    ...people.contacts.map(
-      (c) => [`person:${c.id}`, "in his Contacts"] as const
-    ),
-    ...people.truth.people.map(
-      (p) => [`person:${p.id}`, p.relation ?? "in his directory"] as const
-    ),
-    ...[...guesses].map(([ref, g]) => {
-      const [handle] = handlesOf(ref);
-      return [ref, handle ? `${g.relation}, ${handle}` : g.relation] as const;
-    }),
-  ]);
+  /** What someone is to him, with a guess's handle, so two of one name read apart. */
+  const lineOf = (ref: string) =>
+    [people.relationOf(ref), handlesOf(ref)[0]].filter(Boolean).join(", ");
   const byName = Map.groupBy(
     [
       ...people.truth.people.flatMap((p) =>
@@ -112,7 +112,7 @@ export function samePersonPairsOf(
         pairs.set(both, {
           guess: asked,
           handles: handlesOf(asked),
-          lines: [lineOf.get(asked) ?? "", lineOf.get(them) ?? ""],
+          lines: [lineOf(asked), lineOf(them)],
           other: them,
         });
       }
@@ -120,6 +120,9 @@ export function samePersonPairsOf(
   }
   return [...pairs.values()];
 }
+
+const shown = (name: string, line: string) =>
+  line ? `${name} (${line})` : name;
 
 /** Each pair as its card asks it: the guess's handles, the other as who it may be, each with its line so the two read apart, the ref bound to both, and both refs for what rides on it. */
 export const samePersonAsksOf = (
@@ -133,7 +136,7 @@ export const samePersonAsksOf = (
     linesOf: <L>(byRef: ReadonlyMap<string, L[]>) => [
       ...new Set([p.guess, p.other].flatMap((r) => byRef.get(r) ?? [])),
     ],
-    question: `Is ${people.nameOf(p.guess)} (${p.lines[0]}) the same person as ${people.nameOf(p.other)} (${p.lines[1]})?`,
+    question: `Is ${shown(people.nameOf(p.guess), p.lines[0])} the same person as ${shown(people.nameOf(p.other), p.lines[1])}?`,
     ref: samePersonRefOf(p.guess, p.other),
     refs: [p.guess, p.other],
   }));
