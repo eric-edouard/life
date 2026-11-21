@@ -29,7 +29,12 @@ private func matters() throws -> [MatterRow] {
         """
     }
     let camille = #"{"ref":"person:camille","name":"Camille","kind":"person"}"#
-    let json = "[" + [row("a", project: "p1", status: "moving", with: camille), row("b", project: "p2", status: "dormant", with: "")].joined(separator: ",") + "]"
+    let json =
+        "["
+        + [
+            row("a", project: "p1", status: "moving", with: camille),
+            row("b", project: "p2", status: "dormant", with: ""),
+        ].joined(separator: ",") + "]"
     return try LibraryStore.feedDecoder.decode([MatterRow].self, from: Data(json.utf8))
 }
 
