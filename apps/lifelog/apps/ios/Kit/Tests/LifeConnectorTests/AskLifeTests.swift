@@ -117,7 +117,7 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     // An answer that shows nothing keeps the last show; a kind this build doesn't know is nothing.
     life.asked = { _ in #"{"kind":"reply","words":"Hm.","show":{"kind":"map","id":"x"}}"# }
     await ask.send("Where?", screen: MainSessionScreen())
-    #expect(ask.shown?.answer == 3)
+    #expect(ask.shown == AskLifeShown(show: .page(.matter, id: "m1"), answer: 3))
 }
 
 @Test func aCutListKeepsLifesRowsInItsOrderAndLeavesOutRowsGoneSince() {

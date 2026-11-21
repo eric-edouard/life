@@ -102,10 +102,10 @@ final class AppRouter {
 
     /// What Ask Life's answer shows: the tab of a cut list, on All for the matters, or a page opened as a tap on it
     /// would; Ask Life gets small, so what it shows is in view under its strip.
-    func show(_ show: AskLifeShow) {
-        switch show {
+    func open(shown: AskLifeShow) {
+        switch shown {
         case .list(let list):
-            sheet = nil
+            (sheet, matterSheet, projectAsk) = (nil, nil, nil)
             switch list.kind {
             case .matters:
                 (tab, chip, matterColumn) = (.projects, nil, .sidebar)
@@ -116,6 +116,8 @@ final class AppRouter {
                 select(person: nil)
             }
             cut = list
+            // VoiceOver hears that the list is now Life's cut, not the whole list.
+            AccessibilityNotification.Announcement(list.label).post()
         case .page(.matter, let id): open(matter: id)
         case .page(.person, let id): open(party: id)
         case .page(.agent, let id): open(agent: id)

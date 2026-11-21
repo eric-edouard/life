@@ -179,19 +179,21 @@ struct ProjectsScreen: View {
     /// The chips, the header of a project's chip, then the chip's rows as their read stands.
     private func content(_ chip: ProjectChips.Chip?) -> some View {
         let shown = list(of: chip).shown()
+        let cut = router.cut(of: .matters)
+        // Ask Life's cut is of All: Life's rows, the ones it named, in its order.
+        let matters = shown.onScreen.map { list in cut.map { $0.cut(list.matters, ref: \.id) } ?? list.matters }
         return List {
-            // Ask Life's cut is of All: its toast stands in the chips' place until his X.
-            if router.cut(of: .matters) == nil {
-                chipRow.quietListRow()
-            } else {
-                CutToast(kind: .matters).quietListRow()
+            // Its toast stands in the chips' place until his X; one row, so the two cross-fade.
+            ZStack(alignment: .leading) {
+                if cut == nil { chipRow.transition(.opacity) } else { CutToast(kind: .matters).transition(.opacity) }
             }
+            .quietListRow()
             if let chip, chip.kind == .project {
                 ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
-            if let list = shown.onScreen {
-                // Ask Life's cut is of All: Life's rows, the ones it named, in its order.
-                rows(router.cut(of: .matters).map { $0.cut(list.matters, ref: \.id) } ?? list.matters, chip: chip)
+            if let matters {
+                // A cut is Life's order: no "Parked" part, as on a chip.
+                rows(matters, chip: chip, isCut: cut != nil)
             } else {
                 ReadScreen(
                     shown: shown, retry: { await refresh(chip) },
@@ -204,7 +206,8 @@ struct ProjectsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .staleToast(staleNote(shown), retry: { await refresh(chip) })
-        .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
+        .motion(Motion.standard, value: matters?.map(\.id))
+        .motion(Motion.standard, value: cut)
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -215,8 +218,8 @@ struct ProjectsScreen: View {
 
     /// The rows in Life's order (his marked ones first); on All, a parked or done project's matters last, under
     /// "Parked". A swipe to the right marks one, or unmarks it: the system's own swipe action, as Mail flags a message.
-    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?) -> some View {
-        let parkedFrom = chip == nil ? rows.firstIndex(where: \.isParked) : nil
+    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?, isCut: Bool) -> some View {
+        let parkedFrom = chip == nil && !isCut ? rows.firstIndex(where: \.isParked) : nil
         let split = parkedFrom ?? rows.count
         if rows.isEmpty {
             Text("Nothing is running here.").font(.body15).foregroundStyle(Palette.muted)

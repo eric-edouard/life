@@ -91,7 +91,7 @@ public enum AskLifeAnswer: Sendable, Equatable {
 }
 
 /// What the answer puts before his eyes (`show`, `MainSessionShow`): one page, or a tab's list cut to the rows Life
-/// named, under its words. It changes no data; the app applies it (`AppRouter.show`). Nil for a shape this build
+/// named, under its words. It changes no data; the app applies it (`AppRouter.open(shown:)`). Nil for a shape this build
 /// doesn't know: nothing shows, never a guess.
 public enum AskLifeShow: Sendable, Equatable {
     public enum Page: String, Sendable { case matter, person, project, agent }

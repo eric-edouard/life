@@ -93,6 +93,8 @@ struct InboxScreen: View {
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
         .askSheets($notes) { leave($0, keep: false) }
+        // Ask Life's cut is of every kind: the asks it named show whatever kind he kept to.
+        .onChange(of: router.cut(of: .checks)) { _, cut in if cut != nil { kind = nil } }
         // The moves' list is the ask column's, which a compact width then shows.
         .onChange(of: kind) { _, kind in if kind == .yourMove { router.inboxColumn = .detail } }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.

@@ -190,7 +190,7 @@ struct Toast: View {
     var body: some View {
         HStack(spacing: 8) {
             if let glyph { glyph }
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : 3)
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : glyph == nil ? 2 : 3)
             if let undo {
                 Button(action: undo) {
                     Group {
