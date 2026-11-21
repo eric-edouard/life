@@ -137,9 +137,10 @@ final class DictationCapture {
 
     private func close() async throws -> Data {
         deadline?.cancel()
-        LiveWords.shared.end()
         let heard: Result<Data, any Error>
         do { heard = .success(try await mic.stop()) } catch { heard = .failure(error) }
+        // After the microphone's last samples have gone to the socket.
+        LiveWords.shared.end()
         lease.map(AudioSessionOwner.shared.release)
         lease = nil
         // From the monotonic clock: a wall clock set back can't make the stretch end before it starts.

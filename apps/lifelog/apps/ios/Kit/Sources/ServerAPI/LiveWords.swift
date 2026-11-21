@@ -41,6 +41,8 @@ public final class LiveWords {
     private var session: Task<Void, Never>?
     private var queue: [String] = []
     private var isOpen = false
+    /// Which press the socket serves: a press that ended or was replaced changes it.
+    private var generation = 0
 
     nonisolated static let rate = 16_000
     /// About 10 minutes of audio, the dictation cap: more is never held while the socket opens.
@@ -68,9 +70,11 @@ public final class LiveWords {
     public func begin(token: @escaping @Sendable () async throws -> String) {
         end()
         (text, committed) = ("", "")
+        generation += 1
+        let mine = generation
         session = Task { [weak self] in
             guard let token = try? await token(), !Task.isCancelled else { return }
-            await self?.open(token: token)
+            await self?.open(token: token, generation: mine)
         }
     }
 
@@ -80,11 +84,13 @@ public final class LiveWords {
         send(Self.chunk(samples))
     }
 
-    /// He let go: the last chunk commits, the socket closes after what is still coming.
+    /// He let go and the mic has given its last samples: voice-activity detection commits what is left, so the socket
+    /// only waits a moment for it, then closes. A token that has not come yet is never used.
     public func end() {
-        guard session != nil else { return }
-        send(Self.chunk([], commit: true))
+        guard let running = session else { return }
+        running.cancel()
         session = nil
+        generation += 1
         let closing = socket
         socket = nil
         isOpen = false
@@ -102,21 +108,24 @@ public final class LiveWords {
         }
     }
 
-    private func open(token: String) async {
+    private func open(token: String, generation mine: Int) async {
         var parts = URLComponents(string: "wss://api.elevenlabs.io/v1/speech-to-text/realtime")
         parts?.queryItems = [
             .init(name: "token", value: token), .init(name: "model_id", value: "scribe_v2_realtime"),
             .init(name: "audio_format", value: "pcm_16000"), .init(name: "commit_strategy", value: "vad"),
         ]
-        guard let url = parts?.url else { return }
+        guard let url = parts?.url, mine == generation, !Task.isCancelled else { return }
         let socket = URLSession.shared.webSocketTask(with: url)
         self.socket = socket
         socket.resume()
         isOpen = true
         for message in queue { socket.send(.string(message)) { _ in } }
         queue = []
-        while !Task.isCancelled, let message = try? await socket.receive() {
-            guard case .string(let line) = message, let parsed = LiveWordsMessage(line) else { continue }
+        // Messages of a press that has ended, or been replaced, are never shown.
+        while mine == generation, let message = try? await socket.receive() {
+            guard mine == generation, case .string(let line) = message, let parsed = LiveWordsMessage(line) else {
+                continue
+            }
             apply(parsed)
         }
     }
