@@ -20,11 +20,15 @@ import { openChecksNow } from "./inbox";
 // its receipt (its event row, `complaintReceiptOf`) after. Only then does his app hear `reached: "caretaker"`: the ask,
 // the row and the receipt are all written. Any failure keeps his words with his app, and a retry under the key resumes.
 
-/** What his app sends with his words: the card's `misread` as it read it (`cause`, `shown`, `seal`) and his tick on the anonymized report. */
+/**
+ * What his app sends with his words: the card's `misread` as it read it (`cause`, `shown`, `seal`) and his tick on the
+ * anonymized report; `repeated` on its own repeat of a call whose connection dropped, never on his press.
+ */
 export const Misread = z
   .object({
     cause: z.string().min(1).max(64),
     kind: z.literal("misread"),
+    repeated: z.boolean().optional(),
     report: z.boolean(),
     seal: z.string().min(1).max(64),
     shown: z.string().min(1).max(64),
@@ -144,8 +148,13 @@ export async function complain(
       "Not done: this key recorded another press; a new press takes a new key."
     );
   }
-  // His retry is a press too: a caretaker that never started tries once more for it (`startFailureOf`).
-  if (recorded) {
+  // His own Try again on a complaint the desk has not received is a press too: a caretaker that never started tries
+  // once more for it (`startFailureOf`). A replay of one received, or his app's repeat of a dropped call, is none.
+  const receipt =
+    recorded && !m.repeated
+      ? readDesk((db) => complaintReceiptOf(db, recorded.id), null)
+      : null;
+  if (receipt?.state === "ok" && !receipt.value) {
     await Bun.write(COMPLAINT_RETRIED, clock().toISOString());
   }
   return await reached(asked.id, limitMs, report);

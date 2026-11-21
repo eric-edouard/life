@@ -13,6 +13,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     var matter = "{}"
     var corrections = 0
     let keys = Mutex<[String]>([])
+    let requests = Mutex<[AnswerRequest]>([])
     let starts = Mutex<[AgentRequest]>([])
     /// The ids each `read_person_pictures` asked; while `picturesDown`, it fails.
     let pictureCalls = Mutex<[[String]]>([])
@@ -40,6 +41,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
         keys.withLock { $0.append(answerKey) }
+        requests.withLock { $0.append(answer) }
         return try answers.removeFirst()(onProgress)
     }
     func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
@@ -493,6 +495,22 @@ private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, A
         let state = await run { await actions.answer(wrong, key: "tap-2", at: origin, emit: $0) }
         guard case .failed = state else { Issue.record("\(state)"); continue }
     }
+}
+
+/// His "Wrong…" repeated after a dropped connection says it is a repeat, under the same key: Life counts only his own
+/// Try again as a press again (a caretaker that never started tries once more), never the app's repeat.
+@Test func aComplaintsRepeatOfADroppedCallSaysItIsARepeat() async {
+    let wrong = AnswerRequest(
+        ref: "voice:v1", options: [], note: "Not her.",
+        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
+    let life = FakeLife()
+    life.answers = [{ _ in throw MCPError.streamDropped }, { _ in #"{"ask":"ask_1","reached":"caretaker"}"# }]
+    let state = await run {
+        await LifeActions(api: life, now: { at }, pause: noPause).answer(wrong, key: "tap-1", at: lifeA, emit: $0)
+    }
+    #expect(state == .succeeded(.complaintReceipt(ask: "ask_1"), steps: state.steps))
+    #expect(life.requests.withLock { $0.map { $0.value?.repeated } } == [nil, true])
+    #expect(life.keys.withLock { $0 } == ["tap-1", "tap-1"])
 }
 
 /// Life A on `a`, which drops every call after re-pairing the phone with Life B on `b`, as a pairing done while an

@@ -443,7 +443,7 @@ test("a caretaker whose first launch fails is not registered again for the same 
   }
 });
 
-test("his retry under the key of a press whose caretaker never started tries once more: one complaint, one receipt", async () => {
+test("his own retry under the key of a press whose caretaker never started tries once more, a repeat or a replay never: one complaint, one receipt", async () => {
   desk.db.run("update event set handed = 1");
   const last = agentInRole(desk.db, "caretaker");
   if (last?.status === "active") {
@@ -467,9 +467,18 @@ test("his retry under the key of a press whose caretaker never started tries onc
     }
     expect(agentInRole(desk.db, "caretaker")?.why_not_started).toBeTruthy();
     expect(complaintReceiptOf(desk.db, stuck.id)).toBeNull();
-    // The runtime answers again; his "Try again" sends the same press, under its key.
     fake.isFailing = false;
     setSystemTime(new Date(clock().getTime() + 60_000));
+    // The runtime answers again, but neither his app's repeat of a dropped call nor a replay of a complaint received
+    // long ago is his press: no caretaker is started for them.
+    const caretakers = agentInRole(desk.db, "caretaker")?.id;
+    await expect(
+      press("key-relaunch", { repeated: true }, { limitMs: 600 })
+    ).rejects.toThrow("has not received it");
+    expect((await press("key-1")).reached).toBe("caretaker");
+    await receiveComplaints(desk);
+    expect(agentInRole(desk.db, "caretaker")?.id).toBe(caretakers);
+    // His "Try again" sends the same press, under its key: the caretaker tries once more.
     expect(await press("key-relaunch")).toEqual({
       ask: stuck.id,
       reached: "caretaker",
