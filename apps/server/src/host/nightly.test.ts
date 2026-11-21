@@ -203,8 +203,8 @@ test("checks that cannot be read are logged and the report has none: the night i
   const errors: [string, unknown][] = [];
   try {
     const list = await readChecksFor({
-      error: (message: string, extra?: unknown) => {
-        errors.push([message, extra]);
+      error: (e: Error, extra?: unknown) => {
+        errors.push([e.message, extra]);
       },
     } as never);
     expect(list).toEqual([]);
@@ -263,6 +263,7 @@ test("a voice naming that cannot read lifelog's voices is logged once under its 
         "run.error",
         {
           error: "voice naming needs the new Lifelog Host",
+          errorType: "Error",
           step: "memory.voice-naming",
         },
       ],

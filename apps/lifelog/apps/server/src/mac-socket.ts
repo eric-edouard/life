@@ -318,12 +318,13 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       call.resolve(reply);
       return;
     }
+    // The provider's words (`detail`) stay out of the log: its reason is the class.
     record(db, "mac.llm_error", {
-      detail: reply.detail,
       engine,
       id: message.id,
       model,
       ms,
+      ok: false,
       reason: reply.reason,
     });
     if (reply.reason === "auth" || reply.reason === "limit") {

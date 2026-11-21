@@ -1,5 +1,6 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -73,6 +74,7 @@ const markBegun = (db: Desk["db"], turn: number) =>
       return;
     }
     db.run("update turn set begun_at = ? where id = ?", [now(), turn]);
+    log("desk.turn", { assignment: t.assignment_id, phase: "begun", turn });
     db.run(
       "update event set handed = handed + 1 where assignment_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
       [t.assignment_id, t.started_at]
@@ -95,7 +97,7 @@ export function watch(desk: Desk, turn: number, run: Run) {
     })
     .catch((error: unknown) =>
       log("desk.runtime", {
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         turn,
         what: "end",
@@ -131,6 +133,14 @@ function close(
   if (ended === 0) {
     return false;
   }
+  log("desk.turn", {
+    assignment: t.assignment_id,
+    ok: outcome !== "failed",
+    outcome,
+    phase: "ended",
+    tokensOut: usage?.tokensOut,
+    turn: t.id,
+  });
   db.run(
     outcome === "waited" || outcome === "finished"
       ? "update event set consumed_at = ? where assignment_id = ? and handed > 0 and consumed_at is null and dropped_at is null"
@@ -228,7 +238,7 @@ async function isReminded(desk: Desk, t: TurnRow, a: AgentRow) {
     } catch (error) {
       log("desk.runtime", {
         agent: a.id,
-        error: String(error),
+        ...errorOf(error),
         ok: false,
         what: "remind",
       });

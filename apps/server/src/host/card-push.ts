@@ -4,6 +4,7 @@ import { clock, daysBefore, HOUR } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { count } from "../core/lists";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import type { NotifyKind, NotifyLevel } from "../core/names";
 import { settings } from "../core/settings";
 import { blockingCountOf } from "../memory/check-urgency";
@@ -149,11 +150,24 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
       level: loudest(rest.map((c) => c.level)),
     });
   }
-  // One at a time, in his inbox's order: the phone shows them as they come.
-  await pushes.reduce(
-    (sent, p) => sent.then(() => notifyPhone({ badge, title: "Life", ...p })),
-    Promise.resolve()
-  );
+  await pushInOrder(pushes, badge, rest.length);
+}
+
+/**
+ * One at a time, in his inbox's order: the phone shows them as they come. Each one lifelog took is a
+ * `card.push_accepted` line (lifelog may still skip Apple): a card's by its push id, the rest by count.
+ */
+async function pushInOrder(pushes: Push[], badge: number, rest: number) {
+  for (const p of pushes) {
+    // biome-ignore lint/performance/noAwaitInLoops: in his inbox's order
+    if (await notifyPhone({ badge, title: "Life", ...p })) {
+      log("card.push_accepted", {
+        cards: p.pushId ? 1 : rest,
+        loudness: p.level,
+        ...(p.pushId ? { pushId: p.pushId } : {}),
+      });
+    }
+  }
 }
 
 /** Pushes what is new in his inbox; the badge counts what blocks him (`blockingCountOf`). */
@@ -192,7 +206,7 @@ export function pushNewDecisionsAtOnce() {
 export async function pushNewCardsIfChanged() {
   decisionsLooked = readLineCount(DECISIONS);
   const failed = (e: Error) =>
-    log("run.error", { error: e.message, step: "watch.cards" });
+    log("run.error", { ...errorOf(e), step: "watch.cards" });
   // Every minute, not only on a new line: a waiting card that opens after `CONTEST_WAIT` writes none.
   if (isLocked()) {
     await pushNewDecisions().catch(failed);

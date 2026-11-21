@@ -17,6 +17,9 @@ final class LifeStore {
     /// A project's page: its matters with its head, by the project's id.
     private(set) var project: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
+    /// The People tab: everyone Life knows, closest first, and one of them read in full, by ref.
+    private(set) var people = ReadState<PeopleList>()
+    private(set) var person: [String: ReadState<PersonNow>] = [:]
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -128,6 +131,7 @@ final class LifeStore {
         restore({ self.inbox.apply($0) }, key: Self.inboxKey)
         restore({ self.matters.apply($0) }, key: Self.mattersKey)
         restore({ self.agents.apply($0) }, key: Self.agentsKey)
+        restore({ self.people.apply($0) }, key: Self.peopleKey)
         if let kept = cache.load(Self.answeredKey) {
             answered = (try? JSONDecoder().decode(AnsweredCards.self, from: Data(kept.text.utf8))) ?? answered
         }
@@ -215,6 +219,19 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
+    func refreshPeople() async {
+        await load({ self.people.apply($0) }, key: Self.peopleKey) {
+            try await $0.readPeopleAndOrganizations(query: nil)
+        }
+    }
+
+    func refreshPerson(_ ref: String) async {
+        let key = "read_people_and_organizations-\(ref)"
+        let update = { (event: ReadState<PersonNow>.Event) in self.person[ref, default: ReadState()].apply(event) }
+        if person[ref] == nil { restore(update, key: key) }
+        await load(update, key: key) { try await $0.readPart(ref + "/now") }
+    }
+
     /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.
     func fetch(_ ref: String, _ update: (ReadState<LifeLinkRead>.Event) -> Void) async {
         update(.started)
@@ -245,6 +262,7 @@ final class LifeStore {
     private static let inboxKey = "read_inbox"
     private static let mattersKey = "read_matters"
     private static let agentsKey = "read_registered_agents"
+    private static let peopleKey = "read_people_and_organizations"
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
@@ -638,6 +656,7 @@ final class LifeStore {
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         (inbox, matters, matter, agents, project) = (ReadState(), ReadState(), [:], ReadState(), [:])
+        (people, person) = (ReadState(), [:])
         (answered, pushed) = (AnsweredCards(), nil)
         parties.startOver()
         holds.clear()

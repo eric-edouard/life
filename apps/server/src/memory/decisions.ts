@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
+import { log } from "../core/log";
 import { payments } from "../payments/backend";
 import {
   cardProblemOf,
@@ -26,6 +27,7 @@ import {
   Sent,
   Stored,
   Withdrawn,
+  withdrawnOf,
 } from "./decision-lines";
 import { isSendable } from "./draft";
 import {
@@ -359,21 +361,25 @@ export function withdrawDraftsAnsweredInChat(
   const lines = open.flatMap(({ d }, i): Withdrawn[] => {
     const his = found[i]?.find((e) => e.fromMe);
     return his
-      ? [
-          {
-            answeredInChatAt: his.at,
-            at: now.toISOString(),
-            id: d.id,
-            kind: "withdrawn",
-            schemaVersion: DECISIONS_VERSION,
-            why: ANSWERED_IN_CHAT,
-          },
-        ]
+      ? [withdrawnOf(d.id, now, ANSWERED_IN_CHAT, { answeredInChatAt: his.at })]
       : [];
   });
-  appendJsonl(DECISIONS, Withdrawn, lines);
+  appendWithdrawals(lines, "life");
   return lines.map((l) => l.id);
 }
+
+/** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
+function appendWithdrawals(lines: Withdrawn[], by: string) {
+  appendJsonl(DECISIONS, Withdrawn, lines);
+  logWithdrawn(by, lines);
+}
+
+/** One `decision.withdrawn` line for each card withdrawn, by `by` (who withdrew it). */
+const logWithdrawn = (by: string, cards: { id: string }[]) => {
+  for (const { id } of cards) {
+    log("decision.withdrawn", { by, id });
+  }
+};
 
 /** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
 function keepDraft(asker: string, request: object, now: Date) {
@@ -408,15 +414,7 @@ function withdrawDecision(asker: string, request: object, now: Date) {
   if (d.asker !== asker || d.agent !== w.data.agent) {
     throw new Error(`Not done: ${d.id} was asked by another agent.`);
   }
-  appendJsonl(DECISIONS, Withdrawn, [
-    {
-      at: now.toISOString(),
-      id: d.id,
-      kind: "withdrawn",
-      schemaVersion: DECISIONS_VERSION,
-      why: w.data.why,
-    },
-  ]);
+  appendWithdrawals([withdrawnOf(d.id, now, w.data.why)], "asker");
   return { id: d.id };
 }
 
@@ -526,7 +524,27 @@ async function askCard(
       schemaVersion: DECISIONS_VERSION,
     },
   ]);
+  logAsked(ask, asker, id, !!draft, merged);
   return { id, ...waitsOf(contests, draft, now) };
+}
+
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+function logAsked(
+  ask: z.infer<typeof Ask>,
+  asker: string,
+  id: string,
+  hasDraft: boolean,
+  merged?: { held: Decision; waiting: Decision }
+) {
+  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
+  const options = ask.options.length;
+  log("decision.asked", {
+    agent: ask.agent,
+    asker,
+    draft: hasDraft,
+    id,
+    options,
+  });
 }
 
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
@@ -708,6 +726,7 @@ export async function answerDecision(
   if (!(stored && isDeepStrictEqual(stored.answer, line))) {
     throw new Error(`Not done: ${id} was answered already.`);
   }
+  log("decision.answered", { id, note: !!note, options: options.length, via });
   onStep?.("recorded");
   const act = actDueOf(stored);
   if (act === "end" && end) {
@@ -721,19 +740,15 @@ export async function answerDecision(
   }
   // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
   // contest opened): one draft per chat when it goes.
-  appendJsonl(
-    DECISIONS,
-    Withdrawn,
+  appendWithdrawals(
     decisionsNow(now)
       .filter((x) => x.id !== id && isPending(x) && isSameChat(x, d))
-      .map((x) => ({
-        at: now.toISOString(),
-        id: x.id,
-        kind: "withdrawn" as const,
-        replacedBy: id,
-        schemaVersion: DECISIONS_VERSION,
-        why: "he sent a newer draft into its chat instead",
-      }))
+      .map((x) =>
+        withdrawnOf(x.id, now, "he sent a newer draft into its chat instead", {
+          replacedBy: id,
+        })
+      ),
+    "send"
   );
   const outcome = await deliver(stored.draft, id, {
     onStep,

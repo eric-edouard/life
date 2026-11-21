@@ -1,6 +1,14 @@
+import { join } from "node:path";
 import { z } from "zod";
 import { clock, daysBefore } from "../core/clock";
+import { linesOf } from "../core/files";
 import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
+import {
+  LOG_LEVELS,
+  type LogLevel,
+  type ShownLine,
+  shownLineOf,
+} from "../core/log-line";
 import type { Quota } from "../models/llm";
 import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
 import { decode, encode, PAGE } from "./changes";
@@ -38,8 +46,23 @@ const omit = (e: LogEvent | undefined) => {
   if (!e) {
     return null;
   }
-  const { at: _a, kind: _k, run: _r, step: _s, ...rest } = e;
-  return rest;
+  const {
+    at: _a,
+    category: _c,
+    error,
+    errorType,
+    kind: _k,
+    level: _l,
+    msg: _m,
+    run: _r,
+    step: _s,
+    time: _t,
+    ...rest
+  } = e;
+  // An error leaves the Mac by its type only (a line before 21 Nov 2026 has none: `failed`); its words stay in the log.
+  return error || errorType
+    ? { ...rest, errorType: errorType ?? "failed" }
+    : rest;
 };
 
 /** What model calls spent and read, summed (`modelCallsOf`): how many, tokens, dollars, the calls with no cost (unpriced), units read by source. */
@@ -429,3 +452,83 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
 }
 
 const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
+
+// --- log lines -----------------------------------------------------------------------------------------------------
+
+/** The day files one `read_log_lines` call reads at most: the rest is the next page's. */
+const LOG_DAYS_PER_READ = 2;
+/** Where a page of log lines ends: a day's file and the byte its last line read starts at (null: the file's end). */
+const LogCursor = z.tuple([z.string(), z.int().nonnegative().nullable()]);
+
+export interface LogLinesQuery {
+  cursor?: string;
+  limit?: number;
+  minLevel?: LogLevel;
+  process?: string;
+}
+
+/** A day file's lines, newest first, each with the byte it ends at; only those ending by `stop` when given. */
+function linesBackOf(path: string, stop: number | null) {
+  const all = linesOf(path);
+  let end = all.reduce((n, l) => n + Buffer.byteLength(l) + 1, 0);
+  const back: { end: number; raw: string }[] = [];
+  for (const raw of all.toReversed()) {
+    if (stop === null || end <= stop) {
+      back.push({ end, raw });
+    }
+    end -= Buffer.byteLength(raw) + 1;
+  }
+  return back;
+}
+
+/** One stored line as `q` shows it, or undefined: filtered out, or not a line (a bad line never stops a reader). */
+function shownOf(raw: string, q: LogLinesQuery) {
+  let shown: ShownLine | undefined;
+  try {
+    shown = shownLineOf(JSON.parse(raw));
+  } catch {
+    return;
+  }
+  const isShown =
+    shown &&
+    LOG_LEVELS.indexOf(shown.level) >=
+      LOG_LEVELS.indexOf(q.minLevel ?? "info") &&
+    (!q.process || shown.category[0] === q.process);
+  return isShown ? shown : undefined;
+}
+
+/**
+ * The event log's lines as his app is shown them (`shownLineOf`), newest first, at least `minLevel` and of `process`
+ * (a category's first word) when given. Reads at most `LOG_DAYS_PER_READ` day files per page: a page may be short,
+ * and its `cursor` (a day's file and a byte in it, so lines appended meanwhile never shift it) goes on; null when no
+ * older line is left.
+ */
+export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
+  const limit = q.limit ?? PAGE;
+  const from = decode(q.cursor, LogCursor, null);
+  const days = (await logDays(dir)).filter((n) => !from || n <= from[0]);
+  const lines: ShownLine[] = [];
+  for (const name of days.slice(0, LOG_DAYS_PER_READ)) {
+    const stop = name === from?.[0] ? from[1] : null;
+    for (const { end, raw } of linesBackOf(join(dir, name), stop)) {
+      if (lines.length === limit) {
+        return logPage(lines, [name, end]);
+      }
+      const shown = shownOf(raw, q);
+      if (shown) {
+        lines.push(shown);
+      }
+    }
+  }
+  const older = days[LOG_DAYS_PER_READ];
+  return logPage(lines, older ? [older, null] : null);
+}
+
+const logPage = (
+  lines: ShownLine[],
+  next: z.infer<typeof LogCursor> | null
+) => ({
+  cursor: next && encode(next),
+  lines,
+  observedAt: clock().toISOString(),
+});

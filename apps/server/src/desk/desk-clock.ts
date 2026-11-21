@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
 import { isOwnLife } from "../core/platform";
 import {
@@ -222,7 +223,7 @@ export async function pollCalls(
       )
     )();
   } catch (error) {
-    log("desk.runtime", { error: String(error), ok: false, what: "calls" });
+    log("desk.runtime", { ...errorOf(error), ok: false, what: "calls" });
   }
 }
 
@@ -467,7 +468,7 @@ async function launch(
       } catch (error) {
         log("desk.runtime", {
           agent: a.id,
-          error: String(error),
+          ...errorOf(error),
           ok: false,
           what: "session",
         });
@@ -491,11 +492,11 @@ async function launch(
   } catch (error) {
     log("desk.runtime", {
       agent: a.id,
-      error: String(error),
+      ...errorOf(error),
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, turn, { ok: false, why: (error as Error).message });
+    await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
   }
 }
 
