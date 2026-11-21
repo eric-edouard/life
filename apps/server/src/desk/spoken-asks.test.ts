@@ -62,9 +62,9 @@ function deskOf(
     ? readFileSync(LEDGER, "utf8").split("\n").length - 1
     : 0;
   saveSpokenAsksCursor(s.desk.db, { line: lines, waiting: [] });
-  const nets = spyOn(matterNet, "readNets").mockImplementation(async () => {
+  const nets = spyOn(matterNet, "readNets").mockImplementation(() => {
     duringRead();
-    return { isWhole: related("").isWhole, nets: [] };
+    return Promise.resolve({ isWhole: related("").isWhole, nets: [] });
   });
   const words = spyOn(matterNet, "relatedWords").mockImplementation(
     async (_d, _n, texts) => ({
