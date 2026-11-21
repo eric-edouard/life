@@ -190,3 +190,14 @@ private final class Recording: Sendable {
     rig.dictation.tap()
     #expect(rig.dictation.problem == .refused && rig.dictation.phase == .rest && rig.begins.isEmpty)
 }
+
+/// The stream follows his voice: a quiet room is flat, close speech fills the bar, a syllable rises at once and a pause
+/// falls away by halves.
+@Test func aBarFollowsTheLoudnessOfItsMoment() {
+    #expect(Dictation.bar(0, after: 0) == 0)
+    #expect(Dictation.bar(0.001, after: 0) < 1e-6, "-60 dB: the room")
+    #expect(abs(Dictation.bar(0.01, after: 0) - 0.5) < 1e-6, "-40 dB: soft speech, half a bar")
+    #expect(Dictation.bar(0.1, after: 0) == 1, "-20 dB: close speech, a full bar at once")
+    #expect(Dictation.bar(0, after: 1) == 0.5, "a pause falls by half")
+    #expect(Dictation.bar(0, after: 0.5) == 0.25)
+}
