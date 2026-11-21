@@ -944,12 +944,13 @@ final class LifeStore {
         await refresh()
     }
 
+    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Tell Life's "Open in Inbox").
+    func open(ref: String) async {
+        guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
+        await open(pushId: pushId)
+    }
+
     #if DEBUG
-        /// Development only (`-fixtureCard`): opens the card with that ref as a tapped push does.
-        func open(ref: String) async {
-            guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
-            await open(pushId: pushId)
-        }
 
         /// Development only: launch with `LIFE_ORIGIN` and `LIFE_PAIRING_CODE` in the environment (for example
         /// `SIMCTL_CHILD_LIFE_ORIGIN=… xcrun simctl launch …`) to pair with that Life, http too. Never in release builds.
