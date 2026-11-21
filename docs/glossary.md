@@ -149,7 +149,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | phone call | A voice or video call, on Phone & FaceTime or a messaging app: one event of its chat (including a call-only chat), with its length once it ended (0: not picked up), its line written by Life (`callLine`). "Call" alone is a model call. | |
 | heard as | How lifelog heard a voice it could not name (`readVoiceKinds`): live with him, live nearby but not talking with him, over a phone, from a screen or speaker, an announcement. Its words carry it as a prefix. | |
 | payment | Money he paid or got back, as his money app gives it (`apps/server/src/payments/`): not a source, never a unit nor read by a model. Placed at read time in his day, the episode it happened in (the shortest holding its time) and where he was; an agent can wait for one (`payment booked`). Not a `transaction` (a mail). | |
-| paid | What was paid in an episode or a range, in EUR: money out less refunds. Not "cost" or "spend", which are model spend (`run-log.ts`). | |
+| paid | What was paid in an episode or a range, in EUR: money out less refunds. Not "cost" or "spend", which are model spending (`memory/spends.ts`). | |
 | cutover | A row of an archive's `cutover` table: an instant from which the bridge's copy is read, appended once for the import of 30 Oct 2026 and once when a bridge takes over from Beeper (Beeper's newest message + 1 ms, `cutOverFromBeeper`). A bridge's version of a message in its own room, about a time before a cutover and written after it, is the earlier copy's and is not read (`asReadOf`). Never a migration: the archive only gains the row. | |
 | export row | A message an export's import wrote into a chat archive (Instagram's own export, `bun life import`), its `eventId` `export:<its millisecond>`: read like any message whatever the cutover, never an arrival (`EXPORT_ROW`, `sources/archived.ts`). Not an export copy: nothing of the export is kept but these rows and the files they name. | |
 | export copy | An assistant export (claude.ai or ChatGPT) Life keeps as it came in `imports/<source>/`, one per import of different bytes, never replaced or merged. Not a Life export, not the archive. | |
@@ -295,8 +295,13 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | step run | One processing step's execution inside a processing run, in prose only; the run log records it as a logged run. | |
 | logged run | A processing run, a step run or an eval, as the run log records it (`recordRun`, `RunRecorder`). | |
 | call reads | The units a model call was shown, counted by source on its `model.run` line (`CallReads`, made only by `readsOf` from the units' real ids; `memory` for Life's own lines), never ids or text. `askOnce` refuses a call that names none. | |
-| unpriced | A model call with no cost from its provider: his subscriptions (claude, codex), or a router that sends none. | |
-| source use | What each source costs a day: its items and units, what reads it with and without a model, model reads per unit, tokens and dollars (`bun life memory source-use`, `memory/source-use.ts`), from the run log and the index. | |
+| unpriced | A billed model call whose router sent no cost (`reported` false): counted, never guessed. | |
+| spend | One event that used a paid or metered resource, read where it is logged (`memory/spends.ts`): a model call (`model.run`), a local model's run (`model.local`), an agent's turn; never a second copy of the record. | |
+| model spending | What the spends add up to, by day, provider, kind, agent and matter. Not his own `spending` (a payment's flag). | |
+| billed | A spend's basis: dollars a provider charges per use (OpenRouter, allmodels, Scribe); the models on the Mac at $0. | |
+| equivalent | A spend's basis: his Claude and Codex plans' tokens at list price (`core/prices.ts`), for comparison only; never billed, never added to billed. | |
+| reported | Whether a spend's amount is known: false for a billed one without its cost, or an equivalent one whose model has no price. | |
+| source use | What each source costs a day: its items and units, what reads it with and without a model, model reads per unit, tokens and billed dollars (`bun life memory source-use`, `memory/source-use.ts`), from the run log and the index. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources and describes their new files; no episodes or facts until the night. | |
 | tick | The watcher's minute. Only that. | |
 | online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |

@@ -94,7 +94,8 @@ create table if not exists turn (
   tokens_in integer,
   tokens_cached integer,
   tokens_out integer,
-  context_used integer
+  context_used integer,
+  model text
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);

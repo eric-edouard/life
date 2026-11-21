@@ -18,6 +18,7 @@ import {
   agentHomeOf,
   isBeforeAssignments,
   isBeforeRoles,
+  isBeforeTurnModel,
 } from "../host/desk-read";
 import { copyDb } from "../host/export";
 import { SCHEMA } from "./desk-store";
@@ -25,7 +26,8 @@ import { SCHEMA } from "./desk-store";
 // The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
 // wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
-// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). Only the desk helper runs them, at its
+// caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
+// turn keeps the model it ran on (`turn.model`; older turns null). Only the desk helper runs them, at its
 // start, in that order; `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
@@ -220,6 +222,28 @@ export function stepRoles(path = DESK_STORE, state = LIFE_STATE_DIR) {
       db.run("alter table agent drop column is_personal");
       db.run(SCHEMA);
     })();
+    return "migrated";
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Gives the store at `path` its turns' model once: nothing for a store that has it, none at all, or a checkout on the
+ * app's state. Behind its own dated copy, in one transaction: `turn.model` added, null on every older turn (what they
+ * ran on was not kept: they have no `equivalent`). What it did.
+ */
+export function stepTurnModel(path = DESK_STORE, state = LIFE_STATE_DIR) {
+  if (!existsSync(path) || isAppState(state)) {
+    return "skipped";
+  }
+  const db = openWritable(path, 5000, { strict: true });
+  try {
+    if (!isBeforeTurnModel(db)) {
+      return "in shape";
+    }
+    backUp(path, "desk-before-turn-model-");
+    db.transaction(() => db.run("alter table turn add column model text"))();
     return "migrated";
   } finally {
     db.close();

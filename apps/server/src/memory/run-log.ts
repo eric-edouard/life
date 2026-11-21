@@ -20,6 +20,7 @@ import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./memory-files";
 import { lockedSince } from "./memory-lock";
+import { spendsOfLine } from "./spends";
 import { lastDays, localDate, localTime } from "./zones";
 
 // Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: processing runs, their steps,
@@ -349,8 +350,8 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
 }
 
 /**
- * The model calls (`model.run` lines) summed by run id, or by `groupOf` (the source-use table's run and day): the one
- * fold of what calls spent and read. A call with no `costUsd` is unpriced.
+ * The model calls (`model.run` lines, read as spends: `spendsOfLine`) summed by run id, or by `groupOf` (the source-use
+ * table's run and day): the one fold of what calls spent and read. A billed spend with no cost is unpriced.
  */
 export function modelCallsOf(
   events: LogEvent[],
@@ -359,16 +360,15 @@ export function modelCallsOf(
   const by = new Map<string, Calls>();
   for (const e of events) {
     const key = e.kind === "model.run" && e.run && groupOf(e);
-    if (key) {
-      const cost = e.costUsd as number | undefined;
+    for (const s of key ? spendsOfLine(e, "daytime") : []) {
       by.set(
-        key,
-        addCalls(by.get(key) ?? NO_CALLS, {
-          calls: 1,
-          costUsd: cost ?? 0,
-          reads: (e.reads as ReadCounts | undefined) ?? {},
-          tokens: (e.tokens as Tokens | undefined) ?? NONE,
-          unpriced: cost === undefined ? 1 : 0,
+        key as string,
+        addCalls(by.get(key as string) ?? NO_CALLS, {
+          calls: s.calls,
+          costUsd: s.usd ?? 0,
+          reads: s.reads ?? {},
+          tokens: s.tokens ?? NONE,
+          unpriced: s.basis === "billed" && !s.reported ? 1 : 0,
         })
       );
     }

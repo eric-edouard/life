@@ -133,7 +133,9 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const deadline = AbortSignal.timeout(MODEL_TIMEOUT_MS);
   const refusals: string[] = [];
   let tokens: Tokens | undefined;
-  let costUsd: number | undefined;
+  // Each router's dollars over the hosts it served; null once one of its replies came without its cost (a sum of a
+  // priced and an unpriced reply would hide the gap). A router that never replied is not in it: it billed nothing.
+  const costUsdByRouter: Partial<Record<Router, number | null>> = {};
   let answer: Answer = { text: "" };
   const skipped = new Set<Router>();
   let failed: Route | undefined;
@@ -168,11 +170,16 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
     }
     const spent = answer.fields?.tokens as Tokens | undefined;
     tokens = spent ? add(tokens ?? NONE, spent) : tokens;
-    const cost = answer.fields?.costUsd as number | undefined;
-    costUsd = cost === undefined ? costUsd : (costUsd ?? 0) + cost;
+    if (answer.fields) {
+      const cost = answer.fields.costUsd as number | undefined;
+      const sum = costUsdByRouter[router];
+      costUsdByRouter[router] =
+        cost === undefined || sum === null ? null : (sum ?? 0) + cost;
+    }
+    const { costUsd: _cost, ...fields } = answer.fields ?? {};
     answer = {
       ...answer,
-      fields: { ...answer.fields, costUsd, effort, tokens },
+      fields: { ...fields, costUsdByRouter, effort, tokens },
     };
     if (!answer.refusal) {
       return answer;

@@ -85,6 +85,8 @@ export interface TurnRow {
   ended_at: string | null;
   heard_at: string | null;
   id: number;
+  /** The model it ran on, as `<runtime>:<model>` (`default`: the runtime's own), snapshotted at its start; null before the column. */
+  model: string | null;
   outcome: string | null;
   reminded_at: string | null;
   session: string | null;
@@ -456,6 +458,11 @@ export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
   };
 }
 
+/** What a turn of agent `a` runs on, as the price table names it (`core/prices.ts`): `<runtime>:<model>`, `default` for the runtime's own. */
+export const turnModelOf = (
+  a: Pick<AgentRow, "effort" | "model" | "runtime">
+) => `${a.runtime}:${modelOf(a).model ?? "default"}`;
+
 const LATE_AFTER = 10 * MIN;
 const SILENT_AFTER = HOUR;
 const at = (t: string) => new Date(t).getTime();
@@ -782,9 +789,13 @@ export const isBeforeAssignments = (db: Database) =>
 export const isBeforeRoles = (db: Database) =>
   hasColumn(db, "agent", "id") && !hasColumn(db, "agent", "role");
 
+/** Whether the store's turns predate their model (`stepTurnModel` adds it): a store that has turns and no `turn.model`. */
+export const isBeforeTurnModel = (db: Database) =>
+  hasColumn(db, "turn", "id") && !hasColumn(db, "turn", "model");
+
 /** Whether the store at `db` is of an old shape: only the desk helper's store steps (`desk/store-step.ts`) change it. */
 export const isOldShape = (db: Database) =>
-  isBeforeAssignments(db) || isBeforeRoles(db);
+  isBeforeAssignments(db) || isBeforeRoles(db) || isBeforeTurnModel(db);
 
 /** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
 export const NOT_MIGRATED =

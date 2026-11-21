@@ -536,7 +536,7 @@ export const hasQuota = (engine?: Engine) =>
  * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
  * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON; every call, failed or
  * not, is one `model.run` line, with what it read (`reads`, by source: a call that names none is refused before it is
- * made) and, when its provider says, what it cost (`costUsd`; a call without it is unpriced).
+ * made) and, through a router, what each router it tried billed (`costUsdByRouter`, null for a reply without its cost).
  */
 export async function askOnce(opts: {
   context?: unknown;
