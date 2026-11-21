@@ -1,27 +1,30 @@
 import LifeConnector
 import SwiftUI
 
-/// A payee's QR as the card's hero (`Check.payCode`): the code on white, then what the bank app will show (the amount,
-/// the name), the invoice's amount in `flag` when the code asks another, and where it came from.
+/// The payment card (decision 98), one card: the amount large with its currency small, "to <payee>", the payee's QR on
+/// white, the invoice's amount in `flag` when the code asks another, and where the code came from.
 struct PayCodeBlock: View {
     let code: PayCode
     /// He saved it to Photos from this card: a check on the tile's corner.
     let isSaved: Bool
 
     var body: some View {
-        VStack(spacing: Metrics.Spacing.xs / 2) {
-            QRTile(payload: code.payload, isSaved: isSaved).padding(.bottom, Metrics.Spacing.m)
-            if let amount = code.amount {
-                Text(amount).font(.tileFigure).foregroundStyle(Palette.fg)
+        VStack(spacing: Metrics.Spacing.xs) {
+            if let figure = code.figure {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.xs) {
+                    Text(figure.number).font(.tileFigure).foregroundStyle(Palette.fg)
+                    if let currency = figure.currency { Text(currency).font(.small).foregroundStyle(Palette.muted) }
+                }
+                .accessibilityElement(children: .combine)
             }
             if let payee = code.payee {
-                Text(payee).font(.note).foregroundStyle(Palette.muted)
+                Text("to \(payee)").font(.bodyStrong).foregroundStyle(Palette.fg)
             }
             if let invoice = code.invoiceAmount {
-                Text("The invoice says \(invoice)").font(.small).foregroundStyle(Palette.flag).padding(
-                    .top, Metrics.Spacing.xs)
+                Text("The invoice says \(invoice)").font(.small).foregroundStyle(Palette.flag)
             }
-            Text("From \(code.source)").font(.small).foregroundStyle(Palette.muted).padding(.top, Metrics.Spacing.s)
+            QRTile(payload: code.payload, isSaved: isSaved).padding(.vertical, Metrics.Spacing.m)
+            Text("From \(code.source)").font(.small).foregroundStyle(Palette.muted)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)

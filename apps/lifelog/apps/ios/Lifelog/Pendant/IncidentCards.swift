@@ -9,8 +9,9 @@ struct IncidentCards: View {
 
     var body: some View {
         ForEach(incidents) { incident in
-            IncidentCard(incident: incident) { try await resolve(incident.ids, $0) }
+            IncidentCard(incident: incident) { try await resolve(incident.ids, $0) }.appears()
         }
+        .motion(Motion.standard, value: incidents.map(\.id))
     }
 }
 
