@@ -124,7 +124,13 @@ extension LifeStore {
         Task {
             async let inbox: Void = refreshInbox()
             for id in followUp {
-                if matter[id] != nil { await refreshListsOf(id) } else { await refreshPages(showing: id) }
+                if matter[id] != nil {
+                    async let agents: Void = refreshAgents()
+                    await refreshListsOf(id)
+                    await agents
+                } else {
+                    await refreshPages(showing: id)
+                }
             }
             await inbox
         }
