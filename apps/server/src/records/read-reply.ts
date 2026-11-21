@@ -100,13 +100,29 @@ export const ArrivalTriggerReply = z
     unit: UnitId,
   })
   .strict();
-/** His engine's confirm: whether the lines hold something for him to act on, and who wrote them (refs as read, never him). */
+/** One thing still left for him in a conversation, by the confirm (v3 on): an ask of him or his promise, and how much it matters. */
+export const LeftForHim = z.object({
+  kind: z.enum(["ask", "promise"]),
+  priority: z.enum(["high", "normal", "low"]),
+  what: z.string(),
+});
+/** The confirm's reply from v3: what is left for him, what he is visibly handling, whether the lines set a meeting. */
+export const LeftReply = z.looseObject({
+  event: z.enum(["yes", "no"]),
+  inProgress: z.array(z.string()),
+  left: z.array(LeftForHim),
+});
+/**
+ * His engine's confirm, and who wrote the lines (refs as read, never him): from v3, what is still left for him as the
+ * conversation stands, what he is visibly handling, and whether it sets a meeting; before, whether the lines hold
+ * something for him to act on (`isActionable`).
+ */
 export const ArrivalConfirmReply = z
   .object({
     ...stored,
     people: z.array(z.string()),
     read: z.literal(ARRIVAL_CONFIRM_READ),
-    reply: z.looseObject({ isActionable: z.boolean() }),
+    reply: z.union([LeftReply, z.looseObject({ isActionable: z.boolean() })]),
     unit: UnitId,
   })
   .strict();
