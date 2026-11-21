@@ -172,7 +172,7 @@ private struct OpenWith: View {
                 }
                 Group {
                     if !isAll, now.openCount > rows.count {
-                        TextLink("All \(now.openCount)", isOnward: true) { isAll = true }
+                        TextLink("All \(now.openCount)", to: .page) { isAll = true }
                     } else if isAll, now.isOpenCut, life.openWith[ref]?.value == nil {
                         if life.openWith[ref]?.hasFailed == true {
                             PartRetry(what: "The other matters") { await life.refreshOpenWith(ref) }
@@ -203,7 +203,7 @@ private struct Lately: View {
                 Text("Lately").font(.small).foregroundStyle(Palette.muted)
                 Text(lines.joined(separator: " ")).font(.body15).foregroundStyle(Palette.fg)
                     .lineLimit(isWhole ? nil : 4).fixedSize(horizontal: false, vertical: true)
-                if !isWhole { TextLink("More") { isWhole = true } }
+                if !isWhole { TextLink("More", to: .page) { isWhole = true } }
             }
             .padding(Metrics.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)

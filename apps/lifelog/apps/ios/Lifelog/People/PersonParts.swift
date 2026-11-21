@@ -83,7 +83,7 @@ struct LatestScreen: View {
                         ExchangeView(item: item, when: SaidWords.time(item.at))
                     }
                     switch chain.next {
-                    case .more(let ref): TextLink("Earlier", isOnward: true) { Task { await life.refreshLatest(ref) } }
+                    case .more(let ref): TextLink("Earlier", to: .page) { Task { await life.refreshLatest(ref) } }
                     case .reading: Spinner()
                     case .failed(let ref): PartRetry(what: "Earlier exchanges") { await life.refreshLatest(ref) }
                     case .end: EmptyView()
@@ -105,7 +105,7 @@ struct PartRetry: View {
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
             Text("\(what) didn't load.").font(.small).foregroundStyle(Palette.muted)
-            TextLink("Try again") { Task { await retry() } }
+            QuietChip("Try again", symbol: "arrow.clockwise") { Task { await retry() } }
         }
     }
 }
