@@ -1,4 +1,4 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createApp } from "./app";
 import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
@@ -6,9 +6,14 @@ import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 const fake = fakeElevenLabs();
 afterAll(() => fake.server.stop(true));
 
-const ask = () => {
-  const env = testDb();
-  return createApp(
+let env: ReturnType<typeof testDb>;
+beforeAll(() => {
+  env = testDb();
+});
+afterAll(() => env.drop());
+
+const ask = () =>
+  createApp(
     services(testConfig(`http://localhost:${fake.server.port}`), env.db, {
       intelligence: null,
     })
@@ -16,7 +21,6 @@ const ask = () => {
     headers: { Authorization: `Bearer ${OWNER_TOKEN}` },
     method: "POST",
   });
-};
 
 test("hands the phone ElevenLabs' single-use token, asked with the Mac's key", async () => {
   fake.respond = () => Response.json({ token: "sutkn_made_up" });
