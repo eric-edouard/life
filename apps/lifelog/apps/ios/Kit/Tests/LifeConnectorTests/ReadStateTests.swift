@@ -117,6 +117,8 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     var overlapped = false
     var gates: [CheckedContinuation<Void, Never>] = []
     var shown = ReadState<[Int]>()
+    /// Which reads began, by name.
+    var ran: [String] = []
 
     func read() async {
         started += 1
@@ -136,7 +138,7 @@ private func shown(_ state: ReadState<[Int]>) -> String {
 /// Two inbox reads asked one after the other: the older lists an answered card, the newer not. The newer waits for the
 /// older and runs after it, so the older can never land last and bring the card back.
 @MainActor @Test func aLaterReadRunsAfterTheOneRunningSoTheOlderNeverLandsLast() async {
-    let flights = ReadFlights()
+    let flights = ReadFlights(generation: PairingGeneration())
     let reads = Reads()
     let first = Task {
         await flights.run("inbox") {
@@ -161,7 +163,7 @@ private func shown(_ state: ReadState<[Int]>) -> String {
 
 /// Several asks during one read make one more pass, and each asker is free once the pass after its ask ended.
 @MainActor @Test func asksDuringAReadMakeOneMorePassAndNoneWaitsLonger() async {
-    let flights = ReadFlights()
+    let flights = ReadFlights(generation: PairingGeneration())
     let reads = Reads()
     var done: [String] = []
     let first = Task {
@@ -200,4 +202,38 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     #expect(shown(state.showing([7], at: then)) == "stale [7] 1000 unreachable")
     state.apply(.succeeded([1], then.addingTimeInterval(5)))
     #expect(state.showing([7, 1], at: then).loadedAt == then.addingTimeInterval(5))
+}
+
+/// An inbox read queued behind the running one, then he pairs again (the same Life): the queued read never begins, so
+/// nothing of the old pairing's ask reaches the new Life, and the new pairing's read runs on its own pass, never
+/// joining the old one.
+@MainActor @Test func aReadQueuedBeforeAPairingNeverRunsUnderTheNewOne() async {
+    let generation = PairingGeneration()
+    let flights = ReadFlights(generation: generation)
+    let reads = Reads()
+    let running = Task {
+        await flights.run("inbox") {
+            reads.ran.append("old running"); await reads.read()
+        }
+    }
+    while reads.started < 1 { await Task.yield() }
+    let queued = Task {
+        await flights.run("inbox") {
+            reads.ran.append("old queued"); await reads.read()
+        }
+    }
+    for _ in 0..<10 { await Task.yield() }
+    generation.next()
+    let fresh = Task {
+        await flights.run("inbox") {
+            reads.ran.append("new"); await reads.read()
+        }
+    }
+    while reads.started < 2 { await Task.yield() }
+    await reads.finishNext()
+    await reads.finishNext()
+    await running.value
+    await queued.value
+    await fresh.value
+    #expect(reads.ran == ["old running", "new"] && reads.started == 2)
 }

@@ -114,7 +114,7 @@ final class LifeStore {
     private let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// One read of each kind at a time, plus one more pass.
-    @ObservationIgnored private let flights = ReadFlights()
+    @ObservationIgnored private let flights: ReadFlights
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
     private var taps = AnswerTaps()
 
@@ -133,6 +133,7 @@ final class LifeStore {
         let api = api ?? MCPLifeAPI(client: MCPClient(session: LifeSession(store: tokens)))
         self.api = api
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
+        flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
         self.cache = cache
         self.now = now
