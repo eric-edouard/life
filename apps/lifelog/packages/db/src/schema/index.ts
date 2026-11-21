@@ -548,7 +548,7 @@ export const quietRanges = sqliteTable(
     createdAt,
     endedAt: instant("ended_at").notNull(),
     id: uuid("id").primaryKey(),
-    // The dictating app's bundle id.
+    // The dictating app's bundle id; "playback" or "dictation" from the phone.
     source: text("source").notNull(),
     startedAt: instant("started_at").notNull(),
   },

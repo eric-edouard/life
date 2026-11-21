@@ -5,7 +5,8 @@
 // A flag on past MAX_MS stops holding the watermark at once, and nothing counts until it goes off.
 // A cancelled dictation can't be told apart, so it counts like any other. Pure: the socket keeps
 // the state in `mac_watch` (quiet-ranges.ts `applyMacEvent`).
-import type { Dictation } from "@lifelog/db/schema";
+import { type Dictation, quietRanges } from "@lifelog/db/schema";
+import { ne } from "drizzle-orm";
 
 const BEFORE_MS = 1000;
 const AFTER_MS = 1500;
@@ -48,6 +49,13 @@ const WINDOWS_DICTATION_APPS = [
   "handy.exe", // Handy.
   "textinputhost.exe", // Windows' own voice typing.
 ];
+
+// The phone's copy of its own dictation (#802), kept only so a reinstalled phone gets it back from the
+// feed: the phone already left that audio out by its own clock, so the server's processing never reads
+// it, and another source's audio at the same instant stays eligible.
+export const PHONE_DICTATION = "dictation";
+// What the server's processing leaves out: every quiet range but the phone's copy of its own dictation.
+export const processedQuiet = ne(quietRanges.source, PHONE_DICTATION);
 
 export const isDictationApp = (name: string) =>
   name.toLowerCase().endsWith(".exe")

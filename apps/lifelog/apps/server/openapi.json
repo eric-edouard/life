@@ -2360,12 +2360,15 @@
             "type": "string",
             "format": "uuid"
           },
+          "isPhoneDictation": {
+            "type": "boolean"
+          },
           "startedAt": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": ["endedAt", "id", "startedAt"]
+        "required": ["endedAt", "id", "isPhoneDictation", "startedAt"]
       },
       "Switches": {
         "type": "object",
@@ -2494,7 +2497,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "The dictating app's bundle id, or \"playback\" from the phone"
+            "description": "The dictating app's bundle id, or \"playback\" or \"dictation\" from the phone"
           },
           "startedAt": {
             "type": "string",

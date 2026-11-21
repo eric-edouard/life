@@ -208,8 +208,22 @@ public actor TimelineScanner {
         let windows = try windows(overlapping: [
             wide.lowerBound.advanced(by: -policy.paddingMillis)..<wide.upperBound.advanced(by: policy.paddingMillis)
         ])
-        let quiet = try await library.quietRanges(in: range)
-        return policy.keptAudio(spans: spans, windows: windows, quietRanges: quiet).map { $0.clamped(to: range) }
+        // A quiet range is left out where the Pendant's clock places it, give or take its error bound (the pad covers
+        // whole-second stamps). Speech whose clock nothing bounds (recorded before this phone first set the Pendant's
+        // clock) could be anywhere, so it isn't sent once the owner ever dictated to this phone, a restored copy
+        // included (#802); the Mac's ranges apply where its stamps say, as before. ponytail: that speech then waits
+        // for nothing; its raw backup still holds it.
+        let model = ClockModel(syncs: try store.clock(deviceID: deviceID).map(\.sync))
+        let bounds = spans.map {
+            model.errorBound(deviceMillis: $0.interval.lowerBound.millis, pageIndex: $0.pages.lowerBound)
+        }
+        let slack = bounds.compactMap { $0 }.max() ?? 0
+        let unboundedGoes = bounds.contains(nil) ? !(try await library.hasPhoneDictation()) : true
+        let placed = zip(spans, bounds).filter { $0.1 != nil || unboundedGoes }.map(\.0)
+        let quiet = try await library.quietRanges(
+            in: wide.lowerBound.advanced(by: -slack)..<wide.upperBound.advanced(by: slack))
+        let widened = quiet.map { $0.lowerBound.advanced(by: -slack)..<$0.upperBound.advanced(by: slack) }
+        return policy.keptAudio(spans: placed, windows: windows, quietRanges: widened).map { $0.clamped(to: range) }
             .filter { !$0.isEmpty }
     }
 

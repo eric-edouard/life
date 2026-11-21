@@ -13,8 +13,16 @@ import { createApp } from "./app";
 import { joinOggOpus, oggOpusSeconds } from "./audio";
 import { memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
-import { admit, blockFrom, cut, QUIET_RANGES_FROM, type Span } from "./cutter";
+import {
+  admit,
+  blockFrom,
+  cut,
+  QUIET_RANGES_FROM,
+  type Span,
+  touchesQuiet,
+} from "./cutter";
 import type { Job } from "./jobs";
+import { quietIn } from "./quiet-ranges";
 import { services } from "./services";
 import { fakeElevenLabs, OWNER_TOKEN, testConfig, testDb } from "./testing";
 
@@ -675,6 +683,35 @@ test("a range that comes after the block closed withdraws its job in the worker,
   const withdrawn = { firstPage: 1, kind: "job", sourceId: SOURCE };
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: job?.id });
   expect(feed.removed).toContainEqual({ ...withdrawn, ref: fragment?.id });
+});
+
+test("the phone's copy of its own dictation leaves another source's audio at the same instant eligible", async () => {
+  const app = appWith();
+  await putFragment(app, a);
+  await app.s.worker.work.idle();
+  const [from = 0] = a.map.segments[0] ?? [];
+  const at = (offset: number) => new Date(from + offset);
+  env.db
+    .insert(quietRanges)
+    .values({
+      endedAt: at(500),
+      id: randomUUID(),
+      source: "dictation",
+      startedAt: at(100),
+    })
+    .run();
+  expect(touchesQuiet(env.db, a.map)).toBe(false);
+  expect(quietIn(env.db, [from, from + 1000])).toEqual([]);
+  env.db
+    .insert(quietRanges)
+    .values({
+      endedAt: at(500),
+      id: randomUUID(),
+      source: "playback",
+      startedAt: at(100),
+    })
+    .run();
+  expect(touchesQuiet(env.db, a.map)).toBe(true);
 });
 
 test("a quiet range that lands while a block's audio is stored: no job is admitted, its block's audio goes, and the rest closes without it", async () => {

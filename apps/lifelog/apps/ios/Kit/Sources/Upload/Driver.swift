@@ -104,7 +104,8 @@ public struct Driver: Sendable {
             done("audio")
         }
         if let unsent { throw unsent }
-        // A failed pull doesn't hold the speech back: the uploader runs with the quiet ranges it has.
+        // A failed pull doesn't hold the speech back once one whole pull brought the quiet ranges; before that (a
+        // restored phone), the server may hold ranges of this phone's dictation it lacks, so no speech goes.
         var unpulled: (any Error)?
         do {
             changed = try await pull() || changed
@@ -115,7 +116,8 @@ public struct Driver: Sendable {
         if unpulled == nil, let fields = await PushToken.send(with: client) {
             event("push.device_token", fields)
         }
-        if let capture {
+        let mayUpload = unpulled == nil ? true : try await library.hasPulledWholeFeed()
+        if let capture, mayUpload {
             try await capture.uploader.run(savedThrough: savedThrough)
             done("upload")
         }
