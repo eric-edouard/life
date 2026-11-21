@@ -49,11 +49,12 @@ struct MatterPage: View {
                 header(matter)
                 asks(life.asks(ofMatter: id))
                 if let agent {
-                    AgentRow(agent: agent) { router.matterSheet = .agent(id) }
+                    AgentRow(agent: agent) { router.matterSheet = .agent(id, agent: agent.id) }
                 }
                 GoalAndNext(matter: matter)
                 People(people: row.people)
                 Steps(steps: matter.steps)
+                if let line = matter.spendingLine { SpendingLine(text: line) }
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
         }
@@ -185,7 +186,7 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                TextField(label, text: $draft, axis: .vertical).focused($focused).font(.lead)
+                DictationField(prompt: label, text: $draft, axis: .vertical, focused: $focused).font(.lead)
                     .foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
                     Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))

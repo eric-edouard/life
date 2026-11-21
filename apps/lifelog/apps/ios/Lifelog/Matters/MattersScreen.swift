@@ -81,7 +81,7 @@ struct MattersScreen: View {
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(item: matterSheetBinding) { sheet in
             switch sheet {
-            case .agent(let id): AgentSheet(matter: id)
+            case .agent(let id, let agent): AgentSheet(matter: id, agentID: agent)
             case .icon(let id): MatterIconSheet(matter: id)
             case .start(let id):
                 if let matter = life.matter[id]?.value {

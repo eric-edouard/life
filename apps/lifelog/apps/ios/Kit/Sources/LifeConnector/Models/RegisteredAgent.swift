@@ -85,6 +85,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     /// What will wake it while it waits, in its own order; none otherwise.
     public let wakesOn: [WakeLine]
     public let amber: [String]
+    /// Its current session's model spending (`read_registered_agents` only); nil when the desk can't be read.
+    public let spending: AgentSpending?
 
     public var runtimeName: RuntimeName { RuntimeName(rawValue: runtime) ?? .unknown }
     /// Ended or handed over: it holds nothing, and its matter can start another.

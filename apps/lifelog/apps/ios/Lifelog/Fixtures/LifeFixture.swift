@@ -189,6 +189,8 @@
             return json(["matters": rows])
         }
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
+        /// The design data's spending (`read_spending.json`), as Life answers it.
+        func readSpending() async throws -> String { try await gate(); return json(Self.spending) }
         /// The design data's log (`read_log_lines.json`, one page), by level and process; an empty log until the
         /// designer writes it. Polled every 2 s, it adds nothing: the page shows what the frames draw.
         func readLogLines(_ query: LogQuery) async throws -> String {
@@ -544,6 +546,7 @@
         nonisolated(unsafe) private static let matterRead = read("read_matter")
         nonisolated(unsafe) private static let people = read("read_people_and_organizations", or: [:])
         nonisolated(unsafe) private static let log = read("read_log_lines", or: [:])
+        nonisolated(unsafe) private static let spending = read("read_spending", or: [:])
         /// Every agent, by its matter; `-fixtureAgent` says how Nora's went.
         nonisolated(unsafe) private static let allAgents: [[String: Any]] =
             ((registered["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])).map {
