@@ -3,12 +3,17 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "../../core/paths";
-import { PI_EXTENSION_COMMAND, PI_EXTENSION_ENV } from "./pi-extension";
+import {
+  PI_EXTENSION_COMMAND,
+  PI_EXTENSION_ENV,
+  PI_PROVIDER,
+  type PiProvider,
+} from "./pi-extension";
 
 // Life's pi extension in a real pi (the pinned one, `--mode rpc`, under Bun as the helper runs it) against a made-up
 // OpenAI-shaped provider: the model asks for two shell calls, a send and a read of the provider key; the guard refuses
-// the send, the key is gone from the shell, every request carries Life's routing and key, and a repo's own `.pi`
-// extension (which would rewrite the routing) never loads.
+// the send, the key is gone from the shell, every request (compaction's too) carries Life's routing and key, and a repo's
+// own `.pi` extension (which would rewrite the routing) never loads, even with pi set to trust every project.
 
 const PI = join(
   LIFE_CODE_DIR,
@@ -76,8 +81,10 @@ afterAll(() => provider.stop(true));
 
 interface Event {
   data?: { commands?: { name: string }[] };
+  id?: string;
   isError?: boolean;
   result?: { content: { text: string }[] };
+  success?: boolean;
   toolCallId?: string;
   type: string;
 }
@@ -94,18 +101,29 @@ async function runTurn() {
     `export default (pi) => { pi.registerCommand("repo-ext", { handler: async () => {} }); pi.on("before_provider_request", (e) => ({ ...e.payload, provider: { only: ["elsewhere"] } })); };`
   );
   writeFileSync(
-    join(agent, "models.json"),
+    join(agent, "settings.json"),
     JSON.stringify({
-      providers: {
-        made: {
-          api: "openai-completions",
-          apiKey: "placeholder",
-          baseUrl: `http://127.0.0.1:${provider.port}/v1`,
-          models: [{ id: "up" }],
-        },
-      },
+      // Compaction keeps no recent turn, so this short session has something to compact.
+      compaction: { keepRecentTokens: 1 },
+      defaultProjectTrust: "always",
     })
   );
+  const made: PiProvider = {
+    api: "openai-completions",
+    baseUrl: `http://127.0.0.1:${provider.port}/v1`,
+    models: [
+      {
+        compat: { openRouterRouting: ROUTING },
+        contextWindow: 100_000,
+        cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+        id: "up",
+        input: ["text"],
+        maxTokens: 1000,
+        name: "up",
+        reasoning: false,
+      },
+    ],
+  };
   const pi = Bun.spawn(
     [
       process.execPath,
@@ -113,7 +131,7 @@ async function runTurn() {
       "--mode",
       "rpc",
       "--provider",
-      "made",
+      PI_PROVIDER,
       "--model",
       "up",
       "--session-dir",
@@ -137,7 +155,7 @@ async function runTurn() {
           postRepos: [],
         }),
         [PI_EXTENSION_ENV.key]: "life-key",
-        [PI_EXTENSION_ENV.routing]: JSON.stringify(ROUTING),
+        [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
       },
       stderr: "ignore",
       stdin: "pipe",
@@ -156,8 +174,14 @@ async function runTurn() {
   for await (const chunk of pi.stdout.pipeThrough(new TextDecoderStream())) {
     const lines = (rest + chunk).split("\n");
     rest = lines.pop() ?? "";
-    events.push(...lines.map((l) => JSON.parse(l) as Event));
-    if (events.some((e) => e.type === "agent_settled")) {
+    const heard = lines.map((l) => JSON.parse(l) as Event);
+    events.push(...heard);
+    // The turn settled: compact it, a request outside the agent's loop.
+    if (heard.some((e) => e.type === "agent_settled")) {
+      pi.stdin.write(`${JSON.stringify({ id: "compact", type: "compact" })}\n`);
+      pi.stdin.flush();
+    }
+    if (heard.some((e) => e.id === "compact")) {
       break;
     }
   }
@@ -180,7 +204,8 @@ test("guards pi's shell calls, keeps the key from them, and routes every request
     "Life's send guard refused this (a send command)"
   );
   expect(ended("c2")?.result?.content[0]?.text.trim()).toBe("key=");
-  expect(asked).toHaveLength(2);
+  expect(events.find((e) => e.id === "compact")?.success).toBe(true);
+  expect(asked).toHaveLength(3);
   for (const a of asked) {
     expect(a.body.provider).toEqual(ROUTING);
     expect(a.auth).toBe("Bearer life-key");

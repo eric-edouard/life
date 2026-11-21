@@ -58,11 +58,12 @@ const ENDS_BODY = /^\s*(["']|\n|$)/;
 /**
  * A tool name shortened to fit or to tell twins apart: what is left, then `_` and a hash, 12 hex from Codex
  * (`fit_callable_parts_with_hash`, codex-mcp's `tools.rs`) or 8 from pi (`createMcpToolName`, pi-mcp's `naming.js`);
- * left: none when the tool's own name was cut whole.
+ * left: none when the tool's own name was cut whole. Any MCP name ending so reads as shortened: refused when it could be
+ * a write, never let through.
  */
 const SHORTENED = /^(\w*?)_?[0-9a-f]{8}(?:[0-9a-f]{4})?$/;
 
-/** Whether `tool` (a call's last `__` part) is one of his connector's writes, or what Codex left of one. */
+/** Whether `tool` (a call's last `__` part) is one of his connector's writes, or what a shortening left of one. */
 function isConnectorWrite(tool: string) {
   const left = SHORTENED.exec(tool)?.[1];
   return CONNECTOR_WRITES.some(
