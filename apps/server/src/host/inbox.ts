@@ -2,9 +2,11 @@ import type { Database } from "bun:sqlite";
 import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
-import { decisionsNow } from "../memory/decisions";
+import type { Decision } from "../memory/decision-lines";
 import type { HeldRead } from "../memory/life-checks";
 import {
+  agentOf,
+  assignmentOf,
   assignmentOfCard,
   complaintsAtWork,
   heldByAgents,
@@ -17,38 +19,24 @@ import {
 // its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key).
 
 /**
- * The plan cards among the open decisions: an assignment he opened, its first card not withdrawn (the door's
- * `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's one card (the desk opened it: what it
- * found, not a plan). Worked out when read, never stored. Bounded: per open card, its assignment's cards and its agent's.
+ * The plan cards among the open decisions of `list` (every decision, in the order asked): an assignment he opened, its
+ * first card not withdrawn (the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
+ * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
  */
-export function planCardsOf(db: Database, list = decisionsNow()) {
+export function planCardsOf(db: Database, list: readonly Decision[]) {
   const plans = new Set<string>();
   for (const d of list) {
     const s = d.state === "open" ? assignmentOfCard(db, d) : null;
-    if (!s) {
+    const opened = s ? assignmentOf(db, s) : null;
+    if (
+      !(s && opened?.opened_by === "owner") ||
+      agentOf(db, opened.agent_id)?.role === "caretaker"
+    ) {
       continue;
     }
-    const opened = db
-      .query<{ by: string; role: string | null }, [string]>(
-        "select s.opened_by as by, a.role from assignment s join agent a on a.id = s.agent_id where s.id = ?"
-      )
-      .get(s);
-    if (opened?.by !== "owner" || opened.role === "caretaker") {
-      continue;
-    }
-    const cards = new Set(
-      db
-        .query<{ id: string }, [string]>(
-          "select decision_id as id from card where assignment_id = ?"
-        )
-        .all(s)
-        .map((r) => r.id)
-    );
+    // ponytail: one owner lookup per registered agent's card asked before it (a few a day); a `card` index by assignment if it grows.
     const first = list.find(
-      (e) =>
-        e.state !== "withdrawn" &&
-        (cards.has(e.id) ||
-          (e.agent === d.agent && assignmentOfCard(db, e) === s))
+      (e) => e.state !== "withdrawn" && assignmentOfCard(db, e) === s
     );
     if (first?.id === d.id) {
       plans.add(d.id);
@@ -66,8 +54,8 @@ function readHeld(): HeldRead | null {
   const complaints = readDesk(complaintsAtWork, []);
   return {
     complaints: complaints.state === "ok" ? complaints.value : [],
-    plans: () => {
-      const r = readDesk(planCardsOf, new Set<string>());
+    plans: (decisions) => {
+      const r = readDesk((db) => planCardsOf(db, decisions), new Set<string>());
       return r.state === "ok" ? r.value : new Set();
     },
     read: () => {

@@ -613,7 +613,7 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     expect(reads).toHaveBeenCalledTimes(1);
     // What agents hold keys on its stamp alone: the facts are read only when the list is.
     const held = (stamp: string) => ({
-      plans: () => new Set<string>(),
+      plans: () => new Set(),
       read: () => anchored("obs_000000000001"),
       stamp,
     });

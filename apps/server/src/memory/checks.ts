@@ -678,10 +678,11 @@ const checksKeyOf = (
 /** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
 export async function checksAndKeyNow(held: HeldRead | null) {
   const voices = await readNamingQueue();
-  const decisions = decisionsNow().filter((d) => d.state === "open");
+  const all = decisionsNow();
+  const decisions = all.filter((d) => d.state === "open");
   const key = checksKeyOf(held, voices, decisions);
   if (isLocked() || last?.key !== key) {
-    const list = readChecks(held, voices, decisions);
+    const list = readChecks(held, voices, decisions, all);
     last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
       if (last?.list === list) {
@@ -700,7 +701,8 @@ export const checksNow = async (held: HeldRead | null) =>
 async function readChecks(
   held: HeldRead | null,
   voices: NamingQueueItem[],
-  decisions: Decision[]
+  decisions: Decision[],
+  all: Decision[]
 ): Promise<InboxCheck[]> {
   const people = await readPeople();
   const [records, unresolved, paged] = await Promise.all([
@@ -770,7 +772,7 @@ async function readChecks(
     nameGroups,
     paged,
     people,
-    plans: held?.plans(),
+    plans: held?.plans(all),
     titles,
     today,
     voices,

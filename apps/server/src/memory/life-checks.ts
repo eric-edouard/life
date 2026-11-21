@@ -3,6 +3,7 @@
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
 import type { CheckGroup } from "../core/names";
+import type { Decision } from "./decision-lines";
 import type { doneSeenShownOf } from "./decisions";
 import type { StoredDraft } from "./draft";
 import type { AgentHold } from "./held-matters";
@@ -228,10 +229,10 @@ export const isEndingKind = (
 ): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
   c.kind === "ending";
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the key). */
 export interface HeldRead {
   complaints?: readonly BeingFixed[];
-  plans: () => ReadonlySet<string>;
+  plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
   stamp: string;
 }
