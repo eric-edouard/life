@@ -21,6 +21,7 @@ const g = (voice: string, o: Partial<Guessed> = {}): Guessed => ({
   at: "2026-10-10T00:00:00.000Z",
   confidence: "sure",
   likeness: true,
+  part: 1,
   person: "person:ann",
   recognized: null,
   voice,
@@ -105,4 +106,25 @@ test("the trial folder: a plain new one is accepted; one inside his data, by a l
   // A dangling link into his data: whatever mkdir does with it, nothing is left in his data.
   expect(refused(join(base, "out", "dangling", "trial"))).toThrow();
   expect(existsSync(join(data, "nothere"))).toBe(false);
+});
+
+test("by group: one card per part and answer, its name the one person its sure or likely guesses agree on", () => {
+  const s = scoreOf([
+    // Part 1, Ann's voices: both guessed Ann (one weak Bob guess counts for nothing): shown, right.
+    g("a"),
+    g("b", { confidence: "likely" }),
+    g("c", { confidence: "weak", person: "person:bob" }),
+    // Part 2, Ann's voices: Ann and Bob disagree: nothing shown.
+    g("d", { part: 2 }),
+    g("e", { part: 2, person: "person:bob" }),
+    // Part 3, a voice he said is no one he cares about, guessed Bob: shown, wrong.
+    g("f", { answer: "not_relevant", part: 3, person: "person:bob" }),
+    // Part 4, only "unknown" and me: nothing shown.
+    g("g", { part: 4, person: "unknown" }),
+    g("h", { part: 4, person: "me" }),
+  ]);
+  expect(s.byGroup).toEqual({ groups: 4, right: 1, shown: 2 });
+  expect(reportOf(s).join("\n")).toContain(
+    "by group: 4 answered groups, a name shown on 2, his answer on 1"
+  );
 });

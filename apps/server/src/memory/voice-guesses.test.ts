@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import type { ReadReply } from "../records/read-reply";
 import { apply, readConversations } from "../sources/lifelog";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
 import {
   conversation,
   lifelogServer,
@@ -16,7 +17,12 @@ import { READ_REPLIES } from "./memory-files";
 import { READS, storeReply } from "./read-replies";
 import type { Truth } from "./read-truth";
 import { type Built, lifelogUnits, unnamedTurnKey } from "./units";
-import { voiceGuessesNow, withGuessesShown } from "./voice-guesses";
+import {
+  voiceGuessesNow,
+  withGuessesShown,
+  withVoiceGuesses,
+} from "./voice-guesses";
+import { voiceSuggestionOf } from "./who";
 import { fetchOf, voiceLines, voiceText } from "./words";
 
 // Made-up people and recordings. Stored guesses are written as lines of a trial folder, as the voice naming writes them.
@@ -252,5 +258,56 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
     setSettings({ voiceGuessesShown: before ?? null });
     rmSync(READ_REPLIES, { force: true, recursive: true });
     server.close();
+  }
+});
+
+test("a voice card asks about the one person lifelog's suggestion and the group's sure or likely guesses agree on", () => {
+  const folder = mkdtempSync(join(tmpdir(), "voice-card-guesses-"));
+  try {
+    line(
+      [entry(), entry({ confidence: "weak", lines: [2], voice: "V2" })],
+      "2026-10-11T00:00:00.000Z",
+      folder
+    );
+    const item = {
+      clips: [{ at: at(1) }],
+      name: null,
+      personId: null,
+      voices: [
+        { jobId: "job-1", speakerLabel: "speaker_1" },
+        { jobId: "job-1", speakerLabel: "speaker_2" },
+      ],
+    } as unknown as NamingQueueItem;
+    const [guessed] = withVoiceGuesses([item], folder);
+    // The weak guess on speaker_2 counts for nothing.
+    expect(guessed?.guessed).toEqual(["person:dana"]);
+    const who = {
+      names: new Map([...NAMES, ["person:kofi", "Kofi"]]),
+      refOf: (r: string) => r,
+      resolve: (s: string) =>
+        ({
+          Dana: "person:dana",
+          Kofi: "person:kofi",
+          "lf-dana": "person:dana",
+        })[s] ?? null,
+    };
+    const card = (o: Record<string, unknown>) =>
+      voiceSuggestionOf(who, { ...(guessed as NamingQueueItem), ...o });
+    expect(card({})).toBe("person:dana");
+    // Lifelog's heard name agrees, a new person's too; its person or name naming someone else leaves no one.
+    expect(card({ kind: "new_person", name: "Dana" })).toBe("person:dana");
+    expect(card({ name: "Kofi" })).toBeNull();
+    expect(card({ personId: "lf-dana" })).toBe("person:dana");
+    // Two people guessed: no one; a guess of someone not known today counts for nothing.
+    expect(card({ guessed: ["person:dana", "person:kofi"] })).toBeNull();
+    expect(card({ guessed: ["person:dana", "person:zed"] })).toBe(
+      "person:dana"
+    );
+    // A heard name alone, nothing guessed.
+    expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBe(
+      "person:dana"
+    );
+  } finally {
+    rmSync(folder, { force: true, recursive: true });
   }
 });

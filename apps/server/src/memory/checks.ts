@@ -89,6 +89,7 @@ import {
 import { lifeLinksOf } from "./refs";
 import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
+import { withVoiceGuesses } from "./voice-guesses";
 import {
   type People,
   readPeople,
@@ -207,8 +208,8 @@ export interface CheckInputs {
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
   today: string;
-  /** The voices lifelog asks him to name (`readNamingQueue`). */
-  voices: readonly NamingQueueItem[];
+  /** The voices lifelog asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
+  voices: readonly (NamingQueueItem & { guessed?: readonly string[] })[];
   /** Where a record that is not a line was said: units and episodes, by id. */
   where: ReadonlyMap<string, Where>;
 }
@@ -632,7 +633,7 @@ const CHECKS_READ = [
 /** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
-  voices: readonly NamingQueueItem[],
+  voices: CheckInputs["voices"],
   decisions: readonly Decision[],
   holders: CardHolders
 ) =>
@@ -646,7 +647,7 @@ const checksKeyOf = (
 
 /** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
 export async function checksAndKeyNow(held: HeldRead | null) {
-  const voices = await readNamingQueue();
+  const voices = withVoiceGuesses(await readNamingQueue());
   const all = decisionsNow();
   // Each open card as its holder's, read from this one list (`HeldRead.cardHolders`).
   const decisions = all.filter((d) => d.state === "open");
@@ -676,7 +677,7 @@ export const checksNow = async (held: HeldRead | null) =>
 
 async function readChecks(
   held: HeldRead | null,
-  voices: NamingQueueItem[],
+  voices: CheckInputs["voices"],
   decisions: CheckInputs["decisions"],
   all: Decision[]
 ): Promise<InboxCheck[]> {
