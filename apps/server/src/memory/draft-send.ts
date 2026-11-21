@@ -187,6 +187,8 @@ const isChat = (s?: Descriptor): s is Descriptor & { kind: "chat" } =>
 
 /** A source whose messages a draft goes into: chat or mail. */
 type Sending = Descriptor & { kind: "chat" | "mail" };
+const isSending = (s: Descriptor): s is Sending =>
+  s.kind === "chat" || s.kind === "mail";
 
 interface ChatSource {
   name: string;
@@ -291,8 +293,7 @@ export async function resolveDraft(
   sources = enabledSources()
 ): Promise<StoredDraft> {
   const sending = sources.filter(
-    (x): x is Sending =>
-      Boolean(x.send) && (x.kind === "chat" || x.kind === "mail")
+    (x): x is Sending => Boolean(x.send) && isSending(x)
   );
   const s = sending.find((x) => x.name === draft.channel);
   if (!s?.send) {
@@ -365,16 +366,14 @@ export function wroteSince(
   sources = enabledSources()
 ) {
   const read = new Map<string | undefined, SourceEvent[]>(
-    sources
-      .filter((s): s is Sending => isChat(s) || s.kind === "mail")
-      .flatMap((s) => {
-        const since = cards
-          .filter((c) => c.draft.channel === s.name && c.draft.chat)
-          .map((c) => c.since.getTime());
-        return since.length > 0
-          ? [[s.name, s.read(new Date(Math.min(...since)))] as const]
-          : [];
-      })
+    sources.filter(isSending).flatMap((s) => {
+      const since = cards
+        .filter((c) => c.draft.channel === s.name && c.draft.chat)
+        .map((c) => c.since.getTime());
+      return since.length > 0
+        ? [[s.name, s.read(new Date(Math.min(...since)))] as const]
+        : [];
+    })
   );
   return cards.map(({ draft, since }) =>
     (read.get(draft.channel) ?? [])

@@ -62,6 +62,7 @@ export function arrivalFactsOf(
  * Whether he answered an arrival: he wrote in its chat after its newest line, another person's (`events`: what was
  * written there since before it, oldest first), so no agent wakes. His own newest line is a commitment, never answered
  * by his next one. Unseen newest line (older than the read): after the confirm. A mail arrival's chat is its thread.
+ * ponytail: a mail with no conversation id is chatted by mailbox and subject, so his reply (in Sent) is never seen.
  */
 export function hasAnsweredOf(
   events: Pick<SourceEvent, "at" | "fromMe" | "id">[],
