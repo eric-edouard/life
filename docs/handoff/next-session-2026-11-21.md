@@ -62,8 +62,12 @@ life#940, and the skill on the Mac is updated.
       **Its first PR is a live bug:** two voice answers at the same moment make one fail. Voice answers must go one at a
       time on the server.
 2. **Voice naming with context.** Fable's report is `~/Life/docs/memory-rework/voice-naming-with-context-2026-11-21.md`,
-   still being written at handoff time. The case: the evening of 20 Nov, which the chats make clear. Read it, then
-   plan the PRs. Any prompt change or re-run needs his yes.
+   committed. Root cause: the context never reaches the guessing step (a chat's plan doesn't make someone a candidate,
+   one token per recording instead of Voice's groups, short conversations never read), and stored guesses never reach
+   the card. On the night of 20 Nov, with the chats added, it named the voice right twice of twice for $0.001.
+   Five PRs. PR 1 needs no model: the card uses the heard name and the stored guesses, "Is this X?". PRs 2 to 4 need his
+   yes: a prompt version with a hidden-run trial of about $1, a third daytime model step, and a new trigger prompt
+   version. Silent naming stays off until 99 in 100 right.
 3. **Spoken asks PR 2 and PR 3** (branch `spoken-asks`, its PLAN.md lists the 8 refinements by PR). PR 3 needs a
    Life.app swap.
 4. **The phone's performance fixes 4 to 8** (branch `phone-perf-4`, which doesn't compile yet; brief:
