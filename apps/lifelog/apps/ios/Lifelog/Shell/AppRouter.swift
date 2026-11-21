@@ -6,7 +6,7 @@ import SwiftUI
 /// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, projects, people, tellLife, search }
+    enum Tab: Hashable { case inbox, projects, people, search }
     enum Sheet: String, Identifiable {
         case pendant, settings
         var id: String { rawValue }
@@ -89,6 +89,9 @@ final class AppRouter {
     var sheet: Sheet?
     /// Tell Life, full screen over whatever he was on.
     var isTellLifeOpen = false
+    /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
+    /// (`reportsSideColumn`): Tell Life stands in that column's foot, else at the corner.
+    var isBarsInColumn = false
     /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
     var isTellLifeSmall = false
     /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
@@ -125,8 +128,6 @@ final class AppRouter {
             case .projects: "projects"
             case .people: "people"
             case .search: "search"
-            // Never on show: its tap opens Tell Life and leaves the tab as it was (`RootView.tabs`).
-            case .tellLife: "inbox"
             }
         return TellScreen(
             tab: tab,

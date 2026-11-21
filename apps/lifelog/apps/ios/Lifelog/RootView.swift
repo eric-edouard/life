@@ -49,15 +49,6 @@ struct RootView: View {
             } label: {
                 TabLabel("People", "person.2")
             }
-            // Tell Life is a tab of the bar, so the system places it in every pose; a tap opens it and leaves the tab on show
-            // (`tabs`). Not paired: no tab.
-            Tab(value: AppRouter.Tab.tellLife) {
-                Color.clear
-            } label: {
-                TabLabel("Tell Life", "waveform")
-            }
-            .badge(life.tell.strands.filter { !$0.isDone }.count)
-            .hidden(!life.isPaired)
             // Its title and symbol are the system's; it sits apart, at the trailing end of the tabs.
             Tab(value: AppRouter.Tab.search, role: .search) {
                 // The field belongs to this tab alone: on the tabs it would show on Inbox and Projects too.
@@ -74,6 +65,20 @@ struct RootView: View {
             switch sheet {
             case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
             case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
+            }
+        }
+        // The column's tab group stands above Tell Life: the screen keeps their room (the button and its margin).
+        .safeAreaPadding(.bottom, router.isBarsInColumn && life.isPaired ? 48 + 35 + Metrics.Spacing.s : 0)
+        // Tell Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
+        // rotation never moves it off the corner (the spec's 52 on the phone, 48 and centred in the Duo's 84-wide column).
+        .overlay(alignment: .bottomTrailing) {
+            if life.isPaired {
+                let inColumn = router.isBarsInColumn
+                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count, size: inColumn ? 48 : 52)
+                    .padding(.trailing, inColumn ? 18 : 20)
+                    .padding(.bottom, inColumn ? (sizeClass == .regular ? 24 : 35) : 29)
+                    // Past the system's safe areas (the column's, the bar's): the screen's own corner.
+                    .ignoresSafeArea()
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
@@ -139,10 +144,6 @@ struct RootView: View {
         Binding(
             get: { router.tab },
             set: { tab in
-                guard tab != .tellLife else {
-                    router.isTellLifeOpen = true
-                    return
-                }
                 if tab == .projects, router.tab == .projects { router.chip = nil }
                 router.tab = tab
             })
