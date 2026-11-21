@@ -461,6 +461,25 @@ test("an open step's date passing after the latest pin makes the matter due once
   ).toEqual([]);
 });
 
+test("his next step after Life read a matter over brings his move back: the latest pin is his, with no endingRecords", () => {
+  const v = waiting("00000000e201");
+  const over = pinOf(v, {
+    endingRecords: [],
+    laterShown: [],
+    nextStep: undefined,
+  });
+  const his = pinOf(v, {
+    at: "2026-11-18T09:00:00.000Z",
+    by: "owner",
+    nextStep: { kind: "do", text: "Call Sam" },
+  });
+  const find = matterFinderOf([v]);
+  expect(directionsOf(find, [over]).get(v)?.latest?.endingRecords).toEqual([]);
+  expect(
+    directionsOf(find, [over, his]).get(v)?.latest?.endingRecords
+  ).toBeUndefined();
+});
+
 test("only the newest 12 later records are compared: an older one outside them never keeps a direction due", () => {
   const v = waiting("00000000e002");
   const records = Array.from({ length: 13 }, (_, i) => said(i + 17));
