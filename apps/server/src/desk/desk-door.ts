@@ -39,6 +39,7 @@ import {
   type MainSessionAct,
   MainSessionAsk,
   type MainSessionLine,
+  MainSessionShow,
 } from "../records/main-session-wire";
 import { AgentWait } from "../records/registered-agent";
 import {
@@ -62,7 +63,9 @@ import {
   keepAct,
   keepAnswerExtras,
   keepMainSession,
+  keepShow,
   MAIN_ASK,
+  showProblemOf,
   tellAgent,
 } from "./main-session";
 import { readSendFacts } from "./runtimes/runtime-rows";
@@ -124,6 +127,7 @@ const MAIN_TOOLS = new Set([
   "change_registered_agent",
   "complain",
   "correct_memory",
+  "show",
   "tell_agent",
 ]);
 
@@ -378,6 +382,20 @@ function doorServer(desk: Desk, id: string) {
       }
       if (turn) {
         keepAnswerExtras(desk, turn.id, extras);
+      }
+    }
+  );
+  door(
+    "show",
+    'The main session only, on a turn of his words: what his phone shows with your answer; it changes no data, so it needs no `said`. `show`: one `page` (`page` `matter`, `person` (a person or organization, `person:<id>`), `project` or `agent`, by `id`), or a `list` cut to the rows you pick from Life\'s own reads, in your order, under `label` (a few words of what it shows, like "Your 3 most important today"): `matters` (ids from `read_matters`, of any project, person or area), `asks` (refs from `read_inbox`) or `people` (refs from `read_people_and_organizations`). A row its tab does not show, or a page that opens nothing, is refused. A later call replaces it.',
+    z.object({ show: MainSessionShow }),
+    async ({ show }, _, turn) => {
+      const problem = await showProblemOf(desk, show);
+      if (problem) {
+        return { error: `Not done: ${problem}.` };
+      }
+      if (turn) {
+        keepShow(desk, turn.id, show);
       }
     }
   );
