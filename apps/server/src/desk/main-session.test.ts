@@ -16,6 +16,7 @@ import { localKey } from "../host/http/local-key";
 import { MOVE_REASONS } from "../host/move-read";
 import type { MainSessionLine } from "../records/main-session-wire";
 import type { AgentChange } from "../records/registered-agent";
+import { register } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { wakeDue } from "./desk-clock";
 import { doorFetch } from "./desk-door";
@@ -49,7 +50,11 @@ const turnsOf = (id: string) =>
     .all(id);
 
 /** Asks `words`, then plays the session: `play` (its updates) and its run's end. */
-async function asked(words: string, play: (ref: string) => void, key?: string) {
+async function asked(
+  words: string,
+  play: (ref: string) => unknown,
+  key?: string
+) {
   const lines: MainSessionLine[] = [];
   const answer = askMainSession(t.desk, { key, words }, (l) => lines.push(l));
   // Let the ask reach the runtime.
@@ -58,7 +63,7 @@ async function asked(words: string, play: (ref: string) => void, key?: string) {
     await Bun.sleep(5);
   }
   const ref = t.fake.said.at(-1)?.ref ?? "";
-  play(ref);
+  await play(ref);
   t.fake.exit(ref, true, {
     usage: {
       contextFirst: 10,
@@ -248,6 +253,69 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
   ]);
   expect(await (await post({})).json()).toEqual({ kept: true });
   expect(t.fake.kept).toEqual([ref]);
+});
+
+/** Agent `id` calls door tool `name` with `args`; the call's response text. */
+async function callDoor(id: string, name: string, args: unknown) {
+  const res = await doorFetch(t.desk)(
+    new Request(`http://127.0.0.1/mcp/${id}`, {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: { arguments: args, name },
+      }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${doorOf(id).key}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    })
+  );
+  return await res.text();
+}
+
+test("`answer` adds why to its words, or likely answers that make it a question; a dead source is refused; its words stay its text after its last tool call", async () => {
+  const play = (extras: unknown) => async (r: string) => {
+    expect(await callDoor(main()?.id ?? "", "answer", extras)).not.toContain(
+      "Not done"
+    );
+    t.fake.hear(r, { kind: "words", text: "**Friday**, at ten." });
+  };
+  const said = async (words: string, extras: unknown) =>
+    (await asked(words, play(extras))).answer;
+  expect(
+    await said("When is the fitting?", { why: "Since his mail of 2 October." })
+  ).toEqual({
+    kind: "reply",
+    why: "Since his mail of 2 October.",
+    words: "**Friday**, at ten.",
+  });
+  expect(await said("Which day?", { answers: ["Friday", "Monday"] })).toEqual({
+    answers: ["Friday", "Monday"],
+    kind: "question",
+    question: "**Friday**, at ten.",
+  });
+  // A source that opens nothing is refused; the answer stays its words alone.
+  const id = main()?.id ?? "";
+  const dead = await asked("And then?", async (r) => {
+    expect(
+      await callDoor(id, "answer", { sources: ["obs_doesnotexist"] })
+    ).toContain("opens nothing");
+    t.fake.hear(r, { kind: "words", text: "Done." });
+  });
+  expect(dead.answer).toEqual({ kind: "reply", words: "Done." });
+  // Outside a turn of his words, `answer` is refused; any other agent never has it.
+  expect(await callDoor(id, "answer", { why: "x" })).toContain("Not done");
+  const other = register(t.desk, {
+    brief: "Test brief",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  expect(await callDoor(other, "answer", { why: "x" })).toContain(
+    "the main session's alone"
+  );
 });
 
 test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a busy ask is not kept by its key, and a key with other words is refused", async () => {
