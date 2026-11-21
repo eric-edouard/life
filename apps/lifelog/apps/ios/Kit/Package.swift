@@ -24,7 +24,11 @@ let package = Package(
         .library(name: "Health", targets: ["Health"]),
         // Life's connector: the phone's one client of Life (OAuth, MCP, the reads' models and states).
         .library(name: "LifeConnector", targets: ["LifeConnector"]),
+        // A card's context as blocks to draw: the one reader of Markdown, apart so the Watch and extensions skip it.
+        .library(name: "ContextMarkdown", targets: ["ContextMarkdown"]),
     ],
+    // Apple's own Markdown parser (the context sheet's spec, decision 81): the only package from outside the repo.
+    dependencies: [.package(url: "https://github.com/swiftlang/swift-markdown.git", exact: "0.9.0")],
     targets: [
         .target(name: "PendantProtocol", exclude: ["PROVENANCE.md"], swiftSettings: settings),
         .target(name: "SourceStore", dependencies: ["Timeline"], swiftSettings: settings),
@@ -84,5 +88,9 @@ let package = Package(
         .target(name: "LifeConnector", dependencies: ["Library"], swiftSettings: settings),
         .testTarget(
             name: "LifeConnectorTests", dependencies: ["LifeConnector", "Library"], swiftSettings: settings),
+        .target(
+            name: "ContextMarkdown", dependencies: [.product(name: "Markdown", package: "swift-markdown")],
+            swiftSettings: settings),
+        .testTarget(name: "ContextMarkdownTests", dependencies: ["ContextMarkdown"], swiftSettings: settings),
     ]
 )

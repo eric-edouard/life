@@ -2,45 +2,43 @@ import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
 import { settings } from "../core/settings";
-import { readRepoFolder } from "../host/change-registered-agent";
 import {
   handedOutActive,
   handedOutSince,
   heldByAgents,
-  isFull,
   readCursor,
-  runtimeOf,
+  standingAgents,
 } from "../host/desk-read";
 import { openChecksNow } from "../host/inbox";
 import { decisionsNow } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
 import {
+  agentForMatterOf,
   type HandOutFacts,
   type HandOutMatter,
   readHandOutMatters,
 } from "../memory/read-matters";
 import { loadTruth } from "../memory/read-truth";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
-import { closeAssignment, hasAsked } from "./agent-actions";
-import { start } from "./agent-changes";
+import { closeAssignment, hasAsked, openAssignment } from "./agent-actions";
 import { type Desk, saveCursor } from "./desk-store";
 import {
-  HAND_OUT_BRIEF,
   handOutOf,
   isCardOverdue,
   NO_CARD_OUTCOME,
   paceRefusalOf,
 } from "./hand-out";
 
-// The hand-out's step of the desk's tick (`hand-out.ts` decides): at most one start per look, a look at most every
-// `LOOK_EVERY`, each gate cheaper than the next, so a look under a cap reads no matter book.
+// The hand-out's step of the desk's tick (`hand-out.ts` decides): at most one assignment per look, a look at most every
+// `LOOK_EVERY`, each gate cheaper than the next, so a look under a cap reads no matter book. It starts no agent: it
+// gives the matter to the agent that takes it (`agentForOf`).
 
 const CURSOR = "hand_out";
 const LOOK_EVERY = 10 * MIN;
 
-/** What the pick reads: his ranking of running matters and the facts of the gates (`handOutGateOf`) but the hold, which is the desk's. */
+/** What the pick reads: his ranking of running matters and the facts of the gates (`handOutGateOf`) but the hold and the agent that takes it, which are the desk's. */
 interface HandOutBook {
-  facts: Omit<HandOutFacts, "isHeld">;
+  facts: Omit<HandOutFacts, "agentFor" | "isHeld">;
   matters: readonly HandOutMatter[];
 }
 
@@ -50,19 +48,14 @@ const readCardsShown = async () =>
     (c) => c.kind === "decision" && c.asker === DESK_AGENT
   ).length;
 
-/** Starts one agent on the top matter that qualifies, when his settings allow and his pace has room; returns its id. */
+/** Gives the top matter that qualifies to the agent that takes it, when his settings allow and his pace has room: an assignment the desk opened. Returns its id. */
 export async function handOutNext(
   desk: Desk,
   read: () => Promise<HandOutBook> = readHandOutMatters
 ) {
   const { db } = desk;
   const pace = settings().desk?.handOut;
-  const runtime = runtimeOf({});
   if (!pace) {
-    return;
-  }
-  if (!runtime) {
-    log("desk.hand_out", { why: "no default runtime" });
     return;
   }
   const last = readCursor(db, CURSOR);
@@ -70,7 +63,8 @@ export async function handOutNext(
     return;
   }
   saveCursor(db, CURSOR, clock().toISOString());
-  if (isFull(db)) {
+  const standing = standingAgents(db);
+  if (standing.length === 0) {
     return;
   }
   const startedToday = handedOutSince(
@@ -84,31 +78,20 @@ export async function handOutNext(
   ) {
     return;
   }
-  const blocked = await desk.runtimes[runtime]?.block();
-  if (blocked) {
-    log("desk.hand_out", { why: `${runtime} does not answer: ${blocked}` });
-    return;
-  }
   const { facts, matters } = await read();
+  const agentFor = agentForMatterOf(standing, await loadTruth());
   const isHeld = isHeldOf(heldByAgents(db));
-  const matter = handOutOf({ facts: { ...facts, isHeld }, matters });
-  if (!matter) {
+  const matter = handOutOf({ facts: { ...facts, agentFor, isHeld }, matters });
+  const agent = matter && agentFor(matter);
+  if (!agent) {
     return;
   }
-  const truth = matter.projects.length > 0 ? await loadTruth() : undefined;
-  const started = start(
-    desk,
-    {
-      action: "start",
-      folder: truth && readRepoFolder(matter.projects, truth),
-      runtime,
-      steps: matter.steps.map((s) => s.ref),
-    },
-    HAND_OUT_BRIEF,
-    { openedBy: "desk" }
-  );
-  log("desk.hand_out", { matter: matter.id, ...started });
-  return started.id;
+  const assignment = openAssignment(desk, agent, {
+    openedBy: "desk",
+    steps: matter.steps.map((s) => s.ref),
+  });
+  log("desk.hand_out", { agent, assignment, matter: matter.id });
+  return assignment;
 }
 
 /**

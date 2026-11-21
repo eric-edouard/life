@@ -9,6 +9,13 @@ import {
 } from "../records/appointment";
 import type { Observation } from "../records/observation";
 import { ObservationId } from "../records/observation";
+import { eventKey } from "../records/source";
+import {
+  type ArrivalAppointment,
+  isSameMeeting,
+  type Meeting,
+  readArrivalAppointments,
+} from "./arrival-appointments";
 import {
   APPOINTMENT_EVENTS,
   APPOINTMENTS,
@@ -20,7 +27,8 @@ import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";
 
 // The appointments step (his request, 8 Nov 2026): one call reads his active facts ahead of him and groups and
-// times them into appointments; code keeps the ids of those held. Extraction decides which fact holds; this step only
+// times them into appointments; code keeps the ids of those held, and takes over the id of an appointment the arrival
+// reader found whose messages its facts cite (`arrivalsCitedBy`), so one meeting is one event. Extraction decides which fact holds; this step only
 // reads what holds now. Rewritten whole when its inputs change. `host/appointments-calendar.ts` puts them in his
 // calendar.
 
@@ -31,22 +39,33 @@ const UNDATED_DAYS = 30;
 export const readAppointments = () =>
   Appointments.safeParse(readJson(APPOINTMENTS)).data ?? null;
 
-/** What the calendar sync wrote: each appointment's latest event line, and the facts of each refused one. */
+/**
+ * What the calendar sync wrote: each appointment's latest event line, when it was first written (`created`), and the
+ * facts of each one refused and not restored since.
+ */
 export const readAppointmentEvents = () =>
   readAppended(
     APPOINTMENT_EVENTS,
     AppointmentEvent,
     (last?: {
       byAppointment: Map<string, AppointmentEvent>;
-      refused: string[][];
+      created: Map<string, string>;
+      refused: Map<string, string[]>;
     }) => ({
       byAppointment: new Map(last?.byAppointment),
-      refused: [...(last?.refused ?? [])],
+      created: new Map(last?.created),
+      refused: new Map(last?.refused),
     }),
     (acc, e) => {
       acc.byAppointment.set(e.appointment, e);
-      if (e.op === "refused") {
-        acc.refused.push(e.observations);
+      if (e.op === "created" && !acc.created.has(e.appointment)) {
+        acc.created.set(e.appointment, e.at);
+      }
+      if (e.op === "refused" && e.observations) {
+        acc.refused.set(e.appointment, e.observations);
+      }
+      if (e.op === "restored") {
+        acc.refused.delete(e.appointment);
       }
     }
   );
@@ -132,6 +151,14 @@ export function heldIdsOf(
 export function checkedAppointments(
   reply: unknown,
   ctx: {
+    /** The arrival's appointments, each with the shown facts citing its messages and when it starts: a reading of them, or of its start, takes its id. */
+    arrivals?: readonly {
+      facts: readonly string[];
+      id: string;
+      meeting: Meeting;
+    }[];
+    /** Whether an id has calendar event lines: a held id without one gives way to the arrival's of the same start. */
+    hasEvent?: (id: string) => boolean;
     held: readonly Appointment[];
     refused: readonly (readonly string[])[];
     replacedBy: (fact: string) => string | undefined;
@@ -159,13 +186,21 @@ export function checkedAppointments(
   );
   const ids = heldIdsOf(
     entries.map((a) => a.facts),
-    ctx.held.map((h) => ({
-      facts: h.observations.map((f) => ctx.replacedBy(f) ?? f),
-      id: h.id,
-    }))
+    // Held first: on a tie a reading keeps the id whose event is already there (the sync joins the arrival by start).
+    [
+      ...ctx.held.map((h) => ({
+        facts: h.observations.map((f) => ctx.replacedBy(f) ?? f),
+        id: h.id,
+      })),
+      ...(ctx.arrivals ?? []),
+    ]
   );
   // A new id is its facts' hash, hashed again while another appointment has it (a held one first read from them).
-  const used = new Set([...ctx.held.map((h) => h.id), ...ids.filter(Boolean)]);
+  const used = new Set([
+    ...ctx.held.map((h) => h.id),
+    ...(ctx.arrivals ?? []).map((a) => a.id),
+    ...ids.filter(Boolean),
+  ]);
   const newId = (facts: readonly string[]) => {
     let id = `apt_${digest("sha1", observationIdsKeyOf(facts), 12)}`;
     while (used.has(id)) {
@@ -174,24 +209,63 @@ export function checkedAppointments(
     used.add(id);
     return id;
   };
+  // A new reading of an arrival's meeting takes its id, so the id holds once the arrival is past its window.
+  const taken = new Set(ids.filter(Boolean));
+  const arrivalOf = (a: Meeting) => {
+    const id = ctx.arrivals?.find(
+      (x) => isSameMeeting(x.meeting, a) && !taken.has(x.id)
+    )?.id;
+    if (id) {
+      taken.add(id);
+    }
+    return id;
+  };
   const kept = entries.map(
     ({ facts, ...a }, i): Appointment => ({
       ...a,
-      id: ids[i] ?? newId(facts),
+      id:
+        (ids[i] && ctx.hasEvent?.(ids[i]) !== false
+          ? ids[i]
+          : (arrivalOf(a) ?? ids[i])) ?? newId(facts),
       observations: facts,
     })
   );
   const keptIds = new Set(kept.map((a) => a.id));
   const cited = new Set(kept.flatMap((a) => a.observations));
-  const stays = ctx.held.filter(
-    (h) =>
-      !keptIds.has(h.id) &&
-      h.observations.every((f) => ctx.shown.has(f) && !cited.has(f)) &&
-      !isRefused(h.observations, ctx.refused) &&
-      h.end.slice(0, 10) >= ctx.today
-  );
+  // A held one kept as it was takes an arrival's id the same way, so its id holds past the arrival's window too.
+  const stays = ctx.held
+    .filter(
+      (h) =>
+        !keptIds.has(h.id) &&
+        h.observations.every((f) => ctx.shown.has(f) && !cited.has(f)) &&
+        !isRefused(h.observations, ctx.refused) &&
+        h.end.slice(0, 10) >= ctx.today
+    )
+    .map((h) =>
+      ctx.hasEvent?.(h.id) === false ? { ...h, id: arrivalOf(h) ?? h.id } : h
+    );
   return { appointments: [...kept, ...stays], invalid };
 }
+
+/** The arrival's appointments with the facts that cite their messages (a fact's source as `eventKey`) and their meeting key. */
+export const arrivalsCitedBy = (
+  facts: readonly Pick<Observation, "id" | "source">[],
+  arrivals: readonly Pick<
+    ArrivalAppointment,
+    "allDay" | "end" | "id" | "messages" | "start" | "zone"
+  >[]
+) =>
+  arrivals.map((a) => ({
+    facts: facts
+      .filter((o) =>
+        a.messages.includes(
+          eventKey({ id: o.source.ref, source: o.source.channel })
+        )
+      )
+      .map((o) => o.id),
+    id: a.id,
+    meeting: { allDay: a.allDay, end: a.end, start: a.start, zone: a.zone },
+  }));
 
 /** The nightly step: the appointments ahead of him, read again when their facts, the held ones or his day changed. */
 export async function appointments() {
@@ -203,7 +277,8 @@ export async function appointments() {
   );
   const last = readAppointments();
   const held = last?.appointments ?? [];
-  const { refused } = readAppointmentEvents();
+  const events = readAppointmentEvents();
+  const refused = [...events.refused.values()];
   const ahead = observationsAheadOf(
     observations,
     statusInputs,
@@ -244,6 +319,8 @@ export async function appointments() {
             ),
           });
           const c = checkedAppointments(reply, {
+            arrivals: arrivalsCitedBy(ahead, readArrivalAppointments(step.now)),
+            hasEvent: (id) => events.byAppointment.has(id),
             held,
             refused,
             replacedBy: (f) => statusInputs.retired.get(f)?.by,

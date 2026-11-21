@@ -29,7 +29,13 @@ import {
 } from "drizzle-orm";
 import type { AudioStore } from "./audio-store";
 import { record } from "./events";
-import { label, type PacketsOf, packetsIn, workerLife } from "./page-audio";
+import {
+  label,
+  type PacketsOf,
+  PastLimit,
+  packetsIn,
+  workerLife,
+} from "./page-audio";
 import {
   type CaptureSpan,
   energyAudible,
@@ -104,6 +110,17 @@ function spansOf(tx: Db, sourceId: string, first: number, last: number) {
 }
 
 type PieceRow = typeof pagePieces.$inferSelect;
+// Where a piece fell: its pages, its place in capture time and its breaks.
+const placeKey = (
+  p: Pick<Piece, "breaks" | "end" | "first" | "last" | "start">
+) => JSON.stringify([p.first, p.last, p.start, p.end, p.breaks]);
+const pieceOf = (r: typeof pagePieces.$inferInsert) => ({
+  breaks: r.breaks ?? [],
+  end: r.endAt.getTime(),
+  first: r.firstPage,
+  last: r.lastPage,
+  start: r.startAt.getTime(),
+});
 // One span's facts from its pieces, in page order (never none: they were grouped by span). Speech
 // and audible clipped to the span, what no piece covers for a second or more unanalyzed, its
 // first piece's breaks at its start, no pauses (an Omi confirms none).
@@ -184,9 +201,16 @@ export function pageLabeler(
   }: { batchPages: number; now: () => number; vouched: () => number }
 ) {
   // Each source's open piece, its pages not marked labeled yet, and the worker life holding its
-  // stream. Lost on a restart, a worker that ended or a refused call, it is labeled again from its
-  // first page.
+  // stream. Lost on a restart, a worker that ended, or a call the worker failed on that went on
+  // from it, it is labeled again from its first page.
   const open = new Map<string, { life: number; piece: Piece }>();
+  // A late batch stopped part way (refused, or the worker failed) is labeled again whole, so its
+  // pages are placed as on one pass; the pieces it labeled are kept here by where they fell and
+  // not sent again. Lost on a restart: the batch is then labeled again from its first page.
+  const lateDone = new Map<
+    string,
+    Map<string, typeof pagePieces.$inferInsert>
+  >();
   const openPiece = (sourceId: string) => {
     const held = open.get(sourceId);
     if (held && held.life !== workerLife()) {
@@ -257,10 +281,10 @@ export function pageLabeler(
   // Runs only through what the Mac vouched for: the batch stops before the first page past it.
   // `truncated`: the span going on past the stop stays open.
   function vouchedOnly(take: Row[], spans: CaptureSpan[]) {
-    const limit = vouched();
+    const until = vouched();
     const stop = spans
       .flatMap((s) => s.runs)
-      .find((r) => runEnd(r) > limit)?.page;
+      .find((r) => runEnd(r) > until)?.page;
     if (stop === undefined) {
       return { spans, take, truncated: false };
     }
@@ -295,18 +319,24 @@ export function pageLabeler(
       ? carried.end
       : piece.start - PREROLL_MS - PACKET_MS + 1;
     const reach: Interval = [from, piece.end + PACKET_MS];
-    const labels = await label({
-      continues: carried !== undefined,
-      end: piece.end,
-      final,
-      packets: [...packetsIn(runs, packets, reach, quietIn(db, reach))],
-      start: piece.start,
-      stream: `${sourceId}#${piece.first}`,
-    }).catch((error: unknown) => {
-      // Its stream is gone: the piece is labeled again from its first page.
-      open.delete(sourceId);
-      throw error;
-    });
+    // Read when the worker takes it: the quiet ranges then, and nothing past what the Mac vouches
+    // for then (a dictation it reported while the piece waited refuses it, and its pages wait).
+    const packetsNow = () => {
+      const until = vouched();
+      const quiet = quietIn(db, reach);
+      const going = [...packetsIn(runs, packets, reach, quiet)];
+      return going.some((p) => p.at + PACKET_MS > until) ? null : going;
+    };
+    const labels = await label(
+      {
+        continues: carried !== undefined,
+        end: piece.end,
+        final,
+        start: piece.start,
+        stream: `${sourceId}#${piece.first}`,
+      },
+      packetsNow
+    );
     if (!labels) {
       open.set(sourceId, { life: workerLife(), piece });
       return null;
@@ -428,6 +458,10 @@ export function pageLabeler(
     const read = records(batch.take, bytes);
     const seed = seedOf(sourceId, batch.late);
     const placed = vouchedOnly(batch.take, placeOmi(read, seed));
+    // A late batch is placed as one: it waits whole until the Mac vouches for all of it.
+    if (batch.late && placed.take.length < batch.take.length) {
+      return null;
+    }
     const [head] = placed.take;
     const tail = placed.take.at(-1);
     return head && tail
@@ -442,15 +476,19 @@ export function pageLabeler(
   }
 
   // Labels `list` in order: its first piece goes on from `going`, its last stays open if `stays`.
+  // Stops at a piece refused past the watermark (`PastLimit`) or the worker fails on: the rows done before it,
+  // and that piece.
   async function labelAll(
     sourceId: string,
     list: Piece[],
     {
+      done,
       going,
       packets,
       runs,
       stays,
     }: {
+      done: Map<string, typeof pagePieces.$inferInsert> | undefined;
       going: Piece | undefined;
       packets: PacketsOf;
       runs: PlacedRun[];
@@ -459,16 +497,27 @@ export function pageLabeler(
   ) {
     const rows: (typeof pagePieces.$inferInsert)[] = [];
     for (const [i, piece] of list.entries()) {
-      // biome-ignore lint/performance/noAwaitInLoops: one piece at a time, in order
-      const row = await labelPiece(sourceId, piece, {
-        carried: i === 0 ? going : undefined,
-        final: !(stays && i === list.length - 1),
-        packets,
-        runs,
-      });
-      rows.push(...(row ? [row] : []));
+      const kept = done?.get(placeKey(piece));
+      if (kept) {
+        rows.push(kept);
+        continue;
+      }
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one piece at a time, in order
+        const row = await labelPiece(sourceId, piece, {
+          carried: i === 0 ? going : undefined,
+          final: !(stays && i === list.length - 1),
+          packets,
+          runs,
+        });
+        rows.push(...(row ? [row] : []));
+      } catch (error) {
+        // Refused past the limit, or the worker failed: the pieces before it are kept either way.
+        const failed = error instanceof PastLimit ? null : error;
+        return { refused: { carried: i === 0 && going, failed, piece }, rows };
+      }
     }
-    return rows;
+    return { refused: null, rows };
   }
 
   // The open piece a batch goes on from, or none: one whose span the batch breaks closes first.
@@ -491,12 +540,15 @@ export function pageLabeler(
   }
 
   // Labels a placed batch: the open piece goes on when its span does (else it closes first), and
-  // the last piece stays open while more of its span waits.
+  // the last piece stays open while more of its span waits. The pieces done before one the limit
+  // refuses are saved, so none goes to Silero twice, and the next round starts at the refused one.
+  // True when one was refused.
   async function labelPlaced(
     sourceId: string,
     batch: Batch,
     placed: NonNullable<Awaited<ReturnType<typeof place>>>
   ) {
+    const held = open.get(sourceId);
     const going = await goingOn(sourceId, batch.late, placed.spans);
     // The first span goes on from the open piece, or from the last one written.
     const after = going ? undefined : placed.seed;
@@ -504,15 +556,33 @@ export function pageLabeler(
       i === 0 && s.breaks.length === 0 ? pieces(s, going, after) : pieces(s)
     );
     const stays = !batch.late && (batch.more || placed.truncated);
-    const rows = await labelAll(sourceId, list, {
+    const { refused, rows } = await labelAll(sourceId, list, {
+      done: batch.late ? lateDone.get(sourceId) : undefined,
       going,
       packets: placed.packets,
       runs: placed.spans.flatMap((s) => s.runs),
       stays,
     });
-    const kept = batch.late ? undefined : openPiece(sourceId)?.first;
-    const end = kept ?? placed.last + 1;
-    save(sourceId, rows, [going?.first ?? placed.first, end - 1], batch.late);
+    // A refused open piece was never sent on: its stream in the worker is as it was. One the worker
+    // failed on may have gone on in it: labeled again from its first page, in a fresh stream.
+    if (refused?.carried && !refused.failed && held) {
+      open.set(sourceId, held);
+    }
+    if (batch.late && refused) {
+      lateDone.set(
+        sourceId,
+        new Map(rows.map((r) => [placeKey(pieceOf(r)), r]))
+      );
+    } else {
+      lateDone.delete(sourceId);
+      const kept = batch.late ? undefined : openPiece(sourceId)?.first;
+      const end = refused?.piece.first ?? kept ?? placed.last + 1;
+      save(sourceId, rows, [going?.first ?? placed.first, end - 1], batch.late);
+    }
+    if (refused?.failed) {
+      throw refused.failed;
+    }
+    return refused !== null;
   }
 
   // Labels the next batch of a source; true when more wait.
@@ -523,9 +593,9 @@ export function pageLabeler(
       return false;
     }
     const placed = await place(sourceId, batch);
-    if (placed) {
-      await labelPlaced(sourceId, batch, placed);
-    }
-    return Boolean(placed) && (batch.more || batch.late || batch.hole);
+    const refused = placed ? await labelPlaced(sourceId, batch, placed) : false;
+    return (
+      refused || (Boolean(placed) && (batch.more || batch.late || batch.hole))
+    );
   };
 }

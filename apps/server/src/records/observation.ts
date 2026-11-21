@@ -191,8 +191,11 @@ export const PageSection = z.enum([
  * `new-matter-dismissed` is his Dismiss on a new matter check, pinned by its steps: that matter is never offered again.
  * `matter-important` is his one mark on a matter, on or off, pinned by its steps: the latest for a matter wins
  * (`importantIdsOf`); his word only, never Life's or an agent's. `matter-icon` is his pick of a matter's icon, pinned by
- * its steps: the latest for a matter wins, null gives it back to Life's pick (`chosenIconsOf`); his word only. These
- * three keep the matter's id beside its steps (`PINNED`): between matters holding the same steps, the one he picked.
+ * its steps: the latest for a matter wins, null gives it back to Life's pick (`chosenIconsOf`); his word only.
+ * `matter-project` is his word of which project of his directory a matter is of, pinned by its steps: the latest for a
+ * matter wins, and its projects are that one alone (`matterBookOf`), so the agent that takes it follows (`agentForOf`);
+ * his word only. These four keep the matter's id beside its steps (`PINNED`): between matters holding the same steps,
+ * the one he picked.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -288,6 +291,14 @@ export const Correction = z
         ...Correcting,
         icon: MatterIconKey.nullable(),
         kind: z.literal("matter-icon"),
+        ...PINNED,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("matter-project"),
+        project: z.string().min(1),
         ...PINNED,
       })
       .strict(),

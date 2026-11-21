@@ -143,12 +143,13 @@ function closesNow(seen: number, silent: number, kept: number, waited: number) {
 
 // Closes every block that is due into a job, oldest first, and says when the server's clock may
 // close the next. A block ending past what the Mac vouches for waits, with those after it: every
-// state the Mac sends runs the worker again. A block that fails is recorded and the next goes on;
+// state the Mac sends runs the worker again. It is read again once a block's audio is read and
+// stored, just before its job is admitted. A block that fails is recorded and the next goes on;
 // its third failure withdraws its fragments, so the phone sends their pages again.
 export async function cut(
   db: Db,
   audio: AudioStore,
-  vouched: Date,
+  vouched: () => Date,
   now: number
 ) {
   const rows = db
@@ -165,7 +166,7 @@ export async function cut(
   const wakes: number[] = [];
   for (const group of Map.groupBy(rows, (r) => r.fragment.sourceId).values()) {
     // biome-ignore lint/performance/noAwaitInLoops: one source after the other
-    const wakeAt = await cutSource(db, audio, group, vouched.getTime(), now);
+    const wakeAt = await cutSource(db, audio, group, vouched, now);
     wakes.push(...(wakeAt === null ? [] : [wakeAt]));
   }
   return wakes.length > 0 ? Math.min(...wakes) : null;
@@ -176,7 +177,7 @@ async function cutSource(
   db: Db,
   audio: AudioStore,
   group: { fragment: Fragment; heard: Date | null; sent: Date | null }[],
-  vouched: number,
+  vouched: () => Date,
   now: number
 ) {
   const fragments = group.map((r) => r.fragment);
@@ -195,13 +196,18 @@ async function cutSource(
       return wakeAt;
     }
     const block = fragments.slice(from, last + 1);
-    if (Math.max(...spans.slice(from, last + 1).map((s) => s.end)) > vouched) {
+    const end = Math.max(...spans.slice(from, last + 1).map((s) => s.end));
+    const isPastVouched = () => end > vouched().getTime();
+    if (isPastVouched()) {
       return null;
     }
     // biome-ignore lint/performance/noAwaitInLoops: blocks in order
-    await close(db, audio, block, onSilence).catch((error: unknown) =>
-      failed(db, audio, block, error)
+    const held = await close(db, audio, block, onSilence, isPastVouched).catch(
+      (error: unknown) => failed(db, audio, block, error)
     );
+    if (held === "held") {
+      return null;
+    }
     from = last + 1;
   }
   return null;
@@ -230,11 +236,14 @@ async function failed(
 
 // A closed block: the fragments bought already are covered and those a quiet range touches
 // withdrawn; the rest are joined and admitted as one job that takes them, in one transaction.
+// "held" when, meanwhile, the Mac's watermark moved before its end or a quiet range came on one of
+// its fragments: nothing admitted.
 async function close(
   db: Db,
   audio: AudioStore,
   block: Fragment[],
-  endedOnSilence: boolean
+  endedOnSilence: boolean,
+  isPastVouched: () => boolean
 ) {
   const parts = await readable(db, audio, block);
   const own = parts.map((p) => p.fragment);
@@ -253,6 +262,12 @@ async function close(
   const sha = sha256Hex(joined.audio);
   const key = blockKey(first.sourceId, pages[0]?.[0] ?? 0, sha);
   await audio.put(key, joined.audio);
+  // The Mac's watermark moved back, or a quiet range came, while its audio was read and stored: no
+  // job, and its fragments wait (one a range touches is withdrawn at the next close).
+  if (isPastVouched() || own.some((f) => touchesQuiet(db, f.map))) {
+    await audio.delete(key);
+    return "held" as const;
+  }
   // Its pages are its fragments' alone, and each was judged bought on its own.
   const job = admit(
     db,
@@ -514,6 +529,21 @@ function holderOf(
       and id not in (select value from json_each(${JSON.stringify(own)}))
     order by same desc limit 1`);
   return holder ? { ...holder, same: Boolean(holder.same) } : null;
+}
+
+// Why a job may not be sent now, read at its claim and again at each send after any wait: a quiet
+// range touches it, or it ends past what the Mac vouches for. Null when it may.
+export function heldBack(
+  db: Db,
+  job: { captureEnd: Date | null; map: JobMap | null },
+  vouched: () => Date
+) {
+  if (job.map && touchesQuiet(db, job.map)) {
+    return "a quiet range touches it";
+  }
+  return job.captureEnd && job.captureEnd > vouched()
+    ? "it ends past what the Mac vouches for"
+    : null;
 }
 
 // Whether a map keeps audio inside a quiet range (the owner dictating to the Mac, or the phone

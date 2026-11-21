@@ -134,13 +134,9 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.",
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*12 Oct*",
       "deadline": null,
       "draft": null,
-      "evidence": {
-        "from": "12 Oct",
-        "quote": "Gran wants it framed"
-      },
       "goal": "Gran's photo is framed.",
       "group": "new matter",
       "kind": "new matter",
@@ -188,8 +184,14 @@
       },
       "confirm": [],
       "networkIdentity": null,
+      "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves"
+      "urgency": "improves",
+      "misread": {
+        "cause": "e33422a9ac5b7ce7",
+        "seal": "78325163f18215a3cc69046d1c766cd8",
+        "shown": "fbb39df191312464"
+      }
     }
   ]
 }

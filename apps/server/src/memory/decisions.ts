@@ -4,16 +4,41 @@ import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
+import { log } from "../core/log";
 import { payments } from "../payments/backend";
-import { isoDateTime } from "../records/fields";
 import {
   cardProblemOf,
   endsProblemOf,
   notBuiltOf,
   pageHintOf,
 } from "./card-problems";
-import { Ask, type Option, Withdrawal } from "./card-request";
-import { isSendable, StoredDraft } from "./draft";
+import { Ask, Keep, type Option, Withdrawal } from "./card-request";
+import {
+  Answered,
+  type Asked,
+  DECISIONS_VERSION,
+  type Decision,
+  type DecisionState,
+  DoneSeen,
+  Ended,
+  Kept,
+  Line,
+  SendFailed,
+  Sent,
+  Stored,
+  Withdrawn,
+  withdrawnOf,
+} from "./decision-lines";
+import { isSendable } from "./draft";
+import {
+  contestOf,
+  heldChatOf,
+  isPending,
+  isSameChat,
+  mergeWithdrawalsOf,
+  waitingOnOf,
+  waitsOf,
+} from "./draft-contest";
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { contextProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
@@ -31,7 +56,10 @@ import { amountOf, needsShownOf } from "./needs";
 // (his yes of 18 Nov 2026); `may have gone:` stays answered. A card Life sees done itself (`doneSeenBy`: a payment) gets
 // Life's outcome line `done-seen` (`recordDoneSeen`), never his answer: on his pick of its `looks` option alone, `seen` or
 // `not_found` (which voids the answer as `not sent:` does), and from the watcher's look while it is open, `seen` alone,
-// which settles the card with no answer of his (`seen`). Where each
+// which settles the card with no answer of his (`seen`). A card whose draft goes into a chat another asker's open card
+// holds waits on it (`contests`, Life's stamp; his yes of 21 Nov 2026): the holder yields (withdraws its own), merges
+// (`merges`: one card for both) or keeps (`kept`, with its why); silent `CONTEST_WAIT`, the waiting card is asked with
+// `replaces`, and his Send withdraws the older card (`replacedBy`). Where each
 // stands is worked out when read (`decisionsNow`); the open ones are checks (`checks.ts`), so he sees them in the one
 // list. The file also holds earlier versions' lines: the old decisions page's (schemaVersion 1, before 2 Nov 2026) and
 // the cards before titles (schemaVersion 2, none in his data on 18 Nov 2026): kept, never read.
@@ -39,124 +67,6 @@ import { amountOf, needsShownOf } from "./needs";
 export const DECISIONS = join(MEMORY, "decisions.jsonl");
 
 const PROJECT_OR_AREA = /^(?:project|area):/;
-/** The version decision lines are written at; earlier lines (the old decisions page's, the cards before titles) are skipped. */
-const VERSION = 3;
-const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
-const Asked = Ask.extend({
-  asker: z.string().min(1),
-  at: isoDateTime,
-  /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
-  draft: StoredDraft.optional(),
-  id: DecisionId,
-  kind: z.literal("asked"),
-  schemaVersion: z.literal(VERSION),
-}).strict();
-const Answered = z
-  .object({
-    /** One tap's key, made by his app and kept on every repeat of that tap: a repeat finds this line and sends nothing. Lines before it have none. */
-    answerKey: z.string().min(1).max(100).optional(),
-    at: isoDateTime,
-    id: DecisionId,
-    kind: z.literal("answered"),
-    note: z.string().min(1).optional(),
-    /** The option ids he picked; none when he answered in words. */
-    options: z.array(z.string()),
-    schemaVersion: z.literal(VERSION),
-    /** His app through the connector, or a session's `bun life` command, which never sends. */
-    via: z.enum(["connector", "session"]),
-  })
-  .strict();
-const Withdrawn = z
-  .object({
-    /** When he wrote in the draft's chat himself, Life withdrew it (`withdrawDraftsAnsweredInChat`): his message's instant, never its words. The asker's own withdrawal has none. */
-    answeredInChatAt: isoDateTime.optional(),
-    at: isoDateTime,
-    id: DecisionId,
-    kind: z.literal("withdrawn"),
-    schemaVersion: z.literal(VERSION),
-    why: z.string().min(1),
-  })
-  .strict();
-/** What his answer sent: the sent message's id (Life's own event id where it knows it) once its network took it. */
-const Sent = z
-  .object({
-    at: isoDateTime,
-    eventId: z.string().min(1),
-    id: DecisionId,
-    kind: z.literal("sent"),
-    schemaVersion: z.literal(VERSION),
-  })
-  .strict();
-const SendFailed = Sent.omit({ eventId: true, kind: true })
-  .extend({
-    /** False when the same draft can never go (the file is gone or changed, no chat, the channel is off): his next tap would fail alike. */
-    canRetry: z.literal(false).optional(),
-    error: z.string().min(1),
-    kind: z.literal("send-failed"),
-    /** The message that refused the send ("someone wrote since"): when, by whom, its words on one line. */
-    wrote: z
-      .object({ at: isoDateTime, by: z.string(), text: z.string() })
-      .strict()
-      .optional(),
-  })
-  .strict();
-/** What his answer's `ends` option closed (`endByHisWord`): `error` when it failed, or never finished. */
-const Ended = z
-  .object({
-    at: isoDateTime,
-    error: z.string().min(1).optional(),
-    id: DecisionId,
-    kind: z.literal("ended"),
-    schemaVersion: z.literal(VERSION),
-  })
-  .strict();
-/** Life's outcome when it looked for the card's step done (`recordDoneSeen`): `seen` (the event, `eventId`), or `not_found` (with `error` when the look failed or never finished). Never his answer. */
-const DoneSeen = z
-  .object({
-    at: isoDateTime,
-    error: z.string().min(1).optional(),
-    eventId: z.string().min(1).optional(),
-    id: DecisionId,
-    kind: z.literal("done-seen"),
-    schemaVersion: z.literal(VERSION),
-    state: z.enum(["seen", "not_found"]),
-  })
-  .strict();
-const Line = z.discriminatedUnion("kind", [
-  Asked,
-  Answered,
-  Withdrawn,
-  Sent,
-  SendFailed,
-  Ended,
-  DoneSeen,
-]);
-/** A line of an earlier version: skipped. */
-const Historical = z.object({ schemaVersion: z.literal([1, 2]) }).loose();
-const Stored = z.union([Line, Historical]);
-
-type Asked = z.infer<typeof Asked>;
-type Answered = z.infer<typeof Answered>;
-type Withdrawn = z.infer<typeof Withdrawn>;
-type SendFailed = z.infer<typeof SendFailed>;
-type Send = z.infer<typeof Sent> | SendFailed;
-type Ended = z.infer<typeof Ended>;
-type DoneSeen = z.infer<typeof DoneSeen>;
-
-type DecisionState = "answered" | "lapsed" | "open" | "seen" | "withdrawn";
-export type Decision = Asked & {
-  answer?: Answered;
-  /** Life's newest look: the one his answer's look made, a `seen` that settled the card, or a `not_found` that voided his answer (the card is open again). */
-  doneSeen?: DoneSeen;
-  end?: Ended;
-  /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
-  notSent?: SendFailed;
-  send?: Send;
-  state: DecisionState;
-  /** Every answer a `not sent:` or `not_found` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
-  voided?: { answer: Answered; doneSeen?: DoneSeen; notSent?: SendFailed }[];
-  withdrawn?: Withdrawn;
-};
 
 /** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`: the card is open again, the answer kept in `voided`. */
 const voidedBy = (d: Omit<Decision, "state">, l: SendFailed | DoneSeen) => {
@@ -202,6 +112,8 @@ function withLine(
       return withDoneSeen(d, l);
     case "withdrawn":
       return d.withdrawn ? d : { ...d, withdrawn: l };
+    case "kept":
+      return d.kept ? d : { ...d, kept: l };
     case "send-failed":
       return l.error.startsWith("not sent:")
         ? voidedBy(d, l)
@@ -220,7 +132,7 @@ const readAll = () =>
     Stored,
     (last?: Map<string, Omit<Decision, "state">>) => new Map(last),
     (all, l) => {
-      if (l.schemaVersion !== VERSION) {
+      if (l.schemaVersion !== DECISIONS_VERSION) {
         return;
       }
       const d = all.get(l.id);
@@ -321,7 +233,7 @@ function withOutcomeOf(
   const line: Pick<Ended, "at" | "id" | "schemaVersion"> = {
     at: new Date(end).toISOString(),
     id: d.id,
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
   };
   // A look that never finished found nothing: the card is open again, as after any `not_found`.
   if (act === "look") {
@@ -356,23 +268,62 @@ function withOutcomeOf(
 /** Closes the step or matter of the decision `d` by his word (host: `endByHisWord`); throws when it could not. */
 export type EndByHisWord = (d: Omit<Decision, "state">) => Promise<unknown>;
 
-/** Every decision with where it stands at `now`: open, answered, seen (Life saw its step done, no answer of his), lapsed (its deadline passed) or withdrawn. */
-export const decisionsNow = (now = clock()): Decision[] =>
-  [...readAll().values()].map((d) => {
+/** Every decision with where it stands at `now`: open, waiting (on another card holding its chat), answered, seen (Life saw its step done, no answer of his), lapsed (its deadline passed) or withdrawn. */
+export function decisionsNow(now = clock()): Decision[] {
+  const own = [...readAll().values()].map((d) => {
     const o = withOutcomeOf(d, now);
     return { ...o, state: stateOf(o, now) };
   });
+  const byId = new Map(own.map((d) => [d.id, d]));
+  const mergers = new Map(
+    own.flatMap((d) => (d.merges ? [[d.merges, d] as const] : []))
+  );
+  return own.map((d) => {
+    const held = byId.get(d.contests ?? "");
+    const merger = mergers.get(d.id);
+    // A merge is final: the card it settled never lapses after it.
+    const isContested =
+      d.state === "open" || (merger !== undefined && d.state === "lapsed");
+    // A send running into its chat holds every card contesting there, however they chain.
+    const isSending = own.some((x) => isSendingOf(x) && isSameChat(x, d));
+    return d.contests && isContested
+      ? contestOf(d, held, merger, isSending, now)
+      : d;
+  });
+}
+
+/** A new card's contest: the card its merge settles with the asker's own held card, and the card it waits on. */
+function contestOfAsk(
+  ask: Pick<Decision, "agent" | "merges">,
+  asker: string,
+  draft: Decision["draft"],
+  now: Date
+) {
+  const by = { agent: ask.agent, asker };
+  const all = decisionsNow(now);
+  const merged = ask.merges ? waitingOnOf(all, ask.merges, by) : undefined;
+  const merging = merged ? [merged.held.id, merged.waiting.id] : [];
+  return {
+    contests: heldChatOf(all, draft, by, merging, isSendingOf),
+    merged,
+  };
+}
+
+/** Whether his answer to `d` started sending its draft and its outcome is not in: its chat is still held. */
+const isSendingOf = (d: Decision) =>
+  d.state === "answered" && actDueOf(d) === "send" && !d.send;
 
 /** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
 export const openDecisionOf = (agent: string, list = decisionsNow()) =>
   list.find((d) => d.agent === agent && d.state === "open");
 
-function readOpenDecision(id: string, now: Date) {
+/** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
+function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
   const d = decisionsNow(now).find((x) => x.id === id);
   if (!d) {
     throw new Error(`Not done: no decision ${id}.`);
   }
-  if (d.state !== "open") {
+  if (!(d.state === "open" || (isWaitingToo && d.state === "waiting"))) {
     throw new Error(
       `Not done: ${id} is ${d.state}${d.answer ? ` (${d.answer.at})` : ""}.`
     );
@@ -384,8 +335,9 @@ function readOpenDecision(id: string, now: Date) {
 export const isOnMatter = (subject?: string): subject is string =>
   subject !== undefined && !PROJECT_OR_AREA.test(subject);
 
-/** Whether Life withdrew it because he answered in its draft's chat himself (not its asker's own withdrawal). */
-const isAnsweredInChat = (w?: Withdrawn) => w?.answeredInChatAt !== undefined;
+/** Whether its asker did not withdraw it itself: he answered in its draft's chat himself, or another card took its place (`replacedBy`). */
+const isWithdrawnForIt = (w?: Withdrawn) =>
+  w?.answeredInChatAt !== undefined || w?.replacedBy !== undefined;
 
 /** "Someone wrote since" counts from his last attempt that went nowhere, else from the card. */
 const sinceOf = (d: Pick<Decision, "at" | "notSent">) =>
@@ -413,37 +365,46 @@ export function withdrawDraftsAnsweredInChat(
   const lines = open.flatMap(({ d }, i): Withdrawn[] => {
     const his = found[i]?.find((e) => e.fromMe);
     return his
-      ? [
-          {
-            answeredInChatAt: his.at,
-            at: now.toISOString(),
-            id: d.id,
-            kind: "withdrawn",
-            schemaVersion: VERSION,
-            why: ANSWERED_IN_CHAT,
-          },
-        ]
+      ? [withdrawnOf(d.id, now, ANSWERED_IN_CHAT, { answeredInChatAt: his.at })]
       : [];
   });
-  appendJsonl(DECISIONS, Withdrawn, lines);
+  appendWithdrawals(lines, "life");
   return lines.map((l) => l.id);
 }
 
-/** One open draft per chat: throws when an open card's draft goes into `draft`'s chat; a second would be refused at its send anyway (the first's message is "someone wrote since"). */
-function refuseSecondDraft(draft: StoredDraft | undefined, now: Date) {
-  const same =
-    draft?.chat &&
-    decisionsNow(now).find(
-      (d) =>
-        d.state === "open" &&
-        d.draft?.channel === draft.channel &&
-        d.draft?.chat === draft.chat
-    );
-  if (same) {
-    throw new Error(
-      `Not done: ${same.id} already asks a draft into ${draft.to}; wait until it is answered or withdrawn, then read the chat again.`
-    );
+/** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
+function appendWithdrawals(lines: Withdrawn[], by: string) {
+  appendJsonl(DECISIONS, Withdrawn, lines);
+  logWithdrawn(by, lines);
+}
+
+/** One `decision.withdrawn` line for each card withdrawn, by `by` (who withdrew it). */
+const logWithdrawn = (by: string, cards: { id: string }[]) => {
+  for (const { id } of cards) {
+    log("decision.withdrawn", { by, id });
   }
+};
+
+/** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
+function keepDraft(asker: string, request: object, now: Date) {
+  const k = Keep.safeParse(request);
+  if (!k.success) {
+    throw new Error(`Not done: ${z.prettifyError(k.error)}`);
+  }
+  const { waiting } = waitingOnOf(decisionsNow(now), k.data.keep, {
+    agent: k.data.agent,
+    asker,
+  });
+  appendJsonl(DECISIONS, Kept, [
+    {
+      at: now.toISOString(),
+      id: waiting.id,
+      kind: "kept",
+      schemaVersion: DECISIONS_VERSION,
+      why: k.data.why,
+    },
+  ]);
+  return { id: waiting.id };
 }
 
 /** Withdraws the open decision `request.withdraw`, only by the asker that asked it. */
@@ -452,40 +413,54 @@ function withdrawDecision(asker: string, request: object, now: Date) {
   if (!w.success) {
     throw new Error(`Not done: ${z.prettifyError(w.error)}`);
   }
-  const d = readOpenDecision(w.data.withdraw, now);
+  const d = readOpenDecision(w.data.withdraw, now, true);
   // Every registered agent asks as `desk`: its own `agent` tells them apart.
   if (d.asker !== asker || d.agent !== w.data.agent) {
     throw new Error(`Not done: ${d.id} was asked by another agent.`);
   }
-  appendJsonl(DECISIONS, Withdrawn, [
-    {
-      at: now.toISOString(),
-      id: d.id,
-      kind: "withdrawn",
-      schemaVersion: VERSION,
-      why: w.data.why,
-    },
-  ]);
+  appendWithdrawals([withdrawnOf(d.id, now, w.data.why)], "asker");
   return { id: d.id };
 }
 
 /**
- * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker. A draft's chat
- * is resolved now (`readChat`), so his card names it and nothing is sent to a chat he didn't see. `claim`, when given, is
- * handed the subject Life will store and the card's id just before the card is written, and may refuse it by throwing
- * (the desk: whose card it is).
+ * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
+ * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
+ * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim`, when given, is
+ * handed the subject Life will store, the card's id and the asker's own card a merge withdraws, just before the card
+ * is written, and may refuse it by throwing (the desk: whose card it is).
  */
-export async function requestDecision(
+export function requestDecision(
   asker: string,
   // An agent's arguments arrive unchecked (`DecisionRequest` is loose where the contract grows); `Ask` checks them here.
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: (subject: string | undefined, id: string) => void
-): Promise<{ id: string }> {
+  claim?: Claim
+): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
+  // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
-    return withdrawDecision(asker, request, now);
+    return Promise.try(() => withdrawDecision(asker, request, now));
   }
+  return request.keep
+    ? Promise.try(() => keepDraft(asker, request, now))
+    : askCard(asker, request, now, readChat, claim);
+}
+
+/** Whose a card is, as the desk claims it just before it is written (`requestDecision`): may refuse it by throwing. */
+type Claim = (
+  subject: string | undefined,
+  id: string,
+  replacing?: string
+) => void;
+
+/** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
+async function askCard(
+  asker: string,
+  request: Record<string, unknown>,
+  now: Date,
+  readChat: typeof resolveDraft,
+  claim?: Claim
+) {
   const notBuilt = notBuiltOf(request);
   if (notBuilt) {
     throw new Error(`Not done: ${notBuilt} is not built yet.`);
@@ -531,12 +506,17 @@ export async function requestDecision(
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
-  refuseSecondDraft(draft, now);
+  const { contests, merged } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  claim?.(subject, id);
-  appendJsonl(DECISIONS, Asked, [
+  claim?.(subject, id, merged?.held.id);
+  // The draft as given is stored as Life resolved it (`draft`).
+  const { draft: _given, ...given } = ask;
+  appendJsonl(DECISIONS, Line, [
+    // A merge withdraws the holder's own card, in the same append as the card that takes its place.
+    ...mergeWithdrawalsOf(merged, id, now),
     {
-      ...ask,
+      ...given,
+      ...(contests ? { contests } : {}),
       ...(draft ? { draft } : {}),
       ...(subject ? { subject } : {}),
       asker,
@@ -545,10 +525,30 @@ export async function requestDecision(
       deadline: new Date(ask.deadline).toISOString(),
       id,
       kind: "asked",
-      schemaVersion: VERSION,
+      schemaVersion: DECISIONS_VERSION,
     },
   ]);
-  return { id };
+  logAsked(ask, asker, id, !!draft, merged);
+  return { id, ...waitsOf(contests, draft, now) };
+}
+
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+function logAsked(
+  ask: z.infer<typeof Ask>,
+  asker: string,
+  id: string,
+  hasDraft: boolean,
+  merged?: { held: Decision; waiting: Decision }
+) {
+  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
+  const options = ask.options.length;
+  log("decision.asked", {
+    agent: ask.agent,
+    asker,
+    draft: hasDraft,
+    id,
+    options,
+  });
 }
 
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
@@ -600,7 +600,7 @@ export function recordDoneSeen(
     at: now.toISOString(),
     id,
     kind: "done-seen",
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     ...outcome,
   };
   appendJsonl(DECISIONS, DoneSeen, [line]);
@@ -640,13 +640,14 @@ export function doneSeenShownOf(l?: DoneSeen) {
   };
 }
 
-/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its options with what each takes, its last send that did not go. */
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its options with what each takes, its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({
   doneSeen: doneSeenShownOf(d.doneSeen),
   doneSeenBy: doneSeenByOf(d),
   needs: needsShownOf(d.needs),
   notSent: notSentOf(d),
   options: d.options.map((o) => ({ ...o, takes: o.takes ?? null })),
+  replaces: d.replaces ?? null,
 });
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
@@ -663,7 +664,7 @@ async function endOnAnswer(
     at: clock().toISOString(),
     id: d.id,
     kind: "ended",
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     ...outcome,
   };
   appendJsonl(DECISIONS, Ended, [ended]);
@@ -717,7 +718,7 @@ export async function answerDecision(
     kind: "answered",
     ...(note ? { note } : {}),
     options,
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     via,
   };
   // A look that never finished is only worked out when read: write its `not_found`, so this answer is the one kept.
@@ -729,6 +730,7 @@ export async function answerDecision(
   if (!(stored && isDeepStrictEqual(stored.answer, line))) {
     throw new Error(`Not done: ${id} was answered already.`);
   }
+  log("decision.answered", { id, note: !!note, options: options.length, via });
   onStep?.("recorded");
   const act = actDueOf(stored);
   if (act === "end" && end) {
@@ -740,6 +742,18 @@ export async function answerDecision(
   if (!(act === "send" && isSendable(stored.draft))) {
     return [line];
   }
+  // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
+  // contest opened): one draft per chat when it goes.
+  appendWithdrawals(
+    decisionsNow(now)
+      .filter((x) => x.id !== id && isPending(x) && isSameChat(x, d))
+      .map((x) =>
+        withdrawnOf(x.id, now, "he sent a newer draft into its chat instead", {
+          replacedBy: id,
+        })
+      ),
+    "send"
+  );
   const outcome = await deliver(stored.draft, id, {
     onStep,
     since: sinceOf(stored),
@@ -755,7 +769,7 @@ export async function answerDecision(
   const sent = {
     at: clock().toISOString(),
     id,
-    schemaVersion: VERSION,
+    schemaVersion: DECISIONS_VERSION,
     ...outcome,
   };
   appendJsonl(DECISIONS, z.union([Sent, SendFailed]), [sent]);
@@ -792,7 +806,7 @@ export const settledAtOf = (d: Decision) => {
 };
 
 /**
- * The decisions answered, seen done, lapsed, or withdrawn because he answered in the chat in [`from`, `to`), by when
+ * The decisions answered, seen done, lapsed, or withdrawn for their asker (`isWithdrawnForIt`) in [`from`, `to`), by when
  * they settled (`settledAtOf`; the asker's own withdrawal is its own act). Half-open, so a poll's next window starts at
  * this one's end and none is seen twice or skipped.
  */
@@ -804,7 +818,7 @@ export const settledBetween = (list: Decision[], from: Date, to: Date) =>
         (d.state === "answered" ||
           d.state === "lapsed" ||
           d.state === "seen" ||
-          (d.state === "withdrawn" && isAnsweredInChat(d.withdrawn))) &&
+          (d.state === "withdrawn" && isWithdrawnForIt(d.withdrawn))) &&
         at >= from.getTime() &&
         at < to.getTime()
     )
