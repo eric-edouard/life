@@ -1334,6 +1334,16 @@
         },
         "required": ["text"]
       },
+      "LiveWordsToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["token"]
+      },
       "IngestState": {
         "type": "object",
         "properties": {
@@ -4299,6 +4309,33 @@
           },
           "503": {
             "description": "Not now, nothing billed: say it again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/live-words/token": {
+      "post": {
+        "description": "A single-use ElevenLabs token for Scribe's realtime socket (`wss://api.elevenlabs.io/v1/speech-to-text/realtime?token=…`), valid 15 minutes and spent when the socket opens. The phone streams his live words with it while he holds Tell Life; the ElevenLabs key never leaves the Mac. Never stored or logged.",
+        "responses": {
+          "200": {
+            "description": "The token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveWordsToken"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "ElevenLabs refused or did not answer",
             "content": {
               "application/json": {
                 "schema": {
