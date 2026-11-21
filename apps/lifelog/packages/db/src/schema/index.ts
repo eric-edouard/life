@@ -190,6 +190,7 @@ export const transcriptionJobs = sqliteTable(
     // A source's jobs from a capture time on (page-processing.ts, the pages a window holds).
     index("transcription_jobs_source_end").on(t.sourceId, t.captureEnd),
     index("transcription_jobs_source_last").on(t.sourceId, t.lastPage),
+    index("transcription_jobs_admitted").on(t.admittedAt),
   ]
 );
 
@@ -276,9 +277,8 @@ export const transcripts = sqliteTable("transcripts", {
   scribeWordsAt: instant("scribe_words_at"),
 });
 
-// A transcript turn in capture time, rebuilt from `transcripts.parsed` and the job's map
-// (turns.ts): a cache, one row per turn, indexed as the owner's assignments index them.
-// A conversation shows the turns that start inside its range.
+// A transcript turn in capture time, rebuilt from `transcripts.parsed` and the job's map (turns.ts): a cache, one row
+// per turn, indexed as the owner's assignments index them. A conversation shows the turns that start inside its range.
 export interface TurnWord {
   // Capture instants (epoch milliseconds).
   end: number;
@@ -548,7 +548,7 @@ export const quietRanges = sqliteTable(
     createdAt,
     endedAt: instant("ended_at").notNull(),
     id: uuid("id").primaryKey(),
-    // The dictating app's bundle id.
+    // The dictating app's bundle id; "playback" or "dictation" from the phone.
     source: text("source").notNull(),
     startedAt: instant("started_at").notNull(),
   },
@@ -659,8 +659,7 @@ export interface RawCall {
   // Historical: why a paid API stopped early. Never set on the Mac.
   stopReason?: string | null;
   text: string;
-  // The inclusive turn-id range this call read, when it read transcript text (prompt
-  // version 4 on).
+  // The inclusive turn-id range this call read, when it read transcript text (prompt version 4 on).
   turns?: [number, number];
 }
 
@@ -708,6 +707,7 @@ export const intelligenceRuns = sqliteTable(
   },
   (t) => [
     index("intelligence_runs_conversation").on(t.conversationId, t.createdAt),
+    index("intelligence_runs_created").on(t.createdAt),
     // At most one run in flight per conversation.
     uniqueIndex("intelligence_runs_one_running")
       .on(t.conversationId)

@@ -14,6 +14,7 @@ import {
 import { asc, eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { conversationStates, type Inputs } from "./conversation-state";
+import { PHONE_DICTATION } from "./dictation";
 import { feed } from "./feed";
 import {
   anchorId,
@@ -27,6 +28,7 @@ import {
   regroupDirty,
   segment,
 } from "./grouping";
+import { addQuietRange } from "./quiet-ranges";
 import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
@@ -443,6 +445,18 @@ test("kind: silent once every job over it is transcribed with no words", async (
   job(0, 60, "completed");
   await timeline(100, [span(0, [0, 300], [[0, 60]])]);
   expect(live().map((c) => c.kind)).toEqual(["silent"]);
+});
+
+test("kind: the phone's copy of its own dictation never makes a conversation dictation", async () => {
+  // The phone already left that audio out; what the Pendant sent over it is someone else's.
+  addQuietRange(env.db, {
+    endedAt: new Date(at(400)).toISOString(),
+    id: randomUUID(),
+    source: PHONE_DICTATION,
+    startedAt: new Date(at(-10)).toISOString(),
+  });
+  await timeline(100, [span(0, [0, 300], [[0, 60]])]);
+  expect(live().map((c) => c.kind)).toEqual(["conversation"]);
 });
 
 test("waiting reasons follow what blocks the conversation", async () => {

@@ -35,9 +35,9 @@ import { healthRowsOf, peopleRowsOf } from "./desk-health";
 import {
   type AssignmentRow,
   anchorsOf,
+  assignmentOf,
   assignmentOfCard,
   cardOwnersOf,
-  currentAssignmentOf,
   type DeskRead,
   handOutsSince,
   heldByAgents,
@@ -46,9 +46,8 @@ import {
   refusedSince,
   reportLinesSince,
   standingAgents,
-  type TurnTokens,
-  tokensSince,
 } from "./desk-read";
+import { type TurnTokens, tokensSince } from "./desk-turn-reads";
 import { EVENT_CHANNELS, type EventChannel } from "./event-channels";
 import { matcherOf } from "./events";
 import { openChecksNow } from "./inbox";
@@ -405,7 +404,11 @@ export function readAgentsOnSteps(steps: string[], people: People) {
 }
 
 /** Who holds a matter's `steps` and its move (`matterMoveReadOf`); while the desk is off or unreadable, no holder. */
-export async function readMatterMove(matter: { id: string; steps: string[] }) {
+export async function readMatterMove(view: {
+  id: string;
+  steps: { ref: string }[];
+}) {
+  const matter = { id: view.id, steps: view.steps.map((s) => s.ref) };
   const find = matterFinderOf(
     (await readMatterBook(await readPeople(), dayNow())).filter((m) => m.open)
   );
@@ -445,10 +448,10 @@ export function readActiveAgentOf() {
   );
 }
 
-/** The tokens of agents' turns as report rows: one per local day of his (`localDate` of the turn's end), then one per matter (`matterOf`: an agent's matter, else null: "no matter"), keyed by the matter's id. Pure; every row. */
+/** The tokens of agents' turns as report rows: one per local day of his (`localDate` of the turn's end), then one per matter (`matterOf`: its assignment's matter, the one rule `readSpending`'s top matters follow, else null: "no matter"), keyed by the matter's id. Pure; every row. */
 export function tokenRowsOf(
   turns: readonly TurnTokens[],
-  matterOf: (agentId: string) => { id: string; name: string } | undefined
+  matterOf: (assignmentId: string) => { id: string; name: string } | undefined
 ) {
   // The key's first character sorts days (1) before matters (2).
   const sums = new Map<string, number[]>();
@@ -459,7 +462,7 @@ export function tokenRowsOf(
   };
   for (const t of turns) {
     add(`1${localDate(t.ended_at)}`, t);
-    const m = matterOf(t.agent_id);
+    const m = matterOf(t.assignment_id);
     names.set(`2${m?.id ?? ""}`, m?.name ?? "no matter");
     add(`2${m?.id ?? ""}`, t);
   }
@@ -649,11 +652,11 @@ function readDeskRows(
     const turns = tokensSince(db, since);
     const handed = handOutsSince(db, since);
     return {
-      // An agent's turns by the assignment it works on now; a hand-out by its own.
+      // A turn by the assignment it worked on; a hand-out by its own.
       anchors: [
-        ...[...new Set(turns.map((t) => t.agent_id))].map((id) => {
-          const s = currentAssignmentOf(db, id);
-          return [id, s ?? null, anchorsOf(db, s?.id ?? "")] as const;
+        ...[...new Set(turns.map((t) => t.assignment_id))].map((id) => {
+          const s = assignmentOf(db, id);
+          return [id, s ?? null, anchorsOf(db, id)] as const;
         }),
         ...handed.map((s) => [s.id, s, anchorsOf(db, s.id)] as const),
       ],

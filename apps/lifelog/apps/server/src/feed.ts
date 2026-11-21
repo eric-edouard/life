@@ -34,11 +34,12 @@ import {
 } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { type ChangeKind, latestSeq, turnRef } from "./change-log";
+import { processedQuiet } from "./dictation";
 import { textOf } from "./elevenlabs";
 import type { MacView } from "./mac-socket";
 import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
 import { placeName } from "./places";
-import { macView } from "./quiet-ranges";
+import { macView, quietView } from "./quiet-ranges";
 import { latestSummary, latestValid, rendererFor } from "./runs";
 import {
   keptWords,
@@ -151,11 +152,7 @@ export function feed(
     })),
     more: log.length === page,
     people: personRows.map(personRow),
-    quietRanges: quiet.map((q) => ({
-      endedAt: q.endedAt.toISOString(),
-      id: q.id,
-      startedAt: q.startedAt.toISOString(),
-    })),
+    quietRanges: quiet.map(quietView),
     removed: [
       ...gone("chapter", chapterRows),
       ...gone("job", jobRows),
@@ -431,7 +428,13 @@ function loadTurns(
   const quiet = db
     .select()
     .from(quietRanges)
-    .where(and(lt(quietRanges.startedAt, to), gt(quietRanges.endedAt, from)))
+    .where(
+      and(
+        processedQuiet,
+        lt(quietRanges.startedAt, to),
+        gt(quietRanges.endedAt, from)
+      )
+    )
     .all();
   const holder = holdersOf(db, starts);
   const names = namesIn(

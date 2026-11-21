@@ -72,20 +72,25 @@ const omit = (e: LogEvent | undefined) => {
     : rest;
 };
 
-/** What model calls spent and read, summed (`modelCallsOf`): how many, tokens, dollars, the calls with no cost (unpriced), units read by source. */
+/**
+ * What model calls spent and read, summed over their spends (`modelCallsOf`): how many, tokens, dollars billed and the
+ * list-price equivalent of his plans' tokens (two bases, never added), the spends not reported, units read by source.
+ */
 export interface Calls {
+  billedUsd: number;
   calls: number;
-  costUsd: number;
+  equivalentUsd: number;
+  notReported: number;
   reads: ReadCounts;
   tokens: Tokens;
-  unpriced: number;
 }
 const NO_CALLS: Calls = {
+  billedUsd: 0,
   calls: 0,
-  costUsd: 0,
+  equivalentUsd: 0,
+  notReported: 0,
   reads: {},
   tokens: NONE,
-  unpriced: 0,
 };
 const addReads = (a: ReadCounts, b: ReadCounts): ReadCounts => {
   const sum = { ...a };
@@ -95,11 +100,12 @@ const addReads = (a: ReadCounts, b: ReadCounts): ReadCounts => {
   return sum;
 };
 const addCalls = (a: Calls, b: Calls): Calls => ({
+  billedUsd: a.billedUsd + b.billedUsd,
   calls: a.calls + b.calls,
-  costUsd: a.costUsd + b.costUsd,
+  equivalentUsd: a.equivalentUsd + b.equivalentUsd,
+  notReported: a.notReported + b.notReported,
   reads: addReads(a.reads, b.reads),
   tokens: add(a.tokens, b.tokens),
-  unpriced: a.unpriced + b.unpriced,
 });
 
 /** What a run spent: its calls' sum, and for a metered run on an engine with a quota the quota read around it (`useOf`). */
@@ -142,15 +148,19 @@ const tokensText = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`;
 
 /**
- * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached), $0.12, 3 unpriced"; under 1% when the whole
- * percent didn't move; its tokens alone when it read no quota (a step, or an engine without one).
+ * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached), $0.12 billed, ≈ $3.40 at list price, not billed,
+ * 3 not reported", the two bases apart; under 1% when the whole percent didn't move; its tokens alone when it read no
+ * quota (a step, or an engine without one).
  */
 export function useText(u: Use | null) {
   const t = u?.tokens ?? NONE;
   const tokens = [
     `${tokensText(t.input + t.output)} tokens (${tokensText(t.cached)} cached)`,
-    ...(u?.costUsd ? [`$${u.costUsd.toFixed(2)}`] : []),
-    ...(u?.unpriced ? [`${u.unpriced} unpriced`] : []),
+    ...(u?.billedUsd ? [`$${u.billedUsd.toFixed(2)} billed`] : []),
+    ...(u?.equivalentUsd
+      ? [`≈ $${u.equivalentUsd.toFixed(2)} at list price, not billed`]
+      : []),
+    ...(u?.notReported ? [`${u.notReported} not reported`] : []),
   ].join(", ");
   if (!u?.quota) {
     return tokens;
@@ -351,7 +361,7 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
 
 /**
  * The model calls (`model.run` lines, read as spends: `spendsOfLine`) summed by run id, or by `groupOf` (the source-use
- * table's run and day): the one fold of what calls spent and read. A billed spend with no cost is unpriced.
+ * table's run and day): the one fold of what calls spent and read. A call with a spend whose amount is unknown is not reported, once.
  */
 export function modelCallsOf(
   events: LogEvent[],
@@ -361,17 +371,18 @@ export function modelCallsOf(
   for (const e of events) {
     const key = e.kind === "model.run" && e.run && groupOf(e);
     const spends = key ? spendsOfLine(e, "daytime") : [];
-    // A call is unpriced once, whichever of its routers' tries sent no cost.
-    const isUnpriced = spends.some((s) => s.basis === "billed" && !s.reported);
+    // A call is not reported once, whichever of its routers' tries sent no cost.
+    const isNotReported = spends.some((s) => !s.reported);
     for (const s of spends) {
       by.set(
         key as string,
         addCalls(by.get(key as string) ?? NO_CALLS, {
+          billedUsd: s.basis === "billed" ? (s.usd ?? 0) : 0,
           calls: s.calls,
-          costUsd: s.usd ?? 0,
+          equivalentUsd: s.equivalentUsd ?? 0,
+          notReported: isNotReported && s.calls > 0 ? 1 : 0,
           reads: s.reads ?? {},
           tokens: s.tokens ?? NONE,
-          unpriced: isUnpriced && s.calls > 0 ? 1 : 0,
         })
       );
     }
@@ -466,10 +477,12 @@ const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
 
 /** The day files one `read_log_lines` call reads at most: the rest is the next page's. */
 const LOG_DAYS_PER_READ = 2;
-/** Where a page of log lines ends: a day's file and the byte its last line read starts at (null: the file's end). */
+/** A place in the log: a day's file and a byte in it (null: the file's end). A page's cursor, a line's id, a head. */
 const LogCursor = z.tuple([z.string(), z.int().nonnegative().nullable()]);
 
 export interface LogLinesQuery {
+  /** A `head` from an earlier page: only the lines written after it. */
+  after?: string;
   cursor?: string;
   limit?: number;
   minLevel?: LogLevel;
@@ -486,44 +499,82 @@ function shownOf(raw: string, q: LogLinesQuery) {
   }
   const isShown =
     shown &&
+    !isOwnRead(shown) &&
     LOG_LEVELS.indexOf(shown.level) >=
       LOG_LEVELS.indexOf(q.minLevel ?? "info") &&
     (!q.process || shown.category[0] === q.process);
   return isShown ? shown : undefined;
 }
 
+/** A read of the log that went through: left out, or his app's live log would show its own polling. */
+const isOwnRead = (l: ShownLine) =>
+  l.level === "info" &&
+  l.category[0] === "mcp" &&
+  l.category[1] === "read_log_lines";
+
 /**
- * The event log's lines as his app is shown them (`shownLineOf`), newest first, at least `minLevel` and of `process`
- * (a category's first word) when given. Reads at most `LOG_DAYS_PER_READ` day files per page: a page may be short,
- * and its `cursor` (a day's file and a byte in it, so lines appended meanwhile never shift it) goes on; null when no
- * older line is left.
+ * The event log's lines as his app is shown them (`shownLineOf`), each with its `id` (its place in the log: passed as
+ * a cursor, it reads the lines before it), newest first, never the log's own reads, at least `minLevel` and of `process`
+ * (a category's first word) when given, and only those written after `after` when given. Reads at most
+ * `LOG_DAYS_PER_READ` day files per page: a page may be short, and its `cursor` (a place in the log, so lines appended
+ * meanwhile never shift it) goes on; null when no older line is left. A read from the top also gives `head`, the log's
+ * end as read: passed back as `after`, a poll reads only what came since, whatever the filter matched.
  */
 export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
   const limit = q.limit ?? PAGE;
   const from = decode(q.cursor, LogCursor, null);
-  const days = (await logDays(dir)).filter((n) => !from || n <= from[0]);
-  const lines: ShownLine[] = [];
+  const after = decode(q.after, LogCursor, null);
+  const days = (await logDays(dir)).filter(
+    (n) => (!from || n <= from[0]) && (!after || n >= after[0])
+  );
+  const [top] = days;
+  const head: z.infer<typeof LogCursor> | null =
+    from || !top ? null : [top, newestEnd(join(dir, top))];
+  const start = from ?? head;
+  const lines: (ShownLine & { id: string })[] = [];
   for (const name of days.slice(0, LOG_DAYS_PER_READ)) {
-    const stop = name === from?.[0] ? from[1] : null;
+    const stop = name === start?.[0] ? start[1] : null;
     for (const { end, raw } of linesFromEnd(join(dir, name), stop)) {
+      // Its place in the log: the cursor of the lines before it, so unique.
+      const at = end - Buffer.byteLength(raw) - 1;
+      if (isBefore(after, name, at)) {
+        return logPage(lines, null, head);
+      }
       if (lines.length === limit) {
-        return logPage(lines, [name, end]);
+        return logPage(lines, [name, end], head);
       }
       const shown = shownOf(raw, q);
       if (shown) {
-        lines.push(shown);
+        lines.push({ id: encode([name, at]), ...shown });
       }
     }
   }
   const older = days[LOG_DAYS_PER_READ];
-  return logPage(lines, older ? [older, null] : null);
+  return logPage(lines, older ? [older, null] : null, head);
+}
+
+/** Whether a line starting at byte `at` of day file `name` is before `place` (only its own day's lines can be). */
+const isBefore = (
+  place: z.infer<typeof LogCursor> | null,
+  name: string,
+  at: number
+) => place !== null && name === place[0] && at < (place[1] ?? 0);
+
+/** The byte after a day file's newest whole line: where its next line starts (a torn one is not read yet). */
+function newestEnd(path: string) {
+  for (const { end } of linesFromEnd(path)) {
+    return end;
+  }
+  return 0;
 }
 
 const logPage = (
-  lines: ShownLine[],
-  next: z.infer<typeof LogCursor> | null
+  lines: (ShownLine & { id: string })[],
+  next: z.infer<typeof LogCursor> | null,
+  head: z.infer<typeof LogCursor> | null
 ) => ({
   cursor: next && encode(next),
+  head: head && encode(head),
   lines,
   observedAt: clock().toISOString(),
 });

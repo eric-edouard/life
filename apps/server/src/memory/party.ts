@@ -36,6 +36,10 @@ export function readPictureIndex(): PictureIndex {
   }
 }
 
+/** What he can pick from for someone (`pictureFrom` names a source): the first picture of each source, in the index's order. */
+export const pictureChoicesOf = (shown: PictureIndex[string]) =>
+  shown.filter((p, i) => shown.findIndex((q) => q.source === p.source) === i);
+
 /** Someone Life has a ref for, as an app shows them: `line` is what they are to him (`relationOf`), `picture` the one they show (his pick, else their first). */
 export const Party = z
   .object({
@@ -51,7 +55,7 @@ export type Party = z.infer<typeof Party>;
 /**
  * The one way a ref becomes a party: who it is today (`refOf`), its name, whether it is an organization, its line, and
  * the picture his pick in his directory names (`pictureFrom`; `none`: no picture; a source no longer showing one: the
- * first). `pictures` is read once, on the first party asked.
+ * first). `pictures` gives the index; its caller reads it once (`readPeople`).
  */
 export function partyOf(
   // Typed here, not as `People`'s: `readPeople` holds the party function this returns.
@@ -67,12 +71,10 @@ export function partyOf(
   const picks = new Map(
     directory.map((p) => [`person:${p.id}`, p.pictureFrom])
   );
-  let index: PictureIndex | undefined;
   return (ref: string): Party => {
     const now = people.refOf(ref);
     const pick = picks.get(now);
-    index ??= pictures();
-    const shown = index[now] ?? [];
+    const shown = pictures()[now] ?? [];
     const picture =
       pick === "none"
         ? undefined

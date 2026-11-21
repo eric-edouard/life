@@ -78,6 +78,7 @@ import {
   pollRecordings,
   relatedMessages,
 } from "./matter-net";
+import { SessionLive } from "./runtimes/contract";
 import {
   endLostTurns,
   endUnbegunTurns,
@@ -431,15 +432,12 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
   if (!woken) {
     return false;
   }
-  if (woken.cause === MOVE_NOTES) {
-    await launchNotes(desk, woken, state === "gone" ? null : a.session);
-  } else {
-    await launch(desk, woken, state);
-  }
-  return true;
+  return woken.cause === MOVE_NOTES
+    ? await launchNotes(desk, woken, state === "gone" ? null : a.session)
+    : await launch(desk, woken, state);
 }
 
-/** Launches move `move`'s notes turn `turn` of `a` on `s`: it resumes the old session only; with none to resume (`session` null), or a send that fails, the turn ends at once and its notes stay as they are. */
+/** Launches move `move`'s notes turn `turn` of `a` on `s`: it resumes the old session only; with none to resume (`session` null), or a send that fails, the turn ends at once and its notes stay as they are. False: the session was live elsewhere, so the turn went and the wake waits. */
 async function launchNotes(
   desk: Desk,
   {
@@ -453,7 +451,7 @@ async function launchNotes(
   const runtime = desk.runtimes[a.runtime];
   if (!(session && runtime)) {
     await turnEnded(desk, turn, { ok: true });
-    return;
+    return true;
   }
   try {
     watch(
@@ -466,6 +464,10 @@ async function launchNotes(
       )
     );
   } catch (error) {
+    if (error instanceof SessionLive) {
+      desk.db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      return false;
+    }
     log("desk.runtime", {
       agent: a.id,
       ...errorOf(error),
@@ -474,9 +476,10 @@ async function launchNotes(
     });
     await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
   }
+  return true;
 }
 
-/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */
+/** Launches turn `turn` of `a` on `s` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. False: the session was live elsewhere, so the turn went and the wake waits. */
 async function launch(
   desk: Desk,
   {
@@ -578,6 +581,12 @@ async function launch(
       );
     }
   } catch (error) {
+    // His app took the session between `wake`'s read and the send: the turn never ran, so it goes and the wake waits.
+    // ponytail: one taken after the send's own read, in the milliseconds before ACP resumes it, still runs beside it.
+    if (error instanceof SessionLive) {
+      db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      return false;
+    }
     log("desk.runtime", {
       agent: a.id,
       ...errorOf(error),
@@ -586,6 +595,7 @@ async function launch(
     });
     await turnEnded(desk, turn, { ok: false, why: errorOf(error).error });
   }
+  return true;
 }
 
 /**

@@ -30,10 +30,18 @@ export function voiceNoteRoutes({
   db,
   worker,
 }: Pick<Services, "config" | "db" | "worker">) {
-  /** Settles a claimed note with `text`, and answers it. */
-  const settle = (key: string, text: string) => {
+  /** Settles a claimed note with `text` and what it took (`spent`; none for a lost answer: it may have been billed), and answers it. */
+  const settle = (
+    key: string,
+    text: string,
+    spent: Partial<{
+      billableSeconds: number | null;
+      route: string;
+      seconds: number;
+    }> = {}
+  ) => {
     db.update(voiceNoteHearings)
-      .set({ doneAt: clock(), text })
+      .set({ ...spent, doneAt: clock(), text })
       .where(eq(voiceNoteHearings.key, key))
       .run();
     return text;
@@ -113,12 +121,17 @@ export function voiceNoteRoutes({
             .run();
           return;
         }
-        record(db, "voice_note.heard", {
-          billableSeconds: outcome.billableSeconds,
+        const spent = {
+          // A send Scribe may have billed without saying: its seconds are not known to be billed.
+          billableSeconds: outcome.maybeBilled ? null : outcome.billableSeconds,
           route,
           seconds,
+        };
+        record(db, "voice_note.heard", {
+          ...spent,
+          billableSeconds: outcome.billableSeconds,
         });
-        settle(key, textFrom(outcome.transcript));
+        settle(key, textFrom(outcome.transcript), spent);
       },
     });
     return heard.kind === "heard"

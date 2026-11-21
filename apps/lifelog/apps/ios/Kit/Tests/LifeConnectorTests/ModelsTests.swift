@@ -66,6 +66,16 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     // The plan card: the second decision is its assignment's first card; the first is not.
     #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
     #expect(inbox.checks.last?.isPlan == nil)
+    // A plan with its steps: who does each, when, where, and what it rests on; an older plan card has none.
+    let plan = try #require(inbox.checks.first { $0.ref == "dec_000000000003" })
+    #expect(plan.planSteps.map(\.by) == [.agent, .owner, .agent])
+    #expect(plan.planSteps.map(\.channel) == ["whatsapp", "payment", nil])
+    #expect(plan.planSteps.last?.when == "once Kit answers, by Thu")
+    #expect(plan.planSteps.last?.spoken == "The agent: \(plan.planSteps.last!.text), once Kit answers, by Thu")
+    #expect(plan.planSteps[1].spoken == "You: \(plan.planSteps[1].text), payment")
+    #expect(plan.gathered?.text == "From Kit's quote and two others")
+    #expect(inbox.checks.first { $0.ref == "dec_000000000002" }?.planSteps.isEmpty == true)
+    #expect(plan.optionsInOrder.map(\.role) == [.start, .decline] && plan.filled?.label == "Start the plan")
     #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
     #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
     #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
@@ -165,6 +175,25 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.agents[0].matter?.status == .moving)
     #expect(agents.agents[1].wait?.reason == "his answer")
     #expect(agents.agents[1].link == nil)
+}
+
+/// A plan's start is its filled answer whatever order its asker sent; a card with no roles keeps its order; its steps
+/// draw even while `isPlan` is false (Life couldn't read its desk).
+@Test func aPlanStartsFirstAndDrawsItsStepsWhateverItsMarker() throws {
+    let card = { (isPlan: Bool, options: String) in
+        try decoded(
+            Check.self,
+            #"{"group":"decision","ref":"d","title":"Mend it","question":"Start?","asker":"a","isPlan":\#(isPlan),"options":\#(options),"plan":[{"text":"Ask","by":"agent"},{"text":"Pay","by":"someone"}],"clips":[],"likelyPeople":[],"links":[]}"#
+        )
+    }
+    let reversed = try card(
+        false,
+        #"[{"id":"no","label":"Not this plan","role":"decline"},{"id":"go","label":"Start the plan","role":"start"}]"#)
+    #expect(reversed.optionsInOrder.map(\.id) == ["go", "no"] && reversed.filled?.id == "go")
+    #expect(reversed.planSteps.map(\.by) == [.agent, .unknown])
+    #expect(reversed.planSteps.map(\.spoken) == ["The agent: Ask", "Pay"])
+    let plain = try card(true, #"[{"id":"b","label":"B"},{"id":"a","label":"A"}]"#)
+    #expect(plain.optionsInOrder.map(\.id) == ["b", "a"])
 }
 
 /// Decision 75: his words on a card go to whoever hears them, named by the card's holder (its standing role, as the
@@ -491,6 +520,8 @@ private func everyKindOfCheck() throws -> [Check] {
     let unnamed = try #require(
         decoded(Inbox.self, wireText("life/read_inbox.json")).checks.first { $0.group == .decision })
     #expect(unnamed.agent == nil && unnamed.askingRuntime(among: agents) == nil)
+    // Its "Open in" opens the session the server names (`session`), not a link it was asked with.
+    #expect(unnamed.session == "https://agents.example.test/s/1")
     let lifes = try #require(inbox.checks.first { $0.agentName(runtime: nil) == nil })
     #expect(lifes.askingRuntime(among: agents) == nil)
 }

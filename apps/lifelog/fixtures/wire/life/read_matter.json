@@ -1,4 +1,13 @@
 {
+  "spending": {
+    "equivalent": {
+      "amount": 0,
+      "basis": "equivalent",
+      "currency": "USD"
+    },
+    "reported": true,
+    "tokens": 0
+  },
   "goal": {
     "by": "life",
     "text": "Gran has her watch back"
@@ -254,6 +263,7 @@
       "kind": "decision",
       "likelyPeople": [],
       "links": ["https://agents.example.test/s/1"],
+      "session": "https://agents.example.test/s/1",
       "onMatters": [
         {
           "id": "matter_aaaaaaaaaaaa",

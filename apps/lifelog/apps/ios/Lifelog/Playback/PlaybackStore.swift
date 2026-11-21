@@ -38,6 +38,8 @@ final class PlaybackStore {
     @ObservationIgnored private var outLoud = PlaybackStore.routeIsOutLoud()
     /// Stores the spans one after another, so a stale guess never lands after the span's end.
     @ObservationIgnored private var quietSaves: Task<Void, Never>?
+    /// Its turn at the audio session: a dictation taking it stops the clip.
+    @ObservationIgnored private var lease: AudioSessionOwner.Lease?
 
     init(library: LibraryStore?, sync: SyncStore?) {
         self.library = library
@@ -62,11 +64,14 @@ final class PlaybackStore {
     func play(
         _ file: URL, from start: Double = 0, for length: Double? = nil, id: String? = nil, onEnd: (() -> Void)? = nil
     ) {
-        // `.playback` plays through the ring/silent switch, which mutes the default `.soloAmbient`; nothing else of the
-        // app plays or records through the session (the Pendant's capture is Bluetooth, not AVAudioSession).
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio)
-        try? session.setActive(true)
+        // The app's one session, shared with dictation (the Pendant's capture is Bluetooth, not AVAudioSession).
+        // Without its turn at the session nothing plays.
+        do {
+            lease = try AudioSessionOwner.shared.take(.playback) { [weak self] in self?.stop() }
+        } catch {
+            _ = report(error)
+            return
+        }
         let item = AVPlayerItem(url: file)
         itemEnd.map(NotificationCenter.default.removeObserver)
         itemEnd = NotificationCenter.default.addObserver(
@@ -123,7 +128,8 @@ final class PlaybackStore {
         playingID = nil
         position = 0
         seekStart = 0
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        lease.map(AudioSessionOwner.shared.release)
+        lease = nil
     }
 
     /// Speaker, AirPlay or headphones: whether the Pendant hears it.
@@ -156,7 +162,7 @@ final class PlaybackStore {
         quietSaves = Task {
             await previous?.value
             do {
-                try await library.setPlaybackQuiet(update.span)
+                try await library.setQuiet(.playback, update.span)
             } catch {
                 _ = report(error)
             }
