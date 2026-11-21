@@ -10,7 +10,6 @@ import { CONNECTOR_WRITES } from "../../core/names";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decisions";
-import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
 import { apply, type Stay } from "../../sources/lifelog";
@@ -20,7 +19,6 @@ import {
   pageFixture,
   turnFixture,
 } from "../../sources/store-fixtures";
-import { ask } from "../asks";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -114,7 +112,6 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_todo_item",
     "correct_memory",
     "fetch",
-    "read_agent_asks",
     "read_appointments",
     "read_area_page",
     "read_chats",
@@ -159,7 +156,6 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(at,fromTurn,id,limit,until)",
-    "read_agent_asks(cursor,limit)",
     "read_appointments(appointment,pushId)",
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
@@ -415,57 +411,6 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("read_agent_asks: the paired agent's asks only, in the order recorded, each once past its cursor", async () => {
-  const said = (quote: string, agent: string, at: string) =>
-    ask(
-      { at, quote, ref: `test:${quote}` },
-      { agent, confidence: "high" },
-      "session",
-      "test"
-    );
-  const call = async (as: string, cursor?: string) =>
-    JSON.parse(
-      (
-        await rpc(as, "tools/call", {
-          arguments: cursor ? { cursor } : {},
-          name: "read_agent_asks",
-        })
-      ).json.result.content[0].text
-    );
-  const bearer = await token();
-  try {
-    said("call the bank", "Orbit", "2026-10-15T09:00:00.000Z");
-    said("water the plants", "Comet", "2026-10-15T09:01:00.000Z");
-    said("call the bank", "Orbit", "2026-10-15T09:00:00.000Z");
-    const first = await call(bearer);
-    expect(first.asks.map((a: { quote: string }) => a.quote)).toEqual([
-      "call the bank",
-    ]);
-    expect(first.asks[0]).toMatchObject({
-      confidence: "high",
-      spoke: "2026-10-15T09:00:00.000Z",
-    });
-    expect((await call(bearer, first.cursor)).asks).toEqual([]);
-    said("book the dentist", "Orbit", "2026-10-15T09:02:00.000Z");
-    const next = await call(bearer, first.cursor);
-    expect(next.asks.map((a: { quote: string }) => a.quote)).toEqual([
-      "book the dentist",
-    ]);
-    // An app paired without an agent reads the rest, but has no asks.
-    const bare = await token({ agent: undefined });
-    expect(
-      (
-        await rpc(bare, "tools/call", {
-          arguments: {},
-          name: "read_agent_asks",
-        })
-      ).json.result.content[0].text
-    ).toContain("paired without an agent");
-  } finally {
-    rmSync(LEDGER, { force: true });
-  }
-});
-
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
   const bearer = await token();
   const calls = await Promise.all(
@@ -611,7 +556,7 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
     const names = json.result.tools.map((t: { name: string }) => t.name);
     expect(names).not.toContain("change_todo_item");
     expect(names).not.toContain("read_open_todo_items");
-    expect(names).toContain("read_agent_asks");
+    expect(names).toContain("read_inbox");
   } finally {
     setSettings({ todoList: on });
   }

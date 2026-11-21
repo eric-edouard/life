@@ -1,7 +1,20 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DESIGN_DATA, FRAME_MAP, readAppFrames } from "./design-shots";
+import {
+  DESIGN_DATA,
+  FRAME_MAP,
+  parseArgs,
+  readAppFrames,
+} from "./design-shots";
+import { buildApp, sourceStamp } from "./simulator";
 
 const appFrames = readAppFrames();
 
@@ -94,4 +107,21 @@ test("the create flow's answers and Life's guess read as the designer's extract,
   expect(
     `Mentioned by ${card.said?.by}, about “${card.onMatters?.[0]?.name}”`
   ).toBe(who?.value as string);
+});
+
+test("the simulator stays booted unless --shutdown; a built app is taken as given", () => {
+  expect(parseArgs(["A", "--app", "/x/lifelog.app", "B"])).toEqual({
+    app: "/x/lifelog.app",
+    asked: ["A", "B"],
+    shutdownAfter: false,
+  });
+  expect(parseArgs(["--shutdown"]).shutdownAfter).toBe(true);
+});
+
+test("a build of the same sources is reused, without building", async () => {
+  const dd = mkdtempSync(join(tmpdir(), "dd-"));
+  const app = join(dd, "Build/Products/Debug-iphonesimulator/lifelog.app");
+  mkdirSync(app, { recursive: true });
+  writeFileSync(join(dd, ".source-stamp"), await sourceStamp());
+  expect(await buildApp("none", dd)).toBe(app);
 });

@@ -19,6 +19,7 @@ import { matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
+import { withVoiceGuesses } from "./voice-guesses";
 import { type People, readPeople, voiceCardRefOf, voicePersonOf } from "./who";
 import { dayNow } from "./zones";
 
@@ -145,9 +146,15 @@ interface Voice {
  */
 async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
   const people = await readPeople();
-  const queue = await readNamingQueueNow();
+  const queue = await withVoiceGuesses(await readNamingQueueNow()).catch(
+    (e: Error) => {
+      throw new Error(
+        `Not done: the voice guesses behind ${c.ref} cannot be read now (${e.message}).`
+      );
+    }
+  );
   const item = queue.find(
-    (i) => i.kind !== "several" && voiceCardRefOf(people.resolve, i) === c.ref
+    (i) => i.kind !== "several" && voiceCardRefOf(people, i) === c.ref
   );
   if (!item) {
     throw new Error(

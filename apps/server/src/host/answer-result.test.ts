@@ -22,6 +22,12 @@ import { expectWire } from "./http/wire-fixture";
 
 // Made-up people, chats and ids throughout.
 
+/** People who know no one, for a voice card's ref. */
+const NO_ONE = {
+  names: new Map<string, string>(),
+  refOf: (r: string) => r,
+  resolve: () => null,
+};
 const draft = { channel: "whatsapp", text: "Can you come Friday?", to: "Kit" };
 const readChat = () =>
   Promise.resolve({ ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" });
@@ -419,7 +425,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     ],
     words: 9,
   };
-  const voiceRef = voiceCardRefOf(() => null, item);
+  const voiceRef = voiceCardRefOf(NO_ONE, item);
   guesses = [
     asCheck({
       group: "ending",
@@ -709,7 +715,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
     ],
     words: 9,
   };
-  const voiceRef = voiceCardRefOf(() => null, shown);
+  const voiceRef = voiceCardRefOf(NO_ONE, shown);
   guesses = [asCheck({ group: "voice", ref: voiceRef })];
   const grown = {
     ...shown,

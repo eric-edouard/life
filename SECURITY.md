@@ -33,13 +33,14 @@ when its message arrives or at night (his word of 19 Nov 2026).
 
 ## Agents
 
-The desk (off until his `desk` setting) starts and wakes his registered agents, created only on his word (a project's, or the Personal agent; the desk registers the Personal agent itself, one at most, for a confirmed arrival no matter's agent takes, Direction's ruling of 21 Nov 2026, and the caretaker on his complaint): with `desk.handOut` set it also gives one a matter itself, from the top of his ranking, within the pace he set (his word of 20 Nov 2026): Life picks the matter by its ranking and the agent that takes it by code (`agentForOf`), the agent reads the matter as data, and nothing outward goes without his yes on a card. A registered agent is started by
+The desk (off until his `desk` setting) starts and wakes his registered agents, created only on his word (a project's, or the Personal agent; the desk registers the Personal agent itself, one at most, for a confirmed arrival or his spoken ask no matter's agent takes, Direction's ruling of 21 Nov 2026, and the caretaker on his complaint): with `desk.handOut` set it also gives one a matter itself, from the top of his ranking, within the pace he set (his word of 20 Nov 2026): Life picks the matter by its ranking and the agent that takes it by code (`agentForOf`), the agent reads the matter as data, and nothing outward goes without his yes on a card. A registered agent is started by
 Life, unattended, on a message its wait names (by who wrote it, by chat or app, or by a pattern on its text, his word of 20 Nov 2026), a recorded call with them that ended, a payment its wait names (by amount, or by a pattern on the merchant, the category or his note; his word of 20 Nov 2026), an arrival at a place its wait names (by its coordinates, or a pattern on its name; his word of 20 Nov 2026), his answer or its deadline, and acts with his access. A wait on words is met by
 anyone who writes them, a sender Life has never seen included. With the hand-out on, a message from anyone can become a matter that ranks first, but the desk gives an agent only a matter involving someone he knows or holding a step he said himself (his word of 20 Nov 2026), so a stranger's words alone hand out none; one who writes to a person he knows, to whom he has replied, or whose words became an item of his to-do list, can still reach one, and the agent, unattended, reads that matter's words as data. His pace setting and the card gate (nothing outward without his yes) bound it. A wait on a merchant's words is met by anyone whose payment or transfer label carries them. An agent is woken by events at most once
 per 10 minutes after its last turn. An
 agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
 one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
-reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
+reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). His spoken ask ("hey Life") goes the same way
+to one agent: the matter assignment closest in meaning, else the Personal agent (`desk/spoken-ask-intake.ts`). The wake hands it only the facts (which
 message or recording, or which payment, with its amount, in EUR too, its currency, whether it is spending and the money app's category, or which arrival, with its time and coordinates, when, why), never the text, a matched one included; it reads the words itself, as data. A wake on a matter also opens with Life's own record of it (its steps as Life derived them, its goal and next step, the assignment's notes; never a quote): Life's reading, never an event's text. On
 his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
@@ -65,9 +66,8 @@ His complaint ("Wrong…" on a card of Life's) is his hand-over to the caretaker
 which the desk registers on his first complaint: it reads his words and the card as Life showed it through its door,
 only a complaint its own assignment received, as data; the complaint is never listed, fed to the change feed or pulled
 by another agent, and his tick on the anonymized report only asks the caretaker for a card with its exact text.
-Besides the desk, Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
-secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
-above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
+Besides the desk, Life starts no agent, except the question cases' agent a developer's script starts to measure Life
+("Models", above; his word, 10 Nov 2026), which reads through the connector. An agent run is outside Life's boundary: it has
 the Mac's access (his files, his accounts). The risk that remains: an agent acting on text it read can do, alone, anything his keys allow but what the send guard
 refuses, a send by a path the guard can't read included; past the guard, the gate is its instruction, not enforcement. Between that and harm stand the model's judgment, wakes
 that hand facts and never words (a payment's category, the money app's own word, is a fact; a text can choose a wake, never ride on it), and Life's own send path (a card's draft, his answer). The risk is his, accepted.
