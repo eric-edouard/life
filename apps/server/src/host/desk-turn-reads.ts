@@ -39,6 +39,9 @@ export const turnsEndedIn = (db: Database, from: string, to: string) =>
 
 /** The ended turns of each agent's current session, with the session's start: what its read shows it has spent. */
 export function sessionTurnsOf(db: Database, agentIds: string[]) {
+  if (agentIds.length === 0) {
+    return { sessions: [], turns: [] };
+  }
   const marks = agentIds.map(() => "?").join(",");
   const sessions = db
     .query<{ agent_id: string; started_at: string }, string[]>(

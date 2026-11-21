@@ -115,6 +115,9 @@ async function readTops(from: string, to: string) {
     (db) => {
       const turns = turnsEndedIn(db, from, to);
       const ids = [...new Set(turns.map((t) => t.agent_id))];
+      if (ids.length === 0) {
+        return { anchors: [], names: [], turns };
+      }
       const names = db
         .query<{ brief: string; id: string; name: string | null }, string[]>(
           `select id, name, brief from agent where id in (${ids.map(() => "?").join(",")})`
