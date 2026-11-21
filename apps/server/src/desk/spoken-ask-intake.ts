@@ -37,8 +37,8 @@ import {
 // wait), each ask is placed alone: one waits while the embedder could not read the nets and it is under
 // `SPOKEN_ROUTE_WAIT` old, or while no Personal place can be made (stopped, a full desk, a runtime that does not
 // answer); never dropped, no age limit. An assignment that closes gives back what it never handed (`giveBack`). His
-// words through Tell Life that the main session handed to one agent (`after.to`) are never routed: they go to that
-// assignment, else its agent's open one, else they wait (`toldPlaceOf`).
+// words through Tell Life that the main session handed to one agent (`after.to`) are never routed by meaning: they go
+// to that assignment, else its agent's open one, else (its agent ended) to the Personal agent's (`toldPlaceOf`).
 
 const ROWS_PER_TICK = 1000;
 /** How long a spoken ask waits for the embedder to place it by meaning, from when it was recorded; then the Personal agent. */
@@ -54,15 +54,15 @@ const receiptOf = (db: Desk["db"], ask: string) =>
     )
     .get(ASK_SPOKEN, ask);
 
+/** His words the main session handed to one agent (`after.to`, an assignment), never routed by meaning; else a spoken ask. */
+const toldToOf = (a: LedgerEntry) =>
+  typeof a.after.to === "string" ? a.after.to : undefined;
+
 /**
- * Where his words the main session handed to one agent go (`after.to`, an assignment): there while it is open, else its
- * agent's open assignment now; none (its agent ended): they wait. Null for a spoken ask, which is routed by meaning.
+ * Where his words told to assignment `to` go: there while it is open, else its agent's open assignment now; null when
+ * there is none (its agent ended: they go to the Personal agent).
  */
-function toldPlaceOf(db: Desk["db"], a: LedgerEntry) {
-  const { to } = a.after;
-  if (typeof to !== "string") {
-    return null;
-  }
+function toldPlaceOf(db: Desk["db"], to: string) {
   const s = assignmentOf(db, to);
   if (!s || s.closed_at === null) {
     return s?.id ?? null;
@@ -130,28 +130,31 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
     ...cursor.waiting.flatMap((id) => askOf(id) ?? []),
     ...rows.flatMap((a) => (a && isSpokenAsk(a) ? [a] : [])),
   ].filter((a) => !receiptOf(db, a.id));
-  // His words the main session handed to one agent go to it alone, never by meaning (`toldPlaceOf`).
+  // His words the main session handed to one agent go to it alone, never by meaning (`toldPlaceOf`); its agent ended,
+  // to the Personal agent's.
+  const told = all.flatMap((a) => {
+    const to = toldToOf(a);
+    return to ? [{ a, place: toldPlaceOf(db, to) }] : [];
+  });
   db.transaction(() =>
     queue(
       db,
       ASK_SPOKEN,
-      all.flatMap((a) => {
-        const assignment = toldPlaceOf(db, a);
-        return assignment
+      told.flatMap(({ a, place }) =>
+        place
           ? [
               {
-                assignment,
+                assignment: place,
                 eventId: a.id,
                 payload: payloadOf(a, { why: "told" }),
               },
             ]
-          : [];
-      })
+          : []
+      )
     )
   )();
-  const asks = all.filter(
-    (a) => a.after.to === undefined && !receiptOf(db, a.id)
-  );
+  const orphans = told.flatMap(({ a, place }) => (place ? [] : [a]));
+  const asks = all.filter((a) => !(toldToOf(a) || receiptOf(db, a.id)));
   const left = (a: LedgerEntry) =>
     Date.parse(a.at) + SPOKEN_ROUTE_WAIT - clock().getTime();
   // Bounded by the soonest ask's own wait, so none is held past it; one already past it gets a short try.
@@ -175,9 +178,12 @@ export async function receiveSpokenAsks(desk: Desk, readPeopleNow: ReadPeople) {
     const by = near.find((r) => r.assignment === assignment)?.by;
     return assignment && by?.why === "meaning" ? [{ a, assignment, by }] : [];
   });
-  const toPersonal = asks.filter(
-    (a) => !toMatters.some((m) => m.a === a) && (isWhole || left(a) <= 0)
-  );
+  const toPersonal = [
+    ...asks.filter(
+      (a) => !toMatters.some((m) => m.a === a) && (isWhole || left(a) <= 0)
+    ),
+    ...orphans,
+  ];
   // A matter's asks first, alone: `queue` skips an assignment that closed meanwhile (the ask then waits).
   db.transaction(() =>
     queue(
@@ -262,7 +268,7 @@ export function readSpokenAsk(
     at: a.instruction.at,
     confidence: a.after.confidence,
     // His words through Tell Life were typed or heard on his phone: no recording opens around them.
-    ...(a.after.to === undefined ? { ref: a.instruction.ref } : {}),
+    ...(toldToOf(a) ? {} : { ref: a.instruction.ref }),
     until: a.timing?.ended,
     words: a.instruction.quote,
   };

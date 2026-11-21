@@ -273,7 +273,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "change_registered_agent",
-    "The main session only, on his words (`said`, his own words of this ask, verbatim): his word about his registered agents, as the connector's tool takes it. Start one (on a matter's `step`: it goes to the agent that takes it, his words its goal; on a `project`; or `role` `personal`), `stop`, `resume`, `re_point`, `rename`, `change_model`, or `hand_over` (decision 78: `step` with `agent`, the matter to that agent; `step` with `runtime`, the matter to a new agent of its own there; `agent` with `runtime`, the whole agent there; its old agent writes its notes first, and the move's phase is then on `read_matter`). Never on the main session itself. Returns what the desk did, or why not.",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): his word about his registered agents, as the connector's tool takes it. Start one (on a matter's `step`: it goes to the agent that takes it, his words its goal; on a `project`; or `role` `personal`), `stop`, `resume`, `re_point`, `rename`, `change_model`, or `hand_over` (decision 78: `step` with `agent`, the matter to that agent; `step` with `runtime`, the matter to a new agent of its own there; `agent` with `runtime`, the whole agent there; its old agent writes its notes first, and the move's phase is then on `read_matter`). Never on the main session itself. The same change twice in one ask is done once. Returns what the desk did, or why not.",
     RegisteredAgentChange,
     async ({ said, ...change }, _, turn) => {
       if (change.agent === id) {
@@ -302,18 +302,24 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "tell_agent",
-    "The main session only: his words (`said`, his own words of this ask, verbatim, never your summary) to one registered agent (`agent`, active), which works on them in a turn of its own (an `ask.spoken` event it reads with `read_spoken_ask`): its own assignment (the Personal agent's, a project's), else the one it works on now. Returns where they went.",
+    "The main session only: his words (`said`, his own words of this ask, verbatim, never your summary) to one registered agent (`agent`, active), which works on them in a turn of its own (an `ask.spoken` event it reads with `read_spoken_ask`): on `to` when given (one of its open assignments, as `read_matter`'s agents give it: the matter he means, when it holds several), else its own assignment (the Personal agent's, a project's), else the one it works on now. The same words to the same place twice in one ask are told once. Returns where they went.",
     z.object({
       agent: RegisteredAgentChange.shape.agent.unwrap(),
       said: z.string().min(1).max(8000),
+      to: z.string().min(1).max(200).optional(),
     }),
-    ({ agent, said }, _, turn) => {
+    ({ agent, said, to }, _, turn) => {
       const words = hisWordsOf(turn, said);
       const told = tellAgent(
         desk,
         agent,
         words,
-        tellLifeRefOf(turn?.id ?? -1, "tell_agent", { agent, words })
+        tellLifeRefOf(turn?.id ?? -1, "tell_agent", {
+          agent,
+          to,
+          words,
+        }),
+        to
       );
       if (!("error" in told)) {
         acted(turn, { agent: agentNameOf(agent), kind: "agent", told: words });
