@@ -27,6 +27,10 @@ export const WRITES = {
  */
 export const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
+/** What an agent's token may not write: his own words (`tell_life`), his answer to a check, his Remove of an appointment. */
+export const NOT_HIS =
+  "Not done: this app was paired as an agent, and an agent's words are not his.";
+
 /** What a call carries beside its arguments: `report` sends one step of an action as it passes (a `notifications/progress` message; nothing without a progress token) and `answerKey` is the app's key for one tap (`_meta` `life/answerKey`). */
 export interface ToolCall {
   answerKey?: string;
