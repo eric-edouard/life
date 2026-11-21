@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { LOG_DIR } from "../core/log";
+import { LOG_DIR, logEvents, logFileOf } from "../core/log";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { MACHINE_DIR, MODEL_ENV } from "../core/platform";
 import { repoFiles } from "../core/proc";
@@ -193,6 +193,10 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     reply = { ...reply, cut: ["refuseless"] };
     expect(await ask()).toEqual({ ok: true });
     expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
+    // A retry is a line naming the host that failed, never what it said.
+    expect(
+      logEvents(logFileOf(new Date().toISOString()), "model.retry").at(-1)
+    ).toMatchObject({ failed: "refuseless", router: "allmodels" });
     expect(lastLine()).toContain(
       '"tokens":{"cached":40,"input":60,"output":10}'
     );
@@ -214,8 +218,9 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     hostsAsked();
     reply = { ...reply, garbled: [], provider: "Experiential Labs" };
     await expect(ask()).rejects.toThrow("served by Experiential Labs");
-    // Refused, yet spent: its tokens are in the log.
-    expect(lastLine()).toContain("served by Experiential Labs");
+    // Refused, yet spent: its tokens are in the log, its words never (a model's error keeps its type).
+    expect(lastLine()).toContain('"error":"Error"');
+    expect(lastLine()).not.toContain("served by");
     expect(lastLine()).toContain('"input":30');
     // What another host would answer the same way is final.
     expect(hostsAsked()).toEqual(["refuseless"]);

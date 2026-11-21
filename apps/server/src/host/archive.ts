@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { clock, DAY, HOUR } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt, exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
@@ -182,7 +183,7 @@ export function copyAll(failing: Set<string>, stores = keptStores()) {
     if (!failing.has(name)) {
       failing.add(name);
       log("run.error", {
-        error: (error as Error).message,
+        ...errorOf(error),
         step: `archive.${name}`,
       });
     }
