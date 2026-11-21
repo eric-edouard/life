@@ -239,6 +239,21 @@ struct TellStrip: View {
         }
         .padding(.horizontal, Metrics.Spacing.l).frame(height: 48)
         .floatingGlass(in: Capsule())
+        // Above the rail.
+        .padding(.horizontal, Metrics.gutter).padding(.bottom, 84)
         .accessibilityIdentifier("tell.strip")
+    }
+}
+
+/// Makes Tell Life small: the chevron, where the cross is on the other side.
+struct TellSmallButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.down").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
+                .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
+        }
+        .buttonStyle(.plain).accessibilityLabel("Make small").accessibilityIdentifier("tell.small")
     }
 }

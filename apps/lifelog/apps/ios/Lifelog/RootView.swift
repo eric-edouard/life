@@ -70,7 +70,7 @@ struct RootView: View {
                     line: life.tell.answer?.line ?? "Working on it…", open: { router.isTellLifeOpen = true },
                     close: { router.isTellLifeSmall = false }
                 )
-                .padding(.horizontal, Metrics.gutter).padding(.bottom, 84).appears(Motion.fade)
+                .appears(Motion.fade)
             }
         }
         .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }

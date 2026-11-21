@@ -23,23 +23,23 @@ struct TellSettingsPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 RowGroup(label: "Look", surface: .sheet) {
                     SegmentedChoice(
                         choices: TellLook.allCases, selection: Binding(get: { look }, set: { look = $0 ?? look }),
                         title: \.title
                     )
-                    .padding(8)
+                    .padding(Metrics.Spacing.s)
                 }
                 RowGroup(label: "Your words, as you speak", surface: .sheet) {
                     SegmentedChoice(
                         choices: TellWords.allCases, selection: Binding(get: { words }, set: { words = $0 ?? words }),
                         title: \.title
                     )
-                    .padding(8)
+                    .padding(Metrics.Spacing.s)
                 }
             }
-            .padding(.horizontal, Metrics.gutter).padding(.top, 16).readingWidth()
+            .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l).readingWidth()
         }
         .background(Palette.sheet)
         .navigationTitle("Tell Life")

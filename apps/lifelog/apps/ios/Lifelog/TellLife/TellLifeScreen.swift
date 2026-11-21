@@ -21,15 +21,7 @@ struct TellLifeScreen: View {
     var body: some View {
         VStack(spacing: Metrics.Spacing.l) {
             HStack {
-                Button {
-                    makeSmall()
-                } label: {
-                    Image(systemName: "chevron.down").font(.system(size: 17, weight: .light)).foregroundStyle(
-                        Palette.fg
-                    )
-                    .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
-                }
-                .buttonStyle(.plain).accessibilityLabel("Make small").accessibilityIdentifier("tell.small")
+                TellSmallButton(action: makeSmall)
                 Spacer()
                 CloseButton {
                     router.tellContext = nil
