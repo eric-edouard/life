@@ -1,7 +1,9 @@
 import { afterAll, expect, test } from "bun:test";
+import { withStore } from "./lifelog";
 import {
   answerNamingQueue,
   namingQueueGuessesOf,
+  readJobMonths,
   readNamingQueue,
   readNamingQueueNow,
 } from "./lifelog-voices";
@@ -97,4 +99,25 @@ test("a voice's guesses: its best guess first, each once", () => {
   expect(
     namingQueueGuessesOf({ ...item, likely: [KOFI, DANA, KOFI] } as never)
   ).toEqual([DANA, KOFI]);
+});
+
+test("a job's months run from its conversation's start to its last turn; a job not held has none", async () => {
+  await withStore(({ db }) => {
+    db.run(
+      "insert or replace into conversations (id, start_at, end_at, kind, state) values ('c-months', '2026-08-31T23:00:00.000Z', '2026-09-01T01:00:00.000Z', 'speech', 'live')"
+    );
+    for (const [i, at] of [
+      "2026-08-31T23:30:00.000Z",
+      "2026-09-01T00:30:00.000Z",
+    ].entries()) {
+      db.run(
+        "insert or replace into turns (job_id, turn_index, conversation_id, start_at) values ('j-months', ?, 'c-months', ?)",
+        [i, at]
+      );
+    }
+  });
+  expect(await readJobMonths(["j-months", "j-none"])).toEqual([
+    "2026-08",
+    "2026-09",
+  ]);
 });

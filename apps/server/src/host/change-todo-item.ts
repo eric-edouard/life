@@ -166,13 +166,16 @@ export function changeAskedTodoItem(
 export const TICK_LIMIT_MS = MIN;
 
 /**
- * Ticks the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said`, one
- * `changeTodoItem` each, in turn, `onTicked` after each. Refused, ticking none, when one is an item of another list app than this install's; a tick the list app refused throws its error, the ticks before it standing.
+ * Closes the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said`: ticks them
+ * (`done`), or removes them from his list (`remove`: his Drop, won't be done), one `changeTodoItem` each, in turn,
+ * `onClosed` after each. Refused, closing none, when one is an item of another list app than this install's; a change
+ * the list app refused throws its error, the ones before it standing.
  */
-export async function tickTodoItems(
+export async function closeTodoItems(
   keys: readonly string[],
   said: string,
-  onTicked?: (done: number, of: number, key: string) => void
+  kind: "done" | "remove",
+  onClosed?: (done: number, of: number, key: string) => void
 ) {
   const b = backend();
   const items = [...todoItemsOf(await readLedger()).values()].filter((it) =>
@@ -188,11 +191,11 @@ export async function tickTodoItems(
     // biome-ignore lint/performance/noAwaitInLoops: one change at a time, each its own ledger lines
     const tick = await changeAskedTodoItem(
       {
-        kind: "done",
+        kind,
         said,
         target: it.target.slice(b.prefix.length + 1),
         title,
-        why: "his matter marked done",
+        why: kind === "done" ? "his matter marked done" : "his step dropped",
       },
       "connector"
     );
@@ -200,7 +203,7 @@ export async function tickTodoItems(
       throw new Error(`Not done: ${title}: ${tick.error}`);
     }
     ticked.push(tick);
-    onTicked?.(ticked.length, items.length, it.key);
+    onClosed?.(ticked.length, items.length, it.key);
   }
   return ticked;
 }

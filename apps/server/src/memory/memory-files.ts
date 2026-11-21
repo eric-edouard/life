@@ -357,21 +357,19 @@ export function newSince(all: Observation[], at?: string) {
 }
 
 /** A supersession as `observationStatusOf` reads it: a line of supersessions.jsonl, or one his `outdated` correction retires (`outdatedBy`). */
-type Retirement = Omit<Supersession, "madeBy">;
+type Retirement = Omit<Supersession, "madeBy"> & { dropped?: true };
 
 /**
  * Observations a newer one replaced (memory/supersessions.jsonl), or he said are outdated (`by` itself): id -> the first
  * retirement recorded whose `by` is still current (a replacement re-read away no longer retires anything).
  */
-export const retiredBy = (list: Retirement[], current: Set<string>) => {
-  const out = new Map<string, Retirement>();
-  for (const s of list) {
-    if (current.has(s.by) && !out.has(s.observation)) {
-      out.set(s.observation, s);
-    }
-  }
-  return out;
-};
+export const retiredBy = (list: Retirement[], current: Set<string>) =>
+  new Map(
+    list
+      .filter((s) => current.has(s.by))
+      .toReversed() // the first recorded wins: a later entry overwrites
+      .map((s): [string, Retirement] => [s.observation, s])
+  );
 
 /** The owner's answers to the fact checks: the latest for each memory line (null: taken back). */
 export const latestFactCheckAnswers = (list: FactCheckAnswer[]) =>
@@ -445,6 +443,7 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
           schemaVersion: 1 as const,
           validTo: c.at.slice(0, 10), // his word's UTC day (a local day needs zones.ts, which imports this file)
           why: c.note ?? "outdated",
+          ...(c.outcome === "dropped" ? { dropped: true as const } : {}),
         }))
       : []
   );

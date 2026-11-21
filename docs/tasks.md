@@ -3,29 +3,19 @@
 Developer reference: how Life acts, hands work to the agent and serves the connector.
 
 Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/ledger.jsonl`, and hands deep work
-to the owner's agent by recording his asks for it to pull. Life has no instructions for the agent and keeps no state of
-its work: the agent keeps its own list.
+to his agents through the desk, which starts and wakes them.
 
 ## The agent
 
-- His agents are the `agents` setting, by name: wake words and misheard forms. No two share a word. "hey <word>"
-  makes an ask for the agent the turn's first wake word names (`after.agent`); `bun life ask <agent>` makes one for that agent. An agent is known on the
-  connector by its pairing (`bun life pair <agent>`, the grant's agent claim): it pulls only its own asks; a grant with
-  no claim (a plain app, `bun life pair` alone) reads only. Wherever Life names an agent, it writes its name; the word stored for its source (the ledger's `target`, its source's name, its units' sender)
+- His agents are the desk's registered agents. An app paired as an agent (`bun life pair <name>`, any name but a role's,
+  `ROLE_ASKERS`; the grant's agent claim) asks decisions as itself; a grant with no claim (a plain app, `bun life pair`
+  alone) reads only. The word stored for an agent's source (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
-- **How asks reach it:** the agent pulls its own with `read_agent_asks` (`cursor`, `limit`; it returns `asks`, `cursor`,
-  `remaining`), and keeps its own list; Life tracks no state of an ask past its line. Life starts no agent (beside the question cases' headless agent,
-  a developer's benchmark: `docs/operations.md`, "Measuring"), except the
-  agent's own `onAsk` command (`agents.<name>.onAsk` in the settings), once per new ask, detached, with no argument: it
-  only tells the agent to pull. Two asks close together start it twice, so the command takes its own lock. Each ask has
-  its `id`, `at` (recorded), `spoke`, `quote` and `confidence`. The cursor counts ledger lines, so an ask recorded late
-  is never skipped and none comes twice.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (`SECURITY.md`, "Agents"): an unattended run reads others' text with full
   access, within his grants. Its rules (when it asks him first, what it may send) are its own, not Life's.
-- Only these become asks: a `hey <agent>` turn that isn't someone else's, and `bun life ask`. Nothing else Life reads ever does.
-- What the owner pastes into the agent is up to him ([Set up your agent](use/agent.md)); the connector's instructions
-  (512 characters at most) are about the memory, not the agent.
+- Only these become asks: a "hey Life" turn that isn't someone else's, his word about a registered agent and his
+  complaint, all asks of the desk. Nothing else Life reads ever does.
 
 - **Not built yet: a client that reopens an agent's chat** (`docs/plans/2026-11-20-codex-reopen.md` is the record).
   When he types in a chat that holds several matters, the agent works out from his words which matter he means, names
@@ -34,14 +24,13 @@ its work: the agent keeps its own list.
 
 ## Asks
 
-- An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`apps/server/src/host/hear.ts`:
-  the two words, no model call), or from `bun life ask` in a Claude session.
-  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. The owner's own "hey" plus the word lifelog
-    hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
-    someone else is dropped before the ledger.
+- An ask is the owner's words handed over, never acted on by Life's own code. A spoken one comes from a "hey Life" turn
+  (`apps/server/src/host/hear.ts`: the two words, no model call), and the desk hands it to one agent ("Marks", below).
+  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`, and so is the owner's own "hey live"
+    (lifelog's mishearing). A turn lifelog gives to someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
 - `ask` (`apps/server/src/host/asks.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`), once
-  per `ref`; `asksFor` is what `read_agent_asks` returns.
+  per `ref`; `asksFor` is how the desk reads his changes of it.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded.
@@ -53,7 +42,7 @@ its work: the agent keeps its own list.
   when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
   stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
   his last press, leaves it waiting (his next press tries once more), and the answer says so. The
-  caretaker reads it through its door (`read_complaint`, only on the assignment that received it); while it holds it, the
+  caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads a spoken ask routed to it the same way, `read_spoken_ask`); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
   never handed to a turn: the desk receives them again.
 - Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`
@@ -131,7 +120,7 @@ An agent that finished a step of a matter closes it itself: a promise, a wait or
 
 Agents are created only on his word: a project's, or the Personal agent (one at most, `role: "personal"`; its home `<agentsRepo>/personal/`), which the desk also registers itself for a confirmed arrival no matter's agent takes when none stands (`desk/role-agents.ts`). A matter goes to the agent that takes it (`agentForOf`, `memory/held-matters.ts`): the oldest active agent of the project it shows under (`projectOf`; his `matter-project` word first, `correct_memory` with `matter`), else the Personal agent, else none; his Start on a matter opens an assignment of that agent, his words its `said`. Every matter sits with that agent (the assignment fold, `foldAssignments`, `desk/matter-net.ts`, on the desk's message poll): an open matter assignment another agent holds moves to it once its agent has no turn running, with its wait, notes file and cards (his next answer wakes the new agent with the matter's record), and an agent left with nothing open ends "folded into the <name> agent". So a matter moves from the Personal agent to a project's new agent by itself.
 
-A matter's open step that is his never leaves his inbox (his yes of 21 Nov 2026): every open matter, dormant or stuck too, holding an open to-do, promise or to-do item of his (`yourMoveOf`) gets one your move card, worked out when read like Life's other checks (`yourMovesOf`, `memory/your-move.ts`), unless an open decision is on it, its project is parked, or an agent's open assignment holds it (an agent waiting on him, `wait_owner`, still shows it). Its step is the question (the one due first, else the newest), its due day the deadline (it then blocks, the badge; else it only improves, after every agent's decision), and a `place` need (name, Google and Apple Maps links) when an appointment was read from it; Life holds no address and no ride link, so it gives none. Mark as done closes that step by his word (`endByHisWord`); Hand to an agent is a new matter's Start; Not now (`your-move-not-now`) hides it 3 days, or until the matter gets a new step. While a matter is offered as a new matter ("Start an agent on this?"), that card asks first; its your move card follows once the offer ends or he dismisses it.
+A matter's open step that is his never leaves his inbox (his yes of 21 Nov 2026): every open matter, dormant or stuck too, holding an open to-do, promise or to-do item of his (`yourMoveOf`) gets one your move card, worked out when read like Life's other checks (`yourMovesOf`, `memory/your-move.ts`), unless an open decision is on it, its project is parked, or an agent's open assignment holds it (an agent waiting on him, `wait_owner`, still shows it). Its step is the question (the one due first, else the newest), its due day the deadline (it then blocks, the badge; else it only improves, after every agent's decision), and a `place` need (name, Google and Apple Maps links) when an appointment was read from it; Life holds no address and no ride link, so it gives none. Mark as done closes that step by his word (`endByHisWord`); Hand to an agent is a new matter's Start; Not now (`your-move-not-now`) hides it 3 days, or until the matter gets a new step; Drop ends the step as Mark as done does, recorded as dropped (`outcome: dropped` on its `outdated` correction), its to-do items removed from his list (Reminders can restore them; Google Tasks cannot). While a matter is offered as a new matter ("Start an agent on this?"), that card asks first; its your move card follows once the offer ends or he dismisses it.
 
 The desk also gives a matter to an agent itself, the hand-out (his word of 20 Nov 2026, `handOutNext`, `desk/hand-out-tick.ts`): only with `desk.handOut` set in his settings (`cardsWaiting`, `aDay`), at most one per look and one look per 10 minutes, on the first matter of his ranking (`readHandOutMatters`; a matter whose projects are all parked ranks last and is skipped) that passes `handOutGateOf` (`memory/read-matters.ts`, one gate for the hand-out and the new matter check: next step `do`, project not parked, direction not due since news may have overtaken it, not dismissed, not held, one of his (`isOneOfHis`: it involves someone he knows, `isKnownToHim`, never one only Life inferred, or holds an open step he said himself), and an agent takes it). It starts no agent: it opens an assignment (by `desk`) on the agent that takes the matter. "Held" is one rule for the hand-out and the new matter check (`isHeldOf`, `memory/held-matters.ts`, over the desk's anchors as facts, `heldByAgents`): an active or stopped agent's assignment holds its matter; one that closed holds it until the matter has a step newer than its close, so a try is not repeated on a matter nobody moved; one closed because its matter looked over holds nothing, nor one he asked for that never began. Only agents active, stopped or ended in the last 90 days are read (`HOLD_DAYS`): a try older than that may be repeated once, accepted to keep the read bounded; the inbox keys on a stamp of them (`heldStampOf`), never the list. A project's agent holds only what is assigned to it. While the hand-out is on, a new matter of his own gets no "Start an agent on this?" (the hand-out takes it); one that is not his still does. No hand-out while `cardsWaiting` of his agents' cards are in his inbox (`openChecksNow`: a card his inbox hides, its matter closed, does not count) or `aDay` given on his day. No word of his is recorded; its first turn reads, then asks one card (the prepared step, what only he can do, or that it looks over), and every send still needs his yes on that card. A handed-out assignment whose first turn began and asked no card within 2 hours is closed (`endAgentsWithoutCard`, `isCardOverdue`, through `closeAssignment`, which stops its run) with the outcome "no card within 2 hours", measured from its first turn's beginning, and its matter stays held like any closed try; one whose first turn never began holds its matter too (`isHeldOf`), so neither is tried again before the matter moves. Its agent stays: a standing agent's own assignment keeps it. The Personal agent may draft to a project's work contacts until that project has its own agent.
 
@@ -214,9 +203,12 @@ the watcher, every 30 minutes, brings that calendar in line, through the client 
 ## Marks
 
 A mark is his words to Life, to keep: the unit is always read, every fact extracted, each at its own importance (at least
-`KEEP_AT`). Three ways in, none of which acts, asks or sends. "hey Life" in a recording is Life's own wake word
-(`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and makes no ask; agents
-may not use "life" or "live" as wake or misheard words. A message to himself (mail he sent only to his own addresses; every
+`KEEP_AT`). Three ways in, none of which acts or sends. "hey Life" in a recording is Life's own wake word
+(`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and an ask of the desk,
+which hands it to one agent (`desk/spoken-ask-intake.ts`: the matter assignment its words are closest to in meaning, else
+the Personal agent, which it starts when none stands; its `ask.spoken` event holds where his words are, never them, and
+wakes the agent at once; his phone hears "<agent> heard you" when that agent's turn begins); agents
+A message to himself (mail he sent only to his own addresses; every
 message of a chat with himself, `chatPerson` in `units.ts`) is marked by its reader. What he tells Life in a chat
 (`tell_life`) is the source `told-life`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
 hash moves and only it is read again, with no prompt change. Extraction shows its lines `(marked)`. The nightly lists
@@ -225,10 +217,10 @@ each once read, with the observations citing it ("Told Life").
 ## The connector
 
 `apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`), changes his directory in `truth/` by his words (`change_directory_entry`) and acts
-only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the auto-add
+only on the owner's explicit request (in the chat, or through an agent's `change_todo_item`) or on the auto-add
 permission.
 
-- **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
+- **Tools:** read-only: `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_inbox` (what waits on his word, from host's `openChecksNow`: every open ask in one shape (his agents' decisions, who a voice or a person is, whether a step is done), what blocks first, `limit` cards (default 50) from the first or `after` a card's ref (or, with a push's `pushId`, just that card, none once answered), with counts by group and `blocking`, each check's `urgency`, and its read version (`ifNot` it: only `{version, unchanged: true}` while nothing changed; `read_matters` too, which never waits on the embedder for icons); a voice lifelog asks him to name is among them (`voice`, answered through `answer_check` and forwarded to lifelog); a new matter's check is also on `read_matter`'s `checks`) and the memory reads. Writes: `correct_memory` (a memory correction, lifelog
   writes all go through `writeLifelog`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `changeTodoItem`, with the owner's words
   in `said`, or an `obs` for the auto-add permission) and `change_directory_entry` (`host/change-directory-entry.ts`: `said` his words, one `kind` (person, organization, project, area, goal, may_keep) and `action` (add, edit), a person's or an organization's picture pick (`pictureFrom`); checked by `integrity` on a copy of `truth/` first, then written, committed in his data repo with his words and kept as told-life (`said` only); owner's token only; never deletes, reorders goals or edits a person's birthday, projects or chats) `request_decision` (an agent's question to him as one card, or from his own app's token one asked as `owner` (`OWNER_ASKER`), the one way a session sends a message for him (his word of 19 Nov 2026), `memory/decisions.ts`'s `requestDecision` (its rules: `CARD`, short, each part's details a `fetch("ask/<name>")` page, `memory/card-request.ts`; a question ends in a ?, a label is at most five words, else it is refused with the reason and the page to read; its `context` is required Markdown (20,000 characters at most) and each of its `life:<ref>` links must name something `fetch` opens (`contextProblemOf`), and `read_inbox` gives each card's links with their kinds (`lifeLinks`); `needs`, `doneSeenBy`, `plan`'s steps and an option's marks are published loose and checked by `Ask`, so a new kind never changes the arguments; `plan` and `gathered` only on an assignment's plan card (`fetch("ask/plan")`); `cost`, `effect`, `pick` and a `takes` other than `note` are refused as not built yet), returning its id and, to an agent, an events cursor; or its withdrawal, by the agent that asked) and `answer_check` (`{ref, options, note?, person?, value?}`, owner's token only: his answer to any check, `memory/answer-check.ts`; `value` is refused as not built yet; a decision's first answer stands; his pick of its `looks` option alone makes Life look in his accounts for the card's amount (`host/done-seen.ts`): seen, the card ends; not found, it is open again, its `doneSeen` saying so, and the watcher looks every 5 minutes while it is open; no option with `note` is his own answer, sent to its agent; Start on a new matter check asks the desk to start an agent with the goal he saw (`note`) as the brief, through `change_registered_agent`'s start, which saves it as his `matter-direction`) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told-life.jsonl`, `memory/told-life.ts`; offered only while the `told-life` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.

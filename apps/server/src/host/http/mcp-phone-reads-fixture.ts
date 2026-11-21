@@ -420,6 +420,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
   plans: new Set(["dec_000000000002", "dec_000000000003"]),
   samePersons: [
     {
+      called: null,
       guess: "person:inf_kit",
       handles: ["+33600000001"],
       lines: ["the watchmaker, +33600000001", "his partner"],

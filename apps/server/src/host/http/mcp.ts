@@ -38,7 +38,6 @@ import { PUSH_ID } from "../../sources/lifelog-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { answerWithResult } from "../answer-result";
-import { asksFor } from "../asks";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
@@ -101,7 +100,7 @@ import {
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct_memory`), on his explicit request in a
-// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. An agent pulls its asks (`read_agent_asks`). Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
+// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 /** A push's card or appointment id: 16 hex (`pushIdOf`). */
@@ -225,16 +224,6 @@ export async function correct(
     ? recordHisCorrection(a.correction)
     : forward(a.kind, a));
   return `Done: ${a.kind}.`;
-}
-
-/** The caller's agent, for the tools that are an agent's own; a plain app is refused. */
-function agentOnly(agent: string | undefined) {
-  if (!agent) {
-    throw new Error(
-      "Not done: this app was paired without an agent; pair it as one (`bun life pair <agent>`)."
-    );
-  }
-  return agent;
 }
 
 /**
@@ -573,7 +562,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). His pick of an option marked `ends` alone is his word that the card\'s step, or its whole matter, is done: Life closes it (its to-do items ticked, its facts outdated). His pick of an option marked `looks` alone is his word that he did the card\'s step: Life looks for it done now (a payment in his accounts): seen, the card ends (`doneSeen`); not found, it is open again for a later check. An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A `same person`: `same-person` makes the two one, `not-this-person` keeps them apart (never asked again). A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` and `media` are still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter. A your move: `done` ("Mark as done") closes its step (`subject`) by his word, `start` ("Hand to an agent", only while the card offers it) starts an agent on its matter as a new matter\'s Start does, `not-now` hides it 3 days, or until the matter gets a new step. His "Wrong…" on a card with `misread` (Life\'s own cards only): `value` {kind `misread`, the card\'s `misread` (`cause`, `shown`, `seal`) as read, `report` his tick on the anonymized report}, his words as `note`, no option, the press\'s `life/answerKey`; returns {ask, reached: "caretaker"} once the caretaker received it (a retry under the same key resumes it, never asks twice).',
+    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). His pick of an option marked `ends` alone is his word that the card\'s step, or its whole matter, is done: Life closes it (its to-do items ticked, its facts outdated). His pick of an option marked `looks` alone is his word that he did the card\'s step: Life looks for it done now (a payment in his accounts): seen, the card ends (`doneSeen`); not found, it is open again for a later check. An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A `same person`: `same-person` makes the two one, `not-this-person` keeps them apart (never asked again). A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` and `media` are still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter. A your move: `done` ("Mark as done") closes its step (`subject`) by his word, `start` ("Hand to an agent", only while the card offers it) starts an agent on its matter as a new matter\'s Start does, `not-now` hides it 3 days, or until the matter gets a new step, `drop` ("Drop") is his word that its step won\'t be done and is no longer wanted: it closes the step as `done` does, recorded as dropped, its to-do items removed from his list rather than ticked. His "Wrong…" on a card with `misread` (Life\'s own cards only): `value` {kind `misread`, the card\'s `misread` (`cause`, `shown`, `seal`) as read, `report` his tick on the anonymized report}, his words as `note`, no option, the press\'s `life/answerKey`; returns {ask, reached: "caretaker"} once the caretaker received it (a retry under the same key resumes it, never asks twice).',
     z.object({
       name: z
         .string()
@@ -686,14 +675,6 @@ export function buildServer(readsOnly = false) {
       }
     );
   }
-  tool(
-    server,
-    "read_agent_asks",
-    'As a paired agent, call it first in each session: what the owner asked you, the agent this app was paired as (JSON): each time the owner said "hey <you>" or asked you through Life, past a cursor, in the order recorded: its id, when he spoke, when Life recorded it, his words and how sure the wake was (low: confirm with him). Keep your own list; Life keeps none. Who he is: `read_people_and_organizations` with his name.',
-    z.object(page),
-    async ({ cursor, limit }, caller) =>
-      asksFor(agentOnly(caller), cursor, limit)
-  );
   // The same poll as a tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT): one door each.
   tool(
     server,

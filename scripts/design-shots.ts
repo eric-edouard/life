@@ -72,6 +72,18 @@ function poseOf(frame: Frame) {
   return { args: ["-fixturePose", way], ratio: frame.size[1] / frame.size[0] };
 }
 
+/** `design:shots [Frame…] [--app <built app>] [--shutdown]`: the frames asked, an app already built, whether to stop the simulator after. */
+export function parseArgs(argv: string[]) {
+  const at = argv.indexOf("--app");
+  return {
+    app: at === -1 ? undefined : argv[at + 1],
+    asked: argv.filter(
+      (arg, i) => !arg.startsWith("--") && (at === -1 || i !== at + 1)
+    ),
+    shutdownAfter: argv.includes("--shutdown"),
+  };
+}
+
 const device = (args: string[]) =>
   execOk(["agent-device", ...args, "--session", SESSION], {
     timeout: 120_000,
@@ -155,7 +167,11 @@ async function main() {
     frames: Record<string, Frame>;
   };
   const appFrames = readAppFrames();
-  const asked = process.argv.slice(2);
+  const {
+    asked,
+    app: builtApp,
+    shutdownAfter,
+  } = parseArgs(process.argv.slice(2));
   const unknown = asked.filter((name) => !map.frames[name]);
   if (unknown.length > 0) {
     throw new Error(`not in the frame map: ${unknown.join(", ")}`);
@@ -174,7 +190,7 @@ async function main() {
       SIMULATOR,
       "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
     ));
-  const booted = await boot(udid);
+  await boot(udid);
   // The frames are drawn dark.
   await execOk(["xcrun", "simctl", "ui", udid, "appearance", "dark"]);
   // The keyboard's first-use tip would cover a frame that edits a field.
@@ -185,7 +201,7 @@ async function main() {
   ]);
   const outcome = new Map<string, string>();
   try {
-    await install(udid, await buildApp(udid, join(OUT, "build")));
+    await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
     if (
       mapped.some(
         (frame) => appFrames[frame.name]?.taps || appFrames[frame.name]?.fill
@@ -215,12 +231,13 @@ async function main() {
       console.log(`${frame.name}: ${result}`);
     }
   } finally {
-    // agent-device's runner boots the simulator again unless its close shuts it down.
+    // The simulator stays booted for the next run; `--shutdown` stops it (agent-device's runner boots it again unless its
+    // close shuts it down too).
     await exec([
       ...["agent-device", "close", "--session", SESSION],
-      ...(booted ? ["--shutdown"] : []),
+      ...(shutdownAfter ? ["--shutdown"] : []),
     ]);
-    if (booted) {
+    if (shutdownAfter) {
       await shutdown(udid);
     }
   }

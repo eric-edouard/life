@@ -22,6 +22,12 @@ import { expectWire } from "./http/wire-fixture";
 
 // Made-up people, chats and ids throughout.
 
+/** People who know no one, for a voice card's ref. */
+const NO_ONE = {
+  names: new Map<string, string>(),
+  refOf: (r: string) => r,
+  resolve: () => null,
+};
 const draft = { channel: "whatsapp", text: "Can you come Friday?", to: "Kit" };
 const readChat = () =>
   Promise.resolve({ ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" });
@@ -92,6 +98,18 @@ const call = (
     { ...(answerKey ? { answerKey } : {}), report: (s) => steps.push(s) }
   );
   return { result, steps };
+};
+
+/** `readPeople` and `readMatterBook` mocked, the book as `matters`; gives their restore. */
+const withBook = async (matters: unknown[]) => {
+  const people = spyOn(await import("../memory/who"), "readPeople");
+  const book = spyOn(await import("../memory/matters"), "readMatterBook");
+  people.mockResolvedValue({} as never);
+  book.mockResolvedValue(matters as never);
+  return () => {
+    book.mockRestore();
+    people.mockRestore();
+  };
 };
 
 test("a send: the plan first, the steps in order, the lines written, the send and the asker, no inbox", async () => {
@@ -419,7 +437,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     ],
     words: 9,
   };
-  const voiceRef = voiceCardRefOf(() => null, item);
+  const voiceRef = voiceCardRefOf(NO_ONE, item);
   guesses = [
     asCheck({
       group: "ending",
@@ -499,14 +517,7 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
     ref: "matter_000000000007",
   });
   guesses = [newMatter];
-  const people = spyOn(
-    await import("../memory/who"),
-    "readPeople"
-  ).mockResolvedValue({} as never);
-  const book = spyOn(
-    await import("../memory/matters"),
-    "readMatterBook"
-  ).mockResolvedValue([
+  const restoreBook = await withBook([
     {
       goal: {
         at: "2026-11-17T02:00:00Z",
@@ -516,7 +527,7 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
       id: newMatter.ref,
       steps: steps.map((ref) => ({ ref })),
     },
-  ] as never);
+  ]);
   const started = readStarted();
   const desk = spyOn(
     await import("./change-registered-agent"),
@@ -586,8 +597,7 @@ test("a new matter: Start asks the desk with the goal he saw, reports its stages
     expect(desk).toHaveBeenCalledTimes(1);
   } finally {
     desk.mockRestore();
-    book.mockRestore();
-    people.mockRestore();
+    restoreBook();
   }
 });
 
@@ -611,14 +621,7 @@ test("a new matter's Start the desk did not start: the result says where it stop
     ref: "matter_000000000008",
   });
   guesses = [newMatter];
-  const people = spyOn(
-    await import("../memory/who"),
-    "readPeople"
-  ).mockResolvedValue({} as never);
-  const book = spyOn(
-    await import("../memory/matters"),
-    "readMatterBook"
-  ).mockResolvedValue([
+  const restoreBook = await withBook([
     {
       goal: {
         at: "2026-11-17T02:00:00Z",
@@ -628,7 +631,7 @@ test("a new matter's Start the desk did not start: the result says where it stop
       id: newMatter.ref,
       steps: [{ ref: "obs_000000000081" }],
     },
-  ] as never);
+  ]);
   const desk = spyOn(
     await import("./change-registered-agent"),
     "changeRegisteredAgent"
@@ -651,8 +654,7 @@ test("a new matter's Start the desk did not start: the result says where it stop
     expect(desk).toHaveBeenCalledTimes(2);
   } finally {
     desk.mockRestore();
-    book.mockRestore();
-    people.mockRestore();
+    restoreBook();
   }
 });
 
@@ -663,20 +665,13 @@ test("goal A, then B, then A again records three times: a fresh answer ends the 
     ref: "matter_000000000009",
   });
   guesses = [newMatter];
-  const people = spyOn(
-    await import("../memory/who"),
-    "readPeople"
-  ).mockResolvedValue({} as never);
-  const book = spyOn(
-    await import("../memory/matters"),
-    "readMatterBook"
-  ).mockResolvedValue([
+  const restoreBook = await withBook([
     {
       goal: { at: "2026-11-17T02:00:00Z", by: "owner", text: "Door painted" },
       id: newMatter.ref,
       steps: [{ ref: "obs_000000000091" }],
     },
-  ] as never);
+  ]);
   try {
     await call(newMatter.ref, ["edit-goal"], "tap-0", { note: "A" }).result;
     await call(newMatter.ref, ["edit-goal"], "tap-1", { note: "B" }).result;
@@ -685,8 +680,7 @@ test("goal A, then B, then A again records three times: a fresh answer ends the 
       ["A", "B", "A"]
     );
   } finally {
-    book.mockRestore();
-    people.mockRestore();
+    restoreBook();
   }
 });
 
@@ -709,7 +703,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
     ],
     words: 9,
   };
-  const voiceRef = voiceCardRefOf(() => null, shown);
+  const voiceRef = voiceCardRefOf(NO_ONE, shown);
   guesses = [asCheck({ group: "voice", ref: voiceRef })];
   const grown = {
     ...shown,
@@ -742,7 +736,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
   }
 });
 
-test("your move: Mark as done closes only its step, never a sibling; each fresh Not now press is its own answer, the same press retried writes once", async () => {
+test("your move: Mark as done closes only its step, never a sibling; Drop closes the same way, recorded as dropped; each fresh Not now press is its own answer, the same press retried writes once", async () => {
   const step = (ref: string) => ({
     at: "2026-11-01T09:00:00.000Z",
     day: "2026-11-01",
@@ -752,40 +746,38 @@ test("your move: Mark as done closes only its step, never a sibling; each fresh 
     text: "Paint the gate",
   });
   const [mine, sibling] = [step("obs_000000000071"), step("obs_000000000072")];
-  const move = asCheck({
-    group: "your move",
-    matter: { id: "matter_000000000007", name: "Garden gate" },
-    options: [
-      { ends: "step", id: "done", label: "Mark as done", takes: null },
-      { id: "not-now", label: "Not now", takes: null },
-    ],
-    ref: `move:matter_000000000007/${mine.ref}`,
-    subject: mine.ref,
-    title: "Garden gate",
-  });
-  guesses = [move];
-  const people = spyOn(
-    await import("../memory/who"),
-    "readPeople"
-  ).mockResolvedValue({} as never);
-  const book = spyOn(
-    await import("../memory/matters"),
-    "readMatterBook"
-  ).mockResolvedValue([
+  // His Drop (21 Nov 2026) on the sibling's card: closed as Mark as done closes, recorded as dropped.
+  const [move, drop] = [mine, sibling].map((s) =>
+    asCheck({
+      group: "your move",
+      matter: { id: "matter_000000000007", name: "Garden gate" },
+      options: [
+        { ends: "step", id: "done", label: "Mark as done", takes: null },
+        { id: "not-now", label: "Not now", takes: null },
+        { ends: "step", id: "drop", label: "Drop", takes: null },
+      ],
+      ref: `move:matter_000000000007/${s.ref}`,
+      subject: s.ref,
+      title: "Garden gate",
+    })
+  ) as [InboxCheck, InboxCheck];
+  guesses = [move, drop];
+  const restoreBook = await withBook([
     { id: "matter_000000000007", open: true, steps: [mine, sibling] },
-  ] as never);
+  ]);
   try {
+    const nn = "your-move-not-now";
     await call(move.ref, ["done"], "tap-done").result;
+    await call(drop.ref, ["drop"], "tap-drop").result;
     await call(move.ref, ["not-now"], "tap-1").result;
     await call(move.ref, ["not-now"], "tap-1").result;
     await call(move.ref, ["not-now"], "tap-2").result;
     expect(
       readCorrections().map((c) =>
-        c.kind === "outdated" ? c.observations : c.kind
+        c.kind === "outdated" ? [...c.observations, c.outcome] : c.kind
       )
-    ).toEqual([[mine.ref], "your-move-not-now", "your-move-not-now"]);
+    ).toEqual([[mine.ref, undefined], [sibling.ref, "dropped"], nn, nn]);
   } finally {
-    book.mockRestore();
-    people.mockRestore();
+    restoreBook();
   }
 });

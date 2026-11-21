@@ -35,11 +35,11 @@ const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
     return ` (probably ended ${on}: "${oneLineOf(e.quote, QUOTE_MAX)}")`;
   }
   if (e.by === "ticked") {
-    return ` (ticked ${on})`;
+    return ` (${e.dropped ? "dropped" : "ticked"} ${on})`;
   }
   return e.replacedBy
     ? ` (ended ${on}: replaced by ${e.replacedBy})`
-    : ` (ended ${on}: "${oneLineOf(e.why, QUOTE_MAX)}")`;
+    : ` (${e.dropped ? "dropped" : "ended"} ${on}: "${oneLineOf(e.why, QUOTE_MAX)}")`;
 };
 
 /** An open matter as `read_day` and a person's page list it: the open step it ranks as (`next`), who it is with, where it stands. */
