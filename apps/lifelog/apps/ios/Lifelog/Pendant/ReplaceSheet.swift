@@ -34,16 +34,26 @@ struct ReplaceSheet: View {
 
     var body: some View {
         content
+            .faces(face)
             .sheetScroll {
                 SheetHeader(title: title, color: phase.isFailure ? Palette.flag : Palette.fg) { dismiss() }
             } buttons: {
-                VStack(spacing: 10) { buttons }
+                VStack(spacing: 10) { buttons }.faces(face)
             }
             .readingWidth()
             .background(Palette.sheet)
             .presentationBackground(Palette.sheet)
             .interactiveDismissDisabled(phase == .replacing)
             .accessibilityIdentifier("pendant.replaceSheet")
+    }
+
+    private var face: String {
+        switch phase {
+        case .asking: "asking"
+        case .replacing: "replacing"
+        case .refused: "refused"
+        case .unreachable: "unreachable"
+        }
     }
 
     private var title: String {

@@ -266,6 +266,15 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.goal?.by == .unknown)
 }
 
+@Test func aNextStepCarriesItsContextAndAnEditSendsOnlyWhatItHas() throws {
+    let text =
+        #"{"matters":[{"id":"m","name":"M","status":"moving","nextStep":{"kind":"do","text":"t","context":"See [it](life:obs_1)"}}]}"#
+    #expect(try decoded(MatterList.self, text).matters.first?.nextStep?.context == "See [it](life:obs_1)")
+    let sent = { (step: NextStepRequest) in String(decoding: try JSONEncoder().encode(step), as: UTF8.self) }
+    #expect(try sent(NextStepRequest(kind: "do", text: "t")).contains("context") == false)
+    #expect(try sent(NextStepRequest(kind: "do", text: "t", context: "c")).contains(#""context":"c""#))
+}
+
 @Test func theListSearchesOnThePhone() throws {
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
     #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])

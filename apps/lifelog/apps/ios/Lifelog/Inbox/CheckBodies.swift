@@ -156,7 +156,7 @@ struct NewMatterBlock: View {
                     }
                     .accessibilityElement(children: .combine)
                     Spacer(minLength: 0)
-                    if let edit { RoundIconButton(symbol: "pencil", label: "Edit the goal", action: edit) }
+                    if let edit { RoundIconButton(symbol: "pencil", label: "Edit the goal", size: 32, action: edit) }
                 }
             }
             if let said { SaidBlock(said: said) }
