@@ -30,7 +30,7 @@ import { matcherOf, waitChannelsOf } from "../host/events";
 import type { DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
-import { isPending } from "../memory/draft-contest";
+import { isAsked, isPending } from "../memory/draft-contest";
 import { oneMatter, readMatterProjectIds } from "../memory/read-matters";
 import {
   loadTruth,
@@ -95,10 +95,7 @@ export const hasAsked = (
   db: Desk["db"],
   s: Pick<AssignmentRow, "agent_id" | "id">,
   list = decisionsNow()
-) =>
-  cardsOf(db, s, list).some(
-    (d) => d.state !== "withdrawn" || d.withdrawn?.replacedBy
-  );
+) => cardsOf(db, s, list).some(isAsked);
 
 /** Where a new assignment's notes file goes: in his agents repo (`desk.agentsRepo`), else under the desk's folders. */
 const notesPathOf = (id: string) =>

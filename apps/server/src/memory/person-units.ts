@@ -2,10 +2,16 @@ import type { SourceName } from "../core/names";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import type { Descriptor } from "../sources/contract";
-import { readIndex, readUnitsFor, readUnitsOf } from "./memory-files";
+import { readIndex, readUnitsOf } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { isDirect, kindOf, SOURCES, sourceOf } from "./sources";
-import { holdsName, oneToOnePersonOf, type Resolve, UNKNOWN } from "./units";
+import {
+  holdsName,
+  lifeChat,
+  oneToOnePersonOf,
+  type Resolve,
+  UNKNOWN,
+} from "./units";
 import type { People } from "./who";
 
 // A person's units, as the index files them: the one way a reader finds what someone said, wrote or was heard in (the
@@ -177,26 +183,44 @@ export const chatUnitsFor = (
 /** How many chats `readChatsTitled` names at most. */
 const TITLED = 5;
 
+/** Said when the index predates `units.chat`: it is rebuilt within the minute (`readStaleness`). */
+const REBUILDING =
+  "Life is rebuilding its index of chat titles: read again in a minute.";
+
 /**
- * The newest `TITLED` chats whose title holds `title` as a whole word run (`holdsName`), each as its source and key:
- * the fallback of `read_chats` with a `who` no unit of anyone holds. One query of the index for each source's titles
- * with their newest unit, then those units' files. ponytail: two rooms of one title are one here (the index holds no
- * chat key); add the key to the index when that bites.
+ * The newest `TITLED` chats of `sources` (those readable now), less Life's own and, when given, all but `chat`, whose
+ * newest title holds `title` as a whole word run (`holdsName`), each as its source and key: the fallback of `read_chats`
+ * with a `who` no unit of anyone holds. One query of the index, a chat once however many days or names it has, two
+ * rooms of one title two chats; all those filters come before the cap. An index from before `units.chat` throws `REBUILDING`.
  */
-export function readChatsTitled(title: string) {
-  const chatSources = SOURCES.filter((s) => s.kind === "chat").map(
-    (s) => s.name
-  );
-  const ids =
-    readIndex((db) =>
-      db
-        .query<{ id: string; title: string }, [string]>(
-          "select id, title, max(date) from units where source in (select value from json_each(?)) group by source, title order by max(date) desc"
-        )
-        .all(JSON.stringify(chatSources))
-        .filter((u) => holdsName(u.title, [title]))
-        .slice(0, TITLED)
-        .map((u) => u.id)
-    ) ?? [];
-  return readUnitsFor(ids).map((u) => ({ key: u.key, source: u.source }));
+export function readChatsTitled(
+  title: string,
+  sources: readonly string[],
+  chat?: string
+) {
+  try {
+    return (
+      readIndex((db) =>
+        db
+          .query<{ chat: string; source: SourceName; title: string }, [string]>(
+            "select source, chat, title, max(date) from units where source in (select value from json_each(?)) group by source, chat order by max(date) desc"
+          )
+          .all(JSON.stringify(sources))
+          .filter(
+            (u) =>
+              u.chat !== lifeChat() &&
+              (!chat || u.chat === chat) &&
+              holdsName(u.title, [title])
+          )
+          .slice(0, TITLED)
+          .map((u) => ({ key: u.chat, source: u.source }))
+      ) ?? []
+    );
+  } catch (e) {
+    // Only an index from before `units.chat` is rebuilding; any other failure is itself.
+    if (String(e).includes("no such column: chat")) {
+      throw new Error(REBUILDING, { cause: e });
+    }
+    throw e;
+  }
 }
