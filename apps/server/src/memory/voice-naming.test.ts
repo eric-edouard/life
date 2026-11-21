@@ -79,8 +79,8 @@ const sceneOf = (o: {
   const where = join(dir, `trial-${n}`);
   const [job, before] = [`job-${n}`, `job-${n}-0`];
   const every = (o.others ?? 1) + 1;
-  const turnsOf = (jobId: string, from: string, count: number, c: string) =>
-    Array.from({ length: count }, (_, t) => ({
+  const turnsOf = (jobId: string, from: string, length: number, c: string) =>
+    Array.from({ length }, (_, t) => ({
       ...turnFixture(
         t,
         new Date(Date.parse(from) + t * MIN).toISOString(),
@@ -95,8 +95,8 @@ const sceneOf = (o: {
   const earlier = o.before
     ? turnsOf(before, "2026-10-09T10:00:00.000Z", 6, "c0")
     : [];
-  const transcript = (count: number) => () => ({
-    turns: Array.from({ length: count }, (_, t) => ({
+  const transcript = (length: number) => () => ({
+    turns: Array.from({ length }, (_, t) => ({
       speakerId: `speaker_${t % every}`,
       text: `remark ${t} ${"w".repeat(1000)}`,
     })),
@@ -580,7 +580,7 @@ test("Voice's group is one V for the model, with the name it heard, and its gues
   await run(s, () => ({
     voices: [{ confidence: "sure", lines: [1, 2], person: "me", voice: "V1" }],
   }));
-  const shown = asked[0];
+  const [shown] = asked;
   expect(shown?.lines.join("\n")).not.toContain(" V2: ");
   expect(shown?.voices).toEqual([{ heard: "Zed", likeness: [], voice: "V1" }]);
   expect(storedVoices(s.where)).toEqual([

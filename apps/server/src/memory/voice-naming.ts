@@ -171,13 +171,13 @@ export function checkedVoices(
         ];
   });
   const stored = [...kept, ...answered].flatMap((e) => {
-    const voices = known.members.get(e.voice);
-    return voices
-      ? [...voices].map(([voice, lines]) => {
-          const cited = e.lines.filter((n) => lines.includes(n));
+    const recorded = known.members.get(e.voice);
+    return recorded
+      ? [...recorded].map(([voice, own]) => {
+          const cited = e.lines.filter((n) => own.includes(n));
           return {
             ...e,
-            lines: cited.length > 0 ? cited : lines.slice(0, 1),
+            lines: cited.length > 0 ? cited : own.slice(0, 1),
             voice,
           };
         })
@@ -599,11 +599,11 @@ export function namingOf(
     part.voices.map((v, n) =>
       unnamed[n] ? voiceKey(jobAt(n), v.label) : null
     ),
-    (voice) => c.queue.get(voice)?.id
+    (v) => c.queue.get(v)?.id
   );
-  const likenessOf = (members: string[]) => {
+  const likenessOf = (recorded: string[]) => {
     const best = new Map<string, number>();
-    for (const l of members.flatMap((v) => rows.get(v)?.likeness ?? [])) {
+    for (const l of recorded.flatMap((v) => rows.get(v)?.likeness ?? [])) {
       const person = voicePersonOf(
         c.people.resolve,
         l.personId,
@@ -631,12 +631,12 @@ export function namingOf(
       name: c.people.nameOf(ref),
       ref,
     })),
-    voices: [...groups.members].map(([voice, members]) => {
-      const heard = c.queue.get([...members.keys()][0] ?? "")?.name;
+    voices: [...groups.members].map(([token, recorded]) => {
+      const heard = c.queue.get([...recorded.keys()][0] ?? "")?.name;
       return {
         ...(heard ? { heard } : {}),
-        likeness: likenessOf([...members.keys()]),
-        voice,
+        likeness: likenessOf([...recorded.keys()]),
+        voice: token,
       };
     }),
   };
@@ -649,11 +649,9 @@ export function namingOf(
     })
   );
   const members = new Map(
-    [...groups.members].map(([token, voices]) => [
+    [...groups.members].map(([token, recorded]) => [
       token,
-      new Map(
-        [...voices].map(([voice, lines]) => [stored.get(voice) ?? "", lines])
-      ),
+      new Map([...recorded].map(([v, lines]) => [stored.get(v) ?? "", lines])),
     ])
   );
   const evidence = evidenceOf(part, groups, {

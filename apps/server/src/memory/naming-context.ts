@@ -252,13 +252,15 @@ export function namingConfidenceOf(
     : ("weak" as const);
 }
 
+const NOT_WORD = /[^\p{L}\p{N}]+/u;
+
 /** Whether one of `lines` (spoken by others than the voice) says a word of `names` (a person's name, their chat titles), of 3 letters or more. */
 export const isNameSaid = (
   lines: readonly string[],
   names: readonly string[]
 ) => {
   const words = names
-    .flatMap((n) => n.split(/[^\p{L}\p{N}]+/u))
+    .flatMap((n) => n.split(NOT_WORD))
     .filter((w) => w.length >= 3);
   return lines.some((l) => holdsName(l, words));
 };
