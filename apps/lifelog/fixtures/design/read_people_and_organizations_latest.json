@@ -81,7 +81,7 @@
           }
         ],
         "open": {
-          "url": "https://instagram.com/camille.vance"
+          "url": "https://instagram.com/camille.vance.example"
         }
       }
     ],
@@ -100,23 +100,6 @@
         ],
         "open": {
           "url": "https://wa.me/33600000001"
-        }
-      }
-    ]
-  },
-  "person:atelier_morel": {
-    "latest": [
-      {
-        "channel": "mail",
-        "at": "2026-11-16T09:10:00",
-        "lines": [
-          {
-            "by": "them",
-            "text": "Le devis est en pièce jointe."
-          }
-        ],
-        "open": {
-          "url": "mailto:bastien@ateliermorel.example"
         }
       }
     ]

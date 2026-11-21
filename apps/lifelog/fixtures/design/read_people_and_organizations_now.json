@@ -44,10 +44,10 @@
         "label": "Instagram",
         "accounts": [
           {
-            "handle": "camille.vance",
+            "handle": "camille.vance.example",
             "open": {
               "lands": "chat",
-              "url": "https://instagram.com/camille.vance"
+              "url": "https://instagram.com/camille.vance.example"
             },
             "lastAt": "2026-11-12T21:30:00"
           }
@@ -202,7 +202,7 @@
         "nextStep": {
           "by": "life",
           "kind": "wait_event",
-          "text": "The delivery was due Wednesday 18th.",
+          "text": "The delivery, due Saturday 21st.",
           "waitsOn": "a delivery"
         },
         "openedDaysAgo": 4,
@@ -233,10 +233,10 @@
         "label": "Messages",
         "accounts": [
           {
-            "handle": "+33 6 55 01 02 03",
+            "handle": "+33 6 00 00 00 03",
             "open": {
               "lands": "chat",
-              "url": "sms:+33655010203"
+              "url": "sms:+33600000003"
             },
             "lastAt": "2026-11-09T20:15:00"
           }
@@ -247,10 +247,10 @@
         "label": "Call",
         "accounts": [
           {
-            "handle": "+33 6 55 01 02 03",
+            "handle": "+33 6 00 00 00 03",
             "open": {
               "lands": "chat",
-              "url": "tel:+33655010203"
+              "url": "tel:+33600000003"
             }
           }
         ]
@@ -259,7 +259,7 @@
     "details": [
       {
         "kind": "handles",
-        "text": "Mobile: +33 6 55 01 02 03"
+        "text": "Mobile: +33 6 00 00 00 03"
       },
       {
         "kind": "family",
