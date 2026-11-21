@@ -10,6 +10,7 @@ import {
   type NamingQueueItem,
   readNamingQueue,
 } from "../sources/lifelog-voices";
+import { planRoleOf } from "./card-problems";
 import { cardAskOf, guessAskOf } from "./check-asks";
 import { literalOf, type Quote, withQuoteOf } from "./check-quotes";
 import {
@@ -31,9 +32,11 @@ import {
 import type { Decision } from "./decision-lines";
 import {
   DECISIONS,
-  decisionCardOf,
   decisionsNow,
+  doneSeenByOf,
+  doneSeenShownOf,
   isOnMatter,
+  notSentOf,
 } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
@@ -73,8 +76,10 @@ import {
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
+import { needsShownOf } from "./needs";
 import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
+import { PROJECT_SITUATIONS } from "./project-situation-read";
 import {
   dismissedIdsOf,
   handOutGateOf,
@@ -82,6 +87,7 @@ import {
   isParkedMatterOf,
 } from "./read-matters";
 import { lifeLinksOf } from "./refs";
+import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
 import {
   type People,
@@ -91,12 +97,10 @@ import {
 } from "./who";
 import { dayNow } from "./zones";
 
-// The checks: everything waiting on his word, in one shape, with no limit. A check is one guess of Life's
-// that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
-// an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
-// or a new matter Life offers an agent for ("Start an agent on this?"). Derived when read, never stored: his answer (`answerCheck`,
-// `answer-check.ts`) goes to its kind's own store: a correction (a person, a new matter's goal or dismissal), a
-// fact-check answer (an ending), his answer to the decision, lifelog's naming queue (a voice), or the desk (a Start).
+// The checks: everything waiting on his word, in one shape, with no limit: a guess of Life's his word would settle,
+// shown with its evidence while something rides on it (Life uses its guess meanwhile), a decision an agent asks, or a
+// new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
+// store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
 
 /** A kept line as the checks read it. */
 type Line = Pick<
@@ -188,6 +192,8 @@ export interface CheckInputs {
   };
   /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
   plans?: ReadonlySet<string>;
+  /** The guesses that may be someone going by their whole name (`samePersonPairsOf`), worked out once by the reader. */
+  samePersons: ReturnType<typeof samePersonPairsOf>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
@@ -202,8 +208,9 @@ interface Ranked {
   /** What the guess also rests on, for its cause (`causeOf`): an ending's later step. */
   basis?: string;
   check: Omit<Check, "confirm" | "lifeLinks" | "matter">;
-  /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on. */
+  /** For the order (`inboxOrderOf`): when a decision was asked, else the newest day among the lines it rides on; a decision's `matter` as its ask resolved it, the finder's pick on a tie. */
   day: string;
+  matter?: string;
   /** What it rests on, quoted into its context by `checksOf`. */
   quote?: Quote;
 }
@@ -328,6 +335,21 @@ function ranked(
     : [];
 }
 
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
+export const decisionCardOf = (d: Decision) => ({
+  doneSeen: doneSeenShownOf(d.doneSeen),
+  doneSeenBy: doneSeenByOf(d),
+  gathered: d.gathered ?? null,
+  needs: needsShownOf(d.needs),
+  notSent: notSentOf(d),
+  options: d.options.map((o) => {
+    const role = d.plan && planRoleOf(o.id);
+    return { ...o, ...(role ? { role } : {}), takes: o.takes ?? null };
+  }),
+  plan: d.plan ?? null,
+  replaces: d.replaces ?? null,
+});
+
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /** Every open decision; one on a matter step leaves once the matters holding it have all ended (a step no matter holds now, after a re-group, keeps it). */
@@ -372,6 +394,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           title: d.title,
         },
         day: d.at,
+        matter: d.matter,
       })),
   /** Every open step a link says ended and he has not answered, unless the link rests on his own later words. */
   ending: (c) =>
@@ -509,17 +532,15 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     );
     const cards = people.ambiguousCards.flatMap((a) => {
       // The people its name and handles say, named once: his answer is one of them.
-      const card = people.contacts.find((x) => x.id === a.card) ?? {
-        handles: [],
-      };
-      const likelyPeople = a.people.map(people.partyOf);
+      const handles =
+        people.contacts.find((x) => x.id === a.card)?.handles ?? [];
       return ranked(
         c,
         "contacts card",
         {
-          about: card.handles,
-          likelyPeople,
-          ...cardAskOf(people.nameOf(a.card), card.handles),
+          about: handles,
+          likelyPeople: a.people.map(people.partyOf),
+          ...cardAskOf(people.nameOf(a.card), handles),
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -551,7 +572,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         );
       }
     );
-    return [...guessed, ...cards, ...named];
+    const same = samePersonAsksOf(people, c.samePersons).flatMap((a) =>
+      ranked(c, "same person", a, a.linesOf(byRef), a.refs, null)
+    );
+    return [...guessed, ...cards, ...same, ...named];
   },
   voice: (c) => voiceChecksOf(c.people, c.voices),
 };
@@ -566,7 +590,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   const found = inboxOrderOf(
     Object.values(BUILDERS)
       .flatMap((build) => build(c))
-      .map(({ basis, check, day, quote }) => {
+      .map(({ basis, check, day, matter: pick, quote }) => {
         const context = withQuoteOf(
           check.context,
           (id) => inputs.where.has(id),
@@ -576,7 +600,8 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
           ...check,
           context,
           lifeLinks: lifeLinksOf(context, (id) => byId.has(id)),
-          matter: cardMatterOf(matterOf([check.subject ?? check.ref])) ?? null,
+          matter:
+            cardMatterOf(matterOf([check.subject ?? check.ref], pick)) ?? null,
           onMatters: check.ridesOn.matterIds.flatMap(
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),
@@ -603,13 +628,14 @@ export type InboxCheck = Check & { pushId: string; urgency: Urgency };
 /** The last list `checksNow` read, and what it was read from (`checksKeyOf`). */
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
-/** Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
+/** Every file the checks read as stored (truth/ included; the project situations: a project head's answer is kept under this key), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
 const CHECKS_READ = [
   ...MATTER_BOOK_READS,
   CLOSENESS,
   DECISIONS,
   PAGES,
   PERSON_PICTURES_INDEX,
+  PROJECT_SITUATIONS,
   ZONES,
 ];
 
@@ -623,7 +649,7 @@ const checksKeyOf = (
     readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
-    held && [held.stamp, held.complaints, held.cardHolders],
+    held && [held.stamp, held.cardHolders],
     voices,
   ]);
 
@@ -713,7 +739,7 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
-    fixing: fixingOf(held?.complaints ?? []),
+    fixing: fixingOf(held?.complaints?.(all) ?? []),
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),
     isForHandOut: (id) => forHandOut.has(id),
@@ -727,6 +753,7 @@ async function readChecks(
     paged,
     people,
     plans: held?.plans(all),
+    samePersons: samePersonPairsOf(people),
     titles,
     today,
     voices,

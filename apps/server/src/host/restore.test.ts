@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   appendFileSync,
   copyFileSync,
@@ -12,10 +12,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { sha256Of } from "../core/hash";
 import { DESK_STORE, OWNER_DATA_DIR } from "../core/paths";
 import { linesIn, rowsIn, stage } from "./export";
 import { started } from "./init";
-import { restore } from "./restore";
+import { putNotes, restore } from "./restore";
 
 const temp = (name: string) => mkdtempSync(join(tmpdir(), `life-${name}-`));
 
@@ -128,7 +129,8 @@ test("an import that stopped while moving in runs again: its own state files lef
   await expect(restore(dir, other)).rejects.toThrow("holds an install");
 });
 
-test("a desk assignment's notes kept outside Life's state travel with the export and come back where its store says, the agents folder gone", async () => {
+/** An export holding one desk assignment's notes, kept in a test agents folder outside Life's state, and their path. */
+async function exportedWithNotes() {
   const agents = temp("agents");
   const notes = join(agents, "assignments", "asg_000000000001", "NOTES.md");
   mkdirSync(dirname(notes), { recursive: true });
@@ -145,7 +147,96 @@ test("a desk assignment's notes kept outside Life's state travel with the export
   } finally {
     rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   }
+  return { agents, dir, notes };
+}
+
+test("a desk assignment's notes kept outside Life's state travel with the export and come back where its store says, the agents folder gone", async () => {
+  const { agents, dir, notes } = await exportedWithNotes();
   rmSync(agents, { force: true, recursive: true });
   await restore(dir, install());
   expect(readFileSync(notes, "utf8")).toBe("Test notes: waiting on Ana");
+});
+
+test("an import over other notes at a notes file's place changes nothing; the same notes there pass", async () => {
+  const { dir, notes } = await exportedWithNotes();
+  writeFileSync(notes, "Older test notes");
+  const to = install();
+  await expect(restore(dir, to)).rejects.toThrow("holds other notes");
+  expect(readFileSync(notes, "utf8")).toBe("Older test notes");
+  expect(existsSync(to.data) || existsSync(to.state)).toBe(false);
+  writeFileSync(notes, "Test notes: waiting on Ana");
+  await restore(dir, to);
+  expect(readFileSync(notes, "utf8")).toBe("Test notes: waiting on Ana");
+});
+
+// Verdict on PR 831: notes were placed after a check made before the whole export was hashed; a note written there
+// meanwhile was overwritten. Each note is made only where nothing is.
+test("a note another writer puts in place after the check is kept, and the notes this import made are taken back", async () => {
+  const at = temp("race");
+  const ours = join(at, "ours.md");
+  writeFileSync(ours, "Test notes: ours");
+  const sha256 = await sha256Of(ours);
+  const first = join(at, "agents", "asg_1", "NOTES.md");
+  const second = join(at, "agents", "asg_2", "NOTES.md");
+  mkdirSync(dirname(second), { recursive: true });
+  writeFileSync(second, "Test notes: written meanwhile");
+  await expect(
+    putNotes([
+      { from: ours, sha256, to: first },
+      { from: ours, sha256, to: second },
+    ])
+  ).rejects.toThrow("holds other notes");
+  expect(readFileSync(second, "utf8")).toBe("Test notes: written meanwhile");
+  expect(existsSync(first)).toBe(false);
+  // The same bytes there pass, kept as they are.
+  writeFileSync(second, "Test notes: ours");
+  await putNotes([
+    { from: ours, sha256, to: first },
+    { from: ours, sha256, to: second },
+  ]);
+  expect(readFileSync(first, "utf8")).toBe("Test notes: ours");
+});
+
+// Confirm on PR 831: the rollback took back a note by its path, someone's edit with it, and a failure other than a
+// conflict (a folder it could not make) left the notes made before it.
+test("a failed note placement takes back only the notes it made that still hold its bytes, whatever failed", async () => {
+  const at = temp("rollback");
+  const ours = join(at, "ours.md");
+  writeFileSync(ours, "Test notes: ours");
+  const sha256 = await sha256Of(ours);
+  const note = (asg: string) => join(at, "agents", asg, "NOTES.md");
+  // A folder it cannot make: a file stands where it would be.
+  writeFileSync(join(at, "agents-file"), "");
+  await expect(
+    putNotes([
+      { from: ours, sha256, to: note("asg_1") },
+      { from: ours, sha256, to: join(at, "agents-file", "NOTES.md") },
+    ])
+  ).rejects.toThrow();
+  expect(existsSync(note("asg_1"))).toBe(false);
+  // The first note edited by someone while the second is checked: the edit stays.
+  mkdirSync(dirname(note("asg_3")), { recursive: true });
+  writeFileSync(note("asg_3"), "Test notes: another writer's");
+  const hash = await import("../core/hash");
+  const real = hash.sha256Of;
+  const spy = spyOn(hash, "sha256Of").mockImplementationOnce((p) => {
+    writeFileSync(note("asg_2"), "Test notes: edited meanwhile");
+    return real(p);
+  });
+  try {
+    await expect(
+      putNotes([
+        { from: ours, sha256, to: note("asg_2") },
+        { from: ours, sha256, to: note("asg_3") },
+      ])
+    ).rejects.toThrow("holds other notes");
+  } finally {
+    spy.mockRestore();
+  }
+  expect(readFileSync(note("asg_2"), "utf8")).toBe(
+    "Test notes: edited meanwhile"
+  );
+  expect(readFileSync(note("asg_3"), "utf8")).toBe(
+    "Test notes: another writer's"
+  );
 });

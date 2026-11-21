@@ -57,8 +57,8 @@ private func need(_ json: String) throws -> Check.Need {
 }
 
 @Test func aKindThisBuildDoesNotKnowIsItsLineAlone() throws {
-    let rows = try need(#"{"kind":"qr","line":"PromptPay QR from the payee","file":"x"}"#).rows
-    #expect(rows == [NeedRow(glyph: .note, text: "PromptPay QR from the payee")])
+    let rows = try need(#"{"kind":"cash","line":"Hand over 500 THB","notes":[500]}"#).rows
+    #expect(rows == [NeedRow(glyph: .note, text: "Hand over 500 THB")])
 }
 
 @Test func aFieldInAShapeThisBuildDoesNotKnowFallsBackToTheLine() throws {

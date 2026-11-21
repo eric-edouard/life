@@ -37,10 +37,10 @@ public struct MCPClient: Sendable {
         let token = onProgress == nil ? nil : UUID().uuidString
         let body = try JSONEncoder().encode(
             Envelope(tool: tool, arguments: arguments, progressToken: token, answerKey: answerKey))
-        // One Life for the whole call, its retry included: its URL and its bearer.
-        let origin = if let origin { origin } else { try await session.origin() }
-        let url = origin.appending(path: "mcp")
-        var bearer = try await session.bearer(at: origin)
+        // One pairing for the whole call, its retry included: its URL and its bearer, never a later pairing's.
+        let pairing = try await session.pairing(at: origin)
+        let url = pairing.origin.appending(path: "mcp")
+        var bearer = try await session.bearer(of: pairing)
         for attempt in 0...1 {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
@@ -53,7 +53,7 @@ public struct MCPClient: Sendable {
             ] { request.setValue(value, forHTTPHeaderField: name) }
             do { return try await send(request, progressToken: token, onProgress: onProgress) } catch is Unauthorized {
                 guard attempt == 0 else { throw MCPError.notPaired }
-                bearer = try await session.refreshed(rejecting: bearer, at: origin)
+                bearer = try await session.refreshed(rejecting: bearer, of: pairing)
             }
         }
         throw MCPError.notPaired

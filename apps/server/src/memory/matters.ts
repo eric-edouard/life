@@ -316,6 +316,17 @@ export async function readMatterBookAndRecords(people: People, today: string) {
   };
 }
 
+/** The book again on `today` from records already read: the stored lines and his pins read afresh (directions written since included), no history read. */
+export const matterBookAgain = (
+  records: Awaited<ReturnType<typeof readMatterRecords>>,
+  today: string
+) =>
+  matterBookOf(
+    mattersNow(readMatters()),
+    { ...records, ...readMatterPins() },
+    today
+  );
+
 /** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`). */
 export const readMatterBook = async (people: People, today: string) =>
   (await readMatterBookAndRecords(people, today)).book;

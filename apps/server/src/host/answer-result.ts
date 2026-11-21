@@ -24,6 +24,7 @@ import {
   openStepsOf,
 } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
+import { samePersonPairOf } from "../memory/same-person";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { addDirectoryEntryByHisWord } from "./change-directory-entry";
@@ -218,7 +219,11 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
   return {
     corrections: done.length,
     names: c.about,
-    person: a.person ?? c.ref,
+    // A same person card's ref is the pair: its person is the other, whom the guess joins on "Same person".
+    person:
+      c.group === "same person"
+        ? samePersonPairOf(c.ref).other
+        : (a.person ?? c.ref),
   };
 }
 
@@ -273,20 +278,27 @@ function planOf(
 }
 
 /**
- * What his pick of `d`'s `ends` option `option` closes (`openStepsOf`): the open steps of the open matter its subject
- * rides on (`matterOfSteps` among open matters, as the ask resolved it), or the subject alone for a step's card. Read
- * before the plan, so its limit counts the ticks. `problem`: a step's card whose step is neither open nor ended (no
+ * What his pick of `d`'s `ends` option `option` closes (`openStepsOf`): the open steps of the matter it was asked on
+ * (`matter`; none once that matter ended), else of the open matter its subject rides on (`matterOfSteps`), or the
+ * subject alone for a step's card. Read before the plan, so its limit counts the ticks. `problem`: a step's card whose step is neither open nor ended (no
  * open matter holds it), so closing would close nothing; a step already ended by another route is no problem.
  */
 async function closingOf(d: Decision, option: string) {
   const book = await readMatterBook(await readPeople(), dayNow());
   const step = d.options.find((o) => o.id === option)?.ends === "step";
+  // The matter it was asked on, found in the whole book first: one that ended since closes nothing, never another
+  // sharing its step; a card from before it was kept, or a matter re-grouped away, by its subject among open matters.
+  const asked = book.find((m) => m.id === d.matter);
   const v =
-    d.subject &&
-    matterOfSteps(
-      book.filter((m) => m.open),
-      [d.subject]
-    );
+    asked?.open === false
+      ? undefined
+      : (asked ??
+        (d.subject &&
+          matterOfSteps(
+            book.filter((m) => m.open),
+            [d.subject],
+            d.matter
+          )));
   const closing = v ? openStepsOf(v, step ? d.subject : undefined) : [];
   const isEnded = book.some((m) =>
     m.steps.some((s) => s.ref === d.subject && s.ending)

@@ -43,7 +43,7 @@ import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { contextProblemOf, readsOnce } from "./find-refs";
 import { matterOfSteps, openStepsOf } from "./matter-read";
 import { MEMORY } from "./memory-files";
-import { amountOf, needsShownOf } from "./needs";
+import { amountOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 to 4 options (the recommended one first), its context folded, a deadline.
@@ -421,9 +421,8 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
  * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
- * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim`, when given, is
- * handed the subject Life will store, the card's id and the asker's own card a merge withdraws, just before the card
- * is written, and may refuse it by throwing (the desk: whose card it is).
+ * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `held`, the desk's for an
+ * assignment's card: its `claim`, `prefer` (its matter, taken on a tie) and `isPlan` (its plan card, `asksPlanOf`).
  */
 export function requestDecision(
   asker: string,
@@ -431,7 +430,7 @@ export function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: Claim
+  held?: Held
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
@@ -439,14 +438,21 @@ export function requestDecision(
   }
   return request.keep
     ? Promise.try(() => keepDraft(asker, request, now))
-    : askCard(asker, request, now, readChat, claim);
+    : askCard(asker, request, now, readChat, held);
 }
 
-/** Whose a card is, as the desk claims it just before it is written (`requestDecision`): may refuse it by throwing. */
+interface Held {
+  claim: Claim;
+  isPlan: boolean;
+  prefer?: string;
+}
+
+/** Whose a card is (the desk's claim): handed the subject Life will store, the card's id, the asker's own card a merge withdraws and the card's write, which it runs at once inside its own writes (whose card it is), or refuses by throwing. */
 type Claim = (
   subject: string | undefined,
   id: string,
-  replacing?: string
+  replacing: string | undefined,
+  write: (stamps: Pick<Asked, "assignment">) => void
 ) => void;
 
 /** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
@@ -455,7 +461,11 @@ async function askCard(
   request: Record<string, unknown>,
   now: Date,
   readChat: typeof resolveDraft,
-  claim?: Claim
+  {
+    claim = (_subject, _id, _replacing, write) => write({}),
+    isPlan = false,
+    prefer,
+  }: Partial<Held> = {}
 ) {
   const notBuilt = notBuiltOf(request);
   if (notBuilt) {
@@ -468,7 +478,7 @@ async function askCard(
     );
   }
   const ask = parsed.data;
-  const problem = cardProblemOf(ask, now);
+  const problem = cardProblemOf(ask, now, isPlan);
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
   }
@@ -482,7 +492,8 @@ async function askCard(
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(
         (await reads.book()).filter((m) => m.open),
-        [ask.subject]
+        [ask.subject],
+        prefer
       )
     : undefined;
   if (isOnMatter(ask.subject) && !matter) {
@@ -504,26 +515,27 @@ async function askCard(
   const draft = ask.draft && (await readChat(ask.draft, now));
   const { contests, merged } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  claim?.(subject, id, merged?.held.id);
-  // The draft as given is stored as Life resolved it (`draft`).
-  const { draft: _given, ...given } = ask;
-  appendJsonl(DECISIONS, Line, [
-    // A merge withdraws the holder's own card, in the same append as the card that takes its place.
-    ...mergeWithdrawalsOf(merged, id, now),
-    {
-      ...given,
-      ...(contests ? { contests } : {}),
-      ...(draft ? { draft } : {}),
-      ...(subject ? { subject } : {}),
-      asker,
-      at: now.toISOString(),
-      // In UTC, so deadlines sort as strings (`checksOf`).
-      deadline: new Date(ask.deadline).toISOString(),
-      id,
-      kind: "asked",
-      schemaVersion: DECISIONS_VERSION,
-    },
-  ]);
+  const { draft: _given, ...given } = ask; // The draft is stored as Life resolved it.
+  const write = (stamps: Pick<Asked, "assignment">) =>
+    appendJsonl(DECISIONS, Line, [
+      ...mergeWithdrawalsOf(merged, id, now), // A merge's withdrawal, in the same append as its card.
+      {
+        ...given,
+        ...stamps,
+        ...(matter ? { matter: matter.id } : {}),
+        ...(contests ? { contests } : {}),
+        ...(draft ? { draft } : {}),
+        ...(subject ? { subject } : {}),
+        asker,
+        at: now.toISOString(),
+        // In UTC, so deadlines sort as strings (`checksOf`).
+        deadline: new Date(ask.deadline).toISOString(),
+        id,
+        kind: "asked",
+        schemaVersion: DECISIONS_VERSION,
+      },
+    ]);
+  claim(subject, id, merged?.held.id, write);
   logAsked(ask, asker, id, !!draft, merged);
   return { id, ...waitsOf(contests, draft, now) };
 }
@@ -568,6 +580,7 @@ function answerProblemOf(
     (options.length === 0 &&
       !note &&
       "pick an option or give his words as `note`.") ||
+    (d.plan && new Set(options).size > 1 && "a plan card takes one pick.") ||
     (acts.includes("send") &&
       via !== "connector" &&
       "a draft is sent only on his own answer, through `answer_check` in his app.") ||
@@ -635,16 +648,6 @@ export function doneSeenShownOf(l?: DoneSeen) {
     state: l.state,
   };
 }
-
-/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its options with what each takes, its last send that did not go, the older card it replaces ("Replaces an older draft"). */
-export const decisionCardOf = (d: Decision) => ({
-  doneSeen: doneSeenShownOf(d.doneSeen),
-  doneSeenBy: doneSeenByOf(d),
-  needs: needsShownOf(d.needs),
-  notSent: notSentOf(d),
-  options: d.options.map((o) => ({ ...o, takes: o.takes ?? null })),
-  replaces: d.replaces ?? null,
-});
 
 /** Closes the step or matter of the answered decision `d` by his word (`end`) and appends its `ended` line, with the error when it failed. */
 async function endOnAnswer(

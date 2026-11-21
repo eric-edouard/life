@@ -48,6 +48,34 @@ test("no turn inside the call gives nothing", () => {
   expect(recordingsOf(s, FROM, TO)).toBeNull();
 });
 
+test("a turn crossing the call's opening is the call's, as fetch cut to the call reads it; one ended before is not", () => {
+  const s = store();
+  put(s, {
+    conversations: [conversation("c1"), conversation("c2")],
+    jobs: [job("j1", 1), job("j2", 5)],
+    turns: [
+      turn(
+        "j1",
+        0,
+        "2026-10-14T09:59:30.000Z",
+        "c1",
+        "2026-10-14T09:59:40.000Z"
+      ),
+      turn(
+        "j1",
+        1,
+        "2026-10-14T09:59:50.000Z",
+        "c1",
+        "2026-10-14T10:00:20.000Z"
+      ),
+      turn("j2", 0, "2026-10-14T10:20:00.000Z", "c2"),
+    ],
+  });
+  expect(recordingsOf(s, FROM, TO)).toEqual([
+    { turn: "j1:1@2026-10-14T09:59:50.000Z", turns: 1 },
+  ]);
+});
+
 test("a later turn of the same phone makes the words in, unless an earlier recording is still to come", () => {
   const s = store();
   put(s, {
