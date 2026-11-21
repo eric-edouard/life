@@ -81,8 +81,7 @@ struct CheckActions: View {
         }
         .motion(Motion.standard, value: check.doneSeen?.state)
         .motion(Motion.standard, value: isBusy)
-        // Read-only while Life is out of reach: an answer it cannot get is never taken (`ReadScreen` says why).
-        .disabled(life.whyOutOfReach != nil)
+        .offWhileOutOfReach()
     }
 
     /// On Life's own asks only, the escape hatch: a compact quiet button, always the last thing at the bottom right.

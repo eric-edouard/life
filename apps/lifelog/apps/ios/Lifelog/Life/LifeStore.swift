@@ -181,6 +181,7 @@ final class LifeStore {
     /// it is not nil the app is read-only: no tap on a screen acts (`refusedOutOfReach`), its controls are off, and every
     /// read screen says why.
     var whyOutOfReach: String? { connection.whyNot(hasPath: hasPath) }
+    var isOutOfReach: Bool { whyOutOfReach != nil }
     /// Whether Life answers: its inbox read, the one every screen starts from.
     var link: LinkState { outcome.link(hasRead: inbox.value != nil) }
 
@@ -565,24 +566,26 @@ final class LifeStore {
 
     /// His answer to such a row, sent in four seconds unless he undoes it; none while Life is out of reach.
     func hold(_ request: AnswerRequest, as label: String) {
-        guard whyOutOfReach == nil else { return }
+        guard !isOutOfReach else { return }
         holds.hold(request, as: label, for: pairedLife)
     }
 
     /// A tap on a screen while Life is out of reach: refused before anything leaves the phone or shows, with why. Only
     /// taps on a screen: an answer from a notification's button, or one held before Life went out of reach, is tried.
-    func refusedOutOfReach(_ key: ActionKey) async -> Bool {
+    /// `saysBack`: an action said back with Undo (`saidBack`) says why there too.
+    func refusedOutOfReach(_ key: ActionKey, saysBack: Bool = false) async -> Bool {
         guard let why = whyOutOfReach else { return false }
         await perform(key) { emit in
             emit(.started)
             emit(.failed(ActionFailure(reason: why, retry: .allowed)))
         }
+        if saysBack { show(SaidBack(words: why, undo: nil, isDone: false)) }
         return true
     }
 
     /// A bulk card's answers, held as one: one toast, one Undo; none while Life is out of reach.
     func hold(_ requests: [AnswerRequest], as label: String) {
-        guard whyOutOfReach == nil else { return }
+        guard !isOutOfReach else { return }
         holds.hold(requests, as: label, for: pairedLife)
     }
 
@@ -628,9 +631,7 @@ final class LifeStore {
     /// his pick it replaced (`was`, nil when the icon was Life's or none). One pick per matter at a time, through its
     /// reads: a second one before them would take its `was` from the read before the first.
     func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
-        if await refusedOutOfReach(.edit(matter: id, .icon)) {
-            return say(.edit(matter: id, .icon), nil, undo: .icon(matter: id, was, was: icon))
-        }
+        if await refusedOutOfReach(.edit(matter: id, .icon), saysBack: true) { return }
         let api = api
         let isSent = await iconing.run(id, showing: icon) {
             await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
@@ -653,7 +654,7 @@ final class LifeStore {
     func setImportant(_ id: String, _ isOn: Bool, saysBack: Bool = true) async {
         let api = api
         let key = ActionKey.edit(matter: id, .important)
-        if await refusedOutOfReach(key) { return say(key, nil, undo: .important(matter: id, !isOn)) }
+        if await refusedOutOfReach(key, saysBack: true) { return }
         let isSent = await marking.run(id, showing: isOn) {
             await perform(key) { [runner] in
                 await runner.record(emit: $0) { try await api.setImportant(matter: id, isOn, onProgress: $0) }
@@ -680,9 +681,7 @@ final class LifeStore {
             case .waiting: "Set the project \(name) back to waiting"
             default: "Set the project \(name) underway"
             }
-        if await refusedOutOfReach(.project(id)) {
-            return say(.project(id), nil, undo: .status(project: id, name: name, was, was: status))
-        }
+        if await refusedOutOfReach(.project(id), saysBack: true) { return }
         let isSent = await statusing.run(id, showing: status) {
             await perform(.project(id)) { [runner] in
                 await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }

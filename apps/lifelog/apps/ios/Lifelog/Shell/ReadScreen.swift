@@ -102,6 +102,17 @@ struct Notice: View {
     }
 }
 
+extension View {
+    /// An action control, off while Life is out of reach (`LifeStore.isOutOfReach`): the store refuses the tap anyway,
+    /// and `ReadScreen` says why.
+    func offWhileOutOfReach() -> some View { modifier(OffWhileOutOfReach()) }
+}
+
+private struct OffWhileOutOfReach: ViewModifier {
+    @Environment(LifeStore.self) private var life
+    func body(content: Content) -> some View { content.disabled(life.isOutOfReach) }
+}
+
 /// What was read last, when the latest try failed or Life is out of reach (`since` unknown): the old value stays below.
 struct StaleNote: View {
     let since: Date?
