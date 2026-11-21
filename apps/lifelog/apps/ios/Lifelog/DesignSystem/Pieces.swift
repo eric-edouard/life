@@ -313,7 +313,12 @@ struct MarkItem: View {
             .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
         // Off, the bar's own glass like its neighbours; on, the one selected look.
         Group {
-            if isOn { button.buttonStyle(.glassProminent).tint(Color.pick) } else { button }
+            // Two views, so each says how it comes and goes: the one crossfade.
+            if isOn {
+                button.buttonStyle(.glassProminent).tint(Color.pick).transition(.opacity)
+            } else {
+                button.transition(.opacity)
+            }
         }
         .motion(Motion.standard, value: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
