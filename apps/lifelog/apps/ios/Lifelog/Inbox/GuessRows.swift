@@ -30,7 +30,7 @@ struct GuessRow: View {
             .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect).onTapGesture(perform: open)
             YesNo(state: state, answer: answer, undo: undo)
         }
-        .frame(minHeight: 64)
+        .frame(minHeight: Metrics.listRow)
         .opacity(isDimmed ? 0.6 : 1)
         .motion(Motion.standard, value: state)
     }
@@ -59,11 +59,11 @@ struct YesNo: View {
         case .answered(let yes):
             HStack(spacing: 6) {
                 if yes {
-                    Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Palette.ok)
+                    Image(systemName: "checkmark").font(.smallStrong).foregroundStyle(Palette.ok)
                 }
                 Text(yes ? "Yes" : "No").font(.chip).foregroundStyle(yes ? Palette.fg : Palette.muted)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Metrics.Spacing.l)
         }
     }
 
@@ -73,7 +73,8 @@ struct YesNo: View {
                 if isHeld { Spinner(size: .small) }
                 Text(label).font(.chip).foregroundStyle(Palette.fg)
             }
-            .padding(.horizontal, 14).frame(height: 36).background(fill, in: .capsule)
+            .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.s)
+            .background(fill, in: .rect(cornerRadius: Metrics.Radius.passage))
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain)
