@@ -94,7 +94,7 @@ const device = (args: string[]) =>
   });
 
 /** The launch flags that open a full-screen route: the Inbox's own tab is gone once the app is there. */
-const ROUTE_FLAGS = new Set([
+export const ROUTE_FLAGS = new Set([
   "-fixtureMatter",
   "-fixturePage",
   "-fixtureParked",
