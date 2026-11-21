@@ -288,6 +288,279 @@
         ]
       },
       "status": "stuck"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_halden_house",
+      "lastStepAt": "2026-11-10T10:00:00",
+      "name": "Halden house",
+      "needsYou": false,
+      "openedDaysAgo": 60,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Inès Roux",
+            "ref": "person:ines_roux"
+          }
+        ],
+        "with": [
+          {
+            "kind": "person",
+            "name": "Samir Haddad",
+            "ref": "person:samir_haddad"
+          }
+        ]
+      },
+      "status": "moving",
+      "project": {
+        "id": "halden",
+        "name": "Halden house",
+        "status": "active"
+      }
+    },
+    {
+      "areas": ["Admin"],
+      "id": "matter_car_insurance",
+      "lastStepAt": "2026-11-10T10:00:00",
+      "name": "Car insurance",
+      "needsYou": false,
+      "openedDaysAgo": 50,
+      "people": {},
+      "status": "moving",
+      "project": {
+        "id": "home",
+        "name": "Home",
+        "status": "active"
+      }
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_moving_boxes",
+      "lastStepAt": "2026-11-10T10:00:00",
+      "name": "Moving boxes",
+      "needsYou": false,
+      "openedDaysAgo": 40,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Paul Girard",
+            "ref": "person:paul_girard"
+          }
+        ]
+      },
+      "status": "waiting_on_someone",
+      "project": {
+        "id": "home",
+        "name": "Home",
+        "status": "active"
+      }
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_home",
+      "lastStepAt": "2026-11-10T10:00:00",
+      "name": "Home",
+      "needsYou": false,
+      "openedDaysAgo": 90,
+      "people": {},
+      "status": "moving",
+      "project": {
+        "id": "home",
+        "name": "Home",
+        "status": "active"
+      }
+    },
+    {
+      "areas": ["Life"],
+      "id": "matter_holidays",
+      "lastStepAt": "2026-11-10T10:00:00",
+      "name": "Holidays",
+      "needsYou": false,
+      "openedDaysAgo": 30,
+      "people": {
+        "with": [
+          {
+            "kind": "person",
+            "name": "Camille Vance",
+            "ref": "person:camille_vance",
+            "picture": {
+              "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+            }
+          }
+        ]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Life"],
+      "id": "matter_camille_s_birthday",
+      "lastStepAt": "2026-11-10T10:00:00",
+      "name": "Camille’s birthday",
+      "needsYou": false,
+      "openedDaysAgo": 25,
+      "people": {
+        "with": [
+          {
+            "kind": "person",
+            "name": "Camille Vance",
+            "ref": "person:camille_vance",
+            "picture": {
+              "id": "0c1dd147dc5331bb52324d0ec0661d2e"
+            }
+          }
+        ]
+      },
+      "status": "moving"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_1",
+      "lastStepAt": "2026-09-05T10:00:00",
+      "name": "Passport for Léa",
+      "needsYou": false,
+      "openedDaysAgo": 100,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Léa Marchetti",
+            "ref": "person:lea_marchetti"
+          }
+        ]
+      },
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_2",
+      "lastStepAt": "2026-09-12T10:00:00",
+      "name": "Bike repair",
+      "needsYou": false,
+      "openedDaysAgo": 107,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Paul Girard",
+            "ref": "person:paul_girard"
+          }
+        ]
+      },
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_3",
+      "lastStepAt": "2026-09-19T10:00:00",
+      "name": "Dentist follow-up",
+      "needsYou": false,
+      "openedDaysAgo": 114,
+      "people": {},
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_4",
+      "lastStepAt": "2026-09-06T10:00:00",
+      "name": "Gym membership",
+      "needsYou": false,
+      "openedDaysAgo": 121,
+      "people": {},
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_5",
+      "lastStepAt": "2026-09-13T10:00:00",
+      "name": "Old laptop sale",
+      "needsYou": false,
+      "openedDaysAgo": 128,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Jun Watanabe",
+            "ref": "person:jun_watanabe"
+          }
+        ]
+      },
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_6",
+      "lastStepAt": "2026-09-20T10:00:00",
+      "name": "Garden table",
+      "needsYou": false,
+      "openedDaysAgo": 135,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Samir Haddad",
+            "ref": "person:samir_haddad"
+          }
+        ]
+      },
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_7",
+      "lastStepAt": "2026-09-07T10:00:00",
+      "name": "Piano lessons",
+      "needsYou": false,
+      "openedDaysAgo": 142,
+      "people": {},
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_8",
+      "lastStepAt": "2026-09-14T10:00:00",
+      "name": "Tax letter 2025",
+      "needsYou": false,
+      "openedDaysAgo": 149,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Inès Roux",
+            "ref": "person:ines_roux"
+          }
+        ]
+      },
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_9",
+      "lastStepAt": "2026-09-21T10:00:00",
+      "name": "Phone contract",
+      "needsYou": false,
+      "openedDaysAgo": 156,
+      "people": {},
+      "status": "dormant"
+    },
+    {
+      "areas": ["Home"],
+      "id": "matter_dormant_10",
+      "lastStepAt": "2026-09-08T10:00:00",
+      "name": "Storage unit",
+      "needsYou": false,
+      "openedDaysAgo": 163,
+      "people": {
+        "waitingOn": [
+          {
+            "kind": "person",
+            "name": "Paul Girard",
+            "ref": "person:paul_girard"
+          }
+        ]
+      },
+      "status": "dormant"
     }
   ]
 }

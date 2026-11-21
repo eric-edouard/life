@@ -22,6 +22,8 @@
         nonisolated static let card = value(of: "-fixtureCard")
         /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
         nonisolated static let tab = value(of: "-fixtureTab")
+        /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
+        nonisolated static let filter = value(of: "-fixtureFilter")
         nonisolated static let matter = value(of: "-fixtureMatter")
         /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
         nonisolated static let person = value(of: "-fixturePerson")
