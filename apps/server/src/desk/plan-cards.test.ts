@@ -102,6 +102,11 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
       { id: "start", label: "Start the plan" },
       { id: "stop", label: "Stop" },
     ],
+    // Swapped labels: his tap on "Not this plan" would start it.
+    [
+      { id: "start", label: "Not this plan" },
+      { id: "decline", label: "Start the plan" },
+    ],
   ];
   const refusals = await Promise.allSettled(
     wrongOptions.map((options) => askDecision(desk, s, card({ options })))
@@ -110,7 +115,7 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     refusals.map((r) => r.status === "rejected" && String(r.reason))
   ).toEqual(
     wrongOptions.map(() =>
-      expect.stringContaining("exactly two: `start` and `decline`")
+      expect.stringContaining("a plan card's options are exactly")
     )
   );
   await expect(
@@ -127,6 +132,10 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     ],
     plan,
   });
+  // One pick: both would tell the agent to start and not to.
+  await expect(answerDecision(id, ["start", "decline"])).rejects.toThrow(
+    "a plan card takes one pick"
+  );
   await answerDecision(id, ["start"]);
   // The plan card is asked: a later card is no plan, and refuses one.
   await expect(askDecision(desk, s, card())).rejects.toThrow(

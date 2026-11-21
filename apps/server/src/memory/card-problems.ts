@@ -32,7 +32,9 @@ export function notBuiltOf(r: { doneSeenBy?: unknown; options?: unknown }) {
 const PAGE_OF_FIELD: Record<string, string> = {
   doneSeenBy: "payment",
   draft: "draft",
+  gathered: "plan",
   options: "options",
+  plan: "plan",
 };
 
 /** Where to read about the first field `error` refused: its ask page (`fetch("ask/<name>")`), a need's by its kind. */
@@ -101,11 +103,15 @@ function lookProblemOf(
   );
 }
 
-/** The plan card's two options, by id: what his pick is (his app's `role` of each, `decisionCardOf`). */
-const PLAN_OPTIONS = ["start", "decline"] as const;
+/** The plan card's two options, as it gives them (the recommended first): each id is what his pick is, his app's `role` of it (`decisionCardOf`), and its label the words he taps. */
+export const PLAN_OPTIONS = [
+  { id: "start", label: "Start the plan" },
+  { id: "decline", label: "Not this plan" },
+] as const;
 
 /** A plan card's option `id` as his app's role of it: `start` or `decline`; none for another id. */
-export const planRoleOf = (id: string) => PLAN_OPTIONS.find((r) => r === id);
+export const planRoleOf = (id: string) =>
+  PLAN_OPTIONS.find((o) => o.id === id)?.id;
 
 /** What breaks the plan card's rules (`fetch("ask/plan")`): `plan` and `gathered` on it alone, and with `plan`, its two options, `start` and `decline`; false when nothing does. A plan card without them reads as before: its plan in `context`. */
 function planProblemOf(
@@ -116,15 +122,14 @@ function planProblemOf(
   if (!(ask.plan || ask.gathered)) {
     return false;
   }
-  const ids = ask.options.map((o) => o.id);
+  const given = ask.options.map((o) => ({ id: o.id, label: o.label }));
   return (
     (!isPlan &&
       '`plan` and `gathered` are only on an assignment\'s plan card, its first card (fetch("ask/plan"))') ||
     (!ask.plan &&
       'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))') ||
-    ((ids.length !== PLAN_OPTIONS.length ||
-      PLAN_OPTIONS.some((id) => !ids.includes(id))) &&
-      'a plan card\'s options are exactly two: `start` and `decline` (fetch("ask/plan"))') ||
+    (JSON.stringify(given) !== JSON.stringify(PLAN_OPTIONS) &&
+      `a plan card's options are exactly ${JSON.stringify(PLAN_OPTIONS)} (fetch("ask/plan"))`) ||
     (ask.options.some((o) => o.ends || o.looks || o.outgoing || o.takes) &&
       'a plan card\'s options have no mark (fetch("ask/plan"))') ||
     (silence?.id === "start" &&

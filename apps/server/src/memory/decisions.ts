@@ -421,9 +421,8 @@ function withdrawDecision(asker: string, request: object, now: Date) {
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
  * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
- * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `held` is the desk's, for a
- * card an assignment asks: its `claim` (`Claim`); `prefer`, the matter it works on, which the finder takes on a tie
- * among the subject's matters; and `isPlan`, whether it is the assignment's plan card (`asksPlanOf`).
+ * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `held`, the desk's for an
+ * assignment's card: its `claim`, `prefer` (its matter, taken on a tie) and `isPlan` (its plan card, `asksPlanOf`).
  */
 export function requestDecision(
   asker: string,
@@ -442,7 +441,6 @@ export function requestDecision(
     : askCard(asker, request, now, readChat, held);
 }
 
-/** What the desk gives a card an assignment asks (`requestDecision`). */
 interface Held {
   claim: Claim;
   isPlan: boolean;
@@ -582,6 +580,7 @@ function answerProblemOf(
     (options.length === 0 &&
       !note &&
       "pick an option or give his words as `note`.") ||
+    (d.plan && options.length > 1 && "a plan card takes one pick.") ||
     (acts.includes("send") &&
       via !== "connector" &&
       "a draft is sent only on his own answer, through `answer_check` in his app.") ||

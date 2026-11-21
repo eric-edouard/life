@@ -353,8 +353,8 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(one).toContain(
     'Every card also offers Drop it, marked `ends: "matter"`'
   );
-  expect(one).not.toContain("Start with this plan?");
-  expect(two).toContain("Start with this plan?");
+  expect(one).not.toContain("Start the plan");
+  expect(two).toContain("Start the plan");
   expect(two).not.toContain("Life handed you this matter");
   expect(byId(desk, handed ?? "").opened_by).toBe("desk");
 });

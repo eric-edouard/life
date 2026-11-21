@@ -282,7 +282,8 @@ outside the lock, schemaVersion 3, by `kind`:
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
   days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null), `contests` (Life's stamp:
   the open card of another asker that held the draft's chat when asked, which this one waits on, `memory/draft-contest.ts`),
-  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read). A `draft` needs
+  `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
+  `plan` and `gathered` (an assignment's plan card only: its plan steps, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; its options are then `start` and `decline`; cards before 21 Nov 2026 have none, which is true of them). A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
   `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.

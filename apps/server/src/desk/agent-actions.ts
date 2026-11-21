@@ -29,7 +29,7 @@ import {
 import { EVENT_CHANNELS, type EventChannel } from "../host/event-channels";
 import { matcherOf, waitChannelsOf } from "../host/events";
 import { opensWithPlan } from "../host/inbox";
-import type { DecisionRequest } from "../memory/card-request";
+import { askPageOf, type DecisionRequest } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
 import { isAsked, isPending } from "../memory/draft-contest";
@@ -65,7 +65,7 @@ const RECORD_NOTES_CHARS = 1500;
 export const askFirstMessageOf = (openedBy: OpenedBy) =>
   openedBy === "desk"
     ? "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over)."
-    : 'Not done: ask your plan first (`request_decision` with `plan`, options `start` and `decline`: fetch("ask/plan")).';
+    : "Not done: ask your plan first (`request_decision` with `plan`, options `start` and `decline`: your brief says how).";
 
 /** The cards of assignment `s.id`, else of every assignment agent `s.agent_id` holds (`assignmentOfCard`): a card folded with its assignment is its new agent's. */
 function cardsOf(
@@ -594,14 +594,13 @@ const BOUNDS =
   ' Your notes go only through `write_notes` (Life keeps them and commits them, with your home in his agents repo, after each turn): never in a project\'s repo, which you change only on a card he approved. Your session is your one conversation, resumed on every wake and compacted by your runtime when full: keep your notes current before you compact. Never start a session or a scheduled task of your own to track a matter: the desk wakes you; sub agents inside a turn are fine. Wait only with `set_wait`, never with a Monitor, a loop or a scheduled task: when it cannot hold what you wait for, say so in one line and stop. `github` is a wait channel: a filter naming it (`channels: ["github"]`, with `text_matches`, `person` or `chat`) wakes you on new issues and comments of the repos he lists (`githubRepos`). When he writes in your session himself and you hold several matters, work out from his words which one he means, ask him only when that is unclear, and name the matter before you act. A turn he started by writing in your session: he is here, so answer and ask him in the chat; anything outward is still a card (`request_decision`), approved only on the card in his Life app, never by his yes in the chat, so tell him it waits there. A turn the desk started (a wake, his answer, a deadline): he is away, so every question or decision that needs his answer goes as a card, never a question left in the chat, which he will not see.';
 
 /** The one sentence of the contract that differs: what a first turn does when he asked for the agent (his plan card, then his `start`). */
-const PLAN_FIRST_TURN =
-  ' Your first turn only reads and asks your plan card (`fetch("ask/plan")`): its steps as `plan`, what it rests on as `gathered`, its `context` in Markdown (what you read, why this plan, not the steps again), a question of one line ending in a ? (such as "Start with this plan?"), and exactly two options, `start` ("Start the plan") and `decline` ("Not this plan"). Act only after his `start`; on his `decline`, `finish`; on his own words instead, read them and ask again.';
+const PLAN_FIRST_TURN = ` Your first turn only reads and asks your plan card. ${askPageOf("ask/plan")} Act only after his \`start\`; on his \`decline\`, \`finish\`; on his own words instead, read them and ask a follow-up card (no \`plan\`: only the first card is the plan card).`;
 
 /** ... and when the desk started it itself (`hand-out.ts`): no plan card, one card of what it found. */
 const HANDED_OUT_FIRST_TURN =
   ' Life handed you this matter from the top of his list; he did not ask for it. Your first turn reads and gathers (his chats, mail, files, the web), then asks ONE card, whichever is true: the next step prepared (a draft he can send as it is, in the channel the talk is already in, never mail when they talk in a chat); what only he can do (the step in a few words and every fact he needs for it: amount, account, address, phone, reference); or that it looks over (what shows it). Open the card\'s context with what you could not verify. On a card for what only he can do, or that it looks over, mark the option that means done `ends: "step"` (the step as `subject`) or `ends: "matter"` (nothing is left): his pick closes it in Life. Every card also offers Drop it, marked `ends: "matter"`, for a matter he does not care about: his pick of it alone closes the matter in Life (when the matter has no open step left, Life refuses it: leave it out and say in the context that he can tell you to stop). No other option closes anything. Then wait for his answer; finish when the step is done or nothing is left for you.';
 
-/** How a hand-out's card reads (his word of 21 Nov 2026: a card must read well): its plan in Markdown in `context`, its question one line. The plan card gives its steps as `plan` instead. */
+/** How a first turn's card reads (his word of 21 Nov 2026: a plan card must read well): its plan in Markdown in `context`, its question one line; the plan card also gives it as `plan`. */
 const PLAN_IN_MARKDOWN =
   " Write that card's plan in Markdown in its `context`: a short heading, numbered steps, what you wait on, and what you will ask him; its question stays one line.";
 
@@ -609,15 +608,11 @@ const PLAN_IN_MARKDOWN =
 const CARETAKER_FIRST_TURN =
   " Your first turn reads each complaint it was woken on (`read_complaint`) and starts on it: his words are your plan, so ask no plan card and wait for no `start`. A change still goes to him first, as a card with the exact change.";
 
-/** What an assignment's first turn does: the caretaker's by its role; else his plan card first when he opened it, one card of what it found, its plan in Markdown, when the desk did. */
-export const firstTurnOf = (a: Pick<AgentRow, "role">, openedBy: OpenedBy) => {
-  if (a.role === "caretaker") {
-    return CARETAKER_FIRST_TURN;
-  }
-  return openedBy === "desk"
-    ? `${HANDED_OUT_FIRST_TURN}${PLAN_IN_MARKDOWN}`
-    : PLAN_FIRST_TURN;
-};
+/** What an assignment's first turn does: the caretaker's by its role; else his plan card first when he opened it, one card of what it found when the desk did, either card's plan in Markdown. */
+export const firstTurnOf = (a: Pick<AgentRow, "role">, openedBy: OpenedBy) =>
+  a.role === "caretaker"
+    ? CARETAKER_FIRST_TURN
+    : `${openedBy === "desk" ? HANDED_OUT_FIRST_TURN : PLAN_FIRST_TURN}${PLAN_IN_MARKDOWN}`;
 
 /** What an agent of his own Life is told of the send guard (`send-guard.ts`), and of the repos it may post to itself. */
 function sendGuardLines() {

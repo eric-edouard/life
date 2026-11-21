@@ -202,11 +202,12 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     expect(text).toContain(
       "Act only after his `start`; on his `decline`, `finish`"
     );
-    // His word of 21 Nov 2026: the plan card reads well; its steps are `plan`, never repeated in its `context`.
+    // The plan card's rules are in the brief: an agent with its door alone has no `fetch`.
+    expect(text).toContain('{"id":"start","label":"Start the plan"}');
+    // His word of 21 Nov 2026: the plan card reads well. Its steps stay in its `context` too, for an app that does not draw `plan` yet.
     expect(text).toContain(
-      "its steps as `plan`, what it rests on as `gathered`"
+      "Write that card's plan in Markdown in its `context`: a short heading, numbered steps, what you wait on, and what you will ask him; its question stays one line."
     );
-    expect(text).not.toContain("Write that card's plan in Markdown");
     expect(text).toContain("name the matter before you act");
     expect(text).toContain("never with a Monitor");
     expect(text).toContain("`github` is a wait channel");
