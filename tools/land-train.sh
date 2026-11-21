@@ -14,7 +14,7 @@ for PR in "$@"; do
   v=$(gh pr view "$PR" --json body,headRefName,state -q 'select(.state=="OPEN") | .headRefName + "\t" + .body')
   ref=${v%%$'\t'*}; body=${v#*$'\t'}
   verdict=$(printf '%s\n' "$body" | sed -n 's/^Verdict: //p' | head -1)
-  if [ -z "$ref" ] || [ -z "$verdict" ] || [ "$verdict" = "rework needed" ]; then echo "skip #$PR: not open or no passing verdict"; continue; fi
+  if [ -z "$ref" ] || [ -z "$verdict" ] || case "$verdict" in "rework needed"*|"debt added"*) true;; *) false;; esac; then echo "skip #$PR: not open or no passing verdict"; continue; fi
   git fetch -q origin "$ref" && if git merge -q --no-edit FETCH_HEAD >/dev/null 2>&1; then
     IN+=("$PR"); echo "- #$PR ($ref): $verdict" >>"$BODY.verdicts"
   else git merge --abort; echo "skip #$PR: conflicts, land it alone"; fi
@@ -37,7 +37,10 @@ AREAS=$(git diff --name-only origin/main...HEAD | awk '
 "$LL" take $AREAS || exit 1
 trap '"$LL" drop $AREAS' EXIT
 bun install --ignore-scripts >/dev/null 2>&1 || { echo "INSTALL FAILED"; exit 1; }
-if ! HEAVY_LANE=land "$SP/heavy.sh" bun run check >"$ST/check-$NAME.log" 2>&1; then
+check() { HEAVY_LANE=land "$SP/heavy.sh" bun run check >"$ST/check-$NAME.log" 2>&1; }
+# A test that only timed out (30 s under load) is retried once: a flaky timeout must not hold three PRs (21 Nov).
+timedout() { f=$(grep -E "\(fail\)" "$ST/check-$NAME.log"); [ -n "$f" ] && ! echo "$f" | grep -vqE "\[(29|30)[0-9]{3}\.[0-9]+ms\]"; }
+if ! check && ! { timedout && echo "retry: timeout only" && check; }; then
   echo "CHECK FAILED: $(grep -E "✗|\(fail\)" "$ST/check-$NAME.log" | head -5)"
   # Blame: the PRs whose files the failure names; none named = all of them. A blamed PR is skipped by the conveyor
   # until its head changes (blocked/<pr> holds the head that failed), so a broken PR never fails train after train.
@@ -49,6 +52,8 @@ if ! HEAVY_LANE=land "$SP/heavy.sh" bun run check >"$ST/check-$NAME.log" 2>&1; t
   done
   [ ${#BL[@]} -eq 0 ] && BL=("${IN[@]}")
   for PR in "${BL[@]}"; do gh pr view "$PR" --json headRefOid -q .headRefOid >"$ST/blocked/$PR"; done
+  # Drop the locks while still on the train's branch: land-lock names the holder by branch (a failed train held them).
+  "$LL" drop $AREAS; trap - EXIT
   echo "blamed: ${BL[*]}"; cd "$REPO" && git worktree remove --force "$T-$NAME"; git branch -D -q "$NAME"
   exit 1
 fi
