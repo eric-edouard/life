@@ -279,6 +279,13 @@ test("open decisions come first, soonest deadline first, each naming the agent t
   expect(
     checksOf({ ...base, matters: [matter(false)] }).map((c) => c.ref)
   ).toEqual(["dec_00000000000b", REF]);
+  // Probably done (a link, or Life reads it over) still waits on his word: its decision stays, on its matter.
+  expect(
+    checksOf({
+      ...base,
+      matters: [{ ...matter(false), status: "probably_done" as never }],
+    }).find((c) => c.ref === "dec_00000000000a")?.matter
+  ).toMatchObject({ id: "matter_bbbbbbbbbbbb" });
   // A step no matter holds any more (a re-group) keeps its decision.
   expect(checksOf({ ...base, matters: [] }).map((c) => c.ref)).toEqual([
     "dec_00000000000b",

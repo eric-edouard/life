@@ -6,7 +6,7 @@ import {
   standingAgents,
 } from "../host/desk-read";
 import { pinnedAssignmentsOf } from "../host/move-read";
-import { matterFinderOf } from "../memory/matter-read";
+import { isAwaitingHisWord, matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { agentForMatterOf } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
@@ -44,7 +44,7 @@ export async function cardHomeOf(
   }
   const people = await readPeople();
   const find = matterFinderOf(
-    (await readMatterBook(people, dayNow())).filter((m) => m.open)
+    (await readMatterBook(people, dayNow())).filter(isAwaitingHisWord)
   );
   const pick = (a: AssignmentRow) => a.matter_id ?? undefined;
   if (given === undefined) {
