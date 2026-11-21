@@ -2,7 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY } from "../core/clock";
 import { logEvents, logFileOf } from "../core/log";
-import { answerDecision, DECISIONS, requestDecision } from "./decisions";
+import { DECISIONS } from "./decision-lines";
+import { answerDecision, requestDecision } from "./decisions";
 
 afterEach(() => rmSync(DECISIONS, { force: true }));
 

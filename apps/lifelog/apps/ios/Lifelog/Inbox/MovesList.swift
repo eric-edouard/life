@@ -66,7 +66,6 @@ struct MovesList: View {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
                         context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
-                        holdsAnswers: true,
                         takes: { taken in
                             life.hold(taken.request, as: taken.heldWords)
                             opened = nil

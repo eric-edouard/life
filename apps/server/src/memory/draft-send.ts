@@ -354,13 +354,14 @@ export function chatTakesLinesOf(chat?: string, sources = enabledSources()) {
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;
 
 /**
- * What was written in each card's draft chat after its `since`, oldest first, his own messages too: the one test of
- * "someone wrote since" (the send's refusal, and `withdrawDraftsAnsweredInChat`). None for a mail or a draft with no
- * chat. Each channel is read once, from its earliest `since`.
+ * What was written in each card's draft chat (or any chat, by its channel and id) after its `since`, oldest first, his
+ * own messages too: the one test of "someone wrote since" (the send's refusal, `withdrawDraftsAnsweredInChat`, and an
+ * arrival he answered before its wake). None for a mail or a draft with no chat. Each channel is read once, from its
+ * earliest `since`.
  * ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
  */
 export function wroteSince(
-  cards: { draft: StoredDraft; since: Date }[],
+  cards: { draft: Pick<StoredDraft, "channel" | "chat">; since: Date }[],
   sources = enabledSources()
 ) {
   const read = new Map<string | undefined, SourceEvent[]>(

@@ -387,7 +387,7 @@ extension Array {
         try recording.append(Array(tone[chunk..<min(chunk + 1_000, tone.count)]))
     }
     #expect(recording.millis == 1_230)
-    #expect(recording.level > 0.1)
+    #expect(recording.takeLevel() > 0.1)
     let memory = try recording.finish()
 
     // The same samples through the file writer give the same bytes.
@@ -406,6 +406,17 @@ extension Array {
     let minute = [Float](repeating: 0, count: 60 * PendantAudio.sampleRate)
     for _ in 0..<11 { try long.append(minute) }
     #expect(long.millis == DictationRecording.capMillis)
+}
+
+/// A loud syllable followed by a quiet tail within one bar still shows: the bar is the loudness of all of it.
+@Test func aDictationsLevelIsEverythingHeardSinceTheLastTake() throws {
+    let recording = try DictationRecording()
+    try recording.append([Float](repeating: 0.5, count: 320))
+    try recording.append([Float](repeating: 0, count: 640))
+    #expect(abs(recording.takeLevel() - (0.25 / 3).squareRoot()) < 1e-4)
+    #expect(abs(recording.takeLevel() - (0.25 / 3).squareRoot()) < 1e-4, "nothing new: the last level again")
+    try recording.append([Float](repeating: 0, count: 320))
+    #expect(recording.takeLevel() == 0)
 }
 
 @MainActor @Test func aLatePlaybackStopNeverLetsGoOfTheSessionADictationTookAfterIt() throws {

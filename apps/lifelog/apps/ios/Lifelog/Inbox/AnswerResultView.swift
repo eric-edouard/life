@@ -16,8 +16,6 @@ struct Taken: Equatable {
     /// He picked the option that sends the draft; another answer on a draft's card sends nothing.
     var isSend: Bool { check.options.contains { $0.outgoing == true && request.options.contains($0.id) } }
     var isStart: Bool { check.options.contains { request.options == [$0.id] && check.isHandOver($0) } }
-    /// His word that the step or matter is done: held for Undo wherever the card is shown.
-    var isEnding: Bool { check.isEnding(request) }
     var context: ActionCopy.Context {
         .init(
             to: check.draft?.to, channel: check.draft?.channel, asker: check.agentName(runtime: runtimeName))
@@ -176,8 +174,9 @@ extension Taken {
         return request.name ?? (request.note == nil ? "Your answer" : "Your words")
     }
 
-    /// Held for Undo: any answer that is not a send, a start, a goal edit (Life has no undo for those) or a new person's
-    /// name (Life reads who that is, or adds them to his directory: its result, or why not, shows on its card first).
+    /// Any answer that is not a send, a start, a goal edit or a new person's name (Life reads who that is, or adds them
+    /// to his directory: its result, or why not, shows on its card first): held for Undo on a bulk card's row and in the
+    /// moves list, shown on its button on its own card.
     var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
 
     /// "Sent." only on Life's proof that it went; an answer that sent nothing takes its card's word.
