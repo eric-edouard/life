@@ -218,12 +218,8 @@ export function spendsOfVoice(v: VoiceSpending): Spend[] {
               },
             ]
           : [];
-      const scribe =
-        j.outcome === "maybe_billed"
-          ? [scribeOf(j.at, null)]
-          : j.billableSeconds > 0
-            ? [scribeOf(j.at, j.billableSeconds)]
-            : [];
+      const seconds = j.outcome === "maybe_billed" ? null : j.billableSeconds;
+      const scribe = seconds === 0 ? [] : [scribeOf(j.at, seconds)];
       return [...speech, ...scribe];
     }),
     ...v.voiceNotes
