@@ -84,9 +84,10 @@ struct InboxScreen: View {
             // A project parked from a card's "Tell the agent…", said back with Undo.
             .saidBackToast(inSideColumn: inSideColumn)
             .toolbar {
+                // Back to the list of asks: the one Back of a list and its detail (his word, 21 Nov), never a sidebar's toggle.
                 if sizeClass != .regular {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }
+                        Button("Asks", systemImage: "chevron.backward") { router.inboxColumn = .sidebar }
                     }
                 }
             }

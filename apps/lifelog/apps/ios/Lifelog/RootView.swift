@@ -50,6 +50,8 @@ struct RootView: View {
                 }
             }
         }
+        // The tabs' glyphs in line, as drawn (the system fills them by default).
+        .environment(\.symbolVariants, .none)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
