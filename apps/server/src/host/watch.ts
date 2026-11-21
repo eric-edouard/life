@@ -5,7 +5,9 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
+import { isOwnLife } from "../core/platform";
 import { codeAt } from "../core/proc";
+import { rotateProcessLogs } from "../core/service";
 import { settings } from "../core/settings";
 import {
   ownerNamesOf,
@@ -45,6 +47,7 @@ import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
 import { lockReport, sendReport } from "./report";
+import { sampleResources } from "./resource-sample";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
@@ -568,6 +571,12 @@ function minute() {
     log("run.error", { ...errorOf(e), step: "watch.done-seen" })
   );
   pushNewCardsIfChanged();
+  if (isOwnLife()) {
+    rotateProcessLogs();
+    sampleResources().catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "watch.resources" })
+    );
+  }
 }
 
 const STUCK_MS = 3 * HOUR;

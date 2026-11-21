@@ -106,14 +106,16 @@ import { openChecksNow } from "./inbox";
 import { syncPast } from "./past-calendar";
 import { readAgentSection } from "./registered-agents";
 import {
+  alertKeyOf,
   failureReport,
   type Mail,
+  redCards,
   redReport,
   reportKey,
   sendReport,
   successReport,
 } from "./report";
-import { redCards, snapshot } from "./status/snapshot";
+import { snapshot } from "./status/snapshot";
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
@@ -271,7 +273,7 @@ export async function nightly(days: number, force = false) {
     const red = redCards((await snapshot()).cards);
     if (red.length > 0) {
       await sendReport(
-        red.map((c) => `alert/${c.id}/${c.word}/${dayNow(clock())}`),
+        red.map((c) => alertKeyOf(c, clock())),
         redReport(clock().toISOString(), red)
       );
     }

@@ -137,11 +137,11 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(!Stub.requested(host))
 }
 
-/// The inbox at its biggest (about 265 cards, each with a draft and its evidence) must read in well under a second, as the
+/// The inbox at its biggest (about 265 cards, each with a draft and its quoted context) must read in well under a second, as the
 /// stub streams it in 16 KB chunks: a read has no progress to give, so it is never parsed byte by byte.
 @Test func aBigInboxReadsFast() async throws {
     let card =
-        #"{"ref":"dec_000000000001","group":"decision","title":"t","question":"q","asker":"a","options":[],"evidence":{"from":"someone","quote":"\#(String(repeating: "word ", count: 120))"},"context":"\#(String(repeating: "more ", count: 200))"}"#
+        #"{"ref":"dec_000000000001","group":"decision","title":"t","question":"q","asker":"a","options":[],"context":"> \#(String(repeating: "word ", count: 120))\n\n*someone*\n\n\#(String(repeating: "more ", count: 200))"}"#
     let text =
         #"{"checks":[\#(Array(repeating: card, count: 265).joined(separator: ","))],"counts":{},"total":265,"deadlinesToday":0}"#
     let body = Data(resultMessage(text).utf8)

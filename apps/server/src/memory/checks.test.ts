@@ -37,7 +37,7 @@ const anchored = (step: string, over: Partial<AgentHold> = {}) => [
 ];
 
 const ASKED_UNTIL_22_NOV =
-  /Next step: Book the plumber\. Asked until .*22 Nov\.$/;
+  /Next step: Book the plumber\. Asked until .*22 Nov\.\n\n> the boiler is leaking\n\n\*[^[\]]*16 Nov\*$/;
 
 const ID = "inf_kit";
 const REF = `person:${ID}`;
@@ -64,8 +64,11 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   // Life's guess is its recommendation, listed first; on silence nothing is taken; its kind gives the title and context.
   expect(check).toMatchObject({
     asker: "life",
-    context: "Life read their messages as Kit inf_kit, the plumber (70% sure).",
+    // The words the guess rests on, quoted once and escaped; its unit was not read, so where is plain text.
+    context:
+      "Life read their messages as Kit inf\\_kit, the plumber (70% sure).\n\n> inf\\_kit said hello\n\n*an earlier message*",
     draft: null,
+    lifeLinks: [],
     onSilence: null,
     title: "Know who someone is",
   });
@@ -78,7 +81,7 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   const printed = checksText([check as Check]);
   expect(printed).toContain(`1. [guessed person] ${REF}: Is this Kit inf_kit?`);
   expect(printed).toContain("about: +33600000001");
-  expect(check?.evidence?.quote).toBe(`${ID} said hello`);
+  expect(printed.split("said hello")).toHaveLength(2);
 });
 
 test("his word, this-is or same-person to the guess, removes the check; a not-this-person on one handle does not", () => {
@@ -208,7 +211,6 @@ test("an ending rides on its open matter and goes with his answer", () => {
   });
   const [ending] = checksOf(base);
   expect(ending).toMatchObject({
-    evidence: { quote: "Sent it." },
     kind: "ending",
     matter: { id: "matter_aaaaaaaaaaaa", name: "Send the quote" },
     // The open step is `said` (who, to whom, when) and what came since is `since`; the question stays short.
@@ -375,7 +377,9 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   expect(labels(dana)).toEqual(["Yes", "Someone else…", "Don't name"]);
   expect(labels("voice:v1")).toEqual(["Someone else…", "Don't name"]);
   expect(labels("voice:v2")).toEqual(["Someone else…", "Don't name"]);
-  expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
+  expect(byRef("voice:v2")?.context).toContain(
+    "> See you Friday\n\n*a recorded conversation,"
+  );
   // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
   const guesses = cards.filter((c) => urgencyOf(c) === "improves");
   expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([dana]);
@@ -449,10 +453,6 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
       context: expect.stringMatching(ASKED_UNTIL_22_NOV),
       deadline: null,
       draft: null,
-      evidence: {
-        from: expect.stringContaining("16 Nov"),
-        quote: "the boiler is leaking",
-      },
       goal: "The boiler is serviced.",
       group: "new matter",
       kind: "new matter",
