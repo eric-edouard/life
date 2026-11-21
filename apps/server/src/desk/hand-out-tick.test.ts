@@ -40,6 +40,7 @@ import {
   asgOf,
   matterView,
   on,
+  pastPlan,
   setup,
   toDo,
   withBook,
@@ -459,6 +460,8 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
         runtime: "claude",
         steps: [theirs],
       });
+      await pastPlan(desk, on(desk, asker));
+      await pastPlan(desk, on(desk, holder));
       pollAnswers(desk);
       const card = (agent: string, title: string) =>
         askDecision(desk, on(desk, agent), {
@@ -485,8 +488,12 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
       );
       setSystemTime(new Date(clock().getTime() + 1000));
       pollAnswers(desk);
-      expect(queued(desk, asgOf(desk, asker))).toEqual([DECISION_ANSWERED]);
-      expect(queued(desk, asgOf(desk, holder))).toEqual([]);
+      // His plan's answer is each one's first; the card's answer is the asker's second, never the holder's.
+      expect(queued(desk, asgOf(desk, asker))).toEqual([
+        DECISION_ANSWERED,
+        DECISION_ANSWERED,
+      ]);
+      expect(queued(desk, asgOf(desk, holder))).toEqual([DECISION_ANSWERED]);
       await withdrawOpenCards(desk.db, on(desk, holder), `test over ${own}`);
     }
   );
@@ -523,6 +530,7 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
         project: "test-bakery",
         runtime: "claude",
       });
+      await pastPlan(desk, on(desk, agent));
       pollAnswers(desk);
       const { id } = await askDecision(desk, on(desk, agent), {
         context: "A made-up reason to ask.",
@@ -572,8 +580,9 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
         runtime: "claude",
         steps: [step],
       });
-      pollAnswers(desk);
       const s = on(desk, old);
+      await pastPlan(desk, s);
+      pollAnswers(desk);
       const { id: card } = await askDecision(desk, s, {
         context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
@@ -625,7 +634,11 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
       );
       setSystemTime(new Date(clock().getTime() + 1000));
       pollAnswers(desk);
-      expect(queued(desk, s.id)).toEqual([DECISION_ANSWERED]);
+      // His plan's answer, then the card's.
+      expect(queued(desk, s.id)).toEqual([
+        DECISION_ANSWERED,
+        DECISION_ANSWERED,
+      ]);
       await wakeDue(desk);
       expect(
         desk.db

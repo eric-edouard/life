@@ -29,7 +29,7 @@ import * as draftSend from "../memory/draft-send";
 import { askDecision, readCard } from "./agent-actions";
 import { nextWakeOf } from "./agent-wait";
 import { pollAnswers } from "./desk-clock";
-import { advance, ahead, asgOf, on, setup } from "./test-desk";
+import { advance, ahead, asgOf, on, pastPlan, setup } from "./test-desk";
 
 // The desk's side of a draft's contest, made up: two agents each draft into Noa's group chat.
 
@@ -142,6 +142,7 @@ test("a merged card's answer wakes both agents", async () => {
   const { desk, waiting } = setup();
   const holder = await waiting(DAY);
   const asker = await waiting(DAY);
+  await pastPlan(desk, on(desk, holder));
   pollAnswers(desk);
   await askDecision(desk, on(desk, holder), card(holder) as never);
   const w = await ask(asker);
@@ -235,6 +236,7 @@ test("a desk holder's merge: the paired agent whose card it merged hears his ans
   );
   const { desk, waiting } = setup();
   const holder = await waiting(DAY);
+  const plan = await pastPlan(desk, on(desk, holder));
   pollAnswers(desk);
   const from = clock();
   await askDecision(desk, on(desk, holder), card(holder) as never);
@@ -251,8 +253,9 @@ test("a desk holder's merge: the paired agent whose card it merged hears his ans
   pollAnswers(desk);
   const answered = `${merged.id}.answered`;
   expect(pairedHears(from)).toEqual([[answered, undefined, null, ["skip"]]]);
-  expect(answersOf(desk, holder)).toEqual([
-    [answered, "Send this to the group?", "skip", ["skip"]],
-  ]);
+  // The plan's own answer is the holder's too, queued before this test's cards.
+  expect(
+    answersOf(desk, holder).filter((a) => a[0] !== `${plan}.answered`)
+  ).toEqual([[answered, "Send this to the group?", "skip", ["skip"]]]);
   resolved.mockRestore();
 });

@@ -20,7 +20,6 @@ import type { EventFilter } from "../records/registered-agent";
 import {
   askDecision,
   closeAssignment,
-  hasAsked,
   openAssignment,
   pendingCardOf,
   register,
@@ -44,6 +43,7 @@ import {
   asgOf,
   matterView,
   on,
+  pastPlan,
   setup,
   started,
   withMatters,
@@ -268,6 +268,7 @@ test("a matter's card takes its matter as subject (stored as its newest step), r
     title: "a test",
     ...(subject ? { subject } : {}),
   });
+  await pastPlan(desk, row);
   await withMatters(MATTERS, async () => {
     await expect(askDecision(desk, row, card("obs_b1"))).rejects.toThrow(
       "is not on a matter you hold"
@@ -347,7 +348,12 @@ async function twoAssignments() {
     }
     return r;
   };
-  return { ...t, id, onA: () => row(a), own: () => row(asgOf(t.desk, id)) };
+  const own = () => row(asgOf(t.desk, id));
+  const planIds = [
+    await pastPlan(t.desk, own()),
+    await pastPlan(t.desk, row(a)),
+  ];
+  return { ...t, id, onA: () => row(a), own, planIds };
 }
 
 // Regression: a turn could withdraw the card of another assignment of its agent.
@@ -367,12 +373,13 @@ test("a turn cannot withdraw the card of its agent's other assignment", async ()
 // the card over: its answer and its withdrawal. The desk now writes once which assignment asked it.
 test("a card stays its asking assignment's when its subject is later anchored on the agent's other one; his answer wakes the asker", async () => {
   const t = await twoAssignments();
-  const { desk, onA } = t;
+  const { desk, onA, planIds } = t;
   const b = assignmentOf(desk.db, onMatter(desk, t.id, "b", HOUR));
   if (!b) {
     throw new Error("no assignment on b");
   }
   const own = () => b;
+  planIds.push(await pastPlan(desk, b));
   await withMatters(MATTERS, async () => {
     pollAnswers(desk);
     const { id: card } = await askDecision(desk, own(), yesNo("obs_b1"));
@@ -388,10 +395,13 @@ test("a card stays its asking assignment's when its subject is later anchored on
     advance(1000);
     pollAnswers(desk);
     const answered = (s: string) =>
-      queuedEvents(desk.db, s).map((e) => e.event_id);
+      queuedEvents(desk.db, s)
+        .map((e) => e.event_id)
+        .filter((e) => !planIds.some((p) => e === `${p}.answered`));
     expect(answered(own().id)).toEqual([`${card}.answered`]);
     expect(answered(onA().id)).toEqual([]);
-    expect(hasAsked(desk.db, onA())).toBe(false);
+    // onA asked only its plan: the card is not its.
+    expect(pendingCardOf(desk.db, onA())).toBeUndefined();
   });
 });
 
@@ -538,7 +548,9 @@ test("a card whose owner cannot be written is never written", async () => {
       "test: no write"
     );
   });
-  expect(decisionsNow().filter((d) => d.agent === id)).toEqual([]);
+  expect(
+    decisionsNow().filter((d) => d.agent === id && d.title === "a test")
+  ).toEqual([]);
 });
 
 // Regression (21 Nov 2026): a card on a step its agent's other assignment holds was refused; it is filed under that one.
@@ -593,6 +605,7 @@ test("the desk's store syncs every commit to disk", () => {
 // Owner and anchor are now written together before the card: when either fails, nothing is.
 test("a card whose subject's anchor cannot be written is never written, and the step stays free", async () => {
   const { desk, id, onA, own } = await twoAssignments();
+  const plans = desk.db.query("select * from card").all();
   desk.db.run(
     "create trigger test_no_anchor before insert on anchor begin select raise(abort, 'test: no anchor'); end"
   );
@@ -600,8 +613,10 @@ test("a card whose subject's anchor cannot be written is never written, and the 
     await expect(askDecision(desk, onA(), yesNo("obs_a2"))).rejects.toThrow(
       "test: no anchor"
     );
-    expect(decisionsNow().filter((d) => d.agent === id)).toEqual([]);
-    expect(desk.db.query("select * from card").all()).toEqual([]);
+    expect(
+      decisionsNow().filter((d) => d.agent === id && d.title === "a test")
+    ).toEqual([]);
+    expect(desk.db.query("select * from card").all()).toEqual(plans);
     desk.db.run("drop trigger test_no_anchor");
     const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
     expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
@@ -618,6 +633,7 @@ test("a card whose subject's anchor cannot be written is never written, and the 
 // with no card. Owner, anchor and card are now one transaction: a failed write takes back only its own rows, at once.
 test("a card whose write fails leaves neither its owner nor its anchor, and the next ask on that step holds it", async () => {
   const { desk, id, onA, own } = await twoAssignments();
+  const plans = desk.db.query("select * from card").all();
   const files = await import("../core/files");
   const write = spyOn(files, "appendJsonl").mockImplementationOnce(() => {
     throw new Error("test: disk full");
@@ -627,7 +643,7 @@ test("a card whose write fails leaves neither its owner nor its anchor, and the 
       await expect(askDecision(desk, onA(), yesNo("obs_a2"))).rejects.toThrow(
         "test: disk full"
       );
-      expect(desk.db.query("select * from card").all()).toEqual([]);
+      expect(desk.db.query("select * from card").all()).toEqual(plans);
       expect(anchorsOf(desk.db, onA().id)).not.toContain("obs_a2");
       const { id: card } = await askDecision(desk, onA(), yesNo("obs_a2"));
       expect(assignmentOfCard(desk.db, { agent: id, id: card })).toBe(onA().id);
@@ -679,6 +695,7 @@ test("a step goes to its sibling assignment while that one is open, and is free 
 // Regression: one open card per assignment was checked before the ask's reads, so two asks at once both got a card.
 test("two asks at once on one assignment give it exactly one card", async () => {
   const { desk, id, onA } = await twoAssignments();
+  const plans = desk.db.query("select * from card").all().length;
   await withMatters(MATTERS, async () => {
     const asks = await Promise.allSettled([
       askDecision(desk, onA(), yesNo()),
@@ -686,6 +703,8 @@ test("two asks at once on one assignment give it exactly one card", async () => 
     ]);
     expect(asks.map((a) => a.status).sort()).toEqual(["fulfilled", "rejected"]);
   });
-  expect(decisionsNow().filter((d) => d.agent === id)).toHaveLength(1);
-  expect(desk.db.query("select * from card").all()).toHaveLength(1);
+  expect(
+    decisionsNow().filter((d) => d.agent === id && d.title === "a test")
+  ).toHaveLength(1);
+  expect(desk.db.query("select * from card").all()).toHaveLength(plans + 1);
 });
