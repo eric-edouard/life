@@ -1,4 +1,5 @@
 import { clock } from "../core/clock";
+import { DESK_AGENT } from "../core/names";
 import { asHeard, LIFE_WAKE, type Settings, settings } from "../core/settings";
 import {
   readTranscript,
@@ -12,9 +13,9 @@ import { isSettledAfter } from "../sources/lifelog-speech";
 import { ask } from "./asks";
 
 // Hears "hey <word>" in his recorded speech: his turns that follow are a span. Every span is recorded in the store as a
-// mark (`writeMarks`): Life keeps what he says to it. A span woken by an agent's word is also an ask for that agent
-// (`ask`; the agent pulls it, `read_agent_asks`); "hey Life" (`LIFE_WAKE`) wakes none. No model call: the two words
-// wake it, and the agent judges the rest.
+// mark (`writeMarks`): Life keeps what he says to it. Every span is also an ask (`ask`): one woken by an agent's word for
+// that agent (it pulls it, `read_agent_asks`), "hey Life" (`LIFE_WAKE`) for the desk, which routes it to one agent
+// (`desk/spoken-ask-intake.ts`). No model call: the two words wake it, and the agent judges the rest.
 
 const SPACES = /\s+/;
 /** One wake word as lifelog may write it: its words, with any spaces or punctuation between them. */
@@ -103,7 +104,7 @@ export interface Turn {
 /**
  * The spans in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
  * after `from`: a wake turn, then the following turns of the same speaker until another speaker, a 15 s pause or a new
- * wake. Its confidence is `wakeOf`'s; its agent, the one its first wake word wakes (none for "hey Life": a mark only).
+ * wake. Its confidence is `wakeOf`'s; its agent, the one its first wake word wakes (none for "hey Life": the desk's).
  */
 export function spansIn(turns: Turn[], from: string) {
   return turns.flatMap((t, i) => {
@@ -190,7 +191,7 @@ export async function hear(
     now - Date.parse(a.timing.arrived) < NAMING_MS;
   const spans = spansIn(turns, from);
   for (const a of spans.flatMap((x) =>
-    x.agent && !held(x) ? [{ ...x, agent: x.agent }] : []
+    held(x) ? [] : [{ ...x, agent: x.agent ?? DESK_AGENT }]
   )) {
     ask(
       { at: a.at, quote: a.quote, ref: a.ref },

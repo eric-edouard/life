@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DESK_AGENT } from "../core/names";
 import { isoDateTime, MadeBy } from "./fields";
 
 // The actions ledger (memory/ledger.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
@@ -104,6 +105,16 @@ export const isBookkeeping = (a: LedgerEntry) =>
  */
 export const isComplaint = (a: LedgerEntry) =>
   a.kind === "ask" && a.after.complaint !== undefined;
+
+/**
+ * His spoken ask: a "hey Life" span the hearing recorded (`host/hear.ts`), an ask of the desk with the `conversation` it
+ * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`). Never pulled (`asksFor`): the desk
+ * reads it itself, as it does his complaints.
+ */
+export const isSpokenAsk = (a: LedgerEntry) =>
+  a.kind === "ask" &&
+  a.after.agent === DESK_AGENT &&
+  a.after.conversation !== undefined;
 
 /**
  * What his complaint names besides his words (`after.complaint`): the card's `ref`, the `cause` and the card he saw

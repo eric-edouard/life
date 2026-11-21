@@ -14,8 +14,10 @@ import {
   type TurnRow,
   turnOf,
 } from "../host/desk-read";
+import { ASK_SPOKEN } from "../host/events";
 import { MOVE_NOTES } from "../host/move-read";
 import type { TurnOutcome } from "../records/registered-agent";
+import { notifyPhone } from "../sources/lifelog-push";
 import { commitAgentFiles, keepHanded, stopOpenRun } from "./agent-actions";
 import {
   BEGIN_WITHIN_MS,
@@ -64,12 +66,16 @@ function watchedIn(db: Desk["db"]) {
 /**
  * Marks turn `turn` under way, once, and counts a try for each event queued before it was written (what it was handed):
  * a turn that never began (offline, out of quota) counts none, so it drops nothing, nor one already ended (a late `begun`).
+ * Whether it handed a spoken ask for the first time (`ask.spoken` never handed before): its agent's push is then due.
  */
 const markBegun = (db: Desk["db"], turn: number) =>
   db.transaction(() => {
     const t = db
-      .query<Pick<TurnRow, "assignment_id" | "cause" | "started_at">, [number]>(
-        "select assignment_id, cause, started_at from turn where id = ? and begun_at is null and ended_at is null"
+      .query<
+        Pick<TurnRow, "agent_id" | "assignment_id" | "cause" | "started_at">,
+        [number]
+      >(
+        "select agent_id, assignment_id, cause, started_at from turn where id = ? and begun_at is null and ended_at is null"
       )
       .get(turn);
     if (!t) {
@@ -81,11 +87,28 @@ const markBegun = (db: Desk["db"], turn: number) =>
     if (t.cause === MOVE_NOTES) {
       return;
     }
+    const isFirstAsk = db
+      .query(
+        "select 1 from event where assignment_id = ? and name = ? and handed = 0 and received_at <= ? and consumed_at is null and dropped_at is null"
+      )
+      .get(t.assignment_id, ASK_SPOKEN, t.started_at);
     db.run(
       "update event set handed = handed + 1 where assignment_id = ? and received_at <= ? and consumed_at is null and dropped_at is null",
       [t.assignment_id, t.started_at]
     );
+    return isFirstAsk ? agentOf(db, t.agent_id) : undefined;
   })();
+
+/**
+ * Tells him his spoken ask reached agent `a`, once its turn on it began (never while it is only queued): "<name> heard
+ * you", its name, else "Personal" for that role, else "Your agent"; never his words or its brief (the push goes
+ * through Apple).
+ */
+const pushHeard = (a: AgentRow) =>
+  notifyPhone({
+    body: "Your ask reached it.",
+    title: `${a.name ?? (a.role === "personal" ? "Personal" : "Your agent")} heard you`,
+  });
 
 /** Ends turn `turn` when `run` does: failed when it did. */
 export function watch(desk: Desk, turn: number, run: Run) {
@@ -93,7 +116,13 @@ export function watch(desk: Desk, turn: number, run: Run) {
   // A run that ends before it begins is `ended`'s to say; `begun` settles soon after `ended` at the latest, and is waited
   // for, so a turn that began and then failed is retried, never ended as not started.
   const begun = run.begun.then(
-    () => markBegun(desk.db, turn),
+    () => {
+      const heard = markBegun(desk.db, turn);
+      // Not waited for: the turn's end never waits on the phone.
+      if (heard) {
+        pushHeard(heard);
+      }
+    },
     () => undefined
   );
   run.ended

@@ -1,6 +1,6 @@
 import { clock, iso } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import { AGENT_WORD } from "../core/names";
+import { AGENT_WORD, DESK_AGENT } from "../core/names";
 import { startDetached } from "../core/proc";
 import { settings } from "../core/settings";
 import { feedPage, fileSource, PAGE, parseCursor } from "../memory/changes";
@@ -14,6 +14,7 @@ import { clip } from "../memory/units";
 import {
   type Instruction,
   isComplaint,
+  isSpokenAsk,
   LedgerEntry,
 } from "../records/ledger-entry";
 import { notifyPhone } from "../sources/lifelog-push";
@@ -60,8 +61,9 @@ export function ask(
       startDetached(onAsk);
     }
     // Heard, not done: a voice ask with no push tells him at once it was not heard (his ask, 8 Nov 2026). His words
-    // stay off the push (it goes through Apple).
-    if (via === "watch") {
+    // stay off the push (it goes through Apple). His spoken ask of the desk is told when its agent's turn begins
+    // (`desk/turn-ends.ts`).
+    if (via === "watch" && after.agent !== DESK_AGENT) {
       notifyPhone({
         body: "Your ask reached it.",
         title: `${after.agent} heard you`,
@@ -73,7 +75,8 @@ export function ask(
 
 /**
  * A page of `agent`'s asks past `cursor`, in the order recorded (`read_agent_asks`): the ledger's own cursor, so an
- * ask appended late is never skipped and none comes twice. His complaints are never pulled: the desk reads them itself.
+ * ask appended late is never skipped and none comes twice. His complaints and spoken asks are never pulled: the desk
+ * reads them itself.
  */
 export function asksFor(agent: string, cursor?: string, limit = PAGE) {
   const page = feedPage(
@@ -85,7 +88,8 @@ export function asksFor(agent: string, cursor?: string, limit = PAGE) {
       return a?.kind === "ask" &&
         a.instruction &&
         a.after.agent === agent &&
-        !isComplaint(a)
+        !isComplaint(a) &&
+        !isSpokenAsk(a)
         ? {
             agentChange: a.after.agentChange,
             at: a.at,
