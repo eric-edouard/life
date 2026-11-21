@@ -7,9 +7,8 @@ import SwiftUI
 /// nothing.
 @MainActor @Observable
 final class LiveLogs {
-    enum Level: Hashable { case all, problems }
-
-    var level = Level.all
+    /// Problems only (warn, error), or every line.
+    var isProblems = false
     var process: LogProcess?
     private(set) var read = ReadState<LogFeed>()
     /// Lines that just came, tinted for 1 s.
@@ -20,7 +19,7 @@ final class LiveLogs {
     /// Which feed a read was begun for: a read for an older one applies nothing.
     @ObservationIgnored private var feedNumber = 0
 
-    var query: LogQuery { LogQuery(minLevel: level == .problems ? .warn : nil, process: process) }
+    var query: LogQuery { LogQuery(minLevel: isProblems ? .warn : nil, process: process) }
 
     /// Life did not answer the last read: the lines shown are dimmed and following stops.
     var isDown: Bool {
@@ -132,12 +131,7 @@ struct LiveLogsPage: View {
     var body: some View {
         VStack(spacing: Metrics.Spacing.m) {
             HStack(spacing: Metrics.Spacing.s) {
-                SegmentedChoice(
-                    choices: [LiveLogs.Level.all, .problems],
-                    selection: Binding(get: { logs.level }, set: { logs.level = $0 ?? logs.level }),
-                    title: { $0 == .all ? "All" : "Problems" }
-                )
-                .frame(maxWidth: 176)
+                LogLevelChoice(isProblems: $logs.isProblems)
                 LogProcessMenu(process: $logs.process)
             }
             .padding(.horizontal, Metrics.gutter)
@@ -149,7 +143,7 @@ struct LiveLogsPage: View {
                 },
                 loading: { Spinner().foregroundStyle(Palette.fg).frame(maxHeight: .infinity) },
                 empty: {
-                    logs.level == .problems
+                    logs.isProblems
                         ? LogQuiet(text: "No problems in the last 24 hours", glyph: "checkmark.circle")
                         : LogQuiet(text: "Nothing yet. Lines show here as Life works.")
                 },

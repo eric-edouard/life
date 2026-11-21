@@ -95,7 +95,7 @@ public struct LogFeed: Sendable, Equatable {
     /// log's order is the file's, never the lines' times, which writers stamp before appending), so the gap after Life
     /// did not answer loads whole; at most `cap` lines.
     public static func newer(
-        than top: LogLine?, read: (_ cursor: String?) async throws -> LogPage
+        than top: LogLine?, read: @Sendable (_ cursor: String?) async throws -> LogPage
     ) async throws -> [LogLine] {
         var found: [LogLine] = []
         var cursor: String?

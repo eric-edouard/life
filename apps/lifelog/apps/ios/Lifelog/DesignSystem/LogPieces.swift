@@ -141,6 +141,20 @@ struct LogQuiet: View {
     }
 }
 
+/// All · Problems: the level the list shows.
+struct LogLevelChoice: View {
+    @Binding var isProblems: Bool
+
+    var body: some View {
+        SegmentedChoice(
+            choices: [false, true],
+            selection: Binding(get: { isProblems }, set: { isProblems = $0 ?? isProblems }),
+            title: { $0 ? "Problems" : "All" }
+        )
+        .frame(maxWidth: 176)
+    }
+}
+
 /// The process menu: the current choice ("All processes ⌄") on a `tile` capsule, opening the system's menu with a check
 /// on the current one.
 struct LogProcessMenu: View {
