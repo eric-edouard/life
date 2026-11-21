@@ -1085,24 +1085,27 @@ struct AnswerRow: Layout {
     private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
 }
 
-/// Where an ask stands among the asks: up to 8, a dot each (6, 6 apart, the current `fg`, the others `tint`); more,
-/// the words "3 of 24" in `muted`.
+/// Where an ask stands among the asks: a dot each (6, 6 apart, the current `fg`, the others `tint`), at most 7 at once,
+/// as the system's page control does: past 7 the row slides with the current ask, and a dot at an end with more asks
+/// beyond it is smaller. Never a count in words: "6 of 234" said nothing he could use.
 struct PagerDots: View {
     let current: Int
     let total: Int
 
+    private static let shown = 7
+
     var body: some View {
-        Group {
-            if total > 8 {
-                Text("\(current + 1) of \(total)").font(.small).foregroundStyle(Palette.muted)
-            } else {
-                HStack(spacing: 6) {
-                    ForEach(0..<total, id: \.self) { index in
-                        Circle().fill(index == current ? Palette.fg : Color.fillTint).frame(width: 6, height: 6)
-                    }
-                }
+        let first = min(max(current - Self.shown / 2, 0), max(total - Self.shown, 0))
+        let last = min(first + Self.shown, total) - 1
+        HStack(spacing: 6) {
+            // A half-open range: no asks draws no dot rather than trapping.
+            ForEach(first..<(last + 1), id: \.self) { index in
+                let isCut = (index == first && first > 0) || (index == last && last < total - 1)
+                Circle().fill(index == current ? Palette.fg : Color.fillTint)
+                    .frame(width: isCut ? 4 : 6, height: isCut ? 4 : 6).frame(width: 6, height: 6)
             }
         }
+        .motion(Motion.standard, value: current)
         .accessibilityElement().accessibilityLabel("\(current + 1) of \(total)")
     }
 }
