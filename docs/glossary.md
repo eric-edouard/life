@@ -299,7 +299,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | spend | One event that used a paid or metered resource, read where it is logged (`memory/spends.ts`): a model call (`model.run`), a local model's run (`model.local`), an agent's turn; never a second copy of the record. | |
 | model spending | What the spends add up to, by day, provider, kind, agent and matter. Not his own `spending` (a payment's flag). | |
 | billed | A spend's basis: dollars a provider charges per use (OpenRouter, allmodels, Scribe); the models on the Mac at $0. | |
-| equivalent | A spend's basis: his Claude and Codex plans' tokens at list price (`core/prices.ts`), for comparison only; never billed, never added to billed. | |
+| equivalent | A spend's basis: his Claude and Codex plans' tokens at list price (`core/prices.ts`, standard short-context rates: no cache-write or long-prompt rates), for comparison only; never billed, never added to billed. | |
 | reported | Whether a spend's amount is known: false for a billed one without its cost, or an equivalent one whose model has no price. | |
 | source use | What each source costs a day: its items and units, what reads it with and without a model, model reads per unit, tokens and billed dollars (`bun life memory source-use`, `memory/source-use.ts`), from the run log and the index. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources and describes their new files; no episodes or facts until the night. | |

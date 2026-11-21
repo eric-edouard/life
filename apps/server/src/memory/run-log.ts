@@ -360,7 +360,10 @@ export function modelCallsOf(
   const by = new Map<string, Calls>();
   for (const e of events) {
     const key = e.kind === "model.run" && e.run && groupOf(e);
-    for (const s of key ? spendsOfLine(e, "daytime") : []) {
+    const spends = key ? spendsOfLine(e, "daytime") : [];
+    // A call is unpriced once, whichever of its routers' tries sent no cost.
+    const isUnpriced = spends.some((s) => s.basis === "billed" && !s.reported);
+    for (const s of spends) {
       by.set(
         key as string,
         addCalls(by.get(key as string) ?? NO_CALLS, {
@@ -368,7 +371,7 @@ export function modelCallsOf(
           costUsd: s.usd ?? 0,
           reads: s.reads ?? {},
           tokens: s.tokens ?? NONE,
-          unpriced: s.basis === "billed" && !s.reported ? 1 : 0,
+          unpriced: isUnpriced && s.calls > 0 ? 1 : 0,
         })
       );
     }

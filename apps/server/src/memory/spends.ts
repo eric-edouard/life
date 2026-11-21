@@ -59,8 +59,8 @@ const equivalentOf = (item: string, at: string, tokens: Tokens) => {
 };
 
 /**
- * One line's spends: a model call's (each router it tried, its own dollars and tokens; the call and what it read on the
- * last, which answered or failed last), a local model's; none for any other line. `kind` is the caller's (`spendsOf`).
+ * One line's spends: a model call's (each router it tried, its own dollars and tokens; the call and what it read on
+ * `router`, the last tried), a local model's; none for any other line. `kind` is the caller's (`spendsOf`).
  * A router whose tries were not all priced is not reported, its reported dollars a floor; a line before routers
  * (`costUsd`, its engine's) without one is not reported. A call with no tokens is not reported either.
  */
@@ -118,7 +118,8 @@ export function spendsOfLine(
       [engine]: { costUsd: cost ?? 0, isPriced: cost !== undefined, tokens },
     }
   );
-  return byRouter.map(([router, r], i) => ({
+  const answeredBy = typeof e.router === "string" ? e.router : engine;
+  return byRouter.map(([router, r]) => ({
     at: e.at,
     basis: "billed" as const,
     kind,
@@ -126,7 +127,7 @@ export function spendsOfLine(
     reported: r.isPriced,
     tokens: r.tokens,
     usd: r.costUsd,
-    ...(i === byRouter.length - 1 ? call : { calls: 0 }),
+    ...(router === answeredBy || byRouter.length === 1 ? call : { calls: 0 }),
   }));
 }
 

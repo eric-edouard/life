@@ -278,7 +278,8 @@ async function askClaude({ dir, images, input, llm, system }: ModelCall) {
     JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
   );
   const fields = {
-    tokens: claudeTokens(res.usage),
+    // No usage, no tokens: a spend without them is not reported, never zero.
+    tokens: res.usage ? claudeTokens(res.usage) : undefined,
     turns: res.num_turns,
     usage: res.usage,
   };
@@ -338,7 +339,11 @@ async function askCodex({ dir, images, input, llm, system, tools }: ModelCall) {
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
   return {
-    fields: { tokens: codexTokens(events) },
+    fields: {
+      tokens: events.includes('"turn.completed"')
+        ? codexTokens(events)
+        : undefined,
+    },
     text: await Bun.file(reply).text(),
   };
 }

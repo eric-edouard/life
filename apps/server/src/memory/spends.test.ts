@@ -18,6 +18,7 @@ test("a routed call is billed per router, each its own dollars and tokens, the c
     spendsOfLine(
       call({
         engine: "openrouter",
+        router: "allmodels",
         spentByRouter: {
           allmodels: { costUsd: 0.1, isPriced: true, tokens: half },
           openrouter: { costUsd: 0.25, isPriced: false, tokens: half },

@@ -178,7 +178,8 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
     );
     answer = {
       ...answer,
-      fields: { ...fields, effort, spentByRouter, tokens },
+      // `router`: the last tried, which answered or failed last: the call's own (a key's order is not kept).
+      fields: { ...fields, effort, router, spentByRouter, tokens },
     };
     if (!answer.refusal) {
       return answer;
