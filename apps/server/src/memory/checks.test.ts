@@ -16,6 +16,7 @@ import {
 import {
   about,
   DANA_ID,
+  decision,
   holdOn,
   inputs,
   line,
@@ -229,26 +230,6 @@ test("an ending rides on its open matter and goes with his answer", () => {
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
   // An old doubt line on the same ref: an answer by ref would land on it, so no ending check.
   expect(checksOf({ ...base, doubted: new Set([o.id]) })).toEqual([]);
-});
-
-const decision = (id: string, deadline: string, subject?: string) => ({
-  asker: "planner",
-  at: "2026-11-18T09:00:00.000Z",
-  context: "",
-  deadline,
-  id,
-  kind: "asked" as const,
-  links: [],
-  onSilence: null,
-  options: [
-    { id: "yes", label: "Yes" },
-    { id: "no", label: "No" },
-  ],
-  question: `Go ahead with ${id}?`,
-  schemaVersion: 3 as const,
-  state: "open" as const,
-  ...(subject ? { subject } : {}),
-  title: "It is due.",
 });
 
 test("open decisions come first, soonest deadline first, each naming the agent that asked; one on a step leaves with its matter, one on a project stays", () => {
@@ -783,22 +764,4 @@ test("only the open endings' and the new matters' steps are read for their sente
     today: "2026-11-18",
   });
   expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
-});
-
-test("a registered agent's card opens its holder's session, never the link it was asked with; another ask opens its first link", () => {
-  const asked = {
-    ...decision("dec_00000000000a", "2026-11-20T09:00:00.000Z"),
-    agent: "agt_0123456789ab",
-    links: ["https://agents.example.test/s/asker-old"],
-  };
-  const sessionOf = (decisions: CheckInputs["decisions"]) =>
-    checksOf(inputs([], { decisions })).map((c) => c.session);
-  // Its holder has no session: none.
-  expect(sessionOf([asked])).toEqual([undefined]);
-  expect(
-    sessionOf([{ ...asked, session: "https://agents.example.test/s/holder" }])
-  ).toEqual(["https://agents.example.test/s/holder"]);
-  // Not a registered agent's (his own app's, a paired agent's): its first link.
-  const { agent: _, ...own } = asked;
-  expect(sessionOf([own])).toEqual(["https://agents.example.test/s/asker-old"]);
 });
