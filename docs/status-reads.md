@@ -105,15 +105,17 @@ is the watcher's `resource.sample` line (`sampleResources`, `host/resource-sampl
 | Field | What |
 |---|---|
 | `time` | when it was taken (UTC) |
-| `procs` | per group of Life's processes, `[cpu %, rss MB]`: `life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>` (a desk agent's runtime and every tool it runs, by `LIFE_DESK_AGENT`). A process counts under its nearest named ancestor; anything else is left out |
+| `procs` | per group of Life's processes, `[cpu %, rss MB]`: `life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>` (a desk agent's runtime and every tool it runs under the desk, by `LIFE_DESK_AGENT`). A process is known by the program at the start of its command line (a bridge by `LIFE_BRIDGE`, set at launch), never by words in its arguments, and counts under its nearest named ancestor; anything else is left out |
 | `load` | 1, 5 and 15 minute load |
 | `memFree`, `swapMb`, `diskFreeGb` | free memory (%), swap used, free disk |
-| `battery`, `power` | battery % (null without one), `ac` or `battery` |
+| `battery`, `power` | battery %, `ac` or `battery` |
 | `thermal` | `nominal`, or the warning level |
+
+A field is null when its tool failed (or, for `battery`, there is none); never a made-up 0.
 
 It reads back from the end of today's log file (and yesterday's across midnight) until a line older than the hour,
 never a whole day. A local model's run is its own line, `model.local` (`describer`, `foundation`: duration, requests,
-whether it answered).
+whether the model ran for every request: Apple's from its replies, a refusal counted as run).
 
 ## changes
 

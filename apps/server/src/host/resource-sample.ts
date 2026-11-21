@@ -1,13 +1,14 @@
-import { DAY } from "../core/clock";
 import { log } from "../core/log";
 import { TEST } from "../core/paths";
+import { WINDOWS } from "../core/platform";
 import { exec } from "../core/proc";
+import { NETWORKS } from "../sources/networks";
 
 // What loads the Mac, once a minute: one `resource.sample` line (the watcher's minute, his own Life only). Per group
 // of Life's processes, CPU % and RSS; the system's load, memory, swap, disk, battery and heat. Metadata only.
 
-export interface Proc {
-  args: string;
+interface Proc {
+  cmd: string;
   cpu: number;
   pid: number;
   ppid: number;
@@ -15,14 +16,14 @@ export interface Proc {
 }
 
 const PS_LINE = /^\s*(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(.*)$/;
-/** `ps -axo pid=,ppid=,pcpu=,rss=,args=`'s lines. */
+/** `ps -Eaxww -o pid=,ppid=,pcpu=,rss=,command=`'s lines: each process's arguments, then its environment. */
 export const parsePs = (out: string): Proc[] =>
   out.split("\n").flatMap((line) => {
     const m = line.match(PS_LINE);
     return m
       ? [
           {
-            args: m[5] ?? "",
+            cmd: m[5] ?? "",
             cpu: Number(m[3]),
             pid: Number(m[1]),
             ppid: Number(m[2]),
@@ -32,22 +33,51 @@ export const parsePs = (out: string): Proc[] =>
       : [];
   });
 
-/** Which of Life's groups a process is by its own arguments, first rule first; anything else is not Life's. */
-const RULES: [RegExp, (m: RegExpMatchArray) => string][] = [
-  [/llama-server\b.*--embedding/, () => "embedder"],
-  [/llama-server\b/, () => "describer"],
-  [/Helpers\/life (\S+)/, (m) => `life.${m[1]}`],
-  [/life-entry\.ts (\S+)/, (m) => `life.${m[1]}`],
-  [/Life\.app\/Contents\/MacOS\//, () => "life.app"],
-  [/Lifelog Host\.app\/Contents\/Helpers\/(\S+)/, (m) => `voice.${m[1]}`],
-  [/Lifelog Host\.app\/Contents\/MacOS\//, () => "voice.host"],
-  [/foundation-model|FoundationModel/, () => "foundation"],
-  [/synapse\.app\.homeserver/, () => "homeserver"],
-  [/mautrix-(\w+)/, (m) => `bridge.${m[1]}`],
+// A process is known by the program it runs, at the start of its command line: an absolute path whose folders may
+// hold one inner space ("Application Support", "Lifelog Host.app") but never start an argument, so a program that
+// only names one of Life's in its arguments (`rg Life.app/…`) is never taken for it.
+const AT = "^(?:/[^/ ]+(?: [^/ -][^/ ]*)?)*";
+const COMMAND = /^[a-z][a-z-]{0,23}$/;
+/** Which of Life's groups a process is, first rule first; each names a fixed group or a checked word. */
+const RULES: [RegExp, (m: RegExpMatchArray) => string | undefined][] = [
+  [new RegExp(`${AT}/llama-server .*--embedding`), () => "embedder"],
+  [new RegExp(`${AT}/llama-server `), () => "describer"],
+  [
+    new RegExp(`${AT}/Life\\.app/Contents/Helpers/life (\\S+)`),
+    (m) => (COMMAND.test(m[1] ?? "") ? `life.${m[1]}` : "life.other"),
+  ],
+  [
+    new RegExp(`${AT}/Life\\.app/Contents/Helpers/life-foundation-model\\b`),
+    () => "foundation",
+  ],
+  [new RegExp(`${AT}/Life\\.app/Contents/`), () => "life.app"],
+  [
+    /^\S*bun \S*\/life-entry\.ts (\S+)/,
+    (m) => (COMMAND.test(m[1] ?? "") ? `life.${m[1]}` : "life.other"),
+  ],
+  [
+    new RegExp(
+      `${AT}/Lifelog Host\\.app/Contents/Helpers/(lifelog-server|lifelog-quiet|cloudflared)\\b`
+    ),
+    (m) => `voice.${m[1]}`,
+  ],
+  [new RegExp(`${AT}/identity/venv/bin/python3? `), () => "voice.identity"],
+  [new RegExp(`${AT}/Lifelog Host\\.app/Contents/`), () => "voice.host"],
+  [/^\.venv\/bin\/python -m synapse\.app\.homeserver /, () => "homeserver"],
 ];
-const ruleOf = (args: string) => {
+/** A bridge, run as `./bridge` in its folder, named at launch (`LIFE_BRIDGE`, `RUN_BRIDGES`). */
+const BRIDGE = /^\.\/bridge -c config\.yaml .*\bLIFE_BRIDGE=([a-z]+)\b/;
+const BRIDGES = new Set<string>(NETWORKS.map((n) => n.name));
+/** A desk agent's runtime and its tools (`LIFE_DESK_AGENT`, set at spawn, inherited): taken only under the desk. */
+const AGENT = /\bLIFE_DESK_AGENT=(agt_[0-9a-f]{12})\b/;
+
+const ruleOf = (cmd: string) => {
+  const bridge = cmd.match(BRIDGE)?.[1];
+  if (bridge && BRIDGES.has(bridge)) {
+    return `bridge.${bridge}`;
+  }
   for (const [re, name] of RULES) {
-    const m = args.match(re);
+    const m = cmd.match(re);
     if (m) {
       return name(m);
     }
@@ -55,10 +85,10 @@ const ruleOf = (args: string) => {
 };
 
 /**
- * CPU % and RSS (MB) summed per group: a process counts under the nearest of itself and its ancestors that a rule or
- * a desk agent (`agents`, pid to agent) names, so a helper's children add to it.
+ * CPU % and RSS (MB) summed per group: a process counts under the nearest of itself and its ancestors that a rule
+ * names, so a helper's children add to it; under the desk, a process tagged with an agent counts as that agent.
  */
-export function groupsOf(procs: Proc[], agents: Map<number, string>) {
+export function groupsOf(procs: Proc[]) {
   const byPid = new Map(procs.map((p) => [p.pid, p]));
   const named = new Map<number, string | undefined>();
   const groupOf = (pid: number, depth = 0): string | undefined => {
@@ -66,11 +96,14 @@ export function groupsOf(procs: Proc[], agents: Map<number, string>) {
       return named.get(pid);
     }
     const p = byPid.get(pid);
-    const agent = agents.get(pid);
-    const own = agent ? `agent.${agent}` : p && ruleOf(p.args);
+    const above =
+      p && p.ppid > 1 && depth < 64 ? groupOf(p.ppid, depth + 1) : undefined;
+    const agent = p?.cmd.match(AGENT)?.[1];
+    const isUnderDesk = above === "life.desk" || above?.startsWith("agent.");
     const group =
-      own ??
-      (p && p.ppid > 1 && depth < 64 ? groupOf(p.ppid, depth + 1) : undefined);
+      (agent && isUnderDesk ? `agent.${agent}` : undefined) ??
+      (p && ruleOf(p.cmd)) ??
+      above;
     named.set(pid, group);
     return group;
   };
@@ -90,79 +123,73 @@ export function groupsOf(procs: Proc[], agents: Map<number, string>) {
   );
 }
 
-const AGENT_ENV = /^\s*(\d+)\s.*\bLIFE_DESK_AGENT=(\S+)/;
-/** The desk agents' processes by pid, from `ps -E`'s environments (`LIFE_DESK_AGENT`, set at spawn, inherited by their tools). */
-export const agentPidsOf = (out: string) =>
-  new Map(
-    out.split("\n").flatMap((line) => {
-      const m = line.match(AGENT_ENV);
-      return m ? [[Number(m[1]), m[2] ?? ""] as const] : [];
-    })
-  );
-
 const LOAD = /([\d.]+)\s+([\d.]+)\s+([\d.]+)/;
 const FREE = /free percentage:\s*(\d+)%/;
 const SWAP_USED = /used = ([\d.]+)M/;
 const SPACES = /\s+/;
 const BATTERY = /(\d+)%/;
 const ON_AC = /AC Power/;
+const POWER: Record<string, string> = { false: "battery", true: "ac" };
 const THERMAL_WARNING = /warning level[^\n]*?(\d+)/i;
 
-/** The system's side of a sample, from its tools' outputs (pure). */
+const numberOf = (text: string | null, re: RegExp) => {
+  const m = text?.match(re)?.[1];
+  return m === undefined ? null : Number(m);
+};
+
+/** The system's side of a sample, from its tools' outputs (pure); a tool that failed (null) gives null, never a 0. */
 export function systemOf(o: {
-  batt: string;
-  df: string;
-  load: string;
-  pressure: string;
-  swap: string;
-  therm: string;
+  batt: string | null;
+  df: string | null;
+  load: string | null;
+  pressure: string | null;
+  swap: string | null;
+  therm: string | null;
 }) {
-  const load = o.load.match(LOAD)?.slice(1, 4).map(Number) ?? null;
-  const freeKb = Number(o.df.trim().split("\n").at(-1)?.split(SPACES)[3] ?? 0);
-  const battery = o.batt.match(BATTERY)?.[1];
-  const warning = o.therm.match(THERMAL_WARNING)?.[1];
+  const freeKb = o.df?.trim().split("\n").at(-1)?.split(SPACES)[3];
+  const swap = numberOf(o.swap, SWAP_USED);
+  const warning = numberOf(o.therm, THERMAL_WARNING);
   return {
-    battery: battery === undefined ? null : Number(battery),
-    diskFreeGb: Math.round((freeKb * 1024) / 1e9),
-    load,
-    memFree: Number(o.pressure.match(FREE)?.[1] ?? Number.NaN) || null,
-    power: ON_AC.test(o.batt) ? "ac" : "battery",
-    swapMb: Math.round(Number(o.swap.match(SWAP_USED)?.[1] ?? 0)),
-    thermal: warning ? `warning ${warning}` : "nominal",
+    battery: numberOf(o.batt, BATTERY),
+    diskFreeGb:
+      freeKb === undefined || Number.isNaN(Number(freeKb))
+        ? null
+        : Math.round((Number(freeKb) * 1024) / 1e9),
+    load: o.load?.match(LOAD)?.slice(1, 4).map(Number) ?? null,
+    memFree: numberOf(o.pressure, FREE),
+    power: o.batt === null ? null : POWER[String(ON_AC.test(o.batt))],
+    swapMb: swap === null ? null : Math.round(swap),
+    thermal:
+      o.therm === null ? null : `${warning ? `warning ${warning}` : "nominal"}`,
   };
 }
 
+/** A tool's output, or null when it failed. */
 const read = (cmd: string[]) =>
-  exec(cmd, { timeout: 20_000 }).then((r) => r.stdout);
+  exec(cmd, { timeout: 20_000 }).then((r) => (r.code === 0 ? r.stdout : null));
 
 let isSampling = false;
-/** One `resource.sample` line; a sample still running skips this one. A test run reads none. */
+/** One `resource.sample` line (a Mac's tools); a sample still running skips this one. A test run reads none. */
 export async function sampleResources() {
-  if (TEST || isSampling) {
+  if (TEST || WINDOWS || isSampling) {
     return;
   }
   isSampling = true;
   try {
-    const [ps, load, pressure, swap, df, batt, therm, envs] = await Promise.all(
-      [
-        read(["ps", "-axo", "pid=,ppid=,pcpu=,rss=,args="]),
-        read(["sysctl", "-n", "vm.loadavg"]),
-        read(["memory_pressure", "-Q"]),
-        read(["sysctl", "-n", "vm.swapusage"]),
-        read(["df", "-k", "/"]),
-        read(["pmset", "-g", "batt"]),
-        read(["pmset", "-g", "therm"]),
-        read(["ps", "-Eaxo", "pid=,command="]),
-      ]
-    );
+    const [ps, load, pressure, swap, df, batt, therm] = await Promise.all([
+      read(["ps", "-Eaxww", "-o", "pid=,ppid=,pcpu=,rss=,command="]),
+      read(["sysctl", "-n", "vm.loadavg"]),
+      read(["memory_pressure", "-Q"]),
+      read(["sysctl", "-n", "vm.swapusage"]),
+      read(["df", "-k", "/"]),
+      read(["pmset", "-g", "batt"]),
+      read(["pmset", "-g", "therm"]),
+    ]);
     log("resource.sample", {
-      procs: groupsOf(parsePs(ps), agentPidsOf(envs)),
+      procs: ps === null ? null : groupsOf(parsePs(ps)),
       ...systemOf({ batt, df, load, pressure, swap, therm }),
     });
   } finally {
     isSampling = false;
   }
 }
-
-/** How far back a resource read goes: the last hour, at one sample a minute. */
-export const SAMPLES_BACK = DAY / 24;

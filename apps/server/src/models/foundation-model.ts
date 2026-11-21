@@ -55,18 +55,29 @@ export async function askFoundationModel(
   if (!helper) {
     return requests.map(() => unavailable("no helper (LIFE_FOUNDATION_MODEL)"));
   }
-  const r = await timedLocalModel(
+  return await timedLocalModel(
     "foundation",
     requests.length,
-    () =>
-      exec(["taskpolicy", "-b", helper], {
-        stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
-        timeout: requests.length * MIN,
-      }),
-    (done) => done.code === 0
+    async () =>
+      answersOf(
+        requests.length,
+        await exec(["taskpolicy", "-b", helper], {
+          stdin: requests.map((q) => `${JSON.stringify(q)}\n`).join(""),
+          timeout: requests.length * MIN,
+        })
+      ),
+    // The model ran for each: an answer or its refusal, whatever the helper's exit.
+    (answers) => answers.every((a) => !("error" in a) || a.error === "refused")
   );
+}
+
+/** The helper's lines, one per request in order; a missing or bad one is unavailable. */
+function answersOf(
+  count: number,
+  r: { code: number; stderr: string; stdout: string }
+): FoundationAnswer[] {
   const lines = r.stdout.split("\n").filter(Boolean);
-  return requests.map((_, i) => {
+  return Array.from({ length: count }, (_, i) => {
     const parsed = Line.safeParse(
       (() => {
         try {

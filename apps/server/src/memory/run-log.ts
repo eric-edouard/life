@@ -2,7 +2,6 @@ import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { clock, daysBefore, HOUR } from "../core/clock";
-import { linesOf } from "../core/files";
 import {
   LOG_DIR,
   type LogEvent,
@@ -474,20 +473,6 @@ export interface LogLinesQuery {
   process?: string;
 }
 
-/** A day file's lines, newest first, each with the byte it ends at; only those ending by `stop` when given. */
-function linesBackOf(path: string, stop: number | null) {
-  const all = linesOf(path);
-  let end = all.reduce((n, l) => n + Buffer.byteLength(l) + 1, 0);
-  const back: { end: number; raw: string }[] = [];
-  for (const raw of all.toReversed()) {
-    if (stop === null || end <= stop) {
-      back.push({ end, raw });
-    }
-    end -= Buffer.byteLength(raw) + 1;
-  }
-  return back;
-}
-
 /** One stored line as `q` shows it, or undefined: filtered out, or not a line (a bad line never stops a reader). */
 function shownOf(raw: string, q: LogLinesQuery) {
   let shown: ShownLine | undefined;
@@ -517,7 +502,7 @@ export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
   const lines: ShownLine[] = [];
   for (const name of days.slice(0, LOG_DAYS_PER_READ)) {
     const stop = name === from?.[0] ? from[1] : null;
-    for (const { end, raw } of linesBackOf(join(dir, name), stop)) {
+    for (const { end, raw } of linesFromEnd(join(dir, name), stop)) {
       if (lines.length === limit) {
         return logPage(lines, [name, end]);
       }
@@ -540,13 +525,14 @@ const logPage = (
   observedAt: clock().toISOString(),
 });
 
-// --- resource samples ----------------------------------------------------------------------------------------------
-
 const BLOCK = 64 * 1024;
 const NEWLINE = 10;
 
-/** A file's lines from its end, newest first, read back a block at a time; a torn last line comes too (callers skip it). */
-function* linesFromEnd(path: string) {
+/**
+ * A file's lines from its end, newest first, read back a block at a time, each with the byte after its newline
+ * (`end`, a page's cursor); only those ending by `stop` when given. A torn last line comes too (callers skip it).
+ */
+function* linesFromEnd(path: string, stop: number | null = null) {
   let fd: number;
   try {
     fd = openSync(path, "r");
@@ -554,7 +540,8 @@ function* linesFromEnd(path: string) {
     return;
   }
   try {
-    let pos = fstatSync(fd).size;
+    const { size } = fstatSync(fd);
+    let pos = Math.min(size, stop ?? size);
     let rest = Buffer.alloc(0);
     const block = Buffer.alloc(BLOCK);
     while (pos > 0) {
@@ -567,7 +554,7 @@ function* linesFromEnd(path: string) {
       let i = buf.lastIndexOf(NEWLINE, end - 1);
       while (i >= 0) {
         if (end > i + 1) {
-          yield buf.toString("utf8", i + 1, end);
+          yield { end: pos + end + 1, raw: buf.toString("utf8", i + 1, end) };
         }
         end = i;
         i = end > 0 ? buf.lastIndexOf(NEWLINE, end - 1) : -1;
@@ -575,7 +562,7 @@ function* linesFromEnd(path: string) {
       rest = buf.subarray(0, end);
     }
     if (rest.length > 0) {
-      yield rest.toString("utf8");
+      yield { end: rest.length + 1, raw: rest.toString("utf8") };
     }
   } finally {
     closeSync(fd);
@@ -591,17 +578,18 @@ const SAMPLE = '"kind":"resource.sample"';
  */
 export function readResourceSamples(now = clock(), dir = LOG_DIR) {
   const since = new Date(now.getTime() - HOUR).toISOString();
+  const observedAt = now.toISOString();
   const files = [now, new Date(now.getTime() - HOUR)]
     .map((d) => logFileOf(d.toISOString()))
     .filter((f, i, all) => all.indexOf(f) === i);
   const back: Record<string, unknown>[] = [];
   for (const file of files) {
-    for (const line of linesFromEnd(join(dir, file))) {
+    for (const { raw: line } of linesFromEnd(join(dir, file))) {
       const at = line.match(LINE_TIME)?.[1];
       if (at !== undefined && at < since) {
         break;
       }
-      if (line.includes(SAMPLE)) {
+      if (line.includes(SAMPLE) && at !== undefined && at <= observedAt) {
         try {
           const {
             category: _c,
@@ -618,5 +606,5 @@ export function readResourceSamples(now = clock(), dir = LOG_DIR) {
     }
   }
   const hour = back.reverse();
-  return { hour, latest: hour.at(-1) ?? null, observedAt: now.toISOString() };
+  return { hour, latest: hour.at(-1) ?? null, observedAt };
 }

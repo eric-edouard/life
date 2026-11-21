@@ -345,13 +345,13 @@ export function buildServer(readsOnly = false) {
     tool(
       server,
       "read_resource_samples",
-      "His token only. What loads his Mac, for his app, not for questions about his life (JSON): `hour`, the last hour's samples at one a minute, oldest first, and `latest`. A sample: `time`; `procs`, per group of Life's processes (`life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>`) `[cpu %, rss MB]`; `load` (1, 5, 15 min), `memFree` (%), `swapMb`, `diskFreeGb`, `battery` (% or null), `power` (`ac`, `battery`), `thermal` (`nominal` or a warning level).",
+      "His token only. What loads his Mac, for his app, not for questions about his life (JSON): `hour`, the last hour's samples at one a minute, oldest first, and `latest`. A sample: `time`; `procs`, per group of Life's processes (`life.<command>`, `voice.<helper>`, `embedder`, `describer`, `foundation`, `homeserver`, `bridge.<network>`, `agent.<id>`) `[cpu %, rss MB]`; `load` (1, 5, 15 min), `memFree` (%), `swapMb`, `diskFreeGb`, `battery` (%), `power` (`ac`, `battery`), `thermal` (`nominal` or a warning level); any of them null when its tool failed.",
       z.object({}),
-      (_, agent) => {
+      async (_, agent) => {
         if (agent) {
           throw new Error(NOT_HIS);
         }
-        return readResourceSamples();
+        return await readResourceSamples();
       }
     );
   }

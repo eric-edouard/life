@@ -36,3 +36,25 @@ test("no helper answers every request unavailable, never a throw", async () => {
   ]);
   expect(await askFoundationModel([], helper)).toEqual([]);
 });
+
+test("its model.local line says whether the model ran for every request, from the replies, never the exit", async () => {
+  const { recentEvents } = await import("../core/log");
+  const helperSaying = (line: string) => {
+    const path = join(mkdtempSync(join(tmpdir(), "fm-")), "helper");
+    writeFileSync(path, `#!/bin/sh\nwhile read q; do echo '${line}'; done\n`);
+    chmodSync(path, 0o755);
+    return path;
+  };
+  const okOf = async (path: string, asks = [ask, ask]) => {
+    await askFoundationModel(asks, path);
+    return (await recentEvents(1, "model.local")).at(-1)?.ok;
+  };
+  expect(await okOf(helperSaying('{"detail":"x","error":"refused"}'))).toBe(
+    true
+  );
+  expect(await okOf(helperSaying('{"detail":"x","error":"unsupported"}'))).toBe(
+    false
+  );
+  // Answers two, then exits before the third: a mixed batch.
+  expect(await okOf(helper, [ask, ask, ask])).toBe(false);
+}, 60_000);
