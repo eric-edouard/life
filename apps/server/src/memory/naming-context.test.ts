@@ -238,11 +238,14 @@ test("a brief holds what he is to them, their language, family and home, how he 
 });
 
 test("his expected company: a one-to-one message or call from 6 hours before the conversation to its end, nearest its start first, with the chats' titles", () => {
-  const message = (ref: string, at: string, chatName?: string) =>
-    [
-      ref,
-      [{ ...callAt(at, undefined), chatName, phoneCall: undefined }],
-    ] as const;
+  const message = (
+    ref: string,
+    at: string,
+    chatName?: string
+  ): [string, SourceEvent[]] => [
+    ref,
+    [{ ...callAt(at, undefined), chatName, phoneCall: undefined }],
+  ];
   const direct = new Map<string, SourceEvent[]>([
     message("person:far", minute(-5 * 60), "Far"),
     message("person:near", minute(-20), "Ana / Annie"),

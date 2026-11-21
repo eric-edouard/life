@@ -440,7 +440,7 @@ test("a group's guess is stored under each of its recording voices, citing that 
       ]),
     }
   );
-  expect(voices).toEqual([
+  expect(voices as unknown[]).toEqual([
     entry({ confidence: "weak", lines: [1], voice: "V1" }),
     entry({ confidence: "weak", lines: [2], voice: "V2" }),
   ]);
