@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOME } from "../../core/platform";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
-import { doorOf } from "../desk-door";
+import { doorOf } from "../door-keys";
 import { SEND_GUARD_HOOK } from "../send-guard";
 import {
   isHeld,
