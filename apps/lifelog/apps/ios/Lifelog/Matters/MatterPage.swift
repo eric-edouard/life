@@ -121,7 +121,7 @@ struct MatterPage: View {
                     Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small).foregroundStyle(
                         Palette.muted)
                     if let project = row.project {
-                        TextLink(project.name, isOnward: true, isMuted: false) {
+                        TextLink(project.name, to: .page) {
                             router.matterPath.append(.project(project.id))
                         }
                     }

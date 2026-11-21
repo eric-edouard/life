@@ -31,9 +31,12 @@ import type { ToolCall } from "./http/mcp-tool";
 // (his subject's matter or project); which agent, its status, the runtime and the folder are the desk's.
 
 /** What the connector takes: the change, with a matter named by any of its ids (`step`), and his words. */
-export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
+export const RegisteredAgentChange = AgentChange.omit({
+  matter: true,
+  steps: true,
+}).extend({
   action: AgentChange.shape.action.describe(
-    "start (on `step`: the matter goes to the agent that takes it, its project's, else the Personal agent; on `project`: a new agent, in `folder`, else its project's repo, else its own; or `personal`: the Personal agent, in its home), stop, resume, re_point (a new `step`, `project` or `personal`), rename (`name`), change_model"
+    "start (on `step`: the matter goes to the agent that takes it, its project's, else the Personal agent; on `project`: a new agent, in `folder`, else its project's repo, else its own; or `role` `personal`: the Personal agent, in its home), stop, resume, re_point (a new `step`, `project` or `role` `personal`), rename (`name`), change_model"
   ),
   agent: AgentChange.shape.agent.describe("The agent (agt_…), all but start"),
   effort: AgentChange.shape.effort.describe(
@@ -48,11 +51,11 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
   name: AgentChange.shape.name.describe(
     'Its name, his to set (start, rename): its sessions are titled "Agent: <name>"'
   ),
-  personal: AgentChange.shape.personal.describe(
-    "The Personal agent, as its subject (start, re_point): one at most; it takes every matter no project's agent takes"
-  ),
   project: AgentChange.shape.project.describe(
     "A project id or name of his directory, as its subject"
+  ),
+  role: AgentChange.shape.role.describe(
+    '"personal": the Personal agent, as its subject (start, re_point): one at most; it takes every matter no project\'s agent takes'
   ),
   runtime: AgentChange.shape.runtime.describe(
     "claude or codex; none: the desk's default"
@@ -87,6 +90,7 @@ async function matterNamed(step: string) {
   const refs = v.steps.map((s) => s.ref);
   return {
     goal: v.goal,
+    id: v.id,
     refs,
     steps: refs.includes(step)
       ? [step, ...refs.filter((r) => r !== step)]
@@ -125,6 +129,7 @@ async function withSubject({
   }
   const matter = step ? await matterNamed(step) : undefined;
   change.steps = matter?.steps;
+  change.matter = matter?.id;
   return { change, matter };
 }
 
@@ -142,6 +147,7 @@ async function saveGoal(
     await recordCorrection({
       goal: said,
       kind: "matter-direction",
+      matter: matter.id,
       steps: matter.refs,
     });
   }
@@ -239,11 +245,11 @@ async function waitForStart(
         isSubjectHeld: change.steps
           ? holderOf(db, change.steps) !== null
           : standingAgents(db).some((a) =>
-              change.personal
-                ? a.role === "personal"
+              change.role
+                ? a.role === change.role
                 : a.project === change.project
             ),
-        s: readStartFacts(db, line.id, change.steps),
+        s: readStartFacts(db, line.id, change),
       }),
       null
     );

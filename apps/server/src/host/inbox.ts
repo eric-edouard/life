@@ -1,7 +1,17 @@
+import type { Database } from "bun:sqlite";
 import { digest } from "../core/hash";
 import { inboxOf } from "../memory/check-urgency";
-import { checksAndKeyNow, checksNow, type HeldRead } from "../memory/checks";
+import { checksAndKeyNow, checksNow } from "../memory/checks";
+import type { Decision } from "../memory/decision-lines";
+import { decisionsNow } from "../memory/decisions";
+import { isAsked } from "../memory/draft-contest";
+import type { HeldRead } from "../memory/life-checks";
 import {
+  agentOf,
+  assignmentOf,
+  assignmentOfCard,
+  beingFixedOf,
+  cardOwnersOf,
   complaintsAtWork,
   heldByAgents,
   heldStampOf,
@@ -10,7 +20,44 @@ import {
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
-// its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key).
+// its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key),
+// shown with the caretaker's open card among the decisions the list is read from.
+
+/**
+ * The plan cards among the open decisions of `list` (every decision, in the order asked): an assignment he opened, its
+ * first card asked (`isAsked`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
+ * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
+ */
+export function planCardsOf(db: Database, list: readonly Decision[]) {
+  const owners = new Map<string, string | null>();
+  const ownerOf = (d: Decision) => {
+    if (!owners.has(d.id)) {
+      owners.set(d.id, assignmentOfCard(db, d));
+    }
+    return owners.get(d.id) ?? null;
+  };
+  // ponytail: each candidate scans the history before it, each owner looked up once per read; a `card` index by assignment if it grows.
+  return new Set(
+    list.flatMap((d) => {
+      const s = d.state === "open" ? ownerOf(d) : null;
+      const opened = s ? assignmentOf(db, s) : null;
+      const isHis =
+        opened?.opened_by === "owner" &&
+        agentOf(db, opened.agent_id)?.role !== "caretaker";
+      return isHis && list.find((e) => isAsked(e) && ownerOf(e) === s) === d
+        ? [d.id]
+        : [];
+    })
+  );
+}
+
+/** A card's links as its holder's: the asker's session link (`was`) becomes the holder's (`now`); with none, the links stay (a supporting link never takes the session's place). */
+export const holderLinksOf = (
+  links: string[],
+  was?: string | null,
+  now?: string | null
+) => (now ? links.map((l) => (l === was ? now : l)) : links);
+
 /** What agents hold (`HeldRead`); null while the desk is off or unreadable (then no new matter is offered). */
 function readHeld(): HeldRead | null {
   const stamp = readDesk(heldStampOf, "");
@@ -18,13 +65,50 @@ function readHeld(): HeldRead | null {
     return null;
   }
   const complaints = readDesk(complaintsAtWork, []);
+  const atWork = complaints.state === "ok" ? complaints.value : [];
+  const open = decisionsNow().filter((d) => d.state === "open");
+  // Each card as its holder's: its id, and its session link in place of the asker's (stamped first when asked).
+  const holders = readDesk((db) => {
+    const owners = cardOwnersOf(db, open);
+    return open.flatMap((d) => {
+      const holder = owners[d.id]?.holder;
+      if (!holder || holder === d.agent) {
+        return [];
+      }
+      const links = holderLinksOf(
+        d.links,
+        d.agent ? agentOf(db, d.agent)?.link : undefined,
+        agentOf(db, holder)?.link
+      );
+      return [[d.id, { agent: holder, links }] as const];
+    });
+  }, []);
   return {
-    complaints: complaints.state === "ok" ? complaints.value : [],
+    cardHolders: Object.fromEntries(
+      holders.state === "ok" ? holders.value : []
+    ),
+    // Over the decisions the list is read from, so a card answered since never shows; the desk unreadable then, the
+    // complaints still show as being fixed, without the card (they never block again on a failed read).
+    complaints: (decisions) => {
+      const r = readDesk((db) => beingFixedOf(db, decisions), []);
+      return r.state === "ok"
+        ? r.value
+        : atWork.map(({ ask, since }) => ({
+            ask,
+            context: null,
+            line: null,
+            since,
+          }));
+    },
+    plans: (decisions) => {
+      const r = readDesk((db) => planCardsOf(db, decisions), new Set<string>());
+      return r.state === "ok" ? r.value : new Set();
+    },
     read: () => {
       const r = readDesk(heldByAgents, []);
       return r.state === "ok" ? r.value : null;
     },
-    stamp: stamp.value,
+    stamp: JSON.stringify([stamp.value, atWork]),
   };
 }
 

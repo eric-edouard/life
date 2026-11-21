@@ -78,6 +78,15 @@ public struct ReadState<Value: Sendable>: Sendable {
         }
     }
 
+    /// A read tried, with nothing to show: it failed or the Mac was out of reach (never one not tried yet).
+    public var hasFailed: Bool {
+        guard value == nil else { return false }
+        switch phase {
+        case .unreachable, .failed: return true
+        case .idle, .loading, .loaded, .notPaired: return false
+        }
+    }
+
     /// What to show; `isEmpty` says when a loaded value has nothing in it.
     public func shown(isEmpty: (Value) -> Bool = { _ in false }) -> Shown {
         guard let value else {
@@ -95,6 +104,25 @@ public struct ReadState<Value: Sendable>: Sendable {
         case .failed(let reason): return .stale(value, since: since, why: .failed(reason))
         case .notPaired: return .notPaired
         }
+    }
+}
+
+extension ReadState.Shown {
+    /// The value on screen, loaded or stale; nil when the screen shows none (loading, empty, failed, not paired). What a
+    /// screen says about its read (a title's count) reads this, never `ReadState.value`, which outlives a lost pairing.
+    public var onScreen: Value? {
+        switch self {
+        case .loaded(let value), .stale(let value, _, _): value
+        case .loading, .empty, .unreachable, .failed, .notPaired: nil
+        }
+    }
+}
+
+extension ReadState where Value == Inbox {
+    /// How many asks wait, as the inbox read last said (`total`) less his answers, while a read is on screen: nil before
+    /// any read said (a pushed card alone, whose one-card inbox counts only itself) and once the pairing is lost.
+    public func waiting(less answered: Set<String>) -> Int? {
+        shown().onScreen.map { $0.without(answered).total }
     }
 }
 

@@ -15,6 +15,7 @@ struct LifeLinkTarget: Hashable, Identifiable {
     static func glyph(_ kind: Check.LifeLink.Kind) -> String {
         switch kind {
         case .person: "person"
+        case .appointment: "calendar"
         case .matter: "folder"
         case .message, .unit: "bubble"
         case .file: "doc"
@@ -206,7 +207,7 @@ struct ContextSheet: View {
                             path.append(target)
                         }
                         if let appLink {
-                            TextLink("Open in \(appName ?? "its app")", isOutward: true) { openURL(appLink) }
+                            TextLink("Open in \(appName ?? "its app")", to: .outside) { openURL(appLink) }
                         }
                     }
                     .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()

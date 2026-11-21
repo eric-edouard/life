@@ -5,13 +5,14 @@ import { dirname, join } from "node:path";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
+import { openTurn } from "../host/desk-read";
 import { expectWire } from "../host/http/wire-fixture";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { register } from "./agent-actions";
-import { turnEnded } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { ticking } from "./test-ticker";
+import { turnEnded } from "./turn-ends";
 
 // `change_registered_agent`'s answer: a start's stages as the desk's facts are written, from a made-up store and the
 // fake runtime. The desk ticks here as its clock does: his word applied, then the turns due.
@@ -110,7 +111,7 @@ async function start(n: number, said: string, limitMs = 5000, after = 300) {
     "update turn set outcome = 'waited' where agent_id = ? and ended_at is null",
     [personal]
   );
-  await turnEnded(desk, personal, { ok: true });
+  await turnEnded(desk, openTurn(desk.db, personal)?.id ?? 0, { ok: true });
   return { result, steps };
 }
 
@@ -131,6 +132,7 @@ test("a start on a matter reports its plan, saves his words as its goal, then ea
     {
       goal: "Test: watch matter 1",
       kind: "matter-direction",
+      matter: "matter_00000000c001",
       steps: ["obs_00000000c101"],
     },
   ]);
@@ -191,7 +193,7 @@ test("a runtime that does not answer is not_started at its stage, with nothing r
   desk.db.run("update agent set status = 'ended' where id = ?", [personal]);
   const stop = ticking(desk, 300);
   const result = await changeRegisteredAgent(
-    { action: "start", personal: true, said: "Test: be my Personal agent" },
+    { action: "start", role: "personal", said: "Test: be my Personal agent" },
     { report: () => undefined },
     5000
   );

@@ -412,71 +412,89 @@ export async function readHandOutMatters(
   };
 }
 
-/** The ids of the projects of the matter `refs` find (`matterOfSteps`); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
+/** The ids of the projects of the matter `refs` find (`matterOfSteps`, `prefer` its tie-breaker; from `book` when the caller read it); none when no matter holds them. The row names them, so a reader that needs the ids (the packet) asks here. */
 export const readMatterProjectIds = async (
   refs: readonly string[],
+  prefer?: string,
   book?: readonly MatterView[]
 ) =>
   matterOfSteps(
     book ?? (await readMatterBook(await readPeople(), dayNow())),
-    refs
+    refs,
+    prefer
   )?.projects ?? [];
 
 /**
- * What a packet reads of the matters, from one book: the matter `refs` find (`oneMatter`; none for an agent on its
+ * What a packet reads of the matters, from one book: the matter `refs` find (`oneMatter`, `prefer` the matter it was given; none for an agent on its
  * project), the ids of its projects with the agent's own `project`, and each one's situation text (`readProjectSituationsNow`), in order.
  */
 export async function readPacketMatter(
   refs: readonly string[],
   project: string | null,
   isOnProject: boolean,
-  truth: Pick<People["truth"], "projects">
+  truth: Pick<People["truth"], "projects">,
+  prefer?: string
 ) {
   const book = await readMatterBook(await readPeople(), dayNow());
   const projectIds = [
     ...new Set([
       ...(project ? [project] : []),
-      ...(isOnProject ? [] : await readMatterProjectIds(refs, book)),
+      ...(isOnProject ? [] : await readMatterProjectIds(refs, prefer, book)),
     ]),
   ];
   return {
     ids: projectIds,
-    matter: isOnProject
-      ? undefined
-      : await oneMatter(refs, undefined, undefined, book),
+    matter: isOnProject ? undefined : await oneMatter(refs, { book, prefer }),
     situations: readProjectSituationsNow(truth, projectIds, book),
   };
 }
 
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
- * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
+ * agent anchored on records finds its matter again after a re-group; `prefer`, the matter it was given, settles a tie): its `MatterRow`, its steps in time order (each
  * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
   refs: readonly string[],
-  agentsOf: (steps: string[], people: People) => A[] = () => [],
-  readIcons?: LifeIconsReader,
-  /** The book when the caller read it already. */
-  read?: readonly MatterView[]
+  {
+    agentsOf = () => [],
+    book,
+    prefer,
+    readIcons,
+  }: {
+    agentsOf?: (steps: string[], people: People) => A[];
+    /** The book when the caller read it already. */
+    book?: readonly MatterView[];
+    prefer?: string;
+    readIcons?: LifeIconsReader;
+  } = {}
 ) {
   const people = await readPeople();
   const v = matterOfSteps(
-    read ?? (await readMatterBook(people, dayNow())),
-    refs
+    book ?? (await readMatterBook(people, dayNow())),
+    refs,
+    prefer
   );
-  return (
-    v && {
-      ...rowOf(v, people, openDecisions(), await readIcons?.([v])),
-      agents: agentsOf(refsOf(v), people),
-      communicationStyles: communicationStylesOf(
-        knownPeopleOf(v, people),
-        people.nameOf
-      ),
-      steps: v.steps.map((s) =>
-        s.with ? { ...s, with: people.partyOf(s.with) } : s
-      ),
-    }
-  );
+  if (!v) {
+    return;
+  }
+  const row = rowOf(v, people, openDecisions(), await readIcons?.([v]));
+  // His next step's context, on one matter's read only (never in the list); none on a wait for his decision.
+  const context =
+    row.nextStep?.kind === "wait_decision" ? undefined : v.nextStep?.context;
+  return {
+    ...row,
+    ...(context && row.nextStep
+      ? { nextStep: { ...row.nextStep, context } }
+      : {}),
+    agents: agentsOf(refsOf(v), people),
+    communicationStyles: communicationStylesOf(
+      knownPeopleOf(v, people),
+      people.nameOf
+    ),
+    steps: v.steps.map((s) =>
+      s.with ? { ...s, with: people.partyOf(s.with) } : s
+    ),
+  };
 }

@@ -30,6 +30,7 @@ export const AGENT_POST_SIGNATURE =
  */
 export const CONNECTOR_WRITES = [
   "answer_check",
+  "change_appointment",
   "change_directory_entry",
   "change_registered_agent",
   "change_todo_item",
@@ -50,7 +51,7 @@ export const OWNER_ASKER = "owner";
 /** The askers that are roles, not agents: none may name one of his agents, or it would read and withdraw their cards. */
 export const ROLE_ASKERS = [DESK_AGENT, OWNER_ASKER, LIFE_ASKER];
 
-/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice. */
+/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice, a guess that may be someone else going by its whole name (`same person`). */
 export const CheckGroup = z.enum([
   "decision",
   "ending",
@@ -59,13 +60,15 @@ export const CheckGroup = z.enum([
   "contacts card",
   "name",
   "voice",
+  "same person",
 ]);
 export type CheckGroup = z.infer<typeof CheckGroup>;
 
-/** What his notification settings are kept by: a check's group, and a decision with a draft apart (`notifyKindOf`, `host/card-push.ts`). */
+/** What his notification settings are kept by: a check's group, a decision with a draft apart (`notifyKindOf`, `host/card-push.ts`), and an appointment Life added to his calendar. */
 export const NotifyKind = z.enum([
   ...CheckGroup.options,
   "decision with a draft",
+  "calendar",
 ]);
 export type NotifyKind = z.infer<typeof NotifyKind>;
 

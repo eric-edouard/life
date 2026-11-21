@@ -179,9 +179,12 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     // Host's agents on it, given the matter's steps.
     expect(
       (
-        await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
-          refs.includes("obs_000000000005") ? [{ id: "agt_000000000001" }] : []
-        )
+        await oneMatter(["matter_aaaaaaaaaaaa"], {
+          agentsOf: (refs) =>
+            refs.includes("obs_000000000005")
+              ? [{ id: "agt_000000000001" }]
+              : [],
+        })
       )?.agents
     ).toEqual([{ id: "agt_000000000001" }]);
     expect(
@@ -216,9 +219,9 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     expect(await iconsWith(up)).toEqual([his, { by: "life", key: "home" }]);
     expect(
       (
-        await oneMatter(["matter_aaaaaaaaaaaa"], undefined, (vs) =>
-          readLifeIcons(vs, up)
-        )
+        await oneMatter(["matter_aaaaaaaaaaaa"], {
+          readIcons: (vs) => readLifeIcons(vs, up),
+        })
       )?.icon
     ).toEqual(his);
   } finally {
