@@ -171,20 +171,26 @@ public struct LifeActions: Sendable {
                 mayHaveHappened: true))
     }
 
-    /// Stop, resume or change the model of an agent.
+    /// Stop, resume, change the model of an agent, or move (`hand_over`: answered `asked` at once, its phase then read).
     public func changeAgent(_ request: AgentRequest, emit: @escaping Emit) async {
         emit(.started)
         do {
             let text = try await api.changeAgent(request, onProgress: progress(emit))
             guard let result = decode(AgentChangeResult.self, text) else { return emit(.failed(Self.unreadable)) }
             emit(
-                result.state == .done
+                result.state == .done || result.state == .asked
                     ? .succeeded(.agent(result))
                     : .failed(
                         ActionFailure(
                             reason: "The desk did not confirm it in time.", retry: .allowed, mayHaveHappened: true)))
         } catch {
-            emit(.failed(ActionFailure(MCPError.of(error))))
+            let error = MCPError.of(error)
+            var failure = ActionFailure(error)
+            // A move's ask may have reached Life before the connection went (only offline is sure it did not): a second
+            // would be refused as under way.
+            let mayHaveReached = failure.retry == .allowed && error != .offline
+            failure.mayHaveHappened = failure.mayHaveHappened || (request.action == .handOver && mayHaveReached)
+            emit(.failed(failure))
         }
     }
 
