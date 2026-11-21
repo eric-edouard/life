@@ -27,6 +27,7 @@ import {
   Sent,
   Stored,
   Withdrawn,
+  withdrawnOf,
 } from "./decision-lines";
 import { isSendable } from "./draft";
 import {
@@ -312,10 +313,6 @@ function contestOfAsk(
 const isSendingOf = (d: Decision) =>
   d.state === "answered" && actDueOf(d) === "send" && !d.send;
 
-/** Registered agent `agent`'s open decision, if any: the door lets each assignment ask one at a time, worked out from `list`, never stored. */
-export const openDecisionOf = (agent: string, list = decisionsNow()) =>
-  list.find((d) => d.agent === agent && d.state === "open");
-
 /** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
 function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
   const d = decisionsNow(now).find((x) => x.id === id);
@@ -364,24 +361,25 @@ export function withdrawDraftsAnsweredInChat(
   const lines = open.flatMap(({ d }, i): Withdrawn[] => {
     const his = found[i]?.find((e) => e.fromMe);
     return his
-      ? [
-          {
-            answeredInChatAt: his.at,
-            at: now.toISOString(),
-            id: d.id,
-            kind: "withdrawn",
-            schemaVersion: DECISIONS_VERSION,
-            why: ANSWERED_IN_CHAT,
-          },
-        ]
+      ? [withdrawnOf(d.id, now, ANSWERED_IN_CHAT, { answeredInChatAt: his.at })]
       : [];
   });
-  appendJsonl(DECISIONS, Withdrawn, lines);
-  for (const l of lines) {
-    log("decision.withdrawn", { by: "life", id: l.id });
-  }
+  appendWithdrawals(lines, "life");
   return lines.map((l) => l.id);
 }
+
+/** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
+function appendWithdrawals(lines: Withdrawn[], by: string) {
+  appendJsonl(DECISIONS, Withdrawn, lines);
+  logWithdrawn(by, lines);
+}
+
+/** One `decision.withdrawn` line for each card withdrawn, by `by` (who withdrew it). */
+const logWithdrawn = (by: string, cards: { id: string }[]) => {
+  for (const { id } of cards) {
+    log("decision.withdrawn", { by, id });
+  }
+};
 
 /** The holder's keep (`request.keep`): the card waiting on its open card stays waiting until that one settles, and its asker hears why. */
 function keepDraft(asker: string, request: object, now: Date) {
@@ -416,25 +414,15 @@ function withdrawDecision(asker: string, request: object, now: Date) {
   if (d.asker !== asker || d.agent !== w.data.agent) {
     throw new Error(`Not done: ${d.id} was asked by another agent.`);
   }
-  appendJsonl(DECISIONS, Withdrawn, [
-    {
-      at: now.toISOString(),
-      id: d.id,
-      kind: "withdrawn",
-      schemaVersion: DECISIONS_VERSION,
-      why: w.data.why,
-    },
-  ]);
-  log("decision.withdrawn", { by: "asker", id: d.id });
+  appendWithdrawals([withdrawnOf(d.id, now, w.data.why)], "asker");
   return { id: d.id };
 }
 
 /**
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
  * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
- * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim`, when given, is
- * handed the subject Life will store, the card's id and the asker's own card a merge withdraws, just before the card
- * is written, and may refuse it by throwing (the desk: whose card it is).
+ * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `claim` is the desk's
+ * (`Claim`); `prefer` the matter the asker works on, which the finder takes on a tie among the subject's matters.
  */
 export function requestDecision(
   asker: string,
@@ -442,7 +430,8 @@ export function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  claim?: Claim
+  claim?: Claim,
+  prefer?: string
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
@@ -450,14 +439,15 @@ export function requestDecision(
   }
   return request.keep
     ? Promise.try(() => keepDraft(asker, request, now))
-    : askCard(asker, request, now, readChat, claim);
+    : askCard(asker, request, now, readChat, claim, prefer);
 }
 
-/** Whose a card is, as the desk claims it just before it is written (`requestDecision`): may refuse it by throwing. */
+/** Whose a card is (the desk's claim): handed the subject Life will store, the card's id, the asker's own card a merge withdraws and the card's write, which it runs at once inside its own writes (whose card it is), or refuses by throwing. */
 type Claim = (
   subject: string | undefined,
   id: string,
-  replacing?: string
+  replacing: string | undefined,
+  write: (stamps: Pick<Asked, "assignment">) => void
 ) => void;
 
 /** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
@@ -466,7 +456,8 @@ async function askCard(
   request: Record<string, unknown>,
   now: Date,
   readChat: typeof resolveDraft,
-  claim?: Claim
+  claim: Claim = (_subject, _id, _replacing, write) => write({}),
+  prefer?: string
 ) {
   const notBuilt = notBuiltOf(request);
   if (notBuilt) {
@@ -493,7 +484,8 @@ async function askCard(
   const matter = isOnMatter(ask.subject)
     ? matterOfSteps(
         (await reads.book()).filter((m) => m.open),
-        [ask.subject]
+        [ask.subject],
+        prefer
       )
     : undefined;
   if (isOnMatter(ask.subject) && !matter) {
@@ -515,35 +507,48 @@ async function askCard(
   const draft = ask.draft && (await readChat(ask.draft, now));
   const { contests, merged } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  claim?.(subject, id, merged?.held.id);
-  // The draft as given is stored as Life resolved it (`draft`).
-  const { draft: _given, ...given } = ask;
-  appendJsonl(DECISIONS, Line, [
-    // A merge withdraws the holder's own card, in the same append as the card that takes its place.
-    ...mergeWithdrawalsOf(merged, id, now),
-    {
-      ...given,
-      ...(contests ? { contests } : {}),
-      ...(draft ? { draft } : {}),
-      ...(subject ? { subject } : {}),
-      asker,
-      at: now.toISOString(),
-      // In UTC, so deadlines sort as strings (`checksOf`).
-      deadline: new Date(ask.deadline).toISOString(),
-      id,
-      kind: "asked",
-      schemaVersion: DECISIONS_VERSION,
-    },
-  ]);
+  const { draft: _given, ...given } = ask; // The draft is stored as Life resolved it.
+  const write = (stamps: Pick<Asked, "assignment">) =>
+    appendJsonl(DECISIONS, Line, [
+      ...mergeWithdrawalsOf(merged, id, now), // A merge's withdrawal, in the same append as its card.
+      {
+        ...given,
+        ...stamps,
+        ...(matter ? { matter: matter.id } : {}),
+        ...(contests ? { contests } : {}),
+        ...(draft ? { draft } : {}),
+        ...(subject ? { subject } : {}),
+        asker,
+        at: now.toISOString(),
+        // In UTC, so deadlines sort as strings (`checksOf`).
+        deadline: new Date(ask.deadline).toISOString(),
+        id,
+        kind: "asked",
+        schemaVersion: DECISIONS_VERSION,
+      },
+    ]);
+  claim(subject, id, merged?.held.id, write);
+  logAsked(ask, asker, id, !!draft, merged);
+  return { id, ...waitsOf(contests, draft, now) };
+}
+
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+function logAsked(
+  ask: z.infer<typeof Ask>,
+  asker: string,
+  id: string,
+  hasDraft: boolean,
+  merged?: { held: Decision; waiting: Decision }
+) {
+  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
     asker,
-    draft: !!draft,
+    draft: hasDraft,
     id,
     options,
   });
-  return { id, ...waitsOf(contests, draft, now) };
 }
 
 /** What makes an answer to `d` refused, in words; false when nothing does. An act (`actOfOption`) is his own app's alone: a send `via` the connector, an end or a look only where host gives `end` or `look` (`canEnd`, `canLook`). */
@@ -739,19 +744,15 @@ export async function answerDecision(
   }
   // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
   // contest opened): one draft per chat when it goes.
-  appendJsonl(
-    DECISIONS,
-    Withdrawn,
+  appendWithdrawals(
     decisionsNow(now)
       .filter((x) => x.id !== id && isPending(x) && isSameChat(x, d))
-      .map((x) => ({
-        at: now.toISOString(),
-        id: x.id,
-        kind: "withdrawn" as const,
-        replacedBy: id,
-        schemaVersion: DECISIONS_VERSION,
-        why: "he sent a newer draft into its chat instead",
-      }))
+      .map((x) =>
+        withdrawnOf(x.id, now, "he sent a newer draft into its chat instead", {
+          replacedBy: id,
+        })
+      ),
+    "send"
   );
   const outcome = await deliver(stored.draft, id, {
     onStep,

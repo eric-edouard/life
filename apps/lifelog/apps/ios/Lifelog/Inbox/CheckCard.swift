@@ -19,6 +19,8 @@ struct CheckCard: View {
     let sameAs: () -> Void
     /// "Create <name>" or "Organization": the create sheet, with the name he would create, set to an organization or not.
     let create: (String, _ asOrganization: Bool) -> Void
+    /// "Wrong…" on a card of Life's: its sheet, hosted with the asks' sheets.
+    let wrong: () -> Void
     /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
     /// underway: parks it.
     var dropProject: (() -> Void)?
@@ -40,6 +42,7 @@ struct CheckCard: View {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         question
                         tile(scrolls: false)
+                        beingFixed
                         matterRow
                         actions
                     }
@@ -49,6 +52,7 @@ struct CheckCard: View {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     question
                     tile(scrolls: true)
+                    beingFixed
                     matterRow
                     Spacer(minLength: 0)
                     // While a tapped push is checked, how many asks wait is not known yet: the spinner, then the dots.
@@ -88,8 +92,10 @@ struct CheckCard: View {
             || identity != nil || check.contactsCard != nil || (check.group == .newMatter && check.goal != nil)
     }
 
-    /// A guessed person with the chat the network shows them in: that is the thing.
-    private var identity: Check.NetworkIdentity? { check.group == .guessedPerson ? check.networkIdentity : nil }
+    /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
+    private var identity: Check.NetworkIdentity? {
+        check.group == .guessedPerson || check.group == .samePerson ? check.networkIdentity : nil
+    }
 
     /// The thing on `tile`: his own words while he writes them, else what the ask is about; no tile when it has nothing.
     /// The tile hugs the thing and scrolls (from its start) only when the thing is taller than the room.
@@ -114,10 +120,7 @@ struct CheckCard: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let draft = check.draft {
-            DraftBlock(
-                draft: draft, identity: check.networkIdentity, isGuess: check.isRecipientGuessed, isBoxed: false)
-        }
+        DraftBlock(check: check, isBoxed: false)
         if !(check.needs ?? []).isEmpty {
             if let code = check.payCode { PayCodeBlock(code: code, isSaved: input.bankTrip.isCodeSaved) }
             let rows = check.shownNeedRows
@@ -152,6 +155,17 @@ struct CheckCard: View {
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8).focused($isWriting)
         .onAppear { isWriting = true }
+    }
+
+    /// His "Wrong…" the caretaker is at work on: its own line under the tile, the caretaker's words when it has them.
+    @ViewBuilder private var beingFixed: some View {
+        if let fixing = check.beingFixed {
+            HStack(spacing: Metrics.Spacing.s) {
+                StateGlyph.busy
+                Text(fixing.line ?? "The caretaker is fixing this").font(.small).foregroundStyle(Palette.muted)
+            }
+            .appears()
+        }
     }
 
     // MARK: The row under the thing, and the link
@@ -207,7 +221,7 @@ struct CheckCard: View {
         CheckActions(
             check: check, input: $input, isBusy: isBusy,
             links: isRowShown && isLinkBesideMatter ? Array(askLinks.dropFirst()) : askLinks, answer: answer,
-            sameAs: sameAs, create: create
+            sameAs: sameAs, create: create, wrong: wrong
         )
         .padding(.bottom, Metrics.Spacing.xs)
     }

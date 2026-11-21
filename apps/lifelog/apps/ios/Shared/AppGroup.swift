@@ -15,8 +15,8 @@ nonisolated enum AppGroup {
 
     static var asksFaceIDToSend: Bool { defaults.bool(forKey: Key.asksFaceIDToSend) }
 
-    /// People's pictures (`PictureCache`), in the group's caches so the notification extension draws the ones the app
-    /// kept; the target's own caches where the group isn't provisioned.
+    /// People's pictures (`PictureCache`), in the group's caches, where they have always been kept; the target's own
+    /// caches where the group isn't provisioned.
     static var pictures: URL {
         let caches = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id)?
             .appending(path: "Library/Caches")

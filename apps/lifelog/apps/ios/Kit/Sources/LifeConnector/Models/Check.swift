@@ -7,6 +7,7 @@ public enum CheckGroup: String, UnknownTolerant, Sendable {
     case contactsCard = "contacts card"
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
+    case samePerson = "same person"
     case unknown
 }
 
@@ -87,7 +88,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct LifeLink: Decodable, Sendable, Equatable {
         /// What a ref names (`RefKind`, `memory/refs.ts`).
         public enum Kind: String, UnknownTolerant, Sendable {
-            case ask, conversation, file, matter, message, observation, person, turn, unit
+            case appointment, ask, conversation, file, matter, message, observation, person, turn, unit
             case unknown
         }
         public let ref: String
@@ -119,6 +120,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let from: String?
         public let cc: String?
         public let subject: String?
+        /// The chat's last messages when the card was asked, oldest first (`[]` for a new chat; a mail's: the one it
+        /// answers); nil on a card asked before Life stamped them, which then shows the draft alone.
+        public let recent: [Recent]?
     }
 
     /// A Contacts card as Life holds it (`contactsCard`, `memory/check-asks.ts`): never a network identity, a card has no chat.
@@ -193,6 +197,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// A new matter's goal, the one Start hands the agent.
     public let goal: String?
     public let draft: Draft?
+    /// A draft card's chat as the card heads it; nil for other cards.
+    public let head: Head?
+    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
+    /// other kinds, or from a Life that predates it.
+    public let isPlan: Bool?
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
     /// The sentence the question is about (a name's line, a step's own sentence), verbatim.
@@ -230,6 +239,25 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
+    /// What his "Wrong…" sends back with his words: on Life's own cards only, nil on an agent's.
+    public let misread: Misread?
+    /// His complaint about this card that the caretaker is at work on: it no longer blocks.
+    public let beingFixed: BeingFixed?
+
+    /// A card of Life's as Life showed it (`withMisreadSealed`, `memory/complaint-checks.ts`): sent back as read.
+    public struct Misread: Decodable, Sendable, Equatable {
+        public let cause: String
+        public let shown: String
+        public let seal: String
+    }
+
+    /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's own line, when it has one.
+    public struct BeingFixed: Decodable, Sendable, Equatable {
+        public let ask: String
+        public let since: Date?
+        public let line: String?
+    }
+
     /// Life's outcome on a step it sees done itself (`doneSeen`, the asks contract): never his answer.
     public struct DoneSeen: Decodable, Sendable, Equatable {
         public enum State: String, UnknownTolerant, Sendable {
@@ -258,7 +286,7 @@ extension Check {
         switch group {
         case .ending: return "Why done?"
         case .newMatter: return "What Life saw"
-        case .guessedPerson, .name, .voice, .contactsCard:
+        case .guessedPerson, .name, .voice, .contactsCard, .samePerson:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
         case .decision, .unknown: return "Why it asks"
@@ -336,6 +364,14 @@ extension Check {
             return AnswerRequest(ref: ref, options: [option.id], note: words)
         }
         return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
+    }
+
+    /// His "Wrong…" with his words and his tick on the report: nil on a card that is not Life's own.
+    public func complaint(words: String, report: Bool) -> AnswerRequest? {
+        // Life takes at most 4,000 UTF-16 units of his words: more never goes, however often it is tried.
+        guard let misread, let words = words.wordsOrNil, words.utf16.count <= 4_000 else { return nil }
+        let value = Complaint(cause: misread.cause, shown: misread.shown, seal: misread.seal, report: report)
+        return AnswerRequest(ref: ref, options: [], note: words, value: value)
     }
 
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their

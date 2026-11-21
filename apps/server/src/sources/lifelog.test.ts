@@ -751,6 +751,7 @@ test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: 
   const mine: Required<Push> = {
     badge: 1,
     body: "1 new card",
+    kind: "calendar.added",
     level: "active",
     pushId: "9f2c41d07ab35e68",
     removed: ["9f2c41d07ab35e68"],

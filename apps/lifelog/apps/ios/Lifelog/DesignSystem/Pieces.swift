@@ -3,11 +3,6 @@ import SwiftUI
 
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
 /// never a border, and nothing tappable under 44 points.
-extension Color {
-    /// The one selected look of a control (his mark on): the page's ink stronger than `fillTint`, as the design's `--pick`.
-    static let pick = Palette.fg.opacity(0.16)
-}
-
 /// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
 /// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
 struct PillStyle: ButtonStyle {
@@ -122,8 +117,9 @@ struct TextLink: View {
 }
 
 /// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
-/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line, and Undo while it can be taken
-/// back, a `pick` capsule inside it. It sits at the top of the pane, so it takes no room from the answers.
+/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line (a flag's on up to 3, so Life's
+/// reason reads whole), and Undo while it can be taken back, a `pick` capsule inside it. It sits at the top of the
+/// pane, so it takes no room from the answers.
 struct Toast: View {
     let words: String
     var glyph = StateGlyph.ok
@@ -132,7 +128,7 @@ struct Toast: View {
     var body: some View {
         HStack(spacing: 8) {
             glyph
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(1)
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .flag ? 3 : 1)
             if let undo {
                 Button(action: undo) {
                     Text("Undo").font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
@@ -423,6 +419,8 @@ struct StateDot: View {
 struct FilterMenu<Choices: View>: View {
     let isFiltered: Bool
     let identifier: String
+    /// What VoiceOver reads: what the menu does ("Filter", "Sort").
+    let label: String
     /// Floating, the round button's size: the whole circle takes the tap (a menu hit-tests its label only).
     var diameter: CGFloat?
     let choices: Choices
@@ -434,7 +432,7 @@ struct FilterMenu<Choices: View>: View {
             Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
                 .frame(width: diameter, height: diameter).contentShape(.circle)
         }
-        .accessibilityLabel("Filter")
+        .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
     }
 }
@@ -444,9 +442,12 @@ extension View {
     /// of the closed Duo (`reportsSideColumn`), a round glass button floating at the list's bottom left, so the top group
     /// stays the Pendant and Settings. While it floats the list keeps a margin under its last row.
     func filterBar<Choices: View>(
-        isFiltered: Bool, identifier: String, isResting: Bool = false, @ViewBuilder choices: () -> Choices
+        isFiltered: Bool, identifier: String, isResting: Bool = false, label: String = "Filter",
+        @ViewBuilder choices: () -> Choices
     ) -> some View {
-        modifier(FilterBar(isFiltered: isFiltered, identifier: identifier, isResting: isResting, choices: choices()))
+        modifier(
+            FilterBar(
+                isFiltered: isFiltered, identifier: identifier, isResting: isResting, label: label, choices: choices()))
     }
 }
 
@@ -454,6 +455,7 @@ private struct FilterBar<Choices: View>: ViewModifier {
     let isFiltered: Bool
     let identifier: String
     let isResting: Bool
+    let label: String
     let choices: Choices
     @State private var isInColumn = false
     /// The floating button and its margin from the list's bottom edge; the list keeps room for both, and more.
@@ -461,7 +463,7 @@ private struct FilterBar<Choices: View>: ViewModifier {
 
     // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
     private func menu(diameter: CGFloat? = nil) -> some View {
-        FilterMenu(isFiltered: isFiltered, identifier: identifier, diameter: diameter, choices: choices)
+        FilterMenu(isFiltered: isFiltered, identifier: identifier, label: label, diameter: diameter, choices: choices)
             .disabled(isResting)
     }
 

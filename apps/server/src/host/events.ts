@@ -1,6 +1,6 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { clock, HOUR, iso } from "../core/clock";
+import { clock, HOUR } from "../core/clock";
 import { DEFAULT_RADIUS_M, distanceM } from "../core/distance";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -20,7 +20,7 @@ import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources, SOURCES } from "../memory/sources";
-import { isLifeOutput, speakerOf } from "../memory/units";
+import { callSpanOf, isLifeOutput, speakerOf } from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import { eventKey, type SourceEvent } from "../records/source";
@@ -455,7 +455,7 @@ export async function readMessageEvents<T>(
       }
     }
   );
-  const read = feeds.flatMap((f) => f.rows(f.from).map(([, e]) => e));
+  const read = feeds.flatMap((f) => Array.from(f.rows(f.from), ([, e]) => e));
   // A chat's voice note is heard before it is matched, so a wait on words sees what was said; past the bound it goes
   // as it is (the arrival pass hears it).
   const chats = new Set(
@@ -610,10 +610,7 @@ export function readEndedCalls(
       if (!e.phoneCall?.seconds) {
         return [];
       }
-      const [at, until] = [
-        iso(Date.parse(e.at)),
-        iso(Date.parse(e.at) + e.phoneCall.seconds * 1000),
-      ];
+      const { at, until } = callSpanOf(e);
       return [
         {
           ...messagePayloadOf(e, people),
