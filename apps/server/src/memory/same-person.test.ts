@@ -4,6 +4,7 @@ import { checksOf } from "./checks";
 import { about, inputs } from "./checks-test-inputs";
 import { inferred, said } from "./record-fixtures";
 import {
+  samePersonAsksOf,
   samePersonPairOf,
   samePersonPairsOf,
   samePersonRefOf,
@@ -40,6 +41,7 @@ const pairsOf = (
     inferred: guesses,
     isGuess: over.isGuess ?? ((r) => r.startsWith("person:inf_")),
     isOrganization: () => false,
+    readingNow: folds.readingNow,
     relationOf: () => null,
     truth: { people: directory } as never,
   }).map(({ guess, other }) => `${guess} ~ ${other}`);
@@ -138,6 +140,45 @@ test("never asked: one name, a guess with no handle, a guess Life is sure of, a 
   expect(folded).toEqual([]);
 });
 
+test("a guess whose one name another of Life's readings links to someone he knows is one pair with that name as its context; another guess by that name is not", () => {
+  const sun = Person.parse({ id: "sun", name: "Sun" });
+  const heard = {
+    ...inferred("inf_sun-heard", ["Sunny"]),
+    name: "Sun",
+    person: "person:sun",
+  };
+  const account = { ...inferred("inf_sunny", ["_ig_42"]), name: "Sunny" };
+  const pairs = (directory: Person[], guesses = [account, heard]) =>
+    samePersonPairsOf({
+      ...foldsOf(directory, guesses, [], []),
+      contacts: [],
+      corrections: [],
+      inferred: guesses,
+      isGuess: (r) => r.startsWith("person:inf_"),
+      isOrganization: () => false,
+      relationOf: () => null,
+      truth: { people: directory } as never,
+    });
+  const [pair] = pairs([sun]);
+  expect(pair).toMatchObject({
+    called: "Sunny",
+    guess: "person:inf_sunny",
+    other: "person:sun",
+  });
+  const [asked] = samePersonAsksOf(
+    { nameOf: (r) => r.slice(7), partyOf: () => ({}) as never },
+    [pair as NonNullable<typeof pair>]
+  );
+  expect(asked?.context).toBe(
+    "Life knows sun by the name “Sunny” too; no handle joins them."
+  );
+  const twin = {
+    ...inferred("inf_sunny-2", ["Sunny", "_ig_43"]),
+    name: "Sunny",
+  };
+  expect(pairs([], [account, twin])).toEqual([]);
+});
+
 test("two guesses going by one whole name are one card whichever comes first, asked of the smaller id; a native handle counts; a Contacts card counts too", () => {
   const twin = { ...inferred("inf_kit-2", ["_u91_abc"]), name: "Kit Lee" };
   expect(pairsOf({ directory: [], guesses: [twin, kit] })).toEqual([
@@ -166,6 +207,7 @@ test("two guesses going by one whole name are one card whichever comes first, as
 
 test("a guess and someone going by its whole name are asked once, bound to both, and only while a kept line rides on the guess", () => {
   const pair = {
+    called: null,
     guess: "person:inf_a",
     handles: ["+33600000001"],
     lines: ["the plumber, +33600000001", "his cousin"] as [string, string],
