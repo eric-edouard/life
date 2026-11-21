@@ -451,8 +451,9 @@ test("on his words the main session acts through its door: each act's `said` mus
     applyAgentChanges(t.desk);
     receiveComplaints(t.desk);
   }, 50);
+  let answered: unknown;
   try {
-    await asked(words, async (r) => {
+    ({ answer: answered } = await asked(words, async (r) => {
       const id = main()?.id ?? "";
       // All in one millisecond (the clock stands still): each act's ask is its own.
       const act = async (name: string, args: unknown) => {
@@ -480,7 +481,7 @@ test("on his words the main session acts through its door: each act's `said` mus
       });
       await act("complain", { said: "The names keep coming out wrong" });
       t.fake.hear(r, { kind: "words", text: "**Done**." });
-    });
+    }));
   } finally {
     clearInterval(ticking);
   }
@@ -512,6 +513,11 @@ test("on his words the main session acts through its door: each act's `said` mus
     ref: "",
     report: false,
   });
+  // Its answer is its last act's kind, from what the act wrote, with its words.
+  expect(answered).toEqual({
+    kind: "fix",
+    words: "**Done**.",
+  });
   // No other agent has its acts: the caretaker, active now, is refused them.
   const caretaker = agentInRole(t.desk.db, "caretaker")?.id ?? "";
   expect(
@@ -519,3 +525,42 @@ test("on his words the main session acts through its door: each act's `said` mus
   ).toContain("the main session's alone");
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
 }, 30_000);
+
+test("an answer's kind is its turn's last act: an agent told, a card asked as his", async () => {
+  const other = register(t.desk, {
+    brief: "Test dentist agent",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  if (!ownAssignmentOf(t.desk.db, other)) {
+    openAssignment(t.desk, other, { openedBy: "owner" });
+  }
+  const play =
+    (name: string, args: Record<string, unknown>) => async (r: string) => {
+      await callDoor(main()?.id ?? "", name, args);
+      t.fake.hear(r, { kind: "words", text: "**On it**." });
+    };
+  const told = await asked(
+    "Tell the dentist agent to move my appointment",
+    play("tell_agent", { agent: other, said: "move my appointment" })
+  );
+  expect(told.answer).toEqual({
+    agent: "Test dentist agent",
+    kind: "agent",
+    told: "move my appointment",
+    words: "**On it**.",
+  });
+  const carded = await asked(
+    "Ask me later about the dentist bill",
+    play("request_decision", {
+      ...card("The dentist bill?"),
+      said: "Ask me later about the dentist bill",
+    })
+  );
+  expect(carded.answer).toEqual({
+    card:
+      decisionsNow().find((d) => d.question === "The dentist bill?")?.id ?? "",
+    kind: "card",
+    words: "**On it**.",
+  });
+});
