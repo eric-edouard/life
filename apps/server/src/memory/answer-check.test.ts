@@ -692,3 +692,41 @@ test("someone else, named as a person lifelog knows by an id the card does not l
     send.mockRestore();
   }
 });
+
+// His report of 22 Nov: a voice that was his own could not be named him. Naming him assigns lifelog's owner id, never
+// a new person by his directory name.
+test("a voice named him is assigned to lifelog's owner, and refused before lifelog has heard him", async () => {
+  const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
+  const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
+  const lifelog = await import("../sources/lifelog-voices");
+  const queue = spyOn(lifelog, "readNamingQueueNow").mockResolvedValue([item]);
+  const owner = spyOn(lifelog, "readOwnerVoiceId").mockResolvedValue(
+    "owner-id"
+  );
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    nameOf: () => "Test Owner",
+    ...whoOf(resolve),
+  } as never);
+  const send = spyOn(lifelog, "answerNamingQueue").mockResolvedValue({
+    personId: "owner-id",
+  });
+  try {
+    await answerCheck(voice, { options: ["this-is"], person: "person:me" });
+    expect(send.mock.calls).toEqual([
+      [
+        [{ jobId: "job-1", speakerLabel: "A" }],
+        { kind: "assign", personId: "owner-id" },
+      ],
+    ]);
+    owner.mockResolvedValueOnce(undefined);
+    await expect(
+      answerCheck(voice, { options: ["this-is"], person: "person:me" })
+    ).rejects.toThrow("has not heard you");
+    expect(send.mock.calls.length).toBe(1);
+  } finally {
+    queue.mockRestore();
+    owner.mockRestore();
+    people.mockRestore();
+    send.mockRestore();
+  }
+});

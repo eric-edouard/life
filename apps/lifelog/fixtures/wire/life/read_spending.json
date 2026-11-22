@@ -20,6 +20,22 @@
     },
     {
       "billed": {
+        "amount": 0.003,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "kind": "web_search"
+    },
+    {
+      "billed": {
+        "amount": 0.05,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "kind": "apify"
+    },
+    {
+      "billed": {
         "amount": 0.1,
         "basis": "billed",
         "currency": "USD"
@@ -49,6 +65,24 @@
       "reported": true
     },
     {
+      "provider": "web_search",
+      "billed": {
+        "amount": 0.003,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
+    },
+    {
+      "provider": "apify",
+      "billed": {
+        "amount": 0.05,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
+    },
+    {
       "provider": "elevenlabs",
       "billed": {
         "amount": 0.1,
@@ -61,7 +95,7 @@
   "days": [
     {
       "billed": {
-        "amount": 0.25,
+        "amount": 0.303,
         "basis": "billed",
         "currency": "USD"
       },
@@ -77,7 +111,7 @@
     }
   ],
   "month": {
-    "amount": 0.35,
+    "amount": 0.403,
     "basis": "billed",
     "currency": "USD"
   },
@@ -93,7 +127,7 @@
       "agent": "Test shop agent",
       "id": "agt_000000000001",
       "billed": {
-        "amount": 0.01,
+        "amount": 0.012,
         "basis": "billed",
         "currency": "USD"
       },
@@ -111,7 +145,7 @@
       "matter": "Test shop fit-out",
       "id": "matter_000000000001",
       "billed": {
-        "amount": 0.01,
+        "amount": 0.012,
         "basis": "billed",
         "currency": "USD"
       },

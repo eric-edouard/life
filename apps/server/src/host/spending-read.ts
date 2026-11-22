@@ -7,7 +7,7 @@ import {
   providerOfRuntime,
   type SpendKind,
   type SpendProvider,
-  spendOfTurn,
+  spendsOfTurn,
   type TurnSpent,
 } from "../memory/spends";
 import { readPeople } from "../memory/who";
@@ -97,11 +97,11 @@ const billedWhenAny = (usd: number) =>
   usd > 0 ? { billed: amountOf(usd, "billed") } : {};
 
 /**
- * Turns as `{tokens, equivalent, billed?, reported}`: `billed` when any was billed (pi); `reported` false when one has
+ * Turns as `{tokens, equivalent, billed?, reported}`: `billed` when any was billed (pi: models and web searches); `reported` false when one has
  * no price, cost or usage (its amounts a floor).
  */
 const turnSpendingOf = (turns: TurnSpent[]) => {
-  const spends = turns.map(spendOfTurn);
+  const spends = turns.flatMap(spendsOfTurn);
   return {
     ...billedWhenAny(spends.reduce((n, s) => n + (s.usd ?? 0), 0)),
     equivalent: amountOf(

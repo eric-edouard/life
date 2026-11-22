@@ -209,6 +209,8 @@ interface Context {
   pictured: Map<string, Set<string>>;
   /** Voice's naming queue item of each voice in one (`voiceKey`): its group. */
   queue: Map<string, NamingQueueItem>;
+  /** Persons in an active plan for a day (its `when`) whose evidence is not a recording, by that day. */
+  scheduled: Map<string, Set<string>>;
 }
 
 const addTo = <K, V>(m: Map<K, Set<V>>, k: K, v: V) =>
@@ -223,7 +225,7 @@ function heardOnDayOf(heard: { at: string; ref: string }[]) {
   return onDay;
 }
 
-/** The people pictured in a photo of each of `dates`, and those in an active fact of that day that no recording is evidence of. */
+/** The people pictured in a photo of each of `dates`, those in an active fact of that day and those in an active plan for it, that no recording is evidence of. */
 async function readDayFacts(dates: string[], people: People) {
   const pictured = new Map<string, Set<string>>();
   for (const u of readUnitsOf(dates).filter((x) => x.source === "photos")) {
@@ -232,19 +234,25 @@ async function readDayFacts(dates: string[], people: People) {
     }
   }
   const facts = new Map<string, Set<string>>();
+  const scheduled = new Map<string, Set<string>>();
   const { observations, statusInputs } = await observationsNow(people);
   for (const o of observations) {
     if (
-      dates.includes(o.date) &&
-      o.source.channel !== "lifelog" &&
-      observationStatusOf(o, statusInputs).state === "active"
+      o.source.channel === "lifelog" ||
+      observationStatusOf(o, statusInputs).state !== "active"
     ) {
-      for (const s of o.subjects) {
+      continue;
+    }
+    for (const s of o.subjects) {
+      if (dates.includes(o.date)) {
         addTo(facts, o.date, s);
+      }
+      if (o.modality === "plan" && o.when && dates.includes(o.when)) {
+        addTo(scheduled, o.when, s);
       }
     }
   }
-  return { facts, pictured };
+  return { facts, pictured, scheduled };
 }
 
 /**
@@ -465,7 +473,7 @@ export function isWorthNaming(
 
 /**
  * What code counts for a voice group (its lines `lines`, its recording voices `voices`) and each person offered: the
- * signals (a one-to-one message in the `PLANNED_WITHIN` before its first line; a word of their name or chat title said
+ * signals (a one-to-one message in the `PLANNED_WITHIN` before its first line; a plan for the part's day; a word of their name or chat title said
  * in a line not its own; on a call near the part; its sound like them: its queue item's `isLikely`, else, in no item, its
  * likeness at `SOUNDS_LIKE` or more), and whether a sound points to someone else. Keyed `${voice} ${person}`.
  */
@@ -502,6 +510,7 @@ function evidenceOf(
     );
     for (const person of o.possible) {
       const planned = isPlannedBefore(c.direct.get(person) ?? [], first);
+      const scheduled = Boolean(c.scheduled.get(part.day)?.has(person));
       const named = isNameSaid(others, [
         c.people.nameOf(person),
         ...(o.chats.get(person) ?? []),
@@ -511,9 +520,13 @@ function evidenceOf(
         elsewhere: item
           ? Boolean(likely && likely !== person)
           : [...strong].some((r) => r !== person),
-        signals: [planned, named, o.onCall.includes(person), sounds].filter(
-          Boolean
-        ).length,
+        signals: [
+          planned,
+          scheduled,
+          named,
+          o.onCall.includes(person),
+          sounds,
+        ].filter(Boolean).length,
       });
     }
   }
@@ -563,6 +576,7 @@ export function namingOf(
       heard: c.heard,
       onCall: calls.people,
       pictured: [...(c.pictured.get(part.day) ?? [])],
+      scheduled: [...(c.scheduled.get(part.day) ?? [])],
     },
     part.at,
     began,

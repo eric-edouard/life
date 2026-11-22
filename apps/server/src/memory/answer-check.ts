@@ -5,6 +5,7 @@ import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
   readNamingQueueNow,
+  readOwnerVoiceId,
   readVoiceNames,
 } from "../sources/lifelog-voices";
 import {
@@ -22,6 +23,7 @@ import type { Check, LIFE_CHECKS } from "./life-checks";
 import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
+import { OWNER } from "./read-truth";
 import { samePersonPairOf } from "./same-person";
 import { type GuessedQueueItem, withVoiceGuesses } from "./voice-guesses";
 import { type People, readPeople, voiceCardRefOf, voiceIdOf } from "./who";
@@ -210,8 +212,8 @@ async function answerVoice(
 }
 
 /**
- * Who a voice's answer names: a new person by `name`, else the lifelog id of Life's `person` (`voiceIdOf`: the card's
- * own, else the one id lifelog gives one of their names), else that person by their name.
+ * Who a voice's answer names: a new person by `name`, him by lifelog's owner id, else the lifelog id of Life's `person`
+ * (`voiceIdOf`: the card's own, else the one id lifelog gives one of their names), else that person by their name.
  */
 async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
@@ -221,6 +223,14 @@ async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
+  // Him: lifelog knows him by its owner's id only, never by his directory name (which would make a second him).
+  if (ref === OWNER) {
+    const own = await readOwnerVoiceId();
+    if (!own) {
+      throw new Error("Not done: Voice has not heard you yet.");
+    }
+    return { kind: "assign", personId: own } as const;
+  }
   const aliases =
     people.truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
   const id =

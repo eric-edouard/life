@@ -19,8 +19,8 @@ import {
   stepRoleCheck,
   stepRoles,
   stepStore,
-  stepTurnCost,
   stepTurnModel,
+  stepTurnSearchCost,
 } from "./store-step";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
@@ -78,7 +78,10 @@ export async function desk() {
     log("desk.store_step", { done: stepMatterIds(), step: "matter ids" });
     log("desk.store_step", { done: stepMoves(), step: "moves" });
     log("desk.store_step", { done: stepRoleCheck(), step: "role check" });
-    log("desk.store_step", { done: stepTurnCost(), step: "turn cost" });
+    log("desk.store_step", {
+      done: stepTurnSearchCost(),
+      step: "turn search cost",
+    });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });
     console.error(`${clock().toISOString()} desk: ${String(error)}`);

@@ -132,7 +132,12 @@ test("an Apify run counts once its bill is whole; one running or just ended keep
     now
   );
   expect(spends).toEqual([
-    expect.objectContaining({ provider: "apify", reported: true, usd: 0.0026 }),
+    expect.objectContaining({
+      kind: "apify",
+      provider: "apify",
+      reported: true,
+      usd: 0.0026,
+    }),
   ]);
   expect(unsettled).toBe(2);
 });

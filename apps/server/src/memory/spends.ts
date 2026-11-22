@@ -5,7 +5,7 @@ import type { VoiceSpending } from "../sources/lifelog-spending";
 
 // Model spending (decision 83): each record that used a paid or metered resource read as one spend, where it is
 // logged. A `model.run` line (every model call), a `model.local` line (the describer, Apple's model), a desk turn (an
-// agent's), later Voice's rows. Pure; the one reading rule. A spend has one basis, never added to the other:
+// agent's models, and its web searches apart), an Apify run, Voice's rows. Pure; the one reading rule. A spend has one basis, never added to the other:
 // `billed`, dollars a provider charges (the local models at $0); `equivalent`, his plans' tokens priced at list.
 
 const SPEND_PROVIDERS = [
@@ -18,6 +18,7 @@ const SPEND_PROVIDERS = [
   "apple",
   "speech",
   "apify",
+  "web_search",
 ] as const;
 export type SpendProvider = (typeof SPEND_PROVIDERS)[number];
 export type Basis = "billed" | "equivalent";
@@ -29,7 +30,13 @@ const RUNTIME_PROVIDERS: Partial<Record<string, SpendProvider>> = {
 };
 export const providerOfRuntime = (runtime: string | null): SpendProvider =>
   RUNTIME_PROVIDERS[runtime ?? ""] ?? "claude";
-export type SpendKind = "night" | "daytime" | "agents" | "voice";
+export type SpendKind =
+  | "night"
+  | "daytime"
+  | "agents"
+  | "web_search"
+  | "apify"
+  | "voice";
 
 export interface Spend {
   agent?: string;
@@ -58,7 +65,7 @@ export const spendOfApifyRun = (at: string, usd: number | null): Spend => ({
   at,
   basis: "billed",
   calls: 1,
-  kind: "agents",
+  kind: "apify",
   provider: "apify",
   ...(usd === null ? { reported: false } : { reported: true, usd }),
 });
@@ -154,12 +161,14 @@ export function spendsOfLine(
 export interface TurnSpent {
   agent_id: string;
   assignment_id: string;
-  /** What its provider billed (pi on OpenRouter); null on a plan's runtime, or a run that came without it. */
+  /** What its provider billed for its models (pi on OpenRouter); null on a plan's runtime, or a run that came without it. */
   cost_usd: number | null;
   ended_at: string;
   model: string | null;
   /** Its session's runtime: who ran a turn from before `turn.model`. */
   runtime: string | null;
+  /** What its web searches cost (pi): 0 with none; null on a plan's runtime, or once a search came without its price. */
+  search_usd: number | null;
   tokens_cached: number | null;
   tokens_in: number | null;
   tokens_out: number | null;
@@ -202,6 +211,32 @@ export function spendOfTurn(t: TurnSpent): Spend {
     ...(isUsed ? { tokens } : {}),
     ...turnCostOf(t, isBilled, isUsed ? tokens : null),
   };
+}
+
+/**
+ * A turn's spends: its models' (`spendOfTurn`), and its web searches' apart when it ran on a billed runtime (pi) and
+ * searched, or a search came without its price (not reported, never guessed).
+ */
+export function spendsOfTurn(t: TurnSpent): Spend[] {
+  const model = spendOfTurn(t);
+  if (model.basis !== "billed" || t.tokens_in === null || t.search_usd === 0) {
+    return [model];
+  }
+  return [
+    model,
+    {
+      agent: t.agent_id,
+      assignment: t.assignment_id,
+      at: t.ended_at,
+      basis: "billed",
+      calls: 1,
+      kind: "web_search",
+      provider: "web_search",
+      ...(t.search_usd === null
+        ? { reported: false }
+        : { reported: true, usd: t.search_usd }),
+    },
+  ];
 }
 
 /** Scribe's seconds as a billed spend at its rate on the day; a send that may have been billed (no seconds) is not reported. */
@@ -295,6 +330,6 @@ export function spendsOf(
     ...lines.flatMap((e) =>
       spendsOfLine(e, night.has(String(e.run)) ? "night" : "daytime")
     ),
-    ...turns.map(spendOfTurn),
+    ...turns.flatMap(spendsOfTurn),
   ];
 }

@@ -349,6 +349,8 @@
             guard let subject = parts.first, let part = parts.dropFirst().first else {
                 throw MCPError.failed("No such part.")
             }
+            // A matter's thread: made up from its row's first person, a day before and today.
+            if part == "thread" { return json(thread(of: subject, older: parts.count > 2)) }
             // A page of `latest` or `reach`, by its whole ref (`person:camille/latest/before/2026-11-10`); `latest`
             // alone may be keyed by its subject.
             if part == "latest" || part == "reach" {
@@ -380,6 +382,48 @@
                 read["picture"] = choices.first { $0["source"] as? String == from }.map { ["id": $0["id"]] }
             }
             return json(read)
+        }
+
+        /// A matter's thread as `fetch <id>/thread` gives it: the row's first person writing, his answer, a call, a
+        /// payment and Life's step; `older` is the page before the first, none.
+        private func thread(of id: String, older: Bool) -> [String: Any] {
+            guard !older, let row = rowsNow().first(where: { $0["id"] as? String == id }) else {
+                return ["matter": id, "thread": [Any]()]
+            }
+            let who = (row["people"] as? [String: [[String: Any]]] ?? [:]).values.joined().first
+            let him: [String: Any] = ["kind": "person", "name": "You", "ref": "person:me"]
+            let when = { (days: Int, hour: Int) -> (String, String) in
+                let day = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
+                let date = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
+                return (
+                    date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)),
+                    date.formatted(.iso8601.year().month().day())
+                )
+            }
+            func line(_ kind: String, _ when: (String, String), _ text: String, _ extra: [String: Any] = [:])
+                -> [String: Any]
+            {
+                ["at": when.0, "day": when.1, "kind": kind, "text": text].merging(extra) { $1 }
+            }
+            let (a, b, c) = (when(1, 11), when(1, 18), when(0, 9))
+            return [
+                "matter": id,
+                "thread": [
+                    line(
+                        "message", a, "Have you had a look yet?",
+                        [
+                            "channel": "whatsapp", "facts": [Any](), "ref": "msg:whatsapp|m1", "speaker": who ?? him,
+                            "open": "https://wa.me/33600000001",
+                        ]),
+                    line(
+                        "message", b, "Yes, I will send it tonight.",
+                        ["channel": "whatsapp", "facts": [Any](), "ref": "msg:whatsapp|m2", "speaker": him]),
+                    line(
+                        "payment", b, "Agence Lumen",
+                        ["amount": -1450, "currency": "EUR", "episode": "ep_1", "payment": "pay-1"]),
+                    line("life", c, "Looked for the receipt", ["step": "step_1"]),
+                ],
+            ]
         }
 
         func readMatter(_ id: String) async throws -> String {

@@ -264,7 +264,10 @@ late with harm), or spoken asks above about one a day for a month.
 
 - Calls go through `apps/server/src/models/llm.ts` (an API engine's through `routers.ts`): `claude -p` or the pinned `codex` on the owner's subscription, or
   an API engine with his keys (allmodels since 28 Oct 2026, openrouter since 8 Nov), chosen with
-  `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
+  `bun life engine <engine>` or the app. A new install starts on openrouter (`init` writes it, only when the settings name no
+  engine; his decision of 22 Nov 2026), so it works without Claude installed, pi agents included: the Mac app's first setup
+  asks once for the OpenRouter key (Keychain), and no phone setup flow exists yet. An absent `engine` stays `claude` for an
+  existing install. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
   call, keys, whether it may run tools, its quota, and how many of its calls a step runs at once (`callsAtOnce`: 32 for
   an API engine, 4 for one that starts a program on the Mac).
 - An API engine's model is its routes (`routesOf`): `router:author/model@host,host[=effort]`, then the next router's

@@ -69,6 +69,7 @@ test("a first turn makes the session, ends with its usage, and the next turn res
       billedUsd: 0.001,
       contextFirst: 12,
       contextLast: 12,
+      searchUsd: 0,
       tokensCached: 4,
       tokensIn: 6,
       tokensOut: 2,
@@ -251,6 +252,39 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
 
+test("every role's agent on pi gets the same powers: its door, the connector's reads, web_search, subagents and the send guard in Life's extension, no tool cut", async () => {
+  // A runtime's agent carries no role (`Agent`): what differs by role is the door's, the same on every runtime.
+  const place = {
+    claude: mkdtempSync(join(tmpdir(), "life-pi-claude-")),
+    dir: mkdtempSync(join(tmpdir(), "life-pi-roles-")),
+    provider: provider.providerOf({}),
+  };
+  const keys = [
+    PI_EXTENSION_ENV.doorKey,
+    PI_EXTENSION_ENV.doorUrl,
+    PI_EXTENSION_ENV.own,
+    PI_EXTENSION_ENV.reads,
+    PI_EXTENSION_ENV.search,
+  ];
+  for (const title of [
+    "Agent: Ask Life",
+    "Agent: Caretaker",
+    "Agent: Personal",
+    "Agent: a made-up project",
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: one spawn read at a time
+    const s = await piRowOf(true, place).spawn(
+      { ...agent, title },
+      `ref-${title}`,
+      true
+    );
+    expect(keys.filter((k) => !s.env[k])).toEqual([]);
+    expect(s.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
+    expect(s.command).toContain("-e");
+    expect(s.command).not.toContain("--tools");
+  }
+});
+
 test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
   process.env.LIFE_MADE_UP = "!a$b";
   try {
@@ -263,11 +297,12 @@ test("the connector's reader gets Life's values as they are: pi's `$NAME` and le
   }
 });
 
-test("a spending tool's usage is added to the turn's billed dollars and tokens, any other tool's never", () => {
+test("a spending tool's model usage adds to the turn's billed dollars and tokens, its searches' prices to its search dollars apart, any other tool's never; a search without its price nulls them", () => {
   const usage = {
     billedUsd: 0,
     contextFirst: null,
     contextLast: null,
+    searchUsd: 0,
     tokensCached: 0,
     tokensIn: 0,
     tokensOut: 0,
@@ -283,10 +318,25 @@ test("a spending tool's usage is added to the turn's billed dollars and tokens, 
   const c = { begun: () => undefined, end: () => undefined, usage };
   for (const toolName of ["web_search", "subagent", "mcp__made_up__read"]) {
     runHeard(c, {
-      result: { details: { usage: [spent] } },
+      result: {
+        details: {
+          searchUsd: [0.001],
+          ...(toolName === "web_search" ? {} : { usage: [spent] }),
+        },
+      },
       toolName,
       type: "tool_execution_end",
     });
   }
-  expect(usage).toMatchObject({ billedUsd: 0.01, tokensIn: 6 });
+  expect(usage).toMatchObject({
+    billedUsd: 0.005,
+    searchUsd: 0.002,
+    tokensIn: 3,
+  });
+  runHeard(c, {
+    result: { details: { searchUsd: [undefined, 0.001] } },
+    toolName: "web_search",
+    type: "tool_execution_end",
+  });
+  expect(usage).toMatchObject({ billedUsd: 0.005, searchUsd: null });
 });

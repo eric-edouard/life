@@ -88,6 +88,8 @@ struct SettingsView: View {
     .localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
   @State private var engine = "claude"
   @State private var keys: [String: String] = [:]
+  /// A new install thinks on OpenRouter (`init` sets it): its key is asked once, here, before Start.
+  @State private var firstKey = ""
   /// The personal add-ons as saved (`personal`): a switch writes the whole object back.
   @State private var personal: [String: Any] = [:]
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
@@ -111,8 +113,9 @@ struct SettingsView: View {
           TextField("Your name", text: $name)
           TextField("Your email", text: $email)
           TextField("Your main language (Life writes your memory in it)", text: $language)
+          SecureField("OpenRouter API key (Life thinks with it; no Claude needed)", text: $firstKey)
           Button("Start Life") { Task { await start() } }
-            .disabled(name.isEmpty || language.isEmpty || installing)
+            .disabled(name.isEmpty || language.isEmpty || firstKey.isEmpty || installing)
         }
         Section("Or bring your Life") {
           Button("Import an export…") { Task { await importExport() } }
@@ -255,6 +258,7 @@ struct SettingsView: View {
   }
 
   private func start() async {
+    if !firstKey.isEmpty { Keychain.write(supervisor.info?.engineKeys["openrouter"]?.first ?? "OPENROUTER_API_KEY", firstKey) }
     let r = await Helper.run(["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
     status = r.code == 0 ? "Life is set up." : r.err
     await supervisor.start()
