@@ -163,6 +163,24 @@ test("a name he said of one conversation reads so only there: another David stay
     "person:gaston"
   );
   expect(ruled.resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
+  // The newest word rules: a global line, then the same name of the same person said of one conversation, leaves the
+  // name unpinned elsewhere; the global line after it pins it again.
+  const later = (lines: Parameters<typeof said>[0][]) =>
+    foldsOf(mapped, [], lines.map(said), []);
+  const global1 = {
+    kind: "this-is",
+    nameOrHandle: "David",
+    person: "person:gaston",
+  } as const;
+  const here = { ...global1, inConversation: "lifelog|call-trocknerheld" };
+  const narrowed = later([global1, here]);
+  expect(narrowed.resolve("David", "lifelog", here.inConversation)).toBe(
+    "person:gaston"
+  );
+  expect(narrowed.resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
+  expect(
+    later([here, global1]).resolve("David", "lifelog", "lifelog|call-bloom")
+  ).toBe("person:gaston");
   // A line with no scope keeps its old meaning: everywhere.
   const global = foldsOf(
     mapped,

@@ -111,7 +111,7 @@ const handleIndex = (people: Person[]) => ({
 });
 
 /**
- * What his `this-is` and `not-this-person` corrections say by name key: `said` everywhere, `saidIn` only in the
+ * What his `this-is` and `not-this-person` corrections say by name key: `said` everywhere (until a newer line says the same name of the same person in one conversation), `saidIn` only in the
  * conversation a line names (`inConversation`, keyed `<conversation>|<key>`), `not` as `<key>|<person>`.
  */
 function wordOf(corrections: Correction[]) {
@@ -130,6 +130,10 @@ function wordOf(corrections: Correction[]) {
         not.add(`${k}|${c.person}`);
       } else if (c.inConversation) {
         saidIn.set(`${c.inConversation}|${k}`, c.person);
+        // The newest word rules: said of one conversation, it ends the same name's older word on that person everywhere else.
+        if (said.get(k) === c.person) {
+          said.delete(k);
+        }
       } else {
         said.set(k, c.person);
       }
