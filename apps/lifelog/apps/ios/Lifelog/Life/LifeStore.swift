@@ -22,10 +22,11 @@ final class LifeStore {
     private(set) var agents = ReadState<RegisteredAgents>()
     /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
     private(set) var spending = ReadState<ModelSpending>()
-    /// The People tab: everyone Life knows, closest first; one of them read in full, by ref; and what a search found.
+    /// An agent's session on pi, by the agent's id: read on each visit, never kept.
+    private(set) var agentSession: [String: ReadState<AgentSession>] = [:]
+    /// The People tab: everyone Life knows, closest first; and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
-    private(set) var peopleFound: (query: String, state: ReadState<PeopleList>)?
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
@@ -39,8 +40,6 @@ final class LifeStore {
     /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
     nonisolated enum ActionKey: Hashable, Sendable {
         case answer(ref: String)
-        /// His "Wrong…" on a card: apart from its answers, so they stay as they are while it goes.
-        case complaint(ref: String)
         case start(matter: String)
         case agent(String)
         /// His move of a matter, or his runtime switch of an agent, by the matter's or the agent's id.
@@ -49,6 +48,8 @@ final class LifeStore {
         case project(String)
         /// His Remove or Undo of an appointment Life added to his calendar, by its id.
         case appointment(String)
+        /// His picture pick for a person or an organization of his directory, by their ref.
+        case picture(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
@@ -60,6 +61,8 @@ final class LifeStore {
             /// His icon to put back (nil: Life's pick), and the one it replaces.
             case icon(matter: String, String?, was: String?)
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
+            /// The picture source to put back (`none`: no picture), and the one it replaces.
+            case picture(ref: String, name: String, Party.Kind, String, was: String)
         }
         let id = UUID()
         let words: String
@@ -74,6 +77,8 @@ final class LifeStore {
     private let statusing = PendingTaps<ProjectStatus>()
     /// His icon pick on a matter (a key, or nil: Life picks again) from his tap until Life's reads after it.
     private let iconing = PendingTaps<String?>()
+    /// His picture pick on a person or an organization (a source, or `none`) from his tap until Life's reads after it.
+    private let picturing = PendingTaps<String>()
     /// His icon picks Life took, until a read of the matter shows them.
     private var writtenIcons = WrittenIcons()
 
@@ -84,32 +89,18 @@ final class LifeStore {
     /// A tapped push, from the tap until a whole read asked after it lands: its card, as in hand, is shown meanwhile.
     private(set) var pushed: PushedCard?
 
-    /// Answers on rows of Life's own questions, held for Undo before they are sent (`HeldAnswers`).
-    /// Its send ends with Life's answer, before the reads after it: a flush waits for Life, not for them.
-    @ObservationIgnored private lazy var holds = HeldAnswers { [weak self] held in
-        let matter = self?.heldMatters.removeValue(forKey: held.request.ref) ?? nil
-        await self?.send(held.request, for: held.life)
-        // Its card is gone by now: what Life did or could not do on it, or when it comes back, is said back here.
-        if let said = self?.state(of: .answer(ref: held.request.ref)).heldAnswerWords(as: held.label) {
-            self?.show(SaidBack(words: said.words, undo: nil, isDone: said.isDone))
-        }
-        Task { await self?.refreshAfterAnswer(on: matter) }
-    }
-    var held: [String: HeldAnswers.Held] { holds.held }
-    /// Whether an answer is held or still being sent: the app going waits for it.
-    var hasAnswersUnderWay: Bool { !holds.underWay.isEmpty }
-    /// The answer held last, which the Inbox's toast names.
-    var latestHeld: (ref: String, held: HeldAnswers.Held)? {
-        holds.latest.flatMap { ref in holds.held[ref].map { (ref, $0) } }
-    }
-    /// The asks a read asked at `asked` (nil: none yet) may still list though his answer took them out: held for Undo, on
+    /// The refs of his answers to rows of Life's own questions while they are sent (`answerRows`): their rows stay on
+    /// show, each with its own state, until the last has ended.
+    private(set) var lingering: Set<String> = []
+    /// The asks a read asked at `asked` (nil: none yet) may still list though his answer took them out: on
     /// their way, or confirmed after it was asked. Every screen leaves them out of that read (`inboxOnShow`, a matter's
     /// asks), so none flashes back; a read asked later says what is open.
     func answersNewer(than asked: Date?) -> Set<String> {
-        holds.underWay.union(answered.newer(than: asked)).union(
+        answered.newer(than: asked).union(
             actions.states.compactMap { key, state in
                 if case .answer(let ref) = key, state.isRunning { ref } else { nil }
-            })
+            }
+        ).subtracting(lingering)
     }
     /// His answers Life confirmed, kept with the reads for a cold start.
     private var answered = AnsweredCards()
@@ -133,8 +124,8 @@ final class LifeStore {
     private let api: any LifeAPI
     private let cache: ReadCache
     let runner: LifeActions
-    /// Tell Life: his one conversation with Life's main session.
-    let tell: TellLife
+    /// Ask Life: his one conversation with Life's main session.
+    let askLife: AskLife
     let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// The phone's network path, which the pendant's sync follows too.
@@ -166,7 +157,7 @@ final class LifeStore {
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
-        tell = TellLife(api: api)
+        askLife = AskLife(api: api)
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
@@ -195,10 +186,23 @@ final class LifeStore {
         return connection.whyNot(hasPath: hasPath)
     }
     var isOutOfReach: Bool { whyOutOfReach != nil }
+    /// The mark over a page's read (`SyncMark`): the path, how the newest read ended, its own read, and, where the page
+    /// tells it (home), what keeps the agents from running.
+    func syncMark<V>(_ shown: ReadState<V>.Shown, stamp: ReadStamp?, tellsAgents: Bool) -> SyncMark? {
+        SyncMark.of(
+            shown, stamp: stamp, hasPath: hasPath, lost: lost,
+            agents: tellsAgents ? agents.shown().onScreen?.trouble : nil, now: now())
+    }
     /// Whether Life answers: its inbox read, the one every screen starts from.
     var link: LinkState { outcome.link(hasRead: inbox.value != nil) }
 
     func state(of key: ActionKey) -> ActionState<ActionProof> { actions[key] ?? .idle }
+
+    /// A running action's words at `now`: `words` ("Saving…"), or "Still working…" once the Mac has said nothing for
+    /// `MacSilence.stillWorkingAfter`.
+    func working(_ words: String, of key: ActionKey, at now: Date) -> String {
+        (actions.silence(of: key, at: now) ?? 0) < MacSilence.stillWorkingAfter ? words : "Still working…"
+    }
 
     /// Forgets an action's result once the screen has shown it (the next card is up, the sheet is closed).
     func forget(_ key: ActionKey) {
@@ -301,7 +305,7 @@ final class LifeStore {
 
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: Self.peopleKey) {
-            try await $0.readPeopleAndOrganizations(query: nil)
+            try await $0.readPeopleAndOrganizations()
         }
     }
 
@@ -388,18 +392,6 @@ final class LifeStore {
         return state(of: .appointment(id))
     }
 
-    /// The people and organizations `query` matches, and the others Life has seen by that name; a newer query's read
-    /// replaces this one's, which then applies nothing.
-    func findPeople(_ query: String) async {
-        if peopleFound?.query != query { peopleFound = (query, ReadState()) }
-        await load(
-            { if self.peopleFound?.query == query { self.peopleFound?.state.apply($0) } },
-            key: "read_people_and_organizations-query-\(query)", isKept: false
-        ) {
-            try await $0.readPeopleAndOrganizations(query: query)
-        }
-    }
-
     /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
     /// as live would lie). Nil when another pairing began meanwhile: it applies nothing.
     func readLogLines(_ query: LogQuery) async -> Result<LogPage, MCPError>? {
@@ -424,6 +416,13 @@ final class LifeStore {
             try await $0.readMatter(id)
         }
         if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
+    }
+
+    func refreshAgentSession(_ id: String) async {
+        let update = { (event: ReadState<AgentSession>.Event) in
+            self.agentSession[id, default: ReadState()].apply(event)
+        }
+        await load(update, key: "read_agent_session-\(id)", isKept: false) { try await $0.readAgentSession(id) }
     }
 
     func refreshProjects() async {
@@ -540,27 +539,42 @@ final class LifeStore {
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
     /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
-    func perform(
+    /// An answer (`tap`) the Mac has said nothing about for `MacSilence.noAnswerAfter` ends not done, and its late events
+    /// apply nothing (the same tap may run again meanwhile): true then.
+    @discardableResult func perform(
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
-    ) async {
-        guard actions.begin(key) else { return }
-        let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
+    ) async -> Bool {
         let (began, pairing) = (now(), actions.pairing)
-        var limit: Date?
+        guard actions.begin(key, at: began) else { return false }
+        let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
+        var (limit, isSilenced) = (Date?.none, false)
         let consumer = Task {
             // Applied only within its pairing: after another, its key may be a new tap's, on that Life's card.
             for await event in events {
-                guard actions.apply(event, to: key, begunIn: pairing) else { continue }
+                guard !isSilenced, actions.apply(event, to: key, begunIn: pairing, at: now()) else { continue }
                 if case .succeeded = event { succeeded() }
                 limit = actions[key]?.limit ?? limit
+            }
+        }
+        // Only an answer has a tap's key that makes trying again safe: only it ends on the Mac's silence.
+        let watch = Task {
+            while tap != nil, (try? await Task.sleep(for: .seconds(1))) != nil, pairing == actions.pairing, !isSilenced
+            {
+                guard actions.endIfSilent(key, at: now()), let ended = actions[key] else { continue }
+                isSilenced = true
+                traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit)
             }
         }
         await body { emit.yield($0) }
         emit.finish()
         await consumer.value
-        guard pairing == actions.pairing else { return }
-        if let ended = actions[key] { traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit) }
+        watch.cancel()
+        guard pairing == actions.pairing else { return isSilenced }
+        if !isSilenced, let ended = actions[key] {
+            traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit)
+        }
+        return isSilenced
     }
 
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
@@ -571,7 +585,11 @@ final class LifeStore {
     func answer(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife? = nil) async {
         if life == nil, await refusedOutOfReach(.answer(ref: request.ref)) { return }
         let matter = matterOf(card: request.ref)
+        // Leaving the app mid-request does not stop the send.
+        let awake = Awake()
+        awake.id = UIApplication.shared.beginBackgroundTask(withName: "answer") { awake.end() }
         await send(request, keepsCardOpen: keepsCardOpen, for: life ?? pairedLife)
+        awake.end()
         await refreshAfterAnswer(on: matter)
     }
 
@@ -583,18 +601,19 @@ final class LifeStore {
     /// The answer's call alone, until Life's answer to it, to the Life it was decided for (`life`) and no other: one
     /// decided under an earlier pairing, or none, is refused here and never sent.
     private func send(_ request: AnswerRequest, keepsCardOpen: Bool = false, for life: PairedLife?) async {
-        let key = request.isComplaint ? ActionKey.complaint(ref: request.ref) : .answer(ref: request.ref)
+        let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
         guard let life, life.generation == parties.generation.current else { return await refuseUnpaired(key) }
         let (tap, generation) = (taps.key(for: request), parties.generation)
-        await perform(
+        let isSilenced = await perform(
             key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: life.generation) }
         ) {
             [runner] in
             await runner.answer(
                 request, key: tap, at: life.origin, whilePaired: { generation.current == life.generation }, emit: $0)
         }
-        if life.generation == actions.pairing, let ended = actions[key] { taps.ended(request, as: ended) }
+        // Silenced, its tap's key stays: the same tap may already run again with it.
+        if !isSilenced, life.generation == actions.pairing, let ended = actions[key] { taps.ended(request, as: ended) }
     }
 
     /// An action with no Life to go to: refused before anything leaves the phone, as not paired.
@@ -605,29 +624,9 @@ final class LifeStore {
         }
     }
 
-    // MARK: His "Wrong…"
-
-    /// His "Wrong…" on each card, above every read, until Life's complaint receipt (`ComplaintDrafts`).
-    let complaints = ComplaintDrafts()
-
-    /// His "Wrong…" on the card `ref` as its draft stands: the press as first sent while his words and tick are
-    /// unchanged (its seal, its key, its Life), else a new one to the Life paired now. Its card stays (Life keeps it
-    /// open, being fixed); the receipt is the draft's only while it still holds that press.
-    func complain(_ ref: String) async {
-        guard let life = pairedLife else { return await refuseUnpaired(.complaint(ref: ref)) }
-        if await refusedOutOfReach(.complaint(ref: ref)) { return }
-        guard let press = complaints.press(ref, to: life) else { return }
-        let matter = matterOf(card: ref)
-        await send(press.request, keepsCardOpen: true, for: press.life)
-        if case .succeeded(.complaintReceipt(let ask), _) = state(of: .complaint(ref: ref)) {
-            complaints.received(ask, for: press)
-        }
-        await refreshAfterAnswer(on: matter)
-    }
-
-    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it; nil when it has none.
-    private func matterOf(card ref: String) -> String? {
-        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matter?.id }
+    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it (`Check.matterID`); nil when it has none.
+    func matterOf(card ref: String) -> String? {
+        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matterID }
         return matter.first { $0.value.value?.checks.contains { $0.ref == ref } == true }?.key
     }
 
@@ -642,16 +641,7 @@ final class LifeStore {
         _ = await (inbox, matters, chips)
     }
 
-    // MARK: Held answers
-
-    /// His answer to such a row, sent in four seconds unless he undoes it; none while Life is out of reach.
-    func hold(_ request: AnswerRequest, as label: String) {
-        guard !isOutOfReach else { return }
-        heldMatters[request.ref] = matterOf(card: request.ref)
-        holds.hold(request, as: label, for: pairedLife)
-    }
-
-    /// A tap that would hold or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
+    /// A tap that would answer or leave its ask, while Life is out of reach: why, said back, and true; it does nothing.
     func saysOutOfReach() -> Bool {
         guard let why = whyOutOfReach else { return false }
         show(SaidBack(words: why, undo: nil, isDone: false))
@@ -659,7 +649,7 @@ final class LifeStore {
     }
 
     /// A tap on a screen while Life is out of reach: refused before anything leaves the phone or shows, with why. Only
-    /// taps on a screen: an answer from a notification's button, or one held before Life went out of reach, is tried.
+    /// taps on a screen: an answer from a notification's button is tried.
     /// `saysBack`: an action said back with Undo (`saidBack`) says why there too.
     func refusedOutOfReach(_ key: ActionKey, saysBack: Bool = false) async -> Bool {
         guard let why = whyOutOfReach else { return false }
@@ -671,23 +661,29 @@ final class LifeStore {
         return true
     }
 
-    /// A bulk card's answers, held as one: one toast, one Undo; none while Life is out of reach.
-    func hold(_ requests: [AnswerRequest], as label: String) {
-        guard !isOutOfReach else { return }
-        for request in requests { heldMatters[request.ref] = matterOf(card: request.ref) }
-        holds.hold(requests, as: label, for: pairedLife)
+    // MARK: Answers on rows
+
+    /// His answers to rows of Life's own questions (a bulk card, the moves list), sent at once. Each row stays on show
+    /// with its own state until the last has ended; then Life's word is said in the toast, unless each row says its own
+    /// (`rowsSayIt`: one result per answer). True when every one was taken.
+    @discardableResult
+    func answerRows(_ requests: [AnswerRequest], as label: String, rowsSayIt: Bool = false) async -> Bool {
+        // A row already answering is left to its own tap: no second send, no word of its own.
+        let requests = requests.filter { !state(of: .answer(ref: $0.ref)).isRunning }
+        guard !requests.isEmpty else { return false }
+        let refs = Set(requests.map(\.ref))
+        lingering.formUnion(refs)
+        let sends = requests.map { request in Task { await self.answer(request) } }
+        for send in sends { await send.value }
+        lingering.subtract(refs)
+        let said = requests.map { state(of: .answer(ref: $0.ref)).heldAnswerWords(as: label) }
+        // An answer with no end (the pairing changed meanwhile) is no word from Life: never green.
+        let failed = said.first { $0?.isDone != true }
+        let words =
+            failed.map { $0?.words ?? "Life did not answer." } ?? (requests.count == 1 ? said[0]?.words : nil) ?? label
+        if !rowsSayIt { show(SaidBack(words: words, undo: nil, isDone: failed == nil)) }
+        return failed == nil
     }
-
-    /// Each held answer's matter, taken when he answered: by its send, a read may have dropped its card.
-    @ObservationIgnored private var heldMatters: [String: String?] = [:]
-
-    func undo(_ ref: String) {
-        heldMatters[ref] = nil
-        holds.undo(ref)
-    }
-
-    /// Every held answer, at once: the screen is going, or the app.
-    func sendHeld() async { await holds.sendAll() }
 
     /// His goal for a matter: Life pins it to the matter's steps.
     func setGoal(of id: String, _ goal: String) async {
@@ -728,12 +724,20 @@ final class LifeStore {
     func setMatterIcon(of id: String, _ icon: String?, was: String?, saysBack: Bool = true) async {
         if await refusedOutOfReach(.edit(matter: id, .icon), saysBack: true) { return }
         let api = api
-        let isSent = await iconing.run(id, showing: icon) {
-            await edit(id, .icon) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
-            if case .succeeded = state(of: .edit(matter: id, .icon)) { writtenIcons.wrote(icon, on: id, at: now()) }
+        _ = await iconing.run(id, showing: icon) {
+            await edit(
+                id, .icon,
+                then: {
+                    if case .succeeded = state(of: .edit(matter: id, .icon)) {
+                        writtenIcons.wrote(icon, on: id, at: now())
+                    }
+                    // Said as soon as Life took it; the reads that show it come after.
+                    say(
+                        .edit(matter: id, .icon), saysBack ? "Icon changed" : nil,
+                        undo: .icon(matter: id, was, was: icon))
+                }
+            ) { try await api.setMatterIcon(matter: id, icon: icon, onProgress: $0) }
         }
-        guard isSent else { return }
-        say(.edit(matter: id, .icon), saysBack ? "Icon changed" : nil, undo: .icon(matter: id, was, was: icon))
     }
 
     // MARK: His mark, a project's status
@@ -779,18 +783,52 @@ final class LifeStore {
             default: "Set the project \(name) underway"
             }
         if await refusedOutOfReach(.project(id), saysBack: true) { return }
-        let isSent = await statusing.run(id, showing: status) {
+        _ = await statusing.run(id, showing: status) {
             await perform(.project(id)) { [runner] in
                 await runner.record(emit: $0) { try await api.setProjectStatus(id, status, said: said, onProgress: $0) }
             }
+            // Said as soon as Life took it; the reads that show it come after.
+            say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
             async let a: Void = refreshProjects()
             async let b: Void = refreshProjectHead(id)
             async let c: Void = refreshScopedMatters(.project, id)
             async let d: Void = refreshMatters()
             _ = await (a, b, c, d)
         }
-        guard isSent else { return }
-        say(.project(id), words, undo: .status(project: id, name: name, was, was: status))
+    }
+
+    /// His picture pick under way on `ref` (a source, or `none`); nil when none is.
+    func picturePicking(_ ref: String) -> String? { picturing[ref] }
+
+    /// His picture pick for a person or an organization of his directory (a source, or `none`: no picture), an edit of
+    /// their entry `said` as the tap's words; said back "Picture changed" with Undo (`was`: the source showing before,
+    /// written back explicitly, which shows the same) once their read and the list are read again. One pick per ref at
+    /// a time; a failure says Life's reason.
+    func setPicture(
+        of ref: String, name: String, kind: Party.Kind, from source: String, was: String, saysBack: Bool = true
+    ) async {
+        let api = api
+        let key = ActionKey.picture(ref)
+        if await refusedOutOfReach(key, saysBack: true) { return }
+        let said =
+            source == PersonNow.noPicture
+            ? "No picture for \(name)"
+            : "Show \(name)'s \(Channel.name(source)) picture"
+        _ = await picturing.run(ref, showing: source) {
+            await perform(key) { [runner] in
+                await runner.record(emit: $0) {
+                    try await api.setPicture(of: ref, kind: kind, from: source, said: said, onProgress: $0)
+                }
+            }
+            if case .succeeded = state(of: key) {
+                async let a: Void = refreshPerson(ref)
+                async let b: Void = refreshPeople()
+                _ = await (a, b)
+            }
+            say(
+                key, saysBack ? "Picture changed" : nil,
+                undo: .picture(ref: ref, name: name, kind, was, was: source))
+        }
     }
 
     /// Its Undo as a tap, none when it was not done.
@@ -800,17 +838,20 @@ final class LifeStore {
 
     func undo(_ said: SaidBack) async {
         saidBack = nil
+        // A change is said back before its reads land: Undo waits for them, else the tap would be refused.
         switch said.undo {
         case .important(let id, let isOn)?:
-            // Said back before its reads land (`setImportant`): Undo waits for them, else the tap would be refused.
-            // ponytail: a 100 ms poll; a continuation on `PendingTaps` if another tap needs it.
-            while marking[id] != nil {
-                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            }
+            await marking.settled(id)
             await setImportant(id, isOn, saysBack: false)
-        case .icon(let id, let icon, let was)?: await setMatterIcon(of: id, icon, was: was, saysBack: false)
+        case .icon(let id, let icon, let was)?:
+            await iconing.settled(id)
+            await setMatterIcon(of: id, icon, was: was, saysBack: false)
         case .status(let id, let name, let status, let was)?:
+            await statusing.settled(id)
             await setStatus(of: id, named: name, to: status, was: was, words: nil)
+        case .picture(let ref, let name, let kind, let source, let was)?:
+            await picturing.settled(ref)
+            await setPicture(of: ref, name: name, kind: kind, from: source, was: was, saysBack: false)
         case nil: break
         }
     }
@@ -846,11 +887,12 @@ final class LifeStore {
     }
 
     private func edit(
-        _ id: String, _ what: ActionKey.Edit,
+        _ id: String, _ what: ActionKey.Edit, then said: () -> Void = {},
         _ change: @escaping @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
     ) async {
         if await refusedOutOfReach(.edit(matter: id, what)) { return }
         await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
+        said()
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshListsOf(id)
         _ = await (a, b)
@@ -951,22 +993,25 @@ final class LifeStore {
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
-        (people, person, peopleFound, latest, prose, reach, openWith) = (ReadState(), [:], nil, [:], [:], [:], [:])
+        agentSession = [:]
+        (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
-        holds.clear()
         // His actions, "Wrong…" presses and their keys were the last Life's: none goes on to this one.
         actions.startOver(pairing: parties.generation.current)
         taps = AnswerTaps()
-        complaints.clear()
         onStep(.reading)
         await refresh()
     }
 
-    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Tell Life's "Open in Inbox").
-    func open(ref: String) async {
-        guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
+    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Ask Life's "Open in Inbox"). False when the
+    /// inbox, read again, no longer holds it (answered, withdrawn): the caller says so.
+    @discardableResult
+    func open(ref: String) async -> Bool {
+        if inbox.value?.checks.contains(where: { $0.ref == ref }) != true { await refreshInbox() }
+        guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return false }
         await open(pushId: pushId)
+        return true
     }
 
     #if DEBUG

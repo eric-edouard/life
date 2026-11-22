@@ -1,20 +1,25 @@
 import Foundation
 import Observation
 
-/// One run of a field's dictation as `Dictation` drives it: its loudness since last asked (0 to 1) and its end, which closes the
-/// microphone and returns what it heard (Ogg Opus). The app's `DictationCapture` is the one real run.
+/// One run of a field's dictation as `Dictation` drives it: its loudness since last asked (0 to 1), its end, which closes the
+/// microphone and returns what it heard (Ogg Opus), and, once ended, the words instant dictation heard (`LiveWords`):
+/// nil for a run heard on the Mac, or when the stream failed. The app's `DictationCapture` is the one real run.
 public struct DictationRun: Sendable {
     public let level: @MainActor () -> Float
     public let finish: @MainActor () async throws -> Data
+    public let heard: @MainActor () async -> String?
 
-    public init(level: @escaping @MainActor () -> Float, finish: @escaping @MainActor () async throws -> Data) {
-        (self.level, self.finish) = (level, finish)
+    public init(
+        level: @escaping @MainActor () -> Float, finish: @escaping @MainActor () async throws -> Data,
+        heard: @escaping @MainActor () async -> String? = { nil }
+    ) {
+        (self.level, self.finish, self.heard) = (level, finish, heard)
     }
 }
 
 /// One field's dictation. Each run, start to pause, is its own recording (its own quiet stretch and cap); at its pause
-/// its words are asked of the Mac once and land at the field's caret (`landed`). Words come only at a pause: the Mac's
-/// recognition doesn't stream. Only the current run changes anything: a run cancelled or replaced finishes its
+/// its words land at the field's caret (`landed`): instant dictation's, or else (heard on the Mac, or the stream failed)
+/// the Mac's, asked once with the recording. Only the current run changes anything: a run cancelled or replaced finishes its
 /// recording and drops whatever comes back.
 @MainActor @Observable
 public final class Dictation {
@@ -60,7 +65,7 @@ public final class Dictation {
     }
 
     /// Words that came back, once each: the field puts them at its caret, then sends when the run was paused by a
-    /// swipe up (a field with a Send).
+    /// Send (the field's Send, or a hold slid up from its microphone).
     public struct Landed: Equatable {
         public let id = UUID()
         public let words: String
@@ -71,6 +76,9 @@ public final class Dictation {
 
     /// The stream draws one bar per sample.
     public static let sampleEvery = Duration.milliseconds(60)
+    /// How long the spinner may last: the Mac's answer, or the recording's close, past this is a failure (`notWritten`
+    /// for the answer: it may have been heard, so it is said again). Under the request's 300 s, over a normal hearing.
+    var answerWithin = Duration.seconds(120)
     static let samplesKept = 120
 
     public private(set) var phase = Phase.rest
@@ -81,6 +89,8 @@ public final class Dictation {
     public private(set) var sampledAt = Date.now
     public private(set) var runStarted = Date.now
     public private(set) var isRefused: Bool
+    /// Whether this run sends once its words land (stopped by Send, or a slide up from the microphone).
+    public private(set) var isSending = false
 
     /// Opens the microphone, asking for it the first time; the field sets it once its environment is known.
     public var begin: Begin
@@ -93,7 +103,6 @@ public final class Dictation {
     private var opened: DictationRun?
     private var sampling: Task<Void, Never>?
     private var writing: Task<Void, Never>?
-    private var sendsWhenLanded = false
 
     /// `words` asks the Mac once; `refused` reads whether the microphone was refused.
     public init(
@@ -117,7 +126,7 @@ public final class Dictation {
         guard phase == .rest else { return }
         run += 1
         let current = run
-        (problem, levels, runStarted, sampledAt, isRefused) = (nil, [], .now, .now, refused())
+        (problem, levels, runStarted, sampledAt, isRefused, isSending) = (nil, [], .now, .now, refused(), false)
         guard !isRefused else {
             problem = .refused
             return
@@ -143,7 +152,7 @@ public final class Dictation {
             } catch {
                 guard run == current else { return }
                 isRefused = refused()
-                (problem, phase) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest)
+                (problem, phase, isSending) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest, false)
             }
         }
     }
@@ -158,28 +167,31 @@ public final class Dictation {
         let starting = starting
         writing = Task {
             await starting?.value
-            if let ogg = await closed(current) { await write(ogg, current) }
+            guard let (ogg, heard) = await closed(current) else { return }
+            if let words = await heard(), run == current { return land(words) }
+            if run == current { await write(ogg, current) }
         }
     }
 
-    /// Takes the run's microphone, closes it and returns what it heard; nil when the run is no longer current or its
-    /// recording has a hole (never sent). Nothing keeps the run once this returns.
-    private func closed(_ current: Int) async -> Data? {
+    /// Takes the run's microphone, closes it and returns what it heard, with how to ask for its instant words; nil when
+    /// the run is no longer current or its recording has a hole (never sent). Nothing keeps the run once this returns.
+    private func closed(_ current: Int) async -> (Data, @MainActor () async -> String?)? {
         guard run == current, let run = opened else { return nil }
         opened = nil
         do {
-            let ogg = try await run.finish()
-            return self.run == current ? ogg : nil
+            let ogg = try await bounded { try await run.finish() }
+            return self.run == current ? (ogg, run.heard) : nil
         } catch {
             if self.run == current { fail(.notWritten) }
             return nil
         }
     }
 
-    /// A swipe up from the microphone where the field has a Send: pause, and its words land with `sends`.
-    public func swipeUp() {
+    /// Send while a run is under way (the field's Send, or a slide up from the microphone): stop, and its words land
+    /// with `sends`.
+    public func send() {
         guard phase == .starting || phase == .listening else { return }
-        sendsWhenLanded = true
+        isSending = true
         pause()
     }
 
@@ -193,7 +205,7 @@ public final class Dictation {
         // the writing task took, there.
         starting?.cancel()
         if let opened { Task { _ = try? await opened.finish() } }
-        (starting, opened, phase, sendsWhenLanded) = (nil, nil, .rest, false)
+        (starting, opened, phase, isSending) = (nil, nil, .rest, false)
     }
 
     /// The problem line's link.
@@ -213,12 +225,34 @@ public final class Dictation {
 
     private func write(_ ogg: Data, _ current: Int) async {
         do {
-            let text = try await words(ogg)
+            let words = words
+            let text = try await bounded { try await words(ogg) }
             guard run == current else { return }
-            (phase, landed, sendsWhenLanded) = (.rest, Landed(words: text, sends: sendsWhenLanded), false)
+            land(text)
         } catch {
             guard run == current else { return }
             fail(DictationFailure(error) == .notReached ? .notReached(ogg) : .notWritten)
+        }
+    }
+
+    private func land(_ words: String) {
+        (phase, landed, isSending) = (.rest, Landed(words: words, sends: isSending), false)
+    }
+
+    private struct TimedOut: Error {}
+
+    /// `work`'s result, or `TimedOut` once `answerWithin` has passed (the work is cancelled).
+    private func bounded<T: Sendable>(_ work: @escaping @Sendable () async throws -> T) async throws -> T {
+        let limit = answerWithin
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await work() }
+            group.addTask {
+                try await Task.sleep(for: limit)
+                throw TimedOut()
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else { throw TimedOut() }
+            return first
         }
     }
 
@@ -232,7 +266,7 @@ public final class Dictation {
     }
 
     private func fail(_ problem: Problem) {
-        (self.problem, phase, sendsWhenLanded) = (problem, .rest, false)
+        (self.problem, phase, isSending) = (problem, .rest, false)
     }
 
     /// The run's loudness every 60 ms, one bar each (`bar`).

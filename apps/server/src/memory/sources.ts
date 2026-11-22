@@ -221,8 +221,7 @@ const LISTED: Descriptor[] = [
     },
     name: "mail",
     newest: newestMail,
-    read: (since, before) =>
-      readMail(since, undefined, undefined, undefined, before),
+    read: (since, before) => readMail(since, undefined, undefined, before),
     send: gmailSend(),
     silentAfter: 12 * HOUR,
   },

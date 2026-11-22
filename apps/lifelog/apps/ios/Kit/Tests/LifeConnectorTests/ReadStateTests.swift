@@ -48,6 +48,20 @@ private func shown(_ state: ReadState<[Int]>) -> String {
     #expect(state.phase == .loading)
 }
 
+/// A refresh that fails, then one that lands, keep the same face (22 Nov: his card and its answers went and came back
+/// under his Mark as done as the read turned stale, and the pager jumped as it turned fresh).
+@Test func aReadTurningStaleOrFreshKeepsItsFace() {
+    var state = ReadState<[Int]>()
+    state.apply(.succeeded([1], then))
+    let loaded = state.shown().face
+    state.apply(.failed(.unreachable))
+    #expect(state.shown().face == loaded)
+    state.apply(.succeeded([2], then))
+    #expect(state.shown().face == loaded)
+    state.apply(.succeeded([], then))
+    #expect(state.shown(isEmpty: \.isEmpty).face != loaded)
+}
+
 /// Leaving the screen cancels its read: what was shown before stays, never "failed: cancelled".
 @Test func aCancelledReadLeavesTheStateAsItWas() {
     var state = ReadState<[Int]>()

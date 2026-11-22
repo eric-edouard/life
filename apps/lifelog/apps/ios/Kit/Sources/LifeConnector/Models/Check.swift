@@ -51,6 +51,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         /// What a plan card's option is to his app (`role`): the start of the plan, or its decline.
         public let role: Role?
 
+        /// Its answer icon (`answerIconOf`, `records/answer-icon.ts`): Life's act where Life acts, else the asker's pick.
+        public let icon: AnswerIcon?
+
         public enum Role: String, UnknownTolerant, Sendable {
             case start, decline
             case unknown
@@ -188,7 +191,12 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let observations: Int
         public let matters: Int
         public let pages: Int
+        /// The matters it rides on, by id; nil from a Life that predates it.
+        public let matterIds: [String]?
     }
+
+    /// The matter this ask is on: its own, else the first it rides on.
+    public var matterID: String? { matter?.id ?? ridesOn?.matterIds?.first }
 
     public var id: String { ref }
     public let ref: String
@@ -215,8 +223,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let head: Head?
     /// The older draft card into the same chat that this one replaces (his Send withdraws it); nil for most cards.
     public let replaces: String?
-    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
-    /// other kinds, or from a Life that predates it.
+    /// A decision that is a plan card: it gives `plan`, its steps; nil on other kinds, or from a Life that predates
+    /// it.
     public let isPlan: Bool?
     /// A plan card's steps, in order; nil on an older plan card, which shows as any decision.
     public let plan: [PlanStep]?
@@ -251,8 +259,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let text: String
     }
 
-    /// The steps the card draws, whenever it holds them: `isPlan` is false while Life can't read its desk, and a card
-    /// with no steps (an older plan card too) draws as any decision.
+    /// The steps the card draws, whenever it holds them; a card with no steps (an older plan card too) draws as any
+    /// decision.
     public var planSteps: [PlanStep] { plan ?? [] }
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
@@ -297,16 +305,14 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
-    /// What his "Wrong…" sends back with his words: on Life's own cards only, nil on an agent's.
+    /// Set on Life's own cards only, nil on an agent's: it offers "Wrong…", which opens Ask Life on the card.
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
     public let beingFixed: BeingFixed?
 
-    /// A card of Life's as Life showed it (`withMisreadSealed`, `memory/complaint-checks.ts`): sent back as read.
+    /// What a card of Life's rests on (`causeOf`, `memory/complaint-checks.ts`).
     public struct Misread: Decodable, Sendable, Equatable {
         public let cause: String
-        public let shown: String
-        public let seal: String
     }
 
     /// His complaint at work (`BeingFixed`, `memory/life-checks.ts`): the caretaker's open card on it, its question
@@ -354,8 +360,8 @@ extension Check {
         }
     }
 
-    /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
-    public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
+    /// The words of what opens his own words on it: "Tell the agent…", or "Ask Life…" on Life's own question.
+    public var ownWordsTitle: String { isLifesOwn ? "Ask Life…" : "Tell the agent…" }
 
     /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
     public struct OpenedContext: Identifiable, Equatable, Sendable {
@@ -433,14 +439,14 @@ extension Check {
     public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
 
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
-    /// A your move card's "Hand to an agent" hands over the goal it shows, as a new matter's Start does.
+    /// A your move card's "Hand over" hands over the goal it shows, as a new matter's Start does.
     public func answer(_ option: Option) -> AnswerRequest? {
         guard option.takes == nil else { return nil }
         let goal = isHandOver(option) ? self.goal : nil
         return AnswerRequest(ref: ref, options: [option.id], note: goal)
     }
 
-    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand to an agent.
+    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand over.
     public func isHandOver(_ option: Option) -> Bool {
         option.id == "start" && (group == .newMatter || group == .yourMove)
     }
@@ -455,6 +461,16 @@ extension Check {
             return AnswerRequest(ref: ref, options: [option.id], name: name)
         case .name(let name): return AnswerRequest(ref: ref, options: [option.id], person: name)
         }
+    }
+
+    /// Who "Someone else…" offers (the people sheet): the card's likely people first, then everyone else he knows
+    /// (`everyone`, the People list: his directory and everyone with a page), never him, and no organization on a voice.
+    public func peopleToPick(among everyone: [Party]) -> [Party] {
+        let rest = everyone.filter { party in
+            !party.isOwner && !likelyPeople.contains { $0.ref == party.ref }
+                && (group != .voice || party.kind != .organization)
+        }
+        return likelyPeople + rest
     }
 
     /// The name a name card asks about, whole: the longest of `about`, as said. Only a name card's `about` is a name (a
@@ -504,14 +520,6 @@ extension Check {
             return AnswerRequest(ref: ref, options: [picked.id], note: words)
         }
         return group == .decision ? AnswerRequest(ref: ref, options: [], note: words) : nil
-    }
-
-    /// His "Wrong…" with his words and his tick on the report: nil on a card that is not Life's own.
-    public func complaint(words: String, report: Bool) -> AnswerRequest? {
-        // Life takes at most 4,000 UTF-16 units of his words: more never goes, however often it is tried.
-        guard let misread, let words = words.wordsOrNil, words.utf16.count <= 4_000 else { return nil }
-        let value = Complaint(cause: misread.cause, shown: misread.shown, seal: misread.seal, report: report)
-        return AnswerRequest(ref: ref, options: [], note: words, value: value)
     }
 
     /// Whether "Something else" is offered: an agent reads a decision's own words; Life's own checks take only their
@@ -591,6 +599,37 @@ extension CheckGroup {
         case (.voice, "is-them"): "Probably them"
         case (.ending, "outdated"): "Look done"
         default: nil
+        }
+    }
+}
+
+/// An answer icon: each key Life sends (`ANSWER_ICONS`, `apps/server/src/records/answer-icon.ts`: `ContractTests`
+/// checks), with its SF Symbol; `agent` is the asking agent's mark, drawn by the app. A key this build doesn't know
+/// draws nothing.
+public enum AnswerIcon: String, UnknownTolerant, Sendable {
+    case send, done, agent, start, no, later, drop, open, person, people, organization, link, hide, date, place
+    case addToCalendar = "add_to_calendar"
+    case unknown
+
+    /// The SF Symbol; nil for `agent` (the app draws the agent's mark) and for a key it doesn't know.
+    public var symbol: String? {
+        switch self {
+        case .send: "paperplane"
+        case .addToCalendar: "calendar.badge.plus"
+        case .done: "checkmark"
+        case .start: "play.fill"
+        case .no: "xmark"
+        case .later: "clock"
+        case .drop: "trash"
+        case .open: "arrow.up.right"
+        case .person: "person"
+        case .people: "person.2"
+        case .organization: "building.2"
+        case .link: "link"
+        case .hide: "eye.slash"
+        case .date: "calendar"
+        case .place: "mappin"
+        case .agent, .unknown: nil
         }
     }
 }

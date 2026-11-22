@@ -4,12 +4,12 @@ import SwiftUI
 /// The pieces every v1 screen is drawn with (the app design's `ak-p`, `ak-b`, `chip`, `tile`): a fill of the palette,
 /// never a border, and nothing tappable under 44 points.
 /// The pill buttons: the filled one (cream in dark), the quiet one, and the done one (`ok`, an action that worked), in
-/// three sizes, and busy while an action runs. A label that does not fit takes a second line, and the pill grows with it.
+/// three sizes, and busy while an action runs. A label that does not fit wraps and the pill grows with it, to 3 lines (a compact pill keeps one).
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
-    /// answers stacked, each on its line.
-    enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
+    /// answers stacked, each on its line; `tile` shares a card's second row of answers, its icon above a 13 pt label.
+    enum Size: CGFloat { case large = 54, row = 48, compact = 44, tile = 60 }
 
     let kind: Kind
     var size: Size = .large
@@ -22,18 +22,27 @@ struct PillStyle: ButtonStyle {
         HStack(spacing: 8) {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
+                .lineLimit(size == .compact || size == .tile ? 1 : 3)
         }
-        .font(.buttonLabel)
+        .font(size == .tile ? .smallStrong : .buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
         // A compact pill sits beside others in a row: it keeps less to its sides.
-        .padding(.horizontal, size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l)
+        .padding(
+            .horizontal, size == .tile ? Metrics.Spacing.s : size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l
+        )
         .padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: .capsule)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: shape)
         .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
-        .contentShape(.capsule)
+        .contentShape(shape)
         .allowsHitTesting(!isBusy)
+    }
+
+    /// A tile is a rounded square's corners, every other size a capsule.
+    private var shape: AnyShape {
+        size == .tile ? AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) : AnyShape(.capsule)
     }
 }
 
@@ -174,41 +183,64 @@ struct AddRow: View {
 /// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
 /// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line (a flag's on up to 3, so Life's
 /// reason reads whole), and Undo while it can be taken back, a `pick` capsule inside it. It sits at the top of the
-/// pane, so it takes no room from the answers.
+/// pane, so it takes no room from the answers. Ask Life's cut list keeps one until he closes it: its words after a filter glyph (`cut`, up to 2 lines),
+/// and an X (`symbol`) in a `pick` circle.
 struct Toast: View {
     let words: String
-    var glyph = StateGlyph.ok
-    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`).
+    var glyph: StateGlyph? = .ok
+    /// The capsule's one action: Undo, or Retry or Show on the sync mark (`SyncNote`), or "Show all" with an X.
     var action = "Undo"
+    /// The action drawn as this symbol instead of its word (which VoiceOver says).
+    var symbol: String?
     let undo: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 8) {
-            glyph
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : 3)
+            if let glyph { glyph }
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : glyph == .cut ? 2 : 3)
             if let undo {
                 Button(action: undo) {
-                    Text(action).font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
-                        .background(Color.pick, in: .capsule).contentShape(.capsule)
+                    Group {
+                        if let symbol {
+                            Image(systemName: symbol).font(.chip).frame(width: 32, height: 32)
+                        } else {
+                            Text(action).font(.chip).padding(.horizontal, 12).frame(height: 32)
+                        }
+                    }
+                    .foregroundStyle(Palette.fg).background(Color.pick, in: .capsule).contentShape(.capsule)
+                    // The circle's tap reaches the toast's whole height.
+                    .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
-                .buttonStyle(.plain).fixedSize()
+                .buttonStyle(.plain).fixedSize().accessibilityLabel(action)
             }
         }
-        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : 6).frame(minWidth: 120, minHeight: 44)
+        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : symbol == nil ? 6 : 0)
+        .frame(minWidth: 120, minHeight: 44)
         .floatingGlass()
     }
 }
 
-extension View {
-    /// What he just answered (the one held last, for 4 s), over the top: out of the layout, so nothing moves. `shows`
-    /// says whether this screen names that held answer.
-    func heldToast(shows: @escaping (String) -> Bool, undo: @escaping (String) -> Void) -> some View {
-        modifier(HeldToast(shows: shows, undo: undo))
+/// Ask Life's cut of a tab's list (`AppRouter.cut`): the toast, first in the list, in the place of the list's own
+/// filter, kept until his X, which gives the whole list back. Nothing while that list is whole.
+struct CutToast: View {
+    let kind: ShownList.Kind
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        ZStack {
+            if let cut = router.cut(of: kind) {
+                Toast(words: cut.label, glyph: .cut, action: "Show all", symbol: "xmark") { router.cut = nil }
+                    .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .appears().id(cut.refs)
+            }
+        }
+        .motion(Motion.standard, value: router.cut(of: kind))
     }
 }
 
 extension View {
-    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the held answer's toast; in
+    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the toast; in
     /// the closed Duo's side column (`inSideColumn`) only a change that was not made, the column's capsule says the rest.
     func saidBackToast(inSideColumn: Bool) -> some View { modifier(SaidBackToast(inSideColumn: inSideColumn)) }
 
@@ -249,24 +281,6 @@ private struct SaidBackToast: ViewModifier {
             .motion(Motion.standard, value: life.saidBack?.id)
         }
         .reportsSideColumn($isClosed)
-    }
-}
-
-private struct HeldToast: ViewModifier {
-    let shows: (String) -> Bool
-    let undo: (String) -> Void
-
-    @Environment(LifeStore.self) private var life
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .top) {
-            ZStack {
-                if let latest = life.latestHeld, shows(latest.ref) {
-                    Toast(words: latest.held.label) { undo(latest.ref) }.appears().id(latest.ref)
-                }
-            }
-            .motion(Motion.standard, value: life.latestHeld?.ref)
-        }
     }
 }
 
@@ -337,7 +351,12 @@ struct MarkItem: View {
             .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
         // Off, the bar's own glass like its neighbours; on, the one selected look.
         Group {
-            if isOn { button.buttonStyle(.glassProminent).tint(Color.pick) } else { button }
+            // Two views, so each says how it comes and goes: the one crossfade.
+            if isOn {
+                button.buttonStyle(.glassProminent).tint(Color.pick).transition(.opacity)
+            } else {
+                button.transition(.opacity)
+            }
         }
         .motion(Motion.standard, value: isOn)
         .accessibilityAddTraits(isOn ? .isSelected : [])
@@ -362,7 +381,8 @@ struct ListLabel<Action: View>: View {
             Spacer(minLength: 0)
             action
         }
-        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+        // Over its card's text: the list's inset and a little more.
+        .padding(.horizontal, Metrics.gutter + Metrics.Spacing.xs).padding(.top, 16).padding(.bottom, 6)
     }
 }
 
@@ -371,10 +391,10 @@ extension ListLabel where Action == EmptyView {
 }
 
 extension View {
-    /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
-    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset from the column's edges;
-    /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
-    /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
+    /// One row of a list on the page (decision 98, rule 17; no card around a list since 22 Nov): at least
+    /// `Metrics.listRow` high, a `line` hairline above every row but the group's first, inset by the gutter
+    /// (`Metrics.gutter`, as the frames draw it); the open row lit with `pick`. Rows of one group stack with no gap; a
+    /// label or a gap starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
     /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
     func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> some View {
         let top = index == 0 ? Metrics.Radius.card : 0
@@ -383,8 +403,8 @@ extension View {
             topLeadingRadius: top, bottomLeadingRadius: foot, bottomTrailingRadius: foot, topTrailingRadius: top)
         return frame(minHeight: Metrics.listRow).contentShape(.rect)
             .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
-            .background(Palette.card, in: shape)
-            .padding(.horizontal, Metrics.Spacing.m)
+            .overlay(alignment: .top) { if index > 0 { Hairline() } }
+            .padding(.horizontal, Metrics.gutter)
             .motion(Motion.standard, value: isChosen)
             .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
@@ -475,6 +495,8 @@ struct ProgressLine: View {
     var fraction: Double?
     var end: String?
     var endColor = Palette.muted
+    /// The filled part: `fg` for progress, `muted` for a share (Spending's providers).
+    var fill = Palette.fg
 
     var body: some View {
         HStack(spacing: 12) {
@@ -482,7 +504,7 @@ struct ProgressLine: View {
             Capsule().fill(Color.fillTint).frame(height: 6)
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in
-                        Capsule().fill(Palette.fg).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
+                        Capsule().fill(fill).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
                     }
                 }
                 .motion(Motion.standard, value: fraction)
@@ -536,32 +558,40 @@ struct StateDot: View {
 }
 
 /// A list's Filter: a system menu of inline pickers (a line icon per row, a check on the chosen one), its glyph filled
-/// while a choice narrows the list. Matters and the asks draw it.
+/// while a choice narrows the list. In the closed Duo's column it is More, three dots, last in the Pendant and Settings
+/// group (placement, 22 Nov: nothing bottom-left; `VisFoldMatters`, `DuoFoldPeople`).
 struct FilterMenu<Choices: View>: View {
     let isFiltered: Bool
+    var isMore = false
     let identifier: String
     /// What VoiceOver reads: what the menu does ("Filter", "Sort").
     let label: String
-    /// Floating, the round button's size: the whole circle takes the tap (a menu hit-tests its label only).
-    var diameter: CGFloat?
     let choices: Choices
 
     var body: some View {
         Menu {
             choices
         } label: {
-            Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
-                .frame(width: diameter, height: diameter).contentShape(.circle)
+            Image(systemName: symbol)
         }
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
     }
+
+    private var symbol: String {
+        switch (isMore, isFiltered) {
+        case (true, true): "ellipsis.circle.fill"
+        case (true, false): "ellipsis"
+        case (false, true): "line.3.horizontal.decrease.circle.fill"
+        case (false, false): "line.3.horizontal.decrease"
+        }
+    }
 }
 
 extension View {
-    /// A list's Filter, placed by where the system puts the bars: a top-leading toolbar item, or, in the side column
-    /// of the closed Duo (`reportsSideColumn`), a round glass button floating at the list's bottom left, so the top group
-    /// stays the Pendant and Settings. While it floats the list keeps a margin under its last row.
+    /// A list's Filter, in the top group by where the system puts the bars: a top-leading toolbar item, or, in the side
+    /// column (`reportsSideColumn`), More, the last item of the right-edge group under the Pendant and Settings (apply it
+    /// inside `shellBar`, so its item comes after theirs); nothing floats.
     func filterBar<Choices: View>(
         isFiltered: Bool, identifier: String, isResting: Bool = false, label: String = "Filter",
         @ViewBuilder choices: () -> Choices
@@ -579,30 +609,22 @@ private struct FilterBar<Choices: View>: ViewModifier {
     let label: String
     let choices: Choices
     @State private var isInColumn = false
-    /// The floating button and its margin from the list's bottom edge; the list keeps room for both, and more.
-    private let size: CGFloat = 48, bottom = Metrics.Spacing.xl
 
     // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
-    private func menu(diameter: CGFloat? = nil) -> some View {
-        FilterMenu(isFiltered: isFiltered, identifier: identifier, label: label, diameter: diameter, choices: choices)
+    private var menu: some View {
+        FilterMenu(isFiltered: isFiltered, isMore: isInColumn, identifier: identifier, label: label, choices: choices)
             .disabled(isResting)
     }
 
     func body(content: Content) -> some View {
         content
             .reportsSideColumn($isInColumn)
-            .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu() } } }
-            .contentMargins(.bottom, isInColumn ? size + bottom + Metrics.Spacing.l : 0, for: .scrollContent)
-            .overlay(alignment: .bottomLeading) {
-                ZStack {
-                    if isInColumn {
-                        menu(diameter: size).floatingGlass(in: .circle)
-                            .padding(.leading, Metrics.gutter).padding(.bottom, bottom).appears()
-                    }
+            .toolbar {
+                if isInColumn {
+                    fitted(ToolbarItem(placement: .topBarTrailing) { menu })
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { menu }
                 }
-                // 24 from the screen's bottom, as the closed Duo's list draws it, not from its safe area.
-                .ignoresSafeArea(.container, edges: isInColumn ? .bottom : [])
-                .motion(Motion.standard, value: isInColumn)
             }
     }
 }
@@ -688,14 +710,14 @@ struct CheckLines: View {
 /// The one table of state glyphs, drawn 16 points: a check that worked, a dot that is off, a mark that needs him, a
 /// spinner. `CheckLines` and `StateMark` both draw from it.
 enum StateGlyph: View {
-    case ok, off, flag, busy
+    case ok, off, flag, busy, cut
 
     var color: Color {
         switch self {
         case .ok: Palette.ok
         case .off: Palette.muted
         case .flag: Palette.flag
-        case .busy: Palette.fg
+        case .busy, .cut: Palette.fg
         }
     }
 
@@ -706,6 +728,7 @@ enum StateGlyph: View {
             case .off: Circle().frame(width: 6, height: 6)
             case .flag: Image(systemName: "exclamationmark.circle").font(.system(size: 14, weight: .semibold))
             case .busy: Spinner(size: .small)
+            case .cut: Image(systemName: "line.3.horizontal.decrease").font(.system(size: 13, weight: .semibold))
             }
         }
         .foregroundStyle(color)
@@ -741,12 +764,57 @@ enum Surface {
     }
 }
 
-/// Where a row's value stands. A value the server holds is never shown as known before it said (`ServerValue`); the
-/// other rows are always `known`. `saved` is view state, shown 2 s after a change was accepted.
+/// Where a row's value stands, and the tap rule every control follows: loading, then a green result, or a clear
+/// failure. A value the server holds is never shown as known before it said (`ServerValue`); the other rows are always
+/// `known`. `done` is view state, its word ("Saved", "Allowed") shown 2 s after the tap went through (`tap`).
 enum RowState: Equatable {
-    case known, asking, saving, saved
+    case known, asking, saving
+    case done(String)
     /// The change did not go: the control is back on the old value, the line says why.
     case refused(String)
+
+    static let saved = RowState.done("Saved")
+
+    /// A tap: `saving` while `work` runs, then what it ends on, a `done` word for 2 s or a `refused` reason.
+    @MainActor static func tap(_ state: Binding<RowState>, _ work: () async -> RowState) async {
+        // A second tap while the first runs is the same tap.
+        guard state.wrappedValue != .saving else { return }
+        state.wrappedValue = .saving
+        let end = await work()
+        state.wrappedValue = end
+        guard case .done = end else { return }
+        try? await Task.sleep(for: .seconds(2))
+        if state.wrappedValue == end { state.wrappedValue = .known }
+    }
+}
+
+/// A tap's line under its control, as a row's second line shows it: the spinner and "Saving…", the green result, or
+/// the failure; nothing once known.
+struct TapLine: View {
+    let state: RowState
+    var detail: String?
+    /// A row draws its spinner at the trailing edge; alone, the line draws it.
+    var isInRow = false
+
+    var body: some View {
+        switch state {
+        case .known:
+            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
+        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
+        case .saving:
+            HStack(spacing: 8) {
+                if !isInRow { StateGlyph.busy }
+                Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+            }
+        case .done(let word):
+            HStack(spacing: 6) {
+                StateGlyph.ok
+                Text(word).font(.smallStrong)
+            }
+            .foregroundStyle(Palette.ok)
+        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
+        }
+    }
 }
 
 /// One row of a `RowGroup`: a title, an optional second line, and one thing at the trailing edge (a `RowValue`, a
@@ -772,7 +840,7 @@ struct Row<Trailing: View>: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 titleText.font(.rowName).foregroundStyle(Palette.fg)
-                line
+                TapLine(state: state, detail: detail, isInRow: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 8) {
@@ -791,22 +859,6 @@ struct Row<Trailing: View>: View {
     private var titleText: Text {
         let flag = Text(Image(systemName: "flag.fill")).font(.system(size: 12)).foregroundStyle(Palette.icon)
         return isMarked ? Text("\(title) \(flag)") : Text(verbatim: title)
-    }
-
-    @ViewBuilder private var line: some View {
-        switch state {
-        case .known:
-            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
-        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
-        case .saving: Text("Saving…").font(.small).foregroundStyle(Palette.muted)
-        case .saved:
-            HStack(spacing: 6) {
-                StateGlyph.ok
-                Text("Saved").font(.smallStrong)
-            }
-            .foregroundStyle(Palette.ok)
-        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
-        }
     }
 }
 
@@ -894,12 +946,15 @@ struct RowGroup<Content: View>: View {
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
                             row.appears().overlay(alignment: .top) {
-                                if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
+                                if row.id != rows.first?.id {
+                                    Hairline(color: surface == .page ? Palette.line : .fillTint).padding(.leading, 16)
+                                }
                             }
                         }
                     }
                     .foregroundStyle(Palette.fg)
-                    .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+                    // A list sits on the page with hairlines; only a sheet's group keeps its tile.
+                    .background(surface == .sheet ? surface.fill : .clear, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
                 .appears()
             }
@@ -915,11 +970,13 @@ struct Field: View {
     var surface = Surface.page
     /// A symbol leading the text, as a search field has.
     var icon: String?
+    /// Its one submit, when it has one: the field's Send (`DictationField.send`).
+    var send: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
             if let icon { Image(systemName: icon).foregroundStyle(Palette.muted).accessibilityHidden(true) }
-            DictationField(prompt: prompt, text: $text).font(.body15).foregroundStyle(Palette.fg)
+            DictationField(prompt: prompt, text: $text, send: send).font(.body15).foregroundStyle(Palette.fg)
         }
         .padding(.horizontal, 20)
         .frame(minHeight: 48)
@@ -950,19 +1007,41 @@ struct SheetHeader: View {
 
 extension View {
     /// A sheet on the one-scroll rule (decision 97): this view is the one scroll's content, at the gutter; `head` (its
-    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar, each over the system's soft edge, so nothing
-    /// scrolls inside and the content's end scrolls clear of the buttons.
+    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar (`sheetBars`), so nothing scrolls inside and
+    /// the content's end scrolls clear of the buttons.
     func sheetScroll<Head: View, Buttons: View>(
         @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
     ) -> some View {
-        let content = self.padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        sheetScrolled.sheetBars(head: head, buttons: buttons)
+    }
+
+    /// `sheetScroll` with no buttons.
+    func sheetScroll<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        sheetScrolled.sheetBars(head: head)
+    }
+
+    private var sheetScrolled: some View {
+        ScrollView {
+            padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    /// Every sheet's shell, the screens' own (decision 96): its head in the top bar and its buttons in the bottom bar,
+    /// the scroll under both (this view holds it, a `ReadScreen`'s included) softened at both edges by iOS's soft
+    /// scroll edge, set on the sheet itself.
+    func sheetBars<Head: View, Buttons: View>(
+        @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
+    ) -> some View {
         let bottom = buttons().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-        return ScrollView { content }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaBar(edge: .top, spacing: 0) { top }
-            .safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+        return sheetBars(head: head).safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+    }
+
+    /// `sheetBars` with no buttons.
+    func sheetBars<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        return safeAreaBar(edge: .top, spacing: 0) { top }
             .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 }
@@ -1027,7 +1106,7 @@ struct Placeholder: View {
     }
 }
 
-/// A list still loading, in its own shape: one grouped card of rows (`groupedRow`), each its leading slot (a 28 icon, or
+/// A list still loading, in its own shape: one group of rows (`groupedRow`), each its leading slot (a 28 icon, or
 /// a 40 disc for people) and two lines, so the list fades in over it.
 struct RowsPlaceholder: View {
     var rows = 6
@@ -1048,8 +1127,7 @@ struct RowsPlaceholder: View {
                 .padding(.horizontal, Metrics.Spacing.l).frame(minHeight: Metrics.listRow)
             }
         }
-        .card()
-        .padding(.horizontal, Metrics.Spacing.m)
+        .padding(.horizontal, Metrics.gutter)
         .frame(maxHeight: .infinity, alignment: .top)
         .readingWidth()
         .accessibilityElement().accessibilityLabel(label)
@@ -1084,39 +1162,64 @@ struct LimitNote: View {
     }
 }
 
-/// Quiet answers in one row: equal widths when each label fits its share; else each as wide as its label plus an equal
-/// part of what is left; and when the labels together are wider than the row, each gives up width in proportion, its
-/// label shrinking (the caller's `minimumScaleFactor`, under 0.8 since a pill's sides do not shrink), never cut. Its
-/// ideal width is the narrowest it can be (80%), so a `ViewThatFits` falls back to a stack only when that does not fit.
-struct AnswerRow: Layout {
-    var spacing: CGFloat = 8  // Metrics.Spacing.s, which a Layout (not on the main actor) cannot read
-    static let smallest = 0.8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let narrowest = sizes.reduce(0) { $0 + $1.width } * Self.smallest + gaps(subviews)
-        return CGSize(width: proposal.width ?? narrowest, height: sizes.map(\.height).max() ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let ideals = subviews.map { $0.sizeThatFits(.unspecified).width }
-        let room = bounds.width - gaps(subviews)
-        let total = ideals.reduce(0, +)
-        let share = room / CGFloat(max(subviews.count, 1))
-        var x = bounds.minX
-        for (subview, ideal) in zip(subviews, ideals) {
-            let width =
-                ideals.allSatisfy({ !(share < $0) })
-                ? share
-                : total < room ? ideal + (room - total) / CGFloat(subviews.count) : ideal * room / total
-            subview.place(
-                at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
-                proposal: ProposedViewSize(width: width, height: bounds.height))
-            x += width + spacing
+/// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the
+/// bar's height again, so the answers stand clear of the text going under them (his ask of 22 Nov, open Duo). It grows
+/// with the bar. The system's soft edge stays off here: the pager hides it, since its own sat over the answers.
+struct AnswersBackdrop: View {
+    var body: some View {
+        GeometryReader { bar in
+            let fade = bar.size.height / 2
+            let solid = fade / (bar.size.height + fade)
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay {
+                    LinearGradient(
+                        stops: [
+                            .init(color: Palette.bg.opacity(0.6), location: 0),
+                            .init(color: Palette.bg, location: solid),
+                        ],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: solid)],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .frame(height: bar.size.height + fade)
+                .offset(y: -fade)
         }
+        .ignoresSafeArea(edges: .bottom)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Where a paged ask keeps its dots: their room, empty, whose place in its page it tells the pager (`pagerDotsAt`), which
+/// draws one row of dots there that stays still while the asks slide under it.
+struct PagerDotsSlot: View {
+    let index: Int
+    @Environment(\.pagerDotsAt) private var report
+
+    var body: some View {
+        Color.clear.frame(width: 6, height: 6)
+            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(PagerDotsSlot.page)) }) {
+                report?.report(index, $0)
+            }
+            // A new index (an ask before it answered) is a new slot, which reports where it is at once.
+            .id(index)
     }
 
-    private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
+    /// Each page's own coordinate space, set by the pager: the slot's place in its page, wherever the page has slid.
+    static let page = "pagerPage"
+}
+
+/// The pager's ear for its slots: always equal, so it never invalidates its readers; its closure only writes the
+/// pager's own state, so a new copy of it would report the same way.
+struct PagerDotsAt: Equatable {
+    let report: (Int, CGRect) -> Void
+    static func == (_: Self, _: Self) -> Bool { true }
+}
+
+extension EnvironmentValues {
+    @Entry var pagerDotsAt: PagerDotsAt?
 }
 
 /// Where an ask stands among the asks: a dot each (6, 6 apart, the current `fg`, the others `tint`), at most 7 at once,

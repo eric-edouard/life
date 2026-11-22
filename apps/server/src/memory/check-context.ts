@@ -13,6 +13,7 @@ import {
   preTickedOf,
 } from "./life-checks";
 import {
+  isAwaitingHisWord,
   type MatterStepNow,
   type MatterView,
   matterPeopleOf,
@@ -72,7 +73,6 @@ export interface CheckInputs {
   matterRank?: YourMoveInputs["matterRank"];
   matters: readonly (Pick<
     MatterView,
-    | "endingRecords"
     | "goal"
     | "id"
     | "lone"
@@ -120,8 +120,6 @@ export interface CheckInputs {
     >[];
   };
   places?: YourMoveInputs["places"];
-  /** The decisions that are an agent's plan card (host's `planCardsOf`), by id; none while the desk is off or unreadable. */
-  plans?: ReadonlySet<string>;
   /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
   samePersons: ReturnType<typeof samePersonPairsOf>;
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
@@ -166,7 +164,7 @@ export function ctxOf(c: CheckInputs): Ctx {
   const mattersByPerson = new Map<string, Set<MatterId>>();
   const add = (by: Map<string, Set<MatterId>>, ref: string, m: MatterId) =>
     by.set(ref, (by.get(ref) ?? new Set()).add(m));
-  for (const m of c.matters.filter((x) => x.open)) {
+  for (const m of c.matters.filter(isAwaitingHisWord)) {
     for (const s of m.steps) {
       add(mattersByStep, s.ref, m);
     }

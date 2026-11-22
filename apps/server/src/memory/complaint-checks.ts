@@ -1,13 +1,11 @@
-import { createHmac } from "node:crypto";
 import { digest } from "../core/hash";
 import { LIFE_ASKER } from "../core/names";
-import { same, secretIn } from "../core/secret";
 import { complaintOf } from "../records/ledger-entry";
 import type { BeingFixed, Check } from "./life-checks";
 import { askOf } from "./memory-files";
 
-// What his complaints (his "Wrong…" on a card of Life's, `host/complaints.ts`) need of the checks: the cause a card
-// rests on, the card as shown and its seal, and which cards the caretaker is at work on (`checks.ts` attaches them).
+// What his complaints (his words through Ask Life, `host/complaints.ts`) need of the checks: the cause a card rests on,
+// and which cards the caretaker is at work on (`checks.ts` attaches them).
 
 /**
  * What a card of Life's rests on, as a digest: its kind, what it acts on, its subject, its question (the guess, in
@@ -35,62 +33,6 @@ export const causeOf = (
     ]),
     16
   );
-
-/** What seals a card's "Wrong…" as Life showed it: its ref, cause and card as shown, under a key that never leaves the Mac. */
-const sealOf = (ref: string, cause: string, shown: string, key: string) =>
-  createHmac("sha256", key)
-    .update(JSON.stringify(["misread", ref, cause, shown]))
-    .digest("hex")
-    .slice(0, 32);
-
-/** What his press sends back of a card: its cause, the card as shown (a digest) and their seal (`Check.misread`). */
-export interface MisreadShown {
-  cause: string;
-  seal: string;
-  shown: string;
-}
-
-/** Whether `m` is a "Wrong…" Life showed on card `ref` (its seal holds): a card of Life's, as it was then, whether or not it is still open. */
-export const isSealed = (
-  ref: string,
-  m: MisreadShown,
-  key = secretIn("pushIdKey")
-) => same(m.seal, sealOf(ref, m.cause, m.shown, key));
-
-/**
- * The inbox's cards with their "Wrong…" sealed as finally shown (network identity, push id and urgency attached): the
- * digest of each card but its own `misread`, and the seal of its ref, cause and that digest. A nested confirm takes its
- * twin's, the same card at the top.
- */
-export function withMisreadSealed<
-  C extends {
-    confirm: { misread?: unknown; ref: string }[];
-    misread?: { cause: string } | null;
-    ref: string;
-  },
->(list: C[], key: string) {
-  const sealed = list.map(({ misread, ...card }) => {
-    const shown = digest("sha256", JSON.stringify(card), 16);
-    return {
-      ...card,
-      misread: misread
-        ? {
-            cause: misread.cause,
-            seal: sealOf(card.ref, misread.cause, shown, key),
-            shown,
-          }
-        : null,
-    };
-  });
-  const byRef = new Map(sealed.map((c) => [c.ref, c.misread]));
-  return sealed.map((c) => ({
-    ...c,
-    confirm: c.confirm.map((x) => ({
-      ...x,
-      misread: byRef.get(x.ref) ?? null,
-    })),
-  }));
-}
 
 /** Card `c` with its "Wrong…" (`misread`) and his complaint at work on its cause (`beingFixed`): on Life's own cards alone, never an agent's (the caretaker's included). */
 export function withComplaintFields<

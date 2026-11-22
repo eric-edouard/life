@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, expect, test } from "bun:test";
+import { afterAll, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { clock } from "../core/clock";
@@ -19,6 +19,8 @@ import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
 import { MOVE_REASONS } from "../host/move-read";
 import { decisionsNow } from "../memory/decisions";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matters from "../memory/matters";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import type { MainSessionLine } from "../records/main-session-wire";
@@ -34,10 +36,10 @@ import { askMainSession, keepMainSession, MAIN_BRIEF } from "./main-session";
 import { ownAssignmentOf } from "./role-agents";
 import { SessionLive } from "./runtimes/contract";
 import { readSpokenAsk, receiveSpokenAsks } from "./spoken-ask-intake";
-import { setup } from "./test-desk";
+import { askedOf, callDoorOf, setup } from "./test-desk";
 import { endLostTurns } from "./turn-ends";
 
-// The main session (Tell Life, slice 1): registered on his first words, one desk turn per ask on a session the runtime
+// The main session (Ask Life, slice 1): registered on his first words, one desk turn per ask on a session the runtime
 // keeps, its lines heard as they come, its answer the words after its last tool call; one ask at a time, a retry under
 // its key asks once, never woken by the clock, every door tool refused on its turn. Made-up words.
 
@@ -60,34 +62,10 @@ const turnsOf = (id: string) =>
     )
     .all(id);
 
-/** Asks `words`, then plays the session: `play` (its updates) and its run's end. */
-async function asked(
-  words: string,
-  play: (ref: string) => unknown,
-  key?: string
-) {
-  const lines: MainSessionLine[] = [];
-  const answer = askMainSession(t.desk, { key, words }, (l) => lines.push(l));
-  // Let the ask reach the runtime.
-  for (let i = 0; i < 20 && !t.fake.said.length; i += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: a poll
-    await Bun.sleep(5);
-  }
-  const ref = t.fake.said.at(-1)?.ref ?? "";
-  await play(ref);
-  t.fake.exit(ref, true, {
-    usage: {
-      contextFirst: 10,
-      contextLast: 20,
-      tokensCached: 1,
-      tokensIn: 2,
-      tokensOut: 3,
-    },
-  });
-  return { answer: await answer, lines, ref };
-}
+const asked = (words: string, play: (ref: string) => unknown, key?: string) =>
+  askedOf(t, words, play, key);
 
-test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends replied with its tokens", async () => {
+test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends replied with its tokens and its billed cost", async () => {
   const { answer, lines, ref } = await asked("Where is my passport?", (r) => {
     t.fake.hear(r, { kind: "words", text: "Let me look." });
     t.fake.hear(r, {
@@ -113,13 +91,16 @@ test("his first words register the main session and start its session from its b
   expect(a).toMatchObject({ role: "main", session: ref, status: "active" });
   expect(t.fake.said[0]?.message).toStartWith(MAIN_BRIEF);
   expect(t.fake.said[0]?.message).toContain(
-    'His words, through Tell Life: "Where is my passport?"'
+    'His words, through Ask Life: "Where is my passport?"'
   );
   await Bun.sleep(0);
   expect(turnsOf(a?.id ?? "")).toEqual([
     { cause: "main_ask", ended_at: expect.any(String), outcome: "replied" },
   ]);
-  expect(t.desk.db.query("select tokens_out from turn").get()).toEqual({
+  expect(
+    t.desk.db.query("select tokens_out, cost_usd from turn").get()
+  ).toEqual({
+    cost_usd: 0.002,
     tokens_out: 3,
   });
 });
@@ -139,7 +120,7 @@ test("his next words go to the same session without its brief, with his screen's
   await Bun.sleep(5);
   expect(t.fake.said[1]).toEqual({
     message:
-      'His words, through Tell Life: "And this one?"\nOn his screen (refs; `fetch` opens one): {"open":"matter:mat_x","tab":"inbox"}',
+      'His words, through Ask Life: "And this one?"\nOn his screen (refs; `fetch` opens one): {"open":"matter:mat_x","tab":"inbox"}',
     ref: first.ref,
   });
   t.fake.hear(first.ref, { kind: "words", text: "It waits on Ana." });
@@ -278,26 +259,8 @@ const card = (question: string) => ({
   title: "a test",
 });
 
-/** Agent `id` calls door tool `name` with `args`; the call's response text. */
-async function callDoor(id: string, name: string, args: unknown) {
-  const res = await doorFetch(t.desk)(
-    new Request(`http://127.0.0.1/mcp/${id}`, {
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "tools/call",
-        params: { arguments: args, name },
-      }),
-      headers: {
-        accept: "application/json, text/event-stream",
-        authorization: `Bearer ${doorOf(id).key}`,
-        "content-type": "application/json",
-      },
-      method: "POST",
-    })
-  );
-  return await res.text();
-}
+const callDoor = (id: string, name: string, args: unknown) =>
+  callDoorOf(t, id, name, args);
 
 test("`answer` adds why to its words, or likely answers that make it a question; a dead source is refused; its words stay its text after its last tool call", async () => {
   const play = (extras: unknown) => async (r: string) => {
@@ -504,7 +467,7 @@ test("on his words the main session acts through its door: each act's `said` mus
   expect(decisionsNow().find((d) => d.question === "Friday?")?.asker).toBe(
     OWNER_ASKER
   );
-  // The complaint reached the caretaker, on his words alone: no card, no seal.
+  // The complaint reached the caretaker, on his words alone: no card.
   expect(results.complain).toContain('\\"reached\\":\\"caretaker\\"');
   const complaint = readLedger().find(isComplaint);
   expect(complaint?.instruction?.quote).toBe("The names keep coming out wrong");
@@ -563,4 +526,97 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
     kind: "card",
     words: "**On it**.",
   });
+  // life#1103: a matter marked by his word answers `done` with its matter.
+  const matter = {
+    id: "matter_aaaaaaaaaaaa",
+    name: "Mend the test boiler",
+    open: true,
+    steps: [
+      {
+        at: "2026-11-10T10:00:00.000Z",
+        day: "2026-11-10",
+        kind: "promise",
+        quote: "it",
+        ref: "obs_000000000001",
+        text: "it",
+      },
+    ],
+  };
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
+    matter,
+  ] as never);
+  try {
+    const marked = await asked(
+      "Mark the boiler as important",
+      play("correct_memory", {
+        correction: {
+          important: true,
+          kind: "matter-important",
+          matter: matter.id,
+        },
+        said: "Mark the boiler as important",
+      })
+    );
+    expect(marked.answer).toEqual({
+      kind: "done",
+      matter: matter.id,
+      words: "**On it**.",
+    });
+  } finally {
+    book.mockRestore();
+  }
+});
+
+// life#1103: an agent holding several matters gets his words on the one he means.
+test("`tell_agent` on an assignment the agent holds open puts his words there; one it does not hold is refused", async () => {
+  const other = register(t.desk, {
+    brief: "Test agent of two matters",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  openAssignment(t.desk, other, { openedBy: "owner", steps: ["obs_test_one"] });
+  const second = openAssignment(t.desk, other, {
+    openedBy: "owner",
+    steps: ["obs_test_two"],
+  });
+  const results: string[] = [];
+  await asked(
+    "Tell it to call the second test garage, and call the first test garage",
+    async (r) => {
+      const id = main()?.id ?? "";
+      results.push(
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the second test garage",
+          to: second,
+        }),
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the second test garage",
+          to: "asg_not_its_own",
+        }),
+        // life#1146: the same words to its own assignment, named or not, are told once.
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the first test garage",
+          to: ownAssignmentOf(t.desk.db, other),
+        }),
+        await callDoor(id, "tell_agent", {
+          agent: other,
+          said: "call the first test garage",
+        })
+      );
+      t.fake.hear(r, { kind: "words", text: "**On it**." });
+    }
+  );
+  expect(results[0]).toContain(`\\"assignment\\":\\"${second}\\"`);
+  expect(
+    readLedger().find((a) => a.after.to === second)?.instruction?.quote
+  ).toBe("call the second test garage");
+  expect(results[1]).toContain("is not an open assignment of");
+  expect(
+    readLedger().filter(
+      (a) => a.instruction?.quote === "call the first test garage"
+    )
+  ).toHaveLength(1);
 });

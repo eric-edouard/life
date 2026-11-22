@@ -76,7 +76,8 @@
           "id": "yes",
           "label": "Send it",
           "outgoing": true,
-          "takes": null
+          "takes": null,
+          "icon": "send"
         },
         {
           "id": "no",
@@ -107,6 +108,7 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": null,
       "confirm": [
         {
           "about": ["+33600000001"],
@@ -126,19 +128,22 @@
           "onSilence": null,
           "options": [
             {
+              "icon": "done",
               "id": "this-is",
               "label": "Yes",
               "takes": null
             },
             {
-              "id": "not-this-person",
-              "label": "No",
-              "takes": null
-            },
-            {
+              "icon": "person",
               "id": "same-person",
               "label": "Someone else…",
               "takes": "person or name"
+            },
+            {
+              "icon": "no",
+              "id": "not-this-person",
+              "label": "No",
+              "takes": null
             }
           ],
           "preTicked": "this-is",
@@ -162,9 +167,7 @@
           ],
           "matter": null,
           "misread": {
-            "cause": "01b070ee5ba7f83a",
-            "seal": "757398c9279ffc48760eab15b8f32ca9",
-            "shown": "0e530fc2d7921f15"
+            "cause": "01b070ee5ba7f83a"
           },
           "confirm": [],
           "networkIdentity": {
@@ -207,8 +210,7 @@
       },
       "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "said": null,
@@ -223,7 +225,7 @@
       "draft": null,
       "goal": null,
       "group": "decision",
-      "isPlan": true,
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": [],
@@ -275,7 +277,8 @@
           "id": "paid",
           "label": "I've paid",
           "looks": true,
-          "takes": null
+          "takes": null,
+          "icon": "done"
         },
         {
           "id": "other",
@@ -302,12 +305,12 @@
       "title": "Pay the deposit",
       "lifeLinks": [],
       "matter": null,
+      "misread": null,
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "cdc5e5e8356ed8a6",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "said": null,
@@ -317,7 +320,7 @@
       "asker": "Orbit",
       "at": "2026-10-14T10:00:00.000Z",
       "clips": [],
-      "context": "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      "context": "What I read: [Kit's quote](life:unit_000000000001).",
       "deadline": "2099-01-02T09:00:00.000Z",
       "draft": null,
       "goal": null,
@@ -385,12 +388,12 @@
         }
       ],
       "matter": null,
+      "misread": null,
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "f0bf086db1fae378",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -439,11 +442,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "person",
           "id": "this-is",
           "label": "Someone else…",
           "takes": "person or name"
         },
         {
+          "icon": "hide",
           "id": "not-relevant",
           "label": "Don't name",
           "takes": null
@@ -464,16 +469,14 @@
       "title": "Name a voice",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "f094d10b549822d0"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "f094d10b549822d0",
-        "seal": "42a5e8f78ece8af1b5aeba6ab16d3132",
-        "shown": "86274fa91b8f9d39"
-      }
+      "urgency": "blocks"
     },
     {
       "about": ["Sam"],
@@ -521,16 +524,19 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "person",
           "id": "this-is",
           "label": "Someone else…",
           "takes": "person or name"
         },
         {
+          "icon": "organization",
           "id": "organization",
           "label": "Organization",
           "takes": null
         },
         {
+          "icon": "hide",
           "id": "not-relevant",
           "label": "I don't care",
           "takes": null
@@ -562,15 +568,13 @@
         }
       ],
       "matter": null,
+      "misread": {
+        "cause": "3b404043a79bbfd0"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "134bc106744b3159",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "3b404043a79bbfd0",
-        "seal": "6cf1a321892c3def9766c1fd06256ec7",
-        "shown": "151c312895ca3052"
-      }
+      "urgency": "blocks"
     },
     {
       "about": ["+33600000009"],
@@ -609,6 +613,7 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "person",
           "id": "same-person",
           "label": "Someone else…",
           "takes": "person or name"
@@ -629,22 +634,20 @@
       "title": "Place a Contacts card",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "eab9c455c7fa456b"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "82723bbf297c00df",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "eab9c455c7fa456b",
-        "seal": "e2f83acc4e8268f776a5d35d9ed56188",
-        "shown": "8f3df0eb9c85e59d"
-      }
+      "urgency": "blocks"
     },
     {
       "about": [],
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "A step of yours is open on this matter.\n\n> I must sign the lease\n\n*11 Oct*",
+      "context": "Still yours to do? Life sees no sign it is done.\n\n> I must sign the lease\n\n*11 Oct*",
       "deadline": null,
       "draft": null,
       "goal": "Renew the lease",
@@ -666,20 +669,24 @@
           "ends": "step",
           "id": "done",
           "label": "Mark as done",
-          "takes": null
+          "takes": null,
+          "icon": "done"
         },
         {
+          "icon": "agent",
           "id": "start",
-          "label": "Hand to an agent",
+          "label": "Hand over",
           "takes": null
         },
         {
+          "icon": "later",
           "id": "not-now",
           "label": "Not now",
           "takes": null
         },
         {
           "ends": "step",
+          "icon": "drop",
           "id": "drop",
           "label": "Drop",
           "takes": null
@@ -708,16 +715,14 @@
         "id": "matter_bbbbbbbbbbbb",
         "name": "Renew the lease"
       },
+      "misread": {
+        "cause": "3f8aa0d63fc5994e"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "f686b7df91114fb8",
-      "urgency": "blocks",
-      "misread": {
-        "cause": "3f8aa0d63fc5994e",
-        "seal": "8e97cc12be4aa72b998e513dc335e211",
-        "shown": "fd7b20dc38d18e17"
-      }
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -744,11 +749,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "outdated",
           "label": "Yes, done",
           "takes": null
         },
         {
+          "icon": "later",
           "id": "false",
           "label": "Not yet",
           "takes": null
@@ -785,15 +792,13 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": {
+        "cause": "1addffdfdc12fcfa"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves",
-      "misread": {
-        "cause": "1addffdfdc12fcfa",
-        "seal": "e21321a5e0f38ca459ff1815d7677715",
-        "shown": "92b74ff9de2dc75c"
-      }
+      "urgency": "improves"
     },
     {
       "about": ["+33600000001"],
@@ -820,13 +825,15 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "link",
           "id": "same-person",
           "label": "Same person",
           "takes": null
         },
         {
+          "icon": "people",
           "id": "not-this-person",
-          "label": "Different people",
+          "label": "Different",
           "takes": null
         }
       ],
@@ -845,15 +852,13 @@
       "title": "Join one person",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "6c04307dd5deaa49"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "87f3c9ef6bcd1334",
-      "urgency": "improves",
-      "misread": {
-        "cause": "6c04307dd5deaa49",
-        "seal": "c0110a633575370f23297e76720d0968",
-        "shown": "78ae0f244152c578"
-      }
+      "urgency": "improves"
     },
     {
       "about": [],
@@ -880,11 +885,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "yes",
           "label": "Yes",
           "takes": null
         },
         {
+          "icon": "no",
           "id": "not-at-organization",
           "label": "No",
           "takes": null
@@ -905,15 +912,13 @@
       "title": "Link someone to an organization",
       "lifeLinks": [],
       "matter": null,
+      "misread": {
+        "cause": "a2fc300ae36cf927"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "e17351fad95db35b",
-      "urgency": "improves",
-      "misread": {
-        "cause": "a2fc300ae36cf927",
-        "seal": "231a4eecef6ba66ff43fabee2359463f",
-        "shown": "bc3ffe5c57de4fb9"
-      }
+      "urgency": "improves"
     },
     {
       "about": ["+33600000001"],
@@ -934,19 +939,22 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "this-is",
           "label": "Yes",
           "takes": null
         },
         {
-          "id": "not-this-person",
-          "label": "No",
-          "takes": null
-        },
-        {
+          "icon": "person",
           "id": "same-person",
           "label": "Someone else…",
           "takes": "person or name"
+        },
+        {
+          "icon": "no",
+          "id": "not-this-person",
+          "label": "No",
+          "takes": null
         }
       ],
       "preTicked": "this-is",
@@ -969,6 +977,9 @@
         }
       ],
       "matter": null,
+      "misread": {
+        "cause": "01b070ee5ba7f83a"
+      },
       "confirm": [],
       "networkIdentity": {
         "chat": "33600000001@s.whatsapp.net",
@@ -989,12 +1000,7 @@
         }
       },
       "pushId": "a789ea3107eed39b",
-      "urgency": "improves",
-      "misread": {
-        "cause": "01b070ee5ba7f83a",
-        "seal": "757398c9279ffc48760eab15b8f32ca9",
-        "shown": "0e530fc2d7921f15"
-      }
+      "urgency": "improves"
     },
     {
       "said": {
@@ -1027,8 +1033,9 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "agent",
           "id": "start",
-          "label": "Start",
+          "label": "Start an agent",
           "takes": null
         },
         {
@@ -1037,8 +1044,9 @@
           "takes": "note"
         },
         {
+          "icon": "no",
           "id": "dismiss",
-          "label": "No",
+          "label": "No agent",
           "takes": null
         }
       ],
@@ -1057,16 +1065,14 @@
         "id": "matter_cccccccccccc",
         "name": "Frame Gran's photo"
       },
+      "misread": {
+        "cause": "e33422a9ac5b7ce7"
+      },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves",
-      "misread": {
-        "cause": "e33422a9ac5b7ce7",
-        "seal": "78325163f18215a3cc69046d1c766cd8",
-        "shown": "fbb39df191312464"
-      }
+      "urgency": "improves"
     }
   ],
   "blocking": 7,
@@ -1084,5 +1090,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "2607bdac29d94056"
+  "version": "30279b49399e2359"
 }

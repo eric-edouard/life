@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Every open ask of one kind on one card, when Life pre-ticks 2 or more of them (`InboxOrder.folded`): the question,
 /// the rows in their groups (`Check.bulkGroups`), each ticked with the answer Life reads, and "Answer N", which holds
-/// one answer per ticked row as one, for one Undo (`HeldAnswers`). A row's body opens its own card, whose answer goes
+/// one answer per ticked row, the rows working until Life has answered them all. A row's body opens its own card, whose answer goes
 /// back to the row (ticked, in its words) and leaves with the others; "Go one by one" unfolds the kind. Rows its
 /// "Answer N" sent that Life refused come back alone, with Life's reason above the answers; one that may have gone is
 /// not ticked again.
@@ -20,8 +20,9 @@ struct BulkCard: View {
     let answer: ([AnswerRequest]) -> Void
 
     @Environment(LifeStore.self) private var life
-    /// The row whose own card is open over the list.
-    @State private var opened: String?
+    /// The row whose own card is open over the list, kept as it was: once Life answered it the inbox lets it go, and
+    /// its result still shows until it leaves.
+    @State private var opened: Check?
     @State private var openedNotes = CardNotes()
     @State private var openedCurrent: String?
 
@@ -48,22 +49,22 @@ struct BulkCard: View {
             .padding(.horizontal, Metrics.Spacing.s).padding(.vertical, Metrics.Spacing.m).readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            (kind == .guessedPerson ? AnyView(guessAnswers) : AnyView(answers)).padding(.horizontal, Metrics.Spacing.s)
-                .readingWidth()
+            Group { if kind == .guessedPerson { guessAnswers } else { answers } }
+                .padding(.horizontal, Metrics.Spacing.s).readingWidth()
+                .frame(maxWidth: .infinity).background { AnswersBackdrop() }
         }
         .onChange(of: rows, initial: true) { _, rows in
             guard kind == .guessedPerson else { return }
-            notes.working.insert(kind)
-            notes.guesses += rows.filter { row in !notes.guesses.contains { $0.ref == row.ref } }
+            if notes.working[kind] == nil { notes.working[kind] = rows.first }
+            notes.guesses = .guessRows(met: notes.guesses, open: rows, answered: Set(notes.guessed.keys))
         }
         .motion(Motion.standard, value: shown.map(\.ref))
         .sheet(
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
             onDismiss: { openedNotes = CardNotes() }
         ) {
-            if let check = rows.first(where: { $0.ref == opened }) {
+            if let check = opened {
                 NavigationStack {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
@@ -118,23 +119,24 @@ struct BulkCard: View {
 
     private func row(_ check: Check) -> some View {
         let isTicked = ticked.contains { $0.check.ref == check.ref }
+        let isTickable = check.preTickedOption != nil || notes.chosen[check.ref] != nil
         return TickRow(
-            isTicked: isTicked, isTickable: check.preTickedOption != nil || notes.chosen[check.ref] != nil,
+            isTicked: isTicked, isTickable: isTickable,
             tick: {
                 if isTicked {
                     notes.unticked.insert(check.ref)
-                } else if check.preTickedOption != nil || notes.chosen[check.ref] != nil {
+                } else if isTickable {
                     notes.unticked.remove(check.ref)
                 } else {
                     // Life reads no answer for it: his own card says who.
-                    opened = check.ref
+                    opened = check
                 }
             },
-            open: { opened = check.ref }
+            open: { opened = check }
         ) {
             // A voice's sign is its Play, centred on the row; any other row opens its own card.
             if kind == .voice, let clip = check.clips.first {
-                VoiceLine(clip: clip, below: AnyView(detail(of: check)))
+                VoiceLine(clip: clip, below: detail(of: check))
             } else {
                 HStack(spacing: Metrics.Spacing.s) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -195,13 +197,13 @@ struct BulkCard: View {
 
     /// The rows he has met on this card: the same person ask first, then the guesses, answered ones kept.
     private var guessRows: some View {
-        let all = notes.guesses + rows.filter { row in !notes.guesses.contains { $0.ref == row.ref } }
+        let all = [Check].guessRows(met: notes.guesses, open: rows, answered: Set(notes.guessed.keys))
         let same = all.filter { $0.group == .samePerson }
         return VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             ForEach(same) { check in
                 SamePersonTile(
                     check: check, state: guessState(check), failure: guessFailure(check),
-                    answer: { send(check, yes: $0) }, undo: { undo(check) }, open: { opened = check.ref })
+                    answer: { send(check, yes: $0) }, open: { opened = check })
             }
             let rest = all.filter { $0.group != .samePerson }
             if !rest.isEmpty {
@@ -210,7 +212,7 @@ struct BulkCard: View {
                     ForEach(rest) { check in
                         GuessRow(
                             check: check, state: guessState(check), failure: guessFailure(check),
-                            answer: { send(check, yes: $0) }, undo: { undo(check) }, open: { opened = check.ref })
+                            answer: { send(check, yes: $0) }, open: { opened = check })
                     }
                 }
                 .padding(.horizontal, Metrics.Spacing.s)
@@ -220,9 +222,8 @@ struct BulkCard: View {
     }
 
     private func guessState(_ check: Check) -> GuessState {
-        let yes = notes.guessed[check.ref] == "Yes"
-        if life.held[check.ref] != nil { return .held(yes: yes) }
-        return !rows.contains { $0.ref == check.ref } && notes.guessed[check.ref] != nil ? .answered(yes: yes) : .rest
+        life.state(of: .answer(ref: check.ref))
+            .guessState(words: notes.guessed[check.ref], isOpen: rows.contains { $0.ref == check.ref })
     }
 
     /// Life's reason when its last answer on the row did not land (a row back at rest only).
@@ -235,7 +236,7 @@ struct BulkCard: View {
     private func send(_ check: Check, yes: Bool) {
         let option = yes ? check.preTickedOption : check.options.first { $0.id == "not-this-person" }
         guard let request = option.flatMap({ check.answer($0) }) else {
-            opened = check.ref
+            opened = check
             return
         }
         send(request, as: yes ? "Yes" : "No", on: check)
@@ -245,12 +246,8 @@ struct BulkCard: View {
         guard !life.saysOutOfReach() else { return }
         life.forget(.answer(ref: check.ref))
         notes.guessed[check.ref] = words
-        life.hold(request, as: words)
-    }
-
-    private func undo(_ check: Check) {
-        life.undo(check.ref)
-        notes.guessed[check.ref] = nil
+        // The row turns green, or says why it went nowhere: no toast besides.
+        Task { await life.answerRows([request], as: words, rowsSayIt: true) }
     }
 
     private var guessAnswers: some View {
@@ -258,10 +255,10 @@ struct BulkCard: View {
             HStack {
                 Text("Each answer saves on its own").font(.small).foregroundStyle(Palette.muted)
                 Spacer(minLength: 0)
-                if let page { PagerDots(current: page.current, total: page.total) }
+                if let page { PagerDotsSlot(index: page.current) }
             }
             Button {
-                notes.working.remove(kind)
+                notes.working[kind] = nil
                 (notes.guesses, notes.guessed) = ([], [:])
                 finish()
             } label: {
@@ -276,7 +273,7 @@ struct BulkCard: View {
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.s) {
             if let page {
-                PagerDots(current: page.current, total: page.total).frame(maxWidth: .infinity, alignment: .trailing)
+                PagerDotsSlot(index: page.current).frame(maxWidth: .infinity, alignment: .trailing)
             }
             if let failure = failed.first.flatMap(failure(of:)) {
                 // Life's own reason when Life answered (or why it may have gone); the fixed line when nothing reached it.
@@ -289,10 +286,12 @@ struct BulkCard: View {
                 Text("Life read an ending for each ticked one").font(.small).foregroundStyle(Palette.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button(ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
+            let isAnswering = shown.contains { life.state(of: .answer(ref: $0.ref)).isRunning }
+            Button(isAnswering ? "Answering…" : ticked.isEmpty ? "Answer" : "Answer \(ticked.count)") {
                 answer(ticked.map(\.request))
             }
-            .buttonStyle(.pill(.filled)).disabled(ticked.isEmpty).offWhileOutOfReach()
+            .buttonStyle(.pill(.filled, isBusy: isAnswering)).disabled(ticked.isEmpty || isAnswering)
+            .offWhileOutOfReach()
             .contentTransition(.numericText()).motion(Motion.standard, value: ticked.count)
             Button("Go one by one") { withAnimation(Motion.standard) { _ = notes.unfolded.insert(kind) } }
                 .buttonStyle(.pill(.quiet, size: .compact))
@@ -302,10 +301,10 @@ struct BulkCard: View {
 }
 
 /// A voice row's first words, lit as they play, with its Play at the right (`SpokenWords`, one clip at a time).
-private struct VoiceLine: View {
+private struct VoiceLine<Below: View>: View {
     let clip: Check.Clip
     /// The row's muted line under the words.
-    let below: AnyView
+    let below: Below
 
     var body: some View {
         if let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {

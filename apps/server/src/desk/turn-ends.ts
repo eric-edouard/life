@@ -1,6 +1,7 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { AgentRole } from "../core/names";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -46,13 +47,20 @@ const REMINDER =
 
 const now = () => clock().toISOString();
 
-/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else his brief's first line), the model it runs with. */
+/** The names of the standing roles whose brief is Life's, not his: what their sessions are called until he names them (the coordinator's finding of 22 Nov 2026: main's title was its brief's first line). */
+const ROLE_NAMES: Partial<Record<AgentRole, string>> = {
+  caretaker: "Caretaker",
+  main: "Ask Life",
+  personal: "Personal",
+};
+
+/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with. */
 export const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   ...modelOf(a),
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
-  title: `Agent: ${a.name ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
+  title: `Agent: ${a.name ?? (a.role ? ROLE_NAMES[a.role] : undefined) ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });
 
 /**
@@ -219,16 +227,20 @@ function close(
   return true;
 }
 
-/** Adds a run's tokens to open turn `turn`'s (a reminded turn runs twice); its context is its last run's. */
+/**
+ * Adds a run's tokens to open turn `turn`'s (a reminded turn runs twice); its context is its last run's; what it was
+ * billed adds up from its first run, null once a run came without it (null plus anything stays null).
+ */
 function addUsage(db: Desk["db"], turn: number, usage: Usage | undefined) {
   if (usage) {
     db.run(
-      "update turn set tokens_in = coalesce(tokens_in, 0) + ?, tokens_cached = coalesce(tokens_cached, 0) + ?, tokens_out = coalesce(tokens_out, 0) + ?, context_used = coalesce(?, context_used) where id = ? and ended_at is null",
+      "update turn set tokens_in = coalesce(tokens_in, 0) + ?1, tokens_cached = coalesce(tokens_cached, 0) + ?2, tokens_out = coalesce(tokens_out, 0) + ?3, context_used = coalesce(?4, context_used), cost_usd = case when tokens_in is null then ?5 else cost_usd + ?5 end where id = ?6 and ended_at is null",
       [
         usage.tokensIn,
         usage.tokensCached,
         usage.tokensOut,
         usage.contextLast,
+        usage.billedUsd ?? null,
         turn,
       ]
     );

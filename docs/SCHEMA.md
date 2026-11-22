@@ -29,7 +29,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
   person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
   (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
 - **Picture pick**: a person or an organization may carry `pictureFrom`, the source whose picture shows (`contacts`, a
-  source's name, or `none`); none: the first they show.
+  source's name, or `none`: no picture); unset, or a source no longer showing one: the first they show. Only someone
+  of his directory has a pick; his app's picture sheet writes it through `change_directory_entry`.
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
   known.
 - **Called**: the owner may carry `called`, what Life calls them in every prompt and in what it writes, when it isn't
@@ -141,7 +142,7 @@ between days to fit a call (a unit in several episodes with the one reaching fur
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
 `about_a_person` type (then `person`) also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire
 include the `about_a_person` facts of the last year about the people close to the owner (`priorFor`). The model context marks those
-people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones). From `memory-extract.v6` (16 Nov) money or a thing asked for whose direction the lines leave open is written in the asker's words, never as who owes whom. From `memory-extract.v7` (20 Nov) `unknown:` names only a person: a business or a role word ("sister") stays in the text, and a near-spelling of someone on the map is that person (his yes of 20 Nov 2026: fewer "who is" asks).
+people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones). From `memory-extract.v6` (16 Nov) money or a thing asked for whose direction the lines leave open is written in the asker's words, never as who owes whom. From `memory-extract.v7` (20 Nov) `unknown:` names only a person: a business or a role word ("sister") stays in the text, and a near-spelling of someone on the map is that person (his yes of 20 Nov 2026: fewer "who is" asks). From `memory-extract.v8` (22 Nov) a meeting, call or appointment he will attend on a known day is a `choice` with modality `plan` and its `when`, never a `to_do` (his yes of 22 Nov 2026: no "your move" card asking him to mark a past meeting done).
 
 | Field | Meaning |
 |---|---|
@@ -277,7 +278,7 @@ outside the lock, schemaVersion 3, by `kind`:
   (redacted; a mail's: the one message it replies to, its first body line, since Mail's thread key can mix threads; empty for a new chat or mail; cards asked
   before 21 Nov 2026 have none, which is true of them); `people`, how many people a group chat holds, him included, as its
   network keeps them (absent for a 1:1 chat, one its network can't count, and cards asked before 21 Nov 2026). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
-  what is stored), `options` (2 to 4 `{id, label, outgoing?, ends?}`, labels one line, the
+  what is stored), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
   recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
@@ -563,7 +564,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, shown, card, isAsShown, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt at his press, its `instruction.ref` `complaint:<his press's key>`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, card, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt when made, its `instruction.ref` `complaint:<its key>`; lines before 22 Nov 2026, his press of "Wrong…", also hold `shown` and `isAsShown`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
@@ -580,10 +581,10 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 ## complaints.jsonl
 
-The complaint record: one row per complaint (his "Wrong…", an ask in `ledger.jsonl`), appended only by `recordComplaints`
+The complaint record: one row per complaint (his words through Ask Life, an ask in `ledger.jsonl`), appended only by `recordComplaints`
 (`memory/complaint-record.ts`), run by the desk as it receives a complaint, before its receipt, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
 card's group, `unknown` when it had left; `stage` the step that makes that kind of card (`links`, `episodes`, `names`,
-`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version at his press (null when none; a
+`contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version when he complained (null when none; a
 guessed person's, the prompt its guess was made with, else `unknown`), as the ask froze them (`stageOf`). No words, no card. A last line cut short is dropped, finished when it is a whole row;
 whole JSON that is not a row, or a bad earlier line, stops it, kept as it is.
 
@@ -704,7 +705,7 @@ wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store r
 matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
 queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `draft.contested` (`{id, asker, channel, chat, held, until}`, event id `<card>.draft.contested`) and `draft.kept` (`{id, held}`), `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt), `ask.spoken` (his spoken ask for one agent, its ask's id as `event_id`, `{ask, ref, conversation, at, until, confidence, by}` as payload: the ask's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
-cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update, `model`: what it ran on as `<runtime>:<model>`, `default` for the runtime's own, snapshotted at its start; null before `stepTurnModel`), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
+cause, its end, its outcome, its tokens, `context_used`: the context at its last usage update, `model`: what it ran on as `<runtime>:<model>`, `default` for the runtime's own, snapshotted at its start; null before `stepTurnModel`; `cost_usd`: the dollars its provider billed (pi on OpenRouter, summed over its runs), null on a plan's runtime, a run without its cost, or before `stepTurnCost`), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines; `spoken-asks`: JSON `{line, waiting}`, the ledger lines read and the spoken asks still waiting for a place), `move` (his
 move, decision 78, keyed by his ask: the agent it moves from or switches, the matter's `assignment_id` (none: a runtime

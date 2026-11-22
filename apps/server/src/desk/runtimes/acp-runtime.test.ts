@@ -8,9 +8,10 @@ import { BEGIN_WITHIN_MS } from "../agent-wait";
 import { tick, wakeDue } from "../desk-clock";
 import { doorOf } from "../door-keys";
 import { advance, setup } from "../test-desk";
-import { acpRuntime, LAUNCH_WITHIN_MS } from "./acp-runtime";
+import { acpRuntime } from "./acp-runtime";
 import type { Agent } from "./contract";
 import type { Row } from "./runtime-rows";
+import { LAUNCH_WITHIN_MS } from "./session-runtime";
 
 // The ACP runtime against a made-up ACP agent (`fake-acp-agent.ts`), one case per rule the wait contract leans on.
 // Nothing runs a real adapter.
@@ -346,16 +347,10 @@ test("an adapter that refuses the mode: the turn still ends ok, and its asks are
   ).toEqual(["yes", "yes", "yes"]);
 });
 
-test("talk: one process kept across prompts, its updates heard as they come, the session never handed off; closed once idle; keep resumes it; stop closes it", async () => {
+test("talk: one process kept across prompts, its updates heard as they come, closed idle with nothing opened in his app; keep resumes it; stop closes it", async () => {
   const dir = made();
-  const handedOff: string[] = [];
   const rt = acpRuntime(
-    rowFor(dir, () => Promise.resolve("idle"), {
-      handOff: (_a, ref) => {
-        handedOff.push(ref);
-        return Promise.resolve();
-      },
-    }),
+    rowFor(dir, () => Promise.resolve("idle")),
     LAUNCH_WITHIN_MS,
     300
   );
@@ -379,7 +374,6 @@ test("talk: one process kept across prompts, its updates heard as they come, the
     "prompt",
   ]);
   expect(new Set(logOf(dir).map((l) => l.pid)).size).toBe(1);
-  expect(handedOff).toEqual([]);
   const pid = logOf(dir)[0]?.pid ?? 0;
   await until(() => isGone(pid));
   expect(isGone(pid)).toBe(true);

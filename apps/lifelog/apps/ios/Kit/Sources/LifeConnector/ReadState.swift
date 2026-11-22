@@ -108,6 +108,20 @@ public struct ReadState<Value: Sendable>: Sendable {
 }
 
 extension ReadState.Shown {
+    /// Which face a screen draws, so a new face fades in and anything else changes in place. Loaded and stale are one
+    /// face, the content, its note over it: a read failing or coming back never makes the content again (22 Nov: the
+    /// card and its answers went and came back under his tap, and the pager jumped, as a read turned stale or fresh).
+    public var face: String {
+        switch self {
+        case .loading: "loading"
+        case .loaded, .stale: "content"
+        case .empty: "empty"
+        case .unreachable: "unreachable"
+        case .failed: "failed"
+        case .notPaired: "notPaired"
+        }
+    }
+
     /// The value on screen, loaded or stale; nil when the screen shows none (loading, empty, failed, not paired). What a
     /// screen says about its read (a title's count) reads this, never `ReadState.value`, which outlives a lost pairing.
     public var onScreen: Value? {

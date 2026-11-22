@@ -7,6 +7,13 @@ import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
 import { described, wanted } from "../memory/past-events";
+import {
+  isBeforeScreenWindow,
+  SCREEN_OF,
+  screenWindowStart,
+  wantedScreen,
+} from "../memory/screen-blocks";
+import { enabledSources } from "../memory/sources";
 import { dayNow } from "../memory/zones";
 import { googleCalendar } from "./google-calendar";
 
@@ -118,6 +125,15 @@ function appleCalendar(calendar: string, tool: string) {
   };
 }
 
+/** Each draft with the description and location it is written with: a screen block's is its own text, an episode's is read (`described`). */
+async function* written(fresh: Draft[]) {
+  const isScreen = (d: Draft) => d.of.startsWith(SCREEN_OF);
+  for (const d of fresh.filter(isScreen)) {
+    yield { d, description: d.text, location: null };
+  }
+  yield* described(fresh.filter((d) => !isScreen(d)));
+}
+
 /**
  * Brings the calendar in line with the episodes ending after `since` (the whole calendar without it); null when it is
  * not set up or there is no index yet.
@@ -138,13 +154,21 @@ export async function syncPast(since: Date | undefined, now = clock()) {
   // Listed a day earlier than the drafts: an event ending in that day whose episode is live is left as it is.
   // ponytail: an episode read again with its end moved over a day (back, or forward from an event ended before the
   // listing) keeps its old copy until the night's whole sync.
+  // Screen blocks (`memory/screen-blocks.ts`) are read for the last 3 local days only: older ones are kept.
+  const screenFrom = screenWindowStart(since, now);
+  const screen = enabledSources().some((s) => s.name === "screen")
+    ? wantedScreen(screenFrom)
+    : [];
   const { create, remove, update } = reconcile(
-    want.drafts,
+    [...want.drafts, ...screen],
     await cal.held(
       since ? iso(since.getTime() - DAY) : "2000-01-01T00:00:00Z",
       daysBefore(dayNow(now), -2)
     ),
-    (of) => want.live.has(of)
+    (of) =>
+      of.startsWith(SCREEN_OF)
+        ? isBeforeScreenWindow(of, screenFrom)
+        : want.live.has(of)
   );
   for (const e of remove) {
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
@@ -152,7 +176,7 @@ export async function syncPast(since: Date | undefined, now = clock()) {
     log("calendar.write", { episode: e.of, event: e.id, op: "delete" });
   }
   const was = new Map(update.map((u) => [u.d, u.id]));
-  for await (const { d, description, location } of described([
+  for await (const { d, description, location } of written([
     ...create,
     ...update.map((u) => u.d),
   ])) {
@@ -167,7 +191,7 @@ export async function syncPast(since: Date | undefined, now = clock()) {
     });
   }
   return {
-    events: want.drafts.length,
+    events: want.drafts.length + screen.length,
     removed: remove.length,
     written: create.length + update.length,
   };

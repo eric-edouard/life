@@ -53,6 +53,10 @@
     {
       "amber": [],
       "effort": "medium",
+      "health": {
+        "verdict": "fine",
+        "why": []
+      },
       "id": "agt_000000000001",
       "lastTurn": {
         "cause": "start",
@@ -68,6 +72,8 @@
       "project": null,
       "role": "personal",
       "runtime": "claude",
+      "sessionOpenIn": null,
+      "sessionOpenSince": null,
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
       "steps": ["obs_000000000005"],
@@ -78,6 +84,12 @@
     {
       "amber": [],
       "effort": "medium",
+      "health": {
+        "verdict": "attention",
+        "why": [
+          "Open in your Claude app since 09:02: its wakes wait until you close it there."
+        ]
+      },
       "id": "agt_000000000002",
       "lastTurn": {
         "cause": "start",
@@ -93,6 +105,8 @@
       "project": "shop-fit-out",
       "role": null,
       "runtime": "claude",
+      "sessionOpenIn": null,
+      "sessionOpenSince": null,
       "status": "waiting",
       "statusSince": "2026-10-14T09:00:00.000Z",
       "steps": [],
@@ -282,7 +296,8 @@
           "id": "yes",
           "label": "Send it",
           "outgoing": true,
-          "takes": null
+          "takes": null,
+          "icon": "send"
         },
         {
           "id": "no",
@@ -313,6 +328,7 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": null,
       "confirm": [
         {
           "about": ["+33600000001"],
@@ -332,19 +348,22 @@
           "onSilence": null,
           "options": [
             {
+              "icon": "done",
               "id": "this-is",
               "label": "Yes",
               "takes": null
             },
             {
-              "id": "not-this-person",
-              "label": "No",
-              "takes": null
-            },
-            {
+              "icon": "person",
               "id": "same-person",
               "label": "Someone else…",
               "takes": "person or name"
+            },
+            {
+              "icon": "no",
+              "id": "not-this-person",
+              "label": "No",
+              "takes": null
             }
           ],
           "preTicked": "this-is",
@@ -368,9 +387,7 @@
           ],
           "matter": null,
           "misread": {
-            "cause": "01b070ee5ba7f83a",
-            "seal": "757398c9279ffc48760eab15b8f32ca9",
-            "shown": "0e530fc2d7921f15"
+            "cause": "01b070ee5ba7f83a"
           },
           "confirm": [],
           "networkIdentity": {
@@ -413,8 +430,7 @@
       },
       "contactsCard": null,
       "pushId": "a23260946067d0fe",
-      "urgency": "blocks",
-      "misread": null
+      "urgency": "blocks"
     },
     {
       "about": [],
@@ -441,11 +457,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "outdated",
           "label": "Yes, done",
           "takes": null
         },
         {
+          "icon": "later",
           "id": "false",
           "label": "Not yet",
           "takes": null
@@ -482,15 +500,13 @@
         "important": true,
         "name": "Mend Gran's watch"
       },
+      "misread": {
+        "cause": "1addffdfdc12fcfa"
+      },
       "confirm": [],
       "networkIdentity": null,
       "pushId": "c84c34823f7fa7b0",
-      "urgency": "improves",
-      "misread": {
-        "cause": "1addffdfdc12fcfa",
-        "seal": "e21321a5e0f38ca459ff1815d7677715",
-        "shown": "92b74ff9de2dc75c"
-      }
+      "urgency": "improves"
     }
   ]
 }

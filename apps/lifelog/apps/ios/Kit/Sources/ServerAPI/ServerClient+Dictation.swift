@@ -39,15 +39,14 @@ extension ServerClient {
 
 /// Dictated words put into a field's text where the caret is, as typing would.
 public enum DictatedText {
-    /// `words` in place of the caret's selection, kept with the text as it was when the run started, with a space on
-    /// each side where a word would otherwise touch; at the end when there is none, the text changed since (byte for
-    /// byte) or the selection isn't a place in it (the field's caret outlives text its code replaced, as Send's
-    /// emptying). The text and where the caret goes, after the words; nil for none.
-    public static func inserting(
-        _ words: String, into text: String, at caret: (text: String, selection: Range<String.Index>?)?
-    ) -> (text: String, caret: String.Index)? {
-        let words = words.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !words.isEmpty else { return nil }
+    /// Where words go in `text`: the text before them with the space it needs, and the space and text after them. In
+    /// place of the caret's selection, kept with the text as it was when the run started, with a space on each side
+    /// where a word would otherwise touch; at the end when there is none, the text changed since (byte for byte) or the
+    /// selection no longer fits it (the field's caret outlives text its code replaced: Send's emptying leaves a range
+    /// past the new end). The landing and the live words while he speaks share it.
+    public static func parts(
+        in text: String, at caret: (text: String, selection: Range<String.Index>?)?
+    ) -> (head: String, tail: String) {
         let kept = caret.flatMap { $0.text.utf8.elementsEqual(text.utf8) ? $0.selection : nil }.flatMap { range in
             String.Index(range.lowerBound, within: text).flatMap { lower in
                 String.Index(range.upperBound, within: text).map { lower..<$0 }
@@ -58,8 +57,17 @@ public enum DictatedText {
         let after = text[range.upperBound...]
         let lead = before.last.map { $0.isWhitespace ? "" : " " } ?? ""
         let trail = after.first.map { $0.isWhitespace || $0.isPunctuation ? "" : " " } ?? ""
-        let head = String(before) + lead + words
-        let result = head + trail + after
-        return (result, result.index(result.startIndex, offsetBy: head.count))
+        return (String(before) + lead, trail + after)
+    }
+
+    /// `words` at the caret (`parts`): the text and where the caret goes, after the words; nil for none.
+    public static func inserting(
+        _ words: String, into text: String, at caret: (text: String, selection: Range<String.Index>?)?
+    ) -> (text: String, caret: String.Index)? {
+        let words = words.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else { return nil }
+        let (head, tail) = parts(in: text, at: caret)
+        let result = head + words + tail
+        return (result, result.index(result.startIndex, offsetBy: (head + words).count))
     }
 }

@@ -20,7 +20,7 @@ struct ProjectHead: View {
             EmptyView()
         } else {
             ReadScreen(
-                shown: shown, retry: { await life.refreshProjectHead(id) }, loading: { EmptyView() },
+                shown: shown, marks: .none, retry: { await life.refreshProjectHead(id) }, loading: { EmptyView() },
                 empty: { EmptyView() }, content: { header($0.project) })
         }
     }
@@ -97,7 +97,7 @@ struct ProjectHead: View {
             ForEach(agents) { agent in
                 let registered = life.agents.value?.agents.first { $0.id == agent.id }
                 Button {
-                    if let matter = registered?.matter?.id { router.open(agent: agent.id, matter: matter) }
+                    router.open(agent: agent.id)
                 } label: {
                     HStack(spacing: Metrics.Spacing.m) {
                         VStack(alignment: .leading, spacing: 2) {

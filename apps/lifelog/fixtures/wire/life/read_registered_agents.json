@@ -3,6 +3,10 @@
     {
       "amber": [],
       "effort": "medium",
+      "health": {
+        "verdict": "fine",
+        "why": []
+      },
       "id": "agt_000000000001",
       "lastTurn": {
         "cause": "start",
@@ -18,6 +22,8 @@
       "project": null,
       "role": "personal",
       "runtime": "claude",
+      "sessionOpenIn": null,
+      "sessionOpenSince": null,
       "status": "running",
       "statusSince": "2026-10-13T09:00:00.000Z",
       "steps": ["obs_000000000005"],
@@ -44,6 +50,12 @@
     {
       "amber": [],
       "effort": "medium",
+      "health": {
+        "verdict": "attention",
+        "why": [
+          "Open in your Claude app since 09:02: its wakes wait until you close it there."
+        ]
+      },
       "id": "agt_000000000002",
       "lastTurn": {
         "cause": "start",
@@ -59,6 +71,8 @@
       "project": "shop-fit-out",
       "role": null,
       "runtime": "claude",
+      "sessionOpenIn": null,
+      "sessionOpenSince": null,
       "status": "waiting",
       "statusSince": "2026-10-14T09:00:00.000Z",
       "steps": [],
@@ -144,6 +158,10 @@
     }
   ],
   "desk": "ok",
+  "health": {
+    "verdict": "broken",
+    "why": ["No caretaker: your complaints have no one to fix them."]
+  },
   "helper": "running",
   "refused": []
 }

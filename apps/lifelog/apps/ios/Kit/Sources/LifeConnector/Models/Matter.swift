@@ -97,16 +97,6 @@ public struct MatterRow: Decodable, Sendable, Equatable, Identifiable {
 public struct MatterList: Decodable, Sendable, Equatable {
     public let matters: [MatterRow]
     public let version: String?
-
-    /// The matters whose name, goal, next step or people hold `query` (searched on the phone: the list is every running matter).
-    public func matching(_ query: String) -> [MatterRow] {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return matters }
-        return matters.filter { row in
-            ([row.name, row.goal?.text, row.nextStep?.text].compactMap(\.self) + row.parties.map(\.name))
-                .contains { $0.localizedStandardContains(query) }
-        }
-    }
 }
 
 /// One step of a matter, in time order: an episode, an observation or a to-do item.

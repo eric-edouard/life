@@ -188,38 +188,37 @@ struct ContextSheet: View {
     @State private var headHeight: CGFloat = 0
     @State private var bodyHeight: CGFloat = 0
 
-    private var fit: CGFloat { headHeight + bodyHeight }
+    private var fit: CGFloat { headHeight + 2 * Metrics.Spacing.l + bodyHeight }
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+                    ContextView(markdown: markdown, lifeLinks: lifeLinks) { target in
+                        detent = .large
+                        path.append(target)
+                    }
+                    if let appLink {
+                        TextLink("Open in \(appName ?? "its app")", to: .outside) { openURL(appLink) }
+                    }
+                }
+                .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.height
+                } action: { height in
+                    bodyHeight = height.rounded(.up)
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .sheetBars {
                 SheetHeader(title: title) { dismiss() }
-                    .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
                     .onGeometryChange(for: CGFloat.self) {
                         $0.size.height
                     } action: { height in
                         headHeight = height.rounded(.up)
                     }
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                        ContextView(markdown: markdown, lifeLinks: lifeLinks) { target in
-                            detent = .large
-                            path.append(target)
-                        }
-                        if let appLink {
-                            TextLink("Open in \(appName ?? "its app")", to: .outside) { openURL(appLink) }
-                        }
-                    }
-                    .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.size.height
-                    } action: { height in
-                        bodyHeight = height.rounded(.up)
-                    }
-                }
-                .scrollBounceBehavior(.basedOnSize)
             }
-            .frame(maxHeight: .infinity, alignment: .top)
             .background(Palette.sheet)
             // At medium the sheet's height is medium's: a context that fits under it opens at its own height.
             .onGeometryChange(for: CGFloat.self) {
@@ -249,22 +248,21 @@ struct LifeLinkPage: View {
     @State private var read = ReadState<LifeLinkRead>()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        ReadScreen(
+            shown: read.shown(), retry: load, loading: { Spinner().frame(maxWidth: .infinity) },
+            empty: { EmptyView() },
+            content: { value in ScrollView { page(value).padding(.horizontal, Metrics.gutter).readingWidth() } }
+        )
+        .frame(maxHeight: .infinity, alignment: .top)
+        .sheetBars {
             HStack(spacing: Metrics.Spacing.m) {
                 if isPushed { RoundIconButton(symbol: "chevron.left", label: "Back") { back() } }
                 Text(title).font(.sheetQuestion).foregroundStyle(Palette.fg).lineLimit(1)
                 Spacer(minLength: 0)
                 CloseButton(close: close)
             }
-            .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
             .toolbar(.hidden, for: .navigationBar)
-            ReadScreen(
-                shown: read.shown(), retry: load, loading: { Spinner().frame(maxWidth: .infinity) },
-                empty: { EmptyView() },
-                content: { value in ScrollView { page(value).padding(.horizontal, Metrics.gutter).readingWidth() } }
-            )
         }
-        .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.sheet)
         .task { await load() }
     }

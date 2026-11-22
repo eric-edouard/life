@@ -15,13 +15,13 @@ func traceAction(
     ]
     switch key {
     case .answer(let ref): fields["kind"] = "answer"; fields["ref"] = ref
-    case .complaint(let ref): fields["kind"] = "complaint"; fields["ref"] = ref
     case .start(let matter): fields["kind"] = "start"; fields["ref"] = matter
     case .agent(let agent): fields["kind"] = "agent"; fields["ref"] = agent
     case .move(let id): fields["kind"] = "move"; fields["ref"] = id
     case .edit(let matter, let what): fields["kind"] = "edit.\(what)"; fields["ref"] = matter
     case .project(let id): fields["kind"] = "project"; fields["ref"] = id
     case .appointment(let id): fields["kind"] = "appointment"; fields["ref"] = id
+    case .picture(let ref): fields["kind"] = "picture"; fields["ref"] = ref
     }
     if let tap { fields["key"] = String(tap.prefix(8)) }
     if let limit {

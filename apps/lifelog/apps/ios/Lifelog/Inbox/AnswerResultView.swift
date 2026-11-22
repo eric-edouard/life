@@ -6,9 +6,14 @@ import SwiftUI
 struct Taken: Equatable {
     let check: Check
     let request: AnswerRequest
-    /// The card after this one in the inbox when he tapped, so the result still knows it once the inbox let it go.
-    let nextRef: String?
+    /// The asks paged beside it when he tapped: the pager holds them still while Life works, so no read moves the ask
+    /// under his finger.
+    let asks: [Check]
     let runtimeName: RuntimeName?
+
+    /// The cards after this one when he tapped, so the result still knows where to go once the inbox let it go: the
+    /// first still on show (`InboxOrder.next(of:)`).
+    var later: [String] { asks.refs(after: check.ref) }
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
     /// A new matter whose goal he changed is still waiting for Start or Dismiss.
@@ -52,7 +57,6 @@ struct AnswerResultView: View {
         }
         .scrollPosition($position)
         .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
 
     private var lines: [CheckLine] {
@@ -146,7 +150,7 @@ struct ResultButtons: View {
             case .idle, .running:
                 Button {
                 } label: {
-                    Text(taken.isSend ? "Sending…" : taken.isStart ? "Starting…" : "Saving…")
+                    WorkingWords(words: taken.isSend ? "Sending…" : "Saving…", key: taken.key)
                 }.buttonStyle(.pill(.quiet, isBusy: true))
             }
         }
@@ -174,10 +178,10 @@ extension Taken {
         return request.name ?? (request.note == nil ? "Your answer" : "Your words")
     }
 
-    /// Any answer that is not a send, a start, a goal edit or a new person's name (Life reads who that is, or adds them
-    /// to his directory: its result, or why not, shows on its card first): held for Undo on a bulk card's row and in the
+    /// Any answer that is not a send, a goal edit or a new person's name (Life reads who that is, or adds them
+    /// to his directory: its result, or why not, shows on its card first): sent on a bulk card's row and in the
     /// moves list, shown on its button on its own card.
-    var isHeld: Bool { !isSend && !isStart && !staysOpen && request.name == nil }
+    var isHeld: Bool { !isSend && !staysOpen && request.name == nil }
 
     /// "Sent." only on Life's proof that it went; an answer that sent nothing takes its card's word.
     func doneWord(_ proof: ActionProof) -> String {
@@ -207,7 +211,6 @@ extension Taken {
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }
-        if isStart { return "An agent works toward the goal." }
         if let snoozed = result.changed?.snoozed() { return snoozed }
         if check.group == .newMatter {
             return staysOpen
@@ -233,8 +236,7 @@ extension Taken {
     func failedWord(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
         if isSend { return DraftDelivery(state).word }
         if failure.mayHaveHappened { return "Check first." }
-        if failure.isSameTap { return "No answer from Life." }
-        if isStart { return AgentWords.notStarted + "." }
+        if failure.isSameTap { return MacSilence.noAnswer + "." }
         return "Not saved."
     }
 
@@ -242,9 +244,6 @@ extension Taken {
         if isSend, DraftDelivery(state) == .sent { return "Life saw it in the chat. Its answer was lost on the way." }
         if failure.mayHaveHappened { return "Check before answering again. It stays here." }
         if failure.isSameTap { return "Life may have it: trying again repeats the same tap. It stays here." }
-        if isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
-            return "Your goal is saved. It stays here."
-        }
         return "It stays here."
     }
 }

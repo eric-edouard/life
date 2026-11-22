@@ -50,11 +50,9 @@ public struct PersonRow: Decodable, Sendable, Equatable, Identifiable {
 }
 
 /// `read_people_and_organizations` with no name: his directory's people and organizations and everyone with a page, in
-/// Life's order (closest first, the newest exchange first inside a level, the unjudged last); with a query, its matches
-/// and `others`, the people only his Contacts or Life's guesses name.
+/// Life's order (closest first, the newest exchange first inside a level, the unjudged last).
 public struct PeopleList: Decodable, Sendable, Equatable {
     public let people: [PersonRow]
-    public let others: [Party]?
 
     /// Which of them the list shows.
     public enum Kind: Hashable, Sendable, CaseIterable {
@@ -187,6 +185,13 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         public var id: String { ref }
     }
 
+    /// A picture he can pick for them (`pictureChoicesOf`, `memory/party.ts`): the first of one source's.
+    public struct PictureChoice: Decodable, Sendable, Equatable, Identifiable {
+        public let id: String
+        /// `contacts` or a source's name, what his pick writes (`pictureFrom`).
+        public let source: String
+    }
+
     /// One line of their situation, or of how each writes to the other.
     public struct Line: Decodable, Sendable, Equatable {
         public let text: String
@@ -232,9 +237,11 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     /// An organization's: the people he knows there, and its mail and web domains.
     public let members: [Member]
     public let domains: [String]
+    /// The pictures he can pick from, one per source; none outside his directory (no pick can be written there).
+    public let pictures: [PictureChoice]
 
     private enum Key: String, CodingKey {
-        case reach, details, knows, open, situation, communicationStyle, more, moreReach, domains
+        case reach, details, knows, open, situation, communicationStyle, more, moreReach, domains, pictures
         case members = "people"
     }
 
@@ -246,7 +253,24 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         (situation, communicationStyle) = (try list(.situation), try list(.communicationStyle))
         more = try container.decodeIfPresent([String: Int].self, forKey: .more) ?? [:]
         moreReach = try container.decodeIfPresent(String.self, forKey: .moreReach)
-        (members, domains) = (try list(.members), try list(.domains))
+        (members, domains, pictures) = (try list(.members), try list(.domains), try list(.pictures))
+    }
+
+    /// What his pick names now: the source of the picture they show, `none` when they show none. Read off the party
+    /// Life sent, never decided here.
+    public var pictureInUse: String {
+        pictures.first { $0.id == row.party.picture?.id }?.source ?? Self.noPicture
+    }
+
+    /// His pick that shows no picture (`PictureFrom`'s `none`).
+    public static let noPicture = "none"
+
+    /// Where the pictures come from, said under them: "From Contacts, WhatsApp and Instagram".
+    public var picturesFrom: String {
+        let names = pictures.map { Channel.name($0.source) }
+        guard let last = names.last else { return "" }
+        let first = names.dropLast().joined(separator: ", ")
+        return "From " + (first.isEmpty ? last : first + " and " + last)
     }
 
     /// Reach with every account once the `reach` part's pages are read, in order, to its end (`pages`; none: `now`'s
@@ -408,24 +432,8 @@ public struct Prose: Sendable, Equatable, ParsedRead, NamesParties {
         return Prose(sections: sections)
     }
 }
-extension PeopleList {
-    /// A find that holds no one: no row, and no other Life has seen by that name.
-    public var isNoOne: Bool { people.isEmpty && (others ?? []).isEmpty }
-}
-
-/// What search reads of the people: one query, read again on each new pairing (`PairingGeneration`), so a query on
-/// show is asked of the new Life too.
-public struct PeopleQuery: Hashable, Sendable {
-    public let text: String
-    public let pairing: Int
-
-    public init(text: String, pairing: Int) {
-        (self.text, self.pairing) = (text, pairing)
-    }
-}
-
 extension PeopleList: NamesParties {
-    public var parties: [Party] { people.map(\.party) + (others ?? []) }
+    public var parties: [Party] { people.map(\.party) }
 }
 
 extension PersonNow: NamesParties {

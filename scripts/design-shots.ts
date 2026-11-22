@@ -46,7 +46,11 @@ interface Frame {
  */
 export interface AppFrame {
   args?: string[];
+  /** Why the designer has no drawing of this frame (a tap's result): it is shot, with no design beside it. */
+  drawing?: string;
   fill?: [string, string];
+  /** A label the screen shows once it is the frame's own (default: the Inbox gone for a route, the screen settled). */
+  ready?: string;
   /** `top` or `bottom`: the page scrolled to that edge, after the taps. */
   scroll?: string;
   taps?: string[];
@@ -91,6 +95,58 @@ const device = (args: string[]) =>
     timeout: 120_000,
   });
 
+/** The launch flags that open a full-screen route: the Inbox's own tab is gone once the app is there. */
+export const ROUTE_FLAGS = new Set([
+  "-fixtureMatter",
+  "-fixturePage",
+  "-fixtureParked",
+  "-fixturePerson",
+  "-fixtureTab",
+]);
+const INBOX_TAB = /Inbox, \d+ waiting/;
+const SCREEN_WAIT = 90_000;
+
+/** The accessibility tree as text, less the warning line that counts snapshots. */
+const readScreen = async () =>
+  (await device(["snapshot"]))
+    .split("\n")
+    .filter((line) => !line.startsWith("Warning"))
+    .join("\n");
+
+/**
+ * Waits for the screen the frame asked for, never a fixed time: the frame's own `ready` label on screen, else (for a
+ * frame that opens a route) the Inbox gone, and in every case the tree the same on two reads in a row (the reads settled).
+ */
+async function waitForScreen(app: AppFrame) {
+  const route = (app.args ?? []).some((arg) => ROUTE_FLAGS.has(arg));
+  const start = performance.now();
+  let before = "";
+  while (performance.now() - start < SCREEN_WAIT) {
+    // biome-ignore lint/performance/noAwaitInLoops: each read waits on the last
+    const now = await readScreen();
+    const isThere = app.ready
+      ? now.includes(app.ready)
+      : !(route && INBOX_TAB.test(now));
+    if (isThere && now === before) {
+      return;
+    }
+    before = now;
+  }
+  throw new Error(
+    `the screen never settled${app.ready ? ` on "${app.ready}"` : ""}`
+  );
+}
+
+const press = async (labels: string[]) => {
+  for (const label of labels) {
+    // A sheet may still be coming: wait for the label before pressing it.
+    // biome-ignore lint/performance/noAwaitInLoops: the taps run in order
+    await device(["wait", "text", label, "15000"]);
+    await device(["press", `label="${label}"`]);
+    await Bun.sleep(1500);
+  }
+};
+
 async function shoot(udid: string, frame: Frame, app: AppFrame) {
   const pose = poseOf(frame);
   await launch(udid, [
@@ -98,14 +154,8 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
     ...(app.args ?? []),
     ...pose.args,
   ]);
-  await Bun.sleep(5000);
-  for (const label of app.taps ?? []) {
-    // A sheet may still be coming: wait for the label before pressing it.
-    // biome-ignore lint/performance/noAwaitInLoops: the taps run in order
-    await device(["wait", "text", label, "15000"]);
-    await device(["press", `label="${label}"`]);
-    await Bun.sleep(1500);
-  }
+  await waitForScreen(app);
+  await press(app.taps ?? []);
   if (app.fill) {
     const [label, text] = app.fill;
     await device(["fill", `label="${label}"`, text]);
@@ -155,7 +205,7 @@ function writeIndex(
         : `<p class="missing">${escaped(result)}</p>`;
     return `<section><h2>${escaped(frame.name)} <small>${escaped(frame.title)}</small></h2>
 <p>${escaped(`${frame.pose} ${frame.size.join("x")}`)}${frame.state ? ` · ${escaped(stateWords(frame.state))}` : ""}</p>
-<div><figure><a href="file://${join(design, frame.png)}"><img src="file://${join(design, frame.png)}"></a><figcaption>Design</figcaption></figure>
+<div>${frame.png ? `<figure><a href="file://${join(design, frame.png)}"><img src="file://${join(design, frame.png)}"></a><figcaption>Design</figcaption></figure>` : ""}
 <figure>${app}<figcaption>App</figcaption></figure></div></section>`;
   });
   writeFileSync(
@@ -178,11 +228,22 @@ async function main() {
     app: builtApp,
     shutdownAfter,
   } = parseArgs(process.argv.slice(2));
-  const unknown = asked.filter((name) => !map.frames[name]);
+  const unknown = asked.filter(
+    (name) => !(map.frames[name] || appFrames[name]?.drawing)
+  );
   if (unknown.length > 0) {
     throw new Error(`not in the frame map: ${unknown.join(", ")}`);
   }
-  const frames = Object.values(map.frames).filter(
+  const undrawn = Object.entries(appFrames)
+    .filter(([, app]) => app.drawing)
+    .map(([name, app]) => ({
+      name,
+      png: "",
+      pose: "closed",
+      size: [0, 0] as [number, number],
+      title: app.drawing as string,
+    }));
+  const frames = [...Object.values(map.frames), ...undrawn].filter(
     (frame) => asked.length === 0 || asked.includes(frame.name)
   );
   const mapped = frames.filter((frame) => appFrames[frame.name]?.args);
@@ -208,21 +269,9 @@ async function main() {
   const outcome = new Map<string, string>();
   try {
     await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
-    if (
-      mapped.some(
-        (frame) => appFrames[frame.name]?.taps || appFrames[frame.name]?.fill
-      )
-    ) {
-      await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
-      await device([
-        "open",
-        APP_ID,
-        "--platform",
-        "ios",
-        "--device",
-        SIMULATOR,
-      ]);
-    }
+    // The session reads the screen to know a frame is there, so every run opens it.
+    await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
+    await device(["open", APP_ID, "--platform", "ios", "--device", SIMULATOR]);
     for (const frame of mapped) {
       const app = appFrames[frame.name] as AppFrame;
       // Once more on a miss: the first taps after a boot can find the app still settling.

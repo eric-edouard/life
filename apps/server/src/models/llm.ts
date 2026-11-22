@@ -147,6 +147,27 @@ const OPENROUTER_MODELS: Record<Tier, string> = {
   main: routed("high"),
 };
 
+/**
+ * What the desk's pi agents run on (the owner's decisions of 22 Nov 2026, `docs/plans/pi-runtime.md`): the memory's
+ * main-tier OpenRouter route, its model, its hosts and its effort, so agents and memory share one model on the same
+ * hosts that keep nothing.
+ */
+export function piRouteOf() {
+  const routes = routesOf(OPENROUTER_MODELS.main, "openrouter").filter(
+    (r) => r.router === "openrouter"
+  );
+  const [first] = routes;
+  if (!first) {
+    throw new Error("the OpenRouter engine names no OpenRouter host");
+  }
+  return {
+    contextTokens: PROVIDERS.openrouter.contextTokens,
+    effort: first.effort,
+    hosts: routes.map((r) => r.host),
+    model: first.model,
+  };
+}
+
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export function llmFor(tier: Tier, engine = readEngine()): Llm {
   const p = PROVIDERS[engine];

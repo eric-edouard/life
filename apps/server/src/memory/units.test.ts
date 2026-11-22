@@ -498,9 +498,7 @@ test("mail reaches memory unless automated (a no-reply sender, a bulk header, a 
           "Dinner",
           "Are you free on Friday evening?"
         ),
-        mail("m7", "paul@example.test", "Boat", "The boat is ready.", {
-          contact: true,
-        }),
+        mail("m7", "paul@example.test", "Boat", "The boat is ready."),
         mail("m8", "sales@shop.test", "Your quote", "Here is the quote."),
         mail("m8", "jean@mine.test", "Re: Your quote", "Deal.", {
           fromMe: true,

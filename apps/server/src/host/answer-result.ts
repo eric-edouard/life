@@ -21,6 +21,7 @@ import {
 import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
 import type { Check } from "../memory/life-checks";
 import {
+  isAwaitingHisWord,
   type MatterStepNow,
   matterOfSteps,
   openStepsOf,
@@ -334,16 +335,17 @@ function planOf(
 async function closingOf(d: Decision, option: string) {
   const book = await readMatterBook(await readPeople(), dayNow());
   const step = d.options.find((o) => o.id === option)?.ends === "step";
-  // The matter it was asked on, found in the whole book first: one that ended since closes nothing, never another
-  // sharing its step; a card from before it was kept, or a matter re-grouped away, by its subject among open matters.
+  // The matter it was asked on, found in the whole book first: one with no step left for his word closes nothing, never
+  // another sharing its step; a card from before it was kept, or a matter re-grouped away, by its subject among the matters
+  // with such steps (a matter Life reads over, or a link ended, still waits on his word).
   const asked = book.find((m) => m.id === d.matter);
   const v =
-    asked?.open === false
+    asked && !isAwaitingHisWord(asked)
       ? undefined
       : (asked ??
         (d.subject &&
           matterOfSteps(
-            book.filter((m) => m.open),
+            book.filter(isAwaitingHisWord),
             [d.subject],
             d.matter
           )));

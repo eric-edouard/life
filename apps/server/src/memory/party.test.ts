@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { partyOf } from "./party";
+import { partyOf, pictureChoicesOf } from "./party";
 import { readPeople } from "./who";
 
 // A party, over made-up people: the test data's directory, and made-up pictures.
@@ -54,4 +54,21 @@ test("his pick shows that source's picture; a pick no longer shown falls back to
   expect(party("person:max").picture).toBeUndefined();
   expect(party("person:noa").picture).toEqual({ id: "n1" });
   expect(party("person:zed").picture).toBeUndefined();
+});
+
+test("he picks from the first picture of each source, only for someone of his directory", () => {
+  const choicesOf = pictureChoicesOf([{ id: "kim" }], () => ({
+    "person:kim": [
+      { id: "k1", source: "contacts" },
+      { id: "k2", source: "whatsapp" },
+      { id: "k3", source: "whatsapp" },
+    ],
+    "person:noa": [{ id: "n1", source: "imessage" }],
+  }));
+  expect(choicesOf("person:kim")).toEqual([
+    { id: "k1", source: "contacts" },
+    { id: "k2", source: "whatsapp" },
+  ]);
+  // Outside his directory no pick can be written: nothing to pick from.
+  expect(choicesOf("person:noa")).toEqual([]);
 });

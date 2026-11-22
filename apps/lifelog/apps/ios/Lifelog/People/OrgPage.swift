@@ -13,12 +13,17 @@ struct OrgPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                        Text(now.row.party.name).font(.screenName).foregroundStyle(Palette.fg)
-                            .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                        if let line = now.row.party.line {
-                            Label(line, systemImage: "building.2").font(.body15).foregroundStyle(Palette.muted)
+                    HStack(spacing: Metrics.Spacing.l) {
+                        // Its picture only when he can pick one: the page as drawn otherwise.
+                        if !now.pictures.isEmpty { HeadPicture(party: now.row.party, now: now) }
+                        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                            Text(now.row.party.name).font(.screenName).foregroundStyle(Palette.fg)
+                                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                            if let line = now.row.party.line {
+                                Label(line, systemImage: "building.2").font(.body15).foregroundStyle(Palette.muted)
+                            }
                         }
+                        .stepsAsideForToast()
                     }
                     reach
                 }

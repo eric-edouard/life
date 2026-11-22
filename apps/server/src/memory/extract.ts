@@ -58,7 +58,7 @@ import { localTime } from "./zones";
 // entity against the candidate list, then appends them to memory/observations/<yyyy-mm>.jsonl, and the earlier facts
 // the episode's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
 
-const EXTRACT_PROMPT = "memory-extract.v7";
+const EXTRACT_PROMPT = "memory-extract.v8";
 /** Characters of unit text per call: whole episodes, as many as fit. */
 const BUDGET = 40_000;
 /** Earlier facts shown with an episode: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
@@ -543,7 +543,7 @@ export async function extract(evidence: Evidence) {
             id: unit.id,
             lines: ls.map(
               (l, n) =>
-                `[${n}] ${localTime(l.at)} ${who(l)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
+                `[${n}] ${localTime(l.at)} ${who(l, people.nameOf)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
             ),
             people: unit.people,
             source: unit.source,

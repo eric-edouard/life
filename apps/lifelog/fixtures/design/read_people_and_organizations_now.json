@@ -1,0 +1,229 @@
+{
+  "person:camille": {
+    "reach": [
+      {
+        "network": "whatsapp",
+        "label": "WhatsApp",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 01",
+            "open": {
+              "lands": "chat",
+              "url": "https://wa.me/33600000001"
+            },
+            "title": "Camille",
+            "lastAt": "2026-11-17T09:14:00"
+          },
+          {
+            "handle": "+33 7 00 00 00 02",
+            "open": {
+              "lands": "chat",
+              "url": "https://wa.me/33700000002"
+            },
+            "title": "Camille Vance · Studio",
+            "lastAt": "2026-11-02T10:00:00"
+          }
+        ]
+      },
+      {
+        "network": "imessage",
+        "label": "Messages",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 01",
+            "open": {
+              "lands": "chat",
+              "url": "sms:+33600000001"
+            },
+            "lastAt": "2026-11-16T22:40:00"
+          }
+        ]
+      },
+      {
+        "network": "instagram",
+        "label": "Instagram",
+        "accounts": [
+          {
+            "handle": "camille.vance.example",
+            "open": {
+              "lands": "chat",
+              "url": "https://instagram.com/camille.vance.example"
+            },
+            "lastAt": "2026-11-12T21:30:00"
+          }
+        ]
+      },
+      {
+        "network": "mail",
+        "label": "Mail",
+        "accounts": [
+          {
+            "handle": "camille@vance.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:camille@vance.example"
+            },
+            "title": "Personal",
+            "lastAt": "2026-11-10T08:00:00"
+          },
+          {
+            "handle": "camille@studiolune.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:camille@studiolune.example"
+            },
+            "title": "Work",
+            "lastAt": "2026-10-20T08:00:00"
+          },
+          {
+            "handle": "c.vance@mail.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:c.vance@mail.example"
+            },
+            "title": "Old",
+            "lastAt": "2025-03-01T08:00:00"
+          }
+        ]
+      },
+      {
+        "network": "call",
+        "label": "Call",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 01",
+            "open": {
+              "lands": "chat",
+              "url": "tel:+33600000001"
+            }
+          }
+        ]
+      }
+    ],
+    "open": ["matter_lease", "matter_table", "matter_shelf"],
+    "more": {
+      "open": 2
+    },
+    "situation": [
+      {
+        "text": "You are planning Mum’s 60th with her: she wants the table at Chez Odile on Friday 27th, and has asked twice this week whether the signed lease has gone to Hélène. She is away in Lyon until Sunday, and the cake has to be ordered before Thursday."
+      }
+    ],
+    "knows": [
+      {
+        "part": "page",
+        "ref": "person:camille/page",
+        "first": "Camille is your partner. You live together, and the one open thing between you is the lease on rue des Carmes, which goes back to Hélène before 30 November."
+      }
+    ],
+    "pictures": [
+      {
+        "id": "0c1dd147dc5331bb52324d0ec0661d2e",
+        "source": "contacts"
+      },
+      {
+        "id": "69c417eadc421481e9a79b1444258bb3",
+        "source": "whatsapp"
+      },
+      {
+        "id": "59400481f8a16e09515dc886a44c1393",
+        "source": "instagram"
+      }
+    ]
+  },
+  "person:marc_fenn": {
+    "reach": [
+      {
+        "network": "imessage",
+        "label": "Messages",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 03",
+            "open": {
+              "lands": "chat",
+              "url": "sms:+33600000003"
+            },
+            "lastAt": "2026-11-09T20:15:00"
+          }
+        ]
+      },
+      {
+        "network": "call",
+        "label": "Call",
+        "accounts": [
+          {
+            "handle": "+33 6 00 00 00 03",
+            "open": {
+              "lands": "chat",
+              "url": "tel:+33600000003"
+            }
+          }
+        ]
+      }
+    ],
+    "details": [
+      {
+        "kind": "handles",
+        "text": "Mobile: +33 6 00 00 00 03"
+      },
+      {
+        "kind": "family",
+        "text": "Camille Vance, sister"
+      }
+    ]
+  },
+  "person:atelier_morel": {
+    "reach": [
+      {
+        "network": "mail",
+        "label": "Mail",
+        "accounts": [
+          {
+            "handle": "bastien@ateliermorel.example",
+            "open": {
+              "lands": "chat",
+              "url": "mailto:bastien@ateliermorel.example"
+            },
+            "title": "Bastien Morel",
+            "lastAt": "2026-11-16T09:10:00"
+          }
+        ]
+      }
+    ],
+    "open": ["matter_nora", "matter_kitchen"],
+    "people": [
+      {
+        "party": {
+          "kind": "person",
+          "name": "Bastien Morel",
+          "ref": "person:bastien",
+          "line": "Founder, Atelier Morel",
+          "picture": {
+            "id": "04f62921efb80bf5e97b0bb91b04e881"
+          }
+        },
+        "role": "Founder, architect"
+      },
+      {
+        "party": {
+          "kind": "person",
+          "name": "Inès Carvalho",
+          "ref": "person:ines",
+          "line": "Site manager, Atelier Morel"
+        },
+        "role": "Site manager"
+      },
+      {
+        "party": {
+          "kind": "person",
+          "name": "Marc Delmas",
+          "ref": "person:marc_delmas",
+          "line": "Fitter, works with Idris Benali"
+        },
+        "role": "Fitter",
+        "until": 2025
+      }
+    ],
+    "domains": ["ateliermorel.example", "@ateliermorel.example"]
+  }
+}

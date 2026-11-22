@@ -270,6 +270,7 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
   const ws = await fakeMac();
   expect(await put({ ai: false, transcription: false })).toEqual({
     ai: false,
+    dictationHeard: "mac",
     engine: "claude",
     openAppAfterMinutes: 15,
     transcriber: "scribe",
@@ -280,6 +281,7 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
   ).json();
   expect(changes.switches).toEqual({
     ai: false,
+    dictationHeard: "mac",
     engine: "claude",
     openAppAfterMinutes: 15,
     transcriber: "scribe",
@@ -291,6 +293,7 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
   expect(runsOf(id)).toHaveLength(0);
   expect(await put({ ai: true })).toEqual({
     ai: true,
+    dictationHeard: "mac",
     engine: "claude",
     openAppAfterMinutes: 15,
     transcriber: "scribe",

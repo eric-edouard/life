@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (every whole read after the first takes 5 s: a tapped push's card is checked), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people|search`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|agents|agentPage|icon|pictures|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -24,6 +24,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
         nonisolated static let filter = value(of: "-fixtureFilter")
+        /// `-fixtureShow matters`: Ask Life's answer cut the Projects list to its first three matters, under its toast.
+        nonisolated static let show = value(of: "-fixtureShow")
         nonisolated static let matter = value(of: "-fixtureMatter")
         /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
         nonisolated static let person = value(of: "-fixturePerson")
@@ -32,13 +34,23 @@
         nonisolated static let unmarked = value(of: "-fixtureUnmarked")
         nonisolated static let parked = value(of: "-fixtureParked")
         nonisolated static let sheet = value(of: "-fixtureSheet")
-        /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
+        /// `-fixtureAsk open`: Ask Life's banner open.
+        nonisolated static let ask = value(of: "-fixtureAsk")
+        /// `-fixtureAgent notStarted|running|pi`: Nora's agent never began (its runtime refused), for the Try again swap, or
+        /// works; or the lease's agent runs on pi.
         nonisolated static let agent = value(of: "-fixtureAgent")
+        /// `-fixtureRefuse <control>`: that control's write fails, or its card is gone (tap feedback's failures):
+        /// `agentStop`, `agentResume`, `icon`, `movesAnswer`, `tellCard`, `projectsRetry` (`projectsRetryOnce`: only its first read fails),
+        /// `notifications`, `location`, `appleHealth`, `reconnect`.
+        nonisolated static let refuse = value(of: "-fixtureRefuse")
+        nonisolated static func refuses(_ control: String) -> Bool { isRequested && refuse == control }
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
         /// `-fixturePage life|server|diagnostics|apps`: Settings opens that page.
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
+        /// `-fixtureDictation <state>`: every dictation field in that state (`DictationFixture`).
+        nonisolated static let dictation = value(of: "-fixtureDictation")
         /// `-fixtureReads <folder>`: where the design data is read, by default this checkout's
         /// `apps/lifelog/fixtures/design/` (`FixtureAPI`).
         nonisolated static let reads =
@@ -118,15 +130,18 @@
     nonisolated private final class FixtureAPI: LifeAPI, Sendable {
         let scenario: String
         private let answered = Mutex(Set<String>())
-        /// His "Wrong…" the caretaker received, by card: the card stays, being fixed.
-        private let fixing = Mutex([String: String]())
         private let started = Mutex(false)
+        private let projectReads = Mutex(0)
+        /// An agent's status after his Stop or Resume here, by id, over the design data's.
+        private let agentStatuses = Mutex([String: String]())
         private let wholeReads = Mutex(0)
         /// His marks and the projects' statuses as he set them here, over the design data.
         private let marks = Mutex(LifeFixture.unmarked.map { [$0: false] } ?? [String: Bool]())
         private let statuses = Mutex(LifeFixture.parked.map { [$0: "parked"] } ?? [String: String]())
         /// His icon picks, by matter: a key, or nil when he gave it back to Life (the design data's pick shows again).
         private let icons = Mutex([String: String?]())
+        /// His picture picks here, by ref: a source, or `none`.
+        private let pictureFroms = Mutex([String: String]())
         /// His Remove (true) or Undo (false) of the design data's appointment here.
         private let removed = Mutex<Bool?>(nil)
 
@@ -185,6 +200,14 @@
         /// no project; then the parked or done projects. Worked out from the rows, as the server does from its matters.
         func readProjects(ifNot: String?) async throws -> String {
             try await gate()
+            // `projectsRetry`: never readable; `projectsRetryOnce`: only the first read fails, so Retry works.
+            let reads = projectReads.withLock { n -> Int in
+                n += 1
+                return n
+            }
+            if LifeFixture.refuses("projectsRetry") || (LifeFixture.refuses("projectsRetryOnce") && reads == 1) {
+                throw MCPError.failed("Life answered 502 from its proxy.")
+            }
             let rows = rowsNow()
             func chip(_ kind: String, _ id: String, _ name: String, _ of: [[String: Any]]) -> [String: Any] {
                 [
@@ -244,7 +267,7 @@
             let agents: [[String: Any]] =
                 !isUnderway
                 ? []
-                : Self.allAgents.filter(onIt).map { (agent: [String: Any]) -> [String: Any] in
+                : agentsNow().filter(onIt).map { (agent: [String: Any]) -> [String: Any] in
                     let line: Any = (agent["wait"] as? [String: Any])?["reason"] ?? agent["title"] ?? ""
                     return agent.filter { ["id", "title", "status"].contains($0.key) }.merging(["line": line]) { $1 }
                 }
@@ -273,6 +296,11 @@
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
         /// The design data's spending (`read_spending.json`), as Life answers it.
         func readSpending() async throws -> String { try await gate(); return json(Self.spending) }
+        /// The design data's session of a pi agent (`read_agent_session.json`), whichever agent is asked.
+        func readAgentSession(_ id: String) async throws -> String {
+            try await gate()
+            return json(Self.session.merging(["agent": id]) { $1 })
+        }
         /// The design data's log (`read_log_lines.json`, one page), by level and process; an empty log until the
         /// designer writes it. Polled every 2 s, it adds nothing: the page shows what the frames draw.
         func readLogLines(_ query: LogQuery) async throws -> String {
@@ -303,18 +331,15 @@
             return json(["pictures": found, "missing": ids.filter { id in !found.contains { $0["id"] == id } }])
         }
 
-        /// The design data's people (`read_people_and_organizations.json`, its rows as the list gives them, and `others`);
-        /// a query keeps the rows whose name holds it. None until the designer writes the file.
-        func readPeopleAndOrganizations(query: String?) async throws -> String {
+        /// The design data's people (`read_people_and_organizations.json`, its rows as the list gives them). None until
+        /// the designer writes the file.
+        func readPeopleAndOrganizations() async throws -> String {
             try await gate()
-            let rows = Self.people["people"] as? [[String: Any]] ?? []
-            guard let query else { return json(["people": rows]) }
-            let found = rows.filter { ($0["name"] as? String)?.localizedStandardContains(query) == true }
-            return json(["people": found, "others": Self.people["others"] ?? []])
+            return json(["people": Self.people["people"] as? [[String: Any]] ?? []])
         }
 
         /// A part by its ref: someone's `now` (their row, with what `read_people_and_organizations_now.json` holds for
-        /// their ref), a page of `latest` or `reach` (`read_people_and_organizations_latest.json`, `…_reach.json`, by
+        /// their ref, its `open` matters named by id), a page of `latest` or `reach` (`read_people_and_organizations_latest.json`, `…_reach.json`, by
         /// ref) or a prose part.
         func readPart(_ ref: String) async throws -> String {
             try await gate()
@@ -340,8 +365,19 @@
             guard part == "now", let row = rows.first(where: { $0["ref"] as? String == subject }) else {
                 throw MCPError.failed("No such person.")
             }
-            let now = Self.read("read_people_and_organizations_now", or: [:])[subject] as? [String: Any] ?? [:]
-            return json(row.merging(now) { $1 })
+            var now = Self.read("read_people_and_organizations_now", or: [:])[subject] as? [String: Any] ?? [:]
+            // Their open matters by id, as `read_matters.json` holds them: one source for a matter's row.
+            if let ids = now["open"] as? [String] {
+                let rows = rowsNow()
+                now["open"] = ids.compactMap { id in rows.first { $0["id"] as? String == id } }
+            }
+            var read = row.merging(now) { $1 }
+            // His pick here: that source's picture, or none.
+            if let from = pictureFroms.withLock({ $0[subject] }) {
+                let choices = now["pictures"] as? [[String: Any]] ?? []
+                read["picture"] = choices.first { $0["source"] as? String == from }.map { ["id": $0["id"]] }
+            }
+            return json(read)
         }
 
         func readMatter(_ id: String) async throws -> String {
@@ -352,7 +388,7 @@
             // The table's agent exists only once he started one; every open check about it, of every kind.
             let isStarted = started.withLock { $0 }
             var matter = DesignReplies.matter(
-                row, agents: Self.allAgents.filter { $0["id"] as? String != "agt_table" || isStarted },
+                row, agents: agentsNow().filter { $0["id"] as? String != "agt_table" || isStarted },
                 steps: Self.matterRead["steps"] as? [String: Any] ?? [:], checks: checksNow())
             if id == "matter_table", isStarted { matter["agent"] = "agt_table" }
             // Nora's page stays short, so the agent's row shows above the fold.
@@ -360,16 +396,10 @@
             return json(matter)
         }
 
-        /// The open asks as Life holds them now: less those he answered; one whose "Wrong…" the caretaker has no longer blocks.
+        /// The open asks as Life holds them now: less those he answered.
         private func checksNow() -> [[String: Any]] {
-            let (left, fixing) = (answered.withLock { $0 }, fixing.withLock { $0 })
-            return Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }.map { check in
-                guard let ask = fixing[check["ref"] as? String ?? ""] else { return check }
-                var check = check
-                check["beingFixed"] = ["ask": ask, "since": at(18, 14, 3), "line": NSNull()]
-                check["urgency"] = "improves"
-                return check
-            }
+            let left = answered.withLock { $0 }
+            return Self.checks.filter { !left.contains($0["ref"] as? String ?? "") }
         }
 
         /// Every open ask, what blocks first, as `read_inbox` sends it; `improves` holds only what can wait (the list's
@@ -441,7 +471,23 @@
                 \.element)
         }
 
-        func agents() -> String { json(Self.registered) }
+        func agents() -> String {
+            json(
+                Self.registered.merging(["agents": withStatuses(Self.registered["agents"] as? [[String: Any]] ?? [])]) {
+                    $1
+                })
+        }
+
+        /// Every agent as his Stop or Resume left it.
+        private func agentsNow() -> [[String: Any]] { withStatuses(Self.allAgents) }
+
+        private func withStatuses(_ agents: [[String: Any]]) -> [[String: Any]] {
+            let statuses = agentStatuses.withLock { $0 }
+            return agents.map { agent in
+                guard let status = statuses[agent["id"] as? String ?? ""] else { return agent }
+                return agent.merging(["status": status]) { $1 }
+            }
+        }
 
         // MARK: Actions
 
@@ -486,14 +532,11 @@
                     try await Task.sleep(for: .seconds(3_600))
                 }
                 if draft != nil, step == "confirmed", Self.refused.contains(LifeFixture.answer) { break }
-                if draft == nil, LifeFixture.answer == "failed" { throw MCPError.refused("Your Mac did not take it.") }
+                if draft == nil, LifeFixture.answer == "failed" || LifeFixture.refuses("movesAnswer") {
+                    throw MCPError.refused("Your Mac did not take it.")
+                }
                 if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
-            }
-            if answer.isComplaint {
-                let ask = "complaint:" + answerKey
-                fixing.withLock { $0[answer.ref] = ask }
-                return json(["ask": ask, "reached": "caretaker"])
             }
             if draft != nil, Self.refused.contains(LifeFixture.answer) {
                 let send: [String: Any] =
@@ -543,6 +586,12 @@
         {
             try await gate()
             guard change.action == .start else {
+                if LifeFixture.refuses(change.action == .stop ? "agentStop" : "agentResume") {
+                    throw MCPError.refused("The desk could not reach the agent. Nothing changed.")
+                }
+                if let agent = change.agent {
+                    agentStatuses.withLock { $0[agent] = change.action == .stop ? "stopped" : "waiting" }
+                }
                 return json(["action": change.action.rawValue, "state": "done", "agent": change.agent ?? ""])
             }
             onProgress(message(["plan": ["desk_accepted", "session_open", "turn_begun"], "limitSeconds": 15]))
@@ -578,6 +627,7 @@
             try await gate()
             onProgress(message(["plan": ["recorded"], "limitSeconds": 5]))
             try await Task.sleep(for: .milliseconds(500))
+            if LifeFixture.refuses("icon") { throw MCPError.refused("Life could not save the icon. Nothing changed.") }
             icons.withLock { $0[matter] = .some(icon) }
             return "Done: memory."
         }
@@ -597,6 +647,16 @@
             try await Task.sleep(for: .milliseconds(300))
             marks.withLock { $0[matter] = important }
             return "Done: memory."
+        }
+
+        func setPicture(
+            of ref: String, kind: Party.Kind, from source: String, said: String,
+            onProgress: @escaping @Sendable (Data) -> Void
+        ) async throws -> String {
+            try await gate()
+            try await Task.sleep(for: .milliseconds(300))
+            pictureFroms.withLock { $0[ref] = source }
+            return "Done: \(kind == .organization ? "organization" : "person") \(ref.trimmingPrefix("person:"))."
         }
 
         func setProjectStatus(
@@ -626,9 +686,10 @@
             return isOn ? #"{"result":"restored"}"# : #"{"result":"removed"}"#
         }
 
-        /// Tell Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
+        /// Ask Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
         func askMainSession(
-            words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+            words: String?, screen: MainSessionScreen?, answerKey: String?,
+            onProgress: @escaping @Sendable (Data) -> Void
         ) async throws -> String {
             try await gate()
             guard words != nil else { return #"{"kept":true}"# }
@@ -638,6 +699,11 @@
             try await Task.sleep(for: .milliseconds(600))
             onProgress(Data(#"{"kind":"words","text":"The card asks you to confirm "}"#.utf8))
             onProgress(Data(#"{"kind":"words","text":"Friday morning."}"#.utf8))
+            // Words that ask for "the card" are answered with a chip to it: the pay card, or (`tellCard`) one that is gone.
+            if words?.localizedCaseInsensitiveContains("card") == true {
+                let card = LifeFixture.refuses("tellCard") ? "dec_gone" : "dec_pay"
+                return json(["kind": "card", "words": "Here is the card.", "card": card])
+            }
             return #"{"kind":"reply","words":"The card asks you to confirm Friday morning."}"#
         }
 
@@ -662,6 +728,7 @@
         nonisolated(unsafe) private static let people = read("read_people_and_organizations", or: [:])
         nonisolated(unsafe) private static let log = read("read_log_lines", or: [:])
         nonisolated(unsafe) private static let spending = read("read_spending", or: [:])
+        nonisolated(unsafe) private static let session = read("read_agent_session", or: ["lines": []])
         /// Every agent, by its matter; `-fixtureAgent` says how Nora's went.
         nonisolated(unsafe) private static let allAgents: [[String: Any]] =
             ((registered["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])).map {
@@ -674,6 +741,11 @@
                 }
                 if LifeFixture.agent == "running" { agent["status"] = "running" }
                 return agent
+            }
+            // `-fixtureAgent pi`: the lease's agent runs on pi, whose session Life's app shows.
+            .map { agent in
+                guard LifeFixture.agent == "pi", agent["id"] as? String == "agt_lease" else { return agent }
+                return agent.merging(["runtime": "pi", "link": ""]) { $1 }
             }
 
         /// A read of the design data; `missing`, if given, stands for a file the designer has not written yet.

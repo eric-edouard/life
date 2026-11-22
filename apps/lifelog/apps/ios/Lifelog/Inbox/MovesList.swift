@@ -3,8 +3,8 @@ import SwiftUI
 
 /// The "your move" asks as a list to sort, not cards (the Inbox's Filter, "Your moves"): filtered by age, project or
 /// person, each row answered by swipe (Done, Hand, Drop) or many at once from Select, every answer that card's own
-/// option through `HeldAnswers` (one toast and one Undo per tap). Life decides what is open and what an option does;
-/// this only joins the checks to their matters (`YourMoves`) and sends. A row Life refused shows why on the row.
+/// option sent at once, each row working until Life answers, then one toast per tap. Life decides what is open and what
+/// an option does; this only joins the checks to their matters (`YourMoves`) and sends. A row Life refused shows why on the row.
 struct MovesList: View {
     /// The your move asks open now, in the inbox's order.
     let checks: [Check]
@@ -19,6 +19,10 @@ struct MovesList: View {
     @State private var opened: String?
     @State private var openedNotes = CardNotes()
     @State private var openedCurrent: String?
+    /// The opened card's answer, in place until the sheet closes: sending, its word, or why Life refused it. The card
+    /// is kept, since Life's read after the answer takes it out of `checks`.
+    @State private var openedSaid: (glyph: StateGlyph, word: String)?
+    @State private var openedKept: Check?
 
     var body: some View {
         let moves = YourMoves(checks: checks, matters: life.matters.value?.matters ?? [], now: Date())
@@ -59,25 +63,48 @@ struct MovesList: View {
         }
         .sheet(
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
-            onDismiss: { openedNotes = CardNotes() }
+            onDismiss: { (openedNotes, openedSaid, openedKept) = (CardNotes(), nil, nil) }
         ) {
-            if let check = checks.first(where: { $0.ref == opened }) {
+            if let check = checks.first(where: { $0.ref == opened }) ?? openedKept {
                 NavigationStack {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
                         context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
                         takes: { taken in
-                            life.hold(taken.request, as: taken.heldWords)
-                            opened = nil
+                            openedKept = check
+                            Task { await answerOpened(taken.request, as: taken.heldWords) }
                         }
                     ) { _, _ in opened = nil }
+                    .safeAreaInset(edge: .bottom) {
+                        if let openedSaid {
+                            StateMark(glyph: openedSaid.glyph, word: openedSaid.word).padding(Metrics.Spacing.l)
+                        }
+                    }
                     .background(Palette.bg)
                     .toolbar { CloseItem { opened = nil } }
                 }
             }
         }
         // A read can take a ticked row away (answered elsewhere): ticks only name rows still shown.
-        .onChange(of: rows.map(\.id)) { _, ids in ticked.formIntersection(ids) }
+        // A filter his answers emptied gives the whole list back, out of Select (DuoFoldMovesHanded): never "Nothing here."
+        // under a bar with nothing left to answer.
+        .onChange(of: rows.map(\.id)) { _, ids in
+            ticked.formIntersection(ids)
+            if ids.isEmpty, filter != .all, !sent.isEmpty { (filter, isSelecting, sent) = (.all, false, []) }
+        }
+    }
+
+    /// His answer from the opened card: the sheet says "Sending…", then Life's word in green before it closes, or
+    /// why Life refused (the toast says it too), and stays for another try.
+    private func answerOpened(_ request: AnswerRequest, as words: String) async {
+        openedSaid = (.busy, "Sending…")
+        if await life.answerRows([request], as: words) {
+            openedSaid = (.ok, life.saidBack?.words ?? words)
+            try? await Task.sleep(for: .seconds(2))
+            opened = nil
+        } else {
+            openedSaid = (.flag, life.saidBack?.words ?? "Life did not answer.")
+        }
     }
 
     // MARK: Header
@@ -177,12 +204,13 @@ struct MovesList: View {
 
     private func row(_ move: YourMoves.Move, at index: Int, of count: Int) -> some View {
         let refused = failure(of: move)
-        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the step, then the matter
+        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the step, then its matter
         // and its age, or why Life refused it, in `flag`.
-        let symbol = move.check.matter.flatMap { id in life.matters.value?.matters.first { $0.id == id.id } }?.symbol
         let content = Row(
-            title: move.check.said?.text ?? move.check.question, icon: isSelecting ? nil : symbol,
-            iconTint: Palette.muted, detail: move.detail, state: refused.map { .refused($0.reason) } ?? .known,
+            title: move.check.question, icon: isSelecting ? nil : move.symbol,
+            iconTint: Palette.muted, detail: move.detail,
+            state: refused.map { .refused($0.reason) }
+                ?? (life.state(of: .answer(ref: move.id)).isRunning ? .saving : .known),
             isInList: true)
         return Group {
             if isSelecting {
@@ -273,7 +301,7 @@ struct MovesList: View {
         return names.count == 1 ? names.first ?? "an agent" : "an agent"
     }
 
-    /// The option `id` on each of `moves` that offers it, held as one (one toast, one Undo).
+    /// The option `id` on each of `moves` that offers it, sent at once: the rows work until Life has answered them all.
     private func act(_ moves: [YourMoves.Move], _ id: String, words: String) {
         let requests = moves.compactMap { $0.answer(id) }
         guard !requests.isEmpty, !life.saysOutOfReach() else { return }
@@ -281,7 +309,7 @@ struct MovesList: View {
         requests.forEach { life.forget(.answer(ref: $0.ref)) }
         sent.formUnion(requests.map(\.ref))
         ticked.subtract(requests.map(\.ref))
-        life.hold(requests, as: words)
+        Task { await life.answerRows(requests, as: words) }
     }
 
     private func failure(of move: YourMoves.Move) -> ActionFailure? {

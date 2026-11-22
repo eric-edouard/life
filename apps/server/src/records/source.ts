@@ -56,14 +56,10 @@ export const SourceEvent = z
     bulk: z.boolean().optional(),
     chat: z.string(),
     chatName: z.string().optional(),
-    // Mail only: his Contacts hold the sender's address.
-    contact: z.literal(true).optional(),
     // WhatsApp and the bridged networks: the sender deleted it for everyone; the text is the archive's copy. Notes: he deleted the note.
     deleted: z.boolean().optional(),
     files: z.array(SourceFile).optional(),
     fromMe: z.boolean(),
-    // Mail only: the owner wrote in this event's thread, on any day (not only the event's own).
-    hasOwnerWrittenInThread: z.literal(true).optional(),
     id: z.string(),
     // His words to Life, to keep (a mark): mail he sent only to himself, a `tell_life` line. Set by its reader; a
     // self-chat's messages are marked by `chatDay` (units.ts), which knows whose a chat is.

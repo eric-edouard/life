@@ -6,11 +6,12 @@ import { openReadOnly } from "../core/sqlite";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import { isOldShape } from "../host/desk-shape";
 import { stepTurnsOf } from "../host/desk-turn-reads";
-import { opensWithPlan, planCardsOf } from "../host/inbox";
+import { opensWithPlan } from "../host/inbox";
 import {
   assignmentOnMatter,
   MOVE_REASONS,
   matterMoveReadOf,
+  moveTargetOf,
 } from "../host/move-read";
 import { decisionsNow, recordDoneSeen } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on which agent takes a matter
@@ -169,6 +170,15 @@ test("his answer during the notes turn is not handed to it, and wakes the new ho
   });
 });
 
+test("the move offered goes to the desk's default runtime, and from it, or with none, to the first other", () => {
+  expect(moveTargetOf("claude", "pi")).toBe("pi");
+  expect(moveTargetOf("codex", "pi")).toBe("pi");
+  expect(moveTargetOf("pi", "pi")).toBe("claude");
+  expect(moveTargetOf("claude", "claude")).toBe("codex");
+  expect(moveTargetOf("codex", undefined)).toBe("claude");
+  expect(moveTargetOf("claude", undefined)).toBe("codex");
+});
+
 test("a move to a runtime that can't run is refused, and nothing moves", async () => {
   const { assignment, desk, old } = await holding();
   expect(
@@ -291,10 +301,11 @@ test("a moved matter stays with its new agent: the fold leaves it, and its new h
       context: "A made-up reason to ask.",
       deadline: iso(clock().getTime() + DAY),
       options: [
-        { id: "yes", label: "Yes" },
-        { id: "no", label: "No" },
+        { id: "start", label: "Start the plan" },
+        { id: "decline", label: "Not this plan" },
       ],
-      question: "Test: call the plumber?",
+      plan: [{ by: "agent", text: "Call the plumber" }],
+      question: "Start with this plan?",
       title: "a test",
     });
     move(desk, { runtime: "other", steps: [STEP] });
@@ -517,7 +528,7 @@ test("after a move, a card seen done before it does not count as asked, and a de
     }
     expect(hasAsked(desk.db, moved)).toBe(false);
     expect(opensWithPlan(desk.db, moved)).toBe(true);
-    // The door takes the new holder's plan card, and the inbox shows it as its plan.
+    // The door takes the new holder's plan card, its steps in `plan`.
     const plan = await askDecision(desk, moved, {
       context: "## Fix the boiler\n1. Call the plumber",
       deadline: iso(clock().getTime() + DAY),
@@ -530,7 +541,8 @@ test("after a move, a card seen done before it does not count as asked, and a de
       question: "Start with this plan?",
       title: "Fix the boiler",
     });
-    expect([...planCardsOf(desk.db, decisionsNow())]).toContain(plan.id);
+    expect(decisionsNow().find((d) => d.id === plan.id)?.plan).toBeDefined();
+    expect(hasAsked(desk.db, moved)).toBe(true);
   });
 });
 

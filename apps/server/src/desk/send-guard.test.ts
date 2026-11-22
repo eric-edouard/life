@@ -41,6 +41,9 @@ const REFUSED: [string, GuardedCall][] = [
     "codex_apps__a_long_life_connector_name__change_registe_0123456789ab",
     "codex_apps__life__tell_life_abcdef012345",
     "codex_apps__a_very_long_connector_name_cut_short__0123456789ab",
+    // pi's (`<what is left>_<8 hex>`), cut in the tool's name or inside the server's id.
+    "life__change_registered_ag_0123abcd",
+    "a_very_long_server_id_that_fills_the_whole_na_0123abcd",
   ].map((n): [string, GuardedCall] => [`his connector's write ${n}`, mcp(n)]),
   ["a mail connector's send", mcp("0f00__send_message", { to: ["a@b.co"] })],
   ["a mail connector's reply", mcp("0f00__reply", { body: "ok" })],
@@ -147,6 +150,7 @@ const LET_THROUGH: [string, GuardedCall][] = [
     "his connector's read, shortened by Codex",
     mcp("codex_apps__a_long_life_connector_name__read_matt_0123456789ab"),
   ],
+  ["his connector's read, shortened by pi", mcp("life__read_matt_0123abcd")],
   ["Life's own card", mcp("desk__request_decision", { question: "Send?" })],
   [
     "a web page",

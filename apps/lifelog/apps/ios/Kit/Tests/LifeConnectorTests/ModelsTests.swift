@@ -65,8 +65,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
     #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
-    // The plan card: the second decision is its assignment's first card; the first is not.
-    #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
+    // A plan card is a decision that gives `plan`, its steps: the third; the first two give none.
+    #expect(inbox.checks.prefix(3).map(\.isPlan) == [false, false, true])
     #expect(inbox.checks.last?.isPlan == nil)
     // A plan with its steps: who does each, when, where, and what it rests on; an older plan card has none.
     let plan = try #require(inbox.checks.first { $0.ref == "dec_000000000003" })
@@ -95,6 +95,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.networkIdentity?.party?.ref == "person:inf_kit")
     #expect(inbox.parties.contains { $0.ref == "person:inf_kit" })
     #expect(decision.ridesOn?.matters == 1)
+    #expect(decision.ridesOn?.matterIds == ["matter_aaaaaaaaaaaa"])
+    #expect(decision.matterID == "matter_aaaaaaaaaaaa")
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
     #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
@@ -122,7 +124,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
-    #expect(found.options.map(\.label) == ["Start", "Edit goal", "No"])
+    #expect(found.options.map(\.label) == ["Start an agent", "Edit goal", "No agent"])
     #expect(found.goal == "Gran's photo is framed.")
     #expect(inbox.checks.last?.draft == nil)
 
@@ -195,7 +197,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 }
 
 /// A plan's start is its filled answer whatever order its asker sent; a card with no roles keeps its order; its steps
-/// draw even while `isPlan` is false (Life couldn't read its desk).
+/// draw whatever `isPlan` says.
 @Test func aPlanStartsFirstAndDrawsItsStepsWhateverItsMarker() throws {
     let card = { (isPlan: Bool, options: String) in
         try decoded(
@@ -221,10 +223,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.map(\.role) == [.personal, nil])
     let held = try #require(inbox.checks.first { $0.agent == agents[0].id })
     #expect(held.hearer(among: agents) == "the Personal agent")
-    #expect(held.tellTitle == "Tell the agent…")
+    #expect(held.ownWordsTitle == "Tell the agent…")
     let lifes = try #require(inbox.checks.first { $0.isLifesOwn })
     #expect(lifes.hearer(among: agents) == "Life")
-    #expect(lifes.tellTitle == "Tell Life…")
+    #expect(lifes.ownWordsTitle == "Ask Life…")
     let other = try #require(inbox.checks.first { $0.agent == nil && !$0.isLifesOwn })
     #expect(other.hearer(among: agents) == "the agent")
     var fields = try #require(
@@ -235,6 +237,21 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let owners = try decoded(
         Inbox.self, String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
     #expect(owners.checks[0].hearer(among: agents) == "Life")
+}
+
+/// An ask with no matter of its own is on the first matter it rides on; one from a Life that sends neither is on none.
+@Test func anAskIsOnItsOwnMatterElseTheFirstItRidesOn() throws {
+    var fields = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    var first = try #require((fields["checks"] as? [[String: Any]])?.first)
+    first["matter"] = nil
+    first["ridesOn"] = ["observations": 0, "matters": 2, "pages": 0, "matterIds": ["m1", "m2"]]
+    var older = first
+    older["ridesOn"] = ["observations": 0, "matters": 0, "pages": 0]
+    fields["checks"] = [first, older]
+    let inbox = try decoded(
+        Inbox.self, String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
+    #expect(inbox.checks.map(\.matterID) == ["m1", nil])
 }
 
 /// His words go with the option he picked that takes them, and with none when he answered in general ("Tell the
@@ -274,14 +291,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let sent = { (step: NextStepRequest) in String(decoding: try JSONEncoder().encode(step), as: UTF8.self) }
     #expect(try sent(NextStepRequest(kind: "do", text: "t")).contains("context") == false)
     #expect(try sent(NextStepRequest(kind: "do", text: "t", context: "c")).contains(#""context":"c""#))
-}
-
-@Test func theListSearchesOnThePhone() throws {
-    let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matching("watch").map(\.name) == ["Mend Gran's watch"])
-    #expect(list.matching("QUOTE").count == 1)
-    #expect(list.matching("  ").count == 3)
-    #expect(list.matching("nothing like it").isEmpty)
 }
 
 @Test func aParkedOrDoneProjectsMattersAreParked() throws {
@@ -410,7 +419,7 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
     #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
 
-    // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
+    // Mark as done is his word that the step is done; Hand over hands over the goal shown, as Start does.
     let move = try card(.yourMove)
     #expect(move.options.map(\.id) == ["done", "start", "not-now", "drop"] && move.filled?.id == "done")
     #expect(move.isEnding(try #require(move.answer(move.options[0]))))
@@ -638,9 +647,66 @@ private func asks(
     let one = try asks([("g1", .improves)], groups: ["g1": "guessed person"], preTicked: ["g1": "this-is"])
         .ordered(deferred: [])
     #expect(one.folded().bulk.isEmpty)
-    #expect(one.folded(working: [.guessedPerson]).bulk.keys.contains("g1"))
+    #expect(one.folded(working: [.guessedPerson: one.checks[0]]).bulk.keys.contains("g1"))
     // Same person has no filter chip of its own: it is the guessed people's.
     #expect(order.kinds == [.guessedPerson] && order.only(.guessedPerson).checks.count == 3)
+}
+
+/// His "Same person" on the guesses' card (22 Nov): the row he answered was the card's first, and the fold took a
+/// guess's own row with it. The card keeps its page (no leave and come back under a new ref), and the row the fold took
+/// leaves instead of offering answers Life would refuse.
+@Test func theGuessesCardKeepsItsPageWhenItsFirstRowIsAnswered() throws {
+    let before = try asks(
+        [("b1", .blocks), ("s1", .improves), ("g1", .improves), ("g2", .improves)],
+        groups: ["s1": "same person", "g1": "guessed person", "g2": "guessed person"],
+        preTicked: ["s1": "same-person", "g1": "this-is", "g2": "this-is"]
+    ).ordered(deferred: [])
+    let head = before.checks[1]
+    #expect(before.folded().bulk.keys.sorted() == ["s1"])
+    // After the fold: s1 answered, g1 folded away with it.
+    let after = try asks(
+        [("b1", .blocks), ("g2", .improves)], groups: ["g2": "guessed person"], preTicked: ["g2": "this-is"]
+    ).ordered(deferred: [])
+    let folded = after.folded(working: [.guessedPerson: head])
+    #expect(folded.checks.map(\.ref) == ["b1", "s1"])
+    #expect(folded.bulk.mapValues { $0.map(\.ref) } == ["s1": ["g2"]])
+    #expect(folded.check(on: "s1")?.ref == "s1")
+    let rows = [Check].guessRows(
+        met: before.checks.dropFirst().map(\.self), open: try #require(folded.bulk["s1"]), answered: ["s1"])
+    #expect(rows.map(\.ref) == ["s1", "g2"])
+}
+
+/// A row he answered is answered as soon as Life confirms it, never back at Yes or No while the read that drops it is
+/// on its way (22 Nov: "Saving…", then Yes and No again, then "Yes").
+@Test func aGuessRowIsAnsweredOnLifesWordNotOnTheNextRead() {
+    let running = ActionState<ActionProof>.running(steps: [], limit: nil)
+    #expect(running.guessState(words: "Yes", isOpen: true) == .sending(yes: true))
+    let done = ActionState<ActionProof>.succeeded(.recorded, steps: [])
+    #expect(done.guessState(words: "Yes", isOpen: true) == .answered(yes: true))
+    let refused = ActionState<ActionProof>.failed(ActionFailure(reason: "No", retry: .allowed), steps: [])
+    #expect(refused.guessState(words: "No", isOpen: true) == .rest)
+    #expect(ActionState<ActionProof>.idle.guessState(words: "No", isOpen: false) == .answered(yes: false))
+    #expect(ActionState<ActionProof>.idle.guessState(words: nil, isOpen: true) == .rest)
+}
+
+/// His answer leaves him on the first ask after it that is still there, passing over one his answer took away too.
+@Test func anAnswerLeadsToTheFirstAskStillThere() throws {
+    let order = try asks([("b1", .blocks), ("b3", .blocks)]).ordered(deferred: [])
+    #expect(order.next(of: ["b2", "b3"]) == "b3")
+    #expect(order.next(of: ["gone"]) == nil)
+}
+
+/// His Mark as done moved him to the next ask, then the inbox read came back reordered (22 Nov: "an automatic swipe
+/// back"). A read in the background keeps him on his ask whatever came or moved around it; only his ask gone moves him,
+/// to the next still there, never back to the first.
+@Test func aReadInTheBackgroundKeepsHimOnHisAsk() throws {
+    let was = ["b1", "b2", "b3", "b4"]
+    let reordered = try asks([("b0", .blocks), ("b3", .blocks), ("b1", .blocks), ("b2", .blocks)]).ordered(deferred: [])
+    #expect(reordered.staying(on: "b2", was: was) == "b2")
+    let gone = try asks([("b1", .blocks), ("b4", .blocks)]).ordered(deferred: [])
+    #expect(gone.staying(on: "b2", was: was) == "b4")
+    #expect(gone.staying(on: "b3", was: ["b1", "b3"]) == "b1")
+    #expect(try asks([]).ordered(deferred: []).staying(on: "b2", was: was) == nil)
 }
 
 /// A group's heading on the bulk card follows the answer Life pre-ticks on it.
@@ -661,29 +727,10 @@ private func asks(
     #expect(check.askedName == "Sam Vale")
 }
 
-/// "Wrong…" is on Life's own cards only, and his press sends the card's seal back exactly as `Misread`
-/// (`host/complaints.ts`) takes it: his words as `note`, no option.
-@Test func lifesOwnCardsCarryTheirSealAndAComplaintSendsItBack() throws {
+/// "Wrong…" is on Life's own cards only (it opens Ask Life on the card).
+@Test func wrongIsOnLifesOwnCardsOnly() throws {
     let checks = try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
     #expect(checks.allSatisfy { ($0.misread != nil) == ($0.asker == "life") })
-    let voice = try #require(checks.first { $0.group == .voice })
-    #expect(voice.complaint(words: "  ", report: true) == nil)
-    #expect(voice.complaint(words: String(repeating: "a", count: 4_001), report: true) == nil)
-    let request = try #require(voice.complaint(words: " Not her. ", report: true))
-    let sent = try #require(
-        JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
-    #expect(sent["ref"] as? String == voice.ref)
-    #expect((sent["options"] as? [String])?.isEmpty == true)
-    #expect(sent["note"] as? String == "Not her.")
-    let value = try #require(sent["value"] as? [String: Any])
-    #expect(Set(value.keys) == ["kind", "cause", "shown", "seal", "report"])
-    #expect(value["kind"] as? String == "misread" && value["report"] as? Bool == true)
-    let misread = try #require(voice.misread)
-    #expect(
-        [value["cause"], value["shown"], value["seal"]].map { $0 as? String }
-            == [misread.cause, misread.shown, misread.seal])
-    let decision = try #require(checks.first { $0.group == .decision })
-    #expect(decision.complaint(words: "Wrong", report: false) == nil)
 }
 
 /// A card the caretaker is fixing says so, with the caretaker's open question and its context when it has one.
@@ -956,4 +1003,36 @@ private func asks(
     #expect(!inbox.isUnchanged(by: try wireText("life/read_inbox.json")))
     #expect(!inbox.without([inbox.checks[0].ref]).isUnchanged(by: unchanged))
     #expect(try decoded(MatterList.self, wireText("life/read_matters.json")).version != nil)
+}
+
+@Test func aCutInboxKeepsWhatBlocksFirstAndACutPeopleListKeepsLifesOrder() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json")).ordered(deferred: [])
+    let refs = inbox.checks.map(\.ref)
+    try #require(refs.count >= 2)
+    let cut = ShownList(kind: .checks, refs: [refs[1], refs[0], "gone"], label: "x")
+    #expect(inbox.cut(to: cut).checks.map(\.ref) == [refs[0], refs[1]])
+    #expect(inbox.cut(to: nil).checks.map(\.ref) == refs)
+    let people = try decoded(PeopleList.self, wireText("life/read_people_and_organizations.json"))
+    let named = people.people.map(\.id).reversed()
+    #expect(people.cut(to: ShownList(kind: .people, refs: Array(named), label: "x")).people.map(\.id) == Array(named))
+    #expect(people.cut(to: nil) == people)
+}
+
+/// "Someone else…" on a voice offers everyone he knows, not only the card's guesses again (his report, 22 Nov): the
+/// guesses first, then the People list, never him, no organization; a name with a slash is answered as typed.
+@Test func someoneElseOffersEveryoneHeKnows() throws {
+    let voice = try JSONDecoder().decode(
+        Check.self,
+        from: Data(
+            #"{"ref":"voice:v1","group":"voice","title":"t","question":"Who is this?","asker":"Life","options":[{"id":"is-them","label":"Yes"},{"id":"this-is","label":"Someone else…","takes":"person or name"}],"clips":[],"likelyPeople":[{"ref":"person:test-ana","name":"Test Ana","kind":"person"}],"links":[]}"#
+                .utf8))
+    let everyone = try JSONDecoder().decode(
+        [Party].self,
+        from: Data(
+            #"[{"ref":"person:me","name":"Me","kind":"person"},{"ref":"person:test-ana","name":"Test Ana","kind":"person"},{"ref":"person:test-bo","name":"Test Bo","kind":"person"},{"ref":"person:test-co","name":"Test Co","kind":"organization"}]"#
+                .utf8))
+    #expect(voice.peopleToPick(among: everyone).map(\.ref) == ["person:test-ana", "person:test-bo"])
+    #expect(
+        voice.answer(naming: .name("Zed/Zeda"))
+            == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Zed/Zeda"))
 }

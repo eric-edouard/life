@@ -7,32 +7,10 @@ public struct AnswerRequest: Encodable, Sendable, Equatable {
     public var note: String?
     public var person: String?
     public var name: String?
-    /// His "Wrong…" on a card of Life's: the card's `misread` as read, with his tick (`Check.complaint`).
-    public var value: Complaint?
 
-    public init(
-        ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil,
-        value: Complaint? = nil
-    ) {
+    public init(ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil) {
         (self.ref, self.options, self.note, self.person, self.name) = (ref, options, note, person, name)
-        self.value = value
     }
-
-    /// His "Wrong…", apart from the card's own answers: its own action state and its own key.
-    public var isComplaint: Bool { value != nil }
-}
-
-/// His "Wrong…" as `answer_check` takes it (`Misread`, `host/complaints.ts`): the card's seal, exactly as Life showed it.
-public struct Complaint: Encodable, Sendable, Equatable {
-    let kind = "misread"
-    let cause: String
-    let shown: String
-    let seal: String
-    /// His tick on "Send an anonymized report to the developer".
-    public let report: Bool
-    /// Set on the app's own repeat of a call whose connection dropped, never on his press: only his own Try again is a
-    /// press Life counts again (a caretaker that never started tries once more).
-    var repeated: Bool? = nil
 }
 
 /// His word about a registered agent (`change_registered_agent`'s arguments).
@@ -115,12 +93,14 @@ public protocol LifeAPI: Sendable {
     func readRegisteredAgents() async throws -> String
     /// What Life costs this month (`ModelSpending`), his token only.
     func readSpending() async throws -> String
+    /// An agent's session on pi, read-only (`AgentSession`), his token only.
+    func readAgentSession(_ id: String) async throws -> String
     /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
     func readPersonPictures(_ ids: [String]) async throws -> String
-    /// The people and organizations Life knows, closest first; with a query, the ones it matches and `others`.
-    func readPeopleAndOrganizations(query: String?) async throws -> String
+    /// The people and organizations Life knows, closest first.
+    func readPeopleAndOrganizations() async throws -> String
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
     /// A page of Life's log, newest first (`LogPage`), for the Live logs page.
@@ -147,15 +127,21 @@ public protocol LifeAPI: Sendable {
     func setProjectStatus(
         _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
+    /// His picture pick for a person's or an organization's entry in his directory (`ref`, `person:<id>`): a source's
+    /// name, `contacts` or `none`, `said` in his words: an edit of that entry.
+    func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String
     /// An appointment Life added to his calendar, by its push's `pushId` or its own id (one of the two), from the Life at
     /// `origin` (nil: the one paired now).
     func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String
     /// His Remove (`isOn` false) or Undo (`isOn` true) of one, from the Life at `origin`.
     func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String
-    /// Tell Life: his `words` (none: he is on the screen, keep the session warm) and his screen's refs to Life's main
+    /// Ask Life: his `words` (none: he is on the screen, keep the session warm) and his screen's refs to Life's main
     /// session. Its lines stream to `onProgress`; the call ends on its answer.
     func askMainSession(
-        words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
 }
 
@@ -211,12 +197,15 @@ public struct MCPLifeAPI: LifeAPI {
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
     public func readSpending() async throws -> String { try await client.call("read_spending") }
+    public func readAgentSession(_ id: String) async throws -> String {
+        try await client.call("read_agent_session", ["id": id])
+    }
     public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
     }
-    public func readPeopleAndOrganizations(query: String?) async throws -> String {
-        try await client.call("read_people_and_organizations", query.map { ["query": $0] } ?? [:])
+    public func readPeopleAndOrganizations() async throws -> String {
+        try await client.call("read_people_and_organizations")
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readLogLines(_ query: LogQuery) async throws -> String {
@@ -289,6 +278,23 @@ public struct MCPLifeAPI: LifeAPI {
             "change_directory_entry", Edit(id: project, status: status, said: said), onProgress: onProgress)
     }
 
+    public func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String {
+        struct Edit: Encodable {
+            let kind: String
+            let action = "edit"
+            let id: String
+            let pictureFrom: String
+            let said: String
+        }
+        let edit = Edit(
+            kind: kind == .organization ? "organization" : "person", id: String(ref.trimmingPrefix("person:")),
+            pictureFrom: source, said: said)
+        return try await client.call("change_directory_entry", edit, onProgress: onProgress)
+    }
+
     public func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {
         let arguments =
             switch key {
@@ -304,11 +310,11 @@ public struct MCPLifeAPI: LifeAPI {
     }
 
     public func askMainSession(
-        words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
         struct Ask: Encodable, Sendable {
             let words: String?
-            let screen: TellScreen?
+            let screen: MainSessionScreen?
         }
         // Even his presence takes the stream's 15 s idle limit: a cold session opens in about 8.
         return try await client.call(

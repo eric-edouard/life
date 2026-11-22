@@ -1,4 +1,24 @@
 {
+  "DuoAskLifeShown": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureShow",
+      "matters"
+    ]
+  },
+  "DuoFoldAskLifeShown": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureShow",
+      "matters"
+    ]
+  },
   "AgentPage": {
     "args": [
       "-fixtureLife",
@@ -8,7 +28,7 @@
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureSheet",
-      "agent"
+      "agentPage"
     ]
   },
   "AgentPageNoProgress": {
@@ -20,14 +40,61 @@
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureSheet",
-      "agent"
+      "agentPage"
     ]
   },
   "AgentProgramMenu": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
   "AgentsList": {
-    "why": "The app has no Agents list yet."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
+  },
+  "AskBannerArmedPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "armed"
+    ]
+  },
+  "AskBannerHoldingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "holding"
+    ]
+  },
+  "AskBannerListeningPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "listening"
+    ]
+  },
+  "AskBannerSendingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "sending"
+    ]
   },
   "AskNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
@@ -68,7 +135,14 @@
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
   "DuoAgents": {
-    "why": "The app has no Agents list yet."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "DuoDictListening": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
@@ -82,7 +156,7 @@
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureSheet",
-      "agent"
+      "agentPage"
     ]
   },
   "DuoFoldAgentProgramMenu": {
@@ -97,7 +171,7 @@
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureSheet",
-      "agent"
+      "agentPage"
     ],
     "scroll": "bottom"
   },
@@ -114,10 +188,24 @@
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
   },
   "DuoFoldAgentsList": {
-    "why": "The app has no Agents list yet."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "DuoFoldAgentsListMoved": {
-    "why": "The app has no Agents list yet."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureSheet",
+      "agents"
+    ]
   },
   "DuoFoldDictAgain": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
@@ -147,9 +235,6 @@
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
   "DuoFoldDictRest": {
-    "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
-  },
-  "DuoFoldDictSearch": {
     "why": "Dictation has no fixture: its microphone and the Mac's recognition are the system's and the Mac's, so no launch argument puts a field in listening, paused, writing or refused; a fixture that drives Dictation's phases is the missing piece."
   },
   "DuoFoldDictSheet": {
@@ -242,7 +327,7 @@
       "-fixtureTab",
       "projects",
       "-fixtureMatter",
-      "matter_kitchen"
+      "matter_lease"
     ],
     "scroll": "bottom"
   },
@@ -347,9 +432,6 @@
     "args": ["-fixtureLife", "ok", "-fixtureTab", "people"],
     "taps": ["Organizations"]
   },
-  "DuoFoldPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
-  },
   "DuoFoldPeopleSheet": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_marc"],
     "taps": ["Someone else…"]
@@ -448,10 +530,31 @@
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab people -fixturePerson person:camille, then scroll to the end."
   },
   "DuoFoldPersonPictureChanged": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille",
+      "-fixtureSheet",
+      "pictures"
+    ],
+    "taps": ["WhatsApp picture"],
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonPictures": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille",
+      "-fixtureSheet",
+      "pictures"
+    ],
+    "ready": "From Contacts, WhatsApp and Instagram"
   },
   "DuoFoldPersonReachMenu": {
     "args": [
@@ -566,7 +669,7 @@
     ]
   },
   "DuoFoldSpendingEnd": {
-    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
+    "why": "A scroll to the end: the shot's scroll does not move this page (shot 22 Nov, stays at the top). By hand, as DuoFoldSpendingLower, scrolled to the end."
   },
   "DuoFoldSpendingLower": {
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
@@ -637,13 +740,18 @@
     "taps": ["Sort", "A to Z"]
   },
   "DuoPeopleOrg": {
-    "why": "Its organization (person:atelier_morel) is not in the design data yet; once the designer adds it to read_people_and_organizations.json: -fixtureLife ok -fixtureTab people -fixturePerson person:atelier_morel."
-  },
-  "DuoPeopleSearch": {
-    "why": "Typing: design:shots presses labels only. By hand: -fixtureLife ok -fixtureTab search, then type “mar” in the field."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:atelier_morel"
+    ],
+    "taps": ["Organizations"]
   },
   "DuoPeopleTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and its tap have no rows to draw; design:shots supplies the upright pose from the frame map."
+    "args": ["-fixtureLife", "ok", "-fixtureTab", "people"]
   },
   "DuoPersonCreate": {
     "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
@@ -655,10 +763,17 @@
     "why": "A scroll: by hand, as DuoFoldPersonLower, the Duo open."
   },
   "DuoPersonPictures": {
-    "why": "Not built: the person read names no pictures by source yet (life#812)."
+    "why": "The open Duo with a sheet: nothing on this Mac unfolds the simulator from a script (simctl cannot, RocketSim is not installed), and -fixturePose shrinks the screen but not a sheet."
   },
   "DuoPersonTall": {
-    "why": "The People list is not in the design data yet (the designer's People fixture), so the upright list and a person's page have no rows to draw; design:shots supplies the upright pose from the frame map."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "people",
+      "-fixturePerson",
+      "person:camille"
+    ]
   },
   "ImportantCard": {
     "why": "The switched stack (StackOnlyYou) is not built, and Life sends no whyNow: of this frame only the pill's flag is built."
@@ -952,5 +1067,162 @@
       "matter_kitchen"
     ],
     "taps": ["Important"]
+  },
+  "AskBannerWritingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "writing"
+    ]
+  },
+  "DuoFoldSpendingAgentBack": {
+    "why": "The top agents are below the fold and design:shots presses before it scrolls (a press on a row off screen lands on the column's tab). By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, scroll to Top agents, open one, Back."
+  },
+  "DuoFoldAgentWakeMatter": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agentPage"
+    ],
+    "taps": ["What wakes it", "You answer “Go with this plan?”"]
+  },
+  "TapFeedbackAgentStopped": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent"
+    ],
+    "taps": ["Stop the agent"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackAgentStopFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent",
+      "-fixtureRefuse",
+      "agentStop"
+    ],
+    "taps": ["Stop the agent"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackAgentResumed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_nora",
+      "-fixtureSheet",
+      "agent"
+    ],
+    "taps": ["Resume"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackAgentResumeFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_nora",
+      "-fixtureSheet",
+      "agent",
+      "-fixtureRefuse",
+      "agentResume"
+    ],
+    "taps": ["Resume"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackIconChanged": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_lease",
+      "-fixtureSheet",
+      "icon"
+    ],
+    "taps": ["hammer"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackIconFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_lease",
+      "-fixtureSheet",
+      "icon",
+      "-fixtureRefuse",
+      "icon"
+    ],
+    "taps": ["hammer"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackMovesAnswered": {
+    "args": ["-fixtureLife", "ok", "-fixtureFilter", "moves"],
+    "taps": ["Halden house", "Find the boiler manual", "Mark as done"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackMovesFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureFilter",
+      "moves",
+      "-fixtureRefuse",
+      "movesAnswer"
+    ],
+    "taps": ["Halden house", "Find the boiler manual", "Mark as done"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackProjectsRetried": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureRefuse",
+      "projectsRetryOnce"
+    ],
+    "taps": ["Retry"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackProjectsRetryFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureRefuse",
+      "projectsRetry"
+    ],
+    "taps": ["Retry"],
+    "drawing": "tap feedback, no drawing"
   }
 }

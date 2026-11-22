@@ -17,7 +17,7 @@ struct MatterPage: View {
     var body: some View {
         let state = life.matter[id] ?? ReadState()
         ReadScreen(
-            shown: state.shown(), retry: { await life.refreshMatter(id) },
+            shown: state.shown(), stamp: state.stamp, retry: { await life.refreshMatter(id) },
             // With its row on hand, what the row says shows at once; only its steps and asks wait for the read.
             loading: {
                 if let row = life.listedRow(of: id) { rowPage(row) } else { PagePlaceholder() }
@@ -61,7 +61,7 @@ struct MatterPage: View {
                     Goal(row: row).offWhileOutOfReach()
                     if let agent {
                         AgentRow(matter: matter, agent: agent) {
-                            router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                            router.open(agent: matter.holder?.agent.id ?? agent.id)
                         }
                     }
                 }
@@ -72,8 +72,7 @@ struct MatterPage: View {
             }
             .matterPageColumn()
         }
-        // Floating over the content, which runs to the screen's foot under the system's soft scroll edge.
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        // Floating over the content, which runs to the screen's foot under the soft scroll edge (`RootView`).
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
                 DoneButton(id: id).controlSize(.large)
@@ -116,7 +115,7 @@ struct MatterPage: View {
             VStack(spacing: 0) {
                 ForEach(Array(checks.enumerated()), id: \.element.ref) { at, check in
                     Button {
-                        router.matterPath.append(.card(check.ref))
+                        router.matterPath.append(.card(check.ref, matter: id))
                     } label: {
                         HStack(spacing: Metrics.Spacing.m) {
                             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -143,8 +142,8 @@ struct MatterPage: View {
                     .buttonStyle(.groupedRow(at: at, of: checks.count))
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
         }
     }
 
@@ -261,15 +260,19 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused).font(.lead)
-                    .foregroundStyle(Palette.fg).lineLimit(1...)
+                // The field's Send (or a hold slid up from the microphone) saves: the one submit is the field's.
+                DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused) {
+                    let words = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !state.isRunning, !words.isEmpty else { return }
+                    Task { await save(words) }
+                }
+                .font(.lead).foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
-                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
-                    Button(state.isRunning ? "Saving…" : "Save") {
-                        Task { await save(draft.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+                    if state.isRunning {
+                        Spinner(size: .small)
+                        Text("Saving…").font(.small).foregroundStyle(Palette.muted)
                     }
-                    .buttonStyle(.pill(.filled, size: .compact, isBusy: state.isRunning))
-                    .disabled(state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
                 let shown = saved ?? text
@@ -393,10 +396,15 @@ struct PagePlaceholder: View {
     }
 }
 
+extension Date {
+    /// "Tue 17 Nov".
+    var dayAndMonth: String { formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
+}
+
 extension MatterStep {
     /// A step's day and who or what it came from, as the matter page and the card's context both show it.
     var whenAndWith: String {
-        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with?.name].compactMap(\.self)
+        [at.dayAndMonth, with?.name].compactMap(\.self)
             .joined(separator: " · ")
     }
 }
@@ -405,7 +413,7 @@ extension MatterStep {
 
 /// The agent's row on a matter: the holder's mark and name (else its program) in `ai`, "Moved from …" when he moved it
 /// there, then one line (a move under way, with its spinner; else who it listens for and its deadline, or its state,
-/// `flag` when it never started). It opens the agent's sheet; while a move is possible it is a pull-down menu: Open, or
+/// `flag` when it never started). It opens the agent's page; while a move is possible it is a pull-down menu: Open, or
 /// the move, asked once. A move that failed, or its call, says why above it, with Try again when that may be tried.
 private struct AgentRow: View {
     let matter: Matter

@@ -16,7 +16,7 @@ import { setSwitches } from "./switches";
 import {
   OWNER_TOKEN,
   providerTranscript,
-  undoSpendingMigration,
+  undoNewestMigrations,
 } from "./testing";
 
 const {
@@ -465,7 +465,7 @@ const upgradeFrom = async (ran: "post_clock" | "neither") => {
       ? sql`delete from __drizzle_migrations where created_at > ${postClock}`
       : sql`delete from __drizzle_migrations where created_at >= ${postClock}`
   );
-  undoSpendingMigration(env.db);
+  undoNewestMigrations(env.db);
   migrateDb(env.db);
 };
 

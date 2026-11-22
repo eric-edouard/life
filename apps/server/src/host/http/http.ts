@@ -51,5 +51,5 @@ export const PUBLIC_PORT = portOf();
 export const LOCAL_PORT = PUBLIC_PORT + 1;
 /** The desk's door (`desk/desk-door.ts`): its registered agents' MCP, on loopback only, one key per agent. */
 export const DOOR_PORT = PUBLIC_PORT + 2;
-/** The door's one other path: the connector hands it his words to the main session (Tell Life), by the local key. */
+/** The door's one other path: the connector hands it his words to the main session (Ask Life), by the local key. */
 export const MAIN_SESSION_PATH = "/main-session";

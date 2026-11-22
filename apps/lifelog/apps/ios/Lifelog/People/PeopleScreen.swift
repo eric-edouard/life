@@ -10,9 +10,10 @@ struct PeopleScreen: View {
 
     var body: some View {
         GeometryReader { window in
+            let isSplit = PeopleList.isSplit(
+                isRegularWidth: sizeClass == .regular, width: window.size.width, height: window.size.height)
             PeopleColumns(
-                isSplit: PeopleList.isSplit(
-                    isRegularWidth: sizeClass == .regular, width: window.size.width, height: window.size.height))
+                isSplit: isSplit, hasOwnBack: sizeClass == .regular && !isSplit)
         }
     }
 }
@@ -21,6 +22,8 @@ struct PeopleScreen: View {
 /// decision 93).
 private struct PeopleColumns: View {
     let isSplit: Bool
+    /// Stacked on a regular width (the open Duo upright): the system collapses nothing there, so it draws no Back.
+    let hasOwnBack: Bool
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
@@ -31,7 +34,8 @@ private struct PeopleColumns: View {
         @Bindable var router = router
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.personColumn) {
             ReadScreen(
-                shown: life.people.shown(isEmpty: { $0.people.isEmpty }), retry: { await life.refreshPeople() },
+                shown: life.people.shown(isEmpty: { $0.people.isEmpty }), stamp: life.people.stamp,
+                retry: { await life.refreshPeople() },
                 loading: { RowsPlaceholder(hasDisc: true, label: "Loading the people") },
                 empty: {
                     Notice(
@@ -44,13 +48,21 @@ private struct PeopleColumns: View {
             )
             .background(Palette.bg)
             .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
+            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
             // Beside a person, the Pendant and Settings are the person's column.
             .shellBar("", hasSettings: !isSplit, hasPendant: !isSplit)
-            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {
                 NavigationStack(path: $router.personPath) {
                     PersonPage(ref: ref, hasSettings: isSplit).id(ref)
+                        .toolbar {
+                            if hasOwnBack {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button("Back", systemImage: "chevron.backward") { router.personColumn = .sidebar }
+                                        .labelStyle(.iconOnly)
+                                }
+                            }
+                        }
                         .navigationDestination(for: AppRouter.PersonRoute.self) { route in
                             switch route {
                             case .part(let part, let title): ProsePage(ref: part, title: title)
@@ -72,7 +84,7 @@ private struct PeopleColumns: View {
         .onChange(of: isSplit, initial: true) { fillSelection() }
         .onChange(of: life.people.value) { fillSelection() }
         .onChange(of: kind) { fillSelection() }
-        // Back from someone opened elsewhere (a matter, Search) goes back there, not to this list.
+        // Back from someone opened elsewhere (a matter, a card) goes back there, not to this list.
         .onChange(of: router.personColumn) { _, column in if column == .sidebar, !isSplit { router.closePerson() } }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
@@ -96,8 +108,9 @@ private struct PeopleColumns: View {
     /// The control, then the groups: by closeness each under its small label (the first has none), A to Z under its
     /// letter with the system's index of letters down the edge.
     private func content(_ list: PeopleList) -> some View {
-        let groups = list.groups(order, kind)
+        let groups = list.cut(to: router.cut(of: .people)).groups(order, kind)
         return List {
+            CutToast(kind: .people).quietListRow()
             SegmentedChoice(
                 choices: PeopleList.Kind.allCases,
                 selection: Binding(get: { kind }, set: { kind = $0 ?? .all }),

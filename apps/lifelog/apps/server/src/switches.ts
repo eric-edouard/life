@@ -3,11 +3,14 @@
 // due (rolling.ts). Turned back on, what waited goes on by itself. Summaries
 // (`ai`) are off by default: Life reads the words, not them. Search's embeddings run on the Mac and
 // follow no switch (search.ts). `transcriber` picks who transcribes the next blocks: Scribe whole, or the
-// speech service with Scribe for the turns it routes (jobs.ts).
+// speech service with Scribe for the turns it routes (jobs.ts). `dictationHeard` picks where a field's
+// dictation on the phone is heard: on the Mac (the default), or instantly by ElevenLabs' realtime
+// Scribe, whose token only then is minted (routes/live-words.ts).
 
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
+  type DictationHeard,
   type MacEngine,
   processingSwitches,
   type Transcriber,
@@ -17,6 +20,7 @@ import { record } from "./events";
 
 export interface Switches {
   ai: boolean;
+  dictationHeard: DictationHeard;
   engine: MacEngine;
   openAppAfterMinutes: number;
   transcriber: Transcriber;
@@ -25,6 +29,7 @@ export interface Switches {
 
 const DEFAULTS: Switches = {
   ai: false,
+  dictationHeard: "mac",
   engine: "claude",
   openAppAfterMinutes: 15,
   transcriber: "scribe",
@@ -41,6 +46,7 @@ export function loadSwitches(db: Db) {
   current = row
     ? {
         ai: row.ai,
+        dictationHeard: row.dictationHeard,
         engine: row.engine,
         openAppAfterMinutes: row.openAppAfterMinutes,
         transcriber: row.transcriber,
@@ -55,6 +61,7 @@ export function setSwitches(
   db: Db,
   patch: {
     ai?: boolean | undefined;
+    dictationHeard?: DictationHeard | undefined;
     transcription?: boolean | undefined;
     engine?: MacEngine | undefined;
     openAppAfterMinutes?: number | undefined;
@@ -64,6 +71,7 @@ export function setSwitches(
   const before = loadSwitches(db);
   const after: Switches = {
     ai: patch.ai ?? before.ai,
+    dictationHeard: patch.dictationHeard ?? before.dictationHeard,
     engine: patch.engine ?? before.engine,
     openAppAfterMinutes:
       patch.openAppAfterMinutes ?? before.openAppAfterMinutes,

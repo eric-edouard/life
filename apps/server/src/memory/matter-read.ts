@@ -36,7 +36,8 @@ import { dayStart, localDate } from "./zones";
 // A matter as it reads now (docs/glossary.md: matter, matter status): everything about it is worked out here from the
 // stored line (its steps, `matters.ts`) and the records as they stand, never stored. One rule for "open": a matter is
 // open while any of its to-dos, promises or waits has no ending; one with none of them (a trip, an event) is open until
-// it has been quiet `QUIET_DAYS` past its last step and date. A lone open observation or to-do item that no matter holds
+// it has been quiet `QUIET_DAYS` past its last step and date. Life's latest direction reading it over, with nothing newer,
+// closes it as probably done (`matterBookOf`). A lone open observation or to-do item that no matter holds
 // is a matter of one.
 
 const STATUSES = [
@@ -126,6 +127,8 @@ type StepEnding = { at: string } & (
 
 export interface MatterStepNow {
   at: string;
+  /** An observation a mailer said (`isMailer`: a no-reply notice or his agents' report): owed to no one. */
+  byMailer?: true;
   day: string;
   /** How it ended; none while it is open (or for an episode or a list entry, which never end). */
   ending?: StepEnding;
@@ -208,6 +211,10 @@ export const openStepsOf = (
     (s) =>
       isOpenUntilHisWord(s) && (onlyStep === undefined || s.ref === onlyStep)
   );
+
+/** Whether a matter still waits on his word: open, or probably done (a step only a link ended, or a direction reads it over). What a card can be on and his answer can close (`openStepsOf`). */
+export const isAwaitingHisWord = (v: Pick<MatterView, "open" | "status">) =>
+  v.open || v.status === "probably_done";
 
 /** The lookups over the records, built once for every matter. `offered`: every record a matters call was shown (`mattersNow`). */
 function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {
@@ -329,6 +336,7 @@ function stepsOf(
     ...observations.map(
       (o): MatterStepNow => ({
         at: o.at,
+        ...(rec.isMailer(o.speaker) ? { byMailer: true as const } : {}),
         day: o.date,
         ending: endingOf(o.id, rec),
         kind: o.type,
@@ -804,11 +812,17 @@ export function matterBookOf(
   return book
     .map((v) => {
       const d = directions.get(v);
+      // Life's latest draft reads it over, and nothing came since: probably done, like a link's ending (his word of 21 Nov 2026).
+      const over =
+        d?.latest?.by === "life" &&
+        d.latest.endingRecords !== undefined &&
+        !isNewerThan(v, d.latest, today);
       const ownerIcon = icons.get(v.id);
       const project = projects.get(v.id);
       return {
         ...v,
-        important: v.open && marked.has(v.id),
+        ...(over ? { open: false, status: "probably_done" as const } : {}),
+        important: !over && v.open && marked.has(v.id),
         // His word of its project is its one project: what it shows under and the agent that takes it follow.
         ...(project ? { projects: [project] } : {}),
         ...(d?.goal ? { goal: d.goal } : {}),
