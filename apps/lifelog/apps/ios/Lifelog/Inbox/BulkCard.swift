@@ -245,7 +245,8 @@ struct BulkCard: View {
         guard !life.saysOutOfReach() else { return }
         life.forget(.answer(ref: check.ref))
         notes.guessed[check.ref] = words
-        Task { await life.answerRows([request], as: words) }
+        // The row turns green, or says why it went nowhere: no toast besides.
+        Task { await life.answerRows([request], as: words, rowsSayIt: true) }
     }
 
     private var guessAnswers: some View {
