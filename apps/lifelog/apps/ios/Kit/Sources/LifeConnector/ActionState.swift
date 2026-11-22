@@ -116,7 +116,35 @@ public enum ActionState<Proof: Sendable & Equatable>: Sendable, Equatable {
     }
 }
 
+/// How long an action may go with no word from the Mac (answer-states-2026-11-20.md): its button says "Still working…"
+/// after `stillWorkingAfter`, and it ends not done after `noAnswerAfter`. `noAnswer` is the one wording of a Mac that does
+/// not answer, the sync mark's too.
+public enum MacSilence {
+    public static let stillWorkingAfter: TimeInterval = 8
+    public static let noAnswerAfter: TimeInterval = 20
+    public static let noAnswer = "No answer from your Mac"
+}
+
+extension ActionState.Event {
+    /// A word from the Mac (Life's plan, a step it passed, its result), not the phone's own start, first plan or retry.
+    public var isFromLife: Bool {
+        switch self {
+        case .started: false
+        case .planned(let ids, _, _): !ids.isEmpty
+        case .passed(let id, _, _): id != "connection_retry"
+        case .succeeded, .failed: true
+        }
+    }
+}
+
 extension ActionFailure {
+    /// The Mac said nothing for `MacSilence.noAnswerAfter`: the same tap may be tried again, with the same key.
+    public static let noAnswer: ActionFailure = {
+        var failure = ActionFailure(reason: MacSilence.noAnswer, retry: .allowed, isSameTap: true)
+        failure.kind = "silent"
+        return failure
+    }()
+
     /// A call that did not give its answer, as the action it was part of ends. A broken connection leaves the call
     /// possibly run, so it is repeated as the same tap; what Life refused is final.
     public init(_ error: MCPError, step: String? = nil) {

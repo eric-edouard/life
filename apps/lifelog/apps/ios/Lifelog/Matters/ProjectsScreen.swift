@@ -216,15 +216,10 @@ struct ProjectsScreen: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
-        .staleToast(staleNote(shown), retry: { await refresh(chip) })
+        .syncMark(life.syncMark(shown, stamp: list(of: chip).stamp, tellsAgents: false), retry: { await refresh(chip) })
         .motion(Motion.standard, value: matters?.map(\.id))
         .motion(Motion.standard, value: cut)
         .scrollDismissesKeyboard(.interactively)
-    }
-
-    /// When the list on show was read and why it is old, while its latest read failed.
-    private func staleNote(_ shown: ReadState<MatterList>.Shown) -> (since: Date?, because: String)? {
-        if case .stale(_, let since, let why) = shown { (since, why.words) } else { nil }
     }
 
     /// The rows in Life's order (his marked ones first); on All, a parked or done project's matters last, under

@@ -27,9 +27,12 @@ struct AskLifeControl: View {
             if router.isAskOpen {
                 banner
             } else {
-                AskLifeButton(running: running, size: place.size)
-                    .glassEffectID("ask", in: glass)
-                    .padding(.trailing, place.trailing).padding(.bottom, place.bottom(regular: isRegular))
+                AskLifeButton(size: place.size, isWorking: running > 0 || life.askLife.isBusy) {
+                    withAnimation(Motion.standard) { router.isAskOpen = true }
+                }
+                .sensoryFeedback(.impact(weight: .medium), trigger: router.isAskOpen) { _, new in new }
+                .glassEffectID("ask", in: glass)
+                .padding(.trailing, place.trailing).padding(.bottom, place.bottom(regular: isRegular))
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)

@@ -119,6 +119,9 @@ struct RootView: View {
                 attempt += 1
                 await life.retryFirstReads()
             }
+            // In front, the main reads are read again every minute: what changed on the Mac (an agent freed, a turn
+            // resumed) shows with no push. The versioned ones cost one small answer when nothing changed.
+            while (try? await Task.sleep(for: SyncMark.readEvery)) != nil { await life.refresh() }
         }
         // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
         // it is asked here, over whatever was showing, and never repoints the app on its own.
