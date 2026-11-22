@@ -115,7 +115,7 @@ struct SettingsView: View {
           TextField("Your main language (Life writes your memory in it)", text: $language)
           SecureField("OpenRouter API key (Life thinks with it; no Claude needed)", text: $firstKey)
           Button("Start Life") { Task { await start() } }
-            .disabled(name.isEmpty || language.isEmpty || installing)
+            .disabled(name.isEmpty || language.isEmpty || firstKey.isEmpty || installing)
         }
         Section("Or bring your Life") {
           Button("Import an export…") { Task { await importExport() } }
