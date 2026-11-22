@@ -269,7 +269,12 @@
     },
     {
       "kind": "agents",
-      "tokens": 5200000
+      "tokens": 5200000,
+      "billed": {
+        "amount": 1.8,
+        "basis": "billed",
+        "currency": "USD"
+      }
     },
     {
       "kind": "voice",
@@ -303,6 +308,22 @@
       },
       "reported": true,
       "tokens": 2200000
+    },
+    {
+      "agent": "Errands agent",
+      "id": "agt_000000000003",
+      "equivalent": {
+        "amount": 9,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "billed": {
+        "amount": 1.8,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 900000
     }
   ],
   "topMatters": [
@@ -338,6 +359,22 @@
       },
       "reported": true,
       "tokens": 200000
+    },
+    {
+      "matter": "Passport renewal",
+      "id": "matter_000000000004",
+      "equivalent": {
+        "amount": 9,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "billed": {
+        "amount": 1.8,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 900000
     }
   ],
   "observedAt": "2026-11-21T10:00:00.000Z"

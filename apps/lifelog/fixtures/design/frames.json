@@ -123,7 +123,7 @@
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureSheet",
-      "agent"
+      "agentPage"
     ],
     "scroll": "bottom"
   },
@@ -279,7 +279,7 @@
       "-fixtureTab",
       "projects",
       "-fixtureMatter",
-      "matter_kitchen"
+      "matter_lease"
     ],
     "scroll": "bottom"
   },
@@ -621,7 +621,15 @@
     ]
   },
   "DuoFoldSpendingEnd": {
-    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureSheet",
+      "settings",
+      "-fixturePage",
+      "spending"
+    ],
+    "scroll": "bottom"
   },
   "DuoFoldSpendingLower": {
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
