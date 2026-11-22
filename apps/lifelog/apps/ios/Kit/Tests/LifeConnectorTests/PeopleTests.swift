@@ -45,16 +45,19 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(shown.row.party.showing(nil).picture == nil)
 }
 
-@Test func byClosenessTheGroupsFollowLifesOrderTheFirstUnlabelled() throws {
+@Test func theClosestComeFirstUnderTheirLabelThenEveryLetter() throws {
     let list = try decoded(
         PeopleList.self,
-        #"{"people":[\#(row("Camille", "inner")),\#(row("Idris", "regular")),\#(row("Atelier", "regular", kind: "organization")),\#(row("Paul", "faded")),\#(row("Marta", nil))]}"#
+        #"{"people":[\#(row("Camille", "inner")),\#(row("Idris", "regular")),\#(row("Atelier", "regular", kind: "organization")),\#(row("Paul", "faded")),\#(row("Marta", nil)),\#(row("Zoé", "inner"))]}"#
     )
-    let groups = list.groups(.closeness, .all)
-    #expect(groups.map(\.label) == [nil, "Regular", "Faded", "Not judged yet"])
-    #expect(groups[1].rows.map(\.party.name) == ["Idris", "Atelier"])
-    #expect(list.groups(.closeness, .organizations).flatMap(\.rows).map(\.party.name) == ["Atelier"])
-    #expect(list.groups(.closeness, .people).flatMap(\.rows).count == 4)
+    let sections = list.sections(kind: .people, query: "")
+    #expect(sections.map(\.label) == ["Close to you", "C", "I", "M", "P", "Z"])
+    // Life's order in "Close to you" (the read's own), the letters by name; a closest row is in both.
+    #expect(sections[0].rows.map(\.party.name) == ["Camille", "Zoé"])
+    #expect(sections.dropFirst().flatMap(\.rows).map(\.party.name) == ["Camille", "Idris", "Marta", "Paul", "Zoé"])
+    // Nothing close of that kind: no group of its own.
+    #expect(list.sections(kind: .organizations, query: "").map(\.label) == ["A"])
+    #expect(list.count(of: .people) == 5 && list.count(of: .organizations) == 1)
 }
 
 @Test func aToZGroupsByFirstLetterWithoutAccents() throws {
@@ -62,24 +65,35 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
         PeopleList.self,
         #"{"people":[\#(row("Idris", "regular")),\#(row("Inès", "acquaintance")),\#(row("Hélène", "regular")),\#(row("4Life", nil))]}"#
     )
-    let groups = list.groups(.alphabet, .all)
+    let groups = list.sections(kind: .people, query: "")
     #expect(groups.map(\.label) == ["#", "H", "I"])
     #expect(groups[2].rows.map(\.party.name) == ["Idris", "Inès"])
     #expect(PeopleList.letter(of: "élise") == "E")
+}
+
+@Test func hisSearchKeepsTheRowsWhoseNameHoldsHisWords() throws {
+    let list = try decoded(
+        PeopleList.self,
+        #"{"people":[\#(row("Camille", "inner")),\#(row("Hélène", "regular")),\#(row("Atelier", "inner", kind: "organization"))]}"#
+    )
+    // Case and accents aside, one group per letter, and no "Close to you" while he searches.
+    let found = list.sections(kind: .people, query: "HÉL")
+    #expect(found.map(\.label) == ["H"] && found[0].rows.map(\.party.name) == ["Hélène"])
+    let other = list.sections(kind: .organizations, query: "ATE")
+    #expect(other.map(\.label) == ["A"] && other[0].rows.map(\.party.name) == ["Atelier"])
+    #expect(list.sections(kind: .people, query: "zq").isEmpty)
 }
 
 @Test func eachLetterIsOneSectionHoldingEveryRowOnce() throws {
     let names = ["Ada", "Ægir", "Afton", "Hélène"]
     let list = try decoded(
         PeopleList.self, #"{"people":[\#(names.map { row($0, "regular") }.joined(separator: ","))]}"#)
-    for order in [PeopleList.Order.alphabet, .closeness] {
-        let groups = list.groups(order, .all)
-        #expect(Set(groups.map(\.id)).count == groups.count)
-        #expect(groups.flatMap(\.rows).map(\.party.name).sorted() == names.sorted())
-    }
+    let groups = list.sections(kind: .people, query: "")
+    #expect(Set(groups.map(\.id)).count == groups.count)
+    #expect(groups.flatMap(\.rows).map(\.party.name).sorted() == names.sorted())
     // Which letter Æ sorts after is the locale's: only that each letter is one section.
-    #expect(Set(list.groups(.alphabet, .all).map(\.label)) == ["A", "Æ", "H"])
-    #expect(list.groups(.alphabet, .all).first { $0.label == "A" }?.rows.map(\.party.name) == ["Ada", "Afton"])
+    #expect(Set(groups.map(\.label)) == ["A", "Æ", "H"])
+    #expect(groups.first { $0.label == "A" }?.rows.map(\.party.name) == ["Ada", "Afton"])
 }
 
 @Test func standingSaysHowCloseAndTheLastExchange() throws {
@@ -101,22 +115,23 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
         PeopleList.self,
         #"{"people":[\#(row("Idris", "inner")),\#(row("Atelier", "regular", kind: "organization")),\#(row("Nora", "faded"))]}"#
     )
-    let beside = { (shown: String?, isFromElsewhere: Bool, kind: PeopleList.Kind) in
-        list.selectionOf(shown, isFromElsewhere: isFromElsewhere, kind: kind, order: .closeness, isSplit: true)
+    let beside = { (shown: String?, isFromElsewhere: Bool, kind: PeopleList.Kind, query: String) in
+        list.selectionOf(shown, isFromElsewhere: isFromElsewhere, kind: kind, query: query, isSplit: true)
     }
-    // The same listed person: tapped in the list, a segment that leaves them out picks its first row; opened from a
-    // matter's chip or a wake row, they stay through any segment.
-    #expect(beside("person:idris", false, .organizations) == "person:atelier")
-    #expect(beside("person:idris", true, .organizations) == "person:idris")
-    #expect(beside("person:idris", false, .people) == "person:idris")
+    // The same listed person: tapped in the list, a control that leaves them out picks its first row; opened from a
+    // matter's chip or a wake row, they stay through any control.
+    #expect(beside("person:idris", false, .organizations, "") == "person:atelier")
+    #expect(beside("person:idris", true, .organizations, "") == "person:idris")
+    #expect(beside("person:idris", false, .people, "") == "person:idris")
+    // A search that leaves them out picks the first of what he typed.
+    #expect(beside("person:idris", false, .people, "Nor") == "person:nora")
     // A read that dropped the person tapped picks the first row.
     let fewer = try decoded(PeopleList.self, #"{"people":[\#(row("Nora", "faded"))]}"#)
     #expect(
-        fewer.selectionOf("person:idris", isFromElsewhere: false, kind: .all, order: .closeness, isSplit: true)
+        fewer.selectionOf("person:idris", isFromElsewhere: false, kind: .people, query: "", isSplit: true)
             == "person:nora")
-    // No one on show: the first row of the order.
-    #expect(
-        list.selectionOf(nil, isFromElsewhere: false, kind: .all, order: .alphabet, isSplit: true) == "person:atelier")
+    // No one on show: the first row of what the list shows.
+    #expect(list.selectionOf(nil, isFromElsewhere: false, kind: .people, query: "", isSplit: true) == "person:idris")
 }
 
 @Test func theOpenDuoUprightChoosesNoOneBeforeATap() throws {
@@ -125,7 +140,8 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     let upright = PeopleList.isSplit(isRegularWidth: true, width: 1_000, height: 1_300)
     #expect(!upright && PeopleList.isSplit(isRegularWidth: true, width: 1_300, height: 1_000))
     #expect(!PeopleList.isSplit(isRegularWidth: false, width: 1_300, height: 1_000))
-    #expect(cached.selectionOf(nil, isFromElsewhere: false, kind: .all, order: .closeness, isSplit: upright) == nil)
+    #expect(
+        cached.selectionOf(nil, isFromElsewhere: false, kind: .people, query: "", isSplit: upright) == nil)
 }
 
 @Test func aPersonsNowGivesReachAndLatestPagesBack() throws {

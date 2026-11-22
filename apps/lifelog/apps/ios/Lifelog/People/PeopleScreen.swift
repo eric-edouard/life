@@ -1,10 +1,10 @@
 import LifeConnector
 import SwiftUI
 
-/// The People tab: everyone Life knows (his directory's people and organizations and everyone with a page), closest first
-/// or A to Z, with one control for all, people or organizations; beside them, or over them on a compact width, the one
-/// on show. The groups and the order are Kit's (`PeopleList.groups`); this draws them. The pose is measured before
-/// anything is drawn, so nothing is chosen for him on a pose that is not his.
+/// The People tab: everyone Life knows (his directory's people and organizations and everyone with a page), his closest
+/// first then A to Z, under one search field and one control for the people or the organizations; beside them, or over
+/// them on a compact width, the one on show. What the list shows is Kit's (`PeopleList.sections`); this draws it. The
+/// pose is measured before anything is drawn, so nothing is chosen for him on a pose that is not his.
 struct PeopleScreen: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -27,8 +27,9 @@ private struct PeopleColumns: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
 
-    @State private var order = PeopleList.Order.closeness
-    @State private var kind = PeopleList.Kind.all
+    @State private var kind = PeopleList.Kind.people
+    /// What he typed in the field: the list follows it as he types.
+    @State private var query = ""
     @State private var visibility = NavigationSplitViewVisibility.all
     var body: some View {
         @Bindable var router = router
@@ -47,8 +48,7 @@ private struct PeopleColumns: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
-            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
+            .safeAreaBar(edge: .top, spacing: 0) { searchBar }
             // Beside a person, the Pendant is the person's column.
             .shellBar("", hasPendant: !isSplit)
         } detail: {
@@ -84,6 +84,7 @@ private struct PeopleColumns: View {
         .onChange(of: isSplit, initial: true) { fillSelection() }
         .onChange(of: life.people.value) { fillSelection() }
         .onChange(of: kind) { fillSelection() }
+        .onChange(of: query) { fillSelection() }
         // Back from someone opened elsewhere (a matter, a card) goes back there, not to this list.
         .onChange(of: router.personColumn) { _, column in if column == .sidebar, !isSplit { router.closePerson() } }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
@@ -92,59 +93,112 @@ private struct PeopleColumns: View {
     private func fillSelection() {
         guard let list = life.people.value else { return }
         let ref = list.selectionOf(
-            router.person, isFromElsewhere: router.isPersonFromElsewhere, kind: kind, order: order, isSplit: isSplit)
+            router.person, isFromElsewhere: router.isPersonFromElsewhere, kind: kind, query: query, isSplit: isSplit)
         if ref != router.person { router.select(person: ref) }
     }
 
-    /// The system menu of the bar's leading button: Life's order, or A to Z.
-    private var orderChoices: some View {
-        Picker("Order", selection: $order) {
-            Label("By closeness", systemImage: "person.2").tag(PeopleList.Order.closeness)
-            Label("A to Z", systemImage: "textformat.abc").tag(PeopleList.Order.alphabet)
+    /// The search field, the first line of the page on the Pendant's line; it sits clear of the Pendant's corner on a
+    /// compact width, where the bar holds it.
+    private var searchBar: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            Image(systemName: "magnifyingglass").font(.note).foregroundStyle(Palette.muted).accessibilityHidden(true)
+            DictationField(prompt: "Search", label: "Search the people", text: $query)
+                .font(.body15).foregroundStyle(Palette.fg)
+                .accessibilityIdentifier("people.search")
         }
-        .pickerStyle(.inline)
+        .padding(.horizontal, Metrics.Spacing.l)
+        .card(radius: Metrics.Radius.card)
+        .padding(.horizontal, Metrics.gutter)
+        .padding(.trailing, isSplit ? 0 : Metrics.tapTarget + Metrics.Spacing.s)
+        .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.l)
     }
 
-    /// The control, then the groups: by closeness each under its small label (the first has none), A to Z under its
-    /// letter with the system's index of letters down the edge.
+    /// The control, then the groups: "Close to you" over the letters, then A to Z under its letter with the system's index
+    /// of letters down the edge. On a search, the other kind's matches are one last row, and a search that found no one
+    /// says so and offers Life.
     private func content(_ list: PeopleList) -> some View {
-        let groups = list.cut(to: router.cut(of: .people)).groups(order, kind)
+        let shown = list.cut(to: router.cut(of: .people))
+        let sections = shown.sections(kind: kind, query: query)
+        let others = shown.sections(kind: kind.other, query: query).flatMap(\.rows).count
         return List {
             CutToast(kind: .people).quietListRow()
-            SegmentedChoice(
-                choices: PeopleList.Kind.allCases,
-                selection: Binding(get: { kind }, set: { kind = $0 ?? .all }),
-                title: \.word, icon: \.symbol
-            )
-            .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xs)
-            .readingWidth()
-            .quietListRow()
-            if groups.isEmpty {
+            control(list)
+            if sections.isEmpty, query.isEmpty {
                 Text("No one here.").font(.body15).foregroundStyle(Palette.muted)
                     .padding(Metrics.gutter).quietListRow()
             }
-            ForEach(groups) { group in
+            ForEach(sections) { section in
                 Section {
-                    ForEach(Array(group.rows.enumerated()), id: \.element.id) { at, row in
+                    ForEach(Array(section.rows.enumerated()), id: \.element.id) { at, row in
                         VStack(alignment: .leading, spacing: 0) {
-                            if at == 0, let label = group.label { ListLabel(label) }
+                            if at == 0 { ListLabel(section.label) }
                             PersonRowButton(row: row) { router.select(person: row.id) }
                                 .buttonStyle(
                                     .groupedRow(
-                                        at: at, of: group.rows.count, isChosen: isSplit && router.person == row.id))
+                                        at: at, of: section.rows.count,
+                                        isChosen: isSplit && router.person == row.id))
                         }
                         .readingWidth()
                         .appears()
                         .quietListRow()
                     }
                 }
-                .sectionIndexLabel(order == .alphabet ? group.label : nil)
+                .sectionIndexLabel(section.label == PeopleList.close ? nil : section.label)
+            }
+            // What he typed left this kind out, or left everyone out: said under its rows, never a blank list.
+            if !query.isEmpty, sections.isEmpty {
+                Text("No one named \(query).").font(.body15).foregroundStyle(Palette.muted)
+                    .padding(.horizontal, Metrics.gutter).quietListRow()
+            }
+            if !query.isEmpty, others > 0 {
+                switchRow(others)
+            } else if !query.isEmpty, sections.isEmpty {
+                askLifeRow
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
-        .listSectionIndexVisibility(order == .alphabet ? .visible : .hidden)
+        .listSectionIndexVisibility(.visible)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
-        .motion(Motion.standard, value: groups.flatMap(\.rows).map(\.id))
+        .motion(Motion.standard, value: sections.flatMap(\.rows).map(\.id))
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// People | Organizations, each with how many rows of it the list holds; the chosen one stays chosen.
+    private func control(_ list: PeopleList) -> some View {
+        SegmentedChoice(
+            choices: PeopleList.Kind.allCases,
+            selection: Binding(get: { kind }, set: { kind = $0 ?? kind }),
+            title: \.word, detail: { "\(list.count(of: $0))" }
+        )
+        .accessibilityIdentifier("people.kind")
+        .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xs)
+        .readingWidth()
+        .quietListRow()
+    }
+
+    /// The other kind's matches, one last row under his search: its tap shows them.
+    private func switchRow(_ count: Int) -> some View {
+        Button {
+            kind = kind.other
+        } label: {
+            Row(title: "\(count) in \(kind.other.word)", icon: kind.other.symbol, detail: nil, isInList: true) {
+                RowValue()
+            }
+        }
+        .buttonStyle(.groupedRow(at: 1, of: 2))
+        .readingWidth()
+        .appears()
+        .quietListRow()
+    }
+
+    /// A search that found no one of either kind: Life may know the name.
+    private var askLifeRow: some View {
+        QuietChip("Ask Life who it might be", symbol: "waveform", iconTint: Palette.ai) {
+            router.isAskLifeOpen = true
+        }
+        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
+        .readingWidth()
+        .quietListRow()
     }
 }
 
@@ -166,17 +220,18 @@ struct PersonRowButton: View {
 }
 
 extension PeopleList.Kind {
+    /// The other one the control shows, as the search's last row names it.
+    fileprivate var other: PeopleList.Kind { self == .people ? .organizations : .people }
+
     fileprivate var word: String {
         switch self {
-        case .all: "All"
         case .people: "People"
         case .organizations: "Organizations"
         }
     }
 
-    fileprivate var symbol: String? {
+    fileprivate var symbol: String {
         switch self {
-        case .all: nil
         case .people: "person.2"
         case .organizations: "building.2"
         }

@@ -54,49 +54,45 @@ public struct PersonRow: Decodable, Sendable, Equatable, Identifiable {
 public struct PeopleList: Decodable, Sendable, Equatable {
     public let people: [PersonRow]
 
-    /// Which of them the list shows.
+    /// Which of them the list shows: the people, or the organizations.
     public enum Kind: Hashable, Sendable, CaseIterable {
-        case all, people, organizations
+        case people, organizations
+
+        /// Whether Life reads that party as one of these: an organization is one, a person (or a kind this build does
+        /// not know) is not.
+        fileprivate func holds(_ party: Party.Kind) -> Bool { (party == .organization) == (self == .organizations) }
     }
 
-    /// How the list is ordered: Life's closeness (the default) or A to Z.
-    public enum Order: Hashable, Sendable {
-        case closeness, alphabet
-    }
-
-    /// A run of rows under one label; the first group by closeness has none (it is simply first).
+    /// A run of rows under one label: a letter of the A to Z, or the closest rows' group above them.
     public struct Group: Identifiable, Equatable, Sendable {
-        public let label: String?
+        public let label: String
         public let rows: [PersonRow]
-        public var id: String { label ?? "" }
+        public var id: String { label }
     }
 
-    /// The rows of `kind`, in `order`: by closeness, Life's own order under each `ClosenessLevel`, in its order
-    /// ("Regular", "Acquaintances", "Faded", then "Not judged yet"); A to Z, by name under each first letter ("#" for
-    /// any other). One group per level or letter.
-    public func groups(_ order: Order, _ kind: Kind) -> [Group] {
-        let rows = people.filter { row in
-            switch kind {
-            case .all: true
-            case .people: row.party.kind != .organization
-            case .organizations: row.party.kind == .organization
-            }
+    /// The closest rows' group above the letters (`NavV3PeoplePhone`).
+    public static let close = "Close to you"
+
+    /// What the list shows of `kind`: with nothing typed, "Close to you" (the `.inner` level, in Life's order) then
+    /// every row of that kind A to Z ("#" for a name that starts otherwise), by name under each letter; with `query`
+    /// (his words, case and accents aside), the rows whose name holds them, one group per letter. A row closest to him
+    /// is in both the first group and its letter's.
+    public func sections(kind: Kind, query: String) -> [Group] {
+        let rows = people.filter { kind.holds($0.party.kind) }
+        let found = query.isEmpty ? rows : rows.filter { $0.party.name.localizedStandardContains(query) }
+        let byName: (PersonRow, PersonRow) -> Bool = {
+            $0.party.name.localizedStandardCompare($1.party.name) == .orderedAscending
         }
-        switch order {
-        case .closeness:
-            let byLevel = Dictionary(grouping: rows) { $0.level ?? .unknown }
-            return ClosenessLevel.allCases.compactMap { level in
-                byLevel[level].map { Group(label: Self.label(of: level), rows: $0) }
-            }
-        case .alphabet:
-            let byName: (PersonRow, PersonRow) -> Bool = {
-                $0.party.name.localizedStandardCompare($1.party.name) == .orderedAscending
-            }
-            return Dictionary(grouping: rows) { Self.letter(of: $0.party.name) }
-                .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
-                .map { Group(label: $0.key, rows: $0.value.sorted(by: byName)) }
-        }
+        let letters = Dictionary(grouping: found) { Self.letter(of: $0.party.name) }
+            .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+            .map { Group(label: $0.key, rows: $0.value.sorted(by: byName)) }
+        guard query.isEmpty else { return letters }
+        let close = rows.filter { $0.level == .inner }
+        return close.isEmpty ? letters : [Group(label: Self.close, rows: close)] + letters
     }
+
+    /// How many rows of `kind` the list holds: the control's count.
+    public func count(of kind: Kind) -> Int { people.filter { kind.holds($0.party.kind) }.count }
 
     /// Whether the person on show stands beside the list: a regular width that is not taller than wide. Upright, the
     /// open Duo stacks as folded (decision 93): the list full screen, a tap pushes the page.
@@ -104,28 +100,17 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         isRegularWidth && width >= height
     }
 
-    /// Who stands beside the list once the list, its control or the pose changed: stacked (`isSplit` false), `shown` as
-    /// it is; beside it, `shown` while `kind`'s rows hold them or while he opened them from elsewhere (`isFromElsewhere`:
-    /// a matter's chip, an agent's wake row); else the first row, so a segment that leaves them out, or a read that
-    /// dropped them, never leaves a page with no row chosen.
-    public func selectionOf(_ shown: String?, isFromElsewhere: Bool, kind: Kind, order: Order, isSplit: Bool)
+    /// Who stands beside the list once the list, its control, his search or the pose changed: stacked (`isSplit`
+    /// false), `shown` as it is; beside it, `shown` while the rows on show hold them or while he opened them from
+    /// elsewhere (`isFromElsewhere`: a matter's chip, an agent's wake row); else the first row, so a control, a search or
+    /// a read that drops them never leaves a page with no row chosen.
+    public func selectionOf(_ shown: String?, isFromElsewhere: Bool, kind: Kind, query: String, isSplit: Bool)
         -> String?
     {
         guard isSplit else { return shown }
-        let rows = groups(order, kind).flatMap(\.rows)
+        let rows = sections(kind: kind, query: query).flatMap(\.rows)
         if let shown, isFromElsewhere || rows.contains(where: { $0.id == shown }) { return shown }
         return rows.first?.id
-    }
-
-    /// A level's small label over its group; the closest have none (they are simply first).
-    private static func label(of level: ClosenessLevel) -> String? {
-        switch level {
-        case .inner: nil
-        case .regular: "Regular"
-        case .acquaintance: "Acquaintances"
-        case .faded: "Faded"
-        case .unknown: "Not judged yet"
-        }
     }
 
     /// A name's index letter: its first letter without accents, capital; "#" for a name that starts otherwise.
