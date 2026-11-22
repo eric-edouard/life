@@ -3,6 +3,12 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { exec, execOk } from "@life/server/src/core/proc";
 import {
+  gapsOf,
+  parseFrame,
+  placementOf,
+  type ScreenNode,
+} from "./design-compare";
+import {
   APP_ID,
   boot,
   buildApp,
@@ -78,15 +84,33 @@ function poseOf(frame: Frame) {
   return { args: ["-fixturePose", way], ratio: frame.size[1] / frame.size[0] };
 }
 
-/** `design:shots [Frame…] [--app <built app>] [--shutdown]`: the frames asked, an app already built, whether to stop the simulator after. */
+/**
+ * `design:shots [Frame…] [--app <built app>] [--compare <dir>] [--shutdown]`: the frames asked, an app already built, the
+ * folder of the frames' text (`design:export`) to compare each screen with, whether to stop the simulator after.
+ */
 export function parseArgs(argv: string[]) {
-  const at = argv.indexOf("--app");
+  const { asked, values } = flagsOf(argv, ["--app", "--compare"]);
   return {
-    app: at === -1 ? undefined : argv[at + 1],
-    asked: argv.filter(
-      (arg, i) => !arg.startsWith("--") && (at === -1 || i !== at + 1)
-    ),
+    app: values["--app"],
+    asked,
+    compare: values["--compare"],
     shutdownAfter: argv.includes("--shutdown"),
+  };
+}
+
+/** A command line's names, and the value after each flag `withValue` names (`design:shots`, `design:export`). */
+export function flagsOf(argv: string[], withValue: string[]) {
+  const at = new Set(
+    withValue.map((flag) => argv.indexOf(flag) + 1).filter(Boolean)
+  );
+  return {
+    asked: argv.filter((arg, i) => !(arg.startsWith("--") || at.has(i))),
+    values: Object.fromEntries(
+      withValue.map((flag) => [
+        flag,
+        argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined,
+      ])
+    ),
   };
 }
 
@@ -142,6 +166,29 @@ const press = async (labels: string[]) => {
     await Bun.sleep(1500);
   }
 };
+
+/** The screen's gaps against the frame's text in `dir`, from the accessibility tree with its frames. */
+async function readScreenGaps(frame: Frame, dir: string) {
+  const { elements, size } = parseFrame(
+    readFileSync(join(dir, `${frame.name}.html`), "utf8")
+  );
+  const {
+    data: { nodes },
+  } = JSON.parse(await device(["snapshot", "--json"])) as {
+    data: { nodes: ScreenNode[] };
+  };
+  const { rect: window } =
+    nodes.find((node) => node.type === "Application") ?? {};
+  if (!window) {
+    throw new Error("the tree has no application frame");
+  }
+  return gapsOf(
+    elements,
+    nodes,
+    window,
+    placementOf(size, [window.width, window.height], frame.pose)
+  );
+}
 
 async function shoot(udid: string, frame: Frame, app: AppFrame) {
   const pose = poseOf(frame);
@@ -222,6 +269,7 @@ async function main() {
   const {
     asked,
     app: builtApp,
+    compare: specs,
     shutdownAfter,
   } = parseArgs(process.argv.slice(2));
   const unknown = asked.filter(
@@ -263,8 +311,13 @@ async function main() {
     ...["-bool", "true"],
   ]);
   const outcome = new Map<string, string>();
+  const unclean = new Set<string>();
   try {
     await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
+    // The microphone's alert at launch would cover every frame: granted, never reset (the simulator is shared).
+    await execOk([
+      ...["xcrun", "simctl", "privacy", udid, "grant", "microphone", APP_ID],
+    ]);
     // The session reads the screen to know a frame is there, so every run opens it.
     await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
     await device(["open", APP_ID, "--platform", "ios", "--device", SIMULATOR]);
@@ -272,14 +325,29 @@ async function main() {
       const app = appFrames[frame.name] as AppFrame;
       // Once more on a miss: the first taps after a boot can find the app still settling.
       // biome-ignore lint/performance/noAwaitInLoops: one simulator, one frame at a time
-      const result = await shoot(udid, frame, app)
+      const shot = await shoot(udid, frame, app)
         .catch(() => shoot(udid, frame, app))
         .then(
           () => "shot",
           (e: Error) => `failed: ${e.message}`
         );
-      outcome.set(frame.name, result);
-      console.log(`${frame.name}: ${result}`);
+      outcome.set(frame.name, shot);
+      // The screen against the frame's text, while it is still up: each gap a line, and the frame not clean.
+      const gaps =
+        specs && shot === "shot"
+          ? await readScreenGaps(frame, specs).catch((e: Error) => [
+              `not compared: ${e.message}`,
+            ])
+          : [];
+      if (gaps.length > 0) {
+        unclean.add(frame.name);
+      }
+      console.log(
+        `${frame.name}: ${shot}${gaps.length > 0 ? `, ${gaps.length} gaps` : ""}`
+      );
+      for (const gap of gaps) {
+        console.log(`  ${gap}`);
+      }
     }
   } finally {
     // The simulator stays booted for the next run; `--shutdown` stops it (agent-device's runner boots it again unless its
@@ -294,8 +362,11 @@ async function main() {
   }
   writeIndex(frames, appFrames, outcome);
   console.log(join(OUT, "index.html"));
-  // The index keeps every pair; a mapped frame that failed fails the run.
-  if ([...outcome.values()].some((result) => result !== "shot")) {
+  // The index keeps every pair; a mapped frame that failed, or a screen with gaps, fails the run.
+  if (
+    unclean.size > 0 ||
+    [...outcome.values()].some((result) => result !== "shot")
+  ) {
     process.exitCode = 1;
   }
 }
