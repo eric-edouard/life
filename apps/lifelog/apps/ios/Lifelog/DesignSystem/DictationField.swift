@@ -228,7 +228,7 @@ private struct DictationKeys: View {
     let start: () -> Void
     var isCard = false
     /// The press's hold, for the card's "Slide up to send" in the meter's place.
-    @Binding var isHolding: Bool
+    @Binding var isHolding: Bool  // only the card reads it
 
     @State private var press: DictationPress
 

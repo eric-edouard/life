@@ -63,7 +63,8 @@ struct AskLifeControl: View {
                 cancelled: cancel
             )
             .font(.body).foregroundStyle(Palette.fg)
-            if let line = life.askLife.answer?.line {
+            // Hidden while words wait in the field: opening the screen would drop them with no Undo.
+            if draft.isEmpty, let line = life.askLife.answer?.line {
                 Button {
                     withAnimation(Motion.standard) { router.isAskOpen = false }
                     router.isAskLifeOpen = true
