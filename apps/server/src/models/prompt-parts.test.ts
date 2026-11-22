@@ -186,7 +186,7 @@ test("a month's in-person paragraph shows only on a call that has it on: off, th
   const month = "memory-history-month.v1";
   const sha = (text: string) =>
     new Bun.CryptoHasher("sha256").update(text).digest("hex").slice(0, 16);
-  // The render before the part existed, pinned: a month with no conversation in person is shown the same prompt.
+  // The render of a month with no conversation in person, pinned (it holds the owner rule).
   expect(sha(promptText(month))).toBe("b0d88496de0671b3");
   expect(promptText(month, [IN_PERSON])).toContain("## In person");
   expect(promptNameOf(month)).toBe(month);
