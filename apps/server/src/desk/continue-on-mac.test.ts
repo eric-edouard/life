@@ -1,5 +1,5 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, HOUR, MIN } from "../core/clock";
 import { logEvents, logFileOf } from "../core/log";
@@ -156,6 +156,8 @@ test("he left it on his Mac: quiet 10 minutes, Life takes it back for a due wake
   const other = holder(session, 11 * MIN, true);
   await wakeDue(desk);
   expect(other.exitCode).toBeNull();
+  // Its record is dropped: the pid's new owner never holds the agent's wakes.
+  expect(existsSync(join(TERMINAL_SESSIONS, `${other.pid}.json`))).toBe(false);
   other.kill();
   await other.exited;
   rmSync(join(TERMINAL_SESSIONS, `${other.pid}.json`), { force: true });

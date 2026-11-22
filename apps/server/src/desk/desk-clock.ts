@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -47,6 +48,7 @@ import {
   readOpenSessionRecords,
   sessionOpenInOf,
   TERMINAL_ENTRYPOINT,
+  TERMINAL_SESSIONS,
 } from "../host/open-session-records";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
@@ -428,6 +430,10 @@ async function takeBackIfLeft(a: AgentRow) {
   const holder =
     r.entrypoint === TERMINAL_ENTRYPOINT ? "pi-terminal" : "claude";
   if (!stdout.toLowerCase().includes(holder)) {
+    // Life's own record outlived its launcher: dropped, so its pid's new owner never holds the agent's wakes.
+    if (r.entrypoint === TERMINAL_ENTRYPOINT) {
+      rmSync(join(TERMINAL_SESSIONS, `${r.pid}.json`), { force: true });
+    }
     return;
   }
   try {
