@@ -1020,7 +1020,8 @@ private func asks(
 }
 
 /// "Someone else…" on a voice offers everyone he knows, not only the card's guesses again (his report, 22 Nov): the
-/// guesses first, then the People list, never him, no organization; a name with a slash is answered as typed.
+/// guesses first, then him (his own voice, heard apart: his report of 22 Nov), then the People list, no organization; a
+/// name with a slash is answered as typed.
 @Test func someoneElseOffersEveryoneHeKnows() throws {
     let voice = try JSONDecoder().decode(
         Check.self,
@@ -1032,7 +1033,10 @@ private func asks(
         from: Data(
             #"[{"ref":"person:me","name":"Me","kind":"person"},{"ref":"person:test-ana","name":"Test Ana","kind":"person"},{"ref":"person:test-bo","name":"Test Bo","kind":"person"},{"ref":"person:test-co","name":"Test Co","kind":"organization"}]"#
                 .utf8))
-    #expect(voice.peopleToPick(among: everyone).map(\.ref) == ["person:test-ana", "person:test-bo"])
+    #expect(voice.peopleToPick(among: everyone).map(\.ref) == ["person:test-ana", "person:me", "person:test-bo"])
+    #expect(
+        voice.answer(naming: .person("person:me"))
+            == AnswerRequest(ref: "voice:v1", options: ["this-is"], person: "person:me"))
     #expect(
         voice.answer(naming: .name("Zed/Zeda"))
             == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Zed/Zeda"))
