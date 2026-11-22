@@ -65,6 +65,11 @@ export interface Agent {
 export interface Runtime {
   /** Why the program can't run now (not installed, not answering); none when it can: the same meaning as `SendPath.block`. */
   block: () => Promise<string | undefined>;
+  /**
+   * Opens session `ref` on his Mac for him to continue there (his word, `continue_on_mac`), answering once the Mac says it
+   * opened; while open there, `state` says `running` and the desk holds its wakes. None: this runtime can't yet.
+   */
+  continueOnMac?: (agent: Agent, ref: string) => Promise<void>;
   /** Keeps session `ref` open for `agent` with no prompt (his presence on Ask Life), as `talk` keeps it; refused with `SessionLive` while anything else runs it. */
   keep: (agent: Agent, ref: string) => Promise<void>;
   /** Holds `Agent.rules` as standing instructions on every run (pi), so a fresh session's first message leaves them out (`readPacket`). */

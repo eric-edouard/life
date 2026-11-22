@@ -209,3 +209,14 @@ private struct AnyAgents: Decodable {
     let agent = try LibraryStore.feedDecoder.decode(RegisteredAgent.self, from: Data(json.utf8))
     #expect(agent.rowLine(locale: english, timeZone: utc) == "Paused: open in your Claude app since 09:12")
 }
+
+@Test func aWaitingAgentContinuedInTerminalSaysItIsOpenOnHisMac() throws {
+    let json = """
+        {"id":"a","title":"t","status":"waiting","runtime":"pi","link":null,"notes":"","outcome":null,
+         "notStarted":null,"project":null,"matter":null,"wait":null,"statusSince":null,"wakesOn":[],
+         "amber":["session open in Terminal on your Mac"],"sessionOpenIn":"terminal",
+         "sessionOpenSince":"2026-11-22T14:05:00.000Z"}
+        """
+    let agent = try LibraryStore.feedDecoder.decode(RegisteredAgent.self, from: Data(json.utf8))
+    #expect(agent.rowLine(locale: english, timeZone: utc) == "Paused: open on your Mac since 14:05")
+}

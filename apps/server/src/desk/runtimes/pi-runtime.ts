@@ -15,8 +15,14 @@ import {
 } from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
+import { SECRETS, writeSecret } from "../../core/secret";
 import { settings } from "../../core/settings";
 import { piSessionFileOf } from "../../host/agent-session-read";
+import {
+  readOpenSessionRecords,
+  TERMINAL_ENTRYPOINT,
+  TERMINAL_SESSIONS,
+} from "../../host/open-session-records";
 import { piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
 import { WEB_SEARCH_CHAIN } from "../../web-search/backend";
@@ -36,7 +42,13 @@ import {
   type PiProvider,
 } from "./pi-extension";
 import { SPENDING_TOOLS } from "./pi-subagent";
-import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
+import type { PiTerminalLaunch } from "./pi-terminal";
+import {
+  GATED_KEYS,
+  loginEnvLess,
+  readSendFacts,
+  type SessionState,
+} from "./runtime-rows";
 import {
   type Connection,
   LAUNCH_WITHIN_MS,
@@ -65,20 +77,64 @@ export const PI_CLI = join(
   "bundle",
   "cli.js"
 );
-/** Life's pi extension: bundled under the app's resources (`scripts/helper.ts`), the source in a checkout. */
-const PI_EXTENSION = ["js", "ts"]
-  .map((e) =>
-    join(
-      LIFE_CODE_DIR,
-      "apps",
-      "server",
-      "src",
-      "desk",
-      "runtimes",
-      `pi-extension.${e}`
+/** One of Life's files run beside pi: bundled under the app's resources (`scripts/helper.ts`), the source in a checkout. */
+const besidePi = (name: string) =>
+  ["js", "ts"]
+    .map((e) =>
+      join(
+        LIFE_CODE_DIR,
+        "apps",
+        "server",
+        "src",
+        "desk",
+        "runtimes",
+        `${name}.${e}`
+      )
     )
-  )
-  .find(existsSync);
+    .find(existsSync);
+/** Life's pi extension. */
+const PI_EXTENSION = besidePi("pi-extension");
+/** Life's Terminal launcher (`pi-terminal.ts`). */
+const PI_TERMINAL = besidePi("pi-terminal");
+/** How long the Mac has to say pi runs in Terminal (the launcher's record) before the open counts as failed. */
+const TERMINAL_WITHIN_MS = 10_000;
+
+/** `w` single-quoted for `sh`, as one word. */
+const shellQuoted = (w: string) => `'${w.replaceAll("'", "'\\''")}'`;
+
+/**
+ * Opens pi's own interface on a session in a new Terminal window on his Mac (`continueOnMac`): the launch (with Life's
+ * part of the environment, a secret) goes to a file only he reads, which the launcher deletes as it reads it; a
+ * `.command` file in `dir` runs the launcher, which Terminal opens with no automation permission. Answers once the
+ * launcher's record says pi runs; past `TERMINAL_WITHIN_MS`, the launch file is deleted and it throws.
+ */
+async function openInTerminal(launch: PiTerminalLaunch, dir: string) {
+  if (!PI_TERMINAL) {
+    throw new Error("Life's Terminal launcher is missing");
+  }
+  writeSecret("piTerminalLaunch", JSON.stringify(launch));
+  const script = join(dir, "continue-on-mac.command");
+  const words = [process.execPath, PI_TERMINAL, SECRETS.piTerminalLaunch];
+  writeFileSync(
+    script,
+    `#!/bin/sh\nexec env BUN_BE_BUN=1 ${words.map(shellQuoted).join(" ")}\n`,
+    { mode: 0o700 }
+  );
+  const opened = await exec(["open", "-a", "Terminal", script]);
+  for (
+    let waited = 0;
+    opened.code === 0 && waited < TERMINAL_WITHIN_MS;
+    waited += 250
+  ) {
+    if (readOpenSessionRecords([launch.records]).has(launch.ref)) {
+      return;
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: waits for the Mac's word
+    await Bun.sleep(250);
+  }
+  rmSync(SECRETS.piTerminalLaunch, { force: true });
+  throw new Error("No answer from your Mac");
+}
 /** The key pi's provider takes: Life's own, from its environment. */
 const KEY = "OPENROUTER_API_KEY";
 
@@ -122,18 +178,32 @@ export interface PiRow extends SessionRow {
     a: Agent,
     ref: string,
     isNew: boolean
-  ) => Promise<{ command: string[]; env: Record<string, string> }>;
+  ) => Promise<{
+    /** The context past which a turn that ended well compacts its session (`compactAtOf`). */
+    compactAt: number;
+    command: string[];
+    env: Record<string, string>;
+  }>;
 }
 
 /**
  * The context, in tokens, past which a turn that ended well compacts its session before it ends (`compactedAfter`): long
  * before the model's window, where a model grows slow, costly and vague, and between wakes, where nothing is lost (the
- * owner's yes of 22 Nov 2026, `pi-harness-opportunities-2026-11-22.md` item 1). pi's own trigger, inside a long turn, at twice it.
+ * owner's yes of 22 Nov 2026, `pi-harness-opportunities-2026-11-22.md` item 1, raised to 400k by his word the same day).
+ * A smaller window takes its window less twice pi's reserve (`compactAtOf`); pi's own trigger, inside a long turn, at
+ * twice it, within the window.
  */
-export const PI_COMPACT_AT = 120_000;
+export const PI_COMPACT_AT = 400_000;
 
 /** pi's default reserve (`compaction.md`): never less, so a small window still compacts as pi would. */
 const PI_RESERVE_TOKENS = 16_384;
+
+/** Where a turn's end compacts on a model of `window` tokens (unknown: `PI_COMPACT_AT`). */
+export const compactAtOf = (window: number | undefined) =>
+  Math.min(
+    PI_COMPACT_AT,
+    (window ?? Number.POSITIVE_INFINITY) - 2 * PI_RESERVE_TOKENS
+  );
 
 /** The settings of Life's agent folder for pi, written whole at each spawn: `window` is the model's context, if known. */
 const settingsOf = (
@@ -145,7 +215,7 @@ const settingsOf = (
         compaction: {
           reserveTokens: Math.max(
             PI_RESERVE_TOKENS,
-            window - 2 * PI_COMPACT_AT
+            window - 2 * compactAtOf(window)
           ),
         },
       }
@@ -310,6 +380,22 @@ export function piRowOf(
           [!process.env[KEY], `pi needs ${KEY}`],
         ].find(([isMissing]) => isMissing)?.[1] as string | undefined
       ),
+    continueOnMac: isOwn
+      ? async (a, ref) => {
+          const run = runOfMode(a, ref, false, false);
+          const launch: PiTerminalLaunch = {
+            command: run.command,
+            drop: [KEY, ...GATED_KEYS],
+            entrypoint: TERMINAL_ENTRYPOINT,
+            env: run.env,
+            file: run.file ?? "",
+            folder: a.folder,
+            records: TERMINAL_SESSIONS,
+            ref,
+          };
+          await openInTerminal(launch, place.dir);
+        }
+      : undefined,
     // pi has no app to open: Life's app shows its session, read-only (`read_agent_session`, the owner's decision 2 of 22 Nov 2026).
     link: () => "",
     async readSessionState(ref): Promise<SessionState> {
@@ -326,76 +412,88 @@ export function piRowOf(
       return piSessionFileOf(sessions, ref) ? "idle" : "gone";
     },
     async spawn(a, ref, isNew) {
-      const { effort, extension, file, id, window } = runOf(a, ref, isNew);
-      mkdirSync(agentDir, { recursive: true });
-      writeFileSync(
-        join(agentDir, "settings.json"),
-        JSON.stringify(settingsOf(isOwn ? place.claude : undefined, window))
-      );
-      // His global instructions, as his Claude sessions read them; a second Life's agent reads none.
-      const instructions = isOwn
-        ? readClaudeInstructions(place.claude)
-        : undefined;
-      if (instructions) {
-        writeFileSync(join(agentDir, "AGENTS.md"), instructions);
-      } else {
-        rmSync(join(agentDir, "AGENTS.md"), { force: true });
-      }
+      const run = runOfMode(a, ref, isNew, true);
       return {
-        command: [
-          process.execPath,
-          PI_CLI,
-          "--mode",
-          "rpc",
-          "--provider",
-          PI_PROVIDER,
-          "--model",
-          id,
-          "--session-dir",
-          sessions,
-          ...(file
-            ? ["--session", file]
-            : ["--session-id", ref, "--name", a.title]),
-          ...(effort ? ["--thinking", effort] : []),
-          "-e",
-          extension,
-          ...(isOwn
-            ? []
-            : // Its door's tools alone: no built-in tool, no extension tool (`web_fetch`, `subagent`).
-              ["--no-context-files", "--no-skills", "--tools", "mcp__desk__*"]),
-        ],
-        env: {
-          ...(isOwn ? await loginEnvLess([KEY]) : {}),
-          BUN_BE_BUN: "1",
-          // Each pi loads the extension fresh: jiti's file cache in the shared temporary folder is not shared by the
-          // pi processes the desk runs at once.
-          JITI_FS_CACHE: "false",
-          PI_CODING_AGENT_DIR: agentDir,
-          PI_OFFLINE: "1",
-          PI_SKIP_VERSION_CHECK: "1",
-          PI_TELEMETRY: "0",
-          [PI_EXTENSION_ENV.doorKey]: a.door.key,
-          [PI_EXTENSION_ENV.doorUrl]: a.door.url,
-          [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
-          ...(isOwn
-            ? {
-                [PI_EXTENSION_ENV.hooks]: JSON.stringify(
-                  readClaudeHooks(place.claude)
-                ),
-                [PI_EXTENSION_ENV.own]: "1",
-                [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
-                [PI_EXTENSION_ENV.search]: JSON.stringify(
-                  settings().desk?.webSearch ?? WEB_SEARCH_CHAIN
-                ),
-              }
-            : {}),
-          [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
-          [PI_EXTENSION_ENV.provider]: JSON.stringify(place.provider),
-          ...(a.rules ? { [PI_EXTENSION_ENV.rules]: a.rules } : {}),
-        },
+        command: run.command,
+        compactAt: compactAtOf(run.window),
+        env: { ...(isOwn ? await loginEnvLess([KEY]) : {}), ...run.env },
       };
     },
   };
+  /**
+   * The command of agent `a`'s pi on session `ref` and Life's part of its environment (his own Life's run adds his login
+   * environment less the engine's key): the desk's turn in pi's RPC mode (`isRpc`), else pi's own interface, in Terminal.
+   */
+  function runOfMode(a: Agent, ref: string, isNew: boolean, isRpc: boolean) {
+    const { effort, extension, file, id, window } = runOf(a, ref, isNew);
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(
+      join(agentDir, "settings.json"),
+      JSON.stringify(settingsOf(isOwn ? place.claude : undefined, window))
+    );
+    // His global instructions, as his Claude sessions read them; a second Life's agent reads none.
+    const instructions = isOwn
+      ? readClaudeInstructions(place.claude)
+      : undefined;
+    if (instructions) {
+      writeFileSync(join(agentDir, "AGENTS.md"), instructions);
+    } else {
+      rmSync(join(agentDir, "AGENTS.md"), { force: true });
+    }
+    return {
+      command: [
+        process.execPath,
+        PI_CLI,
+        ...(isRpc ? ["--mode", "rpc"] : []),
+        "--provider",
+        PI_PROVIDER,
+        "--model",
+        id,
+        "--session-dir",
+        sessions,
+        ...(file
+          ? ["--session", file]
+          : ["--session-id", ref, "--name", a.title]),
+        ...(effort ? ["--thinking", effort] : []),
+        "-e",
+        extension,
+        ...(isOwn
+          ? []
+          : // Its door's tools alone: no built-in tool, no extension tool (`web_fetch`, `subagent`).
+            ["--no-context-files", "--no-skills", "--tools", "mcp__desk__*"]),
+      ],
+      env: {
+        BUN_BE_BUN: "1",
+        // Each pi loads the extension fresh: jiti's file cache in the shared temporary folder is not shared by the
+        // pi processes the desk runs at once.
+        JITI_FS_CACHE: "false",
+        PI_CODING_AGENT_DIR: agentDir,
+        PI_OFFLINE: "1",
+        PI_SKIP_VERSION_CHECK: "1",
+        PI_TELEMETRY: "0",
+        [PI_EXTENSION_ENV.doorKey]: a.door.key,
+        [PI_EXTENSION_ENV.doorUrl]: a.door.url,
+        [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
+        ...(isOwn
+          ? {
+              [PI_EXTENSION_ENV.hooks]: JSON.stringify(
+                readClaudeHooks(place.claude)
+              ),
+              [PI_EXTENSION_ENV.own]: "1",
+              [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
+              [PI_EXTENSION_ENV.search]: JSON.stringify(
+                settings().desk?.webSearch ?? WEB_SEARCH_CHAIN
+              ),
+            }
+          : {}),
+        [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
+        [PI_EXTENSION_ENV.provider]: JSON.stringify(place.provider),
+        ...(a.rules ? { [PI_EXTENSION_ENV.rules]: a.rules } : {}),
+      },
+      file,
+      window,
+    };
+  }
 }
 
 /** What pi prints on stdout, as far as the runtime reads it. */
@@ -425,7 +523,7 @@ export interface PiLine {
 export interface Current {
   begun: () => void;
   end: (e: RunEnd) => void;
-  /** It ended well past `PI_COMPACT_AT`: its session is compacting before it ends. */
+  /** It ended past its compaction point (`compactAtOf`): its session is compacting before it ends. */
   isCompacting?: boolean;
   onUpdate?: (u: Update) => void;
   stop?: string;
@@ -532,7 +630,7 @@ const openOf =
   (row: PiRow, launchWithin: number): Open =>
   async (a, resume, opening) => {
     const ref = resume ?? crypto.randomUUID();
-    const { command, env } = await row.spawn(a, ref, !resume);
+    const { command, compactAt, env } = await row.spawn(a, ref, !resume);
     const { child, close, exited, stopping } = spawnFor(
       a,
       command,
@@ -580,7 +678,7 @@ const openOf =
       }
       if (
         c.isCompacting ||
-        !(ended.ok && (c.usage.contextLast ?? 0) > PI_COMPACT_AT)
+        !(ended.ok && (c.usage.contextLast ?? 0) > compactAt)
       ) {
         settle(ended);
         return;

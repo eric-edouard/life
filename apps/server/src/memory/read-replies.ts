@@ -7,6 +7,7 @@ import type { CallReads } from "../models/model-call";
 import { isPromptVersion, MAY_KEEP, promptText } from "../models/prompt-parts";
 import {
   ARRIVAL_CONFIRM_READ,
+  LeftReply,
   type ReadName,
   ReadReply,
 } from "../records/read-reply";
@@ -20,8 +21,8 @@ import { inBatches, type Step } from "./run";
 /** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`, the voice naming's `memory/voice-naming.ts`. */
 export const READS = {
   arrival_appointment: { prompt: "memory-arrival-appointment.v1" },
-  arrival_confirm: { prompt: "memory-arrival-confirm.v2" },
-  arrival_trigger: { prompt: "memory-arrival-trigger.v3" },
+  arrival_confirm: { prompt: "memory-arrival-confirm.v3" },
+  arrival_trigger: { prompt: "memory-arrival-trigger.v4" },
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
@@ -93,7 +94,7 @@ export const readRepliesOfMonths = (
   where = READ_REPLIES
 ) => [...new Set(months)].map((m) => readReplyFile(readReplyPath(m, where)));
 
-/** A confirmed arrival: new lines of a unit his engine confirmed hold an ask, a promise or a wait for him. */
+/** A confirmed arrival: new lines of a unit his engine confirmed leave something for him (an ask, a promise). */
 export interface ConfirmedArrival {
   at: string;
   /** The keys of the messages the confirm read, oldest first. */
@@ -101,23 +102,38 @@ export interface ConfirmedArrival {
   /** Who wrote them, as read (never him). */
   people: string[];
   unit: string;
+  /** Whether it wakes an agent: something left above low priority (a low one is kept for the night alone, quietly). */
+  wakes: boolean;
 }
 
 /**
- * The one rule of what is a confirmed arrival: a confirm line, of any prompt version, that says `isActionable`, the
- * newest (by `at`) of those ending at the same message (the desk's wake id), so a message wakes one agent. An older
- * prompt's yes still counts: the reader reads only today's lines, so a prompt bumped before the night would otherwise
- * leave that day's confirmed units unread (an importance-1 reply keeping a promise). Read by extraction's choice of
- * units and the desk's wake, never decided twice.
+ * The one rule of what is a confirmed arrival: a confirm line, of any prompt version, that leaves something for him
+ * (from v3 a thing `left`, which wakes an agent unless every one is low; before it `isActionable`), the newest (by
+ * `at`) of those ending at the same message (the desk's wake id), so a message wakes one agent. An older prompt's yes
+ * still counts: the reader reads only today's lines, so a prompt bumped before the night would otherwise leave that
+ * day's confirmed units unread (an importance-1 reply keeping a promise). Read by extraction's choice of units (every
+ * one) and the desk's wake (`wakes`), never decided twice.
  */
 export const confirmedArrivalsOf = (lines: ReadReply[]): ConfirmedArrival[] => [
   ...new Map(
     lines
-      .flatMap((l) =>
-        l.read === ARRIVAL_CONFIRM_READ && l.reply.isActionable === true
-          ? [{ at: l.at, messages: l.messages, people: l.people, unit: l.unit }]
-          : []
-      )
+      .flatMap((l) => {
+        if (l.read !== ARRIVAL_CONFIRM_READ) {
+          return [];
+        }
+        const left = LeftReply.safeParse(l.reply).data?.left;
+        return (left ? left.length > 0 : l.reply.isActionable === true)
+          ? [
+              {
+                at: l.at,
+                messages: l.messages,
+                people: l.people,
+                unit: l.unit,
+                wakes: left ? left.some((x) => x.priority !== "low") : true,
+              },
+            ]
+          : [];
+      })
       .toSorted((a, b) => a.at.localeCompare(b.at))
       .map((a) => [a.messages.at(-1), a])
   ).values(),

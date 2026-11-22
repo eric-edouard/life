@@ -6,6 +6,7 @@ import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
+  compactAtOf,
   connectorReadsOf,
   PI_COMPACT_AT,
   type PiRow,
@@ -114,6 +115,12 @@ test("a turn that ends past PI_COMPACT_AT compacts its session before it ends, t
     false
   );
   expect(env[PI_EXTENSION_ENV.rules]).toBe("Made-up rules.");
+});
+
+test("a model whose window is under PI_COMPACT_AT compacts below its window, leaving pi's reserve twice over", () => {
+  expect(compactAtOf(1_048_576)).toBe(PI_COMPACT_AT);
+  expect(compactAtOf(undefined)).toBe(PI_COMPACT_AT);
+  expect(compactAtOf(300_000)).toBe(300_000 - 2 * 16_384);
 });
 
 test("talk keeps one pi across prompts and tells what its model says", async () => {

@@ -22,6 +22,7 @@ func traceAction(
     case .project(let id): fields["kind"] = "project"; fields["ref"] = id
     case .appointment(let id): fields["kind"] = "appointment"; fields["ref"] = id
     case .picture(let ref): fields["kind"] = "picture"; fields["ref"] = ref
+    case .continueOnMac(let agent): fields["kind"] = "continue_on_mac"; fields["ref"] = agent
     }
     if let tap { fields["key"] = String(tap.prefix(8)) }
     if let limit {
