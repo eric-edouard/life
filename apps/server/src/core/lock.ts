@@ -86,13 +86,14 @@ async function waitToTake(
   every: number,
   waiting?: () => void
 ) {
-  for (let first = true; !take(path, note); first = false) {
-    if (first) {
-      waiting?.();
-    }
+  if (take(path, note)) {
+    return;
+  }
+  waiting?.();
+  do {
     // biome-ignore lint/performance/noAwaitInLoops: one try each `every`
     await Bun.sleep(every);
-  }
+  } while (!take(path, note));
 }
 
 /** Lets go of `name` if this process holds it: before its exit, when what needed it is done. */
@@ -126,6 +127,7 @@ export function oneAtATime() {
  */
 export function oneAtATimeAcross(path: string, every = 100) {
   const inTurn = oneAtATime();
+  mkdirSync(dirname(path), { recursive: true });
   return <T>(run: () => Promise<T>) =>
     inTurn(async () => {
       await waitToTake(path, undefined, every);
