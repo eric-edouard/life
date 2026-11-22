@@ -4,6 +4,7 @@
   "name": "Test Ana",
   "ref": "person:test-ana",
   "needsYou": false,
+  "checks": [],
   "communicationStyle": [],
   "details": [],
   "episodes": [],
