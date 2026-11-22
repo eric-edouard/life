@@ -22,10 +22,12 @@ import {
 import type { ConversationSummaryWork } from "./conversation-summaries";
 import { readDetailsOf } from "./details";
 import { withOf } from "./exchange-reads";
-import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
+import { READ_REPLIES } from "./memory-files";
 import {
   type Brief,
   CALL_SLACK,
+  calendarGuestsOf,
+  type DayEvent,
   expectedCompanyOf,
   expectedWindowOf,
   HEARD_WITHIN,
@@ -38,10 +40,10 @@ import {
   plannedBeforeOf,
   possibleSpeakersOf,
   SOUNDS_LIKE,
-  scheduledOf,
   voiceGroupsOf,
   whyOf,
 } from "./naming-context";
+import { addTo, readNamingDays } from "./naming-day";
 import {
   type Asked,
   makeReplies,
@@ -63,7 +65,7 @@ import {
   voiceTokensOf,
 } from "./units";
 import type { People } from "./who";
-import { observationsNow, voicePersonOf } from "./who";
+import { voicePersonOf } from "./who";
 import { messageLine } from "./words";
 import { localDate, time } from "./zones";
 
@@ -198,6 +200,8 @@ export const jobOf = (key: string) => parseTurnRef(turnRefOf(key))?.jobId ?? "";
 
 /** What every part is read against, read once for a run. */
 interface Context {
+  /** The timed events of his calendar on the parts' days (`readCalendarDay`). */
+  calendar: DayEvent[];
   /** The local days each person spoke on a call he picked up, by person ref, sorted. */
   callDays: Map<string, string[]>;
   detailsFor: ReturnType<typeof readDetailsOf>;
@@ -220,9 +224,6 @@ interface Context {
   scheduled: Map<string, Map<string, string>>;
 }
 
-const addTo = <K, V>(m: Map<K, Set<V>>, k: K, v: V) =>
-  m.set(k, (m.get(k) ?? new Set<V>()).add(v));
-
 /** Who spoke in person on each local day. */
 function heardOnDayOf(heard: { at: string; ref: string }[]) {
   const onDay = new Map<string, Set<string>>();
@@ -230,30 +231,6 @@ function heardOnDayOf(heard: { at: string; ref: string }[]) {
     addTo(onDay, localDate(h.at), h.ref);
   }
   return onDay;
-}
-
-/** The people pictured in a photo of each of `dates`, those in an active fact of that day and those in an active plan for it, that no recording is evidence of. */
-async function readDayFacts(dates: string[], people: People) {
-  const pictured = new Map<string, Set<string>>();
-  for (const u of readUnitsOf(dates).filter((x) => x.source === "photos")) {
-    for (const p of u.people.map((x) => people.refOf(x, u.source))) {
-      addTo(pictured, u.date, p);
-    }
-  }
-  const facts = new Map<string, Set<string>>();
-  const { observations, statusInputs } = await observationsNow(people);
-  const active = observations.filter(
-    (o) =>
-      o.source.channel !== "lifelog" &&
-      observationStatusOf(o, statusInputs).state === "active"
-  );
-  for (const o of active.filter((x) => dates.includes(x.date))) {
-    for (const s of o.subjects) {
-      addTo(facts, o.date, s);
-    }
-  }
-  const scheduled = scheduledOf(active, dates, people.truth);
-  return { facts, pictured, scheduled };
 }
 
 /**
@@ -332,7 +309,7 @@ async function readContext(
   );
   return {
     callDays,
-    ...(await readDayFacts([...new Set(parts.map((p) => p.day))], people)),
+    ...(await readNamingDays([...new Set(parts.map((p) => p.day))], people)),
     detailsFor: readDetailsOf(people),
     direct,
     events,
@@ -353,8 +330,12 @@ function briefOf(
   ref: string,
   part: SpokenPart,
   [began, ended]: [string, string],
-  c: Context
+  c: Context,
+  calendar?: string
 ) {
+  if (!ref.startsWith("person:")) {
+    return calendar ?? "";
+  }
   const from = localDate(
     new Date(Date.parse(part.at) - HEARD_WITHIN).toISOString()
   );
@@ -380,6 +361,7 @@ function briefOf(
   const person = c.people.truth.people.find((p) => `person:${p.id}` === ref);
   const brief: Brief = {
     byCall: recent(c.callDays.get(ref)),
+    calendar,
     details: c.detailsFor(ref),
     inPerson,
     language: person?.language,
@@ -474,7 +456,8 @@ export function isWorthNaming(
 
 /**
  * What code counts for a voice group (its lines `lines`, its recording voices `voices`) and each person offered: the
- * signals (a one-to-one message in the `PLANNED_WITHIN` before its first line; a plan for the part's day; a word of their name or chat title said
+ * signals (a one-to-one message in the `PLANNED_WITHIN` before its first line; an event of his calendar overlapping the
+ * part (`calendarGuestsOf`); a plan for the part's day; a word of their name or chat title said
  * in a line not its own; on a call near the part; its sound like them: its queue item's `isLikely`, else, in no item, its
  * likeness at `SOUNDS_LIKE` or more), and whether a sound points to someone else. Keyed `${voice} ${person}`.
  */
@@ -483,6 +466,7 @@ function evidenceOf(
   groups: ReturnType<typeof voiceGroupsOf>,
   o: {
     c: Context;
+    calendar: Map<string, string>;
     chats: Map<string, string[]>;
     onCall: string[];
     possible: string[];
@@ -515,6 +499,7 @@ function evidenceOf(
     for (const person of o.possible) {
       const planned = plannedBeforeOf(c.direct.get(person) ?? [], first);
       const plan = c.scheduled.get(part.day)?.get(person);
+      const calendar = o.calendar.get(person);
       const named = isNameSaid(others, [
         c.people.nameOf(person),
         ...(o.chats.get(person) ?? []),
@@ -526,12 +511,14 @@ function evidenceOf(
           : [...strong].some((r) => r !== person),
         signals: [
           planned,
+          calendar,
           plan,
           named,
           o.onCall.includes(person),
           sounds,
         ].filter(Boolean).length,
         why: whyOf({
+          calendar,
           named,
           onCall: o.onCall.includes(person),
           plan,
@@ -569,6 +556,7 @@ export function namingOf(
   const calls = callsNear(c, part.at, part.until);
   const expected = expectedCompanyOf(c.direct, began, ended);
   const chats = new Map(expected.map((e) => [e.ref, e.chats]));
+  const calendar = calendarGuestsOf(c.calendar, part.at, part.until, c.people);
   const possible = possibleSpeakersOf(
     {
       answered: voices.flatMap((v) => {
@@ -582,6 +570,7 @@ export function namingOf(
             ) ?? [])
           : [];
       }),
+      calendar: [...calendar.keys()],
       expected: expected.map((e) => e.ref),
       facts: [...(c.facts.get(part.day) ?? [])],
       heard: c.heard,
@@ -651,7 +640,7 @@ export function namingOf(
     ),
     messages: messagesAround(possible, part, [began, ended], c),
     people: possible.map((ref) => ({
-      brief: briefOf(ref, part, [began, ended], c),
+      brief: briefOf(ref, part, [began, ended], c, calendar.get(ref)),
       ...(chats.get(ref)?.length ? { chats: chats.get(ref) } : {}),
       name: c.people.nameOf(ref),
       ref,
@@ -681,6 +670,7 @@ export function namingOf(
   );
   const evidence = evidenceOf(part, groups, {
     c,
+    calendar,
     chats,
     onCall: calls.people,
     possible,
