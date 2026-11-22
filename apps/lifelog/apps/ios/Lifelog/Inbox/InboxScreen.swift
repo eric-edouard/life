@@ -45,7 +45,7 @@ struct InboxScreen: View {
             .screenTitle("Inbox", state: waiting)
             .askFilterBar(kinds: all.kinds, kind: $kind)
             // The Pendant and Settings are the ask column's when it is beside the list; the list alone (compact) has them.
-            .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+            .shellBar("", hasPendant: sizeClass != .regular)
         } detail: {
             ReadScreen(
                 shown: shown, stamp: life.inbox.stamp, marks: .readsAndAgents, retry: { await life.refreshInbox() },

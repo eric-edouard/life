@@ -25,8 +25,6 @@ struct CheckCard: View {
     /// "I dropped this whole project", the one ready line over his own words when the card's matter has a project
     /// underway: parks it.
     var dropProject: (project: String, run: () -> Void)?
-    /// Where it stands among the asks paged beside it (its index, how many); nil alone.
-    var page: (current: Int, total: Int)?
     /// The answer he gave on it while Life works on it, shown on its own button (`CheckActions.pressed`).
     var pressed: Taken?
 
@@ -209,19 +207,12 @@ struct CheckCard: View {
         return true
     }
 
-    /// The room for the pager's dots, which the pager draws there, still while the asks slide (a spinner while a tapped
-    /// push is checked: how many asks wait is not known yet), then the answers.
+    /// A spinner while a tapped push is checked (how many asks wait is not known yet), then the answers.
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.m) {
-            Group {
-                if life.isCheckingPush {
-                    Spinner(size: .small).foregroundStyle(Palette.fg)
-                } else if let page {
-                    PagerDotsSlot(index: page.current)
-                }
+            if life.isCheckingPush {
+                Spinner(size: .small).foregroundStyle(Palette.fg).frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .motion(Motion.standard, value: life.isCheckingPush)
             CheckActions(
                 check: check, input: $input, isBusy: isBusy, answer: answer, sameAs: sameAs, create: create,
                 wrong: wrong, runtimeName: runtimeName, pressed: pressed

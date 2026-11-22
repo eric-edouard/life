@@ -1,5 +1,6 @@
 import { redact } from "../core/redact";
 import { findRef, type Hit, readsOnce } from "./find-refs";
+import { readMatterThread } from "./matter-thread";
 import { OWNER } from "./read-truth";
 import { WITHIN_REFUSED, type Within } from "./recording-cut";
 import { parseRef } from "./refs";
@@ -9,7 +10,7 @@ import { asData, fetchOf } from "./words";
  * `fetch`'s one entry, over the one ref grammar (`parseRef`): a malformed ref says why; a person's read part opens by
  * its reader (someone only heard has evidence and no part); any other ref is looked for first (`findRef`), a miss says
  * why, and a hit is shown: an ask page (how to ask a card's part), a matter, an observation, a message or a file's
- * reading; a conversation, unit or turn is `fetchOf`'s. `fromTurn` and `limit` page a conversation only, and `within`
+ * reading; a matter's thread is `readMatterThread`'s; a conversation, unit or turn is `fetchOf`'s. `fromTurn` and `limit` page a conversation only, and `within`
  * (`at`, `until`) cuts a recording only.
  */
 export async function openById(
@@ -32,7 +33,8 @@ export async function openById(
   if ((within.at || within.until) && !isRecording) {
     return asData([`(${WITHIN_REFUSED})`]);
   }
-  if (ref.kind === "person" && (from !== undefined || limit !== undefined)) {
+  const isPart = ref.kind === "person" || (ref.kind === "matter" && ref.thread);
+  if (isPart && (from !== undefined || limit !== undefined)) {
     return asData([
       "(a read part takes no fromTurn and no limit: it is one bounded piece; its next reads are at its end)",
     ]);
@@ -40,6 +42,9 @@ export async function openById(
   if (ref.kind === "person" && ref.read.subject.startsWith("person:")) {
     const { subject, ...o } = ref.read;
     return readPerson(subject.slice("person:".length), { ...o, byId: true });
+  }
+  if (ref.kind === "matter" && ref.thread) {
+    return readMatterThread(ref.thread.matter, ref.thread.before);
   }
   // A conversation, unit or turn is looked up and shown by its own reader (`fetchOf`, over `findUnit` and `findTurn`).
   if (isRecording) {

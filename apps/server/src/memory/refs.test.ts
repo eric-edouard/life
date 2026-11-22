@@ -22,6 +22,26 @@ test("parseRef: one grammar, each kind from its ref", () => {
   expect(kind("msg:whatsapp|")).toContain("not a message ref");
 });
 
+test("a matter's thread: a matter's or a step's id, then /thread, `before` a day", () => {
+  expect(parseRef("matter_0123456789ab/thread/before/2026-10-03")).toEqual({
+    id: "matter_0123456789ab/thread/before/2026-10-03",
+    kind: "matter",
+    thread: { before: "2026-10-03", matter: "matter_0123456789ab" },
+  });
+  expect(parseRef("obs_0123456789ab/thread")).toMatchObject({
+    kind: "matter",
+    thread: { matter: "obs_0123456789ab" },
+  });
+  expect(parseRef("unit_0123456789ab/thread")).toEqual({
+    error:
+      '"unit_0123456789ab" in "unit_0123456789ab/thread" is not a matter\'s id',
+  });
+  expect(parseRef("matter_0123456789ab/thread/before/oct")).toEqual({
+    error:
+      'before "oct" in "matter_0123456789ab/thread/before/oct" is not a day (YYYY-MM-DD)',
+  });
+});
+
 test("a message ref splits at its first |: the message id may hold / and #", () => {
   expect(parseRef("msg:github|github:acme/tools#12/c9|x")).toEqual({
     id: "msg:github|github:acme/tools#12/c9|x",
