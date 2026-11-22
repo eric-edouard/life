@@ -372,22 +372,10 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   ]);
   // The people it could be are buttons of their own; the answers are "Yes" (only to a guess in use), "Someone else…", "TV or video", "Don't name".
   const labels = (r: string) => byRef(r)?.options.map((o) => o.label);
-  expect(labels(dana)).toEqual([
-    "Yes",
-    "Someone else…",
-    "TV or video",
-    "Don't name",
-  ]);
-  expect(labels("voice:v1")).toEqual([
-    "Someone else…",
-    "TV or video",
-    "Don't name",
-  ]);
-  expect(labels("voice:v2")).toEqual([
-    "Someone else…",
-    "TV or video",
-    "Don't name",
-  ]);
+  const answers = ["Someone else…", "TV or video", "Don't name"];
+  expect(labels(dana)).toEqual(["Yes", ...answers]);
+  expect(labels("voice:v1")).toEqual(answers);
+  expect(labels("voice:v2")).toEqual(answers);
   expect(byRef("voice:v2")?.context).toContain(
     "> See you Friday\n\n*a recorded conversation,"
   );
