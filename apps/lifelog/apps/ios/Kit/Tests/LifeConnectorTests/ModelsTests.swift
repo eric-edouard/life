@@ -1020,6 +1020,6 @@ private func asks(
                 .utf8))
     #expect(voice.peopleToPick(among: everyone).map(\.ref) == ["person:test-ana", "person:test-bo"])
     #expect(
-        voice.answer(naming: .name("Alex/Alexa"))
-            == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Alex/Alexa"))
+        voice.answer(naming: .name("Zed/Zeda"))
+            == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Zed/Zeda"))
 }
