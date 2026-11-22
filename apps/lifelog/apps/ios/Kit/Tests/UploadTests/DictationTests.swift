@@ -445,4 +445,25 @@ private final class Recording: Sendable {
     await quiet.until { quiet.sent.contains { $0.contains(#""commit":true"#) } }
     quiet.says("insufficient_audio_activity")
     #expect(await settled.value == "see you at eight")
+
+/// Send pressed while the microphone opens, and it never opens: nothing is left to send, and the next run never sends.
+@MainActor @Test func aSendWhoseMicrophoneNeverOpenedLeavesTheNextRunUnsent() async {
+    var opens = 0
+    let dictation = Dictation(
+        begin: { _ in
+            opens += 1
+            if opens == 1 { throw Dictation.StartFailure.busy }
+            return DictationRun(level: { 0 }, finish: { Data() }, heard: { "later words" })
+        },
+        words: { _ in "" }, refused: { false })
+    dictation.start()
+    dictation.send()
+    #expect(dictation.isSending)
+    for _ in 0..<10_000 where dictation.phase != .rest { await Task.yield() }
+    #expect(dictation.problem == .busy && !dictation.isSending)
+    dictation.start()
+    for _ in 0..<10_000 where dictation.phase != .listening { await Task.yield() }
+    dictation.pause()
+    for _ in 0..<10_000 where dictation.landed == nil { await Task.yield() }
+    #expect(dictation.landed?.words == "later words" && dictation.landed?.sends == false)
 }
