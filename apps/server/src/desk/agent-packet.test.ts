@@ -95,7 +95,7 @@ test("a project's agent is handed its people's ids and handles and its chats' ke
 
 test("the packet holds the agent's rules unless its runtime pins them", async () => {
   expect(await packet("test-empty")).toContain("Test brief\n\nYou are agt_");
-  const fake = desk.runtimes.fake;
+  const { fake } = desk.runtimes;
   desk.runtimes.fake = {
     ...(fake as NonNullable<typeof fake>),
     pinsRules: true,

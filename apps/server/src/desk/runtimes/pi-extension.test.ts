@@ -199,9 +199,9 @@ test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches
   expect(compacted?.data?.summary).toStartWith(RECORD);
   expect(compacted?.data?.summary).toContain("What the session did");
   // The rules are a section of the system prompt, on every request of the agent's own session.
-  expect((asked[0]?.body.messages[0] as { content: string }).content).toContain(
-    "<life-desk>\nMade-up brief and contract.\n</life-desk>"
-  );
+  expect(
+    (asked[0]?.body.messages[0] as { content?: string } | undefined)?.content
+  ).toContain("<life-desk>\nMade-up brief and contract.\n</life-desk>");
   expect(asked).toHaveLength(5);
   for (const a of asked) {
     expect(a.body.provider).toEqual(ROUTING);
