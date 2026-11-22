@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AgentRole } from "../core/names";
 
 // The desk's shapes (apps/server/src/desk/, docs/glossary.md): a registered agent's wait and what its turns report.
 
@@ -104,9 +105,6 @@ export type AgentWait = z.infer<typeof AgentWait>;
 
 /** A registered agent's status: `active` (a turn running or waiting), `stopped` (restarts on his word only), or done with. */
 export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
-
-/** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his complaint through Ask Life), `main` (the main session: answers his words through Ask Life). */
-export type AgentRole = "personal" | "caretaker" | "main";
 
 /** Whether an agent in `role` takes no subject but its own (no move to it, no re-point): the caretaker, the main session. */
 export const hasFixedSubject = (role: AgentRole | null) =>

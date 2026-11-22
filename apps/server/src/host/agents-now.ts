@@ -1,11 +1,8 @@
 import type { Database } from "bun:sqlite";
 import { DAY, HOUR, MIN } from "../core/clock";
+import type { AgentRole } from "../core/names";
 import { isOwnLife } from "../core/platform";
-import type {
-  AgentRole,
-  AgentStatus,
-  EventFilter,
-} from "../records/registered-agent";
+import type { AgentStatus, EventFilter } from "../records/registered-agent";
 import { agentHealthOf, type Health } from "./agent-health";
 import { readClaudeAppListing } from "./claude-app-listing";
 import {
