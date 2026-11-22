@@ -47,7 +47,7 @@ import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
 import { readsOnce, refsProblemOf } from "../memory/find-refs";
 import { isToldLife } from "../memory/sources";
-import { recordToldLife } from "../memory/told-life";
+import { recordToldLife, TellLife } from "../memory/told-life";
 import { AppointmentId } from "../records/appointment";
 import { entryLine } from "../records/ledger-entry";
 import {
@@ -439,10 +439,7 @@ function doorServer(desk: Desk, id: string) {
     door(
       "tell_life",
       'The main session only, when he asks Life to remember something ("remember that…"): `said` his own words of this ask, verbatim, never your summary; `asked` the question he answered, if any. Life reads it with the rest of his day, at the night\'s run.',
-      z.object({
-        asked: z.string().min(1).max(2000).optional(),
-        said: z.string().min(1).max(8000),
-      }),
+      TellLife,
       ({ asked, said }, _, turn) => {
         recordToldLife(hisWordsOf(turn, said), asked);
         acted(turn, { kind: "done" });
