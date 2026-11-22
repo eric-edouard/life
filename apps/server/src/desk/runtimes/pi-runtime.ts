@@ -7,7 +7,11 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { log } from "../../core/log";
-import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "../../core/paths";
+import {
+  IS_COMPILED_HELPER,
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+} from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { piRouteOf } from "../../models/llm";
@@ -136,8 +140,19 @@ const readTextIfThere = (path: string) => {
   }
 };
 
-/** What Life's reader of the connector needs from the desk's own environment beside Life's paths: the secrets its reads use. */
-const READER_SECRETS = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN", "NODE_ENV"];
+/** What Life's reader of the connector needs from the desk's own environment beside Life's paths: the secrets its reads use and the test switch. */
+const READER_ENV = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN", "NODE_ENV"];
+
+const LEADING_BANG = /^!/;
+
+/** Values as pi passes them on untouched (`$` doubled, a leading `!` escaped): pi resolves `$NAME` and runs `!command`. */
+const escapedOf = (env: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(env).map(([k, v]) => [
+      k,
+      v.replaceAll("$", "$$$$").replace(LEADING_BANG, "$$!"),
+    ])
+  );
 
 /**
  * The connector's reads as a stdio MCP server (`life connector-reads`): the compiled helper itself in the app, the CLI's
@@ -149,12 +164,12 @@ export const connectorReadsOf = () => {
     Object.entries(process.env).filter(
       (e): e is [string, string] =>
         e[1] !== undefined &&
-        (e[0].startsWith("LIFE_") || READER_SECRETS.includes(e[0]))
+        (e[0].startsWith("LIFE_") || READER_ENV.includes(e[0]))
     )
   );
   return {
     args: [
-      ...(import.meta.dir.startsWith("/$bunfs")
+      ...(IS_COMPILED_HELPER
         ? []
         : [
             join(
@@ -169,7 +184,10 @@ export const connectorReadsOf = () => {
       "connector-reads",
     ],
     command: process.execPath,
-    env: { ...env, BUN_BE_BUN: "" },
+    // Life's state, never the agent's folder: bun reads a folder's `.env` and `bunfig.toml` at start.
+    cwd: LIFE_STATE_DIR,
+    // pi reads `$NAME` and a leading `!` in an MCP entry's values: each value escaped, so it reaches the reader as is.
+    env: { ...escapedOf(env), BUN_BE_BUN: "" },
   };
 };
 

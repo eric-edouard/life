@@ -93,10 +93,12 @@ const taken = (name: string) => {
 /** The extension's config from the spawn's environment (`PI_EXTENSION_ENV`), the key and the reads' entry taken out. */
 function configOfEnv(): LifeDeskConfig {
   const env = PI_EXTENSION_ENV;
+  const apiKey = required(env.key);
+  taken(env.key);
   const isOwn = process.env[env.own] === "1";
   const reads = taken(env.reads);
   return {
-    apiKey: taken(env.key) || required(env.key),
+    apiKey,
     door: { key: required(env.doorKey), url: required(env.doorUrl) },
     facts: JSON.parse(required(env.facts)),
     hooks: isOwn ? JSON.parse(process.env[env.hooks] ?? "[]") : [],

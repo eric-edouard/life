@@ -29,6 +29,12 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
     description:
       "Hand a self-contained task to a subagent: a fresh session with the same tools (no door) that works it alone and returns its final answer. Use it for research or work that would fill your context.",
     async execute(_id, params: { task: string }, signal, _update, ctx) {
+      // Life's model only: with none, pi would fall back to any provider his environment holds a key for.
+      if (!ctx.model) {
+        throw new Error(
+          "a subagent runs on the agent's own model, and it has none"
+        );
+      }
       const sdk = await import("@earendil-works/pi-coding-agent");
       const agentDir = sdk.getAgentDir();
       const settingsManager = sdk.SettingsManager.create(ctx.cwd, agentDir, {
@@ -44,7 +50,6 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
       const { session } = await sdk.createAgentSession({
         agentDir,
         cwd: ctx.cwd,
-        excludeTools: [SUBAGENT],
         model: ctx.model,
         resourceLoader,
         sessionManager: sdk.SessionManager.inMemory(ctx.cwd),
@@ -56,21 +61,31 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
       session.subscribe((e) => {
         if (e.type === "message_end" && e.message.role === "assistant") {
           usage.push(e.message.usage);
-          answer = e.message.content
-            .flatMap((c) => (c.type === "text" ? [c.text] : []))
-            .join("");
+          answer =
+            e.message.content
+              .flatMap((c) => (c.type === "text" ? [c.text] : []))
+              .join("") ||
+            (e.message.errorMessage ?? "");
         }
       });
       const stop = () => session.abort();
       signal?.addEventListener("abort", stop);
+      let why = "";
       try {
-        await session.prompt(params.task);
+        if (!signal?.aborted) {
+          await session.prompt(params.task);
+        }
+      } catch (e) {
+        why = String(e);
       } finally {
         signal?.removeEventListener("abort", stop);
         session.dispose();
       }
+      // Its usage comes back however it ended: the turn counts what it spent.
       return {
-        content: [{ text: answer || "(no answer)", type: "text" as const }],
+        content: [
+          { text: answer || why || "(no answer)", type: "text" as const },
+        ],
         details: { usage },
       };
     },

@@ -105,7 +105,7 @@ import {
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct_memory`), on his explicit request in a
-// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
+// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. Built with `readsOnly` (`buildServer(true)`), for the question cases' agent and an agent of his own Life on pi over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 /** A push's card or appointment id: 16 hex (`pushIdOf`). */
@@ -224,7 +224,7 @@ export async function correct(
  * `logsArguments` into its own log) and to an agent of his own Life on pi (`life connector-reads`).
  */
 export function buildServer(readsOnly = false, logsArguments = false) {
-  // Over stdio (the question cases' agent) there may be no public origin, and no icons.
+  // Over stdio (reads only) there may be no public origin, and no icons.
   const origin = settings().connector?.origin;
   const server = new McpServer(
     {
@@ -315,7 +315,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
     personPicturesTool(server);
     spendingTool(server, NOT_HIS);
     mainSessionTool(server, NOT_HIS);
-    // His app's live log; never on the question cases' tokenless server.
+    // His app's live log; never on the tokenless reads-only server.
     tool(
       server,
       "read_log_lines",

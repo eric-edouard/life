@@ -6,6 +6,7 @@ import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
+  connectorReadsOf,
   type PiRow,
   piRowOf,
   piRuntime,
@@ -204,4 +205,16 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
   expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
+});
+
+test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
+  process.env.LIFE_MADE_UP = "!a$b";
+  try {
+    const entry = connectorReadsOf();
+    expect((entry.env as Record<string, string>).LIFE_MADE_UP).toBe("$!a$$b");
+    expect(entry.env.BUN_BE_BUN).toBe("");
+    expect(entry.args.at(-1)).toBe("connector-reads");
+  } finally {
+    delete process.env.LIFE_MADE_UP;
+  }
 });
