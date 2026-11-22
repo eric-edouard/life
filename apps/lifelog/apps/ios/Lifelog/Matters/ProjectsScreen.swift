@@ -92,7 +92,7 @@ struct ProjectsScreen: View {
         case .project(let id)?:
             stack { ProjectDetails(id: id).id(id) }
         case .matter(let id)?:
-            stack { MatterPage(id: id).id(id) }
+            stack { MatterThreadPage(id: id).id(id) }
                 .zooms(from: id, in: matterZoom)
         case .agents? where isAgentsBeside:
             stack { AgentPage(id: shownAgent).id(shownAgent) }
@@ -122,7 +122,7 @@ struct ProjectsScreen: View {
                     // A pushed screen: Back, then the Pendant.
                     .shellBar("")
                 case .agent(let id): AgentPage(id: id)
-                case .matter(let id): MatterPage(id: id)
+                case .matter(let id): MatterThreadPage(id: id)
                 case .session(let id): AgentSessionPage(id: id)
                 }
             }

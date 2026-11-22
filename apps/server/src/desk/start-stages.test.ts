@@ -196,7 +196,7 @@ test("a matter start whose words cannot be a goal is refused before the desk is 
 
 test("a runtime that does not answer is not_started at its stage, with nothing running", async () => {
   fake.blocked = "claude: command not found";
-  // A new agent needs its runtime (a matter's start does not): the Personal agent, while none is registered.
+  // A new agent needs its runtime, or else pi (a matter's start does not): the Personal agent, while none is registered.
   desk.db.run("update agent set status = 'ended' where id = ?", [personal]);
   const stop = ticking(desk, 300);
   const result = await changeRegisteredAgent(
@@ -210,7 +210,8 @@ test("a runtime that does not answer is not_started at its stage, with nothing r
   expect(result).toMatchObject({
     agent: null,
     failed: {
-      reason: "claude does not answer: claude: command not found",
+      reason:
+        "claude does not answer: claude: command not found; pi: no runtime pi the desk drives",
       stage: "desk_accepted",
     },
     nothingRunning: true,

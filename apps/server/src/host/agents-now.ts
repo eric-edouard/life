@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { DAY, HOUR, MIN } from "../core/clock";
-import type { AgentRole } from "../core/names";
+import { type AgentRole, BUILT_IN_RUNTIME } from "../core/names";
 import { isOwnLife } from "../core/platform";
 import type { AgentStatus, EventFilter } from "../records/registered-agent";
 import { agentHealthOf, type Health, type HealthFacts } from "./agent-health";
@@ -17,6 +17,7 @@ import {
   MAX_ACTIVE,
   modelOf,
   readNotes,
+  runtimeOf,
   type TurnRow,
 } from "./desk-read";
 import { CALL_ENDED, MESSAGE_RECEIVED } from "./events";
@@ -290,11 +291,16 @@ function healthOf(
   }
 ) {
   const isListed = a.runtime === "claude" && a.session && isOwnLife();
+  // ponytail: home is its role's or the desk's default; a project agent he started on another runtime is judged by the default.
+  const home = runtimeOf({ role: a.role });
+  const homeBlock =
+    a.runtime === BUILT_IN_RUNTIME && home !== a.runtime && around.blocks[home];
   return agentHealthOf(
     {
       ...f,
       app: isListed ? (around.app?.(a.session ?? "") ?? null) : null,
       failedInARow: failedInARowOf(db, a.id),
+      fellBack: homeBlock ? `${home} can't run (${homeBlock})` : null,
       runtime: a.runtime,
       runtimeBlock: around.blocks[a.runtime],
       sessionOpenSince: f.record?.since ?? null,

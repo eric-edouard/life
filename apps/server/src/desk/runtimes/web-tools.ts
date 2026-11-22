@@ -3,7 +3,6 @@ import { htmlTextOf } from "../../core/html-text";
 import type { WebSearchProviderName } from "../../core/names";
 import { webSearch } from "../../web-search/backend";
 import type { WebResult } from "../../web-search/contract";
-import type { CallUsage } from "./contract";
 
 // `web_fetch` and `web_search` for an agent of his own Life on pi (Claude Code has its own), given by Life's pi
 // extension (`pi-extension.ts`). The web is free to his own agents (SECURITY.md, "Agents"). Search is Life's web search
@@ -80,26 +79,16 @@ export function registerWebFetch(pi: ExtensionAPI) {
   });
 }
 
-/** The tool's name: its result's usage is a spend (`SPENDING_TOOLS`). */
+/** The tool's name: its result's `searchUsd` is a spend (`SPENDING_TOOLS`). */
 export const WEB_SEARCH = "web_search";
 
 /** The most of a result's snippet the agent reads. */
 const SNIPPET_CHARS = 500;
 
-/** A paid search as a call's usage of no tokens: `totalFromProvider` reads "its price is known"; one unknown nulls the turn's billed dollars (`addSpent`), never guessed. */
-const searchUsageOf = (usd: number | undefined): CallUsage => ({
-  cacheRead: 0,
-  cacheWrite: 0,
-  cost: { total: usd ?? 0, totalFromProvider: usd !== undefined },
-  input: 0,
-  output: 0,
-  totalTokens: 0,
-});
-
 const resultLine = (r: WebResult, i: number) =>
   `${i + 1}. ${r.title}\n${r.url}\n${r.snippet.slice(0, SNIPPET_CHARS)}`;
 
-/** `web_search`'s answer: the results and who gave them, or why none did; each paid search as a usage. */
+/** `web_search`'s answer: the results and who gave them, or why none did; each paid search's price (undefined when unknown: the turn's search dollars null, never guessed). */
 export async function searchAnswerOf(
   query: string,
   order: WebSearchProviderName[],
@@ -107,10 +96,10 @@ export async function searchAnswerOf(
 ) {
   const { answered, spends, whys } = await webSearch(query, order, signal);
   return {
+    searchUsd: spends,
     text: answered
       ? `${answered.provider}\n\n${answered.results.map(resultLine).join("\n\n")}`
       : `No search answered. ${whys.join("; ")}`,
-    usage: spends.map(searchUsageOf),
   };
 }
 
@@ -126,8 +115,12 @@ export function registerWebSearch(
       if (!params.query.trim()) {
         throw new Error("an empty query");
       }
-      const { text, usage } = await searchAnswerOf(params.query, order, signal);
-      return { ...answer(text), details: { usage } };
+      const { searchUsd, text } = await searchAnswerOf(
+        params.query,
+        order,
+        signal
+      );
+      return { ...answer(text), details: { searchUsd } };
     },
     label: "Web search",
     name: WEB_SEARCH,

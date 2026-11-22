@@ -86,6 +86,8 @@ export type AgentRole = z.infer<typeof AgentRole>;
 /** The runtimes the desk drives (`desk/runtimes/`), by name. */
 export const RuntimeName = z.enum(["claude", "codex", "pi"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;
+/** pi, pinned in Life: every install runs it, so it is the runtime a start falls to when his settings name none, and the one an agent with no session takes when its own can't run (the owner's word of 22 Nov 2026). */
+export const BUILT_IN_RUNTIME: RuntimeName = "pi";
 
 /** A web search provider, by the name his `desk.webSearch` gives it (`web-search/backend.ts`). */
 export const WebSearchProviderName = z.enum([

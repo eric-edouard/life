@@ -227,7 +227,7 @@ function startResult(
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
     // A subject held by an active agent has one running.
     nothingRunning: state === "not_started" && !isSubjectHeld,
-    runtime: s?.agent?.runtime ?? runtimeOf(change) ?? null,
+    runtime: s?.agent?.runtime ?? runtimeOf(change),
     stages,
     state,
   };

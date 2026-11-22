@@ -142,6 +142,8 @@ export interface Signs {
   onCall: string[];
   /** Pictured in a photo of that day. */
   pictured: string[];
+  /** In an active plan for that day (`modality` plan, its `when` the day; never a conditional one), whose evidence is not a recording: a meeting set by mail or chat. Not `appointments.ts`'s choice, which keeps every dated observation from today on for his calendar. */
+  scheduled: string[];
 }
 
 /**
@@ -169,7 +171,8 @@ export function isHeardAround(
 
 /**
  * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, in this order: on an overlapping call; named by his
- * answer in this conversation; his expected company; heard in person in another conversation
+ * answer in this conversation; his expected company; in a plan for that day (a meeting set ahead, which the 90 days of
+ * people heard would otherwise crowd out: his report of 22 Nov); heard in person in another conversation
  * (`isHeardAround`, the conversation running from `begin` to `end`); pictured in a photo of that day; in an active fact
  * dated that day that no recording is evidence of.
  * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like; an organization
@@ -193,6 +196,7 @@ export function possibleSpeakersOf(
         ...signs.onCall,
         ...signs.answered,
         ...signs.expected,
+        ...signs.scheduled,
         ...heard,
         ...signs.pictured,
         ...signs.facts,
@@ -247,7 +251,7 @@ export function namingBriefOf(b: Brief) {
 
 /**
  * How sure a guess is, decided by code (the design of 21 Nov 2026, section 2): the model's word is one signal, `signals`
- * counts the independent ones code found for that voice and person (planned, a name said, on a call, sounds like them),
+ * counts the independent ones code found for that voice and person (planned, scheduled for the day, a name said, on a call, sounds like them),
  * `elsewhere` whether one points to someone else. Sure: the model says sure, 2 signals or more, nothing elsewhere.
  * Likely: the model says sure or likely, with 1 signal or more. Weak: the rest.
  */

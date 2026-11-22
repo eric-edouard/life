@@ -3,7 +3,7 @@
   "agent": null,
   "ask": "entry_000000000001",
   "failed": {
-    "reason": "claude does not answer: claude: command not found",
+    "reason": "claude does not answer: claude: command not found; pi: no runtime pi the desk drives",
     "stage": "desk_accepted"
   },
   "model": null,
