@@ -33,7 +33,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
         #expect(list.matters.compactMap(\.icon).allSatisfy { $0.by == .life && MatterIcons.symbol($0.key) != nil })
         let agents = try object("read_registered_agents")
         #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
-        #expect(try decoded(ModelSpending.self, designText("read_spending")).sections.count == 5)
+        #expect(try decoded(ModelSpending.self, designText("read_spending")).sections.count == 4)
         let matterRead = try object("read_matter")
         let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
         for row in rows {

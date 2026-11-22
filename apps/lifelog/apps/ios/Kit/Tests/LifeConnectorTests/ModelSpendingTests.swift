@@ -12,7 +12,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 private let britain = Locale(identifier: "en_GB")
 
 /// `read_spending` as the page lists it: billed by provider with its share, his plans apart in tokens, the kinds in the
-/// page's order (the agents in tokens, never dollars), the top rows opening their agent or matter.
+/// page's order (the agents in tokens, never dollars), the matters Life worked on most opening their page. Never an
+/// agent's own row (his correction, 22 Nov): the page is what Life costs.
 @Test func theSpendingPageListsBilledAndPlansApart() throws {
     let spending = try decoded(ModelSpending.self, wireText("life/read_spending.json"))
     #expect(spending.monthName(locale: britain) == "February")
@@ -20,8 +21,7 @@ private let britain = Locale(identifier: "en_GB")
     let sections = spending.sections
     #expect(
         sections.map(\.label) == [
-            "Billed to your keys, by provider", "Subscriptions, not counted above", "By kind, this month",
-            "Top agents, by tokens", "Top matters, by tokens",
+            "Billed, by provider", "Plans", "By kind, this month", "Matters Life worked on most",
         ])
     let billed = sections[0].lines
     #expect(billed.map(\.title) == ["OpenRouter", "ElevenLabs", "Apify", "Web search"])
@@ -29,13 +29,25 @@ private let britain = Locale(identifier: "en_GB")
     #expect(billed.map(\.detail) == [nil, "Not reported", nil, nil])
     #expect(abs((billed[0].share ?? 0) - 0.25 / 0.403) < 0.001)
     #expect(sections[1].lines == [SpendLine(title: "Claude", value: "0.5 M tokens", detail: "≈ $2 at list price")])
-    #expect(sections[2].lines.map(\.title) == ["The night", "Agents", "Web search", "Apify", "Voice"])
+    #expect(sections[2].lines.map(\.title) == ["The night", "Work on your matters", "Web search", "Apify", "Voice"])
     #expect(sections[2].lines.map(\.value) == ["$0.25", "0.5 M tokens", "< $0.01", "$0.05", "$0.10"])
     #expect(
-        sections[2].lines.map(\.detail) == [nil, "≈ $2 at list price, not billed", nil, nil, "1 not settled yet"])
+        sections[2].lines.map(\.detail)
+            == [nil, "≈ $2 at list price, not billed", "for your matters", "for your matters", "1 not settled yet"])
     #expect(sections[3].lines.map(\.detail) == ["≈ $4 at list price, not billed"])
-    #expect(sections[3].lines.map(\.opens) == [.agent("agt_000000000001")])
-    #expect(sections[4].lines.map(\.opens) == [.matter("matter_000000000001")])
+    #expect(sections[3].lines.map(\.opens) == ["matter_000000000001"])
+}
+
+/// The page names no agent anywhere (his correction, 22 Nov): no section for them, no row opening one, and the tools his
+/// agents use are billed rows like any provider.
+@Test func theSpendingPageNeverNamesAgents() throws {
+    let spending = try decoded(ModelSpending.self, wireText("life/read_spending.json"))
+    let sections = spending.sections
+    #expect(sections.count == 4)
+    #expect(sections.map(\.label).allSatisfy { !$0.contains("gent") })
+    #expect(SpendKind.allCases.allSatisfy { !$0.name.contains("gent") })
+    let billed = sections[0].lines.map(\.title)
+    #expect(billed.contains("Web search") && billed.contains("Apify"))
 }
 
 /// A month's read of these kinds and providers, and nothing else, as the page's lines.
@@ -43,7 +55,7 @@ private func lines(_ kinds: String, providers: String = "[]", unsettled: Int = 0
     let zero = #"{"amount":0,"basis":"billed","currency":"USD"}"#
     return try decoded(
         ModelSpending.self,
-        #"{"today":\#(zero),"month":\#(zero),"days":[],"byKind":\#(kinds),"byProvider":\#(providers),"unsettled":\#(unsettled),"topAgents":[],"topMatters":[],"observedAt":"2026-11-18T10:00:00.000Z"}"#
+        #"{"today":\#(zero),"month":\#(zero),"days":[],"byKind":\#(kinds),"byProvider":\#(providers),"unsettled":\#(unsettled),"topMatters":[],"observedAt":"2026-11-18T10:00:00.000Z"}"#
     ).sections.flatMap(\.lines)
 }
 
@@ -59,7 +71,7 @@ private func lines(_ kinds: String, providers: String = "[]", unsettled: Int = 0
 @Test func spendingSaysWhatItDoesNotKnow() throws {
     #expect(
         try lines(#"[{"kind":"agents","tokens":500000}]"#) == [
-            SpendLine(title: "Agents", value: "0.5 M tokens", detail: "Not billed")
+            SpendLine(title: "Work on your matters", value: "0.5 M tokens", detail: "Not billed")
         ])
     let price = #""equivalent":{"amount":1.2,"basis":"equivalent","currency":"USD"}"#
     let plans = #"[{"provider":"codex",\#(price),"tokens":500000,"reported":false}]"#
