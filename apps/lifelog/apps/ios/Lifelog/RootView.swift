@@ -32,24 +32,12 @@ struct RootView: View {
                         running: life.askLife.strands.filter { !$0.isDone }.count,
                         place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
                     )
-                    // Past the system's safe areas (the column's, the bar's): the screen's own corner.
-                    .ignoresSafeArea()
+                    // Past the system's safe areas (the column's, the bar's): the screen's own corner. The top stays: the
+                    // full screen's stage and its cross sit under the status bar.
+                    .ignoresSafeArea(.all, edges: [.bottom, .leading, .trailing])
                 }
             }
             .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
-            .overlay(alignment: .bottom) {
-                if life.isPaired, router.isAskLifeSmall, !router.isAskLifeOpen {
-                    AskLifeStrip(
-                        line: life.askLife.answer?.line ?? "Working on it…", open: { router.isAskLifeOpen = true },
-                        close: {
-                            router.isAskLifeSmall = false
-                            router.askLifeContext = nil
-                        }
-                    )
-                    .appears(Motion.fade)
-                }
-            }
-            .fullScreenCover(isPresented: $router.isAskLifeOpen) { AskLifeScreen() }
             // What an answer shows: its tab's list cut, or a page, under Ask Life's strip.
             .onChange(of: life.askLife.shown) { _, shown in if let shown { router.open(shown: shown.show) } }
             // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
@@ -171,7 +159,7 @@ struct RootView: View {
                 router.open(agent: "agt_lease")
                 router.matterPath.append(.session("agt_lease"))
             }
-            if LifeFixture.ask == "open" { router.isAskOpen = true }
+            if LifeFixture.ask == "open" { router.askLife = .strip }
             if LifeFixture.sheet == "icon" { router.matterSheet = LifeFixture.matter.map { .icon($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(

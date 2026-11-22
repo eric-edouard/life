@@ -6,8 +6,8 @@ import SwiftUI
 
 /// The top group, as the system's own toolbar items: the Pendant, with Back before it on a pushed page, on the trailing
 /// edge in one glass capsule. Leading is the stack's Back, or a list's Filter (`filterBar`). Declared, never
-/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo. On a regular width a pushed page's
-/// Back is the foot bar's slot instead (`NavShell`), registered here with the router.
+/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo. On a regular width (the Duo
+/// unfolded) the column's second item, under the Pendant, is a pushed page's Back, else the list's button; no corner holds one.
 private struct ShellBar: ViewModifier {
     let label: String
     let hasPendant: Bool
@@ -17,13 +17,11 @@ private struct ShellBar: ViewModifier {
     @Environment(\.isPresented) private var isPushed
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var sizeClass
-    /// This page's own: a page going away clears only the Back it registered.
-    @State private var id = UUID()
 
     /// A pushed page's: the stack's Back.
     private var hasBack: Bool { isPushed }
-    /// The unfolded Duo: Back in the foot bar's slot, where nothing covers the Pendant.
-    private var backInFoot: Bool { hasBack && sizeClass == .regular }
+    /// The unfolded Duo, on a page that is not pushed: the list's button joins the group.
+    private var hasList: Bool { !hasBack && sizeClass == .regular }
 
     func body(content: Content) -> some View {
         content
@@ -38,20 +36,10 @@ private struct ShellBar: ViewModifier {
                 // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
                 // said to fit the column: a button the zoom wraps reads as a custom view, which the system keeps in a
                 // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
-                if hasBack && !backInFoot && !router.isBarsInColumn { fitted(back) }
+                if hasBack && !router.isBarsInColumn { fitted(back) }
                 if hasPendant { fitted(pendant) }
-                if hasBack && !backInFoot && router.isBarsInColumn { fitted(back) }
-            }
-            // Registered while it shows, and again when a fold or a turn makes the foot its place.
-            .onChange(of: backInFoot, initial: true) { _, isInFoot in
-                if isInFoot {
-                    router.back = AppRouter.BackAction(id: id) { dismiss() }
-                } else if router.back?.id == id {
-                    router.back = nil
-                }
-            }
-            .onDisappear {
-                if router.back?.id == id { router.back = nil }
+                if hasBack && router.isBarsInColumn { fitted(back) }
+                if hasList { fitted(list) }
             }
     }
 }
@@ -73,6 +61,10 @@ extension ShellBar {
         ToolbarItem(placement: .topBarTrailing) {
             PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
         }
+    }
+
+    private var list: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) { ListButton() }
     }
 
     private var back: some ToolbarContent {
