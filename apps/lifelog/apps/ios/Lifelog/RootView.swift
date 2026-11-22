@@ -3,8 +3,8 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The shell (`NavShell`: the page, the list and the bottom bar), with the Settings and Pendant sheets over it, and Ask
-/// Life's round button over all. Every sheet is centred and closes from inside itself.
+/// The shell (`NavShell`: the page, the list and the bottom bar), with the Pendant sheet over it, and Ask Life's round
+/// button over all. Every sheet is centred and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
@@ -22,7 +22,6 @@ struct RootView: View {
             .sheet(item: $router.sheet) { sheet in
                 switch sheet {
                 case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
-                case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
                 }
             }
             // Ask Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
@@ -137,6 +136,8 @@ struct RootView: View {
                 }
             }
             if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
+            // Settings is the Profile page's, pushed on it.
+            if LifeFixture.sheet == "settings" { router.openSettings() }
             // The pendant sheet's own sheets open from inside it (`PendantScreen`).
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }

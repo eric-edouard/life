@@ -50,7 +50,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
             Notice(
                 title: "Not paired with Life.",
                 detail: "Inbox and Projects need Life on your Mac.",
-                action: ("Pair with Life", { if let pair { pair() } else { router.sheet = .settings } }))
+                action: ("Pair with Life", { if let pair { pair() } else { router.openSettings() } }))
         }
     }
 }
