@@ -2,11 +2,11 @@ import LifeConnector
 import Observation
 import SwiftUI
 
-/// Where the app is: the tab, the chosen project chip, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
-/// a tapped ask all go the same way, and a fold keeps them.
 /// The sizes of Ask Life's one surface.
 enum AskLifeForm { case away, strip, full }
 
+/// Where the app is: the tab, the chosen project chip, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
+/// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
     enum Tab: Hashable { case inbox, projects, people }

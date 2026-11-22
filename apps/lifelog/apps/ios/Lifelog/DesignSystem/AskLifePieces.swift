@@ -272,7 +272,7 @@ struct AskLifeNote: View {
 
 /// The veil under Ask Life's strip: the soft edge made stronger, blurred and dimmed from the foot up, over the page and the
 /// list and under the bar, so the page above stays in view and Ask Life does the work under it. Full screen it grows to
-/// the top. A tap on it puts Ask Life away.
+/// the top (the stage covers it there, so only the cross puts it away). In the strip a tap on it puts Ask Life away.
 struct AskLifeVeil: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
