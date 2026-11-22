@@ -52,9 +52,11 @@ export const Settings = z
     /**
      * The desk (`apps/server/src/desk/`): Life starts and wakes his registered agents. Absent means off: the app starts
      * no desk helper and no desk code runs. `runtimes`: per runtime, the model (and effort) a registered agent runs
-     * with when it names none; none given, the runtime's own default. `defaultRuntime`: a start that names none.
+     * with when it names none; none given, the runtime's own default. `defaultRuntime`: a start that names none; left
+     * out, pi (`BUILT_IN_RUNTIME`: every install has it, so nothing asks for Claude or Codex).
      * `roleRuntimes`: per standing role (`AgentRole`), the runtime its agent starts on when the start names none; a role
-     * left out, and every project's agent, takes `defaultRuntime` (the owner's word of 22 Nov 2026).
+     * left out, and every project's agent, takes `defaultRuntime` (the owner's word of 22 Nov 2026). A runtime named here
+     * that can't run falls to pi (`desk/runtime-fallback.ts`).
      * `handOut`: the desk starts an agent itself on a running matter from the top of his ranking (`desk/hand-out.ts`),
      * only while fewer than `cardsWaiting` agent cards wait for him and fewer than `aDay` started on his day; absent means off.
      * `agentPostRepos`: the GitHub repos (`owner/name`) where an agent of his own Life may comment, open an issue or review

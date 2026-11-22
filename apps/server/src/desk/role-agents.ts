@@ -2,6 +2,7 @@ import type { AgentRole } from "../core/names";
 import { agentInRole, isFull, runtimeOf } from "../host/desk-read";
 import { insertAgent, openAssignment, register } from "./agent-actions";
 import type { Desk } from "./desk-store";
+import { startBlockOf } from "./runtime-fallback";
 
 // The desk's standing roles (the main session, the caretaker, the Personal agent): the one place their agent is found, or
 // registered by the desk itself: the main session and the caretaker from the desk's start (`standUp`, his word of 22 Nov
@@ -22,19 +23,19 @@ export function standingAgentOf(db: Desk["db"], role: AgentRole) {
 /**
  * Registers `role`'s agent on `brief` when none stands, each tick (his word of 22 Nov 2026): with no assignment, so it runs
  * no turn until his words or a complaint come (`roleAssignmentOf` opens one then). None while its last agent's first turn
- * never began (what comes next for it tries again: `roleStartBlockOf`), with no runtime named, or on a full desk.
+ * never began (what comes next for it tries again: `roleStartBlockOf`), or on a full desk.
  */
 export function standUp(desk: Desk, role: AgentRole, brief: string) {
   const { db } = desk;
-  const runtime = runtimeOf({ role });
   db.transaction(() => {
     if (
-      runtime &&
-      !standingAgentOf(db, role) &&
-      !agentInRole(db, role)?.why_not_started &&
-      !isFull(db)
+      !(
+        standingAgentOf(db, role) ||
+        agentInRole(db, role)?.why_not_started ||
+        isFull(db)
+      )
     ) {
-      insertAgent(db, { brief, role, runtime });
+      insertAgent(db, { brief, role, runtime: runtimeOf({ role }) });
     }
   })();
 }
@@ -42,7 +43,7 @@ export function standUp(desk: Desk, role: AgentRole, brief: string) {
 /**
  * Why no agent of `role` may be registered now, asked outside a transaction (it asks the runtime): the last one's first
  * turn never began (`why_not_started`) and nothing new came since it ended (`newestAt`, read only then: the newest of what
- * waits, or his newest word); no runtime the desk drives; or the runtime's own block. None when one stands (nothing to register).
+ * waits, or his newest word); or neither its runtime nor pi runs (`startBlockOf`). None when one stands (nothing to register).
  */
 export async function roleStartBlockOf(
   desk: Desk,
@@ -60,9 +61,7 @@ export async function roleStartBlockOf(
   ) {
     return `the ${role} agent did not start (${last.why_not_started}); what comes next tries again`;
   }
-  const runtime = runtimeOf({ role });
-  const r = runtime ? desk.runtimes[runtime] : undefined;
-  return r ? await r.block() : "no runtime the desk drives";
+  return await startBlockOf(desk, runtimeOf({ role }));
 }
 
 /**
@@ -85,8 +84,7 @@ export function roleAssignmentOf(
     return { why: blocked ?? "the desk keeps 50 agents active at most" };
   }
   const id =
-    a?.id ??
-    register(desk, { brief, role, runtime: runtimeOf({ role }) ?? "" });
+    a?.id ?? register(desk, { brief, role, runtime: runtimeOf({ role }) });
   return {
     assignment:
       ownAssignmentOf(db, id) ??

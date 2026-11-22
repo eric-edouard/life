@@ -251,6 +251,39 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
 
+test("every role's agent on pi gets the same powers: its door, the connector's reads, web_search, subagents and the send guard in Life's extension, no tool cut", async () => {
+  // A runtime's agent carries no role (`Agent`): what differs by role is the door's, the same on every runtime.
+  const place = {
+    claude: mkdtempSync(join(tmpdir(), "life-pi-claude-")),
+    dir: mkdtempSync(join(tmpdir(), "life-pi-roles-")),
+    provider: provider.providerOf({}),
+  };
+  const keys = [
+    PI_EXTENSION_ENV.doorKey,
+    PI_EXTENSION_ENV.doorUrl,
+    PI_EXTENSION_ENV.own,
+    PI_EXTENSION_ENV.reads,
+    PI_EXTENSION_ENV.search,
+  ];
+  for (const title of [
+    "Agent: Ask Life",
+    "Agent: Caretaker",
+    "Agent: Personal",
+    "Agent: a made-up project",
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: one spawn read at a time
+    const s = await piRowOf(true, place).spawn(
+      { ...agent, title },
+      `ref-${title}`,
+      true
+    );
+    expect(keys.filter((k) => !s.env[k])).toEqual([]);
+    expect(s.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
+    expect(s.command).toContain("-e");
+    expect(s.command).not.toContain("--tools");
+  }
+});
+
 test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
   process.env.LIFE_MADE_UP = "!a$b";
   try {
