@@ -1224,25 +1224,5 @@
     ],
     "taps": ["Retry"],
     "drawing": "tap feedback, no drawing"
-  },
-  "NavV3ThreadFold": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "projects",
-      "-fixtureMatter",
-      "matter_lease"
-    ]
-  },
-  "NavV3ThreadPhone": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "projects",
-      "-fixtureMatter",
-      "matter_lease"
-    ]
   }
 }
