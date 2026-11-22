@@ -207,6 +207,10 @@ export function readSettings(path = SETTINGS): Settings {
   return Settings.parse(raw);
 }
 
+/** Whether the file at `path` names an engine itself (a default is not a choice: a set value is never overwritten). */
+export const hasEngineSet = (path = SETTINGS) =>
+  existsSync(path) && "engine" in JSON.parse(readFileSync(path, "utf8"));
+
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
 export function writeSettings(path: string, value: unknown) {
   writeWhole(path, `${JSON.stringify(value, null, 2)}\n`);

@@ -12,6 +12,7 @@ import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
   connector,
+  hasEngineSet,
   readSettings,
   type Settings,
   setSettings,
@@ -368,9 +369,11 @@ const commands: Record<string, () => number | Promise<number>> = {
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
-    if (v.language) {
-      setSettings({ memoryLanguage: v.language });
-    }
+    // A new install thinks on OpenRouter (no Claude needed; the app asks for its key once). A file naming an engine keeps it.
+    setSettings({
+      ...(hasEngineSet() ? {} : { engine: "openrouter" as const }),
+      ...(v.language ? { memoryLanguage: v.language } : {}),
+    });
     console.log("Life: data ready");
     return 0;
   },

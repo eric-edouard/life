@@ -2,7 +2,13 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readSettings, Settings, setSettings, settings } from "./settings";
+import {
+  hasEngineSet,
+  readSettings,
+  Settings,
+  setSettings,
+  settings,
+} from "./settings";
 
 test("a corrupt settings file throws instead of switching engine; a missing one is every default", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
@@ -87,4 +93,13 @@ test("the desk's hand-out is off when absent and strict when set", () => {
   expect(handOut({ aDay: 3 }).success).toBe(false);
   expect(handOut({ aDay: 0, cardsWaiting: 5 }).success).toBe(false);
   expect(handOut({ aDay: 3, cardsWaiting: 5, more: 1 }).success).toBe(false);
+});
+
+test("an engine is set only when the file names one, never by its default", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-settings-"));
+  expect(hasEngineSet(join(dir, "none.json"))).toBe(false);
+  writeFileSync(join(dir, "a.json"), '{"memoryLanguage": "French"}');
+  expect(hasEngineSet(join(dir, "a.json"))).toBe(false);
+  writeFileSync(join(dir, "b.json"), '{"engine": "claude"}');
+  expect(hasEngineSet(join(dir, "b.json"))).toBe(true);
 });
