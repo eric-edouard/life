@@ -585,6 +585,17 @@ const parseLine = (text: string): PiLine | undefined => {
   }
 };
 
+/** The calls line `l` bills beside the turn's own: a spending tool's, and every compaction's summary (pi's own inside the turn, the runtime's at its end). */
+function spentOf(l: PiLine): CallUsage[] {
+  if (l.type === "compaction_end" && l.result?.usage) {
+    return [l.result.usage];
+  }
+  return l.type === "tool_execution_end" &&
+    SPENDING_TOOLS.includes(l.toolName ?? "")
+    ? (l.result?.details?.usage ?? [])
+    : [];
+}
+
 /** What line `l` does to the run `c`: its beginning, its usage and stop, its listener's update; its end at `agent_settled`. */
 export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
   if (l.type === "message_update") {
@@ -595,17 +606,8 @@ export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
     c.stop = l.message.stopReason;
     c.why = l.message.errorMessage;
   }
-  // Every compaction's summary call, pi's own inside the turn and the runtime's at its end.
-  if (l.type === "compaction_end" && l.result?.usage) {
-    addSpent(c.usage, l.result.usage);
-  }
-  if (
-    l.type === "tool_execution_end" &&
-    SPENDING_TOOLS.includes(l.toolName ?? "")
-  ) {
-    for (const m of l.result?.details?.usage ?? []) {
-      addSpent(c.usage, m);
-    }
+  for (const m of spentOf(l)) {
+    addSpent(c.usage, m);
   }
   const heard = updateOf(l);
   if (heard) {
