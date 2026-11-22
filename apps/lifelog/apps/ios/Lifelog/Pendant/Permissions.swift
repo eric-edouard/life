@@ -83,6 +83,8 @@ final class PermissionsStore {
                 }
             case .appleHealth: try await AppleHealthReader.claim()
             }
+        } catch is CancellationError {
+            return .known
         } catch {
             _ = report(error)
             return .refused("iOS didn't ask. Try again, or allow it in iOS Settings.")

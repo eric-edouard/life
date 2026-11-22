@@ -777,6 +777,8 @@ enum RowState: Equatable {
 
     /// A tap: `saving` while `work` runs, then what it ends on, a `done` word for 2 s or a `refused` reason.
     @MainActor static func tap(_ state: Binding<RowState>, _ work: () async -> RowState) async {
+        // A second tap while the first runs is the same tap.
+        guard state.wrappedValue != .saving else { return }
         state.wrappedValue = .saving
         let end = await work()
         state.wrappedValue = end

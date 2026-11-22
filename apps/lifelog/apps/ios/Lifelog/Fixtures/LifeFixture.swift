@@ -40,7 +40,8 @@
         /// works; or the lease's agent runs on pi.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// `-fixtureRefuse <control>`: that control's write fails, or its card is gone (tap feedback's failures):
-        /// `agentStop`, `agentResume`, `icon`, `movesAnswer`, `tellCard`, `projectsRetry` (`projectsRetryOnce`: only its first read fails).
+        /// `agentStop`, `agentResume`, `icon`, `movesAnswer`, `tellCard`, `projectsRetry` (`projectsRetryOnce`: only its first read fails),
+        /// `notifications`, `location`, `appleHealth`, `reconnect`.
         nonisolated static let refuse = value(of: "-fixtureRefuse")
         nonisolated static func refuses(_ control: String) -> Bool { isRequested && refuse == control }
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
@@ -48,10 +49,6 @@
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
-        /// `-fixtureRefuse <control>`: that control's tap fails, to photograph its failure (`notifications`,
-        /// `location`, `appleHealth`, `reconnect`).
-        nonisolated static let refuse = value(of: "-fixtureRefuse")
-        nonisolated static func refuses(_ control: String) -> Bool { isRequested && refuse == control }
         /// `-fixtureDictation <state>`: every dictation field in that state (`DictationFixture`).
         nonisolated static let dictation = value(of: "-fixtureDictation")
         /// `-fixtureReads <folder>`: where the design data is read, by default this checkout's

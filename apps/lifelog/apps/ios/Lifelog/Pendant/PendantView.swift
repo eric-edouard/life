@@ -132,6 +132,7 @@ struct PendantScreen: View {
                     Text(condition.todo).font(.bodyStrong)
                     if let recovery = condition.recovery {
                         Button(recovery.title) {
+                            guard recovered != .saving else { return }
                             recovering = recovery
                             Task { await RowState.tap($recovered) { await actions.recover(recovery) } }
                         }
@@ -148,6 +149,8 @@ struct PendantScreen: View {
             if recovering != nil { TapLine(state: recovered == .saving ? .known : recovered) }
         }
         .motion(Motion.standard, value: reading.conditions.map(\.means))
+        // "Still not fixed" holds only while the conditions it was about do.
+        .onChange(of: reading.conditions.map(\.means)) { if case .refused = recovered { recovered = .known } }
     }
 
     /// A state's own second line, when the conditions do not say it.
