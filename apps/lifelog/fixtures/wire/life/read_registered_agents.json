@@ -3,6 +3,10 @@
     {
       "amber": [],
       "effort": "medium",
+      "health": {
+        "verdict": "fine",
+        "why": []
+      },
       "id": "agt_000000000001",
       "lastTurn": {
         "cause": "start",
@@ -46,6 +50,12 @@
     {
       "amber": [],
       "effort": "medium",
+      "health": {
+        "verdict": "attention",
+        "why": [
+          "Open in your Claude app since 09:02: its wakes wait until you close it there."
+        ]
+      },
       "id": "agt_000000000002",
       "lastTurn": {
         "cause": "start",
@@ -148,6 +158,10 @@
     }
   ],
   "desk": "ok",
+  "health": {
+    "verdict": "broken",
+    "why": ["No caretaker: your complaints have no one to fix them."]
+  },
   "helper": "running",
   "refused": []
 }
