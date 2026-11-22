@@ -7,10 +7,10 @@ import { log } from "../../core/log";
 import { errorOf } from "../../core/log-line";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
-import { cliEnv, HOME, isOwnLife } from "../../core/platform";
+import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
 import { exec, firstLine, readLoginEnv } from "../../core/proc";
 import { settings } from "../../core/settings";
-import { readClaudeSessionRecords } from "../../host/claude-session-records";
+import { readOpenSessionRecords } from "../../host/open-session-records";
 import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
@@ -42,6 +42,8 @@ export interface Row {
   block: () => Promise<string | undefined>;
   /** The ids of the session's model and effort options (`session/set_config_option`). */
   config: { effort: string; model: string };
+  /** `Runtime.continueOnMac`. */
+  continueOnMac?: (a: Agent, ref: string) => Promise<void>;
   /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env (`DOOR_KEY_ENV`) and sends that variable's name, which it expands. */
   header: (key: string) => string;
   /** A link that opens session `ref` in his app. */
@@ -85,12 +87,12 @@ export async function readCliBlock(program: string) {
 
 /**
  * Whether a process runs Claude on session `ref`: Claude's own record names a live one (his app, a terminal or the
- * desk's own run, between his turns too, however it was opened; `readClaudeSessionRecords`), or a Claude command line
+ * desk's own run, between his turns too, however it was opened; `readOpenSessionRecords`), or a Claude command line
  * names it after a resume or session flag. A child naming the id only in a path (a dev server under its scratchpad) is neither.
  * ponytail: a record left by a crash whose pid is reused holds the session until that process ends (a wait, never a loss).
  */
 export async function isSessionOpen(ref: string) {
-  if (readClaudeSessionRecords().has(ref)) {
+  if (readOpenSessionRecords().has(ref)) {
     return true;
   }
   const { code, stderr } = await exec([
@@ -235,7 +237,24 @@ const transcriptOf = (ref: string) => {
 };
 
 /** Keys Life holds behind his yes (his word of 22 Nov 2026): an agent reaches their service only through a card he answered. */
-const GATED_KEYS = [APIFY_KEY_ENV];
+export const GATED_KEYS = [APIFY_KEY_ENV];
+
+/**
+ * Opens his Claude app (`desk.claudeApp`) in front on session `ref` (`continue_on_mac`): its own import of a CLI session
+ * (`claude://resume`). The app then keeps a process on it, which holds the desk's wakes (`isSessionOpen`); the only way
+ * a session reaches his app (never on a turn: the 22 Nov incident).
+ */
+async function continueInClaudeApp(_: Agent, ref: string) {
+  const r = await exec([
+    "open",
+    "-a",
+    settings().desk?.claudeApp ?? "/Applications/Claude.app",
+    `claude://resume?session=${ref}`,
+  ]);
+  if (r.code !== 0) {
+    throw new Error("No answer from your Mac");
+  }
+}
 
 /**
  * His login environment for an agent of his own Life, less `engine`'s keys (passed through, they would move the agent
@@ -256,6 +275,8 @@ export const loginEnvLess = async (engine: string[]) =>
 const claudeRow = (isOwn: boolean): Row => ({
   block: () => readCliBlock("claude"),
   config: { effort: "effort", model: "model" },
+  // ponytail: his Claude app is the Mac's; a Windows link waits for a Windows install.
+  continueOnMac: isOwn && !WINDOWS ? continueInClaudeApp : undefined,
   header: () => `Bearer \${${DOOR_KEY_ENV}}`,
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
   // Every session of an agent, the fresh ones too, carries its title as its name in his app's list (`--name`).
