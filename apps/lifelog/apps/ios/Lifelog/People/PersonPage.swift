@@ -16,7 +16,7 @@ struct PersonPage: View {
     var body: some View {
         let state = life.person[ref] ?? ReadState()
         ReadScreen(
-            shown: state.shown(), retry: { await life.refreshPerson(ref) },
+            shown: state.shown(), stamp: state.stamp, retry: { await life.refreshPerson(ref) },
             loading: { PersonPlaceholder(row: life.people.value?.people.first { $0.id == ref }) },
             empty: { EmptyView() },
             content: { now in

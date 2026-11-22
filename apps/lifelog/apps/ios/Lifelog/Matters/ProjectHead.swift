@@ -20,7 +20,7 @@ struct ProjectHead: View {
             EmptyView()
         } else {
             ReadScreen(
-                shown: shown, retry: { await life.refreshProjectHead(id) }, loading: { EmptyView() },
+                shown: shown, marks: .none, retry: { await life.refreshProjectHead(id) }, loading: { EmptyView() },
                 empty: { EmptyView() }, content: { header($0.project) })
         }
     }

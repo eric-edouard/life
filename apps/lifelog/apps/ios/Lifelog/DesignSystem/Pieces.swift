@@ -181,7 +181,7 @@ struct AddRow: View {
 struct Toast: View {
     let words: String
     var glyph: StateGlyph? = .ok
-    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`), or "Show all" with an X.
+    /// The capsule's one action: Undo, or Retry or Show on the sync mark (`SyncNote`), or "Show all" with an X.
     var action = "Undo"
     /// The action drawn as this symbol instead of its word (which VoiceOver says).
     var symbol: String?

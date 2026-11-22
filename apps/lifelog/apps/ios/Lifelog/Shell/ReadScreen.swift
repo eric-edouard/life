@@ -5,6 +5,10 @@ import SwiftUI
 /// content and its empty and loading looks; the rest is here, so no screen draws a blank.
 struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: View {
     let shown: ReadState<Value>.Shown
+    /// When the read was asked and whether it runs, for the mark's Updating and out-of-date forms; nil: neither shows.
+    var stamp: ReadStamp?
+    /// Which mark this read draws: a part inside a page that marks itself draws none; home also tells the agents' trouble.
+    var marks = Marks.reads
     let retry: () async -> Void
     /// What "Pair with Life" does: opens Settings, unless the screen is inside it (its Life page then).
     var pair: (() -> Void)?
@@ -35,18 +39,19 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         }
     }
 
-    /// Out of reach, what shows is what was last read and nothing can be done on it: said in the toast over it.
-    private func withOutOfReach(_ shown: some View) -> some View {
-        shown.staleToast(life.whyOutOfReach.map { (nil, $0) }, retry: retry)
+    /// How what shows stands against the Mac, in the toast over it (`SyncMark`).
+    private func marked(_ shown: some View) -> some View {
+        shown.syncMark(
+            marks == .none ? nil : life.syncMark(self.shown, stamp: stamp, tellsAgents: marks == .readsAndAgents),
+            retry: retry)
     }
 
     @ViewBuilder private var face: some View {
         switch shown {
         case .loading: loading
-        case .loaded(let value): withOutOfReach(content(value))
-        case .empty: withOutOfReach(empty)
-        case .stale(let value, let since, let why):
-            content(value).staleToast((since, why.words), retry: retry)
+        case .loaded(let value): marked(content(value))
+        case .empty: marked(empty)
+        case .stale(let value, _, _): marked(content(value))
         case .unreachable:
             Notice(
                 title: "Your Mac is out of reach.",
@@ -63,15 +68,8 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
     }
 }
 
-extension ReadState.Why {
-    /// Why the value on screen is old, in a few words.
-    var words: String {
-        switch self {
-        case .unreachable: "Your Mac is out of reach."
-        case .failed(let reason): reason
-        }
-    }
-}
+/// Which mark a `ReadScreen` draws over what it shows.
+enum Marks { case none, reads, readsAndAgents }
 
 /// A calm full-screen message: what is so, in a few words, and the one thing to do about it.
 struct Notice: View {
@@ -107,38 +105,95 @@ private struct OffWhileOutOfReach: ViewModifier {
     func body(content: Content) -> some View { content.disabled(life.isOutOfReach) }
 }
 
-/// What was read last, when the latest try failed or Life is out of reach (`since` unknown): the designed `Toast` at
-/// the top of the pane, over the old value, which stays whole under it; Retry in its capsule, the spinner while it runs.
-struct StaleNote: View {
-    let since: Date?
-    let because: String
+/// The sync mark (the design of 22 Nov): the designed `Toast` at the top of the pane, over what shows, which stays whole
+/// under it; Retry in its capsule while a read can help, Show on the agents' trouble. Updating waits a second, so the
+/// minute's quiet read never flickers.
+struct SyncNote: View {
+    let mark: SyncMark
     let retry: () async -> Void
+    @Environment(AppRouter.self) private var router
     @State private var isRetrying = false
 
     var body: some View {
-        Toast(
-            words: (since.map { "Read at \($0.formatted(.dateTime.hour().minute())). " } ?? "") + because,
-            glyph: isRetrying ? .busy : .flag, action: "Retry"
-        ) {
-            guard !isRetrying else { return }
-            Task {
-                isRetrying = true
-                await retry()
-                isRetrying = false
-            }
+        Toast(words: words, glyph: glyph, action: action ?? "", undo: action.map { _ in run })
+            .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
+    }
+
+    private var glyph: StateGlyph {
+        switch mark {
+        case .reconnecting, .updating: .busy
+        case .old: .off
+        default: isRetrying ? .busy : .flag
         }
-        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
+    }
+
+    private var words: String {
+        switch mark {
+        case .offline(let since): "No internet" + Self.asOf(since)
+        case .macAway(let since): MacSilence.noAnswer + Self.asOf(since)
+        case .reconnecting: "Reconnecting…"
+        case .failed(let reason, let since): reason + Self.asOf(since)
+        case .old(let since): "As of " + Self.time(since)
+        case .updating: "Updating…"
+        case .agents(.off): "Agents are off"
+        case .agents(.notRunning): "Agents aren't running on your Mac"
+        case .agents(.unreadable): "Agents can't be read"
+        case .agents(.stalled(let count)): count == 1 ? "1 agent stalled" : "\(count) agents stalled"
+        }
+    }
+
+    private var action: String? {
+        switch mark {
+        case .reconnecting, .updating: nil
+        case .agents: "Show"
+        default: "Retry"
+        }
+    }
+
+    private func run() {
+        if case .agents = mark { return router.show(.agents) }
+        guard !isRetrying else { return }
+        Task {
+            isRetrying = true
+            await retry()
+            isRetrying = false
+        }
+    }
+
+    /// " · as of 14:32", the time kept on one line with its words.
+    private static func asOf(_ since: Date?) -> String { since.map { " · as\u{00A0}of\u{00A0}" + time($0) } ?? "" }
+
+    /// The time today; a day before, its date too.
+    static func time(_ at: Date) -> String {
+        Calendar.current.isDateInToday(at)
+            ? at.formatted(.dateTime.hour().minute()) : at.formatted(.dateTime.day().month().hour().minute())
     }
 }
 
 extension View {
-    /// `note` (when it was read, why it is old) as the stale toast over the top of this pane; nothing when nil.
-    func staleToast(_ note: (since: Date?, because: String)?, retry: @escaping () async -> Void) -> some View {
-        overlay(alignment: .top) {
+    /// `mark` as the toast over the top of this pane, Updating only after a second; nothing when nil.
+    func syncMark(_ mark: SyncMark?, retry: @escaping () async -> Void) -> some View {
+        modifier(SyncMarkOver(mark: mark, retry: retry))
+    }
+}
+
+private struct SyncMarkOver: ViewModifier {
+    let mark: SyncMark?
+    let retry: () async -> Void
+    @State private var shown: SyncMark?
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
             ZStack {
-                if let note { StaleNote(since: note.since, because: note.because, retry: retry).appears() }
+                if let shown { SyncNote(mark: shown, retry: retry).appears() }
             }
-            .motion(Motion.standard, value: note?.because)
+            .motion(Motion.standard, value: shown)
+        }
+        .task(id: mark) {
+            if mark == .updating, shown == nil {
+                guard (try? await Task.sleep(for: .seconds(1))) != nil else { return }
+            }
+            shown = mark
         }
     }
 }
