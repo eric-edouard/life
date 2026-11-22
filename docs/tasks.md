@@ -204,6 +204,17 @@ the watcher, every 30 minutes, brings that calendar in line, through the client 
   `added` (the event's id, or the error); a failed write is not retried. It is never touched again by the sync or
   the Past calendar, so one he deletes is never written again. An agent is never "sure" in Life's sense (that is Life's
   own reading's confidence), so its event is always asked; what Life reads as agreed reaches his calendar as an appointment, unasked.
+
+### Apify runs
+
+While he gave Life's Mac app an Apify token (Settings, Skills), every agent's door has `find_apify_actors` (the store,
+priced at his plan's tier) and `read_apify_run`, and its brief says to look for an actor when the web tools fall
+short, then ask (his word of 22 Nov 2026). A card with one `apify` need (actor, input, what it gets, the agent's
+estimate, a dollar cap of at most $20) and one option marked `runs` ("Run it"): his pick of it alone, in his app,
+starts that run once (`runApifyByHisWord`, `host/card-apify-run.ts`), only for a pay-per-event actor, which Apify
+holds under the cap; the `ran` line is the proof and `decision.answered` carries it. Apify has no estimate endpoint:
+the estimate is the actor's event prices times what the agent expects. The night records what Apify billed each run
+(`spendOfApifyRun`), not reported while a run can't be read or still runs.
 - An event that ended is never touched.
 
 ## Marks

@@ -204,7 +204,7 @@ someone else is capped at 0.6 confidence.
 | Transcription | lifelog's: ElevenLabs Scribe by default, paid by the hour of speech; or its speech service on the Mac (Nemotron 3 for who speaks when, VoxLingua107 for the language, Parakeet Ultra for the words), with Scribe only for Thai ([lifelog's processing](../apps/lifelog/docs/processing.md)). |
 | Voices | The MECT-B2 model, on the Mac, learning only from the names the owner gives. |
 | Photos | Qwen3.5-9B under llama.cpp, on the Mac, describes each photo when `describePhotos` is set (`models/describer.ts`). |
-| Arrivals | Apple's on-device model (Foundation Models, never Private Cloud Compute), through the Mac app's helper `life-foundation-model` (`models/foundation-model.ts`), asks the arrival trigger on today's chat and mail and closed voice conversations he spoke in; its yes goes to his engine (`memory/arrival-reader.ts`). |
+| Arrivals | Apple's on-device model (Foundation Models, never Private Cloud Compute), through the Mac app's helper `life-foundation-model` (`models/foundation-model.ts`), sieves today's arriving mail (the arrival trigger): what it calls a person's goes to his engine, a conversation (chats, closed voice conversations he spoke in) goes to his engine straight (`memory/arrival-reader.ts`). |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; lifelog's iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
@@ -216,7 +216,7 @@ someone else is capped at 0.6 confidence.
 The server's code (`apps/server/src`) is in layers, and dependencies point one way:
 
 ```
-core  ←  records  ←  models, sources, todo-list, payments, web-search  ←  memory  ←  personal  ←  host  ←  desk
+core  ←  records  ←  models, sources, todo-list, payments, web-search, apify  ←  memory  ←  personal  ←  host  ←  desk
 ```
 
 | Folder | What it holds |
@@ -227,6 +227,7 @@ core  ←  records  ←  models, sources, todo-list, payments, web-search  ←  
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `todo-list/` | The to-do list contract (`TodoListBackend`), its two backends |
 | `payments/` | The payments contract (`PaymentsBackend`) and its one backend, his `money` CLI |
+| `apify/` | Apify, his agents' paid scrapers: the store priced at his tier, a run started under a card's cap on his yes, a run read back (`backend.ts`) |
 | `web-search/` | The web search contract (`WebSearchProvider`), one file per provider, and the chain over them (`webSearch`, `backend.ts`); only the desk uses it |
 | `memory/` | The pipeline (units, episodes, observations, pages), the ledger and its readers, people and places, search, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
 | `personal/` | The add-ons' code (`docs/glossary.md`, "add-on"): personas, histories and the person read's parts they supply (`person-parts.ts`, with `readPerson`, the person read as the connector and the command give it). Imports `memory/`; `memory/` never imports it, so the core runs with every add-on off |
