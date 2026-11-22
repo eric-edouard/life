@@ -28,7 +28,6 @@ import {
   OBSERVATIONS,
   type ObservationStatusInputs,
   observationStatusOf,
-  outdatedBy,
   readEpisodes,
   readFactCheckAnswers,
   readIndex,
@@ -39,13 +38,13 @@ import {
   readUnit,
   readUnits,
   readUnitsFor,
-  retiredBy,
   shownOf,
   standingReadings,
   UNITS,
 } from "./memory-files";
 import { knownOn } from "./page-format";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
+import { outdatedBy, retiredBy } from "./retirements";
 
 const obs = (id: string, unit: string, unitHash: string, run = "r1") =>
   ({ id, madeBy: { run, unitHash }, unit }) as Observation;

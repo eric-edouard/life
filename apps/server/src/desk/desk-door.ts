@@ -341,7 +341,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "correct_memory",
-    "The main session only, on his words (`said`, his own words of this ask, verbatim): one correction to Life's memory, as the connector's `correct_memory` takes it for `memory` (`correction`: a fact wrong, kind `wrong`, or no longer true or done, kind `outdated`, with its obs_ ids; on a whole matter, `matter` its id: kind `outdated` (he says it is done: its open steps close, its to-do items ticked, his words its note; with `outcome` `dropped`, he drops it: its to-do items removed, not ticked), `matter-direction` (`goal`, `nextStep`), `matter-important`, `matter-project`, `matter-icon`). Returns the lines written.",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): one correction to Life's memory, as the connector's `correct_memory` takes it for `memory` (`correction`: a fact wrong, kind `wrong`, or no longer true or done, kind `outdated`, with its obs_ ids; on a whole matter, `matter` its id: kind `outdated` (he says it is done: its open steps close, its to-do items ticked, his words its note; with `outcome` `dropped`, he drops it: its to-do items removed, not ticked), `matter-reopened` (he reopens a closed matter: its ticked to-do items unticked, its facts open again, his words its note), `matter-direction` (`goal`, `nextStep`), `matter-important`, `matter-project`, `matter-icon`). Returns the lines written.",
     z.object({
       correction: z.record(z.string(), z.unknown()),
       said: z.string().min(1).max(8000),
@@ -351,7 +351,8 @@ function doorServer(desk: Desk, id: string) {
       const { matter } = correction;
       const done = isHisOnly(correction)
         ? await correctMatter(
-            correction.kind === "outdated"
+            correction.kind === "outdated" ||
+              correction.kind === "matter-reopened"
               ? { ...correction, note: words }
               : correction
           )

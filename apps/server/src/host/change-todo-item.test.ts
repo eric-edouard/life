@@ -11,7 +11,7 @@ import {
   autoAddedFrom,
   autoAddRefusal,
   changeAskedTodoItem,
-  closeTodoItems,
+  changeMatterTodoItems,
   duplicateOf,
   entryId,
   requested,
@@ -247,7 +247,7 @@ test("a matter's to-do items are ticked only when they are all this install's li
   );
   const written = readFileSync(LEDGER, "utf8");
   await expect(
-    closeTodoItems(["entry_00000000feed"], "It is done.", "done")
+    changeMatterTodoItems(["entry_00000000feed"], "It is done.", "done")
   ).rejects.toThrow("isn't an item of");
   expect(readFileSync(LEDGER, "utf8")).toBe(written);
   writeWhole(LEDGER, before);
@@ -272,7 +272,7 @@ test("a tick the list app refused is no tick: the ticks throw with its error, so
   ).mockResolvedValue(null);
   try {
     await expect(
-      closeTodoItems(["entry_00000000beef"], "It is done.", "done")
+      changeMatterTodoItems(["entry_00000000beef"], "It is done.", "done")
     ).rejects.toThrow("Not done: Call the plumber: remctl: no such reminder");
   } finally {
     refused.mockRestore();

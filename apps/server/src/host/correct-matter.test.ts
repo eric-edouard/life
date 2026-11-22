@@ -52,7 +52,7 @@ let tick: ReturnType<typeof spyOn>;
 beforeEach(() => {
   rmSync(CORRECTIONS, { force: true });
   book = spyOn(matters, "readMatterBook").mockResolvedValue([matter] as never);
-  tick = spyOn(todo, "closeTodoItems").mockResolvedValue([]);
+  tick = spyOn(todo, "changeMatterTodoItems").mockResolvedValue([]);
 });
 afterEach(() => {
   book.mockRestore();
@@ -422,4 +422,63 @@ test("his next step's context is kept with it; one without keeps it while the ki
     })
   ).rejects.toThrow("20000");
   expect(readCorrections()).toHaveLength(3);
+});
+
+// His yes of 22 Nov 2026: Reopen on a closed matter, by its id. Refused while open; else its ticked to-do items are
+// unticked and one `matter-reopened` pins every step; one that would still read closed is refused, nothing written.
+test("a closed matter reopened by its id: its ticked to-do items unticked, then one matter-reopened on all its steps", async () => {
+  const reopen = { kind: "matter-reopened", matter: "matter_aaaaaaaaaaaa" };
+  await expect(correct({ correction: reopen, kind: "memory" })).rejects.toThrow(
+    "is open"
+  );
+  const closed = {
+    ...matter,
+    open: false,
+    steps: [
+      step("obs_000000000001", "promise", {
+        at: "2026-11-11T10:00:00.000Z",
+        by: "record",
+        why: "done",
+      }),
+      step("entry_000000000001", "todo_item", {
+        at: "2026-11-11T10:00:00.000Z",
+        by: "todo_item",
+      }),
+      step("entry_000000000002", "todo_item", {
+        at: "2026-11-11T10:00:00.000Z",
+        by: "todo_item",
+        dropped: true,
+      }),
+    ],
+  };
+  book.mockResolvedValue([closed]);
+  const reported: Record<string, unknown>[] = [];
+  await correct(
+    { correction: { ...reopen, note: "Not done yet." }, kind: "memory" },
+    undefined,
+    { report: (s) => reported.push(s) }
+  );
+  expect(tick).toHaveBeenCalledWith(
+    ["entry_000000000001"],
+    "Not done yet.",
+    "undone",
+    expect.any(Function)
+  );
+  expect(reported[0]).toMatchObject({
+    plan: ["todo_items_reopened", "recorded"],
+  });
+  expect(readCorrections()).toMatchObject([
+    {
+      kind: "matter-reopened",
+      matter: "matter_aaaaaaaaaaaa",
+      note: "Not done yet.",
+      steps: ["obs_000000000001", "entry_000000000001", "entry_000000000002"],
+    },
+  ]);
+  // Nothing ticked to untick, and the book with the line still reads it closed: refused, nothing more written.
+  book.mockResolvedValue([{ ...closed, steps: closed.steps.slice(0, 1) }]);
+  await expect(correct({ correction: reopen, kind: "memory" })).rejects.toThrow(
+    "nothing of matter_aaaaaaaaaaaa can reopen"
+  );
+  expect(readCorrections()).toHaveLength(1);
 });

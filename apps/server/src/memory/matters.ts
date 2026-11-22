@@ -53,6 +53,7 @@ import {
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
 import { TRUTH } from "./read-truth";
+import { reopenedAtOf } from "./retirements";
 import { begin, readsOf } from "./run";
 import { clip, isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
@@ -179,6 +180,8 @@ interface HisPins {
   /** His Not now on your move cards (`your-move-not-now`), each with its `until`. */
   notNow: (ReturnType<typeof pinOf> & { until: string })[];
   projects: ProjectPin[];
+  /** His Reopens (`matter-reopened`), for `reopenedAtOf`. */
+  reopened: Correction[];
 }
 
 /** A correction's pin: when, its steps and the matter's id when it was written. */
@@ -191,7 +194,8 @@ const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
 /**
  * What is pinned to matters' steps (`pinnedOf` finds each one's matter): the directions (`directionsOf`: Life's drafts,
  * then his `matter-direction`), his important marks (`matter-important`, on or off), his icons (`matter-icon`, a key
- * or null), his projects (`matter-project`) and his Not now on your move cards (`your-move-not-now`), each with when it was written. Both files are folded incrementally (`readAppended`): a read parses only
+ * or null), his projects (`matter-project`) and his Not now on your move cards (`your-move-not-now`), each with when it was written;
+ * a Life draft reading a matter over is dropped once he reopened one of its steps after it (`matter-reopened`). Both files are folded incrementally (`readAppended`): a read parses only
  * the lines appended since the last.
  */
 export function readMatterPins() {
@@ -214,6 +218,7 @@ export function readMatterPins() {
       important: [...(last?.important ?? [])],
       notNow: [...(last?.notNow ?? [])],
       projects: [...(last?.projects ?? [])],
+      reopened: [...(last?.reopened ?? [])],
     }),
     (pins, c) => {
       if (c.kind === "matter-direction") {
@@ -231,10 +236,21 @@ export function readMatterPins() {
         pins.projects.push({ ...pinOf(c), project: c.project });
       } else if (c.kind === "your-move-not-now") {
         pins.notNow.push({ ...pinOf(c), until: c.until });
+      } else if (c.kind === "matter-reopened") {
+        pins.reopened.push(c);
       }
     }
   );
-  return { ...his, directions: [...drafts, ...his.directions] };
+  // A Life draft reading a matter over before his Reopen of one of its steps is lifted: the latest of his words wins.
+  const reopened = reopenedAtOf(his.reopened);
+  const standing = drafts.filter(
+    (d) =>
+      !(
+        d.endingRecords &&
+        d.steps.some((ref) => (reopened.get(ref) ?? "") > d.at)
+      )
+  );
+  return { ...his, directions: [...standing, ...his.directions] };
 }
 
 /**
@@ -259,11 +275,18 @@ export async function readMatterRecords(people: People) {
     ...episodes.map((e): [string, string] => [e.id, episodeAt(e)]),
     ...observations.map((o): [string, string] => [o.id, o.at]),
   ]);
+  const reopenedAt = reopenedAtOf(people.corrections);
+  // A link whose evidence came before his Reopen of its step ends nothing: the latest of his words wins.
   const linkEndings = new Map(
-    [...endingsRead((ref) => current.has(ref)).linkEndings].map(([ref, l]) => [
-      ref,
-      { ...l, at: atOf.get(l.later) ?? l.at },
-    ])
+    [...endingsRead((ref) => current.has(ref)).linkEndings].flatMap(
+      ([ref, l]) => {
+        const at = atOf.get(l.later) ?? l.at;
+        const reopened = reopenedAt.get(ref);
+        return reopened && Date.parse(reopened) >= Date.parse(at)
+          ? []
+          : [[ref, { ...l, at }] as const];
+      }
+    )
   );
   const retired = new Map(
     [...statusInputs.retired].map(([id, r]) => [
