@@ -60,6 +60,11 @@ public enum DictatedText {
         return (String(before) + lead, trail + after)
     }
 
+    /// What a cancelled run hands back for Undo: his text and the live words heard, one space apart; empty for none.
+    public static func said(typed: String, heard: [String]) -> String {
+        ([typed] + heard).filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
     /// `words` at the caret (`parts`): the text and where the caret goes, after the words; nil for none.
     public static func inserting(
         _ words: String, into text: String, at caret: (text: String, selection: Range<String.Index>?)?

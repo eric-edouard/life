@@ -109,7 +109,7 @@ final class AppRouter {
     /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
     /// (`reportsSideColumn`): Ask Life stands in that column's foot, else at the corner.
     var isBarsInColumn = false
-    /// Ask Life's banner open: the round button's glass morphed into a wide banner along the bottom.
+    /// Ask Life's banner open: the round button's glass morphed into the dictation card above the foot bar.
     var isAskOpen = false
     /// Ask Life made small: its strip shows over the rail while there is something to keep in sight.
     var isAskLifeSmall = false
