@@ -25,9 +25,7 @@ struct SameAsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Field(
-                prompt: takesNewName ? "Search, or type a new name" : "Search or type a name", text: $name,
-                surface: .sheet, icon: "magnifyingglass")
+            Field(prompt: "Search or type a name", text: $name, surface: .sheet, icon: "magnifyingglass")
             VStack(spacing: 0) {
                 if !newName.isEmpty { newPerson }
                 ForEach(shown, id: \.ref) { person in
