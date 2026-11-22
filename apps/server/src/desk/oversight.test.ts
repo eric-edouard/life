@@ -275,7 +275,7 @@ test("what his agents are doing: each with its matter, status, wait, link and am
   const matters = await import("../memory/matters");
   const bakery = [
     {
-      areas: [],
+      ...NO_ONE,
       goal: {
         at: "2026-11-18T02:00:00.000Z",
         by: "owner",
@@ -289,8 +289,6 @@ test("what his agents are doing: each with its matter, status, wait, link and am
         kind: "do",
         text: "Ask the bakery for the pickup day",
       },
-      owedTo: [],
-      projects: [],
       status: "moving",
       steps: [
         {
@@ -301,8 +299,6 @@ test("what his agents are doing: each with its matter, status, wait, link and am
           text: "Order the cake",
         },
       ],
-      waitingOn: [],
-      with: [],
     },
   ] as never;
   const book = spyOn(matters, "readMatterBook").mockResolvedValue(bakery);

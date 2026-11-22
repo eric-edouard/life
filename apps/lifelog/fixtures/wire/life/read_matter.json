@@ -22,6 +22,7 @@
     "waitsOn": "the shop",
     "context": "The shop said Friday ([the call](life:obs_000000000005))."
   },
+  "openedAt": "2026-10-02T10:00:00.000Z",
   "people": {
     "owedTo": [
       {
