@@ -1,9 +1,4 @@
 import { expect, spyOn, test } from "bun:test";
-import * as appointments from "../../memory/appointments";
-import * as refs from "../../memory/find-refs";
-import * as matters from "../../memory/matters";
-import * as payments from "../../memory/payments";
-import * as who from "../../memory/who";
 import { madeUpPartyOf } from "./mcp-phone-reads-fixture";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -73,6 +68,11 @@ const events: Record<string, object> = {
 };
 
 test("a matter's thread: the lines its facts cite, its moments with their payments, its events and to-do items, in time order", async () => {
+  const appointments = await import("../../memory/appointments");
+  const refs = await import("../../memory/find-refs");
+  const matters = await import("../../memory/matters");
+  const payments = await import("../../memory/payments");
+  const who = await import("../../memory/who");
   const spies = [
     spyOn(matters, "readMatterBookAndRecords").mockResolvedValue({
       book: [matter],
