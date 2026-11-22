@@ -20,6 +20,12 @@ import SwiftUI
         await life.answerRows([request], as: words)
     }
 
+    /// Sent after the hold: his swipe or Drop waits behind "<words> · Undo", the row gone meanwhile.
+    private func held(_ request: AnswerRequest, _ words: String) async {
+        guard !life.saysOutOfReach() else { return }
+        life.hold(request.ref, words: words) { await send(request, words) }
+    }
+
     /// Right: the ask's first answer, when one tap gives it.
     var main: RowSwipe.Button? {
         guard let option = check.optionsInOrder.first(where: { $0.id != "drop" }),
@@ -29,14 +35,14 @@ import SwiftUI
         return .init(
             label: option.label, symbol: "checkmark", working: option.outgoing == true ? "Sending…" : "Saving…"
         ) {
-            await send(request, option.label)
+            await held(request, option.label)
         }
     }
 
     /// Left: Drop, where the ask offers it.
     var drop: RowSwipe.Button? {
         guard let request = request("drop"), check.beingFixed == nil else { return nil }
-        return .init(label: "Drop", symbol: "trash", working: "Dropping…") { await send(request, "Dropped") }
+        return .init(label: "Drop", symbol: "trash", working: "Dropping…") { await held(request, "Dropped") }
     }
 
     /// Long press: the question, every answer of the full ask, then Mark important, Done, Drop.
@@ -61,7 +67,7 @@ import SwiftUI
             Button("Done", systemImage: "checkmark") { Task { await life.markDone(id) } }
         }
         if let request = request("drop") {
-            Button("Drop", systemImage: "trash", role: .destructive) { Task { await send(request, "Dropped") } }
+            Button("Drop", systemImage: "trash", role: .destructive) { Task { await held(request, "Dropped") } }
         }
     }
 
@@ -70,6 +76,14 @@ import SwiftUI
         let isMarked = life.isImportant(matter.id, as: matter.important)
         Button(isMarked ? "Not important" : "Mark important", systemImage: isMarked ? "flag.slash" : "flag") {
             Task { await life.setImportant(matter.id, !isMarked) }
+        }
+    }
+
+    /// A matter's Drop on a swipe or in its menu: held behind Undo, then closed as dropped.
+    static func drop(_ matter: MatterRow, _ life: LifeStore) -> RowSwipe.Button {
+        .init(label: "Drop", symbol: "trash", working: "Dropping…") {
+            guard !life.saysOutOfReach() else { return }
+            life.hold(matter.id, words: "Dropped") { await life.dropMatter(matter.id) }
         }
     }
 }

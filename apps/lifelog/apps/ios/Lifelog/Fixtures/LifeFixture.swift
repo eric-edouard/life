@@ -634,7 +634,8 @@
             return "Done: memory."
         }
 
-        func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws
+        func markDone(matter: String, note: String, dropped: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+            async throws
             -> String
         {
             try await Task.sleep(for: .milliseconds(500))

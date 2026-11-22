@@ -121,7 +121,8 @@ public protocol LifeAPI: Sendable {
     func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void) async throws
         -> String
     /// His word that a matter is done, by its id: Life closes what of it is open.
-    func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String
+    func markDone(matter: String, note: String, dropped: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
     /// His one mark on a matter, on or off, by its id: Life pins it to the matter's steps.
     func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)
         async throws -> String
@@ -244,15 +245,18 @@ public struct MCPLifeAPI: LifeAPI {
         try await correct(MatterIconRequest(matter: matter, icon: icon), onProgress)
     }
 
-    public func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws
-        -> String
+    public func markDone(matter: String, note: String, dropped: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
     {
         struct Outdated: Encodable {
             let kind = "outdated"
             let matter: String
             let note: String
+            /// "dropped": it won't be done (its to-do items removed, not ticked).
+            let outcome: String?
         }
-        return try await correct(Outdated(matter: matter, note: note), onProgress)
+        return try await correct(
+            Outdated(matter: matter, note: note, outcome: dropped ? "dropped" : nil), onProgress)
     }
 
     public func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)

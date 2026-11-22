@@ -65,6 +65,8 @@ final class LifeStore {
             case status(project: String, name: String, ProjectStatus, was: ProjectStatus)
             /// The picture source to put back (`none`: no picture), and the one it replaces.
             case picture(ref: String, name: String, Party.Kind, String, was: String)
+            /// A held tap's row, put back: nothing was sent.
+            case held(String)
         }
         let id = UUID()
         let words: String
@@ -703,11 +705,41 @@ final class LifeStore {
     }
 
     /// His word that the matter is done: Life decides what of it is open and closes it.
-    func markDone(_ id: String) async {
+    func markDone(_ id: String) async { await close(id, dropped: false) }
+
+    /// His word that the matter won't be done: closed as dropped, its to-do items removed rather than ticked.
+    func dropMatter(_ id: String) async { await close(id, dropped: true) }
+
+    private func close(_ id: String, dropped: Bool) async {
         let api = api
         await edit(id, .done) {
-            try await api.markDone(matter: id, note: "Marked done in the Life app.", onProgress: $0)
+            try await api.markDone(
+                matter: id, note: dropped ? "Dropped in the Life app." : "Marked done in the Life app.",
+                dropped: dropped,
+                onProgress: $0)
         }
+    }
+
+    // MARK: Held taps
+
+    /// Rows whose Drop or answer waits behind its Undo toast: off the list meanwhile.
+    private(set) var held: Set<String> = []
+    private var holds: [String: Task<Void, Never>] = [:]
+    static let holdSeconds = 5
+
+    /// His tap on `id` (an ask's ref or a matter's id), run after `holdSeconds` unless Undo: nothing leaves the phone
+    /// before. Said back as `words`, the row gone at once.
+    func hold(_ id: String, words: String, run: @escaping @MainActor () async -> Void) {
+        guard !held.contains(id) else { return }
+        held.insert(id)
+        holds[id] = Task {
+            try? await Task.sleep(for: .seconds(Self.holdSeconds))
+            guard !Task.isCancelled else { return }
+            await run()
+            held.remove(id)
+            holds[id] = nil
+        }
+        show(SaidBack(words: words, undo: .held(id), isDone: true), seconds: Self.holdSeconds)
     }
 
     /// His icon pick on `id` under way, from his tap until Life's reads say it: the key, or nil (Life picks again);
@@ -854,6 +886,9 @@ final class LifeStore {
         case .picture(let ref, let name, let kind, let source, let was)?:
             await picturing.settled(ref)
             await setPicture(of: ref, name: name, kind: kind, from: source, was: was, saysBack: false)
+        case .held(let id)?:
+            holds.removeValue(forKey: id)?.cancel()
+            held.remove(id)
         case nil: break
         }
     }
@@ -879,11 +914,11 @@ final class LifeStore {
         }
     }
 
-    /// Shows `said` for 4 s, flagged when not done.
-    func show(_ said: SaidBack) {
+    /// Shows `said` for 4 s (`seconds`), flagged when not done.
+    func show(_ said: SaidBack, seconds: Int = 4) {
         saidBack = said
         Task {
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(for: .seconds(seconds))
             if saidBack?.id == said.id { saidBack = nil }
         }
     }

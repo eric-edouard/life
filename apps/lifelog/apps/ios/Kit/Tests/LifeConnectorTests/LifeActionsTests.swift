@@ -85,7 +85,9 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     {
         "Done: memory."
     }
-    func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
+    func markDone(matter: String, note: String, dropped: Bool, onProgress: @escaping @Sendable (Data) -> Void)
+        async throws -> String
+    {
         onProgress(Data(#"{"plan":["todo_items_ticked","recorded"],"limitSeconds":65}"#.utf8))
         return "Done: memory."
     }
@@ -242,7 +244,7 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     let life = FakeLife()
     let state = await run { emit in
         await LifeActions(api: life, now: { at }).record(emit: emit) { onProgress in
-            try await life.markDone(matter: "m", note: "n", onProgress: onProgress)
+            try await life.markDone(matter: "m", note: "n", dropped: false, onProgress: onProgress)
         }
     }
     guard case .succeeded(.recorded, let steps) = state else {

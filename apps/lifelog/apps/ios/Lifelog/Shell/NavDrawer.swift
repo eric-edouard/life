@@ -48,6 +48,7 @@ struct NavDrawer: View {
         .safeAreaPadding(.bottom, 80)
         .background(Palette.bg)
         .motion(Motion.standard, value: order)
+        .motion(Motion.standard, value: life.held)
     }
 
     // MARK: Top
@@ -79,7 +80,7 @@ struct NavDrawer: View {
 
     /// What waits on him, an ask each (every ask is its own row, none folded); then each matter by where it stands.
     @ViewBuilder private var priority: some View {
-        let asks = life.inboxOnShow?.ordered(deferred: []).checks ?? []
+        let asks = (life.inboxOnShow?.ordered(deferred: []).checks ?? []).filter { !life.held.contains($0.ref) }
         let split = asks.firstIndex { $0.urgency == .improves } ?? asks.count
         let asked = Set(asks.compactMap(\.matterID))
         let rest = matters.filter { !asked.contains($0.id) }
@@ -93,7 +94,7 @@ struct NavDrawer: View {
         group(nil, matters: matters.sorted { ($0.lastStepAt ?? .distantPast) > ($1.lastStepAt ?? .distantPast) })
     }
 
-    private var matters: [MatterRow] { life.matters.value?.matters ?? [] }
+    private var matters: [MatterRow] { (life.matters.value?.matters ?? []).filter { !life.held.contains($0.id) } }
 
     @ViewBuilder private func group(_ label: String?, count: Int? = nil, asks: [Check]) -> some View {
         if !asks.isEmpty {
@@ -145,7 +146,11 @@ struct NavDrawer: View {
                 .contextMenu {
                     AskRowActions.mark(row, life)
                     Button("Done", systemImage: "checkmark") { Task { await life.markDone(row.id) } }
+                    Button("Drop", systemImage: "trash", role: .destructive) {
+                        Task { await AskRowActions.drop(row, life).run() }
+                    }
                 }
+                .rowSwipe(main: nil, drop: AskRowActions.drop(row, life))
             }
         }
     }

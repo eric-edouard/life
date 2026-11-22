@@ -238,3 +238,10 @@ private let drafted = check(pushId: "0123456789abcdef", extra: #","draft":{"to":
     }
     #expect(crossed == nil && !Stub.requested(b))
 }
+
+@Test func aRowSwipeOrMenuTapAnswersOnlyAPlainTap() throws {
+    // The list's swipe and menu use the notification's one rule: a send, an answer that takes a person never goes by tap.
+    let card = try #require(CardNotification.card(in: ["card": drafted]))
+    let tapped = card.options.filter { CardNotification.isOneTap($0, of: card) }.map(\.id)
+    #expect(tapped == ["later"])
+}
