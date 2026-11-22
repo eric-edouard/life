@@ -1,7 +1,7 @@
 import { DAY, HOUR, MIN } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { DetailLine } from "./details";
-import { OWNER } from "./read-truth";
+import { OWNER, projectPeopleAndChatsOf, type Truth } from "./read-truth";
 import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
 import type { People } from "./who";
 import { offsetAt } from "./zones";
@@ -142,7 +142,7 @@ export interface Signs {
   onCall: string[];
   /** Pictured in a photo of that day. */
   pictured: string[];
-  /** In an active plan for that day (`modality` plan, its `when` the day; never a conditional one), whose evidence is not a recording: a meeting set by mail or chat. Not `appointments.ts`'s choice, which keeps every dated observation from today on for his calendar. */
+  /** In an active plan for that day (`modality` plan, its `when` the day; never a conditional one), whose evidence is not a recording: a meeting set by mail or chat; a project or organization it names brings that organization's people (`plannedPeopleOf`). Not `appointments.ts`'s choice, which keeps every dated observation from today on for his calendar. */
   scheduled: string[];
 }
 
@@ -167,6 +167,27 @@ export function isHeardAround(
       (t > to && t <= to + HEARD_WITHIN)) &&
     offsetAt(heardAt) === offsetAt(at)
   );
+}
+
+/**
+ * Who a plan's subject brings to a meeting: a project's people as his directory holds them (`projectPeopleAndChatsOf`),
+ * an organization's current `people` (no `until`) in its place, else the subject itself. A meeting set by an invitation
+ * names the client's project, rarely each guest (his report of 22 Nov).
+ */
+export function plannedPeopleOf(
+  subject: string,
+  truth: Pick<Truth, "chats" | "organizations" | "people" | "projects">
+) {
+  const project = subject.startsWith("project:")
+    ? projectPeopleAndChatsOf(truth, subject.slice("project:".length))
+    : null;
+  const refs = project?.people.map((p) => `person:${p.id}`) ?? [subject];
+  return refs.flatMap((r) => {
+    const o = truth.organizations.find((x) => `person:${x.id}` === r);
+    return o
+      ? o.people.filter((p) => !p.until).map((p) => `person:${p.id}`)
+      : [r];
+  });
 }
 
 /**
