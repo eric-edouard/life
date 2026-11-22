@@ -32,6 +32,7 @@ struct AskLifeControl: View {
     @Namespace private var glass
     @State private var undoable: String?
     @State private var height: CGFloat = 800
+    @GestureState private var isDragging = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var tell: AskLife { life.askLife }
@@ -55,6 +56,8 @@ struct AskLifeControl: View {
         .frame(
             maxWidth: .infinity, maxHeight: .infinity, alignment: router.askLife == .away ? .bottomTrailing : .bottom
         )
+        // A drag the system cancelled never reaches `onEnded`: the lift is let go with the finger.
+        .onChange(of: isDragging) { _, dragging in if !dragging { router.askLifeLift = nil } }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
         } action: {
@@ -134,6 +137,7 @@ struct AskLifeControl: View {
             .frame(maxWidth: .infinity, minHeight: Metrics.tapTarget / 2).contentShape(.rect)
             .gesture(
                 DragGesture(minimumDistance: 4)
+                    .updating($isDragging) { _, state, _ in state = true }
                     .onChanged { router.askLifeLift = lift(after: $0.translation.height) }
                     .onEnded { settle($0) }
             )
