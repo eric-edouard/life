@@ -239,6 +239,21 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(owners.checks[0].hearer(among: agents) == "Life")
 }
 
+/// An ask with no matter of its own is on the first matter it rides on; one from a Life that sends neither is on none.
+@Test func anAskIsOnItsOwnMatterElseTheFirstItRidesOn() throws {
+    var fields = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    var first = try #require((fields["checks"] as? [[String: Any]])?.first)
+    first["matter"] = nil
+    first["ridesOn"] = ["observations": 0, "matters": 2, "pages": 0, "matterIds": ["m1", "m2"]]
+    var older = first
+    older["ridesOn"] = ["observations": 0, "matters": 0, "pages": 0]
+    fields["checks"] = [first, older]
+    let inbox = try decoded(
+        Inbox.self, String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
+    #expect(inbox.checks.map(\.matterID) == ["m1", nil])
+}
+
 /// His words go with the option he picked that takes them, and with none when he answered in general ("Tell the
 /// agent…"): a general reply never submits an option's meaning ("Paid another way").
 @Test func hisWordsGoWithThePickedOptionOrNone() throws {
