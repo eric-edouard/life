@@ -1,4 +1,6 @@
+import { daysBefore } from "../core/clock";
 import { settings } from "../core/settings";
+import type { Episode } from "../records/episode";
 import { NamedVoice, type ReadReply } from "../records/read-reply";
 import {
   type NamingQueueItem,
@@ -6,10 +8,11 @@ import {
   readVoiceNames,
   voiceKey,
 } from "../sources/lifelog-voices";
-import { READ_REPLIES } from "./memory-files";
+import { READ_REPLIES, readEpisodeFiles } from "./memory-files";
 import { readReplies, readRepliesOfMonths } from "./read-replies";
 import { UNKNOWN, unnamedTurnKey, voiceOfKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
+import { localDate, time } from "./zones";
 
 // The voice guesses (docs/glossary.md, "voice guess"): what the voice naming stored (`memory/voice-naming.ts`), read as
 // a guess for each turn nobody named. A guess is only ever shown: as "probably X" when the words of a conversation are
@@ -27,6 +30,8 @@ export interface VoiceGuess {
   person: string;
   /** The voice: its recording and label (`voiceOfKey`). */
   voice: string;
+  /** Why it was guessed, code's words (`whyOf`); absent on guesses made before it. */
+  why?: string;
 }
 
 /**
@@ -57,6 +62,7 @@ export function voiceGuessesOf(line: ReadReply): VoiceGuess[] {
             keys,
             person: e.person,
             voice: voiceOfKey(keys[0] as string),
+            ...(e.why ? { why: e.why } : {}),
           },
         ]
       : [];
@@ -165,7 +171,13 @@ export function withGuessesShown<
 export type GuessedQueueItem = NamingQueueItem & {
   guessed?: readonly string[];
   names?: Readonly<Record<string, string>>;
+  /** Why each of `guessed` was guessed, by person ref, when the guess holds one. */
+  whys?: Readonly<Record<string, string>>;
 };
+
+/** A guess a voice card reads: sure or likely, naming someone (never `me` or `unknown`). */
+const isNamedGuess = (g: Pick<VoiceGuess, "confidence" | "person">) =>
+  g.confidence !== "weak" && g.person !== "me" && g.person !== "unknown";
 
 /**
  * Who each voice's turns are guessed to be, as a voice card reads them: over the newest guess of each unnamed turn key
@@ -175,13 +187,7 @@ export type GuessedQueueItem = NamingQueueItem & {
 export function voiceGuessedPeopleOf(
   newest: Iterable<Pick<VoiceGuess, "confidence" | "person" | "voice">>
 ) {
-  const byVoice = Map.groupBy(
-    [...newest].filter(
-      (g) =>
-        g.confidence !== "weak" && g.person !== "me" && g.person !== "unknown"
-    ),
-    (g) => g.voice
-  );
+  const byVoice = Map.groupBy([...newest].filter(isNamedGuess), (g) => g.voice);
   return (voices: readonly string[]) =>
     [
       ...new Set(
@@ -191,7 +197,7 @@ export function voiceGuessedPeopleOf(
 }
 
 /**
- * Each queue item as a voice card reads it: with who the voice naming guessed its voices are (`guessed`, for
+ * Each queue item as a voice card reads it: with who the voice naming guessed its voices are (`guessed`, with why: `whys`, for
  * `voiceSuggestionOf`: `voiceGuessedPeopleOf` the newest guess of each of its turns, as stored) and the name lifelog gives each
  * of its person ids (`names`, `readVoiceNames`). Reads only the month files its voices' recordings can be filed under
  * (`readJobMonths`); throws when one cannot be read.
@@ -214,6 +220,7 @@ export async function withVoiceGuesses<I extends NamingQueueItem>(
     namesOf([...new Set(items.flatMap(idsOf))]),
   ]);
   const guessedFor = voiceGuessedPeopleOf(guesses.values());
+  const named = [...guesses.values()].filter(isNamedGuess);
   return items.map((i) => ({
     ...i,
     guessed: guessedFor(i.voices.map((v) => voiceKey(v.jobId, v.speakerLabel))),
@@ -221,5 +228,64 @@ export async function withVoiceGuesses<I extends NamingQueueItem>(
     names: Object.fromEntries(
       idsOf(i).flatMap((id) => (names[id] ? [[id, names[id]]] : []))
     ),
+    whys: Object.fromEntries(
+      named.flatMap((g) =>
+        g.why &&
+        i.voices.some((v) => voiceKey(v.jobId, v.speakerLabel) === g.voice)
+          ? [[g.person, g.why]]
+          : []
+      )
+    ),
+  }));
+}
+
+/** An instant as an episode's `start` and `end` write it: `YYYY-MM-DD HH:MM`, his local time. */
+const localStampOf = (at: string) => `${localDate(at)} ${time(at)}`;
+
+/**
+ * The conversation a clip at `at` was heard in, as his card names it: the title of the narrowest episode whose start and
+ * end (both with a time) hold it; null when none does (a conversation the night has not read yet).
+ */
+export function conversationOf(
+  episodes: readonly Pick<Episode, "end" | "start" | "title">[],
+  at: string
+) {
+  const stamp = localStampOf(at);
+  const span = (e: Pick<Episode, "end" | "start">) =>
+    Date.parse((e.end as string).replace(" ", "T")) -
+    Date.parse((e.start as string).replace(" ", "T"));
+  return (
+    episodes
+      .filter(
+        (e) =>
+          e.start?.includes(" ") &&
+          e.end?.includes(" ") &&
+          e.start <= stamp &&
+          stamp <= e.end
+      )
+      .toSorted((a, b) => span(a) - span(b))[0]?.title ?? null
+  );
+}
+
+/** Each item's clips with the conversation each was heard in (`conversationOf`), from the episode files of their days and the day before. */
+export async function withConversations<I extends NamingQueueItem>(
+  items: readonly I[]
+) {
+  const days = [
+    ...new Set(
+      items.flatMap((i) =>
+        i.clips.flatMap((c) =>
+          c.at ? [localDate(c.at), daysBefore(localDate(c.at), 1)] : []
+        )
+      )
+    ),
+  ];
+  const episodes = (await readEpisodeFiles(days)).map((e) => e.line);
+  return items.map((i) => ({
+    ...i,
+    clips: i.clips.map((c) => ({
+      ...c,
+      conversation: c.at ? conversationOf(episodes, c.at) : null,
+    })),
   }));
 }

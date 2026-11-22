@@ -197,6 +197,8 @@ export interface Check {
   clips: {
     at: string | null;
     audio: { end: number; jobId: string; start: number } | null;
+    /** A voice's clip: the conversation it was heard in, the episode's title (`conversationOf`); null when the night has not read it yet; absent on every other kind. */
+    conversation?: string | null;
     text: string;
     until: string | null;
     /** Its words as lifelog times them (`TimedWords`): [start, end, length] each, in ms from the clip's start and UTF-16 units of `text` with the spacing before it, for lighting them while it plays. */
@@ -281,6 +283,8 @@ export interface Check {
   subject: string | null;
   /** What it is trying to do, in one line. */
   title: string;
+  /** A voice's: the people the voice naming guessed (known today), each with why, code's words (`whyOf`), null for a guess made before it; absent on every other kind. */
+  voiceGuesses?: { person: Party; why: string | null }[];
 }
 
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */

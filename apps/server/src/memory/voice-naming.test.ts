@@ -436,9 +436,9 @@ test("a stored guess carries code's why, never the model's", () => {
           ],
         ]),
       }
-    ).voices[0]?.why;
-  expect(why("person:dana")).toBe("Planned that day: lunch");
-  expect(why("unknown")).toBeUndefined();
+    ).voices[0] as { why?: string } | undefined;
+  expect(why("person:dana")?.why).toBe("Planned that day: lunch");
+  expect(why("unknown")?.why).toBeUndefined();
 });
 
 test("a group's guess is stored under each of its recording voices, citing that voice's lines, else its first", () => {

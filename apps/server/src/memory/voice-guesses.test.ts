@@ -18,6 +18,7 @@ import { READS, storeReply } from "./read-replies";
 import type { Truth } from "./read-truth";
 import { type Built, lifelogUnits, unnamedTurnKey } from "./units";
 import {
+  conversationOf,
   voiceGuessesNow,
   withGuessesShown,
   withVoiceGuesses,
@@ -380,4 +381,29 @@ test("a voice card asks about the one person the group's sure or likely guesses 
   } finally {
     rmSync(folder, { force: true, recursive: true });
   }
+});
+
+// His ask of 22 Nov: a voice's clip names the conversation it was heard in (the test zones: Lagos, UTC+1).
+test("a clip's conversation is the narrowest episode holding it, none when no episode with times does", () => {
+  const episode = (
+    title: string,
+    start: string | null,
+    end: string | null
+  ) => ({
+    end,
+    start,
+    title,
+  });
+  const episodes = [
+    episode("Day in town", "2026-10-30 08:00", "2026-10-30 23:00"),
+    episode("Lunch with Ana", "2026-10-30 12:30", "2026-10-30 14:00"),
+    episode("A day", "2026-10-30", null),
+  ];
+  expect(conversationOf(episodes, "2026-10-30T12:00:00.000Z")).toBe(
+    "Lunch with Ana"
+  );
+  expect(conversationOf(episodes, "2026-10-30T20:00:00.000Z")).toBe(
+    "Day in town"
+  );
+  expect(conversationOf(episodes, "2026-10-31T09:00:00.000Z")).toBeNull();
 });
