@@ -3,6 +3,7 @@ import type {
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
 import type { WebSearchProviderName } from "../../core/names";
+import { searchableOf } from "../../web-search/backend";
 import {
   SEND_FACTS_ENV,
   SEND_GUARD_HOOK,
@@ -139,7 +140,8 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
   if (config.isOwn) {
     registerWebFetch(pi);
   }
-  if (config.isOwn && config.search.length > 0) {
+  // Only while one of his providers has its key: a search that cannot answer would only cost the agent calls.
+  if (config.isOwn && searchableOf(config.search).length > 0) {
     registerWebSearch(pi, config.search);
   }
   if (config.isOwn && config.door) {

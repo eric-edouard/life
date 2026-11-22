@@ -1,5 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { webSearch } from "./backend";
+import { searchableOf, webSearch } from "./backend";
 
 // Life's web search over made-up answers of the providers' own hosts: his order, a provider without his key skipped, a
 // refusal falling through unpaid and an empty answer falling through paid, Serper's credits priced, every failure named.
@@ -81,4 +81,10 @@ test("a refusal falls through unpaid, Brave's markup is read as text, and all fa
   expect(answered.answered?.results[0]?.snippet).toContain("fast");
   expect(answered.answered?.results[0]?.snippet).not.toContain("<");
   expect(answered.spends).toEqual([0.005]);
+});
+
+test("a provider is searchable only while its key is in the environment", () => {
+  delete process.env.BRAVE_SEARCH_API_KEY;
+  process.env.SERPER_API_KEY = "made-up";
+  expect(searchableOf(["brave", "serper"])).toEqual(["serper"]);
 });

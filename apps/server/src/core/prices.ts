@@ -123,7 +123,8 @@ const REQUEST_PRICES: Row<RequestPrice>[] = [
     source: "https://brave.com/search/api/",
     usdPerRequest: 0.005,
   },
-  // Serper's Starter credits, $50 for 50,000; its 2,500 free ones are priced too: a list price, never a bill.
+  // Serper's Starter rate, $50 for 50,000 credits; its 2,500 free credits are counted at it too (an answer can't tell
+  // a free credit from a paid one), so its billed dollars may run a little over the account's.
   {
     from: "2026-11-22",
     item: "serper",

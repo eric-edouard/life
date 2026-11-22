@@ -15,6 +15,10 @@ const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderName, WebSearchProvider> = {
   serper,
 };
 
+/** The providers of `order` whose key is in this environment: the ones a search can ask. */
+export const searchableOf = (order: WebSearchProviderName[]) =>
+  order.filter((n) => process.env[WEB_SEARCH_PROVIDERS[n].keyEnv]);
+
 /** The chain when his `desk.webSearch` names none (the owner's word of 22 Nov 2026). */
 export const WEB_SEARCH_CHAIN: WebSearchProviderName[] = [
   "serper",
