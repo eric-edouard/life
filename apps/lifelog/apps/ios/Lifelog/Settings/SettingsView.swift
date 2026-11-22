@@ -6,12 +6,11 @@ import PendantProtocol
 import ServerAPI
 import SwiftUI
 
-/// Settings, the sheet over the app, in the order of what breaks the app: what needs him, the two connections, what this
+/// Settings, a page of Profile, in the order of what breaks the app: what needs him, the two connections, what this
 /// phone allows, the Pendant, appearance, his data, help. It has pages of its own (Vocabulary, Light guide, Backup,
-/// a page per connection), which push in the sheet's own stack. Drawn only with `Row` and `RowGroup`.
+/// a page per connection), which push in Profile's stack. Drawn only with `Row` and `RowGroup`.
 struct SettingsView: View {
     let permissions: PermissionsStore
-    let close: () -> Void
 
     @Environment(SyncStore.self) private var sync
     @Environment(CaptureStore.self) private var capture
@@ -64,7 +63,12 @@ struct SettingsView: View {
         }
         .motion(Motion.standard, value: needsYouRows)
         .readingWidth()
-        .sheetScroll { SheetHeader(title: "Settings", font: .screenName, close: close) }
+        // Its name over the page, left aligned, as every page whose first line is its name.
+        .sheetScroll {
+            Text("Settings").font(.screenName).foregroundStyle(Palette.fg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .shellBar("")
         .tint(Palette.fg)
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
@@ -600,17 +604,11 @@ extension SyncStore {
     var switches: ServerClient.Switches? { pending.switches(over: feed.switches) }
 }
 
-/// Settings as a sheet: its own stack, a close button, and the permissions it reads.
-struct SettingsSheet: View {
-    @Environment(\.dismiss) private var dismiss
+/// Settings as a page: the permissions it reads, refreshed when it opens.
+struct SettingsPage: View {
     @State private var permissions = PermissionsStore()
 
     var body: some View {
-        NavigationStack {
-            SettingsView(
-                permissions: permissions,
-                close: { dismiss() })
-        }
-        .task { await permissions.refresh() }
+        SettingsView(permissions: permissions).task { await permissions.refresh() }
     }
 }

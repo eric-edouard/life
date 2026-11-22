@@ -26,6 +26,7 @@ export const READS = {
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
+  day_record: { prompt: "memory-day-record.v1" },
   mentions: { prompt: "memory-mentions.v1" },
   voice_naming: { prompt: "memory-voice-naming.v2" },
 } satisfies Record<ReadName, { prompt: string }>;
@@ -36,8 +37,12 @@ export const promptDigestOf = (text: string) => digest("sha256", text, 16);
 interface Call {
   /** What a reply must pass before it is stored (the voice naming's `checkedVoices`); it may throw, so nothing is stored. */
   checked?: (reply: unknown) => unknown;
+  /** The local day its lines are of, for the reads that store it (the day record's). */
+  day?: string;
   firstAt: string;
   input: object;
+  /** The digest of what it was shown, for the reads that store it (the day record's): its evidence's refs. */
+  inputs?: string;
   keys: string[];
   /** Who wrote its lines, for the read that stores it (the arrival confirm). */
   people?: string[];
@@ -272,6 +277,8 @@ export async function makeReplies(
             starts: call.starts,
             ...(call.unit && { unit: call.unit }),
             ...(call.people && { people: call.people }),
+            ...(call.day && { day: call.day }),
+            ...(call.inputs && { inputs: call.inputs }),
           } as ReadReply,
           call.firstAt,
           where

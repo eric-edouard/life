@@ -2,15 +2,23 @@ import LifeConnector
 import Observation
 import SwiftUI
 
+/// The sizes of Ask Life's one surface.
+enum AskLifeForm { case away, strip, full }
+
 /// Where the app is: the tab, the chosen project chip, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
 /// a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, projects, people }
+    enum Tab: Hashable { case inbox, projects, people, profile }
     enum Sheet: String, Identifiable {
-        case pendant, settings
+        case pendant
         var id: String { rawValue }
     }
+
+    /// What is pushed on the Inbox's list: the ask on show, with its pager. The list is the root, so Back returns to it.
+    enum InboxPage: Hashable { case ask }
+    /// What is pushed on the Profile page.
+    enum ProfilePage: Hashable { case settings }
 
     enum MatterSheet: Identifiable, Equatable {
         /// What wakes an agent: the one named by id, else the matter's first; an agent's page with no matter names none.
@@ -97,22 +105,28 @@ final class AppRouter {
     var projectAsk: OpenAsk?
     /// What is pushed on the matter on show (`MatterRoute`): Back returns to the matter, the tab stays on Projects.
     var matterPath: [MatterRoute] = []
-    /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
-    var inboxColumn = NavigationSplitViewColumn.detail
+    /// The ask pushed on the Inbox's list; empty is the list itself.
+    var inboxPath: [InboxPage] = []
+    /// What is pushed on the Profile page: Settings.
+    var profilePath: [ProfilePage] = []
     var sheet: Sheet?
     /// The list (`NavDrawer`) over the page, where it is not a sidebar.
     var isDrawerOpen = false
+    /// Sideways on a regular width the list is a sidebar, which its button hides (`NavShell` reports the pose).
+    var isSideways = false
+    var isSidebarHidden = false
+    /// Sideways, the list is the sidebar; else it is open when asked.
+    var isListShown: Bool { isSideways ? !isSidebarHidden : isDrawerOpen }
+    func toggleList() { if isSideways { isSidebarHidden.toggle() } else { isDrawerOpen.toggle() } }
     /// Where the ask on show stands among the asks, for the bottom bar's dots; nil when one ask or no asks are on show.
     var pager: PagerState?
-    /// Ask Life, full screen over whatever he was on.
-    var isAskLifeOpen = false
     /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
     /// (`reportsSideColumn`): Ask Life stands in that column's foot, else at the corner.
     var isBarsInColumn = false
-    /// Ask Life's banner open: the round button's glass morphed into the dictation card above the foot bar.
-    var isAskOpen = false
-    /// Ask Life made small: its strip shows over the rail while there is something to keep in sight.
-    var isAskLifeSmall = false
+    /// Ask Life's one surface: away (its round button), the strip (the dictation card above the foot bar) or full screen.
+    var askLife = AskLifeForm.away
+    /// Whether the strip opens listening: not when Undo brings it back with his words, nor from a card's "Wrong…".
+    var isAskLifeListening = true
     /// What his words are about when he opens Ask Life from a card ("Wrong…"): the card's ref and its question.
     var askLifeContext: (ref: String, question: String)?
 
@@ -126,7 +140,7 @@ final class AppRouter {
             case .matters:
                 (tab, chip, matterColumn) = (.projects, nil, .sidebar)
             case .checks:
-                (tab, inboxColumn) = (.inbox, .sidebar)
+                (tab, inboxPath) = (.inbox, [])
             case .people:
                 tab = .people
                 select(person: nil)
@@ -139,7 +153,22 @@ final class AppRouter {
         case .page(.agent, let id): open(agent: id)
         case .page(.project, let id): open(project: ProjectChips.Chip.identity(.project, id))
         }
-        (isAskLifeOpen, isAskOpen, isAskLifeSmall, isDrawerOpen) = (false, false, false, false)
+        (askLife, isDrawerOpen) = (.away, false)
+    }
+
+    /// The Inbox, on its whole list, from the list's top row.
+    func showHome() {
+        (isDrawerOpen, tab, inboxPath, cut) = (false, .inbox, [], nil)
+    }
+
+    /// The Profile page, from the list's top row.
+    func showProfile() {
+        (isDrawerOpen, profilePath, tab, cut) = (false, [], .profile, nil)
+    }
+
+    /// Settings, the Profile page's child: from the list, or a screen's "Pair with Life".
+    func openSettings() {
+        (isDrawerOpen, tab, profilePath) = (false, .profile, [.settings])
     }
 
     /// The Projects page, on its whole list, from the list's top row.
@@ -160,7 +189,15 @@ final class AppRouter {
     /// Ask Life on a card: his words go with that card on screen.
     func askLife(about ref: String, question: String) {
         askLifeContext = (ref, question)
-        isAskLifeOpen = true
+        isAskLifeListening = false
+        askLife = .full
+    }
+
+    /// Puts Ask Life away: what he had not sent goes with it, and so does the card he was asking about.
+    func putAwayAskLife(_ tell: AskLife) {
+        tell.draft = ""
+        askLifeContext = nil
+        askLife = .away
     }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
@@ -187,6 +224,7 @@ final class AppRouter {
             case .inbox: "inbox"
             case .projects: "projects"
             case .people: "people"
+            case .profile: "profile"
             }
         return MainSessionScreen(tab: tab, card: askLifeContext?.ref, matter: matter, person: person)
     }
@@ -218,7 +256,7 @@ final class AppRouter {
         matterColumn = .detail
     }
 
-    /// A page Settings opens (the agents, Spending) in the Projects tab's detail column, with the tabs: the sheet closes.
+    /// A page Settings opens (the agents, Spending) in the Projects tab's detail column.
     func show(_ page: Detail) {
         sheet = nil
         matterSheet = nil

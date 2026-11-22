@@ -12,7 +12,7 @@ struct SpendingPage: View {
 
     var body: some View {
         ReadScreen(
-            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: { router.sheet = .settings },
+            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: { router.openSettings() },
             loading: { Spinner().foregroundStyle(Palette.fg).frame(maxHeight: .infinity) },
             empty: { EmptyView() },
             content: page

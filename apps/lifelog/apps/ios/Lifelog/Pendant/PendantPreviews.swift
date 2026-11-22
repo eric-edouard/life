@@ -67,9 +67,7 @@
 
     #Preview("Settings") {
         NavigationStack {
-            SettingsView(
-                permissions: PermissionsStore(notifications: .allowed, location: .denied),
-                close: {})
+            SettingsView(permissions: PermissionsStore(notifications: .allowed, location: .denied))
         }
         .previewSync()
         .environment(CaptureStore.preview())
@@ -78,9 +76,7 @@
 
     #Preview("Settings, large text") {
         NavigationStack {
-            SettingsView(
-                permissions: PermissionsStore(notifications: .notAsked, location: .allowed),
-                close: {})
+            SettingsView(permissions: PermissionsStore(notifications: .notAsked, location: .allowed))
         }
         .previewSync()
         .environment(CaptureStore.preview())

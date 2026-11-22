@@ -6,19 +6,22 @@ import SwiftUI
 
 /// The top group, as the system's own toolbar items: the Pendant, with Back before it on a pushed page, on the trailing
 /// edge in one glass capsule. Leading is the stack's Back, or a list's Filter (`filterBar`). Declared, never
-/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo.
+/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo. On a regular width (the Duo
+/// unfolded) the column's second item, under the Pendant, is a pushed page's Back, else the list's button; no corner holds one.
 private struct ShellBar: ViewModifier {
     let label: String
     let hasPendant: Bool
-    let onBack: (() -> Void)?
 
     @Environment(AppRouter.self) private var router
     @Environment(\.topBarZoom) private var topBarZoom
     @Environment(\.isPresented) private var isPushed
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
-    /// A pushed page, or a screen that names its own way back (a list's detail on a compact width).
-    private var hasBack: Bool { isPushed || onBack != nil }
+    /// A pushed page's: the stack's Back.
+    private var hasBack: Bool { isPushed }
+    /// The unfolded Duo, on a page that is not pushed: the list's button joins the group.
+    private var hasList: Bool { !hasBack && hasPendant && sizeClass == .regular }
 
     func body(content: Content) -> some View {
         content
@@ -36,6 +39,7 @@ private struct ShellBar: ViewModifier {
                 if hasBack && !router.isBarsInColumn { fitted(back) }
                 if hasPendant { fitted(pendant) }
                 if hasBack && router.isBarsInColumn { fitted(back) }
+                if hasList { fitted(list) }
             }
     }
 }
@@ -59,24 +63,25 @@ extension ShellBar {
         }
     }
 
+    private var list: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) { ListButton() }
+    }
+
     private var back: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Back", systemImage: "chevron.backward") { onBack?() ?? dismiss() }
+            Button("Back", systemImage: "chevron.backward") { dismiss() }
                 .labelStyle(.iconOnly)
                 .accessibilityIdentifier("top.back")
         }
     }
-
 }
 
 extension View {
-    /// The top group of a screen: the Pendant everywhere but in a side
-    /// column (the matter's page beside it has it). The bar's own title is always inline: a list screen's name is its
+    /// The top group of a screen: the Pendant everywhere but in a side column (the matter's page beside it has it), and a
+    /// pushed page's Back on a compact width. The bar's own title is always inline: a list screen's name is its
     /// `screenTitle`, a page's its first line.
-    func shellBar(
-        _ label: String, hasPendant: Bool = true, onBack: (() -> Void)? = nil
-    ) -> some View {
-        modifier(ShellBar(label: label, hasPendant: hasPendant, onBack: onBack))
+    func shellBar(_ label: String, hasPendant: Bool = true) -> some View {
+        modifier(ShellBar(label: label, hasPendant: hasPendant))
     }
 }
 
