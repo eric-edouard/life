@@ -13,9 +13,10 @@ struct CardInput: Equatable {
     var bankTrip = BankTrip()
 }
 
-/// A card's answers, in one zone (decision 98): the deadline's line, the first option filled, then the quiet ones, his
-/// own words first ("Tell the agent…" on a question), in one row when they are few and short and fit, else each on a
-/// row of its own. An option that takes more than a tap asks for it: who it is ("Same as…"), or his words.
+/// A card's answers, in one zone (decision 98) and one rule for every card (`answers-v2-2026-11-22.md`): the deadline's
+/// line, then at most two rows. Two answers share one row, the first filled; with more, the first (or the people, his
+/// bank app, "Create …") is full width and the rest share the row below, each icon above its label, his own words
+/// ("Tell the agent…") always last. An option that takes more than a tap asks for it: who it is ("Same as…"), or his words.
 struct CheckActions: View {
     let check: Check
     @Binding var input: CardInput
@@ -27,6 +28,8 @@ struct CheckActions: View {
     let create: (String, _ asOrganization: Bool) -> Void
     /// "Wrong…" on a card of Life's: its sheet.
     let wrong: () -> Void
+    /// The program of the agent that asked, whose mark is the `agent` icon (a terminal when none is known).
+    var runtimeName: RuntimeName?
     /// The answer he gave while Life works on it: its button says so in place, working then Life's green word, and
     /// the others wait dimmed (`answer-states-2026-11-20.md`); nil at rest.
     var pressed: Taken?
@@ -148,28 +151,44 @@ struct CheckActions: View {
         enum ID: Hashable { case ownWords, option(String) }
         let id: ID
         let label: String
-        /// His word that the step or matter is done ("I've paid"): a green check before it.
-        var isEnding = false
+        /// Its answer icon (Life's word, `answerIconOf`); none drawn for nil or a key this build doesn't know.
+        var icon: AnswerIcon?
         /// The sheet the tap opens, which zooms out of this answer; nil for an answer.
         var sheet: AskSheet?
         let run: () -> Void
+    }
 
-        @ViewBuilder var words: some View {
-            if isEnding {
-                HStack(spacing: Metrics.Spacing.s) {
-                    Image(systemName: "checkmark").foregroundStyle(Palette.ok)
-                    Text(label)
-                }
-            } else {
-                Text(label)
+    private func choice(_ option: Check.Option) -> Choice {
+        Choice(id: .option(option.id), label: label(of: option), icon: option.icon, sheet: sheet(of: option)) {
+            tap(option)
+        }
+    }
+
+    /// An answer's words with its icon: beside them, or above them in a tile. `done` is Life's green check; `agent` the
+    /// asking agent's mark.
+    @ViewBuilder private func words(_ choice: Choice, isTile: Bool, isHalf: Bool = false) -> some View {
+        if isTile {
+            VStack(spacing: Metrics.Spacing.xs) {
+                icon(of: choice).font(.buttonLabel)
+                Text(choice.label)
+            }
+        } else {
+            HStack(spacing: Metrics.Spacing.s) {
+                icon(of: choice)
+                // A half holds its label on one line, shrinking a little rather than wrapping.
+                Text(choice.label).lineLimit(isHalf ? 1 : 3).minimumScaleFactor(isHalf ? 0.75 : 1)
             }
         }
     }
 
-    private func choice(_ option: Check.Option) -> Choice {
-        Choice(id: .option(option.id), label: label(of: option), isEnding: option.ends != nil, sheet: sheet(of: option))
-        {
-            tap(option)
+    /// The icon in the label's colour, Life's done check in green; nothing for none.
+    @ViewBuilder private func icon(of choice: Choice) -> some View {
+        if let symbol = choice.icon == .agent ? (runtimeName ?? .unknown).mark : choice.icon?.symbol {
+            if choice.icon == .done {
+                Image(symbol: symbol).foregroundStyle(Palette.ok)
+            } else {
+                Image(symbol: symbol)
+            }
         }
     }
 
@@ -201,27 +220,24 @@ struct CheckActions: View {
     }
 
     /// The answers float in the card's bottom bar (decision 97) when they are one short zone: no people to pick, and
-    /// at most three quiet ones under the lead (`isOneRow`: a row when they fit, else rows of 48); a taller group stays
-    /// at the end of the card's scroll.
+    /// at most one row under the lead; a taller group (an older card's four options) stays at the end of the card's scroll.
     static func fitsBar(_ check: Check) -> Bool {
         let options = shown(check)
-        let quiet: [Check.Option]
+        let tell = check.takesOwnWords ? 1 : 0
         switch lead(of: check) {
         case .people: return false
-        case .first: quiet = Array(options.dropFirst())
-        case .create, .bank, .none: quiet = options
+        case .first: return options.count - 1 + tell <= Self.perRow
+        case .create, .bank, .none: return options.count + tell <= Self.perRow
         }
-        return isOneRow((check.takesOwnWords ? [check.ownWordsTitle] : []) + quiet.map(\.label))
     }
 
-    /// At most three answers: one row when they fit the width (`others`' `ViewThatFits` decides), never a count of
-    /// words, so "Hand to an agent", "Not now", "Drop" collapse into one row as designed.
-    private static func isOneRow(_ labels: [String]) -> Bool { labels.count <= 3 }
+    /// The most answers that share a row: three, a third of the card each, so every label holds 14 characters.
+    private static let perRow = 3
 
-    /// His own words, the first quiet answer on a question: "Tell the agent…", or "Ask Life…".
+    /// His own words, always the last answer on a question: "Tell the agent…", or "Ask Life…".
     private var tell: Choice? {
         guard check.takesOwnWords else { return nil }
-        return Choice(id: .ownWords, label: check.ownWordsTitle) {
+        return Choice(id: .ownWords, label: check.ownWordsTitle, icon: .agent) {
             input.option = nil
             input.isWritingOwnWords = true
         }
@@ -242,7 +258,7 @@ struct CheckActions: View {
                 .opacity(pressed == nil || person.ref == pressedPerson ? 1 : 0.35)
                 .disabled(pressed != nil && person.ref != pressedPerson)
             }
-            others(shown.map(choice))
+            others(quiet(shown.map(choice)))
         case .create(let name):
             // "Create <name>" opens the create sheet: not an answer yet, so nothing is held.
             Button {
@@ -252,7 +268,7 @@ struct CheckActions: View {
             }
             .buttonStyle(.pill(.filled))
             .zoomSource(AskSheet.create(ref: check.ref, asOrganization: false), in: sheetZoom)
-            others(shown.map(choice))
+            others(quiet(shown.map(choice)))
         case .bank(let transfers):
             let app = transfers == .thai ? thaiBankApp : ibanBankApp
             // His bank app is the one press; every answer sits quieter beside it.
@@ -270,10 +286,19 @@ struct CheckActions: View {
                 }
             }
             .buttonStyle(.pill(.filled, isBusy: input.bankTrip.isUnderWay)).disabled(input.bankTrip.isUnderWay)
-            others(shown.map(choice))
+            others(quiet(shown.map(choice)))
         case .first(let first):
-            answerButton(choice(first), kind: .filled, size: .large)
-            others(shown.dropFirst().map(choice))
+            let rest = quiet(shown.dropFirst().map(choice))
+            if rest.count == 1, let other = rest.first, !typeSize.isAccessibilitySize {
+                // Two answers: one row, halves, each icon beside its label.
+                HStack(spacing: Metrics.Spacing.s) {
+                    answerButton(choice(first), kind: .filled, size: .large, isHalf: true)
+                    answerButton(other, kind: .quiet, size: .large, isHalf: true)
+                }
+            } else {
+                answerButton(choice(first), kind: .filled, size: .large)
+                others(rest)
+            }
         case .none:
             EmptyView()
         }
@@ -314,27 +339,27 @@ struct CheckActions: View {
         }
     }
 
-    /// His own words first, then `rest`: one row of 44 (`AnswerRow`) when there are at most three and the row holds
-    /// them; else rows of 48; nothing when there are none.
+    /// The quiet answers in order, his own words last.
+    private func quiet(_ answers: [Choice]) -> [Choice] { answers + (tell.map { [$0] } ?? []) }
+
+    /// The answers under the lead: rows of tiles, three at most each, icons above labels (in practice one row: the
+    /// server allows no more); each on a row of 48 at accessibility sizes; nothing when there are none.
     @ViewBuilder private func others(_ answers: [Choice]) -> some View {
-        let rest = (tell.map { [$0] } ?? []) + answers
-        let isShort = Self.isOneRow(rest.map(\.label))
-        let stack = VStack(spacing: Metrics.Spacing.s) {
-            ForEach(rest) { choice in answerButton(choice, kind: .quiet, size: .row) }
-        }
-        if rest.isEmpty {
-            EmptyView()
-        } else if isShort && !typeSize.isAccessibilitySize {
-            ViewThatFits(in: .horizontal) {
-                AnswerRow {
-                    ForEach(rest) { choice in
-                        answerButton(choice, kind: .quiet, size: .compact).minimumScaleFactor(0.75)
-                    }
-                }
-                stack
+        if typeSize.isAccessibilitySize {
+            VStack(spacing: Metrics.Spacing.s) {
+                ForEach(answers) { choice in answerButton(choice, kind: .quiet, size: .row) }
             }
         } else {
-            stack
+            let rows = stride(from: 0, to: answers.count, by: Self.perRow).map {
+                Array(answers[$0..<min($0 + Self.perRow, answers.count)])
+            }
+            ForEach(rows.indices, id: \.self) { i in
+                HStack(spacing: Metrics.Spacing.s) {
+                    ForEach(rows[i]) { choice in
+                        answerButton(choice, kind: .quiet, size: .tile).minimumScaleFactor(0.75)
+                    }
+                }
+            }
         }
     }
 
@@ -365,13 +390,17 @@ struct CheckActions: View {
 
     /// One answer's button: at rest, or, once he pressed an answer, the pressed one working, then green with Life's
     /// word (only on Life's say-so), and every other dimmed and off until it is over.
-    @ViewBuilder private func answerButton(_ choice: Choice, kind: PillStyle.Kind, size: PillStyle.Size) -> some View {
+    @ViewBuilder private func answerButton(
+        _ choice: Choice, kind: PillStyle.Kind, size: PillStyle.Size, isHalf: Bool = false
+    ) -> some View {
         if let pressed, case .option(let id) = choice.id, id == pressedChoice {
             pressedButton(pressed, kind: kind, size: size)
         } else {
-            Button(action: choice.run) { choice.words }.buttonStyle(.pill(kind, size: size))
-                .zoomSource(choice.sheet, in: sheetZoom)
-                .opacity(pressed == nil ? 1 : 0.35).disabled(pressed != nil)
+            Button(action: choice.run) { words(choice, isTile: size == .tile, isHalf: isHalf) }.buttonStyle(
+                .pill(kind, size: size)
+            )
+            .zoomSource(choice.sheet, in: sheetZoom)
+            .opacity(pressed == nil ? 1 : 0.35).disabled(pressed != nil)
         }
     }
 

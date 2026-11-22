@@ -37,6 +37,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   const agent = {
     amber: [],
     effort: "medium",
+    health: { verdict: "fine" as const, why: [] as string[] },
     id: "agt_000000000001",
     lastTurn: {
       cause: "start",
@@ -52,6 +53,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     project: null,
     role: "personal" as const,
     runtime: "claude",
+    sessionOpenIn: null,
+    sessionOpenSince: null,
     status: "running" as const,
     statusSince: "2026-10-13T09:00:00.000Z",
     steps: ["obs_000000000005"],
@@ -62,6 +65,12 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   // Waiting: one line of each kind (`wakesOnOf`).
   const waiting = {
     ...agent,
+    health: {
+      verdict: "attention" as const,
+      why: [
+        "Open in your Claude app since 09:02: its wakes wait until you close it there.",
+      ],
+    },
     id: "agt_000000000002",
     link: null,
     model: null,
@@ -253,6 +262,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         { ...waiting, matter: null },
       ],
       desk: "ok",
+      health: {
+        verdict: "broken",
+        why: ["No caretaker: your complaints have no one to fix them."],
+      },
       helper: "running",
       refused: [],
     }),
@@ -410,6 +423,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     spyOn(agents, "readRegisteredAgents").mockResolvedValue({
       agents: [{ ...gone, matter: null }],
       desk: "ok",
+      health: { verdict: "fine", why: [] },
       helper: "running",
       refused: [],
     });

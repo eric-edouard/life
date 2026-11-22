@@ -497,7 +497,17 @@ struct SettingsView: View {
             Button {
                 isDiagnosticsOpen = true
             } label: {
-                Row(title: "Diagnostics", icon: "waveform.path.ecg") { RowValue() }
+                // An agent or the desk not fine: its mark beside the row (Diagnostics lists each, with why).
+                Row(title: "Diagnostics", icon: "waveform.path.ecg") {
+                    if let mark = life.agents.value?.healthMark, mark.glyph != .ok {
+                        HStack(spacing: 8) {
+                            StateDot(color: Palette.flag)
+                            RowValue(text: "Agents: \(mark.word.lowercased())")
+                        }
+                    } else {
+                        RowValue()
+                    }
+                }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.diagnostics")

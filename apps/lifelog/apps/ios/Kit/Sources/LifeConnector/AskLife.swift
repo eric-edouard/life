@@ -10,6 +10,12 @@ public struct MainSessionScreen: Encodable, Sendable, Equatable {
     public init(tab: String? = nil, open: String? = nil) {
         (self.tab, self.open) = (tab, open)
     }
+
+    /// The screen as the router shows it: the card he is asking about (`card`) is what is open, else the matter or person on show.
+    public init(tab: String, card: String?, matter: String?, person: String?) {
+        let shown = tab == "projects" ? matter : tab == "people" ? person : nil
+        self.init(tab: tab, open: card ?? shown)
+    }
 }
 
 /// One piece of work the main session reports as it goes: a tool call, a subagent or an agent it put to work.

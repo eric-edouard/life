@@ -46,7 +46,7 @@ import {
 } from "./turn-ends";
 
 // The main session (Ask Life, his decisions of 21 Nov 2026; the study of that day): the registered agent in role
-// `main`, registered by the desk on his first words, woken only by them (never by the clock: `dueOf`). Each ask is one
+// `main`, registered by the desk from its start (`standUp`), its session made on his first words, woken only by them (never by the clock: `dueOf`). Each ask is one
 // desk turn (cause `main_ask`, outcome `replied` from its start: `turnEnded` closes it with its usage, no reminder, no
 // wait) on one session the runtime keeps open across asks (`Runtime.talk`), so his next words pay no start; his presence
 // on the Ask Life screen keeps it open (`keepMainSession`). It runs as one of his own sessions in full and acts on his
@@ -233,7 +233,7 @@ async function mainOf(desk: Desk) {
 
 /**
  * His presence on the Ask Life screen: keeps the main session's session open, when it stands and has one (none: his
- * first words register it and make it; presence registers nothing). Why not, when it can't.
+ * first words make it; presence makes nothing). Why not, when it can't.
  */
 export async function keepMainSession(desk: Desk) {
   const a = standingAgentOf(desk.db, "main");
