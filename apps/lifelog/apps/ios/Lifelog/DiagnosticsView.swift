@@ -1,4 +1,5 @@
 import Capture
+import LifeConnector
 import SwiftUI
 
 /// What works, in one place: both connections as their pages say it, the Pendant, the audio waiting on the phone. "Run
@@ -34,7 +35,21 @@ struct DiagnosticsView: View {
                         word: uploads.unsent > .zero ? DurationText.string(uploads.unsent, width: .wide) : "None")
                 ))
         }
+        if let mark = life.agents.value?.healthMark {
+            rows.append(("Agents", isChecking ? LinkState.checking.mark : mark))
+        }
         return rows
+    }
+
+    /// The agents' health (`read_registered_agents`): the desk's first, then each agent's that is not fine, with why.
+    private var agentLines: [(title: String, mark: StateMark, why: [String])] {
+        guard let agents = life.agents.value else { return [] }
+        let desk = agents.health.map { [("Desk", AgentHealth.mark(of: [$0]), $0.why)] } ?? []
+        return desk
+            + agents.agents.compactMap { a in
+                guard let h = a.health, h.verdict != .fine else { return nil }
+                return (a.name ?? a.title, AgentHealth.mark(of: [h]), h.why)
+            }
     }
 
     private var version: String { "Build \(Bundle.main.buildWords) · iOS \(UIDevice.current.systemVersion)" }
@@ -45,12 +60,25 @@ struct DiagnosticsView: View {
                 RowGroup(surface: .sheet) {
                     ForEach(rows, id: \.title) { row in Row(title: row.title) { row.mark } }
                 }
+                // Each agent that is not fine, and the desk, with why in his words: what to do is in the line.
+                if !agentLines.isEmpty {
+                    RowGroup(label: "Agents", surface: .sheet) {
+                        ForEach(Array(agentLines.enumerated()), id: \.offset) { _, line in
+                            Row(title: line.title, detail: line.why.isEmpty ? nil : line.why.joined(separator: "\n")) {
+                                line.mark
+                            }
+                        }
+                    }
+                }
                 VStack(spacing: 10) {
                     Button("Run all checks") { Task { await runAll() } }
                         .buttonStyle(.pill(.filled, isBusy: isChecking))
                     Button(copied ? "Copied" : "Copy report") {
-                        UIPasteboard.general.string = ([version] + rows.map { "\($0.title): \($0.mark.word)" }).joined(
-                            separator: "\n")
+                        UIPasteboard.general.string =
+                            ([version] + rows.map { "\($0.title): \($0.mark.word)" }
+                            + agentLines.map { "\($0.title): \($0.mark.word)\($0.why.map { "; " + $0 }.joined())" })
+                            .joined(
+                                separator: "\n")
                         copied = true
                     }
                     .task(id: copied) {
@@ -76,6 +104,7 @@ struct DiagnosticsView: View {
         }
         .background(Palette.sheet)
         .navigationTitle("Diagnostics")
+        .task { await life.refreshAgents() }
     }
 
     private func runAll() async {
@@ -83,7 +112,8 @@ struct DiagnosticsView: View {
         copied = false
         async let a: Void = life.refreshInbox()
         async let b: Void = sync.checkNow()
-        _ = await (a, b)
+        async let c: Void = life.refreshAgents()
+        _ = await (a, b, c)
         isChecking = false
     }
 }
@@ -204,3 +234,23 @@ struct DiagnosticsView: View {
         }
     }
 #endif
+
+extension AgentHealth {
+    /// The worst of `health`: broken, else needs attention, else fine.
+    static func mark(of health: [AgentHealth]) -> StateMark {
+        let broken = health.filter { $0.verdict == .broken }.count
+        let attention = health.filter { $0.verdict == .attention }.count
+        if broken > 0 { return StateMark(glyph: .flag, word: "\(broken) broken") }
+        if attention > 0 {
+            return StateMark(glyph: .flag, word: attention == 1 ? "Needs attention" : "\(attention) need attention")
+        }
+        return StateMark(glyph: .ok, word: "Fine")
+    }
+}
+
+extension RegisteredAgents {
+    /// The desk's and its agents' health as one mark (Settings and Diagnostics); nil from a Life that sends none.
+    var healthMark: StateMark? {
+        health.map { AgentHealth.mark(of: [$0] + agents.compactMap(\.health)) }
+    }
+}

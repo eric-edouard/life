@@ -50,6 +50,12 @@ claude plugin install life@life
 
 Use one or the other, not both.
 
+With your agents on (the desk), Life keeps two of them from the start: Ask Life's main session and the caretaker, who
+fixes what you complain about. Each agent's session on Claude is listed in your Claude app after its first turn; drag
+them into a group named "Life Agents" to keep them together. Leave an agent's session closed in the app when you are
+done with it: while the app holds it open, that agent's wakes wait. Settings › Diagnostics on your phone shows each
+agent's health, and says when one is held open, not listening, or not in the group.
+
 ## Check it works
 
 Ask about something from the last week.

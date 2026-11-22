@@ -99,6 +99,9 @@ import {
 
 const now = () => clock().toISOString();
 
+/** The sessions a due wake found open outside the desk, by agent and session, logged once each until a wake finds them free. ponytail: per process, so a desk restart logs a hold once more. */
+const openSessions = new Set<string>();
+
 /** `readPeople`, read at most once however often it is asked. */
 export function readPeopleOnce(): ReadPeople {
   let read: Promise<People> | undefined;
@@ -413,8 +416,15 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
       ? await runtime.state(a.session).catch(() => null)
       : "gone";
   if (state === "running") {
+    // A due wake on a session open outside the desk (his app, a terminal) waits until it lets go: said once per opening.
+    const key = `${a.id} ${a.session}`;
+    if (!openSessions.has(key)) {
+      openSessions.add(key);
+      log("desk.session_open", { agent: a.id, runtime: a.runtime });
+    }
     return false;
   }
+  openSessions.delete(`${a.id} ${a.session}`);
   // Read again as its turn is written: since the tick listed it, the agent may have finished, set a later wait or been
   // woken (a runtime's start can take 30 s); its session takes one turn at a time.
   const woken = db.transaction(() => {
