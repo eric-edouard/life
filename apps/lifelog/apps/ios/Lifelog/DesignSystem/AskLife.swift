@@ -85,7 +85,7 @@ private struct AskDictationSlot: View {
 
     private func submit() {
         // His words are never dropped: while Life works, they stay in the field.
-        guard !life.tell.isBusy, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard !life.tell.isBusy else { return }
         let words = draft
         draft = ""
         Task { await life.tell.send(words, screen: router.tellScreen) }
