@@ -36,8 +36,9 @@ struct PendantScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var sheet: PendantSheet?
-    /// The recovery button whose work is running: busy until it ends, the status above then says what came of it.
+    /// The recovery button tapped last, and what came of it (`RowState.tap`).
     @State private var recovering: Recovery?
+    @State private var recovered = RowState.known
 
     private enum PendantSheet: String, Identifiable {
         case replace, pair
@@ -131,21 +132,25 @@ struct PendantScreen: View {
                     Text(condition.todo).font(.bodyStrong)
                     if let recovery = condition.recovery {
                         Button(recovery.title) {
+                            guard recovered != .saving else { return }
                             recovering = recovery
-                            Task {
-                                await actions.recover(recovery)
-                                recovering = nil
-                            }
+                            Task { await RowState.tap($recovered) { await actions.recover(recovery) } }
                         }
-                        .buttonStyle(.pill(.quiet, size: .compact, isBusy: recovering == recovery))
+                        .buttonStyle(
+                            .pill(.quiet, size: .compact, isBusy: recovering == recovery && recovered == .saving)
+                        )
                         .accessibilityIdentifier("pendant.recover.\(recovery)")
                         .padding(.top, Metrics.Spacing.xs * 2)
                     }
                 }
                 .padding(.top, Metrics.Spacing.xs * 2)
             }
+            // Below the conditions, so "Reconnected" stays while its condition goes.
+            if recovering != nil { TapLine(state: recovered == .saving ? .known : recovered) }
         }
         .motion(Motion.standard, value: reading.conditions.map(\.means))
+        // "Still not fixed" holds only while the conditions it was about do.
+        .onChange(of: reading.conditions.map(\.means)) { if case .refused = recovered { recovered = .known } }
     }
 
     /// A state's own second line, when the conditions do not say it.

@@ -8,6 +8,7 @@ import SwiftUI
 struct VocabularyView: View {
     @Environment(SyncStore.self) private var sync
     @State private var draft = ""
+    @State private var isSaved = false
 
     private var words: ServerValue<[String]> { serverVocabulary(feed: sync.feed.vocabulary, pending: sync.pending) }
 
@@ -23,14 +24,7 @@ struct VocabularyView: View {
                             .onSubmit { add(to: terms) }
                             .accessibilityIdentifier("vocabulary.add")
                         Text("Used from the next recording.").font(.note).foregroundStyle(Palette.muted)
-                        switch words {
-                        case .saving:
-                            HStack(spacing: 8) {
-                                StateGlyph.busy; Text("Saving…").font(.small).foregroundStyle(Palette.muted)
-                            }
-                        case .refused(_, let message): Text(message).font(.small).foregroundStyle(Palette.flag)
-                        case .known, .asking: EmptyView()
-                        }
+                        TapLine(state: words.rowState(isSaved: isSaved))
                     }
                     if !terms.isEmpty {
                         RowGroup(label: terms.count == 1 ? "1 word" : "\(terms.count) words", surface: .sheet) {
@@ -56,6 +50,7 @@ struct VocabularyView: View {
             .padding(.bottom, 24)
             .readingWidth()
         }
+        .savedFlash(words, $isSaved)
         .scrollDismissesKeyboard(.interactively)
         .background(Palette.sheet)
         .navigationTitle("Vocabulary")
