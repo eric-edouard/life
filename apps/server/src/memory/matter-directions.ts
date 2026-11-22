@@ -34,7 +34,7 @@ import { dayNow } from "./zones";
 // looks over, no next step and the later records that show it (`endingRecords`: the links step then judges them). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v3";
+const PROMPT = "memory-matter-directions.v4";
 /** The most characters of matters a night is shown, those with no direction first, then the newest; and one call. */
 const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
