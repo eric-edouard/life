@@ -489,6 +489,7 @@ test("he answered after an arrival's newest line: no agent wakes; a line of his 
           messages: ["mail|mail:1"],
           people: ["person:ana"],
           unit: "unit_0000000000a2",
+          wakes: true,
         },
       ],
       sources: [mail],
