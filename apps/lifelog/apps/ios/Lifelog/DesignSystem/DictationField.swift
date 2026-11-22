@@ -3,12 +3,13 @@ import Accessibility
 import ServerAPI
 import SwiftUI
 
-/// Every free-text field of the app: typing, and the one microphone (decision 87; the dictation spec of 20 Nov). A tap
-/// on the microphone starts a run, a tap pauses it and a tap goes on; a hold records while held. At each pause the
-/// run's words land where the caret was. While listening, a one-line field's text line holds the cancel, the time and
-/// the stream; a tall field takes them on a line under its text. Heard instantly (his `dictationHeard` switch), the
-/// words show as they come, fading in (`LiveWordsText`): in a tall field's text at the caret, in a one-line field's line
-/// in place of the stream. A field's font, colour, line limit, padding and fill stay its caller's.
+/// Every free-text field of the app: typing, and dictation as the spec of 22 Nov draws it
+/// (`docs/product/app-design/dictation-2026-11-22.md` in his data repo): the field ends with its keys, the microphone and,
+/// where the field has a single submit, Send (`DictationKeys`). A tap on the microphone starts a run and the next stops it;
+/// a hold talks while held; a hold slid up sends (`DictationPress`). At each stop the run's words land where the caret
+/// was. While listening, a one-line field's text line holds the cancel, the time and the stream; a tall field takes them
+/// on a line under its text. Heard instantly (his `dictationHeard` switch), the words show as they come, fading in
+/// (`LiveWordsText`). A field's font, colour, line limit, padding and box stay its caller's.
 struct DictationField: View {
     let prompt: String
     /// What VoiceOver calls the field, when its prompt doesn't say it (a row's label).
@@ -16,10 +17,12 @@ struct DictationField: View {
     @Binding var text: String
     var axis = Axis.horizontal
     var focused: FocusState<Bool>.Binding?
-    /// A field with a Send: Send sits right of the microphone, and a swipe up from it, or a hold slid up its track,
-    /// sends once the words landed. While recording, Send dissolves into a "Swipe up to send" hint on the microphone.
-    /// Every field with a single submit passes one (Tell Life, a matter's goal or next step, the new agent's goal) in
-    /// place of its own Save or Start button; a card's answers stay buttons.
+    /// Whether the field listens as it appears (Ask Life opened by its button: the press that opened it was the
+    /// microphone's).
+    var listens = false
+    /// A field with a Send: the solid disc after the microphone, and a hold slid up from it. Every field with a single
+    /// submit passes one (Tell Life, a matter's goal or next step, the new agent's goal) in place of its own Save or Start
+    /// button; a card's answers stay buttons.
     var send: (() -> Void)?
 
     @Environment(\.library) private var library
@@ -33,8 +36,6 @@ struct DictationField: View {
     /// The text and caret when the run started: the keyboard goes away while he speaks, and the words land there
     /// (at the end when the text changed since).
     @State private var caret: (text: String, selection: TextSelection?)?
-    /// How far up his thumb is from the microphone while he holds, nil when he isn't holding (the track).
-    @State private var rise: CGFloat?
     private let live = LiveWords.shared
 
     var body: some View {
@@ -42,11 +43,12 @@ struct DictationField: View {
             if let problem = dictation.problem { ProblemLine(problem: problem) { fix(problem) }.appears() }
             HStack(alignment: axis == .vertical ? .bottom : .center, spacing: Metrics.Spacing.s) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                    let isOneLineBusy = axis == .horizontal && dictation.phase != .rest
-                    let isTallLive = axis == .vertical && isLive
+                    // An empty tall field dictates on its one line, as a one-line field does.
+                    let isLineInPlace = dictation.phase != .rest && (axis == .horizontal || text.isEmpty)
+                    let isTallLive = !isLineInPlace && isLive
                     // Both stay in the stack: the field keeps its height, the live text grows it as words come.
                     ZStack(alignment: .topLeading) {
-                        field.opacity(isOneLineBusy || isTallLive ? 0 : 1)
+                        field.opacity(isLineInPlace || isTallLive ? 0 : 1)
                         if isTallLive {
                             let (head, tail) = DictatedText.parts(in: text, at: keptCaret)
                             // The caller's line limit holds; past it, the newest words stay in sight.
@@ -54,20 +56,15 @@ struct DictationField: View {
                         }
                     }
                     .overlay(alignment: .leading) {
-                        if isOneLineBusy { ListeningLine(dictation: dictation, live: isLive ? live : nil) }
+                        if isLineInPlace { ListeningLine(dictation: dictation, live: isLive ? live : nil).appears() }
                     }
-                    if axis == .vertical, dictation.phase != .rest {
+                    if !isLineInPlace, dictation.phase != .rest {
                         ListeningLine(dictation: dictation, live: nil).appears()
                     }
                 }
-                DictationMic(dictation: dictation, canSend: send != nil, rise: $rise, start: start)
-                    .overlay(alignment: .bottom) { if let rise { SendTrack(rise: rise) } }
-                    .overlay(alignment: .top) {
-                        if send != nil, isRecording, rise == nil { SwipeHint().offset(y: -Metrics.tapTarget) }
-                    }
-                if let send {
-                    SendButton(isHidden: isRecording, isLit: hasWords && dictation.phase == .rest, send: send)
-                }
+                // One line sits centred on the keys; more grow up from them.
+                .frame(minHeight: Metrics.tapTarget)
+                DictationKeys(dictation: dictation, hasWords: hasWords, send: send, start: start)
             }
         }
         .motion(Motion.standard, value: dictation.phase)
@@ -81,14 +78,19 @@ struct DictationField: View {
         }
         .sensoryFeedback(.success, trigger: dictation.landed)
         .sensoryFeedback(.error, trigger: dictation.problem) { _, new in new != nil }
-        .onAppear { dictation.begin = DictationCapture.run(library: library, sync: sync) }
+        .onAppear {
+            dictation.begin = DictationCapture.run(library: library, sync: sync)
+            #if DEBUG
+                if DictationFixture.drive(dictation, start: start) { return }
+            #endif
+            if listens { start() }
+        }
         .onDisappear { dictation.cancel() }
         .onChange(of: dictation.landed) { _, landed in
             if let landed { land(landed) }
         }
     }
 
-    private var isRecording: Bool { dictation.phase == .starting || dictation.phase == .listening }
     /// This field's run is heard instantly and has words (a stream that failed keeps them until the Mac's land): only
     /// one microphone runs at a time.
     private var isLive: Bool { dictation.phase != .rest && !live.words.isEmpty }
@@ -120,13 +122,15 @@ struct DictationField: View {
         return caret.map { (text: $0.text, selection: picked) }
     }
 
-    /// The words at the caret he left, then, on a swipe up, the Send, which reads the text with them.
+    /// The words at the caret he left, then, for a run stopped by Send, the Send, which reads the text with them.
     private func land(_ landed: Dictation.Landed) {
         live.clear()
-        guard let landing = DictatedText.inserting(landed.words, into: text, at: keptCaret) else { return }
-        text = landing.text
-        selection = TextSelection(insertionPoint: landing.caret)
-        AccessibilityNotification.Announcement(landed.words).post()
+        // A run that heard nothing still sends what the field holds, when it was stopped by Send.
+        if let landing = DictatedText.inserting(landed.words, into: text, at: keptCaret) {
+            text = landing.text
+            selection = TextSelection(insertionPoint: landing.caret)
+            AccessibilityNotification.Announcement(landed.words).post()
+        }
         if landed.sends { send?() }
     }
 
@@ -151,170 +155,217 @@ private struct ProblemLine: View {
     }
 }
 
-/// The microphone: a 36 disc. At rest, the microphone (slashed and muted when refused); recording, an `fg` disc with
-/// a pause glyph and a soft `ai` pulse, grown to 64 while held; writing, the app's spinner. A tap starts, pauses or
-/// goes on; a hold records while held and letting go pauses; with a Send, a swipe up sends.
+/// The field's keys, two 36 discs (44 to hit) in one glass container, so they sample each other and melt as the
+/// microphone leaves and comes home: the microphone, clear glass, and Send, a solid `fg` disc (the Claude app's Stop,
+/// his reference of 22 Nov), only where the field has a Send. Send is lit with words or a run to send.
+private struct DictationKeys: View {
+    let dictation: Dictation
+    let hasWords: Bool
+    let send: (() -> Void)?
+    let start: () -> Void
+
+    @State private var press: DictationPress
+
+    init(dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void) {
+        (self.dictation, self.hasWords, self.send, self.start) = (dictation, hasWords, send, start)
+        _press = State(initialValue: DictationPress(canSend: send != nil))
+    }
+
+    var body: some View {
+        GlassEffectContainer(spacing: Metrics.Spacing.s) {
+            HStack(spacing: Metrics.Spacing.s) {
+                DictationMic(dictation: dictation, press: $press, start: start)
+                if let send {
+                    // Off while a run's words are written: they land first.
+                    SendKey(
+                        dictation: dictation,
+                        isLit: (isRunning || hasWords && dictation.phase == .rest) && !press.isArmed, send: send)
+                }
+            }
+        }
+        #if DEBUG
+            .onAppear { if let seeded = DictationFixture.press(canSend: send != nil) { press = seeded } }
+        #endif
+    }
+
+    private var isRunning: Bool { dictation.phase == .starting || dictation.phase == .listening }
+}
+
+/// Send: a solid `fg` disc, the arrow in `on`; dim with nothing to send, the spinner while a run it stopped is written.
+/// Tapped while a run is under way, it stops the run and sends once the words land.
+private struct SendKey: View {
+    let dictation: Dictation
+    let isLit: Bool
+    let send: () -> Void
+
+    var body: some View {
+        Button {
+            if dictation.phase == .rest { send() } else { dictation.send() }
+        } label: {
+            Group {
+                if dictation.isSending {
+                    Spinner(size: .small).foregroundStyle(Palette.on)
+                } else {
+                    Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(isOn ? Palette.on : Palette.muted)
+                }
+            }
+            .frame(width: 36, height: 36)
+            // Dim is the glass's own tint: the container draws the glass, so an opacity on the view would miss it.
+            .glassEffect(.regular.tint(Palette.fg.opacity(isOn ? 1 : 0.35)).interactive(), in: .circle)
+            .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isLit || dictation.isSending)
+        .accessibilityLabel("Send")
+    }
+
+    private var isOn: Bool { isLit || dictation.isSending }
+}
+
+/// The microphone: a 36 disc of clear glass (`.interactive()`, the system's press). At rest the microphone (slashed and
+/// muted when refused); listening, tinted `ai` with Life's voice mark following his level; held, 1.12 big with a chevron
+/// over it where a slide sends; slid up, it follows the thumb (`DictationPress.lift`) and, armed, turns into Send; let go
+/// armed, it flies on up and fades, decisive. Writing, the spinner (muted while Send holds the spinner).
 private struct DictationMic: View {
     let dictation: Dictation
-    let canSend: Bool
-    /// How far up his thumb is while he holds (for the field's track); nil when he isn't holding.
-    @Binding var rise: CGFloat?
+    @Binding var press: DictationPress
     /// Starts a run from rest (the field keeps its caret first).
     let start: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Whether his finger is down; false again once it is up, or once the system took the gesture away.
     @GestureState private var isDown = false
-    /// The phase when his finger went down, and since when: a quick press is a tap, a long one a hold.
-    @State private var press: (wasRecording: Bool, at: Date)?
-    @State private var isHolding = false
-    @State private var pulses = false
+    /// How high a slide that sent was let go, while the microphone flies on from there; nil once it is home.
+    @State private var flight: Double?
+    @State private var isGone = false
 
-    private static let holdAfter = 0.3
-    private var isRecording: Bool { dictation.phase == .starting || dictation.phase == .listening }
+    private var isRunning: Bool { dictation.phase == .starting || dictation.phase == .listening }
 
     var body: some View {
-        ZStack {
-            if isRecording && !reduceMotion {
-                Circle().fill(Palette.ai.opacity(pulses ? 0 : 0.35)).scaleEffect(pulses ? 1.5 : 1)
-                    .animation(.easeOut(duration: 1.2).repeatForever(autoreverses: false), value: pulses)
-                    .onAppear { pulses = true }
-                    .onDisappear { pulses = false }
-            }
-            Circle().fill(isRecording ? Palette.fg : Color.fillTint)
-            glyph
-        }
-        .frame(width: isHolding ? 64 : 36, height: isHolding ? 64 : 36)
-        .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
-        .contentShape(.rect)
-        .animation(reduceMotion ? nil : .spring(duration: 0.22), value: isHolding)
-        .gesture(
-            DragGesture(minimumDistance: 0).updating($isDown) { _, isDown, _ in isDown = true }
-                .onChanged { value in
-                    if canSend, isHolding { rise = max(0, -value.translation.height) }
+        glyph
+            .frame(width: 36, height: 36)
+            .glassEffect(glass, in: .circle)
+            .overlay(alignment: .top) {
+                if press.isHolding, press.canSend, !press.isArmed {
+                    Image(systemName: "chevron.up").font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Palette.muted).offset(y: -18).transition(.opacity)
                 }
-                .onEnded { value in letGo(swipedUp: value.translation.height < -Metrics.tapTarget) }
-        )
-        // A gesture the system takes away (a scroll, an alert) never ends; its state resets all the same, after which
-        // a press `onEnded` didn't let go of was taken away.
-        .onChange(of: isDown) { _, isDown in
-            if isDown { return pressed() }
-            Task { letGo(swipedUp: nil) }
-        }
-        .accessibilityElement()
-        .accessibilityLabel(isRecording ? "Pause dictating" : dictation.phase == .writing ? "Writing" : "Dictate")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { dictation.phase == .rest ? start() : dictation.tap() }
+            }
+            .scaleEffect(isGone ? 0.6 : press.isHolding ? 1.12 : 1)
+            .offset(y: reduceMotion ? 0 : -(flight.map { $0 + (isGone ? 24 : 0) } ?? press.lift))
+            .opacity(isGone ? 0 : 1)
+            // With the thumb while it is down, home with a little spring once it lets go.
+            .animation(
+                press.isDown ? .interactiveSpring(duration: 0.2) : .spring(duration: 0.4, bounce: 0.25),
+                value: press.lift
+            )
+            .animation(.spring(duration: 0.3, bounce: 0.2), value: press.isHolding)
+            .motion(.easeOut(duration: 0.15), value: press.isArmed)
+            .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
+            .contentShape(.rect)
+            .gesture(
+                DragGesture(minimumDistance: 0).updating($isDown) { _, isDown, _ in isDown = true }
+                    .onChanged { value in
+                        if press.isDown { press.move(up: -value.translation.height) } else { pressed() }
+                    }
+                    .onEnded { _ in act(press.release(at: Self.now)) }
+            )
+            // A gesture the system takes away (a scroll, an alert) never ends; its state resets all the same, after
+            // which a press `onEnded` didn't let go of was taken away.
+            .onChange(of: isDown) { _, isDown in
+                if !isDown { Task { act(press.takenAway()) } }
+            }
+            .sensoryFeedback(trigger: press.isArmed) { _, armed in
+                armed ? .impact(flexibility: .rigid) : .impact(flexibility: .soft, intensity: 0.5)
+            }
+            .accessibilityElement()
+            .accessibilityLabel(isRunning ? "Stop dictating" : dictation.phase == .writing ? "Writing" : "Dictate")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { dictation.phase == .rest ? start() : dictation.tap() }
+            .accessibilityAction(named: "Send") { if press.canSend, isRunning { dictation.send() } }
+    }
+
+    private var glass: Glass {
+        if press.isArmed || flight != nil { return .regular.tint(Palette.fg).interactive() }
+        return isRunning ? .regular.tint(Palette.ai).interactive() : .regular.interactive()
     }
 
     @ViewBuilder private var glyph: some View {
-        switch dictation.phase {
-        case .writing: Spinner(size: .small).foregroundStyle(Palette.fg)
-        case .starting, .listening: Image(systemName: "pause.fill").font(.system(size: 16)).foregroundStyle(Palette.on)
-        case .rest:
-            Image(systemName: dictation.isRefused ? "mic.slash" : "mic").font(.system(size: 18))
-                .foregroundStyle(dictation.isRefused ? Palette.muted : Palette.fg)
+        if press.isArmed || flight != nil {
+            Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.on)
+        } else {
+            switch dictation.phase {
+            case .writing where !dictation.isSending: Spinner(size: .small).foregroundStyle(Palette.fg)
+            case .starting, .listening: VoiceMark(level: dictation.levels.last ?? 0)
+            case .rest, .writing:
+                Image(systemName: dictation.isRefused ? "mic.slash" : "mic").font(.system(size: 17))
+                    .foregroundStyle(dictation.isRefused || dictation.isSending ? Palette.muted : Palette.fg)
+            }
         }
     }
+
+    private static var now: Double { ProcessInfo.processInfo.systemUptime }
 
     private func pressed() {
-        guard press == nil else { return }
-        let at = Date.now
-        press = (isRecording, at)
-        if dictation.phase == .rest { start() }
+        let at = Self.now
+        act(press.press(at: at, isRunning: dictation.phase != .rest))
         Task {
-            try? await Task.sleep(for: .seconds(Self.holdAfter))
-            if press?.at == at, isRecording { isHolding = true }
+            try? await Task.sleep(for: .seconds(DictationPress.holdAfter))
+            if isRunning { press.held(since: at) }
         }
     }
 
-    /// His finger is up, or the press was taken away (`swipedUp` nil), which never sends.
-    private func letGo(swipedUp: Bool?) {
-        guard let press else { return }
-        self.press = nil
-        isHolding = false
-        rise = nil
-        if swipedUp == true && canSend { return dictation.swipeUp() }
-        let wasHold = Date.now.timeIntervalSince(press.at) >= Self.holdAfter
-        // A tap that started the run keeps it going, unless taken away, which drops it; a tap on a run, or the end of
-        // a hold, pauses.
-        if press.wasRecording || wasHold {
-            dictation.pause()
-        } else if swipedUp == nil {
-            dictation.cancel()
+    private func act(_ act: DictationPress.Act?) {
+        switch act {
+        case .start: start()
+        case .stop: dictation.pause()
+        case .cancel: dictation.cancel()
+        case .send: fly()
+        case nil: break
+        }
+    }
+
+    /// The slide that sends: the run stops with `sends`, and the microphone flies on from where it was let go, then is
+    /// home again, still.
+    private func fly() {
+        let from = press.lift
+        dictation.send()
+        guard !reduceMotion else { return }
+        flight = from
+        withAnimation(.spring(duration: 0.22, bounce: 0)) {
+            isGone = true
+        } completion: {
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) { (flight, isGone) = (nil, false) }
         }
     }
 }
 
-/// Send, right of the microphone: dim with nothing to send, lit with words; while recording it dissolves (shrinks, blurs
-/// and fades in 160 ms) and the microphone's hint takes its place.
-private struct SendButton: View {
-    let isHidden: Bool
-    let isLit: Bool
-    let send: () -> Void
+/// Life's voice mark while he speaks: five rounded bars, the middle tallest (the Ask Life button's mark), their height
+/// following his level, in `on` on the `ai` glass.
+private struct VoiceMark: View {
+    let level: Double
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let heights: [CGFloat] = [8, 14, 20, 14, 8]
 
     var body: some View {
-        Button(action: send) {
-            Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(isLit ? Palette.on : Palette.muted)
-                .frame(width: 36, height: 36).background(isLit ? Palette.fg : Color.fillTint, in: .circle)
-                .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .disabled(!isLit || isHidden)
-        .scaleEffect(isHidden && !reduceMotion ? 0.4 : 1)
-        .blur(radius: isHidden && !reduceMotion ? 6 : 0)
-        .opacity(isHidden ? 0 : 1)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isHidden)
-        .accessibilityLabel("Send")
-        .accessibilityHidden(isHidden)
-    }
-}
-
-/// While he records: two chevrons rising over the microphone, and the words.
-private struct SwipeHint: View {
-    var body: some View {
-        HStack(spacing: Metrics.Spacing.xs) {
-            Image(systemName: "chevron.up.2").font(.system(size: 13, weight: .semibold))
-                .symbolEffect(.bounce.up, options: .repeating)
-            Text("Swipe up to send").font(.small)
+        HStack(spacing: 1.8) {
+            ForEach(0..<5, id: \.self) { i in
+                Capsule().frame(width: 2.6, height: Self.heights[i] * (0.4 + 0.6 * level))
+            }
         }
         .foregroundStyle(Palette.on)
-        .padding(.horizontal, Metrics.Spacing.m).frame(height: 32).background(Palette.fg, in: .capsule)
-        .fixedSize()
+        .frame(height: 20)
+        .motion(.easeOut(duration: 0.12), value: level)
         .accessibilityHidden(true)
     }
 }
 
-/// While he holds: a track rises from the microphone to a Send target. His thumb reaching it (`armed`) fills the target
-/// with a tick: letting go then sends ("Let go to send").
-private struct SendTrack: View {
-    let rise: CGFloat
-
-    static let reach: CGFloat = 120
-    private var armed: Bool { rise >= Metrics.tapTarget }
-
-    var body: some View {
-        VStack(spacing: Metrics.Spacing.xs) {
-            ZStack {
-                Circle().fill(armed ? Palette.fg : Color.fillTint)
-                Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(armed ? Palette.on : Palette.muted)
-            }
-            .frame(width: 44, height: 44)
-            Capsule().fill(Color.fillTint).frame(width: 4, height: Self.reach - 44)
-        }
-        .offset(y: -44)
-        .animation(.spring(duration: 0.22), value: armed)
-        .sensoryFeedback(.impact(weight: .medium), trigger: armed) { _, new in new }
-        .accessibilityHidden(true)
-    }
-}
-
-/// While listening: cancel, the run's time and the stream; while writing: cancel, "Writing…" and the stream, still
-/// and dim. An instant run's words (`live`, a one-line field's) take the stream's place; a stream that failed says the
+/// While listening: cancel, the run's time and the stream; while writing: cancel, "Writing…" ("Sending…" for a run
+/// that sends) and the stream, still and dim. An instant run's words (`live`, a one-line field's) take the stream's place; a stream that failed says the
 /// Mac writes this run.
 private struct ListeningLine: View {
     let dictation: Dictation
@@ -343,7 +394,10 @@ private struct ListeningLine: View {
 
     private func status(at now: Date) -> String {
         let onTheMac = LiveWords.shared.hasFailed
-        if dictation.phase == .writing { return onTheMac ? "Writing on your Mac…" : "Writing…" }
+        if dictation.phase == .writing {
+            if dictation.isSending { return "Sending…" }
+            return onTheMac ? "Writing on your Mac…" : "Writing…"
+        }
         return onTheMac ? "\(elapsed(at: now)) · On your Mac" : elapsed(at: now)
     }
 
@@ -354,9 +408,12 @@ private struct ListeningLine: View {
 }
 
 /// The run's sound: bars 2.5 wide and 2.5 apart, 3 high in silence (dots) to 22, born at the right and moving left one
-/// bar per sample, continuously, faded over the last 48 points; flat dots at 35% where nothing was heard yet.
+/// bar per sample, continuously (a step per sample under Reduce Motion), faded over the last 48 points; flat dots at 35%
+/// where nothing was heard yet.
 private struct DictationStream: View {
     let dictation: Dictation
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let pitch: CGFloat = 5
     private static let bar: CGFloat = 2.5
@@ -368,7 +425,7 @@ private struct DictationStream: View {
                 let levels = dictation.levels
                 let step = Double(Dictation.sampleEvery.components.attoseconds) / 1e18
                 let drift =
-                    dictation.phase == .listening
+                    dictation.phase == .listening && !reduceMotion
                     ? min(context.date.timeIntervalSince(dictation.sampledAt) / step, 1) * Self.pitch : 0
                 let count = Int(size.width / Self.pitch) + 1
                 for slot in 0..<count {
