@@ -170,7 +170,7 @@ test("Yes adds the link through his directory's door, only on his own answer_che
   ]);
   await expect(
     answerCheck(asked, { options: ["not-at-organization"] }, "session")
-  ).rejects.toThrow(`no open check ${asked.ref}`);
+  ).rejects.toThrow("no longer open");
 });
 
 test("a Yes on a role he did not see (the card changed since it was shown) is refused, writing nothing", async () => {
@@ -182,6 +182,6 @@ test("a Yes on a role he did not see (the card changed since it was shown) is re
         return Promise.resolve("Done");
       },
     })
-  ).rejects.toThrow("no open check");
+  ).rejects.toThrow("no longer open");
   expect(added).toEqual([]);
 });

@@ -108,9 +108,13 @@ extension PartyRow where End == EmptyView {
 }
 
 /// A person as an answer on a card (`party_pick`: naming a voice, a name with candidates): the answers' capsule, 56
-/// high on `tile`, holding the disc (28), the name and their line.
+/// high on `tile`, holding the disc (28), the name and their line. Once he picked one, that row says so in place
+/// (`answer-states-2026-11-20.md`): the spinner while Life works, then green with a check on Life's word.
 struct PartyPick: View {
+    enum Press { case rest, working, done }
+
     let party: Party
+    var press = Press.rest
     let action: () -> Void
 
     var body: some View {
@@ -118,22 +122,36 @@ struct PartyPick: View {
             HStack(spacing: Metrics.Spacing.m) {
                 PartyDisc(party, size: .pick)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(party.name).font(.buttonLabel).foregroundStyle(Palette.fg)
-                    if let line = party.line { Text(line).font(.small).foregroundStyle(Palette.muted).lineLimit(1) }
+                    Text(party.name).font(.buttonLabel)
+                        .foregroundStyle(press == .done ? Palette.on : Palette.fg)
+                    if let line = party.line {
+                        Text(line).font(.small).foregroundStyle(press == .done ? Palette.on : Palette.muted)
+                            .lineLimit(1)
+                    }
                 }
                 .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                switch press {
+                case .rest: EmptyView()
+                case .working: Spinner().foregroundStyle(Palette.fg)
+                case .done: Image(systemName: "checkmark").font(.buttonLabel).foregroundStyle(Palette.on)
+                }
             }
             .accessibilityElement(children: .combine)
         }
-        .buttonStyle(PickStyle())
+        .buttonStyle(PickStyle(press: press))
+        .allowsHitTesting(press == .rest)
     }
 
     private struct PickStyle: ButtonStyle {
+        let press: Press
+
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
                 .padding(.leading, 14).padding(.trailing, Metrics.Spacing.l)
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                .background(Palette.tile, in: .capsule)
+                .background(press == .done ? Palette.ok : Palette.tile, in: .capsule)
+                .motion(Motion.standard, value: press == .done)
                 .opacity(configuration.isPressed ? 0.7 : 1).contentShape(.capsule)
         }
     }

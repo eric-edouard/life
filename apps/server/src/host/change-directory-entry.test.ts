@@ -226,6 +226,8 @@ test("a new person he names answering a check is added with their name's id, num
   expect(await tap("Léa Fontaine")).toBe("person:lea-fontaine-2");
   expect(await tap("มะลิ")).toBe("person:person");
   expect(file("people.yaml")).toContain("มะลิ");
+  // A name with a slash, as typed on a card (his "Alex/Alexa" of 22 Nov).
+  expect(await tap("Zed/Zeda")).toBe("person:zed-zeda");
   expect(log()).toContain("New person: Léa Fontaine");
   // An organization's id is taken too: one id space.
   expect(await tap("Test Bakery")).toBe("person:test-bakery-2");
