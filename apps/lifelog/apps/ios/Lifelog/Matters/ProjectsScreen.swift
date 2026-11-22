@@ -10,6 +10,8 @@ struct ProjectsScreen: View {
 
     @State private var visibility = NavigationSplitViewVisibility.all
     @State private var isRetrying = false
+    /// The last Retry failed too: said beside it, so a second failure is not the same as no tap.
+    @State private var hasRetryFailed = false
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     /// What he typed on a project's question (`AppRouter.projectAsk`).
@@ -277,11 +279,12 @@ struct ProjectsScreen: View {
                     if life.projects.hasFailed {
                         QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {
                             Task {
-                                isRetrying = true
+                                (isRetrying, hasRetryFailed) = (true, false)
                                 await life.refreshProjects()
-                                isRetrying = false
+                                (isRetrying, hasRetryFailed) = (false, life.projects.hasFailed)
                             }
                         }
+                        if hasRetryFailed && !isRetrying { StateMark(glyph: .flag, word: "Still not readable") }
                     }
                     ForEach(life.projects.shown().onScreen?.chips ?? [], id: \.identity) { chip in
                         let status = chip.status.map { life.status(of: chip.id, as: $0) }
