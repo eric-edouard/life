@@ -374,7 +374,7 @@ const read = (b: Built, over: Partial<Extracted> = {}): Extracted => ({
   at: "2026-10-15T20:00:00.000Z",
   lines: b.messages.length,
   observations: 1,
-  prompt: "memory-extract.v7",
+  prompt: "memory-extract.v8",
   run: "r1",
   schemaVersion: 1,
   unit: b.unit.id,
