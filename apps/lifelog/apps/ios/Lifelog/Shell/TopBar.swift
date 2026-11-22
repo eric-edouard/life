@@ -11,7 +11,6 @@ import SwiftUI
 private struct ShellBar: ViewModifier {
     let label: String
     let hasPendant: Bool
-    let onBack: (() -> Void)?
 
     @Environment(AppRouter.self) private var router
     @Environment(\.topBarZoom) private var topBarZoom
@@ -19,8 +18,8 @@ private struct ShellBar: ViewModifier {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var sizeClass
 
-    /// A pushed page's: the stack's Back; or the one a screen names (a list's detail on a compact width).
-    private var hasBack: Bool { isPushed || onBack != nil }
+    /// A pushed page's: the stack's Back.
+    private var hasBack: Bool { isPushed }
     /// The unfolded Duo, on a page that is not pushed: the list's button joins the group.
     private var hasList: Bool { !hasBack && hasPendant && sizeClass == .regular }
 
@@ -70,7 +69,7 @@ extension ShellBar {
 
     private var back: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Back", systemImage: "chevron.backward") { onBack?() ?? dismiss() }
+            Button("Back", systemImage: "chevron.backward") { dismiss() }
                 .labelStyle(.iconOnly)
                 .accessibilityIdentifier("top.back")
         }
@@ -81,8 +80,8 @@ extension View {
     /// The top group of a screen: the Pendant everywhere but in a side column (the matter's page beside it has it), and a
     /// pushed page's Back on a compact width. The bar's own title is always inline: a list screen's name is its
     /// `screenTitle`, a page's its first line.
-    func shellBar(_ label: String, hasPendant: Bool = true, onBack: (() -> Void)? = nil) -> some View {
-        modifier(ShellBar(label: label, hasPendant: hasPendant, onBack: onBack))
+    func shellBar(_ label: String, hasPendant: Bool = true) -> some View {
+        modifier(ShellBar(label: label, hasPendant: hasPendant))
     }
 }
 

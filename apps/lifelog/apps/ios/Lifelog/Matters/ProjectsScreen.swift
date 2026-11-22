@@ -23,26 +23,19 @@ struct ProjectsScreen: View {
     /// compact one.
     var body: some View {
         @Bindable var router = router
-        let chip = chosen
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
             // Beside the agents' page the list is the agents, else the projects or their rows.
             if isAgentsBeside {
                 AgentsScreen(isBeside: true)
             } else {
-                // The list of projects, or a project's header and its rows: each shows its own read, so one failing
-                // leaves the others.
-                content(chip)
-                    .background(Palette.bg)
-                    // A swipe's mark and a project's status, said back with Undo.
-                    .saysBack()
-                    .screenTitle(chip?.name ?? "Projects", state: header)
-                    // A project's page goes back to the list; beside a matter, the Pendant is the matter column's.
-                    .shellBar("", hasPendant: sizeClass != .regular, onBack: backToList)
-                    // The page's list and header, again after an answer on a matter (and once Life's read names the project
-                    // chosen). The projects list is its own read.
-                    .task(id: [chip?.identity ?? "", isProjectsList ? "list" : "cut", answersKey]) {
-                        await refresh(chip)
-                    }
+                // The list of projects (or Ask Life's cut) with a project's or an area's page pushed on it: Back is the
+                // shell's. Each shows its own read, so one failing leaves the others.
+                NavigationStack(path: chipPath) {
+                    column(nil)
+                        .navigationDestination(for: String.self) { id in
+                            column(life.projects.shown().onScreen?.chips.first { $0.identity == id })
+                        }
+                }
             }
         } detail: {
             detail
@@ -140,23 +133,39 @@ struct ProjectsScreen: View {
 
     /// The title's count: on Ask Life's cut, how many of the matters' rows it keeps ("3 of 7"); on a project's page, its
     /// matters; on the list, the projects underway.
-    private var header: String? {
+    private func header(_ chip: ProjectChips.Chip?) -> String? {
         if let cut = router.cut(of: .matters) {
             return life.matters.shown().onScreen.map {
                 "\(cut.cut($0.matters, ref: \.id).count) of \($0.matters.count)"
             }
         }
-        guard let chip = chosen else { return life.projects.shown().onScreen.map { "\($0.underway) underway" } }
+        guard let chip else { return life.projects.shown().onScreen.map { "\($0.underway) underway" } }
         return chip.matters == 1 ? "1 matter" : "\(chip.matters) matters"
     }
 
     /// The projects and areas themselves: no chip chosen and nothing Ask Life cut.
     private var isProjectsList: Bool { chosen == nil && router.cut(of: .matters) == nil }
 
-    /// Back from a project's or an area's page to the list of projects; the list is where he already is.
-    private var backToList: (() -> Void)? {
-        guard chosen != nil else { return nil }
-        return { router.chip = nil }
+    /// The chip chosen, as the stack's path: a page pushed on the list, popped by Back.
+    private var chipPath: Binding<[String]> {
+        Binding(get: { router.chip.map { [$0] } ?? [] }, set: { router.chip = $0.last })
+    }
+
+    /// The list of projects (or Ask Life's cut), or one chip's page, with its bar and its reads.
+    private func column(_ chip: ProjectChips.Chip?) -> some View {
+        let isList = chip == nil && router.cut(of: .matters) == nil
+        return content(chip)
+            .background(Palette.bg)
+            // A swipe's mark and a project's status, said back with Undo.
+            .saysBack()
+            .screenTitle(chip?.name ?? "Projects", state: header(chip))
+            // Beside a matter, the Pendant is the matter column's.
+            .shellBar("", hasPendant: sizeClass != .regular)
+            // The page's list and header, again after an answer on a matter (and once Life's read names the project
+            // chosen). The projects list is its own read.
+            .task(id: [chip?.identity ?? "", isList ? "list" : "cut", answersKey]) {
+                await refresh(chip)
+            }
     }
 
     /// What an answer on a matter changes here: its page and its header read themselves again.
@@ -208,7 +217,7 @@ struct ProjectsScreen: View {
 
     /// The projects list, or a project's or area's page: its header, then its rows as their read stands.
     @ViewBuilder private func content(_ chip: ProjectChips.Chip?) -> some View {
-        if isProjectsList {
+        if chip == nil && router.cut(of: .matters) == nil {
             ProjectsList()
         } else {
             page(chip)
