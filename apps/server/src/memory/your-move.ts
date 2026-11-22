@@ -15,7 +15,6 @@ import {
   type MatterView,
   matterFinderOf,
   nextStepNow,
-  STUCK_DAYS,
 } from "./matter-read";
 import { needsShownOf } from "./needs";
 import { dismissedIdsOf } from "./read-matters";
@@ -29,23 +28,37 @@ import { dayStart } from "./zones";
 /** The steps he owes: a task of his (`to_do`), a promise, a to-do item; never a wait on someone. */
 const OWED_BY_HIM: MatterStepNow["kind"][] = ["promise", "to_do", "todo_item"];
 
-/** The day a step is due on `today`: its `when` as a whole date (never a yearly one) passed `STUCK_DAYS` ago or less (an older one has no say, as for a stuck matter); none otherwise. */
-const dueOf = (today: string, when?: string) =>
-  when && isoDate.safeParse(when).success && daysFrom(when, today) <= STUCK_DAYS
-    ? when
-    : undefined;
+/** How many days past its date a step still asks him (a deadline missed yesterday); after, its day is over: the event happened, or the deadline went. */
+const PAST_DATE_SHOWN_DAYS = 2;
+
+/** The day a step is due: its `when` as a whole date (never a yearly one); none otherwise. */
+const dueOf = (when?: string) =>
+  when && isoDate.safeParse(when).success ? when : undefined;
+
+/** Whether a step is his to do on `today` (the cognitive-load rule, his direction of 22 Nov 2026): one he owes (`OWED_BY_HIM`), said by no mailer (a no-reply notice or his agents' report is owed to no one), and not dated more than `PAST_DATE_SHOWN_DAYS` ago. */
+const isHisToDo = (
+  s: Pick<MatterStepNow, "byMailer" | "kind" | "when">,
+  today: string
+) => {
+  const due = dueOf(s.when);
+  return (
+    OWED_BY_HIM.includes(s.kind) &&
+    !s.byMailer &&
+    !(due && daysFrom(due, today) > PAST_DATE_SHOWN_DAYS)
+  );
+};
 
 /**
- * His step on a matter on `today`, what its card shows: of its open steps he owes (`OWED_BY_HIM`), the one due first
+ * His step on a matter on `today`, what its card shows: of its open steps his to do (`isHisToDo`), the one due first
  * (`dueOf`), else the newest (the latest words of it); none when nothing open is his to do (a wait on someone alone),
  * with `due` and `since`, the day of the oldest of them: how long the matter has waited on him. Pure.
  */
 export function yourMoveOf<
-  S extends Pick<MatterStepNow, "at" | "day" | "kind" | "when">,
+  S extends Pick<MatterStepNow, "at" | "byMailer" | "day" | "kind" | "when">,
 >(openSteps: readonly S[], today: string) {
   const his = openSteps
-    .filter((s) => OWED_BY_HIM.includes(s.kind))
-    .map((s) => ({ due: dueOf(today, s.when), step: s }));
+    .filter((s) => isHisToDo(s, today))
+    .map((s) => ({ due: dueOf(s.when), step: s }));
   const [first] = his.toSorted(
     (a, b) =>
       Number(a.due === undefined) - Number(b.due === undefined) ||
@@ -86,7 +99,7 @@ export const readPlaces = () =>
 
 type Step = Pick<
   MatterStepNow,
-  "at" | "day" | "kind" | "quote" | "ref" | "text" | "when"
+  "at" | "byMailer" | "day" | "kind" | "quote" | "ref" | "text" | "when"
 >;
 
 /** What the cards are worked out from: a part of the checks' inputs (`CheckInputs`). */
