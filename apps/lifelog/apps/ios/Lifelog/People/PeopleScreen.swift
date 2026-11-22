@@ -195,7 +195,7 @@ private struct PeopleColumns: View {
     /// A search that found no one of either kind: Life may know the name.
     private var askLifeRow: some View {
         QuietChip("Ask Life who it might be", symbol: "waveform", iconTint: Palette.ai) {
-            router.isAskLifeOpen = true
+            router.askLife = .full
         }
         .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
         .readingWidth()
