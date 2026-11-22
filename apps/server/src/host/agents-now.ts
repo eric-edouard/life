@@ -3,7 +3,7 @@ import { DAY, HOUR, MIN } from "../core/clock";
 import type { AgentRole } from "../core/names";
 import { isOwnLife } from "../core/platform";
 import type { AgentStatus, EventFilter } from "../records/registered-agent";
-import { agentHealthOf, type Health } from "./agent-health";
+import { agentHealthOf, type Health, type HealthFacts } from "./agent-health";
 import { readClaudeAppListing } from "./claude-app-listing";
 import {
   type ClaudeSessionRecord,
@@ -284,6 +284,31 @@ export const waitingSinceOf = (db: Database, id: string) =>
     )
     .get(id)?.at ?? null;
 
+/** Agent `a`'s health (`agentHealthOf`) from its read so far and what the call read around it. */
+function healthOf(
+  db: Database,
+  a: AgentRow,
+  around: Around,
+  now: number,
+  f: Pick<HealthFacts, "amber" | "notStarted" | "sessionOpenIn" | "status"> & {
+    record: ClaudeSessionRecord | undefined;
+  }
+) {
+  const isListed = a.runtime === "claude" && a.session && isOwnLife();
+  return agentHealthOf(
+    {
+      ...f,
+      app: isListed ? (around.app?.(a.session ?? "") ?? null) : null,
+      failedInARow: failedInARowOf(db, a.id),
+      runtime: a.runtime,
+      runtimeBlock: around.blocks[a.runtime],
+      sessionOpenSince: f.record?.since ?? null,
+      waitingSince: waitingSinceOf(db, a.id),
+    },
+    now
+  );
+}
+
 /** Agent `a` as read now (`AgentNow`), by the assignment it works on (`on`, else `currentAssignmentOf`; `subjectPartOf`): its last turn, its anchors and its events dropped in the last day. */
 function nowOf(
   db: Database,
@@ -314,24 +339,13 @@ function nowOf(
   );
   return {
     ...subject,
-    health: agentHealthOf(
-      {
-        amber: subject.amber,
-        app:
-          a.runtime === "claude" && a.session && isOwnLife()
-            ? (around.app?.(a.session) ?? null)
-            : null,
-        failedInARow: failedInARowOf(db, a.id),
-        notStarted: subject.notStarted,
-        runtime: a.runtime,
-        runtimeBlock: around.blocks[a.runtime],
-        sessionOpenIn: openIn,
-        sessionOpenSince: openIn ? (record?.since ?? null) : null,
-        status,
-        waitingSince: waitingSinceOf(db, a.id),
-      },
-      now
-    ),
+    health: healthOf(db, a, around, now, {
+      amber: subject.amber,
+      notStarted: subject.notStarted,
+      record: openIn ? record : undefined,
+      sessionOpenIn: openIn,
+      status,
+    }),
     ...modelOf(a),
     id: a.id,
     lastTurn: last
