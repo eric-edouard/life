@@ -474,7 +474,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       options: ["this-is"],
       person: "person:kofi",
     });
-    // A new name goes as typed, a slash in it too (his "Alex/Alexa" of 22 Nov).
+    // A new name goes as typed, a slash in it too (his report of 22 Nov).
     await answerCheck(voice, { name: "Zed/Zeda", options: ["this-is"] });
     // "Yes" to the guess in use: the check's subject, with nothing else given.
     const known = {

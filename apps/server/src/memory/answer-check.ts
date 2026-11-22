@@ -467,8 +467,7 @@ const WRITERS: {
       answerVoice(voice, async () => ({ kind: "ignore" })),
     "not-relevant": (_c, _a, { voice }) =>
       answerVoice(voice, async () => ({ kind: "not_relevant" })),
-    "this-is": (c, a, { voice }) =>
-      answerVoice(voice, (v) => thisIs(v, c, a)),
+    "this-is": (c, a, { voice }) => answerVoice(voice, (v) => thisIs(v, c, a)),
   },
   // Done, Drop and Hand over act through host (`endYourMove`, `startAgent`), only as the card offers them now.
   "your move": {
