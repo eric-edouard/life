@@ -121,6 +121,7 @@ struct ProjectsScreen: View {
                     .shellBar("", hasSettings: false)
                 case .agent(let id): AgentPage(id: id)
                 case .matter(let id): MatterPage(id: id, hasSettings: false)
+                case .session(let id): AgentSessionPage(id: id)
                 }
             }
         }

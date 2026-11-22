@@ -35,7 +35,12 @@ import { NOT_HIS } from "./mcp-tool";
 import { expectWire } from "./wire-fixture";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
-const HIS_ONLY = ["read_log_lines", "read_resource_samples", "read_spending"];
+const HIS_ONLY = [
+  "read_agent_session",
+  "read_log_lines",
+  "read_resource_samples",
+  "read_spending",
+];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
@@ -114,6 +119,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_todo_item",
     "correct_memory",
     "fetch",
+    "read_agent_session",
     "read_appointments",
     "read_area_page",
     "read_chats",
@@ -159,6 +165,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(at,fromTurn,id,limit,until)",
+    "read_agent_session(id)",
     "read_appointments(appointment,pushId)",
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
@@ -294,7 +301,9 @@ test("read_log_lines: his token reads the log newest first, both shapes, as his 
   ) =>
     (await rpc(await token(over), "tools/call", { arguments: args, name })).json
       .result;
-  for (const agent of await Promise.all(HIS_ONLY.map((n) => call({}, {}, n)))) {
+  for (const agent of await Promise.all(
+    HIS_ONLY.map((n) => call({}, { id: "agt_made" }, n))
+  )) {
     expect(agent).toMatchObject({ isError: true });
     expect(agent.content[0].text).toContain("paired as an agent");
   }

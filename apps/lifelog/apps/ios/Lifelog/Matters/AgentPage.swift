@@ -59,7 +59,7 @@ struct AgentsScreen: View {
 }
 
 /// An agent's page (AgentPage): its mark and name, its project's chip, its matters by what each waits for (Needs you in
-/// `flag`), then its settings: the program it runs on, and what wakes it (the agent's sheet).
+/// `flag`), then its settings: the program it runs on, what wakes it (the agent's sheet), and on pi its session.
 struct AgentPage: View {
     let id: String
     /// Beside the agents: the top group (Pendant, Settings) is this page's, in the column.
@@ -89,6 +89,12 @@ struct AgentPage: View {
                 // Inset as the list's rows are (`groupedRow`).
                 .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
                 .readingWidth().quietListRow()
+                // pi has no app: its session reads here, read-only, behind a quiet link (an agent on Claude Code or
+                // Codex opens in its program, from its sheet).
+                if agent.runtimeName == .pi {
+                    TextLink("Its session", to: .page) { router.matterPath.append(.session(id)) }
+                        .padding(.horizontal, Metrics.gutter).readingWidth().quietListRow()
+                }
                 if let line = agent.spendingLine() {
                     SpendingLine(text: line).padding(.horizontal, Metrics.gutter).quietListRow()
                 }

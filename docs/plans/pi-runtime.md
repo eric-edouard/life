@@ -38,7 +38,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Login environment | `readLoginEnv` less Anthropic's keys | the same `readLoginEnv`, plus the OpenRouter key Life's engine already uses (pi's `bash` inherits it, as it inherits every other key today) | on par |
 | Session titles | `--name` through `_meta` | `--name` at the first run, `set_session_name` after a rename | on par |
 | `isHeld`, a live process of the owner's | Claude's `~/.claude/sessions/<pid>.json`, then `pgrep` | the desk's own runs are in its `live` map; any other pi on the session is found by `pgrep -f "pi .*--session <id>"`. No app holds pi sessions open between turns, so wakes stop waiting on a forgotten window | better |
-| Link to open a session | `claude://…/local_<ref>` opens it in the Claude app; `handOff` lists it there | no app. Life's app shows the session read-only (decision 2, PR 6) | gap |
+| Link to open a session | `claude://…/local_<ref>` opens it in the Claude app; `handOff` lists it there | no app. Life's app shows the session read-only (decision 2): the agent's page's "Its session", `read_agent_session` (PR 6) | better |
 | Model per agent | `modelOf`: Claude's aliases | `--provider openrouter --model <slug>` per run, `set_model` mid-session; any OpenRouter model on the same ZDR routing | better |
 | Effort | Claude's effort config | `set_thinking_level` (DeepSeek's thinking through OpenRouter) | on par |
 | Usage and context (decision 83) | prompt reply's tokens (unstable ACP field) and `usage_update` context; spend is an `equivalent` at list price | each `message_end` carries input, output, cache read and write and its cost in dollars; `get_session_stats` gives the turn's context. Spend becomes `billed`, exact | better |
@@ -55,7 +55,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Stopping a run | ACP `session/cancel`, then kill | RPC `abort`, then kill | on par |
 | Turn begun | first ACP answer update | first `message_update` | on par |
 
-Counted: 14 on par, 7 better, 8 gap. The PRs below close seven, the link included; the claude.ai connectors stay out of reach and the CLIs stand in for them.
+Counted: 14 on par, 8 better, 7 gap. The PRs below close seven, the link included; the claude.ai connectors stay out of reach and the CLIs stand in for them.
 
 ## 2. What owning the pipeline adds
 

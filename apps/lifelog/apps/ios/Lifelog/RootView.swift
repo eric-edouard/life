@@ -202,6 +202,11 @@ struct RootView: View {
                 let agents = life.agents.value?.agents ?? []
                 if let agent = (agents.first { $0.matter?.id == id } ?? agents.first)?.id { router.open(agent: agent) }
             }
+            // `-fixtureSheet session -fixtureAgent pi`: the lease's agent's session, pushed on its page.
+            if LifeFixture.sheet == "session" {
+                router.open(agent: "agt_lease")
+                router.matterPath.append(.session("agt_lease"))
+            }
             if LifeFixture.ask == "open" { router.isAskOpen = true }
             if LifeFixture.sheet == "icon" { router.matterSheet = LifeFixture.matter.map { .icon($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {

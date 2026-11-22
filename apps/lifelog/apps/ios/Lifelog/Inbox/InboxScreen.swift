@@ -109,7 +109,7 @@ struct InboxScreen: View {
             // The guesses' card left with its last row: the next guesses start clean, not beside old answered rows.
             if !kinds.contains(.guessedPerson) {
                 (notes.guesses, notes.guessed) = ([], [:])
-                notes.working.remove(.guessedPerson)
+                notes.working[.guessedPerson] = nil
             }
         }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
@@ -156,7 +156,7 @@ struct InboxScreen: View {
         notice = nil
         if keep { deferred.append(taken.check.ref) }
         // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
-        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
+        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : shownOrder(kind).next(of: taken.later))
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
