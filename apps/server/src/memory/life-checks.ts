@@ -133,7 +133,7 @@ export const LIFE_CHECKS = {
   voice: {
     context:
       "Heard in conversations: who it is goes to every turn of this voice.",
-    // The three it offers; "Yes" only when a guess is in use. `not-anyone-i-know` and `media` stay accepted writers only (`answer-check.ts`: installed builds send them).
+    // The four it offers; "Yes" only when a guess is in use. `not-anyone-i-know` stays an accepted writer only (`answer-check.ts`: installed builds send it).
     options: [
       { icon: "done", id: "is-them", label: "Yes", takes: null },
       {
@@ -142,6 +142,7 @@ export const LIFE_CHECKS = {
         label: "Someone else…",
         takes: "person or name",
       },
+      { id: "media", label: "TV or video", takes: null },
       { icon: "hide", id: "not-relevant", label: "Don't name", takes: null },
     ],
     title: "Name a voice",
