@@ -445,6 +445,7 @@ private final class Recording: Sendable {
     await quiet.until { quiet.sent.contains { $0.contains(#""commit":true"#) } }
     quiet.says("insufficient_audio_activity")
     #expect(await settled.value == "see you at eight")
+}
 
 /// Send pressed while the microphone opens, and it never opens: nothing is left to send, and the next run never sends.
 @MainActor @Test func aSendWhoseMicrophoneNeverOpenedLeavesTheNextRunUnsent() async {
