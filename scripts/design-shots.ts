@@ -46,6 +46,8 @@ interface Frame {
  */
 export interface AppFrame {
   args?: string[];
+  /** Why the designer has no drawing of this frame (a tap's result): it is shot, with no design beside it. */
+  drawing?: string;
   fill?: [string, string];
   /** A label the screen shows once it is the frame's own (default: the Inbox gone for a route, the screen settled). */
   ready?: string;
@@ -135,6 +137,16 @@ async function waitForScreen(app: AppFrame) {
   );
 }
 
+const press = async (labels: string[]) => {
+  for (const label of labels) {
+    // A sheet may still be coming: wait for the label before pressing it.
+    // biome-ignore lint/performance/noAwaitInLoops: the taps run in order
+    await device(["wait", "text", label, "15000"]);
+    await device(["press", `label="${label}"`]);
+    await Bun.sleep(1500);
+  }
+};
+
 async function shoot(udid: string, frame: Frame, app: AppFrame) {
   const pose = poseOf(frame);
   await launch(udid, [
@@ -143,13 +155,7 @@ async function shoot(udid: string, frame: Frame, app: AppFrame) {
     ...pose.args,
   ]);
   await waitForScreen(app);
-  for (const label of app.taps ?? []) {
-    // A sheet may still be coming: wait for the label before pressing it.
-    // biome-ignore lint/performance/noAwaitInLoops: the taps run in order
-    await device(["wait", "text", label, "15000"]);
-    await device(["press", `label="${label}"`]);
-    await Bun.sleep(1500);
-  }
+  await press(app.taps ?? []);
   if (app.fill) {
     const [label, text] = app.fill;
     await device(["fill", `label="${label}"`, text]);
@@ -199,7 +205,7 @@ function writeIndex(
         : `<p class="missing">${escaped(result)}</p>`;
     return `<section><h2>${escaped(frame.name)} <small>${escaped(frame.title)}</small></h2>
 <p>${escaped(`${frame.pose} ${frame.size.join("x")}`)}${frame.state ? ` · ${escaped(stateWords(frame.state))}` : ""}</p>
-<div><figure><a href="file://${join(design, frame.png)}"><img src="file://${join(design, frame.png)}"></a><figcaption>Design</figcaption></figure>
+<div>${frame.png ? `<figure><a href="file://${join(design, frame.png)}"><img src="file://${join(design, frame.png)}"></a><figcaption>Design</figcaption></figure>` : ""}
 <figure>${app}<figcaption>App</figcaption></figure></div></section>`;
   });
   writeFileSync(
@@ -222,11 +228,22 @@ async function main() {
     app: builtApp,
     shutdownAfter,
   } = parseArgs(process.argv.slice(2));
-  const unknown = asked.filter((name) => !map.frames[name]);
+  const unknown = asked.filter(
+    (name) => !(map.frames[name] || appFrames[name]?.drawing)
+  );
   if (unknown.length > 0) {
     throw new Error(`not in the frame map: ${unknown.join(", ")}`);
   }
-  const frames = Object.values(map.frames).filter(
+  const undrawn = Object.entries(appFrames)
+    .filter(([, app]) => app.drawing)
+    .map(([name, app]) => ({
+      name,
+      png: "",
+      pose: "closed",
+      size: [0, 0] as [number, number],
+      title: app.drawing as string,
+    }));
+  const frames = [...Object.values(map.frames), ...undrawn].filter(
     (frame) => asked.length === 0 || asked.includes(frame.name)
   );
   const mapped = frames.filter((frame) => appFrames[frame.name]?.args);
