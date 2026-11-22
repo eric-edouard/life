@@ -125,6 +125,14 @@ public struct InboxOrder: Equatable, Sendable {
         }.first
     }
 
+    /// Where the pager stays when a read changes the asks under it (`was`, the refs on show before): on the ask he is on
+    /// (or the bulk ask now holding it), whatever came, went or moved around it; that ask gone, on the first one after it
+    /// still there, else the last one before it; nil when none is left. A read in the background never moves him.
+    public func staying(on ref: String, was: [String]) -> String? {
+        let at = was.firstIndex(of: ref) ?? was.endIndex
+        return next(of: [ref] + was[min(at + 1, was.endIndex)...] + was[..<at].reversed())
+    }
+
     /// The kinds of ask that wait, in the order they first appear: what the list's filter offers.
     public var kinds: [CheckGroup] { checks.map(\.bulkKind).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
 
