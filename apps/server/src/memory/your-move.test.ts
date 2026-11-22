@@ -64,7 +64,7 @@ const moves = (over: Partial<CheckInputs> = {}) =>
   checksOf({ ...base, ...over }).filter((c) => c.group === "your move");
 const idsOf = (c?: Check) => c?.options.map((o) => o.id);
 
-test("a dormant matter whose open step is his shows one your move card: his step, Done, Hand to an agent, Not now, Drop", () => {
+test("a dormant matter whose open step is his shows one your move card: his step, Done, Hand over, Not now, Drop", () => {
   const [card, ...more] = moves();
   expect(more).toEqual([]);
   expect(card).toMatchObject({
@@ -82,10 +82,16 @@ test("a dormant matter whose open step is his shows one your move card: his step
   });
   expect(card?.context).toContain("Next step: Buy the paint.");
   expect(card?.options).toEqual([
-    { ends: "step", id: "done", label: "Mark as done", takes: null },
-    { id: "start", label: "Hand to an agent", takes: null },
-    { id: "not-now", label: "Not now", takes: null },
-    { ends: "step", id: "drop", label: "Drop", takes: null },
+    {
+      ends: "step",
+      icon: "done",
+      id: "done",
+      label: "Mark as done",
+      takes: null,
+    },
+    { icon: "agent", id: "start", label: "Hand over", takes: null },
+    { icon: "later", id: "not-now", label: "Not now", takes: null },
+    { ends: "step", icon: "drop", id: "drop", label: "Drop", takes: null },
   ]);
   // One card per matter: while it is offered as a new matter, that card asks first; once the offer ends, his move.
   const running = { matters: [{ ...MATTER, status: "moving" as const }] };
