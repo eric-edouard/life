@@ -89,18 +89,28 @@ function poseOf(frame: Frame) {
  * folder of the frames' text (`design:export`) to compare each screen with, whether to stop the simulator after.
  */
 export function parseArgs(argv: string[]) {
-  const flagValue = (flag: string) => {
-    const at = argv.indexOf(flag);
-    return at === -1 ? undefined : argv[at + 1];
+  const { asked, values } = flagsOf(argv, ["--app", "--compare"]);
+  return {
+    app: values["--app"],
+    asked,
+    compare: values["--compare"],
+    shutdownAfter: argv.includes("--shutdown"),
   };
-  const values = new Set(
-    ["--app", "--compare"].map((flag) => argv.indexOf(flag) + 1).filter(Boolean)
+}
+
+/** A command line's names, and the value after each flag `withValue` names (`design:shots`, `design:export`). */
+export function flagsOf(argv: string[], withValue: string[]) {
+  const at = new Set(
+    withValue.map((flag) => argv.indexOf(flag) + 1).filter(Boolean)
   );
   return {
-    app: flagValue("--app"),
-    asked: argv.filter((arg, i) => !(arg.startsWith("--") || values.has(i))),
-    compare: flagValue("--compare"),
-    shutdownAfter: argv.includes("--shutdown"),
+    asked: argv.filter((arg, i) => !(arg.startsWith("--") || at.has(i))),
+    values: Object.fromEntries(
+      withValue.map((flag) => [
+        flag,
+        argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined,
+      ])
+    ),
   };
 }
 
@@ -158,7 +168,7 @@ const press = async (labels: string[]) => {
 };
 
 /** The screen's gaps against the frame's text in `dir`, from the accessibility tree with its frames. */
-async function compare(frame: Frame, dir: string) {
+async function readScreenGaps(frame: Frame, dir: string) {
   const { elements, size } = parseFrame(
     readFileSync(join(dir, `${frame.name}.html`), "utf8")
   );
@@ -175,6 +185,7 @@ async function compare(frame: Frame, dir: string) {
   return gapsOf(
     elements,
     nodes,
+    window,
     placementOf(size, [window.width, window.height], frame.pose)
   );
 }
@@ -232,7 +243,7 @@ function writeIndex(
     const result =
       outcome.get(frame.name) ?? `not mapped${why ? `: ${why}` : ""}`;
     const app =
-      result === "shot" || result.endsWith(" gaps")
+      result === "shot"
         ? `<a href="${frame.name}.app.png"><img src="${frame.name}.app.png"></a>`
         : `<p class="missing">${escaped(result)}</p>`;
     return `<section><h2>${escaped(frame.name)} <small>${escaped(frame.title)}</small></h2>
@@ -300,6 +311,7 @@ async function main() {
     ...["-bool", "true"],
   ]);
   const outcome = new Map<string, string>();
+  const unclean = new Set<string>();
   try {
     await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
     // The microphone's alert at launch would cover every frame: granted, never reset (the simulator is shared).
@@ -319,11 +331,20 @@ async function main() {
           () => "shot",
           (e: Error) => `failed: ${e.message}`
         );
+      outcome.set(frame.name, shot);
       // The screen against the frame's text, while it is still up: each gap a line, and the frame not clean.
-      const gaps = specs && shot === "shot" ? await compare(frame, specs) : [];
-      const result = gaps.length > 0 ? `${gaps.length} gaps` : shot;
-      outcome.set(frame.name, result);
-      console.log(`${frame.name}: ${result}`);
+      const gaps =
+        specs && shot === "shot"
+          ? await readScreenGaps(frame, specs).catch((e: Error) => [
+              `not compared: ${e.message}`,
+            ])
+          : [];
+      if (gaps.length > 0) {
+        unclean.add(frame.name);
+      }
+      console.log(
+        `${frame.name}: ${shot}${gaps.length > 0 ? `, ${gaps.length} gaps` : ""}`
+      );
       for (const gap of gaps) {
         console.log(`  ${gap}`);
       }
@@ -341,8 +362,11 @@ async function main() {
   }
   writeIndex(frames, appFrames, outcome);
   console.log(join(OUT, "index.html"));
-  // The index keeps every pair; a mapped frame that failed fails the run.
-  if ([...outcome.values()].some((result) => result !== "shot")) {
+  // The index keeps every pair; a mapped frame that failed, or a screen with gaps, fails the run.
+  if (
+    unclean.size > 0 ||
+    [...outcome.values()].some((result) => result !== "shot")
+  ) {
     process.exitCode = 1;
   }
 }

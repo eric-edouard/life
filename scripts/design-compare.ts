@@ -20,9 +20,10 @@ export interface ScreenNode {
 const LINE = /^\s*<(\w+) ([^>]*)>([^<]*)/;
 const ATTR = /([\w-]+)(?:="([^"]*)")?/g;
 const FRAME_SIZE = /<frame [^>]*w="(\d+)" h="(\d+)"/;
-const unescaped = (text: string) =>
+const unescapedOf = (text: string) =>
   text
     .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, "&");
 
@@ -42,7 +43,7 @@ export function parseFrame(html: string) {
     const attrs = Object.fromEntries(
       [...(m[2] as string).matchAll(ATTR)].map((a) => [a[1], a[2] ?? ""])
     );
-    const name = spoken(unescaped(attrs.label || (m[3] as string)));
+    const name = spokenOf(unescapedOf(attrs.label || (m[3] as string)));
     const box = (attrs.box ?? "").split(" ").map(Number);
     const [x, y, bw, bh] = box as [number, number, number, number];
     // Off the screen (a list running on under its edge) is not on the screen to compare.
@@ -71,10 +72,10 @@ export function placementOf(
 }
 
 /** Words as read: one space, straight quotes (the frames type ' where iOS sets ’). */
-export const spoken = (text: string) =>
+const spokenOf = (text: string) =>
   text.replace(/\s+/g, " ").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').trim();
 
-const nameOf = (node: ScreenNode) => spoken(node.label || node.value || "");
+const nameOf = (node: ScreenNode) => spokenOf(node.label || node.value || "");
 
 /** VoiceOver reads a row's parts as one label, joined by commas ("Camille Vance, Partner"): a name is one of those parts. */
 const isReadIn = (label: string, name: string) =>
@@ -90,7 +91,7 @@ interface Placement {
 type Box = number[];
 
 /** A frame's box in the screen's points (as drawn when there is no placement). */
-const placed = ([x, y, w, h]: DesignElement["box"], placement?: Placement) =>
+const placedOf = ([x, y, w, h]: DesignElement["box"], placement?: Placement) =>
   placement
     ? [
         x * placement.scale,
@@ -123,21 +124,32 @@ const isOff = (want: Box, got: Box, isOwn: boolean, tolerance: number) => {
 export function gapsOf(
   design: DesignElement[],
   screen: ScreenNode[],
+  window: NonNullable<ScreenNode["rect"]>,
   placement: Placement | undefined,
   tolerance = 4
 ) {
+  // On the screen only, as the frame's elements are: a list's rows below the edge are not shown.
+  const isOnScreen = ({ rect: r }: ScreenNode) =>
+    r !== undefined &&
+    r.x < window.x + window.width &&
+    r.y < window.y + window.height &&
+    r.x + r.width > window.x &&
+    r.y + r.height > window.y;
   const named = screen.filter(
-    (node) => nameOf(node) && node.rect && !FRAMES.has(node.type ?? "")
+    (node) => nameOf(node) && isOnScreen(node) && !FRAMES.has(node.type ?? "")
   );
   const used = new Set<ScreenNode>();
   const gaps: string[] = [];
   for (const element of design) {
-    const own = named.find(
-      (node) => nameOf(node) === element.name && !used.has(node)
-    );
+    const want = placedOf(element.box, placement);
+    // Of the nodes with the element's name (a cell and its text read alike), the one whose box is nearest the frame's.
+    const distance = (node: ScreenNode) =>
+      rectOf(node).reduce((sum, v, i) => sum + Math.abs(v - (want[i] ?? 0)), 0);
+    const [own] = named
+      .filter((node) => nameOf(node) === element.name && !used.has(node))
+      .sort((a, b) => distance(a) - distance(b));
     const reader =
       own ?? named.find((node) => isReadIn(nameOf(node), element.name));
-    const want = placed(element.box, placement);
     if (!reader) {
       gaps.push(`missing  "${element.name}" at ${want.join(" ")}`);
       continue;

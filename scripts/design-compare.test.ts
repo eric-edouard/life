@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { gapsOf, parseFrame, placementOf } from "./design-compare";
 
+const SCREEN = { height: 678, width: 466, x: 0, y: 0 };
 const FRAME = `<!-- A: made up. -->
 <frame name="A" pose="closed" w="466" h="678">
   <main box="0 28 382 650">
@@ -35,7 +36,9 @@ test("the gaps: missing, extra, off, and a name read inside a longer label", () 
         rect: { height: 64, width: 360, x: 14, y: 120 },
       },
       { label: "Search", rect: { height: 44, width: 44, x: 400, y: 600 } },
+      { label: "Below", rect: { height: 44, width: 44, x: 20, y: 700 } },
     ],
+    SCREEN,
     placementOf(size, [466, 678], "closed")
   );
   expect(gaps).toEqual([
@@ -43,6 +46,20 @@ test("the gaps: missing, extra, off, and a name read inside a longer label", () 
     'missing  "Sort & filter" at 400 174 44 44',
     'extra    "Search" (?) at 400 600 44 44',
   ]);
+});
+
+test("of two nodes with the element's name, the nearest box is its own", () => {
+  const { elements, size } = parseFrame(FRAME);
+  const gaps = gapsOf(
+    elements.slice(0, 1),
+    [
+      { label: "People", rect: { height: 678, width: 466, x: 0, y: 0 } },
+      { label: "People", rect: { height: 26, width: 72, x: 20, y: 28 } },
+    ],
+    SCREEN,
+    placementOf(size, [466, 678], "closed")
+  );
+  expect(gaps).toEqual([]);
 });
 
 test("an open pose drawn on the closed screen is shrunk and centred; a phone frame compares names only", () => {
