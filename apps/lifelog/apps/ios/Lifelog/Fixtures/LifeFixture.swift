@@ -40,7 +40,8 @@
         /// works; or the lease's agent runs on pi.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// `-fixtureRefuse <control>`: that control's write fails, or its card is gone (tap feedback's failures):
-        /// `agentStop`, `agentResume`, `icon`, `movesAnswer`, `tellCard`, `projectsRetry` (`projectsRetryOnce`: only its first read fails).
+        /// `agentStop`, `agentResume`, `icon`, `movesAnswer`, `tellCard`, `projectsRetry` (`projectsRetryOnce`: only its first read fails),
+        /// `notifications`, `location`, `appleHealth`, `reconnect`.
         nonisolated static let refuse = value(of: "-fixtureRefuse")
         nonisolated static func refuses(_ control: String) -> Bool { isRequested && refuse == control }
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).

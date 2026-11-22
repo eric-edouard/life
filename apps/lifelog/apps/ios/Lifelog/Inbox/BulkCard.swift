@@ -20,8 +20,9 @@ struct BulkCard: View {
     let answer: ([AnswerRequest]) -> Void
 
     @Environment(LifeStore.self) private var life
-    /// The row whose own card is open over the list.
-    @State private var opened: String?
+    /// The row whose own card is open over the list, kept as it was: once Life answered it the inbox lets it go, and
+    /// its result still shows until it leaves.
+    @State private var opened: Check?
     @State private var openedNotes = CardNotes()
     @State private var openedCurrent: String?
 
@@ -63,7 +64,7 @@ struct BulkCard: View {
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
             onDismiss: { openedNotes = CardNotes() }
         ) {
-            if let check = rows.first(where: { $0.ref == opened }) {
+            if let check = opened {
                 NavigationStack {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
@@ -128,10 +129,10 @@ struct BulkCard: View {
                     notes.unticked.remove(check.ref)
                 } else {
                     // Life reads no answer for it: his own card says who.
-                    opened = check.ref
+                    opened = check
                 }
             },
-            open: { opened = check.ref }
+            open: { opened = check }
         ) {
             // A voice's sign is its Play, centred on the row; any other row opens its own card.
             if kind == .voice, let clip = check.clips.first {
@@ -202,7 +203,7 @@ struct BulkCard: View {
             ForEach(same) { check in
                 SamePersonTile(
                     check: check, state: guessState(check), failure: guessFailure(check),
-                    answer: { send(check, yes: $0) }, open: { opened = check.ref })
+                    answer: { send(check, yes: $0) }, open: { opened = check })
             }
             let rest = all.filter { $0.group != .samePerson }
             if !rest.isEmpty {
@@ -211,7 +212,7 @@ struct BulkCard: View {
                     ForEach(rest) { check in
                         GuessRow(
                             check: check, state: guessState(check), failure: guessFailure(check),
-                            answer: { send(check, yes: $0) }, open: { opened = check.ref })
+                            answer: { send(check, yes: $0) }, open: { opened = check })
                     }
                 }
                 .padding(.horizontal, Metrics.Spacing.s)
@@ -235,7 +236,7 @@ struct BulkCard: View {
     private func send(_ check: Check, yes: Bool) {
         let option = yes ? check.preTickedOption : check.options.first { $0.id == "not-this-person" }
         guard let request = option.flatMap({ check.answer($0) }) else {
-            opened = check.ref
+            opened = check
             return
         }
         send(request, as: yes ? "Yes" : "No", on: check)
@@ -245,7 +246,8 @@ struct BulkCard: View {
         guard !life.saysOutOfReach() else { return }
         life.forget(.answer(ref: check.ref))
         notes.guessed[check.ref] = words
-        Task { await life.answerRows([request], as: words) }
+        // The row turns green, or says why it went nowhere: no toast besides.
+        Task { await life.answerRows([request], as: words, rowsSayIt: true) }
     }
 
     private var guessAnswers: some View {

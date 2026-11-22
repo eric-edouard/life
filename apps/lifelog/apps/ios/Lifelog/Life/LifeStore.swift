@@ -635,9 +635,10 @@ final class LifeStore {
     // MARK: Answers on rows
 
     /// His answers to rows of Life's own questions (a bulk card, the moves list), sent at once. Each row stays on show
-    /// with its own state until the last has ended; then Life's word is said in the toast. True when every one was taken.
+    /// with its own state until the last has ended; then Life's word is said in the toast, unless each row says its own
+    /// (`rowsSayIt`: one result per answer). True when every one was taken.
     @discardableResult
-    func answerRows(_ requests: [AnswerRequest], as label: String) async -> Bool {
+    func answerRows(_ requests: [AnswerRequest], as label: String, rowsSayIt: Bool = false) async -> Bool {
         // A row already answering is left to its own tap: no second send, no word of its own.
         let requests = requests.filter { !state(of: .answer(ref: $0.ref)).isRunning }
         guard !requests.isEmpty else { return false }
@@ -651,7 +652,7 @@ final class LifeStore {
         let failed = said.first { $0?.isDone != true }
         let words =
             failed.map { $0?.words ?? "Life did not answer." } ?? (requests.count == 1 ? said[0]?.words : nil) ?? label
-        show(SaidBack(words: words, undo: nil, isDone: failed == nil))
+        if !rowsSayIt { show(SaidBack(words: words, undo: nil, isDone: failed == nil)) }
         return failed == nil
     }
 

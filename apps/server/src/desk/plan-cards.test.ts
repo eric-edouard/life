@@ -13,9 +13,10 @@ import {
   askDecision,
   hasAsked,
   openAssignment,
+  readPacket,
   register,
 } from "./agent-actions";
-import { ahead, on, setup } from "./test-desk";
+import { ahead, matterView, on, setup, withMatters } from "./test-desk";
 
 // Which assignment must open with a plan card (life#816): one he opened; never the caretaker's, nor a hand-out's.
 test("an assignment he opened opens with a plan card; a hand-out's and the caretaker's do not", () => {
@@ -148,6 +149,64 @@ test("a plan card without `plan` is refused, its steps asked for", async () => {
       title: "Mend the watch",
     })
   ).rejects.toThrow("first card is its plan card: give its steps as `plan`");
+  setSystemTime();
+});
+
+// His card read as a riddle (22 Nov 2026): an agent found its matter over and had to dress "close it" as a plan, with
+// no option that closes anything, and asked before checking the thread. A first card that says it looks over is no
+// plan: its done option marked `ends`; and the brief says to check what the tools can read before any card.
+test("a first card that says the matter looks over needs no plan, and the brief says to check before asking", async () => {
+  const { desk } = setup();
+  const agent = register(desk, {
+    brief: "Test brief",
+    runtime: "fake",
+    steps: ["obs_test_over"],
+  });
+  const s = on(desk, agent);
+  const { id } = await withMatters(
+    [matterView("mat_test_over", ["obs_test_over"])],
+    () =>
+      askDecision(desk, s, {
+        context: "- Kit wrote on 20 Nov that the watch is mended.",
+        deadline: ahead(DAY),
+        onSilence: null,
+        options: [
+          { ends: "matter", id: "done", label: "Close it" },
+          { id: "open", label: "Keep it open" },
+        ],
+        question: "Close the watch repair?",
+        subject: "mat_test_over",
+        title: "Mend the watch",
+      })
+  );
+  expect(decisionsNow().find((d) => d.id === id)?.plan).toBeUndefined();
+  const packet = await readPacket(desk, s, false);
+  expect(packet).toContain("unless that card says the matter looks over");
+  expect(packet).toContain(
+    "never ask him to decide on something you could have checked"
+  );
+  // Only that card: a first card that sends, or offers only a drop, is still its plan card.
+  const other = register(desk, {
+    brief: "Test brief",
+    runtime: "fake",
+    steps: ["obs_test_other"],
+  });
+  await expect(
+    withMatters([matterView("mat_test_other", ["obs_test_other"])], () =>
+      askDecision(desk, on(desk, other), {
+        context: "- Kit asked for a date.",
+        deadline: ahead(DAY),
+        onSilence: null,
+        options: [
+          { id: "go", label: "Ask Kit" },
+          { ends: "matter", icon: "drop", id: "drop", label: "Drop it" },
+        ],
+        question: "Ask Kit for a date?",
+        subject: "mat_test_other",
+        title: "Mend the watch",
+      })
+    )
+  ).rejects.toThrow("first card is its plan card");
   setSystemTime();
 });
 

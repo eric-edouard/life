@@ -166,7 +166,7 @@ test("an answered decision asked the same answer again under a new key: its firs
   expect(sends).toHaveBeenCalledTimes(1);
   expect(readFileSync(DECISIONS, "utf8")).toBe(lines);
   await expect(call(id, ["wait"], "tap-3").result).rejects.toThrow(
-    "Not done: no open check"
+    "no longer open"
   );
   expect(sends).toHaveBeenCalledTimes(1);
 });
@@ -273,7 +273,7 @@ test("a never-retryable not-sent says canRetry false; may have gone stays answer
     state: "may_have_gone",
   });
   await expect(call(id, ["wait"], "c").result).rejects.toThrow(
-    "Not done: no open check"
+    "no longer open"
   );
   expect(sends).toHaveBeenCalledTimes(2);
 });
@@ -459,7 +459,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     const ended = await call("obs_000000000001", ["outdated"], "tap-e", {
       note: "paid",
     }).result;
-    // The same tap again after a dropped connection: its stored result, not "no open check".
+    // The same tap again after a dropped connection: its stored result, not "no longer open".
     expect(
       await call("obs_000000000001", ["outdated"], "tap-e", { note: "paid" })
         .result
@@ -496,7 +496,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
       "recorded",
     ]);
     await expect(call("person:none", ["this-is"]).result).rejects.toThrow(
-      "Not done: no open check"
+      "no longer open"
     );
   } finally {
     record.mockRestore();
@@ -718,7 +718,7 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
   ).mockResolvedValue({ personId: "p1" });
   try {
     await expect(call(voiceRef, ["media"], "tap-g").result).rejects.toThrow(
-      "no open check"
+      "no longer open"
     );
     expect(send).not.toHaveBeenCalled();
     queue.mockResolvedValue([{ ...shown, voices: shown.voices.toReversed() }]);

@@ -696,6 +696,19 @@ private func asks(
     #expect(order.next(of: ["gone"]) == nil)
 }
 
+/// His Mark as done moved him to the next ask, then the inbox read came back reordered (22 Nov: "an automatic swipe
+/// back"). A read in the background keeps him on his ask whatever came or moved around it; only his ask gone moves him,
+/// to the next still there, never back to the first.
+@Test func aReadInTheBackgroundKeepsHimOnHisAsk() throws {
+    let was = ["b1", "b2", "b3", "b4"]
+    let reordered = try asks([("b0", .blocks), ("b3", .blocks), ("b1", .blocks), ("b2", .blocks)]).ordered(deferred: [])
+    #expect(reordered.staying(on: "b2", was: was) == "b2")
+    let gone = try asks([("b1", .blocks), ("b4", .blocks)]).ordered(deferred: [])
+    #expect(gone.staying(on: "b2", was: was) == "b4")
+    #expect(gone.staying(on: "b3", was: ["b1", "b3"]) == "b1")
+    #expect(try asks([]).ordered(deferred: []).staying(on: "b2", was: was) == nil)
+}
+
 /// A group's heading on the bulk card follows the answer Life pre-ticks on it.
 @Test func theBulkCardHeadsEachGroupByItsPreTickedAnswer() {
     #expect(
@@ -1003,4 +1016,23 @@ private func asks(
     let named = people.people.map(\.id).reversed()
     #expect(people.cut(to: ShownList(kind: .people, refs: Array(named), label: "x")).people.map(\.id) == Array(named))
     #expect(people.cut(to: nil) == people)
+}
+
+/// "Someone else…" on a voice offers everyone he knows, not only the card's guesses again (his report, 22 Nov): the
+/// guesses first, then the People list, never him, no organization; a name with a slash is answered as typed.
+@Test func someoneElseOffersEveryoneHeKnows() throws {
+    let voice = try JSONDecoder().decode(
+        Check.self,
+        from: Data(
+            #"{"ref":"voice:v1","group":"voice","title":"t","question":"Who is this?","asker":"Life","options":[{"id":"is-them","label":"Yes"},{"id":"this-is","label":"Someone else…","takes":"person or name"}],"clips":[],"likelyPeople":[{"ref":"person:test-ana","name":"Test Ana","kind":"person"}],"links":[]}"#
+                .utf8))
+    let everyone = try JSONDecoder().decode(
+        [Party].self,
+        from: Data(
+            #"[{"ref":"person:me","name":"Me","kind":"person"},{"ref":"person:test-ana","name":"Test Ana","kind":"person"},{"ref":"person:test-bo","name":"Test Bo","kind":"person"},{"ref":"person:test-co","name":"Test Co","kind":"organization"}]"#
+                .utf8))
+    #expect(voice.peopleToPick(among: everyone).map(\.ref) == ["person:test-ana", "person:test-bo"])
+    #expect(
+        voice.answer(naming: .name("Zed/Zeda"))
+            == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Zed/Zeda"))
 }

@@ -474,7 +474,8 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       options: ["this-is"],
       person: "person:kofi",
     });
-    await answerCheck(voice, { name: "Zed", options: ["this-is"] });
+    // A new name goes as typed, a slash in it too (his report of 22 Nov).
+    await answerCheck(voice, { name: "Zed/Zeda", options: ["this-is"] });
     // "Yes" to the guess in use: the check's subject, with nothing else given.
     const known = {
       ...item,
@@ -500,7 +501,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     expect(send.mock.calls).toEqual([
       [voices, { kind: "assign", personId: DANA_ID }],
       [voices, { kind: "confirm", name: "Kofi" }],
-      [voices, { kind: "confirm", name: "Zed" }],
+      [voices, { kind: "confirm", name: "Zed/Zeda" }],
       [voices, { kind: "assign", personId: DANA_ID }],
       [voices, { kind: "ignore" }],
       [voices, { kind: "media" }],
@@ -528,13 +529,13 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       queue.mockResolvedValueOnce([now]);
       // biome-ignore lint/performance/noAwaitInLoops: each case uses the queue it just set
       await expect(answerCheck(dana, { options: ["is-them"] })).rejects.toThrow(
-        `no open check ${dana.ref}`
+        "no longer open"
       );
     }
     expect(send.mock.calls.length).toBe(sent);
     queue.mockResolvedValue([]);
     await expect(answerCheck(voice, { options: ["media"] })).rejects.toThrow(
-      `Not done: no open check ${voice.ref}`
+      "no longer open"
     );
     expect(said()).toEqual([]);
   } finally {

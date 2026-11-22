@@ -161,17 +161,13 @@ struct LightBrightnessRow: View {
     /// A pick shows as chosen only once the Pendant took it.
     private func pick(_ step: LightBrightness?) {
         guard let step else { return }
-        state = .saving
         Task {
-            guard await set(step) else {
-                state = .refused("That didn't reach the Pendant. Try again in a moment.")
-                return
+            await RowState.tap($state) {
+                guard await set(step) else { return .refused("That didn't reach the Pendant. Try again in a moment.") }
+                settings.lightBrightnessLevel = step.rawValue
+                if settings.lightBrightnessCheck == .unasked { asksIfChanged = true }
+                return .saved
             }
-            state = .saved
-            settings.lightBrightnessLevel = step.rawValue
-            if settings.lightBrightnessCheck == .unasked { asksIfChanged = true }
-            try? await Task.sleep(for: .seconds(2))
-            if state == .saved { state = .known }
         }
     }
 
