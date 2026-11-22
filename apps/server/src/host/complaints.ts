@@ -8,7 +8,7 @@ import { WAIT_MS } from "./change-registered-agent";
 import { complaintReceiptOf, readDesk } from "./desk-read";
 import { openChecksNow } from "./inbox";
 
-// His complaint: his words through Tell Life (the main session's `complain`), one ask of the desk in the ledger per
+// His complaint: his words through Ask Life (the main session's `complain`), one ask of the desk in the ledger per
 // ask key; then this waits for the desk to receive it for the caretaker, which writes its complaint record row first and
 // its receipt (its event row, `complaintReceiptOf`) after. Only then does the main session hear `reached: "caretaker"`.
 
@@ -37,12 +37,12 @@ async function reached(id: string, limitMs: number) {
 }
 
 /**
- * His complaint through Tell Life (the main session's `complain`, his words `said` found in his ask): on card `ref` when
+ * His complaint through Ask Life (the main session's `complain`, his words `said` found in his ask): on card `ref` when
  * one was on his screen (read now: null when it left; its cause Life's own, so it shows as being fixed), else on nothing
  * but his words; one per ask `key` (a second call under it is the first). `report`: he asked for the anonymized report to the developer. `{ ask, reached }` once the
  * desk received it for the caretaker.
  */
-export async function complainThroughTellLife(
+export async function complainThroughAskLife(
   said: string,
   ref: string | undefined,
   report: boolean,

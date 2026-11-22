@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// The main session's wire (Tell Life, his decisions of 21 Nov 2026): what his app sends it, the lines it streams back
+// The main session's wire (Ask Life, his decisions of 21 Nov 2026): what his app sends it, the lines it streams back
 // and the answer it ends on, one of a closed list of kinds the phone draws natively. Read by the desk
 // (`desk/main-session.ts`) and the connector alike.
 
@@ -14,7 +14,7 @@ export const MainSessionScreen = z
   .strict();
 export type MainSessionScreen = z.infer<typeof MainSessionScreen>;
 
-/** His ask: his words (none: he is on the Tell Life screen, so the session is kept warm), his screen, and the key that makes a retry ask once. */
+/** His ask: his words (none: he is on the Ask Life screen, so the session is kept warm), his screen, and the key that makes a retry ask once. */
 export const MainSessionAsk = z
   .object({
     key: z.string().min(1).max(200).optional(),

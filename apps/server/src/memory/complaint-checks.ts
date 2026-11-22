@@ -4,7 +4,7 @@ import { complaintOf } from "../records/ledger-entry";
 import type { BeingFixed, Check } from "./life-checks";
 import { askOf } from "./memory-files";
 
-// What his complaints (his words through Tell Life, `host/complaints.ts`) need of the checks: the cause a card rests on,
+// What his complaints (his words through Ask Life, `host/complaints.ts`) need of the checks: the cause a card rests on,
 // and which cards the caretaker is at work on (`checks.ts` attaches them).
 
 /**
