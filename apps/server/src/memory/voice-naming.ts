@@ -249,7 +249,7 @@ async function readDayFacts(dates: string[], people: People) {
         addTo(facts, o.date, s);
       }
       if (o.modality === "plan" && o.when && dates.includes(o.when)) {
-        for (const p of plannedPeopleOf(s, people.truth.organizations)) {
+        for (const p of plannedPeopleOf(s, people.truth)) {
           addTo(scheduled, o.when, p);
         }
       }
