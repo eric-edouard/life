@@ -33,7 +33,6 @@ import {
 import { extract } from "../memory/extract";
 import { gather } from "../memory/gather";
 import { reindex } from "../memory/index-writer";
-import { isEndingKind } from "../memory/life-checks";
 import { links, readLinkWork } from "../memory/links";
 import { matterDirections } from "../memory/matter-directions";
 import {
@@ -103,7 +102,7 @@ import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
 import { lastNeedsYouOf } from "./desk-health";
-import { openChecksNow } from "./inbox";
+import { inboxChecksNow } from "./inbox";
 import { syncPast } from "./past-calendar";
 import { readAgentSection } from "./registered-agents";
 import {
@@ -156,12 +155,12 @@ export async function readDoneFor(
 }
 
 /**
- * The report's Checks: every one but the ending checks ("is this done?" is load, his word of 16 Nov 2026: a found
- * ending reads probably done where he looks). Never fails the night: a failure is logged and the report has none.
+ * The report's Checks: his inbox (`inboxChecksNow`: no ending check, "is this done?" is load, his word of 16 Nov 2026: a
+ * found ending reads probably done where he looks). Never fails the night: a failure is logged and the report has none.
  */
 export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
   try {
-    return (await openChecksNow()).filter((c) => !isEndingKind(c));
+    return await inboxChecksNow();
   } catch (e) {
     rec.error(e, { step: "memory.nightly.checks" });
     return [];

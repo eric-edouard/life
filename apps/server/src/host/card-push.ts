@@ -22,7 +22,7 @@ import {
   type PushLevel,
   pushIdOf,
 } from "../sources/lifelog-push";
-import { openChecksNow } from "./inbox";
+import { inboxChecksNow } from "./inbox";
 
 // A push for each new card in his inbox, of every kind, the only push of cards (his answers of 19 Nov 2026): the words
 // "1 new card" (past the first 5 of Life's own checks in one look, one "N more new cards"), the badge (what blocks him),
@@ -191,7 +191,7 @@ async function pushInOrder(pushes: Push[], badge: number, rest: number) {
 
 /** Pushes what is new in his inbox; the badge counts what blocks him (`blockingCountOf`). */
 export async function pushNewCards(now = clock()) {
-  const open = await openChecksNow();
+  const open = await inboxChecksNow();
   await pushNew(open, blockingCountOf(open), now);
 }
 
