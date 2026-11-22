@@ -17,6 +17,12 @@ Inputs: the PR or branch and its worktree, or "the whole app" for an audit.
    frame's state in words. The simulator stays booted for the next run (`--shutdown` stops it). Open each pair at full size and list every difference (words, order, missing or extra
    pieces, colour, spacing, state), each marked "fix" or "kept: <reason>" (a ruling that defers it, or a known limit the
    frame map gives as its `why`). A frame listed as not mapped is captured by hand, below, or said why not.
+   As text, for a builder or a reviewer that cannot see pictures: `bun run design:export <Frame…> [--out <dir>]` writes each
+   frame as `<Frame>.html` (its layout tree: boxes in points, token names, text, states) and `<Frame>.png`, with the design
+   pack (system and guidelines, `index.md` naming each) into `derived/design`; a UI brief names that folder. Then
+   `tools/heavy.sh bun run design:shots <Frame…> --compare derived/design` prints each screen's gaps against its frame
+   (missing, extra, off by more than 4 points) and fails while any remain; colours and type are not in the tree, so read
+   them off the frame's tokens and the picture.
 4. Everything else, by hand: transitions and the states no frame draws. Capture them yourself; never take the
    builder's pictures. `bun run ios:project` at the worktree's root, then from
    `apps/lifelog/apps/ios`: `xcrun simctl list devices booted` for the udid, `xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -configuration Debug
