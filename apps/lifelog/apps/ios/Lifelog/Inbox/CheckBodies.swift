@@ -60,26 +60,39 @@ struct NameBlock: View {
     }
 }
 
-/// A voice to name: when it was heard above the words and its length at the right with the next clip; the clip's words
-/// lit as they are said, and the clips playing on one after another.
+/// A voice to name: when it was heard above the words and its length at the right; the clip's words lit as they are
+/// said, and its clips playing on one after another by themselves (no count, no next button).
 struct VoiceBlock: View {
     let clips: [Check.Clip]
 
     @Environment(PlaybackStore.self) private var playback
     @State private var index = 0
-    @State private var autoplay = false
+    /// The first clip plays as the block lands (the voice run).
+    @State private var autoplay: Bool
+
+    init(clips: [Check.Clip], autoplays: Bool = false) {
+        (self.clips, _autoplay) = (clips, State(initialValue: autoplays))
+    }
 
     private var clip: Check.Clip { clips[min(index, clips.count - 1)] }
     private var job: UUID? { clip.audio.flatMap { UUID(uuidString: $0.jobId) } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-            header
+            HStack(spacing: Metrics.Spacing.s) {
+                if let at = clip.at { Text(SaidWords.day(at)).font(.small).foregroundStyle(Palette.muted) }
+                Spacer(minLength: 0)
+                if let length = clip.lengthText { Text(length).font(.monoTime).foregroundStyle(Palette.muted) }
+            }
             Group {
                 if let audio = clip.audio, let job {
                     SpokenWords(
                         text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end,
-                        autoplay: autoplay, onEnded: { move(to: index + 1, playing: true) })
+                        autoplay: autoplay,
+                        onEnded: {
+                            guard clips.indices.contains(index + 1) else { return }
+                            (autoplay, index) = (true, index + 1)
+                        })
                 } else {
                     WholeWords("“\(clip.text)”").foregroundStyle(Palette.fg)
                 }
@@ -89,34 +102,6 @@ struct VoiceBlock: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .motion(.easeOut(duration: 0.15), value: index)
-    }
-
-    private var header: some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            if let at = clip.at { Text(SaidWords.day(at)).font(.small).foregroundStyle(Palette.muted) }
-            Spacer(minLength: 0)
-            if let length = clip.lengthText { Text(length).font(.monoTime).foregroundStyle(Palette.muted) }
-            if clips.count > 1 {
-                Text("\(index + 1)/\(clips.count)").font(.monoTime).foregroundStyle(Palette.muted)
-                Button {
-                    let wasPlaying = playback.isPlaying
-                    playback.stop()
-                    move(to: (index + 1) % clips.count, playing: wasPlaying)
-                } label: {
-                    Image(systemName: "forward.end.fill").font(.system(size: 10)).foregroundStyle(Palette.fg)
-                        .frame(width: 28, height: 28).background(Color.fillTint, in: .circle)
-                        .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
-                }
-                .buttonStyle(.plain).accessibilityLabel("Next clip")
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    private func move(to next: Int, playing: Bool) {
-        guard clips.indices.contains(next) else { return }
-        autoplay = playing
-        index = next
     }
 }
 

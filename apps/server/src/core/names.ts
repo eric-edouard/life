@@ -95,6 +95,7 @@ export const WebSearchProviderName = z.enum([
   "perplexity-search",
   "serpapi",
   "serper",
+  "tavily",
 ]);
 export type WebSearchProviderName = z.infer<typeof WebSearchProviderName>;
 

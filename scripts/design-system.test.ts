@@ -44,13 +44,13 @@ const CAPS: Record<string, Record<string, number>> = {
   "Inbox/CardArrangement.swift": {
     padding: 5,
   },
-  "Inbox/CheckBodies.swift": {
-    font: 1,
-    height: 1,
-    width: 1,
-  },
   "Inbox/CheckList.swift": {
     padding: 1,
+  },
+  "Inbox/NameVoices.swift": {
+    capsule: 2,
+    height: 1,
+    width: 2,
   },
   "Matters/MatterThreadPage.swift": {
     padding: 5,
