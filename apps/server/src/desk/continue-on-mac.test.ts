@@ -113,9 +113,13 @@ test("a runtime that can't open on his Mac is refused by name", async () => {
   expect((await tapped(desk, id))?.error).toBe("not for fake yet");
 });
 
-/** A holder of the session: a made-up process of this test's, recorded as Life's launcher with its last write `quietFor` ago. */
-function holder(session: string, quietFor: number) {
-  const p = Bun.spawn(["sleep", "60"]);
+/** A process of this test's recorded as Life's launcher on `session`, its last write `quietFor` ago: named as the launcher, or (`isOther`) any other process that took a dead launcher's pid. */
+function holder(session: string, quietFor: number, isOther = false) {
+  const p = Bun.spawn(
+    isOther
+      ? ["sleep", "60"]
+      : ["bash", "-c", "exec -a pi-terminal-test sleep 60"]
+  );
   mkdirSync(TERMINAL_SESSIONS, { recursive: true });
   writeFileSync(
     join(TERMINAL_SESSIONS, `${p.pid}.json`),
@@ -148,6 +152,13 @@ test("he left it on his Mac: quiet 10 minutes, Life takes it back for a due wake
   expect(busy.killed || busy.exitCode !== null).toBe(false);
   busy.kill();
   await busy.exited;
+
+  const other = holder(session, 11 * MIN, true);
+  await wakeDue(desk);
+  expect(other.exitCode).toBeNull();
+  other.kill();
+  await other.exited;
+  rmSync(join(TERMINAL_SESSIONS, `${other.pid}.json`), { force: true });
 
   const left = holder(session, 11 * MIN);
   await wakeDue(desk);

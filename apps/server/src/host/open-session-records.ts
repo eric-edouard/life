@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { MIN } from "../core/clock";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { HOME } from "../core/platform";
 
@@ -39,7 +40,7 @@ export interface OpenSessionRecord {
 }
 
 /** How long a session held open on his Mac must be quiet before Life takes it back for a due wake (his ruling of 22 Nov 2026). */
-export const LEFT_AFTER_MS = 10 * 60_000;
+export const LEFT_AFTER_MS = 10 * MIN;
 
 /** Whether he has left the session record `r` holds: not working, and quiet for `LEFT_AFTER_MS` (no time said: not known, kept). */
 export const hasLeftOf = (r: OpenSessionRecord, now: number) =>

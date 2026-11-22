@@ -412,8 +412,8 @@ const takenBack = new Set<number>();
 
 /**
  * Takes agent `a`'s session back from his Mac once he left it (`hasLeftOf`, his ruling of 22 Nov 2026: no button, Life
- * takes control back by itself): its holder (Life's Terminal launcher, or his Claude app's process for it, checked to be
- * Claude's) is ended with SIGTERM, logged once, and the next tick wakes it. Never the desk's own runs (`sdk-*`).
+ * takes control back by itself): its holder (Life's Terminal launcher, or his Claude app's process for it, each checked by
+ * its command line) is ended with SIGTERM, logged once, and the next tick wakes it. Never the desk's own runs (`sdk-*`).
  */
 async function takeBackIfLeft(a: AgentRow) {
   const r = a.session ? readOpenSessionRecords().get(a.session) : undefined;
@@ -423,11 +423,12 @@ async function takeBackIfLeft(a: AgentRow) {
   ) {
     return;
   }
-  if (r.entrypoint !== TERMINAL_ENTRYPOINT) {
-    const { stdout } = await exec(["ps", "-o", "comm=", "-p", String(r.pid)]);
-    if (!stdout.toLowerCase().includes("claude")) {
-      return;
-    }
+  // The holder checked by its command line, a record outliving its process (its pid reused) never ends another.
+  const { stdout } = await exec(["ps", "-o", "command=", "-p", String(r.pid)]);
+  const holder =
+    r.entrypoint === TERMINAL_ENTRYPOINT ? "pi-terminal" : "claude";
+  if (!stdout.toLowerCase().includes(holder)) {
+    return;
   }
   try {
     process.kill(r.pid, "SIGTERM");

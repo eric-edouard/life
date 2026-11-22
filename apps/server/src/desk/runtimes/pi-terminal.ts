@@ -72,11 +72,12 @@ if (import.meta.main) {
   };
   write();
   const timer = setInterval(write, 15_000);
-  // The desk takes it back once he left it: pi ends, said in his window.
+  // The desk takes it back once he left it (SIGTERM): pi ends, said in his window. His window closed (SIGHUP): pi ends.
   process.on("SIGTERM", () => {
     process.stdout.write("\nLife took it back: it continues there.\n");
     pi.kill("SIGTERM");
   });
+  process.on("SIGHUP", () => pi.kill("SIGHUP"));
   pi.on("exit", (code) => {
     clearInterval(timer);
     rmSync(record, { force: true });

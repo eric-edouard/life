@@ -33,7 +33,8 @@ extension LifeStore {
         case .succeeded(.agent(let result), _) where result.state == .done:
             show(SaidBack(words: "Opened on your Mac", undo: nil, isDone: true))
         case .succeeded:
-            show(SaidBack(words: "No answer from your Mac", undo: nil, isDone: false))
+            // Asked, with no word yet that it opened: the agent's page says once it is open.
+            show(SaidBack(words: "Asked your Mac", undo: nil, isDone: true))
         case .failed(let failure, _):
             let isBusy = failure.reason.contains("Busy")
             show(SaidBack(words: isBusy ? "Busy. Try in a moment." : failure.reason, undo: nil, isDone: false))

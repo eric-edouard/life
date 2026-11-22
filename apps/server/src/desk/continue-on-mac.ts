@@ -26,6 +26,10 @@ export async function continueOnMac(
   if (!["active", "stopped"].includes(a.status)) {
     return { error: `${a.id} is ${a.status}` };
   }
+  if (a.role === "main") {
+    // Ask Life talks to it on its own (`talk`), which no take-back frees.
+    return { error: "the main session stays in Ask Life" };
+  }
   const runtime = desk.runtimes[a.runtime];
   if (!runtime?.continueOnMac) {
     return { error: `not for ${a.runtime} yet` };

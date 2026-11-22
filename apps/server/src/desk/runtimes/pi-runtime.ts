@@ -94,8 +94,8 @@ const PI_TERMINAL = besidePi("pi-terminal");
 /** How long the Mac has to say pi runs in Terminal (the launcher's record) before the open counts as failed. */
 const TERMINAL_WITHIN_MS = 10_000;
 
-/** A word for `sh`, quoted whole. */
-const shellWord = (w: string) => `'${w.replaceAll("'", "'\\''")}'`;
+/** `w` single-quoted for `sh`, as one word. */
+const shellQuoted = (w: string) => `'${w.replaceAll("'", "'\\''")}'`;
 
 /**
  * Opens pi's own interface on a session in a new Terminal window on his Mac (`continueOnMac`): the launch (with Life's
@@ -112,7 +112,7 @@ async function openInTerminal(launch: PiTerminalLaunch, dir: string) {
   const words = [process.execPath, PI_TERMINAL, SECRETS.piTerminalLaunch];
   writeFileSync(
     script,
-    `#!/bin/sh\nexec env BUN_BE_BUN=1 ${words.map(shellWord).join(" ")}\n`,
+    `#!/bin/sh\nexec env BUN_BE_BUN=1 ${words.map(shellQuoted).join(" ")}\n`,
     { mode: 0o700 }
   );
   const opened = await exec(["open", "-a", "Terminal", script]);
