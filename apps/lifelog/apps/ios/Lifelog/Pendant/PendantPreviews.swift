@@ -68,7 +68,7 @@
     #Preview("Settings") {
         NavigationStack {
             SettingsView(
-                permissions: PermissionsStore(notifications: .allowed, location: .denied), allowNotifications: {},
+                permissions: PermissionsStore(notifications: .allowed, location: .denied),
                 close: {})
         }
         .previewSync()
@@ -79,7 +79,7 @@
     #Preview("Settings, large text") {
         NavigationStack {
             SettingsView(
-                permissions: PermissionsStore(notifications: .notAsked, location: .allowed), allowNotifications: {},
+                permissions: PermissionsStore(notifications: .notAsked, location: .allowed),
                 close: {})
         }
         .previewSync()
