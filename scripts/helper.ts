@@ -65,10 +65,13 @@ await Promise.all([
       { timeout: 300_000 }
     )
   ),
-  // pi ships bundled (its `dist/bundle`, which reads its `package.json`): copied whole, run by the helper as bun.
-  ...["package.json", join("dist", "bundle")].map((f) =>
-    cp(join(ROOT, PI, f), join(resources, PI, f), { recursive: true })
-  ),
+  // pi ships bundled (its `dist/bundle`, which reads its `package.json`), run by the helper as bun; it loads Life's
+  // extension with jiti, which it imports by name. Checked by running the pi runtime's tests from this layout.
+  ...[
+    join(PI, "package.json"),
+    join(PI, "dist", "bundle"),
+    join("node_modules", "jiti"),
+  ].map((f) => cp(join(ROOT, f), join(resources, f), { recursive: true })),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),

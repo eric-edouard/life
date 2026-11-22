@@ -119,7 +119,7 @@ public struct MatterHolder: Decodable, Sendable, Equatable {
     }
 }
 
-/// Why nothing can move to the other program now (the desk's last look at it).
+/// Why nothing can move to the program the desk offers now (its last look at it).
 public struct MoveBlocked: Decodable, Sendable, Equatable {
     public let runtime: String
     public let reason: String
@@ -135,7 +135,7 @@ public enum MoveChoice: Equatable, Sendable {
 extension Matter {
     /// The one move to offer: back to the agent he moved it from while `agents` (`read_registered_agents`) lists it at
     /// work and not the caretaker, as the desk takes one (the old holder is no longer anchored on the matter, so the
-    /// matter's own agents can't tell), else to the other program; none with no holder, or while it can't run.
+    /// matter's own agents can't tell), else to the program the desk offers (`moveTo`); none with no holder, or while it can't run.
     public func moveChoice(among agents: [RegisteredAgent]) -> MoveChoice? {
         guard let holder, moveBlocked == nil else { return nil }
         let isTaker = { (a: RegisteredAgent) in [.running, .waiting].contains(a.status) && a.role != .caretaker }

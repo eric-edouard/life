@@ -22,6 +22,7 @@ import {
   isBeforeMoves,
   isBeforeRoleCheck,
   isBeforeRoles,
+  isBeforeTurnCost,
   isBeforeTurnModel,
 } from "../host/desk-shape";
 import { copyDb } from "../host/export";
@@ -39,7 +40,7 @@ import {
 // caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
 // turn keeps the model it ran on (`turn.model`; older turns null). `stepMatterIds` (life#826): an assignment keeps the
 // matter he chose. `stepMoves`, of decision 78: a move's tables and `turn.move`. `stepRoleCheck`, of the main session: the
-// agents' role check goes, so a new role needs no step. Only the desk helper runs them, at its
+// agents' role check goes, so a new role needs no step. `stepTurnCost`, of pi: a turn keeps what its provider billed. Only the desk helper runs them, at its
 // start, in that order (any order ends in one shape); `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
@@ -268,6 +269,15 @@ export const stepMoves = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
       db.run("alter table turn add column move text");
     }
   });
+
+/**
+ * Gives the store's turns what the provider billed (`stepTurnCost`, his yes of 22 Nov 2026): `turn.cost_usd` added, null
+ * on every older turn (none was billed: Claude's and Codex's are his plans').
+ */
+export const stepTurnCost = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(path, state, isBeforeTurnCost, "desk-before-turn-cost-", (db) =>
+    db.run("alter table turn add column cost_usd real")
+  );
 
 /**
  * Rebuilds the store's agents without the role check (`stepOnce`): the roles are code's one list (`AgentRole`), so the

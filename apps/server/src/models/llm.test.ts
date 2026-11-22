@@ -449,7 +449,7 @@ const STARTS_MODEL = [
 ];
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 
-// Life's own model calls are llm.ts's; the desk's runtime rows start his registered agents' sessions (AGENTS.md).
+// Life's own model calls are llm.ts's; the desk's runtime rows and pi runtime start his registered agents' sessions (AGENTS.md).
 test("only llm.ts and the desk's runtime rows start the model CLIs", async () => {
   const code = repoFiles(
     LIFE_CODE_DIR,
@@ -466,6 +466,7 @@ test("only llm.ts and the desk's runtime rows start the model CLIs", async () =>
         STARTS_MODEL.some((p) => p.test(texts[i] ?? ""))
     )
   ).toEqual([
+    "apps/server/src/desk/runtimes/pi-runtime.ts",
     "apps/server/src/desk/runtimes/runtime-rows.ts",
     "apps/server/src/models/llm.ts",
   ]);

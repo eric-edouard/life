@@ -96,7 +96,7 @@ struct StartAgentSheet: View {
     }
 
     /// The answers of each state, in the bottom bar: none while he writes (the goal's Send starts it); Starting…; Done;
-    /// Try again (and the other program) or Close.
+    /// Try again (and the program the desk offers) or Close.
     @ViewBuilder private var buttons: some View {
         VStack(spacing: 10) {
             switch state {

@@ -353,10 +353,10 @@ extension ListLabel where Action == EmptyView {
 }
 
 extension View {
-    /// One row of a list as a grouped inset card (decision 98, rule 17): at least `Metrics.listRow` high on the card
-    /// fill, the group's first row rounded at its top and its last at its foot, no divider, inset by the gutter (`Metrics.gutter`, as the frames draw it);
-    /// the open row lit with `pick`. Rows of one group stack with no gap, so they read as one card; a label or a gap
-    /// starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
+    /// One row of a list on the page (decision 98, rule 17; no card around a list since 22 Nov): at least
+    /// `Metrics.listRow` high, a `line` hairline above every row but the group's first, inset by the gutter
+    /// (`Metrics.gutter`, as the frames draw it); the open row lit with `pick`. Rows of one group stack with no gap; a
+    /// label or a gap starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
     /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
     func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> some View {
         let top = index == 0 ? Metrics.Radius.card : 0
@@ -365,7 +365,7 @@ extension View {
             topLeadingRadius: top, bottomLeadingRadius: foot, bottomTrailingRadius: foot, topTrailingRadius: top)
         return frame(minHeight: Metrics.listRow).contentShape(.rect)
             .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
-            .background(Palette.card, in: shape)
+            .overlay(alignment: .top) { if index > 0 { Hairline() } }
             .padding(.horizontal, Metrics.gutter)
             .motion(Motion.standard, value: isChosen)
             .accessibilityAddTraits(isChosen ? .isSelected : [])
@@ -526,8 +526,6 @@ struct FilterMenu<Choices: View>: View {
     let identifier: String
     /// What VoiceOver reads: what the menu does ("Filter", "Sort").
     let label: String
-    /// Floating, the round button's size: the whole circle takes the tap (a menu hit-tests its label only).
-    var diameter: CGFloat?
     let choices: Choices
 
     var body: some View {
@@ -535,7 +533,6 @@ struct FilterMenu<Choices: View>: View {
             choices
         } label: {
             Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
-                .frame(width: diameter, height: diameter).contentShape(.circle)
         }
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
@@ -543,9 +540,8 @@ struct FilterMenu<Choices: View>: View {
 }
 
 extension View {
-    /// A list's Filter, placed by where the system puts the bars: a top-leading toolbar item, or, in the side column
-    /// of the closed Duo (`reportsSideColumn`), a round glass button floating at the list's bottom left, so the top group
-    /// stays the Pendant and Settings. While it floats the list keeps a margin under its last row.
+    /// A list's Filter, in the top group by where the system puts the bars: a top-leading toolbar item, or, in the side
+    /// column (`reportsSideColumn`), one more item of the right-edge group under the Pendant and Settings; nothing floats.
     func filterBar<Choices: View>(
         isFiltered: Bool, identifier: String, isResting: Bool = false, label: String = "Filter",
         @ViewBuilder choices: () -> Choices
@@ -563,30 +559,22 @@ private struct FilterBar<Choices: View>: ViewModifier {
     let label: String
     let choices: Choices
     @State private var isInColumn = false
-    /// The floating button and its margin from the list's bottom edge; the list keeps room for both, and more.
-    private let size: CGFloat = 48, bottom = Metrics.Spacing.xl
 
     // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
-    private func menu(diameter: CGFloat? = nil) -> some View {
-        FilterMenu(isFiltered: isFiltered, identifier: identifier, label: label, diameter: diameter, choices: choices)
+    private var menu: some View {
+        FilterMenu(isFiltered: isFiltered, identifier: identifier, label: label, choices: choices)
             .disabled(isResting)
     }
 
     func body(content: Content) -> some View {
         content
             .reportsSideColumn($isInColumn)
-            .toolbar { if !isInColumn { ToolbarItem(placement: .topBarLeading) { menu() } } }
-            .contentMargins(.bottom, isInColumn ? size + bottom + Metrics.Spacing.l : 0, for: .scrollContent)
-            .overlay(alignment: .bottomLeading) {
-                ZStack {
-                    if isInColumn {
-                        menu(diameter: size).floatingGlass(in: .circle)
-                            .padding(.leading, Metrics.gutter).padding(.bottom, bottom).appears()
-                    }
+            .toolbar {
+                if isInColumn {
+                    fitted(ToolbarItem(placement: .topBarTrailing) { menu })
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { menu }
                 }
-                // 24 from the screen's bottom, as the closed Duo's list draws it, not from its safe area.
-                .ignoresSafeArea(.container, edges: isInColumn ? .bottom : [])
-                .motion(Motion.standard, value: isInColumn)
             }
     }
 }
@@ -878,12 +866,15 @@ struct RowGroup<Content: View>: View {
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
                             row.appears().overlay(alignment: .top) {
-                                if row.id != rows.first?.id { Hairline(color: .fillTint).padding(.leading, 16) }
+                                if row.id != rows.first?.id {
+                                    Hairline(color: surface == .page ? Palette.line : .fillTint).padding(.leading, 16)
+                                }
                             }
                         }
                     }
                     .foregroundStyle(Palette.fg)
-                    .background(surface.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+                    // A list sits on the page with hairlines; only a sheet's group keeps its tile.
+                    .background(surface == .sheet ? surface.fill : .clear, in: .rect(cornerRadius: Metrics.Radius.card))
                 }
                 .appears()
             }
@@ -1013,7 +1004,7 @@ struct Placeholder: View {
     }
 }
 
-/// A list still loading, in its own shape: one grouped card of rows (`groupedRow`), each its leading slot (a 28 icon, or
+/// A list still loading, in its own shape: one group of rows (`groupedRow`), each its leading slot (a 28 icon, or
 /// a 40 disc for people) and two lines, so the list fades in over it.
 struct RowsPlaceholder: View {
     var rows = 6
@@ -1034,7 +1025,6 @@ struct RowsPlaceholder: View {
                 .padding(.horizontal, Metrics.Spacing.l).frame(minHeight: Metrics.listRow)
             }
         }
-        .card()
         .padding(.horizontal, Metrics.gutter)
         .frame(maxHeight: .infinity, alignment: .top)
         .readingWidth()

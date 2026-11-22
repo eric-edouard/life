@@ -80,13 +80,14 @@ export const NotifyLevel = z.enum(["off", "quiet", "normal", "urgent"]);
 export type NotifyLevel = z.infer<typeof NotifyLevel>;
 
 /** The runtimes the desk drives (`desk/runtimes/`), by name. */
-export const RuntimeName = z.enum(["claude", "codex"]);
+export const RuntimeName = z.enum(["claude", "codex", "pi"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;
 
 /** A runtime as he reads it, by its name: the program, as its maker calls it. */
 export const RUNTIME_WORDS: Record<RuntimeName, string> = {
   claude: "Claude Code",
   codex: "Codex",
+  pi: "pi",
 };
 
 /** Where a unit or an observation comes from. */

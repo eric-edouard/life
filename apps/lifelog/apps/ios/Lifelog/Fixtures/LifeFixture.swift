@@ -32,6 +32,8 @@
         nonisolated static let unmarked = value(of: "-fixtureUnmarked")
         nonisolated static let parked = value(of: "-fixtureParked")
         nonisolated static let sheet = value(of: "-fixtureSheet")
+        /// `-fixtureAsk open`: Ask Life's banner open.
+        nonisolated static let ask = value(of: "-fixtureAsk")
         /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
