@@ -8,9 +8,7 @@ import SwiftUI
 @MainActor let updates: SPUStandardUpdaterController? = {
   let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String ?? ""
   return key.isEmpty
-    ? nil
-    : SPUStandardUpdaterController(
-      startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    ? nil : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 }()
 
 /// The menu-bar app: runs Life (`Supervisor`), shows how it stands, and opens Settings, which is also the first run's
@@ -86,10 +84,8 @@ struct SettingsView: View {
   @State private var name = ""
   @State private var email = ""
   /// The language his memory is written in (`memoryLanguage`): the Mac's own, named in English, until he changes it.
-  @State private var language =
-    Locale(identifier: "en")
-    .localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en")
-    ?? "English"
+  @State private var language = Locale(identifier: "en")
+    .localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
   @State private var engine = "claude"
   @State private var keys: [String: String] = [:]
   /// A new install thinks on OpenRouter (`init` sets it): its key is asked once, here, before Start.
@@ -124,10 +120,8 @@ struct SettingsView: View {
         Section("Or bring your Life") {
           Button("Import an export…") { Task { await importExport() } }
             .disabled(installing)
-          Text(
-            "A folder made by Export everything…, on this Mac or another: checked, then counted again."
-          )
-          .caption()
+          Text("A folder made by Export everything…, on this Mac or another: checked, then counted again.")
+            .caption()
         }
       } else {
         Section("Thinking") {
@@ -148,9 +142,7 @@ struct SettingsView: View {
             ForEach(skillKeyNames, id: \.self) { name in
               SecureField(name, text: Binding(get: { keys[name] ?? "" }, set: { keys[name] = $0 }))
             }
-            Text(
-              "Your agents may ask to run Apify's paid scrapers, with the cost; nothing runs without your yes."
-            ).caption()
+            Text("Your agents may ask to run Apify's paid scrapers, with the cost; nothing runs without your yes.").caption()
           }
         }
         Section("Sources") {
@@ -166,10 +158,7 @@ struct SettingsView: View {
           }
           if sources.contains(where: { $0.on && $0.fullDisk }) {
             Button("Open Full Disk Access") {
-              NSWorkspace.shared.open(
-                URL(
-                  string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
-                )!)
+              NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
             }
             Text("Turn Life on there, then come back: it checks again.").caption()
           }
@@ -184,35 +173,28 @@ struct SettingsView: View {
           }
         } else if let r = supervisor.info?.reminders {
           Section("Reminders") {
-            Toggle(
-              "Use your Reminders",
-              isOn: Binding(
-                get: { r.on },
-                set: { on in Task { await setReminders(on, r) } }
-              )
-            )
+            Toggle("Use your Reminders", isOn: Binding(
+              get: { r.on },
+              set: { on in Task { await setReminders(on, r) } }
+            ))
             .disabled(installing)
             if r.on, !r.ready {
               // An update of Life moved the pin: remctl is behind (or gone) while Reminders is on.
               Button("Install remctl \(r.release.version)") { Task { await installRemctl(r) } }
                 .disabled(installing)
             }
-            Text(
-              r.ready
-                ? "Life adds reminders when you ask and reads your changes back."
-                : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer."
-            )
-            .caption()
+            Text(r.ready
+              ? "Life adds reminders when you ask and reads your changes back."
+              : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
+              .caption()
           }
         }
         Section("About you and the people close to you") {
           ForEach(AddOn.all, id: \.key) { a in
-            Toggle(
-              a.title,
-              isOn: Binding(
-                get: { personal[a.key] != nil },
-                set: { on in Task { await setAddOn(a.key, on) } }
-              ))
+            Toggle(a.title, isOn: Binding(
+              get: { personal[a.key] != nil },
+              set: { on in Task { await setAddOn(a.key, on) } }
+            ))
             Text(a.caption).caption()
           }
         }
@@ -262,8 +244,7 @@ struct SettingsView: View {
   private func load() async {
     guard started else { return }
     let out = await Helper.run(["settings"]).out
-    let settings =
-      (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
+    let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
     engine = settings["engine"] as? String ?? "claude"
     personal = settings["personal"] as? [String: Any] ?? [:]
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
@@ -273,17 +254,12 @@ struct SettingsView: View {
   }
 
   private func readKeys() {
-    keys = Dictionary(
-      uniqueKeysWithValues: (keyNames + skillKeyNames).map { ($0, Keychain.read($0) ?? "") })
+    keys = Dictionary(uniqueKeysWithValues: (keyNames + skillKeyNames).map { ($0, Keychain.read($0) ?? "") })
   }
 
   private func start() async {
-    if !firstKey.isEmpty {
-      Keychain.write(
-        supervisor.info?.engineKeys["openrouter"]?.first ?? "OPENROUTER_API_KEY", firstKey)
-    }
-    let r = await Helper.run(
-      ["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
+    if !firstKey.isEmpty { Keychain.write(supervisor.info?.engineKeys["openrouter"]?.first ?? "OPENROUTER_API_KEY", firstKey) }
+    let r = await Helper.run(["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
     status = r.code == 0 ? "Life is set up." : r.err
     await supervisor.start()
     await load()
@@ -327,12 +303,8 @@ struct SettingsView: View {
     if !on {
       next.removeValue(forKey: key)
     } else if next[key] == nil {
-      let from =
-        Calendar.current.date(byAdding: .year, value: -AddOn.historiesYearsBack, to: Date())
-        ?? Date()
-      next[key] =
-        key == "histories"
-        ? ["from": String(from.formatted(.iso8601.year().month()).prefix(7))] : [String: Any]()
+      let from = Calendar.current.date(byAdding: .year, value: -AddOn.historiesYearsBack, to: Date()) ?? Date()
+      next[key] = key == "histories" ? ["from": String(from.formatted(.iso8601.year().month()).prefix(7))] : [String: Any]()
     }
     guard await set(["personal": next.isEmpty ? NSNull() : next]) else { return }
     personal = next
@@ -388,18 +360,9 @@ enum AddOn {
   /// `histories` starts this many years back from now.
   static let historiesYearsBack = 5
   static let all: [(key: String, title: String, caption: String)] = [
-    (
-      "aboutMe", "Pages about you",
-      "Adds what Life notices about your views and health to your pages."
-    ),
+    ("aboutMe", "Pages about you", "Adds what Life notices about your views and health to your pages."),
     ("relationships", "Between us", "Adds a section to the page of each person close to you."),
-    (
-      "personas", "What people are like",
-      "Each week, what each person is like and what repeats between you."
-    ),
-    (
-      "histories", "Month by month",
-      "Summarises each past month with each person, from five years back."
-    ),
+    ("personas", "What people are like", "Each week, what each person is like and what repeats between you."),
+    ("histories", "Month by month", "Summarises each past month with each person, from five years back."),
   ]
 }
