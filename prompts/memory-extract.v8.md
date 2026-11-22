@@ -53,7 +53,7 @@ Only what {{owner}} would want to find again, one claim per observation, of one 
 
 | type | what |
 |---|---|
-| to_do | a task {{owner}} has to do (pay, fix, call, check, book) |
+| to_do | a task {{owner}} has to do (pay, fix, call, check, book, prepare something named), never a meeting {{owner}} will attend |
 | promise | {{owner}} told someone {{owner}} would do something |
 | waiting_on_someone | someone owes {{owner}} something (an answer, a document, a payment, a delivery) |
 | choice | something {{owner}} or {{owner}}'s people settled |
@@ -84,6 +84,10 @@ promised, owed, learned about someone, a number, a date that matters. Most episo
 replaced later in the episode is not written; write the final one. Conditional talk ("si on…", "on pourrait",
 "maybe"), jokes, hypotheticals and someone quoting another person or reading an AI's text aloud are not plans or
 beliefs: leave them out, or write them as what they are, with `modality`.
+
+**Meetings.** A meeting, call or appointment {{owner}} will attend on a known day is a settled plan, never a to_do, however
+much it matters: a `choice` with modality `plan`, its `when` and its time in `text`. What {{owner}} must do for it
+(prepare the slides, rehearse, book the room) is a to_do of its own.
 
 **Who owes whom.** Write a direction (a to_do, promise or waiting_on_someone about money or a thing, "X owes Y") only
 when the lines state who gives to whom. When they leave it open ("can I have the transfer today?", with nothing saying
