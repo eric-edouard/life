@@ -78,10 +78,11 @@ export function cardProblemOf(
 /** His own words, the last answer of every agent's card (the phone's), which no option repeats. */
 const TELL = /^tell the agent\b/i;
 /** An option that names the agent's own controls: those are his agent sheet's, and a pick of it only says the word. ponytail: English words only; a label in another language gets through. */
-const AGENT_CONTROL =
-  /\b(stop|pause|restart|resume|kill)\b.*\bagent\b|^(stop|pause|restart)$/i;
+const AGENT_CONTROL = /\b(stop|pause|restart|resume|kill)\b.*\bagent\b/i;
 /** A label after the first shares its row with two others: a third of the phone's row at its size. */
 const SHARED_ROW_CHARS = 14;
+/** The icons an `ends` option may take besides Life's done check: it drops the step or matter unwanted. */
+const DROP_ICONS: readonly string[] = ["drop", "no"];
 
 /** What breaks the one rule of a card's answers (`fetch("ask/options")`): 2 or 3 options, the first at most five words, the others short enough to share a row, no label twice, none repeating his own words or controlling the agent, and no icon of Life's acts; false when nothing does. */
 function answersProblemOf(ask: z.infer<typeof Ask>) {
@@ -101,6 +102,10 @@ function answersProblemOf(ask: z.infer<typeof Ask>) {
       `an option after the first is at most ${SHARED_ROW_CHARS} characters: they share the row below it`) ||
     (ask.options.some((o) => o.icon && isLifeActIcon(o.icon)) &&
       'the icons send, add_to_calendar, done and agent are Life\'s: it draws them on the options it acts on (fetch("ask/options"))') ||
+    (ask.options.some(
+      (o) => o.ends && o.icon && !DROP_ICONS.includes(o.icon)
+    ) &&
+      'an `ends` option closes the step or matter: no icon (Life draws done), or `drop` or `no` (fetch("ask/options"))') ||
     (ask.options.some((o) => o.icon && (o.outgoing || o.adds || o.looks)) &&
       'an `outgoing`, `adds` or `looks` option has no `icon`: Life draws its own (fetch("ask/options"))')
   );

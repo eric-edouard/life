@@ -59,6 +59,17 @@ test("a card's answers follow one rule: 2 or 3 options, the later ones short, no
     ],
     "are Life's"
   );
+  await refused(
+    [
+      { ...book, icon: "date", outgoing: true },
+      { id: "w", label: "Wait" },
+    ],
+    "Life draws its own"
+  );
+  await refused(
+    [book, { ends: "matter", icon: "later", id: "d", label: "Not now" }],
+    "an `ends` option closes"
+  );
   // A fair label that starts with "Tell" and an agent's own icon pass.
   const { id } = await requestDecision(
     "planner",
