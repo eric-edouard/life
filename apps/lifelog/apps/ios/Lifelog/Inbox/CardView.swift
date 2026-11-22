@@ -109,8 +109,6 @@ struct CardView: View {
     @Environment(\.askSheetZoom) private var sheetZoom
     /// The people sheet open over an ask.
     @State private var peopleRef: String?
-    /// Where each page keeps its dots' room, as its slot tells (`PagerDotsSlot`).
-    @State private var dotSlots: [Int: CGRect] = [:]
     /// The create sheet asked from the people sheet: the host opens it once the people sheet is gone.
     @State private var createsNext: Creating?
 
@@ -178,7 +176,7 @@ struct CardView: View {
     }
 
     /// The asks side by side, one page each, straight on the page: he swipes left for the next, right to come back, and the
-    /// dots under the ask say where he is. The scroll view is one page wide, so a page's width is the paging step; with
+    /// bottom bar's dots say where he is. The scroll view is one page wide, so a page's width is the paging step; with
     /// several asks it stops `Pager.edge` short of its box (as wide as its box, it never paged to the ask a push opens) and
     /// clips there, so nothing of the next ask shows. An ask he passes stays where it was.
     private var pager: some View {
@@ -188,23 +186,21 @@ struct CardView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 0) {
-                        ForEach(Array(checks.enumerated()), id: \.element.ref) { index, check in
-                            let page: (current: Int, total: Int)? = checks.count > 1 ? (index, checks.count) : nil
+                        ForEach(checks, id: \.ref) { check in
                             Group {
                                 if let rows = bulk[check.ref] {
                                     BulkCard(
-                                        kind: check.bulkKind, rows: rows, notes: $notes, page: page,
+                                        kind: check.bulkKind, rows: rows, notes: $notes,
                                         finish: { current = checks.ref(after: check.ref) }
                                     ) {
                                         submit(all: $0, from: check)
                                     }
                                 } else {
-                                    checkCard(check, page: page, pressed: pressed(on: check))
+                                    checkCard(check, pressed: pressed(on: check))
                                 }
                             }
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
-                            .coordinateSpace(.named(PagerDotsSlot.page))
                             .appears(Motion.passes)
                             .id(check.ref)
                         }
@@ -228,19 +224,13 @@ struct CardView: View {
                 // none, in the asks' scrolls too, whose answers draw their own backdrop (`CheckCard`). Its top edge is the
                 // soft one under the title.
                 .scrollEdgeEffectHidden(true, for: .bottom)
-                // One row of dots, where the ask on show keeps their room, still while the asks slide under it.
-                .overlay(alignment: .topLeading) {
-                    let index = checks.firstIndex { $0.ref == current } ?? 0
-                    if checks.count > 1, let dots = dotSlots[index] {
-                        PagerDots(current: index, total: checks.count)
-                            .frame(width: dots.maxX, height: dots.height, alignment: .trailing)
-                            .offset(y: dots.minY)
-                            .motion(Motion.standard, value: dots.minY)
-                    }
-                }
-                .environment(
-                    \.pagerDotsAt,
-                    PagerDotsAt { index, frame in if dotSlots[index] != frame { dotSlots[index] = frame } })
+                // Where he is among the asks: the bottom bar draws the dots (`NavShell`).
+                .onChange(
+                    of: AppRouter.PagerState(
+                        current: checks.firstIndex { $0.ref == current } ?? 0, total: checks.count),
+                    initial: true
+                ) { _, now in router.pager = now.total > 1 ? now : nil }
+                .onDisappear { router.pager = nil }
             }
         }
         .clippedSideways()
@@ -250,7 +240,7 @@ struct CardView: View {
     }
 
     /// One ask with its answers; `pressed`, the answer he gave on it while Life works on it.
-    private func checkCard(_ check: Check, page: (current: Int, total: Int)?, pressed: Taken? = nil) -> some View {
+    private func checkCard(_ check: Check, pressed: Taken? = nil) -> some View {
         CheckCard(
             check: check, runtimeName: life.runtimeName(of: check),
             openMatter: { router.open(matter: $0) },
@@ -260,7 +250,6 @@ struct CardView: View {
             create: { notes.creating = creating(check, $0, asOrganization: $1) },
             wrong: { router.askLife(about: check.ref, question: check.question) },
             dropProject: dropProject(of: check),
-            page: page,
             pressed: pressed
         )
     }

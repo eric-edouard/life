@@ -13,7 +13,6 @@ struct BulkCard: View {
     let rows: [Check]
     /// The rows he unticked and the kinds he goes through one by one: the screen's, so a fold or a read keeps them.
     @Binding var notes: CardNotes
-    var page: (current: Int, total: Int)?
     /// On from this card (the guesses' "Done").
     var finish: () -> Void = {}
     /// His answers, one per ticked row.
@@ -255,7 +254,6 @@ struct BulkCard: View {
             HStack {
                 Text("Each answer saves on its own").font(.small).foregroundStyle(Palette.muted)
                 Spacer(minLength: 0)
-                if let page { PagerDotsSlot(index: page.current) }
             }
             Button {
                 notes.working[kind] = nil
@@ -272,9 +270,6 @@ struct BulkCard: View {
 
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.s) {
-            if let page {
-                PagerDotsSlot(index: page.current).frame(maxWidth: .infinity, alignment: .trailing)
-            }
             if let failure = failed.first.flatMap(failure(of:)) {
                 // Life's own reason when Life answered (or why it may have gone); the fixed line when nothing reached it.
                 let why = failure.isSameTap && !failure.mayHaveHappened ? "not sent to your Mac." : failure.reason

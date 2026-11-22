@@ -20,7 +20,7 @@ struct SpendingPage: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.bg)
         .screenTitle("Spending")
-        .shellBar("", hasSettings: false)
+        .shellBar("")
         // On entry, on a new pairing, and back in front: "Today" is never yesterday's.
         .task(id: [AnyHashable(life.parties.generation.current), AnyHashable(scenePhase == .active)]) {
             if scenePhase == .active { await life.refreshSpending() }

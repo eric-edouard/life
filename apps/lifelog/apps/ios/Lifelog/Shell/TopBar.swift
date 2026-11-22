@@ -4,12 +4,11 @@ import Incidents
 import OwnerSettings
 import SwiftUI
 
-/// The top group, as the system's own toolbar items: the Pendant then Settings (a gear), together on the trailing
+/// The top group, as the system's own toolbar items: the Pendant, with Back before it on a pushed page, on the trailing
 /// edge in one glass capsule. Leading is the stack's Back, or a list's Filter (`filterBar`). Declared, never
 /// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo.
 private struct ShellBar: ViewModifier {
     let label: String
-    let hasSettings: Bool
     let hasPendant: Bool
     let onBack: (() -> Void)?
 
@@ -27,7 +26,7 @@ private struct ShellBar: ViewModifier {
             .titled(label)
             .navigationBarTitleDisplayMode(.inline)
             .reportsSideColumn(Bindable(router).isBarsInColumn, includingRegular: true)
-            // Back joins the Pendant and Gear's group: first in a row, last in a column (ours, the system's is hidden;
+            // Back joins the Pendant's group: first in a row, last in a column (ours, the system's is hidden;
             // `UINavigationController`'s edge swipe stays, below).
             .navigationBarBackButtonHidden(hasBack)
             .toolbar {
@@ -36,7 +35,6 @@ private struct ShellBar: ViewModifier {
                 // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
                 if hasBack && !router.isBarsInColumn { fitted(back) }
                 if hasPendant { fitted(pendant) }
-                if hasSettings { fitted(settings) }
                 if hasBack && router.isBarsInColumn { fitted(back) }
             }
     }
@@ -69,24 +67,16 @@ extension ShellBar {
         }
     }
 
-    private var settings: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button("Settings", systemImage: "gearshape") { router.sheet = .settings }
-                .labelStyle(.iconOnly)
-                .zoomSource(AppRouter.Sheet.settings, in: topBarZoom)
-                .accessibilityIdentifier("top.settings")
-        }
-    }
 }
 
 extension View {
-    /// The top group of a screen in a tab: Settings only on Inbox and Matters, the Pendant everywhere but in a side
+    /// The top group of a screen: the Pendant everywhere but in a side
     /// column (the matter's page beside it has it). The bar's own title is always inline: a list screen's name is its
     /// `screenTitle`, a page's its first line.
     func shellBar(
-        _ label: String, hasSettings: Bool = true, hasPendant: Bool = true, onBack: (() -> Void)? = nil
+        _ label: String, hasPendant: Bool = true, onBack: (() -> Void)? = nil
     ) -> some View {
-        modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant, onBack: onBack))
+        modifier(ShellBar(label: label, hasPendant: hasPendant, onBack: onBack))
     }
 }
 
