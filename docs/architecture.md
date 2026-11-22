@@ -270,6 +270,8 @@ Its menu-bar panel and status window are native SwiftUI, reading the status snap
 (`apps/server/src/host/http/status-reads.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `local-key.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
 there): `docs/status-reads.md`.
 
+The app hides the machinery: the owner sees that Life is working on something, never which agent does it. It shows no agents list or role names (caretaker, main session); agent health lives only in Settings' diagnostics.
+
 ## Pages
 
 Life serves no web pages. The watcher's server serves the connector, its issuer and the brand, and none of the owner's
