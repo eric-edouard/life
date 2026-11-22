@@ -54,22 +54,16 @@ struct RootView: View {
             case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
             }
         }
-        // The column's tab group stands above Tell Life: the screen keeps their room (the button and its margin).
-        .safeAreaPadding(
-            .bottom,
-            router.isBarsInColumn && life.isPaired
-                ? TellMetrics.column.size + TellMetrics.column.bottom(regular: false) + Metrics.Spacing.s : 0
-        )
         // Tell Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
-        // rotation never moves it off the corner (the spec's 52 on the phone, 48 and centred in the Duo's 84-wide column).
+        // rotation never moves it off the corner (52 on the phone; in the Duo's column 48, centred over the system tab pill, which the system keeps at the foot).
         .overlay(alignment: .bottomTrailing) {
             if life.isPaired {
-                let place = router.isBarsInColumn ? TellMetrics.column : TellMetrics.phone
-                TellLifeButton(running: life.tell.strands.filter { !$0.isDone }.count, size: place.size)
-                    .padding(.trailing, place.trailing)
-                    .padding(.bottom, place.bottom(regular: sizeClass == .regular))
-                    // Past the system's safe areas (the column's, the bar's): the screen's own corner.
-                    .ignoresSafeArea()
+                AskLife(
+                    running: life.tell.strands.filter { !$0.isDone }.count,
+                    place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
+                )
+                // Past the system's safe areas (the column's, the bar's): the screen's own corner.
+                .ignoresSafeArea()
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
@@ -198,6 +192,7 @@ struct RootView: View {
                 let agents = life.agents.value?.agents ?? []
                 if let agent = (agents.first { $0.matter?.id == id } ?? agents.first)?.id { router.open(agent: agent) }
             }
+            if LifeFixture.ask == "open" { router.isAskOpen = true }
             if LifeFixture.sheet == "icon" { router.matterSheet = LifeFixture.matter.map { .icon($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(
@@ -228,14 +223,4 @@ private struct TabLabel: View {
     init(_ title: String, _ symbol: String) { (self.title, self.symbol) = (title, symbol) }
 
     var body: some View { Label(title, systemImage: symbol).environment(\.symbolVariants, .none) }
-}
-
-/// Where Tell Life sits (the placement spec): its size and its margins from the root's bottom-right corner.
-private struct TellMetrics {
-    let size: CGFloat, trailing: CGFloat, bottomCompact: CGFloat, bottomRegular: CGFloat
-
-    func bottom(regular: Bool) -> CGFloat { regular ? bottomRegular : bottomCompact }
-
-    static let phone = TellMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29)
-    static let column = TellMetrics(size: 48, trailing: 18, bottomCompact: 35, bottomRegular: 24)
 }
