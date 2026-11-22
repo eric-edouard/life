@@ -95,6 +95,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.networkIdentity?.party?.ref == "person:inf_kit")
     #expect(inbox.parties.contains { $0.ref == "person:inf_kit" })
     #expect(decision.ridesOn?.matters == 1)
+    #expect(decision.ridesOn?.matterIds == ["matter_aaaaaaaaaaaa"])
+    #expect(decision.matterID == "matter_aaaaaaaaaaaa")
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
     #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])

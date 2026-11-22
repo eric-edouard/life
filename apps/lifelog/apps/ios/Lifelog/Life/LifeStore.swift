@@ -586,9 +586,9 @@ final class LifeStore {
         }
     }
 
-    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it; nil when it has none.
-    private func matterOf(card ref: String) -> String? {
-        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matter?.id }
+    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it (`Check.matterID`); nil when it has none.
+    func matterOf(card ref: String) -> String? {
+        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matterID }
         return matter.first { $0.value.value?.checks.contains { $0.ref == ref } == true }?.key
     }
 

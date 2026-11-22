@@ -1057,5 +1057,29 @@
       "-fixtureDictation",
       "writing"
     ]
+  },
+  "DuoFoldSpendingAgentBack": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureSheet",
+      "settings",
+      "-fixturePage",
+      "spending"
+    ],
+    "taps": ["Halden house agent", "Back"]
+  },
+  "DuoFoldAgentWakeMatter": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agentPage"
+    ],
+    "taps": ["What wakes it", "You answer “Go with this plan?”"]
   }
 }

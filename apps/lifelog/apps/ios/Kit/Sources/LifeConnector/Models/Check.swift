@@ -188,7 +188,12 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let observations: Int
         public let matters: Int
         public let pages: Int
+        /// The matters it rides on, by id; nil from a Life that predates it.
+        public let matterIds: [String]?
     }
+
+    /// The matter this ask is on: its own, else the first it rides on.
+    public var matterID: String? { matter?.id ?? ridesOn?.matterIds?.first }
 
     public var id: String { ref }
     public let ref: String
