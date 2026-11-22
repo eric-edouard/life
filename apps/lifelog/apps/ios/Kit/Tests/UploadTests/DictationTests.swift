@@ -479,8 +479,8 @@ private final class Recording: Sendable {
 }
 
 @Test func cancelledRunHandsBackHisTextAndTheWordsHeard() {
-  #expect(DictatedText.said(typed: "Call", heard: ["the", "bank"]) == "Call the bank")
-  #expect(DictatedText.said(typed: "", heard: ["hello"]) == "hello")
-  #expect(DictatedText.said(typed: "Draft", heard: []) == "Draft")
-  #expect(DictatedText.said(typed: "", heard: []) == "")
+    #expect(DictatedText.said(typed: "Call", heard: ["the", "bank"]) == "Call the bank")
+    #expect(DictatedText.said(typed: "", heard: ["hello"]) == "hello")
+    #expect(DictatedText.said(typed: "Draft", heard: []) == "Draft")
+    #expect(DictatedText.said(typed: "", heard: []) == "")
 }

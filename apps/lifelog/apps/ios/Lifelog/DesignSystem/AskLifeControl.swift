@@ -8,8 +8,10 @@ struct AskLifeMetrics: Equatable {
 
     func bottom(regular: Bool) -> CGFloat { regular ? bottomRegular : bottomCompact }
 
-    static let phone = AskLifeMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29, cardLeading: 16, cardTrailing: 16, cardBottom: 96)
-    static let column = AskLifeMetrics(size: 48, trailing: 23, bottomCompact: 191, bottomRegular: 191, cardLeading: 14, cardTrailing: 98,
+    static let phone = AskLifeMetrics(
+        size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29, cardLeading: 16, cardTrailing: 16, cardBottom: 96)
+    static let column = AskLifeMetrics(
+        size: 48, trailing: 23, bottomCompact: 191, bottomRegular: 191, cardLeading: 14, cardTrailing: 98,
         cardBottom: 24)
 }
 
