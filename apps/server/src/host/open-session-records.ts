@@ -47,6 +47,25 @@ export const hasLeftOf = (r: OpenSessionRecord, now: number) =>
   r.statusAt !== null &&
   now - r.statusAt >= LEFT_AFTER_MS;
 
+/** The live record a record file holds, or none (not one, or its process ended). */
+function recordOf(text: string): OpenSessionRecord | undefined {
+  const r = JSON.parse(text);
+  if (!(typeof r.sessionId === "string" && isAlive(r.pid))) {
+    return;
+  }
+  return {
+    entrypoint: String(r.entrypoint ?? ""),
+    pid: r.pid,
+    sessionId: r.sessionId,
+    since:
+      typeof r.startedAt === "number"
+        ? new Date(r.startedAt).toISOString()
+        : null,
+    status: String(r.status ?? ""),
+    statusAt: typeof r.statusUpdatedAt === "number" ? r.statusUpdatedAt : null,
+  };
+}
+
 /** Every live record, by session. A record being written or gone is skipped: the next read says. */
 export function readOpenSessionRecords(
   dirs = [CLAUDE_SESSIONS, TERMINAL_SESSIONS]
@@ -61,20 +80,9 @@ export function readOpenSessionRecords(
     }
     for (const n of names) {
       try {
-        const r = JSON.parse(readFileSync(join(dir, n), "utf8"));
-        if (typeof r.sessionId === "string" && isAlive(r.pid)) {
-          live.set(r.sessionId, {
-            entrypoint: String(r.entrypoint ?? ""),
-            pid: r.pid,
-            sessionId: r.sessionId,
-            since:
-              typeof r.startedAt === "number"
-                ? new Date(r.startedAt).toISOString()
-                : null,
-            status: String(r.status ?? ""),
-            statusAt:
-              typeof r.statusUpdatedAt === "number" ? r.statusUpdatedAt : null,
-          });
+        const r = recordOf(readFileSync(join(dir, n), "utf8"));
+        if (r) {
+          live.set(r.sessionId, r);
         }
       } catch {
         // gone or being written
