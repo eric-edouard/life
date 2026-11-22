@@ -43,7 +43,7 @@ struct AgentsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(Palette.bg)
         .screenTitle("Agents")
-        .shellBar("", hasSettings: false, hasPendant: !isBeside)
+        .shellBar("", hasPendant: !isBeside)
         .toolbar {
             if isBeside {
                 ToolbarItem(placement: .topBarLeading) {
@@ -63,7 +63,6 @@ struct AgentsScreen: View {
 struct AgentPage: View {
     let id: String
     /// Beside the agents: the top group (Pendant, Settings) is this page's, in the column.
-    var hasSettings = false
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -102,7 +101,7 @@ struct AgentPage: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(Palette.bg)
-        .shellBar("", hasSettings: hasSettings)
+        .shellBar("")
         .task {
             await life.refreshAgents()
             await life.refreshMatters()

@@ -3,8 +3,8 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs, with the Settings
-/// and Pendant sheets over them, and Ask Life's round button over all. Every sheet is centred and closes from inside itself.
+/// The shell (`NavShell`: the page, the list and the bottom bar), with the Settings and Pendant sheets over it, and Ask
+/// Life's round button over all. Every sheet is centred and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
@@ -17,131 +17,90 @@ struct RootView: View {
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming: PairOffer?
 
-    init() {
-        // The Inbox's count is `flag` (it needs him), not the system's red; SwiftUI's `badge` takes no colour.
-        let bar = UITabBarAppearance()
-        for item in [bar.stackedLayoutAppearance, bar.inlineLayoutAppearance, bar.compactInlineLayoutAppearance] {
-            item.normal.badgeBackgroundColor = UIColor(Palette.flag)
-            item.normal.badgeTextAttributes = [.foregroundColor: UIColor(Palette.on)]
-        }
-        UITabBar.appearance().standardAppearance = bar
-        UITabBar.appearance().scrollEdgeAppearance = bar
-    }
-
     var body: some View {
-        TabView(selection: tabs) {
-            // The tabs' glyphs in line, as drawn: the system fills a tab's symbol unless its label says otherwise.
-            Tab(value: AppRouter.Tab.inbox) {
-                InboxScreen()
-            } label: {
-                TabLabel("Inbox", "tray")
+        NavShell()
+            .sheet(item: $router.sheet) { sheet in
+                switch sheet {
+                case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
+                case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
+                }
             }
-            .badge(life.badge)
-            Tab(value: AppRouter.Tab.projects) {
-                ProjectsScreen()
-            } label: {
-                TabLabel("Projects", "list.bullet.indent")
+            // Ask Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
+            // rotation never moves it off the corner (52 on the phone; in the Duo's column 48, centred over the system tab pill, which the system keeps at the foot).
+            .overlay(alignment: .bottomTrailing) {
+                if life.isPaired {
+                    AskLifeControl(
+                        running: life.askLife.strands.filter { !$0.isDone }.count,
+                        place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
+                    )
+                    // Past the system's safe areas (the column's, the bar's): the screen's own corner.
+                    .ignoresSafeArea()
+                }
             }
-            Tab(value: AppRouter.Tab.people) {
-                PeopleScreen()
-            } label: {
-                TabLabel("People", "person.2")
+            .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
+            .overlay(alignment: .bottom) {
+                if life.isPaired, router.isAskLifeSmall, !router.isAskLifeOpen {
+                    AskLifeStrip(
+                        line: life.askLife.answer?.line ?? "Working on it…", open: { router.isAskLifeOpen = true },
+                        close: {
+                            router.isAskLifeSmall = false
+                            router.askLifeContext = nil
+                        }
+                    )
+                    .appears(Motion.fade)
+                }
             }
-        }
-        .sheet(item: $router.sheet) { sheet in
-            switch sheet {
-            case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
-            case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
-            }
-        }
-        // Ask Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
-        // rotation never moves it off the corner (52 on the phone; in the Duo's column 48, centred over the system tab pill, which the system keeps at the foot).
-        .overlay(alignment: .bottomTrailing) {
-            if life.isPaired {
-                AskLifeControl(
-                    running: life.askLife.strands.filter { !$0.isDone }.count,
-                    place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
-                )
-                // Past the system's safe areas (the column's, the bar's): the screen's own corner.
-                .ignoresSafeArea()
-            }
-        }
-        .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
-        .overlay(alignment: .bottom) {
-            if life.isPaired, router.isAskLifeSmall, !router.isAskLifeOpen {
-                AskLifeStrip(
-                    line: life.askLife.answer?.line ?? "Working on it…", open: { router.isAskLifeOpen = true },
-                    close: {
-                        router.isAskLifeSmall = false
-                        router.askLifeContext = nil
-                    }
-                )
-                .appears(Motion.fade)
-            }
-        }
-        .fullScreenCover(isPresented: $router.isAskLifeOpen) { AskLifeScreen() }
-        // What an answer shows: its tab's list cut, or a page, under Ask Life's strip.
-        .onChange(of: life.askLife.shown) { _, shown in if let shown { router.open(shown: shown.show) } }
-        // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
-        // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
-        .scrollEdgeEffectStyle(.soft, for: .all)
-        .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
-        // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
-        .environment(router)
-        .environment(\.topBarZoom, topBarZoom)
-        .environment(\.windowSizeClass, sizeClass)
-        .preferredColorScheme(appearance.scheme)
-        // A tapped notification, from a cold launch, the background or the foreground.
-        #if DEBUG
-            .task { await showFixtureScreen() }
-        #endif
-        .onChange(of: capture.routeToOpen, initial: true) { _, route in
-            guard let route else { return }
-            capture.routeToOpen = nil
-            open(route)
-        }
-        // A card's push while the app is in front: the inbox alone is read again.
-        .task(id: capture.cardPushes) {
-            if capture.cardPushes > 0 { await life.refreshInbox() }
-        }
-        .task(id: scenePhase == .active) {
-            guard scenePhase == .active else { return }
-            // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
-            sync.becameActive()
+            .fullScreenCover(isPresented: $router.isAskLifeOpen) { AskLifeScreen() }
+            // What an answer shows: its tab's list cut, or a page, under Ask Life's strip.
+            .onChange(of: life.askLife.shown) { _, shown in if let shown { router.open(shown: shown.show) } }
+            // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
+            // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
+            .scrollEdgeEffectStyle(.soft, for: .all)
+            .sheet(item: $router.appointment) { AppointmentSheet(key: $0) }
+            // Below the sheets, so their pages read them too: Settings' Live logs page (its `ReadScreen`) reads the router.
+            .environment(router)
+            .environment(\.topBarZoom, topBarZoom)
+            .environment(\.windowSizeClass, sizeClass)
+            .preferredColorScheme(appearance.scheme)
+            // A tapped notification, from a cold launch, the background or the foreground.
             #if DEBUG
-                await life.importFromEnvironment()
+                .task { await showFixtureScreen() }
             #endif
-            await life.refreshOnForeground()
-            // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
-            var attempt = 0
-            while life.needsRetry {
-                guard (try? await Task.sleep(for: firstReadRetryDelay(attempt: attempt))) != nil else { return }
-                attempt += 1
-                await life.retryFirstReads()
+            .onChange(of: capture.routeToOpen, initial: true) { _, route in
+                guard let route else { return }
+                capture.routeToOpen = nil
+                open(route)
             }
-            // In front, the main reads are read again every minute: what changed on the Mac (an agent freed, a turn
-            // resumed) shows with no push. The versioned ones cost one small answer when nothing changed.
-            while (try? await Task.sleep(for: SyncMark.readEvery)) != nil { await life.refresh() }
-        }
-        // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
-        // it is asked here, over whatever was showing, and never repoints the app on its own.
-        .onOpenURL { url in
-            if let offer = PairOffer(link: url) { dismissSheet { confirming = offer } }
-        }
-        .font(.body15)
-        .tint(Palette.fg)
-    }
-
-    /// The tabs, where tapping Projects again goes back to All.
-    private var tabs: Binding<AppRouter.Tab> {
-        Binding(
-            get: { router.tab },
-            set: { tab in
-                // Tapping the tab on show again: its whole list (All, no cut of Ask Life's).
-                if tab == router.tab { router.cut = nil }
-                if tab == .projects, router.tab == .projects { router.chip = nil }
-                router.tab = tab
-            })
+            // A card's push while the app is in front: the inbox alone is read again.
+            .task(id: capture.cardPushes) {
+                if capture.cardPushes > 0 { await life.refreshInbox() }
+            }
+            .task(id: scenePhase == .active) {
+                guard scenePhase == .active else { return }
+                // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
+                sync.becameActive()
+                #if DEBUG
+                    await life.importFromEnvironment()
+                #endif
+                await life.refreshOnForeground()
+                // A first read that did not land tries again while the scene is active; leaving cancels the sleep.
+                var attempt = 0
+                while life.needsRetry {
+                    guard (try? await Task.sleep(for: firstReadRetryDelay(attempt: attempt))) != nil else { return }
+                    attempt += 1
+                    await life.retryFirstReads()
+                }
+                // In front, the main reads are read again every minute: what changed on the Mac (an agent freed, a turn
+                // resumed) shows with no push. The versioned ones cost one small answer when nothing changed.
+                while (try? await Task.sleep(for: SyncMark.readEvery)) != nil { await life.refresh() }
+            }
+            // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
+            // it is asked here, over whatever was showing, and never repoints the app on its own.
+            .onOpenURL { url in
+                if let offer = PairOffer(link: url) { dismissSheet { confirming = offer } }
+            }
+            .font(.body15)
+            .tint(Palette.fg)
     }
 
     /// Runs `then` once no sheet is up, dismissing the one that is.
@@ -162,7 +121,7 @@ struct RootView: View {
         // Its event sheet over the tab he was on, once any other sheet is out of the way.
         case .appointment(let pushId): return dismissSheet { router.appointment = .pushId(pushId) }
         }
-        router.tab = .inbox
+        (router.tab, router.isDrawerOpen) = (.inbox, false)
         dismissSheet {}
     }
 }
@@ -178,6 +137,7 @@ struct RootView: View {
             case "people": router.tab = .people
             default: break
             }
+            if LifeFixture.drawer == "open" { router.isDrawerOpen = true }
             if let id = LifeFixture.matter { router.open(matter: id) }
             if let ref = LifeFixture.person { router.open(party: ref) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.
@@ -231,14 +191,4 @@ enum Appearance: String {
         case .dark: .dark
         }
     }
-}
-
-/// A tab's title and its line glyph.
-private struct TabLabel: View {
-    let title: String
-    let symbol: String
-
-    init(_ title: String, _ symbol: String) { (self.title, self.symbol) = (title, symbol) }
-
-    var body: some View { Label(title, systemImage: symbol).environment(\.symbolVariants, .none) }
 }

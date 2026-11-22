@@ -59,6 +59,11 @@ final class AppRouter {
         case party(String)
     }
 
+    struct PagerState: Equatable {
+        let current: Int
+        let total: Int
+    }
+
     var tab = Tab.inbox {
         didSet { if tab != .people { personCameFrom = nil } }
     }
@@ -95,6 +100,10 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
+    /// The list (`NavDrawer`) over the page, where it is not a sidebar.
+    var isDrawerOpen = false
+    /// Where the ask on show stands among the asks, for the bottom bar's dots; nil when one ask or no asks are on show.
+    var pager: PagerState?
     /// Ask Life, full screen over whatever he was on.
     var isAskLifeOpen = false
     /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
@@ -130,7 +139,20 @@ final class AppRouter {
         case .page(.agent, let id): open(agent: id)
         case .page(.project, let id): open(project: ProjectChips.Chip.identity(.project, id))
         }
-        (isAskLifeOpen, isAskOpen, isAskLifeSmall) = (false, false, false)
+        (isAskLifeOpen, isAskOpen, isAskLifeSmall, isDrawerOpen) = (false, false, false, false)
+    }
+
+    /// The Projects page, on its whole list, from the list's top row.
+    func showProjects() {
+        (isDrawerOpen, tab, chip, matterColumn) = (false, .projects, nil, .sidebar)
+        detail = nil
+    }
+
+    /// The People page, on its whole list, from the list's top row.
+    func showPeople() {
+        isDrawerOpen = false
+        tab = .people
+        select(person: nil)
     }
 
     /// The cut list on show on `kind`'s tab, if Ask Life cut that one.
@@ -171,6 +193,7 @@ final class AppRouter {
     }
 
     func open(matter id: String) {
+        isDrawerOpen = false
         sheet = nil
         projectAsk = nil
         tab = .projects
@@ -182,6 +205,7 @@ final class AppRouter {
     /// A project, from a matter that names it: the Projects tab's list on its chip (decision 95: the filtered list is
     /// the project).
     func open(project chip: String) {
+        isDrawerOpen = false
         sheet = nil
         tab = .projects
         self.chip = chip
@@ -216,6 +240,7 @@ final class AppRouter {
 
     /// A person's or an organization's page, from wherever one is named: the People tab, on them.
     func open(party ref: String) {
+        isDrawerOpen = false
         sheet = nil
         matterSheet = nil
         projectAsk = nil

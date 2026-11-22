@@ -49,12 +49,12 @@ private struct PeopleColumns: View {
             .background(Palette.bg)
             .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
             .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
-            // Beside a person, the Pendant and Settings are the person's column.
-            .shellBar("", hasSettings: !isSplit, hasPendant: !isSplit)
+            // Beside a person, the Pendant is the person's column.
+            .shellBar("", hasPendant: !isSplit)
         } detail: {
             if let ref = router.person {
                 NavigationStack(path: $router.personPath) {
-                    PersonPage(ref: ref, hasSettings: isSplit).id(ref)
+                    PersonPage(ref: ref).id(ref)
                         .toolbar {
                             if hasOwnBack {
                                 ToolbarItem(placement: .topBarLeading) {
@@ -74,7 +74,7 @@ private struct PeopleColumns: View {
                 }
             } else {
                 Notice(title: "No one chosen.", detail: "Pick someone from the list.").background(Palette.bg)
-                    .shellBar("", hasSettings: isSplit)
+                    .shellBar("")
             }
         }
         .navigationSplitViewStyle(.balanced)
