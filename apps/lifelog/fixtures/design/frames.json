@@ -1093,5 +1093,136 @@
       "agentPage"
     ],
     "taps": ["What wakes it", "You answer “Go with this plan?”"]
+  },
+  "TapFeedbackAgentStopped": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent"
+    ],
+    "taps": ["Stop the agent"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackAgentStopFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agent",
+      "-fixtureRefuse",
+      "agentStop"
+    ],
+    "taps": ["Stop the agent"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackAgentResumed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_nora",
+      "-fixtureSheet",
+      "agent"
+    ],
+    "taps": ["Resume"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackAgentResumeFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_nora",
+      "-fixtureSheet",
+      "agent",
+      "-fixtureRefuse",
+      "agentResume"
+    ],
+    "taps": ["Resume"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackIconChanged": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_lease",
+      "-fixtureSheet",
+      "icon"
+    ],
+    "taps": ["hammer"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackIconFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_lease",
+      "-fixtureSheet",
+      "icon",
+      "-fixtureRefuse",
+      "icon"
+    ],
+    "taps": ["hammer"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackMovesAnswered": {
+    "args": ["-fixtureLife", "ok", "-fixtureFilter", "moves"],
+    "taps": ["Halden house", "Find the boiler manual", "Mark as done"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackMovesFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureFilter",
+      "moves",
+      "-fixtureRefuse",
+      "movesAnswer"
+    ],
+    "taps": ["Halden house", "Find the boiler manual", "Mark as done"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackProjectsRetried": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureRefuse",
+      "projectsRetryOnce"
+    ],
+    "taps": ["Retry"],
+    "drawing": "tap feedback, no drawing"
+  },
+  "TapFeedbackProjectsRetryFailed": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureRefuse",
+      "projectsRetry"
+    ],
+    "taps": ["Retry"],
+    "drawing": "tap feedback, no drawing"
   }
 }
