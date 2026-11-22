@@ -1079,7 +1079,7 @@
     ]
   },
   "DuoFoldSpendingAgentBack": {
-    "why": "The top agents are below the fold and design:shots presses before it scrolls (a press on a row off screen lands on the column's tab). By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, scroll to Top agents, open one, Back."
+    "why": "Unreachable: the page has no agent rows any more (his correction of 22 Nov: Spending is only what Life costs)."
   },
   "DuoFoldAgentWakeMatter": {
     "args": [
