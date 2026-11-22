@@ -127,39 +127,89 @@ struct AskLifeStrandRow: View {
     }
 }
 
-/// The Ask Life button: a round glass disc with Life's voice mark, always at the bottom right corner of the root, in every pose
-/// (52 on the phone and open upright, 48 in the Duo's side column). It sinks under his thumb; a tap opens Ask Life.
+/// Life's L from the brand mark (`assets/brand/life-l.svg`), in a 492 x 625 box.
+private struct LifeL: Shape {
+    nonisolated func path(in rect: CGRect) -> Path {
+        let k = rect.height / 625
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * k, y: rect.minY + y * k) }
+        var path = Path()
+        path.move(to: p(14, 625))
+        path.addQuadCurve(to: p(12, 619), control: p(12, 625))
+        path.addQuadCurve(to: p(14.5, 613), control: p(12, 613))
+        path.addQuadCurve(to: p(55, 608), control: p(40.9, 613))
+        path.addQuadCurve(to: p(76.2, 588), control: p(69, 603))
+        path.addQuadCurve(to: p(88, 544), control: p(83.5, 573))
+        path.addLine(to: p(170, 81))
+        path.addQuadCurve(to: p(168, 25), control: p(178, 38))
+        path.addQuadCurve(to: p(119.6, 12), control: p(158, 12))
+        path.addQuadCurve(to: p(118, 6), control: p(118, 12))
+        path.addQuadCurve(to: p(120.2, 0), control: p(118, 0))
+        path.addQuadCurve(to: p(170.1, 1.5), control: p(142.7, 0))
+        path.addQuadCurve(to: p(229, 3), control: p(197.6, 3))
+        path.addQuadCurve(to: p(290.6, 1.5), control: p(261.2, 3))
+        path.addQuadCurve(to: p(342, 0), control: p(320, 0))
+        path.addQuadCurve(to: p(344, 6), control: p(344, 0))
+        path.addQuadCurve(to: p(342, 12), control: p(344, 12))
+        path.addQuadCurve(to: p(301, 17.5), control: p(315, 12))
+        path.addQuadCurve(to: p(280.2, 38), control: p(287, 23))
+        path.addQuadCurve(to: p(268, 82), control: p(273.4, 53))
+        path.addLine(to: p(187, 540))
+        path.addQuadCurve(to: p(187.5, 592.1), control: p(180, 580.1))
+        path.addQuadCurve(to: p(223, 604), control: p(195, 604))
+        path.addLine(to: p(249, 604))
+        path.addQuadCurve(to: p(379, 567.5), control: p(323, 604))
+        path.addQuadCurve(to: p(480, 454), control: p(435, 531))
+        path.addQuadCurve(to: p(487, 453), control: p(482, 452))
+        path.addQuadCurve(to: p(491, 457), control: p(492, 454))
+        path.addQuadCurve(to: p(472.4, 530.8), control: p(483, 488))
+        path.addQuadCurve(to: p(456, 610), control: p(461.9, 573.6))
+        path.addQuadCurve(to: p(439.6, 625), control: p(452.9, 625))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// Ask Life's button (22 Nov, his pick): Life's plain L in `on` ink on a cream disc, the one inverted control. A Liquid
+/// Glass disc tinted `fg` (cream in dark). Listening turns the disc `ai` with a soft glow; working turns a thin `ai` arc
+/// round the outside. Standalone: state and tap come in, so it carries into any navigation unchanged.
 struct AskLifeButton: View {
-    @Environment(AppRouter.self) private var router
-    /// Pieces of work running, shown as a ring in `ai` and their count.
-    var running = 0
     var size: CGFloat = 52
+    var isListening = false
+    var isWorking = false
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Button {
-            withAnimation(Motion.standard) { router.isAskOpen = true }
-        } label: {
-            AskLifeMark(size: 22).frame(width: size, height: size)
-                .overlay { if running > 0 { Circle().stroke(Palette.ai, lineWidth: 2) } }
-                .overlay(alignment: .topTrailing) {
-                    if running > 0 { Text("\(running)").font(.chip).foregroundStyle(Palette.ai).padding(4) }
-                }
+        Button(action: action) {
+            LifeL().fill(Palette.on).frame(width: size * 0.3, height: size * 0.38)
+                .frame(width: size, height: size)
+                .glassEffect(.regular.tint(isListening ? Palette.ai : Palette.fg).interactive(), in: .circle)
+                .shadow(color: Palette.ai.opacity(isListening ? 0.6 : 0), radius: 14)
+                .overlay { if isWorking && !isListening { WorkingArc(size: size, isStill: reduceMotion) } }
         }
-        .buttonStyle(SinkStyle())
-        .floatingGlass(in: Circle())
-        .sensoryFeedback(.impact(weight: .medium), trigger: router.isAskOpen) { _, new in new }
+        .buttonStyle(.plain)
+        .animation(Motion.standard, value: isListening)
+        .animation(Motion.standard, value: isWorking)
         .accessibilityLabel("Ask Life")
         .accessibilityIdentifier("tell.life")
     }
 }
 
-/// Sinks a little under the thumb.
-private struct SinkStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+/// A thin `ai` arc turning round the outside of the disc.
+private struct WorkingArc: View {
+    let size: CGFloat
+    let isStill: Bool
+    @State private var turn = false
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
-            .animation(.spring(duration: 0.2), value: configuration.isPressed)
+    var body: some View {
+        Circle().trim(from: 0, to: 0.25).stroke(Palette.ai, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            .frame(width: size + 8, height: size + 8)
+            .rotationEffect(.degrees(turn ? 360 : 0))
+            .onAppear {
+                if !isStill { withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) { turn = true } }
+            }
+            .transition(.opacity)
     }
 }
 

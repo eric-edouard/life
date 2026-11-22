@@ -18,6 +18,15 @@ import SwiftUI
         Swatch(name: "liveDot", color: Palette.flag),
     ]
 
+    #Preview("Ask Life button") {
+        HStack(spacing: 24) {
+            AskLifeButton {}
+            AskLifeButton(isListening: true) {}
+            AskLifeButton(isWorking: true) {}
+        }
+        .padding(40).background(Palette.bg)
+    }
+
     #Preview("Palette") {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 12) {
