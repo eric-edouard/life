@@ -21,6 +21,28 @@ extension LifeStore {
     func resumeAgent(_ agent: String) async {
         await change(agent, AgentRequest(action: .resume, agent: agent, said: "Resume it."))
     }
+    /// His "Continue on your Mac": its session opens there (pi in Terminal, Claude in his Claude app), said back once the
+    /// Mac says it opened, or why not (a turn running: "Busy. Try in a moment."). While open there its wakes wait, and
+    /// Life takes it back by itself once he has left it: there is no button to take it back.
+    func continueOnMac(_ agent: String) async {
+        let key = ActionKey.continueOnMac(agent)
+        if await refusedOutOfReach(key, saysBack: true) { return }
+        let request = AgentRequest(action: .continueOnMac, agent: agent, said: "Continue on your Mac.")
+        await perform(key) { [runner] in await runner.changeAgent(request, emit: $0) }
+        switch state(of: key) {
+        case .succeeded(.agent(let result), _) where result.state == .done:
+            show(SaidBack(words: "Opened on your Mac", undo: nil, isDone: true))
+        case .succeeded:
+            show(SaidBack(words: "No answer from your Mac", undo: nil, isDone: false))
+        case .failed(let failure, _):
+            let isBusy = failure.reason.contains("Busy")
+            show(SaidBack(words: isBusy ? "Busy. Try in a moment." : failure.reason, undo: nil, isDone: false))
+        default: break
+        }
+        await refreshAgents()
+        forget(key)
+    }
+
     private func change(_ agent: String, _ request: AgentRequest) async {
         if await refusedOutOfReach(.agent(agent)) { return }
         await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
