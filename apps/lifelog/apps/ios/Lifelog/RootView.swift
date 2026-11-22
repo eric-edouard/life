@@ -41,7 +41,11 @@ struct RootView: View {
             .overlay(alignment: .bottomTrailing) {
                 if router.isBarsInColumn {
                     ProfileButton().padding(.trailing, AskLifeMetrics.column.trailing)
-                        .padding(.bottom, AskLifeMetrics.column.bottom(regular: false) + 48 + Metrics.Spacing.m)
+                        .padding(
+                            .bottom,
+                            AskLifeMetrics.column.bottom(regular: false) + AskLifeMetrics.column.size
+                                + Metrics.Spacing.m
+                        )
                         .ignoresSafeArea(.all, edges: [.bottom, .trailing])
                 }
             }
@@ -188,22 +192,5 @@ enum Appearance: String {
         case .light: .light
         case .dark: .dark
         }
-    }
-}
-
-/// Profile as one glass circle in the Duo's column.
-private struct ProfileButton: View {
-    @Environment(AppRouter.self) private var router
-
-    var body: some View {
-        Button {
-            router.showProfile()
-        } label: {
-            Image(systemName: "person").font(.system(size: 18, weight: .medium))
-                .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
-                .glassEffect(.regular.interactive(), in: .circle)
-        }
-        .accessibilityLabel("Profile")
-        .accessibilityIdentifier("column.profile")
     }
 }

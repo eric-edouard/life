@@ -10,11 +10,12 @@ struct NavShell: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var isSidebar: Bool { router.pose == .sideways && router.isListShown }
+    private let sidebarWidth: CGFloat = 380
 
     var body: some View {
         HStack(spacing: 0) {
             if isSidebar {
-                NavigationStack { HomeList() }.frame(width: 380)
+                NavigationStack { HomeList() }.frame(width: sidebarWidth)
                 Divider().overlay(Palette.line)
             }
             page
@@ -63,7 +64,8 @@ struct NavShell: View {
             Color.clear.frame(width: 48, height: 48)
         }
         .padding(.horizontal, 20).padding(.bottom, 31)
-        .padding(.leading, isSidebar ? 381 : 0)
+        // Past the sidebar and its divider.
+        .padding(.leading, isSidebar ? sidebarWidth + 1 : 0)
         // Over the column's room on a Duo, Ask Life stands in the column (its own place): no room kept for it here.
         .padding(.trailing, router.isBarsInColumn ? 98 : 0)
         .ignoresSafeArea()
@@ -79,10 +81,7 @@ private struct ListButton: View {
         Button {
             router.isListShown.toggle()
         } label: {
-            Image(systemName: router.isListShown ? "xmark" : "line.3.horizontal")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
-                .glassEffect(.regular.interactive(), in: .circle)
+            ShellCircle(symbol: router.isListShown ? "xmark" : "line.3.horizontal")
                 // Something waits on him in the Inbox while the list is away.
                 .overlay(alignment: .topTrailing) {
                     if life.badge > 0, router.tab != .inbox, !router.isListShown {
@@ -92,5 +91,31 @@ private struct ListButton: View {
         }
         .accessibilityLabel(router.isListShown ? "Close the list" : "Open the list")
         .accessibilityIdentifier("shell.list")
+    }
+}
+
+/// Profile as one glass circle in the Duo's column, at its foot above Ask Life.
+struct ProfileButton: View {
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        Button {
+            router.showProfile()
+        } label: {
+            ShellCircle(symbol: "person")
+        }
+        .accessibilityLabel("Profile")
+        .accessibilityIdentifier("column.profile")
+    }
+}
+
+/// The shell's own round glass button face (the list's button, Profile's).
+private struct ShellCircle: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol).font(.system(size: 18, weight: .medium))
+            .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
+            .glassEffect(.regular.interactive(), in: .circle)
     }
 }

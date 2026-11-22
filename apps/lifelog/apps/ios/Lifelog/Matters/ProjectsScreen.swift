@@ -50,7 +50,7 @@ struct ProjectsScreen: View {
         .onChange(of: router.detail) { fillSelection() }
         // Back from a matter opened elsewhere (the list, a card, a person) goes back there, not to the Projects list.
         .onChange(of: router.matterColumn) { _, column in
-            if column == .sidebar, sizeClass != .regular { router.returnToWhereOpened() }
+            if column == .sidebar, router.pose == .stacked { router.returnToWhereOpened() }
         }
         // An agent named from elsewhere is the one on show beside the agents, not a page pushed over it.
         .onChange(of: router.matterPath) { _, path in

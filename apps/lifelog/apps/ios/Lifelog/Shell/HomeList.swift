@@ -36,7 +36,7 @@ struct HomeList: View {
                             // In the Duo's column Profile is the button at its foot.
                             if !router.isBarsInColumn {
                                 page("Profile", "person", count: nil) { router.showProfile() }
-                                    .accessibilityIdentifier("drawer.profile")
+                                    .accessibilityIdentifier("list.profile")
                             }
                         }
                         .padding(.horizontal, Metrics.Spacing.s)

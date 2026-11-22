@@ -17,8 +17,11 @@ final class AppRouter {
 
     /// What is pushed on the Inbox's list: the ask on show, with its pager. The list is the root, so Back returns to it.
     enum InboxPage: Hashable { case ask }
-    /// What is pushed on the Profile page.
-    enum ProfilePage: Hashable { case settings }
+    /// What is pushed on the Profile page: Settings and the pages of its rows.
+    enum ProfilePage: Hashable {
+        case settings, vocabulary, apps, backup
+        case connection(Connection)
+    }
 
     enum MatterSheet: Identifiable, Equatable {
         /// What wakes an agent: the one named by id, else the matter's first; an agent's page with no matter names none.

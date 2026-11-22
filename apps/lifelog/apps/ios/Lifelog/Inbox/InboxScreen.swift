@@ -63,9 +63,10 @@ struct InboxScreen: View {
         .askSheets($router.asks.notes) { leave($0, keep: false) }
         // The moves' list is the list: a card of another kind goes back to it first.
         .onChange(of: router.asks.kind) { _, kind in if kind == .yourMove { router.inboxPath = [] } }
-        // Folded with an ask on show: it stays on show, pushed on the list.
+        // Folded with an ask on show it stays on show, pushed on the list; open, the ask is the page's root itself.
         .onChange(of: router.pose) { _, pose in
-            if pose == .stacked, router.tab == .inbox, router.asks.current != nil { router.inboxPath = [.ask] }
+            let isAskPushed = pose == .stacked && router.tab == .inbox && router.asks.current != nil
+            router.inboxPath = isAskPushed ? [.ask] : []
         }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
         .onChange(of: all.kinds) { _, kinds in
