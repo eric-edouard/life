@@ -8,8 +8,8 @@ import SwiftUI
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
-    /// answers stacked, each on its line.
-    enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
+    /// answers stacked, each on its line; `tile` shares a card's second row of answers, its icon above a 13 pt label.
+    enum Size: CGFloat { case large = 54, row = 48, compact = 44, tile = 60 }
 
     let kind: Kind
     var size: Size = .large
@@ -23,19 +23,26 @@ struct PillStyle: ButtonStyle {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
-                .lineLimit(size == .compact ? 1 : 3)
+                .lineLimit(size == .compact || size == .tile ? 1 : 3)
         }
-        .font(.buttonLabel)
+        .font(size == .tile ? .smallStrong : .buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
         // A compact pill sits beside others in a row: it keeps less to its sides.
-        .padding(.horizontal, size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l)
+        .padding(
+            .horizontal, size == .tile ? Metrics.Spacing.s : size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l
+        )
         .padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: .capsule)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: shape)
         .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
-        .contentShape(.capsule)
+        .contentShape(shape)
         .allowsHitTesting(!isBusy)
+    }
+
+    /// A tile is a rounded square's corners, every other size a capsule.
+    private var shape: AnyShape {
+        size == .tile ? AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) : AnyShape(.capsule)
     }
 }
 
@@ -1151,41 +1158,6 @@ struct LimitNote: View {
             if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
         }
     }
-}
-
-/// Quiet answers in one row: equal widths when each label fits its share; else each as wide as its label plus an equal
-/// part of what is left; and when the labels together are wider than the row, each gives up width in proportion, its
-/// label shrinking (the caller's `minimumScaleFactor`, under 0.8 since a pill's sides do not shrink), never cut. Its
-/// ideal width is the narrowest it can be (80%), so a `ViewThatFits` falls back to a stack only when that does not fit.
-struct AnswerRow: Layout {
-    var spacing: CGFloat = 8  // Metrics.Spacing.s, which a Layout (not on the main actor) cannot read
-    static let smallest = 0.8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let narrowest = sizes.reduce(0) { $0 + $1.width } * Self.smallest + gaps(subviews)
-        return CGSize(width: proposal.width ?? narrowest, height: sizes.map(\.height).max() ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let ideals = subviews.map { $0.sizeThatFits(.unspecified).width }
-        let room = bounds.width - gaps(subviews)
-        let total = ideals.reduce(0, +)
-        let share = room / CGFloat(max(subviews.count, 1))
-        var x = bounds.minX
-        for (subview, ideal) in zip(subviews, ideals) {
-            let width =
-                ideals.allSatisfy({ !(share < $0) })
-                ? share
-                : total < room ? ideal + (room - total) / CGFloat(subviews.count) : ideal * room / total
-            subview.place(
-                at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
-                proposal: ProposedViewSize(width: width, height: bounds.height))
-            x += width + spacing
-        }
-    }
-
-    private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
 }
 
 /// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the

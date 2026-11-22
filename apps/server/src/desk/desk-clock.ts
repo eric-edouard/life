@@ -58,7 +58,7 @@ import {
 } from "./agent-moves";
 import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
-import { receiveComplaints } from "./complaint-intake";
+import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
 import { type Desk, saveCursor } from "./desk-store";
 import {
   agentWakesOf,
@@ -72,6 +72,7 @@ import {
 } from "./event-queue";
 import { firstTurnOf } from "./first-turns";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
+import { MAIN_BRIEF } from "./main-session";
 import {
   endAgentsOnOverMatters,
   foldAssignments,
@@ -80,6 +81,7 @@ import {
   pollRecordings,
   relatedMessages,
 } from "./matter-net";
+import { standUp } from "./role-agents";
 import { SessionLive } from "./runtimes/contract";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
 import {
@@ -619,6 +621,8 @@ export async function wakeDue(desk: Desk) {
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
   await advanceMoves(desk);
+  standUp(desk, "main", MAIN_BRIEF);
+  standUp(desk, "caretaker", CARETAKER_BRIEF);
   await receiveComplaints(desk);
   const people = readPeopleOnce();
   // A failure here never holds his answers or the turns due.
