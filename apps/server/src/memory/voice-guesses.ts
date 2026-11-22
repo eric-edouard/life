@@ -8,8 +8,14 @@ import {
   readVoiceNames,
   voiceKey,
 } from "../sources/lifelog-voices";
-import { READ_REPLIES, readEpisodeFiles } from "./memory-files";
+import {
+  episodesNow,
+  READ_REPLIES,
+  readCorrections,
+  readEpisodeFiles,
+} from "./memory-files";
 import { readReplies, readRepliesOfMonths } from "./read-replies";
+import { voiceUnitId } from "./unit-ids";
 import { UNKNOWN, unnamedTurnKey, voiceOfKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 import { localDate, time } from "./zones";
@@ -220,7 +226,10 @@ export async function withVoiceGuesses<I extends NamingQueueItem>(
     namesOf([...new Set(items.flatMap(idsOf))]),
   ]);
   const guessedFor = voiceGuessedPeopleOf(guesses.values());
-  const named = [...guesses.values()].filter(isNamedGuess);
+  const byVoice = Map.groupBy(
+    [...guesses.values()].filter(isNamedGuess),
+    (g) => g.voice
+  );
   return items.map((i) => ({
     ...i,
     guessed: guessedFor(i.voices.map((v) => voiceKey(v.jobId, v.speakerLabel))),
@@ -229,11 +238,10 @@ export async function withVoiceGuesses<I extends NamingQueueItem>(
       idsOf(i).flatMap((id) => (names[id] ? [[id, names[id]]] : []))
     ),
     whys: Object.fromEntries(
-      named.flatMap((g) =>
-        g.why &&
-        i.voices.some((v) => voiceKey(v.jobId, v.speakerLabel) === g.voice)
-          ? [[g.person, g.why]]
-          : []
+      i.voices.flatMap((v) =>
+        (byVoice.get(voiceKey(v.jobId, v.speakerLabel)) ?? []).flatMap((g) =>
+          g.why ? [[g.person, g.why] as const] : []
+        )
       )
     ),
   }));
@@ -242,32 +250,44 @@ export async function withVoiceGuesses<I extends NamingQueueItem>(
 /** An instant as an episode's `start` and `end` write it: `YYYY-MM-DD HH:MM`, his local time. */
 const localStampOf = (at: string) => `${localDate(at)} ${time(at)}`;
 
+/** How long an episode lasts, from its `start` and `end` as written. */
+const spanOf = (e: Pick<Episode, "end" | "start">) =>
+  Date.parse(`${e.end ?? ""}Z`.replace(" ", "T")) -
+  Date.parse(`${e.start ?? ""}Z`.replace(" ", "T"));
+
 /**
- * The conversation a clip at `at` was heard in, as his card names it: the title of the narrowest episode whose start and
- * end (both with a time) hold it; null when none does (a conversation the night has not read yet).
+ * The conversation a clip was heard in, as his card names it: of the episodes holding its recording's unit (the
+ * conversation its `jobId` is a voice of, on the clip's local day), the narrowest whose start and end hold the clip (a
+ * pendant's unit spans hours and sits in several episodes); null when the night has not read it yet.
  */
 export function conversationOf(
-  episodes: readonly Pick<Episode, "end" | "start" | "title">[],
-  at: string
+  episodes: readonly Pick<Episode, "end" | "start" | "title" | "units">[],
+  voices: readonly { conversationId: string; jobId: string }[],
+  clip: { at: string | null; audio: { jobId: string } | null }
 ) {
-  const stamp = localStampOf(at);
-  const span = (e: Pick<Episode, "end" | "start">) =>
-    Date.parse((e.end as string).replace(" ", "T")) -
-    Date.parse((e.start as string).replace(" ", "T"));
+  const conversation = voices.find(
+    (v) => v.jobId === clip.audio?.jobId
+  )?.conversationId;
+  if (!(conversation && clip.at)) {
+    return null;
+  }
+  const unit = voiceUnitId(conversation, localDate(clip.at));
+  const stamp = localStampOf(clip.at);
   return (
     episodes
       .filter(
         (e) =>
+          e.units.includes(unit) &&
           e.start?.includes(" ") &&
           e.end?.includes(" ") &&
           e.start <= stamp &&
           stamp <= e.end
       )
-      .toSorted((a, b) => span(a) - span(b))[0]?.title ?? null
+      .toSorted((a, b) => spanOf(a) - spanOf(b))[0]?.title ?? null
   );
 }
 
-/** Each item's clips with the conversation each was heard in (`conversationOf`), from the episode files of their days and the day before. */
+/** Each item's clips with the conversation each was heard in (`conversationOf`), from the standing episodes of their days and the day before (a conversation past midnight). */
 export async function withConversations<I extends NamingQueueItem>(
   items: readonly I[]
 ) {
@@ -280,12 +300,13 @@ export async function withConversations<I extends NamingQueueItem>(
       )
     ),
   ];
-  const episodes = (await readEpisodeFiles(days)).map((e) => e.line);
+  const lines = (await readEpisodeFiles(days)).map((e) => e.line);
+  const episodes = episodesNow(lines, readCorrections());
   return items.map((i) => ({
     ...i,
     clips: i.clips.map((c) => ({
       ...c,
-      conversation: c.at ? conversationOf(episodes, c.at) : null,
+      conversation: conversationOf(episodes, i.voices, c),
     })),
   }));
 }
