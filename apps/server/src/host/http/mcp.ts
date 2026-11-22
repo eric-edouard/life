@@ -377,9 +377,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
       before: z
         .string()
         .optional()
-        .describe(
-          "Closed only: the last page's nextBefore, or an instant: those that ended before it"
-        ),
+        .describe("Closed only: the last page's nextBefore, or an instant"),
       ifNot: IfNot,
       noProject: z
         .boolean()
