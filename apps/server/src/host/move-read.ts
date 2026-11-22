@@ -218,7 +218,7 @@ export const movedInOf = (
 /**
  * Which of assignment `s`'s cards count as asked (`isAsked`): for a holder that got it by his move (`movedInOf`), only a
  * card still open at the move or asked after, so its first card is the open one it inherited, else its own plan. The one
- * rule for the door's `hasAsked` and the inbox's `planCardsOf`.
+ * rule for the door's `hasAsked`.
  */
 export function countsAsAskedOf(
   db: Database,

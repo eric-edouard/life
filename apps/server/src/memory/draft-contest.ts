@@ -23,7 +23,7 @@ type Asker = Pick<Decision, "agent" | "asker">;
 export const isPending = (d: Pick<Decision, "state">) =>
   d.state === "open" || d.state === "waiting";
 
-/** Whether `d` counts as asked: not withdrawn, or withdrawn because another card took its place (`replacedBy`). An assignment's first such card is its plan (`hasAsked`, `planCardsOf`). */
+/** Whether `d` counts as asked: not withdrawn, or withdrawn because another card took its place (`replacedBy`). An assignment's first such card is its plan (`hasAsked`). */
 export const isAsked = (d: Pick<Decision, "state" | "withdrawn">) =>
   d.state !== "withdrawn" || !!d.withdrawn?.replacedBy;
 

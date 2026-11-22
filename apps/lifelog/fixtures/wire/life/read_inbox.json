@@ -221,7 +221,7 @@
       "draft": null,
       "goal": null,
       "group": "decision",
-      "isPlan": true,
+      "isPlan": false,
       "kind": "decision",
       "likelyPeople": [],
       "links": [],
@@ -315,7 +315,7 @@
       "asker": "Orbit",
       "at": "2026-10-14T10:00:00.000Z",
       "clips": [],
-      "context": "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      "context": "What I read: [Kit's quote](life:unit_000000000001).",
       "deadline": "2099-01-02T09:00:00.000Z",
       "draft": null,
       "goal": null,
@@ -1064,5 +1064,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "27d0539a865fcc51"
+  "version": "c5eced7aee9293e5"
 }
