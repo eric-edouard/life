@@ -366,7 +366,7 @@ export function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  held?: Held
+  held?: Partial<Held>
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
