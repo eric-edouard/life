@@ -23,8 +23,34 @@
       "agentPage"
     ]
   },
+  "AgentPagePi": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureAgent",
+      "pi",
+      "-fixtureMatter",
+      "matter_lease",
+      "-fixtureSheet",
+      "agentPage"
+    ]
+  },
   "AgentProgramMenu": {
     "why": "The design data has no holder, move or switch yet (the designer's to write in read_matter.json and read_registered_agents.json), so the fixture draws no move: built from the frame, reviewed by hand."
+  },
+  "AgentSession": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureAgent",
+      "pi",
+      "-fixtureSheet",
+      "session"
+    ]
   },
   "AgentsList": {
     "args": [

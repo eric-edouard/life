@@ -37,6 +37,7 @@ import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { PUSH_ID } from "../../sources/lifelog-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
+import { readAgentSession } from "../agent-session-read";
 import { answerWithResult } from "../answer-result";
 import {
   changeDirectoryEntry,
@@ -315,6 +316,19 @@ export function buildServer(readsOnly = false, logsArguments = false) {
     personPicturesTool(server);
     spendingTool(server, NOT_HIS);
     mainSessionTool(server, NOT_HIS);
+    // An agent's session on pi, read-only in his app; never on the tokenless reads-only server.
+    tool(
+      server,
+      "read_agent_session",
+      "His token only. For his app, not for questions about his life: the current session of one of his agents on pi (`id`, as `read_registered_agents` gives it), read-only (JSON): `lines`, oldest first, its newest 200, each `at`, `kind` (`asked`: what Life sent it, its brief or a wake; `said`: its words; `tool`: a tool it called, `tool` its name and `text` its arguments; `result`: that tool's answer, `isError` when it failed; `summary`: its session compacted), and `text`, cut at 2,000 characters; its thinking left out. No lines before its first turn. Fails for an agent on Claude Code or Codex: its session opens in its program (`link`).",
+      z.object({ id: z.string().min(1) }),
+      ({ id }, agent) => {
+        if (agent) {
+          throw new Error(NOT_HIS);
+        }
+        return readAgentSession(id);
+      }
+    );
     // His app's live log; never on the tokenless reads-only server.
     tool(
       server,
