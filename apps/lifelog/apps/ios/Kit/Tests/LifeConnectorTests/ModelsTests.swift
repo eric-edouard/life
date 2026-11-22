@@ -65,8 +65,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
     #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
-    // The plan card: the second decision is its assignment's first card; the first is not.
-    #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
+    // A plan card is a decision that gives `plan`, its steps: the third; the first two give none.
+    #expect(inbox.checks.prefix(3).map(\.isPlan) == [false, false, true])
     #expect(inbox.checks.last?.isPlan == nil)
     // A plan with its steps: who does each, when, where, and what it rests on; an older plan card has none.
     let plan = try #require(inbox.checks.first { $0.ref == "dec_000000000003" })
@@ -197,7 +197,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 }
 
 /// A plan's start is its filled answer whatever order its asker sent; a card with no roles keeps its order; its steps
-/// draw even while `isPlan` is false (Life couldn't read its desk).
+/// draw whatever `isPlan` says.
 @Test func aPlanStartsFirstAndDrawsItsStepsWhateverItsMarker() throws {
     let card = { (isPlan: Bool, options: String) in
         try decoded(
