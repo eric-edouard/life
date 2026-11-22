@@ -27,7 +27,7 @@ cases' agent (`scripts/question-cases.ts`, his word of 10 Nov 2026), Codex on hi
 as its only tools, serving its reads and none of its writes. It has no shell, no web and a read-only sandbox, so
 recorded content it reads can steer it to read more, and to nothing else. The text goes to the provider the owner chose (his subscriptions, or
 OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data). Photos of his Photos library are described on the Mac by
-a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. Today's arriving chat and mail lines, and the turns of a closed voice conversation he spoke in, are read first by Apple's on-device model (Foundation Models, never Private Cloud Compute): nothing leaves the Mac for it. The lines it says hold an ask, any it refuses, Thai lines, and every line when this Mac has no Apple model (or its helper fails) go to his provider, like the night's. A file inside a
+a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. Today's arriving mail is sieved first by Apple's on-device model (Foundation Models, never Private Cloud Compute): nothing leaves the Mac for it, and a mail it calls automated goes no further by day. The rest (a person's mail, any it refuses, Thai mail, every mail when this Mac has no Apple model) and today's arriving chat lines, mail and chat alike with their sitting (the thread's earlier lines that day), and the turns of a closed voice conversation he spoke in go to his provider, like the night's. A file inside a
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
 
@@ -45,7 +45,7 @@ message or recording, or which payment, with its amount, in EUR too, its currenc
 his Mac and the web an agent of his own Life is free (his decision of 19 Nov 2026): the desk runs it in the runtime's
 no-ask mode, approves every ask, and gives it his login environment. It can run any command, read, change or delete any
 file, install software, browse, read his mail and messages, and read his secrets (his shell's keys, 1Password). Life's
-own Keychain secrets are not handed to it. Its one gate is his rule: anything outward in his name waits for his yes on
+own Keychain secrets are not handed to it. His "Continue on your Mac" runs pi's own interface on an agent's session in Terminal with Life's extension, so the guard below holds there too; its launch file (Life's part of the run's environment: the engine's key, the door's key) is written only he reads and deleted by the launcher as it reads it, or by the desk when the Mac does not answer (`desk/runtimes/pi-terminal.ts`). Its one gate is his rule: anything outward in his name waits for his yes on
 the exact thing. One part of that gate is enforced, sending (his word of 20 Nov 2026, "yes you can add it"): Life's send
 guard (`desk/send-guard.ts`, its rules in `SEND_RULES`) runs before each shell and MCP call of an agent of his own Life,
 a hook of the session's own flags (nothing written into his `~/.claude` or `~/.codex`), and refuses: a connector's send,
@@ -95,7 +95,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   photo; never an image, a face or a face print of the Photos source. The images of the files in his messages (a
   photo, a PDF's pages), once each, when the message arrives or at night (his word of 19 Nov 2026). The episodes call also sees the email addresses
   of the people its day involves (his directory and Contacts cards), so a legal name can be tied to a nickname (his yes
-  of 20 Nov 2026). A voice note's words, as text, like the rest.
+  of 20 Nov 2026). A voice note's words, as text, like the rest. With payments on, the matter directions call also sees,
+  for each matter it drafts that holds an open step, at most 5 of his payments in its window sharing a word of its name:
+  amount, currency, merchant, the money app's category and his note (matter evidence; on his yes to this line).
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.

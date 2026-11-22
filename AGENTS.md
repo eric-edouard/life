@@ -124,7 +124,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `matcherOf`), and closeness in meaning to its matter (the wide net, `desk/matter-net.ts`, his word of 18 Nov
   2026: anything new close to its matter, by the Mac's embedder), and the arrival reader's confirmed answer that new
   lines hold an ask, a promise or a wait for him, or his own word that he will do something (his yes of 20 Nov 2026: "Yes, build it"; `memory/arrival-reader.ts`,
-  `confirmedArrivalsOf`): Apple's on-device yes alone never wakes, only his engine's confirm of it, and it wakes one
+  `confirmedArrivalsOf`): Apple's on-device yes alone never wakes, only his engine's confirm (what is still left for him, by its priority: a low one wakes no one and notifies nothing, his decision of 21 Nov 2026; for now it is only kept for the night's facts, its quiet place in his inbox not built yet), and it wakes one
   agent, chosen once in code (`matterOrPersonalOf`, `desk/event-queue.ts`: a matter's agent by
   the people who wrote its lines, else the Personal agent, the desk registering it when none stands; an agent whose wait matched the message already had its
   `message.received`, and a message queued for any agent is never queued again; none once he wrote in its chat after another person's lines), with `arrival.confirmed`'s facts only; his spoken ask ("hey Life", his word of 21 Nov 2026: every ask of "hey Life" goes through the desk to the proper agent) wakes one agent the same way, by its closeness in meaning to a matter, else the Personal agent (`desk/spoken-ask-intake.ts`), with `ask.spoken`'s facts only (where his words are, never them). In all three, Life's code only tests the text and
@@ -255,8 +255,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   under llama.cpp (`models/describer.ts`), his decision of 11 Nov 2026. The image never leaves the Mac; the description
   then reaches his provider inside the photo lines like the rest of the line. A second: the arrival reader's trigger,
   Apple's on-device model (Foundation Models, `SystemLanguageModel.default`, never Private Cloud Compute) through the
-  app's helper (`models/foundation-model.ts`), his decision of 20 Nov 2026; its yes (to an ask, or to a meeting, his yes of 21 Nov 2026), a refusal or Thai text goes to
-  his engine.
+  app's helper (`models/foundation-model.ts`), his decision of 20 Nov 2026; since his decision of 21 Nov 2026 it only
+  sieves mail: a mail it calls a person's (or a meeting, or one it refuses) goes to his engine; chats, voice and Thai
+  go to his engine straight.
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments, web-search, apify ←
   memory ← personal ← host ← desk; `docs/architecture.md`, "The code"): nothing imports the desk, whose
   `life-entry.ts` is the command line's entry. Fallow's boundary zones (`.fallowrc.json`) and
@@ -431,7 +432,10 @@ own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
 - The desk never resumes a Claude session a live process runs (Claude's own record, `~/.claude/sessions/<pid>.json`: his
   app keeps one while the session is open, between his turns too): the wake stays queued until it lets go (`isSessionOpen`,
   `runtime-rows.ts`; a send it refuses deletes its unbegun turn), logged once per hold (`desk.session_open`) and shown on the
-  agent (`sessionOpenIn`, amber). One session, one process.
+  agent (`sessionOpenIn`, amber). One session, one process. A session reaches his Claude app or Terminal only on his
+  "Continue on your Mac" (`continue_on_mac`, `desk/continue-on-mac.ts`), never on a turn (the 22 Nov freeze: his app kept
+  a process on every session it was handed); pi there loads Life's extension, so the send guard holds. A holder quiet 10
+  minutes when a wake is due is ended by the desk (`takeBackIfLeft`, `desk-clock.ts`; his ruling of 22 Nov 2026).
 - The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`). The desk takes a call's words as in the same way (`recordingsOf`, `sources/lifelog-speech.ts`): a turn past the call's end, or `endedOnSilence` or `closed`, and no earlier recording queued or submitted.
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).

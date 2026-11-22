@@ -31,6 +31,7 @@ type LogKind =
   | "desk.queued"
   | "desk.runtime"
   | "desk.session_open"
+  | "desk.session_taken_back"
   | "desk.store_step"
   | "desk.turn"
   | "draft.send"
