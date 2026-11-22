@@ -6,6 +6,7 @@ import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
+  connectorReadsOf,
   type PiRow,
   piRowOf,
   piRuntime,
@@ -182,7 +183,7 @@ test("his own agent reads his Claude instructions, imports followed from the fil
   expect(readClaudeHooks(dir)).toEqual([]);
 });
 
-test("his own agent's spawn carries his instructions, hooks and own mark; a second Life's none of them", async () => {
+test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a second Life's none of them, its door's tools alone", async () => {
   const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
   writeFileSync(join(claude, "CLAUDE.md"), "His rules");
   const place = {
@@ -199,5 +200,21 @@ test("his own agent's spawn carries his instructions, hooks and own mark; a seco
   const second = await piRowOf(false, place).spawn(agent, "ref-second", true);
   expect(second.env[PI_EXTENSION_ENV.own]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.hooks]).toBeUndefined();
+  expect(second.env[PI_EXTENSION_ENV.reads]).toBeUndefined();
+  // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
+  expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
+  expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
+});
+
+test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
+  process.env.LIFE_MADE_UP = "!a$b";
+  try {
+    const entry = connectorReadsOf();
+    expect((entry.env as Record<string, string>).LIFE_MADE_UP).toBe("$!a$$b");
+    expect(entry.env.BUN_BE_BUN).toBe("");
+    expect(entry.args.at(-1)).toBe("connector-reads");
+  } finally {
+    delete process.env.LIFE_MADE_UP;
+  }
 });

@@ -707,7 +707,7 @@ test("ask_main_session refuses an agent's token before anything reaches the desk
   });
 });
 
-test("built to serve reads only (the question cases' agent), the connector registers no tool that writes or acts", async () => {
+test("built to serve reads only (the question cases' agent, a pi agent), the connector registers no tool that writes or acts", async () => {
   const handler = createMcpHandler(() => buildServer(true));
   const res = await handler.fetch(
     new Request(RESOURCE, {
