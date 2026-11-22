@@ -269,7 +269,7 @@
     },
     {
       "kind": "agents",
-      "tokens": 5200000,
+      "tokens": 6100000,
       "billed": {
         "amount": 1.8,
         "basis": "billed",
