@@ -279,21 +279,26 @@ struct AskLifeVeil: View {
 
     var body: some View {
         if router.askLife != .away {
-            let isFull = router.askLife == .full
-            Rectangle().fill(.ultraThinMaterial)
-                .overlay(Color.black.opacity(isFull ? 0.6 : 0.5))
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0), .init(color: .black, location: isFull ? 0.12 : 0.6),
-                        ],
-                        startPoint: .top, endPoint: .bottom)
-                )
-                .frame(maxHeight: isFull ? .infinity : 280).frame(maxHeight: .infinity, alignment: .bottom)
-                .ignoresSafeArea().contentShape(.rect).onTapGesture {
-                    withAnimation(Motion.standard) { router.putAwayAskLife(life.askLife) }
-                }
-                .transition(.opacity).accessibilityHidden(true)
+            // The strip's veil grows into the full screen's with the lift: blur and dim, and how far up it reaches.
+            let lift = router.askLifeProgress
+            GeometryReader { screen in
+                let reach = 280 + (screen.size.height - 280) * lift
+                Rectangle().fill(.ultraThinMaterial)
+                    .overlay(Color.black.opacity(0.5 + 0.1 * lift))
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0), .init(color: .black, location: 0.6 - 0.48 * lift),
+                            ],
+                            startPoint: .top, endPoint: .bottom)
+                    )
+                    .frame(height: reach).contentShape(.rect).onTapGesture {
+                        withAnimation(Motion.standard) { router.putAwayAskLife(life.askLife) }
+                    }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            .ignoresSafeArea()
+            .transition(.opacity).accessibilityHidden(true)
         }
     }
 }

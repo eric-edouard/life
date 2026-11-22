@@ -70,6 +70,14 @@ struct AskLifeStage: View {
     @ViewBuilder private var answer: some View {
         if let answer = tell.answer {
             AskLifeAnswerView(answer: answer, again: again, open: open, tell: say)
+            // The list the answer names: opening it shrinks Ask Life to the strip, so the list is in view and the
+            // conversation goes on beneath it.
+            if let list = router.pendingList(in: tell), let shown = tell.shown {
+                QuietChip(list.label, symbol: "list.bullet") {
+                    router.askLifeApplied = shown.answer
+                    withAnimation(Motion.standard) { router.open(shown: shown.show) }
+                }
+            }
             if isCardGone { StateMark(glyph: .flag, word: "That ask is no longer open") }
         } else {
             AskLifeLightLine(kind: .ready)

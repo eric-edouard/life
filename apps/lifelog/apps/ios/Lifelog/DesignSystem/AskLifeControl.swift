@@ -31,6 +31,8 @@ struct AskLifeControl: View {
     @Environment(LifeStore.self) private var life
     @Namespace private var glass
     @State private var undoable: String?
+    @State private var height: CGFloat = 800
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var tell: AskLife { life.askLife }
     private var isFull: Bool { router.askLife == .full }
@@ -53,6 +55,11 @@ struct AskLifeControl: View {
         .frame(
             maxWidth: .infinity, maxHeight: .infinity, alignment: router.askLife == .away ? .bottomTrailing : .bottom
         )
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: {
+            height = $0
+        }
         .overlay(alignment: .bottomTrailing) {
             if let said = undoable, router.askLife == .away {
                 Toast(words: "Nothing sent", glyph: nil, undo: { undo(said) })
@@ -78,18 +85,19 @@ struct AskLifeControl: View {
         }
     }
 
-    /// The card at the foot, in both sizes; full screen adds the stage above it and the cross.
+    /// The card at the foot, in both sizes; the stage above it grows with the lift (`AppRouter.askLifeProgress`: the
+    /// finger's, else the form's), so the strip and full screen are one view at two sizes. The cross comes with it.
     private var surface: some View {
-        VStack(spacing: Metrics.Spacing.l) {
-            if isFull { AskLifeStage() }
+        let lift = router.askLifeProgress
+        return VStack(spacing: 0) {
+            AskLifeStage().frame(maxHeight: lift * height).padding(.bottom, Metrics.Spacing.l * lift)
+                .clipped().opacity(lift).allowsHitTesting(isFull).accessibilityHidden(!isFull)
             card
         }
-        .frame(maxHeight: isFull ? .infinity : nil, alignment: .bottom)
+        .frame(maxHeight: .infinity, alignment: .bottom)
         .overlay(alignment: .topTrailing) {
-            if isFull {
-                CloseButton { withAnimation(Motion.standard) { router.putAwayAskLife(tell) } }
-                    .padding(.trailing, Metrics.gutter).appears(Motion.fade)
-            }
+            CloseButton { withAnimation(Motion.standard) { router.putAwayAskLife(tell) } }
+                .padding(.trailing, Metrics.gutter).opacity(lift).allowsHitTesting(isFull)
         }
     }
 
@@ -102,7 +110,8 @@ struct AskLifeControl: View {
             )
             .font(.body).foregroundStyle(Palette.fg)
             // Hidden while words wait in the field, and in full screen, where the stage holds the answer.
-            if !isFull, tell.draft.isEmpty, let line = tell.answer?.line {
+            // A list that does not fit here is one line, "Here's the list…": a tap opens it full screen.
+            if !isFull, tell.draft.isEmpty, let line = router.pendingList(in: tell)?.label ?? tell.answer?.line {
                 Button {
                     withAnimation(Motion.standard) { router.askLife = .full }
                 } label: {
@@ -118,24 +127,33 @@ struct AskLifeControl: View {
         .accessibilityIdentifier("ask.banner")
     }
 
-    /// Drag up: full screen. Drag down: from full, the strip; from the strip, away.
+    /// The grabber follows the finger between the strip and full screen, then springs to the nearer size the throw
+    /// points at; a long pull down from the strip puts it away. Under Reduce Motion the settle is instant.
     private var grabber: some View {
         Capsule().fill(Palette.muted.opacity(0.5)).frame(width: 36, height: 5)
             .frame(maxWidth: .infinity, minHeight: Metrics.tapTarget / 2).contentShape(.rect)
             .gesture(
-                DragGesture(minimumDistance: 12).onEnded { drag in
-                    withAnimation(Motion.standard) {
-                        if drag.translation.height < -40 {
-                            router.askLife = .full
-                        } else if drag.translation.height > 40 {
-                            if isFull { router.askLife = .strip } else { router.putAwayAskLife(tell) }
-                        }
-                    }
-                }
+                DragGesture(minimumDistance: 4)
+                    .onChanged { router.askLifeLift = lift(after: $0.translation.height) }
+                    .onEnded { settle($0) }
             )
             .accessibilityElement().accessibilityLabel(isFull ? "Make Ask Life small" : "Open Ask Life full screen")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { withAnimation(Motion.standard) { router.askLife = isFull ? .strip : .full } }
+    }
+
+    /// Where the lift stands after a drag of `dy` points (up is negative), over 60% of the screen's height.
+    private func lift(after dy: CGFloat) -> CGFloat {
+        min(1, max(0, (isFull ? 1 : 0) - dy / (height * 0.6)))
+    }
+
+    private func settle(_ drag: DragGesture.Value) {
+        let isAway = !isFull && drag.translation.height > 40
+        let target = lift(after: drag.predictedEndTranslation.height) > 0.5 ? AskLifeForm.full : .strip
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0)) {
+            if isAway { router.putAwayAskLife(tell) } else { router.askLife = target }
+            router.askLifeLift = nil
+        }
     }
 
     private func submit() {

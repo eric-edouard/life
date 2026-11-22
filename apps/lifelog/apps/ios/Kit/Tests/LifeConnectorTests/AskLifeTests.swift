@@ -114,10 +114,10 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     await ask.send("I paid the lawyer", screen: MainSessionScreen())
     #expect(ask.shown?.show == .page(.matter, id: "m1"))
     #expect(ask.answer == .done(words: "Paid.", matter: "m1"))
-    // An answer that shows nothing keeps the last show; a kind this build doesn't know is nothing.
+    // An answer that shows nothing leaves no earlier show standing (its nudge would be stale); a kind this build doesn't know is nothing.
     life.asked = { _ in #"{"kind":"reply","words":"Hm.","show":{"kind":"map","id":"x"}}"# }
     await ask.send("Where?", screen: MainSessionScreen())
-    #expect(ask.shown == AskLifeShown(show: .page(.matter, id: "m1"), answer: 3))
+    #expect(ask.shown == nil)
 }
 
 @Test func aCutListKeepsLifesRowsInItsOrderAndLeavesOutRowsGoneSince() {
