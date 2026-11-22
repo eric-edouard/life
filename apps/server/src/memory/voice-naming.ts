@@ -36,9 +36,9 @@ import {
   namingConfidenceOf,
   overlappingPhoneCallsOf,
   plannedBeforeOf,
-  plannedPeopleOf,
   possibleSpeakersOf,
   SOUNDS_LIKE,
+  scheduledOf,
   voiceGroupsOf,
   whyOf,
 } from "./naming-context";
@@ -241,28 +241,18 @@ async function readDayFacts(dates: string[], people: People) {
     }
   }
   const facts = new Map<string, Set<string>>();
-  const scheduled = new Map<string, Map<string, string>>();
   const { observations, statusInputs } = await observationsNow(people);
-  for (const o of observations) {
-    if (
-      o.source.channel === "lifelog" ||
-      observationStatusOf(o, statusInputs).state !== "active"
-    ) {
-      continue;
-    }
+  const active = observations.filter(
+    (o) =>
+      o.source.channel !== "lifelog" &&
+      observationStatusOf(o, statusInputs).state === "active"
+  );
+  for (const o of active.filter((x) => dates.includes(x.date))) {
     for (const s of o.subjects) {
-      if (dates.includes(o.date)) {
-        addTo(facts, o.date, s);
-      }
-      if (o.modality === "plan" && o.when && dates.includes(o.when)) {
-        const plans = scheduled.get(o.when) ?? new Map<string, string>();
-        for (const p of plannedPeopleOf(s, people.truth)) {
-          plans.set(p, o.text);
-        }
-        scheduled.set(o.when, plans);
-      }
+      addTo(facts, o.date, s);
     }
   }
+  const scheduled = scheduledOf(active, dates, people.truth);
   return { facts, pictured, scheduled };
 }
 

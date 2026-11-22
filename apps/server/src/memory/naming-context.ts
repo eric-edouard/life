@@ -228,6 +228,31 @@ export function plannedPeopleOf(
   });
 }
 
+/** The people of the active plans (`modality` plan) for each of `dates` (their `when`), each with its plan's words (`plannedPeopleOf`). */
+export function scheduledOf(
+  observations: readonly {
+    modality?: string | null;
+    subjects: string[];
+    text: string;
+    when?: string | null;
+  }[],
+  dates: readonly string[],
+  truth: Parameters<typeof plannedPeopleOf>[1]
+) {
+  const scheduled = new Map<string, Map<string, string>>();
+  for (const o of observations) {
+    if (o.modality !== "plan" || !o.when || !dates.includes(o.when)) {
+      continue;
+    }
+    const plans = scheduled.get(o.when) ?? new Map<string, string>();
+    for (const p of o.subjects.flatMap((s) => plannedPeopleOf(s, truth))) {
+      plans.set(p, o.text);
+    }
+    scheduled.set(o.when, plans);
+  }
+  return scheduled;
+}
+
 /**
  * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, in this order: on an overlapping call; named by his
  * answer in this conversation; his expected company; in a plan for that day (a meeting set ahead, which the 90 days of

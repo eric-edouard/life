@@ -358,15 +358,15 @@ test("a guess's why is its most telling signal: the plan, then the message befor
     source: "instagram",
     text: "On my way",
   } as SourceEvent;
-  const none = { named: false, onCall: false, sounds: false };
-  expect(whyOf({ ...none, plan: "lunch with Ana", planned: message })).toBe(
+  const quiet = { named: false, onCall: false, sounds: false };
+  expect(whyOf({ ...quiet, plan: "lunch with Ana", planned: message })).toBe(
     "Planned that day: lunch with Ana"
   );
-  expect(whyOf({ ...none, planned: message, sounds: true })).toBe(
+  expect(whyOf({ ...quiet, planned: message, sounds: true })).toBe(
     "Instagram, 10:30: On my way"
   );
-  expect(whyOf({ ...none, named: true, onCall: true })).toBe(
+  expect(whyOf({ ...quiet, named: true, onCall: true })).toBe(
     "On a call at that time"
   );
-  expect(whyOf(none)).toBeNull();
+  expect(whyOf(quiet)).toBeNull();
 });
