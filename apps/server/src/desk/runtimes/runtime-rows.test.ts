@@ -141,7 +141,6 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
   const { env } = await rows.claude.spawn(a);
   expect(env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe("1");
   expect(env.CLAUDE_CODE_DISABLE_CLAUDE_MDS).toBe("1");
-  expect(rows.claude.handOff).toBeUndefined();
   const second = JSON.parse((await rows.codex.spawn(a)).env.CODEX_CONFIG ?? "");
   expect(second.project_doc_max_bytes).toBe(0);
   for (const f of [...CODEX_OFF, ...CODEX_AGENT_OFF]) {
@@ -345,5 +344,13 @@ test("his own Life's agents run the send guard before each shell and MCP call, C
   for (const { env } of seconds) {
     expect(env.LIFE_SEND_FACTS).toBeUndefined();
     expect(JSON.parse(env.CODEX_CONFIG ?? "{}").hooks).toBeUndefined();
+  }
+});
+
+test("no row hands a session to his Claude app on a turn: the app kept a process on every session it opened, holding its wakes (22 Nov 2026)", () => {
+  for (const isOwn of [true, false]) {
+    for (const row of Object.values(runtimeRowsOf(isOwn))) {
+      expect("handOff" in row).toBe(false);
+    }
   }
 });

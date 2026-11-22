@@ -48,8 +48,6 @@ export const openingOf = (): Opening => {
 /** A session kept open across prompts (`talk`, `keep`), reserved in `kept` and `live` before it opens (`ready`). */
 interface Kept {
   active: Active;
-  /** Its agent, while its session is new: listed in his app (`handOff`) once Life lets it go. */
-  agentToList?: Agent;
   c?: Connection;
   id: string;
   isPrompting: boolean;
@@ -118,10 +116,10 @@ export function spawnFor(
   return { child, close, exited, stopping };
 }
 
-/** What the one runtime reads of a runtime's row: whether it can run, a session's state when no run of the desk holds it, its link, its hand-off. */
+/** What the one runtime reads of a runtime's row: whether it can run, a session's state when no run of the desk holds it, its link, its open on his Mac. */
 export type SessionRow = Pick<
   Row,
-  "block" | "continueOnMac" | "handOff" | "link" | "readSessionState"
+  "block" | "continueOnMac" | "link" | "readSessionState"
 >;
 
 /** Opens a process on session `resume` (none: a new one) for agent `a`; `opening.kill` kills it while it opens. */
@@ -197,10 +195,6 @@ export function sessionRuntime(
     }
     await k.c.stop();
     await k.c.close();
-    // A new session is listed in his app once no process of Life's runs it (then a talk finds his app's hold and waits).
-    if (k.agentToList) {
-      await row.handOff?.(k.agentToList, k.c.ref);
-    }
   };
 
   /** Closes kept session `k` once it has had no prompt for `keepWarm`. */
@@ -289,16 +283,7 @@ export function sessionRuntime(
     },
     async start(a, brief) {
       const { begun, ended, ref } = await launch(a, brief);
-      return {
-        begun,
-        // The first turn's end waits for the hand-off, so no next turn runs beside it.
-        ended: ended.then(async (end) => {
-          await row.handOff?.(a, ref);
-          return end;
-        }),
-        link: row.link(ref),
-        ref,
-      };
+      return { begun, ended, link: row.link(ref), ref };
     },
     state: (ref) =>
       live.has(ref) ? Promise.resolve("running") : row.readSessionState(ref),
@@ -322,9 +307,6 @@ export function sessionRuntime(
         }
         return end;
       });
-      if (ref === null) {
-        k.agentToList = a;
-      }
       return { begun: run.begun, ended, link: row.link(c.ref), ref: c.ref };
     },
   };
