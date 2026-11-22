@@ -16,18 +16,16 @@ struct AppointmentSheet: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(alignment: .leading, spacing: 0) {
-                SheetHeader(title: read.value?.title) { dismiss() }
-                    .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-                ReadScreen(
-                    shown: read.shown(), retry: load, loading: { Spinner().frame(maxWidth: .infinity) },
-                    empty: { EmptyView() },
-                    content: { appointment in
-                        ScrollView { page(appointment).padding(.horizontal, Metrics.gutter).readingWidth() }
-                            .scrollBounceBehavior(.basedOnSize)
-                    })
-            }
+            ReadScreen(
+                shown: read.shown(), retry: load, loading: { Spinner().frame(maxWidth: .infinity) },
+                empty: { EmptyView() },
+                content: { appointment in
+                    ScrollView { page(appointment).padding(.horizontal, Metrics.gutter).readingWidth() }
+                        .scrollBounceBehavior(.basedOnSize)
+                }
+            )
             .frame(maxHeight: .infinity, alignment: .top)
+            .sheetBars { SheetHeader(title: read.value?.title) { dismiss() } }
             .background(Palette.sheet)
             .navigationDestination(for: LifeLinkTarget.self) { LifeLinkPage(target: $0) { dismiss() } }
         }

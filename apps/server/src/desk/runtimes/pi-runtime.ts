@@ -7,7 +7,11 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { log } from "../../core/log";
-import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "../../core/paths";
+import {
+  IS_COMPILED_HELPER,
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+} from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { piRouteOf } from "../../models/llm";
@@ -20,6 +24,7 @@ import {
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
+import { type CallUsage, SUBAGENT } from "./pi-subagent";
 import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
 import {
   type Connection,
@@ -133,6 +138,57 @@ const readTextIfThere = (path: string) => {
   } catch {
     // not there: none
   }
+};
+
+/** What Life's reader of the connector needs from the desk's own environment beside Life's paths: the secrets its reads use and the test switch. */
+const READER_ENV = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN", "NODE_ENV"];
+
+const LEADING_BANG = /^!/;
+
+/** Values as pi passes them on untouched (`$` doubled, a leading `!` escaped): pi resolves `$NAME` and runs `!command`. */
+const escapedOf = (env: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(env).map(([k, v]) => [
+      k,
+      v.replaceAll("$", "$$$$").replace(LEADING_BANG, "$$!"),
+    ])
+  );
+
+/**
+ * The connector's reads as a stdio MCP server (`life connector-reads`): the compiled helper itself in the app, the CLI's
+ * entry in a checkout, with Life's paths (`LIFE_*`) and the secrets its reads use. pi runs it with its own environment
+ * beside this one, so the helper is told it is not bun (`BUN_BE_BUN`).
+ */
+export const connectorReadsOf = () => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (e): e is [string, string] =>
+        e[1] !== undefined &&
+        (e[0].startsWith("LIFE_") || READER_ENV.includes(e[0]))
+    )
+  );
+  return {
+    args: [
+      ...(IS_COMPILED_HELPER
+        ? []
+        : [
+            join(
+              LIFE_CODE_DIR,
+              "apps",
+              "server",
+              "src",
+              "desk",
+              "life-entry.ts"
+            ),
+          ]),
+      "connector-reads",
+    ],
+    command: process.execPath,
+    // Life's state, never the agent's folder: bun reads a folder's `.env` and `bunfig.toml` at start.
+    cwd: LIFE_STATE_DIR,
+    // pi reads `$NAME` and a leading `!` in an MCP entry's values: each value escaped, so it reaches the reader as is.
+    env: { ...escapedOf(env), BUN_BE_BUN: "" },
+  };
 };
 
 /** How deep `@` imports are followed, as Claude Code follows them. */
@@ -280,7 +336,8 @@ export function piRowOf(
           extension,
           ...(isOwn
             ? []
-            : ["--no-context-files", "--no-skills", "--no-builtin-tools"]),
+            : // Its door's tools alone: no built-in tool, no extension tool (`web_fetch`, `subagent`).
+              ["--no-context-files", "--no-skills", "--tools", "mcp__desk__*"]),
         ],
         env: {
           ...(isOwn ? await loginEnvLess([KEY]) : {}),
@@ -301,6 +358,7 @@ export function piRowOf(
                   readClaudeHooks(place.claude)
                 ),
                 [PI_EXTENSION_ENV.own]: "1",
+                [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
               }
             : {}),
           [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
@@ -324,15 +382,10 @@ interface PiLine {
     errorMessage?: string;
     role: string;
     stopReason?: string;
-    usage?: {
-      cacheRead: number;
-      cacheWrite: number;
-      cost?: { total: number; totalFromProvider?: boolean };
-      input: number;
-      output: number;
-      totalTokens: number;
-    };
+    usage?: CallUsage;
   };
+  /** A tool's result: a subagent's carries its calls' usage. */
+  result?: { details?: { usage?: CallUsage[] } };
   success?: boolean;
   toolCallId?: string;
   toolName?: string;
@@ -373,10 +426,17 @@ function updateOf(l: PiLine): Update | undefined {
  * Adds one model call's usage to the run's: its tokens, its whole context as the first and last call saw it, and what
  * OpenRouter billed for it (pi reads the response's cost: `totalFromProvider`), null once a call came without it.
  */
-function addUsage(u: Usage, m: NonNullable<PiLine["message"]>["usage"]) {
+function addUsage(u: Usage, m: CallUsage | undefined) {
   if (!m) {
     return;
   }
+  addSpent(u, m);
+  u.contextFirst ??= m.totalTokens;
+  u.contextLast = m.totalTokens;
+}
+
+/** Adds one model call's tokens and billed dollars to the run's, never its context: a subagent's calls are not the session's. */
+function addSpent(u: Usage, m: CallUsage) {
   u.billedUsd =
     m.cost?.totalFromProvider && typeof u.billedUsd === "number"
       ? u.billedUsd + m.cost.total
@@ -384,8 +444,6 @@ function addUsage(u: Usage, m: NonNullable<PiLine["message"]>["usage"]) {
   u.tokensIn += m.input + m.cacheWrite;
   u.tokensCached += m.cacheRead;
   u.tokensOut += m.output;
-  u.contextFirst ??= m.totalTokens;
-  u.contextLast = m.totalTokens;
 }
 
 /** A line pi printed, read as JSON; none when it is not. */
@@ -407,6 +465,11 @@ function runHeard(c: Current, l: PiLine): RunEnd | undefined {
     addUsage(c.usage, l.message.usage);
     c.stop = l.message.stopReason;
     c.why = l.message.errorMessage;
+  }
+  if (l.type === "tool_execution_end" && l.toolName === SUBAGENT) {
+    for (const m of l.result?.details?.usage ?? []) {
+      addSpent(c.usage, m);
+    }
   }
   const heard = updateOf(l);
   if (heard) {

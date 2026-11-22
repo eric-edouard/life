@@ -69,7 +69,7 @@ struct PendantScreen: View {
                     .readingWidth()
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .scrollEdgeEffectStyle(.soft, for: .vertical)
                 .refreshable { await actions.refresh() }
                 footer(reading)
             }

@@ -16,7 +16,6 @@ struct PicturesSheet: View {
         let picking = life.picturePicking(party.ref)
         let inUse = picking ?? now.pictureInUse
         VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-            SheetHeader(title: "Picture") { dismiss() }
             // Four a row, from the left.
             let sources = now.pictures.map(\.source) + [PersonNow.noPicture]
             VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
@@ -31,8 +30,7 @@ struct PicturesSheet: View {
             .disabled(picking != nil).offWhileOutOfReach()
             footer
         }
-        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheetScroll { SheetHeader(title: "Picture") { dismiss() } }
         .background(Palette.sheet)
         .sheetStack()
         .presentationDetents([.large])

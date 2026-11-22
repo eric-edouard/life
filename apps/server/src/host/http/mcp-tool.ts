@@ -66,7 +66,7 @@ export const argNamesOf = (args: unknown) =>
   args && typeof args === "object" ? Object.keys(args) : [];
 
 /**
- * The arguments with every string clipped to 200 chars: kept only by the question cases' isolated server (`READERS`),
+ * The arguments with every string clipped to 200 chars: kept only by the question cases' isolated server (`ARGUMENT_LOGGERS`),
  * whose log is a temporary folder its bench reads back (`openedOf`, scripts/question-cases.ts) and then deletes.
  */
 const cut = (args: unknown) =>
@@ -88,6 +88,9 @@ const unchecked = (s: z.ZodObject) => ({
 
 /** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
 export const READERS = new WeakSet<McpServer>();
+
+/** The servers whose calls log their arguments, clipped (`cut`): the question cases' isolated one only, never his Life's log. */
+export const ARGUMENT_LOGGERS = new WeakSet<McpServer>();
 
 /** Registers one tool. Each call logs who asked (OAuth client, agent claim), its arguments' names, and what surfaced without its text: length, cited ids, error and, for an error, its class (`refused`), and the steps it reported with their ms. */
 export function tool<S extends z.ZodObject>(
@@ -163,7 +166,7 @@ export function tool<S extends z.ZodObject>(
       const body = result.content.map((c) => c.text).join("");
       log("mcp.call", {
         ...callerOf(ctx.http?.authInfo),
-        args: READERS.has(server) ? cut(args) : argNamesOf(args),
+        args: ARGUMENT_LOGGERS.has(server) ? cut(args) : argNamesOf(args),
         chars: body.length,
         error: result.isError,
         ids: [...new Set(body.match(IDS))],

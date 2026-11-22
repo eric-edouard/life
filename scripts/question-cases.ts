@@ -336,7 +336,7 @@ if (import.meta.main) {
     const last = positionals.at(-1)?.split("+")[0];
     writeJson(join(RESULTS, `across-${last}.json`), across);
   } else if (values.serve) {
-    await buildServer(true).connect(new StdioServerTransport());
+    await buildServer(true, true).connect(new StdioServerTransport());
   } else if (values.run) {
     const cases = casesOf(readJson(CASES), values.only?.split(","));
     // Nothing to ask, or no memory to ask it of (a checkout with no search index): refused before any spend.
