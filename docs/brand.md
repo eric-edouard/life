@@ -24,7 +24,7 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   filled button, `card` a fill (never a border), `tile` a block inside a sheet, `sheet` a bottom sheet, `paper` a draft
   or a quote, `muted` secondary text, `faint` small labels on the page, `line` hairlines between rows, `on` text on a
   filled button, and three that mean something: `flag` needs him, a deadline or a failure, `ai` an agent or a guess of
-  Life's, `ok` it worked (a vivid green: his ask of 20 Nov 2026, "a bit more vivid … to really describe success"). Most of a screen is black and cream (dark `bg` `#07080a`, `fg` `#fff8ea`; light `bg`
+  Life's, `ok` it worked (a vivid green: his ask of 20 Nov 2026, "a bit more vivid … to really describe success"). Most of a screen is black and cream (dark `bg` pure black `#000000`, `fg` `#fff8ea`; light `bg`
   `#f3f4f5`, `fg` `#0d0e11`). Never a hex in a screen; the values are tokens.css's.
 - **Type.** Manrope only. Bold (650) for what the person reads or answers, which is the largest text on the screen;
   thin (250) only for a single state word ("Sent.", "Recording."); 15 px body. A heading in a list is small (13 px,
@@ -33,6 +33,10 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
 - **Hierarchy.** Size and weight carry it, not colour: one filled button for the primary action, the others quiet.
 - **Shape.** Controls 12 px radius, panels 22 px, buttons full pills in the app, icon strokes 1.5 px, spacing 8, 16, 24,
   48. No paper texture, gradients or decorative shadows.
+- **Pure black, few cards** (owner, 22 Nov 2026): the dark page is `#000000` and a list is never wrapped in a card: its
+  rows sit on the page, a `line` hairline between them. A card is kept only where a thing is a block of its own (a
+  matter's goal, a field, a button), and then `card`, `tile` and `paper` are faint lifts of black (`#0b0c0e`, `#111214`,
+  `#131416`), never a grey panel. Light is unchanged apart from lists.
 - **No borders** (owner, 30 Oct 2026 for cards; a hard rule for everything since 19 Nov 2026): no outline, ring or
   stroke around any surface or control. A card, a panel, an option or a field stands out from the page by its `card`
   fill only, and a field inside a card takes the page's `bg` (owner, 31 Oct 2026); a chosen one is filled (`fg`). A

@@ -1,4 +1,24 @@
 {
+  "DuoAskLifeShown": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureShow",
+      "matters"
+    ]
+  },
+  "DuoFoldAskLifeShown": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureShow",
+      "matters"
+    ]
+  },
   "AgentPage": {
     "args": [
       "-fixtureLife",
@@ -34,6 +54,46 @@
       "projects",
       "-fixtureSheet",
       "agents"
+    ]
+  },
+  "AskBannerArmedPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "armed"
+    ]
+  },
+  "AskBannerHoldingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "holding"
+    ]
+  },
+  "AskBannerListeningPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "listening"
+    ]
+  },
+  "AskBannerSendingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "sending"
     ]
   },
   "AskNameNone": {
@@ -111,7 +171,7 @@
       "-fixtureMatter",
       "matter_kitchen",
       "-fixtureSheet",
-      "agent"
+      "agentPage"
     ],
     "scroll": "bottom"
   },
@@ -267,7 +327,7 @@
       "-fixtureTab",
       "projects",
       "-fixtureMatter",
-      "matter_kitchen"
+      "matter_lease"
     ],
     "scroll": "bottom"
   },
@@ -609,7 +669,7 @@
     ]
   },
   "DuoFoldSpendingEnd": {
-    "why": "A scroll: by hand, as DuoFoldSpendingLower, scrolled to the end."
+    "why": "A scroll to the end: the shot's scroll does not move this page (shot 22 Nov, stays at the top). By hand, as DuoFoldSpendingLower, scrolled to the end."
   },
   "DuoFoldSpendingLower": {
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
@@ -1007,5 +1067,15 @@
       "matter_kitchen"
     ],
     "taps": ["Important"]
+  },
+  "AskBannerWritingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "writing"
+    ]
   }
 }

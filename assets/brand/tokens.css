@@ -4,12 +4,12 @@
    drifts. Colour always means something; most of a screen is black and cream. */
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap");
 :root {
-  --bg: light-dark(#f3f4f5, #07080a);
+  --bg: light-dark(#f3f4f5, #000000);
   --fg: light-dark(#0d0e11, #fff8ea);
-  --card: light-dark(#e8e9eb, #15161a);
-  --tile: light-dark(#e8e9eb, #1d1e23);
-  --sheet: light-dark(#f3f4f5, #101114);
-  --paper: light-dark(#fbfbfa, #1b1c20);
+  --card: light-dark(#e8e9eb, #0b0c0e);
+  --tile: light-dark(#e8e9eb, #111214);
+  --sheet: light-dark(#f3f4f5, #000000);
+  --paper: light-dark(#fbfbfa, #131416);
   --muted: light-dark(#57544f, #8a867e);
   --faint: light-dark(#6c6964, #85817a);
   --line: light-dark(#d8d9dc, #1f2024);
@@ -20,7 +20,7 @@
   /* It worked. */
   --ok: light-dark(#1a7f3c, #30d158);
   /* Text on a filled button. */
-  --on: light-dark(#f3f4f5, #07080a);
+  --on: light-dark(#f3f4f5, #000000);
   /* Manrope only; its weights and sizes are docs/brand.md's (Type). */
   --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   /* Code, figures and the pairing code. */

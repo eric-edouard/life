@@ -127,6 +127,42 @@ struct AskLifeStrandRow: View {
     }
 }
 
+/// The Ask Life button: a round glass disc with Life's voice mark, always at the bottom right corner of the root, in every pose
+/// (52 on the phone and open upright, 48 in the Duo's side column). It sinks under his thumb; a tap opens Ask Life.
+struct AskLifeButton: View {
+    @Environment(AppRouter.self) private var router
+    /// Pieces of work running, shown as a ring in `ai` and their count.
+    var running = 0
+    var size: CGFloat = 52
+
+    var body: some View {
+        Button {
+            withAnimation(Motion.standard) { router.isAskOpen = true }
+        } label: {
+            AskLifeMark(size: 22).frame(width: size, height: size)
+                .overlay { if running > 0 { Circle().stroke(Palette.ai, lineWidth: 2) } }
+                .overlay(alignment: .topTrailing) {
+                    if running > 0 { Text("\(running)").font(.chip).foregroundStyle(Palette.ai).padding(4) }
+                }
+        }
+        .buttonStyle(SinkStyle())
+        .floatingGlass(in: Circle())
+        .sensoryFeedback(.impact(weight: .medium), trigger: router.isAskOpen) { _, new in new }
+        .accessibilityLabel("Ask Life")
+        .accessibilityIdentifier("tell.life")
+    }
+}
+
+/// Sinks a little under the thumb.
+private struct SinkStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
+            .animation(.spring(duration: 0.2), value: configuration.isPressed)
+    }
+}
+
 /// What he said, waiting for the Mac: the mark and "Your words · waiting", in a quiet capsule.
 struct AskLifeWaitingPill: View {
     let words: String
@@ -154,10 +190,13 @@ struct AskLifeRoom: View {
 }
 
 extension View {
-    /// The composer's capsule: his words, the microphone and Send on a quiet fill.
-    func tellComposer() -> some View {
-        padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
-            .background(Color.fillTint, in: .rect(cornerRadius: 28))
+    /// The composer: his words, the microphone and Send in one glass capsule (the Claude app's bar, his reference of 22
+    /// Nov), the keys 4 in from its end. Ask Life's banner is the same.
+    func askLifeComposer() -> some View {
+        padding(.leading, Metrics.Spacing.l).padding(.trailing, Metrics.Spacing.xs).padding(
+            .vertical, Metrics.Spacing.xs
+        )
+        .floatingGlass(in: .rect(cornerRadius: 28))
     }
 }
 

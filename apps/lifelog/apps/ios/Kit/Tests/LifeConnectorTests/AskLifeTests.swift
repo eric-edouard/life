@@ -15,61 +15,61 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
         report(line(#"{"id":"a","kind":"working","state":"completed","title":"Reading the card"}"#))
         return #"{"kind":"reply","words":"Friday works."}"#
     }
-    let tell = AskLife(api: life)
-    await tell.send("  Does Friday work?  ", screen: MainSessionScreen(tab: "inbox"))
-    #expect(tell.said == "Does Friday work?")
-    #expect(tell.answer == .reply(words: "Friday works.", why: nil, sources: []))
-    #expect(tell.stage == .ready)
-    #expect(tell.strands == [AskLifeStrand(id: "a", title: "Reading the card", state: "completed")])
+    let askLife = AskLife(api: life)
+    await askLife.send("  Does Friday work?  ", screen: MainSessionScreen(tab: "inbox"))
+    #expect(askLife.said == "Does Friday work?")
+    #expect(askLife.answer == .reply(words: "Friday works.", why: nil, sources: []))
+    #expect(askLife.stage == .ready)
+    #expect(askLife.strands == [AskLifeStrand(id: "a", title: "Reading the card", state: "completed")])
     // The last `working` line came after the words and started them again.
-    #expect(tell.words == "")
+    #expect(askLife.words == "")
 }
 
 @MainActor @Test func aCallThatDroppedWaitsAndGoesAgainUnderTheSameKey() async {
     let life = FakeLife()
     life.asked = { _ in throw MCPError.streamDropped }
-    let tell = AskLife(api: life)
-    await tell.send("Hello", screen: MainSessionScreen())
-    #expect(tell.stage == .offline)
-    #expect(tell.waiting == "Hello")
+    let askLife = AskLife(api: life)
+    await askLife.send("Hello", screen: MainSessionScreen())
+    #expect(askLife.stage == .offline)
+    #expect(askLife.waiting == "Hello")
     life.asked = { _ in #"{"kind":"reply","words":"Hi."}"# }
-    await tell.sendAgain(screen: MainSessionScreen())
+    await askLife.sendAgain(screen: MainSessionScreen())
     let keys = life.askedKeys.withLock { $0 }
     #expect(keys.count == 2 && keys[0] == keys[1] && keys[0] != nil)
-    #expect(tell.answer == .reply(words: "Hi.", why: nil, sources: []))
-    #expect(tell.waiting == nil)
+    #expect(askLife.answer == .reply(words: "Hi.", why: nil, sources: []))
+    #expect(askLife.waiting == nil)
 }
 
 @MainActor @Test func anErrorKeepsHisWordsAndAnUnknownKindIsSaidAsSuch() async {
     let life = FakeLife()
     life.asked = { _ in #"{"kind":"error","what":"The agent did not answer."}"# }
-    let tell = AskLife(api: life)
-    await tell.send("Hello", screen: MainSessionScreen())
-    #expect(tell.answer == .error(what: "The agent did not answer."))
+    let askLife = AskLife(api: life)
+    await askLife.send("Hello", screen: MainSessionScreen())
+    #expect(askLife.answer == .error(what: "The agent did not answer."))
     life.asked = { _ in #"{"kind":"hologram"}"# }
-    await tell.send("Again", screen: MainSessionScreen())
-    #expect(tell.answer == .unknown)
+    await askLife.send("Again", screen: MainSessionScreen())
+    #expect(askLife.answer == .unknown)
 }
 
 @MainActor @Test func keepingWarmAsksNothingAndShowsNothing() async {
     let life = FakeLife()
     life.asked = { _ in throw MCPError.unreachable }
-    let tell = AskLife(api: life)
-    await tell.keepWarm()
-    #expect(tell.stage == .ready && tell.answer == nil && tell.waiting == nil)
+    let askLife = AskLife(api: life)
+    await askLife.keepWarm()
+    #expect(askLife.stage == .ready && askLife.answer == nil && askLife.waiting == nil)
     #expect(life.askedKeys.withLock { $0.count } == 1)
 }
 
 @MainActor @Test func otherWordsAfterADropAreAnotherAsk() async {
     let life = FakeLife()
     life.asked = { _ in throw MCPError.timedOut }
-    let tell = AskLife(api: life)
-    await tell.send("A", screen: MainSessionScreen())
+    let askLife = AskLife(api: life)
+    await askLife.send("A", screen: MainSessionScreen())
     life.asked = { _ in #"{"kind":"reply","words":"B."}"# }
-    await tell.send("B", screen: MainSessionScreen())
+    await askLife.send("B", screen: MainSessionScreen())
     let keys = life.askedKeys.withLock { $0 }
     #expect(keys.count == 2 && keys[0] != keys[1])
-    #expect(tell.answer == .reply(words: "B.", why: nil, sources: []))
+    #expect(askLife.answer == .reply(words: "B.", why: nil, sources: []))
 }
 
 @Test func everyKindOfAnswerIsReadFromItsFields() {

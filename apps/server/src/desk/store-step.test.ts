@@ -34,6 +34,7 @@ import {
   stepRoleCheck,
   stepRoles,
   stepStore,
+  stepTurnCost,
   stepTurnModel,
 } from "./store-step";
 
@@ -57,6 +58,7 @@ const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
 const MATTER_IDS_BACKUP_FILE = /^desk-before-matter-ids-.*\.sqlite$/;
 const ROLE_CHECK_BACKUP_FILE = /^desk-before-role-check-.*\.sqlite$/;
 const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
+const TURN_COST_BACKUP_FILE = /^desk-before-turn-cost-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -463,6 +465,30 @@ test("a store from before turn models is refused by openDesk; the step adds `tur
   after.close();
 });
 
+test("a store from before turn costs is refused by openDesk; the step adds `turn.cost_usd` behind its own copy, once, older turns null; skipped on a checkout's app state", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(SCHEMA.replace("move text,\n  cost_usd real", "move text"));
+  db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at, tokens_in) values ('agt_000000000001', 'asg_000000000001', 'start', ?, 10)",
+    [T]
+  );
+  db.close();
+  expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
+  expect(stepTurnCost(path, APP_FOLDERS.state)).toBe("skipped");
+  expect(stepTurnCost(path, dir)).toBe("migrated");
+  expect(stepTurnCost(path, dir)).toBe("in shape");
+  expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
+    expect.stringMatching(TURN_COST_BACKUP_FILE),
+  ]);
+  const after = openDesk(path);
+  expect(after.query("select tokens_in, cost_usd from turn").all()).toEqual([
+    { cost_usd: null, tokens_in: 10 },
+  ]);
+  after.close();
+});
+
 test("the later steps, run in any order on a store from before all of them, end in one shape", () => {
   const beforeAll = SCHEMA.replace(
     "role text,",
@@ -474,11 +500,17 @@ test("the later steps, run in any order on a store from before all of them, end 
     )
     .replace(MOVE_TABLES, "")
     .replace(
-      "context_used integer,\n  model text,\n  move text",
+      "context_used integer,\n  model text,\n  move text,\n  cost_usd real",
       "context_used integer"
     )
     .replace("  matter_id text,\n", "");
-  const steps = [stepRoles, stepTurnModel, stepMatterIds, stepMoves];
+  const steps = [
+    stepRoles,
+    stepTurnModel,
+    stepMatterIds,
+    stepMoves,
+    stepTurnCost,
+  ];
   const shapeAfter = (order: typeof steps) => {
     const dir = mkdtempSync(join(tmpdir(), "life-step-"));
     const path = join(dir, "desk.sqlite");

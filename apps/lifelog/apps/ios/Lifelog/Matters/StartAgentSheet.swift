@@ -70,7 +70,7 @@ struct StartAgentSheet: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
-            // The goal's own Send (or a swipe up from the microphone) starts it: the one submit is the field's.
+            // The goal's own Send (or a hold slid up from the microphone) starts it: the one submit is the field's.
             DictationField(prompt: "Goal", text: $goal, axis: .vertical, send: start).font(.quote)
                 .foregroundStyle(Palette.fg)
                 .lineLimit(2...).padding(16).background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.passage))
@@ -96,7 +96,7 @@ struct StartAgentSheet: View {
     }
 
     /// The answers of each state, in the bottom bar: none while he writes (the goal's Send starts it); Starting…; Done;
-    /// Try again (and the other program) or Close.
+    /// Try again (and the program the desk offers) or Close.
     @ViewBuilder private var buttons: some View {
         VStack(spacing: 10) {
             switch state {

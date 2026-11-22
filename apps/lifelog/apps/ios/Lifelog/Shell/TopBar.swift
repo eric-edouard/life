@@ -11,31 +11,41 @@ private struct ShellBar: ViewModifier {
     let label: String
     let hasSettings: Bool
     let hasPendant: Bool
+    let onBack: (() -> Void)?
 
     @Environment(AppRouter.self) private var router
     @Environment(\.topBarZoom) private var topBarZoom
     @Environment(\.isPresented) private var isPushed
     @Environment(\.dismiss) private var dismiss
-    @State private var isInColumn = false
+
+    /// A pushed page, or a screen that names its own way back (a list's detail on a compact width).
+    private var hasBack: Bool { isPushed || onBack != nil }
 
     func body(content: Content) -> some View {
         content
             // An empty label leaves the title to the screen's `screenTitle`, the inline one on the open Duo.
             .titled(label)
             .navigationBarTitleDisplayMode(.inline)
-            .reportsSideColumn($isInColumn)
-            // In the closed Duo's column Back is ours, declared after the Pendant and gear so it stands under them and
-            // above Ask Life (the system's stands first). Its edge swipe goes with it; the column has no edge to swipe.
-            .navigationBarBackButtonHidden(isInColumn && isPushed)
+            .reportsSideColumn(Bindable(router).isBarsInColumn, includingRegular: true)
+            // Back joins the Pendant and Gear's group: first in a row, last in a column (ours, the system's is hidden;
+            // `UINavigationController`'s edge swipe stays, below).
+            .navigationBarBackButtonHidden(hasBack)
             .toolbar {
                 // One item each, never a group: the closed Duo's side column took the group's first item only. Each is
                 // said to fit the column: a button the zoom wraps reads as a custom view, which the system keeps in a
                 // bar of its own over the screen's title (the "huge black header", seen in `design:shots`).
+                if hasBack && !router.isBarsInColumn { fitted(back) }
                 if hasPendant { fitted(pendant) }
                 if hasSettings { fitted(settings) }
-                if isInColumn && isPushed { fitted(back) }
+                if hasBack && router.isBarsInColumn { fitted(back) }
             }
     }
+}
+
+/// One toolbar item said to fit the side column (drop this once the deployment target is 27.1).
+@ToolbarContentBuilder
+func fitted(_ item: some ToolbarContent) -> some ToolbarContent {
+    if #available(iOS 27.1, *) { item.axisBehavior(.verticalPreferred) } else { item }
 }
 
 extension View {
@@ -45,12 +55,6 @@ extension View {
 }
 
 extension ShellBar {
-    /// One item said to fit the column (drop this once the deployment target is 27.1).
-    @ToolbarContentBuilder
-    private func fitted(_ item: some ToolbarContent) -> some ToolbarContent {
-        if #available(iOS 27.1, *) { item.axisBehavior(.verticalPreferred) } else { item }
-    }
-
     private var pendant: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             PendantItem { router.sheet = .pendant }.zoomSource(AppRouter.Sheet.pendant, in: topBarZoom)
@@ -59,7 +63,7 @@ extension ShellBar {
 
     private var back: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Back", systemImage: "chevron.backward") { dismiss() }
+            Button("Back", systemImage: "chevron.backward") { onBack?() ?? dismiss() }
                 .labelStyle(.iconOnly)
                 .accessibilityIdentifier("top.back")
         }
@@ -79,8 +83,10 @@ extension View {
     /// The top group of a screen in a tab: Settings only on Inbox and Matters, the Pendant everywhere but in a side
     /// column (the matter's page beside it has it). The bar's own title is always inline: a list screen's name is its
     /// `screenTitle`, a page's its first line.
-    func shellBar(_ label: String, hasSettings: Bool = true, hasPendant: Bool = true) -> some View {
-        modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant))
+    func shellBar(
+        _ label: String, hasSettings: Bool = true, hasPendant: Bool = true, onBack: (() -> Void)? = nil
+    ) -> some View {
+        modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant, onBack: onBack))
     }
 }
 
@@ -145,23 +151,43 @@ extension View {
     /// Tells whether the system puts this screen's bars in a vertical column on a compact window (the closed iPhone Duo,
     /// iOS 27.1): the system's own `toolbarVerticalEdge`, never a guess from the size. The one rule for the Undo toast
     /// and the floating Filter.
-    @ViewBuilder func reportsSideColumn(_ isInColumn: Binding<Bool>) -> some View {
-        if #available(iOS 27.1, *) { modifier(SideColumnReport(isInColumn: isInColumn)) } else { self }
+    @ViewBuilder func reportsSideColumn(_ isInColumn: Binding<Bool>, includingRegular: Bool = false) -> some View {
+        if #available(iOS 27.1, *) {
+            modifier(SideColumnReport(isInColumn: isInColumn, includingRegular: includingRegular))
+        } else {
+            self
+        }
     }
 }
 
 @available(iOS 27.1, *)
 private struct SideColumnReport: ViewModifier {
     @Binding var isInColumn: Bool
+    /// The open Duo sideways keeps its bars in the column too, on a regular width.
+    let includingRegular: Bool
     @Environment(\.toolbarVerticalEdge) private var edge
     @Environment(\.windowSizeClass) private var sizeClass
 
     func body(content: Content) -> some View {
-        content.onChange(of: edge != nil && sizeClass != .regular, initial: true) { _, now in isInColumn = now }
+        content.onChange(of: edge != nil && (includingRegular || sizeClass != .regular), initial: true) { _, now in
+            isInColumn = now
+        }
     }
 }
 
 extension EnvironmentValues {
     /// The namespace the top bar's Settings and Pendant buttons zoom their sheets out of (the root's).
     @Entry var topBarZoom: Namespace.ID?
+}
+
+/// A pushed page's Back is ours (in the top group), so the system's edge swipe back needs its recogniser kept on.
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        viewControllers.count > 1
+    }
 }

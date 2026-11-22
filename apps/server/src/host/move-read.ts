@@ -11,6 +11,7 @@ import {
   anchorsOf,
   openAssignmentOfMatter,
   openAssignmentsOf,
+  runtimeOf,
   type TurnRow,
 } from "./desk-read";
 
@@ -296,9 +297,18 @@ const namesOf = (a: Pick<AgentRow, "brief" | "name">) => {
   return { name: `${short} agent`, short };
 };
 
-/** Where an agent on `runtime` can move: the other runtime (`moveTo`), or why not now (`moveBlocked`, from the desk's last look). */
+/**
+ * Where an agent on `runtime` can move (`moveTo`), or why not now (`moveBlocked`, from the desk's last look): the desk's
+ * default runtime (`runtimeOf`), and from the default, or with none, the first other (one move offered: the phone shows one).
+ */
+export function moveTargetOf(runtime: string, defaultRuntime = runtimeOf({})) {
+  return defaultRuntime && runtime !== defaultRuntime
+    ? defaultRuntime
+    : RuntimeName.options.find((r) => r !== runtime);
+}
+
 function moveToOf(db: Database, runtime: string) {
-  const to = RuntimeName.options.find((r) => r !== runtime);
+  const to = moveTargetOf(runtime);
   if (!to) {
     return {};
   }

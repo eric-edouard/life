@@ -34,7 +34,7 @@ struct ProjectsScreen: View {
                     .background(Palette.bg)
                     // A swipe's mark and a project's status, said back with Undo.
                     .saysBack()
-                    .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
+                    .screenTitle("Projects", state: header)
                     // Beside a matter, the Pendant and Settings are the matter column's.
                     .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
                     // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
@@ -137,6 +137,14 @@ struct ProjectsScreen: View {
     }
 
     /// The read under a chip: All's is every running matter.
+    /// The title's count: on Ask Life's cut, how many of All's rows it keeps ("3 of 7"), else the projects underway.
+    private var header: String? {
+        guard let cut = router.cut(of: .matters) else {
+            return life.projects.shown().onScreen.map { "\($0.underway) underway" }
+        }
+        return life.matters.shown().onScreen.map { "\(cut.cut($0.matters, ref: \.id).count) of \($0.matters.count)" }
+    }
+
     private func list(of chip: ProjectChips.Chip?) -> ReadState<MatterList> {
         chip.map { life.scopedMatters[$0.identity] ?? ReadState() } ?? life.matters
     }
