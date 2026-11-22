@@ -162,8 +162,7 @@ struct InboxScreen: View {
         all.only(kind).cut(to: router.cut(of: .checks)).folded(except: notes.unfolded, working: notes.working)
     }
 
-    /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays
-    /// as it was until the next ask.
+    /// The ask on show, or his tap's result in its place: one arrangement for both.
     @ViewBuilder private func card(_ order: InboxOrder) -> some View {
         if let check = notes.shownCheck ?? order.check(on: current) {
             CardView(
