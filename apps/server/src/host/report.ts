@@ -76,6 +76,8 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: hand runs' included. */
   retired: number;
+  /** Yesterday's time in front of each screen (`screenLine`); empty with none. */
+  screen: string;
   /** What the model calls of the last 24 h spent, a line per run and per processing run's step (`spent`, nightly.ts). */
   spent: string[];
 }
@@ -213,6 +215,7 @@ export function successReport(day: string, ms: number, n: Night) {
         n.archive,
         n.backup,
         ...(n.quota ? [n.quota] : []),
+        ...(n.screen ? [n.screen] : []),
         ...n.spent,
         "Failures: none",
       ],
