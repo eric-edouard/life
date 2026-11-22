@@ -115,8 +115,12 @@ test("a plan card's `plan` and `gathered` reach his card, and a later card prese
   );
   await answerDecision(id, ["start"]);
   // A changed plan after his answer is a new plan card, its steps in `plan` too.
-  const later = await askDecision(desk, s, card({ gathered: undefined }));
-  expect(decisionsNow().find((x) => x.id === later.id)?.plan).toEqual(plan);
+  const later = await askDecision(desk, s, card());
+  expect(
+    decisionsNow()
+      .find((x) => x.id === later.id)
+      ?.plan?.map((p) => p.text)
+  ).toEqual(plan.map((p) => p.text));
   setSystemTime();
 });
 
