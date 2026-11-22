@@ -269,10 +269,10 @@
     },
     {
       "kind": "agents",
-      "tokens": 6100000,
-      "billed": {
-        "amount": 1.8,
-        "basis": "billed",
+      "tokens": 5400000,
+      "equivalent": {
+        "amount": 78,
+        "basis": "equivalent",
         "currency": "USD"
       }
     },
@@ -313,17 +313,12 @@
       "agent": "Errands agent",
       "id": "agt_000000000003",
       "equivalent": {
-        "amount": 9,
+        "amount": 7,
         "basis": "equivalent",
         "currency": "USD"
       },
-      "billed": {
-        "amount": 1.8,
-        "basis": "billed",
-        "currency": "USD"
-      },
       "reported": true,
-      "tokens": 900000
+      "tokens": 200000
     }
   ],
   "topMatters": [
@@ -350,6 +345,17 @@
       "tokens": 900000
     },
     {
+      "matter": "Passport renewal",
+      "id": "matter_000000000004",
+      "equivalent": {
+        "amount": 9,
+        "basis": "equivalent",
+        "currency": "USD"
+      },
+      "reported": true,
+      "tokens": 900000
+    },
+    {
       "matter": "Bookshelf delivery",
       "id": "matter_000000000003",
       "equivalent": {
@@ -359,22 +365,6 @@
       },
       "reported": true,
       "tokens": 200000
-    },
-    {
-      "matter": "Passport renewal",
-      "id": "matter_000000000004",
-      "equivalent": {
-        "amount": 9,
-        "basis": "equivalent",
-        "currency": "USD"
-      },
-      "billed": {
-        "amount": 1.8,
-        "basis": "billed",
-        "currency": "USD"
-      },
-      "reported": true,
-      "tokens": 900000
     }
   ],
   "observedAt": "2026-11-21T10:00:00.000Z"
