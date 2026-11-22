@@ -2,9 +2,15 @@ import type {
   ExtensionAPI,
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
-import { SEND_FACTS_ENV, SEND_GUARD_HOOK, sendRefusalOf } from "../send-guard";
+import {
+  SEND_FACTS_ENV,
+  SEND_GUARD_HOOK,
+  type SendFacts,
+  sendRefusalOf,
+} from "../send-guard";
 import { type ClaudeHookGroup, runClaudeHooks } from "./claude-hooks";
 import { DOOR_KEY_ENV } from "./contract";
+import { registerSubagent } from "./pi-subagent";
 import { registerWebFetch } from "./web-tools";
 
 // The extension every pi session of the desk loads (`pi -e`, `pi-runtime.ts`): inside the pi process, before each tool
@@ -33,6 +39,8 @@ export const PI_EXTENSION_ENV = {
   /** `1` for an agent of his own Life: his hooks and the web tools; a second Life's agent gets neither. */
   own: "LIFE_PI_OWN",
   provider: "LIFE_PI_PROVIDER",
+  /** The connector's reads as a stdio MCP entry (JSON), for his own Life. */
+  reads: "LIFE_CONNECTOR_READS",
 } as const;
 
 /** The provider as the runtime gives it (`LIFE_PI_PROVIDER`): everything but its key. */
@@ -50,6 +58,23 @@ const guardedCallOf = (toolName: string, input: unknown) => ({
   tool_name: SHELLS.includes(toolName) ? "Bash" : toolName,
 });
 
+/** What the extension runs on, read from the spawn's environment once (`lifeDeskOf`'s default) or handed to a subagent. */
+export interface LifeDeskConfig {
+  apiKey: string;
+  /** The agent's door; none in a subagent: its cards and waits stay the agent's own. */
+  door?: { key: string; url: string };
+  facts: SendFacts;
+  hooks: ClaudeHookGroup[];
+  /** An agent of his own Life: his hooks, `web_fetch`, the connector's reads and subagents. */
+  isOwn: boolean;
+  provider: PiProvider;
+  /** The connector's reads (`life connector-reads`) as a stdio MCP server; none in a subagent. */
+  reads?: { args: string[]; command: string; env: Record<string, string> };
+}
+
+/** pi's MCP server name for the connector's reads (`mcp__life_connector__<tool>`); `life` is the door's in his own sessions. */
+export const READS_SERVER = "life_connector";
+
 const required = (name: string) => {
   const value = process.env[name];
   if (!value) {
@@ -58,32 +83,61 @@ const required = (name: string) => {
   return value;
 };
 
-export default function lifeDesk(pi: ExtensionAPI) {
+/** A value of the environment, taken out of it once read, so no command the agent runs inherits it. */
+const taken = (name: string) => {
+  const value = process.env[name];
+  delete process.env[name];
+  return value;
+};
+
+/** The extension's config from the spawn's environment (`PI_EXTENSION_ENV`), the key and the reads' entry taken out. */
+function configOfEnv(): LifeDeskConfig {
   const env = PI_EXTENSION_ENV;
-  // The key leaves the environment once read, so no command the agent runs inherits it.
   const apiKey = required(env.key);
-  delete process.env[env.key];
-  pi.registerProvider(PI_PROVIDER, {
-    ...(JSON.parse(required(env.provider)) as PiProvider),
+  taken(env.key);
+  const isOwn = process.env[env.own] === "1";
+  const reads = taken(env.reads);
+  return {
     apiKey,
+    door: { key: required(env.doorKey), url: required(env.doorUrl) },
+    facts: JSON.parse(required(env.facts)),
+    hooks: isOwn ? JSON.parse(process.env[env.hooks] ?? "[]") : [],
+    isOwn,
+    provider: JSON.parse(required(env.provider)),
+    ...(isOwn && reads ? { reads: JSON.parse(reads) } : {}),
+  };
+}
+
+/** The extension on `config`: the default export's, and each subagent's (`pi-subagent.ts`) with no door or reads. */
+export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
+  pi.registerProvider(PI_PROVIDER, {
+    ...config.provider,
+    apiKey: config.apiKey,
   });
   // A repo's own `.pi` (extensions, MCP servers, settings) never loads beside this one: it could rewrite a request.
   pi.on("project_trust", () => ({ trusted: "no" }));
-  pi.registerMcpServer("desk", {
-    exposure: "direct",
-    headers: { Authorization: `Bearer ${required(env.doorKey)}` },
-    url: required(env.doorUrl),
-  });
+  if (config.door) {
+    pi.registerMcpServer("desk", {
+      exposure: "direct",
+      headers: { Authorization: `Bearer ${config.door.key}` },
+      url: config.door.url,
+    });
+  }
+  if (config.reads) {
+    pi.registerMcpServer(READS_SERVER, { exposure: "direct", ...config.reads });
+  }
   pi.registerCommand(PI_EXTENSION_COMMAND, {
     description: "Life's desk: the send guard, the door and Life's provider",
     handler: async () => undefined,
   });
-  const isOwn = process.env[env.own] === "1";
-  const hooks: ClaudeHookGroup[] = isOwn
-    ? JSON.parse(process.env[env.hooks] ?? "[]")
-    : [];
-  if (isOwn) {
+  if (config.isOwn) {
     registerWebFetch(pi);
+  }
+  if (config.isOwn && config.door) {
+    registerSubagent(
+      pi,
+      lifeDeskOf({ ...config, door: undefined, reads: undefined })
+    );
   }
   pi.on("tool_call", async (event, ctx) => {
     const call = guardedCallOf(event.toolName, event.input);
@@ -91,10 +145,14 @@ export default function lifeDesk(pi: ExtensionAPI) {
       return;
     }
     const why =
-      sendRefusalOf(call, JSON.parse(required(env.facts))) ??
+      sendRefusalOf(call, config.facts) ??
       (call.tool_name === "Bash"
-        ? await runClaudeHooks(hooks, { ...call, cwd: ctx.cwd })
+        ? await runClaudeHooks(config.hooks, { ...call, cwd: ctx.cwd })
         : undefined);
     return why ? { block: true, reason: why } : undefined;
   });
+};
+
+export default function lifeDesk(pi: ExtensionAPI) {
+  lifeDeskOf(configOfEnv())(pi);
 }

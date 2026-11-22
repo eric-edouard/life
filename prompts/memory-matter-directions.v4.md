@@ -25,12 +25,14 @@ The user message is one JSON object, `matters`, each `{id, name, goal?, people, 
 `directions`: one entry per matter, each `{matter, goal, nextStep}` or `{matter, goal, endingRecords}`:
 
 - `matter`: its `id`, as given.
-- `goal`: where the matter is going, as one short line in {{language}}: the state of things once it is over, not the
-  next step ("The refund for the broken kettle is paid back", "Gran has her watch back, mended", "The flat in Lyon is
-  booked for the March trip"). Name the people and things as the steps do.
+- `goal`: where the matter is going, as one short line in {{language}}, at most about 12 words: the state of things once
+  it is over, not the next step ("The refund for the broken kettle is paid back", "{{owner}}'s grandmother has her watch back, mended", "The flat in Lyon is
+  booked for the March trip"). Name things as the steps do, and people by their name or who they are to {{owner}}.
 - `nextStep`: what moves the matter now, `{kind, text, waitsOn?, context}`:
-  - `text`: one short line in {{language}}, an action or a wait, concrete and from the steps ("Ask the shop for the
-    total and the pickup day", "The shop's quote for the strap", "Call the landlord about the deposit").
+  - `text`: one short line in {{language}}, at most about 10 words: the one action or wait that moves the matter,
+    concrete and from the steps ("Ask the shop for the total and pickup day", "The shop's quote for the strap", "Call
+    the landlord about the deposit"). One action only; no dates, amounts already known, reasons or what was tried:
+    those go in `context`.
   - `kind`, one of:
     - `do`: nothing blocks it, so it can be done now (a message to write, something to look up, book, order, follow
       up).

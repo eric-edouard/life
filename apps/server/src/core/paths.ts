@@ -7,7 +7,9 @@ import { join } from "node:path";
  * has no checkout around it and runs only with the app's environment (its paths and Keychain secrets): run by hand, it
  * stops here; by hand, use the checkout's `bun life`.
  */
-if (!process.env.LIFE_CODE_DIR && import.meta.dir.startsWith("/$bunfs")) {
+/** Whether this process is the app's compiled helper (its code in Bun's embedded files), not a checkout's bun. */
+export const IS_COMPILED_HELPER = import.meta.dir.startsWith("/$bunfs");
+if (!process.env.LIFE_CODE_DIR && IS_COMPILED_HELPER) {
   throw new Error(
     "Life's helper runs from Life.app only; by hand, use `bun life` in a checkout"
   );
