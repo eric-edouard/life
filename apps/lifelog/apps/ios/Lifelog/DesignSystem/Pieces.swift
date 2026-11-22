@@ -1129,6 +1129,36 @@ struct AnswerRow: Layout {
     private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
 }
 
+/// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the
+/// bar's height again, so the answers stand clear of the text going under them (his ask of 22 Nov, open Duo). It grows
+/// with the bar. The system's soft edge stays off here: the pager hides it, since its own sat over the answers.
+struct AnswersBackdrop: View {
+    var body: some View {
+        GeometryReader { bar in
+            let fade = bar.size.height / 2
+            let solid = fade / (bar.size.height + fade)
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay {
+                    LinearGradient(
+                        stops: [
+                            .init(color: Palette.bg.opacity(0.6), location: 0),
+                            .init(color: Palette.bg, location: solid),
+                        ],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: solid)],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .frame(height: bar.size.height + fade)
+                .offset(y: -fade)
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .allowsHitTesting(false)
+    }
+}
+
 /// Where a paged ask keeps its dots: their room, empty, whose place in its page it tells the pager (`pagerDotsAt`), which
 /// draws one row of dots there that stays still while the asks slide under it.
 struct PagerDotsSlot: View {
