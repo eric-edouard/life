@@ -191,7 +191,7 @@ struct AskLifeRoom: View {
 
 extension View {
     /// The composer's capsule: his words, the microphone and Send on a quiet fill.
-    func tellComposer() -> some View {
+    func askLifeComposer() -> some View {
         padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
             .background(Color.fillTint, in: .rect(cornerRadius: 28))
     }

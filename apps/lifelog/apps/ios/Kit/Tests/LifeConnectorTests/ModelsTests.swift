@@ -221,10 +221,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.map(\.role) == [.personal, nil])
     let held = try #require(inbox.checks.first { $0.agent == agents[0].id })
     #expect(held.hearer(among: agents) == "the Personal agent")
-    #expect(held.tellTitle == "Tell the agent…")
+    #expect(held.ownWordsTitle == "Tell the agent…")
     let lifes = try #require(inbox.checks.first { $0.isLifesOwn })
     #expect(lifes.hearer(among: agents) == "Life")
-    #expect(lifes.tellTitle == "Ask Life…")
+    #expect(lifes.ownWordsTitle == "Ask Life…")
     let other = try #require(inbox.checks.first { $0.agent == nil && !$0.isLifesOwn })
     #expect(other.hearer(among: agents) == "the agent")
     var fields = try #require(

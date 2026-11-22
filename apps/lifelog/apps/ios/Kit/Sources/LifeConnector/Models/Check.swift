@@ -353,7 +353,7 @@ extension Check {
     }
 
     /// The words of what opens his own words on it: "Tell the agent…", or "Ask Life…" on Life's own question.
-    public var tellTitle: String { isLifesOwn ? "Ask Life…" : "Tell the agent…" }
+    public var ownWordsTitle: String { isLifesOwn ? "Ask Life…" : "Tell the agent…" }
 
     /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
     public struct OpenedContext: Identifiable, Equatable, Sendable {

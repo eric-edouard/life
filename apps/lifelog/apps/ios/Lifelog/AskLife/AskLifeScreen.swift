@@ -127,7 +127,7 @@ struct AskLifeScreen: View {
     /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
     private var composer: some View {
         DictationField(prompt: "Ask Life…", text: $draft, axis: .vertical, send: submit)
-            .tellComposer()
+            .askLifeComposer()
     }
 
     private func submit() {
