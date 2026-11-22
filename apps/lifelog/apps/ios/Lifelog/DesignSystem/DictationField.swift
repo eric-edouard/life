@@ -82,6 +82,8 @@ struct DictationField: View {
             dictation.begin = DictationCapture.run(library: library, sync: sync)
             #if DEBUG
                 if DictationFixture.drive(dictation, start: start) { return }
+                // A frame's made-up data asks the phone for nothing: no microphone sheet over the shot.
+                if LifeFixture.isRequested { return }
             #endif
             if listens { start() }
         }
