@@ -49,7 +49,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Images | pasted or read images | `images[]` on `prompt`; V4.1 Flash takes image input | on par |
 | Plan mode, to-do tool | plan mode (unused by the desk), TodoWrite | pi's `plan-mode` and `todo` example extensions; the desk needs neither | on par |
 | The Life plugin's hooks (a turn typed into an agent's session) | `session.start` looks up the door, `prompt.submit` adds the packet, `tool.call` asks `/guard` | the same three as one pi package (`session_start`, `input`, `tool_call`) for a pi the owner opens by hand; the desk's own runs load it with `-e` | on par |
-| Main session (Tell Life) | one ACP process kept warm 5 minutes, prompt per ask | one `pi --mode rpc` kept warm the same way; a second ask while one runs goes in as `steer` instead of being refused | better |
+| Main session (Ask Life) | one ACP process kept warm 5 minutes, prompt per ask | one `pi --mode rpc` kept warm the same way; a second ask while one runs goes in as `steer` instead of being refused | better |
 | Moving an agent (`hand_over`) | `moveToOf` picks "the other runtime" | with three runtimes that pick is wrong. Fix (PR 3): the one move offered goes to the desk's default, and from the default to the first other; `hand_over` already names its target | gap |
 | A second Life's agent (a demo) | Claude's `tools: []`, `strictMcpConfig`, door prefix approvals | `--no-builtin-tools --no-context-files --no-skills`, `--tools` limited to `mcp__desk__*`; no permission round trip to police | better |
 | Stopping a run | ACP `session/cancel`, then kill | RPC `abort`, then kill | on par |
@@ -84,7 +84,7 @@ Each item uses a hook or call pi documents today.
   implicitly.
 - A tool list per agent. `--tools` and `setActiveTools` give each role its own list: the caretaker without web
   tools, a demo agent with its door alone.
-- The owner's next words mid-turn. RPC `steer` and `follow_up` let Tell Life take a correction while the main
+- The owner's next words mid-turn. RPC `steer` and `follow_up` let Ask Life take a correction while the main
   session works.
 
 ## 3. Model and provider

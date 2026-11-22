@@ -237,7 +237,7 @@ struct CardView: View {
             isBusy: pressed == nil && life.state(of: .answer(ref: check.ref)).isRunning,
             answer: { submit(check, $0) }, sameAs: { peopleRef = check.ref },
             create: { notes.creating = creating(check, $0, asOrganization: $1) },
-            wrong: { router.tellLife(about: check.ref, question: check.question) },
+            wrong: { router.askLife(about: check.ref, question: check.question) },
             dropProject: dropProject(of: check),
             page: page,
             pressed: pressed

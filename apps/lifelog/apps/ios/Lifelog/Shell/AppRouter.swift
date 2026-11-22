@@ -87,22 +87,22 @@ final class AppRouter {
     /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
     var inboxColumn = NavigationSplitViewColumn.detail
     var sheet: Sheet?
-    /// Tell Life, full screen over whatever he was on.
-    var isTellLifeOpen = false
+    /// Ask Life, full screen over whatever he was on.
+    var isAskLifeOpen = false
     /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
-    /// (`reportsSideColumn`): Tell Life stands in that column's foot, else at the corner.
+    /// (`reportsSideColumn`): Ask Life stands in that column's foot, else at the corner.
     var isBarsInColumn = false
     /// Ask Life's banner open: the round button's glass morphed into a wide banner along the bottom.
     var isAskOpen = false
-    /// Tell Life made small: its strip shows over the rail while there is something to keep in sight.
-    var isTellLifeSmall = false
-    /// What his words are about when he opens Tell Life from a card ("Wrong…"): the card's ref and its question.
-    var tellContext: (ref: String, question: String)?
+    /// Ask Life made small: its strip shows over the rail while there is something to keep in sight.
+    var isAskLifeSmall = false
+    /// What his words are about when he opens Ask Life from a card ("Wrong…"): the card's ref and its question.
+    var askLifeContext: (ref: String, question: String)?
 
-    /// Tell Life on a card: his words go with that card on screen.
-    func tellLife(about ref: String, question: String) {
-        tellContext = (ref, question)
-        isTellLifeOpen = true
+    /// Ask Life on a card: his words go with that card on screen.
+    func askLife(about ref: String, question: String) {
+        askLifeContext = (ref, question)
+        isAskLifeOpen = true
     }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
     /// width shows.
@@ -122,17 +122,17 @@ final class AppRouter {
     /// The event sheet of an appointment Life added to his calendar, over the tab he was on: from its push, or its row.
     var appointment: AppointmentKey?
 
-    /// What is on his screen for Tell Life: refs only, the tab and the matter or person on show.
-    var tellScreen: TellScreen {
+    /// What is on his screen for Ask Life: refs only, the tab and the matter or person on show.
+    var mainSessionScreen: MainSessionScreen {
         let tab =
             switch tab {
             case .inbox: "inbox"
             case .projects: "projects"
             case .people: "people"
             }
-        return TellScreen(
+        return MainSessionScreen(
             tab: tab,
-            open: tellContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
+            open: askLifeContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
     }
 
     func open(matter id: String) {

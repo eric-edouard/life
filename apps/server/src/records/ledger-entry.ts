@@ -99,7 +99,7 @@ export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 
 /**
- * His complaint: his words through Tell Life on what Life got wrong (`complainThroughTellLife`), an ask of the desk with
+ * His complaint: his words through Ask Life on what Life got wrong (`complainThroughAskLife`), an ask of the desk with
  * `after.complaint` (the card on his screen: its ref and cause, the card as Life read it then; his `report` tick), which the desk hands to the caretaker.
  * The one rule of its visibility: never listed (`isListed`: a day, the nightly, a matter's steps), fed (the change feed)
  * or pulled (`asksFor`); his words and the card reach the caretaker alone, through its door.
@@ -109,7 +109,7 @@ export const isComplaint = (a: LedgerEntry) =>
 
 /**
  * His spoken ask: a "hey Life" span the hearing recorded (`host/hear.ts`), an ask of the desk with the `conversation` it
- * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`); or his words through Tell Life that the
+ * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`); or his words through Ask Life that the
  * main session handed to one agent (`tell_agent`), with the assignment they go `to`. Never pulled (`asksFor`): the desk
  * reads it itself, as it does his complaints.
  */
