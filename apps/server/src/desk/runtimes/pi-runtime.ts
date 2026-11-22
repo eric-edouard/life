@@ -11,20 +11,31 @@ import {
   IS_COMPILED_HELPER,
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
+  PI_DIR,
 } from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
+import { settings } from "../../core/settings";
+import { piSessionFileOf } from "../../host/agent-session-read";
 import { piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
+import { WEB_SEARCH_CHAIN } from "../../web-search/backend";
 import type { ClaudeHookGroup } from "./claude-hooks";
-import type { Agent, RunEnd, Runtime, Update, Usage } from "./contract";
+import type {
+  Agent,
+  CallUsage,
+  RunEnd,
+  Runtime,
+  Update,
+  Usage,
+} from "./contract";
 import {
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
-import { type CallUsage, SUBAGENT } from "./pi-subagent";
+import { SPENDING_TOOLS } from "./pi-subagent";
 import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
 import {
   type Connection,
@@ -229,16 +240,6 @@ export const readClaudeHooks = (claude: string): ClaudeHookGroup[] => {
   }
 };
 
-/** The session file of `ref` under `sessions`, if pi wrote one (`<time>_<ref>.jsonl`). */
-const sessionFileOf = (sessions: string, ref: string) => {
-  try {
-    const name = new Bun.Glob(`*_${ref}.jsonl`).scanSync(sessions).next().value;
-    return name ? join(sessions, name) : undefined;
-  } catch {
-    // no sessions folder yet
-  }
-};
-
 /**
  * pi's row for his own Life, or a second Life's (`isOwn` false: no login environment, context file, skill or built-in
  * tool). `place` is where its sessions and settings live and the provider it asks (a test passes its own).
@@ -247,7 +248,7 @@ export function piRowOf(
   isOwn = isOwnLife(),
   place: PiPlace = {
     claude: CLAUDE_HOME,
-    dir: join(LIFE_STATE_DIR, "desk", "pi"),
+    dir: PI_DIR,
     effort: piRouteOf().effort,
     provider: lifeProviderOf(),
   }
@@ -265,7 +266,7 @@ export function piRowOf(
         `pi runs its one model (${PI_MODEL_WORD}), not ${a.model}`
       );
     }
-    const file = isNew ? undefined : sessionFileOf(sessions, ref);
+    const file = isNew ? undefined : piSessionFileOf(sessions, ref);
     if (!(isNew || file)) {
       throw new Error(`pi has no session ${ref}`);
     }
@@ -285,7 +286,7 @@ export function piRowOf(
           [!process.env[KEY], `pi needs ${KEY}`],
         ].find(([isMissing]) => isMissing)?.[1] as string | undefined
       ),
-    // ponytail: no link until Life's app shows a pi session (the owner's decision 2 of 22 Nov 2026, PR 6).
+    // pi has no app to open: Life's app shows its session, read-only (`read_agent_session`, the owner's decision 2 of 22 Nov 2026).
     link: () => "",
     async readSessionState(ref): Promise<SessionState> {
       // A pi on this session that the desk does not drive (his terminal, an orphaned run): never a second one beside it.
@@ -298,7 +299,7 @@ export function piRowOf(
       if (code === 0) {
         return "running";
       }
-      return sessionFileOf(sessions, ref) ? "idle" : "gone";
+      return piSessionFileOf(sessions, ref) ? "idle" : "gone";
     },
     async spawn(a, ref, isNew) {
       const { effort, extension, file, id } = runOf(a, ref, isNew);
@@ -359,6 +360,9 @@ export function piRowOf(
                 ),
                 [PI_EXTENSION_ENV.own]: "1",
                 [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
+                [PI_EXTENSION_ENV.search]: JSON.stringify(
+                  settings().desk?.webSearch ?? WEB_SEARCH_CHAIN
+                ),
               }
             : {}),
           [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
@@ -370,7 +374,7 @@ export function piRowOf(
 }
 
 /** What pi prints on stdout, as far as the runtime reads it. */
-interface PiLine {
+export interface PiLine {
   aborted?: boolean;
   assistantMessageEvent?: { delta?: string; type: string };
   command?: string;
@@ -384,7 +388,7 @@ interface PiLine {
     stopReason?: string;
     usage?: CallUsage;
   };
-  /** A tool's result: a subagent's carries its calls' usage. */
+  /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`). */
   result?: { details?: { usage?: CallUsage[] } };
   success?: boolean;
   toolCallId?: string;
@@ -393,7 +397,7 @@ interface PiLine {
 }
 
 /** The run in progress on a connection: what it heard so far, and how to settle it. */
-interface Current {
+export interface Current {
   begun: () => void;
   end: (e: RunEnd) => void;
   onUpdate?: (u: Update) => void;
@@ -457,7 +461,7 @@ const parseLine = (text: string): PiLine | undefined => {
 };
 
 /** What line `l` does to the run `c`: its beginning, its usage and stop, its listener's update; its end at `agent_settled`. */
-function runHeard(c: Current, l: PiLine): RunEnd | undefined {
+export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
   if (l.type === "message_update") {
     c.begun();
   }
@@ -466,7 +470,10 @@ function runHeard(c: Current, l: PiLine): RunEnd | undefined {
     c.stop = l.message.stopReason;
     c.why = l.message.errorMessage;
   }
-  if (l.type === "tool_execution_end" && l.toolName === SUBAGENT) {
+  if (
+    l.type === "tool_execution_end" &&
+    SPENDING_TOOLS.includes(l.toolName ?? "")
+  ) {
     for (const m of l.result?.details?.usage ?? []) {
       addSpent(c.usage, m);
     }

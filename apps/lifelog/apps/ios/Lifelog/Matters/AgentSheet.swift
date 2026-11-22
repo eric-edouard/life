@@ -182,7 +182,8 @@ struct AgentSheet: View {
         }
     }
 
-    /// One condition; his answer opens that ask on the matter, behind the sheet.
+    /// One condition; his answer opens that ask on its own matter (#1126), behind the sheet: its card when that matter's
+    /// page is on show, else that matter's page, which lists it.
     @ViewBuilder private func clauseRow(_ clause: WakeClause) -> some View {
         let row = FlatRow(
             lead: .symbol(symbol(of: clause)), detail: clause.brokenReason ?? clause.aside,
@@ -201,7 +202,9 @@ struct AgentSheet: View {
         if let check = clause.check {
             Button {
                 router.matterSheet = nil
-                if let matter { router.matterPath.append(.card(check, matter: matter)) }
+                guard let own = life.matterOf(card: check) ?? matter else { return }
+                let isOnShow = router.matterPath.last.map { $0 == .matter(own) } ?? (router.matter == own)
+                router.matterPath.append(isOnShow ? .card(check, matter: own) : .matter(own))
             } label: {
                 row.contentShape(.rect)
             }.buttonStyle(.plain)
@@ -248,7 +251,14 @@ struct AgentSheet: View {
                 }
             }
             .disabled(state.isRunning).offWhileOutOfReach()
-            if let link = agent.link.flatMap(URL.init(string:)) {
+            if agent.runtimeName == .pi {
+                // pi has no app: its session reads in this one, pushed on the agent's page.
+                TextLink("Its session", to: .page) {
+                    router.open(agent: agent.id)
+                    router.matterPath.append(.session(agent.id))
+                }
+                .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
+            } else if let link = agent.link.flatMap(URL.init(string:)) {
                 TextLink("Open in \(agent.runtimeName.name)", to: .outside) { openURL(link) }
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }

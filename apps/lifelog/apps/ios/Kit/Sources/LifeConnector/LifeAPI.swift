@@ -93,6 +93,8 @@ public protocol LifeAPI: Sendable {
     func readRegisteredAgents() async throws -> String
     /// What Life costs this month (`ModelSpending`), his token only.
     func readSpending() async throws -> String
+    /// An agent's session on pi, read-only (`AgentSession`), his token only.
+    func readAgentSession(_ id: String) async throws -> String
     /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
@@ -136,10 +138,10 @@ public protocol LifeAPI: Sendable {
     func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String
     /// His Remove (`isOn` false) or Undo (`isOn` true) of one, from the Life at `origin`.
     func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String
-    /// Tell Life: his `words` (none: he is on the screen, keep the session warm) and his screen's refs to Life's main
+    /// Ask Life: his `words` (none: he is on the screen, keep the session warm) and his screen's refs to Life's main
     /// session. Its lines stream to `onProgress`; the call ends on its answer.
     func askMainSession(
-        words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
 }
 
@@ -195,6 +197,9 @@ public struct MCPLifeAPI: LifeAPI {
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
     public func readSpending() async throws -> String { try await client.call("read_spending") }
+    public func readAgentSession(_ id: String) async throws -> String {
+        try await client.call("read_agent_session", ["id": id])
+    }
     public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
@@ -305,11 +310,11 @@ public struct MCPLifeAPI: LifeAPI {
     }
 
     public func askMainSession(
-        words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
         struct Ask: Encodable, Sendable {
             let words: String?
-            let screen: TellScreen?
+            let screen: MainSessionScreen?
         }
         // Even his presence takes the stream's 15 s idle limit: a cold session opens in about 8.
         return try await client.call(

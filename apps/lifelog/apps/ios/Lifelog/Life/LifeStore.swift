@@ -22,6 +22,8 @@ final class LifeStore {
     private(set) var agents = ReadState<RegisteredAgents>()
     /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
     private(set) var spending = ReadState<ModelSpending>()
+    /// An agent's session on pi, by the agent's id: read on each visit, never kept.
+    private(set) var agentSession: [String: ReadState<AgentSession>] = [:]
     /// The People tab: everyone Life knows, closest first; and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
@@ -122,8 +124,8 @@ final class LifeStore {
     private let api: any LifeAPI
     private let cache: ReadCache
     let runner: LifeActions
-    /// Tell Life: his one conversation with Life's main session.
-    let tell: TellLife
+    /// Ask Life: his one conversation with Life's main session.
+    let askLife: AskLife
     let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// The phone's network path, which the pendant's sync follows too.
@@ -155,7 +157,7 @@ final class LifeStore {
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
-        tell = TellLife(api: api)
+        askLife = AskLife(api: api)
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
@@ -403,6 +405,13 @@ final class LifeStore {
         if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
     }
 
+    func refreshAgentSession(_ id: String) async {
+        let update = { (event: ReadState<AgentSession>.Event) in
+            self.agentSession[id, default: ReadState()].apply(event)
+        }
+        await load(update, key: "read_agent_session-\(id)", isKept: false) { try await $0.readAgentSession(id) }
+    }
+
     func refreshProjects() async {
         await load({ self.projects.apply($0) }, key: Self.projectsKey, held: { self.projects.value }) {
             try await $0.readProjects(ifNot: $1)
@@ -586,9 +595,9 @@ final class LifeStore {
         }
     }
 
-    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it; nil when it has none.
-    private func matterOf(card ref: String) -> String? {
-        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matter?.id }
+    /// The matter of the card `ref`, as the inbox or a matter's read on hand has it (`Check.matterID`); nil when it has none.
+    func matterOf(card ref: String) -> String? {
+        if let check = inbox.value?.checks.first(where: { $0.ref == ref }) { return check.matterID }
         return matter.first { $0.value.value?.checks.contains { $0.ref == ref } == true }?.key
     }
 
@@ -954,6 +963,7 @@ final class LifeStore {
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
+        agentSession = [:]
         (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
@@ -964,7 +974,7 @@ final class LifeStore {
         await refresh()
     }
 
-    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Tell Life's "Open in Inbox").
+    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Ask Life's "Open in Inbox").
     func open(ref: String) async {
         guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
         await open(pushId: pushId)

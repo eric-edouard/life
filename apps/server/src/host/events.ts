@@ -45,7 +45,7 @@ export const DRAFT_CONTESTED = "draft.contested";
 export const DRAFT_KEPT = "draft.kept";
 /** A call of his that ended, once lifelog holds its words: the desk's event alone (`pollCalls`), never the connector's. */
 export const CALL_ENDED = "call.ended";
-/** His complaint (his words through Tell Life), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
+/** His complaint (his words through Ask Life), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
 export const COMPLAINT_RECEIVED = "complaint.received";
 /** His spoken ask ("hey Life"), routed to one agent: the desk's event alone, facts only (where his words are, never them; `desk/spoken-ask-intake.ts`). */
 export const ASK_SPOKEN = "ask.spoken";

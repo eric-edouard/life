@@ -19,7 +19,7 @@ import { COMPLAINTS_CURSOR, type Desk, saveCursor } from "./desk-store";
 import { queue } from "./event-queue";
 import { roleAssignmentOf, roleStartBlockOf } from "./role-agents";
 
-// The desk's intake of his complaints (his words through Tell Life, asks of the desk in the ledger,
+// The desk's intake of his complaints (his words through Ask Life, asks of the desk in the ledger,
 // `host/complaints.ts`), each tick before the hand-out, so a start of its own never takes the caretaker's last place.
 // From its own cursor over the ledger's lines (at most `ROWS_PER_TICK` a tick), each complaint is received once for the
 // caretaker: queued as an event of its assignment, in one transaction with the cursor. That event row is its receipt

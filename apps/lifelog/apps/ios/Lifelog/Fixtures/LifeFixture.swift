@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (every whole read after the first takes 5 s: a tapped push's card is checked), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pictures|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|agents|agentPage|icon|pictures|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -24,6 +24,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
         nonisolated static let filter = value(of: "-fixtureFilter")
+        /// `-fixtureShow matters`: Ask Life's answer cut the Projects list to its first three matters, under its toast.
+        nonisolated static let show = value(of: "-fixtureShow")
         nonisolated static let matter = value(of: "-fixtureMatter")
         /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
         nonisolated static let person = value(of: "-fixturePerson")
@@ -34,7 +36,8 @@
         nonisolated static let sheet = value(of: "-fixtureSheet")
         /// `-fixtureAsk open`: Ask Life's banner open.
         nonisolated static let ask = value(of: "-fixtureAsk")
-        /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
+        /// `-fixtureAgent notStarted|running|pi`: Nora's agent never began (its runtime refused), for the Try again swap, or
+        /// works; or the lease's agent runs on pi.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
         /// `-fixturePage life|server|diagnostics|apps`: Settings opens that page.
@@ -277,6 +280,11 @@
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
         /// The design data's spending (`read_spending.json`), as Life answers it.
         func readSpending() async throws -> String { try await gate(); return json(Self.spending) }
+        /// The design data's session of a pi agent (`read_agent_session.json`), whichever agent is asked.
+        func readAgentSession(_ id: String) async throws -> String {
+            try await gate()
+            return json(Self.session.merging(["agent": id]) { $1 })
+        }
         /// The design data's log (`read_log_lines.json`, one page), by level and process; an empty log until the
         /// designer writes it. Polled every 2 s, it adds nothing: the page shows what the frames draw.
         func readLogLines(_ query: LogQuery) async throws -> String {
@@ -637,9 +645,10 @@
             return isOn ? #"{"result":"restored"}"# : #"{"result":"removed"}"#
         }
 
-        /// Tell Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
+        /// Ask Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
         func askMainSession(
-            words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+            words: String?, screen: MainSessionScreen?, answerKey: String?,
+            onProgress: @escaping @Sendable (Data) -> Void
         ) async throws -> String {
             try await gate()
             guard words != nil else { return #"{"kept":true}"# }
@@ -673,6 +682,7 @@
         nonisolated(unsafe) private static let people = read("read_people_and_organizations", or: [:])
         nonisolated(unsafe) private static let log = read("read_log_lines", or: [:])
         nonisolated(unsafe) private static let spending = read("read_spending", or: [:])
+        nonisolated(unsafe) private static let session = read("read_agent_session", or: ["lines": []])
         /// Every agent, by its matter; `-fixtureAgent` says how Nora's went.
         nonisolated(unsafe) private static let allAgents: [[String: Any]] =
             ((registered["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])).map {
@@ -685,6 +695,11 @@
                 }
                 if LifeFixture.agent == "running" { agent["status"] = "running" }
                 return agent
+            }
+            // `-fixtureAgent pi`: the lease's agent runs on pi, whose session Life's app shows.
+            .map { agent in
+                guard LifeFixture.agent == "pi", agent["id"] as? String == "agt_lease" else { return agent }
+                return agent.merging(["runtime": "pi", "link": ""]) { $1 }
             }
 
         /// A read of the design data; `missing`, if given, stands for a file the designer has not written yet.

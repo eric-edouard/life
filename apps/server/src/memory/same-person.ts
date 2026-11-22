@@ -16,7 +16,7 @@ export const samePersonPairOf = (ref: string) => {
   return { guess, other };
 };
 
-/** A chat's handle (a network's id, a bridge's sender, a phone, an address), not a name: what his "Different people" is written against. */
+/** A chat's handle (a network's id, a bridge's sender, a phone, an address), not a name: what his "Different" is written against. */
 const HANDLE = /^[@+_\d]|@/;
 const SPACES = /\s+/;
 /** A whole name: two words or more, as written ("Jean-Pierre" is one). */
@@ -79,7 +79,7 @@ export function samePersonPairsOf(
     ].filter(({ n }) => isWholeName(n)),
     ({ n }) => nameKey(n)
   );
-  // His "Different people", either way round: a handle refused for one that reads as the other now.
+  // His "Different", either way round: a handle refused for one that reads as the other now.
   const refused = new Set(
     people.corrections.flatMap((c) => {
       const reads =

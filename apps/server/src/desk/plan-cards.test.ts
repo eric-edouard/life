@@ -1,9 +1,9 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { DAY } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
-import { planCardsOf } from "../host/inbox";
+import { assignmentOf } from "../host/desk-read";
+import { opensWithPlan } from "../host/inbox";
 import { decisionCardOf } from "../memory/checks";
-import type { Decision } from "../memory/decision-lines";
 import {
   answerDecision,
   decisionsNow,
@@ -12,13 +12,10 @@ import {
 import { askDecision, openAssignment, register } from "./agent-actions";
 import { ahead, on, setup } from "./test-desk";
 
-// The plan card (life#816): an assignment he opened, its first card not withdrawn, worked out when read; never the
-// caretaker's, nor a hand-out's one card.
-
-test("an open card is a plan when it is the first card not withdrawn of an assignment he opened", () => {
+// Which assignment must open with a plan card (life#816): one he opened; never the caretaker's, nor a hand-out's.
+test("an assignment he opened opens with a plan card; a hand-out's and the caretaker's do not", () => {
   const { desk } = setup();
   const shop = register(desk, { brief: "Test brief", runtime: "fake" });
-  const own = on(desk, shop).id;
   const asked = openAssignment(desk, shop, {
     openedBy: "owner",
     steps: ["obs_test_asked"],
@@ -32,45 +29,21 @@ test("an open card is a plan when it is the first card not withdrawn of an assig
     role: "caretaker",
     runtime: "fake",
   });
-  const changes = on(desk, caretaker).id;
-  const replaced = openAssignment(desk, shop, {
-    openedBy: "owner",
-    steps: ["obs_test_replaced"],
-  });
-  const cards: [string, string, string, Decision["state"]][] = [
-    ["dec_test_replaced", shop, replaced, "withdrawn"],
-    ["dec_test_follow_up", shop, replaced, "open"],
-    ["dec_test_withdrawn", shop, own, "withdrawn"],
-    ["dec_test_plan", shop, own, "open"],
-    ["dec_test_answered", shop, asked, "answered"],
-    ["dec_test_later", shop, asked, "open"],
-    ["dec_test_found", shop, found, "open"],
-    ["dec_test_change", caretaker, changes, "open"],
-  ];
-  for (const [id, , assignment] of cards) {
-    desk.db.run("insert into card (decision_id, assignment_id) values (?, ?)", [
-      id,
-      assignment,
-    ]);
-  }
-  const list = cards.map(
-    ([id, agent, , state]) =>
-      ({
-        agent,
-        id,
-        state,
-        ...(id === "dec_test_replaced"
-          ? { withdrawn: { replacedBy: "dec_test_other" } }
-          : {}),
-      }) as Decision
-  );
-  expect([...planCardsOf(desk.db, list)]).toEqual(["dec_test_plan"]);
+  const opens = (id: string) => {
+    const s = assignmentOf(desk.db, id);
+    return s ? opensWithPlan(desk.db, s) : null;
+  };
+  expect([asked, found, on(desk, caretaker).id].map(opens)).toEqual([
+    true,
+    false,
+    false,
+  ]);
   setSystemTime();
 });
 
 // Regression (the plan card's wire): its steps and what they were gathered from round-trip from the door to his card,
-// its two options as his app's roles; a plan card needs `start` and `decline`, and no later card takes a plan.
-test("a plan card's `plan` and `gathered` reach his card, and only the plan card takes them", async () => {
+// its two options as his app's roles; a plan card needs `start` then `decline`, in the agent's words; a later card may present a new plan.
+test("a plan card's `plan` and `gathered` reach his card, and a later card presents a plan the same way", async () => {
   const { desk } = setup();
   const agent = register(desk, { brief: "Test brief", runtime: "fake" });
   const s = on(desk, agent);
@@ -85,8 +58,7 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     { by: "agent", text: "Book the repair", when: "once Kit answers, by Thu" },
   ];
   const card = (over: Record<string, unknown> = {}) => ({
-    context:
-      "## Mend the watch\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: Kit's quote.",
+    context: "What I read:\n- Kit's quote, 80 €",
     deadline: ahead(DAY),
     gathered: { text: "From Kit's quote and two others" },
     onSilence: null,
@@ -108,10 +80,10 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
       { id: "start", label: "Start the plan" },
       { id: "stop", label: "Stop" },
     ],
-    // Swapped labels: his tap on "Not this plan" would start it.
+    // The decline first: his main button would decline it.
     [
-      { id: "start", label: "Not this plan" },
-      { id: "decline", label: "Start the plan" },
+      { id: "decline", label: "Not this plan" },
+      { id: "start", label: "Start the plan" },
     ],
   ];
   const refusals = await Promise.allSettled(
@@ -121,7 +93,9 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     refusals.map((r) => r.status === "rejected" && String(r.reason))
   ).toEqual(
     wrongOptions.map(() =>
-      expect.stringContaining("a plan card's options are exactly")
+      expect.stringContaining(
+        "a plan card's options are ids start then decline"
+      )
     )
   );
   await expect(
@@ -129,7 +103,6 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
   ).rejects.toThrow("on silence no plan starts");
   const { id } = await askDecision(desk, s, card());
   const d = decisionsNow().find((x) => x.id === id);
-  expect(d && [...planCardsOf(desk.db, [d])]).toEqual([id]);
   expect(d && decisionCardOf(d)).toMatchObject({
     gathered: { text: "From Kit's quote and two others" },
     options: [
@@ -143,10 +116,13 @@ test("a plan card's `plan` and `gathered` reach his card, and only the plan card
     "a plan card takes one pick"
   );
   await answerDecision(id, ["start"]);
-  // The plan card is asked: a later card is no plan, and refuses one.
-  await expect(askDecision(desk, s, card())).rejects.toThrow(
-    "only on an assignment's plan card"
-  );
+  // A changed plan after his answer is a new plan card, its steps in `plan` too.
+  const later = await askDecision(desk, s, card());
+  expect(
+    decisionsNow()
+      .find((x) => x.id === later.id)
+      ?.plan?.map((p) => p.text)
+  ).toEqual(plan.map((p) => p.text));
   setSystemTime();
 });
 
@@ -156,17 +132,17 @@ test("a plan card without `plan` is refused, its steps asked for", async () => {
   const agent = register(desk, { brief: "Test brief", runtime: "fake" });
   await expect(
     askDecision(desk, on(desk, agent), {
-      context: "## Plan\n1. Ask Kit",
+      context: "What I read: Kit's quote.",
       deadline: ahead(DAY),
       onSilence: null,
       options: [
         { id: "start", label: "Go" },
-        { id: "stop", label: "Stop the agent" },
+        { id: "stop", label: "Not now" },
       ],
       question: "Start with this plan?",
       title: "Mend the watch",
     })
-  ).rejects.toThrow("first card is its plan card: give `plan`");
+  ).rejects.toThrow("first card is its plan card: give its steps as `plan`");
   setSystemTime();
 });
 
@@ -184,7 +160,7 @@ test("a plan card stored before `plan` was required still reads as his plan card
     onSilence: null,
     options: [
       { id: "start", label: "Go" },
-      { id: "stop", label: "Stop the agent" },
+      { id: "stop", label: "Not now" },
     ],
     question: "Start with this plan?",
     title: "Mend the watch",
@@ -194,7 +170,6 @@ test("a plan card stored before `plan` was required still reads as his plan card
     s.id,
   ]);
   const d = decisionsNow().find((x) => x.id === id);
-  expect(d && [...planCardsOf(desk.db, [d])]).toEqual([id]);
   expect(d && decisionCardOf(d)).toMatchObject({
     gathered: null,
     options: [
@@ -203,5 +178,44 @@ test("a plan card stored before `plan` was required still reads as his plan card
     ],
     plan: null,
   });
+  setSystemTime();
+});
+
+// His phone showed a plan as a wall of text (22 Nov 2026): the plan written as a numbered list in `context`, its own
+// options, no `plan`. Any card, from any asker, that writes steps as a numbered list is refused with how to resend it.
+test("a plan written as a numbered list in `context` is refused on any card; quotes and code are not steps", async () => {
+  const { desk } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const card = (context: string) => ({
+    context,
+    deadline: ahead(DAY),
+    onSilence: null,
+    options: [
+      { id: "go", label: "Go" },
+      { id: "no", label: "Not now" },
+    ],
+    question: "Go ahead?",
+    title: "Mend the watch",
+  });
+  const asText =
+    "What I found:\n- Kit quoted 80 €.\n\nPlan, in order:\n1. Ask Kit for the quote.\n2. Pay the deposit.";
+  const refused = await Promise.allSettled([
+    askDecision(desk, on(desk, agent), card(asText)),
+    requestDecision(DESK_AGENT, { ...card(asText), agent }),
+  ]);
+  expect(
+    refused.map((r) => r.status === "rejected" && String(r.reason))
+  ).toEqual(
+    refused.map(() =>
+      expect.stringContaining(
+        "a numbered list in `context` is a plan as text: give its steps as `plan`, with options `start` then `decline`"
+      )
+    )
+  );
+  const quoted =
+    "> 1. Bring the watch\n> 2. Pay at pickup\n*Kit*\n\n```\n1. a\n2. b\n```";
+  await expect(
+    requestDecision(DESK_AGENT, { ...card(quoted), agent })
+  ).resolves.toMatchObject({ id: expect.any(String) });
   setSystemTime();
 });

@@ -1,0 +1,47 @@
+{
+  "agent": "agt_lease",
+  "lines": [
+    {
+      "at": "2026-11-19T13:58:00.000Z",
+      "kind": "asked",
+      "text": "Your matter: Lease renewal, rue des Carmes. Get the lease signed and back to Hélène Aubert. Ask your plan first."
+    },
+    {
+      "at": "2026-11-19T13:58:20.000Z",
+      "kind": "said",
+      "text": "I'll read the lease thread first, then ask for the plan."
+    },
+    {
+      "at": "2026-11-19T13:58:21.000Z",
+      "kind": "tool",
+      "text": "{\"id\":\"matter_lease\"}",
+      "tool": "mcp__desk__read_matter"
+    },
+    {
+      "at": "2026-11-19T13:58:23.000Z",
+      "isError": false,
+      "kind": "result",
+      "text": "Lease renewal, rue des Carmes: the signed copy is due back by Friday; Hélène sent the PDF on Tuesday.",
+      "tool": "mcp__desk__read_matter"
+    },
+    {
+      "at": "2026-11-19T14:01:40.000Z",
+      "kind": "tool",
+      "text": "{\"question\":\"Sign the lease and send it back to Hélène?\"}",
+      "tool": "mcp__desk__request_decision"
+    },
+    {
+      "at": "2026-11-19T14:01:42.000Z",
+      "isError": false,
+      "kind": "result",
+      "text": "Asked: dec_lease.",
+      "tool": "mcp__desk__request_decision"
+    },
+    {
+      "at": "2026-11-19T14:02:00.000Z",
+      "kind": "said",
+      "text": "The plan is on its card. I'm waiting for the answer."
+    }
+  ],
+  "observedAt": "2026-11-19T14:05:00.000Z"
+}

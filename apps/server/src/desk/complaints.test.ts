@@ -14,7 +14,7 @@ import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { agentsNow } from "../host/agents-now";
 import { ask, asksFor } from "../host/asks";
-import { complainThroughTellLife } from "../host/complaints";
+import { complainThroughAskLife } from "../host/complaints";
 import {
   agentInRole,
   beingFixedOf,
@@ -34,7 +34,7 @@ import { closeAssignmentRow, type Desk, openDesk } from "./desk-store";
 import { doorOf } from "./door-keys";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
-// His complaint (his words through Tell Life) to the caretaker's door: one ask per key, its row in the complaint record,
+// His complaint (his words through Ask Life) to the caretaker's door: one ask per key, its row in the complaint record,
 // its receipt on the caretaker's assignment, and only then `reached`. Made-up cards and words.
 
 const fake = fakeRuntime();
@@ -50,11 +50,11 @@ const CARD = {
 const WORDS = "Dre is my cousin Mina, not a stranger";
 const ENTRY_ID = /^entry_/;
 
-/** His complaint through Tell Life on card `name:dre`, under ask key `key`, the desk receiving every 100 ms meanwhile. */
+/** His complaint through Ask Life on card `name:dre`, under ask key `key`, the desk receiving every 100 ms meanwhile. */
 async function tell(key: string, { limitMs = 3000, report = false } = {}) {
   const timer = setInterval(() => receiveComplaints(desk), 100);
   try {
-    return await complainThroughTellLife(
+    return await complainThroughAskLife(
       WORDS,
       "name:dre",
       report,
@@ -304,7 +304,7 @@ test("a caretaker that finishes while a complaint it never handed waits gives it
   expect(await tell("key-5")).toEqual(b);
 });
 
-/** His complaint as Tell Life asks it, under key `key`, with nothing after it (no row, no receipt): as a crash leaves it. */
+/** His complaint as Ask Life asks it, under key `key`, with nothing after it (no row, no receipt): as a crash leaves it. */
 const askedOnly = (key: string) =>
   ask(
     { at: clock().toISOString(), quote: WORDS, ref: `complaint:${key}` },

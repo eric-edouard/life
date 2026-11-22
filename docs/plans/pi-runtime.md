@@ -38,24 +38,24 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Login environment | `readLoginEnv` less Anthropic's keys | the same `readLoginEnv`, plus the OpenRouter key Life's engine already uses (pi's `bash` inherits it, as it inherits every other key today) | on par |
 | Session titles | `--name` through `_meta` | `--name` at the first run, `set_session_name` after a rename | on par |
 | `isHeld`, a live process of the owner's | Claude's `~/.claude/sessions/<pid>.json`, then `pgrep` | the desk's own runs are in its `live` map; any other pi on the session is found by `pgrep -f "pi .*--session <id>"`. No app holds pi sessions open between turns, so wakes stop waiting on a forgotten window | better |
-| Link to open a session | `claude://…/local_<ref>` opens it in the Claude app; `handOff` lists it there | no app. Life's app shows the session read-only (decision 2, PR 6) | gap |
+| Link to open a session | `claude://…/local_<ref>` opens it in the Claude app; `handOff` lists it there | no app. Life's app shows the session read-only (decision 2): the agent's page's "Its session", `read_agent_session` (PR 6) | better |
 | Model per agent | `modelOf`: Claude's aliases | `--provider openrouter --model <slug>` per run, `set_model` mid-session; any OpenRouter model on the same ZDR routing | better |
 | Effort | Claude's effort config | `set_thinking_level` (DeepSeek's thinking through OpenRouter) | on par |
 | Usage and context (decision 83) | prompt reply's tokens (unstable ACP field) and `usage_update` context; spend is an `equivalent` at list price | each `message_end` carries input, output, cache read and write and its cost in dollars; `get_session_stats` gives the turn's context. Spend becomes `billed`, exact | better |
 | Subagents | the Task tool | none built in; pi's `examples/extensions/subagent/` spawns pi processes. Fix (PR 4b): a `subagent` tool running a child session in the same pi process through pi's SDK, on Life's extension as an object (no door, no connector), so the guard holds there too; its usage added to the turn | gap |
-| Web search and fetch | built-in WebSearch and WebFetch | none built in. Fix: two extension tools, `web_fetch` (Bun's fetch, a page as its text) (PR 4) and `web_search`, a setting over several providers, free first, then the Mac's own browser, then paid ones, each search's cost recorded (the owner's answer of 22 Nov 2026; its own PR); never OpenRouter's web plugin, which ZDR does not cover | gap |
+| Web search and fetch | built-in WebSearch and WebFetch | none built in. Fix: two extension tools, `web_fetch` (Bun's fetch, a page as its text) (PR 4) and `web_search`, Life's web search capability (`web-search/`: a contract, one file per provider), over Serper, Brave, then Perplexity's Search API, or his `desk.webSearch` order (SerpAPI opt-in; Bing through the Mac's headless browser dropped: it answers bots with wrong results), each paid search's price counted in the turn (the owner's word of 22 Nov 2026) (PR 4c); never OpenRouter's web plugin, which ZDR does not cover | gap |
 | Browser use | Claude in Chrome (a Claude feature) | Playwriter on the owner's Chrome, by shell and skill, as Codex agents do; the guard reads its command text like any shell call | on par |
 | Computer use | Claude's computer-use MCP | `agent-desktop` by shell; the guard's rule already names it | on par |
 | Images | pasted or read images | `images[]` on `prompt`; V4.1 Flash takes image input | on par |
 | Plan mode, to-do tool | plan mode (unused by the desk), TodoWrite | pi's `plan-mode` and `todo` example extensions; the desk needs neither | on par |
 | The Life plugin's hooks (a turn typed into an agent's session) | `session.start` looks up the door, `prompt.submit` adds the packet, `tool.call` asks `/guard` | the same three as one pi package (`session_start`, `input`, `tool_call`) for a pi the owner opens by hand; the desk's own runs load it with `-e` | on par |
-| Main session (Tell Life) | one ACP process kept warm 5 minutes, prompt per ask | one `pi --mode rpc` kept warm the same way; a second ask while one runs goes in as `steer` instead of being refused | better |
+| Main session (Ask Life) | one ACP process kept warm 5 minutes, prompt per ask | one `pi --mode rpc` kept warm the same way; a second ask while one runs goes in as `steer` instead of being refused | better |
 | Moving an agent (`hand_over`) | `moveToOf` picks "the other runtime" | with three runtimes that pick is wrong. Fix (PR 3): the one move offered goes to the desk's default, and from the default to the first other; `hand_over` already names its target | gap |
 | A second Life's agent (a demo) | Claude's `tools: []`, `strictMcpConfig`, door prefix approvals | `--no-builtin-tools --no-context-files --no-skills`, `--tools` limited to `mcp__desk__*`; no permission round trip to police | better |
 | Stopping a run | ACP `session/cancel`, then kill | RPC `abort`, then kill | on par |
 | Turn begun | first ACP answer update | first `message_update` | on par |
 
-Counted: 14 on par, 7 better, 8 gap. The PRs below close seven, the link included; the claude.ai connectors stay out of reach and the CLIs stand in for them.
+Counted: 14 on par, 8 better, 7 gap. The PRs below close seven, the link included; the claude.ai connectors stay out of reach and the CLIs stand in for them.
 
 ## 2. What owning the pipeline adds
 
@@ -84,7 +84,7 @@ Each item uses a hook or call pi documents today.
   implicitly.
 - A tool list per agent. `--tools` and `setActiveTools` give each role its own list: the caretaker without web
   tools, a demo agent with its door alone.
-- The owner's next words mid-turn. RPC `steer` and `follow_up` let Tell Life take a correction while the main
+- The owner's next words mid-turn. RPC `steer` and `follow_up` let Ask Life take a correction while the main
   session works.
 
 ## 3. Model and provider
@@ -197,7 +197,7 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 | 2 | `pi-runtime.ts` over RPC behind the one runtime (`session-runtime.ts`, split from ACP's), pi pinned and bundled, `pi` in `RuntimeName` and the phone's list, SECURITY.md's and AGENTS.md's lines (decision 3) | hard (strict path) |
 | 3 | the move offered goes to the desk's default runtime, from it to the first other (`moveTargetOf`; `hand_over` already takes any runtime); a pi turn's spending `billed` from OpenRouter's cost, kept in `turn.cost_usd` by its store step (`stepTurnCost`, the owner's yes of 22 Nov 2026) | hard (strict path: a store step) |
 | 4 | parity in the extension (`claude-hooks.ts`, `web-tools.ts`), his own Life only: his Claude `PreToolUse` hooks on each shell call, `web_fetch`, his global instructions (`CLAUDE.md`, imports followed) as the agent folder's `AGENTS.md` | standard |
-| 4c | `web_search` over the providers the owner's setting names, each search's cost recorded | standard |
+| 4c | `web_search` over Life's web search capability (`web-search/`), his chain a setting, each paid search's price counted in the turn | hard |
 | 4b | subagents (`pi-subagent.ts`, a child session under the same extension) and the connector's reads over stdio (`life connector-reads`) | hard |
 | 5 | folded into PR 2 | |
 | 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |

@@ -211,17 +211,17 @@ struct CheckActions: View {
         case .first: quiet = Array(options.dropFirst())
         case .create, .bank, .none: quiet = options
         }
-        return isOneRow((check.takesOwnWords ? [check.tellTitle] : []) + quiet.map(\.label))
+        return isOneRow((check.takesOwnWords ? [check.ownWordsTitle] : []) + quiet.map(\.label))
     }
 
     /// At most three answers: one row when they fit the width (`others`' `ViewThatFits` decides), never a count of
     /// words, so "Hand to an agent", "Not now", "Drop" collapse into one row as designed.
     private static func isOneRow(_ labels: [String]) -> Bool { labels.count <= 3 }
 
-    /// His own words, the first quiet answer on a question: "Tell the agent…", or "Tell Life…".
+    /// His own words, the first quiet answer on a question: "Tell the agent…", or "Ask Life…".
     private var tell: Choice? {
         guard check.takesOwnWords else { return nil }
-        return Choice(id: .ownWords, label: check.tellTitle) {
+        return Choice(id: .ownWords, label: check.ownWordsTitle) {
             input.option = nil
             input.isWritingOwnWords = true
         }

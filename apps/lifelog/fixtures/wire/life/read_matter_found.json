@@ -164,8 +164,9 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "agent",
           "id": "start",
-          "label": "Start",
+          "label": "Start an agent",
           "takes": null
         },
         {
@@ -174,8 +175,9 @@
           "takes": "note"
         },
         {
+          "icon": "no",
           "id": "dismiss",
-          "label": "No",
+          "label": "No agent",
           "takes": null
         }
       ],

@@ -119,6 +119,14 @@ public struct InboxOrder: Equatable, Sendable {
         let kept = checks.filter { $0.bulkKind == kind }
         return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom)
     }
+
+    /// Only the asks Ask Life named (`ShownList.refs`), in this order (what blocks first), with their own can-wait
+    /// heading; nil is the whole order. Unlike a kind, it may leave nothing: the list says so under its words.
+    public func cut(to cut: ShownList?) -> InboxOrder {
+        guard let cut else { return self }
+        let kept = checks.filter { cut.refs.contains($0.ref) }
+        return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom)
+    }
 }
 
 extension [Check] {
