@@ -30,6 +30,8 @@ final class LifeStore {
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
+    /// The pages of a matter's thread, by their ref (`<matter id>/thread`, then `…/before/<day>` paging back).
+    private(set) var thread: [String: ReadState<MatterThread>] = [:]
     /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
     private(set) var reach: [String: ReadState<ReachPage>] = [:]
     /// Every matter open with someone, by their ref: read on All once their `now` left some out.
@@ -346,6 +348,17 @@ final class LifeStore {
     /// Their `latest` pages read so far, from the first, paging back, and what comes next.
     func latestChain(of subject: String) -> PageChain<LatestPage> {
         PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
+    }
+
+    func refreshThread(_ ref: String) async {
+        await load({ self.thread[ref, default: ReadState()].apply($0) }, key: ref, isKept: ref.hasSuffix("/thread")) {
+            try await $0.readPart(ref)
+        }
+    }
+
+    /// A matter's thread pages read so far, the newest first, and what comes next (older).
+    func threadChain(of id: String) -> PageChain<MatterThread> {
+        PageChain(from: id + "/thread", states: thread, next: \.earlier)
     }
 
     func refreshOpenWith(_ ref: String) async {

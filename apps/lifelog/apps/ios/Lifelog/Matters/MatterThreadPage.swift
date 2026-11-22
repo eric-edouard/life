@@ -1,23 +1,24 @@
 import LifeConnector
 import SwiftUI
 
-/// The one phrase for what an open ask of a matter is, on the lead line and on the ask rows.
-private let needsYourAnswer = "Needs your answer"
-
-/// One matter in full: where it stands, his goal and next step (editable), the card waiting on him, the agent on it, who
-/// is in it, and its steps, newest first.
-struct MatterPage: View {
+/// A matter as a thread (navigation v3): its top (name, goal, people, where it stands), then what happened in time order,
+/// day by day (`ThreadLines`), then what waits on him, the newest ask last with its answers at the foot, an older one
+/// only its question until the newer is answered. Opens at the foot; older days come on "Earlier" without moving what
+/// he is reading.
+struct MatterThreadPage: View {
     let id: String
-    /// Settings beside the Pendant: on a regular width the list's bar has neither, so the page carries both.
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
+    /// What he typed and answered on the asks here, kept above them so a fold keeps both.
+    @State private var notes = CardNotes()
+    @State private var viewport: CGFloat = 0
 
     var body: some View {
         let state = life.matter[id] ?? ReadState()
         ReadScreen(
-            shown: state.shown(), stamp: state.stamp, retry: { await life.refreshMatter(id) },
-            // With its row on hand, what the row says shows at once; only its steps and asks wait for the read.
+            shown: state.shown(), stamp: state.stamp, retry: refresh,
+            // With its row on hand, what the row says shows at once; only its thread and asks wait for the read.
             loading: {
                 if let row = life.listedRow(of: id) { rowPage(row) } else { PagePlaceholder() }
             },
@@ -26,8 +27,6 @@ struct MatterPage: View {
         )
         .background(Palette.bg)
         .saysBack()
-        // Back on the left, his mark, then the Pendant on the right (and Settings when the list's bar has neither): the
-        // items of an outer toolbar come first.
         .shellBar("")
         .toolbar {
             if let row = state.value?.row {
@@ -39,7 +38,13 @@ struct MatterPage: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
         }
-        .task(id: life.answersEnded[id]) { await life.refreshMatter(id) }
+        .task(id: life.answersEnded[id]) { await refresh() }
+    }
+
+    private func refresh() async {
+        async let matter: Void = life.refreshMatter(id)
+        async let thread: Void = life.refreshThread(id + "/thread")
+        _ = await (matter, thread)
     }
 
     private func page(_ matter: Matter) -> some View {
@@ -50,55 +55,79 @@ struct MatterPage: View {
             matter.agents.first { $0.id == holder } ?? life.agents.value?.agents.first { $0.id == holder }
             ?? matter.agents.first
         let canStart = agent?.isOver ?? true
+        let asks = life.asks(ofMatter: id)
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
-                header(row, openSince: matter.steps.first?.at)
-                asks(life.asks(ofMatter: id))
-                if canStart { start(again: agent != nil) }
-                // One card: the goal and the agent on it (decision 98, the next-goal-agent card).
-                VStack(alignment: .leading, spacing: 0) {
-                    Goal(row: row).offWhileOutOfReach()
-                    if let agent {
-                        AgentRow(matter: matter, agent: agent) {
-                            router.open(agent: matter.holder?.agent.id ?? agent.id)
+            VStack(spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    header(row, isLifeOn: agent.map { !$0.isOver } ?? false)
+                    // One card: the goal and the agent on it (decision 98, the next-goal-agent card).
+                    VStack(alignment: .leading, spacing: 0) {
+                        Goal(row: row).offWhileOutOfReach()
+                        if let agent {
+                            AgentRow(matter: matter, agent: agent) {
+                                router.open(agent: matter.holder?.agent.id ?? agent.id)
+                            }
                         }
                     }
+                    .card()
+                    People(people: row.people)
+                    DoneButton(id: id).controlSize(.large).offWhileOutOfReach()
+                    if canStart { start(again: agent != nil) }
+                    if let line = matter.spendingLine { SpendingLine(text: line) }
+                    ThreadLines(chain: life.threadChain(of: id)) {
+                        if let ref = life.threadChain(of: id).toRead { Task { await life.refreshThread(ref) } }
+                    }
+                    // His next step, at the thread's end, while nothing asks him.
+                    if asks.isEmpty { NextStep(row: row).offWhileOutOfReach() }
                 }
-                .card()
-                People(people: row.people)
-                StepTimeline(steps: matter.steps).padding(.top, Metrics.Spacing.s)
-                if let line = matter.spendingLine { SpendingLine(text: line) }
+                .matterPageColumn()
+                asksBlock(asks)
             }
-            .matterPageColumn()
+            .frame(minHeight: viewport, alignment: .top)
         }
-        // Floating over the content, which runs to the screen's foot under the soft scroll edge (`RootView`).
-        .safeAreaBar(edge: .bottom) {
-            GlassEffectContainer(spacing: 8) {
-                DoneButton(id: id).controlSize(.large)
-                    .offWhileOutOfReach()
-            }
-            .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
-            .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
-        }
+        .defaultScrollAnchor(.bottom)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { viewport = $0 }
+        .safeAreaPadding(.bottom, 80)
     }
 
-    /// No agent holds it (or the last one ended): said once, and the one way to start one, a quiet pill
-    /// (`DuoFoldStart`); its answers stay "Mark as done" alone.
+    /// What waits on him, in the order asked: an older ask only as its question, the newest with its answers (the card
+    /// he knows). His answer shows on its button, then the next older one becomes the last.
+    @ViewBuilder private func asksBlock(_ asks: [Check]) -> some View {
+        let last = notes.taken?.check.ref ?? asks.last?.ref
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(asks.filter { $0.ref != last }, id: \.ref) { check in
+                OlderAsk(check: check)
+            }
+            if let last {
+                CardPage(ref: last, source: asks, notes: $notes, leave: forgetResult)
+                    .environment(\.isInThread, true)
+                    .frame(height: max(viewport * 0.62, 380))
+            }
+        }
+        .padding(.horizontal, 8)
+        .motion(Motion.standard, value: asks.map(\.ref))
+    }
+
+    /// The result he read is forgotten, so the next ask opens on its own question.
+    private func forgetResult() {
+        guard let taken = notes.taken else { return }
+        life.forget(taken.key)
+        notes.taken = nil
+    }
+
+    /// No Life on it (or the last work ended): said once, and the one way to start it, a quiet pill.
     private func start(again: Bool) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            if !again { Text("No agent holds this matter.").font(.small).foregroundStyle(Palette.muted) }
-            Button(again ? "Start again" : "Start an agent") { router.matterSheet = .start(id) }
-                .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
-                .offWhileOutOfReach()
-        }
+        Button(again ? "Let Life work on it again" : "Let Life work on it") { router.matterSheet = .start(id) }
+            .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+            .offWhileOutOfReach()
     }
 
-    /// The page as its list row draws it, before the matter's read: its steps and asks are placeholders, its goal and
-    /// next step not yet editable.
+    /// The page as its list row draws it, before the matter's read: its thread and asks are placeholders, its goal not
+    /// yet editable.
     private func rowPage(_ row: MatterRow) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                header(row, openSince: nil)
+                header(row, isLifeOn: false)
                 // Edited once the read lands: that face is a new view, which would not hold his words saved here.
                 Goal(row: row).disabled(true).card()
                 People(people: row.people)
@@ -108,63 +137,17 @@ struct MatterPage: View {
         }
     }
 
-    /// What waits on him here, under the name: each ask of this matter as a row that opens it; nothing when none waits.
-    @ViewBuilder private func asks(_ checks: [Check]) -> some View {
-        if !checks.isEmpty {
-            VStack(spacing: 0) {
-                ForEach(Array(checks.enumerated()), id: \.element.ref) { at, check in
-                    Button {
-                        router.matterPath.append(.card(check.ref, matter: id))
-                    } label: {
-                        HStack(spacing: Metrics.Spacing.m) {
-                            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                                // Said once, on the first; the others keep only their deadline.
-                                let line = [
-                                    at == 0 ? needsYourAnswer : nil, check.deadline.map { DeadlineWords.by($0) },
-                                ]
-                                .compactMap(\.self).joined(separator: " · ")
-                                if !line.isEmpty {
-                                    HStack(spacing: 6) {
-                                        StateDot(color: Palette.flag)
-                                        Text(line)
-                                    }
-                                    .font(.small).foregroundStyle(Palette.flag)
-                                }
-                                Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            RowValue()
-                        }
-                        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m).contentShape(
-                            .rect)
-                    }
-                    .buttonStyle(.groupedRow(at: at, of: checks.count))
-                }
-            }
-            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
-            .padding(.horizontal, -Metrics.gutter)
-        }
-    }
-
-    /// The name is the head; under it what he must do (one phrase), then its icon (a tap changes it), how long it has
-    /// been open (since its first step, once read), and its project, a link to its chip in the Projects tab (else its
-    /// areas).
-    private func header(_ row: MatterRow, openSince: Date?) -> some View {
-        let days = openSince.map { Calendar.current.dateComponents([.day], from: $0, to: .now).day ?? 0 }
+    /// The name is the head; under it its icon (a tap changes it) and its project, a link to its chip in the Projects
+    /// tab (else its areas), then what Life is doing.
+    private func header(_ row: MatterRow, isLifeOn: Bool) -> some View {
         let areas = row.project == nil ? (row.areas ?? []).joined(separator: ", ") : ""
-        let open =
-            ([days.map { "Open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self) + [areas].filter { !$0.isEmpty })
-            .joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader).stepsAsideForToast()
-            // What he must do, under the name, when no ask of it waits (the ask's card says that then).
-            if life.asks(ofMatter: id).isEmpty { NextStep(row: row).offWhileOutOfReach() }
             HStack(spacing: 6) {
                 MetaIconButton(symbol: row.symbol, label: "Change the icon") { router.matterSheet = .icon(id) }
-                HStack(spacing: 0) {
-                    Text(open + (row.project == nil || open.isEmpty ? "" : " · ")).font(.small)
-                        .foregroundStyle(Palette.muted).lineLimit(1)
+                HStack(spacing: Metrics.Spacing.s) {
+                    if !areas.isEmpty { Text(areas).font(.small).foregroundStyle(Palette.muted).lineLimit(1) }
                     if let project = row.project {
                         TextLink(project.name, to: .page) {
                             // A done project has no chip: its Details, then.
@@ -176,10 +159,27 @@ struct MatterPage: View {
                         }
                         .lineLimit(1).layoutPriority(1)
                     }
+                    if isLifeOn { Text("Life is on it").font(.smallStrong).foregroundStyle(Palette.ai) }
                 }
             }
         }
         .padding(.top, 8)
+    }
+}
+
+/// An ask that waits behind a newer one: its question, and why it cannot be answered yet.
+private struct OlderAsk: View {
+    let check: Check
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+            Text("Asked first · waits until you answer the newer one").font(.small).foregroundStyle(Palette.muted)
+            Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.passage))
+        .accessibilityElement(children: .combine)
     }
 }
 

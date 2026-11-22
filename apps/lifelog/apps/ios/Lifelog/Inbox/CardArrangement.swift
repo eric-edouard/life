@@ -48,6 +48,8 @@ struct CardArrangement<Region: View, Bar: View>: View {
 extension EnvironmentValues {
     /// The card's context shows in a region of its own beside or below the card, so the card leaves out its "Why" row.
     @Entry var isContextBeside = false
+    /// The card stands in its matter's thread (navigation v3): its matter pill goes, the thread is the matter.
+    @Entry var isInThread = false
 }
 
 /// The answers at the bottom of a region: the card's, unless the regions are stacked, then the lower one's, the bottom of
