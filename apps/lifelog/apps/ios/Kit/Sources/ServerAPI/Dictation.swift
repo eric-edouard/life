@@ -65,7 +65,7 @@ public final class Dictation {
     }
 
     /// Words that came back, once each: the field puts them at its caret, then sends when the run was paused by a
-    /// swipe up (a field with a Send).
+    /// Send (the field's Send, or a hold slid up from its microphone).
     public struct Landed: Equatable {
         public let id = UUID()
         public let words: String
@@ -89,6 +89,8 @@ public final class Dictation {
     public private(set) var sampledAt = Date.now
     public private(set) var runStarted = Date.now
     public private(set) var isRefused: Bool
+    /// Whether this run sends once its words land (stopped by Send, or a slide up from the microphone).
+    public private(set) var isSending = false
 
     /// Opens the microphone, asking for it the first time; the field sets it once its environment is known.
     public var begin: Begin
@@ -101,7 +103,6 @@ public final class Dictation {
     private var opened: DictationRun?
     private var sampling: Task<Void, Never>?
     private var writing: Task<Void, Never>?
-    private var sendsWhenLanded = false
 
     /// `words` asks the Mac once; `refused` reads whether the microphone was refused.
     public init(
@@ -125,7 +126,7 @@ public final class Dictation {
         guard phase == .rest else { return }
         run += 1
         let current = run
-        (problem, levels, runStarted, sampledAt, isRefused) = (nil, [], .now, .now, refused())
+        (problem, levels, runStarted, sampledAt, isRefused, isSending) = (nil, [], .now, .now, refused(), false)
         guard !isRefused else {
             problem = .refused
             return
@@ -151,7 +152,7 @@ public final class Dictation {
             } catch {
                 guard run == current else { return }
                 isRefused = refused()
-                (problem, phase) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest)
+                (problem, phase, isSending) = ((error as? StartFailure).map(Problem.init) ?? .notStarted, .rest, false)
             }
         }
     }
@@ -186,10 +187,11 @@ public final class Dictation {
         }
     }
 
-    /// A swipe up from the microphone where the field has a Send: pause, and its words land with `sends`.
-    public func swipeUp() {
+    /// Send while a run is under way (the field's Send, or a slide up from the microphone): stop, and its words land
+    /// with `sends`.
+    public func send() {
         guard phase == .starting || phase == .listening else { return }
-        sendsWhenLanded = true
+        isSending = true
         pause()
     }
 
@@ -203,7 +205,7 @@ public final class Dictation {
         // the writing task took, there.
         starting?.cancel()
         if let opened { Task { _ = try? await opened.finish() } }
-        (starting, opened, phase, sendsWhenLanded) = (nil, nil, .rest, false)
+        (starting, opened, phase, isSending) = (nil, nil, .rest, false)
     }
 
     /// The problem line's link.
@@ -234,7 +236,7 @@ public final class Dictation {
     }
 
     private func land(_ words: String) {
-        (phase, landed, sendsWhenLanded) = (.rest, Landed(words: words, sends: sendsWhenLanded), false)
+        (phase, landed, isSending) = (.rest, Landed(words: words, sends: isSending), false)
     }
 
     private struct TimedOut: Error {}
@@ -264,7 +266,7 @@ public final class Dictation {
     }
 
     private func fail(_ problem: Problem) {
-        (self.problem, phase, sendsWhenLanded) = (problem, .rest, false)
+        (self.problem, phase, isSending) = (problem, .rest, false)
     }
 
     /// The run's loudness every 60 ms, one bar each (`bar`).

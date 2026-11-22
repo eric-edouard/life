@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Ask Life, full screen: one place to say anything to Life from any screen. His last words sit as a caption, the stage
 /// shows the present (never a history), and the foot is the composer: his words in a capsule, the one microphone
-/// (`DictationField`: tap, or hold, to talk) and Send, or a swipe up from the microphone. Not a live conversation:
+/// (`DictationField`: tap, or hold, to talk) and Send, or a hold slid up from the microphone. Not a live conversation:
 /// he records, then sends.
 struct AskLifeScreen: View {
     @Environment(AppRouter.self) private var router
@@ -100,7 +100,7 @@ struct AskLifeScreen: View {
             AskLifeAnswerView(answer: answer, again: again, open: open, tell: say)
         } else {
             AskLifeLightLine(kind: .ready)
-            note("Tap or hold the microphone. Swipe up from it, or tap Send.")
+            note("Tap or hold the microphone to talk, then Send.")
         }
     }
 

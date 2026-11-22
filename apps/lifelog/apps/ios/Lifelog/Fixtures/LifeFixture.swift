@@ -41,6 +41,8 @@
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
+        /// `-fixtureDictation <state>`: every dictation field in that state (`DictationFixture`).
+        nonisolated static let dictation = value(of: "-fixtureDictation")
         /// `-fixtureReads <folder>`: where the design data is read, by default this checkout's
         /// `apps/lifelog/fixtures/design/` (`FixtureAPI`).
         nonisolated static let reads =

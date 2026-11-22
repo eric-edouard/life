@@ -1,11 +1,18 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { log } from "../../core/log";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
+import type { ClaudeHookGroup } from "./claude-hooks";
 import type { Agent, RunEnd, Runtime, Update, Usage } from "./contract";
 import {
   PI_EXTENSION_COMMAND,
@@ -28,8 +35,9 @@ import {
 // turn, with Life's extension (`pi-extension.ts`: the send guard inside pi, the door, Life's provider). Its sessions are
 // pi's JSONL files under the desk's own folder, its settings an agent folder of Life's: nothing is written into `~/.pi`.
 // The model is the memory's OpenRouter route on its hosts that keep nothing (`piRouteOf`), with Life's key. An agent of
-// his own Life gets his login environment less the OpenRouter key, his context files and his skills; a second Life's
-// gets none of them and no built-in tool: its door alone.
+// his own Life gets his login environment less the OpenRouter key, his context files, his skills, his global Claude
+// instructions (imports followed) as the agent folder's `AGENTS.md`, his Claude hooks and the web tools; a second
+// Life's gets none of them and no built-in tool: its door alone.
 
 /** pi's command line, as the app bundles it (`scripts/helper.ts`). */
 export const PI_CLI = join(
@@ -63,6 +71,8 @@ const PI_MODEL_WORD = "flash";
 
 /** Where pi keeps the desk's sessions and settings, the provider it asks, and the effort an agent naming none thinks at. */
 export interface PiPlace {
+  /** His Claude folder: his instructions and hooks, for his own Life. */
+  claude: string;
   dir: string;
   effort?: string;
   provider: PiProvider;
@@ -100,7 +110,7 @@ export interface PiRow extends SessionRow {
 }
 
 /** The settings of Life's agent folder for pi, written whole at each spawn. */
-const settingsOf = (isOwn: boolean) => ({
+const settingsOf = (claude: string | undefined) => ({
   // A repo's own `.pi` never loads (the extension refuses it too): it could rewrite a request.
   defaultProjectTrust: "never",
   extensions: [
@@ -110,8 +120,58 @@ const settingsOf = (isOwn: boolean) => ({
   ],
   quietStartup: true,
   // His skills where Claude Code reads them, beside `~/.agents/skills`, which pi reads itself.
-  skills: isOwn ? [join(HOME, ".claude", "skills")] : [],
+  skills: claude ? [join(claude, "skills")] : [],
 });
+
+/** His Claude folder, where Claude Code reads his instructions and hooks (a test passes its own). */
+const CLAUDE_HOME = join(HOME, ".claude");
+
+/** A file's text, or none when it is not there. */
+const readTextIfThere = (path: string) => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    // not there: none
+  }
+};
+
+/** How deep `@` imports are followed, as Claude Code follows them. */
+const IMPORT_DEPTH = 5;
+/** A line that is an `@` import: the path it names. */
+const IMPORT_LINE = /^@(\S+)$/;
+
+/** `file`'s text, each line that is an `@` import replaced by the file it names (from `file`'s folder, `~/` from home). */
+function readWithImports(file: string, depth: number): string | undefined {
+  return readTextIfThere(file)
+    ?.split("\n")
+    .map((l) => {
+      const at = IMPORT_LINE.exec(l.trim())?.[1];
+      if (!at || depth === 0) {
+        return l;
+      }
+      const path = at.startsWith("~/")
+        ? join(HOME, at.slice(2))
+        : resolve(dirname(file), at);
+      return readWithImports(path, depth - 1) ?? l;
+    })
+    .join("\n");
+}
+
+/** His global instructions as Claude Code reads them (`<claude>/CLAUDE.md`, imports followed): pi follows no import. */
+export const readClaudeInstructions = (claude: string) =>
+  readWithImports(join(claude, "CLAUDE.md"), IMPORT_DEPTH);
+
+/** His Claude `PreToolUse` hooks (`<claude>/settings.json`), for the extension to run on each shell call. */
+export const readClaudeHooks = (claude: string): ClaudeHookGroup[] => {
+  try {
+    return (
+      JSON.parse(readTextIfThere(join(claude, "settings.json")) ?? "{}").hooks
+        ?.PreToolUse ?? []
+    );
+  } catch {
+    return [];
+  }
+};
 
 /** The session file of `ref` under `sessions`, if pi wrote one (`<time>_<ref>.jsonl`). */
 const sessionFileOf = (sessions: string, ref: string) => {
@@ -130,6 +190,7 @@ const sessionFileOf = (sessions: string, ref: string) => {
 export function piRowOf(
   isOwn = isOwnLife(),
   place: PiPlace = {
+    claude: CLAUDE_HOME,
     dir: join(LIFE_STATE_DIR, "desk", "pi"),
     effort: piRouteOf().effort,
     provider: lifeProviderOf(),
@@ -188,8 +249,17 @@ export function piRowOf(
       mkdirSync(agentDir, { recursive: true });
       writeFileSync(
         join(agentDir, "settings.json"),
-        JSON.stringify(settingsOf(isOwn))
+        JSON.stringify(settingsOf(isOwn ? place.claude : undefined))
       );
+      // His global instructions, as his Claude sessions read them; a second Life's agent reads none.
+      const instructions = isOwn
+        ? readClaudeInstructions(place.claude)
+        : undefined;
+      if (instructions) {
+        writeFileSync(join(agentDir, "AGENTS.md"), instructions);
+      } else {
+        rmSync(join(agentDir, "AGENTS.md"), { force: true });
+      }
       return {
         command: [
           process.execPath,
@@ -225,6 +295,14 @@ export function piRowOf(
           [PI_EXTENSION_ENV.doorKey]: a.door.key,
           [PI_EXTENSION_ENV.doorUrl]: a.door.url,
           [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
+          ...(isOwn
+            ? {
+                [PI_EXTENSION_ENV.hooks]: JSON.stringify(
+                  readClaudeHooks(place.claude)
+                ),
+                [PI_EXTENSION_ENV.own]: "1",
+              }
+            : {}),
           [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
           [PI_EXTENSION_ENV.provider]: JSON.stringify(place.provider),
         },
@@ -366,10 +444,10 @@ const openOf =
     const send = (line: object) =>
       child.stdin.write(`${JSON.stringify(line)}\n`);
     const ask = (line: { message?: string; type: string }) =>
-      new Promise<PiLine>((resolve) => {
+      new Promise<PiLine>((answer) => {
         asked += 1;
         const id = `life-${asked}`;
-        answers.set(id, resolve);
+        answers.set(id, answer);
         send({ ...line, id });
       });
     const settle = (e: RunEnd) => {
