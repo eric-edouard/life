@@ -90,7 +90,7 @@ import {
   samePersonPairsOf,
 } from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
-import { withVoiceGuesses } from "./voice-guesses";
+import { withConversations, withVoiceGuesses } from "./voice-guesses";
 import { readPeople, readUnresolvedPeople } from "./who";
 import { readPlaces, yourMoveChecksOf, yourMoveStepsOf } from "./your-move";
 import { dayNow } from "./zones";
@@ -447,9 +447,14 @@ const checksKeyOf = (
 export async function checksAndKeyNow(held: HeldRead | null) {
   const queue = await readNamingQueue();
   // Guesses that cannot be read leave the cards as lifelog suggests; the answer reads them again and refuses then.
-  const voices = await withVoiceGuesses(queue).catch((e) => {
+  const guessed = await withVoiceGuesses(queue).catch((e) => {
     log("run.error", { ...errorOf(e), step: "voice.guesses" });
     return queue;
+  });
+  // Conversations that cannot be read leave the clips unnamed, never the guesses.
+  const voices = await withConversations(guessed).catch((e) => {
+    log("run.error", { ...errorOf(e), step: "voice.conversations" });
+    return guessed;
   });
   const all = decisionsNow();
   // Each open card as its holder's, read from this one list (`HeldRead.cardHolders`).

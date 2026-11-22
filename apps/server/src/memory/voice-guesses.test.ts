@@ -16,8 +16,10 @@ import {
 import { READ_REPLIES } from "./memory-files";
 import { READS, storeReply } from "./read-replies";
 import type { Truth } from "./read-truth";
+import { voiceUnitId } from "./unit-ids";
 import { type Built, lifelogUnits, unnamedTurnKey } from "./units";
 import {
+  conversationOf,
   voiceGuessesNow,
   withGuessesShown,
   withVoiceGuesses,
@@ -380,4 +382,40 @@ test("a voice card asks about the one person the group's sure or likely guesses 
   } finally {
     rmSync(folder, { force: true, recursive: true });
   }
+});
+
+// His ask of 22 Nov: a voice's clip names the conversation it was heard in (the test zones: Lagos, UTC+1).
+test("a clip's conversation is the narrowest episode holding its recording's unit and its time, none before the night reads it", () => {
+  const voices = [{ conversationId: "c1", jobId: "job-1" }];
+  const clip = (jobId: string, when = "2026-10-30T12:00:00.000Z") => ({
+    at: when,
+    audio: { jobId },
+  });
+  const unit = voiceUnitId("c1", "2026-10-30");
+  const episode = (
+    title: string,
+    start: string,
+    end: string,
+    units = [unit]
+  ) => ({
+    end,
+    start,
+    title,
+    units,
+  });
+  const episodes = [
+    episode("Day in town", "2026-10-30 08:00", "2026-10-30 23:00"),
+    episode("Lunch with Ana", "2026-10-30 12:30", "2026-10-30 14:00"),
+    episode("Messages with Kofi", "2026-10-30 12:50", "2026-10-30 13:10", [
+      "unit_other",
+    ]),
+  ];
+  expect(conversationOf(episodes, voices, clip("job-1"))).toBe(
+    "Lunch with Ana"
+  );
+  expect(
+    conversationOf(episodes, voices, clip("job-1", "2026-10-30T20:00:00.000Z"))
+  ).toBe("Day in town");
+  expect(conversationOf(episodes, voices, clip("job-2"))).toBeNull();
+  expect(conversationOf([], voices, clip("job-1"))).toBeNull();
 });
