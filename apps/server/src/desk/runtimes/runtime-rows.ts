@@ -260,23 +260,18 @@ const transcriptOf = (ref: string) => {
 };
 
 /**
- * Opens session `ref` in the Claude app, so its link works: once no process runs it (the CLI refuses while one does),
- * under a pseudo-terminal (it refuses without one). It lists the session in the app; a process the app keeps for it
- * holds the next wake (`isHeld`).
+ * Lists session `ref` in his Claude app (`desk.claudeApp`), so its link works: the app's own import of a CLI session
+ * (`claude://resume`), which starts no process (the coordinator's finding of 22 Nov 2026: the app keeps a process only
+ * once he opens it there, which then holds the next wake, `isHeld`).
  */
 async function handOff(a: Agent, ref: string) {
-  const r = await exec(
-    [
-      "script",
-      "-q",
-      "/dev/null",
-      readProgram("claude"),
-      "--desktop",
-      "--resume",
-      ref,
-    ],
-    { cwd: a.folder, timeout: 30_000 }
-  );
+  const r = await exec([
+    "open",
+    "-g",
+    "-a",
+    settings().desk?.claudeApp ?? "/Applications/Claude.app",
+    `claude://resume?session=${ref}`,
+  ]);
   if (r.code !== 0) {
     log("desk.runtime", {
       agent: a.id,

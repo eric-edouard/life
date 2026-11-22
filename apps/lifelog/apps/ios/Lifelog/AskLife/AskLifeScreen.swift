@@ -10,6 +10,8 @@ struct AskLifeScreen: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
     @State private var draft = ""
+    /// The card an answer's chip points at is no longer open: said in place, the screen stays.
+    @State private var isCardGone = false
 
     private var tell: AskLife { life.askLife }
 
@@ -49,6 +51,8 @@ struct AskLifeScreen: View {
         .gesture(DragGesture().onEnded { if $0.translation.height > 120 { makeSmall() } })
         .motion(Motion.standard, value: tell.stage)
         .motion(Motion.standard, value: tell.answer)
+        .motion(Motion.standard, value: isCardGone)
+        .onChange(of: tell.answer) { isCardGone = false }
         // The session is kept warm while the screen stays open, so his first words start at once.
         .task {
             while !Task.isCancelled {
@@ -98,6 +102,7 @@ struct AskLifeScreen: View {
     @ViewBuilder private var answer: some View {
         if let answer = tell.answer {
             AskLifeAnswerView(answer: answer, again: again, open: open, tell: say)
+            if isCardGone { StateMark(glyph: .flag, word: "That ask is no longer open") }
         } else {
             AskLifeLightLine(kind: .ready)
             note("Tap or hold the microphone to talk, then Send.")
@@ -110,15 +115,18 @@ struct AskLifeScreen: View {
 
     /// What an answer's chip points at, by ref: a person or an organization, a card in the Inbox, else a matter.
     private func open(_ ref: String) {
-        router.isAskLifeOpen = false
-        if ref.hasPrefix("person:") {
-            router.open(party: ref)
-        } else if ref.hasPrefix("dec_") {
-            router.tab = .inbox
-            Task { await life.open(ref: ref) }
-        } else {
-            router.open(matter: ref)
+        isCardGone = false
+        if ref.hasPrefix("dec_") {
+            // A card that is gone keeps Ask Life open and says so.
+            Task {
+                guard await life.open(ref: ref) else { return isCardGone = true }
+                router.isAskLifeOpen = false
+                router.tab = .inbox
+            }
+            return
         }
+        router.isAskLifeOpen = false
+        if ref.hasPrefix("person:") { router.open(party: ref) } else { router.open(matter: ref) }
     }
 
     private func head(_ words: String) -> some View { AskLifeHead(words: words) }

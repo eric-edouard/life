@@ -39,6 +39,10 @@
         /// `-fixtureAgent notStarted|running|pi`: Nora's agent never began (its runtime refused), for the Try again swap, or
         /// works; or the lease's agent runs on pi.
         nonisolated static let agent = value(of: "-fixtureAgent")
+        /// `-fixtureRefuse <control>`: that control's write fails, or its card is gone (tap feedback's failures):
+        /// `agentStop`, `agentResume`, `icon`, `movesAnswer`, `tellCard`, `projectsRetry` (`projectsRetryOnce`: only its first read fails).
+        nonisolated static let refuse = value(of: "-fixtureRefuse")
+        nonisolated static func refuses(_ control: String) -> Bool { isRequested && refuse == control }
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
         /// `-fixturePage life|server|diagnostics|apps`: Settings opens that page.
         nonisolated static let page = value(of: "-fixturePage")
@@ -126,6 +130,9 @@
         let scenario: String
         private let answered = Mutex(Set<String>())
         private let started = Mutex(false)
+        private let projectReads = Mutex(0)
+        /// An agent's status after his Stop or Resume here, by id, over the design data's.
+        private let agentStatuses = Mutex([String: String]())
         private let wholeReads = Mutex(0)
         /// His marks and the projects' statuses as he set them here, over the design data.
         private let marks = Mutex(LifeFixture.unmarked.map { [$0: false] } ?? [String: Bool]())
@@ -192,6 +199,14 @@
         /// no project; then the parked or done projects. Worked out from the rows, as the server does from its matters.
         func readProjects(ifNot: String?) async throws -> String {
             try await gate()
+            // `projectsRetry`: never readable; `projectsRetryOnce`: only the first read fails, so Retry works.
+            let reads = projectReads.withLock { n -> Int in
+                n += 1
+                return n
+            }
+            if LifeFixture.refuses("projectsRetry") || (LifeFixture.refuses("projectsRetryOnce") && reads == 1) {
+                throw MCPError.failed("Life answered 502 from its proxy.")
+            }
             let rows = rowsNow()
             func chip(_ kind: String, _ id: String, _ name: String, _ of: [[String: Any]]) -> [String: Any] {
                 [
@@ -251,7 +266,7 @@
             let agents: [[String: Any]] =
                 !isUnderway
                 ? []
-                : Self.allAgents.filter(onIt).map { (agent: [String: Any]) -> [String: Any] in
+                : agentsNow().filter(onIt).map { (agent: [String: Any]) -> [String: Any] in
                     let line: Any = (agent["wait"] as? [String: Any])?["reason"] ?? agent["title"] ?? ""
                     return agent.filter { ["id", "title", "status"].contains($0.key) }.merging(["line": line]) { $1 }
                 }
@@ -372,7 +387,7 @@
             // The table's agent exists only once he started one; every open check about it, of every kind.
             let isStarted = started.withLock { $0 }
             var matter = DesignReplies.matter(
-                row, agents: Self.allAgents.filter { $0["id"] as? String != "agt_table" || isStarted },
+                row, agents: agentsNow().filter { $0["id"] as? String != "agt_table" || isStarted },
                 steps: Self.matterRead["steps"] as? [String: Any] ?? [:], checks: checksNow())
             if id == "matter_table", isStarted { matter["agent"] = "agt_table" }
             // Nora's page stays short, so the agent's row shows above the fold.
@@ -455,7 +470,23 @@
                 \.element)
         }
 
-        func agents() -> String { json(Self.registered) }
+        func agents() -> String {
+            json(
+                Self.registered.merging(["agents": withStatuses(Self.registered["agents"] as? [[String: Any]] ?? [])]) {
+                    $1
+                })
+        }
+
+        /// Every agent as his Stop or Resume left it.
+        private func agentsNow() -> [[String: Any]] { withStatuses(Self.allAgents) }
+
+        private func withStatuses(_ agents: [[String: Any]]) -> [[String: Any]] {
+            let statuses = agentStatuses.withLock { $0 }
+            return agents.map { agent in
+                guard let status = statuses[agent["id"] as? String ?? ""] else { return agent }
+                return agent.merging(["status": status]) { $1 }
+            }
+        }
 
         // MARK: Actions
 
@@ -500,7 +531,9 @@
                     try await Task.sleep(for: .seconds(3_600))
                 }
                 if draft != nil, step == "confirmed", Self.refused.contains(LifeFixture.answer) { break }
-                if draft == nil, LifeFixture.answer == "failed" { throw MCPError.refused("Your Mac did not take it.") }
+                if draft == nil, LifeFixture.answer == "failed" || LifeFixture.refuses("movesAnswer") {
+                    throw MCPError.refused("Your Mac did not take it.")
+                }
                 if draft == nil, LifeFixture.answer == "sending" { try await Task.sleep(for: .seconds(3_600)) }
                 onProgress(message(["step": step, "at": at(18, 14, 3)]))
             }
@@ -552,6 +585,12 @@
         {
             try await gate()
             guard change.action == .start else {
+                if LifeFixture.refuses(change.action == .stop ? "agentStop" : "agentResume") {
+                    throw MCPError.refused("The desk could not reach the agent. Nothing changed.")
+                }
+                if let agent = change.agent {
+                    agentStatuses.withLock { $0[agent] = change.action == .stop ? "stopped" : "waiting" }
+                }
                 return json(["action": change.action.rawValue, "state": "done", "agent": change.agent ?? ""])
             }
             onProgress(message(["plan": ["desk_accepted", "session_open", "turn_begun"], "limitSeconds": 15]))
@@ -587,6 +626,7 @@
             try await gate()
             onProgress(message(["plan": ["recorded"], "limitSeconds": 5]))
             try await Task.sleep(for: .milliseconds(500))
+            if LifeFixture.refuses("icon") { throw MCPError.refused("Life could not save the icon. Nothing changed.") }
             icons.withLock { $0[matter] = .some(icon) }
             return "Done: memory."
         }
@@ -658,6 +698,11 @@
             try await Task.sleep(for: .milliseconds(600))
             onProgress(Data(#"{"kind":"words","text":"The card asks you to confirm "}"#.utf8))
             onProgress(Data(#"{"kind":"words","text":"Friday morning."}"#.utf8))
+            // Words that ask for "the card" are answered with a chip to it: the pay card, or (`tellCard`) one that is gone.
+            if words?.localizedCaseInsensitiveContains("card") == true {
+                let card = LifeFixture.refuses("tellCard") ? "dec_gone" : "dec_pay"
+                return json(["kind": "card", "words": "Here is the card.", "card": card])
+            }
             return #"{"kind":"reply","words":"The card asks you to confirm Friday morning."}"#
         }
 

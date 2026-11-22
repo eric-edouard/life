@@ -224,7 +224,7 @@ struct CheckCard: View {
             .motion(Motion.standard, value: life.isCheckingPush)
             CheckActions(
                 check: check, input: $input, isBusy: isBusy, answer: answer, sameAs: sameAs, create: create,
-                wrong: wrong, pressed: pressed
+                wrong: wrong, runtimeName: runtimeName, pressed: pressed
             )
         }
         .padding(.bottom, Metrics.Spacing.s)
