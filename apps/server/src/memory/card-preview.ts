@@ -12,11 +12,12 @@ import { needLineOf } from "./needs";
 
 /** The card's preview, refused in place of its ask until the asker repeats it with `digest` (`askCard`). */
 export class CardPreview extends Error {
-  constructor(
-    readonly preview: string,
-    readonly digest: string
-  ) {
+  readonly preview: string;
+  readonly digest: string;
+  constructor(preview: string, digest: string) {
     super(`Not asked yet: ${preview}`);
+    this.preview = preview;
+    this.digest = digest;
   }
 }
 

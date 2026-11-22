@@ -84,6 +84,9 @@ async function call(id: string, key: string, name: string, args: object) {
   return { result, status: res.status, text: result?.content[0]?.text };
 }
 
+const DIGEST = /^[0-9a-f]{12}$/;
+const DECISION_ID = /^dec_/;
+
 /** A card asked as an agent asks it: its preview first, then the same card with the preview's digest. */
 async function askCard(id: string, key: string, card: object) {
   const preview = await call(id, key, "request_decision", card);
@@ -173,7 +176,7 @@ test("an agent's card comes back as its preview, asked only when repeated unchan
   const first = await call(id, key, "request_decision", card);
   const shown = JSON.parse(first.text ?? "{}");
   expect(shown.asked).toBe(false);
-  expect(shown.previewed).toMatch(/^[0-9a-f]{12}$/);
+  expect(shown.previewed).toMatch(DIGEST);
   expect(shown.preview).toContain("Card: Test: bake the cake?");
   expect(shown.preview).toContain("[Tell the agent…]");
   expect(shown.preview).toContain("Before any card, read it as he will");
@@ -188,7 +191,7 @@ test("an agent's card comes back as its preview, asked only when repeated unchan
     ...card,
     previewed: shown.previewed,
   });
-  expect(JSON.parse(done.text ?? "{}").id).toMatch(/^dec_/);
+  expect(JSON.parse(done.text ?? "{}").id).toMatch(DECISION_ID);
 });
 
 test("a new agent waits or finishes only once it asked its plan", async () => {
