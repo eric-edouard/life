@@ -35,10 +35,15 @@ import Testing
         .planned(["recorded"], limitSeconds: 30, at: start), to: key, begunIn: 0, at: start.addingTimeInterval(9))
     _ = book.apply(
         .passed("connection_retry", at: start, detail: [:]), to: key, begunIn: 0, at: start.addingTimeInterval(12))
-    #expect(!book.endIfSilent(key, at: start.addingTimeInterval(28)))
-    #expect(book.endIfSilent(key, at: start.addingTimeInterval(29)))
-    guard case .failed(let failure, _)? = book[key] else { return #expect(Bool(false)) }
+    let early = book.endIfSilent(key, at: start.addingTimeInterval(28))
+    let due = book.endIfSilent(key, at: start.addingTimeInterval(29))
+    #expect(!early && due)
+    guard case .failed(let failure, _)? = book[key] else {
+        Issue.record("not ended")
+        return
+    }
     #expect(failure.reason == MacSilence.noAnswer && failure.canTryAgain && failure.isSameTap)
     #expect(book.silence(of: key, at: start.addingTimeInterval(40)) == nil)
-    #expect(!book.endIfSilent(key, at: start.addingTimeInterval(40)))
+    let again = book.endIfSilent(key, at: start.addingTimeInterval(40))
+    #expect(!again)
 }

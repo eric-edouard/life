@@ -54,7 +54,7 @@ private func mark(
 @Test func theAgentsTroubleShowsOnlyWhenTheReadIsWell() {
     #expect(mark(agents: .notRunning) == .agents(.notRunning))
     #expect(mark(reading: true, agents: .notRunning) == .updating)
-    #expect(mark(now: late, agents: .notRunning) == .old(since: read))
+    #expect(mark(agents: .notRunning, now: late) == .old(since: read))
 }
 
 /// The registered agents with the desk, its helper and the first agent's status and amber set.
