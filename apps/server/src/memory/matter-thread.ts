@@ -67,6 +67,19 @@ const LINE_CHARS = 1000;
 const byAt = (a: { at: string }, b: { at: string }) =>
   Date.parse(a.at) - Date.parse(b.at);
 
+/** A step that is no observation as its line: an episode as a moment, a to-do item, a ledger line as Life's step. */
+function stepLineOf(
+  s: MatterStepNow,
+  episodeOf: (id: string) => Episode | undefined
+): Planned[] {
+  if (s.kind === "ledger" || s.kind === "todo_item") {
+    const kind = s.kind === "ledger" ? "life" : "todo_item";
+    return [{ at: s.at, day: s.day, kind, ref: s.ref, text: s.text }];
+  }
+  const episode = episodeOf(s.ref);
+  return episode ? [{ at: s.at, day: s.day, episode, kind: "moment" }] : [];
+}
+
 /**
  * A matter's steps as the lines they stand for, in time order: an observation as the line it cites (facts citing one
  * line make one), an episode as a moment, a to-do item, a ledger line (Life's step), and an appointment read from its
@@ -81,54 +94,42 @@ export function threadPlanOf(
     "id" | "observations" | "start" | "title"
   >[]
 ): Planned[] {
-  const cited = new Map<string, Planned & { kind: "cited" }>();
-  const planned: Planned[] = [];
-  for (const s of steps) {
-    if (s.kind === "episode") {
-      const episode = episodeOf(s.ref);
-      if (episode) {
-        planned.push({ at: s.at, day: s.day, episode, kind: "moment" });
-      }
-    } else if (s.kind === "ledger" || s.kind === "todo_item") {
-      planned.push({
-        at: s.at,
-        day: s.day,
-        kind: s.kind === "ledger" ? "life" : "todo_item",
-        ref: s.ref,
-        text: s.text,
-      });
-    } else {
-      const o = observationOf(s.ref);
-      const key = o && `${o.source.channel}|${o.source.ref}`;
-      if (o && key) {
-        const line = cited.get(key);
-        if (line) {
-          line.facts.push(s.ref);
-        } else {
-          cited.set(key, {
-            at: o.at,
-            cites: o,
-            day: o.date,
-            facts: [s.ref],
-            kind: "cited",
-          });
-        }
-      }
-    }
-  }
-  const factAt = new Map(
-    [...cited.values()].flatMap((c) => c.facts.map((f) => [f, c] as const))
+  const isRecord = (s: MatterStepNow) =>
+    ["episode", "ledger", "todo_item"].includes(s.kind);
+  const facts = steps.flatMap((s) => {
+    const o = isRecord(s) ? undefined : observationOf(s.ref);
+    return o ? [{ o, ref: s.ref }] : [];
+  });
+  const cited = [
+    ...Map.groupBy(facts, (f) => `${f.o.source.channel}|${f.o.source.ref}`),
+  ].map(([, group]) => {
+    // A group holds one fact at least.
+    const { o } = group[0] as (typeof group)[number];
+    return {
+      at: o.at,
+      cites: o,
+      day: o.date,
+      facts: group.map((f) => f.ref),
+      kind: "cited" as const,
+    };
+  });
+  const lineOfFact = new Map(
+    cited.flatMap((c) => c.facts.map((f) => [f, c] as const))
   );
-  for (const a of appointments) {
-    const at = a.observations
-      .flatMap((f) => factAt.get(f) ?? [])
+  const events = appointments.flatMap((a): Planned[] => {
+    const newest = a.observations
+      .flatMap((f) => lineOfFact.get(f) ?? [])
       .toSorted(byAt)
       .at(-1);
-    if (at) {
-      planned.push({ appointment: a, at: at.at, day: at.day, kind: "event" });
-    }
-  }
-  return [...cited.values(), ...planned].toSorted(byAt);
+    return newest
+      ? [{ appointment: a, at: newest.at, day: newest.day, kind: "event" }]
+      : [];
+  });
+  return [
+    ...cited,
+    ...steps.flatMap((s) => (isRecord(s) ? stepLineOf(s, episodeOf) : [])),
+    ...events,
+  ].toSorted(byAt);
 }
 
 /** The cited line as its source shows it: the message (or call) its facts cite, opened by its id; a recording's turn, or a line Life cannot open now, as the facts quote it. */
