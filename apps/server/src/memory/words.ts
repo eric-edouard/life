@@ -55,6 +55,7 @@ import {
   builtFor,
   callSpanOf,
   clip,
+  conversationKeyOf,
   isFrozen,
   lifelogNames,
   lineOf,
@@ -137,7 +138,9 @@ export async function turnLines(
   turnsById: Map<string, LifelogTurn[]>,
   conversations: string[],
   resolve: Resolve,
-  keep?: (v: VoiceKind | undefined) => boolean
+  keep?: (v: VoiceKind | undefined) => boolean,
+  /** The conversation of each `turnsById` key (`conversationKeyOf`), for his word said of one. */
+  conversationOf = new Map<string, string>()
 ) {
   const jobs = await transcripts([...turnsById.values()].flat());
   const heard = await readEach(conversations, readVoiceKinds);
@@ -145,7 +148,7 @@ export async function turnLines(
   return new Map(
     [...turnsById].map(([id, said]) => [
       id,
-      voiceLines(said, jobs, resolve, kinds, keep),
+      voiceLines(said, jobs, resolve, kinds, keep, conversationOf.get(id)),
     ])
   );
 }
@@ -177,7 +180,9 @@ export async function spokenLines(
   return turnLines(
     turns,
     voice.map((u) => u.key),
-    resolve
+    resolve,
+    undefined,
+    new Map(voice.map((u) => [u.id, conversationKeyOf(u)]))
   );
 }
 
@@ -217,7 +222,12 @@ export function chatLines(b: Built, resolve: Resolve): SourceLine[] {
   const name = oneToOne(b);
   const kind = kindOf(b.unit.source);
   return b.messages.map((m) => {
-    const speaker = speakerOf(b.unit.source, m, resolve);
+    const speaker = speakerOf(
+      b.unit.source,
+      m,
+      resolve,
+      conversationKeyOf(b.unit)
+    );
     // An agent's line keeps no handle, so it is never resolved to a person when read (`aboutNow`).
     const from = m.fromMe || kind === "agent" ? {} : { from: m.sender };
     return {
@@ -260,7 +270,8 @@ export function voiceLines(
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
   resolve: Resolve,
   kinds = new Map<string, VoiceKind>(),
-  keep = (_v?: VoiceKind) => true
+  keep = (_v?: VoiceKind) => true,
+  inConversation?: string
 ): SourceLine[] {
   return turns.flatMap((t) => {
     const turn = jobs.get(t.jobId)?.[t.turnIndex];
@@ -279,7 +290,10 @@ export function voiceLines(
         at: t.at,
         ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
-        speaker: t.name ? (resolve(t.name) ?? `${UNKNOWN}${t.name}`) : unnamed,
+        speaker: t.name
+          ? (resolve(t.name, undefined, inConversation) ??
+            `${UNKNOWN}${t.name}`)
+          : unnamed,
         text: `${t.name || t.owner ? "" : heardAs(kind)}${redact(turn.text)}`,
         voice: turn.speakerId ?? "speaker",
       },

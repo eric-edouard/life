@@ -4,7 +4,12 @@ import { voiceKey } from "../sources/lifelog-voices";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
-import { turnKey, unnamedTurnKey, voiceTokensOf } from "./units";
+import {
+  conversationKeyOf,
+  turnKey,
+  unnamedTurnKey,
+  voiceTokensOf,
+} from "./units";
 import type { People } from "./who";
 import { isTalkingWithOwner, messageLine, turnLines } from "./words";
 import { localDate, time } from "./zones";
@@ -124,7 +129,20 @@ export async function spokenPartsOf(
     new Map([["c", conversation]]),
     [...new Set(conversation.map((t) => t.conversation))],
     people.resolve,
-    isTalkingWithOwner
+    isTalkingWithOwner,
+    new Map(
+      conversation[0]
+        ? [
+            [
+              "c",
+              conversationKeyOf({
+                key: conversation[0].conversation,
+                source: "lifelog",
+              }),
+            ],
+          ]
+        : []
+    )
   );
   const heard = (spoken.get("c") ?? []).flatMap((l) => {
     const t = byRef.get(l.ref);
