@@ -37,8 +37,8 @@ struct ProjectsScreen: View {
                     // A swipe's mark and a project's status, said back with Undo.
                     .saysBack()
                     .screenTitle("Projects", state: header)
-                    // Beside a matter, the Pendant and Settings are the matter column's.
-                    .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+                    // Beside a matter, the Pendant is the matter column's.
+                    .shellBar("", hasPendant: sizeClass != .regular)
                     // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
                     // chosen). All's list is the matters' read, which that answer reads again itself.
                     .task(id: [chip?.identity ?? "", chip == nil ? "" : "\(life.answersEnded.values.reduce(0, +))"]) {
@@ -92,10 +92,10 @@ struct ProjectsScreen: View {
         case .project(let id)?:
             stack { ProjectDetails(id: id).id(id) }
         case .matter(let id)?:
-            stack { MatterPage(id: id, hasSettings: sizeClass == .regular).id(id) }
+            stack { MatterPage(id: id).id(id) }
                 .zooms(from: id, in: matterZoom)
         case .agents? where isAgentsBeside:
-            stack { AgentPage(id: shownAgent, hasSettings: true).id(shownAgent) }
+            stack { AgentPage(id: shownAgent).id(shownAgent) }
         case .agents?:
             stack { AgentsScreen() }
         case .spending?:
@@ -103,7 +103,7 @@ struct ProjectsScreen: View {
         case nil:
             Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
                 // Loading, unreachable, no matters: the top group stays.
-                .shellBar("", hasSettings: sizeClass == .regular)
+                .shellBar("")
         }
     }
 
@@ -120,9 +120,9 @@ struct ProjectsScreen: View {
                         leave: { router.matterPath = [] }
                     )
                     // A pushed screen: Back, then the Pendant.
-                    .shellBar("", hasSettings: false)
+                    .shellBar("")
                 case .agent(let id): AgentPage(id: id)
-                case .matter(let id): MatterPage(id: id, hasSettings: false)
+                case .matter(let id): MatterPage(id: id)
                 case .session(let id): AgentSessionPage(id: id)
                 }
             }

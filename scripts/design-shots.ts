@@ -95,7 +95,7 @@ const device = (args: string[]) =>
     timeout: 120_000,
   });
 
-/** The launch flags that open a full-screen route: the Inbox's own tab is gone once the app is there. */
+/** The launch flags that open a full-screen route. */
 export const ROUTE_FLAGS = new Set([
   "-fixtureMatter",
   "-fixturePage",
@@ -103,7 +103,6 @@ export const ROUTE_FLAGS = new Set([
   "-fixturePerson",
   "-fixtureTab",
 ]);
-const INBOX_TAB = /Inbox, \d+ waiting/;
 const SCREEN_WAIT = 90_000;
 
 /** The accessibility tree as text, less the warning line that counts snapshots. */
@@ -114,19 +113,16 @@ const readScreen = async () =>
     .join("\n");
 
 /**
- * Waits for the screen the frame asked for, never a fixed time: the frame's own `ready` label on screen, else (for a
- * frame that opens a route) the Inbox gone, and in every case the tree the same on two reads in a row (the reads settled).
+ * Waits for the screen the frame asked for, never a fixed time: the frame's own `ready` label on screen, and in every
+ * case the tree the same on two reads in a row (the reads settled).
  */
 async function waitForScreen(app: AppFrame) {
-  const route = (app.args ?? []).some((arg) => ROUTE_FLAGS.has(arg));
   const start = performance.now();
   let before = "";
   while (performance.now() - start < SCREEN_WAIT) {
     // biome-ignore lint/performance/noAwaitInLoops: each read waits on the last
     const now = await readScreen();
-    const isThere = app.ready
-      ? now.includes(app.ready)
-      : !(route && INBOX_TAB.test(now));
+    const isThere = app.ready ? now.includes(app.ready) : true;
     if (isThere && now === before) {
       return;
     }
