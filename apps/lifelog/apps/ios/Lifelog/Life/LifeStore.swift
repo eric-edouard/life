@@ -122,8 +122,8 @@ final class LifeStore {
     private let api: any LifeAPI
     private let cache: ReadCache
     let runner: LifeActions
-    /// Tell Life: his one conversation with Life's main session.
-    let tell: TellLife
+    /// Ask Life: his one conversation with Life's main session.
+    let askLife: AskLife
     let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// The phone's network path, which the pendant's sync follows too.
@@ -155,7 +155,7 @@ final class LifeStore {
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
-        tell = TellLife(api: api)
+        askLife = AskLife(api: api)
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
@@ -964,7 +964,7 @@ final class LifeStore {
         await refresh()
     }
 
-    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Tell Life's "Open in Inbox").
+    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Ask Life's "Open in Inbox").
     func open(ref: String) async {
         guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
         await open(pushId: pushId)

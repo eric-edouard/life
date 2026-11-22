@@ -637,9 +637,10 @@
             return isOn ? #"{"result":"restored"}"# : #"{"result":"removed"}"#
         }
 
-        /// Tell Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
+        /// Ask Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
         func askMainSession(
-            words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+            words: String?, screen: MainSessionScreen?, answerKey: String?,
+            onProgress: @escaping @Sendable (Data) -> Void
         ) async throws -> String {
             try await gate()
             guard words != nil else { return #"{"kept":true}"# }

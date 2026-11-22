@@ -153,7 +153,7 @@ struct CheckCard: View {
         DictationField(
             prompt: check.group == .newMatter
                 ? "The goal"
-                : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
+                : check.draft != nil ? "\(check.ownWordsTitle.dropLast()) what to change…" : "Say it in your own words",
             text: $input.words, axis: .vertical, focused: $isWriting
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)

@@ -25,7 +25,7 @@ The app has no screen for this yet, so it takes a few commands in Terminal and a
    restic init
    ```
 
-3. Tell Life where it is, from the checkout (`LIFE_STATE_DIR` points it at the app's settings):
+3. Ask Life where it is, from the checkout (`LIFE_STATE_DIR` points it at the app's settings):
 
    ```sh
    LIFE_STATE_DIR="$HOME/Library/Application Support/Life/state" bun life settings set '{"backup":{

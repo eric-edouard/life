@@ -35,7 +35,7 @@ const HIS_ONLY_KINDS = new Set([
   "your-move-not-now",
 ]);
 
-/** Whether a memory correction is his alone (his token, or his words through Tell Life), through `correctMatter`: one on a whole matter, or one of his marks. */
+/** Whether a memory correction is his alone (his token, or his words through Ask Life), through `correctMatter`: one on a whole matter, or one of his marks. */
 export const isHisOnly = (correction: Record<string, unknown>) =>
   correction.matter !== undefined ||
   HIS_ONLY_KINDS.has(String(correction.kind));
