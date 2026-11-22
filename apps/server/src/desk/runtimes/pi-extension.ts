@@ -2,6 +2,8 @@ import type {
   ExtensionAPI,
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
+import type { WebSearchProviderName } from "../../core/names";
+import { searchableOf } from "../../web-search/backend";
 import {
   SEND_FACTS_ENV,
   SEND_GUARD_HOOK,
@@ -11,7 +13,7 @@ import {
 import { type ClaudeHookGroup, runClaudeHooks } from "./claude-hooks";
 import { DOOR_KEY_ENV } from "./contract";
 import { registerSubagent } from "./pi-subagent";
-import { registerWebFetch } from "./web-tools";
+import { registerWebFetch, registerWebSearch } from "./web-tools";
 
 // The extension every pi session of the desk loads (`pi -e`, `pi-runtime.ts`): inside the pi process, before each tool
 // call, Life's send guard (`send-guard.ts`), on the calls Claude's and Codex's hook reads (`SEND_GUARD_HOOK.matcher`);
@@ -41,6 +43,8 @@ export const PI_EXTENSION_ENV = {
   provider: "LIFE_PI_PROVIDER",
   /** The connector's reads as a stdio MCP entry (JSON), for his own Life. */
   reads: "LIFE_CONNECTOR_READS",
+  /** The providers `web_search` asks, in order (JSON, `desk.webSearch`), for his own Life. */
+  search: "LIFE_PI_SEARCH",
 } as const;
 
 /** The provider as the runtime gives it (`LIFE_PI_PROVIDER`): everything but its key. */
@@ -70,6 +74,8 @@ export interface LifeDeskConfig {
   provider: PiProvider;
   /** The connector's reads (`life connector-reads`) as a stdio MCP server; none in a subagent. */
   reads?: { args: string[]; command: string; env: Record<string, string> };
+  /** The providers `web_search` asks, in order; none, no `web_search`. */
+  search: WebSearchProviderName[];
 }
 
 /** pi's MCP server name for the connector's reads (`mcp__life_connector__<tool>`); `life` is the door's in his own sessions. */
@@ -105,6 +111,7 @@ function configOfEnv(): LifeDeskConfig {
     isOwn,
     provider: JSON.parse(required(env.provider)),
     ...(isOwn && reads ? { reads: JSON.parse(reads) } : {}),
+    search: isOwn ? JSON.parse(process.env[env.search] ?? "[]") : [],
   };
 }
 
@@ -132,6 +139,10 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
   });
   if (config.isOwn) {
     registerWebFetch(pi);
+  }
+  // Only while one of his providers has its key: a search that cannot answer would only cost the agent calls.
+  if (config.isOwn && searchableOf(config.search).length > 0) {
+    registerWebSearch(pi, config.search);
   }
   if (config.isOwn && config.door) {
     registerSubagent(

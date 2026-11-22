@@ -107,6 +107,11 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To a registered agent's runtime (his Claude subscription, his Codex subscription: OpenAI, or pi on OpenRouter with Life's key, to the memory's hosts that keep nothing only, DeepInfra and Morph: the owner's yes of 22 Nov 2026, relayed by the orchestrator session, `docs/plans/pi-runtime.md`): its brief and packet
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).
+- From an agent of his own Life on pi, its `web_search` queries, with his key, to the providers his `desk.webSearch`
+  names, else in Life's order (the owner's yes of 22 Nov 2026, relayed by the orchestrator session): Serper (Google's
+  results; its privacy policy, reviewed 5 Nov 2025, keeps access and activity logs while the account exists and names
+  no shorter term for queries), the Brave Search API, then Perplexity's Search API; SerpAPI only when he names it. Each
+  paid search's price counts in the agent's turn.
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac; a wait's own
   coordinates (`near` in `wakesOn`) are in the reads `read_registered_agents` and `read_matter`. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
