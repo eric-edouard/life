@@ -7,12 +7,14 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { noMatterChecksByPartyOf } from "./checks";
 import {
   buildIndex,
   readStaleness,
   reindex,
   reindexUnits,
 } from "./index-writer";
+import type { Check } from "./life-checks";
 import {
   EPISODES,
   INDEX,
@@ -757,4 +759,29 @@ test("his own situation is checked against the episodes the index holds, by the 
     rmSync(EPISODES, { force: true, recursive: true });
     rmSync(situationPath(OWNER), { force: true });
   }
+});
+
+test("a check on no matter is about the people it may be and the person refs its ref and subject name, folded; one on a matter is its matter's", () => {
+  const ask = (ref: string, over: Partial<Check> = {}) => ({
+    likelyPeople: [],
+    matter: null,
+    ref,
+    subject: null,
+    ...over,
+  });
+  const heard = ask("voice:v1~abc", {
+    likelyPeople: [{ kind: "person", name: "Bo", ref: "person:bo" }],
+    subject: "person:old-cy",
+  });
+  const same = ask("same:person:inf_kit~person:bo");
+  const decided = ask("dec_000000000001", { subject: "project:shop" });
+  const held = ask("person:bo", { matter: { id: "matter_1", name: "M" } });
+  const by = noMatterChecksByPartyOf([heard, same, decided, held], (r) =>
+    r === "person:old-cy" ? "person:cy" : r
+  );
+  expect(Object.fromEntries(by)).toEqual({
+    "person:bo": [heard, same],
+    "person:cy": [heard],
+    "person:inf_kit": [same],
+  });
 });
