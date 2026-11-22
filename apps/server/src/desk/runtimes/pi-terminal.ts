@@ -7,13 +7,14 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { clock } from "../../core/clock";
 
 // Life's launcher of a pi session he continues on his Mac (`continue_on_mac`), run in Terminal by the helper as bun
 // (`pi-runtime.ts`'s `continueOnMac`): reads and deletes its launch file (Life's part of the run's environment, a
 // secret), runs pi's own interface on the session with Life's extension (the send guard) in his Terminal's environment,
 // and keeps a record (`open-session-records.ts`) while pi runs, so the desk shows it open and holds its wakes; its quiet
-// is the session file's last write, so the desk takes it back (SIGTERM, passed to pi) once he left it. It imports
-// nothing of Life's: the app bundles it alone (`scripts/helper.ts`).
+// is the session file's last write, so the desk takes it back (SIGTERM, passed to pi) once he left it. The app
+// bundles it alone (`scripts/helper.ts`): it imports only Life's clock.
 
 /** What the desk hands the launcher (`pi-runtime.ts`). */
 export interface PiTerminalLaunch {
@@ -49,7 +50,7 @@ if (import.meta.main) {
   // session's last write as its quiet.
   mkdirSync(launch.records, { recursive: true });
   const record = join(launch.records, `${process.pid}.json`);
-  const startedAt = Date.now();
+  const startedAt = clock().getTime();
   const write = () => {
     let statusUpdatedAt = startedAt;
     try {
