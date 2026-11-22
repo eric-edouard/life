@@ -61,6 +61,8 @@ function withLine(
       return withDoneSeen(d, l);
     case "added":
       return d.added ? d : { ...d, added: l };
+    case "ran":
+      return d.ran ? d : { ...d, ran: l };
     case "withdrawn":
       return d.withdrawn ? d : { ...d, withdrawn: l };
     case "kept":

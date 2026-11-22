@@ -112,6 +112,12 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   results; its privacy policy, reviewed 5 Nov 2025, keeps access and activity logs while the account exists and names
   no shorter term for queries), the Brave Search API, then Perplexity's Search API; SerpAPI only when he names it. Each
   paid search's price counts in the agent's turn.
+- To Apify (apify.com), with the token he gave Life's Mac app: his agents' store searches (`find_apify_actors`,
+  a query), and, only on his pick of a card's `runs` option alone, that card's actor and input exactly as he saw
+  them, held under the card's dollar cap by Apify (his word of 22 Nov 2026: "don't waste his credits without him
+  knowing"). The token stays in the Keychain and the helper; Life strips `APIFY_TOKEN` from the login environment its
+  agents get. An agent of his own Life that finds a token elsewhere (a skill, an MCP server, 1Password) is held only
+  by its brief.
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac; a wait's own
   coordinates (`near` in `wakesOn`) are in the reads `read_registered_agents` and `read_matter`. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex

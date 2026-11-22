@@ -98,6 +98,17 @@ export const Added = z
     schemaVersion: z.literal(DECISIONS_VERSION),
   })
   .strict();
+/** What his answer's `runs` option started (`runApifyByHisWord`): the Apify run (`runId`), or `error` when it failed or never finished. Written once, never retried. */
+export const Ran = z
+  .object({
+    at: isoDateTime,
+    error: z.string().min(1).optional(),
+    id: DecisionId,
+    kind: z.literal("ran"),
+    runId: z.string().min(1).optional(),
+    schemaVersion: z.literal(DECISIONS_VERSION),
+  })
+  .strict();
 /** What his answer's `ends` option closed (`endByHisWord`): `error` when it failed, or never finished. */
 export const Ended = z
   .object({
@@ -129,6 +140,7 @@ export const Line = z.discriminatedUnion("kind", [
   SendFailed,
   Ended,
   Added,
+  Ran,
   DoneSeen,
 ]);
 /** A line of an earlier version: skipped. */
@@ -156,6 +168,7 @@ export type SendFailed = z.infer<typeof SendFailed>;
 type Send = z.infer<typeof Sent> | SendFailed;
 export type Ended = z.infer<typeof Ended>;
 export type Added = z.infer<typeof Added>;
+export type Ran = z.infer<typeof Ran>;
 export type DoneSeen = z.infer<typeof DoneSeen>;
 
 export type DecisionState =
@@ -174,6 +187,8 @@ export type Decision = Asked & {
   end?: Ended;
   /** The holder's keep, while this card waits on its card. */
   kept?: z.infer<typeof Kept>;
+  /** His answer's `runs` outcome (`ran`). */
+  ran?: Ran;
   /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
   notSent?: SendFailed;
   /** The older card this one replaces, once asked after `CONTEST_WAIT` while that one is still open: his Send withdraws it. */

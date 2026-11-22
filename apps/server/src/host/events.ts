@@ -189,6 +189,12 @@ const DecisionPayload = z.object({
     .string()
     .optional()
     .describe("The card's question: absent on the card that merged yours"),
+  ran: z
+    .object({ error: z.string().optional(), runId: z.string().optional() })
+    .optional()
+    .describe(
+      "Its Apify run, started on his pick of a `runs` option: the run's id (read it with `read_apify_run`), or why not"
+    ),
   replacedBy: z
     .string()
     .optional()
@@ -210,8 +216,11 @@ const outcomesOf = (
   d: Decision
 ): Pick<
   z.infer<typeof DecisionPayload>,
-  "added" | "doneSeen" | "end" | "send"
+  "added" | "doneSeen" | "end" | "ran" | "send"
 > => ({
+  ...(d.ran
+    ? { ran: d.ran.error ? { error: d.ran.error } : { runId: d.ran.runId } }
+    : {}),
   ...(d.added
     ? {
         added: d.added.error

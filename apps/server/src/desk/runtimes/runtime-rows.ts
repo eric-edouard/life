@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { APIFY_KEY_ENV } from "../../apify/backend";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
@@ -233,13 +234,18 @@ const transcriptOf = (ref: string) => {
   return path ? join(PROJECTS, path) : undefined;
 };
 
+/** Keys Life holds behind his yes (his word of 22 Nov 2026): an agent reaches their service only through a card he answered. */
+const GATED_KEYS = [APIFY_KEY_ENV];
+
 /**
- * His login environment for an agent of his own Life, less `engine`'s keys: passed through, they would move the agent from
- * his subscription to paid API billing.
+ * His login environment for an agent of his own Life, less `engine`'s keys (passed through, they would move the agent
+ * from his subscription to paid API billing) and the gated keys (`GATED_KEYS`).
  */
 export const loginEnvLess = async (engine: string[]) =>
   Object.fromEntries(
-    Object.entries(await readLoginEnv()).filter(([k]) => !engine.includes(k))
+    Object.entries(await readLoginEnv()).filter(
+      ([k]) => !(engine.includes(k) || GATED_KEYS.includes(k))
+    )
   );
 
 /**

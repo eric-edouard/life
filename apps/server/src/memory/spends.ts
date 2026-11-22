@@ -17,6 +17,7 @@ const SPEND_PROVIDERS = [
   "describer",
   "apple",
   "speech",
+  "apify",
 ] as const;
 export type SpendProvider = (typeof SPEND_PROVIDERS)[number];
 export type Basis = "billed" | "equivalent";
@@ -51,6 +52,16 @@ export interface Spend {
   /** Dollars billed, when reported. */
   usd?: number;
 }
+
+/** An Apify run his yes started (a card's `ran`): what Apify billed for it (`usageTotalUsd`), or not reported while it can't be read. */
+export const spendOfApifyRun = (at: string, usd: number | null): Spend => ({
+  at,
+  basis: "billed",
+  calls: 1,
+  kind: "agents",
+  provider: "apify",
+  ...(usd === null ? { reported: false } : { reported: true, usd }),
+});
 
 const BILLED_ENGINES = new Set(["openrouter", "allmodels"]);
 const LOCAL: Record<string, SpendProvider> = {

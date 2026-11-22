@@ -216,7 +216,7 @@ someone else is capped at 0.6 confidence.
 The server's code (`apps/server/src`) is in layers, and dependencies point one way:
 
 ```
-core  ←  records  ←  models, sources, todo-list, payments, web-search  ←  memory  ←  personal  ←  host  ←  desk
+core  ←  records  ←  models, sources, todo-list, payments, web-search, apify  ←  memory  ←  personal  ←  host  ←  desk
 ```
 
 | Folder | What it holds |
@@ -227,6 +227,7 @@ core  ←  records  ←  models, sources, todo-list, payments, web-search  ←  
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `todo-list/` | The to-do list contract (`TodoListBackend`), its two backends |
 | `payments/` | The payments contract (`PaymentsBackend`) and its one backend, his `money` CLI |
+| `apify/` | Apify, his agents' paid scrapers: the store priced at his tier, a run started under a card's cap on his yes, a run read back (`backend.ts`) |
 | `web-search/` | The web search contract (`WebSearchProvider`), one file per provider, and the chain over them (`webSearch`, `backend.ts`); only the desk uses it |
 | `memory/` | The pipeline (units, episodes, observations, pages), the ledger and its readers, people and places, search, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
 | `personal/` | The add-ons' code (`docs/glossary.md`, "add-on"): personas, histories and the person read's parts they supply (`person-parts.ts`, with `readPerson`, the person read as the connector and the command give it). Imports `memory/`; `memory/` never imports it, so the core runs with every add-on off |
