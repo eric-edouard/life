@@ -1,14 +1,11 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { HOUR, MIN } from "../core/clock";
-import { HOME } from "../core/platform";
 import { dayNow, localDate, localTime, time } from "../memory/zones";
 import type { AppListing } from "./claude-app-listing";
 import type { SessionOpenIn } from "./claude-session-records";
 
 // The agents' health (his word of 22 Nov 2026: "an extensive health check of the agents ... that they're really
 // listening ... visible on the app for Claude Code"): a verdict per agent and one for the desk, in plain words, worked out
-// when read from what the agents' read already holds (`AgentNow`, its amber), never stored. Pure.
+// when read from what the agents' read already holds (`AgentNow`, its amber), never stored. Pure: the reads are the callers'.
 
 /** Fine; needs attention (it works, something is off); broken (it can't do its job until something changes). */
 export type HealthVerdict = "fine" | "attention" | "broken";
@@ -91,31 +88,45 @@ export function agentHealthOf(f: HealthFacts, now: number): Health {
   if (f.failedInARow >= FAILED_BROKEN) {
     broken.push(`Its last ${f.failedInARow} turns failed.`);
   }
-  const waited = f.waitingSince ? now - Date.parse(f.waitingSince) : 0;
-  const since = f.waitingSince ? whenOf(f.waitingSince) : "";
-  if (f.sessionOpenIn) {
-    const held = `Open in ${OPEN_IN[f.sessionOpenIn]}${f.sessionOpenSince ? ` since ${whenOf(f.sessionOpenSince)}` : ""}`;
-    (waited > HELD_BROKEN_AFTER ? broken : attention).push(
-      waited > 0
-        ? `${held}; its wakes wait since ${since}: close it there.`
-        : `${held}: its wakes wait until you close it there.`
-    );
-  } else if (waited > DEAF_AFTER && f.status === "waiting") {
-    (waited > DEAF_BROKEN_AFTER ? broken : attention).push(
-      `Not listening: what came for it has waited since ${since}.`
-    );
+  const heard = hearingOf(f, now);
+  if (heard) {
+    (heard.isBroken ? broken : attention).push(heard.line);
   }
   attention.push(
     ...f.amber
       .filter((x) => x !== "last turn failed" || f.failedInARow < FAILED_BROKEN)
       .flatMap(amberWords)
   );
-  if (f.app && !f.app.listed) {
-    attention.push("Not listed in your Claude app.");
-  } else if (f.app && !f.app.inGroup) {
-    attention.push("Not in the Life Agents group of your Claude app.");
+  if (f.app && !(f.app.listed && f.app.inGroup)) {
+    attention.push(
+      f.app.listed
+        ? "Not in the Life Agents group of your Claude app."
+        : "Not listed in your Claude app."
+    );
   }
   return ofHealth(broken, attention);
+}
+
+/** Whether what comes for it is heard: its session held open elsewhere (its wakes wait), or events unheard too long. */
+function hearingOf(f: HealthFacts, now: number) {
+  const waited = f.waitingSince ? now - Date.parse(f.waitingSince) : 0;
+  const since = f.waitingSince ? whenOf(f.waitingSince) : "";
+  if (f.sessionOpenIn) {
+    const held = `Open in ${OPEN_IN[f.sessionOpenIn]}${f.sessionOpenSince ? ` since ${whenOf(f.sessionOpenSince)}` : ""}`;
+    return {
+      isBroken: waited > HELD_BROKEN_AFTER,
+      line:
+        waited > 0
+          ? `${held}; its wakes wait since ${since}: close it there.`
+          : `${held}: its wakes wait until you close it there.`,
+    };
+  }
+  return waited > DEAF_AFTER && f.status === "waiting"
+    ? {
+        isBroken: waited > DEAF_BROKEN_AFTER,
+        line: `Not listening: what came for it has waited since ${since}.`,
+      }
+    : null;
 }
 
 /** What the desk's health reads: whether it is on and readable, its helper, the standing roles, the Life plugin. */
@@ -130,18 +141,6 @@ export interface DeskHealthFacts {
 
 /** The roles the desk keeps standing from its start (`standUp`). */
 export const STANDING_ROLES = ["main", "caretaker"] as const;
-
-/** Whether the Life plugin is on in Claude Code (`enabledPlugins` in his `~/.claude/settings.json`); unreadable: off. */
-export function readIsLifePluginOn() {
-  try {
-    const s = JSON.parse(
-      readFileSync(join(HOME, ".claude", "settings.json"), "utf8")
-    );
-    return s?.enabledPlugins?.["life@life"] === true;
-  } catch {
-    return false;
-  }
-}
 
 const ROLE_WORDS: Record<string, string> = {
   caretaker: "No caretaker: your complaints have no one to fix them.",

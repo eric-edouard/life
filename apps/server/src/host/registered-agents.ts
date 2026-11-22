@@ -25,12 +25,7 @@ import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
-import {
-  deskHealthOf,
-  type Health,
-  readIsLifePluginOn,
-  STANDING_ROLES,
-} from "./agent-health";
+import { deskHealthOf, type Health, STANDING_ROLES } from "./agent-health";
 import {
   type AgentNow,
   type AgentRead,
@@ -38,6 +33,7 @@ import {
   agentsOnProjects,
   agentsOnSteps,
 } from "./agents-now";
+import { readIsLifePluginOn } from "./claude-app-listing";
 import { healthRowsOf, peopleRowsOf } from "./desk-health";
 import {
   type AssignmentRow,

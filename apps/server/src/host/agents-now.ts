@@ -261,14 +261,15 @@ interface Around {
   blocks: ReturnType<typeof runtimeBlocksOf>;
   records: Map<string, ClaudeSessionRecord>;
 }
-const readAround = (db: Database): Around => ({
-  app: readClaudeAppListing(),
+/** `isForWakes` (his apps' reads) also reads his Claude app's listing; the other reads (the snapshot, a project's) leave it unjudged. */
+const readAround = (db: Database, isForWakes: boolean): Around => ({
+  app: isForWakes ? readClaudeAppListing() : null,
   blocks: runtimeBlocksOf(db),
   records: readClaudeSessionRecords(),
 });
 
 /** How many of agent `id`'s last turns failed in a row (3 at most: `agentHealthOf`'s broken). */
-const failedInARowOf = (db: Database, id: string) => {
+export const failedInARowOf = (db: Database, id: string) => {
   const outcomes = db
     .query<{ outcome: string | null }, [string]>(
       "select outcome from turn where agent_id = ? and ended_at is not null order by id desc limit 3"
@@ -279,7 +280,7 @@ const failedInARowOf = (db: Database, id: string) => {
 };
 
 /** When agent `id`'s oldest event not yet handed to a turn came, on any of its open assignments. */
-const waitingSinceOf = (db: Database, id: string) =>
+export const waitingSinceOf = (db: Database, id: string) =>
   db
     .query<{ at: string | null }, [string]>(
       "select min(e.received_at) as at from event e join assignment s on s.id = e.assignment_id where s.agent_id = ? and s.closed_at is null and e.handed = 0 and e.consumed_at is null and e.dropped_at is null"
@@ -376,7 +377,7 @@ export function agentsNow(db: Database, now: number, isForWakes = false) {
       )
       .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
   ];
-  const around = readAround(db);
+  const around = readAround(db, isForWakes);
   return rows.map((a) => nowOf(db, a, now, isForWakes, around));
 }
 
@@ -399,7 +400,7 @@ export function agentsOnSteps(
     )
     .all(...steps);
   const seen = new Set<string>();
-  const around = readAround(db);
+  const around = readAround(db, isForWakes);
   return rows
     .filter((r) => !seen.has(r.id) && seen.add(r.id))
     .slice(0, MAX_ACTIVE + PAST_SHOWN)
@@ -424,7 +425,7 @@ export function agentsOnProjects(
   if (projects.length === 0) {
     return [];
   }
-  const around = readAround(db);
+  const around = readAround(db, false);
   return db
     .query<AgentRow, (string | number)[]>(
       `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`

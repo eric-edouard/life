@@ -1,17 +1,18 @@
 import {
   closeSync,
+  existsSync,
   openSync,
   readdirSync,
   readFileSync,
   readSync,
 } from "node:fs";
 import { join } from "node:path";
-import { APP_DATA } from "../core/platform";
+import { APP_DATA, HOME } from "../core/platform";
 
 // Which Claude Code sessions his Claude app lists, and which sit in its "Life Agents" group: read from the app's own
 // files, read-only, for the agents' health (`agentHealthOf`). The app's files are its own, undocumented format: a file
-// it no longer writes so says nothing (null), never "not listed". ponytail: the app's folder under Application Support
-// (`Claude`); a second Claude app with a folder of its own would need `desk.claudeApp`'s folder.
+// it no longer writes so says nothing (null), never "not listed". Also whether the Life plugin is on in Claude Code.
+// ponytail: the app's folder under Application Support (`Claude`); a second Claude app with a folder of its own is not read.
 
 const APP = join(APP_DATA, "Claude");
 /** One file per session the app lists (`local_<id>.json`), its `cliSessionId` near its start. */
@@ -22,8 +23,11 @@ export const AGENTS_GROUP = "Life Agents";
 /** How much of a session file holds its ids: they are its first keys; the files are large (their transcripts' summaries). */
 const HEAD_BYTES = 1024;
 
+const CLI_ID = /"cliSessionId":"([^"]+)"/;
+const CODE_PREFIX = /^code:/;
+
 /** Each listed file's Claude Code session id, by path: a file's ids never change, so each is read once per process. */
-const cliIdOf = new Map<string, string | null>();
+const cliIdOf = new Map<string, string>();
 
 const cliIdIn = (path: string) => {
   const buf = Buffer.alloc(HEAD_BYTES);
@@ -33,24 +37,30 @@ const cliIdIn = (path: string) => {
   } finally {
     closeSync(fd);
   }
-  return /"cliSessionId":"([^"]+)"/.exec(buf.toString("utf8"))?.[1] ?? null;
+  return CLI_ID.exec(buf.toString("utf8"))?.[1] ?? null;
 };
 
 /** The app's local ids by Claude Code session id (`local_<id>` names its file). */
 function readListed() {
   const byCli = new Map<string, string>();
-  for (const scope of readdirSync(SESSIONS)) {
-    for (const inner of readdirSync(join(SESSIONS, scope))) {
-      for (const name of readdirSync(join(SESSIONS, scope, inner))) {
+  const inside = (dir: string) => {
+    try {
+      return readdirSync(dir);
+    } catch {
+      return []; // a file beside the folders (.DS_Store)
+    }
+  };
+  for (const scope of inside(SESSIONS)) {
+    for (const inner of inside(join(SESSIONS, scope))) {
+      for (const name of inside(join(SESSIONS, scope, inner))) {
         if (!(name.startsWith("local_") && name.endsWith(".json"))) {
           continue;
         }
         const path = join(SESSIONS, scope, inner, name);
-        if (!cliIdOf.has(path)) {
-          cliIdOf.set(path, cliIdIn(path));
-        }
-        const cli = cliIdOf.get(path);
+        // Only an id found is kept: a file read while the app writes it is read again next time.
+        const cli = cliIdOf.get(path) ?? cliIdIn(path);
         if (cli) {
+          cliIdOf.set(path, cli);
           byCli.set(cli, name.slice(0, -".json".length));
         }
       }
@@ -75,7 +85,7 @@ function readInGroup() {
     const group = scope.groups?.find((g) => g.name === AGENTS_GROUP)?.id;
     for (const [key, id] of Object.entries(scope.assignments ?? {})) {
       if (group && id === group) {
-        filed.add(key.replace(/^code:/, ""));
+        filed.add(key.replace(CODE_PREFIX, ""));
       }
     }
   }
@@ -93,6 +103,9 @@ export interface AppListing {
  * another layout): nothing is judged then.
  */
 export function readClaudeAppListing(): ((ref: string) => AppListing) | null {
+  if (!existsSync(SESSIONS)) {
+    return null;
+  }
   try {
     const listed = readListed();
     const inGroup = readInGroup();
@@ -102,5 +115,17 @@ export function readClaudeAppListing(): ((ref: string) => AppListing) | null {
     };
   } catch {
     return null;
+  }
+}
+
+/** Whether the Life plugin is on in Claude Code (`enabledPlugins` in his `~/.claude/settings.json`); unreadable: not said. */
+export function readIsLifePluginOn() {
+  try {
+    const s = JSON.parse(
+      readFileSync(join(HOME, ".claude", "settings.json"), "utf8")
+    );
+    return s?.enabledPlugins?.["life@life"] === true;
+  } catch {
+    // unreadable: not said
   }
 }

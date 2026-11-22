@@ -5,6 +5,7 @@ import { agentHealthOf, deskHealthOf, type HealthFacts } from "./agent-health";
 // The agents' health on made-up facts: the 22 Nov 2026 case (a session held open in a second Claude app for hours while
 // its wakes queued) is broken, said in plain words; a quiet agent is fine.
 
+const NOT_LISTENING = /^Not listening: /;
 const NOW = Date.UTC(2026, 10, 22, 12, 0);
 setSystemTime(new Date(NOW));
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -63,7 +64,7 @@ test("not listening, a blocked runtime, three failures, not in its group: each s
   expect(h.why).toEqual([
     "claude can't run: claude --version failed: 1",
     "Its last 3 turns failed.",
-    expect.stringMatching(/^Not listening: /),
+    expect.stringMatching(NOT_LISTENING),
     "Its last turn ended without saying what it waits for.",
     "Not in the Life Agents group of your Claude app.",
   ]);
