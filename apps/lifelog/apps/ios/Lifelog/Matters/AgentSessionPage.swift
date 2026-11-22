@@ -19,7 +19,8 @@ struct AgentSessionPage: View {
         )
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.bg)
-        .screenTitle("Session")
+        // Whose session: the agent's name as the title's state word.
+        .screenTitle("Session", state: life.agents.value?.agents.first { $0.id == id }.map { $0.name ?? $0.title })
         .shellBar("", hasSettings: false)
         .task { await life.refreshAgentSession(id) }
     }

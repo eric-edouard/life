@@ -85,19 +85,16 @@ struct AgentPage: View {
                         Row(title: "What wakes it") { RowValue() }
                     }
                     .buttonStyle(.plain)
-                    // pi has no app: its session reads here, read-only (an agent on Claude Code or Codex opens in its program).
-                    if agent.runtimeName == .pi {
-                        Button {
-                            router.matterPath.append(.session(id))
-                        } label: {
-                            Row(title: "Its session") { RowValue() }
-                        }
-                        .buttonStyle(.plain)
-                    }
                 }
                 // Inset as the list's rows are (`groupedRow`).
                 .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
                 .readingWidth().quietListRow()
+                // pi has no app: its session reads here, read-only, behind a quiet link (an agent on Claude Code or
+                // Codex opens in its program, from its sheet).
+                if agent.runtimeName == .pi {
+                    TextLink("Its session", to: .page) { router.matterPath.append(.session(id)) }
+                        .padding(.horizontal, Metrics.gutter).readingWidth().quietListRow()
+                }
                 if let line = agent.spendingLine() {
                     SpendingLine(text: line).padding(.horizontal, Metrics.gutter).quietListRow()
                 }

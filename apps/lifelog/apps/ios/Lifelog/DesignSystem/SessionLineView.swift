@@ -2,8 +2,8 @@ import LifeConnector
 import SwiftUI
 
 /// One line of an agent's session on pi (`AgentSessionPage`), by its kind: what Life sent it in a paper box, its words as
-/// text (a failed turn's why in `flag`), a tool call and its answer in code type (a failed one in `flag`), a compaction as a
-/// muted note.
+/// text, a tool call (its tool's name) and its answer ("Result") in code type, whole (Life cut each line), a failed turn
+/// or answer under "Failed" in `flag`, a compaction as a muted note.
 struct SessionLineView: View {
     let line: AgentSession.Line
 
@@ -14,13 +14,20 @@ struct SessionLineView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Metrics.Spacing.m).paperBox()
         case .said:
-            Text(line.text).font(.body15).foregroundStyle(line.isError == true ? Palette.flag : Palette.fg)
-        case .tool, .result:
             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                if line.kind == .tool, let tool = line.tool {
-                    Text(tool).font(.smallStrong).foregroundStyle(Palette.muted)
+                if line.isError == true { failed }
+                Text(line.text).font(.body15).foregroundStyle(line.isError == true ? Palette.flag : Palette.fg)
+            }
+        case .tool, .result:
+            // A call names its tool; its answer says so, and a failed one says it failed: never colour alone.
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                if line.isError == true {
+                    failed
+                } else {
+                    Text(line.kind == .tool ? line.tool ?? "Tool" : "Result").font(.smallStrong)
+                        .foregroundStyle(Palette.muted)
                 }
-                Text(line.text).font(.codeBlock).lineLimit(line.kind == .tool ? 4 : 6)
+                Text(line.text).font(.codeBlock)
                     .foregroundStyle(line.isError == true ? Palette.flag : Palette.muted)
             }
         case .summary:
@@ -28,5 +35,9 @@ struct SessionLineView: View {
         case .unknown:
             EmptyView()
         }
+    }
+
+    private var failed: some View {
+        Text("Failed").font(.smallStrong).foregroundStyle(Palette.flag)
     }
 }
