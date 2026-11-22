@@ -17,6 +17,9 @@ import {
   ADD_LIMIT_MS,
   type AddEventByHisWord,
   addNeverEndedOf,
+  RUN_LIMIT_MS,
+  type RunApifyByHisWord,
+  ranNeverEndedOf,
 } from "./decision-add";
 import { readAll, voidedBy } from "./decision-fold";
 import {
@@ -32,6 +35,7 @@ import {
   Ended,
   Kept,
   Line,
+  Ran,
   SendFailed,
   Sent,
   Withdrawn,
@@ -50,7 +54,7 @@ import {
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { cardRefsProblemOf, readsOnce } from "./find-refs";
 import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
-import { amountOf, eventOf } from "./needs";
+import { amountOf, apifyRunOf, eventOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one, 2 or 3 options (the recommended one first; older lines hold up to 4), its context folded, a deadline.
@@ -58,7 +62,7 @@ import { amountOf, eventOf } from "./needs";
 // `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn` (or Life's, when he
 // answered in a draft's chat himself: `withdrawDraftsAnsweredInChat`), and, when his
 // answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`), and when it
-// was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`), and an `adds` option alone, the calendar write's (`added`, `addEventByHisWord`, written once, never retried). A send
+// was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`), and an `adds` option alone, the calendar write's (`added`, `addEventByHisWord`, written once, never retried), and a `runs` option alone, the Apify run's start (`ran`, `runApifyByHisWord`, the same way). A send
 // that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
 // (his yes of 18 Nov 2026); `may have gone:` stays answered. A card Life sees done itself (`doneSeenBy`: a payment) gets
 // Life's outcome line `done-seen` (`recordDoneSeen`), never his answer: on his pick of its `looks` option alone, `seen` or
@@ -86,7 +90,7 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   return Date.parse(d.deadline) <= now.getTime() ? "lapsed" : "open";
 };
 
-type Act = "add" | "end" | "look" | "send";
+type Act = "add" | "end" | "look" | "run" | "send";
 
 /** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
 export const doneSeenByOf = (
@@ -103,6 +107,9 @@ const actOfOption = (
 ) => {
   if (o?.adds && eventOf(d.needs)) {
     return "add";
+  }
+  if (o?.runs && apifyRunOf(d.needs)) {
+    return "run";
   }
   if (o?.outgoing && isSendable(d.draft)) {
     return "send";
@@ -132,9 +139,12 @@ export const actDueOf = (d: Omit<Decision, "state">) =>
 
 /** The outcome of his answer's act, as stored: the send's, the look's, or the end's. */
 export const actOutcomeOf = (
-  d: Pick<Decision, "added" | "doneSeen" | "end" | "send">,
+  d: Pick<Decision, "added" | "doneSeen" | "end" | "ran" | "send">,
   act: Act
-) => ({ add: d.added, end: d.end, look: d.doneSeen, send: d.send })[act];
+) =>
+  ({ add: d.added, end: d.end, look: d.doneSeen, run: d.ran, send: d.send })[
+    act
+  ];
 
 /** An act with no outcome this long past its own limit never ended (a crash): the reads before it and the line's write. */
 const ACT_GRACE = MIN;
@@ -157,6 +167,7 @@ function withOutcomeOf(
     add: ADD_LIMIT_MS,
     end: END_LIMIT_MS,
     look: LOOK_LIMIT_MS,
+    run: RUN_LIMIT_MS,
     send: d.draft ? sendLimitMs(d.draft) : END_LIMIT_MS,
   };
   const end = Date.parse(d.answer.at) + limits[act] + ACT_GRACE;
@@ -179,6 +190,9 @@ function withOutcomeOf(
   }
   if (act === "add") {
     return { ...d, added: addNeverEndedOf(d, line.at) };
+  }
+  if (act === "run") {
+    return { ...d, ran: ranNeverEndedOf(d, line.at) };
   }
   return act === "send"
     ? {
@@ -506,7 +520,7 @@ function logAsked(
 function actProblemOf(
   acts: (Act | undefined)[],
   via: Answered["via"],
-  can: { canAdd: boolean; canEnd: boolean; canLook: boolean }
+  can: { canAdd: boolean; canEnd: boolean; canLook: boolean; canRun: boolean }
 ) {
   const own = "only on his own answer, through `answer_check` in his app.";
   return (
@@ -514,6 +528,7 @@ function actProblemOf(
       via !== "connector" &&
       `a draft is sent ${own}`) ||
     (acts.includes("add") && !can.canAdd && `an event is added ${own}`) ||
+    (acts.includes("run") && !can.canRun && `an Apify run starts ${own}`) ||
     (acts.includes("end") && !can.canEnd && `a step is closed ${own}`) ||
     (acts.includes("look") &&
       !can.canLook &&
@@ -530,11 +545,13 @@ function answerProblemOf(
     canAdd,
     canEnd,
     canLook,
+    canRun,
     via,
   }: {
     canAdd: boolean;
     canEnd: boolean;
     canLook: boolean;
+    canRun: boolean;
     via: Answered["via"];
   }
 ) {
@@ -549,7 +566,7 @@ function answerProblemOf(
       !note &&
       "pick an option or give his words as `note`.") ||
     (d.plan && new Set(options).size > 1 && "a plan card takes one pick.") ||
-    actProblemOf(acts, via, { canAdd, canEnd, canLook }) ||
+    actProblemOf(acts, via, { canAdd, canEnd, canLook, canRun }) ||
     (wordless && `${wordless.id} takes his words: give them as \`note\`.`)
   );
 }
@@ -595,15 +612,18 @@ async function lookOnAnswer(
   return line;
 }
 
-/** Runs the act of his answer that writes outside Life (`end` closes the step or matter, `add` writes the calendar event) and appends its outcome line, `ended` or `added`, with the error when it failed. Never retried. */
+/** Runs the act of his answer that writes outside Life (`end` closes the step or matter, `add` writes the calendar event, `run` starts the Apify run) and appends its outcome line, `ended`, `added` or `ran`, with the error when it failed. Never retried. */
 async function settleOnAnswer(
-  kind: "added" | "ended",
+  kind: "added" | "ended" | "ran",
   d: Omit<Decision, "state">,
   run: () => Promise<unknown>,
   onStep?: (step: string, detail?: Record<string, unknown>) => void
 ) {
   const outcome = await run().then(
-    (r) => (typeof r === "string" ? { eventId: r } : {}),
+    (r) =>
+      typeof r === "string"
+        ? { [kind === "ran" ? "runId" : "eventId"]: r }
+        : {},
     (e: Error) => ({ error: e.message })
   );
   const line = {
@@ -612,8 +632,8 @@ async function settleOnAnswer(
     kind,
     schemaVersion: DECISIONS_VERSION,
     ...outcome,
-  } as Added | Ended;
-  appendJsonl(DECISIONS, z.union([Added, Ended]), [line]);
+  } as Added | Ended | Ran;
+  appendJsonl(DECISIONS, z.union([Added, Ended, Ran]), [line]);
   onStep?.(kind, "error" in line ? { error: line.error } : undefined);
   return line;
 }
@@ -638,6 +658,7 @@ export async function answerDecision(
     look,
     now = clock(),
     onStep,
+    run,
     via = "session",
   }: {
     add?: AddEventByHisWord;
@@ -647,6 +668,7 @@ export async function answerDecision(
     look?: LookForDone;
     now?: Date;
     onStep?: (step: string, detail?: Record<string, unknown>) => void;
+    run?: RunApifyByHisWord;
     via?: Answered["via"];
   } = {}
 ) {
@@ -655,6 +677,7 @@ export async function answerDecision(
     canAdd: Boolean(add),
     canEnd: Boolean(end),
     canLook: Boolean(look),
+    canRun: Boolean(run),
     via,
   });
   if (problem) {
@@ -682,16 +705,18 @@ export async function answerDecision(
   log("decision.answered", { id, note: !!note, options: options.length, via });
   onStep?.("recorded");
   const act = actDueOf(stored);
-  if (act === "add" && add) {
+  // The acts that write outside Life once, each with its outcome line's kind and its host writer (given or not).
+  const settles = {
+    add: ["added", add],
+    end: ["ended", end],
+    run: ["ran", run],
+  } as const;
+  const [kind, write] =
+    (act && act in settles && settles[act as keyof typeof settles]) || [];
+  if (kind && write) {
     return [
       line,
-      await settleOnAnswer("added", stored, () => add(stored), onStep),
-    ];
-  }
-  if (act === "end" && end) {
-    return [
-      line,
-      await settleOnAnswer("ended", stored, () => end(stored), onStep),
+      await settleOnAnswer(kind, stored, () => write(stored), onStep),
     ];
   }
   if (act === "look" && look) {

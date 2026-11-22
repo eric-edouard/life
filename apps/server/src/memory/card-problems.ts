@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { apifyToken } from "../apify/backend";
 import { DAY, HOUR } from "../core/clock";
 import { isOn } from "../core/outputs";
 import { isLifeActIcon } from "../records/answer-icon";
@@ -64,6 +65,7 @@ export function cardProblemOf(
     silenceProblemOf(ask, silence) ||
     lookProblemOf(ask, silence) ||
     addsProblemOf(ask, silence) ||
+    runsProblemOf(ask, silence) ||
     planProblemOf(ask, isPlan, silence) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
@@ -204,6 +206,30 @@ function addsProblemOf(
   );
 }
 
+/** What breaks the rules of a `runs` option and the `apify` need it starts, in words the agent can fix; false when nothing does. */
+function runsProblemOf(
+  ask: z.infer<typeof Ask>,
+  silence: z.infer<typeof Option> | undefined
+) {
+  const runs = ask.options.filter((o) => o.runs);
+  const apify = ask.needs?.filter((n) => n.kind === "apify") ?? [];
+  return (
+    (runs.length !== (apify.length > 0 ? 1 : 0) &&
+      'one `apify` need goes with exactly one `runs` option, and neither without the other (fetch("ask/apify"))') ||
+    (apify.length > 1 && "at most one `apify` need") ||
+    (silence?.runs &&
+      "`onSilence` never takes a `runs` option: on silence nothing runs") ||
+    (runs.some((o) => o.outgoing || o.adds || o.ends || o.looks || o.takes) &&
+      'a `runs` option has no other mark (fetch("ask/apify"))') ||
+    (ask.draft && runs.length > 0 && "a `runs` card has no `draft`") ||
+    (apify.some((n) => n.estimateUsd > n.maxUsd) &&
+      "an `apify` need's `estimateUsd` is at most its `maxUsd`") ||
+    (apify.length > 0 &&
+      !apifyToken() &&
+      "Apify is not connected: he has no token in Life")
+  );
+}
+
 /** What breaks the rules of a `looks` or `takes` option and of `doneSeenBy`, in words the agent can fix; false when nothing does. */
 function lookProblemOf(
   ask: z.infer<typeof Ask>,
@@ -211,7 +237,8 @@ function lookProblemOf(
 ) {
   const looks = ask.options.filter((o) => o.looks);
   const marks = (o: z.infer<typeof Option>) =>
-    [o.adds, o.ends, o.looks, o.outgoing, o.takes].filter(Boolean).length;
+    [o.adds, o.ends, o.looks, o.outgoing, o.runs, o.takes].filter(Boolean)
+      .length;
   return (
     ((silence?.looks || silence?.takes) &&
       "`onSilence` never takes a `looks` or `takes` option: on silence he did nothing and said nothing") ||

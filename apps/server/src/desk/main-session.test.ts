@@ -432,6 +432,11 @@ test("on his words the main session acts through its door: each act's `said` mus
         agent: id,
         said: "then stop it",
       });
+      results.mac = await callDoor(id, "change_registered_agent", {
+        action: "continue_on_mac",
+        agent: other,
+        said: "then stop it",
+      });
       await act("change_registered_agent", {
         action: "stop",
         agent: other,
@@ -450,6 +455,7 @@ test("on his words the main session acts through its door: each act's `said` mus
   }
   expect(results.notHis).toContain("must be his own words");
   expect(results.self).toContain("never changes itself");
+  expect(results.mac).toContain("only his app");
   expect(results.noSaid).toContain("must be his own words");
   expect(results.change_registered_agent).toContain('\\"state\\":\\"done\\"');
   expect(agentOf(t.desk.db, other)?.status).toBe("stopped");
