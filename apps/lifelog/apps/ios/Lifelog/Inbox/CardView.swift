@@ -151,7 +151,7 @@ struct CardView: View {
                     retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
                     keepForLater: { leave(taken, true) }
                 )
-                .padding(.horizontal, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.xs).readingWidth()
+                .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s).readingWidth()
             }
         }
         .motion(Motion.rise, value: resultScreen != nil)
