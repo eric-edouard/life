@@ -108,23 +108,24 @@ struct RootView: View {
         // Its event sheet over the tab he was on, once any other sheet is out of the way.
         case .appointment(let pushId): return dismissSheet { router.appointment = .pushId(pushId) }
         }
-        (router.tab, router.isDrawerOpen) = (.inbox, false)
+        router.tab = .inbox
         dismissSheet {}
     }
 }
 
 #if DEBUG
     extension RootView {
-        /// `-fixtureTab projects|people`, `-fixtureCard`, `-fixtureMatter`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
+        /// `-fixtureTab projects|people|profile`, `-fixtureCard`, `-fixtureMatter`, `-fixturePerson`, `-fixtureSheet`: open the screen a launch
         /// asked to see.
         fileprivate func showFixtureScreen() async {
             try? await Task.sleep(for: .milliseconds(1_200))
             switch LifeFixture.tab {
             case "projects": router.tab = .projects
             case "people": router.tab = .people
+            case "profile": router.showProfile()
             default: break
             }
-            if LifeFixture.drawer == "open" { router.isDrawerOpen = true }
+            if LifeFixture.drawer == "open" { router.isListShown = true }
             if let id = LifeFixture.matter { router.open(matter: id) }
             if let ref = LifeFixture.person { router.open(party: ref) }
             // On a matter, the card is the ask pushed on it; alone, the Inbox opens at it, as a push does.

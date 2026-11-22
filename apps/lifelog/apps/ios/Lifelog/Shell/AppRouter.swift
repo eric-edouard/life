@@ -111,14 +111,22 @@ final class AppRouter {
     /// What is pushed on the Profile page: Settings.
     var profilePath: [ProfilePage] = []
     var sheet: Sheet?
-    /// The list (`NavDrawer`) over the page, where it is not a sidebar.
-    var isDrawerOpen = false
-    /// Sideways on a regular width the list is a sidebar, which its button hides (`NavShell` reports the pose).
-    var isSideways = false
-    var isSidebarHidden = false
-    /// Sideways, the list is the sidebar; else it is open when asked.
-    var isListShown: Bool { isSideways ? !isSidebarHidden : isDrawerOpen }
-    func toggleList() { if isSideways { isSidebarHidden.toggle() } else { isDrawerOpen.toggle() } }
+    /// The shell's pose, the one place each pose's chrome is decided (`NavShell` reports its inputs): stacked (a phone, the
+    /// closed Duo: the list is the Inbox page's root, the pages replace it, Back returns to it), upright (the open Duo
+    /// taller than wide: the list a panel over the page) or sideways (the list a sidebar beside it).
+    enum Pose { case stacked, upright, sideways }
+    var isRegular = false
+    /// Wider than tall: the one input that tells the open Duo sideways from upright (the fixture's open poses run on the
+    /// folded device, whose side column the system keeps in both).
+    var isLandscape = false
+    var pose: Pose { isRegular ? (isLandscape ? .sideways : .upright) : .stacked }
+    /// The list beside the page (sideways) or over it (upright); stacked, it is the Inbox page's root instead.
+    var isListShown = false
+    /// Opening a page puts the upright panel away; the sideways sidebar stays.
+    private func putListAway() { if pose == .upright { isListShown = false } }
+    /// The asks' place (the one on show, his notes, the kind and the asks he kept for later): here, so the list and the
+    /// ask read one order wherever the list is.
+    var asks = AskPlace()
     /// Where the ask on show stands among the asks, for the bottom bar's dots; nil when one ask or no asks are on show.
     var pager: PagerState?
     /// Whether the system puts the bars in the side column (the Duo closed or open sideways), reported by the screen on show
@@ -154,33 +162,47 @@ final class AppRouter {
         case .page(.agent, let id): open(agent: id)
         case .page(.project, let id): open(project: ProjectChips.Chip.identity(.project, id))
         }
-        (askLife, isDrawerOpen) = (.away, false)
+        askLife = .away
+        putListAway()
     }
 
-    /// The Inbox, on its whole list, from the list's top row.
+    /// An ask from the list (its taker forgets what he had answered there): pushed on the list when stacked, the page
+    /// beside it when open.
+    func open(ask ref: String?) {
+        (asks.current, asks.notes.taken, asks.notice) = (ref, nil, nil)
+        (tab, inboxPath) = (.inbox, pose == .stacked ? [.ask] : [])
+        putListAway()
+    }
+
+    /// The list, from a page's Back (stacked) or a notification.
     func showHome() {
-        (isDrawerOpen, tab, inboxPath, cut) = (false, .inbox, [], nil)
+        (tab, inboxPath, cut) = (.inbox, [], nil)
+        putListAway()
     }
 
     /// The Profile page, from the list's top row.
     func showProfile() {
-        (isDrawerOpen, profilePath, tab, cut) = (false, [], .profile, nil)
+        (profilePath, tab, cut) = ([], .profile, nil)
+        putListAway()
     }
 
     /// Settings, the Profile page's child: from the list, or a screen's "Pair with Life".
     func openSettings() {
-        (isDrawerOpen, tab, profilePath) = (false, .profile, [.settings])
+        (tab, profilePath) = (.profile, [.settings])
+        putListAway()
     }
 
     /// The Projects page, on its whole list, from the list's top row.
     func showProjects() {
-        (isDrawerOpen, tab, chip, matterColumn) = (false, .projects, nil, .sidebar)
+        (tab, chip, matterColumn) = (.projects, nil, .sidebar)
+        putListAway()
         (detail, cut) = (nil, nil)
     }
 
     /// The People page, on its whole list, from the list's top row.
     func showPeople() {
-        (isDrawerOpen, tab, cut) = (false, .people, nil)
+        (tab, cut) = (.people, nil)
+        putListAway()
         select(person: nil)
     }
 
@@ -232,7 +254,7 @@ final class AppRouter {
     }
 
     func open(matter id: String) {
-        isDrawerOpen = false
+        putListAway()
         sheet = nil
         projectAsk = nil
         tab = .projects
@@ -244,7 +266,7 @@ final class AppRouter {
     /// A project, from a matter that names it: the Projects tab's list on its chip (decision 95: the filtered list is
     /// the project).
     func open(project chip: String) {
-        isDrawerOpen = false
+        putListAway()
         sheet = nil
         tab = .projects
         self.chip = chip
@@ -279,7 +301,7 @@ final class AppRouter {
 
     /// A person's or an organization's page, from wherever one is named: the People tab, on them.
     func open(party ref: String) {
-        isDrawerOpen = false
+        putListAway()
         sheet = nil
         matterSheet = nil
         projectAsk = nil

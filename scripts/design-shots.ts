@@ -265,6 +265,10 @@ async function main() {
   const outcome = new Map<string, string>();
   try {
     await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
+    // The microphone's alert at launch would cover every frame: granted, never reset (the simulator is shared).
+    await execOk([
+      ...["xcrun", "simctl", "privacy", udid, "grant", "microphone", APP_ID],
+    ]);
     // The session reads the screen to know a frame is there, so every run opens it.
     await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
     await device(["open", APP_ID, "--platform", "ios", "--device", SIMULATOR]);
