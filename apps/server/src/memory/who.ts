@@ -345,8 +345,8 @@ interface VoiceCardItem {
  * The person a voice card asks about, what its "Yes" names (its `subject`): the one person the voice naming guessed for
  * its voices (`guessed`, `withVoiceGuesses`; only someone known today), which offers only who could be there
  * (`possibleSpeakersOf`), and lifelog's suggestion (its person, else the name it heard, as `resolve` reads it) does not
- * contradict; only when lifelog knows them by an id (`voiceIdOf`), so "Yes" assigns that id, never a name; none
- * otherwise. Lifelog's suggestion alone never names anyone: it reads sound and words, not who could be there. Only ever
+ * contradict; none otherwise. "Yes" assigns lifelog's id for them (`voiceIdOf`), else names a new person of Voice by
+ * their name (his yes of 22 Nov 2026: a guess may be someone Voice has not heard yet). Lifelog's suggestion alone never names anyone: it reads sound and words, not who could be there. Only ever
  * a question to him ("Is this X?"): his tap is the answer.
  */
 export function voiceSuggestionOf(
@@ -364,9 +364,7 @@ export function voiceSuggestionOf(
     item.names?.[item.personId ?? ""] ?? item.name
   );
   const [one] = guessed;
-  return guessed.size === 1 &&
-    (lifelog === null || lifelog === one) &&
-    voiceIdOf(people, item, one as string)
+  return guessed.size === 1 && (lifelog === null || lifelog === one)
     ? (one as string)
     : null;
 }
