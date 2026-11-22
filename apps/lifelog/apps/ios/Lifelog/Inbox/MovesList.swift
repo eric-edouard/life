@@ -77,7 +77,12 @@ struct MovesList: View {
             }
         }
         // A read can take a ticked row away (answered elsewhere): ticks only name rows still shown.
-        .onChange(of: rows.map(\.id)) { _, ids in ticked.formIntersection(ids) }
+        // A filter his answers emptied gives the whole list back, out of Select (DuoFoldMovesHanded): never "Nothing here."
+        // under a bar with nothing left to answer.
+        .onChange(of: rows.map(\.id)) { _, ids in
+            ticked.formIntersection(ids)
+            if ids.isEmpty, filter != .all, !sent.isEmpty { (filter, isSelecting, sent) = (.all, false, []) }
+        }
     }
 
     // MARK: Header
