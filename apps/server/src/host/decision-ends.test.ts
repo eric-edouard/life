@@ -66,7 +66,7 @@ test("an `ends` option: the plan counts the ticks, the matter closes by his word
   ).mockResolvedValue([matter] as never);
   const tick = spyOn(
     await import("./change-todo-item"),
-    "closeTodoItems"
+    "changeMatterTodoItems"
   ).mockImplementation((keys, _said, _kind, onClosed) => {
     onClosed?.(1, keys.length, keys[0] ?? "");
     return Promise.resolve([]);
