@@ -84,19 +84,24 @@ export const paymentWordsOf = (p: Payment) => ({
   note: p.note ? clip(redact(p.note.replace(/\s+/g, " ")), 120) : null,
 });
 
-/** A payment as the read path prints it: when, how much, to whom, its category, what it was, where he was, its episode. */
-// The merchant is a third party's words: one line, clipped.
-export const paymentLine = ({ episode, payment: p, stay }: Placed) => {
+/** What was paid, in one line: how much, to whom, its category, what it was. The merchant is a third party's words: clipped. */
+export const paymentText = (p: Payment) => {
   const words = paymentWordsOf(p);
   return [
-    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amountWordsOf(p.amount, p.currency)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${words.merchant}`,
+    `${amountWordsOf(p.amount, p.currency)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${words.merchant}`,
     words.category ?? "no category yet",
     ...(words.note ? [`"${words.note}"`] : []),
     ...(p.spending ? [] : ["not spending"]),
+  ].join(" · ");
+};
+
+/** A payment as the read path prints it: when, what was paid (`paymentText`), where he was, its episode. */
+export const paymentLine = ({ episode, payment: p, stay }: Placed) =>
+  [
+    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${paymentText(p)}`,
     ...(stay ? [`at ${where(stay)}`] : []),
     ...(episode ? [`in ${episode.id}`] : []),
   ].join(" · ");
-};
 
 /**
  * The payments of his days `from` to `to`, placed (`place`): none while payments are off, and the backend's error

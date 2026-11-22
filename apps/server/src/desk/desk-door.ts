@@ -285,6 +285,9 @@ function doorServer(desk: Desk, id: string) {
       if (change.agent === id) {
         return { error: "Not done: the main session never changes itself." };
       }
+      if (change.action === "continue_on_mac") {
+        return { error: "Not done: only his app opens an agent on his Mac." };
+      }
       const words = hisWordsOf(turn, said);
       const done = await changeRegisteredAgent(
         { ...change, said: words },

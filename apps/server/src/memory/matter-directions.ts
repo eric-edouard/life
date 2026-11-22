@@ -9,6 +9,7 @@ import {
   ONE_OF,
 } from "../records/matter";
 import { type Observation, ObservationId } from "../records/observation";
+import { type Evidence, readEvidence } from "./matter-evidence";
 import {
   directionDueOf,
   laterShownOf,
@@ -31,11 +32,12 @@ import { dayNow } from "./zones";
 
 // The matters' directions (docs/glossary.md: matter direction): for each running matter due one (`isDirectionDue`), one
 // model call drafts its goal (where it is going) and its next step (what moves it now, its kind and its context), or, when the matter
-// looks over, no next step and the later records that show it (`endingRecords`: the links step then judges them). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
+// looks over, no next step and the records that show it (`endingRecords`: the links step then judges the observations among them;
+// a unit cited from its evidence (`readEvidence`) is not judged, like a draft whose own steps show it over). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v4";
-/** The most characters of matters a night is shown, those with no direction first, then the newest; and one call. */
+const PROMPT = "memory-matter-directions.v5";
+/** The most characters of matters a night is shown, those with no direction first, then the newest (before their evidence, about 2k more each); and one call. */
 const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
 /** How many of a matter's newest steps a call sees, and how long each one's words. */
@@ -59,6 +61,8 @@ export async function dueDirectionsOf(
   );
 }
 
+const NO_EVIDENCE: Evidence = { payments: [], units: [] };
+
 /** A step's `id` for the next step's context to link (`life:`), when it is an observation's. */
 const linkOf = (ref: string) =>
   ObservationId.safeParse(ref).success ? { id: ref } : {};
@@ -68,7 +72,7 @@ const QUOTE = /^\s*>|["“”«»„]/m;
 
 /**
  * Whether a drafted next step's context holds only what its matter's call was shown: every `life:` link one of its
- * steps' or later records' ids, and no quote (`> …` or in quotation marks: the call sees clipped lines, never the checked quotes). Else it is
+ * steps', later records' or evidence units' ids (a payment has no ref to open), and no quote (`> …` or in quotation marks: the call sees clipped lines, never the checked quotes). Else it is
  * dropped and the next step kept.
  */
 const isGroundedContext = (
@@ -77,11 +81,12 @@ const isGroundedContext = (
     later: { id: string }[];
     open: { id?: string }[];
     steps: { id?: string }[];
+    units: { id: string }[];
   }
 ) => {
   const ids = new Set(
-    [...shown.steps, ...shown.open, ...shown.later].flatMap((s) =>
-      s.id ? [s.id] : []
+    [...shown.steps, ...shown.open, ...shown.later, ...shown.units].flatMap(
+      (s) => (s.id ? [s.id] : [])
     )
   );
   return (
@@ -167,19 +172,24 @@ export async function matterDirections(
   if (due.length === 0) {
     return { drafted: 0, due: 0, failed: 0 };
   }
-  const size = (m: (typeof due)[number]) => JSON.stringify(m.shown).length;
+  const chosen = all
+    ? due
+    : // ponytail: newest first, so on a full night a stale dated matter is the first dropped; today's ~60k of 120k leaves room.
+      newestWithin(due, NIGHT_CHARS, {
+        // A matter with no direction yet sorts before any drafted one: "~" is after every digit. Then the newest of its last step and its newest later record.
+        at: (m) =>
+          `${m.v.goal ? "" : "~"}${[m.v.steps.at(-1)?.at ?? "", m.later.at(-1)?.at ?? ""].toSorted().at(-1)}`,
+        size: (m) => JSON.stringify(m.shown).length,
+      });
+  const evidence = await readEvidence(chosen, today);
+  const shown = chosen.map((m) => ({
+    ...m,
+    shown: { ...m.shown, ...(evidence.get(m.v.id) ?? NO_EVIDENCE) },
+  }));
   const calls = packed(
-    all
-      ? due
-      : // ponytail: newest first, so on a full night a stale dated matter is the first dropped; today's ~60k of 120k leaves room.
-        newestWithin(due, NIGHT_CHARS, {
-          // A matter with no direction yet sorts before any drafted one: "~" is after every digit. Then the newest of its last step and its newest later record.
-          at: (m) =>
-            `${m.v.goal ? "" : "~"}${[m.v.steps.at(-1)?.at ?? "", m.later.at(-1)?.at ?? ""].toSorted().at(-1)}`,
-          size,
-        }),
+    shown,
     CALL_CHARS,
-    size
+    (m) => JSON.stringify(m.shown).length
   );
   const step = await begin("matter-directions", "fast", { prompt: PROMPT });
   let drafted = 0;
@@ -191,14 +201,16 @@ export async function matterDirections(
         dir: join(dir, "call"),
         input: { matters: call.map((m) => m.shown) },
         prompt: PROMPT,
+        // A payment is no source's unit: not counted.
         reads: readsOf(
-          call.flatMap((m) =>
-            [
+          call.flatMap((m) => [
+            ...[
               ...m.v.steps.slice(-SHOWN_STEPS).map((s) => s.ref),
               ...m.v.openSteps.map((s) => s.ref),
               ...m.later.map((o) => o.id),
-            ].map((unit) => ({ source: "memory", unit }))
-          )
+            ].map((unit) => ({ source: "memory" as const, unit })),
+            ...m.shown.units.map((u) => ({ source: u.source, unit: u.id })),
+          ])
         ),
       });
       const list = (reply as { directions?: unknown } | null)?.directions;
@@ -207,9 +219,14 @@ export async function matterDirections(
         Drafted,
         (d) => d.matter,
         (id) => byId.has(id)
-      ).entries.map(({ matter, nextStep, ...d }) => {
+      ).entries.flatMap(({ matter, nextStep, ...d }) => {
         const m = byId.get(matter);
-        const shownIds = m?.later.map((o) => o.id) ?? [];
+        if (!m) {
+          return [];
+        }
+        const laterShown = m.later.map((o) => o.id);
+        // A payment cited is read, never stored: it has no ref to open.
+        const citable = [...laterShown, ...m.shown.units.map((u) => u.id)];
         const context = nextStep?.context;
         return {
           ...d,
@@ -217,24 +234,24 @@ export async function matterDirections(
           ...(d.endingRecords
             ? {
                 endingRecords: d.endingRecords.filter((id) =>
-                  shownIds.includes(id)
+                  citable.includes(id)
                 ),
               }
             : {}),
-          laterShown: shownIds,
-          ...(m ? { matter: m.v.id } : {}),
+          laterShown,
+          matter: m.v.id,
           ...(nextStep
             ? {
                 nextStep: {
                   ...nextStep,
                   context:
-                    context && m && isGroundedContext(context, m.shown)
+                    context && isGroundedContext(context, m.shown)
                       ? context
                       : undefined,
                 },
               }
             : {}),
-          steps: m?.v.steps.map((s) => s.ref) ?? [],
+          steps: m.v.steps.map((s) => s.ref),
         };
       });
       appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [

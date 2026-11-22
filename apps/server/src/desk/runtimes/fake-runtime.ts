@@ -36,6 +36,8 @@ export function fakeRuntime() {
     },
     /** Why the runtime can't run, as `Runtime.block`; none: it can. */
     blocked: undefined as string | undefined,
+    /** The sessions opened on his Mac (`continueOnMac`), in order: each then runs until the test closes it. */
+    continued: [] as string[],
     /** Runs inside `send` before it answers: a turn that calls the door before its runtime's CLI returns. */
     duringSend: undefined as (() => Promise<void>) | undefined,
     /** Ends the session's last run, as its process exiting: with the `usage` it reports and, failed, its `why`; `isBegunLate`: its `begun` settles just after, as a transcript poll does. */
@@ -73,6 +75,14 @@ export function fakeRuntime() {
     kept: [] as string[],
     runtime: {
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
+      continueOnMac(_agent, ref) {
+        const s = sessions.get(ref);
+        if (s) {
+          s.running = true;
+        }
+        fake.continued.push(ref);
+        return Promise.resolve();
+      },
       keep(_agent, ref) {
         if (sessions.get(ref)?.running) {
           return Promise.reject(new SessionLive(`session ${ref} is running`));
