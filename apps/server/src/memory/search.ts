@@ -84,25 +84,34 @@ function rowsFor<R extends { id: string }>(
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
-/** The rankings an index read fuses: by words (the FTS `query`, its rows' ids), by meaning (the stored hashes `readNearest` reads), and their best `LIMIT + 1`. */
-const rankersOf = (db: Database, query: string) => ({
-  best: (rankings: string[][]) =>
-    fuse(rankings)
-      .slice(0, LIMIT + 1)
-      .map(([id]) => id),
-  held: (sql: string, args: string[]) =>
+/**
+ * The ids best for an FTS `query`, fused (`fuse`): by meaning (`vector` against the stored hashes `hashes` selects) and by
+ * words (`words`, its rows ranked by FTS), both over `args`.
+ */
+function rankedIds(
+  db: Database,
+  query: string,
+  vector: number[] | undefined,
+  sql: { hashes: string; words: string },
+  args: string[]
+) {
+  return fuse([
+    readNearest(vector, () =>
+      db.query<{ id: string; hash: string }, string[]>(sql.hashes).all(...args)
+    ),
     query
       ? db
-          .query<{ id: string }, string[]>(sql)
+          .query<{ id: string }, string[]>(sql.words)
           .all(query, ...args)
           .map((r) => r.id)
       : [],
-  texts: (sql: string, args: string[]) => () =>
-    db.query<{ id: string; hash: string }, string[]>(sql).all(...args),
-});
+  ])
+    .slice(0, LIMIT + 1)
+    .map(([id]) => id);
+}
 
 /**
- * The ids of the units best for `q` within `range`, by meaning (`vector`) and by words, fused: `AND` holds every word
+ * The ids of the units best for `q` within `range`, by meaning (`vector`) and by words: `AND` holds every word
  * (search), `OR` any, ranked by FTS (a matter's evidence: its words are never all in a mail's).
  */
 export function rankedUnitIds(
@@ -113,22 +122,26 @@ export function rankedUnitIds(
   op: "AND" | "OR" = "AND"
 ) {
   const u = between("u.date", range);
-  const { best, held, texts } = rankersOf(db, ftsQuery(q, op));
-  return best([
-    readNearest(
-      vector,
-      texts(
-        `select u.id, h.hash from units u join search_hashes h on h.id = u.id where 1${u.sql}`,
-        u.args
-      )
-    ),
-    held(
-      `select u.id from unit_search s join units u on u.id = s.id
+  return rankedIds(
+    db,
+    ftsQuery(q, op),
+    vector,
+    {
+      hashes: `select u.id, h.hash from units u join search_hashes h on h.id = u.id where 1${u.sql}`,
+      words: `select u.id from unit_search s join units u on u.id = s.id
           where unit_search match ?${u.sql} order by rank limit ${CANDIDATES}`,
-      u.args
-    ),
-  ]);
+    },
+    u.args
+  );
 }
+
+/** The units of `ids`, in their order. */
+export const unitRowsOf = (db: Database, ids: string[]) =>
+  rowsFor<UnitRow>(
+    db,
+    "select id, date, source, title, topics from units where id in (select value from json_each(?))",
+    ids
+  );
 
 /** The observations and units best for `q` by meaning (`vector`) and by words (holding them all), fused (`fuse`). */
 export function matches(
@@ -138,30 +151,24 @@ export function matches(
   vector?: number[]
 ) {
   const o = between("o.date", range);
-  const { best, held, texts } = rankersOf(db, ftsQuery(q, "AND"));
   const observations = rowsFor<Row>(
     db,
     `select ${COLUMNS} from observations o where o.id in (select value from json_each(?))`,
-    best([
-      readNearest(
-        vector,
-        texts(
-          `select o.id, h.hash from observations o join search_hashes h on h.id = o.id where ${CURRENT}${o.sql}`,
-          o.args
-        )
-      ),
-      held(
-        `select o.id from search s join observations o on o.id = s.id
+    rankedIds(
+      db,
+      ftsQuery(q, "AND"),
+      vector,
+      {
+        hashes: `select o.id, h.hash from observations o join search_hashes h on h.id = o.id where ${CURRENT}${o.sql}`,
+        words: `select o.id from search s join observations o on o.id = s.id
           where search match ? and ${CURRENT}${o.sql} order by rank limit ${CANDIDATES}`,
-        o.args
-      ),
-    ])
+      },
+      o.args
+    )
   ).map(line);
-  const units = rowsFor<UnitRow>(
-    db,
-    "select id, date, source, title, topics from units where id in (select value from json_each(?))",
-    rankedUnitIds(db, q, range, vector)
-  ).map(unitLine);
+  const units = unitRowsOf(db, rankedUnitIds(db, q, range, vector)).map(
+    unitLine
+  );
   if (observations.length + units.length === 0) {
     return ["(nothing found)"];
   }

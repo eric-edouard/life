@@ -5,7 +5,7 @@ import { readOwnerName } from "../models/prompt-parts";
 import { type MatterView, matterTextOf } from "./matter-read";
 import { readIndex } from "./memory-files";
 import { type Placed, paymentText, placedOn } from "./payments";
-import { rankedUnitIds } from "./search";
+import { rankedUnitIds, unitRowsOf } from "./search";
 import { clip, normalize } from "./units";
 import { embedQuery } from "./vectors";
 
@@ -143,30 +143,17 @@ export async function readEvidence(
             .all(JSON.stringify(own))
             .map((r) => r.unit),
         ]);
-        const ids = rankedUnitIds(db, text, m.window, vector, "OR")
-          .filter((id) => !left.has(id))
-          .slice(0, SHOWN);
-        const rows = db
-          .query<
-            { date: string; id: string; source: SourceName; title: string },
-            [string]
-          >(
-            "select id, date, source, title from units where id in (select value from json_each(?))"
-          )
-          .all(JSON.stringify(ids));
-        return ids.flatMap((id) => {
-          const r = rows.find((x) => x.id === id);
-          return r
-            ? [
-                {
-                  day: r.date,
-                  id,
-                  source: r.source,
-                  title: clip(r.title, TITLE_CHARS),
-                },
-              ]
-            : [];
-        });
+        return unitRowsOf(
+          db,
+          rankedUnitIds(db, text, m.window, vector, "OR")
+            .filter((id) => !left.has(id))
+            .slice(0, SHOWN)
+        ).map((r) => ({
+          day: r.date,
+          id: r.id,
+          source: r.source,
+          title: clip(r.title, TITLE_CHARS),
+        }));
       }) ?? [];
     out.set(m.v.id, {
       payments: paymentsFor(
