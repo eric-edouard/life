@@ -22,7 +22,7 @@ import {
   withGuessesShown,
   withVoiceGuesses,
 } from "./voice-guesses";
-import { voiceSuggestionOf } from "./who";
+import { voiceIdOf, voiceSuggestionOf } from "./who";
 import { fetchOf, voiceLines, voiceText } from "./words";
 
 // Made-up people and recordings. Stored guesses are written as lines of a trial folder, as the voice naming writes them.
@@ -285,7 +285,7 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
   }
 });
 
-test("a voice card asks about the one person the group's sure or likely guesses name and lifelog's suggestion does not contradict, known to lifelog by an id", async () => {
+test("a voice card asks about the one person the group's sure or likely guesses name and lifelog's suggestion does not contradict, known to Voice or not", async () => {
   const folder = mkdtempSync(join(tmpdir(), "voice-card-guesses-"));
   try {
     line([entry()], "2026-10-11T00:00:00.000Z", folder);
@@ -357,13 +357,20 @@ test("a voice card asks about the one person the group's sure or likely guesses 
     // there (a friend living far away, matched by sound to a recording made where he was): "Who is this?".
     expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBeNull();
     expect(card({ guessed: [], personId: "lf-dana" })).toBeNull();
-    // Someone lifelog knows by no id: no name, so "Yes" never names a person by name.
-    expect(card({ likely: [] })).toBeNull();
-    // An id his directory does not know is who lifelog names it (life#963): "Is this Dana?", by that id.
-    expect(card({ likely: ["lf-new"] })).toBeNull();
-    expect(card({ likely: ["lf-new"], names: lifelogNames })).toBe(
-      "person:dana"
-    );
+    // Someone lifelog knows by no id is still asked (his yes of 22 Nov 2026): "Yes" names them to Voice by their name.
+    expect(card({ likely: [] })).toBe("person:dana");
+    // An id his directory does not know is who lifelog names it (life#963): "Yes" assigns that id, not a new name.
+    expect(card({ likely: ["lf-new"] })).toBe("person:dana");
+    expect(
+      voiceIdOf(who, { likely: ["lf-new"], personId: null }, "person:dana")
+    ).toBeUndefined();
+    expect(
+      voiceIdOf(
+        who,
+        { likely: ["lf-new"], names: lifelogNames, personId: null },
+        "person:dana"
+      )
+    ).toBe("lf-new");
     expect(card({ name: null, names: lifelogNames, personId: "lf-new" })).toBe(
       "person:dana"
     );
