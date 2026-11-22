@@ -251,7 +251,14 @@ struct AgentSheet: View {
                 }
             }
             .disabled(state.isRunning).offWhileOutOfReach()
-            if let link = agent.link.flatMap(URL.init(string:)) {
+            if agent.runtimeName == .pi {
+                // pi has no app: its session reads in this one, pushed on the agent's page.
+                TextLink("Its session", to: .page) {
+                    router.open(agent: agent.id)
+                    router.matterPath.append(.session(agent.id))
+                }
+                .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
+            } else if let link = agent.link.flatMap(URL.init(string:)) {
                 TextLink("Open in \(agent.runtimeName.name)", to: .outside) { openURL(link) }
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }

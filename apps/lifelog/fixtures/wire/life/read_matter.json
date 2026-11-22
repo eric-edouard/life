@@ -282,7 +282,8 @@
           "id": "yes",
           "label": "Send it",
           "outgoing": true,
-          "takes": null
+          "takes": null,
+          "icon": "send"
         },
         {
           "id": "no",
@@ -333,19 +334,22 @@
           "onSilence": null,
           "options": [
             {
+              "icon": "done",
               "id": "this-is",
               "label": "Yes",
               "takes": null
             },
             {
-              "id": "not-this-person",
-              "label": "No",
-              "takes": null
-            },
-            {
+              "icon": "person",
               "id": "same-person",
               "label": "Someone else…",
               "takes": "person or name"
+            },
+            {
+              "icon": "no",
+              "id": "not-this-person",
+              "label": "No",
+              "takes": null
             }
           ],
           "preTicked": "this-is",
@@ -439,11 +443,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "outdated",
           "label": "Yes, done",
           "takes": null
         },
         {
+          "icon": "later",
           "id": "false",
           "label": "Not yet",
           "takes": null

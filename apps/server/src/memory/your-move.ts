@@ -186,7 +186,7 @@ type SaidLine = Parameters<typeof saidOfLine>[0];
  * The your move cards: one per matter whose step is his (`yourMovesOf`), unless it is offered as a new matter
  * (`offered`: that card asks first, until its offer ends) or his Not now hides it; its step
  * as the question and `subject`, the matter's next step and what it waits on in its context, a `place` need from an
- * appointment read from its step, its `when` as the deadline; Mark as done ends that step, Hand to an agent starts one
+ * appointment read from its step, its `when` as the deadline; Mark as done ends that step, Hand over starts one
  * on the matter (only while the desk is readable, no agent holds it, he did not dismiss its offer and the hand-out does
  * not take it), Not now hides it. Ranked by the matter's place in his ranking (`matterRank`), then `since`. Pure.
  */

@@ -22,6 +22,8 @@ final class LifeStore {
     private(set) var agents = ReadState<RegisteredAgents>()
     /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
     private(set) var spending = ReadState<ModelSpending>()
+    /// An agent's session on pi, by the agent's id: read on each visit, never kept.
+    private(set) var agentSession: [String: ReadState<AgentSession>] = [:]
     /// The People tab: everyone Life knows, closest first; and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
@@ -401,6 +403,13 @@ final class LifeStore {
             try await $0.readMatter(id)
         }
         if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
+    }
+
+    func refreshAgentSession(_ id: String) async {
+        let update = { (event: ReadState<AgentSession>.Event) in
+            self.agentSession[id, default: ReadState()].apply(event)
+        }
+        await load(update, key: "read_agent_session-\(id)", isKept: false) { try await $0.readAgentSession(id) }
     }
 
     func refreshProjects() async {
@@ -954,6 +963,7 @@ final class LifeStore {
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         spending = ReadState()
+        agentSession = [:]
         (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()
