@@ -48,6 +48,8 @@ export const openingOf = (): Opening => {
 /** A session kept open across prompts (`talk`, `keep`), reserved in `kept` and `live` before it opens (`ready`). */
 interface Kept {
   active: Active;
+  /** Its agent, while its session is new: listed in his app (`handOff`) once Life lets it go. */
+  agentToList?: Agent;
   c?: Connection;
   id: string;
   isPrompting: boolean;
@@ -195,6 +197,10 @@ export function sessionRuntime(
     }
     await k.c.stop();
     await k.c.close();
+    // A new session is listed in his app once no process of Life's runs it (then a talk finds his app's hold and waits).
+    if (k.agentToList) {
+      await row.handOff?.(k.agentToList, k.c.ref);
+    }
   };
 
   /** Closes kept session `k` once it has had no prompt for `keepWarm`. */
@@ -315,9 +321,8 @@ export function sessionRuntime(
         }
         return end;
       });
-      // A fresh session is listed in his app once its first ask ends, as `start`'s is (no process: nothing to wait on).
       if (ref === null) {
-        ended.then(() => row.handOff?.(a, c.ref)).catch(() => undefined);
+        k.agentToList = a;
       }
       return { begun: run.begun, ended, link: row.link(c.ref), ref: c.ref };
     },
