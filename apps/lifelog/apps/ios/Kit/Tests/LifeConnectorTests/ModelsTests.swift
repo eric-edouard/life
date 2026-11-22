@@ -402,7 +402,7 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
     #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
 
-    // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
+    // Mark as done is his word that the step is done; Hand over hands over the goal shown, as Start does.
     let move = try card(.yourMove)
     #expect(move.options.map(\.id) == ["done", "start", "not-now", "drop"] && move.filled?.id == "done")
     #expect(move.isEnding(try #require(move.answer(move.options[0]))))

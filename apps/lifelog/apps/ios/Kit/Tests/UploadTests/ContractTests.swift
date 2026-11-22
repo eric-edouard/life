@@ -125,6 +125,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
+    // The answer icons: Life's acts and the rest, one set.
+    #expect(
+        try quoted("records/answer-icon.ts", /(?s)LIFE_ACT_ICONS = \[(.*?)\] as const/)
+            .union(try quoted("records/answer-icon.ts", /(?s)ANSWER_ICONS = \[(.*?)\] as const/))
+            == client(AnswerIcon.self))
     let needs = try source("memory/needs.ts")
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
     #expect(kinds == client(Check.Need.Kind.self))
