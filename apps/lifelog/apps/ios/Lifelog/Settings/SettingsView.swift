@@ -31,46 +31,41 @@ struct SettingsView: View {
     @State private var isAppsOpen = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                SheetHeader(title: "Settings", font: .screenName, close: close)
-                needsYou
-                connections
-                allows
-                agents
-                sending
-                cards
-                pendant
-                dictation
-                RowGroup(label: "Ask Life", surface: .sheet) {
-                    NavigationLink {
-                        AskLifeSettingsPage()
-                    } label: {
-                        Row(title: "Ask Life", icon: "waveform", detail: "Its look") {
-                            RowValue()
-                        }
+        VStack(alignment: .leading, spacing: 24) {
+            needsYou
+            connections
+            allows
+            agents
+            sending
+            cards
+            pendant
+            dictation
+            RowGroup(label: "Ask Life", surface: .sheet) {
+                NavigationLink {
+                    AskLifeSettingsPage()
+                } label: {
+                    Row(title: "Ask Life", icon: "waveform", detail: "Its look") {
+                        RowValue()
                     }
-                    .buttonStyle(.plain)
                 }
-                RowGroup(label: "Appearance", surface: .sheet) {
-                    SegmentedChoice(
-                        choices: [Appearance.auto, .light, .dark],
-                        selection: Binding(get: { appearance }, set: { appearance = $0 ?? appearance }),
-                        title: { $0.rawValue.capitalized }
-                    )
-                    .padding(8)
-                    .accessibilityIdentifier("settings.appearance")
-                }
-                yourData
-                spending
-                help
+                .buttonStyle(.plain)
             }
-            .motion(Motion.standard, value: needsYouRows)
-            .padding(.horizontal, Metrics.gutter)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
-            .readingWidth()
+            RowGroup(label: "Appearance", surface: .sheet) {
+                SegmentedChoice(
+                    choices: [Appearance.auto, .light, .dark],
+                    selection: Binding(get: { appearance }, set: { appearance = $0 ?? appearance }),
+                    title: { $0.rawValue.capitalized }
+                )
+                .padding(8)
+                .accessibilityIdentifier("settings.appearance")
+            }
+            yourData
+            spending
+            help
         }
+        .motion(Motion.standard, value: needsYouRows)
+        .readingWidth()
+        .sheetScroll { SheetHeader(title: "Settings", font: .screenName, close: close) }
         .tint(Palette.fg)
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }

@@ -236,31 +236,30 @@ private struct LogLineSheet: View {
     @State private var copied = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
-                HStack(spacing: Metrics.Spacing.m) {
-                    Text(
-                        "\(Text(line.level.tag).fontWeight(.bold).foregroundStyle(line.level.color))  \(line.categoryWords)"
-                    )
-                    .font(.codeInline).foregroundStyle(Palette.fg).lineLimit(1)
-                    Spacer(minLength: 0)
-                    Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
-                        UIPasteboard.general.string = line.copyText
-                        copied = true
-                        Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            copied = false
-                        }
-                    }
-                    .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
-                    CloseButton { dismiss() }
-                }
-                Text(line.shownMessage).font(.codeInline).foregroundStyle(Palette.fg).textSelection(.enabled)
-                RowGroup(surface: .sheet) {
-                    Row(title: "Time") { Text(line.fullTime).font(.note).foregroundStyle(Palette.muted) }
-                }
+        VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+            Text(line.shownMessage).font(.codeInline).foregroundStyle(Palette.fg).textSelection(.enabled)
+            RowGroup(surface: .sheet) {
+                Row(title: "Time") { Text(line.fullTime).font(.note).foregroundStyle(Palette.muted) }
             }
-            .padding(Metrics.gutter)
+        }
+        .sheetScroll {
+            HStack(spacing: Metrics.Spacing.m) {
+                Text(
+                    "\(Text(line.level.tag).fontWeight(.bold).foregroundStyle(line.level.color))  \(line.categoryWords)"
+                )
+                .font(.codeInline).foregroundStyle(Palette.fg).lineLimit(1)
+                Spacer(minLength: 0)
+                Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                    UIPasteboard.general.string = line.copyText
+                    copied = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        copied = false
+                    }
+                }
+                .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+                CloseButton { dismiss() }
+            }
         }
         .background(Palette.sheet)
         .presentationDetents([.medium, .large])

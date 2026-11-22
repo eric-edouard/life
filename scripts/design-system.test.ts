@@ -65,7 +65,7 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 3,
   },
   "Settings/SettingsView.swift": {
-    padding: 3,
+    padding: 1,
   },
   "Settings/VocabularyView.swift": {
     font: 1,
