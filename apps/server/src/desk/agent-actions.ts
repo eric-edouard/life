@@ -489,7 +489,9 @@ export function writeNotes(desk: Desk, s: AssignmentRow, text: string) {
 export async function askDecision(
   desk: Desk,
   s: AssignmentRow,
-  { keep, withdraw, why, ...ask }: z.infer<typeof DecisionRequest>
+  { keep, withdraw, why, ...ask }: z.infer<typeof DecisionRequest>,
+  /** The door's: the preview's digest the agent saw, or null; the card is asked only on its match (`CardPreview`). */
+  seen?: string | null
 ) {
   const { db } = desk;
   const id = s.agent_id;
@@ -571,7 +573,7 @@ export async function askDecision(
     },
     undefined,
     undefined,
-    { claim, isPlan, prefer: matter }
+    { claim, isPlan, prefer: matter, seen }
   );
 }
 
