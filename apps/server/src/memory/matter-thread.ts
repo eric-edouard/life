@@ -22,7 +22,7 @@ import { dayNow } from "./zones";
 // time order, a page of whole days at a time. A message belongs to a matter only when one of its facts cites it
 // (`Observation.source`): a chat-day's other lines are not the matter's. Read when asked, never stored.
 
-/** One line of a thread: when (`at`, `day`), what (`kind`, `text`), who (`speaker`), where (`channel`), and what opens it: `ref` for `fetch`, `open` the source's app, `facts` the observations citing it. */
+/** One line of a thread: when (`at`, `day`), what (`kind`, `text`), who (`speaker`), where (`channel`), and what opens it: `ref` for `fetch`, `open` the source's app, `facts` the observations citing it; a moment, a to-do item and Life's step carry their matter step's id (`step`), which `fetch` does not open yet. */
 export type ThreadLine = {
   at: string;
   day: string;
@@ -38,7 +38,7 @@ export type ThreadLine = {
       span?: { at: string; until: string };
     }
   | { kind: "event"; ref: string; start: string }
-  | { kind: "life" | "moment" | "todo_item"; ref: string }
+  | { kind: "life" | "moment" | "todo_item"; step: string }
   | {
       amount: number;
       category: string | null;
@@ -165,8 +165,8 @@ function messageLineOf(
   const source = sourceOf(e.source);
   const open = chatOpenUrlOf(e.source, [
     source.handleOf?.(e.chat),
-    // A sender's own chat opens only for a chat of two: never a group's member.
-    e.fromMe || source.group?.(e.chat) ? undefined : e.sender,
+    // A sender's own chat only for a chat its source knows is of two: never a group's member.
+    e.fromMe || source.group?.(e.chat) !== false ? undefined : e.sender,
   ]);
   const words = e.phoneCall
     ? textOf(e)
@@ -183,30 +183,35 @@ function messageLineOf(
   };
 }
 
-/** The payments of a page's moments: each placed in its smallest episode (`placedOn`), kept when that is the moment's; none while payments are off or unreadable. */
+/** The payments of a page's moments, in one read over their days: each placed in its smallest episode (`placedOn`), kept when that is one of the moments; none while payments are off or unreadable. */
 async function paymentLinesOf(
   moments: readonly Episode[],
   episodes: Episode[]
 ): Promise<ThreadLine[]> {
-  const read = await Promise.all(
-    moments.map(async (m) => {
-      const from = (m.start ?? m.day).slice(0, 10);
-      const to = (m.end ?? m.start ?? m.day).slice(0, 10);
-      const { list } = await placedOn(from, to, episodes, []);
-      return list.filter((p) => p.episode?.id === m.id);
-    })
-  );
-  return read.flat().map(({ day, episode, payment: p }) => ({
-    amount: p.amount,
-    at: p.paidAt ?? episodeAt(episode as Episode),
-    category: paymentWordsOf(p).category,
-    currency: p.currency,
-    day,
-    episode: (episode as Episode).id,
-    kind: "payment",
-    payment: p.id,
-    text: paymentWordsOf(p).merchant,
-  }));
+  const days = moments
+    .flatMap((m) => [m.start ?? m.day, m.end ?? m.start ?? m.day])
+    .map((d) => d.slice(0, 10))
+    .toSorted();
+  const [from] = days;
+  const to = days.at(-1);
+  if (!(from && to)) {
+    return [];
+  }
+  const ids = new Set(moments.map((m) => m.id));
+  const { list } = await placedOn(from, to, episodes, []);
+  return list
+    .filter((p) => p.episode && ids.has(p.episode.id))
+    .map(({ day, episode, payment: p }) => ({
+      amount: p.amount,
+      at: p.paidAt ?? episodeAt(episode as Episode),
+      category: paymentWordsOf(p).category,
+      currency: p.currency,
+      day,
+      episode: (episode as Episode).id,
+      kind: "payment",
+      payment: p.id,
+      text: paymentWordsOf(p).merchant,
+    }));
 }
 
 /** A planned line as the thread shows it; a cited one opened from its source. */
@@ -219,7 +224,7 @@ function lineOf(p: Planned, people: People): ThreadLine {
         at: p.at,
         day: p.day,
         kind: "moment",
-        ref: p.episode.id,
+        step: p.episode.id,
         text: p.episode.title,
       };
     case "event":
@@ -232,7 +237,7 @@ function lineOf(p: Planned, people: People): ThreadLine {
         text: p.appointment.title,
       };
     default:
-      return { at: p.at, day: p.day, kind: p.kind, ref: p.ref, text: p.text };
+      return { at: p.at, day: p.day, kind: p.kind, step: p.ref, text: p.text };
   }
 }
 

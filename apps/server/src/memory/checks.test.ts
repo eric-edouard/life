@@ -7,7 +7,7 @@ import { pushIdOf } from "../sources/lifelog-push";
 import type { CheckInputs } from "./check-context";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
-import { checksNow, checksOf, checksOnMatterOf } from "./checks";
+import { byAsked, checksNow, checksOf, checksOnMatterOf } from "./checks";
 import {
   about,
   DANA_ID,
@@ -794,4 +794,17 @@ test("only the open endings' and the new matters' steps are read for their sente
     today: "2026-11-18",
   });
   expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
+});
+
+test("byAsked: in the order asked whatever the zone written, Life's guesses (no `at`) last", () => {
+  const asked = [
+    { at: null, ref: "guess" },
+    { at: "2026-10-03T08:00:00-05:00", ref: "newer" },
+    { at: "2026-10-03T10:00:00Z", ref: "older" },
+  ];
+  expect(asked.toSorted(byAsked).map((c) => c.ref)).toEqual([
+    "older",
+    "newer",
+    "guess",
+  ]);
 });

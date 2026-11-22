@@ -12,7 +12,7 @@ import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
-import { checksOnMatterOf } from "../../memory/checks";
+import { byAsked, checksOnMatterOf } from "../../memory/checks";
 import { requestDecision } from "../../memory/decisions";
 import { readLifeIcons } from "../../memory/matter-icons";
 import { openById } from "../../memory/open-by-id";
@@ -265,7 +265,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "fetch",
-    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), a matter's thread (`<matter id>/thread`, JSON: `thread`, its lines in time order, each with `at`, `day`, `kind` (message, call, voice, quote: the line a fact cites, with `channel`, `speaker` (a party), `facts` (the observations citing it), `open` (the link into its app) and a call's `span` (`at`, `until`: its recording's cut); moment (an episode); payment (`amount`, `currency`, `category`, `payment` id, its `episode`); event (an appointment Life added, `start`); todo_item; life (Life's change to his list)), `text` and `ref` (what `fetch` opens); the newest 30 lines by whole days, `nextBefore` pages back with `<id>/thread/before/<day>`), an observation (`obs_…`), an appointment Life added to his calendar (`apt_…`, as `read_appointments` gives it), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs. `at` and `until` cut a recording (a conversation, a voice unit or a turn ref, which then opens at their first turn) to that span, such as a call's exact one: the turns that overlap it, a turn crossing an edge kept to its words wholly inside (by lifelog's word timings; none without them).",
+    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), an ask page (`ask/<name>`: how to ask a card's part), a matter (`matter_…`), a matter's thread (`<matter id>/thread`, JSON: `thread`, its lines in time order, each with `at`, `day`, `kind` (message, call, voice, quote: the line a fact cites, with `channel`, `speaker` (a party), `facts` (the observations citing it), `open` (the link into its app) and a call's `span` (`at`, `until`: its recording's cut); moment (an episode); payment (`amount`, `currency`, `category`, `payment` id, its `episode`); event (an appointment Life added, `start`); todo_item; life (Life's change to his list)), `text` and `ref` (what `fetch` opens; a moment, a to-do item and Life's change carry `step` instead, their matter step's id); the newest 30 lines by whole days, `nextBefore` pages back with `<id>/thread/before/<day>`), an observation (`obs_…`), an appointment Life added to his calendar (`apt_…`, as `read_appointments` gives it), a message (`msg:<source>|<message id>`, as `read_chats` gives them), or what Life read off a file (`file:<ref>`), each opened with `id` alone (no `fromTurn`, no `limit`). A card's `life:<ref>` links are these refs. `at` and `until` cut a recording (a conversation, a voice unit or a turn ref, which then opens at their first turn) to that span, such as a call's exact one: the turns that overlap it, a turn crossing an edge kept to its words wholly inside (by lifelog's word timings; none without them).",
     z.object({
       at: isoDateTime
         .optional()
@@ -411,12 +411,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
       return {
         ...row,
         ...(await readMatterMove(matter)),
-        // In the order asked, the newest last (the thread stacks them so); Life's guesses, never asked, after.
-        checks: checksOnMatterOf(open, matter.id).toSorted(
-          (a, b) =>
-            Number(a.at === null) - Number(b.at === null) ||
-            (a.at ?? "").localeCompare(b.at ?? "")
-        ),
+        checks: checksOnMatterOf(open, matter.id).toSorted(byAsked),
         spending: matter.spending,
       };
     }
