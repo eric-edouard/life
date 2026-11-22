@@ -50,7 +50,7 @@ export function pageHintOf(request: { needs?: unknown }, error: z.ZodError) {
   return page ? ` Read fetch("ask/${page}").` : "";
 }
 
-/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. `isPlan`: it is an assignment's plan card (the door's `asksPlanOf`). */
+/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. `isPlan`: it must be a plan card, an assignment's first (the door's `asksPlanOf`). */
 export function cardProblemOf(
   ask: z.infer<typeof Ask>,
   now: Date,
@@ -78,10 +78,11 @@ export function cardProblemOf(
 /** His own words, the last answer of every agent's card (the phone's), which no option repeats. */
 const TELL = /^tell the agent\b/i;
 /** An option that names the agent's own controls: those are his agent sheet's, and a pick of it only says the word. ponytail: English words only; a label in another language gets through. */
-const AGENT_CONTROL =
-  /\b(stop|pause|restart|resume|kill)\b.*\bagent\b|^(stop|pause|restart)$/i;
+const AGENT_CONTROL = /\b(stop|pause|restart|resume|kill)\b.*\bagent\b/i;
 /** A label after the first shares its row with two others: a third of the phone's row at its size. */
 const SHARED_ROW_CHARS = 14;
+/** The icons an `ends` option may take besides Life's done check: it drops the step or matter unwanted. */
+const DROP_ICONS: readonly string[] = ["drop", "no"];
 
 /** What breaks the one rule of a card's answers (`fetch("ask/options")`): 2 or 3 options, the first at most five words, the others short enough to share a row, no label twice, none repeating his own words or controlling the agent, and no icon of Life's acts; false when nothing does. */
 function answersProblemOf(ask: z.infer<typeof Ask>) {
@@ -101,6 +102,10 @@ function answersProblemOf(ask: z.infer<typeof Ask>) {
       `an option after the first is at most ${SHARED_ROW_CHARS} characters: they share the row below it`) ||
     (ask.options.some((o) => o.icon && isLifeActIcon(o.icon)) &&
       'the icons send, add_to_calendar, done and agent are Life\'s: it draws them on the options it acts on (fetch("ask/options"))') ||
+    (ask.options.some(
+      (o) => o.ends && o.icon && !DROP_ICONS.includes(o.icon)
+    ) &&
+      'an `ends` option closes the step or matter: no icon (Life draws done), or `drop` or `no` (fetch("ask/options"))') ||
     (ask.options.some((o) => o.icon && (o.outgoing || o.adds || o.looks)) &&
       'an `outgoing`, `adds` or `looks` option has no `icon`: Life draws its own (fetch("ask/options"))')
   );
@@ -186,23 +191,36 @@ function lookProblemOf(
 export const planRoleOf = (id: string) =>
   PLAN_OPTIONS.find((o) => o.id === id)?.id;
 
-/** What breaks the plan card's rules (`fetch("ask/plan")`): `plan` and `gathered` on it alone, `plan` always on it (a plan in `context` alone drew an empty card on his phone, 21 Nov 2026), and its two options, ids `start` then `decline` in the asker's words; false when nothing does. */
+/** A Markdown numbered-list line, outside quotes and code: a plan's step written as text. */
+const NUMBERED_LINE = /^ {0,3}\d{1,2}[.)]\s/;
+const CODE_BLOCK = /```[\s\S]*?```/g;
+
+/** Whether `context` writes steps as a numbered list (two lines or more, quotes and code aside): a plan as text, which drew a wall of text on his phone (22 Nov 2026). */
+const isNumberedListOf = (context: string) =>
+  context
+    .replace(CODE_BLOCK, "")
+    .split("\n")
+    .filter((l) => NUMBERED_LINE.test(l)).length >= 2;
+
+/** What breaks the plan card's rules (`fetch("ask/plan")`): a card that presents a plan gives it as `plan`, its steps, never as a numbered list in `context` (his word of 22 Nov 2026); the assignment's plan card always does (`isPlan`, 21 Nov 2026); `gathered` goes with `plan`; its two options, ids `start` then `decline` in the asker's words; false when nothing does. */
 function planProblemOf(
   ask: z.infer<typeof Ask>,
   isPlan: boolean,
   silence?: z.infer<typeof Option>
 ) {
-  if (!(ask.plan || ask.gathered)) {
+  const resend =
+    'give its steps as `plan`, with options `start` then `decline`, and keep `context` to what you found, as bullets (fetch("ask/plan"))';
+  if (isNumberedListOf(ask.context)) {
+    return `a numbered list in \`context\` is a plan as text: ${resend}; a list that is not steps goes as bullets`;
+  }
+  if (!ask.plan) {
     return (
-      isPlan &&
-      'an assignment\'s first card is its plan card: give `plan`, its steps, with options `start` then `decline` (fetch("ask/plan"))'
+      (isPlan && `an assignment's first card is its plan card: ${resend}`) ||
+      (ask.gathered &&
+        'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))')
     );
   }
   return (
-    (!isPlan &&
-      '`plan` and `gathered` are only on an assignment\'s plan card, its first card (fetch("ask/plan"))') ||
-    (!ask.plan &&
-      'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))') ||
     (ask.options.map((o) => o.id).join() !==
       PLAN_OPTIONS.map((p) => p.id).join() &&
       `a plan card's options are ids ${PLAN_OPTIONS.map((p) => p.id).join(" then ")}, in your words (fetch("ask/plan"))`) ||

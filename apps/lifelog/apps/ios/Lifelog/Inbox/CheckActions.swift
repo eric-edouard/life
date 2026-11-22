@@ -233,10 +233,10 @@ struct CheckActions: View {
     /// The most answers that share a row: three, a third of the card each, so every label holds 14 characters.
     private static let perRow = 3
 
-    /// His own words, always the last answer on a question: "Tell the agent…", or "Tell Life…".
+    /// His own words, always the last answer on a question: "Tell the agent…", or "Ask Life…".
     private var tell: Choice? {
         guard check.takesOwnWords else { return nil }
-        return Choice(id: .ownWords, label: check.tellTitle, icon: .agent) {
+        return Choice(id: .ownWords, label: check.ownWordsTitle, icon: .agent) {
             input.option = nil
             input.isWritingOwnWords = true
         }

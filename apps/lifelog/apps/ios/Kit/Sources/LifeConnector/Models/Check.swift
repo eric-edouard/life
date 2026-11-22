@@ -191,7 +191,12 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let observations: Int
         public let matters: Int
         public let pages: Int
+        /// The matters it rides on, by id; nil from a Life that predates it.
+        public let matterIds: [String]?
     }
+
+    /// The matter this ask is on: its own, else the first it rides on.
+    public var matterID: String? { matter?.id ?? ridesOn?.matterIds?.first }
 
     public var id: String { ref }
     public let ref: String
@@ -218,8 +223,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let head: Head?
     /// The older draft card into the same chat that this one replaces (his Send withdraws it); nil for most cards.
     public let replaces: String?
-    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
-    /// other kinds, or from a Life that predates it.
+    /// A decision that is a plan card: it gives `plan`, its steps; nil on other kinds, or from a Life that predates
+    /// it.
     public let isPlan: Bool?
     /// A plan card's steps, in order; nil on an older plan card, which shows as any decision.
     public let plan: [PlanStep]?
@@ -254,8 +259,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let text: String
     }
 
-    /// The steps the card draws, whenever it holds them: `isPlan` is false while Life can't read its desk, and a card
-    /// with no steps (an older plan card too) draws as any decision.
+    /// The steps the card draws, whenever it holds them; a card with no steps (an older plan card too) draws as any
+    /// decision.
     public var planSteps: [PlanStep] { plan ?? [] }
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
@@ -300,7 +305,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
-    /// Set on Life's own cards only, nil on an agent's: it offers "Wrong…", which opens Tell Life on the card.
+    /// Set on Life's own cards only, nil on an agent's: it offers "Wrong…", which opens Ask Life on the card.
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
     public let beingFixed: BeingFixed?
@@ -355,8 +360,8 @@ extension Check {
         }
     }
 
-    /// The words of what opens his own words on it: "Tell the agent…", or "Tell Life…" on Life's own question.
-    public var tellTitle: String { isLifesOwn ? "Tell Life…" : "Tell the agent…" }
+    /// The words of what opens his own words on it: "Tell the agent…", or "Ask Life…" on Life's own question.
+    public var ownWordsTitle: String { isLifesOwn ? "Ask Life…" : "Tell the agent…" }
 
     /// A context as he opened it, copied at his tap: an inbox refresh never empties or replaces an open sheet.
     public struct OpenedContext: Identifiable, Equatable, Sendable {
