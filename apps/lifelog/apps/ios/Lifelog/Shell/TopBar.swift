@@ -21,7 +21,7 @@ private struct ShellBar: ViewModifier {
     /// A pushed page's: the stack's Back.
     private var hasBack: Bool { isPushed }
     /// The unfolded Duo, on a page that is not pushed: the list's button joins the group.
-    private var hasList: Bool { !hasBack && sizeClass == .regular }
+    private var hasList: Bool { !hasBack && hasPendant && sizeClass == .regular }
 
     func body(content: Content) -> some View {
         content
