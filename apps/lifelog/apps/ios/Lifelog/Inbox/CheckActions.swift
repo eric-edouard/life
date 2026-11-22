@@ -44,8 +44,8 @@ struct CheckActions: View {
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.s) {
-            if let pressed, pressedChoice == nil {
-                // His words or a person he named: the one answer, working then Life's green word.
+            if let pressed, pressedChoice == nil, pressedPerson == nil {
+                // His words or a person he named in a sheet: the one answer, working then Life's green word.
                 pressedButton(pressed, kind: .filled, size: .large)
             } else if input.isWritingOwnWords {
                 Button {
@@ -252,9 +252,11 @@ struct CheckActions: View {
         switch Self.lead(of: check) {
         case .people:
             ForEach(people, id: \.ref) { person in
-                PartyPick(party: person) {
+                PartyPick(party: person, press: press(of: person)) {
                     if let request = check.answer(naming: .person(person.ref)) { answer(request) }
                 }
+                .opacity(pressed == nil || person.ref == pressedPerson ? 1 : 0.35)
+                .disabled(pressed != nil && person.ref != pressedPerson)
             }
             others(quiet(shown.map(choice)))
         case .create(let name):
@@ -364,9 +366,26 @@ struct CheckActions: View {
     /// The option he pressed among those drawn, when he pressed one: else his answer (his words, a person) shows as
     /// the one busy pill.
     private var pressedChoice: String? {
-        guard let options = pressed?.request.options, options.count == 1, shown.contains(where: { $0.id == options[0] })
+        guard pressedPerson == nil, let options = pressed?.request.options, options.count == 1,
+            shown.contains(where: { $0.id == options[0] })
         else { return nil }
         return options[0]
+    }
+
+    /// The person row he tapped, when his answer names one drawn on the card: that row works and turns green, never
+    /// the naming option's button below it.
+    private var pressedPerson: String? {
+        guard let ref = pressed?.request.person, people.contains(where: { $0.ref == ref }) else { return nil }
+        return ref
+    }
+
+    private func press(of person: Party) -> PartyPick.Press {
+        guard let pressed, person.ref == pressedPerson else { return .rest }
+        switch life.state(of: pressed.key) {
+        case .succeeded: return .done
+        case .failed: return .rest
+        case .idle, .running: return .working
+        }
     }
 
     /// One answer's button: at rest, or, once he pressed an answer, the pressed one working, then green with Life's

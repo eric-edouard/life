@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { digest } from "../core/hash";
+import { NO_LONGER_OPEN } from "../memory/answer-check";
 import { inboxOf } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
@@ -114,9 +115,7 @@ export const openChecksAndKeyNow = () => checksAndKeyNow(readHeld());
 export async function openCheckOf(ref: string) {
   const check = (await openChecksNow()).find((c) => c.ref === ref);
   if (!check) {
-    throw new Error(
-      `Not done: no open check ${ref}; \`read_inbox\` lists them.`
-    );
+    throw new Error(NO_LONGER_OPEN);
   }
   return check;
 }
