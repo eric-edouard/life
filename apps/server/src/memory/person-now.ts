@@ -62,12 +62,12 @@ export interface Standing {
   ) => { personal: ClosenessLevel; work: ClosenessLevel } | undefined;
 }
 
-/** A party as a list row: its closer level, its last exchange, and whether anything with them needs him: a running matter of theirs that does, or an open check about them on no matter (`asks`, `noMatterChecksByPartyOf`). Pure. */
+/** A party as a list row: its closer level, its last exchange, and whether anything with them needs him: a running matter of theirs that does, or an open check about them on no matter (`hasAsk`, `noMatterChecksByPartyOf`). Pure. */
 export const rowOf = (
   party: Party,
   standing: Standing,
   matters: readonly MatterRowNow[],
-  asks: readonly unknown[] = []
+  hasAsk = false
 ): PersonRow => {
   const l = standing.levelOf(party.ref);
   const last = standing.lastExchangeAt(party.ref);
@@ -75,8 +75,7 @@ export const rowOf = (
     ...party,
     ...(last ? { lastExchangeAt: last } : {}),
     ...(l ? { level: closerOf(l) } : {}),
-    needsYou:
-      asks.length > 0 || matters.some((m) => m.needsYou && isIn(m, party.ref)),
+    needsYou: hasAsk || matters.some((m) => m.needsYou && isIn(m, party.ref)),
   };
 };
 
@@ -217,8 +216,8 @@ export interface NowInputs {
  * has no room for given in `details`.
  */
 const KEPT_FIRST = [
-  "checks",
   "details",
+  "checks",
   "knows",
   "situation",
   "open",

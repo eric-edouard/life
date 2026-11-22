@@ -164,6 +164,19 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
   ]);
   const few = personNowOf({ ...now, ...inputsOf(now), matters: [matter(1)] });
   expect(few.more).toBeUndefined();
+  // Large asks are cut and counted after his details, which stay whole.
+  const details = [
+    { from: "truth", kind: "handles", text: "Signal: ana" } as const,
+  ];
+  const checks = Array(8).fill({ context: "x".repeat(2000) });
+  const crowded = personNowOf({
+    ...inputsOf(now),
+    checks,
+    details,
+    matters: [],
+  });
+  expect(crowded.details).toEqual(details);
+  expect(crowded.more?.checks).toBeGreaterThan(0);
   // A large list other than the matters (60 long episode titles), with a shared name's wrapper: the whole answer stays within its room, the oldest months cut and counted.
   const episodes = Array.from({ length: 60 }, (_, n) => ({
     month: `2021-${String(12 - (n % 12)).padStart(2, "0")}`,

@@ -390,7 +390,7 @@ function nowGathered(
     people.partyOf(ref),
     standingOf(levelsWith(people), readExchangeCounts()),
     matters,
-    asks
+    asks.length > 0
   );
   const organization = truth.organizations.find(
     (x) => `person:${x.id}` === ref
@@ -495,7 +495,7 @@ async function peopleList(
   const rowsOf = (list: Iterable<string>) =>
     peopleListOf(
       [...list].map((ref) =>
-        rowOf(people.partyOf(ref), standing, matters, asks.get(ref))
+        rowOf(people.partyOf(ref), standing, matters, asks.has(ref))
       )
     );
   if (!query) {
