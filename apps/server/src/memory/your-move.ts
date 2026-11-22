@@ -25,40 +25,86 @@ import { dayStart } from "./zones";
 // does it, hands it to an agent or says Not now. A check of Life's like the others (`checks.ts`), worked out when read; only his Not now is
 // stored (`your-move-not-now`).
 
-/** The steps he owes: a task of his (`to_do`), a promise, a to-do item; never a wait on someone. */
-const OWED_BY_HIM: MatterStepNow["kind"][] = ["promise", "to_do", "todo_item"];
+/** The steps he owes that a card asks: a task of his (`to_do`), a promise; never a wait on someone, nor a to-do item (his list holds it while it is open there; Life reads it ticked or removed). */
+const OWED_BY_HIM: MatterStepNow["kind"][] = ["promise", "to_do"];
 
-/** How many days past its date a step still asks him (a deadline missed yesterday); after, its day is over: the event happened, or the deadline went. */
+/** How many days past its date a step still asks him (a deadline missed yesterday); after, it parks. */
 const PAST_DATE_SHOWN_DAYS = 2;
+/** How many days a matter may go without a new step before its step parks. */
+const QUIET_PARK_DAYS = 30;
+/** A parked step comes back for `REVIEW_DAYS` at the end of every `PARK_CYCLE_DAYS` it stays parked: "still on?". */
+const PARK_CYCLE_DAYS = 30;
+const REVIEW_DAYS = 3;
 
 /** The day a step is due: its `when` as a whole date (never a yearly one); none otherwise. */
 const dueOf = (when?: string) =>
   when && isoDate.safeParse(when).success ? when : undefined;
 
-/** Whether a step is his to do on `today` (the cognitive-load rule, his direction of 22 Nov 2026): one he owes (`OWED_BY_HIM`), said by no mailer (a no-reply notice or his agents' report is owed to no one), and not dated more than `PAST_DATE_SHOWN_DAYS` ago. */
-const isHisToDo = (
-  s: Pick<MatterStepNow, "byMailer" | "kind" | "when">,
-  today: string
-) => {
-  const due = dueOf(s.when);
-  return (
-    OWED_BY_HIM.includes(s.kind) &&
-    !s.byMailer &&
-    !(due && daysFrom(due, today) > PAST_DATE_SHOWN_DAYS)
-  );
+/** Its due day as the card orders and dates it: none once more than `PAST_DATE_SHOWN_DAYS` past (a step brought back by newer evidence is not due). */
+const dueOn = (when: string | undefined, today: string) => {
+  const due = dueOf(when);
+  return due && daysFrom(due, today) <= PAST_DATE_SHOWN_DAYS ? due : undefined;
 };
 
+type MoveStep = Pick<
+  MatterStepNow,
+  "at" | "byMailer" | "day" | "kind" | "when"
+>;
+
 /**
- * His step on a matter on `today`, what its card shows: of its open steps his to do (`isHisToDo`), the one due first
- * (`dueOf`), else the newest (the latest words of it); none when nothing open is his to do (a wait on someone alone),
- * with `due` and `since`, the day of the oldest of them: how long the matter has waited on him. Pure.
+ * The day a step he owes parked (held back from his inbox, never ended: it stays an open step of its matter, in
+ * Matters), or none (the cognitive-load rule, his direction of 22 Nov 2026): said by a mailer (a no-reply notice or his
+ * agents' report, owed to no one) from its day, dated more than `PAST_DATE_SHOWN_DAYS` ago from then, its matter quiet
+ * more than `QUIET_PARK_DAYS` from then. A newer step on its matter (`newest`, its newest step's day) brings back a
+ * mailer's or a past date's step; the quiet one by itself. A step due ahead (`dueOn`) never parks. Pure.
  */
-export function yourMoveOf<
-  S extends Pick<MatterStepNow, "at" | "byMailer" | "day" | "kind" | "when">,
->(openSteps: readonly S[], today: string) {
-  const his = openSteps
-    .filter((s) => isHisToDo(s, today))
-    .map((s) => ({ due: dueOf(s.when), step: s }));
+function parkedSinceOf(s: MoveStep, newest: string, today: string) {
+  // Due ahead, or missed in the last days: never parked.
+  if (dueOn(s.when, today)) {
+    return;
+  }
+  const due = dueOf(s.when);
+  const [since] = [
+    s.byMailer && newest <= s.day ? s.day : undefined,
+    due && newest <= due
+      ? daysBefore(due, -(PAST_DATE_SHOWN_DAYS + 1))
+      : undefined,
+    daysBefore(newest, -(QUIET_PARK_DAYS + 1)),
+  ]
+    .filter((d): d is string => d !== undefined && d <= today)
+    .toSorted();
+  return since;
+}
+
+/** Whether a step parked since `since` is back for review on `today`: the last `REVIEW_DAYS` of each `PARK_CYCLE_DAYS`. */
+const isReviewDay = (since: string, today: string) =>
+  daysFrom(since, today) % PARK_CYCLE_DAYS >= PARK_CYCLE_DAYS - REVIEW_DAYS;
+
+/**
+ * His step on a matter on `today`, what its card shows: of its open steps he owes (`OWED_BY_HIM`), those not parked (`parkedSinceOf`) or
+ * back for review (`isReviewDay`), the one due first (`dueOf`), else the newest; none when nothing is his to do now,
+ * with `due`, `since` (the day of the oldest of them: how long the matter has waited on him) and `review`, when the step
+ * is back for review: its matter's newest step's day, since when nothing new came. Pure.
+ */
+export function yourMoveOf<S extends MoveStep>(
+  v: { openSteps: readonly S[]; steps: readonly Pick<MatterStepNow, "day">[] },
+  today: string
+) {
+  const newest = v.steps.reduce((d, s) => (s.day > d ? s.day : d), "");
+  const his = v.openSteps
+    .filter((s) => OWED_BY_HIM.includes(s.kind))
+    .flatMap((s) => {
+      const parked = parkedSinceOf(s, newest || s.day, today);
+      return !parked || isReviewDay(parked, today)
+        ? [
+            {
+              due: dueOn(s.when, today),
+              review: parked && (newest || s.day),
+              step: s,
+            },
+          ]
+        : [];
+    });
   const [first] = his.toSorted(
     (a, b) =>
       Number(a.due === undefined) - Number(b.due === undefined) ||
@@ -71,11 +117,15 @@ export function yourMoveOf<
 
 /** The steps the open matters' cards show (`yourMoveOf`): whose sentences the checks read. Pure. */
 export const yourMoveStepsOf = (
-  matters: readonly { open: boolean; openSteps: Step[] }[],
+  matters: readonly {
+    open: boolean;
+    openSteps: Step[];
+    steps: Pick<MatterStepNow, "day">[];
+  }[],
   today: string
 ) =>
   matters.flatMap((v) =>
-    v.open ? (yourMoveOf(v.openSteps, today)?.step.ref ?? []) : []
+    v.open ? (yourMoveOf(v, today)?.step.ref ?? []) : []
   );
 
 /** The place each observation an appointment was read from is at, by the observation's id; one at two places has none. Pure. */
@@ -145,7 +195,9 @@ export function yourMovesOf(c: YourMoveInputs) {
   );
   return new Map(
     c.matters.flatMap((v) => {
-      const move = v.open ? yourMoveOf(v.openSteps ?? [], c.today) : undefined;
+      const move = v.open
+        ? yourMoveOf({ openSteps: v.openSteps ?? [], steps: v.steps }, c.today)
+        : undefined;
       const next = nextStepNow(v, c.decisions);
       const held = Boolean(isHeld(v));
       return move &&
@@ -179,12 +231,15 @@ const deadlineOf = (due?: string) =>
 
 const FULL_STOP = /\.$/;
 
-/** What the card says beside its step: what the matter also waits on, else Life's next step when it is not the step itself. */
+/** What the card says beside its step: back for review, since when nothing new came; what the matter also waits on, else Life's next step when it is not the step itself. */
 function contextOf(
   next: { text: string; waitsOn?: string } | undefined,
-  step: string
+  step: string,
+  review?: string
 ) {
-  const base = LIFE_CHECKS["your move"].context;
+  const base = review
+    ? `Still on? Nothing new on it since ${plain(review)}.`
+    : LIFE_CHECKS["your move"].context;
   if (next?.waitsOn) {
     return `${base} Also waiting on: ${literalOf(next.waitsOn)}.`;
   }
@@ -219,7 +274,7 @@ export function yourMoveChecksOf(
     if (!move || offered.has(v.id) || isNotNow(v)) {
       return [];
     }
-    const { due, held, since, step } = move;
+    const { due, held, review, since, step } = move;
     const line = c.byId.get(step.ref);
     // A place name `redact` would hide part of is not shown at all.
     const place = locationOf({ name: c.places?.get(step.ref) ?? null });
@@ -235,7 +290,7 @@ export function yourMoveChecksOf(
       asker: LIFE_ASKER,
       at: null,
       clips: [],
-      context: contextOf(v.nextStep, step.text),
+      context: contextOf(v.nextStep, step.text, review),
       deadline: deadlineOf(due),
       draft: null,
       goal: v.goal?.text ?? v.name,

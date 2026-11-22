@@ -130,7 +130,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
   he listed in `githubRepos`; and a card's draft (a comment's text, or a new issue's title and text),
   once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026). And, while an agent's wait names one (`github_activity`), requests for the events of the repos the open waits name (`owner/name`, or an owner's repos listed with `gh repo list`), read for a wake and never kept (his direction of 20 Nov 2026, life#774).
-- To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
+- To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
   name only, never his words), and, for each new card in his
