@@ -22,8 +22,9 @@ import SwiftUI
 
     /// Right: the ask's first answer, when one tap gives it.
     var main: RowSwipe.Button? {
-        guard let option = check.optionsInOrder.first(where: { $0.id != "drop" }), let request = check.answer(option),
-            check.beingFixed == nil
+        guard let option = check.optionsInOrder.first(where: { $0.id != "drop" }),
+            CardNotification.isOneTap(option, of: check),
+            let request = check.answer(option), check.beingFixed == nil
         else { return nil }
         return .init(
             label: option.label, symbol: "checkmark", working: option.outgoing == true ? "Sending…" : "Saving…"
@@ -43,17 +44,17 @@ import SwiftUI
         Section(check.question) {
             ForEach(check.optionsInOrder.filter { !["done", "drop"].contains($0.id) }, id: \.id) { option in
                 Button(option.label) {
-                    if let request = check.answer(option) { Task { await send(request, option.label) } } else { open() }
+                    // Only a plain tap answers here: a send, a hand-over or his words open the ask, which shows what goes.
+                    if CardNotification.isOneTap(option, of: check), let request = check.answer(option) {
+                        Task { await send(request, option.label) }
+                    } else {
+                        open()
+                    }
                 }
             }
             if check.takesOwnWords { Button(check.ownWordsTitle, systemImage: "text.bubble", action: open) }
         }
-        if let matter {
-            let isMarked = life.isImportant(matter.id, as: matter.important)
-            Button(isMarked ? "Not important" : "Mark important", systemImage: isMarked ? "flag.slash" : "flag") {
-                Task { await life.setImportant(matter.id, !isMarked) }
-            }
-        }
+        if let matter { Self.mark(matter, life) }
         if let done = request("done") {
             Button("Done", systemImage: "checkmark") { Task { await send(done, "Done") } }
         } else if let id = check.matterID {
@@ -61,6 +62,14 @@ import SwiftUI
         }
         if let request = request("drop") {
             Button("Drop", systemImage: "trash", role: .destructive) { Task { await send(request, "Dropped") } }
+        }
+    }
+
+    /// Mark important (or not), the same on an ask's row and a matter's.
+    @ViewBuilder static func mark(_ matter: MatterRow, _ life: LifeStore) -> some View {
+        let isMarked = life.isImportant(matter.id, as: matter.important)
+        Button(isMarked ? "Not important" : "Mark important", systemImage: isMarked ? "flag.slash" : "flag") {
+            Task { await life.setImportant(matter.id, !isMarked) }
         }
     }
 }

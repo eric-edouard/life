@@ -143,11 +143,7 @@ struct NavDrawer: View {
                 }
                 .buttonStyle(.groupedRow(at: at, of: rows.count))
                 .contextMenu {
-                    let isMarked = life.isImportant(row.id, as: row.important)
-                    Button(isMarked ? "Not important" : "Mark important", systemImage: isMarked ? "flag.slash" : "flag")
-                    {
-                        Task { await life.setImportant(row.id, !isMarked) }
-                    }
+                    AskRowActions.mark(row, life)
                     Button("Done", systemImage: "checkmark") { Task { await life.markDone(row.id) } }
                 }
             }
