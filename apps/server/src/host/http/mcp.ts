@@ -29,7 +29,7 @@ import { offersOf } from "../../memory/read-person-page";
 import { readLogLines, readResourceSamples, runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { isToldLife } from "../../memory/sources";
-import { recordToldLife } from "../../memory/told-life";
+import { recordToldLife, TellLife } from "../../memory/told-life";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import { personalParts } from "../../personal/person-parts";
@@ -635,10 +635,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
       server,
       "tell_life",
       'Keep what the owner tells Life, only when he asked it to remember ("remember that…", an interview he asked for): `said` his own words, verbatim, never your summary; `asked` the question he answered, if any. Life reads it with the rest of his day, at the night\'s run.',
-      z.object({
-        asked: z.string().min(1).max(2000).optional(),
-        said: z.string().min(1).max(8000),
-      }),
+      TellLife,
       ({ asked, said }, agent) => {
         if (agent) {
           throw new Error(NOT_HIS);
