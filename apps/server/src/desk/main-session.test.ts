@@ -22,6 +22,7 @@ import { decisionsNow } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "../memory/matters";
 import { LEDGER, readLedger } from "../memory/memory-files";
+import { readToldLife } from "../memory/told-life";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import type { MainSessionLine } from "../records/main-session-wire";
 import type { AgentChange } from "../records/registered-agent";
@@ -625,4 +626,73 @@ test("`tell_agent` on an assignment the agent holds open puts his words there; o
       (a) => a.instruction?.quote === "call the first test garage"
     )
   ).toHaveLength(1);
+});
+
+test("Ask Life has everything (his rulings of 22 Nov 2026): his to-do list, an appointment, what he tells Life and his directory, each only on his words of this ask, through the connector's own writers", async () => {
+  const results: Record<string, string> = {};
+  const since = clock();
+  await asked(
+    "Remember that the test boiler is fixed. Add a project Home under the area nowhere.",
+    async (r) => {
+      const id = main()?.id ?? "";
+      const call = async (key: string, name: string, args: unknown) => {
+        results[key] = await callDoor(id, name, args);
+      };
+      await call("todoNotHis", "change_todo_item", {
+        kind: "add",
+        said: "Buy a boat for Ana",
+        title: "Boat",
+      });
+      await call("aptNotHis", "change_appointment", {
+        action: "remove",
+        appointment: "apt_0123456789ab",
+        said: "Buy a boat for Ana",
+      });
+      await call("apt", "change_appointment", {
+        action: "remove",
+        appointment: "apt_0123456789ab",
+        said: "Remember that the test boiler is fixed",
+      });
+      await call("toldNotHis", "tell_life", { said: "Buy a boat for Ana" });
+      await call("told", "tell_life", {
+        said: "the test boiler is fixed",
+      });
+      await call("dirNotHis", "change_directory_entry", {
+        action: "add",
+        kind: "area",
+        name: "Boats",
+        said: "Buy a boat for Ana",
+      });
+      // Checked on a copy first, as the connector's: refused, nothing changed.
+      await call("dir", "change_directory_entry", {
+        action: "add",
+        area: "nowhere",
+        kind: "project",
+        name: "Home",
+        said: "Add a project Home under the area nowhere",
+      });
+      t.fake.hear(r, { kind: "words", text: "**Done**." });
+    }
+  );
+  for (const key of ["todoNotHis", "aptNotHis", "toldNotHis", "dirNotHis"]) {
+    expect(results[key]).toContain("must be his own words");
+  }
+  expect(results.apt).toContain('\\"result\\":\\"failed\\"');
+  expect(results.told).toContain("Kept");
+  expect(readToldLife(since).map((e) => e.text)).toContain(
+    "the test boiler is fixed"
+  );
+  expect(results.dir).toContain("unknown area nowhere");
+  // No other agent has them.
+  const other = register(t.desk, {
+    brief: "Test brief",
+    folder: t.dir,
+    runtime: "pi",
+  });
+  if (!ownAssignmentOf(t.desk.db, other)) {
+    openAssignment(t.desk, other, { openedBy: "owner" });
+  }
+  expect(
+    await callDoor(other, "tell_life", { said: "the test boiler is fixed" })
+  ).toContain("the main session's alone");
 });

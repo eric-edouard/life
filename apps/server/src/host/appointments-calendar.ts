@@ -1,10 +1,12 @@
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { clock, DAY, iso } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { oneAtATime } from "../core/lock";
+import { oneAtATimeAcross } from "../core/lock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
+import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
 import {
   readAppointmentEvents,
@@ -34,8 +36,8 @@ import { type GoogleCalendar, googleCalendar } from "./google-calendar";
 
 // The appointments in his calendar (his request, 8 Nov 2026): `memory/appointments.json` and the appointments agreed
 // in new lines (`memory/arrival-appointments.ts`, his word of 21 Nov 2026) brought into the `appointments` setting's
-// calendar, his own, so his agents plan around them. Only the watcher syncs, one sync at a time (`inTurn`): every
-// 30 minutes, and on his Remove or Undo from the connector. An appointment's first event pushes `calendar.added`. Life touches only its own events there
+// calendar, his own, so his agents plan around them. One sync at a time, across processes (`inTurn`): the watcher's, every
+// 30 minutes, and on his Remove or Undo (from the connector, or the main session on his words). An appointment's first event pushes `calendar.added`. Life touches only its own events there
 // (found by `lifeOutput=appointments`) and reads back of them only `lifeConfirmed`, which an agent sets once he
 // confirms one. An event he or an agent removed, or he removed by Remove, is his no: recorded as
 // `refused`, it is never written again, until his Undo (`restored`). One Life removes (its appointment gone) is recorded as `removed`, so the
@@ -183,8 +185,8 @@ async function pushAdded(d: AppointmentDraft, now: Date) {
   }
 }
 
-/** One sync, Remove or Undo at a time: the watcher's ticks and the connector's calls share this chain. */
-const inTurn = oneAtATime();
+/** One sync, Remove or Undo at a time, across processes: the watcher's ticks, the connector's calls and the main session's share it. */
+const inTurn = oneAtATimeAcross(join(LIFE_STATE_DIR, "appointments.lock"));
 
 /** Brings his calendar in line with the appointments; null when it is not set up, or the night is rewriting its file. */
 async function sync(now: Date) {

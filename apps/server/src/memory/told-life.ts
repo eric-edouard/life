@@ -13,6 +13,12 @@ import { MEMORY } from "./memory-files";
 
 export const TOLD_LIFE = join(MEMORY, "told-life.jsonl");
 
+/** `tell_life`'s arguments, the connector's and the main session's: his words, and the question he answered, if any. */
+export const TellLife = z.object({
+  asked: z.string().min(1).max(2000).optional(),
+  said: z.string().min(1).max(8000),
+});
+
 const ToldLife = z
   .object({
     asked: z.string().min(1).optional(),
