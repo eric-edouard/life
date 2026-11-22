@@ -106,8 +106,6 @@ struct CardView: View {
     @Binding var current: String?
     @Binding var notes: CardNotes
     var notice: String?
-    /// The ask's context region beside or below it: a matter's stack gives one, the Inbox none.
-    var context: ContextRegion?
     /// A bulk card's row: its answer is handed back to the row, nothing sent (`isHeld`).
     var takes: ((Taken) -> Void)?
     /// Back to what hosts the asks, with the ask he passed (and whether he kept it for later).
@@ -122,38 +120,39 @@ struct CardView: View {
     @State private var createsNext: Creating?
 
     var body: some View {
-        CardArrangement(
-            context: context,
-            bar: resultScreen.map { taken in
+        // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
+        // An answer shown on its button stays in the pager, on the same card: only that button changes.
+        ZStack {
+            if let taken = resultScreen {
+                // A step ticking changes in place.
+                AnswerResultView(taken: taken, state: life.state(of: taken.key))
+                    .motion(Motion.standard, value: life.state(of: taken.key))
+                    .appears(Motion.result)
+            } else {
+                VStack(spacing: 0) {
+                    pager
+                    if let notice {
+                        Text(notice).font(.small).foregroundStyle(Palette.muted).padding(
+                            .horizontal, Metrics.gutter
+                        )
+                        .padding(.vertical, Metrics.Spacing.xs * 2.5)
+                        .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
+                    }
+                }
+                .appears(Motion.ask)
+            }
+        }
+        .clippedSideways()
+        // What follows an answer (its result's buttons) rides the system's bar at the bottom, where a thumb reaches.
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            if let taken = resultScreen {
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key),
                     retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
-                    keepForLater: { leave(taken, true) })
+                    keepForLater: { leave(taken, true) }
+                )
+                .padding(.horizontal, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.xs).readingWidth()
             }
-        ) {
-            // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
-            // An answer shown on its button stays in the pager, on the same card: only that button changes.
-            ZStack {
-                if let taken = resultScreen {
-                    // A step ticking changes in place.
-                    AnswerResultView(taken: taken, state: life.state(of: taken.key))
-                        .motion(Motion.standard, value: life.state(of: taken.key))
-                        .appears(Motion.result)
-                } else {
-                    VStack(spacing: 0) {
-                        pager
-                        if let notice {
-                            Text(notice).font(.small).foregroundStyle(Palette.muted).padding(
-                                .horizontal, Metrics.gutter
-                            )
-                            .padding(.vertical, Metrics.Spacing.xs * 2.5)
-                            .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
-                        }
-                    }
-                    .appears(Motion.ask)
-                }
-            }
-            .clippedSideways()
         }
         .motion(Motion.rise, value: resultScreen != nil)
         .fullScreenCover(
@@ -408,8 +407,7 @@ struct CardPage: View {
         if let check = notes.shownCheck.flatMap({ $0.ref == ref ? $0 : nil }) ?? source.first(where: { $0.ref == ref })
         {
             CardView(
-                check: check, checks: [check], current: $current, notes: $notes,
-                context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check))
+                check: check, checks: [check], current: $current, notes: $notes
             ) { taken, _ in
                 // A new matter whose goal he edited still waits for Start or Dismiss: back to the ask, not the matter.
                 if taken.staysOpen {
@@ -428,4 +426,9 @@ struct CardPage: View {
             .background(Palette.bg)
         }
     }
+}
+
+extension EnvironmentValues {
+    /// The card stands in its matter's thread (navigation v3): its matter pill goes, the thread is the matter.
+    @Entry var isInThread = false
 }
