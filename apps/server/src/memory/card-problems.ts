@@ -86,9 +86,9 @@ const NOT_OWN_WORDS = [
 /** What he reads of a card's text, as it asks: its own words, less links' targets, quotes and code. */
 const ownWordsOf = (text: string) =>
   NOT_OWN_WORDS.reduce((t, re) => t.replace(re, ""), text);
-/** An asker that says it did not check what it asks on. ponytail: English words only. */
+/** An asker that says it did not check what it asks on (its own "I didn't…", or a "Couldn't verify" heading; never someone else's). ponytail: English words only. */
 const HEDGE =
-  /\b(not verified|unverified|(could ?n[o']t|can ?n[o']t|unable to) (verify|check|confirm)|(have ?n[o']t|did ?n[o']t|did not|have not) (yet )?(verif|check|open|read|look)\w*)/i;
+  /\bnot verified|^[\s*#-]*could ?n[o'’]t verify|\b(i|we) (could ?n[o'’]t|can ?n[o'’]t|was unable to|am unable to|have ?n[o'’]t|did ?n[o'’]t|did not|have not) (yet )?(verif|check|confirm|open|read|look)\w*|\bi'?m unable to (verif|check|confirm)\w*/im;
 /** What he never reads on a card: a stored ref, or a name of Life's roles and plumbing (the technology disappears, his word of 22 Nov 2026). */
 const INTERNAL =
   /\b((obs|unit|matter|dec|agt|asg|apt)_[0-9a-f]{6,}|personal agent|main session|request_decision|life's connector)\b/i;

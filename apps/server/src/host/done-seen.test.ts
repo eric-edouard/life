@@ -401,6 +401,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
 
 test("the card's rules are short and each part's are a fetch away", async () => {
   expect(CARD.length - CARD_SELF_CHECK.length).toBeLessThan(1600);
+  expect(CARD_SELF_CHECK.length).toBeLessThan(1000);
   const page = await openById("ask/payment", undefined, undefined, () =>
     Promise.resolve("")
   );
