@@ -140,6 +140,29 @@ test("a name he said of one conversation reads so only there: another David stay
   // The other chat's David (a different person), and a read that names no conversation.
   expect(resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
   expect(resolve("David", "lifelog")).toBeNull();
+  // Ruling the name out everywhere (the old global line) leaves his word about this conversation standing.
+  const ruled = foldsOf(
+    mapped,
+    [],
+    [
+      said({
+        kind: "not-this-person",
+        nameOrHandle: "David",
+        person: "person:gaston",
+      }),
+      said({
+        inConversation: "lifelog|call-trocknerheld",
+        kind: "this-is",
+        nameOrHandle: "David",
+        person: "person:gaston",
+      }),
+    ],
+    []
+  );
+  expect(ruled.resolve("David", "lifelog", "lifelog|call-trocknerheld")).toBe(
+    "person:gaston"
+  );
+  expect(ruled.resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
   // A line with no scope keeps its old meaning: everywhere.
   const global = foldsOf(
     mapped,

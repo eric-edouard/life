@@ -210,15 +210,13 @@ export function readingOf(
       meet(carded, key, ks) ?? (bare ? cardNames.get(bare) : undefined);
     const isShared =
       !!bare && (names.get(bare) === null || cardNames.get(bare) === null);
+    // His word said of this very conversation is more specific than any ruling-out of the name everywhere.
+    const here = inConversation
+      ? words.flatMap((k) => saidIn.get(`${inConversation}|${k}`) ?? [])
+      : [];
     const tiers: (readonly [Reading["by"], string | null | undefined])[] = [
-      ...words.map(
-        (k) =>
-          [
-            "his word",
-            (inConversation && saidIn.get(`${inConversation}|${k}`)) ||
-              said.get(k),
-          ] as const
-      ),
+      ...here.map((r) => ["his word", r] as const),
+      ...words.map((k) => ["his word", said.get(k)] as const),
       ["truth", truth && `person:${truth}`],
       ["truth", named && `person:${named}`],
       ["contacts", onCard && `person:${onCard}`],
@@ -226,7 +224,8 @@ export function readingOf(
       ...guesses.map((g) => ["guess", g && `person:${g.id}`] as const),
     ];
     const found = tiers.find(
-      ([, r]) => r && !words.some((k) => not.has(`${k}|${r}`))
+      ([, r]) =>
+        r && (here.includes(r) || !words.some((k) => not.has(`${k}|${r}`)))
     );
     return found?.[1] ? { by: found[0], isShared, ref: found[1] } : null;
   };

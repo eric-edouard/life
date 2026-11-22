@@ -667,6 +667,18 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
       s === "Nok" ? "person:inf_nok" : null
     ).map((l) => l.speaker)
   ).toEqual(["person:inf_nok", "unknown:Somchai"]);
+  // A name he said of one conversation reads there only: two Davids in two calls.
+  const scoped = (call: string) =>
+    voiceLines(
+      [named("David")],
+      jobs,
+      (_s, _from, c) => (c === "lifelog|call-a" ? "person:weinstock" : null),
+      undefined,
+      undefined,
+      call
+    )[0]?.speaker;
+  expect(scoped("lifelog|call-a")).toBe("person:weinstock");
+  expect(scoped("lifelog|call-b")).toBe("unknown:David");
   // How lifelog heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
   const heard = (kind: string, withOwner: boolean) =>
     voiceLines(

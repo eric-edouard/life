@@ -357,7 +357,8 @@ export const unitTitle = (first: SourceEvent) =>
 export function speakerOf(
   source: SourceName,
   m: { fromMe: boolean; sender: string },
-  resolve: Resolve
+  resolve: Resolve,
+  inConversation?: string
 ) {
   if (m.fromMe) {
     return OWNER;
@@ -365,7 +366,7 @@ export function speakerOf(
   if (kindOf(source) === "agent") {
     return `${AGENT}${m.sender}`;
   }
-  return resolve(m.sender, source) ?? `${UNKNOWN}${m.sender}`;
+  return resolve(m.sender, source, inConversation) ?? `${UNKNOWN}${m.sender}`;
 }
 
 /** A line of a unit's text, `HH:MM who: text`: `who` the speaker without `person:`, or `unknownAs` when unresolved. */
