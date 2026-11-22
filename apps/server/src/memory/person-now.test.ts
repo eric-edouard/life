@@ -168,7 +168,7 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
   const details = [
     { from: "truth", kind: "handles", text: "Signal: ana" } as const,
   ];
-  const checks = Array(8).fill({ context: "x".repeat(2000) });
+  const checks = new Array(8).fill({ context: "x".repeat(2000) });
   const crowded = personNowOf({
     ...inputsOf(now),
     checks,
