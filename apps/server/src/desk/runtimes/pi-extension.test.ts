@@ -2,8 +2,9 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fakePiProvider } from "./fake-pi-provider";
+import { fakePiProvider, RECORD } from "./fake-pi-provider";
 import {
+  contextOf,
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
@@ -52,7 +53,7 @@ base = `http://127.0.0.1:${provider.port}`;
 afterAll(provider.stop);
 
 interface Event {
-  data?: { commands?: { name: string }[] };
+  data?: { commands?: { name: string }[]; summary?: string };
   id?: string;
   isError?: boolean;
   result?: { content: { text: string }[] };
@@ -128,6 +129,7 @@ async function runTurn() {
         [PI_EXTENSION_ENV.own]: "1",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
         [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
+        [PI_EXTENSION_ENV.rules]: "Made-up brief and contract.",
       },
       stderr: "ignore",
       stdin: "pipe",
@@ -191,10 +193,48 @@ test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches
   // The connector's reads, over stdio from Life's own reader.
   expect(ended("c6")?.isError).toBe(false);
   expect(ended("c6")?.result?.content[0]?.text).toContain("{");
-  expect(events.find((e) => e.id === "compact")?.success).toBe(true);
+  // Life writes the summary: its record from the door word for word, then pi's summary of the talk.
+  const compacted = events.find((e) => e.id === "compact");
+  expect(compacted?.success).toBe(true);
+  expect(compacted?.data?.summary).toStartWith(RECORD);
+  expect(compacted?.data?.summary).toContain("What the session did");
+  // The rules are a section of the system prompt, on every request of the agent's own session.
+  expect((asked[0]?.body.messages[0] as { content: string }).content).toContain(
+    "<life-desk>\nMade-up brief and contract.\n</life-desk>"
+  );
   expect(asked).toHaveLength(5);
   for (const a of asked) {
     expect(a.body.provider).toEqual(ROUTING);
     expect(a.auth).toBe("Bearer life-key");
   }
 }, 30_000);
+
+test("an earlier turn's tool answers reach the model as a note, the door's and this turn's whole", () => {
+  const answer = (id: string, toolName: string, text: string) => ({
+    content: [{ text, type: "text" }],
+    isError: false,
+    role: "toolResult",
+    timestamp: 0,
+    toolCallId: id,
+    toolName,
+  });
+  const long = "x".repeat(5000);
+  const messages = [
+    { content: "wake one", role: "user", timestamp: 0 },
+    answer("a", "mcp__life_connector__read_chats", long),
+    answer("b", "mcp__desk__request_decision", long),
+    answer("c", "bash", "short"),
+    { content: "wake two", role: "user", timestamp: 0 },
+    answer("d", "bash", long),
+  ] as unknown as Parameters<typeof contextOf>[0];
+  const sent = contextOf(messages)?.messages as unknown as {
+    content: { text: string }[];
+  }[];
+  expect(sent[1]?.content[0]?.text).toBe(
+    "(mcp__life_connector__read_chats's answer of an earlier turn, 5000 characters, is out of your context: call it again if you need it.)"
+  );
+  expect(sent[2]?.content[0]?.text).toBe(long);
+  expect(sent[3]?.content[0]?.text).toBe("short");
+  expect(sent[5]?.content[0]?.text).toBe(long);
+  expect(contextOf(messages.slice(3))).toBeUndefined();
+});

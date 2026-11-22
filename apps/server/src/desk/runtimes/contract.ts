@@ -57,6 +57,8 @@ export interface Agent {
   folder: string;
   id: string;
   model: string | null;
+  /** What every session of the agent must always hold (`rulesOf`: its brief, the door's contract), for a runtime that pins it (`pinsRules`). */
+  rules?: string;
   title: string;
 }
 
@@ -65,6 +67,8 @@ export interface Runtime {
   block: () => Promise<string | undefined>;
   /** Keeps session `ref` open for `agent` with no prompt (his presence on Ask Life), as `talk` keeps it; refused with `SessionLive` while anything else runs it. */
   keep: (agent: Agent, ref: string) => Promise<void>;
+  /** Holds `Agent.rules` as standing instructions on every run (pi), so a fresh session's first message leaves them out (`readPacket`). */
+  pinsRules?: boolean;
   /** Launches `message` in the session now, answering once the run is launched (`Run.begun` says when the turn is under way); refused with `SessionLive` while anything else runs it. */
   send: (agent: Agent, ref: string, message: string) => Promise<Run>;
   /** Starts a session in `agent.folder` with `brief` as its first message, answering once its run is launched: its ref, and a link that opens it. */
