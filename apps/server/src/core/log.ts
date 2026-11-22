@@ -30,6 +30,7 @@ type LogKind =
   | "desk.net"
   | "desk.queued"
   | "desk.runtime"
+  | "desk.session_open"
   | "desk.store_step"
   | "desk.turn"
   | "draft.send"
