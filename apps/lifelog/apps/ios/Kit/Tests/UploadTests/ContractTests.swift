@@ -125,6 +125,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
+    // The answer icons: Life's acts and the rest, one set.
+    #expect(
+        try quoted("records/answer-icon.ts", /(?s)LIFE_ACT_ICONS = \[(.*?)\] as const/)
+            .union(try quoted("records/answer-icon.ts", /(?s)ANSWER_ICONS = \[(.*?)\] as const/))
+            == client(AnswerIcon.self))
     let needs = try source("memory/needs.ts")
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
     #expect(kinds == client(Check.Need.Kind.self))
@@ -167,6 +172,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
             == client(RegisteredAgents.Desk.self))
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
+    #expect(
+        try quoted("host/agent-health.ts", /export type HealthVerdict = ([^;]*);/) == client(AgentHealth.Verdict.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
     // A line of an agent's session on pi (`read_agent_session`).
     #expect(try quoted("host/agent-session-read.ts", /kind: ([^;]*);/) == client(AgentSession.Line.Kind.self))

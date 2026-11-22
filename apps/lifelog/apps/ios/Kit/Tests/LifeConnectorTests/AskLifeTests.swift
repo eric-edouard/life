@@ -124,3 +124,15 @@ private func line(_ text: String) -> Data { Data(text.utf8) }
     let cut = ShownList(kind: .matters, refs: ["c", "a", "gone"], label: "x")
     #expect(cut.cut(["a", "b", "c"], ref: { $0 }) == ["c", "a"])
 }
+
+/// "Wrong…" on a card opens Ask Life with that card: its ref is what the session is told is open, over the matter on show
+/// (an operator-precedence slip once dropped it whenever the tab was not Projects or People).
+@Test func theCardHeAsksAboutIsWhatIsOpenOverTheMatterOnShow() {
+    let card = MainSessionScreen(tab: "inbox", card: "decision:d1", matter: nil, person: nil)
+    #expect(card == MainSessionScreen(tab: "inbox", open: "decision:d1"))
+    let over = MainSessionScreen(tab: "projects", card: "decision:d1", matter: "matter:m1", person: nil)
+    #expect(over.open == "decision:d1")
+    #expect(MainSessionScreen(tab: "projects", card: nil, matter: "matter:m1", person: nil).open == "matter:m1")
+    #expect(MainSessionScreen(tab: "people", card: nil, matter: "matter:m1", person: "person:p1").open == "person:p1")
+    #expect(MainSessionScreen(tab: "inbox", card: nil, matter: "matter:m1", person: nil).open == nil)
+}

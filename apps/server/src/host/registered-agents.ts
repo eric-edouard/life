@@ -25,6 +25,7 @@ import { sourceOf } from "../memory/sources";
 import { meant, type People, readPeople } from "../memory/who";
 import { dayNow, localDate, localTime } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
+import { deskHealthOf, type Health, STANDING_ROLES } from "./agent-health";
 import {
   type AgentNow,
   type AgentRead,
@@ -32,6 +33,7 @@ import {
   agentsOnProjects,
   agentsOnSteps,
 } from "./agents-now";
+import { readIsLifePluginOn } from "./claude-app-listing";
 import { healthRowsOf, peopleRowsOf } from "./desk-health";
 import {
   type AssignmentRow,
@@ -274,6 +276,8 @@ export type RegisteredAgent = Omit<
 export interface RegisteredAgents {
   agents: RegisteredAgent[];
   desk: DeskRead<unknown>["state"];
+  /** The desk's own health (`deskHealthOf`): on, its helper, the main session and the caretaker standing, the Life plugin. */
+  health: Health;
   helper: "running" | "not running";
   refused: ReturnType<typeof refusedSince>;
   /** Why its store could not be read. */
@@ -311,6 +315,7 @@ export async function readRegisteredAgents(
     return {
       agents: [],
       desk: read.state,
+      health: deskHealthOf({ desk: read.state, helper, missingRoles: [] }),
       helper,
       refused: [],
       ...(read.state === "unreadable" ? { why: read.why } : {}),
@@ -340,6 +345,23 @@ export async function readRegisteredAgents(
       };
     }),
     desk: "ok",
+    health: deskHealthOf({
+      desk: "ok",
+      helper,
+      isPluginOn: agents.some(
+        (a) => a.runtime === "claude" && a.status !== "ended"
+      )
+        ? readIsLifePluginOn()
+        : undefined,
+      missingRoles: STANDING_ROLES.filter(
+        (r) =>
+          !agents.some(
+            (a) =>
+              a.role === r &&
+              ["running", "waiting", "stopped"].includes(a.status)
+          )
+      ),
+    }),
     helper,
     refused,
   };
