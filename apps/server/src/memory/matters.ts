@@ -275,7 +275,7 @@ export async function readMatterRecords(people: People) {
     ...episodes.map((e): [string, string] => [e.id, episodeAt(e)]),
     ...observations.map((o): [string, string] => [o.id, o.at]),
   ]);
-  const reopenedAt = reopenedAtOf(statusInputs.corrections);
+  const reopenedAt = reopenedAtOf(people.corrections);
   // A link whose evidence came before his Reopen of its step ends nothing: the latest of his words wins.
   const linkEndings = new Map(
     [...endingsRead((ref) => current.has(ref)).linkEndings].flatMap(
