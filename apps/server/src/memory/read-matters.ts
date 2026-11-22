@@ -8,6 +8,7 @@ import {
   isHeldOf,
   type StandingAgent,
 } from "./held-matters";
+import { matterEndOf } from "./matter-end";
 import { iconNow } from "./matter-icons";
 import {
   directionDueOf,
@@ -52,6 +53,10 @@ const ROLES: readonly Role[] = ["owedTo", "waitingOn", "with"];
  */
 export interface MatterRow {
   areas?: string[];
+  /** The earliest date among its open steps (a day); left out when none has one. */
+  dueOn?: string;
+  /** When it ended, closed only (`matterEndOf`). */
+  endedAt?: string;
   goal?: { by: "life" | "owner"; text: string };
   /** Its icon (`iconNow`): his pick, else Life's; left out with neither, or when the reader asked for no Life picks. */
   icon?: { by: "life" | "owner"; key: MatterIconKey };
@@ -65,6 +70,10 @@ export interface MatterRow {
     NonNullable<ReturnType<typeof nextStepNow>>,
     "by" | "kind" | "text" | "waitsOn"
   >;
+  /** The instant of its first step. */
+  openedAt?: string;
+  /** How it ended, closed only (`matterEndOf`). */
+  outcome?: NonNullable<ReturnType<typeof matterEndOf>>["outcome"];
   /** The people by role, as parties (`partyOf`). */
   people?: Partial<Record<Role, Party[]>>;
   /** The project it shows under (`projectOf`), its status as stored (the app shows active and waiting as underway). */
@@ -105,8 +114,14 @@ function rowOf(
       v[role].length > 0 ? [[role, v[role].map(partyOf)]] : []
     )
   );
+  const end = matterEndOf(v);
   return {
     areas: some(v.areas.map((id) => nameIn(truth.areas, id))),
+    dueOn: v.openSteps
+      .flatMap((s) => (s.when ? [s.when] : []))
+      .toSorted()
+      .at(0),
+    endedAt: end?.at,
     goal: v.goal && { by: v.goal.by, text: v.goal.text },
     icon: iconNow(v, lifeIcons),
     id: v.id,
@@ -123,6 +138,8 @@ function rowOf(
       text: next.text,
       waitsOn: next.waitsOn,
     },
+    openedAt: v.steps.at(0)?.at,
+    outcome: end?.outcome,
     people: Object.keys(people).length > 0 ? people : undefined,
     project: project && {
       id: project.id,
@@ -169,13 +186,39 @@ export const isInScope = (
     (!s.noProject || of(v) === undefined);
 };
 
-/** The running matters (open, not dormant) of the book `read` gives, ranked as `read_day`'s Due (`rankedMattersOf`), of one `person`, `project` or `area` when given, or of an area in no project; with what rows are read from and what `read` gave. Throws when a name goes by no one known. */
-export async function rankedRunning<R extends { book: MatterView[] }>(
+/** Which matters a read lists: running (open and not dormant, or important: `isRunning`), open (the quiet ones too), or closed. */
+export const MATTER_STATES = ["running", "open", "closed"] as const;
+type MatterState = (typeof MATTER_STATES)[number];
+const IS_IN_STATE: Record<MatterState, (v: MatterView) => boolean> = {
+  closed: (v) => !v.open,
+  open: (v) => v.open,
+  running: isRunning,
+};
+/** A page of closed matters: this many, newest ended first. */
+export const CLOSED_PAGE = 50;
+
+/** A closed matter's place in the pages: its end's instant, then its id (ties keep their order across a page's edge). */
+const closedKeyOf = (at: string | number, id = "") =>
+  `${new Date(at).toISOString()}|${id}`;
+
+/** A matter of a parked or done project, or a quiet one, ranks after every other: a stable partition, quiet before parked. */
+const sunkOf = (isParked: (v: MatterView) => boolean) => (v: MatterView) =>
+  (isParked(v) ? 2 : 0) + (isRunning(v) ? 0 : 1);
+
+/**
+ * The matters of the book `read` gives in a `state` (running when not given; `MATTER_STATES`), of one `person`, `project`
+ * or `area` when given, or of an area in no project. Open ones ranked as `read_day`'s Due (`rankedMattersOf`), quiet and
+ * parked ones last; closed ones newest ended first (`matterEndOf`), a page of `CLOSED_PAGE` before `before` (the last
+ * page's `nextBefore`, or an instant), with `nextBefore` when more are left. With what rows are read from and what `read` gave. Throws when a name goes by no one known.
+ */
+export async function rankedMatters<R extends { book: MatterView[] }>(
   q: {
     area?: string;
+    before?: string;
     noProject?: boolean;
     person?: string;
     project?: string;
+    state?: MatterState;
   },
   read: (people: People, today: string) => Promise<R>,
   given?: People
@@ -197,54 +240,56 @@ export async function rankedRunning<R extends { book: MatterView[] }>(
   const today = dayNow();
   const r = await read(people, today);
   const isIn = isInScope(truth, { area, noProject: q.noProject, project });
-  const running = r.book.filter(
+  const isInState = IS_IN_STATE[q.state ?? "running"];
+  const picked = r.book.filter(
     (v) =>
-      isRunning(v) &&
+      isInState(v) &&
       (!ref || ROLES.some((role) => v[role].includes(ref))) &&
       isIn(v)
   );
-  const ranked = rankedMattersOf(
-    running,
-    people.nameOf,
-    today,
-    rankContextOf(people)
-  );
-  const isParked = isParkedMatterOf(truth);
+  const base = { ...r, decisions: openDecisions(), people, project };
+  if (q.state === "closed") {
+    const [at, id] = (q.before ?? "").split("|");
+    const before = at ? closedKeyOf(at, id) : undefined;
+    const ended = picked
+      .map((v) => ({ key: closedKeyOf(matterEndOf(v)?.at ?? 0, v.id), v }))
+      .filter((e) => !before || e.key < before)
+      .toSorted((a, b) => b.key.localeCompare(a.key));
+    const page = ended.slice(0, CLOSED_PAGE);
+    return {
+      ...base,
+      nextBefore: ended.length > page.length ? page.at(-1)?.key : undefined,
+      ranked: page.map((e) => e.v),
+    };
+  }
+  const sunk = sunkOf(isParkedMatterOf(truth));
   return {
-    ...r,
-    decisions: openDecisions(),
-    people,
-    project,
-    // A matter of a parked or done project ranks after every other: a stable partition.
-    ranked: [
-      ...ranked.filter((v) => !isParked(v)),
-      ...ranked.filter((v) => isParked(v)),
-    ],
+    ...base,
+    nextBefore: undefined,
+    ranked: rankedMattersOf(
+      picked,
+      people.nameOf,
+      today,
+      rankContextOf(people)
+    ).toSorted((a, b) => sunk(a) - sunk(b)),
   };
 }
 
 /**
- * The running matters, ranked as `read_day`'s Due (those with no open step last), of one `person`, `project` or `area` when given: each
+ * The matters in a state (`rankedMatters`: running when not given), of one `person`, `project` or `area` when given: each
  * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one an open assignment anchors on the matter) and, given `readIcons`, Life's icon picks for the ranked list. Throws when a person, project or area named goes by no name known.
  * Of one project, its page's head too (`project`): its name, status as stored and the first of his goals naming it; a
  * matter is parked by the project its row shows under (`projectOf`), not by this one.
  */
 export async function openMatters(
-  q: {
-    area?: string;
-    noProject?: boolean;
-    person?: string;
-    project?: string;
-  },
+  q: Parameters<typeof rankedMatters>[0],
   agentOf: (steps: string[]) => string | undefined = () => undefined,
   readIcons?: LifeIconsReader
 ) {
-  const { book, decisions, people, project, ranked } = await rankedRunning(
-    q,
-    async (p, t) => ({
+  const { book, decisions, nextBefore, people, project, ranked } =
+    await rankedMatters(q, async (p, t) => ({
       book: await readMatterBook(p, t),
-    })
-  );
+    }));
   const lifeIcons = await readIcons?.(ranked);
   const { truth } = people;
   const head = truth.projects.find((x) => x.id === project);
@@ -266,6 +311,7 @@ export async function openMatters(
       ...rowOf(v, people, decisions, lifeIcons),
       agent: agentOf(refsOf(v)),
     })),
+    ...(nextBefore && { nextBefore }),
   };
 }
 
@@ -423,7 +469,7 @@ export async function readHandOutMatters(
   /** The people, when the caller read them already. */
   given?: People
 ) {
-  const { book, decisions, people, ranked, records } = await rankedRunning(
+  const { book, decisions, people, ranked, records } = await rankedMatters(
     {},
     read,
     given
