@@ -35,6 +35,7 @@ import {
   namingBriefOf,
   namingConfidenceOf,
   overlappingPhoneCallsOf,
+  plannedPeopleOf,
   possibleSpeakersOf,
   SOUNDS_LIKE,
   voiceGroupsOf,
@@ -248,7 +249,9 @@ async function readDayFacts(dates: string[], people: People) {
         addTo(facts, o.date, s);
       }
       if (o.modality === "plan" && o.when && dates.includes(o.when)) {
-        addTo(scheduled, o.when, s);
+        for (const p of plannedPeopleOf(s, people.truth)) {
+          addTo(scheduled, o.when, p);
+        }
       }
     }
   }
