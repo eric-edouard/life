@@ -193,14 +193,19 @@ test("a plan written as a numbered list in `context` is refused on any card; quo
   });
   const asText =
     "What I found:\n- Kit quoted 80 €.\n\nPlan, in order:\n1. Ask Kit for the quote.\n2. Pay the deposit.";
-  for (const ask of [
-    () => askDecision(desk, on(desk, agent), card(asText)),
-    () => requestDecision(DESK_AGENT, { ...card(asText), agent }),
-  ]) {
-    await expect(ask()).rejects.toThrow(
-      "a numbered list in `context` is a plan as text: give its steps as `plan`, with options exactly `start` and `decline`"
-    );
-  }
+  const refused = await Promise.allSettled([
+    askDecision(desk, on(desk, agent), card(asText)),
+    requestDecision(DESK_AGENT, { ...card(asText), agent }),
+  ]);
+  expect(
+    refused.map((r) => r.status === "rejected" && String(r.reason))
+  ).toEqual(
+    refused.map(() =>
+      expect.stringContaining(
+        "a numbered list in `context` is a plan as text: give its steps as `plan`, with options exactly `start` and `decline`"
+      )
+    )
+  );
   const quoted =
     "> 1. Bring the watch\n> 2. Pay at pickup\n*Kit*\n\n```\n1. a\n2. b\n```";
   await expect(
