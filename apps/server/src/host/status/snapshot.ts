@@ -30,7 +30,7 @@ import { checks } from "../../todo-list/backend";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { readHealth } from "../health";
-import { openChecksNow } from "../inbox";
+import { inboxChecksNow } from "../inbox";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { ASK, type Card, type Fact, firstOf, type Tone } from "./card";
@@ -150,7 +150,7 @@ async function memoryCounts() {
     commitAt: at ? new Date(at).toISOString() : null,
     corrections: readLineCount(CORRECTIONS),
     episodes: episodes.length,
-    left: await safe(async () => (await openChecksNow()).length),
+    left: await safe(async () => (await inboxChecksNow()).length),
     observations: observations.reduce(
       (n, m) => n + readLineCount(join(OBSERVATIONS, m)),
       0

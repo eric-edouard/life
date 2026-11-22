@@ -218,7 +218,7 @@ test("checks that cannot be read are logged and the report has none: the night i
 test("the report's checks leave out the ending checks, keep every other one", async () => {
   const mods = await import("../memory/checks");
   const of = (kind: "ending" | "person", ref: string) =>
-    ({ guess: ref, kind, ref }) as never;
+    ({ group: kind, guess: ref, kind, ref }) as never;
   const listed = spyOn(mods, "checksNow").mockResolvedValue([
     of("ending", "obs_000000000001"),
     of("person", "person:zed"),
