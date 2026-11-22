@@ -2,10 +2,11 @@ import { gogCall } from "../core/gog";
 import { exec, execOk } from "../core/proc";
 import { redact } from "../core/redact";
 import type { Draft } from "../memory/calendar-events";
+import { readCalendarEvents } from "../sources/google-calendar-events";
 
 // One Google calendar through `gog` (as `account`), for Life's own events in it: the Past calendar
 // (`past-calendar.ts`), the appointments (`appointments-calendar.ts`) and an agent's event on his yes (`card-event-calendar.ts`). Life finds its events by their private
-// properties and reads nothing else of a calendar.
+// properties (the voice naming reads the others, `readCalendarEvents`).
 
 /** One of Life's events: its id, whether it is all-day, and its private properties. */
 interface HeldEvent {
@@ -26,17 +27,6 @@ type EventFields = Pick<Draft, "allDay" | "from" | "summary" | "to"> & {
 
 /** Google says an event is gone: not found, or deleted. */
 const GONE = /\b(404|410)\b/;
-
-const Listed = (stdout: string) =>
-  JSON.parse(stdout) as {
-    events?: {
-      extendedProperties?: { private?: Record<string, string> };
-      id: string;
-      start?: { date?: string };
-      status?: string;
-    }[];
-    nextPageToken?: string;
-  };
 
 /**
  * `gog` takes values as `--flag=value`: a model-written title starting with "-" must not read as a flag. An update
@@ -78,30 +68,19 @@ export function googleCalendar(calendar: string, account: string) {
     },
     /** Life's events from `from` to `to` (RFC3339): every one with private properties, or only those matching `filter` (`key=value`). */
     async list(from: string, to: string, filter?: string) {
-      const held: HeldEvent[] = [];
-      let page = "";
-      do {
-        const r = Listed(
-          // biome-ignore lint/performance/noAwaitInLoops: pages follow one another
-          await run([
-            "events",
-            calendar,
-            `--from=${from}`,
-            `--to=${to}`,
-            "--max=2500",
-            ...(filter ? [`--private-prop-filter=${filter}`] : []),
-            ...(page ? [`--page=${page}`] : []),
-          ])
-        );
-        for (const e of r.events ?? []) {
-          const props = e.extendedProperties?.private;
-          if (props && e.status !== "cancelled") {
-            held.push({ allDay: e.start?.date !== undefined, id: e.id, props });
-          }
-        }
-        page = r.nextPageToken ?? "";
-      } while (page);
-      return held;
+      const events = await readCalendarEvents(
+        calendar,
+        account,
+        from,
+        to,
+        filter
+      );
+      return events.flatMap((e): HeldEvent[] => {
+        const props = e.extendedProperties?.private;
+        return props
+          ? [{ allDay: e.start?.date !== undefined, id: e.id, props }]
+          : [];
+      });
     },
     /** Event `id`'s private properties; null only when Google says it is gone; any other failure throws. */
     async read(id: string) {

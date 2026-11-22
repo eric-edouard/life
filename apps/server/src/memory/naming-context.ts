@@ -3,7 +3,14 @@ import { chatGroups, type SourceEvent } from "../records/source";
 import type { DetailLine } from "./details";
 import { OWNER, projectPeopleAndChatsOf, type Truth } from "./read-truth";
 import { sourceOf } from "./sources";
-import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
+import {
+  callLine,
+  callSpanOf,
+  chatPerson,
+  clip,
+  holdsName,
+  UNKNOWN,
+} from "./units";
 import type { People } from "./who";
 import { offsetAt, time } from "./zones";
 
@@ -99,16 +106,20 @@ export const isPlannedBefore = (events: readonly SourceEvent[], at: number) =>
 
 /**
  * Why a guess is shown, in his words on the card: the most telling signal code found for that voice and person, the
- * plan for the day first (its words), then the message before (its app, time and words), the call, the name said, the
+ * event of his calendar first (`calendarGuestsOf`), then the plan for the day (its words), then the message before (its app, time and words), the call, the name said, the
  * sound. Null: none, the model's word alone.
  */
 export function whyOf(s: {
+  calendar?: string;
   named: boolean;
   onCall: boolean;
   plan?: string;
   planned?: SourceEvent;
   sounds: boolean;
 }) {
+  if (s.calendar) {
+    return s.calendar;
+  }
   if (s.plan) {
     return clip(`Planned that day: ${s.plan}`, WHY_CHARS);
   }
@@ -170,6 +181,8 @@ export function expectedCompanyOf(
 export interface Signs {
   /** Named by his answer in this conversation (lifelog's `owner` basis). */
   answered: string[];
+  /** Brought by an event of his calendar overlapping the part (`calendarGuestsOf`): a guest not known is offered as written (`unknown:`). */
+  calendar: string[];
   /** His expected company (`expectedCompanyOf`), nearest first. */
   expected: string[];
   /** In an active fact dated that day whose evidence is not a recording. */
@@ -220,12 +233,73 @@ export function plannedPeopleOf(
     ? projectPeopleAndChatsOf(truth, subject.slice("project:".length))
     : null;
   const refs = project?.people.map((p) => `person:${p.id}`) ?? [subject];
-  return refs.flatMap((r) => {
-    const o = truth.organizations.find((x) => `person:${x.id}` === r);
-    return o
-      ? o.people.filter((p) => !p.until).map((p) => `person:${p.id}`)
-      : [r];
-  });
+  return refs.flatMap((r) => organizationPeopleOf(r, truth) ?? [r]);
+}
+
+/** The current people (no `until`) of the organization of his directory `ref` is, or null when it is none. */
+const organizationPeopleOf = (
+  ref: string,
+  truth: Pick<Truth, "organizations">
+) =>
+  truth.organizations
+    .find((o) => `person:${o.id}` === ref)
+    ?.people.filter((p) => !p.until)
+    .map((p) => `person:${p.id}`) ?? null;
+
+/** A timed event of his calendar as the voice naming reads it (`readCalendarDay`): when, its title and its guests but him. */
+export interface DayEvent {
+  at: string;
+  guests: { email?: string; name?: string }[];
+  title: string;
+  until: string;
+}
+
+/**
+ * Who the events of his calendar overlapping `from`..`to` (`CALL_SLACK` either side) bring, each with why
+ * (`Calendar: <title>, HH:MM`, the first event's): each guest as `resolve` reads their address, else their name, else
+ * as written (`unknown:`); a guest who is an organization of his directory brings its current people in its place, and
+ * one at such an organization brings its people too, as a plan's organization does (`plannedPeopleOf`; his ask of 22
+ * Nov 2026: an invitation rarely names each guest).
+ */
+export function calendarGuestsOf(
+  events: readonly DayEvent[],
+  from: string,
+  to: string,
+  people: Pick<People, "resolve" | "truth">
+) {
+  const brought = new Map<string, string>();
+  const [start, end] = [
+    Date.parse(from) - CALL_SLACK,
+    Date.parse(to) + CALL_SLACK,
+  ];
+  const { organizations } = people.truth;
+  for (const e of events) {
+    if (Date.parse(e.at) >= end || Date.parse(e.until) <= start) {
+      continue;
+    }
+    const why = clip(`Calendar: ${e.title}, ${time(e.at)}`, WHY_CHARS);
+    const guests = e.guests.flatMap((g) => {
+      const ref =
+        (g.email && people.resolve(g.email)) ||
+        (g.name && people.resolve(g.name));
+      return (
+        ref || ((g.name ?? g.email) ? [`${UNKNOWN}${g.name ?? g.email}`] : [])
+      );
+    });
+    const theirs = organizations.flatMap((o) =>
+      o.people.some((p) => !p.until && guests.includes(`person:${p.id}`))
+        ? [`person:${o.id}`]
+        : []
+    );
+    for (const r of [...guests, ...theirs].flatMap(
+      (g) => organizationPeopleOf(g, people.truth) ?? [g]
+    )) {
+      if (!brought.has(r)) {
+        brought.set(r, why);
+      }
+    }
+  }
+  return brought;
 }
 
 /** The people of the active plans (`modality` plan) for each of `dates` (their `when`), each with its plan's words (`plannedPeopleOf`). */
@@ -255,7 +329,8 @@ export function scheduledOf(
 
 /**
  * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, in this order: on an overlapping call; named by his
- * answer in this conversation; his expected company; in a plan for that day (a meeting set ahead, which the 90 days of
+ * answer in this conversation; his expected company; brought by an event of his calendar overlapping the part
+ * (`calendarGuestsOf`; a guest not known offered as written, the one `unknown:` ref offered); in a plan for that day (a meeting set ahead, which the 90 days of
  * people heard would otherwise crowd out: his report of 22 Nov); heard in person in another conversation
  * (`isHeardAround`, the conversation running from `begin` to `end`); pictured in a photo of that day; in an active fact
  * dated that day that no recording is evidence of.
@@ -280,12 +355,17 @@ export function possibleSpeakersOf(
         ...signs.onCall,
         ...signs.answered,
         ...signs.expected,
+        ...signs.calendar,
         ...signs.scheduled,
         ...heard,
         ...signs.pictured,
         ...signs.facts,
       ].filter(
-        (r) => r.startsWith("person:") && r !== OWNER && !isOrganization(r)
+        (r) =>
+          (r.startsWith("person:") ||
+            (r.startsWith(UNKNOWN) && signs.calendar.includes(r))) &&
+          r !== OWNER &&
+          !isOrganization(r)
       )
     ),
   ].slice(0, cap);
@@ -295,6 +375,8 @@ export function possibleSpeakersOf(
 export interface Brief {
   /** The local days he spoke with them on a call picked up, within `HEARD_WITHIN` before the conversation. */
   byCall: string[];
+  /** Why an event of his calendar brings them (`calendarGuestsOf`). */
+  calendar?: string;
   details: DetailLine[];
   /** The local days they spoke in person in his recordings, in another conversation within `HEARD_WITHIN` either side (`isHeardAround`). */
   inPerson: string[];
@@ -307,7 +389,7 @@ export interface Brief {
 const LANGUAGES = { en: "English", fr: "French", th: "Thai" };
 
 /**
- * His second rule: a short brief of a person, made for naming a voice: what they are to him, their language, family and
+ * His second rule: a short brief of a person, made for naming a voice: the event of his calendar that brings them, what they are to him, their language, family and
  * where they live, how often and how he last heard them, and who is usually there with them. At most `BRIEF_CHARS`.
  */
 export function namingBriefOf(b: Brief) {
@@ -320,6 +402,7 @@ export function namingBriefOf(b: Brief) {
   );
   return clip(
     [
+      b.calendar,
       b.relation,
       b.language && `speaks ${LANGUAGES[b.language]}`,
       ...place,
@@ -335,7 +418,7 @@ export function namingBriefOf(b: Brief) {
 
 /**
  * How sure a guess is, decided by code (the design of 21 Nov 2026, section 2): the model's word is one signal, `signals`
- * counts the independent ones code found for that voice and person (planned, scheduled for the day, a name said, on a call, sounds like them),
+ * counts the independent ones code found for that voice and person (planned, in his calendar, scheduled for the day, a name said, on a call, sounds like them),
  * `elsewhere` whether one points to someone else. Sure: the model says sure, 2 signals or more, nothing elsewhere.
  * Likely: the model says sure or likely, with 1 signal or more. Weak: the rest.
  */
