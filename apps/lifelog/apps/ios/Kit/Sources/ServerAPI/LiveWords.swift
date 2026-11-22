@@ -26,6 +26,14 @@ enum LiveWordsMessage: Equatable {
     }
 }
 
+/// The realtime socket as `LiveWords` uses it: text frames out and in (`receive` gives nil once it closed), and its
+/// close. `URLSession`'s in the app (`webSocket`); a test passes its own.
+struct LiveWordsSocket {
+    let send: (String) -> Void
+    let receive: () async -> String?
+    let close: (_ isNormal: Bool) -> Void
+}
+
 /// One word of instant dictation as the field shows it, and when it began to show: its fade starts then.
 public struct LiveWord: Equatable, Sendable {
     public let text: String
@@ -40,13 +48,41 @@ public struct LiveWord: Equatable, Sendable {
 public final class LiveWords {
     public static let shared = LiveWords()
 
+    private let makeSocket: (URL) -> LiveWordsSocket
+    /// How long the stream stays quiet after a commit, once he paused, before the words are his: a commit voice
+    /// detection made just before the pause's own is followed by that one, and his last words are in the second.
+    private let settleAfter: Duration
+
+    init(socket: @escaping (URL) -> LiveWordsSocket = LiveWords.webSocket, settleAfter: Duration = .milliseconds(300)) {
+        (makeSocket, self.settleAfter) = (socket, settleAfter)
+    }
+
+    /// `URLSession`'s socket; a binary frame is skipped.
+    nonisolated static func webSocket(_ url: URL) -> LiveWordsSocket {
+        let task = URLSession.shared.webSocketTask(with: url)
+        task.resume()
+        return LiveWordsSocket(
+            send: { task.send(.string($0)) { _ in } },
+            receive: {
+                while let message = try? await task.receive() {
+                    if case .string(let line) = message { return line }
+                }
+                return nil
+            },
+            close: { task.cancel(with: $0 ? .normalClosure : .goingAway, reason: nil) })
+    }
+
     /// What he has said so far in this run, word by word: the committed words, then the ones still changing.
     public private(set) var words: [LiveWord] = []
     /// The stream stopped (no token, the socket or ElevenLabs failed): the Mac hears this run.
     public private(set) var hasFailed = false
 
     private var committed = ""
-    private var socket: URLSessionWebSocketTask?
+    /// What he said since the last commit, still changing: words a commit has not taken yet.
+    private var pending = ""
+    private var socket: LiveWordsSocket?
+    /// Once he paused: the words settle when the stream has been quiet `settleAfter` since a commit.
+    private var quiet: Task<Void, Never>?
     private var session: Task<Void, Never>?
     private var queue: [String] = []
     private var isOpen = false
@@ -107,7 +143,7 @@ public final class LiveWords {
     public var run: Int { generation }
 
     /// His words landed in the field, or this run is heard on the Mac: nothing live to show.
-    public func clear() { (words, committed, hasFailed) = ([], "", false) }
+    public func clear() { (words, committed, pending, hasFailed) = ([], "", "", false) }
 
     /// A run opens: a token, then the socket; audio fed meanwhile waits for it.
     public func begin(token: @escaping @Sendable () async throws -> String) {
@@ -133,8 +169,8 @@ public final class LiveWords {
 
     /// `run` paused and the microphone gave its last samples: what is left is committed (a moment of silence sent with
     /// `commit`), and the run's words come back once ElevenLabs committed them. Nil when the stream failed, never
-    /// opened, or took past `finishWithin` (`hasFailed`: the Mac then hears the recording), or another run began: that
-    /// one's stream is left alone. Otherwise the socket closes either way.
+    /// opened, took past `finishWithin`, or heard nothing (`hasFailed`: the Mac then hears the recording), or another run
+    /// began: that one's stream is left alone. Otherwise the socket closes either way.
     public func finish(_ mine: Int) async -> String? {
         guard mine == generation, session != nil else { return nil }
         var words: String?
@@ -150,17 +186,22 @@ public final class LiveWords {
             }
         }
         guard mine == generation else { return nil }
-        if words == nil { hasFailed = true }
+        // Nothing heard live may still be words on the Mac: it hears the recording.
+        if words?.isEmpty != false {
+            words = nil
+            hasFailed = true
+        }
         close()
         return words
     }
 
     private func close() {
         session?.cancel()
-        session = nil
+        quiet?.cancel()
+        (session, quiet) = (nil, nil)
         generation += 1
         settle(nil)
-        socket?.cancel(with: .normalClosure, reason: nil)
+        socket?.close(true)
         (socket, isOpen, queue, isFinishing) = (nil, false, [], false)
     }
 
@@ -171,7 +212,7 @@ public final class LiveWords {
 
     private func send(_ message: String) {
         if isOpen, let socket {
-            socket.send(.string(message)) { _ in }
+            socket.send(message)
         } else if queue.count < Self.queued {
             queue.append(message)
         }
@@ -184,17 +225,14 @@ public final class LiveWords {
             .init(name: "audio_format", value: "pcm_16000"), .init(name: "commit_strategy", value: "vad"),
         ]
         guard let url = parts?.url, mine == generation, !Task.isCancelled else { return }
-        let socket = URLSession.shared.webSocketTask(with: url)
+        let socket = makeSocket(url)
         self.socket = socket
-        socket.resume()
         isOpen = true
-        for message in queue { socket.send(.string(message)) { _ in } }
+        for message in queue { socket.send(message) }
         queue = []
         // Messages of a run that has ended, or been replaced, are never shown.
-        while mine == generation, let message = try? await socket.receive() {
-            guard mine == generation, case .string(let line) = message, let parsed = LiveWordsMessage(line) else {
-                continue
-            }
+        while mine == generation, let line = await socket.receive() {
+            guard mine == generation, let parsed = LiveWordsMessage(line) else { continue }
             apply(parsed)
         }
         // The socket closed under a run still current, unless after the pause's words came: the Mac hears it.
@@ -205,19 +243,34 @@ public final class LiveWords {
         switch message {
         case .committed(let said):
             committed = [committed, said].filter { !$0.isEmpty }.joined(separator: " ")
+            pending = ""
             words = Self.merged(words, with: committed, at: now)
-            // ponytail: a commit voice detection made just before the pause's own one ends the wait with it; only the
-            // silence after it is lost. Count commits if a word ever goes missing.
-            settle(committed)
-        case .partial(let said): words = Self.merged(words, with: [committed, said].joined(separator: " "), at: now)
-        case .nothingToCommit: settle(committed)
+            if ending != nil { settleWhenQuiet() }
+        case .partial(let said):
+            pending = said
+            words = Self.merged(words, with: [committed, said].joined(separator: " "), at: now)
+            // More words after the pause: the commit that takes them is still to come.
+            quiet?.cancel()
+        // Nothing left to commit, while words were still changing: those would be lost, so the Mac hears the run.
+        case .nothingToCommit: pending.trimmingCharacters(in: .whitespaces).isEmpty ? settle(committed) : fail()
         case .failed: fail()
+        }
+    }
+
+    /// Settles on the committed words once nothing more came for `settleAfter`; a later commit or partial waits again.
+    private func settleWhenQuiet() {
+        quiet?.cancel()
+        let (mine, after) = (generation, settleAfter)
+        quiet = Task { [weak self] in
+            try? await Task.sleep(for: after)
+            guard !Task.isCancelled, let self, self.generation == mine else { return }
+            self.settle(self.committed)
         }
     }
 
     private func fail() {
         hasFailed = true
         settle(nil)
-        socket?.cancel(with: .goingAway, reason: nil)
+        socket?.close(false)
     }
 }
