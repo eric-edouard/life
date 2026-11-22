@@ -62,7 +62,7 @@ export const Settings = z
      * `agentsRepo`: his agents' git repo (an absolute path): each assignment's notes file, under `assignments/`, and each
      * agent's home, committed by the desk after each turn; absent, the notes files live under the desk's own folders and
      * nothing is committed.
-     * `claudeApp`: the Claude app (an absolute path to its `.app`) a Claude agent's session is listed in; left out,
+     * `claudeApp`: the Claude app (an absolute path to its `.app`) his "Continue on your Mac" opens a Claude agent's session in; left out,
      * `/Applications/Claude.app`. Two Claude apps share one bundle id, so it is named by path (22 Nov 2026).
      * `webSearch`: the providers `web_search` asks, in order, for an agent of his own Life on pi (`web-search/`); one
      * whose key his environment lacks is skipped. Left out, Life's chain (`WEB_SEARCH_CHAIN`, the owner's word of 22 Nov

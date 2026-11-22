@@ -131,6 +131,8 @@ const night = (facts: number) =>
     quota: "Codex quota: 40% used, resets 2026-10-27 08:16",
     repos: { suggestions: [] },
     retired: 1,
+    screen:
+      "Screens yesterday: Mac 6 h 10 (09:05–23:40), Phone 2 h 20 (08:00–22:10)",
     spent: [
       "Model use, backfill of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
       "Model use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",

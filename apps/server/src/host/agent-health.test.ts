@@ -92,3 +92,9 @@ test("the desk: off, a standing role missing, the plugin off", () => {
     deskHealthOf({ desk: "ok", helper: "running", missingRoles: [] })
   ).toEqual({ verdict: "fine", why: [] });
 });
+
+test("a Claude session his app does not list is no fault: it reaches his app only when he continues it there", () => {
+  expect(
+    agentHealthOf({ ...fine, app: { inGroup: false, listed: false } }, NOW)
+  ).toMatchObject({ verdict: "fine" });
+});
