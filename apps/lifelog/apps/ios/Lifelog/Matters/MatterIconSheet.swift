@@ -2,7 +2,7 @@ import LifeConnector
 import SwiftUI
 
 /// A matter's icon, changed: the whole set in its groups, the icon shown chosen and who chose it. His tap wins, and
-/// “Let Life pick” gives it back; either closes the sheet once Life's reads have it, said back on the page with Undo
+/// “Let Life pick” gives it back; either closes the sheet after a brief "Icon changed", said back on the page with Undo; a refused one keeps it open with Life's reason
 /// (`LifeStore.setMatterIcon`). With no icon from Life (none picked, or a key this build lacks), nothing is chosen
 /// and nothing claims a pick. While a pick of this matter is under way (his tap, his reset or an Undo), it shows
 /// chosen and the grid waits.
@@ -12,6 +12,9 @@ struct MatterIconSheet: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
+    /// His pick went through (a green word for a moment before the sheet closes), or Life refused it (kept here).
+    @State private var isDone = false
+    @State private var hasTried = false
 
     var body: some View {
         let row = life.matter[matter]?.value?.row
@@ -30,6 +33,7 @@ struct MatterIconSheet: View {
                             .padding(.trailing, Metrics.tapTarget + Metrics.Spacing.s)
                     }
                 if let row { attribution(row, isRunning: isRunning) }
+                result
             }
         }
         .background(Palette.sheet)
@@ -56,13 +60,28 @@ struct MatterIconSheet: View {
         .motion(Motion.standard, value: isRunning)
     }
 
+    /// The pick's end, in place: Life's reason when it refused (the sheet stays, the grid is his again), else done.
+    @ViewBuilder private var result: some View {
+        if isDone {
+            StateMark(glyph: .ok, word: "Icon changed").padding(.top, Metrics.Spacing.s)
+        } else if hasTried, case .failed(let failure, _) = life.state(of: .edit(matter: matter, .icon)) {
+            Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.s)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     /// Sends his pick (nil: Life picks again), keeping his pick before it for Undo; his own pick tapped again only
     /// closes the sheet.
     private func choose(_ key: String?, row: MatterRow) {
         let was = life.earlierIconPick(of: row)
         guard key != was else { return dismiss() }
         Task {
+            hasTried = true
             await life.setMatterIcon(of: matter, key, was: was)
+            // A refused write keeps the sheet, with its reason.
+            guard case .succeeded = life.state(of: .edit(matter: matter, .icon)) else { return }
+            isDone = true
+            try? await Task.sleep(for: .seconds(2))
             if router.matterSheet == .icon(matter) { router.matterSheet = nil }
         }
     }
