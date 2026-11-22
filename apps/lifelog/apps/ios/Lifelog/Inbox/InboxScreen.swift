@@ -64,7 +64,9 @@ struct InboxScreen: View {
                     Color.clear.frame(width: Metrics.Spacing.l).contentShape(.rect)
                         .gesture(
                             DragGesture(minimumDistance: Metrics.Spacing.s).onEnded {
-                                if $0.translation.width > Metrics.Spacing.xl { withAnimation { visibility = .all } }
+                                if $0.translation.width > max(Metrics.Spacing.xl, abs($0.translation.height)) {
+                                    withAnimation { visibility = .all }
+                                }
                             })
                 }
             }

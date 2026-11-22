@@ -51,6 +51,7 @@ struct BulkCard: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             Group { if kind == .guessedPerson { guessAnswers } else { answers } }
                 .padding(.horizontal, Metrics.Spacing.s).readingWidth()
+                .frame(maxWidth: .infinity).background { AnswersBackdrop() }
         }
         .onChange(of: rows, initial: true) { _, rows in
             guard kind == .guessedPerson else { return }

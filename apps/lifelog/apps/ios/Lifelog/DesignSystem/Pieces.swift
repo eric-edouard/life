@@ -1106,13 +1106,16 @@ struct PagerDotsSlot: View {
             .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(PagerDotsSlot.page)) }) {
                 report?.report(index, $0)
             }
+            // A new index (an ask before it answered) is a new slot, which reports where it is at once.
+            .id(index)
     }
 
     /// Each page's own coordinate space, set by the pager: the slot's place in its page, wherever the page has slid.
     static let page = "pagerPage"
 }
 
-/// The pager's ear for its slots: one per pager, so it never changes what reads it.
+/// The pager's ear for its slots: always equal, so it never invalidates its readers; its closure only writes the
+/// pager's own state, so a new copy of it would report the same way.
 struct PagerDotsAt: Equatable {
     let report: (Int, CGRect) -> Void
     static func == (_: Self, _: Self) -> Bool { true }

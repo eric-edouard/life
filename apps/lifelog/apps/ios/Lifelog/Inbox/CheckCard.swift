@@ -234,7 +234,7 @@ struct CheckCard: View {
 /// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the
 /// bar's height again, so the answers stand clear of the text going under them (his ask of 22 Nov, open Duo). It grows
 /// with the bar. The system's soft edge stays off here: the pager hides it, since its own sat over the answers.
-private struct AnswersBackdrop: View {
+struct AnswersBackdrop: View {
     var body: some View {
         GeometryReader { bar in
             let fade = bar.size.height / 2
