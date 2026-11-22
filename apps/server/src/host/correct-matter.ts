@@ -104,11 +104,11 @@ export async function endByHisWord(
 }
 
 /**
- * `outdated`: the matter is done, and every step still open, or ended only by a link (until his word), closes
- * (`endByHisWord`). `matter-direction` (his goal or next step), `matter-important` (his mark, on or off),
+ * `outdated`: the matter is done, or with `outcome` `dropped` won't be done (his Drop), and every step still open, or
+ * ended only by a link (until his word, as on a Looks done matter), closes (`endByHisWord`). `matter-direction` (his goal or next step), `matter-important` (his mark, on or off),
  * `matter-icon` (his icon, or null: Life picks again) and `matter-project` (a project of his directory): pinned to
  * every step the matter holds; the line written is the new state. Returns what was written, reporting its plan and steps
- * (`report`, `mcp-tool.ts`): one per to-do item ticked, then `recorded`.
+ * (`report`, `mcp-tool.ts`): one per to-do item ticked (removed when dropped), then `recorded`.
  */
 export async function correctMatter(
   correction: Record<string, unknown>,
@@ -151,11 +151,15 @@ export async function correctMatter(
   if (open.length === 0) {
     throw new Error(`Not done: nothing of ${v.id} is open.`);
   }
+  if (said.outcome !== undefined && said.outcome !== "dropped") {
+    throw new Error("Not done: `outcome` is `dropped` or left out.");
+  }
+  const isDropped = said.outcome === "dropped";
   report({
     limitSeconds: Math.ceil((ticksLimitMsOf(open) + QUICK_MS) / 1000),
     plan: [
       ...(open.some((s) => s.kind === "todo_item")
-        ? [closedStepOf(false)]
+        ? [closedStepOf(isDropped)]
         : []),
       "recorded",
     ],
@@ -163,7 +167,8 @@ export async function correctMatter(
   const written = await endByHisWord(
     open,
     typeof said.note === "string" ? said.note : undefined,
-    (done, of, key) => report({ done, key, of, step: closedStepOf(false) })
+    (done, of, key) => report({ done, key, of, step: closedStepOf(isDropped) }),
+    isDropped
   );
   report({ step: "recorded" });
   return written;

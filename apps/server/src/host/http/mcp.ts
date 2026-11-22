@@ -20,7 +20,11 @@ import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
-import { oneMatter } from "../../memory/read-matters";
+import {
+  CLOSED_PAGE,
+  MATTER_STATES,
+  oneMatter,
+} from "../../memory/read-matters";
 import { offersOf } from "../../memory/read-person-page";
 import { readLogLines, readResourceSamples, runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
@@ -367,9 +371,13 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `blockingChecks` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; `read_matter` lists every one), `needsYou` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`: parties, each `ref`, `name`, `kind` person or organization, `line` (what they are to him) and `picture` (`id`, for `read_person_pictures`), from its open steps), `areas` and `projects` (names), `icon` (`key`, one of the matter icon set; `by` life: Life's pick, owner: his; absent: none, show the area's), `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it or on its project. Optionally of one person, project or area (`noProject`: only those that sit in no project, with an area); of one project, `project` also carries `situation`: where it stands now, lines of `text` each citing the matter steps it rests on (`cites`; Life's reading of its matters, empty until it is made). `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed. `read_matter` opens one.",
+    `For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, \`matters\`). \`state\` \`open\` adds the quiet ones (status dormant), after the running ones, parked last; \`state\` \`closed\` lists the ended ones instead, newest ended first, ${CLOSED_PAGE} a page (\`nextBefore\`: pass it as \`before\` for the next). Each: \`id\`, \`name\`, matter \`status\` (waiting_on_someone, moving, stuck; dormant; done, probably_done), \`blockingChecks\` (how many open checks about it block him: an agent's decision, an unnamed voice, a name nobody is; \`read_matter\` lists every one), \`needsYou\` (whether it needs him: its next step is his decision or something only he does, unless it is stuck, or a check about it blocks him), \`goal\` and \`nextStep\` (\`kind\` \`do\`, or a wait: \`wait_event\`, \`wait_owner\`, \`wait_decision\`; \`waitsOn\`; \`by\` life: Life's draft, owner: his word), \`people\` by role (\`owedTo\`, \`waitingOn\`, \`with\`: parties, each \`ref\`, \`name\`, \`kind\` person or organization, \`line\` (what they are to him) and \`picture\` (\`id\`, for \`read_person_pictures\`), from its open steps), \`areas\` and \`projects\` (names), \`icon\` (\`key\`, one of the matter icon set; \`by\` life: Life's pick, owner: his; absent: none, show the area's), \`newestOpenStep\`, \`openedAt\` (its first step's instant), \`dueOn\` (the earliest date of its open steps, a day), \`lastStepAt\`, a closed one's \`endedAt\` and \`outcome\` (done; dropped: it won't be done (his Drop, or the item removed from his list); probably_done: Life reads it over until his word), and \`agent\`, the registered agent working on it or on its project. Optionally of one person, project or area (\`noProject\`: only those that sit in no project, with an area); of one project, \`project\` also carries \`situation\`: where it stands now, lines of \`text\` each citing the matter steps it rests on (\`cites\`; Life's reading of its matters, empty until it is made). \`version\`: pass it back as \`ifNot\` to get only \`{version, unchanged: true}\` while nothing changed. \`read_matter\` opens one.`,
     z.object({
       area: z.string().optional().describe("Area id or name"),
+      before: z
+        .string()
+        .optional()
+        .describe("Closed only: the last page's nextBefore, or an instant"),
       ifNot: IfNot,
       noProject: z
         .boolean()
@@ -379,6 +387,10 @@ export function buildServer(readsOnly = false, logsArguments = false) {
         ),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
+      state: z
+        .enum(MATTER_STATES)
+        .optional()
+        .describe("running (the default), open or closed"),
     }),
     async ({ ifNot, ...q }) => {
       const answer = await readMatterRowsNow(q, readActiveAgentOf());
@@ -512,7 +524,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn, context}: `context` optional, Markdown as a card's, each `life:` link must open); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step, those only a link or Life's reading ended included: its observations, and its to-do items ticked); a matter he drops (it won't be done): the same with `outcome` `dropped` (its to-do items removed, not ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn, context}: `context` optional, Markdown as a card's, each `life:` link must open); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES

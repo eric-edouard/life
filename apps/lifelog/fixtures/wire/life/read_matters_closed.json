@@ -1,0 +1,33 @@
+{
+  "matters": [
+    {
+      "endedAt": "2026-10-06T10:00:00.000Z",
+      "id": "matter_eeeeeeeeeeee",
+      "lastStepAt": "2026-10-05T10:00:00.000Z",
+      "name": "Fix the gate",
+      "openedAt": "2026-10-05T10:00:00.000Z",
+      "outcome": "probably_done",
+      "status": "probably_done",
+      "blockingChecks": 0,
+      "needsYou": false
+    },
+    {
+      "endedAt": "2026-10-03T10:00:00.000Z",
+      "id": "matter_dddddddddddd",
+      "lastStepAt": "2026-10-01T10:00:00.000Z",
+      "name": "Return the old drill",
+      "openedAt": "2026-10-01T10:00:00.000Z",
+      "outcome": "dropped",
+      "project": {
+        "id": "old-shop",
+        "name": "Old shop",
+        "status": "done"
+      },
+      "projects": ["Old shop"],
+      "status": "done",
+      "blockingChecks": 0,
+      "needsYou": false
+    }
+  ],
+  "version": "15189c1cb3ad70e0"
+}
