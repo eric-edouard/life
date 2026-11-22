@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
@@ -47,6 +48,7 @@ import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
+import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
@@ -220,6 +222,19 @@ const commands: Record<string, () => number | Promise<number>> = {
   async connect() {
     const origin = await connect(process.argv.includes("--public"));
     console.log(`Life: ${origin}/mcp`);
+    return 0;
+  },
+  /**
+   * The connector's reads over stdio, none of its writes (`buildServer(true)`): an agent of his own Life on pi reaches
+   * them so (`desk/runtimes/pi-runtime.ts`), as his Claude agents reach the connector. Ends when its client closes.
+   */
+  async "connector-reads"() {
+    const transport = new StdioServerTransport();
+    const closed = new Promise((done) => {
+      transport.onclose = () => done(undefined);
+    });
+    await buildServer(true).connect(transport);
+    await closed;
     return 0;
   },
   /** Which engine runs the model steps: `engine [<engine>]`; with no argument, prints the current one. */

@@ -89,6 +89,7 @@ import { personPicturesTool } from "./mcp-people";
 import { projectTools } from "./mcp-projects";
 import { spendingTool } from "./mcp-spending";
 import {
+  ARGUMENT_LOGGERS,
   agentIn,
   argNamesOf,
   callerOf,
@@ -218,10 +219,11 @@ export async function correct(
 }
 
 /**
- * The connector's tools, without its transport or auth: `createMcp` serves it over HTTP, the question cases' agent
- * gets it over stdio with `readsOnly`: then only the tools that read are registered, none that writes or acts.
+ * The connector's tools, without its transport or auth: `createMcp` serves it over HTTP; with `readsOnly` only the
+ * tools that read are registered, none that writes or acts, served over stdio to the question cases' agent (which also
+ * `logsArguments` into its own log) and to an agent of his own Life on pi (`life connector-reads`).
  */
-export function buildServer(readsOnly = false) {
+export function buildServer(readsOnly = false, logsArguments = false) {
   // Over stdio (the question cases' agent) there may be no public origin, and no icons.
   const origin = settings().connector?.origin;
   const server = new McpServer(
@@ -248,6 +250,9 @@ export function buildServer(readsOnly = false) {
   );
   if (readsOnly) {
     READERS.add(server);
+  }
+  if (logsArguments) {
+    ARGUMENT_LOGGERS.add(server);
   }
   tool(
     server,
