@@ -24,12 +24,28 @@ const isAlive = (pid: unknown) => {
   }
 };
 
-/** A live record: its session, what opened it (`entrypoint`: `claude-desktop`, `cli`, `sdk-ts`, `life-terminal`…) and since when. */
+/**
+ * A live record: its session, what opened it (`entrypoint`: `claude-desktop`, `cli`, `sdk-ts`, `life-terminal`…), since
+ * when, the process holding it, and where its conversation stands (`status`: `busy` while it works, else `idle` or
+ * `waiting`) since when (`statusAt`, ms; Life's launcher sets it at each write to the session).
+ */
 export interface OpenSessionRecord {
   entrypoint: string;
+  pid: number;
   sessionId: string;
   since: string | null;
+  status: string;
+  statusAt: number | null;
 }
+
+/** How long a session held open on his Mac must be quiet before Life takes it back for a due wake (his ruling of 22 Nov 2026). */
+export const LEFT_AFTER_MS = 10 * 60_000;
+
+/** Whether he has left the session record `r` holds: not working, and quiet for `LEFT_AFTER_MS` (no time said: not known, kept). */
+export const hasLeftOf = (r: OpenSessionRecord, now: number) =>
+  r.status !== "busy" &&
+  r.statusAt !== null &&
+  now - r.statusAt >= LEFT_AFTER_MS;
 
 /** Every live record, by session. A record being written or gone is skipped: the next read says. */
 export function readOpenSessionRecords(
@@ -49,11 +65,15 @@ export function readOpenSessionRecords(
         if (typeof r.sessionId === "string" && isAlive(r.pid)) {
           live.set(r.sessionId, {
             entrypoint: String(r.entrypoint ?? ""),
+            pid: r.pid,
             sessionId: r.sessionId,
             since:
               typeof r.startedAt === "number"
                 ? new Date(r.startedAt).toISOString()
                 : null,
+            status: String(r.status ?? ""),
+            statusAt:
+              typeof r.statusUpdatedAt === "number" ? r.statusUpdatedAt : null,
           });
         }
       } catch {

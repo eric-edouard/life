@@ -345,6 +345,7 @@ export function piRowOf(
             drop: [KEY],
             entrypoint: TERMINAL_ENTRYPOINT,
             env: run.env,
+            file: run.file ?? "",
             folder: a.folder,
             records: TERMINAL_SESSIONS,
             ref,
@@ -449,6 +450,7 @@ export function piRowOf(
         [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(place.provider),
       },
+      file,
     };
   }
 }

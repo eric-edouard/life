@@ -127,7 +127,7 @@ struct AgentPage: View {
             // Open on his Mac ("Continue on your Mac"): its wakes wait until he closes it there.
             if let open = agent.sessionOpenLine() {
                 Label(open, systemImage: "desktopcomputer").font(.small).foregroundStyle(Palette.fg)
-                Text("Close it there to let Life continue.").font(.small).foregroundStyle(Palette.muted)
+                Text("Life takes it back once you leave it.").font(.small).foregroundStyle(Palette.muted)
             }
             if let project = agent.project,
                 let chip = life.projects.shown().onScreen?.chips.first(where: {

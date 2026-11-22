@@ -2,6 +2,7 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, HOUR, MIN } from "../core/clock";
+import { logEvents, logFileOf } from "../core/log";
 import { DESK_AGENT } from "../core/names";
 import { agentsNow } from "../host/agents-now";
 import { ask } from "../host/asks";
@@ -110,4 +111,52 @@ test("a runtime that can't open on his Mac is refused by name", async () => {
   const { continueOnMac: _, ...rest } = desk.runtimes.fake ?? ({} as never);
   desk.runtimes.fake = rest;
   expect((await tapped(desk, id))?.error).toBe("not for fake yet");
+});
+
+/** A holder of the session: a made-up process of this test's, recorded as Life's launcher with its last write `quietFor` ago. */
+function holder(session: string, quietFor: number) {
+  const p = Bun.spawn(["sleep", "60"]);
+  mkdirSync(TERMINAL_SESSIONS, { recursive: true });
+  writeFileSync(
+    join(TERMINAL_SESSIONS, `${p.pid}.json`),
+    JSON.stringify({
+      entrypoint: TERMINAL_ENTRYPOINT,
+      pid: p.pid,
+      sessionId: session,
+      startedAt: clock().getTime() - quietFor,
+      status: "idle",
+      statusUpdatedAt: clock().getTime() - quietFor,
+    })
+  );
+  return p;
+}
+
+test("he left it on his Mac: quiet 10 minutes, Life takes it back for a due wake, once; quieter than that, it stays his", async () => {
+  const { desk, fake, queue, waiting } = setup();
+  const id = await waiting(HOUR);
+  const session = agentOf(desk.db, id)?.session ?? "";
+  await tapped(desk, id);
+  queue(id, "whatsapp:m1");
+  advance(10 * MIN);
+  const taken = () =>
+    logEvents(logFileOf(clock().toISOString()), "desk.session_taken_back")
+      .length;
+  const before = taken();
+
+  const busy = holder(session, 9 * MIN);
+  await wakeDue(desk);
+  expect(busy.killed || busy.exitCode !== null).toBe(false);
+  busy.kill();
+  await busy.exited;
+
+  const left = holder(session, 11 * MIN);
+  await wakeDue(desk);
+  await wakeDue(desk);
+  expect(await left.exited).not.toBe(0);
+  expect(taken() - before).toBe(1);
+  rmSync(join(TERMINAL_SESSIONS, `${left.pid}.json`), { force: true });
+  const s = fake.sessions.get(session);
+  if (s) {
+    s.running = false;
+  }
 });
