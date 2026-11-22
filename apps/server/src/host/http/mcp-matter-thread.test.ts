@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { byAsked } from "../../memory/checks";
 import { madeUpPartyOf } from "./mcp-phone-reads-fixture";
 import { rpc, token } from "./mcp-test-harness";
 import { expectWire } from "./wire-fixture";
@@ -155,4 +156,17 @@ test("a matter's thread: the lines its facts cite, its moments with their paymen
       spy.mockRestore();
     }
   }
+});
+
+test("byAsked: in the order asked whatever the zone written, Life's guesses (no `at`) last", () => {
+  const asked = [
+    { at: null, ref: "guess" },
+    { at: "2026-10-03T08:00:00-05:00", ref: "newer" },
+    { at: "2026-10-03T10:00:00Z", ref: "older" },
+  ];
+  expect(asked.toSorted(byAsked).map((c) => c.ref)).toEqual([
+    "older",
+    "newer",
+    "guess",
+  ]);
 });
