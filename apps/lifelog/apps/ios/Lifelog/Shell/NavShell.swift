@@ -26,6 +26,8 @@ struct NavShell: View {
         .overlay {
             if !isSideways, router.isDrawerOpen { overlayList }
         }
+        // Ask Life's veil: over the page and the list, under the bar, which stays sharp and usable.
+        .overlay { AskLifeVeil() }
         .overlay(alignment: .bottom) { bar }
         .onGeometryChange(for: Bool.self, of: { $0.size.width > $0.size.height }) {
             isSideways = $0 && sizeClass == .regular
