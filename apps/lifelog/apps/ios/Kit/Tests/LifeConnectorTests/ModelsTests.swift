@@ -967,7 +967,7 @@ private func asks(
     let voice = try JSONDecoder().decode(
         Check.self,
         from: Data(
-            #"{"ref":"voice:v1","group":"voice","title":"t","question":"Who is this?","options":[{"id":"is-them","label":"Yes"},{"id":"this-is","label":"Someone else…","takes":"person or name"}],"clips":[],"likelyPeople":[{"ref":"person:test-ana","name":"Test Ana","kind":"person"}],"links":[]}"#
+            #"{"ref":"voice:v1","group":"voice","title":"t","question":"Who is this?","asker":"Life","options":[{"id":"is-them","label":"Yes"},{"id":"this-is","label":"Someone else…","takes":"person or name"}],"clips":[],"likelyPeople":[{"ref":"person:test-ana","name":"Test Ana","kind":"person"}],"links":[]}"#
                 .utf8))
     let everyone = try JSONDecoder().decode(
         [Party].self,
