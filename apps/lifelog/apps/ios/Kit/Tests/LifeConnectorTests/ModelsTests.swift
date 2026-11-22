@@ -1017,3 +1017,22 @@ private func asks(
     #expect(people.cut(to: ShownList(kind: .people, refs: Array(named), label: "x")).people.map(\.id) == Array(named))
     #expect(people.cut(to: nil) == people)
 }
+
+/// "Someone else…" on a voice offers everyone he knows, not only the card's guesses again (his report, 22 Nov): the
+/// guesses first, then the People list, never him, no organization; a name with a slash is answered as typed.
+@Test func someoneElseOffersEveryoneHeKnows() throws {
+    let voice = try JSONDecoder().decode(
+        Check.self,
+        from: Data(
+            #"{"ref":"voice:v1","group":"voice","title":"t","question":"Who is this?","asker":"Life","options":[{"id":"is-them","label":"Yes"},{"id":"this-is","label":"Someone else…","takes":"person or name"}],"clips":[],"likelyPeople":[{"ref":"person:test-ana","name":"Test Ana","kind":"person"}],"links":[]}"#
+                .utf8))
+    let everyone = try JSONDecoder().decode(
+        [Party].self,
+        from: Data(
+            #"[{"ref":"person:me","name":"Me","kind":"person"},{"ref":"person:test-ana","name":"Test Ana","kind":"person"},{"ref":"person:test-bo","name":"Test Bo","kind":"person"},{"ref":"person:test-co","name":"Test Co","kind":"organization"}]"#
+                .utf8))
+    #expect(voice.peopleToPick(among: everyone).map(\.ref) == ["person:test-ana", "person:test-bo"])
+    #expect(
+        voice.answer(naming: .name("Zed/Zeda"))
+            == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Zed/Zeda"))
+}

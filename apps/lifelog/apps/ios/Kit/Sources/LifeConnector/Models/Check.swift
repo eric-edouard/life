@@ -463,6 +463,16 @@ extension Check {
         }
     }
 
+    /// Who "Someone else…" offers (the people sheet): the card's likely people first, then everyone else he knows
+    /// (`everyone`, the People list: his directory and everyone with a page), never him, and no organization on a voice.
+    public func peopleToPick(among everyone: [Party]) -> [Party] {
+        let rest = everyone.filter { party in
+            !party.isOwner && !likelyPeople.contains { $0.ref == party.ref }
+                && (group != .voice || party.kind != .organization)
+        }
+        return likelyPeople + rest
+    }
+
     /// The name a name card asks about, whole: the longest of `about`, as said. Only a name card's `about` is a name (a
     /// Contacts card's holds its handles).
     public var askedName: String? { group == .name ? about?.max { $0.count < $1.count } : nil }
