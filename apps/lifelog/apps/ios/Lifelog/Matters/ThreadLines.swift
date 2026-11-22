@@ -56,9 +56,9 @@ private struct DayRule: View {
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            Rectangle().fill(Palette.line).frame(height: 1)
+            Divider().overlay(Palette.line)
             Text(ThreadLines.dayWords(day)).font(.small).foregroundStyle(Palette.muted).fixedSize()
-            Rectangle().fill(Palette.line).frame(height: 1)
+            Divider().overlay(Palette.line)
         }
         .padding(.top, Metrics.Spacing.xs)
         .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
@@ -116,9 +116,9 @@ private struct ThreadLineView: View {
                 Text(line.at.formatted(date: .omitted, time: .shortened)).monospacedDigit()
                 if let url = line.open {
                     Link(destination: url) {
-                        Image(systemName: "arrow.up.right").padding(10).contentShape(.rect)
+                        Image(systemName: "arrow.up.right").padding(Metrics.Spacing.m).contentShape(.rect)
                     }
-                    .padding(-10).accessibilityLabel("Open in \(Channel.name(line.channel))")
+                    .padding(-Metrics.Spacing.m).accessibilityLabel("Open in \(Channel.name(line.channel))")
                 }
             }
             .font(.small).foregroundStyle(Palette.faint)
