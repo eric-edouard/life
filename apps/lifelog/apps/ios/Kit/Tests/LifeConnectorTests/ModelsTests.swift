@@ -122,7 +122,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
-    #expect(found.options.map(\.label) == ["Start", "Edit goal", "No"])
+    #expect(found.options.map(\.label) == ["Start an agent", "Edit goal", "No agent"])
     #expect(found.goal == "Gran's photo is framed.")
     #expect(inbox.checks.last?.draft == nil)
 

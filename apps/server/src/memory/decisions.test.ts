@@ -9,6 +9,7 @@ import {
 import { appendFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
+import { answerIconOf } from "../records/answer-icon";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
 import type { Decision } from "./decision-lines";
@@ -38,7 +39,7 @@ const ask = (over = {}) => ({
   onSilence: "wait",
   options: [
     { id: "yes", label: "Book Kit" },
-    { id: "wait", label: "Wait for a second quote" },
+    { id: "wait", label: "Wait" },
   ],
   question: "Book Kit to fix the boiler?",
   title: "Fix the boiler",
@@ -113,8 +114,8 @@ test("a request is one card: one-line title and question, a draft only with its 
   await refused(
     {
       options: [
-        { id: "yes", label: "Book Kit" },
-        { id: "wait", label: "Wait for a second quote from him" },
+        { id: "yes", label: "Book Kit after a second quote" },
+        { id: "wait", label: "Wait" },
       ],
     },
     "five words"
@@ -452,6 +453,67 @@ test("a send that never ended (a crash) is told as such a minute past its path's
   expect(
     settledBetween(decisionsNow(later(2 * HOUR)), NOW, later(2 * HOUR))
   ).toHaveLength(1);
+});
+
+test("a card's answers follow one rule: 2 or 3 options, the later ones short, no repeat, no second Tell, no agent control, no icon of Life's acts", async () => {
+  const refused = (options: object[], why: string) =>
+    expect(
+      requestDecision("planner", ask({ onSilence: null, options }), NOW)
+    ).rejects.toThrow(why);
+  const book = { id: "yes", label: "Book Kit" };
+  await refused(
+    [
+      book,
+      { id: "a", label: "A" },
+      { id: "b", label: "B" },
+      { id: "c", label: "C" },
+    ],
+    "at most 3 options"
+  );
+  await refused(
+    [book, { id: "w", label: "Wait for a second quote" }],
+    "14 characters"
+  );
+  await refused([book, { id: "again", label: "book kit" }], "labels repeat");
+  await refused(
+    [book, { id: "tell", label: "Tell the agent…", takes: "note" }],
+    "Tell the agent"
+  );
+  await refused(
+    [book, { id: "stop", label: "Stop the agent" }],
+    "controls the agent"
+  );
+  await refused(
+    [
+      { ...book, icon: "send" },
+      { id: "w", label: "Wait" },
+    ],
+    "are Life's"
+  );
+  // A fair label that starts with "Tell" and an agent's own icon pass.
+  const { id } = await requestDecision(
+    "planner",
+    ask({
+      onSilence: null,
+      options: [
+        { ...book, icon: "date" },
+        { icon: "no", id: "tell", label: "Tell Kit no" },
+      ],
+    }),
+    NOW
+  );
+  expect(decisionsNow(NOW).find((d) => d.id === id)?.options[0]?.icon).toBe(
+    "date"
+  );
+});
+
+test("an answer's icon: Life's act where Life acts, else the one given, else done on an ending option", () => {
+  expect(answerIconOf({ icon: "date", outgoing: true })).toBe("send");
+  expect(answerIconOf({ adds: true })).toBe("add_to_calendar");
+  expect(answerIconOf({ looks: true })).toBe("done");
+  expect(answerIconOf({ ends: "matter", icon: "drop" })).toBe("drop");
+  expect(answerIconOf({ ends: "step" })).toBe("done");
+  expect(answerIconOf({})).toBeUndefined();
 });
 
 test("a request is checked: deadline 1 hour to 14 days ahead, options its ids, a step only of an open matter", async () => {

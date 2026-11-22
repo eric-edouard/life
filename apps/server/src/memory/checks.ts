@@ -4,6 +4,7 @@ import { errorOf } from "../core/log-line";
 import { LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
+import { answerIconOf } from "../records/answer-icon";
 import { isEndingCheck } from "../records/fact-check";
 import { KEEP_AT } from "../records/unit";
 import { readContactStores } from "../sources/contacts";
@@ -345,6 +346,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
           onMatters: check.ridesOn.matterIds.flatMap(
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),
+          options: check.options.map((o) => {
+            const icon = answerIconOf(o);
+            return icon ? { ...o, icon } : o;
+          }),
         };
         return {
           ...withComplaintFields(card, inputs.fixing, basis, quote?.text),

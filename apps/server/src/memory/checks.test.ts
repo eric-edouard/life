@@ -71,8 +71,8 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   });
   expect(check?.options.map((o) => o.id)).toEqual([
     "this-is",
-    "not-this-person",
     "same-person",
+    "not-this-person",
   ]);
   expect(check?.about).toEqual(["+33600000001"]);
   const printed = checksText([check as Check]);

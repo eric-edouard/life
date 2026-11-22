@@ -397,7 +397,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
   const { id } = await transfer({
     options: [
       OPTIONS[0],
-      { id: "other", label: "Paid another way", takes: "note" },
+      { id: "other", label: "Paid otherwise", takes: "note" },
     ],
   });
   await expect(answerDecision(id, ["other"])).rejects.toThrow(
