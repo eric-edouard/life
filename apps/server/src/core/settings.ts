@@ -24,7 +24,7 @@ export const Settings = z
   .object({
     /** Who mails him his agents' reports: the night judges them; the arrival reader skips them, message by message. */
     agentReportSenders: z.array(z.email()).default([]),
-    /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`). */
+    /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`); the voice naming also reads its events of a recording's day (`memory/naming-day.ts`). */
     appointmentsCalendar: z
       .object({ account: z.string(), calendar: z.string() })
       .strict()

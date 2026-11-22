@@ -4,6 +4,7 @@ import type { SourceEvent } from "../records/source";
 import {
   BRIEF_CHARS,
   CALLS_CHARS,
+  calendarGuestsOf,
   expectedCompanyOf,
   isNameSaid,
   namingBriefOf,
@@ -118,6 +119,7 @@ test("the calls shown stop at 600 characters, and every person on a call is stil
 
 const none = {
   answered: [] as string[],
+  calendar: [] as string[],
   expected: [] as string[],
   facts: [] as string[],
   heard: [] as { at: string; ref: string }[],
@@ -178,6 +180,72 @@ test("each sign alone makes a person possible; callers come first, then his answ
   // Him and non-people are never offered.
   expect(possible({ onCall: ["person:me", "unknown:x", "person:x"] })).toEqual([
     "person:x",
+  ]);
+  // A calendar guest no one knows is offered as written, after his expected company and before the plans.
+  expect(
+    possible({
+      calendar: ["unknown:guest@example.com", "person:me"],
+      expected: ["person:f"],
+      scheduled: ["person:g"],
+    })
+  ).toEqual(["person:f", "unknown:guest@example.com", "person:g"]);
+});
+
+test("an event of his calendar overlapping the part brings its guests, a guest's organization its people", () => {
+  const truth = {
+    organizations: [
+      {
+        id: "acme",
+        people: [
+          { id: "ana", role: "CEO" },
+          { id: "cto", role: "CTO" },
+          { id: "old", role: "sales", until: 2025 },
+        ],
+      },
+      { id: "shop", people: [{ id: "clerk", role: "clerk" }] },
+    ],
+  } as unknown as Parameters<typeof calendarGuestsOf>[3]["truth"];
+  const known: Record<string, string> = {
+    "ana@acme.test": "person:ana",
+    "orders@shop.test": "person:shop",
+  };
+  const guestsOf = calendarGuestsOf(
+    [
+      {
+        at: "2026-10-30T10:30:00.000Z",
+        guests: [
+          { email: "ana@acme.test" },
+          { email: "zed@else.test", name: "Zed" },
+          { email: "nobody@else.test" },
+        ],
+        title: "Kickoff",
+        until: "2026-10-30T11:30:00.000Z",
+      },
+      {
+        at: "2026-10-30T12:00:00.000Z",
+        guests: [{ email: "orders@shop.test" }],
+        title: "Later",
+        until: "2026-10-30T13:00:00.000Z",
+      },
+      {
+        at: "2026-10-30T09:00:00.000Z",
+        guests: [{ email: "orders@shop.test" }],
+        title: "Order",
+        until: "2026-10-30T09:56:00.000Z",
+      },
+    ],
+    FROM,
+    TO,
+    { resolve: (s: string) => known[s] ?? null, truth }
+  );
+  // Ana and her organization's current people; an unknown guest by name, else address; an organization guest its people
+  // (an event ending within `CALL_SLACK` of the part counts); one after the part does not.
+  expect([...guestsOf]).toEqual([
+    ["person:ana", "Calendar: Kickoff, 11:30"],
+    ["unknown:Zed", "Calendar: Kickoff, 11:30"],
+    ["unknown:nobody@else.test", "Calendar: Kickoff, 11:30"],
+    ["person:cto", "Calendar: Kickoff, 11:30"],
+    ["person:clerk", "Calendar: Order, 10:00"],
   ]);
 });
 
@@ -352,13 +420,16 @@ test("a voice group is one V across recordings; a voice in no group is its own; 
   ]);
 });
 
-test("a guess's why is its most telling signal: the plan, then the message before with its app and time, then the rest", () => {
+test("a guess's why is its most telling signal: his calendar, the plan, then the message before with its app and time, then the rest", () => {
   const message = {
     at: "2026-10-30T09:30:00.000Z",
     source: "instagram",
     text: "On my way",
   } as SourceEvent;
   const quiet = { named: false, onCall: false, sounds: false };
+  expect(
+    whyOf({ ...quiet, calendar: "Calendar: Kickoff, 15:00", plan: "lunch" })
+  ).toBe("Calendar: Kickoff, 15:00");
   expect(whyOf({ ...quiet, plan: "lunch with Ana", planned: message })).toBe(
     "Planned that day: lunch with Ana"
   );
