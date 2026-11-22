@@ -128,8 +128,7 @@ models at $0) and `equivalent` (his Claude and Codex plans' tokens at list price
 `{amount, currency: "USD", basis}`. `today` and `month` are billed; `days` each day held (the current month: the 1st to
 today, read live until the night rolls a day up into `LIFE_STATE_DIR/spending/<day>.json`; a past month: its day files
 only); `byProvider` (`billed` or `equivalent`, `tokens`, `reported`: false when one of its spends came without its
-amount, what was reported still counting); `byKind` (`night`, `daytime`, `agents` (their models), `web_search` and `apify` (their searches and Apify runs, each its own row), `voice`; the agents in `tokens` and `equivalent`, the rest `billed`); `topAgents` and
-`topMatters`, at most 5 each by tokens, with `tokens` and `equivalent` (a turn's matter is its assignment's). Reads at
+amount, what was reported still counting); `byKind` (`night`, `daytime`, `agents` (their models), `web_search` and `apify` (their searches and Apify runs, each its own row), `voice`; the agents in `tokens` and `equivalent`, the rest `billed`); `topMatters`, at most 5 by tokens, with `tokens` and `equivalent` (a turn's matter is its assignment's). Reads at
 most one month: its day files, live days and the desk's turns ended in it (`turn_by_ended`). `read_registered_agents`
 gives each agent its current session's `spending` (`since`, `tokens`, `equivalent`, `provider`), `read_matter` its
 agents' turns' (`tokens`, `equivalent`).
