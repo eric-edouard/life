@@ -278,7 +278,7 @@ outside the lock, schemaVersion 3, by `kind`:
   (redacted; a mail's: the one message it replies to, its first body line, since Mail's thread key can mix threads; empty for a new chat or mail; cards asked
   before 21 Nov 2026 have none, which is true of them); `people`, how many people a group chat holds, him included, as its
   network keeps them (absent for a 1:1 chat, one its network can't count, and cards asked before 21 Nov 2026). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
-  what is stored), `options` (2 to 4 `{id, label, outgoing?, ends?}`, labels one line, the
+  what is stored), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
   recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14

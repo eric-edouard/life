@@ -42,7 +42,7 @@ test("an assignment he opened opens with a plan card; a hand-out's and the caret
 });
 
 // Regression (the plan card's wire): its steps and what they were gathered from round-trip from the door to his card,
-// its two options as his app's roles; a plan card needs `start` and `decline`; a later card may present a new plan.
+// its two options as his app's roles; a plan card needs `start` then `decline`, in the agent's words; a later card may present a new plan.
 test("a plan card's `plan` and `gathered` reach his card, and a later card presents a plan the same way", async () => {
   const { desk } = setup();
   const agent = register(desk, { brief: "Test brief", runtime: "fake" });
@@ -80,10 +80,10 @@ test("a plan card's `plan` and `gathered` reach his card, and a later card prese
       { id: "start", label: "Start the plan" },
       { id: "stop", label: "Stop" },
     ],
-    // Swapped labels: his tap on "Not this plan" would start it.
+    // The decline first: his main button would decline it.
     [
-      { id: "start", label: "Not this plan" },
-      { id: "decline", label: "Start the plan" },
+      { id: "decline", label: "Not this plan" },
+      { id: "start", label: "Start the plan" },
     ],
   ];
   const refusals = await Promise.allSettled(
@@ -93,7 +93,9 @@ test("a plan card's `plan` and `gathered` reach his card, and a later card prese
     refusals.map((r) => r.status === "rejected" && String(r.reason))
   ).toEqual(
     wrongOptions.map(() =>
-      expect.stringContaining("a plan card's options are exactly")
+      expect.stringContaining(
+        "a plan card's options are ids start then decline"
+      )
     )
   );
   await expect(
@@ -135,7 +137,7 @@ test("a plan card without `plan` is refused, its steps asked for", async () => {
       onSilence: null,
       options: [
         { id: "start", label: "Go" },
-        { id: "stop", label: "Stop the agent" },
+        { id: "stop", label: "Not now" },
       ],
       question: "Start with this plan?",
       title: "Mend the watch",
@@ -158,7 +160,7 @@ test("a plan card stored before `plan` was required still reads as his plan card
     onSilence: null,
     options: [
       { id: "start", label: "Go" },
-      { id: "stop", label: "Stop the agent" },
+      { id: "stop", label: "Not now" },
     ],
     question: "Start with this plan?",
     title: "Mend the watch",
@@ -206,7 +208,7 @@ test("a plan written as a numbered list in `context` is refused on any card; quo
   ).toEqual(
     refused.map(() =>
       expect.stringContaining(
-        "a numbered list in `context` is a plan as text: give its steps as `plan`, with options exactly `start` and `decline`"
+        "a numbered list in `context` is a plan as text: give its steps as `plan`, with options `start` then `decline`"
       )
     )
   );

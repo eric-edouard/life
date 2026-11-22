@@ -38,7 +38,7 @@ const ask = (over = {}) => ({
   onSilence: "wait",
   options: [
     { id: "yes", label: "Book Kit" },
-    { id: "wait", label: "Wait for a second quote" },
+    { id: "wait", label: "Wait" },
   ],
   question: "Book Kit to fix the boiler?",
   title: "Fix the boiler",
@@ -113,8 +113,8 @@ test("a request is one card: one-line title and question, a draft only with its 
   await refused(
     {
       options: [
-        { id: "yes", label: "Book Kit" },
-        { id: "wait", label: "Wait for a second quote from him" },
+        { id: "yes", label: "Book Kit after a second quote" },
+        { id: "wait", label: "Wait" },
       ],
     },
     "five words"

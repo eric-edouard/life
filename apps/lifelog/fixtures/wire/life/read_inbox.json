@@ -76,7 +76,8 @@
           "id": "yes",
           "label": "Send it",
           "outgoing": true,
-          "takes": null
+          "takes": null,
+          "icon": "send"
         },
         {
           "id": "no",
@@ -127,19 +128,22 @@
           "onSilence": null,
           "options": [
             {
+              "icon": "done",
               "id": "this-is",
               "label": "Yes",
               "takes": null
             },
             {
-              "id": "not-this-person",
-              "label": "No",
-              "takes": null
-            },
-            {
+              "icon": "person",
               "id": "same-person",
               "label": "Someone else…",
               "takes": "person or name"
+            },
+            {
+              "icon": "no",
+              "id": "not-this-person",
+              "label": "No",
+              "takes": null
             }
           ],
           "preTicked": "this-is",
@@ -273,7 +277,8 @@
           "id": "paid",
           "label": "I've paid",
           "looks": true,
-          "takes": null
+          "takes": null,
+          "icon": "done"
         },
         {
           "id": "other",
@@ -437,11 +442,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "person",
           "id": "this-is",
           "label": "Someone else…",
           "takes": "person or name"
         },
         {
+          "icon": "hide",
           "id": "not-relevant",
           "label": "Don't name",
           "takes": null
@@ -517,16 +524,19 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "person",
           "id": "this-is",
           "label": "Someone else…",
           "takes": "person or name"
         },
         {
+          "icon": "organization",
           "id": "organization",
           "label": "Organization",
           "takes": null
         },
         {
+          "icon": "hide",
           "id": "not-relevant",
           "label": "I don't care",
           "takes": null
@@ -603,6 +613,7 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "person",
           "id": "same-person",
           "label": "Someone else…",
           "takes": "person or name"
@@ -658,20 +669,24 @@
           "ends": "step",
           "id": "done",
           "label": "Mark as done",
-          "takes": null
+          "takes": null,
+          "icon": "done"
         },
         {
+          "icon": "agent",
           "id": "start",
-          "label": "Hand to an agent",
+          "label": "Hand over",
           "takes": null
         },
         {
+          "icon": "later",
           "id": "not-now",
           "label": "Not now",
           "takes": null
         },
         {
           "ends": "step",
+          "icon": "drop",
           "id": "drop",
           "label": "Drop",
           "takes": null
@@ -734,11 +749,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "outdated",
           "label": "Yes, done",
           "takes": null
         },
         {
+          "icon": "later",
           "id": "false",
           "label": "Not yet",
           "takes": null
@@ -808,13 +825,15 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "link",
           "id": "same-person",
           "label": "Same person",
           "takes": null
         },
         {
+          "icon": "people",
           "id": "not-this-person",
-          "label": "Different people",
+          "label": "Different",
           "takes": null
         }
       ],
@@ -866,11 +885,13 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "yes",
           "label": "Yes",
           "takes": null
         },
         {
+          "icon": "no",
           "id": "not-at-organization",
           "label": "No",
           "takes": null
@@ -918,19 +939,22 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "done",
           "id": "this-is",
           "label": "Yes",
           "takes": null
         },
         {
-          "id": "not-this-person",
-          "label": "No",
-          "takes": null
-        },
-        {
+          "icon": "person",
           "id": "same-person",
           "label": "Someone else…",
           "takes": "person or name"
+        },
+        {
+          "icon": "no",
+          "id": "not-this-person",
+          "label": "No",
+          "takes": null
         }
       ],
       "preTicked": "this-is",
@@ -1009,8 +1033,9 @@
       "onSilence": null,
       "options": [
         {
+          "icon": "agent",
           "id": "start",
-          "label": "Start",
+          "label": "Start an agent",
           "takes": null
         },
         {
@@ -1019,8 +1044,9 @@
           "takes": "note"
         },
         {
+          "icon": "no",
           "id": "dismiss",
-          "label": "No",
+          "label": "No agent",
           "takes": null
         }
       ],
@@ -1064,5 +1090,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "c5eced7aee9293e5"
+  "version": "ff1832d50451bf15"
 }
