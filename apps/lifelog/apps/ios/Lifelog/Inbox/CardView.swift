@@ -162,7 +162,8 @@ struct CardView: View {
         .sheet(isPresented: isShowingPeople, onDismiss: { (notes.creating, createsNext) = (createsNext, nil) }) {
             if let check = checks.first(where: { $0.ref == peopleRef }) {
                 SameAsSheet(
-                    people: check.likelyPeople, takesNewName: check.namingOption?.takes == .personOrName,
+                    people: check.peopleToPick(among: life.people.value?.people.map(\.party) ?? []),
+                    takesNewName: check.namingOption?.takes == .personOrName,
                     createsBySheet: check.createsBySheet, cardName: check.askedName
                 ) { choice in
                     if let request = check.answer(naming: choice) { submit(check, request) }
@@ -171,6 +172,7 @@ struct CardView: View {
                 }
                 .sheetStack()
                 .zooms(from: AskSheet.people(ref: check.ref), in: sheetZoom)
+                .task { await life.refreshPeople() }
             }
         }
     }

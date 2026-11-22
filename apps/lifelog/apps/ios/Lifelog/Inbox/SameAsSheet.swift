@@ -2,8 +2,8 @@ import LifeConnector
 import SwiftUI
 
 /// The people sheet (`AskPeople`) behind "Someone else…": a search field that also takes a typed name, "Create “<name>”"
-/// first where the card takes a new person's name (what he typed, else the card's name), then the card's likely people,
-/// filtered as he types.
+/// first where the card takes a new person's name (what he typed, else the card's name), then the card's likely people
+/// and everyone else he knows (`Check.peopleToPick`), filtered as he types.
 struct SameAsSheet: View {
     let people: [Party]
     /// The card takes a new person's name, not only someone Life knows.
@@ -17,7 +17,6 @@ struct SameAsSheet: View {
     let create: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @FocusState private var isTyping: Bool
 
     private var typed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var shown: [Party] {
@@ -27,9 +26,8 @@ struct SameAsSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Field(prompt: "Search or type a name", text: $name, surface: .sheet, icon: "magnifyingglass")
-                .focused($isTyping)
             VStack(spacing: 0) {
-                if takesNewName || !typed.isEmpty { newPerson }
+                if !newName.isEmpty { newPerson }
                 ForEach(shown, id: \.ref) { person in
                     Button {
                         pick(.person(person.ref))
@@ -47,21 +45,22 @@ struct SameAsSheet: View {
         .presentationDragIndicator(.visible)
     }
 
-    /// Where the card takes a new person's name, "Create “<name>”" opens the create sheet with it; with no name yet the
-    /// row asks for one. Elsewhere a typed name is someone Life knows by it.
+    /// What "Create" offers: what he typed, else the card's name; none until there is one (the field says to type it).
+    private var newName: String { typed.isEmpty ? cardName ?? "" : typed }
+
+    /// Where the card takes a new person's name, "Create “<name>”" opens the create sheet with it (a name card's) or
+    /// answers with it (a voice's). Elsewhere a typed name is someone Life knows by it.
     private var newPerson: some View {
-        let name = typed.isEmpty ? cardName ?? "" : typed
+        let name = newName
         return Button {
-            if name.isEmpty {
-                isTyping = true
-            } else if createsBySheet {
+            if createsBySheet {
                 create(name)
             } else {
                 pick(.name(name))
             }
         } label: {
             FlatRow(lead: .symbol("plus"), slotSize: Metrics.FlatRow.personSlot) {
-                Text(name.isEmpty ? "Create a person" : takesNewName ? "Create “\(name)”" : name).font(.rowName)
+                Text(takesNewName ? "Create “\(name)”" : name).font(.rowName)
             } trailing: {
             }
         }
