@@ -1,8 +1,8 @@
 import Foundation
 import Library
 
-/// `read_projects`: the Projects tab's chip row, in the order the server gives (the phone does not sort). The list under a
-/// chip is `read_matters` (`project`, or `area` with `noProject`).
+/// `read_projects`: the Projects page's projects and areas, in the order the server gives (the phone does not sort). The
+/// list under a project or an area is `read_matters` (`project`, or `area` with `noProject`).
 public struct ProjectChips: Decodable, Sendable, Equatable {
     public struct Counts: Decodable, Sendable, Equatable {
         public let needYou: Int
@@ -24,19 +24,36 @@ public struct ProjectChips: Decodable, Sendable, Equatable {
         /// A project's area id (the phone shows its icon); an area has none.
         public let area: String?
         public let needYou: Int
-        public let agentAtWork: Bool
         public var identity: String { Self.identity(kind, id) }
         public static func identity(_ kind: Kind, _ id: String) -> String { "\(kind.rawValue):\(id)" }
         /// What the list under the chip holds.
         public let matters: Int
+        /// Whether it is worked on: Life said nothing of its status (a project is never lost from the page), or the
+        /// status is neither parked nor done.
+        public var isUnderway: Bool { status != .parked && status != .done }
+    }
+
+    /// The page's parts, in the order it draws them.
+    public struct Sections: Equatable, Sendable {
+        public let underway: [Chip]
+        public let areas: [Chip]
+        public let parked: [Chip]
+        public let done: [Chip]
     }
 
     public let all: Counts
     public let chips: [Chip]
     public let version: String?
 
-    /// How many projects are underway: the tab's state word ("3 underway").
-    public var underway: Int { chips.filter { $0.kind == .project && $0.status?.isUnderway == true }.count }
+    /// How many projects are underway: the page's state word ("3 underway").
+    public var underway: Int { sections.underway.count }
+
+    public var sections: Sections {
+        let projects = chips.filter { $0.kind == .project }
+        return Sections(
+            underway: projects.filter(\.isUnderway), areas: chips.filter { $0.kind == .area },
+            parked: projects.filter { $0.status == .parked }, done: projects.filter { $0.status == .done })
+    }
 }
 
 /// `read_project`: a project chip's header and its Details.

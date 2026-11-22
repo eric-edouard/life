@@ -215,7 +215,6 @@
                 [
                     "kind": kind, "id": id, "name": name, "matters": of.count,
                     "needYou": of.count { $0["needsYou"] as? Bool == true },
-                    "agentAtWork": of.contains { $0["agent"] != nil },
                 ]
             }
             var projects = [String: [String: Any]]()
@@ -236,10 +235,18 @@
             let loose = rows.filter { Self.projectOf($0) == nil }
             let named: [String] = loose.flatMap { (row: [String: Any]) -> [String] in row["areas"] as? [String] ?? [] }
             let areas = NSOrderedSet(array: named).array as? [String] ?? []
+            // One parked and one done project, so the list's two sections always show.
+            let older = Self.olderProjects.filter { _, _, status in
+                !projects.values.contains { $0["status"] as? String == status }
+            }
+            .map { id, name, status in
+                chip("project", id, name, []).merging(["status": status, "area": NSNull()]) { $1 }
+            }
             let chips =
                 underway
                 + areas.map { name in chip("area", name.lowercased(), name, loose.filter { Self.isIn(name, $0) }) }
-                + projects.values.filter { !isUnderway($0) }.map { $0.merging(["agentAtWork": false]) { $1 } }
+                + projects.values.filter { !isUnderway($0) }
+                + older
             return json([
                 "all": ["open": rows.count, "needYou": rows.count { $0["needsYou"] as? Bool == true }],
                 "chips": chips, "version": "fixture",
@@ -250,7 +257,13 @@
         func readProject(_ id: String, ifNot: String?) async throws -> String {
             try await gate()
             var head = Self.projectRead["project"] as? [String: Any] ?? [:]
-            guard head["id"] as? String == id else { throw MCPError.failed("No such project.") }
+            if head["id"] as? String != id {
+                // The list's examples of a parked and a done project have no head of the design data's.
+                guard let example = Self.olderProjects.first(where: { $0.0 == id }) else {
+                    throw MCPError.failed("No such project.")
+                }
+                head = ["id": id, "name": example.1, "status": example.2]
+            }
             let status = statuses.withLock { $0[id] } ?? head["status"] as? String ?? "active"
             let matters = Set(
                 rowsNow().filter { Self.projectOf($0)?["id"] as? String == id }.compactMap { $0["id"] as? String })
@@ -281,6 +294,10 @@
             head.merge(shown) { $1 }
             return json(["project": head, "version": "fixture"])
         }
+        /// A parked and a done project, so the projects list's two sections always show.
+        private static let olderProjects = [
+            ("garden-store", "Garden store", "parked"), ("clay-workshop", "Clay workshop", "done"),
+        ]
         private static func projectOf(_ row: [String: Any]) -> [String: Any]? { row["project"] as? [String: Any] }
         private static func isIn(_ area: String, _ row: [String: Any]) -> Bool {
             (row["areas"] as? [String] ?? []).contains { $0.lowercased() == area.lowercased() }
