@@ -1,6 +1,8 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { appendJsonl } from "../core/files";
 import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
+import { Correction } from "../records/observation";
 import { matterDirections } from "./matter-directions";
 import {
   directionDueOf,
@@ -10,7 +12,7 @@ import {
   nextStepNow,
 } from "./matter-read";
 import { readMatterPins } from "./matters";
-import { MATTER_DIRECTIONS } from "./memory-files";
+import { CORRECTIONS, MATTER_DIRECTIONS } from "./memory-files";
 
 const TODAY = "2026-11-18";
 
@@ -720,5 +722,49 @@ test("a matter's evidence is shown; a looks-over draft may cite a unit or a paym
     book.mockRestore();
     read.mockRestore();
     ask.mockRestore();
+  }
+});
+
+// His yes of 22 Nov 2026: his Reopen of a closed matter (`matter-reopened`) lifts Life's reading it over before it.
+test("a Life draft reading a matter over before his Reopen of its steps is dropped; one after it stands", () => {
+  const over = (at: string) => ({
+    at,
+    directions: [
+      {
+        endingRecords: [],
+        goal: "Parcel collected",
+        steps: ["obs_000000000001"],
+      },
+    ],
+    madeBy: {
+      engine: "claude" as const,
+      model: "m",
+      prompt: "memory-matter-directions.v3",
+      run: "r",
+    },
+    schemaVersion: 1 as const,
+  });
+  try {
+    appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [
+      over("2026-11-20T02:00:00.000Z"),
+    ]);
+    appendJsonl(CORRECTIONS, Correction, [
+      {
+        at: "2026-11-21T10:00:00.000Z",
+        kind: "matter-reopened",
+        matter: "matter_000000000001",
+        schemaVersion: 1,
+        steps: ["obs_000000000001"],
+      },
+    ]);
+    expect(readMatterPins().directions).toEqual([]);
+    appendJsonl(MATTER_DIRECTIONS, MatterDirectionBatch, [
+      over("2026-11-22T02:00:00.000Z"),
+    ]);
+    expect(readMatterPins().directions).toMatchObject([
+      { at: "2026-11-22T02:00:00.000Z", by: "life" },
+    ]);
+  } finally {
+    rmSync(CORRECTIONS, { force: true });
   }
 });

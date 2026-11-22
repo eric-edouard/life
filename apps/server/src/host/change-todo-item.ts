@@ -165,47 +165,58 @@ export function changeAskedTodoItem(
 /** The most one tick takes: both backends' commands are killed after a minute (`exec`'s default). */
 export const TICK_LIMIT_MS = MIN;
 
+/** Why his word on a matter changes its to-do items, by the change. */
+const MATTER_WHY = {
+  done: "his matter marked done",
+  remove: "his step dropped",
+  undone: "his matter reopened",
+} as const;
+
 /**
- * Closes the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said`: ticks them
- * (`done`), or removes them from his list (`remove`: his Drop, won't be done), one `changeTodoItem` each, in turn,
- * `onClosed` after each. Refused, closing none, when one is an item of another list app than this install's; a change
- * the list app refused throws its error, the ones before it standing.
+ * Changes the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said` about their
+ * matter: ticks them (`done`), removes them from his list (`remove`: his Drop, won't be done), or unticks the ticked
+ * ones still on it (`undone`: his Reopen), one `changeTodoItem` each, in turn, `onChanged` after each. Refused,
+ * changing none, when one is an item of another list app than this install's; a change the list app refused throws its
+ * error, the ones before it standing.
  */
-export async function closeTodoItems(
+export async function changeMatterTodoItems(
   keys: readonly string[],
   said: string,
-  kind: "done" | "remove",
-  onClosed?: (done: number, of: number, key: string) => void
+  kind: keyof typeof MATTER_WHY,
+  onChanged?: (done: number, of: number, key: string) => void
 ) {
   const b = backend();
-  const items = [...todoItemsOf(await readLedger()).values()].filter((it) =>
-    keys.includes(it.key)
+  const items = [...todoItemsOf(await readLedger()).values()].filter(
+    (it) =>
+      keys.includes(it.key) &&
+      (kind !== "undone" ||
+        (it.fields.completed && !it.fields.deleted && !it.fields.lost))
   );
   const foreign = items.find((it) => !it.target.startsWith(`${b.prefix}:`));
   if (foreign) {
     throw new Error(`Not done: ${foreign.key} isn't an item of ${b.label}.`);
   }
-  const ticked: LedgerEntry[] = [];
+  const changed: LedgerEntry[] = [];
   for (const it of items) {
     const title = String(it.fields.title ?? "");
     // biome-ignore lint/performance/noAwaitInLoops: one change at a time, each its own ledger lines
-    const tick = await changeAskedTodoItem(
+    const change = await changeAskedTodoItem(
       {
         kind,
         said,
         target: it.target.slice(b.prefix.length + 1),
         title,
-        why: kind === "done" ? "his matter marked done" : "his step dropped",
+        why: MATTER_WHY[kind],
       },
       "connector"
     );
-    if (tick.result === "failed") {
-      throw new Error(`Not done: ${title}: ${tick.error}`);
+    if (change.result === "failed") {
+      throw new Error(`Not done: ${title}: ${change.error}`);
     }
-    ticked.push(tick);
-    onClosed?.(ticked.length, items.length, it.key);
+    changed.push(change);
+    onChanged?.(changed.length, items.length, it.key);
   }
-  return ticked;
+  return changed;
 }
 
 /** The most to-do items the auto-add permission adds in one of his days. */
