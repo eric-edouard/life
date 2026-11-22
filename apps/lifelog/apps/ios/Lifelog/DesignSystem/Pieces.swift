@@ -118,22 +118,24 @@ struct TextLink: View {
 
 /// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph (when it has one: a label row's chip has
 /// none, "Select", "Close 20") then its words, 13 / 600, on a `fillTint` capsule 32 high in a 44 tap area, no border;
-/// `isMuted` for a line that says where something came from.
+/// `isMuted` for a line that says where something came from, `iconTint` for Life's own mark in `ai`.
 struct QuietChip: View {
     let title: String
     let symbol: String?
     var isMuted = false
     var isBusy = false
+    var iconTint: Color?
     let action: () -> Void
 
     init(
-        _ title: String, symbol: String? = nil, isMuted: Bool = false, isBusy: Bool = false,
+        _ title: String, symbol: String? = nil, isMuted: Bool = false, isBusy: Bool = false, iconTint: Color? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.symbol = symbol
         self.isMuted = isMuted
         self.isBusy = isBusy
+        self.iconTint = iconTint
         self.action = action
     }
 
@@ -143,17 +145,20 @@ struct QuietChip: View {
                 if isBusy {
                     Spinner(size: .small)
                 } else if let symbol {
-                    Image(systemName: symbol).font(.chip).accessibilityHidden(true)
+                    Image(systemName: symbol).font(.chip).foregroundStyle(iconTint ?? color).accessibilityHidden(true)
                 }
                 Text(title).font(.smallStrong)
             }
-            .foregroundStyle(isMuted ? Palette.muted : Palette.fg)
+            .foregroundStyle(color)
             .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
             .background(Color.fillTint, in: .capsule)
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain).disabled(isBusy)
     }
+
+    /// The chip's colour, its glyph's unless `iconTint` gives it another.
+    private var color: Color { isMuted ? Palette.muted : Palette.fg }
 }
 
 /// A line added to a list (decision 85): a plus in a 24 `fillTint` circle, then its words in `fg`.
@@ -438,13 +443,14 @@ struct SmallFlag: View {
     }
 }
 
-/// Two or three choices in one capsule, each with its symbol before it when `icon` gives one; tapping the chosen one
-/// clears it.
+/// Two or three choices in one capsule, each with its symbol before it when `icon` gives one and, when `detail` gives
+/// one, a muted count after its words; tapping the chosen one clears it.
 struct SegmentedChoice<Choice: Hashable>: View {
     let choices: [Choice]
     @Binding var selection: Choice?
     let title: (Choice) -> String
     var icon: (Choice) -> String? = { _ in nil }
+    var detail: (Choice) -> String? = { _ in nil }
 
     var body: some View {
         // Always one line: with their symbols while they fit, else the words alone.
@@ -471,6 +477,10 @@ struct SegmentedChoice<Choice: Hashable>: View {
                             Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
                         }
                         Text(title(choice)).font(.chip).lineLimit(1)
+                        if let detail = detail(choice) {
+                            Text(detail).font(.chip).foregroundStyle(isChosen ? Palette.on.opacity(0.6) : Palette.muted)
+                                .lineLimit(1)
+                        }
                     }
                     .fixedSize()
                     .padding(.horizontal, 14)
