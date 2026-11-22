@@ -419,7 +419,7 @@ private func everyKindOfCheck() throws -> [Check] {
     #expect(found.answer(words: "Framed") == AnswerRequest(ref: found.ref, options: ["edit-goal"], note: "Framed"))
     #expect(found.answer(found.options[0]) == AnswerRequest(ref: found.ref, options: ["start"], note: found.goal))
 
-    // Mark as done is his word that the step is done; Hand to an agent hands over the goal shown, as Start does.
+    // Mark as done is his word that the step is done; Hand over hands over the goal shown, as Start does.
     let move = try card(.yourMove)
     #expect(move.options.map(\.id) == ["done", "start", "not-now", "drop"] && move.filled?.id == "done")
     #expect(move.isEnding(try #require(move.answer(move.options[0]))))
@@ -694,6 +694,19 @@ private func asks(
     let order = try asks([("b1", .blocks), ("b3", .blocks)]).ordered(deferred: [])
     #expect(order.next(of: ["b2", "b3"]) == "b3")
     #expect(order.next(of: ["gone"]) == nil)
+}
+
+/// His Mark as done moved him to the next ask, then the inbox read came back reordered (22 Nov: "an automatic swipe
+/// back"). A read in the background keeps him on his ask whatever came or moved around it; only his ask gone moves him,
+/// to the next still there, never back to the first.
+@Test func aReadInTheBackgroundKeepsHimOnHisAsk() throws {
+    let was = ["b1", "b2", "b3", "b4"]
+    let reordered = try asks([("b0", .blocks), ("b3", .blocks), ("b1", .blocks), ("b2", .blocks)]).ordered(deferred: [])
+    #expect(reordered.staying(on: "b2", was: was) == "b2")
+    let gone = try asks([("b1", .blocks), ("b4", .blocks)]).ordered(deferred: [])
+    #expect(gone.staying(on: "b2", was: was) == "b4")
+    #expect(gone.staying(on: "b3", was: ["b1", "b3"]) == "b1")
+    #expect(try asks([]).ordered(deferred: []).staying(on: "b2", was: was) == nil)
 }
 
 /// A group's heading on the bulk card follows the answer Life pre-ticks on it.

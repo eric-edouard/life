@@ -198,3 +198,14 @@ private struct AnyAgents: Decodable {
     // The server decides when it began: no date, no guess from a turn.
     #expect(try agent("running").rowLine(locale: english, timeZone: utc) == "Working")
 }
+
+@Test func aWaitingAgentWhoseSessionIsOpenInHisAppSaysSoOnItsRow() throws {
+    let json = """
+        {"id":"a","title":"t","status":"waiting","runtime":"claude","link":null,"notes":"","outcome":null,
+         "notStarted":null,"project":null,"matter":null,"wait":null,"statusSince":null,"wakesOn":[],
+         "amber":["session open in your Claude app"],"sessionOpenIn":"claude_app",
+         "sessionOpenSince":"2026-11-22T09:12:00.000Z"}
+        """
+    let agent = try LibraryStore.feedDecoder.decode(RegisteredAgent.self, from: Data(json.utf8))
+    #expect(agent.rowLine(locale: english, timeZone: utc) == "Paused: open in your Claude app since 09:12")
+}

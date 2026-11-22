@@ -58,7 +58,7 @@ import {
 } from "./agent-moves";
 import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
-import { receiveComplaints } from "./complaint-intake";
+import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
 import { type Desk, saveCursor } from "./desk-store";
 import {
   agentWakesOf,
@@ -72,6 +72,7 @@ import {
 } from "./event-queue";
 import { firstTurnOf } from "./first-turns";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
+import { MAIN_BRIEF } from "./main-session";
 import {
   endAgentsOnOverMatters,
   foldAssignments,
@@ -80,6 +81,7 @@ import {
   pollRecordings,
   relatedMessages,
 } from "./matter-net";
+import { standUp } from "./role-agents";
 import { SessionLive } from "./runtimes/contract";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
 import {
@@ -96,6 +98,9 @@ import {
 // read from the store each time, so a sleep or a restart loses nothing.
 
 const now = () => clock().toISOString();
+
+/** The sessions a due wake found open outside the desk, by agent and session, logged once each until a wake finds them free. ponytail: per process, so a desk restart logs a hold once more. */
+const openSessions = new Set<string>();
 
 /** `readPeople`, read at most once however often it is asked. */
 export function readPeopleOnce(): ReadPeople {
@@ -411,8 +416,15 @@ async function wake(desk: Desk, a: AgentRow, s: AssignmentRow) {
       ? await runtime.state(a.session).catch(() => null)
       : "gone";
   if (state === "running") {
+    // A due wake on a session open outside the desk (his app, a terminal) waits until it lets go: said once per opening.
+    const key = `${a.id} ${a.session}`;
+    if (!openSessions.has(key)) {
+      openSessions.add(key);
+      log("desk.session_open", { agent: a.id, runtime: a.runtime });
+    }
     return false;
   }
+  openSessions.delete(`${a.id} ${a.session}`);
   // Read again as its turn is written: since the tick listed it, the agent may have finished, set a later wait or been
   // woken (a runtime's start can take 30 s); its session takes one turn at a time.
   const woken = db.transaction(() => {
@@ -619,6 +631,8 @@ export async function wakeDue(desk: Desk) {
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
   await advanceMoves(desk);
+  standUp(desk, "main", MAIN_BRIEF);
+  standUp(desk, "caretaker", CARETAKER_BRIEF);
   await receiveComplaints(desk);
   const people = readPeopleOnce();
   // A failure here never holds his answers or the turns due.
