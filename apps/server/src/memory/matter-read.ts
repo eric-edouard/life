@@ -495,6 +495,45 @@ export const isRunning = (
     Partial<Pick<MatterView, "important">>
 ) => v.open && (v.status !== "dormant" || v.important === true);
 
+/** A closed matter's step that ended last among its to-dos, promises, waits and to-do items; none while it is open. Pure. */
+export const lastEndedStepOf = (v: Pick<MatterView, "open" | "steps">) =>
+  v.open
+    ? undefined
+    : v.steps
+        .filter((s) => ACTIONABLE.includes(s.kind) && s.ending)
+        .toSorted((a, b) =>
+          (a.ending?.at ?? "").localeCompare(b.ending?.at ?? "")
+        )
+        .at(-1);
+
+/**
+ * How a closed matter ended (`read_matters`' closed rows): `at`, when its last step ended (`lastEndedStepOf`), else, for
+ * one done by quiet or read over by Life with steps still open, its last step's instant; `outcome` `probably_done`
+ * (`status`), `dropped` when that last ending was a Drop, else `done`. None while it is open. Pure.
+ */
+export function matterEndOf(
+  v: Pick<MatterView, "open" | "openSteps" | "status" | "steps">
+) {
+  if (v.open) {
+    return;
+  }
+  const ending = lastEndedStepOf(v)?.ending;
+  const isDropped =
+    ending !== undefined && "dropped" in ending && ending.dropped === true;
+  return {
+    at:
+      ending && v.openSteps.length === 0
+        ? ending.at
+        : (v.steps.at(-1)?.at ?? ""),
+    outcome:
+      v.status === "probably_done"
+        ? ("probably_done" as const)
+        : isDropped
+          ? ("dropped" as const)
+          : ("done" as const),
+  };
+}
+
 /** What a lone observation is: his own promise, wait or to-do, at the top importance. */
 const isOpenKind = (o: StepObservation) =>
   o.importance === TOP_AT &&

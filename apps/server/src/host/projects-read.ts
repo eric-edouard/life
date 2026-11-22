@@ -6,7 +6,7 @@ import {
   namedIdOf,
   openDecisions,
   projectStepRefsOf,
-  rankedRunning,
+  rankedMatters,
 } from "../memory/read-matters";
 import { goalsOf, projectPeopleAndChatsOf } from "../memory/read-truth";
 import { readPeople } from "../memory/who";
@@ -54,7 +54,7 @@ async function readAtWork(
 async function readChipsFromMemory(open: Open) {
   const people = await readPeople();
   const { truth } = people;
-  const { book, decisions, ranked } = await rankedRunning(
+  const { book, decisions, ranked } = await rankedMatters(
     {},
     async (p, t) => ({ book: await readMatterBook(p, t) }),
     people
@@ -91,9 +91,11 @@ async function readChipsFromMemory(open: Open) {
     const i = goalsOf(truth.me.goals).findIndex((g) => g.projects.includes(id));
     return i < 0 ? Number.POSITIVE_INFINITY : i;
   };
-  const projectChips = (isParked: boolean) =>
+  const groupOf = (p: (typeof truth.projects)[number]) =>
+    isUnderway(p) ? "underway" : p.status === "done" ? "done" : "parked";
+  const projectChips = (group: ReturnType<typeof groupOf>) =>
     truth.projects
-      .filter((p) => p.status !== "done" && !isUnderway(p) === isParked)
+      .filter((p) => groupOf(p) === group)
       .map((p) =>
         chipOf(
           {
@@ -104,7 +106,7 @@ async function readChipsFromMemory(open: Open) {
             status: p.status,
           },
           { project: p.id },
-          isParked
+          group !== "underway"
         )
       );
   return {
@@ -112,7 +114,7 @@ async function readChipsFromMemory(open: Open) {
     book,
     chips: [
       // Those needing him first, then by his goals, the directory's order for a tie (a stable sort).
-      ...projectChips(false).toSorted(
+      ...projectChips("underway").toSorted(
         (a, b) =>
           Number(b.chip.needYou > 0) - Number(a.chip.needYou > 0) ||
           goalRank(a.chip.id) - goalRank(b.chip.id)
@@ -125,7 +127,9 @@ async function readChipsFromMemory(open: Open) {
           )
         )
         .filter((c) => c.chip.matters > 0),
-      ...projectChips(true),
+      // A done project is never lost: after the parked ones.
+      ...projectChips("parked"),
+      ...projectChips("done"),
     ],
     decisions,
     people,

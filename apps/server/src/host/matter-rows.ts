@@ -33,8 +33,16 @@ async function readRows(
   agentOf: Parameters<typeof openMatters>[1],
   open: Parameters<typeof matterRowsNowOf>[1]
 ) {
-  const { matters, project } = await openMatters(q, agentOf, readLifeIcons);
-  const answer = { matters: matterRowsNowOf(matters, open), project };
+  const { matters, nextBefore, project } = await openMatters(
+    q,
+    agentOf,
+    readLifeIcons
+  );
+  const answer = {
+    matters: matterRowsNowOf(matters, open),
+    nextBefore,
+    project,
+  };
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 
@@ -44,7 +52,7 @@ let kept:
   | undefined;
 
 /**
- * The running matters as rows now (`openMatters`, of one person, project or area when given), over his open checks read
+ * The matters as rows now (`openMatters`: running, or open or closed as asked, of one person, project or area when given), over his open checks read
  * once; each with Life's icon (`readLifeIcons`, never waited on) and `agentOf`'s agent: `read_matters` and a person's
  * read alike. Of one project, its page's head too (`project`). Read again only when its key changed: the checks' key
  * (`checksAndKeyNow`: it covers the matter book's files and his day), the query, the agents' stamp and the icon work
