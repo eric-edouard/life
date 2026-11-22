@@ -33,8 +33,11 @@ struct HomeList: View {
                                 router.showProjects()
                             }
                             page("People", "person.2", count: life.people.value?.people.count) { router.showPeople() }
-                            page("Profile", "person", count: nil) { router.showProfile() }
-                                .accessibilityIdentifier("drawer.profile")
+                            // In the Duo's column Profile is the button at its foot.
+                            if !router.isBarsInColumn {
+                                page("Profile", "person", count: nil) { router.showProfile() }
+                                    .accessibilityIdentifier("drawer.profile")
+                            }
                         }
                         .padding(.horizontal, Metrics.Spacing.s)
                         Divider().overlay(Palette.line).padding(.vertical, Metrics.Spacing.s)

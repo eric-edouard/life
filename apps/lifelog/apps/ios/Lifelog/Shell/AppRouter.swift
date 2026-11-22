@@ -73,10 +73,11 @@ final class AppRouter {
     }
 
     var tab = Tab.inbox {
-        didSet { if tab != .people { personCameFrom = nil } }
+        didSet { if tab != oldValue { cameFrom = nil } }
     }
-    /// The tab he was on when a person was opened from elsewhere (`open(party:)`): Back from that page returns there.
-    private(set) var personCameFrom: Tab?
+    /// The tab he was on when a person or a matter was opened from elsewhere (`open(party:)`, `open(matter:)`): Back
+    /// from that page returns there, not to the People or Projects list.
+    private(set) var cameFrom: Tab?
     /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is the Projects list.
     /// Choosing one lets
     /// its list choose the matter on show again.
@@ -257,10 +258,12 @@ final class AppRouter {
         putListAway()
         sheet = nil
         projectAsk = nil
+        let from = tab
         tab = .projects
         matterPath = []
         select(matter: id)
         isMatterFromElsewhere = true
+        cameFrom = from == .projects ? nil : from
     }
 
     /// A project, from a matter that names it: the Projects tab's list on its chip (decision 95: the filtered list is
@@ -309,13 +312,14 @@ final class AppRouter {
         tab = .people
         select(person: ref)
         isPersonFromElsewhere = true
-        personCameFrom = from == .people ? nil : from
+        cameFrom = from == .people ? nil : from
     }
 
-    /// Back from the person on show to the list: to the tab he came from instead, when they were opened from elsewhere.
-    func closePerson() {
-        guard let from = personCameFrom else { return }
-        personCameFrom = nil
+    /// Back from the person or matter on show to its list: to the tab he came from instead, when it was opened from
+    /// elsewhere.
+    func returnToWhereOpened() {
+        guard let from = cameFrom else { return }
+        cameFrom = nil
         tab = from
     }
 
@@ -324,7 +328,7 @@ final class AppRouter {
     func select(person ref: String?) {
         people.open(ref)
         isPersonFromElsewhere = false
-        personCameFrom = nil
+        cameFrom = nil
         personColumn = ref == nil ? .sidebar : .detail
     }
 
@@ -339,6 +343,7 @@ final class AppRouter {
     func select(matter id: String?) {
         if matter != id { matterPath = [] }
         isMatterFromElsewhere = false
+        cameFrom = nil
         detail = id.map { .matter($0) }
         matterColumn = id == nil ? .sidebar : .detail
     }

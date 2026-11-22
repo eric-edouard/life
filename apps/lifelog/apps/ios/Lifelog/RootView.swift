@@ -37,6 +37,14 @@ struct RootView: View {
                     .ignoresSafeArea(.all, edges: [.bottom, .leading, .trailing])
                 }
             }
+            // Profile in the Duo's column, at its foot above Ask Life (the nav prototype); elsewhere it is the list's row.
+            .overlay(alignment: .bottomTrailing) {
+                if router.isBarsInColumn {
+                    ProfileButton().padding(.trailing, AskLifeMetrics.column.trailing)
+                        .padding(.bottom, AskLifeMetrics.column.bottom(regular: false) + 48 + Metrics.Spacing.m)
+                        .ignoresSafeArea(.all, edges: [.bottom, .trailing])
+                }
+            }
             .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
             // What an answer shows: its tab's list cut, or a page, under Ask Life's strip.
             .onChange(of: life.askLife.shown) { _, shown in if let shown { router.open(shown: shown.show) } }
@@ -180,5 +188,22 @@ enum Appearance: String {
         case .light: .light
         case .dark: .dark
         }
+    }
+}
+
+/// Profile as one glass circle in the Duo's column.
+private struct ProfileButton: View {
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        Button {
+            router.showProfile()
+        } label: {
+            Image(systemName: "person").font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .accessibilityLabel("Profile")
+        .accessibilityIdentifier("column.profile")
     }
 }
