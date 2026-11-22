@@ -51,6 +51,7 @@ import { voiceUnitId } from "./unit-ids";
 import {
   applyRules,
   type Built,
+  conversationKeyOf,
   type Resolve,
   turnsByDayOf,
   UNKNOWN,
@@ -471,7 +472,9 @@ export async function readArrivals(
       turnLines(
         turns,
         [...new Set(fetched.map((b) => b.unit.key))],
-        people.resolve
+        people.resolve,
+        undefined,
+        new Map(fetched.map((b) => [b.unit.id, conversationKeyOf(b.unit)]))
       ))
   )(
     new Map(

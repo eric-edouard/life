@@ -13,6 +13,7 @@ import { kindOf } from "./sources";
 import { areaOf } from "./tags";
 import {
   type Built,
+  conversationKeyOf,
   type HandleFrom,
   holdsName,
   type Resolve,
@@ -176,8 +177,8 @@ export function oldGuessesIn(
  */
 export function answeredBy(resolve: Resolve, inferred: InferredPerson[]) {
   const judged = judgedKeysOf(inferred);
-  return (s: string, from?: HandleFrom) => {
-    const ref = resolve(s, from);
+  return (s: string, from?: HandleFrom, inConversation?: string) => {
+    const ref = resolve(s, from, inConversation);
     return (
       ref !== null &&
       (!ref.startsWith(`person:${INFERRED_PREFIX}`) ||
@@ -193,11 +194,16 @@ export function answeredBy(resolve: Resolve, inferred: InferredPerson[]) {
  */
 export function unknownIn(
   units: Built[],
-  known: (s: string, from?: HandleFrom) => boolean
+  known: (s: string, from?: HandleFrom, inConversation?: string) => boolean
 ) {
   const out = new Map<string, Built[]>();
   const add = (s: string, b: Built) => {
-    if (!(known(s, b.unit.source) || VOICE.test(s.trim()))) {
+    if (
+      !(
+        known(s, b.unit.source, conversationKeyOf(b.unit)) ||
+        VOICE.test(s.trim())
+      )
+    ) {
       out.set(s, [...new Set([...(out.get(s) ?? []), b])]);
     }
   };
