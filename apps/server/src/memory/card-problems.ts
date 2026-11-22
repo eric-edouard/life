@@ -202,7 +202,12 @@ const isNumberedListOf = (context: string) =>
     .split("\n")
     .filter((l) => NUMBERED_LINE.test(l)).length >= 2;
 
-/** What breaks the plan card's rules (`fetch("ask/plan")`): a card that presents a plan gives it as `plan`, its steps, never as a numbered list in `context` (his word of 22 Nov 2026); the assignment's plan card always does (`isPlan`, 21 Nov 2026); `gathered` goes with `plan`; its two options, ids `start` then `decline` in the asker's words; false when nothing does. */
+/** A card that says its matter looks over: a done option closing the matter (`ends: "matter"`, not a drop), nothing sent. */
+const isLooksOverOf = (ask: z.infer<typeof Ask>) =>
+  !(ask.draft || ask.options.some((o) => o.outgoing)) &&
+  ask.options.some((o) => o.ends === "matter" && !o.icon);
+
+/** What breaks the plan card's rules (`fetch("ask/plan")`): a card that presents a plan gives it as `plan`, its steps, never as a numbered list in `context` (his word of 22 Nov 2026); the assignment's plan card always does (`isPlan`, 21 Nov 2026), unless its first card says the matter looks over (`isLooksOverOf`) (a plan of "close it" read as a riddle, 22 Nov 2026); `gathered` goes with `plan`; its two options, ids `start` then `decline` in the asker's words; false when nothing does. */
 function planProblemOf(
   ask: z.infer<typeof Ask>,
   isPlan: boolean,
@@ -215,7 +220,9 @@ function planProblemOf(
   }
   if (!ask.plan) {
     return (
-      (isPlan && `an assignment's first card is its plan card: ${resend}`) ||
+      (isPlan &&
+        !isLooksOverOf(ask) &&
+        `an assignment's first card is its plan card: ${resend}; or, when nothing is left to do, the card that says it looks over, its done option marked \`ends: "matter"\``) ||
       (ask.gathered &&
         'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))')
     );
