@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
+import type { AgentRole } from "../core/names";
 import { off } from "../core/outputs";
 import { DESK_STORE } from "../core/paths";
 import { pathInside } from "../core/platform";
@@ -12,7 +13,6 @@ import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type { BeingFixed } from "../memory/life-checks";
 import {
   type AgentChange,
-  type AgentRole,
   type AgentStatus,
   type EventFilter,
   isWokenOnlyByHisWords,
@@ -540,9 +540,13 @@ export const refusedSince = (db: Database, since: string) =>
     )
     .all(since, MAX_ACTIVE);
 
-/** The runtime a start names, else the desk's default. */
-export const runtimeOf = (c: Pick<AgentChange, "runtime">) =>
-  c.runtime ?? settings().desk?.defaultRuntime;
+/** The runtime a start names, else its role's in the desk's settings (`roleRuntimes`), else the desk's default. */
+export const runtimeOf = (
+  c: Pick<AgentChange, "runtime"> & { role?: AgentRole | null }
+) =>
+  c.runtime ??
+  (c.role ? settings().desk?.roleRuntimes?.[c.role] : undefined) ??
+  settings().desk?.defaultRuntime;
 
 /** The model and effort agent `a` runs with: its own, else its runtime's in the desk's settings, else the runtime's default (none). */
 export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
