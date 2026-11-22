@@ -28,8 +28,6 @@ struct CheckCard: View {
     /// The answer he gave on it while Life works on it, shown on its own button (`CheckActions.pressed`).
     var pressed: Taken?
 
-    /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
-    @Environment(\.isContextBeside) private var isContextBeside
     @Environment(\.isInThread) private var isInThread
     @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -88,9 +86,8 @@ struct CheckCard: View {
     }
 
     /// An ask with nothing of its own but its context (a plan card asked without steps, a decision in words): the
-    /// context is the thing, drawn in full on the tile, never an empty card behind a link. Beside the card, the
-    /// context region already shows it.
-    private var isContextTheThing: Bool { !hasThing && !isContextBeside && check.contextLinkTitle != nil }
+    /// context is the thing, drawn in full on the tile, never an empty card behind a link.
+    private var isContextTheThing: Bool { !hasThing && check.contextLinkTitle != nil }
 
     /// A guessed person, or a same person card's guess, with the chat the network shows them in: that is the thing.
     private var identity: Check.NetworkIdentity? {
@@ -116,7 +113,7 @@ struct CheckCard: View {
         if !check.planSteps.isEmpty {
             PlanBlock(
                 steps: check.planSteps, agentMark: check.agentMark(runtime: runtimeName), gathered: check.gathered,
-                openContext: isContextBeside ? nil : { input.context = check.ownContext })
+                openContext: { input.context = check.ownContext })
         }
         DraftBlock(check: check, isBoxed: false)
         if !(check.needs ?? []).isEmpty {
@@ -179,10 +176,10 @@ struct CheckCard: View {
     // MARK: The matter, the link, the answers
 
     /// The link to its context, in the code's words for what it asks ("Why this reply?"), under the thing it explains;
-    /// none when the context shows beside the card or is the thing, or when a plan's source chip already opens it (one
+    /// none when the context is the thing, or when a plan's source chip already opens it (one
     /// way to it).
     private var contextLink: QuietChip? {
-        guard !isContextBeside, !isContextTheThing, check.gathered == nil || check.planSteps.isEmpty,
+        guard !isContextTheThing, check.gathered == nil || check.planSteps.isEmpty,
             let title = check.contextLinkTitle
         else { return nil }
         return QuietChip(title, symbol: "questionmark.circle") { input.context = check.ownContext }
