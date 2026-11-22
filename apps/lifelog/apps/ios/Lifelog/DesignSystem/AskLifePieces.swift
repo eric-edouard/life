@@ -239,17 +239,6 @@ struct AskLifeRoom: View {
     }
 }
 
-extension View {
-    /// The composer: his words, the microphone and Send in one glass capsule (the Claude app's bar, his reference of 22
-    /// Nov), the keys 4 in from its end. Ask Life's banner is the same.
-    func askLifeComposer() -> some View {
-        padding(.leading, Metrics.Spacing.l).padding(.trailing, Metrics.Spacing.xs).padding(
-            .vertical, Metrics.Spacing.xs
-        )
-        .floatingGlass(in: .rect(cornerRadius: 28))
-    }
-}
-
 /// An answer's words: Grotesk, large; in the Grotesk look their key words (marked `**`) are bold.
 struct AskLifeHead: View {
     let words: String
@@ -281,44 +270,30 @@ struct AskLifeNote: View {
     var body: some View { Text(words).font(.note).foregroundStyle(Palette.muted) }
 }
 
-/// Ask Life made small: one line over the rail, the present answer or the work, tap to open, a cross to put it away.
-struct AskLifeStrip: View {
-    let line: String
-    let open: () -> Void
-    let close: () -> Void
+/// The veil under Ask Life's strip: the soft edge made stronger, blurred and dimmed from the foot up, over the page and the
+/// list and under the bar, so the page above stays in view and Ask Life does the work under it. Full screen it grows to
+/// the top. A tap on it puts Ask Life away.
+struct AskLifeVeil: View {
+    @Environment(AppRouter.self) private var router
+    @Environment(LifeStore.self) private var life
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.m) {
-            Button(action: open) {
-                HStack(spacing: Metrics.Spacing.s) {
-                    AskLifeMark(size: 16)
-                    Text(line.withoutMarks).font(.small).foregroundStyle(Palette.fg).lineLimit(1)
-                    Spacer(minLength: 0)
+        if router.askLife != .away {
+            let isFull = router.askLife == .full
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay(Color.black.opacity(isFull ? 0.6 : 0.5))
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0), .init(color: .black, location: isFull ? 0.12 : 0.6),
+                        ],
+                        startPoint: .top, endPoint: .bottom)
+                )
+                .frame(maxHeight: isFull ? .infinity : 280).frame(maxHeight: .infinity, alignment: .bottom)
+                .ignoresSafeArea().contentShape(.rect).onTapGesture {
+                    withAnimation(Motion.standard) { router.putAwayAskLife(life.askLife) }
                 }
-            }
-            .buttonStyle(.plain)
-            Button(role: .close, action: close) {
-                Image(systemName: "xmark").font(.chip).foregroundStyle(Palette.muted).frame(width: 32, height: 32)
-            }
-            .buttonStyle(.plain).accessibilityLabel("Put away")
+                .transition(.opacity).accessibilityHidden(true)
         }
-        .padding(.horizontal, Metrics.Spacing.l).frame(height: 48)
-        .floatingGlass(in: Capsule())
-        // Above the rail.
-        .padding(.horizontal, Metrics.gutter).padding(.bottom, 84)
-        .accessibilityIdentifier("tell.strip")
-    }
-}
-
-/// Makes Ask Life small: the chevron, where the cross is on the other side.
-struct AskLifeSmallButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "chevron.down").font(.system(size: 17, weight: .light)).foregroundStyle(Palette.fg)
-                .frame(width: 44, height: 44).background(Palette.tile, in: .circle)
-        }
-        .buttonStyle(.plain).accessibilityLabel("Make small").accessibilityIdentifier("tell.small")
     }
 }

@@ -185,6 +185,8 @@ public final class AskLife {
     /// What he last said (the caption), and, after a call that did not go through, the words waiting to go again.
     public private(set) var said = ""
     public private(set) var waiting: String?
+    /// His words not sent yet: the one draft, shown in the strip and in the full screen alike.
+    public var draft = ""
 
     private let api: any LifeAPI
     /// The key of the call whose outcome he doesn't know (its connection failed), with the words it was minted for.
