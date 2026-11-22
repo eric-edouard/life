@@ -381,6 +381,14 @@ export const isDirect = (name: SourceName, chat: string, others: number) => {
   const { group } = sourceOf(name);
   return group ? !group(chat) : others <= 1;
 };
+/** The link that opens a chat in its network's app: the first of `handles` (the chat's own, then a sender's) its network opens (`chatLinkOf`; a WhatsApp `@lid` opens nothing); none when none does. */
+export const chatOpenUrlOf = (
+  name: SourceName,
+  handles: readonly (string | undefined)[]
+) =>
+  handles
+    .map((h) => h && sourceOf(name).chatLinkOf?.(h))
+    .find((url): url is string => Boolean(url));
 
 /** A source whose events show their files as lines, as the ledger has them now. */
 const withFiles =

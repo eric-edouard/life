@@ -6,7 +6,7 @@ import type { Party } from "./party";
 import { chatUnitsFor, readPersonUnits } from "./person-units";
 import { OWNER } from "./read-truth";
 import { samePersonPairOf } from "./same-person";
-import { isDirect, SOURCES, sourceOf } from "./sources";
+import { chatOpenUrlOf, isDirect, SOURCES, sourceOf } from "./sources";
 import { type Message, oneLineOf, UNKNOWN } from "./units";
 import type { People } from "./who";
 import { unitLines } from "./words";
@@ -89,7 +89,7 @@ export function networkIdentityOf(
           text: oneLineOf(redact(last.text), LINE_CHARS),
         }
       : null,
-    openUrl: (handle && source.chatLinkOf?.(handle)) || null,
+    openUrl: chatOpenUrlOf(unit.source, handles) ?? null,
     shownName,
   };
 }
