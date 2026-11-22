@@ -526,6 +526,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       refused: [],
     });
     spyOn(agents, "readAgentsOnSteps").mockReturnValue([gone] as never);
+    const heldChips = await read("read_projects", { ifNot: chips.version });
+    expect(JSON.parse(heldChips).unchanged).toBe(true);
     const heldHeader = await read("read_project", {
       ifNot: headerVersion,
       project: "shop-fit-out",
