@@ -182,9 +182,7 @@ test("a first card that says the matter looks over needs no plan, and the brief 
   expect(decisionsNow().find((d) => d.id === id)?.plan).toBeUndefined();
   const packet = await readPacket(desk, s, false);
   expect(packet).toContain("unless that card says the matter looks over");
-  expect(packet).toContain(
-    "never ask him to decide on something you could have checked"
-  );
+  expect(packet).toContain("`request_decision`'s self-check");
   // Only that card: a first card that sends, or offers only a drop, is still its plan card.
   const other = register(desk, {
     brief: "Test brief",
@@ -318,6 +316,58 @@ test("a plan written as a numbered list in `context` is refused on any card; quo
   );
   const quoted =
     "> 1. Bring the watch\n> 2. Pay at pickup\n*Kit*\n\n```\n1. a\n2. b\n```";
+  await expect(
+    requestDecision(DESK_AGENT, { ...card(quoted), agent })
+  ).resolves.toMatchObject({ id: expect.any(String) });
+  setSystemTime();
+});
+
+// Cards that added to his load (22 Nov 2026): a close card that said it had not checked, a card naming the Personal
+// agent and refs, contexts longer than what he needs. Refused for any asker; someone else's quoted words never count.
+test("a card that says it did not check, shows Life's inside or runs long is refused; quotes and link targets aside", async () => {
+  const { desk } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const card = (context: string, title = "Mend the watch") => ({
+    context,
+    deadline: ahead(DAY),
+    onSilence: null,
+    options: [
+      { id: "close", label: "Close it" },
+      { id: "keep", label: "Keep it open" },
+    ],
+    question: "Close the watch repair?",
+    title,
+  });
+  const refusals = await Promise.allSettled([
+    requestDecision(DESK_AGENT, {
+      ...card("Not verified: whether Kit was paid."),
+      agent,
+    }),
+    requestDecision(DESK_AGENT, {
+      ...card("I didn't open the mail thread past 18 Nov."),
+      agent,
+    }),
+    requestDecision(DESK_AGENT, {
+      ...card("Kit fixed it.", "Personal agent: close the watch"),
+      agent,
+    }),
+    requestDecision(DESK_AGENT, { ...card("See obs_5bdeee7a8a60."), agent }),
+    requestDecision(DESK_AGENT, {
+      ...card("Kit fixed it. ".repeat(100)),
+      agent,
+    }),
+  ]);
+  expect(
+    refusals.map((r) => r.status === "rejected" && String(r.reason))
+  ).toEqual([
+    expect.stringContaining('"Not verified": check it with your tools'),
+    expect.stringContaining('"didn\'t open": check it with your tools'),
+    expect.stringContaining('"Personal agent" is Life\'s inside'),
+    expect.stringContaining('"obs_5bdeee7a8a60" is Life\'s inside'),
+    expect.stringContaining("`context` holds 1400 characters"),
+  ]);
+  const quoted =
+    "Kit fixed it ([his message](https://example.com/obs_5bdeee7a8a60)).\n> Not verified yet, said the shop\n*Kit*";
   await expect(
     requestDecision(DESK_AGENT, { ...card(quoted), agent })
   ).resolves.toMatchObject({ id: expect.any(String) });
