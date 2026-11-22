@@ -24,6 +24,10 @@ struct DictationField: View {
     /// submit passes one (Ask Life, a matter's goal or next step, the new agent's goal) in place of its own Save or Start
     /// button; a card's answers stay buttons.
     var send: (() -> Void)?
+    /// Ask Life's card (`ask-strip-2026-11-22.md`, "Live dictation on nav v3"): the words on top, up to 5 lines, then one
+    /// row, cancel, the sound meter, stop and Send. Cancel hands what was said to `cancelled`, for its Undo.
+    var isCard = false
+    var cancelled: ((String) -> Void)?
 
     @Environment(\.library) private var library
     @Environment(SyncStore.self) private var sync
@@ -36,9 +40,38 @@ struct DictationField: View {
     /// The text and caret when the run started: the keyboard goes away while he speaks, and the words land there
     /// (at the end when the text changed since).
     @State private var caret: (text: String, selection: TextSelection?)?
+    @State private var isHolding = false
     private let live = LiveWords.shared
 
     var body: some View {
+        Group { if isCard { card } else { inline } }
+            .motion(Motion.standard, value: dictation.phase)
+            .motion(Motion.standard, value: dictation.problem)
+            .sensoryFeedback(trigger: dictation.phase) { old, new in
+                switch (old, new) {
+                case (.rest, .starting): .impact(weight: .medium)
+                case (.starting, .writing), (.listening, .writing): .impact(weight: .light)
+                default: nil
+                }
+            }
+            .sensoryFeedback(.success, trigger: dictation.landed)
+            .sensoryFeedback(.error, trigger: dictation.problem) { _, new in new != nil }
+            .onAppear {
+                dictation.begin = DictationCapture.run(library: library, sync: sync)
+                #if DEBUG
+                    if DictationFixture.drive(dictation, start: start) { return }
+                    // A frame's made-up data asks the phone for nothing: no microphone sheet over the shot.
+                    if LifeFixture.isRequested { return }
+                #endif
+                if listens { start() }
+            }
+            .onDisappear { dictation.cancel() }
+            .onChange(of: dictation.landed) { _, landed in
+                if let landed { land(landed) }
+            }
+    }
+
+    private var inline: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
             if let problem = dictation.problem { ProblemLine(problem: problem) { fix(problem) }.appears() }
             HStack(alignment: axis == .vertical ? .bottom : .center, spacing: Metrics.Spacing.s) {
@@ -67,30 +100,58 @@ struct DictationField: View {
                 DictationKeys(dictation: dictation, hasWords: hasWords, send: send, start: start)
             }
         }
-        .motion(Motion.standard, value: dictation.phase)
-        .motion(Motion.standard, value: dictation.problem)
-        .sensoryFeedback(trigger: dictation.phase) { old, new in
-            switch (old, new) {
-            case (.rest, .starting): .impact(weight: .medium)
-            case (.starting, .writing), (.listening, .writing): .impact(weight: .light)
-            default: nil
+    }
+
+    /// Ask Life's card: grows upward with the words (its foot row never moves); the meter shows with the live words.
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let problem = dictation.problem { ProblemLine(problem: problem) { fix(problem) }.appears() }
+            cardWords.frame(maxWidth: .infinity, alignment: .leading).padding(.top, Metrics.Spacing.m)
+            HStack(spacing: Metrics.Spacing.s) {
+                Button(action: cancel) {
+                    Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
+                        .frame(width: 36, height: 36).background(Color.fillTint, in: .circle)
+                        .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
+                Group {
+                    if dictation.phase == .rest {
+                        Color.clear
+                    } else if isHolding {
+                        Text("Slide up to send").font(.small).foregroundStyle(Palette.muted)
+                    } else {
+                        DictationStream(dictation: dictation)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                DictationKeys(
+                    dictation: dictation, hasWords: hasWords, send: send, start: start, isCard: true,
+                    isHolding: $isHolding)
             }
+            .frame(height: 56)
         }
-        .sensoryFeedback(.success, trigger: dictation.landed)
-        .sensoryFeedback(.error, trigger: dictation.problem) { _, new in new != nil }
-        .onAppear {
-            dictation.begin = DictationCapture.run(library: library, sync: sync)
-            #if DEBUG
-                if DictationFixture.drive(dictation, start: start) { return }
-                // A frame's made-up data asks the phone for nothing: no microphone sheet over the shot.
-                if LifeFixture.isRequested { return }
-            #endif
-            if listens { start() }
+    }
+
+    @ViewBuilder private var cardWords: some View {
+        if dictation.phase == .rest {
+            field.lineLimit(1...5)
+        } else if isLive {
+            let (head, tail) = DictatedText.parts(in: text, at: keptCaret)
+            LiveWordsText(head: head, words: live.words, tail: tail).lineLimit(5).truncationMode(.head)
+        } else if text.isEmpty {
+            Text(dictation.phase == .writing ? "Writing…" : "Listening…").foregroundStyle(Palette.muted)
+        } else {
+            Text(text).lineLimit(5).truncationMode(.head)
         }
-        .onDisappear { dictation.cancel() }
-        .onChange(of: dictation.landed) { _, landed in
-            if let landed { land(landed) }
-        }
+    }
+
+    /// Stops the run, drops its words and hands what was said back (his text and the words heard), for Undo.
+    private func cancel() {
+        let heard = isLive ? live.words.map(\.text).joined(separator: " ") : ""
+        let said = [text, heard].filter { !$0.isEmpty }.joined(separator: " ")
+        dictation.cancel()
+        live.clear()
+        cancelled?(said)
     }
 
     /// This field's run is heard instantly and has words (a stream that failed keeps them until the Mac's land): only
@@ -165,18 +226,25 @@ private struct DictationKeys: View {
     let hasWords: Bool
     let send: (() -> Void)?
     let start: () -> Void
+    var isCard = false
+    /// The press's hold, for the card's "Slide up to send" in the meter's place.
+    @Binding var isHolding: Bool
 
     @State private var press: DictationPress
 
-    init(dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void) {
+    init(
+        dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void, isCard: Bool = false,
+        isHolding: Binding<Bool> = .constant(false)
+    ) {
         (self.dictation, self.hasWords, self.send, self.start) = (dictation, hasWords, send, start)
+        (self.isCard, _isHolding) = (isCard, isHolding)
         _press = State(initialValue: DictationPress(canSend: send != nil))
     }
 
     var body: some View {
         GlassEffectContainer(spacing: Metrics.Spacing.s) {
             HStack(spacing: Metrics.Spacing.s) {
-                DictationMic(dictation: dictation, press: $press, start: start)
+                DictationMic(dictation: dictation, press: $press, start: start, isCard: isCard)
                 if let send {
                     // Off while a run's words are written: they land first.
                     SendKey(
@@ -185,6 +253,7 @@ private struct DictationKeys: View {
                 }
             }
         }
+        .onChange(of: press.isHolding) { _, holding in isHolding = holding }
         #if DEBUG
             .onAppear { if let seeded = DictationFixture.press(canSend: send != nil) { press = seeded } }
         #endif
@@ -234,6 +303,8 @@ private struct DictationMic: View {
     @Binding var press: DictationPress
     /// Starts a run from rest (the field keeps its caret first).
     let start: () -> Void
+    /// Ask Life's card: a stop square while listening, in the place of the voice mark.
+    var isCard = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Whether his finger is down; false again once it is up, or once the system took the gesture away.
@@ -299,7 +370,12 @@ private struct DictationMic: View {
         } else {
             switch dictation.phase {
             case .writing where !dictation.isSending: Spinner(size: .small).foregroundStyle(Palette.fg)
-            case .starting, .listening: VoiceMark(level: dictation.levels.last ?? 0)
+            case .starting, .listening:
+                if isCard {
+                    Image(systemName: "stop.fill").font(.system(size: 14)).foregroundStyle(Palette.on)
+                } else {
+                    VoiceMark(level: dictation.levels.last ?? 0)
+                }
             case .rest, .writing:
                 Image(systemName: dictation.isRefused ? "mic.slash" : "mic").font(.system(size: 17))
                     .foregroundStyle(dictation.isRefused || dictation.isSending ? Palette.muted : Palette.fg)

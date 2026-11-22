@@ -10,9 +10,10 @@ struct AskLifeMetrics: Equatable {
     static let column = AskLifeMetrics(size: 48, trailing: 23, bottomCompact: 191, bottomRegular: 191)
 }
 
-/// Ask Life: the round button at rest, a wide banner along the bottom when open. One glass that morphs between them
-/// (`glassEffectID` in one `GlassEffectContainer`). The banner holds the dictation (`AskDictationSlot`, a
-/// `DictationField` that listens as it opens) and one line of what Life answered; the X, or a swipe down, morphs it back.
+/// Ask Life: the round button at rest, a glass card above the foot bar when open. One glass that morphs between them
+/// (`glassEffectID` in one `GlassEffectContainer`). The card is the one dictation field in its card form (listening as it
+/// opens, words live, the meter, stop and Send) and one line of what Life answered. Cancel folds it back and offers
+/// "Nothing sent · Undo" for 4 seconds; Undo brings the card back with his words.
 struct AskLifeControl: View {
     let running: Int
     let place: AskLifeMetrics
@@ -21,13 +22,18 @@ struct AskLifeControl: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
     @Namespace private var glass
+    @State private var draft = ""
+    /// Whether the card opens listening: not when Undo brings it back with his words.
+    @State private var listens = true
+    @State private var undoable: String?
 
     var body: some View {
         GlassEffectContainer {
             if router.isAskOpen {
-                banner
+                card
             } else {
                 AskLifeButton(size: place.size, isWorking: running > 0 || life.askLife.isBusy) {
+                    listens = true
                     withAnimation(Motion.standard) { router.isAskOpen = true }
                 }
                 .sensoryFeedback(.impact(weight: .medium), trigger: router.isAskOpen) { _, new in new }
@@ -36,54 +42,44 @@ struct AskLifeControl: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
+        .overlay(alignment: .bottomTrailing) {
+            if let said = undoable, !router.isAskOpen {
+                Toast(words: "Nothing sent", glyph: nil, undo: { undo(said) })
+                    .appears().padding(.trailing, place.trailing).padding(
+                        .bottom, place.bottom(regular: isRegular) + 64
+                    )
+                    .task(id: said) {
+                        try? await Task.sleep(for: .seconds(4))
+                        withAnimation(Motion.standard) { undoable = nil }
+                    }
+            }
+        }
     }
 
-    private var banner: some View {
-        HStack(spacing: Metrics.Spacing.m) {
-            AskLifeMark(size: 20)
-            VStack(alignment: .leading, spacing: 2) {
-                AskDictationSlot()
-                if let line = life.askLife.answer?.line {
+    private var card: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+            DictationField(
+                prompt: "Ask Life…", text: $draft, axis: .vertical, listens: listens, send: submit, isCard: true,
+                cancelled: cancel
+            )
+            .font(.body).foregroundStyle(Palette.fg)
+            if let line = life.askLife.answer?.line {
+                Button {
+                    withAnimation(Motion.standard) { router.isAskOpen = false }
+                    router.isAskLifeOpen = true
+                } label: {
                     Text(line.withoutMarks).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
                 }
+                .buttonStyle(.plain).accessibilityHint("Opens Ask Life")
             }
-            Spacer(minLength: 0)
-            Button("Open", systemImage: "arrow.up.left.and.arrow.down.right") {
-                withAnimation(Motion.standard) { router.isAskOpen = false }
-                router.isAskLifeOpen = true
-            }
-            .labelStyle(.iconOnly)
-            Button("Put away", systemImage: "xmark", role: .close) {
-                withAnimation(Motion.standard) { router.isAskOpen = false }
-            }
-            .labelStyle(.iconOnly)
         }
-        .buttonStyle(.plain).foregroundStyle(Palette.muted)
-        .padding(.horizontal, Metrics.Spacing.l).frame(height: place.size + 8)
-        .glassEffect(.regular, in: Capsule())
+        .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.xs)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28))
         .glassEffectID("ask", in: glass)
-        // The root spans the Duo's side column too: the banner keeps its right 98 clear for the column (its tabs).
-        .padding(.leading, place == .column ? 14 : 20).padding(.trailing, place == .column ? 98 : 20)
-        .gesture(
-            DragGesture(minimumDistance: 24).onEnded { drag in
-                if drag.translation.height > 24 { withAnimation(Motion.standard) { router.isAskOpen = false } }
-            }
-        )
-        .padding(.bottom, AskLifeMetrics.phone.bottomCompact)
+        // The root spans the Duo's side column too: the card keeps its right 98 clear for the column. Above the foot bar.
+        .padding(.leading, place == .column ? 14 : 16).padding(.trailing, place == .column ? 98 : 16)
+        .padding(.bottom, place == .column ? 24 : 96)
         .accessibilityIdentifier("ask.banner")
-    }
-}
-
-/// The banner's words: the one dictation field, listening as the banner opens (the tap that opened it was the
-/// microphone's), its Send handing his words to Ask Life as the full screen's does.
-private struct AskDictationSlot: View {
-    @Environment(AppRouter.self) private var router
-    @Environment(LifeStore.self) private var life
-    @State private var draft = ""
-
-    var body: some View {
-        DictationField(prompt: "Ask Life…", text: $draft, listens: true, send: submit)
-            .font(.body).foregroundStyle(Palette.fg).lineLimit(1)
     }
 
     private func submit() {
@@ -92,5 +88,22 @@ private struct AskDictationSlot: View {
         let words = draft
         draft = ""
         Task { await life.askLife.send(words, screen: router.mainSessionScreen) }
+    }
+
+    private func cancel(_ said: String) {
+        draft = ""
+        withAnimation(Motion.standard) {
+            router.isAskOpen = false
+            if !said.isEmpty { undoable = said }
+        }
+    }
+
+    private func undo(_ said: String) {
+        draft = said
+        listens = false
+        withAnimation(Motion.standard) {
+            undoable = nil
+            router.isAskOpen = true
+        }
     }
 }

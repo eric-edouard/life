@@ -26,7 +26,7 @@ struct NavShell: View {
         .overlay {
             if !isSideways, router.isDrawerOpen { overlayList }
         }
-        .overlay(alignment: .bottom) { if !router.isAskOpen { bar } }
+        .overlay(alignment: .bottom) { bar }
         .onGeometryChange(for: Bool.self, of: { $0.size.width > $0.size.height }) {
             isSideways = $0 && sizeClass == .regular
             if isSideways { router.isDrawerOpen = false }
