@@ -97,12 +97,9 @@ export function agentHealthOf(f: HealthFacts, now: number): Health {
       .filter((x) => x !== "last turn failed" || f.failedInARow < FAILED_BROKEN)
       .flatMap(amberWords)
   );
-  if (f.app && !(f.app.listed && f.app.inGroup)) {
-    attention.push(
-      f.app.listed
-        ? "Not in the Life Agents group of your Claude app."
-        : "Not listed in your Claude app."
-    );
+  // Listed only once he continued it there ("Continue on your Mac"): unlisted is no fault.
+  if (f.app?.listed && !f.app.inGroup) {
+    attention.push("Not in the Life Agents group of your Claude app.");
   }
   return ofHealth(broken, attention);
 }

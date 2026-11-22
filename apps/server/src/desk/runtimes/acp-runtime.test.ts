@@ -347,16 +347,10 @@ test("an adapter that refuses the mode: the turn still ends ok, and its asks are
   ).toEqual(["yes", "yes", "yes"]);
 });
 
-test("talk: one process kept across prompts, its updates heard as they come, a new session listed in his app only once closed idle; keep resumes it; stop closes it", async () => {
+test("talk: one process kept across prompts, its updates heard as they come, closed idle with nothing opened in his app; keep resumes it; stop closes it", async () => {
   const dir = made();
-  const handedOff: string[] = [];
   const rt = acpRuntime(
-    rowFor(dir, () => Promise.resolve("idle"), {
-      handOff: (_a, ref) => {
-        handedOff.push(ref);
-        return Promise.resolve();
-      },
-    }),
+    rowFor(dir, () => Promise.resolve("idle")),
     LAUNCH_WITHIN_MS,
     300
   );
@@ -380,13 +374,10 @@ test("talk: one process kept across prompts, its updates heard as they come, a n
     "prompt",
   ]);
   expect(new Set(logOf(dir).map((l) => l.pid)).size).toBe(1);
-  expect(handedOff).toEqual([]);
   const pid = logOf(dir)[0]?.pid ?? 0;
   await until(() => isGone(pid));
   expect(isGone(pid)).toBe(true);
   expect(await rt.state(first.ref)).toBe("idle");
-  await until(() => handedOff.length > 0);
-  expect(handedOff).toEqual([first.ref]);
   await rt.keep(agentIn(), first.ref);
   expect(kindsOf(dir).at(-1)).toBe("config");
   expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
