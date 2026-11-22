@@ -93,7 +93,9 @@ import Testing
         refused: { self.refused })
 
     func until(_ condition: () -> Bool) async {
-        for _ in 0..<10_000 where !condition() { await Task.yield() }
+        // A wall-clock bound, not a count of yields: a loaded Mac starves the yields first.
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !condition(), ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(1)) }
         #expect(condition())
     }
 }
@@ -384,7 +386,9 @@ private final class Recording: Sendable {
     }
 
     func until(_ condition: () -> Bool) async {
-        for _ in 0..<10_000 where !condition() { await Task.yield() }
+        // A wall-clock bound, not a count of yields: a loaded Mac starves the yields first.
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !condition(), ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(1)) }
         #expect(condition())
     }
 }
@@ -392,7 +396,7 @@ private final class Recording: Sendable {
 /// His words after a commit voice detection made just before the pause are kept: the pause's own commit comes after it.
 @MainActor @Test func aCommitInFlightAtThePauseNeverEndsItsWordsEarly() async {
     let fake = FakeLiveSocket()
-    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50))
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(500), finishWithin: .seconds(60))
     live.begin { "token" }
     await fake.until { fake.opened }
     fake.says("partial_transcript", "keys under")
@@ -409,7 +413,7 @@ private final class Recording: Sendable {
 /// ElevenLabs saying nothing is left to commit while words were still changing would lose them: the Mac hears the run.
 @MainActor @Test func nothingLeftToCommitWhileWordsAreChangingFallsBackToTheMac() async {
     let fake = FakeLiveSocket()
-    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50))
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
     live.begin { "token" }
     await fake.until { fake.opened }
     fake.says("committed_transcript", "call Nora")
@@ -425,7 +429,7 @@ private final class Recording: Sendable {
 /// A run that heard nothing live is heard on the Mac; one with nothing changing settles on what was committed.
 @MainActor @Test func nothingHeardLiveIsHeardOnTheMacAndAQuietRunSettlesAtOnce() async {
     let fake = FakeLiveSocket()
-    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50))
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
     live.begin { "token" }
     await fake.until { fake.opened }
     let run = live.run
@@ -436,7 +440,7 @@ private final class Recording: Sendable {
     #expect(live.hasFailed)
 
     let quiet = FakeLiveSocket()
-    let second = LiveWords(socket: quiet.make, settleAfter: .milliseconds(50))
+    let second = LiveWords(socket: quiet.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
     second.begin { "token" }
     await quiet.until { quiet.opened }
     quiet.says("committed_transcript", "see you at eight")

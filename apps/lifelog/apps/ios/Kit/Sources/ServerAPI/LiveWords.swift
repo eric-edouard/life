@@ -52,9 +52,14 @@ public final class LiveWords {
     /// How long the stream stays quiet after a commit, once he paused, before the words are his: a commit voice
     /// detection made just before the pause's own is followed by that one, and his last words are in the second.
     private let settleAfter: Duration
+    /// How long the last words may take after the pause before the Mac hears the run instead (a commit takes ~0.3 s).
+    private let finishWithin: Duration
 
-    init(socket: @escaping (URL) -> LiveWordsSocket = LiveWords.webSocket, settleAfter: Duration = .milliseconds(300)) {
-        (makeSocket, self.settleAfter) = (socket, settleAfter)
+    init(
+        socket: @escaping (URL) -> LiveWordsSocket = LiveWords.webSocket, settleAfter: Duration = .milliseconds(300),
+        finishWithin: Duration = .seconds(3)
+    ) {
+        (makeSocket, self.settleAfter, self.finishWithin) = (socket, settleAfter, finishWithin)
     }
 
     /// `URLSession`'s socket; a binary frame is skipped.
@@ -95,8 +100,6 @@ public final class LiveWords {
     nonisolated static let rate = 16_000
     /// About 10 minutes of audio, the dictation cap: more is never held while the socket opens.
     private static let queued = 6_000
-    /// How long the last words may take after the pause before the Mac hears the run instead (a commit takes ~0.3 s).
-    static let finishWithin = Duration.seconds(3)
     /// Between two words that arrive together, so a batch reads in left to right.
     nonisolated static let stagger = 0.06
     /// One glyph's fade, and how much later each next glyph of a word starts it: the word sweeps in from the left.
@@ -179,8 +182,8 @@ public final class LiveWords {
             words = await withCheckedContinuation { ending in
                 self.ending = ending
                 send(Self.chunk([Float](repeating: 0, count: Self.rate / 10), commit: true))
-                Task { [weak self] in
-                    try? await Task.sleep(for: Self.finishWithin)
+                Task { [weak self, finishWithin] in
+                    try? await Task.sleep(for: finishWithin)
                     if self?.generation == mine { self?.settle(nil) }
                 }
             }
