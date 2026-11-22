@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Appointment } from "./appointment";
-import { isoDateTime, MadeBy, UnitId } from "./fields";
+import { isoDate, isoDateTime, MadeBy, UnitId } from "./fields";
 
 // A stored read reply (memory/read-replies/<YYYY-MM>.jsonl, the month of its first message, docs/SCHEMA.md): what a model answered when it read
 // exchanges of a one-to-one chat, as given.
@@ -18,6 +18,8 @@ export const ARRIVAL_TRIGGER_READ = "arrival_trigger" as const;
 export const ARRIVAL_CONFIRM_READ = "arrival_confirm" as const;
 /** The arrival reader's read of an appointment agreed in new lines (`memory/arrival-appointments.ts`). */
 export const ARRIVAL_APPOINTMENT_READ = "arrival_appointment" as const;
+/** The read that writes a closed day's record the night after it (`memory/day-records.ts`). */
+export const DAY_RECORD_READ = "day_record" as const;
 /** Every read whose replies are stored. */
 export type ReadName =
   | MoveRead
@@ -25,13 +27,14 @@ export type ReadName =
   | typeof VOICE_NAMING_READ
   | typeof ARRIVAL_TRIGGER_READ
   | typeof ARRIVAL_CONFIRM_READ
-  | typeof ARRIVAL_APPOINTMENT_READ;
+  | typeof ARRIVAL_APPOINTMENT_READ
+  | typeof DAY_RECORD_READ;
 
 /**
  * One call's reply, a line of the file: the reply as given, except a voice naming's, stored after `checkedVoices` (a moves read only needs its `exchanges` list,
  * the summary its `summary`, the voice naming its `voices`, the rest is checked when read), the key of every message the call showed in order
- * (`messages`: `eventKey`, or `turnKey` for speech, `unnamedTurnKey` for a voice no one named), where each item starts in them (`starts`: each exchange, or `[0]`
- * for a summary or a voice naming), the prompt's name in `madeBy.prompt` and the digest of its text (`promptDigest`). The person and the
+ * (`messages`: `eventKey`, or `turnKey` for speech, `unnamedTurnKey` for a voice no one named, a day's episode ids for a day record), where each item starts in them (`starts`: each exchange, or `[0]`
+ * for a summary, a voice naming or a day record), the prompt's name in `madeBy.prompt` and the digest of its text (`promptDigest`). The person and the
  * moves are never stored.
  */
 const stored = {
@@ -162,6 +165,46 @@ export const ArrivalAppointmentReply = z
     unit: UnitId,
   })
   .strict();
+/**
+ * A day's record as the model returns it (`memory/day-records.ts`): the day in one line, its summary, who took part and
+ * in what role, the projects it moved with their matters, where he was, and what continued from the days before.
+ */
+export const DayRecord = z.looseObject({
+  headline: z.string().min(1),
+  links: z.array(z.looseObject({ day: isoDate, what: z.string() })),
+  people: z.array(
+    z.looseObject({
+      name: z.string(),
+      ref: z.string().optional(),
+      role: z.string(),
+    })
+  ),
+  places: z.array(
+    z.looseObject({ from: z.string(), place: z.string(), to: z.string() })
+  ),
+  projects: z.array(
+    z.looseObject({
+      matters: z.array(z.string()).default([]),
+      project: z.string().nullable(),
+      what: z.string(),
+    })
+  ),
+  summary: z.string().min(1),
+});
+export type DayRecord = z.infer<typeof DayRecord>;
+/**
+ * A stored day record, filed at the day's start (`firstAt`): `messages` are the day's episode ids, `day` the day it
+ * records, `inputs` the digest of the day's evidence (refs only, so a rename re-reads nothing).
+ */
+export const DayRecordReply = z
+  .object({
+    ...stored,
+    day: isoDate,
+    inputs: z.string().regex(/^[0-9a-f]{16}$/),
+    read: z.literal(DAY_RECORD_READ),
+    reply: DayRecord,
+  })
+  .strict();
 export const ReadReply = z.discriminatedUnion("read", [
   MoveReply,
   SummaryReply,
@@ -169,5 +212,6 @@ export const ReadReply = z.discriminatedUnion("read", [
   ArrivalTriggerReply,
   ArrivalConfirmReply,
   ArrivalAppointmentReply,
+  DayRecordReply,
 ]);
 export type ReadReply = z.infer<typeof ReadReply>;
