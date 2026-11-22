@@ -974,10 +974,14 @@ final class LifeStore {
         await refresh()
     }
 
-    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Ask Life's "Open in Inbox").
-    func open(ref: String) async {
-        guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return }
+    /// The card with that ref, as a tapped push opens it (`-fixtureCard`; Ask Life's "Open in Inbox"). False when the
+    /// inbox, read again, no longer holds it (answered, withdrawn): the caller says so.
+    @discardableResult
+    func open(ref: String) async -> Bool {
+        if inbox.value?.checks.contains(where: { $0.ref == ref }) != true { await refreshInbox() }
+        guard let pushId = inbox.value?.checks.first(where: { $0.ref == ref })?.pushId else { return false }
         await open(pushId: pushId)
+        return true
     }
 
     #if DEBUG

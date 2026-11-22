@@ -125,6 +125,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
+    // The answer icons: Life's acts and the rest, one set.
+    #expect(
+        try quoted("records/answer-icon.ts", /(?s)LIFE_ACT_ICONS = \[(.*?)\] as const/)
+            .union(try quoted("records/answer-icon.ts", /(?s)ANSWER_ICONS = \[(.*?)\] as const/))
+            == client(AnswerIcon.self))
     let needs = try source("memory/needs.ts")
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
     #expect(kinds == client(Check.Need.Kind.self))
@@ -155,7 +160,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // An agent as read: the stored statuses, with `active` read as running or waiting.
     let stored = try quoted("records/registered-agent.ts", /export type AgentStatus = ([^;]*);/)
     #expect(stored.subtracting(["active"]).union(["running", "waiting"]) == client(AgentStatus.self))
-    let roles = try quoted("records/registered-agent.ts", /export type AgentRole = ([^;]*);/)
+    let roles = try quoted("core/names.ts", /AgentRole = z\.enum\(\[([^\]]*)\]/)
     #expect(roles == client(RegisteredAgent.Role.self))
     #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))

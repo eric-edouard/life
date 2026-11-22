@@ -6,8 +6,9 @@ import SwiftUI
 struct Taken: Equatable {
     let check: Check
     let request: AnswerRequest
-    /// The card after this one in the inbox when he tapped, so the result still knows it once the inbox let it go.
-    let nextRef: String?
+    /// The cards after this one in the inbox when he tapped, so the result still knows where to go once the inbox let
+    /// it go: the first still on show (`InboxOrder.next(of:)`).
+    let later: [String]
     let runtimeName: RuntimeName?
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }

@@ -51,6 +51,9 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         /// What a plan card's option is to his app (`role`): the start of the plan, or its decline.
         public let role: Role?
 
+        /// Its answer icon (`answerIconOf`, `records/answer-icon.ts`): Life's act where Life acts, else the asker's pick.
+        public let icon: AnswerIcon?
+
         public enum Role: String, UnknownTolerant, Sendable {
             case start, decline
             case unknown
@@ -436,14 +439,14 @@ extension Check {
     public var isNamingFilled: Bool { namingOption != nil && filled?.id == namingOption?.id }
 
     /// His answer by one tap on `option`: nil when that option needs more than the tap (a person, a name or his words).
-    /// A your move card's "Hand to an agent" hands over the goal it shows, as a new matter's Start does.
+    /// A your move card's "Hand over" hands over the goal it shows, as a new matter's Start does.
     public func answer(_ option: Option) -> AnswerRequest? {
         guard option.takes == nil else { return nil }
         let goal = isHandOver(option) ? self.goal : nil
         return AnswerRequest(ref: ref, options: [option.id], note: goal)
     }
 
-    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand to an agent.
+    /// Whether `option` starts an agent on the card's matter: a new matter's Start, a your move's Hand over.
     public func isHandOver(_ option: Option) -> Bool {
         option.id == "start" && (group == .newMatter || group == .yourMove)
     }
@@ -586,6 +589,37 @@ extension CheckGroup {
         case (.voice, "is-them"): "Probably them"
         case (.ending, "outdated"): "Look done"
         default: nil
+        }
+    }
+}
+
+/// An answer icon: each key Life sends (`ANSWER_ICONS`, `apps/server/src/records/answer-icon.ts`: `ContractTests`
+/// checks), with its SF Symbol; `agent` is the asking agent's mark, drawn by the app. A key this build doesn't know
+/// draws nothing.
+public enum AnswerIcon: String, UnknownTolerant, Sendable {
+    case send, done, agent, start, no, later, drop, open, person, people, organization, link, hide, date, place
+    case addToCalendar = "add_to_calendar"
+    case unknown
+
+    /// The SF Symbol; nil for `agent` (the app draws the agent's mark) and for a key it doesn't know.
+    public var symbol: String? {
+        switch self {
+        case .send: "paperplane"
+        case .addToCalendar: "calendar.badge.plus"
+        case .done: "checkmark"
+        case .start: "play.fill"
+        case .no: "xmark"
+        case .later: "clock"
+        case .drop: "trash"
+        case .open: "arrow.up.right"
+        case .person: "person"
+        case .people: "person.2"
+        case .organization: "building.2"
+        case .link: "link"
+        case .hide: "eye.slash"
+        case .date: "calendar"
+        case .place: "mappin"
+        case .agent, .unknown: nil
         }
     }
 }

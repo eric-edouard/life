@@ -1,10 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { DAY, HOUR, MIN } from "../core/clock";
-import type {
-  AgentRole,
-  AgentStatus,
-  EventFilter,
-} from "../records/registered-agent";
+import type { AgentRole } from "../core/names";
+import type { AgentStatus, EventFilter } from "../records/registered-agent";
 import {
   type ClaudeSessionRecord,
   readClaudeSessionRecords,

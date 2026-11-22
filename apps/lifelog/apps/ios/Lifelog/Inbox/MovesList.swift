@@ -19,6 +19,10 @@ struct MovesList: View {
     @State private var opened: String?
     @State private var openedNotes = CardNotes()
     @State private var openedCurrent: String?
+    /// The opened card's answer, in place until the sheet closes: sending, its word, or why Life refused it. The card
+    /// is kept, since Life's read after the answer takes it out of `checks`.
+    @State private var openedSaid: (glyph: StateGlyph, word: String)?
+    @State private var openedKept: Check?
 
     var body: some View {
         let moves = YourMoves(checks: checks, matters: life.matters.value?.matters ?? [], now: Date())
@@ -59,18 +63,23 @@ struct MovesList: View {
         }
         .sheet(
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
-            onDismiss: { openedNotes = CardNotes() }
+            onDismiss: { (openedNotes, openedSaid, openedKept) = (CardNotes(), nil, nil) }
         ) {
-            if let check = checks.first(where: { $0.ref == opened }) {
+            if let check = checks.first(where: { $0.ref == opened }) ?? openedKept {
                 NavigationStack {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
                         context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
                         takes: { taken in
-                            Task { await life.answerRows([taken.request], as: taken.heldWords) }
-                            opened = nil
+                            openedKept = check
+                            Task { await answerOpened(taken.request, as: taken.heldWords) }
                         }
                     ) { _, _ in opened = nil }
+                    .safeAreaInset(edge: .bottom) {
+                        if let openedSaid {
+                            StateMark(glyph: openedSaid.glyph, word: openedSaid.word).padding(Metrics.Spacing.l)
+                        }
+                    }
                     .background(Palette.bg)
                     .toolbar { CloseItem { opened = nil } }
                 }
@@ -82,6 +91,19 @@ struct MovesList: View {
         .onChange(of: rows.map(\.id)) { _, ids in
             ticked.formIntersection(ids)
             if ids.isEmpty, filter != .all, !sent.isEmpty { (filter, isSelecting, sent) = (.all, false, []) }
+        }
+    }
+
+    /// His answer from the opened card: the sheet says "Sending…", then Life's word in green before it closes, or
+    /// why Life refused (the toast says it too), and stays for another try.
+    private func answerOpened(_ request: AnswerRequest, as words: String) async {
+        openedSaid = (.busy, "Sending…")
+        if await life.answerRows([request], as: words) {
+            openedSaid = (.ok, life.saidBack?.words ?? words)
+            try? await Task.sleep(for: .seconds(2))
+            opened = nil
+        } else {
+            openedSaid = (.flag, life.saidBack?.words ?? "Life did not answer.")
         }
     }
 
