@@ -6,7 +6,7 @@ import { log } from "../../core/log";
 import { errorOf } from "../../core/log-line";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
-import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
+import { cliEnv, HOME, isOwnLife } from "../../core/platform";
 import { exec, firstLine, readLoginEnv } from "../../core/proc";
 import { settings } from "../../core/settings";
 import { readClaudeSessionRecords } from "../../host/claude-session-records";
@@ -18,7 +18,7 @@ import { type Agent, DOOR_KEY_ENV } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
 // pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the
-// prefix its door's tools carry (a second Life's only), its link, its hand-off, and the small reader of its CLI's own record that tells whether a session of his
+// prefix its door's tools carry (a second Life's only), its link and the small reader of its CLI's own record that tells whether a session of his
 // is running (ACP has no such signal). The adapters are pinned; the CLIs stay his (`CLAUDE_CODE_EXECUTABLE`, `CODEX_PATH`):
 // his apps open these sessions, so the same CLI writes them.
 // An agent of his own Life is held back by nothing but the send guard (his decisions of 19 and 20 Nov 2026): his settings,
@@ -41,8 +41,6 @@ export interface Row {
   block: () => Promise<string | undefined>;
   /** The ids of the session's model and effort options (`session/set_config_option`). */
   config: { effort: string; model: string };
-  /** Opens a first turn's session in his app once no process holds it; none: the app lists it unasked. */
-  handOff?: (a: Agent, ref: string) => Promise<void>;
   /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env (`DOOR_KEY_ENV`) and sends that variable's name, which it expands. */
   header: (key: string) => string;
   /** A link that opens session `ref` in his app. */
@@ -236,29 +234,6 @@ const transcriptOf = (ref: string) => {
 };
 
 /**
- * Lists session `ref` in his Claude app (`desk.claudeApp`), so its link works: the app's own import of a CLI session
- * (`claude://resume`), which starts no process (the coordinator's finding of 22 Nov 2026: the app keeps a process only
- * once he opens it there, which then holds the next wake, `isSessionOpen`).
- */
-async function handOff(a: Agent, ref: string) {
-  const r = await exec([
-    "open",
-    "-g",
-    "-a",
-    settings().desk?.claudeApp ?? "/Applications/Claude.app",
-    `claude://resume?session=${ref}`,
-  ]);
-  if (r.code !== 0) {
-    log("desk.runtime", {
-      agent: a.id,
-      code: r.code,
-      ok: false,
-      what: "link",
-    });
-  }
-}
-
-/**
  * His login environment for an agent of his own Life, less `engine`'s keys: passed through, they would move the agent from
  * his subscription to paid API billing.
  */
@@ -275,8 +250,6 @@ export const loginEnvLess = async (engine: string[]) =>
 const claudeRow = (isOwn: boolean): Row => ({
   block: () => readCliBlock("claude"),
   config: { effort: "effort", model: "model" },
-  // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
-  handOff: isOwn && !WINDOWS ? handOff : undefined,
   header: () => `Bearer \${${DOOR_KEY_ENV}}`,
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
   // Every session of an agent, the fresh ones too, carries its title as its name in his app's list (`--name`).
