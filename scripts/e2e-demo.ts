@@ -94,7 +94,6 @@ const FOUND_TO_CLOSED: Step[] = [
   {
     name: "its cards leave the inbox",
     refresh: true,
-    tap: "Inbox",
     until: "Nothing",
   },
 ];

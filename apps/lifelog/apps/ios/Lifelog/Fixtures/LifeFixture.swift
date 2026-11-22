@@ -22,6 +22,8 @@
         nonisolated static let card = value(of: "-fixtureCard")
         /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
         nonisolated static let tab = value(of: "-fixtureTab")
+        /// `-fixtureDrawer open`: the list (`NavDrawer`) is open over the page.
+        nonisolated static let drawer = value(of: "-fixtureDrawer")
         /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
         nonisolated static let filter = value(of: "-fixtureFilter")
         /// `-fixtureShow matters`: Ask Life's answer cut the Projects list to its first three matters, under its toast.

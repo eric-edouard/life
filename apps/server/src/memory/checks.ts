@@ -12,6 +12,7 @@ import { pushIdOf } from "../sources/lifelog-push";
 import { readNamingQueue } from "../sources/lifelog-voices";
 import {
   atOrganizationAsksOf,
+  atOrganizationPairOf,
   readAtOrganizationPairs,
 } from "./at-organization";
 import { planRoleOf } from "./card-problems";
@@ -83,7 +84,11 @@ import { PROJECT_SITUATIONS } from "./project-situation-read";
 import { isOneOfHis, isParkedMatterOf } from "./read-matters";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { lifeLinksOf } from "./refs";
-import { samePersonAsksOf, samePersonPairsOf } from "./same-person";
+import {
+  samePersonAsksOf,
+  samePersonPairOf,
+  samePersonPairsOf,
+} from "./same-person";
 import { voiceChecksOf } from "./voice-checks";
 import { withVoiceGuesses } from "./voice-guesses";
 import { readPeople, readUnresolvedPeople } from "./who";
@@ -361,12 +366,48 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   return withDraftConfirms(found, c.people);
 };
 
+/** Checks in the order they were asked, the newest last (a matter's thread stacks them so); Life's own guesses, never asked (`at` null), after. */
+export const byAsked = (a: Pick<Check, "at">, b: Pick<Check, "at">) =>
+  Number(a.at === null) - Number(b.at === null) ||
+  (a.at && b.at ? Date.parse(a.at) - Date.parse(b.at) : 0);
+
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
 export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
   list: readonly C[],
   id: string
 ) =>
   list.filter((c) => c.matter?.id === id || c.ridesOn.matterIds.includes(id));
+
+/**
+ * The people and organizations a check is about: who it may be (`likelyPeople`), and the person refs its `ref` and
+ * `subject` name (a guessed person's own ref, the pair a same person or an at organization card joins, the person a
+ * voice is guessed to be). Pure.
+ */
+const partiesOf = (c: Pick<Check, "likelyPeople" | "ref" | "subject">) =>
+  [
+    ...c.likelyPeople.map((p) => p.ref),
+    c.ref,
+    c.subject ?? "",
+    ...Object.values(samePersonPairOf(c.ref)),
+    ...Object.values(atOrganizationPairOf(c.ref)),
+  ].filter((r) => r.startsWith("person:"));
+
+/**
+ * The open checks on no matter (`matter` null; one on a matter reaches its people through the matter's row), by each
+ * party they are about now (`partiesOf`, folded by `canon`): a person's or an organization's read lists them, and their
+ * row's `needsYou` counts them. Pure.
+ */
+export function noMatterChecksByPartyOf<
+  C extends Pick<Check, "likelyPeople" | "matter" | "ref" | "subject">,
+>(list: readonly C[], canon: (ref: string) => string) {
+  const by = new Map<string, C[]>();
+  for (const c of list.filter((x) => !x.matter)) {
+    for (const ref of new Set(partiesOf(c).map(canon))) {
+      by.set(ref, [...(by.get(ref) ?? []), c]);
+    }
+  }
+  return by;
+}
 
 /** A check as the inbox lists it: with its `pushId` and its `urgency`. */
 export type InboxCheck = Check & { pushId: string; urgency: Urgency };

@@ -9,7 +9,6 @@ import UIKit
 struct PersonPage: View {
     let ref: String
     /// Settings beside the Pendant: on a regular width the list's bar has neither, so the page carries both.
-    var hasSettings = false
 
     @Environment(LifeStore.self) private var life
 
@@ -34,7 +33,7 @@ struct PersonPage: View {
         )
         .background(Palette.bg)
         .saysBack()
-        .shellBar("", hasSettings: hasSettings)
+        .shellBar("")
         .task(id: life.parties.generation.current) { await life.refreshPerson(ref) }
         .task(id: state.value?.moreReach) {
             if let first = state.value?.moreReach { await life.refreshReach(from: first) }

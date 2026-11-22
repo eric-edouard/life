@@ -19,6 +19,8 @@ public struct AgentRequest: Encodable, Sendable, Equatable {
         case start, stop, resume
         case changeModel = "change_model"
         case handOver = "hand_over"
+        /// Opens its session on his Mac (pi in Terminal, Claude in his Claude app); its wakes wait until he closes it.
+        case continueOnMac = "continue_on_mac"
     }
 
     public var action: Action

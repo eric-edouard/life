@@ -43,7 +43,7 @@ struct AgentsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(Palette.bg)
         .screenTitle("Agents")
-        .shellBar("", hasSettings: false, hasPendant: !isBeside)
+        .shellBar("", hasPendant: !isBeside)
         .toolbar {
             if isBeside {
                 ToolbarItem(placement: .topBarLeading) {
@@ -63,7 +63,6 @@ struct AgentsScreen: View {
 struct AgentPage: View {
     let id: String
     /// Beside the agents: the top group (Pendant, Settings) is this page's, in the column.
-    var hasSettings = false
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -89,6 +88,11 @@ struct AgentPage: View {
                 // Inset as the list's rows are (`groupedRow`).
                 .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
                 .readingWidth().quietListRow()
+                if agent.sessionOpenIn == nil, !agent.isOver {
+                    ContinueOnMacRow(agent: agent)
+                        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
+                        .readingWidth().quietListRow()
+                }
                 // pi has no app: its session reads here, read-only, behind a quiet link (an agent on Claude Code or
                 // Codex opens in its program, from its sheet).
                 if agent.runtimeName == .pi {
@@ -102,7 +106,8 @@ struct AgentPage: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .background(Palette.bg)
-        .shellBar("", hasSettings: hasSettings)
+        .saysBack()
+        .shellBar("")
         .task {
             await life.refreshAgents()
             await life.refreshMatters()
@@ -118,6 +123,11 @@ struct AgentPage: View {
                 Text(agent.name ?? agent.title).foregroundStyle(Palette.fg)
             }
             .font(.screenName).accessibilityAddTraits(.isHeader)
+            // Open on his Mac ("Continue on your Mac"): its wakes wait until he closes it there.
+            if let open = agent.sessionOpenLine() {
+                Label(open, systemImage: "desktopcomputer").font(.small).foregroundStyle(Palette.fg)
+                Text("Life takes it back once you leave it.").font(.small).foregroundStyle(Palette.muted)
+            }
             if let project = agent.project,
                 let chip = life.projects.shown().onScreen?.chips.first(where: {
                     $0.kind == .project && $0.id == project
@@ -246,5 +256,41 @@ struct AgentRunsOn: View {
     private func go(_ runtime: RuntimeName) {
         tried = runtime
         Task { await life.switchAgent(agent.id, to: runtime, said: "Switch it to \(runtime.name).") }
+    }
+}
+
+/// "Continue on your Mac" (MacOpenAction): its session opens there, pi in Terminal, Claude in his Claude app, the line
+/// saying where; "Opening…" while the Mac answers, then said back in the toast. Codex has none yet: greyed.
+struct ContinueOnMacRow: View {
+    let agent: RegisteredAgent
+
+    @Environment(LifeStore.self) private var life
+
+    var body: some View {
+        let isOpening = life.state(of: .continueOnMac(agent.id)).isRunning
+        let line: String? =
+            switch agent.runtimeName {
+            case .pi: "In Terminal, the same session"
+            case .claude: "In your Claude app, the same session"
+            case .codex, .unknown: nil
+            }
+        Button {
+            Task { await life.continueOnMac(agent.id) }
+        } label: {
+            Row(title: "Continue on your Mac", icon: "apple.terminal", detail: line ?? "Not for Codex yet") {
+                if isOpening {
+                    HStack(spacing: 6) {
+                        Spinner(size: .small)
+                        Text("Opening…")
+                    }
+                    .font(.small).foregroundStyle(Palette.muted)
+                } else if line != nil {
+                    RowValue()
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(line == nil || isOpening)
+        .opacity(line == nil ? 0.5 : 1)
     }
 }

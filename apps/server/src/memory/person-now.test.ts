@@ -7,12 +7,14 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { noMatterChecksByPartyOf } from "./checks";
 import {
   buildIndex,
   readStaleness,
   reindex,
   reindexUnits,
 } from "./index-writer";
+import type { Check } from "./life-checks";
 import {
   EPISODES,
   INDEX,
@@ -119,6 +121,7 @@ test("a row: the closer of its two levels, its last exchange, and needsYou from 
 test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked first, and counts the rest", () => {
   const matters = Array.from({ length: 300 }, (_, i) => matter(i));
   const now = personNowOf({
+    checks: [],
     communicationStyle: [],
     details: [
       { from: "truth", kind: "birthday", text: "--03-12" },
@@ -161,6 +164,19 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
   ]);
   const few = personNowOf({ ...now, ...inputsOf(now), matters: [matter(1)] });
   expect(few.more).toBeUndefined();
+  // Large asks are cut and counted after his details, which stay whole.
+  const details = [
+    { from: "truth", kind: "handles", text: "Signal: ana" } as const,
+  ];
+  const checks = new Array(8).fill({ context: "x".repeat(2000) });
+  const crowded = personNowOf({
+    ...inputsOf(now),
+    checks,
+    details,
+    matters: [],
+  });
+  expect(crowded.details).toEqual(details);
+  expect(crowded.more?.checks).toBeGreaterThan(0);
   // A large list other than the matters (60 long episode titles), with a shared name's wrapper: the whole answer stays within its room, the oldest months cut and counted.
   const episodes = Array.from({ length: 60 }, (_, n) => ({
     month: `2021-${String(12 - (n % 12)).padStart(2, "0")}`,
@@ -297,9 +313,10 @@ test("`now` of a person and of an organization: their row, reach and open matter
     people: { with: [party("person:test-ana", "Test Ana")] },
   });
   const ana = (await person("Test Ana", {}, {}, () =>
-    Promise.resolve([theirs, matter(2)])
+    Promise.resolve({ checks: [], matters: [theirs, matter(2)] })
   )) as Record<string, unknown>;
   expect(ana).toMatchObject({
+    checks: [],
     kind: "person",
     name: "Test Ana",
     needsYou: true,
@@ -319,6 +336,42 @@ test("`now` of a person and of an organization: their row, reach and open matter
       },
     ],
   });
+});
+
+test("his open checks about someone on no matter: at the top of their `now`, and their row needs him; one on a matter stays with its matter", async () => {
+  await indexed([]);
+  const ask = (ref: string, over: object = {}) =>
+    ({ likelyPeople: [], matter: null, ref, subject: null, ...over }) as never;
+  const guessed = ask("name:ana", {
+    likelyPeople: [party("person:test-ana", "Test Ana")],
+  });
+  const at = ask("at:person:test-bakery~person:test-ana~0000beef");
+  const onMatter = ask("person:test-ana", {
+    matter: { id: "matter_000000000001", name: "Bread" },
+  });
+  const open = () =>
+    Promise.resolve({ checks: [guessed, at, onMatter], matters: [] });
+  expect(await person("Test Ana", {}, {}, open)).toMatchObject({
+    checks: [guessed, at],
+    needsYou: true,
+  });
+  expect(await person("Test Bakery", {}, {}, open)).toMatchObject({
+    checks: [at],
+    needsYou: true,
+  });
+  const { people } = (await person(undefined, {}, {}, () =>
+    Promise.resolve({ checks: [onMatter], matters: [] })
+  )) as { people: PersonRow[] };
+  expect(people.find((r) => r.ref === "person:test-ana")?.needsYou).toBe(false);
+  const listed = (await person(undefined, {}, {}, open)) as {
+    people: PersonRow[];
+  };
+  expect(
+    listed.people
+      .filter((r) => r.needsYou)
+      .map((r) => r.ref)
+      .toSorted()
+  ).toEqual(["person:test-ana", "person:test-bakery"]);
 });
 
 test("`now` offers the first picture of each source, from the one index read that picks the one in use", async () => {
@@ -602,6 +655,7 @@ test("reach keeps to its room with long Contacts labels; every account it has no
     seen: [],
   });
   const now = personNowOf({
+    checks: [],
     communicationStyle: [],
     details: [],
     episodes: [],
@@ -653,6 +707,7 @@ test("an organization's 120 addresses: following `moreReach` and each `next` thr
   const [{ accounts }] = reach as [Reach];
   (accounts[0] as { title?: string }).title = "Label 😀 ".repeat(800);
   const now = personNowOf({
+    checks: [],
     communicationStyle: [],
     details: [],
     episodes: [],
@@ -717,4 +772,29 @@ test("his own situation is checked against the episodes the index holds, by the 
     rmSync(EPISODES, { force: true, recursive: true });
     rmSync(situationPath(OWNER), { force: true });
   }
+});
+
+test("a check on no matter is about the people it may be and the person refs its ref and subject name, folded; one on a matter is its matter's", () => {
+  const ask = (ref: string, over: Partial<Check> = {}) => ({
+    likelyPeople: [],
+    matter: null,
+    ref,
+    subject: null,
+    ...over,
+  });
+  const heard = ask("voice:v1~abc", {
+    likelyPeople: [{ kind: "person", name: "Bo", ref: "person:bo" }],
+    subject: "person:old-cy",
+  });
+  const same = ask("same:person:inf_kit~person:bo");
+  const decided = ask("dec_000000000001", { subject: "project:shop" });
+  const held = ask("person:bo", { matter: { id: "matter_1", name: "M" } });
+  const by = noMatterChecksByPartyOf([heard, same, decided, held], (r) =>
+    r === "person:old-cy" ? "person:cy" : r
+  );
+  expect(Object.fromEntries(by)).toEqual({
+    "person:bo": [heard, same],
+    "person:cy": [heard],
+    "person:inf_kit": [same],
+  });
 });

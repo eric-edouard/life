@@ -59,6 +59,10 @@
         "patterns": ["apps/server/src/web-search/**"]
       },
       {
+        "name": "apify",
+        "patterns": ["apps/server/src/apify/**"]
+      },
+      {
         "name": "memory",
         "patterns": ["apps/server/src/memory/**"]
       },
@@ -105,6 +109,10 @@
         "allow": ["core"]
       },
       {
+        "from": "apify",
+        "allow": ["core"]
+      },
+      {
         "from": "memory",
         "allow": [
           "core",
@@ -112,6 +120,7 @@
           "sources",
           "todo-list",
           "payments",
+          "apify",
           "records"
         ]
       },
@@ -123,6 +132,7 @@
           "sources",
           "todo-list",
           "payments",
+          "apify",
           "memory",
           "records"
         ]
@@ -135,6 +145,7 @@
           "sources",
           "todo-list",
           "payments",
+          "apify",
           "memory",
           "personal",
           "records"
@@ -148,6 +159,7 @@
           "sources",
           "todo-list",
           "payments",
+          "apify",
           "web-search",
           "memory",
           "personal",

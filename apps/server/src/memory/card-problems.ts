@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { apifyToken } from "../apify/backend";
 import { DAY, HOUR } from "../core/clock";
 import { isOn } from "../core/outputs";
 import { isLifeActIcon } from "../records/answer-icon";
@@ -64,6 +65,7 @@ export function cardProblemOf(
     silenceProblemOf(ask, silence) ||
     lookProblemOf(ask, silence) ||
     addsProblemOf(ask, silence) ||
+    runsProblemOf(ask, silence) ||
     planProblemOf(ask, isPlan, silence) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
@@ -71,7 +73,50 @@ export function cardProblemOf(
     (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
     ((ahead < HOUR || ahead > 14 * DAY) &&
       "the deadline must be 1 hour to 14 days ahead") ||
-    answersProblemOf(ask)
+    answersProblemOf(ask) ||
+    loadProblemOf(ask)
+  );
+}
+
+/** A Markdown link's target, a quote line (someone else's words) and code: none of them his card's own words. */
+const NOT_OWN_WORDS = [
+  /\]\([^)]*\)/g,
+  /^ {0,3}>.*$/gm,
+  /```[\s\S]*?```/g,
+  /`[^`\n]*`/g,
+];
+/** What he reads of a card's text, as it asks: its own words, less links' targets, quotes and code. */
+const ownWordsOf = (text: string) =>
+  NOT_OWN_WORDS.reduce((t, re) => t.replace(re, ""), text);
+/** An asker that says it did not check what it asks on (its own "I didn't…", or a "Couldn't verify" heading; never someone else's). ponytail: English words only. */
+const HEDGE =
+  /\bnot verified|^[\s*#-]*could ?n[o'’]t verify|\b(i|we) (could ?n[o'’]t|can ?n[o'’]t|was unable to|am unable to|have ?n[o'’]t|did ?n[o'’]t|did not|have not) (yet )?(verif|check|confirm|open|read|look)\w*|\bi'?m unable to (verif|check|confirm)\w*/im;
+/** What he never reads on a card: a stored ref, or a name of Life's roles and plumbing (the technology disappears, his word of 22 Nov 2026). */
+const INTERNAL =
+  /\b((obs|unit|matter|dec|agt|asg|apt)_[0-9a-f]{6,}|personal agent|main session|request_decision|life's connector)\b/i;
+/** The most of `context` he reads, as `ownWordsOf` counts it (most cards hold under 1,100). */
+const CONTEXT_CHARS = 1200;
+
+/** What code can see of the self-check (`CARD_SELF_CHECK`): a card that says it left something unchecked, shows an id or a role's name, or holds more than he needs to read; false when nothing does. */
+function loadProblemOf(ask: z.infer<typeof Ask>) {
+  const context = ownWordsOf(ask.context);
+  const read = [
+    ask.title,
+    ask.question,
+    context,
+    ask.gathered?.text ?? "",
+    ...ask.options.map((o) => o.label),
+    ...(ask.plan ?? []).flatMap((p) => [p.text, p.when ?? ""]),
+  ].join("\n");
+  const hedge = HEDGE.exec([ask.title, ask.question, context].join("\n"));
+  const internal = INTERNAL.exec(read);
+  return (
+    (hedge &&
+      `"${hedge[0]}": check it with your tools before asking; a fact no tool reaches that decides the card is its question, asked plainly, never a note of what you did not check`) ||
+    (internal &&
+      `"${internal[0]}" is Life's inside: he reads no ids and no names of agents or roles; link Life's things as \`[words](life:<ref>)\``) ||
+    (context.length > CONTEXT_CHARS &&
+      `\`context\` holds ${context.length} characters as he reads them (${CONTEXT_CHARS} at most): keep only what he needs to decide`)
   );
 }
 
@@ -161,6 +206,30 @@ function addsProblemOf(
   );
 }
 
+/** What breaks the rules of a `runs` option and the `apify` need it starts, in words the agent can fix; false when nothing does. */
+function runsProblemOf(
+  ask: z.infer<typeof Ask>,
+  silence: z.infer<typeof Option> | undefined
+) {
+  const runs = ask.options.filter((o) => o.runs);
+  const apify = ask.needs?.filter((n) => n.kind === "apify") ?? [];
+  return (
+    (runs.length !== (apify.length > 0 ? 1 : 0) &&
+      'one `apify` need goes with exactly one `runs` option, and neither without the other (fetch("ask/apify"))') ||
+    (apify.length > 1 && "at most one `apify` need") ||
+    (silence?.runs &&
+      "`onSilence` never takes a `runs` option: on silence nothing runs") ||
+    (runs.some((o) => o.outgoing || o.adds || o.ends || o.looks || o.takes) &&
+      'a `runs` option has no other mark (fetch("ask/apify"))') ||
+    (ask.draft && runs.length > 0 && "a `runs` card has no `draft`") ||
+    (apify.some((n) => n.estimateUsd > n.maxUsd) &&
+      "an `apify` need's `estimateUsd` is at most its `maxUsd`") ||
+    (apify.length > 0 &&
+      !apifyToken() &&
+      "Apify is not connected: he has no token in Life")
+  );
+}
+
 /** What breaks the rules of a `looks` or `takes` option and of `doneSeenBy`, in words the agent can fix; false when nothing does. */
 function lookProblemOf(
   ask: z.infer<typeof Ask>,
@@ -168,7 +237,8 @@ function lookProblemOf(
 ) {
   const looks = ask.options.filter((o) => o.looks);
   const marks = (o: z.infer<typeof Option>) =>
-    [o.adds, o.ends, o.looks, o.outgoing, o.takes].filter(Boolean).length;
+    [o.adds, o.ends, o.looks, o.outgoing, o.runs, o.takes].filter(Boolean)
+      .length;
   return (
     ((silence?.looks || silence?.takes) &&
       "`onSilence` never takes a `looks` or `takes` option: on silence he did nothing and said nothing") ||

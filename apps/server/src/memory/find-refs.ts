@@ -6,6 +6,7 @@ import { readImportedConversation } from "../sources/assistants";
 import type { Descriptor } from "../sources/contract";
 import { openStore, turnPlace, withStore } from "../sources/lifelog";
 import { askPageOf, noAskPageOf } from "./card-request";
+import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { readFiles, readIndex, readUnit } from "./memory-files";
 import { type Need, needRefsOf } from "./needs";
@@ -105,7 +106,9 @@ export async function findRef(
       return findPerson(ref.read, reads);
     case "matter":
     case "observation":
-      return findMatterOrObservation(ref.id, ref.kind, reads);
+      return ref.kind === "matter" && ref.thread
+        ? findThread(ref.thread.matter, reads)
+        : findMatterOrObservation(ref.id, ref.kind, reads);
     case "unit":
       return findUnit(ref.id);
     case "message":
@@ -138,8 +141,14 @@ export async function findRef(
   }
 }
 
+/** A matter's thread, by its matter's id or a step's (`matterOfSteps`, as `read_matter` finds it). */
+async function findThread(id: string, reads: SharedReads) {
+  const matter = matterOfSteps(await reads.book(), [id]);
+  return matter ? hit({ kind: "matter", matter }) : miss(`no matter ${id}`);
+}
+
 /** A message by its ref: only from a source he turned on, one with a reader of chat or mail. */
-function findMessage(ref: { message: string; source: string }) {
+export function findMessage(ref: { message: string; source: string }) {
   const d = enabledSources().find((x) => x.name === ref.source);
   return d && (d.kind === "chat" || d.kind === "mail")
     ? findMessageIn(d, ref.message)
