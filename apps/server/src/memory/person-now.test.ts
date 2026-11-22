@@ -119,6 +119,7 @@ test("a row: the closer of its two levels, its last exchange, and needsYou from 
 test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked first, and counts the rest", () => {
   const matters = Array.from({ length: 300 }, (_, i) => matter(i));
   const now = personNowOf({
+    checks: [],
     communicationStyle: [],
     details: [
       { from: "truth", kind: "birthday", text: "--03-12" },
@@ -297,9 +298,10 @@ test("`now` of a person and of an organization: their row, reach and open matter
     people: { with: [party("person:test-ana", "Test Ana")] },
   });
   const ana = (await person("Test Ana", {}, {}, () =>
-    Promise.resolve([theirs, matter(2)])
+    Promise.resolve({ checks: [], matters: [theirs, matter(2)] })
   )) as Record<string, unknown>;
   expect(ana).toMatchObject({
+    checks: [],
     kind: "person",
     name: "Test Ana",
     needsYou: true,
@@ -319,6 +321,42 @@ test("`now` of a person and of an organization: their row, reach and open matter
       },
     ],
   });
+});
+
+test("his open checks about someone on no matter: at the top of their `now`, and their row needs him; one on a matter stays with its matter", async () => {
+  await indexed([]);
+  const ask = (ref: string, over: object = {}) =>
+    ({ likelyPeople: [], matter: null, ref, subject: null, ...over }) as never;
+  const guessed = ask("name:ana", {
+    likelyPeople: [party("person:test-ana", "Test Ana")],
+  });
+  const at = ask("at:person:test-bakery~person:test-ana~0000beef");
+  const onMatter = ask("person:test-ana", {
+    matter: { id: "matter_000000000001", name: "Bread" },
+  });
+  const open = () =>
+    Promise.resolve({ checks: [guessed, at, onMatter], matters: [] });
+  expect(await person("Test Ana", {}, {}, open)).toMatchObject({
+    checks: [guessed, at],
+    needsYou: true,
+  });
+  expect(await person("Test Bakery", {}, {}, open)).toMatchObject({
+    checks: [at],
+    needsYou: true,
+  });
+  const { people } = (await person(undefined, {}, {}, () =>
+    Promise.resolve({ checks: [onMatter], matters: [] })
+  )) as { people: PersonRow[] };
+  expect(people.find((r) => r.ref === "person:test-ana")?.needsYou).toBe(false);
+  const listed = (await person(undefined, {}, {}, open)) as {
+    people: PersonRow[];
+  };
+  expect(
+    listed.people
+      .filter((r) => r.needsYou)
+      .map((r) => r.ref)
+      .toSorted()
+  ).toEqual(["person:test-ana", "person:test-bakery"]);
 });
 
 test("`now` offers the first picture of each source, from the one index read that picks the one in use", async () => {
@@ -602,6 +640,7 @@ test("reach keeps to its room with long Contacts labels; every account it has no
     seen: [],
   });
   const now = personNowOf({
+    checks: [],
     communicationStyle: [],
     details: [],
     episodes: [],
@@ -653,6 +692,7 @@ test("an organization's 120 addresses: following `moreReach` and each `next` thr
   const [{ accounts }] = reach as [Reach];
   (accounts[0] as { title?: string }).title = "Label 😀 ".repeat(800);
   const now = personNowOf({
+    checks: [],
     communicationStyle: [],
     details: [],
     episodes: [],

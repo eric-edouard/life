@@ -7,7 +7,12 @@ import { pushIdOf } from "../sources/lifelog-push";
 import type { CheckInputs } from "./check-context";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
-import { checksNow, checksOf, checksOnMatterOf } from "./checks";
+import {
+  checksNow,
+  checksOf,
+  checksOnMatterOf,
+  noMatterChecksByPartyOf,
+} from "./checks";
 import {
   about,
   DANA_ID,
@@ -794,4 +799,29 @@ test("only the open endings' and the new matters' steps are read for their sente
     today: "2026-11-18",
   });
   expect([...shown].sort()).toEqual(["obs_b", "obs_new", "obs_open"]);
+});
+
+test("a check on no matter is about the people it may be and the person refs its ref and subject name, folded; one on a matter is its matter's", () => {
+  const ask = (ref: string, over: Partial<Check> = {}) => ({
+    likelyPeople: [],
+    matter: null,
+    ref,
+    subject: null,
+    ...over,
+  });
+  const voice = ask("voice:v1~abc", {
+    likelyPeople: [{ kind: "person", name: "Bo", ref: "person:bo" }],
+    subject: "person:old-cy",
+  });
+  const same = ask("same:person:inf_kit~person:bo");
+  const decision = ask("dec_000000000001", { subject: "project:shop" });
+  const held = ask("person:bo", { matter: { id: "matter_1", name: "M" } });
+  const by = noMatterChecksByPartyOf([voice, same, decision, held], (r) =>
+    r === "person:old-cy" ? "person:cy" : r
+  );
+  expect(Object.fromEntries(by)).toEqual({
+    "person:bo": [voice, same],
+    "person:cy": [voice],
+    "person:inf_kit": [same],
+  });
 });

@@ -5,6 +5,7 @@ import { ClosenessLevel } from "../records/observation";
 import type { SituationLine } from "../records/situation";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
+import type { InboxCheck } from "./checks";
 import { closerOf } from "./closeness";
 import { type DetailLine, nextBirthday } from "./details";
 import { exchangesOf } from "./exchanges";
@@ -34,6 +35,12 @@ export type MatterRowNow = MatterRow & {
   needsYou: boolean;
 };
 
+/** What a person read is handed, read now by host: the matter rows and his open checks as `read_inbox` gives them, each read once. */
+export interface OpenNow {
+  checks: InboxCheck[];
+  matters: MatterRowNow[];
+}
+
 /** Someone on the list: the party, how close (none until judged), their last exchange with him, and whether anything with them needs him. */
 export type PersonRow = Party & {
   lastExchangeAt?: string;
@@ -55,11 +62,12 @@ export interface Standing {
   ) => { personal: ClosenessLevel; work: ClosenessLevel } | undefined;
 }
 
-/** A party as a list row: its closer level, its last exchange, and whether any of its running matters needs him. Pure. */
+/** A party as a list row: its closer level, its last exchange, and whether anything with them needs him: a running matter of theirs that does, or an open check about them on no matter (`asks`, `noMatterChecksByPartyOf`). Pure. */
 export const rowOf = (
   party: Party,
   standing: Standing,
-  matters: readonly MatterRowNow[]
+  matters: readonly MatterRowNow[],
+  asks: readonly unknown[] = []
 ): PersonRow => {
   const l = standing.levelOf(party.ref);
   const last = standing.lastExchangeAt(party.ref);
@@ -67,7 +75,8 @@ export const rowOf = (
     ...party,
     ...(last ? { lastExchangeAt: last } : {}),
     ...(l ? { level: closerOf(l) } : {}),
-    needsYou: matters.some((m) => m.needsYou && isIn(m, party.ref)),
+    needsYou:
+      asks.length > 0 || matters.some((m) => m.needsYou && isIn(m, party.ref)),
   };
 };
 
@@ -182,6 +191,8 @@ export interface Member {
 
 /** What `personNowOf` is made from, read by `person()`. */
 export interface NowInputs {
+  /** His open checks about them on no matter (`noMatterChecksByPartyOf`), as `read_inbox` gives them, in its order. */
+  checks: InboxCheck[];
   communicationStyle: CommunicationStyleLine[];
   details: DetailLine[];
   /** His directory holds only him: the setup interview is due. */
@@ -201,11 +212,12 @@ export interface NowInputs {
 
 /**
  * `now`'s lists in the order they keep their room: what doesn't fit is cut from each one's end (episodes the oldest
- * months, matters the least pressing), and `more` counts what each lost (`open`: `read_matters` with them;
- * `episodes`: the `evidence` part). Reach is not among them: it keeps to its own room (`reachWithin`), the accounts it
+ * months, matters the least pressing), and `more` counts what each lost (`checks`: `read_inbox`; `open`: `read_matters`
+ * with them; `episodes`: the `evidence` part). Reach is not among them: it keeps to its own room (`reachWithin`), the accounts it
  * has no room for given in `details`.
  */
 const KEPT_FIRST = [
+  "checks",
   "details",
   "knows",
   "situation",
@@ -219,7 +231,7 @@ const KEPT_FIRST = [
 /**
  * Someone's `now`, as data: their row, reach, details (a birthday dated; a phone or mail reach already opens is left
  * out; a work or family line with whom it names), the pictures he can pick from, how each writes to the other, what their time together was about, their situation, the parts Life holds
- * (`knows`), an organization's domains and people, and their open matters, ranked. The whole answer serialized stays
+ * (`knows`), an organization's domains and people, his open checks about them on no matter, and their open matters, ranked. The whole answer serialized stays
  * within `chars` (`PART_CHARS`, less what wraps it): its lists are cut by `KEPT_FIRST`. Pure.
  */
 export function personNowOf(i: NowInputs, chars = PART_CHARS) {
@@ -246,6 +258,7 @@ export function personNowOf(i: NowInputs, chars = PART_CHARS) {
   );
   const full = {
     ...i.row,
+    checks: i.checks,
     communicationStyle: i.communicationStyle,
     details,
     ...(i.directoryIsNew ? { directoryIsNew: true as const } : {}),
