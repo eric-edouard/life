@@ -82,6 +82,9 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     let other = list.sections(kind: .organizations, query: "ATE")
     #expect(other.map(\.label) == ["A"] && other[0].rows.map(\.party.name) == ["Atelier"])
     #expect(list.sections(kind: .people, query: "zq").isEmpty)
+    // A space is no search: the list he sees with nothing typed, "Close to you" included.
+    #expect(
+        list.sections(kind: .people, query: " ").map(\.label) == list.sections(kind: .people, query: "").map(\.label))
 }
 
 @Test func eachLetterIsOneSectionHoldingEveryRowOnce() throws {

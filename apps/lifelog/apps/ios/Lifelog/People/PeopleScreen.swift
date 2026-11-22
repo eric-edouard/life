@@ -120,10 +120,11 @@ private struct PeopleColumns: View {
         let shown = list.cut(to: router.cut(of: .people))
         let sections = shown.sections(kind: kind, query: query)
         let others = shown.sections(kind: kind.other, query: query).flatMap(\.rows).count
+        let written = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return List {
             CutToast(kind: .people).quietListRow()
             control(list)
-            if sections.isEmpty, query.isEmpty {
+            if sections.isEmpty, written.isEmpty {
                 Text("No one here.").font(.body15).foregroundStyle(Palette.muted)
                     .padding(Metrics.gutter).quietListRow()
             }
@@ -143,16 +144,16 @@ private struct PeopleColumns: View {
                         .quietListRow()
                     }
                 }
-                .sectionIndexLabel(section.label == PeopleList.close ? nil : section.label)
+                .sectionIndexLabel(section.indexLabel)
             }
-            // What he typed left this kind out, or left everyone out: said under its rows, never a blank list.
-            if !query.isEmpty, sections.isEmpty {
-                Text("No one named \(query).").font(.body15).foregroundStyle(Palette.muted)
+            // What he typed left this kind out, his words found no one at all: said under its rows, never a blank list.
+            if !written.isEmpty, sections.isEmpty, others == 0 {
+                Text("No one named \(written).").font(.body15).foregroundStyle(Palette.muted)
                     .padding(.horizontal, Metrics.gutter).quietListRow()
             }
-            if !query.isEmpty, others > 0 {
+            if !written.isEmpty, others > 0 {
                 switchRow(others)
-            } else if !query.isEmpty, sections.isEmpty {
+            } else if !written.isEmpty, sections.isEmpty {
                 askLifeRow
             }
         }

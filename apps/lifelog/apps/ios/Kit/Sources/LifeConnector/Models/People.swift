@@ -66,6 +66,8 @@ public struct PeopleList: Decodable, Sendable, Equatable {
     /// A run of rows under one label: a letter of the A to Z, or the closest rows' group above them.
     public struct Group: Identifiable, Equatable, Sendable {
         public let label: String
+        /// What the list's index shows for it: its letter, nothing for the closest rows' group.
+        public let indexLabel: String?
         public let rows: [PersonRow]
         public var id: String { label }
     }
@@ -78,6 +80,7 @@ public struct PeopleList: Decodable, Sendable, Equatable {
     /// (his words, case and accents aside), the rows whose name holds them, one group per letter. A row closest to him
     /// is in both the first group and its letter's.
     public func sections(kind: Kind, query: String) -> [Group] {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let rows = people.filter { kind.holds($0.party.kind) }
         let found = query.isEmpty ? rows : rows.filter { $0.party.name.localizedStandardContains(query) }
         let byName: (PersonRow, PersonRow) -> Bool = {
@@ -85,10 +88,10 @@ public struct PeopleList: Decodable, Sendable, Equatable {
         }
         let letters = Dictionary(grouping: found) { Self.letter(of: $0.party.name) }
             .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
-            .map { Group(label: $0.key, rows: $0.value.sorted(by: byName)) }
+            .map { Group(label: $0.key, indexLabel: $0.key, rows: $0.value.sorted(by: byName)) }
         guard query.isEmpty else { return letters }
         let close = rows.filter { $0.level == .inner }
-        return close.isEmpty ? letters : [Group(label: Self.close, rows: close)] + letters
+        return close.isEmpty ? letters : [Group(label: Self.close, indexLabel: nil, rows: close)] + letters
     }
 
     /// How many rows of `kind` the list holds: the control's count.
