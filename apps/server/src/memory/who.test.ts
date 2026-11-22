@@ -120,6 +120,38 @@ test("names resolve cheapest first: handles, then names and aliases, else nothin
   expect(resolve("Annesophie")).toBeNull();
 });
 
+test("a name he said of one conversation reads so only there: another David stays no one's", () => {
+  const { resolve } = foldsOf(
+    mapped,
+    [],
+    [
+      said({
+        inConversation: "lifelog|call-trocknerheld",
+        kind: "this-is",
+        nameOrHandle: "David",
+        person: "person:gaston",
+      }),
+    ],
+    []
+  );
+  expect(resolve("David", "lifelog", "lifelog|call-trocknerheld")).toBe(
+    "person:gaston"
+  );
+  // The other chat's David (a different person), and a read that names no conversation.
+  expect(resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
+  expect(resolve("David", "lifelog")).toBeNull();
+  // A line with no scope keeps its old meaning: everywhere.
+  const global = foldsOf(
+    mapped,
+    [],
+    [said({ kind: "this-is", nameOrHandle: "David", person: "person:gaston" })],
+    []
+  );
+  expect(global.resolve("David", "lifelog", "lifelog|call-bloom")).toBe(
+    "person:gaston"
+  );
+});
+
 test("a surface resolves to what the owner said, else truth, else a confident inferred person, never against a correction", () => {
   const inferredPeople = [
     inferred("inf_plumber", ["+33611111111", "Plombier"]),

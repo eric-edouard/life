@@ -64,10 +64,15 @@ export interface Message {
 /** Where a name or handle was read: a source (its senders' kind, `Descriptor.hasPhoneHandles`) or a Contacts field. */
 export type HandleFrom = SourceName | "contacts";
 
-/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null; `from` where it was read, when known. */
+/** A conversation, chat or mail thread across sources: its source and its unit `key` (`source|key`). His `this-is` may be said in one (`inConversation`). */
+export const conversationKeyOf = (u: { key: string; source: string }) =>
+  `${u.source}|${u.key}`;
+
+/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null; `from` where it was read and `inConversation` (`conversationKeyOf`) the conversation, when known. */
 export type Resolve = (
   nameOrHandle: string,
-  from?: HandleFrom
+  from?: HandleFrom,
+  inConversation?: string
 ) => string | null;
 
 export interface Built {
