@@ -1129,6 +1129,66 @@ struct AnswerRow: Layout {
     private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
 }
 
+/// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the
+/// bar's height again, so the answers stand clear of the text going under them (his ask of 22 Nov, open Duo). It grows
+/// with the bar. The system's soft edge stays off here: the pager hides it, since its own sat over the answers.
+struct AnswersBackdrop: View {
+    var body: some View {
+        GeometryReader { bar in
+            let fade = bar.size.height / 2
+            let solid = fade / (bar.size.height + fade)
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay {
+                    LinearGradient(
+                        stops: [
+                            .init(color: Palette.bg.opacity(0.6), location: 0),
+                            .init(color: Palette.bg, location: solid),
+                        ],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: solid)],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .frame(height: bar.size.height + fade)
+                .offset(y: -fade)
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Where a paged ask keeps its dots: their room, empty, whose place in its page it tells the pager (`pagerDotsAt`), which
+/// draws one row of dots there that stays still while the asks slide under it.
+struct PagerDotsSlot: View {
+    let index: Int
+    @Environment(\.pagerDotsAt) private var report
+
+    var body: some View {
+        Color.clear.frame(width: 6, height: 6)
+            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(PagerDotsSlot.page)) }) {
+                report?.report(index, $0)
+            }
+            // A new index (an ask before it answered) is a new slot, which reports where it is at once.
+            .id(index)
+    }
+
+    /// Each page's own coordinate space, set by the pager: the slot's place in its page, wherever the page has slid.
+    static let page = "pagerPage"
+}
+
+/// The pager's ear for its slots: always equal, so it never invalidates its readers; its closure only writes the
+/// pager's own state, so a new copy of it would report the same way.
+struct PagerDotsAt: Equatable {
+    let report: (Int, CGRect) -> Void
+    static func == (_: Self, _: Self) -> Bool { true }
+}
+
+extension EnvironmentValues {
+    @Entry var pagerDotsAt: PagerDotsAt?
+}
+
 /// Where an ask stands among the asks: a dot each (6, 6 apart, the current `fg`, the others `tint`), at most 7 at once,
 /// as the system's page control does: past 7 the row slides with the current ask, and a dot at an end with more asks
 /// beyond it is smaller. Never a count in words: "6 of 234" said nothing he could use.
