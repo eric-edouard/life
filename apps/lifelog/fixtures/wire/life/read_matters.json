@@ -23,6 +23,7 @@
         "text": "The shop's quote",
         "waitsOn": "the shop"
       },
+      "openedAt": "2026-10-02T10:00:00.000Z",
       "people": {
         "owedTo": [
           {
@@ -73,5 +74,5 @@
       "needsYou": true
     }
   ],
-  "version": "4d92c5146f3f7ffa"
+  "version": "604d9f68841a4795"
 }

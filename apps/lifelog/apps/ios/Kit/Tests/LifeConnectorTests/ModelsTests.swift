@@ -152,7 +152,9 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
     let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
     #expect(chips.all.needYou == 2)
-    #expect(chips.chips.map(\.kind) == [.project])
+    // A done project is never lost: its chip after the parked ones.
+    #expect(chips.chips.map(\.kind) == [.project, .project])
+    #expect(chips.chips.last?.status == .done)
     #expect(chips.chips.first?.status == .active)
     #expect(chips.chips.first?.area == "home")
     #expect(chips.chips.first?.agentAtWork == true)

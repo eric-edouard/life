@@ -6,7 +6,9 @@ import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
+  compactAtOf,
   connectorReadsOf,
+  PI_COMPACT_AT,
   type PiRow,
   piRowOf,
   piRuntime,
@@ -21,15 +23,17 @@ import {
 
 setDefaultTimeout(30_000);
 
-const provider = fakePiProvider((_n, a) =>
-  JSON.stringify(a.body.messages.at(-1)).includes("[hang]")
-    ? "hang"
-    : {
-        text: JSON.stringify(a.body.messages.at(-1)).includes("[sep]")
-          ? "one\u2028two"
-          : "hello",
-      }
-);
+const provider = fakePiProvider((_n, a) => {
+  const last = JSON.stringify(a.body.messages.at(-1));
+  if (last.includes("[hang]")) {
+    return "hang";
+  }
+  return {
+    text: last.includes("[sep]") ? "one\u2028two" : "hello",
+    // A turn past `PI_COMPACT_AT`; its summary's request is a short one.
+    ...(last.includes("[big]") ? { tokens: PI_COMPACT_AT + 1 } : {}),
+  };
+});
 const KEY = "OPENROUTER_API_KEY";
 const kept = process.env[KEY];
 beforeAll(() => {
@@ -79,6 +83,44 @@ test("a first turn makes the session, ends with its usage, and the next turn res
     provider.asked[before - 1]?.body.messages.length ?? 0
   );
   expect(await pi.state("no-such-session")).toBe("gone");
+});
+
+test("a turn that ends past PI_COMPACT_AT compacts its session before it ends, the summary in its spend", async () => {
+  // This short session has something to compact only when pi keeps no recent turn.
+  const pi = piRuntime({
+    ...row,
+    async spawn(...args) {
+      const s = await row.spawn(...args);
+      const file = join(dir, "agent", "settings.json");
+      const settings = JSON.parse(readFileSync(file, "utf8"));
+      writeFileSync(
+        file,
+        JSON.stringify({ ...settings, compaction: { keepRecentTokens: 1 } })
+      );
+      return s;
+    },
+  });
+  const before = provider.asked.length;
+  const run = await pi.start(agent, "[big]");
+  const ended = await run.ended;
+  expect(ended.ok).toBe(true);
+  // The turn's call, then the summary's, both billed.
+  expect(provider.asked.length - before).toBe(2);
+  expect(ended.usage?.billedUsd).toBe(0.002);
+  expect(ended.usage?.contextLast).toBe(PI_COMPACT_AT + 3);
+  expect(pi.pinsRules).toBe(true);
+  const { env } = await row.spawn(
+    { ...agent, rules: "Made-up rules." },
+    run.ref,
+    false
+  );
+  expect(env[PI_EXTENSION_ENV.rules]).toBe("Made-up rules.");
+});
+
+test("a model whose window is under PI_COMPACT_AT compacts below its window, leaving pi's reserve twice over", () => {
+  expect(compactAtOf(1_048_576)).toBe(PI_COMPACT_AT);
+  expect(compactAtOf(undefined)).toBe(PI_COMPACT_AT);
+  expect(compactAtOf(300_000)).toBe(300_000 - 2 * 16_384);
 });
 
 test("talk keeps one pi across prompts and tells what its model says", async () => {

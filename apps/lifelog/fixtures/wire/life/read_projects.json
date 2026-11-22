@@ -13,7 +13,17 @@
       "matters": 1,
       "needYou": 1,
       "agentAtWork": true
+    },
+    {
+      "area": "home",
+      "id": "old-shop",
+      "kind": "project",
+      "name": "Old shop",
+      "status": "done",
+      "matters": 0,
+      "needYou": 0,
+      "agentAtWork": false
     }
   ],
-  "version": "0ac17308f397039b"
+  "version": "ddda531fa75d7cb1"
 }
