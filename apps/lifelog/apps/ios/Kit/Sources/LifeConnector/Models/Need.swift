@@ -164,7 +164,7 @@ extension Check {
                     }
                 rows = [NeedRow(glyph: .note, text: line)] + links
             // The code itself is the card's hero (`Check.payCode`); without its text, its line.
-            // An Apify run (Life's line: what, by which actor, its estimate and cap); a code's line without its text.
+            // An Apify run (Life's line: what, by which actor, its estimate, cap and input); a code's line without its text.
             case .apify, .qr, .unknown:
                 rows = []
             }
