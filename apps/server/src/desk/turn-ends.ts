@@ -2,6 +2,7 @@ import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import type { AgentRole } from "../core/names";
+import { isOwnLife } from "../core/platform";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -19,7 +20,12 @@ import { ASK_SPOKEN } from "../host/events";
 import { MOVE_NOTES } from "../host/move-read";
 import type { TurnOutcome } from "../records/registered-agent";
 import { notifyPhone } from "../sources/lifelog-push";
-import { commitAgentFiles, keepHanded, stopOpenRun } from "./agent-actions";
+import {
+  commitAgentFiles,
+  keepHanded,
+  rulesOf,
+  stopOpenRun,
+} from "./agent-actions";
 import {
   BEGIN_WITHIN_MS,
   defaultWaitOf,
@@ -54,12 +60,13 @@ const ROLE_NAMES: Partial<Record<AgentRole, string>> = {
   personal: "Personal",
 };
 
-/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with. */
+/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with, and its rules (`rulesOf`). */
 export const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   ...modelOf(a),
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
+  rules: rulesOf(a, isOwnLife()),
   title: `Agent: ${a.name ?? (a.role ? ROLE_NAMES[a.role] : undefined) ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });
 

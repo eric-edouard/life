@@ -174,7 +174,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_life_status()",
     "read_log_lines(after,cursor,limit,min_level,process)",
     "read_matter(id)",
-    "read_matters(area,ifNot,noProject,person,project)",
+    "read_matters(area,before,ifNot,noProject,person,project,state)",
     "read_memory_changes(about,cursor,limit,run,since,types)",
     "read_new_events(arguments,cursor,event,limit)",
     "read_observation(id)",

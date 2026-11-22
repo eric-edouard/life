@@ -3,8 +3,8 @@ import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
 import { closerOf, levelsWith } from "./closeness";
 import { QUOTE_MAX } from "./index-rows";
+import { lastEndedStepOf } from "./matter-end";
 import {
-  ACTIONABLE,
   type MatterStepNow,
   type MatterView,
   matterPeopleOf,
@@ -136,14 +136,7 @@ export function doneOnOf(
   dayOf: (at: string) => string
 ) {
   return book.flatMap((v) => {
-    const last = v.open
-      ? undefined
-      : v.steps
-          .filter((s) => ACTIONABLE.includes(s.kind) && s.ending)
-          .toSorted((a, b) =>
-            (a.ending?.at ?? "").localeCompare(b.ending?.at ?? "")
-          )
-          .at(-1);
+    const last = lastEndedStepOf(v);
     return last?.ending && dayOf(last.ending.at) === day
       ? [{ last, matter: v }]
       : [];

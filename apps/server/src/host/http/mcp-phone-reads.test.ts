@@ -134,6 +134,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       with: "person:partner",
     },
   ];
+  const quiet = {
+    ...step("to_do", "Paint the fence", "2026-08-01", "obs_000000000013"),
+    when: "2026-09-01",
+  };
   const view = (over: object) => ({
     areas: [],
     lone: false,
@@ -192,6 +196,16 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
             repos: ["shop-site", "owner/shop-notes"],
             status: "active",
           },
+          // A done project: never lost, its chip after the parked ones.
+          {
+            area: "home",
+            chats: [],
+            id: "old-shop",
+            name: "Old shop",
+            people: [],
+            repos: [],
+            status: "done",
+          },
         ],
       },
     } as never),
@@ -237,6 +251,59 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         name: "Renew the lease",
         status: "waiting_on_someone",
         steps: [],
+      }),
+      // Quiet: only in the open read, last, with the date its open step is due.
+      view({
+        id: "matter_ffffffffffff",
+        name: "Paint the fence",
+        openSteps: [quiet],
+        status: "dormant",
+        steps: [quiet],
+      }),
+      // Closed: his Drop ended it; and one a link ended, probably done until his word.
+      view({
+        id: "matter_dddddddddddd",
+        name: "Return the old drill",
+        open: false,
+        projects: ["old-shop"],
+        status: "done",
+        steps: [
+          {
+            ...step(
+              "to_do",
+              "Return the drill",
+              "2026-10-01",
+              "obs_000000000011"
+            ),
+            ending: {
+              at: "2026-10-03T10:00:00.000Z",
+              by: "record",
+              dropped: true,
+              why: "Drop",
+            },
+          },
+        ],
+      }),
+      view({
+        id: "matter_eeeeeeeeeeee",
+        name: "Fix the gate",
+        open: false,
+        status: "probably_done",
+        steps: [
+          {
+            ...step(
+              "promise",
+              "Fix the gate",
+              "2026-10-05",
+              "obs_000000000012"
+            ),
+            ending: {
+              at: "2026-10-06T10:00:00.000Z",
+              by: "link",
+              quote: "The gate's fixed",
+            },
+          },
+        ],
       }),
     ] as never),
     spyOn(icons, "iconWorkEnded").mockReturnValue(0),
@@ -340,6 +407,37 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       "Mend Gran's watch": { by: "owner", key: "tools" },
       "Renew the lease": { by: "life", key: "key" },
     });
+    // The open read adds the quiet ones, last; the closed read lists the ended ones, newest ended first, paged back.
+    const open: { dueOn?: string; name: string }[] = JSON.parse(
+      await read("read_matters", { state: "open" })
+    ).matters;
+    expect(open.map((m) => m.name)).toEqual([
+      ...rows.map((m) => m.name),
+      "Paint the fence",
+    ]);
+    expect(open.at(-1)?.dueOn).toBe("2026-09-01");
+    const closed = await read("read_matters", { state: "closed" });
+    expectWire("read_matters_closed", closed);
+    expect(
+      JSON.parse(closed).matters.map(
+        (m: { endedAt: string; name: string; outcome: string }) => [
+          m.name,
+          m.outcome,
+          m.endedAt,
+        ]
+      )
+    ).toEqual([
+      ["Fix the gate", "probably_done", "2026-10-06T10:00:00.000Z"],
+      ["Return the old drill", "dropped", "2026-10-03T10:00:00.000Z"],
+    ]);
+    expect(
+      JSON.parse(
+        await read("read_matters", {
+          before: "2026-10-05T00:00:00.000Z",
+          state: "closed",
+        })
+      ).matters.map((m: { name: string }) => m.name)
+    ).toEqual(["Return the old drill"]);
     const matterVersion = JSON.parse(matters).version;
     expect(
       JSON.parse(await read("read_matters", { ifNot: matterVersion }))
