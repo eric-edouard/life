@@ -4,7 +4,12 @@ import { searchableOf, webSearch } from "./backend";
 // Life's web search over made-up answers of the providers' own hosts: his order, a provider without his key skipped, a
 // refusal falling through unpaid and an empty answer falling through paid, Serper's credits priced, every failure named.
 
-const KEYS = ["BRAVE_SEARCH_API_KEY", "PERPLEXITY_API_KEY", "SERPER_API_KEY"];
+const KEYS = [
+  "BRAVE_SEARCH_API_KEY",
+  "PERPLEXITY_API_KEY",
+  "SERPER_API_KEY",
+  "TAVILY_API_KEY",
+];
 const kept = KEYS.map((k) => process.env[k]);
 afterEach(() => {
   KEYS.forEach((k, i) => {
@@ -87,4 +92,37 @@ test("a provider is searchable only while its key is in the environment", () => 
   delete process.env.BRAVE_SEARCH_API_KEY;
   process.env.SERPER_API_KEY = "made-up";
   expect(searchableOf(["brave", "serper"])).toEqual(["serper"]);
+});
+
+test("Tavily's quota refusal (432) or failure falls through unpaid to the next provider; its credits are its price", async () => {
+  process.env.TAVILY_API_KEY = "made-up";
+  process.env.SERPER_API_KEY = "made-up";
+  const hit = [{ content: "A runtime", title: "Bun", url: "https://bun.sh" }];
+  for (const refusal of [432, 429, 500]) {
+    const p = providers({
+      "api.tavily.com": new Response("", { status: refusal }),
+      [SERPER]: Response.json({
+        organic: [
+          { link: "https://bun.sh", snippet: "A runtime", title: "Bun" },
+        ],
+      }),
+    });
+    // biome-ignore lint/performance/noAwaitInLoops: each refusal is its own mocked run
+    const s = await webSearch("bun", ["tavily", "serper"]);
+    p.restore();
+    expect(p.hosts).toEqual(["api.tavily.com", SERPER]);
+    expect(s.answered?.provider).toBe("serper");
+    expect(s.whys).toEqual([`tavily: Error: ${refusal}`]);
+    expect(s.spends).toEqual([0.001]);
+  }
+  const p = providers({
+    "api.tavily.com": Response.json({ results: hit, usage: { credits: 1 } }),
+  });
+  const s = await webSearch("bun", ["tavily", "serper"]);
+  p.restore();
+  expect(p.hosts).toEqual(["api.tavily.com"]);
+  expect(s.answered?.results).toEqual([
+    { snippet: "A runtime", title: "Bun", url: "https://bun.sh" },
+  ]);
+  expect(s.spends).toEqual([0.008]);
 });

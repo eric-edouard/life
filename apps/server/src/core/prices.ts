@@ -132,6 +132,15 @@ const REQUEST_PRICES: Row<RequestPrice>[] = [
     source: "https://serper.dev/",
     usdPerRequest: 0.001,
   },
+  // Tavily's pay-as-you-go rate, $0.008 a credit (a basic search is one); its 1,000 free credits a month are counted at
+  // it too (an answer can't tell a free credit from a paid one), so its billed dollars run over the account's.
+  {
+    from: "2026-11-22",
+    item: "tavily",
+    read: "2026-11-22",
+    source: "https://docs.tavily.com/documentation/api-credits",
+    usdPerRequest: 0.008,
+  },
   {
     from: "2026-11-22",
     item: "perplexity-search",
