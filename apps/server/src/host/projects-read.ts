@@ -91,8 +91,12 @@ async function readChipsFromMemory(open: Open) {
     const i = goalsOf(truth.me.goals).findIndex((g) => g.projects.includes(id));
     return i < 0 ? Number.POSITIVE_INFINITY : i;
   };
-  const groupOf = (p: (typeof truth.projects)[number]) =>
-    isUnderway(p) ? "underway" : p.status === "done" ? "done" : "parked";
+  const groupOf = (p: (typeof truth.projects)[number]) => {
+    if (isUnderway(p)) {
+      return "underway";
+    }
+    return p.status === "done" ? "done" : "parked";
+  };
   const projectChips = (group: ReturnType<typeof groupOf>) =>
     truth.projects
       .filter((p) => groupOf(p) === group)

@@ -8,12 +8,12 @@ import {
   isHeldOf,
   type StandingAgent,
 } from "./held-matters";
+import { matterEndOf } from "./matter-end";
 import { iconNow } from "./matter-icons";
 import {
   directionDueOf,
   isRunning,
   type MatterView,
-  matterEndOf,
   matterFinderOf,
   matterOfSteps,
   matterPeopleOf,

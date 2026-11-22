@@ -3,8 +3,8 @@ import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
 import { closerOf, levelsWith } from "./closeness";
 import { QUOTE_MAX } from "./index-rows";
+import { lastEndedStepOf } from "./matter-end";
 import {
-  lastEndedStepOf,
   type MatterStepNow,
   type MatterView,
   matterPeopleOf,

@@ -1,13 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
-import {
-  isEnded,
-  type MatterRecords,
-  type MatterView,
-  matterBookOf,
-  matterEndOf,
-} from "./matter-read";
+import { isEnded, type MatterRecords, matterBookOf } from "./matter-read";
 import { outdatedBy } from "./memory-files";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
@@ -724,10 +718,6 @@ test("what got done on a day: closed matters by the instant their last step ende
     by: "record",
     why: "the agent posted the watch back",
   });
-  expect(matterEndOf(done?.matter as MatterView)).toEqual({
-    at: "2026-10-18T15:00:00Z",
-    outcome: "done",
-  });
   // A matter still open is never listed, whatever its steps' endings.
   const open = matterBookOf(
     stored([line]),
@@ -764,7 +754,6 @@ test("a dropped step closes its matter as done would, and reads as dropped", () 
   expect(ended[0]).toMatchObject({ open: false, status: "done" });
   const [done] = doneOnOf(ended, "2026-10-18", (at) => at.slice(0, 10));
   expect(done?.last.ending).toMatchObject({ by: "record", dropped: true });
-  expect(matterEndOf(done?.matter as MatterView)?.outcome).toBe("dropped");
   expect(doneOf(ended, "2026-10-18")[0]?.how).toContain("(dropped 2026-10-18");
 });
 
