@@ -7,7 +7,7 @@ import type { Desk } from "./desk-store";
 // wait or finish before a card (`desk-door.ts`): a plan card first, unless his own words are its plan (`isHisWordsPlanOf`).
 
 /** The one sentence of the contract that differs: what a first turn does when he asked for the agent (his plan card, then his `start`). */
-const PLAN_FIRST_TURN = ` Your first turn only reads and asks your plan card. ${askPageOf("ask/plan")} When what you read shows nothing is left to do, ask no plan: ask the card that says it looks over (what shows it), its done option marked \`ends: "matter"\`. Act only after his \`start\`; on his \`decline\`, \`finish\`; on his own words instead, read them and ask a follow-up card: a changed plan is a new plan card, its steps in \`plan\`.`;
+const PLAN_FIRST_TURN = ` Your first turn only reads and asks your plan card. ${askPageOf("ask/plan")} Act only after his \`start\`; on his \`decline\`, \`finish\`; on his own words instead, read them and ask a follow-up card: a changed plan is a new plan card, its steps in \`plan\`.`;
 
 /** ... and when the desk started it itself (`hand-out.ts`): no plan card, one card of what it found. */
 const HANDED_OUT_FIRST_TURN =

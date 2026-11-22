@@ -181,10 +181,32 @@ test("a first card that says the matter looks over needs no plan, and the brief 
   );
   expect(decisionsNow().find((d) => d.id === id)?.plan).toBeUndefined();
   const packet = await readPacket(desk, s, false);
-  expect(packet).toContain("When what you read shows nothing is left to do");
+  expect(packet).toContain("unless that card says the matter looks over");
   expect(packet).toContain(
     "never ask him to decide on something you could have checked"
   );
+  // Only that card: a first card that sends, or offers only a drop, is still its plan card.
+  const other = register(desk, {
+    brief: "Test brief",
+    runtime: "fake",
+    steps: ["obs_test_other"],
+  });
+  await expect(
+    withMatters([matterView("mat_test_other", ["obs_test_other"])], () =>
+      askDecision(desk, on(desk, other), {
+        context: "- Kit asked for a date.",
+        deadline: ahead(DAY),
+        onSilence: null,
+        options: [
+          { id: "go", label: "Ask Kit" },
+          { ends: "matter", icon: "drop", id: "drop", label: "Drop it" },
+        ],
+        question: "Ask Kit for a date?",
+        subject: "mat_test_other",
+        title: "Mend the watch",
+      })
+    )
+  ).rejects.toThrow("first card is its plan card");
   setSystemTime();
 });
 
