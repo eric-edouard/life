@@ -315,6 +315,10 @@ export function sessionRuntime(
         }
         return end;
       });
+      // A fresh session is listed in his app once its first ask ends, as `start`'s is (no process: nothing to wait on).
+      if (ref === null) {
+        ended.then(() => row.handOff?.(a, c.ref)).catch(() => undefined);
+      }
       return { begun: run.begun, ended, link: row.link(c.ref), ref: c.ref };
     },
   };

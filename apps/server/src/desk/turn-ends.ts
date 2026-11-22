@@ -1,6 +1,7 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { AgentRole } from "../core/names";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -46,13 +47,19 @@ const REMINDER =
 
 const now = () => clock().toISOString();
 
-/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else his brief's first line), the model it runs with. */
+/** The names of the standing roles whose brief is Life's, not his: what their sessions are called until he names them (the coordinator's finding of 22 Nov 2026: main's title was its brief's first line). */
+const ROLE_NAMES: Partial<Record<AgentRole, string>> = {
+  caretaker: "Caretaker",
+  main: "Ask Life",
+};
+
+/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with. */
 export const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   ...modelOf(a),
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
-  title: `Agent: ${a.name ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
+  title: `Agent: ${a.name ?? (a.role ? ROLE_NAMES[a.role] : undefined) ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });
 
 /**

@@ -139,8 +139,11 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life starts and wakes his registered agents, and nothing else of Life does** (his yes to the desk, 18 Nov 2026). The
   desk (`apps/server/src/desk/`, off until his `desk` setting) creates an agent only on his word: a project's, or the
   Personal agent (its `role`, one active or stopped at most, its home `<agentsRepo>/personal/`), and wakes its session on its events, his answer or
-  its deadline; his complaint is such a word: on his first complaint with no caretaker active or stopped, the desk
-  registers the caretaker (`desk/complaint-intake.ts`); and on a confirmed arrival or his spoken ask no matter's agent takes, with no
+  its deadline; the main session and the caretaker stand from the desk's start (his word of 22 Nov 2026: "we should
+  create a main agent, and then we should also create the caretaker so that we don't run into issues later on"): each
+  tick registers whichever has none active or stopped (`standUp`), with no assignment, so it runs no turn until his
+  words or his complaint open one, never again after its last one never began until his next words or complaint (they
+  take two of the desk's 50 active places); and on a confirmed arrival or his spoken ask no matter's agent takes, with no
   Personal agent active or stopped, the desk registers it (Direction's ruling of 21 Nov 2026, under his word that every
   ask reaches an agent): one at most, never a second (`desk/role-agents.ts`, the one start of a standing role). A matter is never an agent of its own: it is an assignment of the agent that takes it (`agentForOf`: the
   oldest active agent of the project it shows under, his `matter-project` word first, else the Personal agent; several

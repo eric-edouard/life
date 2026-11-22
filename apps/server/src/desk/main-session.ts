@@ -46,7 +46,7 @@ import {
 } from "./turn-ends";
 
 // The main session (Ask Life, his decisions of 21 Nov 2026; the study of that day): the registered agent in role
-// `main`, registered by the desk on his first words, woken only by them (never by the clock: `dueOf`). Each ask is one
+// `main`, registered by the desk from its start (`standUp`), its session made on his first words, woken only by them (never by the clock: `dueOf`). Each ask is one
 // desk turn (cause `main_ask`, outcome `replied` from its start: `turnEnded` closes it with its usage, no reminder, no
 // wait) on one session the runtime keeps open across asks (`Runtime.talk`), so his next words pay no start; his presence
 // on the Ask Life screen keeps it open (`keepMainSession`). It runs as one of his own sessions in full and acts on his
