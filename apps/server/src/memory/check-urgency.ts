@@ -1,3 +1,4 @@
+import { daysBefore } from "../core/clock";
 import type { CheckGroup } from "../core/names";
 import { dayNow, localDate } from "./zones";
 
@@ -7,6 +8,8 @@ export type Urgency = "blocks" | "improves";
 interface Rankable {
   /** His complaint on it at work with the caretaker: it then only improves. */
   beingFixed?: unknown;
+  /** Its deadline: a your move card blocks only when it is due within `DUE_SOON_DAYS`. */
+  deadline: string | null;
   group: CheckGroup;
   /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
   subject: string | null;
@@ -36,12 +39,28 @@ export const inboxRankOf = (c: Rankable) =>
     : RANK[c.group];
 
 const LAST_BLOCKING_RANK = RANK["your move"];
-/** What blocks: by its kind (`inboxRankOf`), a your move card always (his word of 21 Nov 2026), unless the caretaker is at work on it (`beingFixed`). */
-export const urgencyOf = (c: Rankable): Urgency =>
-  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed ? "blocks" : "improves";
+/** How many days ahead a your move card's deadline makes it block. */
+const DUE_SOON_DAYS = 3;
 
 /** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by its matter's place in his ranking (`matterRank`, which weighs its dates), then by deadline, then the longest waiting. */
-const isMove = (c: Rankable) => c.group === "your move";
+const isMove = (c: Pick<Rankable, "group">) => c.group === "your move";
+
+/** Its tier in his inbox's order: the blocking kinds (`inboxRankOf`), unless the caretaker is at work on it (`beingFixed`). */
+const isFirstTier = (c: Rankable) =>
+  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed;
+
+/** What blocks (the badge): a first-tier ask (`isFirstTier`), a your move card only when due within `DUE_SOON_DAYS` (the cognitive-load rule of 22 Nov 2026: the badge counts what needs him soon; every card stays, in its place). */
+export const urgencyOf = (c: Rankable): Urgency =>
+  isFirstTier(c) &&
+  (!isMove(c) ||
+    (c.deadline !== null &&
+      localDate(c.deadline) <= daysBefore(dayNow(), -DUE_SOON_DAYS)))
+    ? "blocks"
+    : "improves";
+
+/** Whether a check shows in his inbox: every kind but an ending check, which shows on its matter's page (`checksOnMatterOf`): its link is Life's evidence, the step reads probably done until his word (the cognitive-load rule of 22 Nov 2026). */
+export const isInboxCheck = (c: Pick<Rankable, "group">) =>
+  c.group !== "ending";
 /** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
 const isImportant = (c: Orderable) =>
   Boolean(c.matter?.important) && !isMove(c);
@@ -49,7 +68,6 @@ const isImportant = (c: Orderable) =>
 interface Orderable extends Rankable {
   /** When it was asked (a decision's `at`), a your move card's step's day, else its newest evidence. */
   day: string;
-  deadline: string | null;
   matter: { id: string; important?: boolean } | null;
   /** A your move card's matter's place in his ranking (`rankedMattersOf`); none: after every ranked one. */
   matterRank?: number;
@@ -81,7 +99,7 @@ const withinKind = (a: Orderable, b: Orderable) =>
       b.day.localeCompare(a.day);
 
 const before = (a: Orderable, b: Orderable) =>
-  Number(urgencyOf(a) === "improves") - Number(urgencyOf(b) === "improves") ||
+  Number(!isFirstTier(a)) - Number(!isFirstTier(b)) ||
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
   Number(isMove(a) && inboxRankOf(b) < RANK["your move"]) -
     Number(isMove(b) && inboxRankOf(a) < RANK["your move"]) ||
@@ -98,7 +116,7 @@ const matterKeyOf = (c: Orderable) => {
   const id = c.matter?.id ?? c.ridesOn.matterIds[0];
   return (
     id &&
-    `${urgencyOf(c)}${c.beingFixed ? " fixing" : ""}${isMove(c) ? " move" : ""} ${id}`
+    `${isFirstTier(c)}${c.beingFixed ? " fixing" : ""}${isMove(c) ? " move" : ""} ${id}`
   );
 };
 

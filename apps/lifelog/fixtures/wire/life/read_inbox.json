@@ -722,82 +722,6 @@
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "f686b7df91114fb8",
-      "urgency": "blocks"
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "contactsCard": null,
-      "context": "A later step seems to show it done.\n\n> Called them.\n\n*an earlier message*",
-      "deadline": null,
-      "draft": null,
-      "goal": null,
-      "group": "ending",
-      "kind": "ending",
-      "likelyPeople": [],
-      "links": [],
-      "notSent": null,
-      "onMatters": [
-        {
-          "id": "matter_aaaaaaaaaaaa",
-          "important": true,
-          "name": "Mend Gran's watch"
-        }
-      ],
-      "onSilence": null,
-      "options": [
-        {
-          "icon": "done",
-          "id": "outdated",
-          "label": "Yes, done",
-          "takes": null
-        },
-        {
-          "icon": "later",
-          "id": "false",
-          "label": "Not yet",
-          "takes": null
-        }
-      ],
-      "preTicked": "outdated",
-      "question": "Is this done?",
-      "ref": "obs_000000000005",
-      "ridesOn": {
-        "matterIds": ["matter_aaaaaaaaaaaa"],
-        "matters": 1,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": {
-        "at": "2026-10-12",
-        "by": "Gran",
-        "channel": "whatsapp",
-        "text": "\"Call the shop\" said Gran",
-        "to": "Gran"
-      },
-      "since": {
-        "at": null,
-        "by": null,
-        "channel": null,
-        "text": "Called them.",
-        "to": null
-      },
-      "subject": null,
-      "title": "Close what is done",
-      "lifeLinks": [],
-      "matter": {
-        "id": "matter_aaaaaaaaaaaa",
-        "important": true,
-        "name": "Mend Gran's watch"
-      },
-      "misread": {
-        "cause": "1addffdfdc12fcfa"
-      },
-      "confirm": [],
-      "networkIdentity": null,
-      "pushId": "c84c34823f7fa7b0",
       "urgency": "improves"
     },
     {
@@ -1075,20 +999,19 @@
       "urgency": "improves"
     }
   ],
-  "blocking": 7,
+  "blocking": 6,
   "counts": {
     "decision": 3,
     "voice": 1,
     "name": 1,
     "contacts card": 1,
     "your move": 1,
-    "ending": 1,
     "same person": 1,
     "at organization": 1,
     "guessed person": 1,
     "new matter": 1
   },
   "deadlinesToday": 0,
-  "total": 12,
-  "version": "30279b49399e2359"
+  "total": 11,
+  "version": "a1e4b308dc22906d"
 }

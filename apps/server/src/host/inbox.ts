@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { digest } from "../core/hash";
 import { NO_LONGER_OPEN } from "../memory/answer-check";
-import { inboxOf } from "../memory/check-urgency";
+import { inboxOf, isInboxCheck } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
 import type { HeldRead } from "../memory/life-checks";
@@ -108,6 +108,10 @@ function readHeld(): HeldRead | null {
 /** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxOrderOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */
 export const openChecksNow = () => checksNow(readHeld());
 
+/** His inbox now: the open checks it shows (`isInboxCheck`: an ending check shows on its matter's page only). The badge, pushes, the status's `left`, the nightly and his phone's inbox read it. */
+export const inboxChecksNow = async () =>
+  (await openChecksNow()).filter(isInboxCheck);
+
 /** Every open check now with the key it was read from (`checksAndKeyNow`): for the connector's versioned reads. */
 export const openChecksAndKeyNow = () => checksAndKeyNow(readHeld());
 
@@ -147,7 +151,7 @@ export async function readInbox(
   limit: number,
   o: { after?: string; ifNot?: string; pushId?: string } = {}
 ) {
-  const { checks: shown } = await openChecksAndKeyNow();
+  const shown = (await openChecksAndKeyNow()).checks.filter(isInboxCheck);
   const from = o.after ? shown.findIndex((c) => c.ref === o.after) + 1 : 0;
   if (from === 0 && o.after) {
     throw new Error(
