@@ -33,6 +33,8 @@ bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, e
 
 ## Working with the owner
 
+**The technology disappears** (his direction of 22 Nov 2026: "make the technology disappear from the user's life as much as possible… they should just know that Life is working on it"): he sees that Life is working on something, never which agent does it. The app shows no agents list or role names (caretaker, main session); agent health lives only in Settings' diagnostics. Agents stay registered as today.
+
 Life runs itself: the owner never runs `bun life …` and never reviews a queue. The commands are for you and for the
 app's supervisor. Don't design a step that waits on him: an uncertain inference goes into a model-owned layer (like
 `memory/people-inferred.jsonl`), used at once and corrected later. His input arrives in conversation only (fact checks included: he answers them in a chat, through the connector, when he likes, never waited on).
