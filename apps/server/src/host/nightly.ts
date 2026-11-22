@@ -22,6 +22,7 @@ import {
   conversationSummaries,
   readConversationSummaryWork,
 } from "../memory/conversation-summaries";
+import { dayRecords } from "../memory/day-records";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
@@ -515,6 +516,15 @@ export async function dropOld(now: Date) {
   }
 }
 
+/** The days of `window` that closed: every one before `today`. */
+const closedDays = (window: Window, today: string) => {
+  const days: string[] = [];
+  for (let d = window.from; d < today; d = daysBefore(d, -1)) {
+    days.push(d);
+  }
+  return days;
+};
+
 export async function runNight(
   days: number,
   now: Date,
@@ -628,6 +638,15 @@ export async function runNight(
     await judgeLinks().catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "memory.links" })
     );
+    // The days the night closed, each written again only when its evidence changed. A failure is logged and never
+    // stops the night.
+    const closed = closedDays(window, day);
+    if (closed.length > 0) {
+      steps.at = "day records";
+      await dayRecords(closed).catch((e: Error) =>
+        log("run.error", { ...errorOf(e), step: "memory.day-records" })
+      );
+    }
     steps.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);
