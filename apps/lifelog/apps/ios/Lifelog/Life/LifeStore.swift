@@ -539,8 +539,8 @@ final class LifeStore {
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
     /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
-    /// Once the Mac has said nothing for `MacSilence.noAnswerAfter` it ends not done, and its late events apply nothing
-    /// (the same tap may run again meanwhile): true then.
+    /// An answer (`tap`) the Mac has said nothing about for `MacSilence.noAnswerAfter` ends not done, and its late events
+    /// apply nothing (the same tap may run again meanwhile): true then.
     @discardableResult func perform(
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
@@ -557,8 +557,10 @@ final class LifeStore {
                 limit = actions[key]?.limit ?? limit
             }
         }
+        // Only an answer has a tap's key that makes trying again safe: only it ends on the Mac's silence.
         let watch = Task {
-            while (try? await Task.sleep(for: .seconds(1))) != nil, pairing == actions.pairing, !isSilenced {
+            while tap != nil, (try? await Task.sleep(for: .seconds(1))) != nil, pairing == actions.pairing, !isSilenced
+            {
                 guard actions.endIfSilent(key, at: now()), let ended = actions[key] else { continue }
                 isSilenced = true
                 traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit)

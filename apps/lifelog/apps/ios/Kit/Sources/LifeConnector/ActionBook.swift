@@ -46,9 +46,9 @@ public struct ActionBook<Key: Hashable & Sendable>: Sendable {
 
     /// Forgets a result once the screen has shown it; one still running stays.
     public mutating func forget(_ key: Key) {
-        if states[key]?.isRunning != true { states[key] = nil }
+        if states[key]?.isRunning != true { (states[key], heard[key]) = (nil, nil) }
     }
 
     /// Another Life is paired, as pairing `pairing`: nothing of the last one's stays.
-    public mutating func startOver(pairing: Int) { (states, self.pairing) = ([:], pairing) }
+    public mutating func startOver(pairing: Int) { (states, heard, self.pairing) = ([:], [:], pairing) }
 }

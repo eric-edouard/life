@@ -231,7 +231,7 @@ extension Taken {
     func failedWord(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
         if isSend { return DraftDelivery(state).word }
         if failure.mayHaveHappened { return "Check first." }
-        if failure.isSameTap { return "No answer from Life." }
+        if failure.isSameTap { return MacSilence.noAnswer + "." }
         return "Not saved."
     }
 

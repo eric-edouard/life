@@ -54,7 +54,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .stale(let value, _, _): marked(content(value))
         case .unreachable:
             Notice(
-                title: "Your Mac is out of reach.",
+                title: MacSilence.noAnswer + ".",
                 detail: "Life runs on your Mac. This shows again once the phone reaches it.",
                 action: ("Try again", { Task { await retry() } }))
         case .failed(let reason):
@@ -106,8 +106,7 @@ private struct OffWhileOutOfReach: ViewModifier {
 }
 
 /// The sync mark (the design of 22 Nov): the designed `Toast` at the top of the pane, over what shows, which stays whole
-/// under it; Retry in its capsule while a read can help, Show on the agents' trouble. Updating waits a second, so the
-/// minute's quiet read never flickers.
+/// under it; Retry in its capsule while a read can help, Show on the agents' trouble.
 struct SyncNote: View {
     let mark: SyncMark
     let retry: () async -> Void
@@ -171,7 +170,7 @@ struct SyncNote: View {
 }
 
 extension View {
-    /// `mark` as the toast over the top of this pane, Updating only after a second; nothing when nil.
+    /// `mark` as the toast over the top of this pane, Updating and Reconnecting only after a second; nothing when nil.
     func syncMark(_ mark: SyncMark?, retry: @escaping () async -> Void) -> some View {
         modifier(SyncMarkOver(mark: mark, retry: retry))
     }
@@ -190,7 +189,8 @@ private struct SyncMarkOver: ViewModifier {
             .motion(Motion.standard, value: shown)
         }
         .task(id: mark) {
-            if mark == .updating, shown == nil {
+            // A read's own forms wait a second: the minute's read never flickers.
+            if mark == .updating || mark == .reconnecting {
                 guard (try? await Task.sleep(for: .seconds(1))) != nil else { return }
             }
             shown = mark
