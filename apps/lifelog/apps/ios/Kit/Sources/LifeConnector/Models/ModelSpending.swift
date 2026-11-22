@@ -6,7 +6,7 @@ import Library
 
 /// A spend's provider, by Life's own name (`SPEND_PROVIDERS`, `memory/spends.ts`; checked by `ContractTests`).
 public enum SpendProvider: String, UnknownTolerant, Sendable {
-    case openrouter, allmodels, elevenlabs, claude, codex, describer, apple, speech
+    case openrouter, allmodels, elevenlabs, claude, codex, describer, apple, speech, apify
     case unknown
 
     public var name: String {
@@ -19,6 +19,7 @@ public enum SpendProvider: String, UnknownTolerant, Sendable {
         case .describer: "Photos"
         case .apple: "the arrival reader"
         case .speech: "speech"
+        case .apify: "Apify"
         case .unknown: "Another provider"
         }
     }

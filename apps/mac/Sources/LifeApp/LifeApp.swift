@@ -101,6 +101,8 @@ struct SettingsView: View {
   private var started: Bool { supervisor.info?.started == true }
   private var sources: [Source] { supervisor.info?.sources ?? [] }
   private var keyNames: [String] { supervisor.info?.engineKeys[engine] ?? [] }
+  /// The keys of his agents' skills (`skillKeys`: Apify's token), each a Keychain item the helper's environment gets.
+  private var skillKeyNames: [String] { supervisor.info?.skillKeys ?? [] }
 
   var body: some View {
     Form {
@@ -130,6 +132,14 @@ struct SettingsView: View {
           .onChange(of: engine) { _, _ in readKeys() }
           ForEach(keyNames, id: \.self) { name in
             SecureField(name, text: Binding(get: { keys[name] ?? "" }, set: { keys[name] = $0 }))
+          }
+        }
+        if !skillKeyNames.isEmpty {
+          Section("Skills") {
+            ForEach(skillKeyNames, id: \.self) { name in
+              SecureField(name, text: Binding(get: { keys[name] ?? "" }, set: { keys[name] = $0 }))
+            }
+            Text("Your agents may ask to run Apify's paid scrapers, with the cost; nothing runs without your yes.").caption()
           }
         }
         Section("Sources") {
@@ -241,7 +251,7 @@ struct SettingsView: View {
   }
 
   private func readKeys() {
-    keys = Dictionary(uniqueKeysWithValues: keyNames.map { ($0, Keychain.read($0) ?? "") })
+    keys = Dictionary(uniqueKeysWithValues: (keyNames + skillKeyNames).map { ($0, Keychain.read($0) ?? "") })
   }
 
   private func start() async {
@@ -260,7 +270,7 @@ struct SettingsView: View {
   }
 
   private func save() async {
-    for name in keyNames {
+    for name in keyNames + skillKeyNames {
       Keychain.write(name, keys[name] ?? "")
     }
     Keychain.write("LIFELOG_TOKEN", lifelogToken)

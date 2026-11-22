@@ -403,12 +403,7 @@ export interface PiLine {
   aborted?: boolean;
   assistantMessageEvent?: { delta?: string; type: string };
   command?: string;
-  data?: {
-    commands?: { name: string }[];
-    disposition?: string;
-    /** A compaction's summary call (`compact`'s response). */
-    usage?: CallUsage;
-  };
+  data?: { commands?: { name: string }[]; disposition?: string };
   error?: string;
   id?: string;
   isError?: boolean;
@@ -418,8 +413,8 @@ export interface PiLine {
     stopReason?: string;
     usage?: CallUsage;
   };
-  /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`). */
-  result?: { details?: { usage?: CallUsage[] } };
+  /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`); a compaction's, its summary call's (`compaction_end`). */
+  result?: { details?: { usage?: CallUsage[] }; usage?: CallUsage };
   success?: boolean;
   toolCallId?: string;
   toolName?: string;
@@ -430,6 +425,8 @@ export interface PiLine {
 export interface Current {
   begun: () => void;
   end: (e: RunEnd) => void;
+  /** It ended well past `PI_COMPACT_AT`: its session is compacting before it ends. */
+  isCompacting?: boolean;
   onUpdate?: (u: Update) => void;
   stop?: string;
   usage: Usage;
@@ -499,6 +496,10 @@ export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
     addUsage(c.usage, l.message.usage);
     c.stop = l.message.stopReason;
     c.why = l.message.errorMessage;
+  }
+  // Every compaction's summary call, pi's own inside the turn and the runtime's at its end.
+  if (l.type === "compaction_end" && l.result?.usage) {
+    addSpent(c.usage, l.result.usage);
   }
   if (
     l.type === "tool_execution_end" &&
@@ -577,27 +578,23 @@ const openOf =
       if (!(c && ended)) {
         return;
       }
-      if (!(ended.ok && (c.usage.contextLast ?? 0) > PI_COMPACT_AT)) {
+      if (
+        c.isCompacting ||
+        !(ended.ok && (c.usage.contextLast ?? 0) > PI_COMPACT_AT)
+      ) {
         settle(ended);
         return;
       }
-      // What pi prints while it compacts is no longer the run's; the turn ends once the session is compacted.
-      current = undefined;
-      compactedAfter(c).then(() => {
-        current = c;
-        settle(ended);
-      });
+      // The turn ends once its session is compacted (its summary billed by `compaction_end`); pi exiting first fails it.
+      c.isCompacting = true;
+      compactedAfter().then(() => settle(ended));
     };
-    /** Compacts the session after turn `c`, the summary's usage the turn's; one that fails leaves the session whole. */
-    const compactedAfter = async (c: Current) => {
+    /** Compacts the session after a turn; one that fails leaves the session whole. */
+    const compactedAfter = async () => {
       const r = await Promise.race([
         ask({ type: "compact" }),
         exited.then(() => undefined),
       ]);
-      const usage = r?.success ? r.data?.usage : undefined;
-      if (usage) {
-        addSpent(c.usage, usage);
-      }
       log("desk.runtime", {
         agent: a.id,
         ok: r?.success === true,

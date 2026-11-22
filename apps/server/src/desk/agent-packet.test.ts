@@ -93,6 +93,22 @@ test("a project's agent is handed its people's ids and handles and its chats' ke
   );
 });
 
+test("the packet holds the agent's rules unless its runtime pins them", async () => {
+  expect(await packet("test-empty")).toContain("Test brief\n\nYou are agt_");
+  const fake = desk.runtimes.fake;
+  desk.runtimes.fake = {
+    ...(fake as NonNullable<typeof fake>),
+    pinsRules: true,
+  };
+  try {
+    const text = await packet("test-empty");
+    expect(text).not.toContain("Test brief");
+    expect(text).not.toContain("a registered agent of the owner's desk");
+  } finally {
+    desk.runtimes.fake = fake as NonNullable<typeof fake>;
+  }
+});
+
 test("a project with neither says what to do", async () => {
   const text = await packet("test-empty");
   expect(text.match(/\(none in his directory: find them/g)).toHaveLength(2);

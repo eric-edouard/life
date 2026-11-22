@@ -7,7 +7,7 @@ import {
   yourMoveClosingOf,
 } from "../memory/answer-check";
 import { atOrganizationPairOf } from "../memory/at-organization";
-import { ADD_LIMIT_MS } from "../memory/decision-add";
+import { ADD_LIMIT_MS, RUN_LIMIT_MS } from "../memory/decision-add";
 import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
 import {
   actDueOf,
@@ -30,6 +30,7 @@ import { readMatterBook } from "../memory/matters";
 import { samePersonPairOf } from "../memory/same-person";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { runApifyByHisWord } from "./card-apify-run";
 import { addEventByHisWord } from "./card-event-calendar";
 import {
   addDirectoryEntryByHisWord,
@@ -158,6 +159,17 @@ function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
   return tap.answer && actDueOf(d) === "send" ? { state: "pending" } : null;
 }
 
+/** An act's outcome line as the proof shows it: when, and its error or what it made, without its line's bookkeeping. */
+const shownOutcomeOf = <L extends { at: string; error?: string }>(
+  line: L | undefined,
+  made: "eventId" | "runId" | null
+) =>
+  line && {
+    at: line.at,
+    ...(line.error ? { error: line.error } : {}),
+    ...(made && made in line ? { [made]: line[made as keyof L] } : {}),
+  };
+
 /** The answer's proof for a decision, composed from what is stored. */
 async function decisionResult(ref: string, key?: string) {
   let d = decisionsNow().find((x) => x.id === ref) as Decision;
@@ -172,28 +184,15 @@ async function decisionResult(ref: string, key?: string) {
   // An end belongs to the answer that stands: one a `not sent:` outcome voided ended nothing.
   const ended = tap.answer === d.answer ? d.end : undefined;
   const added = tap.answer === d.answer ? d.added : undefined;
+  const ran = tap.answer === d.answer ? d.ran : undefined;
   return {
     asker: askerOf(d),
     changed: {
+      added: shownOutcomeOf(added, "eventId"),
       decision: ref,
-      ...(added
-        ? {
-            added: {
-              at: added.at,
-              ...(added.error ? { error: added.error } : {}),
-              ...(added.eventId ? { eventId: added.eventId } : {}),
-            },
-          }
-        : {}),
-      ...(ended
-        ? {
-            ended: {
-              at: ended.at,
-              ...(ended.error ? { error: ended.error } : {}),
-            },
-          }
-        : {}),
+      ended: shownOutcomeOf(ended, null),
       options: tap.answer?.options ?? [],
+      ran: shownOutcomeOf(ran, "runId"),
       state: d.state,
     },
     done: [
@@ -202,6 +201,7 @@ async function decisionResult(ref: string, key?: string) {
       tap.doneSeen,
       ended,
       added,
+      ran,
     ].filter(Boolean),
     doneSeen: doneSeenShownOf(tap.doneSeen, d.needs),
     kind: "decision",
@@ -312,6 +312,7 @@ function planOf(
       ...(act === "end" ? ["ended"] : []),
       ...(act === "look" ? ["looking", "done_seen"] : []),
       ...(act === "add" ? ["added"] : []),
+      ...(act === "run" ? ["ran"] : []),
     ];
   }
   if (starts) {
@@ -392,11 +393,12 @@ async function decisionActOf(
   const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
   const lookMs = act === "look" ? LOOK_LIMIT_MS : 0;
   const addMs = act === "add" ? ADD_LIMIT_MS : 0;
+  const runMs = act === "run" ? RUN_LIMIT_MS : 0;
   return {
     act,
     closing,
     end,
-    limitMs: sendMs + lookMs + addMs + ticksLimitMsOf(closing),
+    limitMs: sendMs + lookMs + addMs + runMs + ticksLimitMsOf(closing),
   };
 }
 
@@ -508,6 +510,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
       ),
     look: lookForDone,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),
+    run: runApifyByHisWord,
     startAgent,
   });
   if (check.group === "decision") {
