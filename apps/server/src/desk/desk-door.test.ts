@@ -294,9 +294,9 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     );
     // The plan card's rules are in the brief: an agent with its door alone has no `fetch`.
     expect(text).toContain('{"id":"start","label":"Start the plan"}');
-    // His word of 21 Nov 2026: the plan card reads well. Its steps stay in its `context` too, for an app that does not draw `plan` yet.
+    // His words of 21 and 22 Nov 2026: a plan reads as steps his app draws, never a wall of text in `context`.
     expect(text).toContain(
-      "Write that card's plan in Markdown in its `context`: a short heading, numbered steps, what you wait on, and what you will ask him; its question stays one line."
+      "Any plan on any card goes in `plan`, its steps, never as a numbered list in `context`."
     );
     expect(text).toContain("name the matter before you act");
     expect(text).toContain("never with a Monitor");

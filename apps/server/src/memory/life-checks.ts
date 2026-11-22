@@ -222,7 +222,7 @@ export interface Check {
   group: CheckGroup;
   /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
   head?: { name: string; network: string } | null;
-  /** Whether a decision is its assignment's plan card (host's `planCardsOf`): worked out when read, never stored; absent on every other kind. */
+  /** Whether a decision is a plan card: it gives `plan`, its steps; absent on every other kind. */
   isPlan?: boolean;
   kind: CheckKind;
   /** The `life:` links of its `context`, each with its kind (`lifeLinksOf`): worked out when read, never stored. */
@@ -233,7 +233,7 @@ export interface Check {
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
-  /** On Life's own cards only (none of an agent's, the caretaker's included): `cause`, what its guess rests on (`causeOf`), which shows his "Wrong…" (to Tell Life) and marks it being fixed; null on an agent's. */
+  /** On Life's own cards only (none of an agent's, the caretaker's included): `cause`, what its guess rests on (`causeOf`), which shows his "Wrong…" (to Ask Life) and marks it being fixed; null on an agent's. */
   misread?: { cause: string } | null;
   /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
   needs?: ReturnType<typeof needsShownOf>;
@@ -336,12 +336,11 @@ export type CardHolders = Readonly<
   Record<string, { agent: string; session?: string }>
 >;
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
 export interface HeldRead {
   /** Each of the open `decisions` a registered agent asked, as its holder's, with that agent's session now (host's `cardHoldersOf`): given the one list the inbox reads, so a card asked meanwhile is never shown without it. */
   cardHolders?: (decisions: readonly Decision[]) => CardHolders;
   complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
-  plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
   stamp: string;
 }

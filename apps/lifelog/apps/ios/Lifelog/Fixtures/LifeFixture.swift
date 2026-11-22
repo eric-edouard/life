@@ -10,7 +10,7 @@
     ///
     /// `-fixtureLife <scenario>` turns it on: `ok`, `many` (261 asks, for measuring the swipe), `groups` (three that block, then all that can wait), `loading`, `empty`, `improves` (only what can wait), `stale`, `slowPush` (every whole read after the first takes 5 s: a tapped push's card is checked), `slowInbox` (every whole read after the first takes 30 s), `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent|wroteSince|mayHaveGone` decides what a tap on a draft does (`failed`: any other answer is refused; `sending`: it never ends); `-fixtureStart started|starting|failed`
-    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|icon|pictures|pair|pairing|replacePendant|pairPendant|create`
+    /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab projects|people`, `-fixtureMatter <id>`, `-fixturePerson <ref>`, `-fixtureUnmarked <matter id>`, `-fixtureParked <project id>`, and `-fixtureSheet pendant|settings|agent|agents|agentPage|icon|pictures|pair|pairing|replacePendant|pairPendant|create`
     /// open the screen to show (`create` holds Created, to be photographed). `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
@@ -24,6 +24,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
         nonisolated static let filter = value(of: "-fixtureFilter")
+        /// `-fixtureShow matters`: Ask Life's answer cut the Projects list to its first three matters, under its toast.
+        nonisolated static let show = value(of: "-fixtureShow")
         nonisolated static let matter = value(of: "-fixtureMatter")
         /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
         nonisolated static let person = value(of: "-fixturePerson")
@@ -637,9 +639,10 @@
             return isOn ? #"{"result":"restored"}"# : #"{"result":"removed"}"#
         }
 
-        /// Tell Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
+        /// Ask Life in the simulator: thinking, one piece of work, then a reply; `-offline` and the scenarios gate it.
         func askMainSession(
-            words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+            words: String?, screen: MainSessionScreen?, answerKey: String?,
+            onProgress: @escaping @Sendable (Data) -> Void
         ) async throws -> String {
             try await gate()
             guard words != nil else { return #"{"kept":true}"# }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Life's voice mark: five rounded bars, the middle tallest. `isLive` moves them (his voice).
-struct TellMark: View {
+struct AskLifeMark: View {
     var size: CGFloat = 24
     var color = Palette.ai
     var isLive = false
@@ -27,12 +27,12 @@ struct TellMark: View {
 /// The line of light (the lit look): the stage's one drawing, which changes between states and never cuts. Ready: a
 /// breathing hairline. Thinking: drawn into one dot, two rings leaving it. Answer: a short bar over the words. Error:
 /// broken in `flag`. Offline: dots.
-struct TellLightLine: View {
+struct AskLifeLightLine: View {
     enum Kind { case ready, point, answer, broken, waiting }
     let kind: Kind
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage(TellLook.key) private var look = TellLook.lit
+    @AppStorage(AskLifeLook.key) private var look = AskLifeLook.lit
 
     var body: some View {
         // The Grotesk look has no line: the words stand alone.
@@ -92,7 +92,7 @@ struct TellLightLine: View {
 
 /// One piece of work: what it is above a hairline, a short run of `ai` moving along it while it runs; done, the
 /// hairline full and still with a check.
-struct TellStrandRow: View {
+struct AskLifeStrandRow: View {
     let title: String
     let isDone: Bool
 
@@ -127,9 +127,9 @@ struct TellStrandRow: View {
     }
 }
 
-/// The Tell Life button: a round glass disc with Life's voice mark, always at the bottom right corner of the root, in every pose
-/// (52 on the phone and open upright, 48 in the Duo's side column). It sinks under his thumb; a tap opens Tell Life.
-struct TellLifeButton: View {
+/// The Ask Life button: a round glass disc with Life's voice mark, always at the bottom right corner of the root, in every pose
+/// (52 on the phone and open upright, 48 in the Duo's side column). It sinks under his thumb; a tap opens Ask Life.
+struct AskLifeButton: View {
     @Environment(AppRouter.self) private var router
     /// Pieces of work running, shown as a ring in `ai` and their count.
     var running = 0
@@ -139,7 +139,7 @@ struct TellLifeButton: View {
         Button {
             withAnimation(Motion.standard) { router.isAskOpen = true }
         } label: {
-            TellMark(size: 22).frame(width: size, height: size)
+            AskLifeMark(size: 22).frame(width: size, height: size)
                 .overlay { if running > 0 { Circle().stroke(Palette.ai, lineWidth: 2) } }
                 .overlay(alignment: .topTrailing) {
                     if running > 0 { Text("\(running)").font(.chip).foregroundStyle(Palette.ai).padding(4) }
@@ -148,7 +148,7 @@ struct TellLifeButton: View {
         .buttonStyle(SinkStyle())
         .floatingGlass(in: Circle())
         .sensoryFeedback(.impact(weight: .medium), trigger: router.isAskOpen) { _, new in new }
-        .accessibilityLabel("Tell Life")
+        .accessibilityLabel("Ask Life")
         .accessibilityIdentifier("tell.life")
     }
 }
@@ -164,12 +164,12 @@ private struct SinkStyle: ButtonStyle {
 }
 
 /// What he said, waiting for the Mac: the mark and "Your words · waiting", in a quiet capsule.
-struct TellWaitingPill: View {
+struct AskLifeWaitingPill: View {
     let words: String
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            TellMark(size: 16, color: Palette.muted)
+            AskLifeMark(size: 16, color: Palette.muted)
             Text("Your words · waiting").font(.small)
         }
         .foregroundStyle(Palette.muted).padding(.horizontal, Metrics.Spacing.m).frame(height: 32)
@@ -178,8 +178,8 @@ struct TellWaitingPill: View {
     }
 }
 
-/// The room Tell Life stands in: the page with a faint `ai` glow behind the stage.
-struct TellRoom: View {
+/// The room Ask Life stands in: the page with a faint `ai` glow behind the stage.
+struct AskLifeRoom: View {
     var body: some View {
         ZStack {
             Palette.bg
@@ -192,7 +192,7 @@ struct TellRoom: View {
 extension View {
     /// The composer: his words, the microphone and Send in one glass capsule (the Claude app's bar, his reference of 22
     /// Nov), the keys 4 in from its end. Ask Life's banner is the same.
-    func tellComposer() -> some View {
+    func askLifeComposer() -> some View {
         padding(.leading, Metrics.Spacing.l).padding(.trailing, Metrics.Spacing.xs).padding(
             .vertical, Metrics.Spacing.xs
         )
@@ -201,15 +201,15 @@ extension View {
 }
 
 /// An answer's words: Grotesk, large; in the Grotesk look their key words (marked `**`) are bold.
-struct TellHead: View {
+struct AskLifeHead: View {
     let words: String
-    @AppStorage(TellLook.key) private var look = TellLook.lit
+    @AppStorage(AskLifeLook.key) private var look = AskLifeLook.lit
 
     var body: some View {
         Group {
             if look == .grotesk { bolded } else { Text(words.withoutMarks) }
         }
-        .font(.tellAnswer).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
+        .font(.askLifeAnswer).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
     }
 
     /// Only the `**` marks are read: words are data, never Markdown (no links).
@@ -225,14 +225,14 @@ struct TellHead: View {
 }
 
 /// A quiet line under the words.
-struct TellNote: View {
+struct AskLifeNote: View {
     let words: String
 
     var body: some View { Text(words).font(.note).foregroundStyle(Palette.muted) }
 }
 
-/// Tell Life made small: one line over the rail, the present answer or the work, tap to open, a cross to put it away.
-struct TellStrip: View {
+/// Ask Life made small: one line over the rail, the present answer or the work, tap to open, a cross to put it away.
+struct AskLifeStrip: View {
     let line: String
     let open: () -> Void
     let close: () -> Void
@@ -241,7 +241,7 @@ struct TellStrip: View {
         HStack(spacing: Metrics.Spacing.m) {
             Button(action: open) {
                 HStack(spacing: Metrics.Spacing.s) {
-                    TellMark(size: 16)
+                    AskLifeMark(size: 16)
                     Text(line.withoutMarks).font(.small).foregroundStyle(Palette.fg).lineLimit(1)
                     Spacer(minLength: 0)
                 }
@@ -260,8 +260,8 @@ struct TellStrip: View {
     }
 }
 
-/// Makes Tell Life small: the chevron, where the cross is on the other side.
-struct TellSmallButton: View {
+/// Makes Ask Life small: the chevron, where the cross is on the other side.
+struct AskLifeSmallButton: View {
     let action: () -> Void
 
     var body: some View {

@@ -12,6 +12,7 @@ import {
   piRuntime,
   readClaudeHooks,
   readClaudeInstructions,
+  runHeard,
 } from "./pi-runtime";
 
 // The pi runtime over a real pi (the pinned one, run as the helper runs it) and a made-up provider that answers by the
@@ -201,6 +202,7 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   expect(second.env[PI_EXTENSION_ENV.own]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.hooks]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.reads]).toBeUndefined();
+  expect(second.env[PI_EXTENSION_ENV.search]).toBeUndefined();
   // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
   expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
   expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
@@ -217,4 +219,32 @@ test("the connector's reader gets Life's values as they are: pi's `$NAME` and le
   } finally {
     delete process.env.LIFE_MADE_UP;
   }
+});
+
+test("a spending tool's usage is added to the turn's billed dollars and tokens, any other tool's never", () => {
+  const usage = {
+    billedUsd: 0,
+    contextFirst: null,
+    contextLast: null,
+    tokensCached: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+  };
+  const spent = {
+    cacheRead: 0,
+    cacheWrite: 0,
+    cost: { total: 0.005, totalFromProvider: true },
+    input: 3,
+    output: 0,
+    totalTokens: 3,
+  };
+  const c = { begun: () => undefined, end: () => undefined, usage };
+  for (const toolName of ["web_search", "subagent", "mcp__made_up__read"]) {
+    runHeard(c, {
+      result: { details: { usage: [spent] } },
+      toolName,
+      type: "tool_execution_end",
+    });
+  }
+  expect(usage).toMatchObject({ billedUsd: 0.01, tokensIn: 6 });
 });

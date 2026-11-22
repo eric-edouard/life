@@ -65,8 +65,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.quoted?.sender == "Kit")
     // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
     #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
-    // The plan card: the second decision is its assignment's first card; the first is not.
-    #expect(inbox.checks.prefix(2).map(\.isPlan) == [false, true])
+    // A plan card is a decision that gives `plan`, its steps: the third; the first two give none.
+    #expect(inbox.checks.prefix(3).map(\.isPlan) == [false, false, true])
     #expect(inbox.checks.last?.isPlan == nil)
     // A plan with its steps: who does each, when, where, and what it rests on; an older plan card has none.
     let plan = try #require(inbox.checks.first { $0.ref == "dec_000000000003" })
@@ -95,6 +95,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.networkIdentity?.party?.ref == "person:inf_kit")
     #expect(inbox.parties.contains { $0.ref == "person:inf_kit" })
     #expect(decision.ridesOn?.matters == 1)
+    #expect(decision.ridesOn?.matterIds == ["matter_aaaaaaaaaaaa"])
+    #expect(decision.matterID == "matter_aaaaaaaaaaaa")
     // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
     let transfer = inbox.checks[1]
     #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
@@ -195,7 +197,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 }
 
 /// A plan's start is its filled answer whatever order its asker sent; a card with no roles keeps its order; its steps
-/// draw even while `isPlan` is false (Life couldn't read its desk).
+/// draw whatever `isPlan` says.
 @Test func aPlanStartsFirstAndDrawsItsStepsWhateverItsMarker() throws {
     let card = { (isPlan: Bool, options: String) in
         try decoded(
@@ -221,10 +223,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.map(\.role) == [.personal, nil])
     let held = try #require(inbox.checks.first { $0.agent == agents[0].id })
     #expect(held.hearer(among: agents) == "the Personal agent")
-    #expect(held.tellTitle == "Tell the agent…")
+    #expect(held.ownWordsTitle == "Tell the agent…")
     let lifes = try #require(inbox.checks.first { $0.isLifesOwn })
     #expect(lifes.hearer(among: agents) == "Life")
-    #expect(lifes.tellTitle == "Tell Life…")
+    #expect(lifes.ownWordsTitle == "Ask Life…")
     let other = try #require(inbox.checks.first { $0.agent == nil && !$0.isLifesOwn })
     #expect(other.hearer(among: agents) == "the agent")
     var fields = try #require(
@@ -235,6 +237,21 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let owners = try decoded(
         Inbox.self, String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
     #expect(owners.checks[0].hearer(among: agents) == "Life")
+}
+
+/// An ask with no matter of its own is on the first matter it rides on; one from a Life that sends neither is on none.
+@Test func anAskIsOnItsOwnMatterElseTheFirstItRidesOn() throws {
+    var fields = try #require(
+        JSONSerialization.jsonObject(with: Data(wireText("life/read_inbox.json").utf8)) as? [String: Any])
+    var first = try #require((fields["checks"] as? [[String: Any]])?.first)
+    first["matter"] = nil
+    first["ridesOn"] = ["observations": 0, "matters": 2, "pages": 0, "matterIds": ["m1", "m2"]]
+    var older = first
+    older["ridesOn"] = ["observations": 0, "matters": 0, "pages": 0]
+    fields["checks"] = [first, older]
+    let inbox = try decoded(
+        Inbox.self, String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
+    #expect(inbox.checks.map(\.matterID) == ["m1", nil])
 }
 
 /// His words go with the option he picked that takes them, and with none when he answered in general ("Tell the
@@ -653,7 +670,7 @@ private func asks(
     #expect(check.askedName == "Sam Vale")
 }
 
-/// "Wrong…" is on Life's own cards only (it opens Tell Life on the card).
+/// "Wrong…" is on Life's own cards only (it opens Ask Life on the card).
 @Test func wrongIsOnLifesOwnCardsOnly() throws {
     let checks = try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
     #expect(checks.allSatisfy { ($0.misread != nil) == ($0.asker == "life") })
@@ -929,4 +946,17 @@ private func asks(
     #expect(!inbox.isUnchanged(by: try wireText("life/read_inbox.json")))
     #expect(!inbox.without([inbox.checks[0].ref]).isUnchanged(by: unchanged))
     #expect(try decoded(MatterList.self, wireText("life/read_matters.json")).version != nil)
+}
+
+@Test func aCutInboxKeepsWhatBlocksFirstAndACutPeopleListKeepsLifesOrder() throws {
+    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json")).ordered(deferred: [])
+    let refs = inbox.checks.map(\.ref)
+    try #require(refs.count >= 2)
+    let cut = ShownList(kind: .checks, refs: [refs[1], refs[0], "gone"], label: "x")
+    #expect(inbox.cut(to: cut).checks.map(\.ref) == [refs[0], refs[1]])
+    #expect(inbox.cut(to: nil).checks.map(\.ref) == refs)
+    let people = try decoded(PeopleList.self, wireText("life/read_people_and_organizations.json"))
+    let named = people.people.map(\.id).reversed()
+    #expect(people.cut(to: ShownList(kind: .people, refs: Array(named), label: "x")).people.map(\.id) == Array(named))
+    #expect(people.cut(to: nil) == people)
 }

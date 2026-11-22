@@ -13,7 +13,7 @@ import type { Row } from "./runtime-rows";
 // The one runtime (`contract.ts`): runs, warm sessions and the live map over a connection that one program process holds
 // on one session (`Connection`), opened by the runtime's own protocol (`Open`: ACP's in `acp-runtime.ts`, pi's RPC in
 // `pi-runtime.ts`). One process per turn, closed when the run ends: a turn is one run, his app may open the session
-// between turns. The one exception is `talk` (the main session, Tell Life): its process is kept open across prompts, so
+// between turns. The one exception is `talk` (the main session, Ask Life): its process is kept open across prompts, so
 // his next words pay no start, and closed after `KEEP_WARM_MS` without one. Nothing is written to disk: `live` holds the
 // runs this process drives, and a desk restart ends a running turn (its process dies with its pipe), which the desk's
 // retry covers. This file names no runtime and no protocol.
