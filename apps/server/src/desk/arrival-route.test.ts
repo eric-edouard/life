@@ -113,6 +113,7 @@ test("the first arrival no matter's agent takes, with no agent at all, starts th
             messages: [`whatsapp|${id}`],
             people: ["person:ana"],
             unit: "unit_0000000000a1",
+            wakes: true,
           },
         ],
         units: [unitOf()],
@@ -179,6 +180,7 @@ async function matterDesk(agentsRepo?: string) {
         messages: [`whatsapp|${id}`],
         people: [person],
         unit: "unit_0000000000a1",
+        wakes: true,
       })),
       units: [unitOf()],
     });
@@ -273,6 +275,7 @@ test("a message already queued for any agent wakes no one again; else Personal o
           messages: [`whatsapp|${id}`],
           people: ["person:ana"],
           unit: "unit_0000000000a1",
+          wakes: true,
         },
       ],
       units: [unitOf()],
@@ -327,6 +330,7 @@ test("a desk tick's confirmed arrivals of several people, from chat, mail and vo
     messages,
     people: ["person:ana", "unknown:Bo"],
     unit: unitId,
+    wakes: true,
   });
   await pollArrivals(s.desk, readPeopleOnce(), {
     arrivals: [
@@ -385,6 +389,7 @@ async function wokenFor(minutes: number, days: number, confirmedAgo: number) {
           messages: [`lifelog|${turn}`],
           people: ["person:ana"],
           unit: "unit_0000000000d1",
+          wakes: true,
         },
       ],
     });
@@ -457,6 +462,7 @@ test("he answered after an arrival's newest line: no agent wakes; a line of his 
           messages: ["whatsapp|whatsapp:1"],
           people: ["person:ana"],
           unit: "unit_0000000000a1",
+          wakes: true,
         },
       ],
       sources: [chat],
@@ -483,6 +489,7 @@ test("he answered after an arrival's newest line: no agent wakes; a line of his 
           messages: ["mail|mail:1"],
           people: ["person:ana"],
           unit: "unit_0000000000a2",
+          wakes: true,
         },
       ],
       sources: [mail],

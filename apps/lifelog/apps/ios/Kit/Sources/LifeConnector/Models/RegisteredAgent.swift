@@ -62,10 +62,12 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
-    /// Where its session is open outside the desk: his Claude app, or Claude Code elsewhere (a terminal, an editor).
+    /// Where its session is open outside the desk: his Claude app, Claude Code elsewhere (a terminal, an editor), or pi in
+    /// Terminal on his Mac ("Continue on your Mac").
     public enum SessionOpenIn: String, UnknownTolerant, Sendable {
         case claudeApp = "claude_app"
         case claudeCode = "claude_code"
+        case terminal
         case unknown
     }
 

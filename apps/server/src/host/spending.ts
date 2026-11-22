@@ -1,16 +1,19 @@
 import { join } from "node:path";
+import { readRun } from "../apify/backend";
 import { clock, daysBefore } from "../core/clock";
 import { isThere, readJson, writeJson } from "../core/files";
 import { type LogEvent, log, logDays, logEvents } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
+import { decisionsNow } from "../memory/decisions";
 import { assembleRuns } from "../memory/run-log";
 import {
   type Basis,
   type Spend,
   type SpendKind,
   type SpendProvider,
+  spendOfApifyRun,
   spendsOf,
   spendsOfVoice,
 } from "../memory/spends";
@@ -50,7 +53,7 @@ export interface DaySpending {
   byKind: KindSpending[];
   byProvider: ProviderSpending[];
   day: string;
-  /** Voice jobs and runs still unsettled when the day was written (after `SETTLE_DAYS`): not counted. */
+  /** Voice jobs and runs, and Apify runs, still unsettled when the day was written (after `SETTLE_DAYS`): not counted. */
   unsettled: number;
 }
 
@@ -105,6 +108,41 @@ function linesIn(names: string[], from: string, to: string) {
   };
 }
 
+/** How long after a run ends Apify's bill of it (`usageTotalUsd`) is whole: before, it is still being summed. */
+const APIFY_SETTLES_MS = 2 * 60_000;
+
+/** Apify's runs as billed at `now`: a run still running or whose bill is still being summed is unsettled (the day waits, as for Voice). */
+export function apifySpendsOf(
+  runs: { at: string; finishedAt: string | null; usd: number | null }[],
+  now: Date
+) {
+  const settled = runs.filter(
+    (r) =>
+      r.finishedAt &&
+      now.getTime() - Date.parse(r.finishedAt) >= APIFY_SETTLES_MS
+  );
+  return {
+    spends: settled.map((r) => spendOfApifyRun(r.at, r.usd)),
+    unsettled: runs.length - settled.length,
+  };
+}
+
+/** The Apify runs his yes started from `from` to `to` (each card's `ran`), read from Apify; throws when one can't be read (no token, a failure): the day is tried again, never written without it. */
+const readApifySpends = async (from: string, to: string) =>
+  apifySpendsOf(
+    await Promise.all(
+      decisionsNow()
+        .flatMap((d) =>
+          d.ran?.runId && d.ran.at >= from && d.ran.at < to ? [d.ran] : []
+        )
+        .map(async (r) => ({
+          at: r.at,
+          ...(await readRun(r.runId as string, false)),
+        }))
+    ),
+    clock()
+  );
+
 /** Voice's spending, or none while Voice is not set up. */
 const voiceSpending = (from: string, to: string) =>
   // Set up without its token: it can't be read, so the day waits (never written without Voice).
@@ -119,7 +157,8 @@ const voiceSpending = (from: string, to: string) =>
 export async function readDaySpends(
   day: string,
   names?: string[],
-  readVoice = voiceSpending
+  readVoice = voiceSpending,
+  readApify = readApifySpends
 ) {
   const { from = day, to } = dayRange(day, day);
   const { lines, runs } = linesIn(names ?? (await logDays()), from, to);
@@ -128,12 +167,14 @@ export async function readDaySpends(
     throw new Error(`desk: ${desk.why}`);
   }
   const voice = await readVoice(from, to);
+  const apify = await readApify(from, to);
   return {
     spends: [
       ...spendsOf(lines, runs, desk.state === "ok" ? desk.value : []),
       ...spendsOfVoice(voice),
+      ...apify.spends,
     ],
-    unsettled: voice.unsettled,
+    unsettled: voice.unsettled + apify.unsettled,
   };
 }
 
