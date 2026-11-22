@@ -186,8 +186,8 @@ test("a month's in-person paragraph shows only on a call that has it on: off, th
   const month = "memory-history-month.v1";
   const sha = (text: string) =>
     new Bun.CryptoHasher("sha256").update(text).digest("hex").slice(0, 16);
-  // The render before the part existed, pinned: a month with no conversation in person is shown the same prompt.
-  expect(sha(promptText(month))).toBe("1221ade54773bde2");
+  // The render of a month with no conversation in person, pinned (it holds the owner rule).
+  expect(sha(promptText(month))).toBe("b0d88496de0671b3");
   expect(promptText(month, [IN_PERSON])).toContain("## In person");
   expect(promptNameOf(month)).toBe(month);
   expect(promptNameOf(month, [MAY_KEEP, IN_PERSON])).toBe(
@@ -208,4 +208,12 @@ test("the owner is called by their `called`, else their name's first word", () =
   expect(readOwnerName(data)).toBe("Jean");
   write("    called: Jean Paul\n");
   expect(readOwnerName(data)).toBe("Jean Paul");
+});
+
+test("every prompt says to name a person by their name or who they are to the owner, never a family word from his notes (his pass of 21 Nov 2026)", () => {
+  for (const prompt of ["memory-extract.v7", "memory-matters.v2"]) {
+    expect(promptText(prompt)).toContain(
+      'never by a family word copied from notes, to-dos, chats or a ref\'s id ("Mum", "Dad", "Grandpa", `person:dad`)'
+    );
+  }
 });

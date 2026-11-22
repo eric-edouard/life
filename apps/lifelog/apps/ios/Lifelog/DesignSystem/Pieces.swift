@@ -551,9 +551,11 @@ struct StateDot: View {
 }
 
 /// A list's Filter: a system menu of inline pickers (a line icon per row, a check on the chosen one), its glyph filled
-/// while a choice narrows the list. Matters and the asks draw it.
+/// while a choice narrows the list. In the closed Duo's column it is More, three dots, last in the Pendant and Settings
+/// group (placement, 22 Nov: nothing bottom-left; `VisFoldMatters`, `DuoFoldPeople`).
 struct FilterMenu<Choices: View>: View {
     let isFiltered: Bool
+    var isMore = false
     let identifier: String
     /// What VoiceOver reads: what the menu does ("Filter", "Sort").
     let label: String
@@ -563,16 +565,26 @@ struct FilterMenu<Choices: View>: View {
         Menu {
             choices
         } label: {
-            Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+            Image(systemName: symbol)
         }
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
+    }
+
+    private var symbol: String {
+        switch (isMore, isFiltered) {
+        case (true, true): "ellipsis.circle.fill"
+        case (true, false): "ellipsis"
+        case (false, true): "line.3.horizontal.decrease.circle.fill"
+        case (false, false): "line.3.horizontal.decrease"
+        }
     }
 }
 
 extension View {
     /// A list's Filter, in the top group by where the system puts the bars: a top-leading toolbar item, or, in the side
-    /// column (`reportsSideColumn`), one more item of the right-edge group under the Pendant and Settings; nothing floats.
+    /// column (`reportsSideColumn`), More, the last item of the right-edge group under the Pendant and Settings (apply it
+    /// inside `shellBar`, so its item comes after theirs); nothing floats.
     func filterBar<Choices: View>(
         isFiltered: Bool, identifier: String, isResting: Bool = false, label: String = "Filter",
         @ViewBuilder choices: () -> Choices
@@ -593,7 +605,7 @@ private struct FilterBar<Choices: View>: ViewModifier {
 
     // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
     private var menu: some View {
-        FilterMenu(isFiltered: isFiltered, identifier: identifier, label: label, choices: choices)
+        FilterMenu(isFiltered: isFiltered, isMore: isInColumn, identifier: identifier, label: label, choices: choices)
             .disabled(isResting)
     }
 
@@ -959,19 +971,41 @@ struct SheetHeader: View {
 
 extension View {
     /// A sheet on the one-scroll rule (decision 97): this view is the one scroll's content, at the gutter; `head` (its
-    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar, each over the system's soft edge, so nothing
-    /// scrolls inside and the content's end scrolls clear of the buttons.
+    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar (`sheetBars`), so nothing scrolls inside and
+    /// the content's end scrolls clear of the buttons.
     func sheetScroll<Head: View, Buttons: View>(
         @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
     ) -> some View {
-        let content = self.padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        sheetScrolled.sheetBars(head: head, buttons: buttons)
+    }
+
+    /// `sheetScroll` with no buttons.
+    func sheetScroll<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        sheetScrolled.sheetBars(head: head)
+    }
+
+    private var sheetScrolled: some View {
+        ScrollView {
+            padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    /// Every sheet's shell, the screens' own (decision 96): its head in the top bar and its buttons in the bottom bar,
+    /// the scroll under both (this view holds it, a `ReadScreen`'s included) softened at both edges by iOS's soft
+    /// scroll edge, set on the sheet itself.
+    func sheetBars<Head: View, Buttons: View>(
+        @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
+    ) -> some View {
         let bottom = buttons().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-        return ScrollView { content }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaBar(edge: .top, spacing: 0) { top }
-            .safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+        return sheetBars(head: head).safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+    }
+
+    /// `sheetBars` with no buttons.
+    func sheetBars<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        return safeAreaBar(edge: .top, spacing: 0) { top }
             .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 }

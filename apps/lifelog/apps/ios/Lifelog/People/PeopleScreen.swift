@@ -47,9 +47,9 @@ private struct PeopleColumns: View {
             )
             .background(Palette.bg)
             .screenTitle("People", state: order == .alphabet ? "A to Z" : nil)
+            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
             // Beside a person, the Pendant and Settings are the person's column.
             .shellBar("", hasSettings: !isSplit, hasPendant: !isSplit)
-            .filterBar(isFiltered: order != .closeness, identifier: "people.sort", label: "Sort") { orderChoices }
         } detail: {
             if let ref = router.person {
                 NavigationStack(path: $router.personPath) {
