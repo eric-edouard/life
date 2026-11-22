@@ -145,13 +145,12 @@ final class AppRouter {
     /// The Projects page, on its whole list, from the list's top row.
     func showProjects() {
         (isDrawerOpen, tab, chip, matterColumn) = (false, .projects, nil, .sidebar)
-        detail = nil
+        (detail, cut) = (nil, nil)
     }
 
     /// The People page, on its whole list, from the list's top row.
     func showPeople() {
-        isDrawerOpen = false
-        tab = .people
+        (isDrawerOpen, tab, cut) = (false, .people, nil)
         select(person: nil)
     }
 
