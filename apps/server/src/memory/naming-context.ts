@@ -1,5 +1,6 @@
 import { DAY, HOUR, MIN } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
+import type { Organization } from "../records/truth";
 import type { DetailLine } from "./details";
 import { OWNER } from "./read-truth";
 import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
@@ -142,7 +143,7 @@ export interface Signs {
   onCall: string[];
   /** Pictured in a photo of that day. */
   pictured: string[];
-  /** In an active plan for that day (`modality` plan, its `when` the day; never a conditional one), whose evidence is not a recording: a meeting set by mail or chat. Not `appointments.ts`'s choice, which keeps every dated observation from today on for his calendar. */
+  /** In an active plan for that day (`modality` plan, its `when` the day; never a conditional one), whose evidence is not a recording: a meeting set by mail or chat; a project or organization it names brings that organization's people (`plannedPeopleOf`). Not `appointments.ts`'s choice, which keeps every dated observation from today on for his calendar. */
   scheduled: string[];
 }
 
@@ -167,6 +168,28 @@ export function isHeardAround(
       (t > to && t <= to + HEARD_WITHIN)) &&
     offsetAt(heardAt) === offsetAt(at)
   );
+}
+
+/**
+ * Who a plan's subject brings to a meeting: a project's or an organization's people, as his directory lists them now
+ * (an organization's `people` with no `until`, for a project those of every organization that holds it), else the
+ * subject itself. A meeting set by an invitation names the client's project, rarely each guest (his report of 22 Nov).
+ */
+export function plannedPeopleOf(
+  subject: string,
+  organizations: readonly Pick<Organization, "id" | "people" | "projects">[]
+) {
+  const project = subject.startsWith("project:")
+    ? subject.slice("project:".length)
+    : null;
+  const held = organizations.filter((o) =>
+    project ? o.projects.includes(project) : subject === `person:${o.id}`
+  );
+  return held.length > 0
+    ? held.flatMap((o) =>
+        o.people.filter((p) => !p.until).map((p) => `person:${p.id}`)
+      )
+    : [subject];
 }
 
 /**
