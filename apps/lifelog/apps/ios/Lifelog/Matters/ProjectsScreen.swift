@@ -323,17 +323,13 @@ struct MatterRowView: View {
             title: row.name, icon: row.symbol,
             iconTint: Palette.muted, detail: row.nextStep?.text, isMarked: isMarked, isInList: true
         ) {
-            // A parked project's matter waits: no dot, no agent.
+            // A parked project's matter waits: no dot, no spinner. An idle agent shows nothing (nav v3).
             if parked {
                 EmptyView()
             } else if row.needsYou == true {
                 StateDot(color: Palette.flag)
             } else if agent?.status == .running {
                 Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("An agent is working")
-            } else if row.agent != nil {
-                // Idle until something new touches the matter: its mark, still, never the working spinner.
-                Image(symbol: (agent?.runtimeName ?? .unknown).mark).font(.small)
-                    .foregroundStyle(Palette.muted).accessibilityLabel("An agent is waiting")
             }
         }
         .opacity(parked ? 0.45 : 1)
