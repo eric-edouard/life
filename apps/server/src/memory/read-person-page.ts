@@ -5,6 +5,7 @@ import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
 import { speakers, withStore } from "../sources/lifelog";
 import { conversationsWith } from "../sources/lifelog-conversations";
+import { noMatterChecksByPartyOf } from "./checks";
 import { levelsWith, pagedNow } from "./closeness";
 import { readCommunicationStyle } from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
@@ -27,8 +28,8 @@ import {
   isIn,
   isOnTheList,
   knowsOf,
-  type MatterRowNow,
   type NowInputs,
+  type OpenNow,
   peopleListOf,
   personNowOf,
   reachPageOf,
@@ -218,10 +219,11 @@ export async function person(
     span?: string;
   } = {},
   personal: PersonalParts = {},
-  matters: () => Promise<MatterRowNow[]> = () => Promise.resolve([])
+  open: () => Promise<OpenNow> = () =>
+    Promise.resolve({ checks: [], matters: [] })
 ): Promise<string | Record<string, unknown>> {
   if (!name) {
-    return peopleList(await readPeople(), await matters(), o.query);
+    return peopleList(await readPeople(), await open(), o.query);
   }
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
@@ -275,7 +277,7 @@ export async function person(
     ? nowGathered(
         ref,
         folks,
-        await matters(),
+        await open(),
         // His own situation may cite any episode (his leave him out of their people): its cited ids, looked up.
         ref === OWNER ? readStandingEpisodes : episodes
       )
@@ -378,14 +380,17 @@ const heldYearsOf = (db: Database, ref: string) =>
 function nowGathered(
   ref: string,
   people: People,
-  matters: MatterRowNow[],
+  { checks, matters }: OpenNow,
   standing: Parameters<typeof readSituationNow>[1]
 ) {
   const { truth } = people;
+  const asks =
+    noMatterChecksByPartyOf(checks, people.canon).get(people.canon(ref)) ?? [];
   const row = rowOf(
     people.partyOf(ref),
     standingOf(levelsWith(people), readExchangeCounts()),
-    matters
+    matters,
+    asks.length > 0
   );
   const organization = truth.organizations.find(
     (x) => `person:${x.id}` === ref
@@ -403,6 +408,7 @@ function nowGathered(
     personNowOf(
       {
         ...more,
+        checks: asks,
         communicationStyle: readCommunicationStyle(ref),
         details,
         ...(ref === OWNER && isDirectoryNew(truth)
@@ -473,7 +479,7 @@ const standingOf = (
  */
 async function peopleList(
   people: People,
-  matters: MatterRowNow[],
+  { checks, matters }: OpenNow,
   query?: string
 ) {
   const { canon, truth } = people;
@@ -485,9 +491,12 @@ async function peopleList(
     ].filter(isOnTheList)
   );
   const standing = standingOf(levelsWith(people), readExchangeCounts());
+  const asks = noMatterChecksByPartyOf(checks, canon);
   const rowsOf = (list: Iterable<string>) =>
     peopleListOf(
-      [...list].map((ref) => rowOf(people.partyOf(ref), standing, matters))
+      [...list].map((ref) =>
+        rowOf(people.partyOf(ref), standing, matters, asks.has(ref))
+      )
     );
   if (!query) {
     return { people: rowsOf(refs) };

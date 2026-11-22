@@ -22,7 +22,7 @@ struct ProjectDetails: View {
         )
         .background(Palette.bg)
         .saysBack()
-        .shellBar("", hasSettings: false)
+        .shellBar("")
         .task { await life.refreshProjectHead(id) }
     }
 

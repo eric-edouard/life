@@ -4,6 +4,7 @@
   "name": "Test Bakery",
   "ref": "person:test-bakery",
   "needsYou": false,
+  "checks": [],
   "communicationStyle": [],
   "details": [],
   "episodes": [],

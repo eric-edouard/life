@@ -51,7 +51,12 @@ let kept:
  * ended (`iconWorkEnded`: a pick landed, or one failed and is tried again). `version` is the answer's own digest
  * (`versionOf`): two processes giving the same version give the same rows.
  */
-export async function readMatterRowsNow(
+export const readMatterRowsNow = async (
+  ...args: Parameters<typeof readRowsAndChecksNow>
+) => (await readRowsAndChecksNow(...args)).rows;
+
+/** The matter rows (`readMatterRowsNow`) and the open checks they were read over, one read of each. */
+async function readRowsAndChecksNow(
   q: Parameters<typeof openMatters>[0] = {},
   agentOf?: NonNullable<Parameters<typeof openMatters>[1]> & { stamp: string }
 ) {
@@ -68,11 +73,15 @@ export async function readMatterRowsNow(
     rows.set(rest, read);
     read.catch(() => rows.delete(rest));
   }
-  return await read;
+  return { checks: open, rows: await read };
 }
 
-/** `read_people_and_organizations` and `bun life memory person`: the person read (`readPerson`) with the matter rows read now. */
+/** `read_people_and_organizations` and `bun life memory person`: the person read (`readPerson`) with the matter rows and his open checks read now (the same list `read_inbox` reads). */
 export const readPeopleAndOrganizations = (
   name?: string,
   o: Parameters<typeof readPerson>[1] = {}
-) => readPerson(name, o, async () => (await readMatterRowsNow()).matters);
+) =>
+  readPerson(name, o, async () => {
+    const { checks, rows } = await readRowsAndChecksNow();
+    return { checks, matters: rows.matters };
+  });

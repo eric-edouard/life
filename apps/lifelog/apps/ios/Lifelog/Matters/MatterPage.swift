@@ -9,7 +9,6 @@ private let needsYourAnswer = "Needs your answer"
 struct MatterPage: View {
     let id: String
     /// Settings beside the Pendant: on a regular width the list's bar has neither, so the page carries both.
-    var hasSettings = false
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -29,7 +28,7 @@ struct MatterPage: View {
         .saysBack()
         // Back on the left, his mark, then the Pendant on the right (and Settings when the list's bar has neither): the
         // items of an outer toolbar come first.
-        .shellBar("", hasSettings: hasSettings)
+        .shellBar("")
         .toolbar {
             if let row = state.value?.row {
                 ToolbarItem(placement: .topBarTrailing) {
