@@ -58,7 +58,8 @@ export type SessionOpenIn = "claude_app" | "claude_code";
 
 /**
  * Where record `r` holds its session open, or null for the desk's own runs (the agent SDK's `sdk-*`, kept between his
- * asks too). ponytail: an orphaned desk run is `sdk-*` too, so it shows nothing here though the desk waits on it.
+ * asks too). ponytail: an orphaned desk run is `sdk-*` too, and a `claude --resume` with no record is found only by the
+ * desk's `pgrep`; either shows nothing here though the desk waits on it (its `desk.session_open` line still says so).
  */
 export const sessionOpenInOf = (
   r: Pick<ClaudeSessionRecord, "entrypoint">
