@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The asks as a list, in the order he meets them: a line icon for who or what asks, the question, one line of context,
 /// and a running deadline as its words at the right in `flag` (no dot: a dot means an ask waits, and every row here
-/// does). What can wait sits under its own heading. A tap pushes its ask on this list.
+/// does). What can wait sits under its own heading. Rows only: the list (`HomeList`) holds them.
 struct CheckList: View {
     let order: InboxOrder
     let choose: (String) -> Void
@@ -12,20 +12,14 @@ struct CheckList: View {
     @Environment(LifeStore.self) private var life
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                CutToast(kind: .checks)
-                // Two cards: what waits on him, then the rest.
-                let split = min(order.canWaitFrom ?? order.checks.count, order.checks.count)
-                ForEach(Array(order.checks.enumerated()), id: \.element.ref) { at, check in
-                    if at == split {
-                        ListLabel("The rest can wait")
-                    }
-                    let isRest = at >= split
-                    row(check, at: isRest ? at - split : at, of: isRest ? order.checks.count - split : split)
-                }
+        // Two cards: what waits on him, then the rest.
+        let split = min(order.canWaitFrom ?? order.checks.count, order.checks.count)
+        ForEach(Array(order.checks.enumerated()), id: \.element.ref) { at, check in
+            if at == split {
+                ListLabel("The rest can wait")
             }
-            .padding(.bottom, 24).readingWidth()
+            let isRest = at >= split
+            row(check, at: isRest ? at - split : at, of: isRest ? order.checks.count - split : split)
         }
         .motion(Motion.standard, value: order.checks.map(\.ref))
     }

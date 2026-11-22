@@ -6,8 +6,9 @@ import SwiftUI
 
 /// The top group, as the system's own toolbar items: the Pendant, with Back before it on a pushed page, on the trailing
 /// edge in one glass capsule. Leading is the stack's Back, or a list's Filter (`filterBar`). Declared, never
-/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo. On a regular width (the Duo
-/// unfolded) the column's second item, under the Pendant, is a pushed page's Back, else the list's button; no corner holds one.
+/// drawn, so iOS places them: a bar on a phone, the side column on the iPhone Duo. The one slot beside the Pendant is
+/// Back: on a pushed page, and stacked on a page's root that is not the list (Back returns to the list). No list button
+/// and no close here: the list is a page of its own stacked, and the open Duo's button sits at the page's foot.
 private struct ShellBar: ViewModifier {
     let label: String
     let hasPendant: Bool
@@ -16,12 +17,10 @@ private struct ShellBar: ViewModifier {
     @Environment(\.topBarZoom) private var topBarZoom
     @Environment(\.isPresented) private var isPushed
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
-    /// A pushed page's: the stack's Back.
-    private var hasBack: Bool { isPushed }
-    /// The unfolded Duo, on a page that is not pushed: the list's button joins the group.
-    private var hasList: Bool { !hasBack && hasPendant && sizeClass == .regular }
+    /// Stacked, a page's root (Projects, People, Profile) goes back to the list.
+    private var isBackToList: Bool { !isPushed && router.pose == .stacked && router.tab != .inbox }
+    private var hasBack: Bool { isPushed || isBackToList }
 
     func body(content: Content) -> some View {
         content
@@ -39,7 +38,6 @@ private struct ShellBar: ViewModifier {
                 if hasBack && !router.isBarsInColumn { fitted(back) }
                 if hasPendant { fitted(pendant) }
                 if hasBack && router.isBarsInColumn { fitted(back) }
-                if hasList { fitted(list) }
             }
     }
 }
@@ -63,13 +61,9 @@ extension ShellBar {
         }
     }
 
-    private var list: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) { ListButton() }
-    }
-
     private var back: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Back", systemImage: "chevron.backward") { dismiss() }
+            Button("Back", systemImage: "chevron.backward") { if isBackToList { router.showHome() } else { dismiss() } }
                 .labelStyle(.iconOnly)
                 .accessibilityIdentifier("top.back")
         }
