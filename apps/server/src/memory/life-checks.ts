@@ -148,7 +148,7 @@ export const LIFE_CHECKS = {
   },
   // A matter's step that is his: "Hand over" only while an agent could take it (`checks.ts` drops it otherwise).
   "your move": {
-    context: "A step of yours is open on this matter.",
+    context: "Still yours to do? Life sees no sign it is done.",
     options: [
       { ends: "step", id: "done", label: "Mark as done", takes: null },
       { icon: "agent", id: "start", label: "Hand over", takes: null },

@@ -127,6 +127,8 @@ type StepEnding = { at: string } & (
 
 export interface MatterStepNow {
   at: string;
+  /** An observation a mailer said (`isMailer`: a no-reply notice or his agents' report): owed to no one. */
+  byMailer?: true;
   day: string;
   /** How it ended; none while it is open (or for an episode or a list entry, which never end). */
   ending?: StepEnding;
@@ -334,6 +336,7 @@ function stepsOf(
     ...observations.map(
       (o): MatterStepNow => ({
         at: o.at,
+        ...(rec.isMailer(o.speaker) ? { byMailer: true as const } : {}),
         day: o.date,
         ending: endingOf(o.id, rec),
         kind: o.type,
