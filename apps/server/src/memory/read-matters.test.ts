@@ -136,6 +136,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
         text: "The shop's quote",
         waitsOn: "the shop",
       },
+      openedAt: "2026-10-02T10:00:00.000Z",
       people: {
         owedTo: [party("person:gran")],
         with: [party("person:partner")],
