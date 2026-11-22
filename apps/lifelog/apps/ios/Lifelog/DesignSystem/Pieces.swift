@@ -221,7 +221,8 @@ struct Toast: View {
         }
         .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : symbol == nil ? 6 : 0)
         .frame(minWidth: 120, minHeight: 44)
-        .floatingGlass()
+        // Glass tinted with the page, so titles behind the toast do not read through.
+        .glassEffect(.regular.tint(Palette.bg.opacity(0.75)), in: .capsule)
     }
 }
 
@@ -401,16 +402,18 @@ extension View {
     /// (`Metrics.gutter`, as the frames draw it); the open row lit with `pick`. Rows of one group stack with no gap; a
     /// label or a gap starts the next. The same in a `List` row (its swipe actions and letter index kept) as in a stack. A row he taps
     /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
-    func groupedRow(at index: Int, of count: Int, isChosen: Bool = false) -> some View {
-        let top = index == 0 ? Metrics.Radius.card : 0
-        let foot = index == count - 1 ? Metrics.Radius.card : 0
-        let shape = UnevenRoundedRectangle(
-            topLeadingRadius: top, bottomLeadingRadius: foot, bottomTrailingRadius: foot, topTrailingRadius: top)
+    func groupedRow(at index: Int, of count: Int, isChosen: Bool = false, isPressed: Bool = false) -> some View {
+        // The lit container: the card radius on every corner, a little wider than the row's text and 2 off the hairlines.
+        let lit = RoundedRectangle(cornerRadius: Metrics.Radius.card)
         return frame(minHeight: Metrics.listRow).contentShape(.rect)
-            .background(Color.pick.opacity(isChosen ? 1 : 0), in: shape)
+            .background {
+                lit.fill(Color.pick).padding(.horizontal, -Metrics.Spacing.xs * 2).padding(.vertical, 2)
+                    .opacity(isChosen || isPressed ? 1 : 0)
+            }
             .overlay(alignment: .top) { if index > 0 { Hairline() } }
             .padding(.horizontal, Metrics.gutter)
             .motion(Motion.standard, value: isChosen)
+            .motion(Motion.standard, value: isPressed)
             .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 }
@@ -422,7 +425,8 @@ struct GroupedRowStyle: ButtonStyle {
     var isChosen = false
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.groupedRow(at: index, of: count, isChosen: isChosen)
+        configuration.label.groupedRow(
+            at: index, of: count, isChosen: isChosen, isPressed: configuration.isPressed)
     }
 }
 

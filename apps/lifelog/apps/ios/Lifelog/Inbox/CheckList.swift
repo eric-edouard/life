@@ -3,12 +3,9 @@ import SwiftUI
 
 /// The asks as a list, in the order he meets them: a line icon for who or what asks, the question, one line of context,
 /// and a running deadline as its words at the right in `flag` (no dot: a dot means an ask waits, and every row here
-/// does). What can wait sits under its own heading. The chosen row is the ask on show. The Inbox's sidebar on the iPhone
-/// Duo, its own screen on a phone.
+/// does). What can wait sits under its own heading. A tap pushes its ask on this list.
 struct CheckList: View {
     let order: InboxOrder
-    /// The ref of the ask on show.
-    let chosen: String?
     let choose: (String) -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -34,8 +31,7 @@ struct CheckList: View {
     }
 
     private func row(_ check: Check, at index: Int, of count: Int) -> some View {
-        let isChosen = check.ref == chosen
-        return Button {
+        Button {
             choose(check.ref)
         } label: {
             // A kind answered in bulk is one row, its card's question and how many it holds.
@@ -57,7 +53,7 @@ struct CheckList: View {
             .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             .accessibilityElement(children: .combine)
         }
-        .buttonStyle(.groupedRow(at: index, of: count, isChosen: isChosen))
+        .buttonStyle(.groupedRow(at: index, of: count))
         .appears()
     }
 

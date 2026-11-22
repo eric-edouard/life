@@ -2,68 +2,36 @@ import LifeConnector
 import ServerAPI
 import SwiftUI
 
-/// Ask Life, full screen: one place to say anything to Life from any screen. His last words sit as a caption, the stage
-/// shows the present (never a history), and the foot is the composer: his words in a capsule, the one microphone
-/// (`DictationField`: tap, or hold, to talk) and Send, or a hold slid up from the microphone. Not a live conversation:
-/// he records, then sends.
-struct AskLifeScreen: View {
+/// What Ask Life shows above its card when it is full screen: his last words as a caption, then the present (Life's
+/// work, or its answer with its chips), never a history. The card below is the strip's, the same view moved, not copied.
+struct AskLifeStage: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
-    @State private var draft = ""
     /// The card an answer's chip points at is no longer open: said in place, the screen stays.
     @State private var isCardGone = false
 
     private var tell: AskLife { life.askLife }
 
-    /// Closes to the strip when there is something to keep in sight, else just closes.
-    private func makeSmall() {
-        router.isAskLifeSmall = tell.stage != .ready || tell.answer != nil
-        router.isAskLifeOpen = false
-    }
-
     var body: some View {
-        VStack(spacing: Metrics.Spacing.l) {
-            HStack {
-                AskLifeSmallButton(action: makeSmall)
-                Spacer()
-                CloseButton {
-                    router.askLifeContext = nil
-                    router.isAskLifeSmall = false
-                    router.isAskLifeOpen = false
+        ScrollView {
+            VStack(spacing: Metrics.Spacing.l) {
+                if let context = router.askLifeContext {
+                    QuietChip(context.question, symbol: "xmark", isMuted: true) { router.askLifeContext = nil }
                 }
+                if !tell.said.isEmpty {
+                    Text(tell.said).font(.small).foregroundStyle(Palette.muted).lineLimit(2)
+                        .multilineTextAlignment(.center).appears(Motion.fade)
+                }
+                stage.frame(maxWidth: .infinity)
             }
-            if let context = router.askLifeContext {
-                QuietChip(context.question, symbol: "xmark", isMuted: true) { router.askLifeContext = nil }
-            }
-            if !tell.said.isEmpty {
-                Text(tell.said).font(.small).foregroundStyle(Palette.muted).lineLimit(2).multilineTextAlignment(.center)
-                    .appears(Motion.fade)
-            }
-            Spacer(minLength: 0)
-            stage.frame(maxWidth: .infinity)
-            Spacer(minLength: 0)
-            composer
+            .padding(.horizontal, Metrics.gutter)
         }
-        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-        .background(AskLifeRoom())
-        .onAppear { router.isAskLifeSmall = false }
-        // Swipe down makes it small.
-        .gesture(DragGesture().onEnded { if $0.translation.height > 120 { makeSmall() } })
+        // The stage is bottom-aligned: its foot rests on the card.
+        .defaultScrollAnchor(.bottom).scrollBounceBehavior(.basedOnSize)
         .motion(Motion.standard, value: tell.stage)
         .motion(Motion.standard, value: tell.answer)
         .motion(Motion.standard, value: isCardGone)
         .onChange(of: tell.answer) { isCardGone = false }
-        // The session is kept warm while the screen stays open, so his first words start at once.
-        .task {
-            while !Task.isCancelled {
-                await tell.keepWarm()
-                try? await Task.sleep(for: .seconds(240))
-            }
-        }
-        // Words that waited for the Mac go as soon as the phone has a path again.
-        .onChange(of: life.hasPath) { _, has in
-            if has, tell.stage == .offline { Task { await tell.sendAgain(screen: router.mainSessionScreen) } }
-        }
     }
 
     @ViewBuilder private var stage: some View {
@@ -120,7 +88,7 @@ struct AskLifeScreen: View {
             // A card that is gone keeps Ask Life open and says so.
             Task {
                 guard await life.open(ref: ref) else { return isCardGone = true }
-                router.isAskLifeOpen = false
+                router.askLife = .away
                 // An ask of a matter is in that matter's thread; one of no matter is the Inbox's.
                 if let matter = life.inbox.value?.checks.first(where: { $0.ref == ref })?.matterID {
                     router.open(matter: matter)
@@ -130,24 +98,10 @@ struct AskLifeScreen: View {
             }
             return
         }
-        router.isAskLifeOpen = false
+        router.askLife = .away
         if ref.hasPrefix("person:") { router.open(party: ref) } else { router.open(matter: ref) }
     }
 
     private func head(_ words: String) -> some View { AskLifeHead(words: words) }
     private func note(_ words: String) -> some View { AskLifeNote(words: words) }
-
-    /// The foot, chat style: his words, the microphone, Send; every element keeps its place.
-    private var composer: some View {
-        DictationField(prompt: "Ask Life…", text: $draft, axis: .vertical, send: submit)
-            .askLifeComposer()
-    }
-
-    private func submit() {
-        // His words are never dropped: while Life works, they stay in the field.
-        guard !tell.isBusy else { return }
-        let words = draft
-        draft = ""
-        Task { await tell.send(words, screen: router.mainSessionScreen) }
-    }
 }
