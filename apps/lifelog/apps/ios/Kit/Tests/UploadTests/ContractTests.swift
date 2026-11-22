@@ -155,7 +155,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // An agent as read: the stored statuses, with `active` read as running or waiting.
     let stored = try quoted("records/registered-agent.ts", /export type AgentStatus = ([^;]*);/)
     #expect(stored.subtracting(["active"]).union(["running", "waiting"]) == client(AgentStatus.self))
-    let roles = try quoted("records/registered-agent.ts", /export type AgentRole = ([^;]*);/)
+    let roles = try quoted("core/names.ts", /AgentRole = z\.enum\(\[([^\]]*)\]/)
     #expect(roles == client(RegisteredAgent.Role.self))
     #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))

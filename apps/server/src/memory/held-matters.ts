@@ -1,8 +1,5 @@
-import type {
-  AgentRole,
-  AgentStatus,
-  OpenedBy,
-} from "../records/registered-agent";
+import type { AgentRole } from "../core/names";
+import type { AgentStatus, OpenedBy } from "../records/registered-agent";
 
 // Which matters registered agents hold, and which agent takes a matter (docs/tasks.md, "held"): the rules, pure, for
 // the hand-out (`handOutOf`), the fold and the new matter check alike. The facts come from the desk's store (host's
