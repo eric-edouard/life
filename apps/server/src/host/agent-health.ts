@@ -1,7 +1,7 @@
 import { HOUR, MIN } from "../core/clock";
 import { dayNow, localDate, localTime, time } from "../memory/zones";
 import type { AppListing } from "./claude-app-listing";
-import type { SessionOpenIn } from "./claude-session-records";
+import { OPEN_IN_WORDS, type SessionOpenIn } from "./open-session-records";
 
 // The agents' health (his word of 22 Nov 2026: "an extensive health check of the agents ... that they're really
 // listening ... visible on the app for Claude Code"): a verdict per agent and one for the desk, in plain words, worked out
@@ -43,11 +43,6 @@ export interface HealthFacts {
 /** A time as he reads it: its hour today, else its day too. */
 const whenOf = (iso: string) =>
   localDate(iso) === dayNow() ? time(iso) : localTime(iso);
-
-const OPEN_IN: Record<SessionOpenIn, string> = {
-  claude_app: "your Claude app",
-  claude_code: "Claude Code",
-};
 
 /** The amber flags (`amberOf`) as he reads them; the session held open is said with its wakes instead. */
 const amberWords = (flag: string) => {
@@ -112,7 +107,7 @@ function hearingOf(f: HealthFacts, now: number) {
   const waited = f.waitingSince ? now - Date.parse(f.waitingSince) : 0;
   const since = f.waitingSince ? whenOf(f.waitingSince) : "";
   if (f.sessionOpenIn) {
-    const held = `Open in ${OPEN_IN[f.sessionOpenIn]}${f.sessionOpenSince ? ` since ${whenOf(f.sessionOpenSince)}` : ""}`;
+    const held = `Open in ${OPEN_IN_WORDS[f.sessionOpenIn]}${f.sessionOpenSince ? ` since ${whenOf(f.sessionOpenSince)}` : ""}`;
     return {
       isBroken: waited > HELD_BROKEN_AFTER,
       line:

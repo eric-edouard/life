@@ -30,6 +30,7 @@ import {
   writeSubject,
 } from "./agent-actions";
 import { applyHandOver, type HandOverFacts } from "./agent-moves";
+import { continueOnMac } from "./continue-on-mac";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
 import { ownAssignmentOf, standingAgentOf } from "./role-agents";
 
@@ -41,6 +42,12 @@ import { ownAssignmentOf, standingAgentOf } from "./role-agents";
 const CURSOR = "asks";
 /** An ask older than this when first read is refused, not applied late (the desk was off or stopped meanwhile). */
 const STALE_AFTER = 10 * MIN;
+
+/** What a change reads before its transaction: a start's taker, a move's facts, and a continue on his Mac done (`continueOnMac`). */
+type ChangeFacts = HandOverFacts & {
+  continued?: { error?: string };
+  taker?: string;
+};
 
 const now = () => clock().toISOString();
 
@@ -218,7 +225,7 @@ function apply(
   ask: string,
   c: AgentChange,
   brief: string,
-  facts: HandOverFacts & { taker?: string }
+  facts: ChangeFacts
 ): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
@@ -240,6 +247,10 @@ function apply(
       return start(desk, c, brief, facts);
     case "hand_over":
       return applyHandOver(desk, ask, c, facts);
+    case "continue_on_mac":
+      refused =
+        refusal(["active", "stopped"]) ?? facts.continued?.error ?? null;
+      break;
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
@@ -298,9 +309,24 @@ async function readMatterIdOf(): Promise<MatterOfRefs> {
   return (refs, prefer) => find(refs, prefer)?.id;
 }
 
-/** What a start or a move reads before its transaction (a process, a book): a start on a matter, the agent that takes it (`readTakerOf`); else whether the runtime it names answers. */
-async function startFactsOf(desk: Desk, change: unknown) {
-  const c = AgentChange.safeParse(change);
+/**
+ * What a change does before its transaction (a process, a book): a start on a matter, the agent that takes it
+ * (`readTakerOf`); else whether the runtime it names answers; a continue on his Mac, opened there (once: never for an
+ * ask already applied or stale).
+ */
+async function changeFactsOf(
+  desk: Desk,
+  ask: ReturnType<typeof asksFor>["asks"][number]
+): Promise<ChangeFacts> {
+  const c = AgentChange.safeParse(ask.agentChange);
+  if (
+    c.success &&
+    c.data.action === "continue_on_mac" &&
+    !agentChangeOf(desk.db, ask.id) &&
+    clock().getTime() - Date.parse(ask.at) <= STALE_AFTER
+  ) {
+    return { continued: await continueOnMac(desk, c.data.agent) };
+  }
   if (!(c.success && ["start", "hand_over"].includes(c.data.action))) {
     return {};
   }
@@ -328,7 +354,7 @@ async function startFactsOf(desk: Desk, change: unknown) {
 function applyAsk(
   desk: Desk,
   ask: ReturnType<typeof asksFor>["asks"][number],
-  facts: HandOverFacts & { taker?: string }
+  facts: ChangeFacts
 ):
   | { agent?: string; error: string; failed?: unknown }
   | { agent?: string; id: string } {
@@ -373,7 +399,7 @@ export async function applyAgentChanges(desk: Desk) {
   const page = asksFor(DESK_AGENT, readCursor(db, CURSOR) ?? undefined);
   for (const ask of page.asks) {
     // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
-    const facts = await startFactsOf(desk, ask.agentChange);
+    const facts = await changeFactsOf(desk, ask);
     const r = db.transaction(() => {
       if (agentChangeOf(db, ask.id)) {
         return null;

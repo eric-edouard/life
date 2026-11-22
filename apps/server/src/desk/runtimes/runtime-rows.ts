@@ -9,7 +9,7 @@ import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
 import { exec, firstLine, readLoginEnv } from "../../core/proc";
 import { settings } from "../../core/settings";
-import { readClaudeSessionRecords } from "../../host/claude-session-records";
+import { readOpenSessionRecords } from "../../host/open-session-records";
 import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
@@ -41,6 +41,8 @@ export interface Row {
   block: () => Promise<string | undefined>;
   /** The ids of the session's model and effort options (`session/set_config_option`). */
   config: { effort: string; model: string };
+  /** `Runtime.continueOnMac`. */
+  continueOnMac?: (a: Agent, ref: string) => Promise<void>;
   /** Opens a first turn's session in his app once no process holds it; none: the app lists it unasked. */
   handOff?: (a: Agent, ref: string) => Promise<void>;
   /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env (`DOOR_KEY_ENV`) and sends that variable's name, which it expands. */
@@ -86,12 +88,12 @@ export async function readCliBlock(program: string) {
 
 /**
  * Whether a process runs Claude on session `ref`: Claude's own record names a live one (his app, a terminal or the
- * desk's own run, between his turns too, however it was opened; `readClaudeSessionRecords`), or a Claude command line
+ * desk's own run, between his turns too, however it was opened; `readOpenSessionRecords`), or a Claude command line
  * names it after a resume or session flag. A child naming the id only in a path (a dev server under its scratchpad) is neither.
  * ponytail: a record left by a crash whose pid is reused holds the session until that process ends (a wait, never a loss).
  */
 export async function isSessionOpen(ref: string) {
-  if (readClaudeSessionRecords().has(ref)) {
+  if (readOpenSessionRecords().has(ref)) {
     return true;
   }
   const { code, stderr } = await exec([
@@ -235,19 +237,23 @@ const transcriptOf = (ref: string) => {
   return path ? join(PROJECTS, path) : undefined;
 };
 
-/**
- * Lists session `ref` in his Claude app (`desk.claudeApp`), so its link works: the app's own import of a CLI session
- * (`claude://resume`), which starts no process (the coordinator's finding of 22 Nov 2026: the app keeps a process only
- * once he opens it there, which then holds the next wake, `isSessionOpen`).
- */
-async function handOff(a: Agent, ref: string) {
-  const r = await exec([
+/** Opens his Claude app (`desk.claudeApp`) on session `ref`: its own import of a CLI session (`claude://resume`), behind his other windows (`isBehind`) or in front. */
+const openInClaudeApp = (ref: string, isBehind: boolean) =>
+  exec([
     "open",
-    "-g",
+    ...(isBehind ? ["-g"] : []),
     "-a",
     settings().desk?.claudeApp ?? "/Applications/Claude.app",
     `claude://resume?session=${ref}`,
   ]);
+
+/**
+ * Lists session `ref` in his Claude app, so its link works (`openInClaudeApp` behind his windows), which starts no
+ * process (the coordinator's finding of 22 Nov 2026: the app keeps a process only once he opens it there, which then
+ * holds the next wake, `isSessionOpen`).
+ */
+async function handOff(a: Agent, ref: string) {
+  const r = await openInClaudeApp(ref, true);
   if (r.code !== 0) {
     log("desk.runtime", {
       agent: a.id,
@@ -255,6 +261,13 @@ async function handOff(a: Agent, ref: string) {
       ok: false,
       what: "link",
     });
+  }
+}
+
+/** His Claude app opened in front on session `ref` (`continue_on_mac`): the app's process then holds its wakes (`isSessionOpen`). */
+async function continueInClaudeApp(_: Agent, ref: string) {
+  if ((await openInClaudeApp(ref, false)).code !== 0) {
+    throw new Error("No answer from your Mac");
   }
 }
 
@@ -276,6 +289,7 @@ const claudeRow = (isOwn: boolean): Row => ({
   block: () => readCliBlock("claude"),
   config: { effort: "effort", model: "model" },
   // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
+  continueOnMac: isOwn && !WINDOWS ? continueInClaudeApp : undefined,
   handOff: isOwn && !WINDOWS ? handOff : undefined,
   header: () => `Bearer \${${DOOR_KEY_ENV}}`,
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,

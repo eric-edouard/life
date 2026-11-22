@@ -71,8 +71,18 @@ export function fakeRuntime() {
     isFailing: false as boolean,
     /** The sessions `keep` kept, in order. */
     kept: [] as string[],
+    /** The sessions opened on his Mac (`continueOnMac`), in order: each then runs until the test closes it. */
+    continued: [] as string[],
     runtime: {
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
+      continueOnMac(_agent, ref) {
+        const s = sessions.get(ref);
+        if (s) {
+          s.running = true;
+        }
+        fake.continued.push(ref);
+        return Promise.resolve();
+      },
       keep(_agent, ref) {
         if (sessions.get(ref)?.running) {
           return Promise.reject(new SessionLive(`session ${ref} is running`));

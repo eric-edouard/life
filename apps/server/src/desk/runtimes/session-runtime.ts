@@ -121,7 +121,7 @@ export function spawnFor(
 /** What the one runtime reads of a runtime's row: whether it can run, a session's state when no run of the desk holds it, its link, its hand-off. */
 export type SessionRow = Pick<
   Row,
-  "block" | "handOff" | "link" | "readSessionState"
+  "block" | "continueOnMac" | "handOff" | "link" | "readSessionState"
 >;
 
 /** Opens a process on session `resume` (none: a new one) for agent `a`; `opening.kill` kills it while it opens. */
@@ -268,6 +268,7 @@ export function sessionRuntime(
 
   const runtime: Runtime = {
     block: row.block,
+    continueOnMac: row.continueOnMac,
     async keep(a, ref) {
       const k = await keptOf(a, ref);
       if (!k.isPrompting) {
