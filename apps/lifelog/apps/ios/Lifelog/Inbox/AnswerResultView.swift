@@ -150,7 +150,7 @@ struct ResultButtons: View {
             case .idle, .running:
                 Button {
                 } label: {
-                    Text(taken.isSend ? "Sending…" : "Saving…")
+                    WorkingWords(words: taken.isSend ? "Sending…" : "Saving…", key: taken.key)
                 }.buttonStyle(.pill(.quiet, isBusy: true))
             }
         }
@@ -236,7 +236,7 @@ extension Taken {
     func failedWord(_ failure: ActionFailure, _ state: ActionState<ActionProof>) -> String {
         if isSend { return DraftDelivery(state).word }
         if failure.mayHaveHappened { return "Check first." }
-        if failure.isSameTap { return "No answer from Life." }
+        if failure.isSameTap { return MacSilence.noAnswer + "." }
         return "Not saved."
     }
 
