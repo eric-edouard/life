@@ -183,7 +183,7 @@
     {
       "provider": "openrouter",
       "billed": {
-        "amount": 5.5,
+        "amount": 4.04,
         "basis": "billed",
         "currency": "USD"
       },
@@ -246,13 +246,31 @@
       },
       "tokens": 1300000,
       "reported": true
+    },
+    {
+      "provider": "apify",
+      "billed": {
+        "amount": 0.86,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
+    },
+    {
+      "provider": "web_search",
+      "billed": {
+        "amount": 0.6,
+        "basis": "billed",
+        "currency": "USD"
+      },
+      "reported": true
     }
   ],
   "byKind": [
     {
       "kind": "night",
       "billed": {
-        "amount": 6.07,
+        "amount": 4.61,
         "basis": "billed",
         "currency": "USD"
       },
@@ -280,6 +298,22 @@
       "kind": "voice",
       "billed": {
         "amount": 1.42,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "kind": "web_search",
+      "billed": {
+        "amount": 0.6,
+        "basis": "billed",
+        "currency": "USD"
+      }
+    },
+    {
+      "kind": "apify",
+      "billed": {
+        "amount": 0.86,
         "basis": "billed",
         "currency": "USD"
       }

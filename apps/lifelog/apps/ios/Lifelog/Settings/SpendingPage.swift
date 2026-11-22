@@ -3,8 +3,8 @@ import LifeConnector
 import SwiftUI
 
 /// What Life costs (Settings, decision 83), for looking only: this month's billed dollars and a bar a day, then its lists
-/// (`ModelSpending.sections`: billed and his plans' tokens never added). A top agent opens its page, a top matter its
-/// page. Opened from Settings into the Projects tab's detail column, with the tabs (DuoFoldSpending).
+/// (`ModelSpending.sections`: billed and his plans' tokens never added). A top matter opens its page. Opened from Settings
+/// into the Projects tab's detail column, with the tabs (DuoFoldSpending).
 struct SpendingPage: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -32,6 +32,9 @@ struct SpendingPage: View {
             // A list screen (decision 98): its parts are grouped inset cards under their `ListLabel`, no dividers.
             VStack(alignment: .leading, spacing: 0) {
                 SpendFigures(spending: spending).padding(.horizontal, Metrics.gutter)
+                Text("What Life costs: billed to your keys. Plans are below, never added in.")
+                    .font(.small).foregroundStyle(Palette.muted)
+                    .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.l)
                 ForEach(spending.sections, id: \.label) { section in
                     ListLabel(section.label).padding(.top, Metrics.Spacing.s)
                     ForEach(Array(section.lines.enumerated()), id: \.element.id) { at, line in
@@ -65,13 +68,9 @@ struct SpendingPage: View {
         }
     }
 
-    /// A top matter opens its page; a top agent its page.
-    private func opening(_ opens: SpendLine.Opens?) -> (() -> Void)? {
-        switch opens {
-        case .matter(let id): return { router.open(matter: id) }
-        case .agent(let id): return { router.open(agent: id) }
-        case nil: return nil
-        }
+    /// A top matter opens its page.
+    private func opening(_ opens: String?) -> (() -> Void)? {
+        opens.map { id in { router.open(matter: id) } }
     }
 }
 

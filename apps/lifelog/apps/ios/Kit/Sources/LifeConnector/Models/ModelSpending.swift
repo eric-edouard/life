@@ -41,13 +41,16 @@ public enum SpendKind: String, UnknownTolerant, Sendable {
         switch self {
         case .night: "The night"
         case .daytime: "Daytime readers"
-        case .agents: "Agents"
+        case .agents: "Work on your matters"
         case .webSearch: "Web search"
         case .apify: "Apify"
         case .voice: "Voice"
         case .unknown: "Other"
         }
     }
+
+    /// The tools his matters are worked with (his agents' searches and Apify runs): their row says what for.
+    var isForMatters: Bool { self == .webSearch || self == .apify }
 }
 
 /// Dollars on one basis (`Amount`, `host/spending-read.ts`); its currency is always USD.
@@ -139,11 +142,6 @@ public enum SpendWords {
 /// One row of the Spending page: its name, its figure, one muted line, its share of the month's billed total (a bar under
 /// it), and what it opens.
 public struct SpendLine: Sendable, Equatable, Identifiable {
-    public enum Opens: Sendable, Equatable {
-        case agent(String)
-        case matter(String)
-    }
-
     public let title: String
     public let value: String
     public var detail: String?
@@ -151,14 +149,10 @@ public struct SpendLine: Sendable, Equatable, Identifiable {
     public var share: Double?
     /// $0: the value muted.
     public var isZero = false
-    public var opens: Opens?
+    /// The matter it opens, if any.
+    public var opens: String?
 
-    public var id: String {
-        switch opens {
-        case .agent(let id), .matter(let id): id
-        case nil: title
-        }
-    }
+    public var id: String { opens ?? title }
 }
 
 /// A labelled list of the Spending page.
@@ -191,20 +185,18 @@ public struct ModelSpending: Decodable, Sendable, Equatable, ParsedRead, NamesPa
         public let tokens: Int?
     }
 
-    /// A top agent or matter: its id, its name, its tokens.
+    /// A matter Life worked on: its id, its name, its tokens.
     public struct Top: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
         public let spent: TokenSpending
 
-        private enum Key: String, CodingKey { case id, agent, matter }
+        private enum Key: String, CodingKey { case id, matter }
 
         public init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: Key.self)
             id = try container.decode(String.self, forKey: .id)
-            name =
-                try container.decodeIfPresent(String.self, forKey: .agent)
-                ?? container.decode(String.self, forKey: .matter)
+            name = try container.decode(String.self, forKey: .matter)
             spent = try TokenSpending(from: decoder)
         }
     }
@@ -217,7 +209,6 @@ public struct ModelSpending: Decodable, Sendable, Equatable, ParsedRead, NamesPa
     public let byKind: [ByKind]
     /// Voice work not settled when its day was written, not counted: the month is a floor.
     public let unsettled: Int
-    public let topAgents: [Top]
     public let topMatters: [Top]
     public let observedAt: Date
 
@@ -237,7 +228,7 @@ public struct ModelSpending: Decodable, Sendable, Equatable, ParsedRead, NamesPa
     private static func date(_ day: String) -> Date? { try? Date(day + "T12:00:00Z", strategy: .iso8601) }
 
     /// The page's lists, in order, each left out when empty: billed by provider (the Mac's at $0 as one row), his plans,
-    /// by kind, the top agents and matters.
+    /// by kind, the matters Life worked on most. Never an agent's own row: the page is what Life costs.
     public var sections: [SpendSection] {
         let billed = byProvider.filter { $0.billed != nil && !$0.provider.isOnThisMac }
             .sorted { ($0.billed?.amount ?? 0) > ($1.billed?.amount ?? 0) }
@@ -280,25 +271,25 @@ public struct ModelSpending: Decodable, Sendable, Equatable, ParsedRead, NamesPa
                 }
                 return SpendLine(
                     title: kind.kind.name, value: SpendWords.dollars(billed.amount),
-                    detail: kind.kind == .voice && unsettled > 0 ? "\(unsettled) not settled yet" : nil,
+                    detail: kind.kind == .voice && unsettled > 0
+                        ? "\(unsettled) not settled yet" : kind.kind.isForMatters ? "for your matters" : nil,
                     isZero: billed.amount <= 0)
             }
-        func tops(_ rows: [Top], opens: (String) -> SpendLine.Opens) -> [SpendLine] {
+        func tops(_ rows: [Top]) -> [SpendLine] {
             rows.map {
                 SpendLine(
                     title: $0.name, value: SpendWords.tokens($0.spent.tokens),
                     detail: [
                         SpendWords.listPrice($0.spent.equivalent.amount, isBilled: false),
                         $0.spent.reported ? nil : SpendWords.notReported,
-                    ].compactMap(\.self).joined(separator: ", "), opens: opens($0.id))
+                    ].compactMap(\.self).joined(separator: ", "), opens: $0.id)
             }
         }
         return [
-            SpendSection(label: "Billed to your keys, by provider", lines: billed + mac),
-            SpendSection(label: "Subscriptions, not counted above", lines: plans),
+            SpendSection(label: "Billed, by provider", lines: billed + mac),
+            SpendSection(label: "Plans", lines: plans),
             SpendSection(label: "By kind, this month", lines: kinds),
-            SpendSection(label: "Top agents, by tokens", lines: tops(topAgents, opens: SpendLine.Opens.agent)),
-            SpendSection(label: "Top matters, by tokens", lines: tops(topMatters, opens: SpendLine.Opens.matter)),
+            SpendSection(label: "Matters Life worked on most", lines: tops(topMatters)),
         ].filter { !$0.lines.isEmpty }
     }
 
