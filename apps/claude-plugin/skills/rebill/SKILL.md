@@ -12,8 +12,7 @@ still on file. You never type a card number, a password or a code, and you never
    failed payments, "card declined", "payment method expired", "update billing" (last 90 days). Per service note: name,
    billing-page link (from the mail, never guessed), the old method as the mail names it (brand, last 4, expiry), the
    failed amount. One row per service. A service with a newer paid receipt is already fixed: drop it.
-2. **Check each service in his Chrome** (`playwriter`, his logged-in session; a page asking to sign in is "his hand",
-   below). Read the payment method the billing page shows now:
+2. **Check each service in his Chrome** (his logged-in browser session; sign in through his password manager if a page asks, his hand only for a CAPTCHA, passkey or code). Read the payment method the billing page shows now:
    - a different, valid method (not the old last 4, not expired): **done**. No card for it.
    - the old method, or none: **needs him**.
    - a way you cannot do from here: a QR or PromptPay payment, a bank-account link, a direct debit or mandate, a
@@ -25,7 +24,7 @@ still on file. You never type a card number, a password or a code, and you never
    app, never a guessed link). Options: "Done, I added it" and "Drop it" (`icon: "drop"`); `doneSeenBy: "tap"`;
    `ends: "matter"` on Drop only when nothing else is left. A sign-in that is his hand rides on the same card: the
    link, and "sign in first".
-4. **After his Done, re-verify every listed service** as in step 3. Close each fixed service's matter you hold (`finish`). Any still showing
+4. **After his Done, re-verify every listed service** as in step 2. Close each fixed service's matter you hold (`finish`). Any still showing
    the old method: one short follow-up card for those only, once; then drop it. Never ask twice for a service already fixed.
 
 Rules: the web and his Mac are free, the card is the gate. Never fill a payment form, retry a charge or accept a new
