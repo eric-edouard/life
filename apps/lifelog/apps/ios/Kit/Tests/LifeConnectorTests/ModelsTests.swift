@@ -475,7 +475,8 @@ private func everyKindOfCheck() throws -> [Check] {
         voice.answer(naming: .person("person:gran"))
             == AnswerRequest(ref: voice.ref, options: ["this-is"], person: "person:gran"))
     #expect(voice.answer(naming: .name("Sam")) == AnswerRequest(ref: voice.ref, options: ["this-is"], name: "Sam"))
-    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 1)
+    // "TV or video" and "Don't name" answer on their own.
+    #expect(voice.options.dropFirst().compactMap(voice.answer).count == 2)
 
     // No button reads like the words a model is given.
     #expect(all.flatMap(\.options).allSatisfy { !$0.label.contains("`") && $0.label.count < 30 })
