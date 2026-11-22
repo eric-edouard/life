@@ -3,11 +3,14 @@ import SwiftUI
 /// Where Ask Life sits (the placement spec): its size and its margins from the root's bottom-right corner.
 struct AskLifeMetrics: Equatable {
     let size: CGFloat, trailing: CGFloat, bottomCompact: CGFloat, bottomRegular: CGFloat
+    /// The open card's margins: it sits above the foot bar, and in the Duo's column keeps its right clear of it.
+    let cardLeading: CGFloat, cardTrailing: CGFloat, cardBottom: CGFloat
 
     func bottom(regular: Bool) -> CGFloat { regular ? bottomRegular : bottomCompact }
 
-    static let phone = AskLifeMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29)
-    static let column = AskLifeMetrics(size: 48, trailing: 23, bottomCompact: 191, bottomRegular: 191)
+    static let phone = AskLifeMetrics(size: 52, trailing: 20, bottomCompact: 29, bottomRegular: 29, cardLeading: 16, cardTrailing: 16, cardBottom: 96)
+    static let column = AskLifeMetrics(size: 48, trailing: 23, bottomCompact: 191, bottomRegular: 191, cardLeading: 14, cardTrailing: 98,
+        cardBottom: 24)
 }
 
 /// Ask Life: the round button at rest, a glass card above the foot bar when open. One glass that morphs between them
@@ -77,9 +80,7 @@ struct AskLifeControl: View {
         .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.xs)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28))
         .glassEffectID("ask", in: glass)
-        // The root spans the Duo's side column too: the card keeps its right 98 clear for the column. Above the foot bar.
-        .padding(.leading, place == .column ? 14 : 16).padding(.trailing, place == .column ? 98 : 16)
-        .padding(.bottom, place == .column ? 24 : 96)
+        .padding(.leading, place.cardLeading).padding(.trailing, place.cardTrailing).padding(.bottom, place.cardBottom)
         .accessibilityIdentifier("ask.banner")
     }
 

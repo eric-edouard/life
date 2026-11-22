@@ -147,8 +147,7 @@ struct DictationField: View {
 
     /// Stops the run, drops its words and hands what was said back (his text and the words heard), for Undo.
     private func cancel() {
-        let heard = isLive ? live.words.map(\.text).joined(separator: " ") : ""
-        let said = [text, heard].filter { !$0.isEmpty }.joined(separator: " ")
+        let said = DictatedText.said(typed: text, heard: isLive ? live.words.map(\.text) : [])
         dictation.cancel()
         live.clear()
         cancelled?(said)
@@ -228,16 +227,16 @@ private struct DictationKeys: View {
     let start: () -> Void
     var isCard = false
     /// The press's hold, for the card's "Slide up to send" in the meter's place.
-    @Binding var isHolding: Bool  // only the card reads it
+    var isHolding: Binding<Bool>?
 
     @State private var press: DictationPress
 
     init(
         dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void, isCard: Bool = false,
-        isHolding: Binding<Bool> = .constant(false)
+        isHolding: Binding<Bool>? = nil
     ) {
         (self.dictation, self.hasWords, self.send, self.start) = (dictation, hasWords, send, start)
-        (self.isCard, _isHolding) = (isCard, isHolding)
+        (self.isCard, self.isHolding) = (isCard, isHolding)
         _press = State(initialValue: DictationPress(canSend: send != nil))
     }
 
@@ -253,7 +252,7 @@ private struct DictationKeys: View {
                 }
             }
         }
-        .onChange(of: press.isHolding) { _, holding in isHolding = holding }
+        .onChange(of: press.isHolding) { _, holding in isHolding?.wrappedValue = holding }
         #if DEBUG
             .onAppear { if let seeded = DictationFixture.press(canSend: send != nil) { press = seeded } }
         #endif
