@@ -271,6 +271,10 @@ test("can't be forgotten: a mailer's step parks from its day, comes back on a ne
   const reply = dayStep(4, "2026-11-11", { kind: "waiting_on_someone" });
   expect(parkedCards("2026-11-12", bill, reply)).toHaveLength(1);
   expect(parkedCards("2026-12-07", bill)).toHaveLength(1);
+  // Due ahead: never parked, it asks with its deadline.
+  expect(
+    parkedCards("2026-11-12", { ...bill, when: "2026-11-20" })
+  ).toMatchObject([{ deadline: expect.any(String) }]);
 });
 
 test("can't be forgotten: a step on a matter quiet more than 30 days parks; a new step or its review brings it back", () => {
@@ -284,6 +288,9 @@ test("can't be forgotten: a step on a matter quiet more than 30 days parks; a ne
       ),
     },
   ]);
+  expect(
+    parkedCards("2026-11-10", { ...old, when: "2026-11-11" })
+  ).toHaveLength(1);
   const fresh = dayStep(6, "2026-11-05", { kind: "waiting_on_someone" });
   expect(parkedCards("2026-11-10", old, fresh)).toHaveLength(1);
 });

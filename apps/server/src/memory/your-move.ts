@@ -56,9 +56,13 @@ type MoveStep = Pick<
  * Matters), or none (the cognitive-load rule, his direction of 22 Nov 2026): said by a mailer (a no-reply notice or his
  * agents' report, owed to no one) from its day, dated more than `PAST_DATE_SHOWN_DAYS` ago from then, its matter quiet
  * more than `QUIET_PARK_DAYS` from then. A newer step on its matter (`newest`, its newest step's day) brings back a
- * mailer's or a past date's step; the quiet one by itself. Pure.
+ * mailer's or a past date's step; the quiet one by itself. A step due ahead (`dueOn`) never parks. Pure.
  */
 function parkedSinceOf(s: MoveStep, newest: string, today: string) {
+  // Due ahead, or missed in the last days: never parked.
+  if (dueOn(s.when, today)) {
+    return;
+  }
   const due = dueOf(s.when);
   const [since] = [
     s.byMailer && newest <= s.day ? s.day : undefined,
