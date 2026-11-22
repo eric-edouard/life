@@ -130,8 +130,8 @@ export type TurnOutcome =
  * His word about a registered agent (`change_registered_agent`), as stored in his ask for the desk (`after.agentChange`):
  * start one on a subject (exactly one of a matter's `steps`, its anchors, which go to the agent that takes the matter,
  * `agentForOf`; a `project`; or `role` `personal`, the Personal agent), stop, resume, re-point, rename (`name`), change its
- * model, or move (`hand_over`: a matter's `steps` to a new agent on a `runtime` or to the `agent` he names; or an `agent`
- * to a `runtime`). The desk applies it once (`desk/agent-changes.ts`, a move in `desk/agent-moves.ts`).
+ * model, move (`hand_over`: a matter's `steps` to a new agent on a `runtime` or to the `agent` he names; or an `agent`
+ * to a `runtime`), or open its session on his Mac (`continue_on_mac`, his token only). The desk applies it once (`desk/agent-changes.ts`, a move in `desk/agent-moves.ts`).
  */
 export const AgentChange = z
   .object({
@@ -143,6 +143,7 @@ export const AgentChange = z
       "rename",
       "change_model",
       "hand_over",
+      "continue_on_mac",
     ]),
     agent: z
       .string()

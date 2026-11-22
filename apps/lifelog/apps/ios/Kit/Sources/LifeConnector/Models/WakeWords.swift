@@ -183,9 +183,14 @@ extension RegisteredAgent {
     /// wait until that lets go.
     public func sessionOpenLine(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
         guard let sessionOpenIn else { return nil }
-        let place = sessionOpenIn == .claudeApp ? "your Claude app" : "Claude Code"
+        let place =
+            switch sessionOpenIn {
+            case .claudeApp: "in your Claude app"
+            case .terminal: "on your Mac"
+            case .claudeCode, .unknown: "in Claude Code"
+            }
         let since = sessionOpenSince.map { " since \(SaidWords.time($0, locale: locale, timeZone: timeZone))" } ?? ""
-        return "Paused: open in \(place)\(since)"
+        return "Paused: open \(place)\(since)"
     }
 
     /// The line under the agent's name on its row: waiting, the first two people or chats it listens for, "+N" for every

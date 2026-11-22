@@ -6,12 +6,6 @@ import type { AgentStatus, EventFilter } from "../records/registered-agent";
 import { agentHealthOf, type Health, type HealthFacts } from "./agent-health";
 import { readClaudeAppListing } from "./claude-app-listing";
 import {
-  type ClaudeSessionRecord,
-  readClaudeSessionRecords,
-  type SessionOpenIn,
-  sessionOpenInOf,
-} from "./claude-session-records";
-import {
   type AgentRow,
   type AssignmentRow,
   activeAgents,
@@ -27,6 +21,13 @@ import {
 } from "./desk-read";
 import { CALL_ENDED, MESSAGE_RECEIVED } from "./events";
 import { runtimeBlocksOf } from "./move-read";
+import {
+  OPEN_IN_WORDS,
+  type OpenSessionRecord,
+  readOpenSessionRecords,
+  type SessionOpenIn,
+  sessionOpenInOf,
+} from "./open-session-records";
 
 // A registered agent as read now (`AgentNow`), from the desk's store: what it works on, where it stands, what it waits
 // for, its last turn and what shows amber; for every reader of agents (the connector, the report, the status). Bounded
@@ -179,12 +180,6 @@ function amberOf(
     : [];
 }
 
-/** Where a session is open outside the desk, in words. */
-const OPEN_IN_WORDS: Record<SessionOpenIn, string> = {
-  claude_app: "your Claude app",
-  claude_code: "Claude Code",
-};
-
 /** When `a`'s current status began (`AgentNow.statusSince`), from its last turn. */
 const statusSinceOf = (
   a: AgentRow,
@@ -256,13 +251,13 @@ function subjectPartOf(
 interface Around {
   app: ReturnType<typeof readClaudeAppListing>;
   blocks: ReturnType<typeof runtimeBlocksOf>;
-  records: Map<string, ClaudeSessionRecord>;
+  records: Map<string, OpenSessionRecord>;
 }
 /** `isForWakes` (his apps' reads) also reads his Claude app's listing; the other reads (the snapshot, a project's) leave it unjudged. */
 const readAround = (db: Database, isForWakes: boolean): Around => ({
   app: isForWakes ? readClaudeAppListing() : null,
   blocks: runtimeBlocksOf(db),
-  records: readClaudeSessionRecords(),
+  records: readOpenSessionRecords(),
 });
 
 /** How many of agent `id`'s last turns failed in a row (3 at most: `agentHealthOf`'s broken). */
@@ -291,7 +286,7 @@ function healthOf(
   around: Around,
   now: number,
   f: Pick<HealthFacts, "amber" | "notStarted" | "sessionOpenIn" | "status"> & {
-    record: ClaudeSessionRecord | undefined;
+    record: OpenSessionRecord | undefined;
   }
 ) {
   const isListed = a.runtime === "claude" && a.session && isOwnLife();
