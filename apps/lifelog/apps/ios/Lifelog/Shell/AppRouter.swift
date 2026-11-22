@@ -167,9 +167,7 @@ final class AppRouter {
             case .projects: "projects"
             case .people: "people"
             }
-        return MainSessionScreen(
-            tab: tab,
-            open: askLifeContext?.ref ?? tab == "projects" ? matter : tab == "people" ? person : nil)
+        return MainSessionScreen(tab: tab, card: askLifeContext?.ref, matter: matter, person: person)
     }
 
     func open(matter id: String) {
