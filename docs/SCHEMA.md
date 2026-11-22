@@ -581,7 +581,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 ## complaints.jsonl
 
-The complaint record: one row per complaint (his words through Tell Life, an ask in `ledger.jsonl`), appended only by `recordComplaints`
+The complaint record: one row per complaint (his words through Ask Life, an ask in `ledger.jsonl`), appended only by `recordComplaints`
 (`memory/complaint-record.ts`), run by the desk as it receives a complaint, before its receipt, in ledger order: `{schemaVersion: 1, ask, at, kind, stage, prompt}`. `kind`: the
 card's group, `unknown` when it had left; `stage` the step that makes that kind of card (`links`, `episodes`, `names`,
 `contacts`, `matters`, `voice naming`, else `unknown`) and `prompt` its prompt version when he complained (null when none; a

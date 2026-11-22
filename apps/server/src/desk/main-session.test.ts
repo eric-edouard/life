@@ -39,7 +39,7 @@ import { readSpokenAsk, receiveSpokenAsks } from "./spoken-ask-intake";
 import { setup } from "./test-desk";
 import { endLostTurns } from "./turn-ends";
 
-// The main session (Tell Life, slice 1): registered on his first words, one desk turn per ask on a session the runtime
+// The main session (Ask Life, slice 1): registered on his first words, one desk turn per ask on a session the runtime
 // keeps, its lines heard as they come, its answer the words after its last tool call; one ask at a time, a retry under
 // its key asks once, never woken by the clock, every door tool refused on its turn. Made-up words.
 
@@ -116,7 +116,7 @@ test("his first words register the main session and start its session from its b
   expect(a).toMatchObject({ role: "main", session: ref, status: "active" });
   expect(t.fake.said[0]?.message).toStartWith(MAIN_BRIEF);
   expect(t.fake.said[0]?.message).toContain(
-    'His words, through Tell Life: "Where is my passport?"'
+    'His words, through Ask Life: "Where is my passport?"'
   );
   await Bun.sleep(0);
   expect(turnsOf(a?.id ?? "")).toEqual([
@@ -145,7 +145,7 @@ test("his next words go to the same session without its brief, with his screen's
   await Bun.sleep(5);
   expect(t.fake.said[1]).toEqual({
     message:
-      'His words, through Tell Life: "And this one?"\nOn his screen (refs; `fetch` opens one): {"open":"matter:mat_x","tab":"inbox"}',
+      'His words, through Ask Life: "And this one?"\nOn his screen (refs; `fetch` opens one): {"open":"matter:mat_x","tab":"inbox"}',
     ref: first.ref,
   });
   t.fake.hear(first.ref, { kind: "words", text: "It waits on Ana." });

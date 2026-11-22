@@ -221,10 +221,10 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(agents.map(\.role) == [.personal, nil])
     let held = try #require(inbox.checks.first { $0.agent == agents[0].id })
     #expect(held.hearer(among: agents) == "the Personal agent")
-    #expect(held.tellTitle == "Tell the agent…")
+    #expect(held.ownWordsTitle == "Tell the agent…")
     let lifes = try #require(inbox.checks.first { $0.isLifesOwn })
     #expect(lifes.hearer(among: agents) == "Life")
-    #expect(lifes.tellTitle == "Tell Life…")
+    #expect(lifes.ownWordsTitle == "Ask Life…")
     let other = try #require(inbox.checks.first { $0.agent == nil && !$0.isLifesOwn })
     #expect(other.hearer(among: agents) == "the agent")
     var fields = try #require(
@@ -653,7 +653,7 @@ private func asks(
     #expect(check.askedName == "Sam Vale")
 }
 
-/// "Wrong…" is on Life's own cards only (it opens Tell Life on the card).
+/// "Wrong…" is on Life's own cards only (it opens Ask Life on the card).
 @Test func wrongIsOnLifesOwnCardsOnly() throws {
     let checks = try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
     #expect(checks.allSatisfy { ($0.misread != nil) == ($0.asker == "life") })

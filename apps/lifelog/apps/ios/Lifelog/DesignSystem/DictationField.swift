@@ -21,7 +21,7 @@ struct DictationField: View {
     /// microphone's).
     var listens = false
     /// A field with a Send: the solid disc after the microphone, and a hold slid up from it. Every field with a single
-    /// submit passes one (Tell Life, a matter's goal or next step, the new agent's goal) in place of its own Save or Start
+    /// submit passes one (Ask Life, a matter's goal or next step, the new agent's goal) in place of its own Save or Start
     /// button; a card's answers stay buttons.
     var send: (() -> Void)?
 

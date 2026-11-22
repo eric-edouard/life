@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 /// The bottom group, all system pieces: the Inbox (home), Projects and People tabs, with the Settings
-/// and Pendant sheets over them, and Tell Life's round button over all. Every sheet is centred and closes from inside itself.
+/// and Pendant sheets over them, and Ask Life's round button over all. Every sheet is centred and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
@@ -54,12 +54,12 @@ struct RootView: View {
             case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
             }
         }
-        // Tell Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
+        // Ask Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
         // rotation never moves it off the corner (52 on the phone; in the Duo's column 48, centred over the system tab pill, which the system keeps at the foot).
         .overlay(alignment: .bottomTrailing) {
             if life.isPaired {
-                AskLife(
-                    running: life.tell.strands.filter { !$0.isDone }.count,
+                AskLifeControl(
+                    running: life.askLife.strands.filter { !$0.isDone }.count,
                     place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
                 )
                 // Past the system's safe areas (the column's, the bar's): the screen's own corner.
@@ -68,18 +68,18 @@ struct RootView: View {
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         .overlay(alignment: .bottom) {
-            if life.isPaired, router.isTellLifeSmall, !router.isTellLifeOpen {
-                TellStrip(
-                    line: life.tell.answer?.line ?? "Working on it…", open: { router.isTellLifeOpen = true },
+            if life.isPaired, router.isAskLifeSmall, !router.isAskLifeOpen {
+                AskLifeStrip(
+                    line: life.askLife.answer?.line ?? "Working on it…", open: { router.isAskLifeOpen = true },
                     close: {
-                        router.isTellLifeSmall = false
-                        router.tellContext = nil
+                        router.isAskLifeSmall = false
+                        router.askLifeContext = nil
                     }
                 )
                 .appears(Motion.fade)
             }
         }
-        .fullScreenCover(isPresented: $router.isTellLifeOpen) { TellLifeScreen() }
+        .fullScreenCover(isPresented: $router.isAskLifeOpen) { AskLifeScreen() }
         // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
         // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
         .scrollEdgeEffectStyle(.soft, for: .all)
