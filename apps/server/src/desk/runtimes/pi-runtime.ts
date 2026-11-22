@@ -17,15 +17,23 @@ import { exec } from "../../core/proc";
 import { settings } from "../../core/settings";
 import { piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
+import { WEB_SEARCH_CHAIN } from "../../web-search/backend";
 import type { ClaudeHookGroup } from "./claude-hooks";
-import type { Agent, RunEnd, Runtime, Update, Usage } from "./contract";
+import type {
+  Agent,
+  CallUsage,
+  RunEnd,
+  Runtime,
+  Update,
+  Usage,
+} from "./contract";
 import {
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
-import { type CallUsage, SPENDING_TOOLS } from "./pi-subagent";
+import { SPENDING_TOOLS } from "./pi-subagent";
 import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
 import {
   type Connection,
@@ -361,7 +369,7 @@ export function piRowOf(
                 [PI_EXTENSION_ENV.own]: "1",
                 [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
                 [PI_EXTENSION_ENV.search]: JSON.stringify(
-                  settings().desk?.webSearch ?? []
+                  settings().desk?.webSearch ?? WEB_SEARCH_CHAIN
                 ),
               }
             : {}),

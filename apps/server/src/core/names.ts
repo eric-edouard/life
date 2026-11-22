@@ -83,9 +83,14 @@ export type NotifyLevel = z.infer<typeof NotifyLevel>;
 export const RuntimeName = z.enum(["claude", "codex", "pi"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;
 
-/** A web search provider an agent of his own Life on pi may ask (`web_search`, `desk/runtimes/web-tools.ts`). */
-export const WebSearchProvider = z.enum(["brave", "perplexity-search"]);
-export type WebSearchProvider = z.infer<typeof WebSearchProvider>;
+/** A web search provider, by the name his `desk.webSearch` gives it (`web-search/backend.ts`). */
+export const WebSearchProviderName = z.enum([
+  "brave",
+  "perplexity-search",
+  "serpapi",
+  "serper",
+]);
+export type WebSearchProviderName = z.infer<typeof WebSearchProviderName>;
 
 /** A runtime as he reads it, by its name: the program, as its maker calls it. */
 export const RUNTIME_WORDS: Record<RuntimeName, string> = {

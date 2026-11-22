@@ -1,3 +1,5 @@
+import { clock, iso } from "./clock";
+
 // The one price table, for Life and Voice alike: nothing else in either app holds a price. A row holds from its day
 // (`from`, a UTC day) until a later row of its item; `priceOn` takes the latest on or before a spend's day. Each row
 // cites its page and the day it was read: `from` is the first day it is evidenced, and a day before every row of an
@@ -107,19 +109,27 @@ export const HOUR_PRICES: Row<HourPrice>[] = [
     usdPerHour: 0.05,
   },
 ];
-/** Dollars per request: a paid web search of an agent on pi (`web_search`, `desk/runtimes/web-tools.ts`), by provider. */
+/** Dollars per request: a paid web search (`web-search/`), by provider. */
 interface RequestPrice {
   usdPerRequest: number;
 }
 
-/** A web search provider's price per request, by `WebSearchProvider` (the owner's chain of 22 Nov 2026). */
-export const REQUEST_PRICES: Row<RequestPrice>[] = [
+/** A web search provider's price per request (a credit, for Serper), by `WebSearchProviderName`; SerpAPI bills by plan. */
+const REQUEST_PRICES: Row<RequestPrice>[] = [
   {
     from: "2026-11-22",
     item: "brave",
     read: "2026-11-22",
     source: "https://brave.com/search/api/",
     usdPerRequest: 0.005,
+  },
+  // Serper's Starter credits, $50 for 50,000; its 2,500 free ones are priced too: a list price, never a bill.
+  {
+    from: "2026-11-22",
+    item: "serper",
+    read: "2026-11-22",
+    source: "https://serper.dev/",
+    usdPerRequest: 0.001,
   },
   {
     from: "2026-11-22",
@@ -134,6 +144,11 @@ export const priceOn = <P>(rows: Row<P>[], item: string, day: string) =>
   rows
     .filter((r) => r.item === item && r.from <= day)
     .toSorted((a, b) => b.from.localeCompare(a.from))[0];
+
+/** `item`'s price per request today (a UTC day, as every row's `from`); undefined when no row prices it. */
+export const requestUsdNow = (item: string) =>
+  priceOn(REQUEST_PRICES, item, iso(clock().getTime()).slice(0, 10))
+    ?.usdPerRequest;
 
 /** What `tokens` cost at `item`'s list price on `day`; undefined when no row prices it. Input counts its cached part. */
 export function listUsdOf(

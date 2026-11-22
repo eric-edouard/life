@@ -2,6 +2,7 @@ import type {
   ExtensionAPI,
   ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
+import type { CallUsage } from "./contract";
 import { WEB_SEARCH } from "./web-tools";
 
 // `subagent` for an agent of his own Life on pi (Claude Code's Task tool): a child session in the same pi process,
@@ -10,16 +11,6 @@ import { WEB_SEARCH } from "./web-tools";
 // environment. The child runs on the parent's model and thinking, in the parent's folder, never trusts the folder's
 // `.pi`, has no `subagent` of its own, and keeps nothing (an in-memory session). Its calls' usage, and its searches', comes back in the
 // tool result's `details.usage`, which the pi runtime adds to the turn's (`pi-runtime.ts`).
-
-/** One model call's usage, as pi's assistant messages carry it. */
-export interface CallUsage {
-  cacheRead: number;
-  cacheWrite: number;
-  cost?: { total: number; totalFromProvider?: boolean };
-  input: number;
-  output: number;
-  totalTokens: number;
-}
 
 /** The tool's name: the child has none of it. */
 export const SUBAGENT = "subagent";

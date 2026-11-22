@@ -2,7 +2,7 @@ import type {
   ExtensionAPI,
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
-import type { WebSearchProvider } from "../../core/names";
+import type { WebSearchProviderName } from "../../core/names";
 import {
   SEND_FACTS_ENV,
   SEND_GUARD_HOOK,
@@ -74,7 +74,7 @@ export interface LifeDeskConfig {
   /** The connector's reads (`life connector-reads`) as a stdio MCP server; none in a subagent. */
   reads?: { args: string[]; command: string; env: Record<string, string> };
   /** The providers `web_search` asks, in order; none, no `web_search`. */
-  search: WebSearchProvider[];
+  search: WebSearchProviderName[];
 }
 
 /** pi's MCP server name for the connector's reads (`mcp__life_connector__<tool>`); `life` is the door's in his own sessions. */
