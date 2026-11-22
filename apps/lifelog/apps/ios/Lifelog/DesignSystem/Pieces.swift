@@ -939,19 +939,41 @@ struct SheetHeader: View {
 
 extension View {
     /// A sheet on the one-scroll rule (decision 97): this view is the one scroll's content, at the gutter; `head` (its
-    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar, each over the system's soft edge, so nothing
-    /// scrolls inside and the content's end scrolls clear of the buttons.
+    /// `SheetHeader`) sits in the top bar and `buttons` in the bottom bar (`sheetBars`), so nothing scrolls inside and
+    /// the content's end scrolls clear of the buttons.
     func sheetScroll<Head: View, Buttons: View>(
         @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
     ) -> some View {
-        let content = self.padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        sheetScrolled.sheetBars(head: head, buttons: buttons)
+    }
+
+    /// `sheetScroll` with no buttons.
+    func sheetScroll<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        sheetScrolled.sheetBars(head: head)
+    }
+
+    private var sheetScrolled: some View {
+        ScrollView {
+            padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    /// Every sheet's shell, the screens' own (decision 96): its head in the top bar and its buttons in the bottom bar,
+    /// the scroll under both (this view holds it, a `ReadScreen`'s included) softened at both edges by iOS's soft
+    /// scroll edge, set on the sheet itself.
+    func sheetBars<Head: View, Buttons: View>(
+        @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
+    ) -> some View {
         let bottom = buttons().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
-        return ScrollView { content }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaBar(edge: .top, spacing: 0) { top }
-            .safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+        return sheetBars(head: head).safeAreaBar(edge: .bottom, spacing: 0) { bottom }
+    }
+
+    /// `sheetBars` with no buttons.
+    func sheetBars<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+        return safeAreaBar(edge: .top, spacing: 0) { top }
             .scrollEdgeEffectStyle(.soft, for: .vertical)
     }
 }
