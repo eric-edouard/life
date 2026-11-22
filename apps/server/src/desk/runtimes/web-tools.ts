@@ -102,7 +102,10 @@ const SEARCHES: Record<
 > = {
   brave: {
     found: (b: { web?: { results?: (Found & { description?: string })[] } }) =>
-      b.web?.results?.map((r) => ({ ...r, snippet: r.description })),
+      b.web?.results?.map((r) => ({
+        ...r,
+        snippet: r.description && htmlTextOf(r.description),
+      })),
     key: "BRAVE_SEARCH_API_KEY",
     request: (q, key) => [
       `https://api.search.brave.com/res/v1/web/search?${new URLSearchParams({ count: String(SEARCH_RESULTS), q })}`,
