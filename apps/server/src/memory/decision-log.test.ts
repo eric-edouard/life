@@ -14,7 +14,7 @@ const ask = () => ({
   onSilence: "wait",
   options: [
     { id: "yes", label: "Book Kit" },
-    { id: "wait", label: "Wait for a second quote" },
+    { id: "wait", label: "Wait" },
   ],
   question: "Book Kit to fix the boiler?",
   title: "Fix the boiler",

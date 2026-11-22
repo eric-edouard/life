@@ -36,7 +36,7 @@ struct ProjectsScreen: View {
                     .background(Palette.bg)
                     // A swipe's mark and a project's status, said back with Undo.
                     .saysBack()
-                    .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
+                    .screenTitle("Projects", state: header)
                     // Beside a matter, the Pendant and Settings are the matter column's.
                     .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
                     // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
@@ -123,6 +123,7 @@ struct ProjectsScreen: View {
                     .shellBar("", hasSettings: false)
                 case .agent(let id): AgentPage(id: id)
                 case .matter(let id): MatterPage(id: id, hasSettings: false)
+                case .session(let id): AgentSessionPage(id: id)
                 }
             }
         }
@@ -136,6 +137,14 @@ struct ProjectsScreen: View {
     /// The chip chosen, as Life lists it now; none is All (or a chip Life no longer lists).
     private var chosen: ProjectChips.Chip? {
         life.projects.shown().onScreen?.chips.first { $0.identity == router.chip }
+    }
+
+    /// The title's count: on Ask Life's cut, how many of All's rows it keeps ("3 of 7"), else the projects underway.
+    private var header: String? {
+        guard let cut = router.cut(of: .matters) else {
+            return life.projects.shown().onScreen.map { "\($0.underway) underway" }
+        }
+        return life.matters.shown().onScreen.map { "\(cut.cut($0.matters, ref: \.id).count) of \($0.matters.count)" }
     }
 
     /// The read under a chip: All's is every running matter.
@@ -181,13 +190,21 @@ struct ProjectsScreen: View {
     /// The chips, the header of a project's chip, then the chip's rows as their read stands.
     private func content(_ chip: ProjectChips.Chip?) -> some View {
         let shown = list(of: chip).shown()
+        let cut = router.cut(of: .matters)
+        // Ask Life's cut is of All: Life's rows, the ones it named, in its order.
+        let matters = shown.onScreen.map { list in cut.map { $0.cut(list.matters, ref: \.id) } ?? list.matters }
         return List {
-            chipRow.quietListRow()
+            // Its toast stands in the chips' place until his X; one row, so the two cross-fade.
+            ZStack(alignment: .leading) {
+                if cut == nil { chipRow.transition(.opacity) } else { CutToast(kind: .matters).transition(.opacity) }
+            }
+            .quietListRow()
             if let chip, chip.kind == .project {
                 ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
-            if let list = shown.onScreen {
-                rows(list.matters, chip: chip)
+            if let matters {
+                // A cut is Life's order: no "Parked" part, as on a chip.
+                rows(matters, chip: chip, isCut: cut != nil)
             } else {
                 ReadScreen(
                     shown: shown, retry: { await refresh(chip) },
@@ -200,7 +217,8 @@ struct ProjectsScreen: View {
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .staleToast(staleNote(shown), retry: { await refresh(chip) })
-        .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
+        .motion(Motion.standard, value: matters?.map(\.id))
+        .motion(Motion.standard, value: cut)
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -211,8 +229,8 @@ struct ProjectsScreen: View {
 
     /// The rows in Life's order (his marked ones first); on All, a parked or done project's matters last, under
     /// "Parked". A swipe to the right marks one, or unmarks it: the system's own swipe action, as Mail flags a message.
-    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?) -> some View {
-        let parkedFrom = chip == nil ? rows.firstIndex(where: \.isParked) : nil
+    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?, isCut: Bool) -> some View {
+        let parkedFrom = chip == nil && !isCut ? rows.firstIndex(where: \.isParked) : nil
         let split = parkedFrom ?? rows.count
         if rows.isEmpty {
             Text("Nothing is running here.").font(.body15).foregroundStyle(Palette.muted)
@@ -256,7 +274,7 @@ struct ProjectsScreen: View {
             ScrollView(.horizontal) {
                 HStack(spacing: Metrics.Spacing.s) {
                     // All is on too when Life no longer lists the chip chosen (a project marked done).
-                    FilterChip(name: "All", isOn: chosen == nil) { router.chip = nil }.id("")
+                    FilterChip(name: "All", isOn: chosen == nil) { (router.chip, router.cut) = (nil, nil) }.id("")
                     // Life's chips could not be read: their retry, in their place.
                     if life.projects.hasFailed {
                         QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {

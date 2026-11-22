@@ -18,22 +18,22 @@ struct CardNotes: Equatable {
     /// On the guesses' card: each row's answer in its own words ("Yes", "No"), kept for the row after its ask leaves.
     var guessed: [String: String] = [:]
     /// The rows it has shown, kept so an answered one stays (dimmed) after its ask left the inbox; and that it is
-    /// being answered row by row (`InboxOrder.folded`'s `working`).
+    /// being answered row by row, by the ask its card was first shown under (`InboxOrder.folded`'s `working`).
     var guesses: [Check] = []
-    var working: Set<CheckGroup> = []
+    var working: [CheckGroup: Check] = [:]
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
 }
 
-/// The create sheet's ask and name, with where the asks go once it is created: the ask after it as he opened it (the
+/// The create sheet's ask and name, with where the asks go once it is created: the asks after it as he opened it (the
 /// ask leaves the list while its answer runs).
 struct Creating: Identifiable, Equatable {
     let check: Check
     let name: String
     /// Opened set to an organization ("Organization" on the card), else to a person.
     let isOrganization: Bool
-    let nextRef: String?
+    let later: [String]
     /// The pager's asks as the sheet opened, kept under it until it closes.
     let asks: [Check]
     /// The answer it zooms out of: "Create <name>" or "Organization" on the card, or the answer that opened the people
@@ -76,7 +76,7 @@ private struct AskSheetsHost: ViewModifier {
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
                     request in
                     notes.creating = nil
-                    leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
+                    leave(Taken(check: creating.check, request: request, later: creating.later, runtimeName: nil))
                 }
                 .sheetStack()
                 .zooms(from: creating.source, in: zoom)
@@ -110,6 +110,8 @@ struct CardView: View {
     @Environment(\.askSheetZoom) private var sheetZoom
     /// The people sheet open over an ask.
     @State private var peopleRef: String?
+    /// Where each page keeps its dots' room, as its slot tells (`PagerDotsSlot`).
+    @State private var dotSlots: [Int: CGRect] = [:]
     /// The create sheet asked from the people sheet: the host opens it once the people sheet is gone.
     @State private var createsNext: Creating?
 
@@ -203,11 +205,9 @@ struct CardView: View {
                                     checkCard(check, page: page)
                                 }
                             }
-                            // The pager's hidden bottom edge (below) reaches every scroll inside it: each ask's own
-                            // scroll keeps its soft edge under its answers.
-                            .scrollEdgeEffectHidden(false, for: .bottom)
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
+                            .coordinateSpace(.named(PagerDotsSlot.page))
                             .appears(Motion.passes)
                             .id(check.ref)
                         }
@@ -218,9 +218,23 @@ struct CardView: View {
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
-                // Each ask's own scroll softens under its answer bar; the pager's bottom edge effect sat over that bar
-                // and blurred the answers themselves (22 Nov, closed Duo). Its top edge is the soft one under the title.
+                // The bottom edge effect sat over the answer bar and blurred the answers themselves (22 Nov, closed Duo):
+                // none, in the asks' scrolls too, whose answers draw their own backdrop (`CheckCard`). Its top edge is the
+                // soft one under the title.
                 .scrollEdgeEffectHidden(true, for: .bottom)
+                // One row of dots, where the ask on show keeps their room, still while the asks slide under it.
+                .overlay(alignment: .topLeading) {
+                    let index = checks.firstIndex { $0.ref == current } ?? 0
+                    if checks.count > 1, let dots = dotSlots[index] {
+                        PagerDots(current: index, total: checks.count)
+                            .frame(width: dots.maxX, height: dots.height, alignment: .trailing)
+                            .offset(y: dots.minY)
+                            .motion(Motion.standard, value: dots.minY)
+                    }
+                }
+                .environment(
+                    \.pagerDotsAt,
+                    PagerDotsAt { index, frame in if dotSlots[index] != frame { dotSlots[index] = frame } })
             }
         }
         .clippedSideways()
@@ -298,13 +312,13 @@ struct CardView: View {
         )
     }
 
-    /// The create sheet for `check`, with the ask after it as he opened it, zooming out of the answer that opened it
+    /// The create sheet for `check`, with the asks after it as he opened it, zooming out of the answer that opened it
     /// (by default the card's own create answer).
     private func creating(_ check: Check, _ name: String, asOrganization: Bool = false, from source: AskSheet? = nil)
         -> Creating
     {
         Creating(
-            check: check, name: name, isOrganization: asOrganization, nextRef: checks.ref(after: check.ref),
+            check: check, name: name, isOrganization: asOrganization, later: checks.refs(after: check.ref),
             asks: checks, source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
     }
 
@@ -321,7 +335,7 @@ struct CardView: View {
     private func submit(_ check: Check, _ request: AnswerRequest) {
         guard !life.saysOutOfReach() else { return }
         let taken = Taken(
-            check: check, request: request, nextRef: checks.ref(after: check.ref),
+            check: check, request: request, later: checks.refs(after: check.ref),
             runtimeName: life.runtimeName(of: check))
         if let takes, taken.isHeld {
             takes(taken)

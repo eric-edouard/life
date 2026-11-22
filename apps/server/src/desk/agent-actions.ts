@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { AgentRole } from "../core/names";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { pathInside } from "../core/platform";
@@ -44,11 +45,7 @@ import {
 } from "../memory/read-truth";
 import { clip } from "../memory/units";
 import { nameRefusalOf, readPeople } from "../memory/who";
-import type {
-  AgentRole,
-  EventFilter,
-  OpenedBy,
-} from "../records/registered-agent";
+import type { EventFilter, OpenedBy } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
@@ -102,7 +99,7 @@ export const hasAsked = (
   list = decisionsNow()
 ) => cardsOf(db, s, list).some(countsAsAskedOf(db, s));
 
-/** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`), as `planCardsOf` reads it. */
+/** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`). */
 const asksPlanOf = (db: Desk["db"], s: AssignmentRow) =>
   opensWithPlan(db, s) && !hasAsked(db, s);
 

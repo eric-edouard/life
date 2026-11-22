@@ -1,13 +1,6 @@
 import LifeConnector
 import SwiftUI
 
-/// Where a guess row stands: both answers on offer, its answer going to Life, or answered (and sent, or on its way).
-enum GuessState: Equatable {
-    case rest
-    case sending(yes: Bool)
-    case answered(yes: Bool)
-}
-
 /// One "Is this X?" row of the guesses' card: who Life guesses (the person, with their disc), who was seen, and Yes or
 /// No at the right. An answered row keeps its answer, dimmed; a refused one is back at rest, Life's reason under it.
 struct GuessRow: View {

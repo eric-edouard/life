@@ -22,6 +22,16 @@ export interface Run {
   ended: Promise<RunEnd>;
 }
 
+/** One model call's usage, as pi's assistant messages carry it; a paid request of Life's own tools as one with no tokens. */
+export interface CallUsage {
+  cacheRead: number;
+  cacheWrite: number;
+  cost?: { total: number; totalFromProvider?: boolean };
+  input: number;
+  output: number;
+  totalTokens: number;
+}
+
 /** The turn's tokens, and the whole context of its first and last call (null when the runtime reported none), kept as a record: no decision reads it. */
 export interface Usage {
   /** Dollars the provider billed for the run (pi on OpenRouter): none on a plan's runtime; null when a call came without its cost. */

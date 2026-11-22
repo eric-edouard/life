@@ -57,6 +57,19 @@ struct InboxScreen: View {
             )
             // The first card cross-fades in over the skeleton.
             .motion(Motion.standard, value: life.inboxOnShow == nil)
+            // The list hidden beside a wide ask (the open Duo): a swipe in from the left edge shows it, as in any split
+            // view. The pager's own swipe took that edge; this strip keeps it from the pager.
+            .overlay(alignment: .leading) {
+                if sizeClass == .regular, widths.ask >= widths.whole - 1 {
+                    Color.clear.frame(width: Metrics.Spacing.l).contentShape(.rect)
+                        .gesture(
+                            DragGesture(minimumDistance: Metrics.Spacing.s).onEnded {
+                                if $0.translation.width > max(Metrics.Spacing.xl, abs($0.translation.height)) {
+                                    withAnimation { visibility = .all }
+                                }
+                            })
+                }
+            }
             .background(Palette.bg)
             // Alone, the ask has the screen's title over it (the question stays the biggest line); beside the list, the
             // list has it, and the gear and the Pendant.
@@ -86,6 +99,8 @@ struct InboxScreen: View {
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
         .askSheets($notes) { leave($0, keep: false) }
+        // Ask Life's cut is of every kind: the asks it named show whatever kind he kept to.
+        .onChange(of: router.cut(of: .checks)) { _, cut in if cut != nil { kind = nil } }
         // The moves' list is the ask column's, which a compact width then shows.
         .onChange(of: kind) { _, kind in if kind == .yourMove { router.inboxColumn = .detail } }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
@@ -94,7 +109,7 @@ struct InboxScreen: View {
             // The guesses' card left with its last row: the next guesses start clean, not beside old answered rows.
             if !kinds.contains(.guessedPerson) {
                 (notes.guesses, notes.guessed) = ([], [:])
-                notes.working.remove(.guessedPerson)
+                notes.working[.guessedPerson] = nil
             }
         }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
@@ -141,7 +156,7 @@ struct InboxScreen: View {
         notice = nil
         if keep { deferred.append(taken.check.ref) }
         // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
-        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
+        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : shownOrder(kind).next(of: taken.later))
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
@@ -155,7 +170,7 @@ struct InboxScreen: View {
     /// `all` as shown: of the kind he keeps to, with each kind Life pre-ticks folded into one bulk card unless he goes
     /// through it one by one.
     private func shownOrder(_ kind: CheckGroup?) -> InboxOrder {
-        all.only(kind).folded(except: notes.unfolded, working: notes.working)
+        all.only(kind).cut(to: router.cut(of: .checks)).folded(except: notes.unfolded, working: notes.working)
     }
 
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays

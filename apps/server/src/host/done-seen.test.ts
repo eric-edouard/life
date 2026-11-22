@@ -353,19 +353,13 @@ test("a failed read is not found with its error; a look that never finished (a c
 });
 
 test("a card's parts are checked when asked, each refusal pointing at its page; what is not built yet says so", async () => {
-  // Regression (the plan card's wire): a card asked outside an assignment's plan card refuses its parts.
-  const plans = [
-    { plan: [{ by: "owner", text: "Pay" }] },
-    { gathered: { text: "From the quote" } },
-  ];
-  const refused = await Promise.allSettled(plans.map((over) => transfer(over)));
-  expect(
-    refused.map((r) => r.status === "rejected" && String(r.reason))
-  ).toEqual(
-    plans.map(() =>
-      expect.stringContaining("only on an assignment's plan card")
-    )
-  );
+  // Regression (the plan card's wire): a card with `plan` is a plan card, its options `start` then `decline`; `gathered` needs `plan`.
+  await expect(
+    transfer({ plan: [{ by: "owner", text: "Pay" }] })
+  ).rejects.toThrow("a plan card's options are ids start then decline");
+  await expect(
+    transfer({ gathered: { text: "From the quote" } })
+  ).rejects.toThrow("a plan card with `gathered` gives `plan`");
   await expect(
     transfer({ options: [{ ...OPTIONS[0], takes: "file" }, OPTIONS[1]] })
   ).rejects.toThrow('`takes: "file"` (only `note`) is not built yet');
@@ -397,7 +391,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
   const { id } = await transfer({
     options: [
       OPTIONS[0],
-      { id: "other", label: "Paid another way", takes: "note" },
+      { id: "other", label: "Paid otherwise", takes: "note" },
     ],
   });
   await expect(answerDecision(id, ["other"])).rejects.toThrow(

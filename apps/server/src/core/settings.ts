@@ -3,11 +3,13 @@ import { isAbsolute, join } from "node:path";
 import { z } from "zod";
 import { writeWhole } from "./files";
 import {
+  AgentRole,
   Engine,
   NotifyKind,
   NotifyLevel,
   RuntimeName,
   SourceName,
+  WebSearchProviderName,
 } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
@@ -51,6 +53,8 @@ export const Settings = z
      * The desk (`apps/server/src/desk/`): Life starts and wakes his registered agents. Absent means off: the app starts
      * no desk helper and no desk code runs. `runtimes`: per runtime, the model (and effort) a registered agent runs
      * with when it names none; none given, the runtime's own default. `defaultRuntime`: a start that names none.
+     * `roleRuntimes`: per standing role (`AgentRole`), the runtime its agent starts on when the start names none; a role
+     * left out, and every project's agent, takes `defaultRuntime` (the owner's word of 22 Nov 2026).
      * `handOut`: the desk starts an agent itself on a running matter from the top of his ranking (`desk/hand-out.ts`),
      * only while fewer than `cardsWaiting` agent cards wait for him and fewer than `aDay` started on his day; absent means off.
      * `agentPostRepos`: the GitHub repos (`owner/name`) where an agent of his own Life may comment, open an issue or review
@@ -58,6 +62,9 @@ export const Settings = z
      * `agentsRepo`: his agents' git repo (an absolute path): each assignment's notes file, under `assignments/`, and each
      * agent's home, committed by the desk after each turn; absent, the notes files live under the desk's own folders and
      * nothing is committed.
+     * `webSearch`: the providers `web_search` asks, in order, for an agent of his own Life on pi (`web-search/`); one
+     * whose key his environment lacks is skipped. Left out, Life's chain (`WEB_SEARCH_CHAIN`, the owner's word of 22 Nov
+     * 2026).
      */
     desk: z
       .object({
@@ -76,6 +83,7 @@ export const Settings = z
           })
           .strict()
           .optional(),
+        roleRuntimes: z.partialRecord(AgentRole, RuntimeName).optional(),
         runtimes: z
           .partialRecord(
             RuntimeName,
@@ -87,6 +95,7 @@ export const Settings = z
               .strict()
           )
           .default({}),
+        webSearch: z.array(WebSearchProviderName).min(1).optional(),
       })
       .strict()
       .optional(),

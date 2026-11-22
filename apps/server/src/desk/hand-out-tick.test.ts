@@ -415,7 +415,7 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
         onSilence: null,
         options: [
           { ends: "matter", id: "done", label: "Done" },
-          { id: "tell", label: "Tell the agent…" },
+          { id: "later", label: "Not now" },
         ],
         question: "Did you pay the plumber?",
         subject: matterId,
@@ -471,7 +471,7 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
           onSilence: null,
           options: [
             { id: "yes", label: "Yes" },
-            { id: "tell", label: "Tell the agent…" },
+            { id: "later", label: "Not now" },
           ],
           question: "Send the quote?",
           subject: theirs,
@@ -539,7 +539,7 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
         onSilence: null,
         options: [
           { ends: "step", id: "done", label: "Done" },
-          { id: "tell", label: "Tell the agent…" },
+          { id: "later", label: "Not now" },
         ],
         question: "Did you send the invoice?",
         subject: step,
@@ -590,7 +590,7 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
         onSilence: null,
         options: [
           { id: "yes", label: "Yes" },
-          { id: "tell", label: "Tell the agent…" },
+          { id: "later", label: "Not now" },
         ],
         question: "Book Tuesday?",
         subject: step,
