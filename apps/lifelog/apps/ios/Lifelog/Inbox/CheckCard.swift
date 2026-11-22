@@ -55,7 +55,10 @@ struct CheckCard: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             // The answers themselves, never a scroll view of them: one at the screen's bottom edge took the bar's soft
             // edge as its own, blurred the answers and kept his taps (21 Nov). `fitsBar` keeps the bar short.
-            if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
+            if isAnswersInBar {
+                answers.padding(.horizontal, Metrics.Spacing.s).readingWidth()
+                    .frame(maxWidth: .infinity).background { AnswersBackdrop() }
+            }
         }
         .sheet(item: $input.context) { context in
             ContextSheet(
@@ -206,15 +209,15 @@ struct CheckCard: View {
         return true
     }
 
-    /// The pager's dots (a spinner while a tapped push is checked: how many asks wait is not known yet), then the
-    /// answers.
+    /// The room for the pager's dots, which the pager draws there, still while the asks slide (a spinner while a tapped
+    /// push is checked: how many asks wait is not known yet), then the answers.
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.m) {
             Group {
                 if life.isCheckingPush {
                     Spinner(size: .small).foregroundStyle(Palette.fg)
                 } else if let page {
-                    PagerDots(current: page.current, total: page.total)
+                    PagerDotsSlot(index: page.current)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -225,5 +228,35 @@ struct CheckCard: View {
             )
         }
         .padding(.bottom, Metrics.Spacing.s)
+    }
+}
+
+/// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the
+/// bar's height again, so the answers stand clear of the text going under them (his ask of 22 Nov, open Duo). It grows
+/// with the bar. The system's soft edge stays off here: the pager hides it, since its own sat over the answers.
+private struct AnswersBackdrop: View {
+    var body: some View {
+        GeometryReader { bar in
+            let fade = bar.size.height / 2
+            let solid = fade / (bar.size.height + fade)
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay {
+                    LinearGradient(
+                        stops: [
+                            .init(color: Palette.bg.opacity(0.6), location: 0),
+                            .init(color: Palette.bg, location: solid),
+                        ],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .mask {
+                    LinearGradient(
+                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: solid)],
+                        startPoint: .top, endPoint: .bottom)
+                }
+                .frame(height: bar.size.height + fade)
+                .offset(y: -fade)
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .allowsHitTesting(false)
     }
 }

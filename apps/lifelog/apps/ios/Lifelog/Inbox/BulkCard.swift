@@ -253,7 +253,7 @@ struct BulkCard: View {
             HStack {
                 Text("Each answer saves on its own").font(.small).foregroundStyle(Palette.muted)
                 Spacer(minLength: 0)
-                if let page { PagerDots(current: page.current, total: page.total) }
+                if let page { PagerDotsSlot(index: page.current) }
             }
             Button {
                 notes.working.remove(kind)
@@ -271,7 +271,7 @@ struct BulkCard: View {
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.s) {
             if let page {
-                PagerDots(current: page.current, total: page.total).frame(maxWidth: .infinity, alignment: .trailing)
+                PagerDotsSlot(index: page.current).frame(maxWidth: .infinity, alignment: .trailing)
             }
             if let failure = failed.first.flatMap(failure(of:)) {
                 // Life's own reason when Life answered (or why it may have gone); the fixed line when nothing reached it.

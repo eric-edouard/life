@@ -110,6 +110,8 @@ struct CardView: View {
     @Environment(\.askSheetZoom) private var sheetZoom
     /// The people sheet open over an ask.
     @State private var peopleRef: String?
+    /// Where each page keeps its dots' room, as its slot tells (`PagerDotsSlot`).
+    @State private var dotSlots: [Int: CGRect] = [:]
     /// The create sheet asked from the people sheet: the host opens it once the people sheet is gone.
     @State private var createsNext: Creating?
 
@@ -203,11 +205,9 @@ struct CardView: View {
                                     checkCard(check, page: page)
                                 }
                             }
-                            // The pager's hidden bottom edge (below) reaches every scroll inside it: each ask's own
-                            // scroll keeps its soft edge under its answers.
-                            .scrollEdgeEffectHidden(false, for: .bottom)
                             .padding(.leading, Pager.gap)
                             .containerRelativeFrame(.horizontal)
+                            .coordinateSpace(.named(PagerDotsSlot.page))
                             .appears(Motion.passes)
                             .id(check.ref)
                         }
@@ -218,9 +218,23 @@ struct CardView: View {
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
-                // Each ask's own scroll softens under its answer bar; the pager's bottom edge effect sat over that bar
-                // and blurred the answers themselves (22 Nov, closed Duo). Its top edge is the soft one under the title.
+                // The bottom edge effect sat over the answer bar and blurred the answers themselves (22 Nov, closed Duo):
+                // none, in the asks' scrolls too, whose answers draw their own backdrop (`CheckCard`). Its top edge is the
+                // soft one under the title.
                 .scrollEdgeEffectHidden(true, for: .bottom)
+                // One row of dots, where the ask on show keeps their room, still while the asks slide under it.
+                .overlay(alignment: .topLeading) {
+                    let index = checks.firstIndex { $0.ref == current } ?? 0
+                    if checks.count > 1, let dots = dotSlots[index] {
+                        PagerDots(current: index, total: checks.count)
+                            .frame(width: dots.maxX, height: dots.height, alignment: .trailing)
+                            .offset(y: dots.minY)
+                            .motion(Motion.standard, value: dots.minY)
+                    }
+                }
+                .environment(
+                    \.pagerDotsAt,
+                    PagerDotsAt { index, frame in if dotSlots[index] != frame { dotSlots[index] = frame } })
             }
         }
         .clippedSideways()

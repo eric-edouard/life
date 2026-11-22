@@ -57,6 +57,17 @@ struct InboxScreen: View {
             )
             // The first card cross-fades in over the skeleton.
             .motion(Motion.standard, value: life.inboxOnShow == nil)
+            // The list hidden beside a wide ask (the open Duo): a swipe in from the left edge shows it, as in any split
+            // view. The pager's own swipe took that edge; this strip keeps it from the pager.
+            .overlay(alignment: .leading) {
+                if sizeClass == .regular, widths.ask >= widths.whole - 1 {
+                    Color.clear.frame(width: Metrics.Spacing.l).contentShape(.rect)
+                        .gesture(
+                            DragGesture(minimumDistance: Metrics.Spacing.s).onEnded {
+                                if $0.translation.width > Metrics.Spacing.xl { withAnimation { visibility = .all } }
+                            })
+                }
+            }
             .background(Palette.bg)
             // Alone, the ask has the screen's title over it (the question stays the biggest line); beside the list, the
             // list has it, and the gear and the Pendant.
