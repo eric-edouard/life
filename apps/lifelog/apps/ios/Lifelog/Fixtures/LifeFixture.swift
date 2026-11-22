@@ -36,7 +36,8 @@
         nonisolated static let sheet = value(of: "-fixtureSheet")
         /// `-fixtureAsk open`: Ask Life's banner open.
         nonisolated static let ask = value(of: "-fixtureAsk")
-        /// `-fixtureAgent notStarted|running`: Nora's agent never began (its runtime refused), for the Try again swap, or works.
+        /// `-fixtureAgent notStarted|running|pi`: Nora's agent never began (its runtime refused), for the Try again swap, or
+        /// works; or the lease's agent runs on pi.
         nonisolated static let agent = value(of: "-fixtureAgent")
         /// What approving a pairing does: `ok` (after a moment), `slow` (never ends), `expired` (the code is refused).
         /// `-fixturePage life|server|diagnostics|apps`: Settings opens that page.
@@ -279,6 +280,11 @@
         func readRegisteredAgents() async throws -> String { try await gate(); return agents() }
         /// The design data's spending (`read_spending.json`), as Life answers it.
         func readSpending() async throws -> String { try await gate(); return json(Self.spending) }
+        /// The design data's session of a pi agent (`read_agent_session.json`), whichever agent is asked.
+        func readAgentSession(_ id: String) async throws -> String {
+            try await gate()
+            return json(Self.session.merging(["agent": id]) { $1 })
+        }
         /// The design data's log (`read_log_lines.json`, one page), by level and process; an empty log until the
         /// designer writes it. Polled every 2 s, it adds nothing: the page shows what the frames draw.
         func readLogLines(_ query: LogQuery) async throws -> String {
@@ -676,6 +682,7 @@
         nonisolated(unsafe) private static let people = read("read_people_and_organizations", or: [:])
         nonisolated(unsafe) private static let log = read("read_log_lines", or: [:])
         nonisolated(unsafe) private static let spending = read("read_spending", or: [:])
+        nonisolated(unsafe) private static let session = read("read_agent_session", or: ["lines": []])
         /// Every agent, by its matter; `-fixtureAgent` says how Nora's went.
         nonisolated(unsafe) private static let allAgents: [[String: Any]] =
             ((registered["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])).map {
@@ -688,6 +695,11 @@
                 }
                 if LifeFixture.agent == "running" { agent["status"] = "running" }
                 return agent
+            }
+            // `-fixtureAgent pi`: the lease's agent runs on pi, whose session Life's app shows.
+            .map { agent in
+                guard LifeFixture.agent == "pi", agent["id"] as? String == "agt_lease" else { return agent }
+                return agent.merging(["runtime": "pi", "link": ""]) { $1 }
             }
 
         /// A read of the design data; `missing`, if given, stands for a file the designer has not written yet.

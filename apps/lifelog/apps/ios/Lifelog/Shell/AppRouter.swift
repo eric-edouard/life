@@ -30,11 +30,13 @@ final class AppRouter {
     }
 
     /// What is pushed on the detail column's page: an ask, by check ref, with the matter whose read holds it; an agent's
-    /// page; a matter from an agent's page. Back returns to the page under it.
+    /// page; a matter from an agent's page; an agent's session on pi. Back returns to the page under it.
     enum MatterRoute: Hashable {
         case card(String, matter: String)
         case agent(String)
         case matter(String)
+        /// An agent's session on pi, read-only, by the agent's id.
+        case session(String)
     }
 
     /// What the Projects tab's detail column shows: a matter, or a project's Details (decision 95), by id, the agents
