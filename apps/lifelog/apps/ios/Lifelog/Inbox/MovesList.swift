@@ -69,7 +69,6 @@ struct MovesList: View {
                 NavigationStack {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
-                        context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
                         takes: { taken in
                             openedKept = check
                             Task { await answerOpened(taken.request, as: taken.heldWords) }
