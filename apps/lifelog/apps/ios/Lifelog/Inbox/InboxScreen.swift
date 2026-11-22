@@ -99,6 +99,8 @@ struct InboxScreen: View {
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
         .askSheets($notes) { leave($0, keep: false) }
+        // Ask Life's cut is of every kind: the asks it named show whatever kind he kept to.
+        .onChange(of: router.cut(of: .checks)) { _, cut in if cut != nil { kind = nil } }
         // The moves' list is the ask column's, which a compact width then shows.
         .onChange(of: kind) { _, kind in if kind == .yourMove { router.inboxColumn = .detail } }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
@@ -168,7 +170,7 @@ struct InboxScreen: View {
     /// `all` as shown: of the kind he keeps to, with each kind Life pre-ticks folded into one bulk card unless he goes
     /// through it one by one.
     private func shownOrder(_ kind: CheckGroup?) -> InboxOrder {
-        all.only(kind).folded(except: notes.unfolded, working: notes.working)
+        all.only(kind).cut(to: router.cut(of: .checks)).folded(except: notes.unfolded, working: notes.working)
     }
 
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays

@@ -24,6 +24,8 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
         nonisolated static let filter = value(of: "-fixtureFilter")
+        /// `-fixtureShow matters`: Ask Life's answer cut the Projects list to its first three matters, under its toast.
+        nonisolated static let show = value(of: "-fixtureShow")
         nonisolated static let matter = value(of: "-fixtureMatter")
         /// `-fixturePerson <ref>`: the People tab opens on that person's or organization's page.
         nonisolated static let person = value(of: "-fixturePerson")

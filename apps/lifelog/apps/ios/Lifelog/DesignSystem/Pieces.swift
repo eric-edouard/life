@@ -176,28 +176,59 @@ struct AddRow: View {
 /// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
 /// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line (a flag's on up to 3, so Life's
 /// reason reads whole), and Undo while it can be taken back, a `pick` capsule inside it. It sits at the top of the
-/// pane, so it takes no room from the answers.
+/// pane, so it takes no room from the answers. Ask Life's cut list keeps one until he closes it: its words after a filter glyph (`cut`, up to 2 lines),
+/// and an X (`symbol`) in a `pick` circle.
 struct Toast: View {
     let words: String
-    var glyph = StateGlyph.ok
-    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`).
+    var glyph: StateGlyph? = .ok
+    /// The capsule's one action: Undo, or Retry on a read that failed (`StaleNote`), or "Show all" with an X.
     var action = "Undo"
+    /// The action drawn as this symbol instead of its word (which VoiceOver says).
+    var symbol: String?
     let undo: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 8) {
-            glyph
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : 3)
+            if let glyph { glyph }
+            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : glyph == .cut ? 2 : 3)
             if let undo {
                 Button(action: undo) {
-                    Text(action).font(.chip).foregroundStyle(Palette.fg).padding(.horizontal, 12).frame(height: 32)
-                        .background(Color.pick, in: .capsule).contentShape(.capsule)
+                    Group {
+                        if let symbol {
+                            Image(systemName: symbol).font(.chip).frame(width: 32, height: 32)
+                        } else {
+                            Text(action).font(.chip).padding(.horizontal, 12).frame(height: 32)
+                        }
+                    }
+                    .foregroundStyle(Palette.fg).background(Color.pick, in: .capsule).contentShape(.capsule)
+                    // The circle's tap reaches the toast's whole height.
+                    .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
-                .buttonStyle(.plain).fixedSize()
+                .buttonStyle(.plain).fixedSize().accessibilityLabel(action)
             }
         }
-        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : 6).frame(minWidth: 120, minHeight: 44)
+        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : symbol == nil ? 6 : 0)
+        .frame(minWidth: 120, minHeight: 44)
         .floatingGlass()
+    }
+}
+
+/// Ask Life's cut of a tab's list (`AppRouter.cut`): the toast, first in the list, in the place of the list's own
+/// filter, kept until his X, which gives the whole list back. Nothing while that list is whole.
+struct CutToast: View {
+    let kind: ShownList.Kind
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        ZStack {
+            if let cut = router.cut(of: kind) {
+                Toast(words: cut.label, glyph: .cut, action: "Show all", symbol: "xmark") { router.cut = nil }
+                    .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .appears().id(cut.refs)
+            }
+        }
+        .motion(Motion.standard, value: router.cut(of: kind))
     }
 }
 
@@ -672,14 +703,14 @@ struct CheckLines: View {
 /// The one table of state glyphs, drawn 16 points: a check that worked, a dot that is off, a mark that needs him, a
 /// spinner. `CheckLines` and `StateMark` both draw from it.
 enum StateGlyph: View {
-    case ok, off, flag, busy
+    case ok, off, flag, busy, cut
 
     var color: Color {
         switch self {
         case .ok: Palette.ok
         case .off: Palette.muted
         case .flag: Palette.flag
-        case .busy: Palette.fg
+        case .busy, .cut: Palette.fg
         }
     }
 
@@ -690,6 +721,7 @@ enum StateGlyph: View {
             case .off: Circle().frame(width: 6, height: 6)
             case .flag: Image(systemName: "exclamationmark.circle").font(.system(size: 14, weight: .semibold))
             case .busy: Spinner(size: .small)
+            case .cut: Image(systemName: "line.3.horizontal.decrease").font(.system(size: 13, weight: .semibold))
             }
         }
         .foregroundStyle(color)
