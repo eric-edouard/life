@@ -53,7 +53,14 @@ import {
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
 import { dayUnitId } from "./unit-ids";
-import { type HandleFrom, holdsName, nameKey, PERSON, UNKNOWN } from "./units";
+import {
+  conversationKeyOf,
+  type HandleFrom,
+  holdsName,
+  nameKey,
+  PERSON,
+  UNKNOWN,
+} from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
@@ -157,13 +164,17 @@ export function foldsOf(
   /** What a name as written reads as now, folded, with where that came from; `from` where it was read, when known. */
   const readingNow = (
     nameOrHandle: string,
-    from?: HandleFrom
+    from?: HandleFrom,
+    inConversation?: string
   ): Reading | null => {
-    const r = reading(nameOrHandle, from);
+    const r = reading(nameOrHandle, from, inConversation);
     return r && { ...r, ref: canon(r.ref) };
   };
-  const resolve = (nameOrHandle: string, from?: HandleFrom) =>
-    readingNow(nameOrHandle, from)?.ref ?? null;
+  const resolve = (
+    nameOrHandle: string,
+    from?: HandleFrom,
+    inConversation?: string
+  ) => readingNow(nameOrHandle, from, inConversation)?.ref ?? null;
   return { ambiguousCards, canon, readingNow, resolve };
 }
 
@@ -495,11 +506,11 @@ export function chatHandles(units: Unit[]) {
  */
 export const unitNow = <U extends Unit>(
   u: U,
-  refOf: (ref: string, from?: HandleFrom) => string
+  refOf: (ref: string, from?: HandleFrom, inConversation?: string) => string
 ): U => ({
   ...u,
   people: u.people
-    .map((p) => refOf(p, u.source))
+    .map((p) => refOf(p, u.source, conversationKeyOf(u)))
     .filter((p) => !(p.startsWith(UNKNOWN) && kindOf(u.source) === "mail")),
 });
 
@@ -587,9 +598,9 @@ export async function readPeople() {
     corrections,
   });
   /** Who a ref is as of today: an unresolved one (`unknown:<as written>`) read again, from where it was read when known. */
-  const refOf = (ref: string, from?: HandleFrom) =>
+  const refOf = (ref: string, from?: HandleFrom, inConversation?: string) =>
     ref.startsWith(UNKNOWN)
-      ? (resolve(ref.slice(UNKNOWN.length), from) ?? ref)
+      ? (resolve(ref.slice(UNKNOWN.length), from, inConversation) ?? ref)
       : canon(ref);
   const names = new Map<string, string>([
     ...[...parties, ...outsideDirectory].map(

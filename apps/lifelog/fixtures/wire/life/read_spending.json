@@ -122,24 +122,6 @@
     "currency": "USD"
   },
   "unsettled": 1,
-  "topAgents": [
-    {
-      "agent": "Test shop agent",
-      "id": "agt_000000000001",
-      "billed": {
-        "amount": 0.012,
-        "basis": "billed",
-        "currency": "USD"
-      },
-      "equivalent": {
-        "amount": 3.6,
-        "basis": "equivalent",
-        "currency": "USD"
-      },
-      "reported": true,
-      "tokens": 501000
-    }
-  ],
   "topMatters": [
     {
       "matter": "Test shop fit-out",

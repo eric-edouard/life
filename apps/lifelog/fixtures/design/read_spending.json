@@ -320,41 +320,6 @@
     }
   ],
   "unsettled": 0,
-  "topAgents": [
-    {
-      "agent": "Personal agent",
-      "id": "agt_000000000001",
-      "equivalent": {
-        "amount": 41,
-        "basis": "equivalent",
-        "currency": "USD"
-      },
-      "reported": true,
-      "tokens": 3000000
-    },
-    {
-      "agent": "Halden house agent",
-      "id": "agt_000000000002",
-      "equivalent": {
-        "amount": 30,
-        "basis": "equivalent",
-        "currency": "USD"
-      },
-      "reported": true,
-      "tokens": 2200000
-    },
-    {
-      "agent": "Errands agent",
-      "id": "agt_000000000003",
-      "equivalent": {
-        "amount": 7,
-        "basis": "equivalent",
-        "currency": "USD"
-      },
-      "reported": true,
-      "tokens": 200000
-    }
-  ],
   "topMatters": [
     {
       "matter": "Kitchen quote, Halden house",

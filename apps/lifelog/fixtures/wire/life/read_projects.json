@@ -11,8 +11,7 @@
       "name": "Shop fit-out",
       "status": "active",
       "matters": 1,
-      "needYou": 1,
-      "agentAtWork": true
+      "needYou": 1
     },
     {
       "area": "home",
@@ -21,9 +20,8 @@
       "name": "Old shop",
       "status": "done",
       "matters": 0,
-      "needYou": 0,
-      "agentAtWork": false
+      "needYou": 0
     }
   ],
-  "version": "ddda531fa75d7cb1"
+  "version": "258d4c5669ff1d34"
 }

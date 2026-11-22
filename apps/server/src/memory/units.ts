@@ -64,10 +64,15 @@ export interface Message {
 /** Where a name or handle was read: a source (its senders' kind, `Descriptor.hasPhoneHandles`) or a Contacts field. */
 export type HandleFrom = SourceName | "contacts";
 
-/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null; `from` where it was read, when known. */
+/** A conversation, chat or mail thread across sources: its source and its unit `key` (`source|key`). His `this-is` may be said in one (`inConversation`). */
+export const conversationKeyOf = (u: { key: string; source: string }) =>
+  `${u.source}|${u.key}`;
+
+/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null; `from` where it was read and `inConversation` (`conversationKeyOf`) the conversation, when known. */
 export type Resolve = (
   nameOrHandle: string,
-  from?: HandleFrom
+  from?: HandleFrom,
+  inConversation?: string
 ) => string | null;
 
 export interface Built {
@@ -352,7 +357,8 @@ export const unitTitle = (first: SourceEvent) =>
 export function speakerOf(
   source: SourceName,
   m: { fromMe: boolean; sender: string },
-  resolve: Resolve
+  resolve: Resolve,
+  inConversation?: string
 ) {
   if (m.fromMe) {
     return OWNER;
@@ -360,7 +366,7 @@ export function speakerOf(
   if (kindOf(source) === "agent") {
     return `${AGENT}${m.sender}`;
   }
-  return resolve(m.sender, source) ?? `${UNKNOWN}${m.sender}`;
+  return resolve(m.sender, source, inConversation) ?? `${UNKNOWN}${m.sender}`;
 }
 
 /** A line of a unit's text, `HH:MM who: text`: `who` the speaker without `person:`, or `unknownAs` when unresolved. */

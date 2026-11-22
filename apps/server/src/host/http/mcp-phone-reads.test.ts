@@ -516,7 +516,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         ids: [GRAN_PICTURE, ROBIN_PICTURE],
       })
     );
-    // The agent's turn ends with its assignment still open: the desk's stamp is the same, yet both reads move.
+    // The agent's turn ends with its assignment still open: the desk's stamp is the same, yet the header moves.
     const gone = { ...agent, status: "waiting" as const };
     spyOn(agents, "readRegisteredAgents").mockResolvedValue({
       agents: [{ ...gone, matter: null }],
@@ -527,7 +527,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     });
     spyOn(agents, "readAgentsOnSteps").mockReturnValue([gone] as never);
     const heldChips = await read("read_projects", { ifNot: chips.version });
-    expect(JSON.parse(heldChips).unchanged).toBeUndefined();
+    expect(JSON.parse(heldChips).unchanged).toBe(true);
     const heldHeader = await read("read_project", {
       ifNot: headerVersion,
       project: "shop-fit-out",
