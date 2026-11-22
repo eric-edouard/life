@@ -7,8 +7,9 @@ import {
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
+  READS_SERVER,
 } from "./pi-extension";
-import { PI_CLI } from "./pi-runtime";
+import { connectorReadsOf, PI_CLI } from "./pi-runtime";
 
 // Life's pi extension in a real pi (the pinned one, `--mode rpc`, under Bun as the helper runs it) against a made-up
 // OpenAI-shaped provider: the model asks for two shell calls, a send and a read of the provider key; the guard refuses
@@ -16,18 +17,35 @@ import { PI_CLI } from "./pi-runtime";
 // own `.pi` extension (which would rewrite the routing) never loads, even with pi set to trust every project.
 
 const ROUTING = { only: ["host/fp8"], zdr: true };
-const provider = fakePiProvider((n) =>
-  n === 1
+const provider = fakePiProvider((n, a) => {
+  const asked = JSON.stringify(a.body.messages);
+  const isAnswered = asked.includes('"role":"tool"');
+  // The subagent's session: its first prompt names it; it tries a send, then answers.
+  const first = (
+    a.body.messages as { content: { text?: string }[] | string; role: string }[]
+  ).find((m) => m.role === "user");
+  if (
+    Array.isArray(first?.content) &&
+    first.content[0]?.text?.startsWith("[child]")
+  ) {
+    return isAnswered
+      ? { text: "child done" }
+      : { calls: ['imsg send +15550100 "from the child"'] };
+  }
+  // The agent's first request asks for every call; any later one (compaction's too) is answered.
+  return n === 1
     ? {
         calls: [
           'imsg send +15550100 "on my way"',
           'echo "key=$LIFE_PI_KEY"',
           "echo refuse-me",
           { args: { url: `${base}/page` }, name: "web_fetch" },
+          { args: { task: "[child] send it" }, name: "subagent" },
+          { args: {}, name: `mcp__${READS_SERVER}__read_life_status` },
         ],
       }
-    : { text: "done" }
-);
+    : { text: "done" };
+});
 let base = "";
 const { asked } = provider;
 base = `http://127.0.0.1:${provider.port}`;
@@ -109,6 +127,7 @@ async function runTurn() {
         [PI_EXTENSION_ENV.key]: "life-key",
         [PI_EXTENSION_ENV.own]: "1",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
+        [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
       },
       stderr: "ignore",
       stdin: "pipe",
@@ -142,7 +161,7 @@ async function runTurn() {
   return events;
 }
 
-test("guards pi's shell calls, runs his Claude hooks and fetches the web, keeps the key from them, and routes every request Life's way", async () => {
+test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches the web and reads the connector, keeps the key from them, and routes every request Life's way", async () => {
   const events = await runTurn();
   const ended = (id: string) =>
     events.find((e) => e.type === "tool_execution_end" && e.toolCallId === id);
@@ -159,8 +178,21 @@ test("guards pi's shell calls, runs his Claude hooks and fetches the web, keeps 
   expect(ended("c2")?.result?.content[0]?.text.trim()).toBe("key=");
   expect(ended("c3")?.result?.content[0]?.text).toContain("his hook refused");
   expect(ended("c4")?.result?.content[0]?.text).toStartWith(`404 ${base}/page`);
+  // The subagent answers; its own send was refused by the guard inside it.
+  expect(ended("c5")?.result?.content[0]?.text).toBe("child done");
+  expect(
+    asked.some(
+      (a) =>
+        JSON.stringify(a.body.messages).includes(
+          "Life's send guard refused this (a send command)"
+        ) && JSON.stringify(a.body.messages).includes("[child]")
+    )
+  ).toBe(true);
+  // The connector's reads, over stdio from Life's own reader.
+  expect(ended("c6")?.isError).toBe(false);
+  expect(ended("c6")?.result?.content[0]?.text).toContain("{");
   expect(events.find((e) => e.id === "compact")?.success).toBe(true);
-  expect(asked).toHaveLength(3);
+  expect(asked).toHaveLength(5);
   for (const a of asked) {
     expect(a.body.provider).toEqual(ROUTING);
     expect(a.auth).toBe("Bearer life-key");
