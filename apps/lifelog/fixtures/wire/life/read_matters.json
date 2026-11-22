@@ -70,9 +70,9 @@
       "id": "matter_bbbbbbbbbbbb",
       "name": "Renew the lease",
       "status": "waiting_on_someone",
-      "blockingChecks": 1,
+      "blockingChecks": 0,
       "needsYou": true
     }
   ],
-  "version": "86e7f1b4e4e53e3e"
+  "version": "604d9f68841a4795"
 }
