@@ -13,6 +13,7 @@ import {
   plannedPeopleOf,
   possibleSpeakersOf,
   voiceGroupsOf,
+  whyOf,
 } from "./naming-context";
 
 // Made-up people and calls. A part runs from 10:00 to 11:00 UTC on 30 Oct 2026 (the test zones: Lagos, UTC+1, since 19 Oct).
@@ -338,4 +339,23 @@ test("a voice group is one V across recordings; a voice in no group is its own; 
     ],
     ["V2", [["job-1 speaker_2", [3]]]],
   ]);
+});
+
+test("a guess's why is its most telling signal: the plan, then the message before with its app and time, then the rest", () => {
+  const message = {
+    at: "2026-10-30T09:30:00.000Z",
+    source: "instagram",
+    text: "On my way",
+  } as SourceEvent;
+  const none = { named: false, onCall: false, sounds: false };
+  expect(whyOf({ ...none, plan: "lunch with Ana", planned: message })).toBe(
+    "Planned that day: lunch with Ana"
+  );
+  expect(whyOf({ ...none, planned: message, sounds: true })).toBe(
+    "Instagram, 10:30: On my way"
+  );
+  expect(whyOf({ ...none, named: true, onCall: true })).toBe(
+    "On a call at that time"
+  );
+  expect(whyOf(none)).toBeNull();
 });
