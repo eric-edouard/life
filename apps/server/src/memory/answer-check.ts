@@ -311,7 +311,7 @@ const WRITERS: {
   [G in keyof typeof LIFE_CHECKS]: Record<
     | (typeof LIFE_CHECKS)[G]["options"][number]["id"]
     // Still accepted from installed builds, no longer offered.
-    | (G extends "voice" ? "media" | "not-anyone-i-know" : never),
+    | (G extends "voice" ? "not-anyone-i-know" : never),
     Writer
   >;
 } = {
