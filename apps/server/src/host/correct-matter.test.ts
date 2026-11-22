@@ -90,6 +90,48 @@ test("a matter marked done by its id closes every open step as Life reads it: ob
   ]);
 });
 
+test("a whole matter dropped by its id: its to-do items removed, not ticked, its observations outdated as dropped", async () => {
+  const reported: Record<string, unknown>[] = [];
+  await correct(
+    {
+      correction: {
+        kind: "outdated",
+        matter: "matter_aaaaaaaaaaaa",
+        outcome: "dropped",
+      },
+      kind: "memory",
+    },
+    undefined,
+    { report: (s) => reported.push(s) }
+  );
+  expect(tick).toHaveBeenCalledWith(
+    ["entry_000000000001"],
+    "Dropped (Life's words: he gave none).",
+    "remove",
+    expect.any(Function)
+  );
+  expect(reported[0]).toMatchObject({
+    plan: ["todo_items_removed", "recorded"],
+  });
+  expect(readCorrections()).toMatchObject([
+    {
+      kind: "outdated",
+      observations: ["obs_000000000001", "obs_000000000002"],
+      outcome: "dropped",
+    },
+  ]);
+  await expect(
+    correct({
+      correction: {
+        kind: "outdated",
+        matter: "matter_aaaaaaaaaaaa",
+        outcome: "parked",
+      },
+      kind: "memory",
+    })
+  ).rejects.toThrow("`outcome` is `dropped`");
+});
+
 test("two to-do items ticked: a plan with a limit, one report per tick, then recorded", async () => {
   book.mockResolvedValue([
     {
