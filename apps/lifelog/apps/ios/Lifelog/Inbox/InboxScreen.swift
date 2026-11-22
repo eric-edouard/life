@@ -43,9 +43,9 @@ struct InboxScreen: View {
             .background(Palette.bg)
             .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
             .screenTitle("Inbox", state: waiting)
+            .askFilterBar(kinds: all.kinds, kind: $kind)
             // The Pendant and Settings are the ask column's when it is beside the list; the list alone (compact) has them.
             .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-            .askFilterBar(kinds: all.kinds, kind: $kind)
         } detail: {
             ReadScreen(
                 shown: shown, retry: { await life.refreshInbox() },

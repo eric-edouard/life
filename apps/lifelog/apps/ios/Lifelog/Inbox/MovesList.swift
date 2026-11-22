@@ -77,7 +77,12 @@ struct MovesList: View {
             }
         }
         // A read can take a ticked row away (answered elsewhere): ticks only name rows still shown.
-        .onChange(of: rows.map(\.id)) { _, ids in ticked.formIntersection(ids) }
+        // A filter his answers emptied gives the whole list back, out of Select (DuoFoldMovesHanded): never "Nothing here."
+        // under a bar with nothing left to answer.
+        .onChange(of: rows.map(\.id)) { _, ids in
+            ticked.formIntersection(ids)
+            if ids.isEmpty, filter != .all, !sent.isEmpty { (filter, isSelecting, sent) = (.all, false, []) }
+        }
     }
 
     // MARK: Header
@@ -177,10 +182,10 @@ struct MovesList: View {
 
     private func row(_ move: YourMoves.Move, at index: Int, of count: Int) -> some View {
         let refused = failure(of: move)
-        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the matter, then the step
+        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the step, then its matter
         // and its age, or why Life refused it, in `flag`.
         let content = Row(
-            title: move.check.title, icon: isSelecting ? nil : move.symbol,
+            title: move.check.question, icon: isSelecting ? nil : move.symbol,
             iconTint: Palette.muted, detail: move.detail,
             state: refused.map { .refused($0.reason) }
                 ?? (life.state(of: .answer(ref: move.id)).isRunning ? .saving : .known),

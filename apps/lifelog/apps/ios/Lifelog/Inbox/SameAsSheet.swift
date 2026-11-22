@@ -25,27 +25,23 @@ struct SameAsSheet: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                SheetHeader(title: "Who?") { dismiss() }
-                Field(prompt: "Search or type a name", text: $name, surface: .sheet, icon: "magnifyingglass")
-                    .focused($isTyping)
-                VStack(spacing: 0) {
-                    if takesNewName || !typed.isEmpty { newPerson }
-                    ForEach(shown, id: \.ref) { person in
-                        Button {
-                            pick(.person(person.ref))
-                        } label: {
-                            PartyRow(person).frame(minHeight: Metrics.FlatRow.personRow).contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 8) {
+            Field(prompt: "Search or type a name", text: $name, surface: .sheet, icon: "magnifyingglass")
+                .focused($isTyping)
+            VStack(spacing: 0) {
+                if takesNewName || !typed.isEmpty { newPerson }
+                ForEach(shown, id: \.ref) { person in
+                    Button {
+                        pick(.person(person.ref))
+                    } label: {
+                        PartyRow(person).frame(minHeight: Metrics.FlatRow.personRow).contentShape(.rect)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding([.horizontal, .bottom], Metrics.gutter)
-            .readingWidth()
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .readingWidth()
+        .sheetScroll { SheetHeader(title: "Who?") { dismiss() } }
         .background(Palette.sheet)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)

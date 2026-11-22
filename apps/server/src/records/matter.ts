@@ -63,7 +63,7 @@ export const NextStepKind = z.enum(["do", "wait_event", "wait_owner"]);
 /**
  * A matter's next step, Life's draft or his word: one line saying what moves it now, its kind, for a wait what it waits
  * on, and its `context` (Markdown, as a card's: its `life:` links checked before it is written; Life's drafts from
- * `memory-matter-directions.v3`).
+ * `memory-matter-directions.v4`).
  */
 export const NextStep = z
   .object({
