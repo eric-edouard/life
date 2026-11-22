@@ -80,6 +80,8 @@ struct RootView: View {
             }
         }
         .fullScreenCover(isPresented: $router.isAskLifeOpen) { AskLifeScreen() }
+        // What an answer shows: its tab's list cut, or a page, under Ask Life's strip.
+        .onChange(of: life.askLife.shown) { _, shown in if let shown { router.open(shown: shown.show) } }
         // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
         // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
         .scrollEdgeEffectStyle(.soft, for: .all)
@@ -132,6 +134,8 @@ struct RootView: View {
         Binding(
             get: { router.tab },
             set: { tab in
+                // Tapping the tab on show again: its whole list (All, no cut of Ask Life's).
+                if tab == router.tab { router.cut = nil }
                 if tab == .projects, router.tab == .projects { router.chip = nil }
                 router.tab = tab
             })
@@ -186,6 +190,12 @@ struct RootView: View {
             if ["replacePendant", "pairPendant"].contains(LifeFixture.sheet) { router.sheet = .pendant }
             if LifeFixture.sheet == "agent" { router.matterSheet = LifeFixture.matter.map { .agent($0) } }
             if LifeFixture.sheet == "agents" { router.show(.agents) }
+            if LifeFixture.show == "matters" {
+                await life.refreshMatters()
+                let refs = (life.matters.value?.matters ?? []).prefix(3).map(\.id)
+                router.open(
+                    shown: .list(ShownList(kind: .matters, refs: Array(refs), label: "Your 3 most important today")))
+            }
             // The page of the matter's agent, pushed on the matter.
             if LifeFixture.sheet == "agentPage", let id = LifeFixture.matter {
                 await life.refreshAgents()

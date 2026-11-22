@@ -6,7 +6,7 @@ import { openReadOnly } from "../core/sqlite";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import { isOldShape } from "../host/desk-shape";
 import { stepTurnsOf } from "../host/desk-turn-reads";
-import { opensWithPlan, planCardsOf } from "../host/inbox";
+import { opensWithPlan } from "../host/inbox";
 import {
   assignmentOnMatter,
   MOVE_REASONS,
@@ -528,7 +528,7 @@ test("after a move, a card seen done before it does not count as asked, and a de
     }
     expect(hasAsked(desk.db, moved)).toBe(false);
     expect(opensWithPlan(desk.db, moved)).toBe(true);
-    // The door takes the new holder's plan card, and the inbox shows it as its plan.
+    // The door takes the new holder's plan card, its steps in `plan`.
     const plan = await askDecision(desk, moved, {
       context: "## Fix the boiler\n1. Call the plumber",
       deadline: iso(clock().getTime() + DAY),
@@ -541,7 +541,8 @@ test("after a move, a card seen done before it does not count as asked, and a de
       question: "Start with this plan?",
       title: "Fix the boiler",
     });
-    expect([...planCardsOf(desk.db, decisionsNow())]).toContain(plan.id);
+    expect(decisionsNow().find((d) => d.id === plan.id)?.plan).toBeDefined();
+    expect(hasAsked(desk.db, moved)).toBe(true);
   });
 });
 

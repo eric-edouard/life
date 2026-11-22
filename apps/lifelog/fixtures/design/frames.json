@@ -1,4 +1,24 @@
 {
+  "DuoAskLifeShown": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureShow",
+      "matters"
+    ]
+  },
+  "DuoFoldAskLifeShown": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureShow",
+      "matters"
+    ]
+  },
   "AgentPage": {
     "args": [
       "-fixtureLife",
@@ -1083,5 +1103,21 @@
       "-fixtureDictation",
       "writing"
     ]
+  },
+  "DuoFoldSpendingAgentBack": {
+    "why": "The top agents are below the fold and design:shots presses before it scrolls (a press on a row off screen lands on the column's tab). By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, scroll to Top agents, open one, Back."
+  },
+  "DuoFoldAgentWakeMatter": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureTab",
+      "projects",
+      "-fixtureMatter",
+      "matter_kitchen",
+      "-fixtureSheet",
+      "agentPage"
+    ],
+    "taps": ["What wakes it", "You answer “Go with this plan?”"]
   }
 }
