@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { spendOfTurn, spendsOf, spendsOfLine, spendsOfVoice } from "./spends";
+import {
+  spendOfTurn,
+  spendsOf,
+  spendsOfLine,
+  spendsOfTurn,
+  spendsOfVoice,
+} from "./spends";
 
 const AT = "2026-11-21T10:00:00.000Z";
 const tokens = { cached: 0, input: 1_000_000, output: 0 };
@@ -101,6 +107,7 @@ test("a turn is its runtime's tokens at its model's list price, its cache reads 
     ended_at: AT,
     model: "codex:default",
     runtime: "codex",
+    search_usd: null,
     tokens_cached: 0,
     tokens_in: 1_000_000,
     tokens_out: null,
@@ -138,6 +145,7 @@ test("a pi turn is billed by OpenRouter: its dollars, or not reported when they 
     ended_at: AT,
     model: "pi:flash",
     runtime: "pi",
+    search_usd: 0,
     tokens_cached: 0,
     tokens_in: 1000,
     tokens_out: 10,
@@ -152,6 +160,43 @@ test("a pi turn is billed by OpenRouter: its dollars, or not reported when they 
     basis: "billed",
     reported: false,
   });
+});
+
+test("a pi turn's web searches are their own billed spend, apart from its models; none without a search; not reported when a search came without its price; a plan's turn has none", () => {
+  const turn = {
+    agent_id: "agt_000000000001",
+    assignment_id: "asg_000000000001",
+    cost_usd: 0.004,
+    ended_at: AT,
+    model: "pi:flash",
+    runtime: "pi",
+    search_usd: 0.002,
+    tokens_cached: 0,
+    tokens_in: 1000,
+    tokens_out: 10,
+  };
+  expect(spendsOfTurn(turn)).toEqual([
+    expect.objectContaining({ kind: "agents", usd: 0.004 }),
+    {
+      agent: "agt_000000000001",
+      assignment: "asg_000000000001",
+      at: AT,
+      basis: "billed",
+      calls: 1,
+      kind: "web_search",
+      provider: "web_search",
+      reported: true,
+      usd: 0.002,
+    },
+  ]);
+  expect(spendsOfTurn({ ...turn, search_usd: 0 })).toHaveLength(1);
+  expect(spendsOfTurn({ ...turn, search_usd: null })[1]).toMatchObject({
+    kind: "web_search",
+    reported: false,
+  });
+  expect(
+    spendsOfTurn({ ...turn, model: "codex:default", search_usd: null })
+  ).toHaveLength(1);
 });
 
 test("a call made in a processing run's step is the night's; any other the daytime's", () => {

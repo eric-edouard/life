@@ -41,7 +41,7 @@ import {
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
-import { SPENDING_TOOLS } from "./pi-subagent";
+import { SPENDING_TOOLS, type SpentDetails } from "./pi-subagent";
 import type { PiTerminalLaunch } from "./pi-terminal";
 import {
   GATED_KEYS,
@@ -471,7 +471,7 @@ export interface PiLine {
     usage?: CallUsage;
   };
   /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`). */
-  result?: { details?: { usage?: CallUsage[] } };
+  result?: { details?: SpentDetails };
   success?: boolean;
   toolCallId?: string;
   toolName?: string;
@@ -558,6 +558,12 @@ export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
   ) {
     for (const m of l.result?.details?.usage ?? []) {
       addSpent(c.usage, m);
+    }
+    for (const usd of l.result?.details?.searchUsd ?? []) {
+      c.usage.searchUsd =
+        typeof usd === "number" && typeof c.usage.searchUsd === "number"
+          ? c.usage.searchUsd + usd
+          : null;
     }
   }
   const heard = updateOf(l);
@@ -694,6 +700,7 @@ const openOf =
             billedUsd: 0,
             contextFirst: null,
             contextLast: null,
+            searchUsd: 0,
             tokensCached: 0,
             tokensIn: 0,
             tokensOut: 0,

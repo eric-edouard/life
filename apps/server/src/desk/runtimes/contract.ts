@@ -22,7 +22,7 @@ export interface Run {
   ended: Promise<RunEnd>;
 }
 
-/** One model call's usage, as pi's assistant messages carry it; a paid request of Life's own tools as one with no tokens. */
+/** One model call's usage, as pi's assistant messages carry it. */
 export interface CallUsage {
   cacheRead: number;
   cacheWrite: number;
@@ -38,6 +38,8 @@ export interface Usage {
   billedUsd?: number | null;
   contextFirst: number | null;
   contextLast: number | null;
+  /** Dollars its web searches cost (`web_search`, pi only): none on a runtime without it; null when a search came without its price. */
+  searchUsd?: number | null;
   tokensCached: number;
   tokensIn: number;
   tokensOut: number;

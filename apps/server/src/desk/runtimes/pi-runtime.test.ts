@@ -65,6 +65,7 @@ test("a first turn makes the session, ends with its usage, and the next turn res
       billedUsd: 0.001,
       contextFirst: 12,
       contextLast: 12,
+      searchUsd: 0,
       tokensCached: 4,
       tokensIn: 6,
       tokensOut: 2,
@@ -221,11 +222,12 @@ test("the connector's reader gets Life's values as they are: pi's `$NAME` and le
   }
 });
 
-test("a spending tool's usage is added to the turn's billed dollars and tokens, any other tool's never", () => {
+test("a spending tool's model usage adds to the turn's billed dollars and tokens, its searches' prices to its search dollars apart, any other tool's never; a search without its price nulls them", () => {
   const usage = {
     billedUsd: 0,
     contextFirst: null,
     contextLast: null,
+    searchUsd: 0,
     tokensCached: 0,
     tokensIn: 0,
     tokensOut: 0,
@@ -241,10 +243,25 @@ test("a spending tool's usage is added to the turn's billed dollars and tokens, 
   const c = { begun: () => undefined, end: () => undefined, usage };
   for (const toolName of ["web_search", "subagent", "mcp__made_up__read"]) {
     runHeard(c, {
-      result: { details: { usage: [spent] } },
+      result: {
+        details: {
+          searchUsd: [0.001],
+          ...(toolName === "web_search" ? {} : { usage: [spent] }),
+        },
+      },
       toolName,
       type: "tool_execution_end",
     });
   }
-  expect(usage).toMatchObject({ billedUsd: 0.01, tokensIn: 6 });
+  expect(usage).toMatchObject({
+    billedUsd: 0.005,
+    searchUsd: 0.002,
+    tokensIn: 3,
+  });
+  runHeard(c, {
+    result: { details: { searchUsd: [undefined, 0.001] } },
+    toolName: "web_search",
+    type: "tool_execution_end",
+  });
+  expect(usage).toMatchObject({ billedUsd: 0.005, searchUsd: null });
 });

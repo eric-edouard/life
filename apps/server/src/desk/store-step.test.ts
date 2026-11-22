@@ -34,8 +34,8 @@ import {
   stepRoleCheck,
   stepRoles,
   stepStore,
-  stepTurnCost,
   stepTurnModel,
+  stepTurnSearchCost,
 } from "./store-step";
 
 // The desk's store step (agents and matters, PR 1) on a made-up store of the old shape: same agents, each wait, anchor,
@@ -58,7 +58,8 @@ const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
 const MATTER_IDS_BACKUP_FILE = /^desk-before-matter-ids-.*\.sqlite$/;
 const ROLE_CHECK_BACKUP_FILE = /^desk-before-role-check-.*\.sqlite$/;
 const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
-const TURN_COST_BACKUP_FILE = /^desk-before-turn-cost-.*\.sqlite$/;
+const TURN_SEARCH_COST_BACKUP_FILE =
+  /^desk-before-turn-search-cost-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
 
 /** A made-up store of the old shape, and an agents repo (a git repo) with the project agents' homes. */
@@ -465,26 +466,26 @@ test("a store from before turn models is refused by openDesk; the step adds `tur
   after.close();
 });
 
-test("a store from before turn costs is refused by openDesk; the step adds `turn.cost_usd` behind its own copy, once, older turns null; skipped on a checkout's app state", () => {
+test("a store from before turn search costs is refused by openDesk; the step adds `turn.search_usd` behind its own copy, once, older turns null; skipped on a checkout's app state", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-step-"));
   const path = join(dir, "desk.sqlite");
   const db = new Database(path);
-  db.run(SCHEMA.replace("move text,\n  cost_usd real", "move text"));
+  db.run(SCHEMA.replace("cost_usd real,\n  search_usd real", "cost_usd real"));
   db.run(
     "insert into turn (agent_id, assignment_id, cause, started_at, tokens_in) values ('agt_000000000001', 'asg_000000000001', 'start', ?, 10)",
     [T]
   );
   db.close();
   expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
-  expect(stepTurnCost(path, APP_FOLDERS.state)).toBe("skipped");
-  expect(stepTurnCost(path, dir)).toBe("migrated");
-  expect(stepTurnCost(path, dir)).toBe("in shape");
+  expect(stepTurnSearchCost(path, APP_FOLDERS.state)).toBe("skipped");
+  expect(stepTurnSearchCost(path, dir)).toBe("migrated");
+  expect(stepTurnSearchCost(path, dir)).toBe("in shape");
   expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
-    expect.stringMatching(TURN_COST_BACKUP_FILE),
+    expect.stringMatching(TURN_SEARCH_COST_BACKUP_FILE),
   ]);
   const after = openDesk(path);
-  expect(after.query("select tokens_in, cost_usd from turn").all()).toEqual([
-    { cost_usd: null, tokens_in: 10 },
+  expect(after.query("select tokens_in, search_usd from turn").all()).toEqual([
+    { search_usd: null, tokens_in: 10 },
   ]);
   after.close();
 });
@@ -500,8 +501,8 @@ test("the later steps, run in any order on a store from before all of them, end 
     )
     .replace(MOVE_TABLES, "")
     .replace(
-      "context_used integer,\n  model text,\n  move text,\n  cost_usd real",
-      "context_used integer"
+      "context_used integer,\n  model text,\n  move text,\n  cost_usd real,\n  search_usd real",
+      "context_used integer,\n  cost_usd real"
     )
     .replace("  matter_id text,\n", "");
   const steps = [
@@ -509,7 +510,7 @@ test("the later steps, run in any order on a store from before all of them, end 
     stepTurnModel,
     stepMatterIds,
     stepMoves,
-    stepTurnCost,
+    stepTurnSearchCost,
   ];
   const shapeAfter = (order: typeof steps) => {
     const dir = mkdtempSync(join(tmpdir(), "life-step-"));
