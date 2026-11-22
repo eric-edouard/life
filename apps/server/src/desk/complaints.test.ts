@@ -279,6 +279,30 @@ test("the caretaker reads a complaint through its door only on the assignment th
     until: new Date(clock().getTime() + 3_600_000).toISOString(),
   });
   expect(wait.isError).toBeFalsy();
+  // It fixes Life's memory itself (his ruling of 22 Nov 2026), only on the words of the complaint it holds; the main
+  // session's other acts stay refused.
+  const recorded = spyOn(
+    await import("../host/correct-matter"),
+    "recordHisCorrection"
+  ).mockResolvedValue("recorded" as never);
+  try {
+    const correction = { kind: "wrong", observations: ["obs_000000000001"] };
+    const notHis = await call("correct_memory", {
+      correction,
+      said: "Dre is a stranger to me",
+    });
+    expect(notHis.content[0]?.text).toContain("a complaint you are fixing");
+    const fixed = await call("correct_memory", {
+      correction,
+      said: "Dre is my cousin Mina",
+    });
+    expect(fixed.isError).toBeFalsy();
+    expect(recorded).toHaveBeenCalledWith(correction);
+  } finally {
+    recorded.mockRestore();
+  }
+  const told = await call("tell_agent", { agent: id, said: WORDS });
+  expect(told.content[0]?.text).toContain("the main session's alone");
 });
 
 test("a caretaker that finishes while a complaint it never handed waits gives it back: received again for a caretaker that reads it, its receipt never stranded on a closed assignment", async () => {

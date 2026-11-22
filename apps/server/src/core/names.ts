@@ -43,6 +43,12 @@ export const CONNECTOR_WRITES = [
 /** The built-in agent his words about his registered agents are asked of (`change_registered_agent`): the desk, which keeps its own list. */
 export const DESK_AGENT = "desk";
 
+/**
+ * Life's developer contact: where a caretaker's feedback mail goes, a card's draft sent only on his Send (his ruling of
+ * 22 Nov 2026: "Bug reports should be an email to me"). Public on purpose: the scrub skips it.
+ */
+export const DEVELOPER_CONTACT = "feedback@ericedouard.com";
+
 /** Who asks Life's own checks (its guesses). */
 export const LIFE_ASKER = "life";
 
