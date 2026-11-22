@@ -266,8 +266,8 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
       })
     );
   }
-  if (config.rules) {
-    const rules = config.rules;
+  const { rules } = config;
+  if (rules) {
     // A section, not a message: no compaction summarizes it, and pi diffs it, so an unchanged one keeps the cached prefix.
     pi.on("before_agent_start", (event) => {
       event.systemPromptOptions.sections[RULES_SECTION] = rules;
