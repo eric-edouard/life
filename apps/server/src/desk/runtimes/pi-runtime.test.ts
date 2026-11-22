@@ -202,8 +202,6 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   expect(second.env[PI_EXTENSION_ENV.reads]).toBeUndefined();
   // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
   expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
-  expect(JSON.parse(own.env[PI_EXTENSION_ENV.reads] ?? "{}").args).toContain(
-    "connector-reads"
-  );
+  expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
