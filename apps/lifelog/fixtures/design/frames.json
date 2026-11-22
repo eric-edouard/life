@@ -37,16 +37,44 @@
     ]
   },
   "AskBannerArmedPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "armed"
+    ]
   },
   "AskBannerHoldingPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "holding"
+    ]
   },
   "AskBannerListeningPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "listening"
+    ]
   },
   "AskBannerSendingPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureAsk", "open"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "sending"
+    ]
   },
   "AskNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
@@ -1019,5 +1047,15 @@
       "matter_kitchen"
     ],
     "taps": ["Important"]
+  },
+  "AskBannerWritingPhone": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "writing"
+    ]
   }
 }
