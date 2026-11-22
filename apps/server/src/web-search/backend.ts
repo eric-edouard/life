@@ -4,6 +4,7 @@ import type { Searched, WebResult, WebSearchProvider } from "./contract";
 import { perplexitySearch } from "./perplexity-search";
 import { serpapi } from "./serpapi";
 import { serper } from "./serper";
+import { tavily } from "./tavily";
 
 // The web search providers by name, and his chain over them: the one way Life searches the web.
 
@@ -13,6 +14,7 @@ const WEB_SEARCH_PROVIDERS: Record<WebSearchProviderName, WebSearchProvider> = {
   "perplexity-search": perplexitySearch,
   serpapi,
   serper,
+  tavily,
 };
 
 /** The providers of `order` whose key is in this environment: the ones a search can ask. */
@@ -21,6 +23,7 @@ export const searchableOf = (order: WebSearchProviderName[]) =>
 
 /** The chain when his `desk.webSearch` names none (the owner's word of 22 Nov 2026). */
 export const WEB_SEARCH_CHAIN: WebSearchProviderName[] = [
+  "tavily",
   "serper",
   "brave",
   "perplexity-search",
