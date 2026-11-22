@@ -30,7 +30,7 @@ const LINE = {
   steps: OBS.map((o) => ({ ref: o.id })),
 };
 const STEPS = OBS.map((o) => o.id);
-const bookWithRecords = (r: Partial<MatterRecords>) =>
+const bookWithRecords = (given: Partial<MatterRecords>) =>
   matterBookOf(
     { matters: [LINE], offered: new Set() },
     {
@@ -47,7 +47,7 @@ const bookWithRecords = (r: Partial<MatterRecords>) =>
       refOf: (r) => r,
       retired: new Map(),
       todoItems: [],
-      ...r,
+      ...given,
     },
     "2026-10-20"
   )[0];
