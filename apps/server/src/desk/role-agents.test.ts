@@ -57,7 +57,7 @@ test("a role takes its own runtime from the settings, a role left out the desk's
 });
 
 test("the main session and the caretaker stand from the desk's start: an agent row with no assignment, so no turn; once each; none after one never began; a finished one stands again", () => {
-  const db = desk.db;
+  const { db } = desk;
   db.run("delete from assignment");
   db.run("delete from agent");
   const stand = () => {
