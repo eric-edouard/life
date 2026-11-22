@@ -289,6 +289,7 @@ test("what his agents are doing: each with its matter, status, wait, link and am
         kind: "do",
         text: "Ask the bakery for the pickup day",
       },
+      openSteps: [],
       owedTo: [],
       projects: [],
       status: "moving",
