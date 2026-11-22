@@ -1395,7 +1395,7 @@
       "ridesOn": {
         "matterIds": ["matter_gutter"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Roof gutter",
@@ -1462,7 +1462,7 @@
       "ridesOn": {
         "matterIds": ["matter_kitchen"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Kitchen quote, Halden house",
@@ -1529,7 +1529,7 @@
       "ridesOn": {
         "matterIds": ["matter_shed"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Garden shed permit",
@@ -1596,7 +1596,7 @@
       "ridesOn": {
         "matterIds": ["matter_table"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Table for Mum’s 60th",
@@ -1663,7 +1663,7 @@
       "ridesOn": {
         "matterIds": ["matter_car_insurance"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Car insurance",
@@ -1730,7 +1730,7 @@
       "ridesOn": {
         "matterIds": ["matter_moving_boxes"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Moving boxes",
@@ -1797,7 +1797,7 @@
       "ridesOn": {
         "matterIds": ["matter_home"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Home",
@@ -1864,7 +1864,7 @@
       "ridesOn": {
         "matterIds": ["matter_nora"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Quote for Nora Keller",
@@ -1931,7 +1931,7 @@
       "ridesOn": {
         "matterIds": ["matter_kitchen"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Kitchen quote, Halden house",
@@ -1998,7 +1998,7 @@
       "ridesOn": {
         "matterIds": ["matter_kitchen"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Kitchen quote, Halden house",
@@ -2065,7 +2065,7 @@
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Halden house",
@@ -2132,7 +2132,7 @@
       "ridesOn": {
         "matterIds": ["matter_gutter"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Roof gutter",
@@ -2199,7 +2199,7 @@
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Halden house",
@@ -2266,7 +2266,7 @@
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Halden house",
@@ -2333,7 +2333,7 @@
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Halden house",
@@ -2400,7 +2400,7 @@
       "ridesOn": {
         "matterIds": ["matter_shed"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Garden shed permit",
@@ -2467,7 +2467,7 @@
       "ridesOn": {
         "matterIds": ["matter_shed"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Garden shed permit",
@@ -2534,7 +2534,7 @@
       "ridesOn": {
         "matterIds": ["matter_holidays"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Holidays",
@@ -2601,7 +2601,7 @@
       "ridesOn": {
         "matterIds": ["matter_camille_s_birthday"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Camille’s birthday",
@@ -2668,7 +2668,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_1"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Passport for Léa",
@@ -2735,7 +2735,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_1"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Passport for Léa",
@@ -2802,7 +2802,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_2"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Bike repair",
@@ -2869,7 +2869,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_2"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Bike repair",
@@ -2936,7 +2936,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_3"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Dentist follow-up",
@@ -3003,7 +3003,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_3"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Dentist follow-up",
@@ -3070,7 +3070,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_4"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Gym membership",
@@ -3137,7 +3137,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_4"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Gym membership",
@@ -3204,7 +3204,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_5"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Old laptop sale",
@@ -3271,7 +3271,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_5"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Old laptop sale",
@@ -3338,7 +3338,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_6"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Garden table",
@@ -3405,7 +3405,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_6"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Garden table",
@@ -3472,7 +3472,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_7"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Piano lessons",
@@ -3539,7 +3539,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_7"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Piano lessons",
@@ -3606,7 +3606,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_8"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Tax letter 2025",
@@ -3673,7 +3673,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_8"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Tax letter 2025",
@@ -3740,7 +3740,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_9"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Phone contract",
@@ -3807,7 +3807,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_9"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Phone contract",
@@ -3874,7 +3874,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_10"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Storage unit",
@@ -3941,7 +3941,7 @@
       "ridesOn": {
         "matterIds": ["matter_dormant_10"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
       "title": "Storage unit",
