@@ -27,6 +27,8 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
     byKind: [
       { ...sum, billedUsd: 0.25, kind: "night", tokens: 1000 },
       { ...sum, equivalentUsd: 1.5, kind: "agents", tokens: 500_000 },
+      { ...sum, billedUsd: 0.003, kind: "web_search" },
+      { ...sum, billedUsd: 0.05, kind: "apify" },
     ],
     byProvider: [
       {
@@ -44,6 +46,20 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
         provider: "claude",
         reported: true,
         tokens: 500_000,
+      },
+      {
+        ...sum,
+        basis: "billed",
+        billedUsd: 0.003,
+        provider: "web_search",
+        reported: true,
+      },
+      {
+        ...sum,
+        basis: "billed",
+        billedUsd: 0.05,
+        provider: "apify",
+        reported: true,
       },
     ],
     day: "2020-02-01",
@@ -96,6 +112,7 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
           ended_at: "2026-11-10T10:00:00.000Z",
           model: "claude:opus",
           runtime: "claude",
+          search_usd: null,
           tokens_cached: 0,
           tokens_in: 400_000,
           tokens_out: 100_000,
@@ -108,6 +125,8 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
           ended_at: "2026-11-10T11:00:00.000Z",
           model: "pi:flash",
           runtime: "pi",
+          // Its searches: billed apart from its models, in the agent's billed.
+          search_usd: 0.002,
           tokens_cached: 0,
           tokens_in: 900,
           tokens_out: 100,
@@ -126,11 +145,19 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
   try {
     const answer = await readSpending("2020-02");
     expect(answer.days.map((d) => d.day)).toEqual(["2020-02-01", "2020-02-03"]);
-    expect(answer.month.amount).toBeCloseTo(0.35);
+    expect(answer.month.amount).toBeCloseTo(0.403);
+    // Agents' models, web search and Apify: a row each.
+    expect(answer.byKind.map((k) => [k.kind, k.billed?.amount])).toEqual([
+      ["night", 0.25],
+      ["agents", undefined],
+      ["web_search", 0.003],
+      ["apify", 0.05],
+      ["voice", 0.1],
+    ]);
     expect(answer.today.amount).toBe(0.05);
     expect(answer.topMatters).toEqual([
       {
-        billed: { amount: 0.01, basis: "billed", currency: "USD" },
+        billed: { amount: 0.012, basis: "billed", currency: "USD" },
         equivalent: { amount: 3.6, basis: "equivalent", currency: "USD" },
         id: "matter_000000000001",
         matter: "Test shop fit-out",
@@ -160,6 +187,7 @@ test("a matter's turns are its assignments' whose anchors name it: an anchor sha
     ended_at: "2026-11-10T10:00:00.000Z",
     model: "claude:opus",
     runtime: "claude",
+    search_usd: null,
     tokens_cached: 0,
     tokens_in: 100,
     tokens_out: 0,

@@ -9,14 +9,20 @@ import { WEB_SEARCH } from "./web-tools";
 // through pi's own SDK (the copy pi hands its extensions), given Life's extension as an object (`factory`, no door and
 // no connector reads), so the send guard is in the child by construction and the provider key never enters an
 // environment. The child runs on the parent's model and thinking, in the parent's folder, never trusts the folder's
-// `.pi`, has no `subagent` of its own, and keeps nothing (an in-memory session). Its calls' usage, and its searches', comes back in the
-// tool result's `details.usage`, which the pi runtime adds to the turn's (`pi-runtime.ts`).
+// `.pi`, has no `subagent` of its own, and keeps nothing (an in-memory session). Its calls' usage, and its searches' prices, come back in the
+// tool result's `details` (`SpentDetails`), which the pi runtime adds to the turn's (`pi-runtime.ts`).
 
 /** The tool's name: the child has none of it. */
 export const SUBAGENT = "subagent";
 
-/** Life's own tools whose result's `details.usage` is a spend: this one's child calls, `web_search`'s paid requests. */
+/** Life's own tools whose result's `details` is a spend: this one's child calls and searches, `web_search`'s paid requests. */
 export const SPENDING_TOOLS = [SUBAGENT, WEB_SEARCH];
+
+/** A spending tool's `details`: model calls' usage, and each paid search's price (undefined when unknown, never guessed). */
+export interface SpentDetails {
+  searchUsd?: (number | undefined)[];
+  usage?: CallUsage[];
+}
 
 /** Registers `subagent`, its child sessions built on `factory`. */
 export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
@@ -52,6 +58,7 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
         thinkingLevel: pi.getThinkingLevel(),
       });
       const usage: CallUsage[] = [];
+      const searchUsd: (number | undefined)[] = [];
       let answer = "";
       session.subscribe((e) => {
         // The child's own searches are its spend too: none of its events reaches the runtime's reader.
@@ -59,7 +66,9 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
           e.type === "tool_execution_end" &&
           SPENDING_TOOLS.includes(e.toolName)
         ) {
-          usage.push(...(e.result?.details?.usage ?? []));
+          const d: SpentDetails | undefined = e.result?.details;
+          usage.push(...(d?.usage ?? []));
+          searchUsd.push(...(d?.searchUsd ?? []));
         }
         if (e.type === "message_end" && e.message.role === "assistant") {
           usage.push(e.message.usage);
@@ -88,7 +97,7 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
         content: [
           { text: answer || why || "(no answer)", type: "text" as const },
         ],
-        details: { usage },
+        details: { searchUsd, usage } satisfies SpentDetails,
       };
     },
     label: "Subagent",

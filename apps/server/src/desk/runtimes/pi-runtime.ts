@@ -41,7 +41,7 @@ import {
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
-import { SPENDING_TOOLS } from "./pi-subagent";
+import { SPENDING_TOOLS, type SpentDetails } from "./pi-subagent";
 import type { PiTerminalLaunch } from "./pi-terminal";
 import {
   GATED_KEYS,
@@ -512,7 +512,7 @@ export interface PiLine {
     usage?: CallUsage;
   };
   /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`); a compaction's, its summary call's (`compaction_end`). */
-  result?: { details?: { usage?: CallUsage[] }; usage?: CallUsage };
+  result?: { details?: SpentDetails; usage?: CallUsage };
   success?: boolean;
   toolCallId?: string;
   toolName?: string;
@@ -590,11 +590,12 @@ function spentOf(l: PiLine): CallUsage[] {
   if (l.type === "compaction_end" && l.result?.usage) {
     return [l.result.usage];
   }
-  return l.type === "tool_execution_end" &&
-    SPENDING_TOOLS.includes(l.toolName ?? "")
-    ? (l.result?.details?.usage ?? [])
-    : [];
+  return isSpendingToolEnd(l) ? (l.result?.details?.usage ?? []) : [];
 }
+
+/** Whether `l` is a spending tool's result (`SPENDING_TOOLS`): its model calls and its searches' prices are the turn's. */
+const isSpendingToolEnd = (l: PiLine) =>
+  l.type === "tool_execution_end" && SPENDING_TOOLS.includes(l.toolName ?? "");
 
 /** What line `l` does to the run `c`: its beginning, its usage and stop, its listener's update; its end at `agent_settled`. */
 export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
@@ -608,6 +609,14 @@ export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
   }
   for (const m of spentOf(l)) {
     addSpent(c.usage, m);
+  }
+  for (const usd of isSpendingToolEnd(l)
+    ? (l.result?.details?.searchUsd ?? [])
+    : []) {
+    c.usage.searchUsd =
+      typeof usd === "number" && typeof c.usage.searchUsd === "number"
+        ? c.usage.searchUsd + usd
+        : null;
   }
   const heard = updateOf(l);
   if (heard) {
@@ -766,6 +775,7 @@ const openOf =
             billedUsd: 0,
             contextFirst: null,
             contextLast: null,
+            searchUsd: 0,
             tokensCached: 0,
             tokensIn: 0,
             tokensOut: 0,
