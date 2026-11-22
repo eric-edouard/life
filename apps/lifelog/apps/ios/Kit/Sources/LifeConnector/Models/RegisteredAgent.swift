@@ -99,6 +99,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     /// Nil when it is not (or from an older Life).
     public let sessionOpenIn: SessionOpenIn?
     public let sessionOpenSince: Date?
+    /// Whether it does its job, in plain words (`agentHealthOf`); nil from an older Life.
+    public let health: AgentHealth?
     /// Its current session's model spending (`read_registered_agents` only); nil when the desk can't be read.
     public let spending: AgentSpending?
     /// Its name ("Halden house agent") and short name (`read_registered_agents` only; an older Life sends neither).
@@ -136,8 +138,28 @@ public struct RegisteredAgents: Decodable, Sendable, Equatable {
 
     public let agents: [RegisteredAgent]
     public let desk: Desk
+    /// The desk's own health (`deskHealthOf`): on, its helper, the main session and the caretaker standing, the Life
+    /// plugin; nil from an older Life.
+    public let health: AgentHealth?
     public let helper: Helper
     public let why: String?
     /// None from an older Life.
     public let refused: [Refusal]?
+}
+
+/// Whether an agent, or the desk, does its job (`host/agent-health.ts`): fine, needs attention, or broken, with why in
+/// plain words, the broken ones first.
+public struct AgentHealth: Decodable, Sendable, Equatable {
+    public enum Verdict: String, UnknownTolerant, Sendable {
+        case fine, attention, broken
+        case unknown
+    }
+
+    public let verdict: Verdict
+    public let why: [String]
+
+    public init(verdict: Verdict, why: [String]) {
+        self.verdict = verdict
+        self.why = why
+    }
 }
