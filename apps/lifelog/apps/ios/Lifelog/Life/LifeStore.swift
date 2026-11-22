@@ -186,10 +186,23 @@ final class LifeStore {
         return connection.whyNot(hasPath: hasPath)
     }
     var isOutOfReach: Bool { whyOutOfReach != nil }
+    /// The mark over a page's read (`SyncMark`): the path, how the newest read ended, its own read, and, where the page
+    /// tells it (home), what keeps the agents from running.
+    func syncMark<V>(_ shown: ReadState<V>.Shown, stamp: ReadStamp?, tellsAgents: Bool) -> SyncMark? {
+        SyncMark.of(
+            shown, stamp: stamp, hasPath: hasPath, lost: lost,
+            agents: tellsAgents ? agents.shown().onScreen?.trouble : nil, now: now())
+    }
     /// Whether Life answers: its inbox read, the one every screen starts from.
     var link: LinkState { outcome.link(hasRead: inbox.value != nil) }
 
     func state(of key: ActionKey) -> ActionState<ActionProof> { actions[key] ?? .idle }
+
+    /// A running action's words at `now`: `words` ("Saving…"), or "Still working…" once the Mac has said nothing for
+    /// `MacSilence.stillWorkingAfter`.
+    func working(_ words: String, of key: ActionKey, at now: Date) -> String {
+        (actions.silence(of: key, at: now) ?? 0) < MacSilence.stillWorkingAfter ? words : "Still working…"
+    }
 
     /// Forgets an action's result once the screen has shown it (the next card is up, the sheet is closed).
     func forget(_ key: ActionKey) {
@@ -526,27 +539,42 @@ final class LifeStore {
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is
     /// ignored. `succeeded` runs in the step that applies its success, so no frame shows it neither running nor done.
-    func perform(
+    /// An answer (`tap`) the Mac has said nothing about for `MacSilence.noAnswerAfter` ends not done, and its late events
+    /// apply nothing (the same tap may run again meanwhile): true then.
+    @discardableResult func perform(
         _ key: ActionKey, tap: String? = nil, succeeded: @escaping () -> Void = {},
         _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void
-    ) async {
-        guard actions.begin(key) else { return }
-        let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
+    ) async -> Bool {
         let (began, pairing) = (now(), actions.pairing)
-        var limit: Date?
+        guard actions.begin(key, at: began) else { return false }
+        let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
+        var (limit, isSilenced) = (Date?.none, false)
         let consumer = Task {
             // Applied only within its pairing: after another, its key may be a new tap's, on that Life's card.
             for await event in events {
-                guard actions.apply(event, to: key, begunIn: pairing) else { continue }
+                guard !isSilenced, actions.apply(event, to: key, begunIn: pairing, at: now()) else { continue }
                 if case .succeeded = event { succeeded() }
                 limit = actions[key]?.limit ?? limit
+            }
+        }
+        // Only an answer has a tap's key that makes trying again safe: only it ends on the Mac's silence.
+        let watch = Task {
+            while tap != nil, (try? await Task.sleep(for: .seconds(1))) != nil, pairing == actions.pairing, !isSilenced
+            {
+                guard actions.endIfSilent(key, at: now()), let ended = actions[key] else { continue }
+                isSilenced = true
+                traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit)
             }
         }
         await body { emit.yield($0) }
         emit.finish()
         await consumer.value
-        guard pairing == actions.pairing else { return }
-        if let ended = actions[key] { traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit) }
+        watch.cancel()
+        guard pairing == actions.pairing else { return isSilenced }
+        if !isSilenced, let ended = actions[key] {
+            traceAction(key, tap: tap, ended, began: began, finished: now(), limit: limit)
+        }
+        return isSilenced
     }
 
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
@@ -577,14 +605,15 @@ final class LifeStore {
         guard actions[key]?.isRunning != true else { return }
         guard let life, life.generation == parties.generation.current else { return await refuseUnpaired(key) }
         let (tap, generation) = (taps.key(for: request), parties.generation)
-        await perform(
+        let isSilenced = await perform(
             key, tap: tap, succeeded: { self.confirm(request, keepsCardOpen: keepsCardOpen, pairing: life.generation) }
         ) {
             [runner] in
             await runner.answer(
                 request, key: tap, at: life.origin, whilePaired: { generation.current == life.generation }, emit: $0)
         }
-        if life.generation == actions.pairing, let ended = actions[key] { taps.ended(request, as: ended) }
+        // Silenced, its tap's key stays: the same tap may already run again with it.
+        if !isSilenced, life.generation == actions.pairing, let ended = actions[key] { taps.ended(request, as: ended) }
     }
 
     /// An action with no Life to go to: refused before anything leaves the phone, as not paired.

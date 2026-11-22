@@ -48,7 +48,7 @@ struct InboxScreen: View {
             .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
         } detail: {
             ReadScreen(
-                shown: shown, retry: { await life.refreshInbox() },
+                shown: shown, stamp: life.inbox.stamp, marks: .readsAndAgents, retry: { await life.refreshInbox() },
                 loading: { InboxSkeleton() }, empty: { InboxZero() },
                 content: { _ in
                     // The Filter's "Your moves" is a list to sort, not cards.

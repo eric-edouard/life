@@ -17,7 +17,7 @@ struct MatterPage: View {
     var body: some View {
         let state = life.matter[id] ?? ReadState()
         ReadScreen(
-            shown: state.shown(), retry: { await life.refreshMatter(id) },
+            shown: state.shown(), stamp: state.stamp, retry: { await life.refreshMatter(id) },
             // With its row on hand, what the row says shows at once; only its steps and asks wait for the read.
             loading: {
                 if let row = life.listedRow(of: id) { rowPage(row) } else { PagePlaceholder() }

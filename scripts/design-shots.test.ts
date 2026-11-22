@@ -78,7 +78,11 @@ test.skipIf(!existsSync(FRAME_MAP))(
     const { frames } = JSON.parse(readFileSync(FRAME_MAP, "utf8")) as {
       frames: Record<string, unknown>;
     };
-    expect(Object.keys(appFrames).filter((name) => !frames[name])).toEqual([]);
+    expect(
+      Object.entries(appFrames)
+        .filter(([name, app]) => !(frames[name] || app.drawing))
+        .map(([name]) => name)
+    ).toEqual([]);
   }
 );
 
