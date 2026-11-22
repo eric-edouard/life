@@ -17,6 +17,7 @@ const row = (id: string, kind = "do", status = "moving") => ({
 });
 /** An open check on matter `id`: a name blocks him, an ending only improves. */
 const check = (id: string, group: "ending" | "name") => ({
+  deadline: null,
   group,
   matter: { id, name: `Matter ${id}` },
   ridesOn: { matterIds: [], matters: 1, observations: 0, pages: 0 },

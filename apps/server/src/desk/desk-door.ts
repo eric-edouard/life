@@ -32,6 +32,7 @@ import { keyRefusal } from "../host/http/local-key";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { isHisWordsPlanOf, opensWithPlan } from "../host/inbox";
 import { MOVE_NOTES, shortNameOf } from "../host/move-read";
+import { CardPreview } from "../memory/card-preview";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
 import { readsOnce, refsProblemOf } from "../memory/find-refs";
@@ -256,8 +257,14 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "request_decision",
-    `Ask the owner one decision (one open at a time per matter). ${CARD} The subject may be any matter you hold, or one of its steps (none given: this turn's matter's id, so for \`ends: "step"\` name the open step): a card on another assignment's matter is filed under it, and his answer wakes that one; a matter you do not hold is refused. Or \`withdraw\` (the id of a card of this turn's assignment; one filed under another is withdrawn from its turn) with \`why\`. His answer wakes you. A draft into a chat another agent's open card holds waits on it (the result's \`waits\`): its holder yields, merges or keeps; silent 10 minutes, yours is asked, replacing that card, and his Send withdraws it. \`draft.contested\` wakes you when another agent's card waits on yours: read it (\`read_card\`), then yield (\`withdraw\` yours), merge (one card for both: \`merges\` its id; yours is withdrawn and its agent hears his answer too) or keep (\`keep\` its id, with \`why\`: it waits until yours settles, and its agent reads why). \`draft.kept\`: the holder kept its card against yours: read why (\`read_card\` yours), then withdraw yours or let it wait.`,
+    `Ask the owner one decision (one open at a time per matter). ${CARD} A card first comes back as its preview, as his phone shows it, and nothing is asked: read it as he will, run the self-check, then repeat it unchanged with \`previewed\` to ask it, or change it. The subject may be any matter you hold, or one of its steps (none given: this turn's matter's id, so for \`ends: "step"\` name the open step): a card on another assignment's matter is filed under it, and his answer wakes that one; a matter you do not hold is refused. Or \`withdraw\` (the id of a card of this turn's assignment; one filed under another is withdrawn from its turn) with \`why\`. His answer wakes you. A draft into a chat another agent's open card holds waits on it (the result's \`waits\`): its holder yields, merges or keeps; silent 10 minutes, yours is asked, replacing that card, and his Send withdraws it. \`draft.contested\` wakes you when another agent's card waits on yours: read it (\`read_card\`), then yield (\`withdraw\` yours), merge (one card for both: \`merges\` its id; yours is withdrawn and its agent hears his answer too) or keep (\`keep\` its id, with \`why\`: it waits until yours settles, and its agent reads why). \`draft.kept\`: the holder kept its card against yours: read why (\`read_card\` yours), then withdraw yours or let it wait.`,
     DecisionRequest.extend({
+      previewed: z
+        .string()
+        .optional()
+        .describe(
+          "Not the main session. The digest of the card's preview you read: a card is asked only when you repeat it unchanged with it. Without it, or changed, you get its preview (as his phone shows it) and nothing is asked."
+        ),
       said: z
         .string()
         .optional()
@@ -265,9 +272,15 @@ function doorServer(desk: Desk, id: string) {
           "The main session only, and always: his own words of this ask asking for the card, verbatim. Its card is asked as his own (`owner`): his answer wakes no agent."
         ),
     }),
-    async ({ said, ...ask }, s, turn) => {
+    async ({ previewed, said, ...ask }, s, turn) => {
       if (agentOf(desk.db, id)?.role !== "main") {
-        return askDecision(desk, s, ask);
+        // Every card is previewed first: the agent reads it as he will, then asks it (his word of 22 Nov 2026).
+        return askDecision(desk, s, ask, previewed ?? null).catch((e) => {
+          if (e instanceof CardPreview) {
+            return { asked: false, preview: e.preview, previewed: e.digest };
+          }
+          throw e;
+        });
       }
       hisWordsOf(turn, said);
       const asked = await requestDecision(OWNER_ASKER, ask);
