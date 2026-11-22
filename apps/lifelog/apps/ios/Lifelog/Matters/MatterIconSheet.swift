@@ -17,24 +17,21 @@ struct MatterIconSheet: View {
         let row = life.matter[matter]?.value?.row
         let picking = life.iconPicking(matter)
         let isRunning = picking != nil
-        VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: nil) { dismiss() }.frame(minHeight: Metrics.tapTarget)
-                .overlay(alignment: .leading) {
-                    Text(row?.name ?? "").font(.sheetQuestion).foregroundStyle(Palette.fg).lineLimit(1)
-                        .padding(.trailing, Metrics.tapTarget + Metrics.Spacing.s)
-                }
-            if let row { attribution(row, isRunning: isRunning) }
-            ScrollView {
-                IconGrid(groups: MatterIcons.groups, chosen: picking ?? row?.knownIcon?.key) { key in
-                    if let row { choose(key, row: row) }
-                }
-                .disabled(isRunning).offWhileOutOfReach()
-                .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.xl)
-            }
-            .scrollEdgeEffectStyle(.soft, for: .bottom)
+        IconGrid(groups: MatterIcons.groups, chosen: picking ?? row?.knownIcon?.key) { key in
+            if let row { choose(key, row: row) }
         }
-        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .disabled(isRunning).offWhileOutOfReach()
+        .padding(.top, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.xl)
+        .sheetScroll {
+            VStack(alignment: .leading, spacing: 0) {
+                SheetHeader(title: nil) { dismiss() }.frame(minHeight: Metrics.tapTarget)
+                    .overlay(alignment: .leading) {
+                        Text(row?.name ?? "").font(.sheetQuestion).foregroundStyle(Palette.fg).lineLimit(1)
+                            .padding(.trailing, Metrics.tapTarget + Metrics.Spacing.s)
+                    }
+                if let row { attribution(row, isRunning: isRunning) }
+            }
+        }
         .background(Palette.sheet)
         .sheetStack()
         .presentationDetents([.large])

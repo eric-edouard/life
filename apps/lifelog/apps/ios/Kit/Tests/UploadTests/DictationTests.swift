@@ -93,7 +93,9 @@ import Testing
         refused: { self.refused })
 
     func until(_ condition: () -> Bool) async {
-        for _ in 0..<10_000 where !condition() { await Task.yield() }
+        // A wall-clock bound, not a count of yields: a loaded Mac starves the yields first.
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !condition(), ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(1)) }
         #expect(condition())
     }
 }
@@ -346,6 +348,107 @@ private final class Recording: Sendable {
     #expect(dictation.phase == .writing)
     for _ in 0..<2_000 where dictation.problem == nil { try? await Task.sleep(for: .milliseconds(5)) }
     #expect(dictation.problem == .notWritten && dictation.phase == .rest)
+}
+
+/// A fake realtime socket: the test says what ElevenLabs answers, and sees what the phone sent.
+@MainActor private final class FakeLiveSocket {
+    var sent: [String] = []
+    var opened = false
+    private var lines: [String] = []
+    private var waiter: CheckedContinuation<String?, Never>?
+    private var isClosed = false
+
+    func make(_: URL) -> LiveWordsSocket {
+        opened = true
+        return LiveWordsSocket(
+            send: { self.sent.append($0) }, receive: { await self.next() },
+            close: { _ in
+                self.isClosed = true
+                self.waiter?.resume(returning: nil)
+                self.waiter = nil
+            })
+    }
+
+    private func next() async -> String? {
+        if !lines.isEmpty { return lines.removeFirst() }
+        if isClosed { return nil }
+        return await withCheckedContinuation { waiter = $0 }
+    }
+
+    func says(_ type: String, _ text: String = "") {
+        let line = #"{"message_type":"\#(type)","text":"\#(text)"}"#
+        if let waiter {
+            self.waiter = nil
+            waiter.resume(returning: line)
+        } else {
+            lines.append(line)
+        }
+    }
+
+    func until(_ condition: () -> Bool) async {
+        // A wall-clock bound, not a count of yields: a loaded Mac starves the yields first.
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !condition(), ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(1)) }
+        #expect(condition())
+    }
+}
+
+/// His words after a commit voice detection made just before the pause are kept: the pause's own commit comes after it.
+@MainActor @Test func aCommitInFlightAtThePauseNeverEndsItsWordsEarly() async {
+    let fake = FakeLiveSocket()
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(500), finishWithin: .seconds(60))
+    live.begin { "token" }
+    await fake.until { fake.opened }
+    fake.says("partial_transcript", "keys under")
+    let run = live.run
+    let words = Task { await live.finish(run) }
+    await fake.until { fake.sent.contains { $0.contains(#""commit":true"#) } }
+    fake.says("committed_transcript", "keys under")
+    fake.says("partial_transcript", "the mat")
+    fake.says("committed_transcript", "the mat")
+    #expect(await words.value == "keys under the mat")
+    #expect(!live.hasFailed)
+}
+
+/// ElevenLabs saying nothing is left to commit while words were still changing would lose them: the Mac hears the run.
+@MainActor @Test func nothingLeftToCommitWhileWordsAreChangingFallsBackToTheMac() async {
+    let fake = FakeLiveSocket()
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
+    live.begin { "token" }
+    await fake.until { fake.opened }
+    fake.says("committed_transcript", "call Nora")
+    fake.says("partial_transcript", "about the")
+    let run = live.run
+    let words = Task { await live.finish(run) }
+    await fake.until { fake.sent.contains { $0.contains(#""commit":true"#) } }
+    fake.says("commit_throttled")
+    #expect(await words.value == nil)
+    #expect(live.hasFailed)
+}
+
+/// A run that heard nothing live is heard on the Mac; one with nothing changing settles on what was committed.
+@MainActor @Test func nothingHeardLiveIsHeardOnTheMacAndAQuietRunSettlesAtOnce() async {
+    let fake = FakeLiveSocket()
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
+    live.begin { "token" }
+    await fake.until { fake.opened }
+    let run = live.run
+    let words = Task { await live.finish(run) }
+    await fake.until { fake.sent.contains { $0.contains(#""commit":true"#) } }
+    fake.says("committed_transcript", "")
+    #expect(await words.value == nil)
+    #expect(live.hasFailed)
+
+    let quiet = FakeLiveSocket()
+    let second = LiveWords(socket: quiet.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
+    second.begin { "token" }
+    await quiet.until { quiet.opened }
+    quiet.says("committed_transcript", "see you at eight")
+    let secondRun = second.run
+    let settled = Task { await second.finish(secondRun) }
+    await quiet.until { quiet.sent.contains { $0.contains(#""commit":true"#) } }
+    quiet.says("insufficient_audio_activity")
+    #expect(await settled.value == "see you at eight")
 }
 
 /// Send pressed while the microphone opens, and it never opens: nothing is left to send, and the next run never sends.
