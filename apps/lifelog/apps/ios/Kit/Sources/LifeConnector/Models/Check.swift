@@ -464,16 +464,13 @@ extension Check {
     }
 
     /// Who "Someone else…" offers (the people sheet): the card's likely people first, then everyone else he knows
-    /// (`everyone`, the People list: his directory and everyone with a page), never him but on a voice (his own voice is
-    /// often heard apart: his report of 22 Nov), and no organization on a voice.
+    /// (`everyone`, the People list: his directory and everyone with a page), never him, and no organization on a voice.
     public func peopleToPick(among everyone: [Party]) -> [Party] {
-        let me = Party(ref: "person:me", name: "Me", kind: .person, line: nil, picture: nil)
         let rest = everyone.filter { party in
             !party.isOwner && !likelyPeople.contains { $0.ref == party.ref }
                 && (group != .voice || party.kind != .organization)
         }
-        let him = group == .voice && !likelyPeople.contains { $0.isOwner } ? [me] : []
-        return likelyPeople + him + rest
+        return likelyPeople + rest
     }
 
     /// The name a name card asks about, whole: the longest of `about`, as said. Only a name card's `about` is a name (a
