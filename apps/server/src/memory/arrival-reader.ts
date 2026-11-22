@@ -1,7 +1,8 @@
-// The arrival reader (docs/glossary.md): today's new chat and mail lines read as they arrive, one question about action
-// only: does it hold an ask, a promise or a wait for him? Apple's on-device model asks first (the trigger, free); its
-// yes, a refusal, Thai text or no Apple model goes to his engine (the confirm); Apple failing leaves the read for the
-// next pass. Both answers are read replies
+// The arrival reader (docs/glossary.md): today's new chat and mail lines read as they arrive, one question: as the
+// conversation stands now, what is still left for him, and how much does it matter? His engine asks it (the confirm),
+// shown the conversation's sitting up to the new lines and the time now. Apple's on-device model only sieves mail (the
+// trigger, free): an automated mail goes no further; Apple failing leaves the read for the next pass. Both answers are
+// read replies
 // (`storeReply`); what counts is decided only by `confirmedArrivalsOf` (read-replies.ts). Called by the watcher alone,
 // on today's units, never on a backfill.
 
@@ -20,6 +21,7 @@ import {
   ARRIVAL_APPOINTMENT_READ,
   ARRIVAL_CONFIRM_READ,
   ARRIVAL_TRIGGER_READ,
+  LeftReply,
   type ReadReply,
 } from "../records/read-reply";
 import { eventKey } from "../records/source";
@@ -27,6 +29,7 @@ import { firstNameOf, ownerIn } from "../records/truth";
 import { type LifelogTurn, readStore, withStore } from "../sources/lifelog";
 import { checkedAppointmentReply } from "./arrival-appointments";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
+import { EXCHANGE_ENDS_AFTER, exchangesOf, isFinished } from "./exchanges";
 import { closedConversations } from "./extract";
 import { type Evidence, voiceUnits } from "./gather";
 import { keptConversations, READ_REPLIES, readFiles } from "./memory-files";
@@ -43,7 +46,7 @@ import {
 import { OWNER, type Truth } from "./read-truth";
 import { begin, readsOf } from "./run";
 import { readCallsToday } from "./run-log";
-import { isDirect } from "./sources";
+import { isDirect, kindOf } from "./sources";
 import { voiceUnitId } from "./unit-ids";
 import {
   applyRules,
@@ -63,6 +66,8 @@ export const CONFIRMS_A_DAY = 1000;
 /** The most characters one read shows: under Apple's 8k-token context. */
 const READ_CHARS = 5000;
 const THAI = /\p{Script=Thai}/u;
+/** How much of each new mail Apple's sieve is shown: its start. */
+const SIEVE_CHARS = 600;
 const TRIGGER = READS.arrival_trigger.prompt;
 
 /** His names as a group's line may say them: his name, its first word, what he is called and his aliases. */
@@ -80,6 +85,8 @@ export const ownerNamesOf = (truth: Truth) => {
 export interface ArrivalRead {
   at: string;
   b: Built;
+  /** What the confirm is shown: the sitting its newest line is in (`exchangesOf`), up to it, its last `READ_CHARS`. */
+  context: string[];
   /** When its first line was written or said: its replies are filed by it. */
   firstAt: string;
   keys: string[];
@@ -111,7 +118,13 @@ export function arrivalReadsDue(
     const keys = new Set(
       a.fresh.map((m) => eventKey({ id: m.id, source: a.unit.unit.source }))
     );
-    return chunksOf(a.unit, linesOf(a.unit, keys, resolve, nameOf), resolve);
+    const all = linesOf(a.unit, undefined, resolve, nameOf);
+    return chunksOf(
+      a.unit,
+      all.filter((l) => keys.has(l.key)),
+      resolve,
+      all
+    );
   });
 }
 
@@ -146,24 +159,31 @@ function voiceReadsDue(
   nameOf: (ref: string) => string
 ): ArrivalRead[] {
   return readable.flatMap((b) => {
-    const lines = (spoken.get(b.unit.id) ?? [])
-      .map((l) => readLineOf(b, l, nameOf))
-      .filter((l) => !read.has(l.key));
-    return chunksOf(b, lines, resolve);
+    const all = (spoken.get(b.unit.id) ?? []).map((l) =>
+      readLineOf(b, l, nameOf)
+    );
+    return chunksOf(
+      b,
+      all.filter((l) => !read.has(l.key)),
+      resolve,
+      all
+    );
   });
 }
 
 /**
  * The one cutter, for fresh reads and a pending confirm's alike: `lines` (oldest first) packed in order into chunks of
  * whole lines within `READ_CHARS` (`packed`; a line over it is a chunk alone), every chunk read in the same pass. A
- * line keeps its one key: Apple is shown a long line cut to fit (`triggerRequest`), the confirm the whole line. Each
+ * line keeps its one key: Apple is shown a mail's start (`triggerRequest`), the confirm the whole line. Each
  * chunk is dated by its newest line, with the people who wrote or said it (his own lines alone in a one-to-one chat:
  * the other person).
  */
 function chunksOf(
   b: Built,
   lines: ReadLine[],
-  resolve: Resolve
+  resolve: Resolve,
+  /** Every line of the unit, oldest first: each chunk's sitting is cut from them. */
+  all: ReadLine[]
 ): ArrivalRead[] {
   // His own lines alone: the other person only in a one-to-one chat (`isDirect`), never a group's earlier speaker.
   const others = b.unit.people
@@ -172,19 +192,45 @@ function chunksOf(
       p.startsWith(UNKNOWN) ? (resolve(p.slice(UNKNOWN.length)) ?? p) : p
     );
   const isOneToOne = isDirect(b.unit.source, b.unit.key, others.length);
-  return packed(lines, READ_CHARS, (l) => l.text.length + 1).map((shown) => {
+  // Cut by sitting first: a chunk never spans two, so its sitting shows every line it stores as read.
+  const size = (l: ReadLine) => l.text.length + 1;
+  const chunks = exchangesOf(lines).flatMap((x) => packed(x, READ_CHARS, size));
+  return chunks.map((shown) => {
     const writers = [
       ...new Set(shown.map((l) => l.speaker).filter((p) => p !== OWNER)),
     ];
     return {
       at: shown.at(-1)?.at ?? b.unit.end,
       b,
+      context: sittingOf(all, shown),
       firstAt: shown[0]?.at ?? b.unit.start,
       keys: shown.map((l) => l.key),
       lines: shown.map((l) => l.text),
       people: writers.length === 0 && isOneToOne ? others : writers,
     };
   });
+}
+
+/**
+ * What the confirm is shown for `shown` (one sitting's lines, oldest first): every line of the unit from its first to
+ * its last, then the sitting's earlier lines (an exchange, `EXCHANGE_ENDS_AFTER`) while they fit `READ_CHARS`: the
+ * conversation as it stood when its newest line came, other people's answered lines and his own included.
+ */
+function sittingOf(all: ReadLine[], shown: ReadLine[]) {
+  const first = all.findIndex((l) => l.key === shown[0]?.key);
+  const last = all.findIndex((l) => l.key === shown.at(-1)?.key);
+  const sitting = exchangesOf(all.slice(0, last + 1)).at(-1) ?? [];
+  const span = all.slice(first, last + 1);
+  let room = READ_CHARS - span.reduce((n, l) => n + l.text.length + 1, 0);
+  const before = sitting
+    .slice(0, sitting.length - span.length)
+    .toReversed()
+    .filter((l) => {
+      room -= l.text.length + 1;
+      return room >= 0;
+    })
+    .toReversed();
+  return [...before, ...span].map((l) => l.text);
 }
 
 /** A source line as the reads show it: `HH:MM <who>: <text>`. */
@@ -199,19 +245,23 @@ const readLineOf = (
   text: messageLine(time(l.at), nameOf(l.speaker), l.text),
 });
 
-/** A chat or mail unit's lines whose keys are in `keys`, oldest first. */
+/** A chat or mail unit's lines (those whose keys are in `keys`, when given), oldest first. */
 const linesOf = (
   b: Built,
-  keys: ReadonlySet<string>,
+  keys: ReadonlySet<string> | undefined,
   resolve: Resolve,
   nameOf: (ref: string) => string
 ) =>
   chatLines(b, resolve)
     .map((l) => readLineOf(b, l, nameOf))
-    .filter((l) => keys.has(l.key));
+    .filter((l) => !keys || keys.has(l.key));
 
-/** Apple's request for a read: the trigger prompt's instructions, and its two fields' guides. */
-function triggerRequest(lines: string[]): FoundationRequest {
+/** Apple's request for a mail's read: each new mail's sender and start, the trigger prompt's instructions, and its three fields' guides. */
+function triggerRequest(r: ArrivalRead): FoundationRequest {
+  const keys = new Set(r.keys);
+  const mails = r.b.messages.filter((m) =>
+    keys.has(eventKey({ id: m.id, source: r.b.unit.source }))
+  );
   const [instructions = "", ...fields] = promptText(TRIGGER).split("\n## ");
   const guide = (name: string) =>
     (fields.find((f) => f.startsWith(`${name}\n`)) ?? "")
@@ -221,67 +271,77 @@ function triggerRequest(lines: string[]): FoundationRequest {
     fields: [
       {
         anyOf: ["person", "automated"],
-        description: guide("author"),
-        name: "author",
+        description: guide("writer"),
+        name: "writer",
       },
-      { description: guide("quote"), name: "quote" },
+      { anyOf: ["yes", "no"], description: guide("needs"), name: "needs" },
       { anyOf: ["yes", "no"], description: guide("event"), name: "event" },
     ],
     instructions: instructions.trim(),
-    // A line over `READ_CHARS` is cut for Apple's context alone; the confirm reads it whole.
-    text: lines.map((l) => l.slice(0, READ_CHARS)).join("\n"),
+    // Its start only: who sent it and how it opens is what tells a person from a system (a week's replay, 15 to 21 Nov 2026: 92 of 223 mail reads sieved out).
+    text: mails
+      .map((m) => `From: ${m.sender}\n${m.text.slice(0, SIEVE_CHARS)}`)
+      .join("\n\n"),
   };
 }
 
-/** Apple's answer as stored: its author and quote with the quote check, or why it gave none. */
+/** Apple's answer as stored: who wrote the mail, whether it needs him, whether it sets a meeting, or why it gave none. */
 function triggerReplyOf(answer: FoundationAnswer) {
   if (!("reply" in answer)) {
     return { refused: answer.error };
   }
-  const { author, event, quote = "" } = answer.reply;
+  const { event, needs, writer } = answer.reply;
   return {
-    author: author === "person" ? "person" : "automated",
+    author: writer === "person" ? "person" : "automated",
     event: event === "yes" ? "yes" : "no",
-    quote,
+    needs: needs === "yes" ? "yes" : "no",
   };
 }
 
-/**
- * Whether a stored trigger goes on to the confirm: a person's lines with an ask quoted, or no answer. Who wrote them
- * alone never does: Apple calls nearly every human thread a person's, so that rule sent 97 of 99 reads on (20 Nov
- * 2026). On PR 790's 173 labelled units this one sends 78% of chat chunks on, for one ask fewer (66 of 73 confirmed).
- */
-const isTriggered = (
-  reply: { refused: string } | { author: string; quote: string }
-) =>
-  "refused" in reply ||
-  (reply.author === "person" && reply.quote.trim() !== "");
-
-/** Whether a stored trigger goes on to the appointment read: its lines set a meeting, or no answer. Apart from the ask rule: a booking mail asks nothing. */
-const isEventTriggered = (reply: { refused: string } | { event?: string }) =>
-  "refused" in reply || reply.event === "yes";
-
 /** His engine's two reads of a read: each by its name, and how it is asked. */
-const BOTH_READS = [
-  { ask: (r: ArrivalRead) => confirmOf(r), read: ARRIVAL_CONFIRM_READ },
-  { ask: (r: ArrivalRead) => appointmentOf(r), read: ARRIVAL_APPOINTMENT_READ },
-] as const;
+const CONFIRM = {
+  ask: (r: ArrivalRead) => confirmOf(r),
+  read: ARRIVAL_CONFIRM_READ,
+} as const;
+const APPOINTMENT = {
+  ask: (r: ArrivalRead) => appointmentOf(r),
+  read: ARRIVAL_APPOINTMENT_READ,
+} as const;
 
 /**
- * The one routing rule: the reads of his engine a read goes on to. After Apple's trigger, the confirm, the appointment
- * read, both or none, by its answer; sent straight to his engine (no trigger: Thai, no Apple model), both.
+ * The one routing rule: the reads of his engine a read goes on to. With no answer yet (a conversation, Thai mail, no
+ * Apple model), the confirm. After Apple's sieve of a mail: the confirm unless Apple called it automated and needing nothing, the
+ * appointment read when it sets a meeting (a booking mail is automated and still read), both on a refusal. After a
+ * confirm asked straight: the appointment read when it sets a meeting.
  */
-const readsAfterOf = (
-  reply?: Parameters<typeof isTriggered>[0] &
-    Parameters<typeof isEventTriggered>[0]
-) =>
-  reply
-    ? BOTH_READS.filter((x) =>
-        x.read === ARRIVAL_CONFIRM_READ
-          ? isTriggered(reply)
-          : isEventTriggered(reply)
-      )
-    : BOTH_READS;
+const readsAfterOf = (reply?: object) => {
+  if (!reply) {
+    return [CONFIRM];
+  }
+  if ("refused" in reply) {
+    return [CONFIRM, APPOINTMENT];
+  }
+  return [
+    ...("author" in reply &&
+    !(reply.author === "automated" && "needs" in reply && reply.needs === "no")
+      ? [CONFIRM]
+      : []),
+    ...("event" in reply && reply.event === "yes" ? [APPOINTMENT] : []),
+  ];
+};
+
+/**
+ * Apple sieves mail he received only (his decision of 21 Nov 2026): a conversation, Thai it cannot read, and mail
+ * holding his own lines (where his promises are) go straight to his engine.
+ */
+const isSieved = (r: ArrivalRead) =>
+  kindOf(r.b.unit.source) === "mail" &&
+  !THAI.test(r.lines.join("\n")) &&
+  !r.b.messages.some(
+    (m) =>
+      m.fromMe &&
+      r.keys.includes(eventKey({ id: m.id, source: r.b.unit.source }))
+  );
 
 /** The appointment read of a read, for `makeReplies`: its reply stored after `checkedAppointmentReply`. */
 function appointmentOf(r: ArrivalRead): Asked {
@@ -307,13 +367,13 @@ function appointmentOf(r: ArrivalRead): Asked {
   };
 }
 
-/** The confirm call of a read, for `makeReplies`: it stores the read's unit and who wrote its lines. */
+/** The confirm call of a read, for `makeReplies`: its sitting and the time now; it stores the read's unit and who wrote its lines. */
 function confirmOf(r: ArrivalRead): Asked {
   return {
     at: r.at,
     call: {
       firstAt: r.firstAt,
-      input: { lines: r.lines },
+      input: { lines: r.context, now: time(clock().toISOString()) },
       keys: r.keys,
       people: r.people,
       reads: readsOf([{ source: r.b.unit.source, unit: r.b.unit.id }]),
@@ -383,7 +443,10 @@ export async function readArrivals(
     new Set()
   ).due.map(eventKey);
   const read = new Set([...stored.flatMap((l) => l.messages), ...waiting]);
-  const pending = pendingReadsOf(stored, day);
+  const pending = [
+    ...pendingReadsOf(stored, day),
+    ...endedReadsOf(stored, evidence.built, day, now),
+  ];
   const pendingUnits = new Set(pending.map(({ t }) => t.unit));
   // Words are fetched only for a unit with a turn not read yet (fewer of its keys read than its turns), or a confirm
   // pending: a conversation read whole fetches nothing again.
@@ -447,13 +510,13 @@ export async function readArrivals(
         ],
       }))
   )();
-  const forApple = due.filter((r) => !THAI.test(r.lines.join("\n")));
-  const requests = forApple.map((r) => triggerRequest(r.lines));
+  const forApple = due.filter(isSieved);
+  const requests = forApple.map(triggerRequest);
   const appleStart = performance.now();
   const answers = await apple(requests);
   // Apple's own time, apart from the confirms: guided generation slows down on macOS 27 (Apple's open bug).
   const appleMs = Math.round(performance.now() - appleStart);
-  // Thai lines go to both of his engine's reads.
+  // A conversation, and Thai mail, go straight to his engine's confirm.
   const toConfirm: Asked[] = due
     .filter((r) => !forApple.includes(r))
     .flatMap((r) => readsAfterOf().map((x) => x.ask(r)));
@@ -524,25 +587,69 @@ const sameKeys = (a: string[], b: string[]) =>
 
 /**
  * The one rule of which of his engine's reads a read still waits for (Life was offline, the cap was spent, a call
- * failed), each on the keys it was first read on, so new lines never join it: after Apple's trigger, the reads it
- * sends on (`readsAfterOf`); after a read sent straight to his engine (Thai, no Apple model), the other of
- * its two. Only today's: an earlier day's is the night's, never read when the next day's allowance opens.
+ * failed, a confirm asked straight that sets a meeting), each on the keys it was first read on, so new lines never join
+ * it: the reads its answer sends on (`readsAfterOf`). Only today's: an earlier day's is the night's, never read when
+ * the next day's allowance opens.
  */
 function pendingReadsOf(stored: ReadReply[], day: string) {
   const isMade = (read: string, keys: string[]) =>
     stored.some((c) => c.read === read && sameKeys(c.messages, keys));
   return stored.flatMap((t) => {
-    if (!("unit" in t) || localDate(t.at) !== day) {
+    if (
+      !("unit" in t) ||
+      localDate(t.at) !== day ||
+      t.read === ARRIVAL_APPOINTMENT_READ ||
+      // A trigger's confirm sends nothing on: Apple already said whether the mail sets a meeting.
+      (t.read === ARRIVAL_CONFIRM_READ &&
+        isMade(ARRIVAL_TRIGGER_READ, t.messages))
+    ) {
       return [];
     }
-    const isTrigger = t.read === ARRIVAL_TRIGGER_READ;
-    // A straight read's other read is anchored on the one made; a trigger's on the trigger.
-    if (!isTrigger && isMade(ARRIVAL_TRIGGER_READ, t.messages)) {
-      return [];
-    }
-    return readsAfterOf(isTrigger ? t.reply : undefined)
+    return readsAfterOf(t.reply)
       .filter((x) => !isMade(x.read, t.messages))
       .map((x) => ({ ask: x.ask, t }));
+  });
+}
+
+/**
+ * The confirms read again once their conversation ended by itself (`isFinished`, `EXCHANGE_ENDS_AFTER`): a unit's newest
+ * confirm that saw him in the middle of something (`inProgress`) and was made before its sitting ended. Its new line,
+ * on the same keys, then decides (`confirmedArrivalsOf`); being after the end, it is never read again.
+ */
+function endedReadsOf(
+  stored: ReadReply[],
+  built: Built[],
+  day: string,
+  now: Date
+) {
+  const newest = new Map(
+    stored
+      .flatMap((l) =>
+        l.read === ARRIVAL_CONFIRM_READ && localDate(l.at) === day ? [l] : []
+      )
+      .toSorted((a, b) => a.at.localeCompare(b.at))
+      .map((l) => [l.unit, l])
+  );
+  return [...newest.values()].flatMap((t) => {
+    const b = built.find((u) => u.unit.id === t.unit);
+    const last = t.messages.at(-1);
+    const at = b?.messages.find(
+      (m) => eventKey({ id: m.id, source: b.unit.source }) === last
+    )?.at;
+    if (!(b && at && LeftReply.safeParse(t.reply).data?.inProgress.length)) {
+      return [];
+    }
+    const sitting = exchangesOf(b.messages).find((x) =>
+      x.some((m) => m.at === at)
+    );
+    const endsAt =
+      sitting && Date.parse(sitting.at(-1)?.at ?? "") + EXCHANGE_ENDS_AFTER;
+    return sitting &&
+      endsAt &&
+      isFinished(sitting, now) &&
+      Date.parse(t.at) < endsAt
+      ? [{ ask: CONFIRM.ask, t }]
+      : [];
   });
 }
 
@@ -561,12 +668,17 @@ function pendingConfirms(
       return [];
     }
     const keys = new Set(t.messages);
-    const lines = units.spoken.has(b.unit.id)
-      ? (units.spoken.get(b.unit.id) ?? [])
-          .map((l) => readLineOf(b, l, people.nameOf))
-          .filter((l) => keys.has(l.key))
-      : linesOf(b, keys, people.resolve, people.nameOf);
-    const [r, ...more] = chunksOf(b, lines, people.resolve);
+    const all = units.spoken.has(b.unit.id)
+      ? (units.spoken.get(b.unit.id) ?? []).map((l) =>
+          readLineOf(b, l, people.nameOf)
+        )
+      : linesOf(b, undefined, people.resolve, people.nameOf);
+    const [r, ...more] = chunksOf(
+      b,
+      all.filter((l) => keys.has(l.key)),
+      people.resolve,
+      all
+    );
     return r && more.length === 0 && sameKeys(r.keys, t.messages)
       ? [ask(r)]
       : [];
