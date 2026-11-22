@@ -1,9 +1,10 @@
 import LifeConnector
 import SwiftUI
 
-/// The Projects tab (nav v3): the projects and areas (`ProjectsList`), and behind one of them its header (`ProjectHead`)
-/// above its matters; Ask Life's cut of the matters keeps its own list. The projects, their order and counts, and each
-/// one's list are Life's (`read_projects`, `read_matters`): the phone sorts and filters nothing.
+/// The Projects tab (nav v3): the projects underway (`ProjectsList`), then his areas, parked and done projects; one of
+/// them opens its page behind a header (`ProjectHead`) above its matters; Ask Life's cut of the matters keeps its own
+/// list. Life gives the projects, their order and counts, and each one's list (`read_projects`, `read_matters`); the
+/// phone only groups them as Life's status says.
 struct ProjectsScreen: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
@@ -132,7 +133,7 @@ struct ProjectsScreen: View {
         }
     }
 
-    /// The chip chosen, as Life lists it now; none is All (or a chip Life no longer lists).
+    /// The chip chosen, as Life lists it now; none is the Projects list (or a chip Life no longer lists).
     private var chosen: ProjectChips.Chip? {
         life.projects.shown().onScreen?.chips.first { $0.identity == router.chip }
     }
@@ -161,7 +162,7 @@ struct ProjectsScreen: View {
     /// What an answer on a matter changes here: its page and its header read themselves again.
     private var answersKey: String { "\(life.answersEnded.values.reduce(0, +))" }
 
-    /// The read under a chip: All's is every running matter.
+    /// The read under a chip: with none, every running matter.
     private func list(of chip: ProjectChips.Chip?) -> ReadState<MatterList> {
         chip.map { life.scopedMatters[$0.identity] ?? ReadState() } ?? life.matters
     }
@@ -217,7 +218,7 @@ struct ProjectsScreen: View {
     private func page(_ chip: ProjectChips.Chip?) -> some View {
         let shown = list(of: chip).shown()
         let cut = router.cut(of: .matters)
-        // Ask Life's cut is of All: Life's rows, the ones it named, in its order.
+        // Ask Life's cut is of the Projects list: Life's rows, the ones it named, in its order.
         let matters = shown.onScreen.map { list in cut.map { $0.cut(list.matters, ref: \.id) } ?? list.matters }
         return List {
             // Its toast stands at the top until his X.

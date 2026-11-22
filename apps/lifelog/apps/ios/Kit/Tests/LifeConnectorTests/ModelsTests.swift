@@ -157,13 +157,12 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(chips.chips.last?.status == .done)
     #expect(chips.chips.first?.status == .active)
     #expect(chips.chips.first?.area == "home")
-    #expect(chips.chips.first?.agentAtWork == true)
     #expect(chips.underway == 1)
     // An area and a project can share an id: the chips' identity tells them apart.
     let sameText =
         #"{"all":{"needYou":0,"open":0},"chips":[{"kind":"area","id":"home","name":"Home","#
-        + #""needYou":0,"agentAtWork":false,"matters":0},{"kind":"project","id":"home","#
-        + #""name":"Home","needYou":0,"agentAtWork":false,"matters":0}],"version":"v"}"#
+        + #""needYou":0,"matters":0},{"kind":"project","id":"home","#
+        + #""name":"Home","needYou":0,"matters":0}],"version":"v"}"#
     let same = try decoded(ProjectChips.self, sameText)
     #expect(Set(same.chips.map(\.identity)).count == 2)
     let header = try decoded(ProjectHeader.self, wireText("life/read_project.json"))
@@ -307,6 +306,23 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.map(\.isParked) == [false, true, true, false])
     #expect(list.matters[0].project?.status.isUnderway == true)
     #expect(list.matters[3].project?.status == .unknown)
+}
+
+@Test func theProjectsPageGroupsItsChipsAsItDrawsThem() throws {
+    let text =
+        #"{"all":{"needYou":0,"open":0},"chips":["#
+        + #"{"kind":"project","id":"shop","name":"Shop fit-out","needYou":1,"matters":3},"#
+        + #"{"kind":"project","id":"shed","name":"Shed","status":"waiting","needYou":0,"matters":1},"#
+        + #"{"kind":"project","id":"garden","name":"Garden","status":"parked","needYou":0,"matters":0},"#
+        + #"{"kind":"project","id":"boat","name":"Boat","status":"done","needYou":0,"matters":0},"#
+        + #"{"kind":"area","id":"home","name":"Home","needYou":0,"matters":2}],"version":"v"}"#
+    let chips = try decoded(ProjectChips.self, text)
+    // A project Life gave no status is underway, never lost from the page.
+    #expect(chips.sections.underway.map(\.id) == ["shop", "shed"])
+    #expect(chips.sections.areas.map(\.id) == ["home"])
+    #expect(chips.sections.parked.map(\.id) == ["garden"])
+    #expect(chips.sections.done.map(\.id) == ["boat"])
+    #expect(chips.underway == 2)
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {

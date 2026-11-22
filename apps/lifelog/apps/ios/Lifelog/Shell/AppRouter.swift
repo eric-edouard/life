@@ -77,7 +77,8 @@ final class AppRouter {
     }
     /// The tab he was on when a person was opened from elsewhere (`open(party:)`): Back from that page returns there.
     private(set) var personCameFrom: Tab?
-    /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is All. Choosing one lets
+    /// The Projects tab's chosen chip, by its identity (`ProjectChips.Chip.identity`); nil is the Projects list.
+    /// Choosing one lets
     /// its list choose the matter on show again.
     var chip: String? {
         didSet {
@@ -130,8 +131,8 @@ final class AppRouter {
     /// What his words are about when he opens Ask Life from a card ("Wrong…"): the card's ref and its question.
     var askLifeContext: (ref: String, question: String)?
 
-    /// What Ask Life's answer shows: the tab of a cut list, on All for the matters, or a page opened as a tap on it
-    /// would; Ask Life shrinks back to its corner button, so what it shows is in view.
+    /// What Ask Life's answer shows: the tab of a cut list, on the Projects list for the matters, or a page opened as a
+    /// tap on it would; Ask Life shrinks back to its corner button, so what it shows is in view.
     func open(shown: AskLifeShow) {
         switch shown {
         case .list(let list):

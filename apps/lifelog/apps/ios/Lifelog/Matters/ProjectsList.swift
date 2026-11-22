@@ -20,24 +20,19 @@ struct ProjectsList: View {
                     title: "No projects yet.",
                     detail: "The projects and areas Life reads from your matters show here.")
             },
-            content: { read in list(read.chips) }
+            content: { read in list(read) }
         )
         .motion(Motion.standard, value: chips.onScreen?.chips.map(\.identity))
     }
 
-    private func list(_ chips: [ProjectChips.Chip]) -> some View {
-        let projects = chips.filter { $0.kind == .project }
-        let areas = chips.filter { $0.kind == .area }
-        let parked = projects.filter { $0.status == .parked }
-        let done = projects.filter { $0.status == .done }
-        // A project whose status Life did not say is worked on, never lost from the page.
-        let underway = projects.filter { $0.status != .parked && $0.status != .done }
+    private func list(_ read: ProjectChips) -> some View {
+        let sections = read.sections
         return List {
-            rows(underway, detail: underwayLine)
-            if !areas.isEmpty {
+            rows(sections.underway, detail: underwayLine)
+            if !sections.areas.isEmpty {
                 ListLabel("Areas").quietListRow()
                 FlowLayout(spacing: Metrics.Spacing.s) {
-                    ForEach(areas, id: \.identity) { chip in
+                    ForEach(sections.areas, id: \.identity) { chip in
                         FilterChip(
                             name: chip.name, icon: MatterIcons.areaSymbol(chip.area ?? chip.id),
                             isOn: router.chip == chip.identity, needsYou: chip.needYou > 0
@@ -51,13 +46,13 @@ struct ProjectsList: View {
                 .padding(.bottom, Metrics.Spacing.s)
                 .quietListRow()
             }
-            if !parked.isEmpty {
-                ListLabel("Parked · \(parked.count)").quietListRow()
-                rows(parked, detail: { _ in "Parked" }, isDimmed: true)
+            if !sections.parked.isEmpty {
+                ListLabel("Parked · \(sections.parked.count)").quietListRow()
+                rows(sections.parked, detail: { _ in "Parked" }, isDimmed: true)
             }
-            if !done.isEmpty {
-                ListLabel("Done · \(done.count)").quietListRow()
-                rows(done, detail: { _ in "Done" }, isDimmed: true)
+            if !sections.done.isEmpty {
+                ListLabel("Done · \(sections.done.count)").quietListRow()
+                rows(sections.done, detail: { _ in "Done" }, isDimmed: true)
             }
         }
         .listStyle(.plain).scrollContentBackground(.hidden)

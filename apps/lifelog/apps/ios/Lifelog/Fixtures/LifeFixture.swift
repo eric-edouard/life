@@ -215,7 +215,6 @@
                 [
                     "kind": kind, "id": id, "name": name, "matters": of.count,
                     "needYou": of.count { $0["needsYou"] as? Bool == true },
-                    "agentAtWork": of.contains { $0["agent"] != nil },
                 ]
             }
             var projects = [String: [String: Any]]()
@@ -246,7 +245,7 @@
             let chips =
                 underway
                 + areas.map { name in chip("area", name.lowercased(), name, loose.filter { Self.isIn(name, $0) }) }
-                + projects.values.filter { !isUnderway($0) }.map { $0.merging(["agentAtWork": false]) { $1 } }
+                + projects.values.filter { !isUnderway($0) }
                 + older
             return json([
                 "all": ["open": rows.count, "needYou": rows.count { $0["needsYou"] as? Bool == true }],
