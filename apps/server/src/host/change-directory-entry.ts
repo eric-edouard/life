@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { writeWhole } from "../core/files";
-import { oneAtATime } from "../core/lock";
-import { OWNER_DATA_DIR } from "../core/paths";
+import { oneAtATimeAcross } from "../core/lock";
+import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { commitMemory } from "../memory/memory-files";
 import {
   directoryPartiesOf,
@@ -362,8 +362,8 @@ function writeOf(a: Change, read: Read) {
 const whatOf = (a: Change) =>
   `${a.action} ${a.kind} ${a.id ?? a.name ?? ("number" in a ? a.number : undefined) ?? ""}`.trim();
 
-/** One change at a time: two calls would each read the file the other is about to write. */
-const inTurn = oneAtATime();
+/** One change at a time, across processes (the connector's, the main session's, the CLI's): two calls would each read the file the other is about to write. */
+const inTurn = oneAtATimeAcross(join(LIFE_STATE_DIR, "directory.lock"));
 
 /**
  * Applies one change he asked for in his own words (`said`): validated on a copy of truth/ first, then written, kept as

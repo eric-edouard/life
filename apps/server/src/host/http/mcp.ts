@@ -28,7 +28,7 @@ import {
 import { offersOf } from "../../memory/read-person-page";
 import { readLogLines, readResourceSamples, runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
-import { enabledSources } from "../../memory/sources";
+import { isToldLife } from "../../memory/sources";
 import { recordToldLife } from "../../memory/told-life";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
@@ -121,9 +121,6 @@ const ICONS: Record<string, string> = {
   "/icon-512.png": "image/png",
   "/icon.svg": "image/svg+xml",
 };
-
-/** Whether the `told-life` source is on: else nothing would read what `tell_life` keeps. */
-const isToldLife = () => enabledSources().some((s) => s.name === "told-life");
 
 // At most 512 characters (OpenAI's guidance; a test checks it): what each tool does is in its own description.
 const instructions =
@@ -524,7 +521,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step, those only a link or Life's reading ended included: its observations, and its to-do items ticked); a matter he drops (it won't be done): the same with `outcome` `dropped` (its to-do items removed, not ticked); a closed matter he reopens: kind `matter-reopened` with `matter`, his token only (its ticked to-do items unticked, its facts open again; refused when open or when nothing of it can reopen); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn, context}: `context` optional, Markdown as a card's, each `life:` link must open); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something, only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step, those only a link or Life's reading ended included: its observations, and its to-do items ticked); a matter he drops (it won't be done): the same with `outcome` `dropped` (its to-do items removed, not ticked); a closed matter he reopens: kind `matter-reopened` with `matter`, his token only (its ticked to-do items unticked, its facts open again; refused when open or when nothing of it can reopen); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn, context}: `context` optional, Markdown as a card's, each `life:` link must open); his icon for a matter: kind `matter-icon`, `matter` its id, `icon` a key or null (Life picks again), his token only; which project of his a matter is of: kind `matter-project`, `matter` its id, `project` a project id, his token only: the matter goes to that project's agent), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES

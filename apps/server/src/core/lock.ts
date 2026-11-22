@@ -71,18 +71,28 @@ export const isOtherLife = (
 export async function hold(name: Service, note = LIFE_STATE_DIR, every = MIN) {
   const path = serviceLock(name);
   mkdirSync(dirname(path), { recursive: true });
-  let said = false;
-  while (!take(path, note)) {
-    if (!said) {
-      console.log(
-        `${clock().toISOString()} ${name}: another runs it (${holder(name)?.note}), waiting`
-      );
-      said = true;
+  await waitToTake(path, note, every, () =>
+    console.log(
+      `${clock().toISOString()} ${name}: another runs it (${holder(name)?.note}), waiting`
+    )
+  );
+  process.on("exit", () => release(name));
+}
+
+/** Takes the lock file `path` once it is free, trying each `every` ms; `waiting` runs once, on the first wait. */
+async function waitToTake(
+  path: string,
+  note: string | undefined,
+  every: number,
+  waiting?: () => void
+) {
+  for (let first = true; !take(path, note); first = false) {
+    if (first) {
+      waiting?.();
     }
     // biome-ignore lint/performance/noAwaitInLoops: one try each `every`
     await Bun.sleep(every);
   }
-  process.on("exit", () => release(name));
 }
 
 /** Lets go of `name` if this process holds it: before its exit, when what needed it is done. */
@@ -94,7 +104,8 @@ export function release(name: Service) {
 
 /**
  * One chain within this process: each call's `run` starts once the one before it ended, a failure included, so the
- * calls sharing it never overlap. Each resource keeps its own (`const inTurn = oneAtATime()`); nothing across processes.
+ * calls sharing it never overlap. Each resource keeps its own (`const inTurn = oneAtATime()`); across processes,
+ * `oneAtATimeAcross`.
  */
 export function oneAtATime() {
   let turn: Promise<void> = Promise.resolve();
@@ -107,4 +118,21 @@ export function oneAtATime() {
     );
     return next;
   };
+}
+
+/**
+ * `oneAtATime` across processes too: each call also holds the lock file `path` (waited for, never refused; a dead
+ * holder's cleared by `take`), so calls from every process sharing `path` never overlap.
+ */
+export function oneAtATimeAcross(path: string, every = 100) {
+  const inTurn = oneAtATime();
+  return <T>(run: () => Promise<T>) =>
+    inTurn(async () => {
+      await waitToTake(path, undefined, every);
+      try {
+        return await run();
+      } finally {
+        rmSync(path, { force: true });
+      }
+    });
 }

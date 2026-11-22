@@ -3,13 +3,23 @@ import { z } from "zod";
 import { apifyToken, findActors } from "../apify/backend";
 import { clock, MIN } from "../core/clock";
 import { OWNER_ASKER } from "../core/names";
+import { isOn } from "../core/outputs";
 import { isOwnLife } from "../core/platform";
 import { same } from "../core/secret";
+import {
+  removeAppointment,
+  restoreAppointment,
+} from "../host/appointments-calendar";
+import {
+  changeDirectoryEntry,
+  DirectoryEntryChange,
+} from "../host/change-directory-entry";
 import {
   changeRegisteredAgent,
   RegisteredAgentChange,
   WAIT_MS,
 } from "../host/change-registered-agent";
+import { changeAskedTodoItem } from "../host/change-todo-item";
 import { complainThroughAskLife } from "../host/complaints";
 import {
   correctMatter,
@@ -36,6 +46,10 @@ import { CardPreview } from "../memory/card-preview";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
 import { readsOnce, refsProblemOf } from "../memory/find-refs";
+import { isToldLife } from "../memory/sources";
+import { recordToldLife } from "../memory/told-life";
+import { AppointmentId } from "../records/appointment";
+import { entryLine } from "../records/ledger-entry";
 import {
   AnswerExtras,
   type MainSessionAct,
@@ -44,6 +58,7 @@ import {
   MainSessionShow,
 } from "../records/main-session-wire";
 import { AgentWait } from "../records/registered-agent";
+import { Change } from "../todo-list/contract";
 import {
   askDecision,
   askFirstMessageOf,
@@ -127,11 +142,15 @@ function turnRefusalOf(
 /** The door's tools only the main session has, on a turn of his words: `answer` and its acts. */
 const MAIN_TOOLS = new Set([
   "answer",
+  "change_appointment",
+  "change_directory_entry",
   "change_registered_agent",
+  "change_todo_item",
   "complain",
   "correct_memory",
   "show",
   "tell_agent",
+  "tell_life",
 ]);
 
 const NO_TURN =
@@ -362,6 +381,79 @@ function doorServer(desk: Desk, id: string) {
         ...(typeof matter === "string" ? { matter } : {}),
       });
       return { done };
+    }
+  );
+  // His to-do list, his calendar's appointments, what he tells Life and his directory: the connector's own writers, on
+  // his words of this ask (rulings of 22 Nov 2026: "Ask Life should have everything", "Ask Life should be able to edit the
+  // directory of course").
+  if (isOn("todoList")) {
+    door(
+      "change_todo_item",
+      "The main session only, on his words (`said`, his own words of this ask, verbatim): one change to his to-do list, as the connector's `change_todo_item` takes it (`kind` add, edit, done, undone, remove or restore; `target` an item's id from `read_open_todo_items`, all but add). Returns the line saying what changed.",
+      Change.extend({ said: z.string().min(1).max(8000) }),
+      async ({ said, ...change }, _, turn) => {
+        const done = await changeAskedTodoItem(
+          {
+            ...change,
+            said: hisWordsOf(turn, said),
+            why: "asked through Ask Life",
+          },
+          "session"
+        );
+        const line = entryLine(done);
+        if (done.result === "failed") {
+          return { error: line };
+        }
+        acted(turn, { kind: "done" });
+        return line;
+      }
+    );
+  }
+  door(
+    "change_appointment",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): his Remove or Undo of an appointment Life added to his calendar (`appointment`, its `apt_` id from `read_appointments`): `remove` deletes its event and Life never writes it again; `restore` lifts that. `result`: `removed`, `restored`, or `failed` with its `reason`.",
+    z.object({
+      action: z.enum(["remove", "restore"]),
+      appointment: AppointmentId,
+      said: z.string().min(1).max(8000),
+    }),
+    async ({ action, appointment, said }, _, turn) => {
+      hisWordsOf(turn, said);
+      const done = await (action === "remove"
+        ? removeAppointment(appointment)
+        : restoreAppointment(appointment));
+      if (done.result !== "failed") {
+        acted(turn, { kind: "done" });
+      }
+      return done;
+    }
+  );
+  if (isToldLife()) {
+    door(
+      "tell_life",
+      'The main session only, when he asks Life to remember something ("remember that…"): `said` his own words of this ask, verbatim, never your summary; `asked` the question he answered, if any. Life reads it with the rest of his day, at the night\'s run.',
+      z.object({
+        asked: z.string().min(1).max(2000).optional(),
+        said: z.string().min(1).max(8000),
+      }),
+      ({ asked, said }, _, turn) => {
+        recordToldLife(hisWordsOf(turn, said), asked);
+        acted(turn, { kind: "done" });
+        return "Kept: Life reads it at the night's run.";
+      }
+    );
+  }
+  door(
+    "change_directory_entry",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): one change to his directory (his people, organizations, projects, areas, goals and what Life may keep), as the connector's `change_directory_entry` takes it (`kind`, `action` add or edit, `id`, and the entry's fields). Checked on a copy first: refused, changing nothing, when his directory would not stay consistent. Returns what changed.",
+    DirectoryEntryChange,
+    async ({ said, ...change }, _, turn) => {
+      const done = await changeDirectoryEntry({
+        ...change,
+        said: hisWordsOf(turn, said),
+      });
+      acted(turn, { kind: "done" });
+      return done;
     }
   );
   door(
