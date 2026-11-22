@@ -53,8 +53,7 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 1,
   },
   "Matters/MatterPage.swift": {
-    padding: 12,
-    width: 1,
+    padding: 6,
   },
   "Matters/StartAgentSheet.swift": {
     padding: 4,
@@ -66,7 +65,7 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 3,
   },
   "Settings/SettingsView.swift": {
-    padding: 3,
+    padding: 1,
   },
   "Settings/VocabularyView.swift": {
     font: 1,

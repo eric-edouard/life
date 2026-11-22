@@ -186,6 +186,7 @@
   },
   "switches": {
     "ai": false,
+    "dictationHeard": "mac",
     "engine": "claude",
     "openAppAfterMinutes": 15,
     "transcriber": "scribe",

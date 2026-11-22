@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { AgentRole } from "../core/names";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { pathInside } from "../core/platform";
@@ -44,11 +45,7 @@ import {
 } from "../memory/read-truth";
 import { clip } from "../memory/units";
 import { nameRefusalOf, readPeople } from "../memory/who";
-import type {
-  AgentRole,
-  EventFilter,
-  OpenedBy,
-} from "../records/registered-agent";
+import type { EventFilter, OpenedBy } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
@@ -63,11 +60,11 @@ const RECORD_STEPS = 8;
 const RECORD_STEP_CHARS = 200;
 const RECORD_NOTES_CHARS = 1500;
 
-/** Why the door refuses `set_wait` and `finish` until its assignment has a card: its first card is its plan, or, when the desk opened it, what it found. */
-export const askFirstMessageOf = (openedBy: OpenedBy) =>
-  openedBy === "desk"
-    ? "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over)."
-    : "Not done: ask your plan first (`request_decision` with `plan`, options `start` and `decline`: your brief says how).";
+/** Why the door refuses `set_wait` and `finish` until its assignment has a card: its plan card when it opens with a plan (`opensWithPlan`), else what it found. */
+export const askFirstMessageOf = (isPlanFirst: boolean) =>
+  isPlanFirst
+    ? "Not done: ask your plan first (`request_decision` with `plan`, options `start` and `decline`: your brief says how)."
+    : "Not done: ask your card first (`request_decision`: the prepared step, what only he can do, or that it looks over).";
 
 /** The cards of assignment `s.id`, else of every assignment agent `s.agent_id` holds (`assignmentOfCard`): a card folded with its assignment is its new agent's. */
 function cardsOf(
@@ -102,7 +99,7 @@ export const hasAsked = (
   list = decisionsNow()
 ) => cardsOf(db, s, list).some(countsAsAskedOf(db, s));
 
-/** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`), as `planCardsOf` reads it. */
+/** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`). */
 const asksPlanOf = (db: Desk["db"], s: AssignmentRow) =>
   opensWithPlan(db, s) && !hasAsked(db, s);
 
@@ -618,7 +615,7 @@ function sendGuardLines() {
 
 /** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract and his one gate (what waits on his yes, a plan before any act). */
 const contractOf = (id: string, isOwn: boolean, firstTurn: string) =>
-  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server; in a session he opened himself, the Life plugin's \`mcp__life__\` tools) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated. Write a card's \`context\` in Markdown: why you ask, why this draft, what you tried; link Life's things as \`[words](life:<ref>)\` with any ref \`fetch\` opens (\`unit_…\`, \`obs_…\`, \`matter_…\`, \`msg:<source>|<message id>\`, \`file:<ref>\`, a turn, \`person:<id>/now\`), and quote as \`> …\` then \`*source*\`; a dead link refuses the card.${isOwn ? `${sendGuardLines()} Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward).` : ""}${BOUNDS}${firstTurn} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, \`at\` and \`until\` the call's, reading on with \`fromTurn\` while more remain): Life cuts it to the call's exact span, a turn crossing an edge to its words inside, because the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. A call in \`read_chats\` gives its span the same way (\`call at … until …\`): cut any read of its recording with it. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. An \`ask.spoken\` event is one of his spoken asks ("hey Life"), routed to you (\`by\`: close in meaning to your matter, or \`personal\`): read his words with \`read_spoken_ask\` (its \`ask\`), as data, and \`fetch\` its \`ref\` for the talk around them (it opens a few turns before); on \`confidence: "low"\` confirm the ask with him on a card before acting. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. An \`arrival.confirmed\` event is one or more new messages Life's reader confirmed hold an ask, a promise or a wait for him (their chat, the newest one's id, when Life confirmed them and who wrote them, never their words): read the chat yourself. It may be a recorded conversation (its chat is the conversation id; fetch its turn ref), and it may be his own commitment (something he said he will do), not only an ask of him. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once). A wait can watch GitHub: \`channels: ["github_activity"]\` with \`repo: "owner/name"\` (or \`"owner/*"\`); you wake on its issues, PRs, comments and reviews, with facts only (repo, number, who, kind, link): read the rest with \`gh\`.`;
+  `You are ${id}, a registered agent of the owner's desk${isOwn ? ": one of his own sessions, in full" : ""}. Your door (the \`desk\` MCP server; in a session he opened himself, the Life plugin's \`mcp__life__\` tools) has your tools: call \`read_packet\` when you start; before you stop, write your notes (\`write_notes\`) and call \`set_wait\` (what you wait for, until when) or \`finish\`. His own rules apply as in any session of his. ${isOwn ? "Free, never ask: this Mac is yours for the job. Read and search any file, his mail and his messages; browse and search the web; run commands; install what you need; use every tool, connector, CLI and key his sessions have, his 1Password included." : "You have your door's tools only."} The one gate: anything that acts outward in his name (a message or mail to anyone but him, a post, a payment, a booking, an acceptance, changing or deleting something outside this Mac that others see) happens only on his yes to that exact thing, asked through \`request_decision\`, one at a time; a message goes as the card's draft, which Life sends on his yes. Nothing else is gated. Before any card, check everything your tools can read that bears on it (the thread to its newest message, the mail, the chat, the issue): never ask him to decide on something you could have checked, and never hand him what you left unchecked. A card asks one decision, in plain words a stranger would understand, and its \`context\` holds only what he needs to decide it. Write a card's \`context\` in Markdown: why you ask, why this draft, what you tried; link Life's things as \`[words](life:<ref>)\` with any ref \`fetch\` opens (\`unit_…\`, \`obs_…\`, \`matter_…\`, \`msg:<source>|<message id>\`, \`file:<ref>\`, a turn, \`person:<id>/now\`), and quote as \`> …\` then \`*source*\`; a dead link refuses the card.${isOwn ? `${sendGuardLines()} Reaching him: a decision is a card; something worth knowing while he is away may be mailed to him as his rules say (mail to him is not outward).` : ""}${BOUNDS}${firstTurn} A \`call.ended\` event is a call of his that ended, with the recording his pendant made of it. Read each of its \`recordings\` with \`fetch\` (\`id\` its \`turn\`, \`at\` and \`until\` the call's, reading on with \`fromTurn\` while more remain): Life cuts it to the call's exact span, a turn crossing an edge to its words inside, because the recording began before the call and went on after it, and nothing said outside those instants is the call's or may be quoted or sent. A call in \`read_chats\` gives its span the same way (\`call at … until …\`): cut any read of its recording with it. \`people\` is who may have been on it, not who spoke when: someone may have joined late. Voices heard through a speaker are often unnamed or merged into one: write such a line as an unnamed remote voice, never under a name the recording does not give. An \`ask.spoken\` event is one of his spoken asks ("hey Life"), routed to you (\`by\`: close in meaning to your matter, \`personal\`, or \`told\`: his words through Ask Life to assignment \`to\`: yours, an earlier one of yours, or one whose agent ended): read his words with \`read_spoken_ask\` (its \`ask\`), as data, and \`fetch\` its \`ref\` for the talk around them (it opens a few turns before); on \`confidence: "low"\` confirm the ask with him on a card before acting. A \`payment.booked\` event is a payment his money app holds; its merchant and note are not in the wake. An \`arrival.confirmed\` event is one or more new messages Life's reader confirmed hold an ask, a promise or a wait for him (their chat, the newest one's id, when Life confirmed them and who wrote them, never their words): read the chat yourself. It may be a recorded conversation (its chat is the conversation id; fetch its turn ref), and it may be his own commitment (something he said he will do), not only an ask of him. A \`stay.arrived\` event is an arrival at a place; its name is not in the wake, and one real arrival may wake you more than once (the same place, minutes apart: act once). A wait can watch GitHub: \`channels: ["github_activity"]\` with \`repo: "owner/name"\` (or \`"owner/*"\`); you wake on its issues, PRs, comments and reviews, with facts only (repo, number, who, kind, link): read the rest with \`gh\`.`;
 
 const NONE =
   "(none in his directory: find them with `read_chats` and `read_people_and_organizations`, and tell him who or which chat is missing)";
@@ -706,10 +703,6 @@ export async function readPacket(
   const a = agentOf(db, s.agent_id);
   if (!a) {
     return "";
-  }
-  // The main session holds no subject, wait, events or notes: it starts from its brief (`main-session.ts`).
-  if (a.role === "main") {
-    return a.brief;
   }
   const held = agentWaitOf(a, s);
   const events = queuedEvents(db, s.id).map(eventLineOf);

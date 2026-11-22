@@ -29,7 +29,7 @@ const WITH_PARTS = [
   "memory-connection.v3",
   "memory-conversation-summary.v1",
   "memory-episodes.v10",
-  "memory-extract.v7",
+  "memory-extract.v8",
   "memory-history-month.v1",
   "memory-mentions.v1",
   "memory-pages.v6",
@@ -80,9 +80,9 @@ test("no prompt names the owner by a pronoun or as the owner: {{owner}} is his n
 test("{{language}} is the language his memory is written in", () => {
   const was = settings().memoryLanguage;
   try {
-    expect(promptText("memory-extract.v7")).toContain("in English");
+    expect(promptText("memory-extract.v8")).toContain("in English");
     setSettings({ memoryLanguage: "French" });
-    expect(promptText("memory-extract.v7")).toContain("in French");
+    expect(promptText("memory-extract.v8")).toContain("in French");
   } finally {
     setSettings({ memoryLanguage: was });
   }
@@ -102,13 +102,13 @@ test("a part that is off is cut out with its text and named in the prompt's name
       "memory-pages.v6-without-relationships"
     );
     setSettings({ personal: null });
-    expect(promptNameOf("memory-extract.v7")).toBe(
-      "memory-extract.v7-without-relationships"
+    expect(promptNameOf("memory-extract.v8")).toBe(
+      "memory-extract.v8-without-relationships"
     );
     expect(promptNameOf("memory-pages.v6")).toBe(
       "memory-pages.v6-without-aboutMe-relationships"
     );
-    expect(promptText("memory-extract.v7")).not.toContain(
+    expect(promptText("memory-extract.v8")).not.toContain(
       "Between Test and someone close"
     );
     // A prompt with no part keeps its name.
@@ -151,21 +151,21 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
       );
       expect(text).not.toContain("<!--");
     }
-    expect(promptNameOf("memory-extract.v7", [MAY_KEEP])).toBe(
-      "memory-extract.v7-with-mayKeep"
+    expect(promptNameOf("memory-extract.v8", [MAY_KEEP])).toBe(
+      "memory-extract.v8-with-mayKeep"
     );
     expect(
-      isPromptVersion("memory-extract.v7-with-mayKeep", "memory-extract.v7")
+      isPromptVersion("memory-extract.v8-with-mayKeep", "memory-extract.v8")
     ).toBe(true);
     expect(
       isPromptVersion(
-        "memory-extract.v7-without-relationships-with-mayKeep",
-        "memory-extract.v7"
+        "memory-extract.v8-without-relationships-with-mayKeep",
+        "memory-extract.v8"
       )
     ).toBe(true);
     setSettings({ personal: null });
-    expect(promptNameOf("memory-extract.v7", [MAY_KEEP])).toBe(
-      "memory-extract.v7-without-relationships-with-mayKeep"
+    expect(promptNameOf("memory-extract.v8", [MAY_KEEP])).toBe(
+      "memory-extract.v8-without-relationships-with-mayKeep"
     );
     expect(promptNameOf("memory-closeness.v1", [MAY_KEEP])).toBe(
       "memory-closeness.v1"
@@ -186,8 +186,8 @@ test("a month's in-person paragraph shows only on a call that has it on: off, th
   const month = "memory-history-month.v1";
   const sha = (text: string) =>
     new Bun.CryptoHasher("sha256").update(text).digest("hex").slice(0, 16);
-  // The render before the part existed, pinned: a month with no conversation in person is shown the same prompt.
-  expect(sha(promptText(month))).toBe("1221ade54773bde2");
+  // The render of a month with no conversation in person, pinned (it holds the owner rule).
+  expect(sha(promptText(month))).toBe("b0d88496de0671b3");
   expect(promptText(month, [IN_PERSON])).toContain("## In person");
   expect(promptNameOf(month)).toBe(month);
   expect(promptNameOf(month, [MAY_KEEP, IN_PERSON])).toBe(
@@ -208,4 +208,12 @@ test("the owner is called by their `called`, else their name's first word", () =
   expect(readOwnerName(data)).toBe("Jean");
   write("    called: Jean Paul\n");
   expect(readOwnerName(data)).toBe("Jean Paul");
+});
+
+test("every prompt says to name a person by their name or who they are to the owner, never a family word from his notes (his pass of 21 Nov 2026)", () => {
+  for (const prompt of ["memory-extract.v8", "memory-matters.v2"]) {
+    expect(promptText(prompt)).toContain(
+      'never by a family word copied from notes, to-dos, chats or a ref\'s id ("Mum", "Dad", "Grandpa", `person:dad`)'
+    );
+  }
 });

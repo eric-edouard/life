@@ -10,6 +10,8 @@ struct ProjectsScreen: View {
 
     @State private var visibility = NavigationSplitViewVisibility.all
     @State private var isRetrying = false
+    /// The last Retry failed too: said beside it, so a second failure is not the same as no tap.
+    @State private var hasRetryFailed = false
     /// What he typed on the asks pushed on a matter: here, above both columns, so a fold keeps it.
     @State private var notes = CardNotes()
     /// What he typed on a project's question (`AppRouter.projectAsk`).
@@ -25,35 +27,41 @@ struct ProjectsScreen: View {
         @Bindable var router = router
         let chip = chosen
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
-            // The chips, a project's header and its rows each show their own read: one failing leaves the others.
-            content(chip)
-                .background(Palette.bg)
-                // A swipe's mark and a project's status, said back with Undo.
-                .saysBack()
-                .screenTitle("Projects", state: life.projects.shown().onScreen.map { "\($0.underway) underway" })
-                // Beside a matter, the Pendant and Settings are the matter column's.
-                .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-                // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
-                // chosen). All's list is the matters' read, which that answer reads again itself.
-                .task(id: [chip?.identity ?? "", chip == nil ? "" : "\(life.answersEnded.values.reduce(0, +))"]) {
-                    await refresh(chip)
-                }
+            // Beside the agents' page the list is the agents, else the chips and their rows.
+            if isAgentsBeside {
+                AgentsScreen(isBeside: true)
+            } else {
+                // The chips, a project's header and its rows each show their own read: one failing leaves the others.
+                content(chip)
+                    .background(Palette.bg)
+                    // A swipe's mark and a project's status, said back with Undo.
+                    .saysBack()
+                    .screenTitle("Projects", state: header)
+                    // Beside a matter, the Pendant and Settings are the matter column's.
+                    .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
+                    // The chosen chip's list and header, again after an answer on a matter (and once Life's chips name the chip
+                    // chosen). All's list is the matters' read, which that answer reads again itself.
+                    .task(id: [chip?.identity ?? "", chip == nil ? "" : "\(life.answersEnded.values.reduce(0, +))"]) {
+                        await refresh(chip)
+                    }
+            }
         } detail: {
             detail
         }
-        // His word that a step is done, held for Undo after he left its ask (a matter's, or a project's question, whose
-        // sheet closes back onto the list): every answer held here was given on this tab.
-        .heldToast(shows: { _ in true }, undo: { life.undo($0) })
         // Side by side on a regular width wide enough (the iPhone Duo open wide). Open upright (669 pt) UIKit overlays the
         // list on the matter, whatever the column widths: kept on purpose (the owner's call, 19 Nov 2026); the system's
         // sidebar button brings the list back.
         .navigationSplitViewStyle(.balanced)
-        // The tabs hide while a page fills a compact width and come back with the list. Set here, above both columns:
-        // set on the page, the hidden bar outlived the page, and the Inbox could no longer be reached.
-        .toolbarVisibility(sizeClass != .regular && router.matterColumn == .detail ? .hidden : .automatic, for: .tabBar)
         // The split view can drop the selection when it expands: a regular width always shows a page.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: list(of: chosen).value) { fillSelection() }
+        .onChange(of: router.detail) { fillSelection() }
+        // An agent named from elsewhere is the one on show beside the agents, not a page pushed over it.
+        .onChange(of: router.matterPath) { _, path in
+            guard isAgentsBeside, case .agent(let id)? = path.last else { return }
+            router.agentShown = id
+            router.matterPath = []
+        }
         // Here, above both columns, so a fold that collapses the matter's page keeps the sheet and its running start.
         .sheet(item: matterSheetBinding) { sheet in
             switch sheet {
@@ -71,34 +79,27 @@ struct ProjectsScreen: View {
         }
     }
 
+    /// The agents are the list, and the agent on show the page beside them (a regular width).
+    private var isAgentsBeside: Bool { sizeClass == .regular && router.detail == .agents }
+
+    private var shownAgent: String {
+        router.agentShown ?? life.agents.value?.agents.first { !$0.isOver }?.id ?? ""
+    }
+
     @ViewBuilder private var detail: some View {
         @Bindable var router = router
         switch router.detail {
         case .project(let id)?:
-            NavigationStack { ProjectDetails(id: id).id(id) }
+            stack { ProjectDetails(id: id).id(id) }
         case .matter(let id)?:
-            NavigationStack(path: $router.matterPath) {
-                MatterPage(id: id, hasSettings: sizeClass == .regular).id(id)
-                    .navigationDestination(for: AppRouter.MatterRoute.self) { route in
-                        switch route {
-                        case .card(let ref):
-                            CardPage(
-                                ref: ref, source: life.asks(ofMatter: id), notes: $notes,
-                                leave: { router.matterPath = [] }
-                            )
-                            // A pushed screen: Back, then the Pendant.
-                            .shellBar("", hasSettings: false)
-                        }
-                    }
-            }
-            .zooms(from: id, in: matterZoom)
-            // Back to the matter, by his Done or the system's back: the result he read is forgotten, so the next ask
-            // opens on its own question.
-            .onChange(of: router.matterPath) { _, path in
-                guard path.isEmpty, let taken = notes.taken else { return }
-                life.forget(taken.key)
-                notes.taken = nil
-            }
+            stack { MatterPage(id: id, hasSettings: sizeClass == .regular).id(id) }
+                .zooms(from: id, in: matterZoom)
+        case .agents? where isAgentsBeside:
+            stack { AgentPage(id: shownAgent, hasSettings: true).id(shownAgent) }
+        case .agents?:
+            stack { AgentsScreen() }
+        case .spending?:
+            stack { SpendingPage() }
         case nil:
             Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
                 // Loading, unreachable, no matters: the top group stays.
@@ -106,9 +107,44 @@ struct ProjectsScreen: View {
         }
     }
 
+    /// The detail column's page and what is pushed on it (`AppRouter.MatterRoute`). Back to the page, by his Done or the
+    /// system's back: the result he read is forgotten, so the next ask opens on its own question.
+    private func stack(@ViewBuilder _ root: () -> some View) -> some View {
+        @Bindable var router = router
+        return NavigationStack(path: $router.matterPath) {
+            root().navigationDestination(for: AppRouter.MatterRoute.self) { route in
+                switch route {
+                case .card(let ref, let matter):
+                    CardPage(
+                        ref: ref, source: life.asks(ofMatter: matter), notes: $notes,
+                        leave: { router.matterPath = [] }
+                    )
+                    // A pushed screen: Back, then the Pendant.
+                    .shellBar("", hasSettings: false)
+                case .agent(let id): AgentPage(id: id)
+                case .matter(let id): MatterPage(id: id, hasSettings: false)
+                case .session(let id): AgentSessionPage(id: id)
+                }
+            }
+        }
+        .onChange(of: router.matterPath) { _, path in
+            guard path.isEmpty, let taken = notes.taken else { return }
+            life.forget(taken.key)
+            notes.taken = nil
+        }
+    }
+
     /// The chip chosen, as Life lists it now; none is All (or a chip Life no longer lists).
     private var chosen: ProjectChips.Chip? {
         life.projects.shown().onScreen?.chips.first { $0.identity == router.chip }
+    }
+
+    /// The title's count: on Ask Life's cut, how many of All's rows it keeps ("3 of 7"), else the projects underway.
+    private var header: String? {
+        guard let cut = router.cut(of: .matters) else {
+            return life.projects.shown().onScreen.map { "\($0.underway) underway" }
+        }
+        return life.matters.shown().onScreen.map { "\(cut.cut($0.matters, ref: \.id).count) of \($0.matters.count)" }
     }
 
     /// The read under a chip: All's is every running matter.
@@ -139,12 +175,12 @@ struct ProjectsScreen: View {
         askNotes.taken = nil
     }
 
-    /// A regular width always shows a page: a project's Details stay; a matter no longer in the chip's list gives way to
-    /// its first.
+    /// A regular width always shows a page: a page that is not a matter (Details, the agents, Spending) stays; a matter no
+    /// longer in the chip's list gives way to its first.
     private func fillSelection() {
         guard sizeClass == .regular else { return }
-        // Details, or a matter he opened from elsewhere, stay whatever the chip's list holds.
-        if case .project = router.detail { return }
+        // A page that is not a matter, or a matter he opened from elsewhere, stays whatever the chip's list holds.
+        if router.detail != nil, router.matter == nil { return }
         if router.isMatterFromElsewhere { return }
         let matters = list(of: chosen).value?.matters
         let isGone = router.matter == nil || matters?.contains { $0.id == router.matter } == false
@@ -154,16 +190,25 @@ struct ProjectsScreen: View {
     /// The chips, the header of a project's chip, then the chip's rows as their read stands.
     private func content(_ chip: ProjectChips.Chip?) -> some View {
         let shown = list(of: chip).shown()
+        let cut = router.cut(of: .matters)
+        // Ask Life's cut is of All: Life's rows, the ones it named, in its order.
+        let matters = shown.onScreen.map { list in cut.map { $0.cut(list.matters, ref: \.id) } ?? list.matters }
         return List {
-            chipRow.quietListRow()
+            // Its toast stands in the chips' place until his X; one row, so the two cross-fade.
+            ZStack(alignment: .leading) {
+                if cut == nil { chipRow.transition(.opacity) } else { CutToast(kind: .matters).transition(.opacity) }
+            }
+            .quietListRow()
             if let chip, chip.kind == .project {
                 ProjectHead(id: chip.id) { router.projectAsk = OpenAsk(ask: $0) }.readingWidth().quietListRow()
             }
-            if let list = shown.onScreen {
-                rows(list.matters, chip: chip)
+            if let matters {
+                // A cut is Life's order: no "Parked" part, as on a chip.
+                rows(matters, chip: chip, isCut: cut != nil)
             } else {
                 ReadScreen(
-                    shown: shown, retry: { await refresh(chip) }, loading: { RowsPlaceholder() },
+                    shown: shown, retry: { await refresh(chip) },
+                    loading: { RowsPlaceholder(label: "Loading the matters") },
                     empty: { EmptyView() }, content: { _ in EmptyView() }
                 )
                 .quietListRow()
@@ -171,20 +216,16 @@ struct ProjectsScreen: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden)
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
-        .staleToast(staleNote(shown), retry: { await refresh(chip) })
-        .motion(Motion.standard, value: shown.onScreen?.matters.map(\.id))
+        .syncMark(life.syncMark(shown, stamp: list(of: chip).stamp, tellsAgents: false), retry: { await refresh(chip) })
+        .motion(Motion.standard, value: matters?.map(\.id))
+        .motion(Motion.standard, value: cut)
         .scrollDismissesKeyboard(.interactively)
-    }
-
-    /// When the list on show was read and why it is old, while its latest read failed.
-    private func staleNote(_ shown: ReadState<MatterList>.Shown) -> (since: Date?, because: String)? {
-        if case .stale(_, let since, let why) = shown { (since, why.words) } else { nil }
     }
 
     /// The rows in Life's order (his marked ones first); on All, a parked or done project's matters last, under
     /// "Parked". A swipe to the right marks one, or unmarks it: the system's own swipe action, as Mail flags a message.
-    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?) -> some View {
-        let parkedFrom = chip == nil ? rows.firstIndex(where: \.isParked) : nil
+    @ViewBuilder private func rows(_ rows: [MatterRow], chip: ProjectChips.Chip?, isCut: Bool) -> some View {
+        let parkedFrom = chip == nil && !isCut ? rows.firstIndex(where: \.isParked) : nil
         let split = parkedFrom ?? rows.count
         if rows.isEmpty {
             Text("Nothing is running here.").font(.body15).foregroundStyle(Palette.muted)
@@ -228,16 +269,17 @@ struct ProjectsScreen: View {
             ScrollView(.horizontal) {
                 HStack(spacing: Metrics.Spacing.s) {
                     // All is on too when Life no longer lists the chip chosen (a project marked done).
-                    FilterChip(name: "All", isOn: chosen == nil) { router.chip = nil }.id("")
+                    FilterChip(name: "All", isOn: chosen == nil) { (router.chip, router.cut) = (nil, nil) }.id("")
                     // Life's chips could not be read: their retry, in their place.
                     if life.projects.hasFailed {
                         QuietChip("Retry", symbol: "arrow.clockwise", isBusy: isRetrying) {
                             Task {
-                                isRetrying = true
+                                (isRetrying, hasRetryFailed) = (true, false)
                                 await life.refreshProjects()
-                                isRetrying = false
+                                (isRetrying, hasRetryFailed) = (false, life.projects.hasFailed)
                             }
                         }
+                        if hasRetryFailed && !isRetrying { StateMark(glyph: .flag, word: "Still not readable") }
                     }
                     ForEach(life.projects.shown().onScreen?.chips ?? [], id: \.identity) { chip in
                         let status = chip.status.map { life.status(of: chip.id, as: $0) }
@@ -327,31 +369,5 @@ struct MatterRowView: View {
                 parked ? "Parked" : nil,
             ]
             .compactMap(\.self).joined(separator: ", "))
-    }
-}
-
-/// What the search shows while no matter is running.
-struct NoMattersNotice: View {
-    var body: some View {
-        Notice(
-            title: "No matter is running.",
-            detail: "Life finds them in your messages, notes and voice. They show here as they appear.")
-    }
-}
-
-private struct RowsPlaceholder: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            ForEach(0..<5, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 10) {
-                    Placeholder(width: 220, height: 18)
-                    Placeholder(width: 280, height: 14)
-                    Placeholder(width: 150, height: 12)
-                }
-            }
-            Spacer()
-        }
-        .padding(Metrics.gutter)
-        .accessibilityLabel("Loading the matters")
     }
 }

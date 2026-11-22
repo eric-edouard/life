@@ -42,7 +42,7 @@ struct ProjectDetails: View {
                     title: \.shownWord
                 )
                 .offWhileOutOfReach()
-                .padding(.horizontal, Metrics.Spacing.m)
+                .padding(.horizontal, Metrics.gutter)
                 if let goal = head.goal {
                     ListLabel("The goal it serves")
                     Row(

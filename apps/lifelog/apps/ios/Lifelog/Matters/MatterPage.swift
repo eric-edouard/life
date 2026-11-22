@@ -17,7 +17,7 @@ struct MatterPage: View {
     var body: some View {
         let state = life.matter[id] ?? ReadState()
         ReadScreen(
-            shown: state.shown(), retry: { await life.refreshMatter(id) },
+            shown: state.shown(), stamp: state.stamp, retry: { await life.refreshMatter(id) },
             // With its row on hand, what the row says shows at once; only its steps and asks wait for the read.
             loading: {
                 if let row = life.listedRow(of: id) { rowPage(row) } else { PagePlaceholder() }
@@ -55,38 +55,42 @@ struct MatterPage: View {
             LazyVStack(alignment: .leading, spacing: 14) {
                 header(row, openSince: matter.steps.first?.at)
                 asks(life.asks(ofMatter: id))
-                if let agent {
-                    AgentRow(matter: matter, agent: agent) {
-                        router.matterSheet = .agent(id, agent: matter.holder?.agent.id ?? agent.id)
+                if canStart { start(again: agent != nil) }
+                // One card: the goal and the agent on it (decision 98, the next-goal-agent card).
+                VStack(alignment: .leading, spacing: 0) {
+                    Goal(row: row).offWhileOutOfReach()
+                    if let agent {
+                        AgentRow(matter: matter, agent: agent) {
+                            router.open(agent: matter.holder?.agent.id ?? agent.id)
+                        }
                     }
                 }
-                GoalAndNext(row: row).offWhileOutOfReach()
+                .card()
                 People(people: row.people)
-                Steps(steps: matter.steps)
+                StepTimeline(steps: matter.steps).padding(.top, Metrics.Spacing.s)
                 if let line = matter.spendingLine { SpendingLine(text: line) }
             }
             .matterPageColumn()
         }
-        // Floating over the content, which runs to the screen's foot under the system's soft scroll edge.
-        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        // Floating over the content, which runs to the screen's foot under the soft scroll edge (`RootView`).
         .safeAreaBar(edge: .bottom) {
             GlassEffectContainer(spacing: 8) {
-                VStack(spacing: 8) {
-                    if canStart {
-                        Button {
-                            router.matterSheet = .start(id)
-                        } label: {
-                            Text(agent == nil ? "Start an agent" : "Start again").frame(maxWidth: .infinity)
-                        }
-                        .primaryGlassButton()
-                    }
-                    DoneButton(id: id)
-                }
-                .controlSize(.large)
-                .offWhileOutOfReach()
+                DoneButton(id: id).controlSize(.large)
+                    .offWhileOutOfReach()
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth()
             .padding(.top, Metrics.Spacing.m).frame(maxWidth: .infinity)
+        }
+    }
+
+    /// No agent holds it (or the last one ended): said once, and the one way to start one, a quiet pill
+    /// (`DuoFoldStart`); its answers stay "Mark as done" alone.
+    private func start(again: Bool) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+            if !again { Text("No agent holds this matter.").font(.small).foregroundStyle(Palette.muted) }
+            Button(again ? "Start again" : "Start an agent") { router.matterSheet = .start(id) }
+                .buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+                .offWhileOutOfReach()
         }
     }
 
@@ -97,7 +101,7 @@ struct MatterPage: View {
             VStack(alignment: .leading, spacing: 14) {
                 header(row, openSince: nil)
                 // Edited once the read lands: that face is a new view, which would not hold his words saved here.
-                GoalAndNext(row: row).disabled(true)
+                Goal(row: row).disabled(true).card()
                 People(people: row.people)
                 Placeholder(height: 110)
             }
@@ -111,22 +115,35 @@ struct MatterPage: View {
             VStack(spacing: 0) {
                 ForEach(Array(checks.enumerated()), id: \.element.ref) { at, check in
                     Button {
-                        router.matterPath.append(.card(check.ref))
+                        router.matterPath.append(.card(check.ref, matter: id))
                     } label: {
-                        Row(
-                            title: check.question, detail: check.deadline.map { DeadlineWords.by($0) }, isInList: true
-                        ) {
-                            StateDot(color: Palette.flag)
+                        HStack(spacing: Metrics.Spacing.m) {
+                            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                                // Said once, on the first; the others keep only their deadline.
+                                let line = [
+                                    at == 0 ? needsYourAnswer : nil, check.deadline.map { DeadlineWords.by($0) },
+                                ]
+                                .compactMap(\.self).joined(separator: " · ")
+                                if !line.isEmpty {
+                                    HStack(spacing: 6) {
+                                        StateDot(color: Palette.flag)
+                                        Text(line)
+                                    }
+                                    .font(.small).foregroundStyle(Palette.flag)
+                                }
+                                Text(check.question).font(.rowName).foregroundStyle(Palette.fg)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                             RowValue()
                         }
+                        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m).contentShape(
+                            .rect)
                     }
                     .buttonStyle(.groupedRow(at: at, of: checks.count))
-                    // The dot has its words.
-                    .accessibilityValue(needsYourAnswer)
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
         }
     }
 
@@ -142,7 +159,8 @@ struct MatterPage: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text(row.name).font(.screenName).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader).stepsAsideForToast()
-            if !life.asks(ofMatter: id).isEmpty { Text(needsYourAnswer).font(.lead).foregroundStyle(Palette.flag) }
+            // What he must do, under the name, when no ask of it waits (the ask's card says that then).
+            if life.asks(ofMatter: id).isEmpty { NextStep(row: row).offWhileOutOfReach() }
             HStack(spacing: 6) {
                 MetaIconButton(symbol: row.symbol, label: "Change the icon") { router.matterSheet = .icon(id) }
                 HStack(spacing: 0) {
@@ -175,38 +193,48 @@ extension View {
 
 // MARK: Goal and next step
 
-/// His goal and next step for the matter, each edited in place: saving is an action with its own state, and a failure
-/// leaves his words in the field.
-private struct GoalAndNext: View {
+/// His goal for the matter, edited in place in its card: saving is an action with its own state, and a failure leaves
+/// his words in the field.
+private struct Goal: View {
+    let row: MatterRow
+    @Environment(LifeStore.self) private var life
+
+    var body: some View {
+        EditableLine(
+            label: "Goal", text: row.goal?.text ?? "",
+            state: life.state(of: .edit(matter: row.id, .goal)),
+            save: { text in await life.setGoal(of: row.id, text) }
+        )
+        .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+    }
+}
+
+/// His next step, the plain sentence under the matter's name with its pencil, then what Life knows of it.
+private struct NextStep: View {
     let row: MatterRow
     @Environment(LifeStore.self) private var life
     @State private var opened: LifeLinkTarget?
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             EditableLine(
-                label: "Goal", text: row.goal?.text ?? "",
-                state: life.state(of: .edit(matter: row.id, .goal)),
-                save: { text in await life.setGoal(of: row.id, text) })
-            Hairline()
-            EditableLine(
-                label: "Next step", text: row.nextStep?.text ?? "",
+                label: nil, text: row.nextStep?.text ?? "",
                 state: life.state(of: .edit(matter: row.id, .next)),
                 save: { text in await life.setNextStep(of: row.id, NextStepRequest(kind: "do", text: text)) })
             if let context = row.nextStep?.context {
                 ContextView(markdown: context, lifeLinks: []) { opened = $0 }
-                    .padding(.horizontal, 20).padding(.bottom, 16)
             }
         }
-        .card()
         .sheet(item: $opened) { target in
             NavigationStack { LifeLinkPage(target: target, isPushed: false) { opened = nil } }
         }
     }
 }
 
+/// A line he edits in place: under its label in a card (the goal), or, with no label, the plain sentence under a
+/// matter's name (the next step), muted, its pencil at its end.
 private struct EditableLine: View {
-    let label: String
+    let label: String?
     let text: String
     let state: ActionState<ActionProof>
     let save: (String) async -> Void
@@ -219,32 +247,42 @@ private struct EditableLine: View {
     @FocusState private var focused: Bool
 
     var body: some View {
+        let name = label ?? "Next step"
+        let pencil = RoundIconButton(symbol: "pencil", label: "Edit \(name.lowercased())", size: 32) {
+            draft = saved ?? text; isEditing = true; focused = true
+        }
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                Caps(label)
-                Spacer()
-                if !isEditing {
-                    RoundIconButton(symbol: "pencil", label: "Edit \(label.lowercased())", size: 32) {
-                        draft = saved ?? text; isEditing = true; focused = true
-                    }
+            if let label {
+                HStack(alignment: .top) {
+                    Caps(label)
+                    Spacer()
+                    if !isEditing { pencil }
                 }
             }
             if isEditing {
-                DictationField(prompt: label, text: $draft, axis: .vertical, focused: $focused).font(.lead)
-                    .foregroundStyle(Palette.fg).lineLimit(1...)
+                // The field's Send (or a hold slid up from the microphone) saves: the one submit is the field's.
+                DictationField(prompt: name, text: $draft, axis: .vertical, focused: $focused) {
+                    let words = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !state.isRunning, !words.isEmpty else { return }
+                    Task { await save(words) }
+                }
+                .font(.lead).foregroundStyle(Palette.fg).lineLimit(1...)
                 HStack(spacing: 8) {
-                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact))
-                    Button(state.isRunning ? "Saving…" : "Save") {
-                        Task { await save(draft.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                    Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, size: .compact)).fixedSize()
+                    if state.isRunning {
+                        Spinner(size: .small)
+                        Text("Saving…").font(.small).foregroundStyle(Palette.muted)
                     }
-                    .buttonStyle(.pill(.filled, size: .compact, isBusy: state.isRunning))
-                    .disabled(state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
                 let shown = saved ?? text
-                Text(shown.isEmpty ? "Not set" : shown).font(.lead)
-                    .foregroundStyle(shown.isEmpty ? Palette.faint : Palette.fg).fixedSize(
-                        horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(shown.isEmpty ? "Not set" : shown).font(.lead)
+                        .foregroundStyle(shown.isEmpty ? Palette.faint : label == nil ? Palette.muted : Palette.fg)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if label == nil { pencil }
+                }
             }
             if case .failed(let failure, _) = state {
                 Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
@@ -252,7 +290,6 @@ private struct EditableLine: View {
                 Label("Saved", systemImage: "checkmark").font(.small).foregroundStyle(Palette.ok)
             }
         }
-        .padding(.horizontal, 20).padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: state) {
             guard case .succeeded = $1 else { return }
@@ -309,37 +346,6 @@ private struct People: View {
     }
 }
 
-private struct Steps: View {
-    let steps: [MatterStep]
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Caps("Steps")
-                Spacer()
-                Text("\(steps.count), newest first").font(.body15).foregroundStyle(Palette.muted)
-            }
-            .padding(.top, 10)
-            ForEach(Array(steps.reversed().enumerated()), id: \.element.id) { offset, step in
-                HStack(alignment: .top, spacing: 14) {
-                    Text(String(format: "%02d", steps.count - offset)).font(.monoSmall).foregroundStyle(Palette.muted)
-                        .frame(width: 22, alignment: .leading).padding(.top, 3)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
-                        if step.kind == "todo_item" && step.ending == nil {
-                            Text("Open").font(.smallStrong).foregroundStyle(Palette.flag)
-                        }
-                        Text(step.text).font(.leadBold).foregroundStyle(
-                            step.ending == nil ? Palette.fg : Palette.muted)
-                        if !step.quote.isEmpty { Text(step.quote).font(.body15).foregroundStyle(Palette.muted) }
-                    }
-                }
-                .accessibilityElement(children: .combine)
-            }
-        }
-    }
-}
-
 /// His word that the matter is done: an action, so it says what it is doing and what came of it.
 private struct DoneButton: View {
     let id: String
@@ -355,7 +361,13 @@ private struct DoneButton: View {
                     switch state {
                     case .running: Text("Marking it done…")
                     case .succeeded: Label("Marked as done", systemImage: "checkmark")
-                    default: Label("Mark as done", systemImage: "checkmark")
+                    // The check in `ok`: the answer that closes something (decision 98, rule 13).
+                    default:
+                        Label {
+                            Text("Mark as done")
+                        } icon: {
+                            Image(systemName: "checkmark").foregroundStyle(Palette.ok)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -384,10 +396,15 @@ struct PagePlaceholder: View {
     }
 }
 
+extension Date {
+    /// "Tue 17 Nov".
+    var dayAndMonth: String { formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) }
+}
+
 extension MatterStep {
     /// A step's day and who or what it came from, as the matter page and the card's context both show it.
     var whenAndWith: String {
-        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with?.name].compactMap(\.self)
+        [at.dayAndMonth, with?.name].compactMap(\.self)
             .joined(separator: " · ")
     }
 }
@@ -396,7 +413,7 @@ extension MatterStep {
 
 /// The agent's row on a matter: the holder's mark and name (else its program) in `ai`, "Moved from …" when he moved it
 /// there, then one line (a move under way, with its spinner; else who it listens for and its deadline, or its state,
-/// `flag` when it never started). It opens the agent's sheet; while a move is possible it is a pull-down menu: Open, or
+/// `flag` when it never started). It opens the agent's page; while a move is possible it is a pull-down menu: Open, or
 /// the move, asked once. A move that failed, or its call, says why above it, with Try again when that may be tried.
 private struct AgentRow: View {
     let matter: Matter
@@ -420,7 +437,10 @@ private struct AgentRow: View {
             let failed = MoveReceipt.failure(
                 call: call.failure, shown: move, tried: life.retryable(tried, call: call.failure, shown: move),
                 offered: choice)
-            if let failed { MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } }) }
+            if let failed {
+                MoveFailureLine(reason: failed.reason, retry: failed.retry.map { retry in { go(retry) } })
+                    .padding(.horizontal, Metrics.gutter)
+            }
             if let choice {
                 Menu {
                     Button("Open \(holder)", action: open)
@@ -499,8 +519,8 @@ private struct AgentRow: View {
             Spacer(minLength: 0)
             Image(systemName: trailing).font(.smallStrong).foregroundStyle(Palette.muted)
         }
-        .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.m)
-        .frame(maxWidth: .infinity, alignment: .leading).card().contentShape(.rect)
+        .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
         .accessibilityElement(children: .combine)
         .motion(Motion.standard, value: underWay)
     }

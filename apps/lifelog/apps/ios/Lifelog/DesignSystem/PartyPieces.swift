@@ -12,7 +12,7 @@ import UIKit
 /// never in a list.
 struct PartyDisc: View {
     enum Size: CGFloat {
-        case chip = 20, pick = 28, row = 40, page = 72
+        case chip = 20, pick = 28, row = 40, head = 56, page = 72
 
         /// The initials' size, in the disc's own scale: they never grow with Dynamic Type.
         fileprivate var initials: Font {
@@ -21,6 +21,7 @@ struct PartyDisc: View {
                 case .chip: 9
                 case .pick: 11
                 case .row: 14
+                case .head: 20
                 case .page: 24
                 }
             return TypeStep(size: points, weight: 600, style: .caption2).font(at: .large)
@@ -107,9 +108,13 @@ extension PartyRow where End == EmptyView {
 }
 
 /// A person as an answer on a card (`party_pick`: naming a voice, a name with candidates): the answers' capsule, 56
-/// high on `tile`, holding the disc (28), the name and their line.
+/// high on `tile`, holding the disc (28), the name and their line. Once he picked one, that row says so in place
+/// (`answer-states-2026-11-20.md`): the spinner while Life works, then green with a check on Life's word.
 struct PartyPick: View {
+    enum Press { case rest, working, done }
+
     let party: Party
+    var press = Press.rest
     let action: () -> Void
 
     var body: some View {
@@ -117,22 +122,36 @@ struct PartyPick: View {
             HStack(spacing: Metrics.Spacing.m) {
                 PartyDisc(party, size: .pick)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(party.name).font(.buttonLabel).foregroundStyle(Palette.fg)
-                    if let line = party.line { Text(line).font(.small).foregroundStyle(Palette.muted).lineLimit(1) }
+                    Text(party.name).font(.buttonLabel)
+                        .foregroundStyle(press == .done ? Palette.on : Palette.fg)
+                    if let line = party.line {
+                        Text(line).font(.small).foregroundStyle(press == .done ? Palette.on : Palette.muted)
+                            .lineLimit(1)
+                    }
                 }
                 .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                switch press {
+                case .rest: EmptyView()
+                case .working: Spinner().foregroundStyle(Palette.fg)
+                case .done: Image(systemName: "checkmark").font(.buttonLabel).foregroundStyle(Palette.on)
+                }
             }
             .accessibilityElement(children: .combine)
         }
-        .buttonStyle(PickStyle())
+        .buttonStyle(PickStyle(press: press))
+        .allowsHitTesting(press == .rest)
     }
 
     private struct PickStyle: ButtonStyle {
+        let press: Press
+
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
                 .padding(.leading, 14).padding(.trailing, Metrics.Spacing.l)
                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                .background(Palette.tile, in: .capsule)
+                .background(press == .done ? Palette.ok : Palette.tile, in: .capsule)
+                .motion(Motion.standard, value: press == .done)
                 .opacity(configuration.isPressed ? 0.7 : 1).contentShape(.capsule)
         }
     }

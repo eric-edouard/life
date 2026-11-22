@@ -1,10 +1,11 @@
 import LifeConnector
 import SwiftUI
 
-/// What wakes an agent, read as one sentence down the page, or the one state word of an agent that does not wait; what its
-/// session spent last.
+/// What wakes an agent ("What wakes it" on its page, `AgentPage`), read as one sentence down the page, or the one state
+/// word of an agent that does not wait.
 struct AgentSheet: View {
-    let matter: String
+    /// The matter it was opened on; nil from an agent's page whose agent holds none.
+    let matter: String?
     /// The agent shown; nil: the matter's first.
     var agentID: String?
 
@@ -12,33 +13,31 @@ struct AgentSheet: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    /// The program he picked, asked once before the switch.
-    @State private var asking: RuntimeName?
-    /// The program he last switched it to here: Try again repeats only that.
-    @State private var tried: RuntimeName?
+    /// The word of his last Stop or Resume once Life took it ("Stopped", "Resumed"), shown green beside a failure's place.
+    @State private var done: String?
 
     /// The agent named, in the matter's read or else in `read_registered_agents`; none named, the matter's first. Its
-    /// names and its switch are only in `read_registered_agents` (`registered`).
+    /// names are only in `read_registered_agents` (`registered`).
     private var agent: RegisteredAgent? {
-        let ones = life.matter[matter]?.value?.agents
+        let ones = matter.flatMap { life.matter[$0]?.value?.agents }
         guard let agentID else { return ones?.first }
         return ones?.first { $0.id == agentID } ?? registered(agentID)
     }
 
-    /// The agent as `read_registered_agents` has it: only that read carries its spending.
+    /// The agent as `read_registered_agents` has it: only that read carries its name.
     private func registered(_ id: String) -> RegisteredAgent? { life.agents.value?.agents.first { $0.id == id } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let agent {
-                runsOn(agent)
-                content(agent)
-                // A refused Stop or Resume says why in the scroll, which holds any length; the bar keeps the buttons.
-                if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
-                    Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.l)
+                // His Stop or Resume ends above the page, where a long wait list never hides it.
+                if let done {
+                    StateMark(glyph: .ok, word: done).padding(.top, Metrics.Spacing.s)
+                } else if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
+                    Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.s)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if let line = registered(agent.id)?.spendingLine() { SpendingLine(text: line) }
+                content(agent)
             }
         }
         .sheetScroll {
@@ -51,106 +50,6 @@ struct AgentSheet: View {
         .sheetStack()
         .motion(Motion.standard, value: agent?.status)
         .presentationDetents([.large])
-        .alert(
-            switchAsk?.title ?? "",
-            isPresented: Binding {
-                asking != nil
-            } set: {
-                if !$0 { asking = nil }
-            },
-            presenting: asking
-        ) { runtime in
-            Button("Cancel", role: .cancel) {}
-            Button("Switch") { if let agent { go(agent, to: runtime) } }
-        } message: { _ in
-            Text(switchAsk?.message ?? "")
-        }
-        // While it switches, the sheet reads the agents every 3 s, until the switch rests or the sheet goes.
-        .task(id: isSwitching) {
-            guard isSwitching else { return }
-            while (try? await Task.sleep(for: .seconds(3))) != nil {
-                await life.refreshAgents()
-            }
-        }
-    }
-
-    private var switchAsk: (title: String, message: String)? {
-        guard let asking, let agent else { return nil }
-        return MoveWords.switchAsk(nameOf(agent), to: asking)
-    }
-
-    private var isSwitching: Bool {
-        guard let agent else { return false }
-        return life.state(of: .move(agent.id)).isRunning || life.switchShown(of: agent.id)?.phase.isUnderWay == true
-    }
-
-    /// Its name ("Halden house agent"), else its program's.
-    private func nameOf(_ agent: RegisteredAgent) -> String {
-        registered(agent.id)?.name ?? agent.runtimeName.name
-    }
-
-    private func go(_ agent: RegisteredAgent, to runtime: RuntimeName) {
-        tried = runtime
-        Task { await life.switchAgent(agent.id, to: runtime, said: "Switch it to \(runtime.name).") }
-    }
-
-    // MARK: Runs on
-
-    /// The program it runs on: a pop-up of both (the current checked) while it can switch, asked once; plain text when
-    /// it can't (the other blocked, or it is not at work). A switch under way shows its step; a failed one, why, with
-    /// Try again when that may be tried.
-    private func runsOn(_ agent: RegisteredAgent) -> some View {
-        // The current program and the other one, from the one read that has both.
-        let read = registered(agent.id) ?? agent
-        let current = read.runtimeName
-        let move = life.switchShown(of: agent.id)
-        let isAtWork = read.status == .running || read.status == .waiting
-        let other = read.moveTo.flatMap(RuntimeName.init(rawValue:)).flatMap {
-            isAtWork && !isSwitching && $0 != current ? $0 : nil
-        }
-        let call = life.state(of: .move(agent.id)).failure
-        let failed = MoveReceipt.failure(
-            call: call, shown: move, tried: life.retryable(tried, call: call, shown: move), offered: other)
-        return group("Settings") {
-            FlatRow(lead: .symbol("cpu")) {
-                Text("Runs on").font(.rowName).lineLimit(1)
-            } trailing: {
-                // Starting, it is on its new program already.
-                if let words = move.flatMap({ MoveWords.underWay($0, runtime: current) }) {
-                    HStack(spacing: 6) {
-                        Spinner(size: .small)
-                        Text(words)
-                    }
-                    .font(.small).foregroundStyle(Palette.muted)
-                } else if let other {
-                    Picker(
-                        "Runs on",
-                        selection: Binding {
-                            current
-                        } set: {
-                            if $0 == other { asking = other }
-                        }
-                    ) {
-                        ForEach([current, other], id: \.self) { runtime in
-                            Label {
-                                Text(runtime.name)
-                            } icon: {
-                                Image(symbol: runtime.mark)
-                            }
-                            .tag(runtime)
-                        }
-                    }
-                    .pickerStyle(.menu).tint(Palette.muted).lineLimit(1).fixedSize()
-                } else {
-                    Text(current.name).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
-                }
-            }
-            if let failed {
-                MoveFailureLine(reason: failed.reason, retry: failed.retry.map { to in { go(agent, to: to) } })
-            }
-        }
-        .padding(.top, Metrics.Spacing.xl)
-        .motion(Motion.standard, value: move?.phase)
     }
 
     private func head(_ agent: RegisteredAgent) -> some View {
@@ -206,6 +105,9 @@ struct AgentSheet: View {
             if let since = agent.statusSince {
                 Text("Since \(SaidWords.moment(since))").font(.small).foregroundStyle(Palette.muted)
                     .padding(.top, Metrics.Spacing.xs)
+            }
+            if let open = agent.sessionOpenLine() {
+                Text(open).font(.small).foregroundStyle(Palette.fg).padding(.top, Metrics.Spacing.xs)
             }
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 if !wakers.isEmpty {
@@ -287,7 +189,8 @@ struct AgentSheet: View {
         }
     }
 
-    /// One condition; his answer opens that ask on the matter, behind the sheet.
+    /// One condition; his answer opens that ask on its own matter (#1126), behind the sheet: its card when that matter's
+    /// page is on show, else that matter's page, which lists it.
     @ViewBuilder private func clauseRow(_ clause: WakeClause) -> some View {
         let row = FlatRow(
             lead: .symbol(symbol(of: clause)), detail: clause.brokenReason ?? clause.aside,
@@ -306,7 +209,9 @@ struct AgentSheet: View {
         if let check = clause.check {
             Button {
                 router.matterSheet = nil
-                router.matterPath.append(.card(check))
+                guard let own = life.matterOf(card: check) ?? matter else { return }
+                let isOnShow = router.matterPath.last.map { $0 == .matter(own) } ?? (router.matter == own)
+                router.matterPath.append(isOnShow ? .card(check, matter: own) : .matter(own))
             } label: {
                 row.contentShape(.rect)
             }.buttonStyle(.plain)
@@ -329,15 +234,24 @@ struct AgentSheet: View {
 
     // MARK: Buttons
 
+    /// His Stop or Resume: its result in place, green, once Life took it; a refusal shows its reason instead.
+    private func change(_ agent: String, word: String, _ act: @escaping (String) async -> Void) {
+        done = nil
+        Task {
+            await act(agent)
+            if case .succeeded = life.state(of: .agent(agent)) { done = word }
+        }
+    }
+
     /// Stop while it works or waits, a state's own action first; under them, a quiet link to its session in Claude Code or
     /// Codex, never needed (his word of 20 Nov: anything waiting on him comes back to the app).
     private func buttons(_ agent: RegisteredAgent) -> some View {
         let state = life.state(of: .agent(agent.id))
         let primary: (String, () -> Void)? =
             if agent.notStarted != nil {
-                ("Try again", { router.matterSheet = .start(matter) })
+                ("Try again", { router.matterSheet = matter.map { .start($0) } })
             } else if agent.status == .stopped {
-                ("Resume", { Task { await life.resumeAgent(agent.id) } })
+                ("Resume", { change(agent.id, word: "Resumed") { await life.resumeAgent($0) } })
             } else {
                 nil
             }
@@ -348,12 +262,19 @@ struct AgentSheet: View {
                     Button(primary.0, action: primary.1).buttonStyle(
                         .pill(.filled, size: .compact, isBusy: state.isRunning))
                 } else if agent.status == .running || agent.status == .waiting {
-                    Button("Stop the agent") { Task { await life.stopAgent(agent.id) } }
+                    Button("Stop the agent") { change(agent.id, word: "Stopped") { await life.stopAgent($0) } }
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
             }
             .disabled(state.isRunning).offWhileOutOfReach()
-            if let link = agent.link.flatMap(URL.init(string:)) {
+            if agent.runtimeName == .pi {
+                // pi has no app: its session reads in this one, pushed on the agent's page.
+                TextLink("Its session", to: .page) {
+                    router.open(agent: agent.id)
+                    router.matterPath.append(.session(agent.id))
+                }
+                .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
+            } else if let link = agent.link.flatMap(URL.init(string:)) {
                 TextLink("Open in \(agent.runtimeName.name)", to: .outside) { openURL(link) }
                     .padding(.top, Metrics.Spacing.xs).frame(maxWidth: .infinity)
             }

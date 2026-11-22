@@ -1,9 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { htmlTextOf } from "../core/html-text";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
-import { handleKey, readContacts } from "./contacts";
 import type { MessageAt, Newest, NewRow } from "./contract";
 import { sourceFile } from "./contract";
 
@@ -270,28 +270,6 @@ const decodeWords = (s: string) =>
       decode(text.replaceAll("_", " "), b.toLowerCase(), charset)
     );
 
-const ENTITIES: Record<string, string> = {
-  amp: "&",
-  apos: "'",
-  gt: ">",
-  lt: "<",
-  nbsp: " ",
-  quot: '"',
-};
-
-const htmlToText = (html: string) =>
-  html
-    .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d)[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&#(x?)([0-9a-f]+);/gi, (_, x: string, n: string) =>
-      String.fromCodePoint(Number.parseInt(n, x ? 16 : 10))
-    )
-    .replace(
-      /&(\w+);/g,
-      (m, name: string) => ENTITIES[name.toLowerCase()] ?? m
-    );
-
 /** The parts inside a multipart part, or null when it isn't one. */
 function childrenOf(part: Part): Part[] | null {
   const type = (part.headers.get("content-type") ?? "text/plain").toLowerCase();
@@ -328,7 +306,7 @@ function textOf(part: Part): { html: boolean; text: string } | null {
     return { html: false, text: decodeBody(part) };
   }
   if (type.startsWith("text/html")) {
-    return { html: true, text: htmlToText(decodeBody(part)) };
+    return { html: true, text: htmlTextOf(decodeBody(part)) };
   }
   return null;
 }
@@ -580,39 +558,6 @@ function messagesSince(since: Date, root = mailRoot(), before?: Date): Row[] {
 }
 
 /**
- * The conversations the owner wrote in on any day (no window): a sent message of his, one copy of which is not in a
- * skipped mailbox (`SKIP`, over all time by `idOf`: an unsent draft's copy in All Mail would count otherwise).
- */
-function conversationsWrittenIn(mine: Set<string>, root: string) {
-  const db = openIndex(root);
-  try {
-    const rows = db
-      .query<
-        Pick<Row, "conversation" | "globalId" | "header" | "mailbox">,
-        [string]
-      >(
-        `select m.conversation_id as conversation, m.global_message_id as globalId,
-                mb.url as mailbox, g.message_id_header as header
-           from messages m
-           join mailboxes mb on mb.ROWID = m.mailbox
-           join addresses a on a.ROWID = m.sender
-           left join message_global_data g on g.ROWID = m.global_message_id
-          where m.deleted = 0 and m.conversation_id != 0
-            and lower(a.address) in (select value from json_each(?))`
-      )
-      .all(JSON.stringify([...mine]));
-    const skipped = new Set(
-      rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
-    );
-    return new Set(
-      rows.filter((r) => !skipped.has(idOf(r))).map((r) => r.conversation)
-    );
-  } finally {
-    db.close();
-  }
-}
-
-/**
  * Each message file's text and files, read once per process: a file never changes (a partial one is replaced by the
  * whole one, under another name), so `search` reads only new mail after its first call.
  * Whether a partial message's saved attachment exists is read then too: one Mail downloads later shows at the next
@@ -648,19 +593,14 @@ const isToSelf = (
 const chatOf = (r: Row, subject: string) =>
   r.conversation ? `mail:${r.conversation}` : `${r.mailbox}#${subject}`;
 
-const flagOf = (wroteIn: Set<number>, conversation: number) =>
-  wroteIn.has(conversation) ? { hasOwnerWrittenInThread: true as const } : {};
-
 export function readMail(
   since: Date,
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB,
-  contacts: Map<string, string> = readContacts(),
   before?: Date
 ): SourceEvent[] {
   const mine = new Set(readMailAddresses(root, accountsDb));
   const rows = messagesSince(since, root, before);
-  const wroteIn = conversationsWrittenIn(mine, root);
   // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
   const seen = new Set(
     rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
@@ -681,11 +621,9 @@ export function readMail(
       bulk: r.bulk === 1,
       chat: chatOf(r, subject),
       ...(subject ? { chatName: subject } : {}),
-      ...(contacts.has(handleKey(sender)) ? { contact: true as const } : {}),
       ...(r.transaction === 1 ? { transaction: true as const } : {}),
       files: read?.files ?? [],
       fromMe: mine.has(sender),
-      ...flagOf(wroteIn, r.conversation),
       id,
       ...(isToSelf(sender, r.recipients, mine)
         ? { marked: true as const }

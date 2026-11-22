@@ -65,6 +65,8 @@ import Testing
     var recordings = 0
     var ended: (@MainActor () -> Void)?
     var refused = false
+    /// What instant dictation heard of each run; nil: heard on the Mac.
+    var heard: String?
     /// The last run's recording, alive only while something keeps the run.
     weak var recording: Recording?
 
@@ -76,10 +78,12 @@ import Testing
             self.recordings += 1
             let recording = Recording(Data("run \(self.recordings)".utf8))
             self.recording = recording
-            return DictationRun(level: { 0.1 }) {
-                self.finished += 1
-                return recording.bytes
-            }
+            return DictationRun(
+                level: { 0.1 },
+                finish: {
+                    self.finished += 1
+                    return recording.bytes
+                }, heard: { self.heard })
         },
         words: { ogg in
             try await withCheckedContinuation { continuation in
@@ -87,10 +91,24 @@ import Testing
             }.get()
         },
         refused: { self.refused })
+}
 
-    func until(_ condition: () -> Bool) async {
-        for _ in 0..<10_000 where !condition() { await Task.yield() }
-        #expect(condition())
+/// Waits for `condition` by the clock, not by a count of yields (a loaded Mac starves those first), and stops the test
+/// when it never holds, so nothing after reads a run that never came (the "Index out of range" of #1215).
+@MainActor func until(
+    _ condition: () -> Bool, within limit: Duration = .seconds(30), sourceLocation: SourceLocation = #_sourceLocation
+) async throws {
+    let deadline = ContinuousClock.now + limit
+    while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(1)) }
+    try #require(condition(), sourceLocation: sourceLocation)
+}
+
+/// #1215: a wait that never holds stops its test, so the read after it never indexes a run that never came.
+@MainActor @Test func aWaitThatNeverHoldsStopsItsTestBeforeTheReadAfterIt() async throws {
+    let begins: [Int] = []
+    await withKnownIssue("the wait runs out") {
+        try await until({ !begins.isEmpty }, within: .milliseconds(20))
+        _ = begins[0]
     }
 }
 
@@ -99,98 +117,98 @@ private final class Recording: Sendable {
     init(_ bytes: Data) { self.bytes = bytes }
 }
 
-@MainActor @Test func nothingKeepsARunsRecordingOnceItLandedOrWasCancelled() async {
+@MainActor @Test func nothingKeepsARunsRecordingOnceItLandedOrWasCancelled() async throws {
     let rig = Rig()
     rig.dictation.tap()
-    await rig.until { rig.begins.count == 1 }
+    try await until { rig.begins.count == 1 }
     rig.begins[0].resume()
-    await rig.until { rig.dictation.phase == .listening }
+    try await until { rig.dictation.phase == .listening }
     rig.dictation.tap()
-    await rig.until { rig.asks.count == 1 }
+    try await until { rig.asks.count == 1 }
     rig.asks[0].answer.resume(returning: .success("the keys"))
-    await rig.until { rig.dictation.landed != nil && rig.recording == nil }
+    try await until { rig.dictation.landed != nil && rig.recording == nil }
 
     rig.dictation.tap()
-    await rig.until { rig.begins.count == 2 }
+    try await until { rig.begins.count == 2 }
     rig.begins[1].resume()
-    await rig.until { rig.dictation.phase == .listening }
+    try await until { rig.dictation.phase == .listening }
     rig.dictation.tap()
-    await rig.until { rig.asks.count == 2 }
+    try await until { rig.asks.count == 2 }
     rig.dictation.cancel()  // while the Mac's answer is pending
-    await rig.until { rig.recording == nil }
+    try await until { rig.recording == nil }
 
     rig.dictation.tap()
-    await rig.until { rig.begins.count == 3 }
+    try await until { rig.begins.count == 3 }
     rig.begins[2].resume()
-    await rig.until { rig.dictation.phase == .listening }
+    try await until { rig.dictation.phase == .listening }
     rig.dictation.cancel()  // while listening: this closes it
-    await rig.until { rig.recording == nil && rig.finished == 3 }
+    try await until { rig.recording == nil && rig.finished == 3 }
     rig.asks[1].answer.resume(returning: .success("dropped"))
     #expect(rig.finished == 3, "each run closed once")
 }
 
-@MainActor @Test func aRunPausedWhileTheMicrophoneIsAskedForClosesOnceAndItsWordsLand() async {
+@MainActor @Test func aRunPausedWhileTheMicrophoneIsAskedForClosesOnceAndItsWordsLand() async throws {
     let rig = Rig()
     rig.dictation.tap()
     #expect(rig.dictation.phase == .starting)
     rig.dictation.tap()  // let go during the permission sheet
     #expect(rig.dictation.phase == .writing)
-    await rig.until { rig.begins.count == 1 }
+    try await until { rig.begins.count == 1 }
     rig.begins[0].resume()
-    await rig.until { rig.asks.count == 1 }
+    try await until { rig.asks.count == 1 }
     #expect(rig.finished == 1)
     rig.asks[0].answer.resume(returning: .success("the keys"))
-    await rig.until { rig.dictation.phase == .rest }
+    try await until { rig.dictation.phase == .rest }
     #expect(rig.dictation.landed?.words == "the keys")
 }
 
-@MainActor @Test func aRunPausedThenCancelledWhileTheMicrophoneIsAskedForNeverOpensIt() async {
+@MainActor @Test func aRunPausedThenCancelledWhileTheMicrophoneIsAskedForNeverOpensIt() async throws {
     let rig = Rig()
     rig.dictation.tap()
     rig.dictation.tap()
     rig.dictation.cancel()
-    await rig.until { rig.begins.count == 1 }
+    try await until { rig.begins.count == 1 }
     rig.begins[0].resume()
     for _ in 0..<100 { await Task.yield() }
     #expect(rig.recordings == 0 && rig.dictation.phase == .rest && rig.dictation.problem == nil)
 }
 
-@MainActor @Test func aCancelledRunsWordsNeverLandAndTheNextRunsDo() async {
+@MainActor @Test func aCancelledRunsWordsNeverLandAndTheNextRunsDo() async throws {
     let rig = Rig()
     rig.dictation.tap()
-    await rig.until { rig.begins.count == 1 }
+    try await until { rig.begins.count == 1 }
     rig.begins[0].resume()
-    await rig.until { rig.dictation.phase == .listening }
+    try await until { rig.dictation.phase == .listening }
     rig.dictation.tap()
-    await rig.until { rig.asks.count == 1 }
+    try await until { rig.asks.count == 1 }
     rig.dictation.cancel()
     rig.dictation.tap()
-    await rig.until { rig.begins.count == 2 }
+    try await until { rig.begins.count == 2 }
     rig.begins[1].resume()
-    await rig.until { rig.dictation.phase == .listening }
+    try await until { rig.dictation.phase == .listening }
     rig.dictation.tap()
-    await rig.until { rig.asks.count == 2 }
+    try await until { rig.asks.count == 2 }
     rig.asks[0].answer.resume(returning: .success("old words"))
     rig.asks[1].answer.resume(returning: .success("new words"))
-    await rig.until { rig.dictation.landed != nil }
+    try await until { rig.dictation.landed != nil }
     #expect(rig.dictation.landed?.words == "new words")
 }
 
-@MainActor @Test func onlyARecordingThatNeverReachedTheMacGoesAgain() async {
+@MainActor @Test func onlyARecordingThatNeverReachedTheMacGoesAgain() async throws {
     let rig = Rig()
     rig.dictation.tap()
-    await rig.until { rig.begins.count == 1 }
+    try await until { rig.begins.count == 1 }
     rig.begins[0].resume()
     rig.ended?()  // the cap, a call: the run pauses on its own
-    await rig.until { rig.asks.count == 1 }
+    try await until { rig.asks.count == 1 }
     rig.asks[0].answer.resume(returning: .failure(URLError(.cannotConnectToHost)))
-    await rig.until { rig.dictation.problem != nil }
+    try await until { rig.dictation.problem != nil }
     #expect(rig.dictation.problem?.fix?.title == "Try again")
     rig.dictation.fix {}
-    await rig.until { rig.asks.count == 2 }
+    try await until { rig.asks.count == 2 }
     #expect(rig.asks[1].ogg == rig.asks[0].ogg, "the same bytes")
     rig.asks[1].answer.resume(returning: .failure(URLError(.timedOut)))
-    await rig.until { rig.dictation.problem == .notWritten }
+    try await until { rig.dictation.problem == .notWritten }
     rig.dictation.fix {}
     #expect(rig.dictation.phase == .starting, "Speak again opens the microphone; those bytes never go again")
     #expect(rig.finished == 1)
@@ -203,6 +221,109 @@ private final class Recording: Sendable {
     #expect(rig.dictation.problem == .refused && rig.dictation.phase == .rest && rig.begins.isEmpty)
 }
 
+@MainActor @Test func liveWordsReadTheMessagesAndShowStableThenChanging() {
+    #expect(LiveWordsMessage(#"{"message_type":"partial_transcript","text":"hello wor"}"#) == .partial("hello wor"))
+    #expect(
+        LiveWordsMessage(#"{"message_type":"committed_transcript","text":"hello world"}"#) == .committed("hello world"))
+    #expect(LiveWordsMessage(#"{"message_type":"quota_exceeded","error":"x"}"#) == .failed)
+    #expect(LiveWordsMessage(#"{"message_type":"commit_throttled","error":"x"}"#) == .nothingToCommit)
+    #expect(LiveWordsMessage(#"{"message_type":"session_started"}"#) == nil)
+    let live = LiveWords()
+    let text = { live.words.map(\.text).joined(separator: " ") }
+    live.apply(.committed("one two"))
+    live.apply(.partial("three"))
+    #expect(text() == "one two three")
+    live.apply(.committed("three"))
+    #expect(text() == "one two three")
+    live.apply(.failed)
+    #expect(live.hasFailed)
+    live.clear()
+    #expect(live.words.isEmpty && !live.hasFailed)
+}
+
+/// A run's end never touches a run begun after it, and a run that never opened its stream is heard on the Mac.
+@MainActor @Test func aRunsFinishLeavesALaterRunAloneAndOneNeverOpenedFails() async {
+    let live = LiveWords()
+    live.begin {
+        try await Task.sleep(for: .seconds(3600)); return "never"
+    }
+    let first = live.run
+    live.begin {
+        try await Task.sleep(for: .seconds(3600)); return "never"
+    }
+    #expect(await live.finish(first) == nil)
+    #expect(!live.hasFailed, "the later run's stream is untouched")
+    #expect(await live.finish(live.run) == nil)
+    #expect(live.hasFailed, "no token by the pause: the Mac hears it, and the line says so")
+}
+
+/// A partial corrected in place, or replaced by its final, keeps its word's time: it never fades in again or moves. New
+/// words come after, one `stagger` apart, left to right.
+@Test func aWordKeepsItsTimeWhenItsPartialIsReplacedAndNewWordsComeInLeftToRight() {
+    let t0 = Date(timeIntervalSince1970: 0)
+    let t1 = t0.addingTimeInterval(1)
+    let first = LiveWords.merged([], with: "Hello, life. Please remind-", at: t0)
+    #expect(first.map(\.text) == ["Hello,", "life.", "Please", "remind-"])
+    #expect(first.map(\.at) == (0..<4).map { t0.addingTimeInterval(Double($0) * LiveWords.stagger) })
+    let final = LiveWords.merged(first, with: "Hello, Life. Please remind me to call", at: t1)
+    #expect(final.map(\.text) == ["Hello,", "Life.", "Please", "remind", "me", "to", "call"])
+    #expect(Array(final.prefix(4).map(\.at)) == first.map(\.at), "the shown words keep their times")
+    #expect(final[4].at == t1 && final[6].at == t1.addingTimeInterval(2 * LiveWords.stagger))
+    let shorter = LiveWords.merged(final, with: "Hello, Life.", at: t1)
+    #expect(shorter == Array(final.prefix(2)), "a partial that shrinks drops its tail, never moving the rest")
+    #expect(LiveWords.merged(final, with: "  ", at: t1).isEmpty)
+}
+
+/// Each word sweeps in from the left: its first glyph starts at its time, each next one `perGlyph` later, each over
+/// `fade`.
+@Test func aWordFadesInGlyphByGlyphFromTheLeft() {
+    let t0 = Date(timeIntervalSince1970: 0)
+    let word = LiveWord(text: "keys", at: t0)
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: t0) == 0)
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: t0.addingTimeInterval(LiveWords.fade)) == 1)
+    let mid = t0.addingTimeInterval(LiveWords.fade / 2)
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: mid) > LiveWords.opacity(of: word, glyph: 3, at: mid))
+    #expect(LiveWords.opacity(of: word, glyph: 0, at: t0.addingTimeInterval(-1)) == 0, "never below 0")
+    let settled = LiveWords.settledAt([word])
+    #expect(settled == t0.addingTimeInterval(LiveWords.fade + 4 * LiveWords.perGlyph))
+    #expect(LiveWords.opacity(of: word, glyph: 4, at: settled) == 1, "the last glyph is in")
+    #expect(LiveWords.settledAt([]) == .distantPast)
+}
+
+/// Instant dictation's words land at the pause and the Mac is never asked; without them (heard on the Mac, or the
+/// stream failed) the Mac hears the same recording.
+@MainActor @Test func instantWordsLandWithoutTheMacAndAFailedStreamFallsBackToIt() async throws {
+    let rig = Rig()
+    rig.heard = "the keys"
+    rig.dictation.tap()
+    try await until { rig.begins.count == 1 }
+    rig.begins[0].resume()
+    try await until { rig.dictation.phase == .listening }
+    rig.dictation.tap()
+    try await until { rig.dictation.landed != nil }
+    #expect(rig.dictation.landed?.words == "the keys" && rig.asks.isEmpty && rig.dictation.phase == .rest)
+
+    rig.heard = nil
+    rig.dictation.tap()
+    try await until { rig.begins.count == 2 }
+    rig.begins[1].resume()
+    try await until { rig.dictation.phase == .listening }
+    rig.dictation.tap()
+    try await until { rig.asks.count == 1 }
+    #expect(rig.asks[0].ogg == Data("run 2".utf8))
+    rig.asks[0].answer.resume(returning: .success("on the Mac"))
+    try await until { rig.dictation.landed?.words == "on the Mac" }
+}
+
+@Test func anAudioChunkIsLittleEndianPcmInTheSocketsMessage() throws {
+    let message = LiveWords.chunk([0, 1, -1], commit: true)
+    let o = try #require(try JSONSerialization.jsonObject(with: Data(message.utf8)) as? [String: Any])
+    #expect(o["message_type"] as? String == "input_audio_chunk" && o["commit"] as? Bool == true)
+    #expect(o["sample_rate"] as? Int == 16_000)
+    let pcm = try #require(Data(base64Encoded: o["audio_base_64"] as? String ?? ""))
+    #expect([UInt8](pcm) == [0, 0, 0xFF, 0x7F, 0x01, 0x80])
+}
+
 /// The stream follows his voice: a quiet room is flat, close speech fills the bar, a syllable rises at once and a pause
 /// falls away by halves.
 @Test func aBarFollowsTheLoudnessOfItsMoment() {
@@ -212,4 +333,147 @@ private final class Recording: Sendable {
     #expect(Dictation.bar(0.1, after: 0) == 1, "-20 dB: close speech, a full bar at once")
     #expect(Dictation.bar(0, after: 1) == 0.5, "a pause falls by half")
     #expect(Dictation.bar(0, after: 0.5) == 0.25)
+}
+
+@MainActor @Test func aListeningRunSamplesItsMicrophoneIntoTheStream() async throws {
+    let rig = Rig()  // its microphone hears 0.1: a full bar
+    rig.dictation.tap()
+    try await until { rig.begins.count == 1 }
+    rig.begins[0].resume()
+    try await until { rig.dictation.levels.last == 1 }
+    rig.dictation.cancel()
+}
+
+/// The long spinner of 21 Nov: an answer that never comes ends in "Not written" after a bounded time, never a spinner.
+@MainActor @Test func anAnswerThatNeverComesEndsInAFailureAfterABoundedTime() async throws {
+    let dictation = Dictation(
+        begin: { _ in DictationRun(level: { 0.1 }) { Data("ogg".utf8) } },
+        words: { _ in
+            try await Task.sleep(for: .seconds(3600))
+            return "never"
+        },
+        refused: { false })
+    dictation.answerWithin = .milliseconds(50)
+    dictation.tap()
+    try await until { dictation.phase == .listening }
+    dictation.tap()
+    #expect(dictation.phase == .writing)
+    try await until { dictation.problem != nil }
+    #expect(dictation.problem == .notWritten && dictation.phase == .rest)
+}
+
+/// A fake realtime socket: the test says what ElevenLabs answers, and sees what the phone sent.
+@MainActor private final class FakeLiveSocket {
+    var sent: [String] = []
+    var opened = false
+    private var lines: [String] = []
+    private var waiter: CheckedContinuation<String?, Never>?
+    private var isClosed = false
+
+    func make(_: URL) -> LiveWordsSocket {
+        opened = true
+        return LiveWordsSocket(
+            send: { self.sent.append($0) }, receive: { await self.next() },
+            close: { _ in
+                self.isClosed = true
+                self.waiter?.resume(returning: nil)
+                self.waiter = nil
+            })
+    }
+
+    private func next() async -> String? {
+        if !lines.isEmpty { return lines.removeFirst() }
+        if isClosed { return nil }
+        return await withCheckedContinuation { waiter = $0 }
+    }
+
+    func says(_ type: String, _ text: String = "") {
+        let line = #"{"message_type":"\#(type)","text":"\#(text)"}"#
+        if let waiter {
+            self.waiter = nil
+            waiter.resume(returning: line)
+        } else {
+            lines.append(line)
+        }
+    }
+}
+
+/// His words after a commit voice detection made just before the pause are kept: the pause's own commit comes after it.
+@MainActor @Test func aCommitInFlightAtThePauseNeverEndsItsWordsEarly() async throws {
+    let fake = FakeLiveSocket()
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(500), finishWithin: .seconds(60))
+    live.begin { "token" }
+    try await until { fake.opened }
+    fake.says("partial_transcript", "keys under")
+    let run = live.run
+    let words = Task { await live.finish(run) }
+    try await until { fake.sent.contains { $0.contains(#""commit":true"#) } }
+    fake.says("committed_transcript", "keys under")
+    fake.says("partial_transcript", "the mat")
+    fake.says("committed_transcript", "the mat")
+    #expect(await words.value == "keys under the mat")
+    #expect(!live.hasFailed)
+}
+
+/// ElevenLabs saying nothing is left to commit while words were still changing would lose them: the Mac hears the run.
+@MainActor @Test func nothingLeftToCommitWhileWordsAreChangingFallsBackToTheMac() async throws {
+    let fake = FakeLiveSocket()
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
+    live.begin { "token" }
+    try await until { fake.opened }
+    fake.says("committed_transcript", "call Nora")
+    fake.says("partial_transcript", "about the")
+    let run = live.run
+    let words = Task { await live.finish(run) }
+    try await until { fake.sent.contains { $0.contains(#""commit":true"#) } }
+    fake.says("commit_throttled")
+    #expect(await words.value == nil)
+    #expect(live.hasFailed)
+}
+
+/// A run that heard nothing live is heard on the Mac; one with nothing changing settles on what was committed.
+@MainActor @Test func nothingHeardLiveIsHeardOnTheMacAndAQuietRunSettlesAtOnce() async throws {
+    let fake = FakeLiveSocket()
+    let live = LiveWords(socket: fake.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
+    live.begin { "token" }
+    try await until { fake.opened }
+    let run = live.run
+    let words = Task { await live.finish(run) }
+    try await until { fake.sent.contains { $0.contains(#""commit":true"#) } }
+    fake.says("committed_transcript", "")
+    #expect(await words.value == nil)
+    #expect(live.hasFailed)
+
+    let quiet = FakeLiveSocket()
+    let second = LiveWords(socket: quiet.make, settleAfter: .milliseconds(50), finishWithin: .seconds(60))
+    second.begin { "token" }
+    try await until { quiet.opened }
+    quiet.says("committed_transcript", "see you at eight")
+    let secondRun = second.run
+    let settled = Task { await second.finish(secondRun) }
+    try await until { quiet.sent.contains { $0.contains(#""commit":true"#) } }
+    quiet.says("insufficient_audio_activity")
+    #expect(await settled.value == "see you at eight")
+}
+
+/// Send pressed while the microphone opens, and it never opens: nothing is left to send, and the next run never sends.
+@MainActor @Test func aSendWhoseMicrophoneNeverOpenedLeavesTheNextRunUnsent() async throws {
+    var opens = 0
+    let dictation = Dictation(
+        begin: { _ in
+            opens += 1
+            if opens == 1 { throw Dictation.StartFailure.busy }
+            return DictationRun(level: { 0 }, finish: { Data() }, heard: { "later words" })
+        },
+        words: { _ in "" }, refused: { false })
+    dictation.start()
+    dictation.send()
+    #expect(dictation.isSending)
+    try await until { dictation.phase == .rest }
+    #expect(dictation.problem == .busy && !dictation.isSending)
+    dictation.start()
+    try await until { dictation.phase == .listening }
+    dictation.pause()
+    try await until { dictation.landed != nil }
+    #expect(dictation.landed?.words == "later words" && dictation.landed?.sends == false)
 }

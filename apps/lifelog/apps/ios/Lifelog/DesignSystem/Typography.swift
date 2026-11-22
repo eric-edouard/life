@@ -15,8 +15,8 @@ struct TypeStep: Equatable {
 
     /// A card's title: thin.
     static let cardHeadline = TypeStep(size: 24, weight: 250, style: .title2)
-    /// What Life says in Tell Life (the lit line look): one weight, centred.
-    static let tellAnswer = TypeStep(size: 28, weight: 650, style: .title1)
+    /// What Life says in Ask Life (the lit line look): one weight, centred.
+    static let askLifeAnswer = TypeStep(size: 28, weight: 650, style: .title1)
     /// The question a card puts to him, first on it: bold.
     static let cardQuestion = TypeStep(size: 26, weight: 650, style: .title2)
     /// A big word that says where something stands: "Recording.", "Sent.".
@@ -41,6 +41,8 @@ struct TypeStep: Equatable {
     static let rowFigure = TypeStep(size: 16, weight: 450, style: .body)
     static let leadBold = TypeStep(size: 17, weight: 600, style: .body)
     static let body15 = TypeStep(size: 15, weight: 450, style: .body)
+    /// A step's fact in a timeline.
+    static let bodyMedium = TypeStep(size: 15, weight: 500, style: .body)
     /// A name in bold inside running text: the name an ask is about, in the sentence it was said in.
     static let bodyBold = TypeStep(size: 15, weight: 700, style: .body)
     /// Text that matters inside a card or a block: the thing to do.

@@ -5,18 +5,23 @@ import { dirname, join } from "node:path";
 import { clock, HOUR, iso } from "../core/clock";
 import { agentOf, currentAssignmentOf, openTurn } from "../host/desk-read";
 import type { Messaging } from "../host/events";
+import { answerDecision } from "../memory/decisions";
 import { MATTERS_PROMPT } from "../memory/matters";
 // biome-ignore lint/performance/noNamespaceImport: a helper spies on its functions
 import * as memoryFiles from "../memory/memory-files";
 import { CORRECTIONS, MATTERS as MATTERS_FILE } from "../memory/memory-files";
 import { OWNER } from "../memory/read-truth";
 import { dayNow } from "../memory/zones";
+import type { MainSessionLine } from "../records/main-session-wire";
 import type { Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
-import { register, setWait } from "./agent-actions";
+import { askDecision, register, setWait } from "./agent-actions";
 import { wakeDue } from "./desk-clock";
+import { doorFetch } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
+import { doorOf } from "./door-keys";
+import { askMainSession } from "./main-session";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { turnEnded } from "./turn-ends";
 
@@ -133,6 +138,33 @@ export function on(desk: Desk, id: string) {
 /** The assignment agent `id` works on (each test agent has one). */
 export const asgOf = (desk: Desk, id: string) =>
   currentAssignmentOf(desk.db, id)?.id ?? "";
+
+/** Assignment `s` past its plan: its first card, a valid plan card, asked and answered `start`, so a test's own first card is a later one; returns its id. Call it outside `withMatters`: the card rides on a made-up matter holding the assignment's anchors. */
+export async function pastPlan(desk: Desk, s: ReturnType<typeof on>) {
+  const steps = desk.db
+    .query<{ step: string }, [string]>(
+      "select step from anchor where assignment_id = ?"
+    )
+    .all(s.id)
+    .map((a) => a.step);
+  const { id } = await withMatters(
+    steps.length ? [matterView(`mat_plan_${s.id}`, steps)] : [],
+    () =>
+      askDecision(desk, s, {
+        context: "A made-up plan.",
+        deadline: ahead(24 * HOUR),
+        options: [
+          { id: "start", label: "Start the plan" },
+          { id: "decline", label: "Not this plan" },
+        ],
+        plan: [{ by: "agent", text: "Do the one step" }],
+        question: "Start with this plan?",
+        title: "a test plan",
+      })
+  );
+  await answerDecision(id, ["start"]);
+  return id;
+}
 
 /** A new agent on a made-up matter, its first turn launched. */
 export async function started(desk: Desk, step: string) {
@@ -273,4 +305,59 @@ export async function withBook(
     rmSync(MATTERS_FILE, { force: true });
     rmSync(CORRECTIONS, { force: true });
   }
+}
+
+/** On desk `t`, asks the main session `words`, then plays the session: `play` (its updates) and its run's end. */
+export async function askedOf(
+  t: ReturnType<typeof setup>,
+  words: string,
+  play: (ref: string) => unknown,
+  key?: string
+) {
+  const lines: MainSessionLine[] = [];
+  const answer = askMainSession(t.desk, { key, words }, (l) => lines.push(l));
+  // Let the ask reach the runtime.
+  for (let i = 0; i < 20 && !t.fake.said.length; i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: a poll
+    await Bun.sleep(5);
+  }
+  const ref = t.fake.said.at(-1)?.ref ?? "";
+  await play(ref);
+  t.fake.exit(ref, true, {
+    usage: {
+      billedUsd: 0.002,
+      contextFirst: 10,
+      contextLast: 20,
+      tokensCached: 1,
+      tokensIn: 2,
+      tokensOut: 3,
+    },
+  });
+  return { answer: await answer, lines, ref };
+}
+
+/** On desk `t`, agent `id` calls door tool `name` with `args`; the call's response text. */
+export async function callDoorOf(
+  t: ReturnType<typeof setup>,
+  id: string,
+  name: string,
+  args: unknown
+) {
+  const res = await doorFetch(t.desk)(
+    new Request(`http://127.0.0.1/mcp/${id}`, {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: { arguments: args, name },
+      }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${doorOf(id).key}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    })
+  );
+  return await res.text();
 }

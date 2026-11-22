@@ -99,8 +99,8 @@ export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 
 /**
- * His complaint: his "Wrong…" on a card of Life's (`answer_check`'s `misread`), an ask of the desk with `after.complaint`
- * (the card's ref and cause, the card as Life read it then, his `report` tick), which the desk hands to the caretaker.
+ * His complaint: his words through Ask Life on what Life got wrong (`complainThroughAskLife`), an ask of the desk with
+ * `after.complaint` (the card on his screen: its ref and cause, the card as Life read it then; his `report` tick), which the desk hands to the caretaker.
  * The one rule of its visibility: never listed (`isListed`: a day, the nightly, a matter's steps), fed (the change feed)
  * or pulled (`asksFor`); his words and the card reach the caretaker alone, through its door.
  */
@@ -109,30 +109,31 @@ export const isComplaint = (a: LedgerEntry) =>
 
 /**
  * His spoken ask: a "hey Life" span the hearing recorded (`host/hear.ts`), an ask of the desk with the `conversation` it
- * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`). Never pulled (`asksFor`): the desk
+ * was said in, which the desk routes to one agent (`desk/spoken-ask-intake.ts`); or his words through Ask Life that the
+ * main session handed to one agent (`tell_agent`), with the assignment they go `to`. Never pulled (`asksFor`): the desk
  * reads it itself, as it does his complaints.
  */
 export const isSpokenAsk = (a: LedgerEntry) =>
   a.kind === "ask" &&
   a.after.agent === DESK_AGENT &&
-  a.after.conversation !== undefined;
+  (a.after.conversation !== undefined || a.after.to !== undefined);
 
 /**
- * What his complaint names besides his words (`after.complaint`): the card's `ref`, the `cause` and the card he saw
- * (`shown`), each as his app sent their digests (`Check.misread`); the card as Life read it at his press (`card`; null
- * when it had left), and whether that was the one he saw (`isAsShown`); his tick on "Send an anonymized report to the
- * developer" (`report`).
+ * What his complaint names besides his words (`after.complaint`): the card on his screen, its `ref` (empty when none),
+ * the card as Life read it then (`card`; null when none or it had left) and its own `cause` (none on his words alone);
+ * his tick on "Send an anonymized report to the developer" (`report`). Lines from before 22 Nov 2026, his press of
+ * "Wrong…" on the phone, also hold the card he saw (`shown`, a digest) and whether Life's read was it (`isAsShown`).
  */
 export interface Complaint {
   card: unknown;
-  cause: string;
-  isAsShown: boolean;
-  /** The card's kind, the stage that made it and that stage's prompt, frozen at his press (`stageOf`). */
+  cause?: string;
+  isAsShown?: boolean;
+  /** The card's kind, the stage that made it and that stage's prompt, frozen when he complained (`stageOf`). */
   kind: string;
   prompt: string | null;
   ref: string;
   report: boolean;
-  shown: string;
+  shown?: string;
   stage: string;
 }
 

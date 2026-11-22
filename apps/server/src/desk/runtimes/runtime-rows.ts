@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
@@ -6,18 +6,19 @@ import { log } from "../../core/log";
 import { errorOf } from "../../core/log-line";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
-import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
+import { cliEnv, HOME, isOwnLife } from "../../core/platform";
 import { exec, firstLine, readLoginEnv } from "../../core/proc";
 import { settings } from "../../core/settings";
+import { readClaudeSessionRecords } from "../../host/claude-session-records";
 import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
-import { SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
-import type { Agent } from "./contract";
+import { SEND_FACTS_ENV, SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
+import { type Agent, DOOR_KEY_ENV } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
 // pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the
-// prefix its door's tools carry (a second Life's only), its link, its hand-off, and the small reader of its CLI's own record that tells whether a session of his
+// prefix its door's tools carry (a second Life's only), its link and the small reader of its CLI's own record that tells whether a session of his
 // is running (ACP has no such signal). The adapters are pinned; the CLIs stay his (`CLAUDE_CODE_EXECUTABLE`, `CODEX_PATH`):
 // his apps open these sessions, so the same CLI writes them.
 // An agent of his own Life is held back by nothing but the send guard (his decisions of 19 and 20 Nov 2026): his settings,
@@ -40,9 +41,7 @@ export interface Row {
   block: () => Promise<string | undefined>;
   /** The ids of the session's model and effort options (`session/set_config_option`). */
   config: { effort: string; model: string };
-  /** Opens a first turn's session in his app once no process holds it; none: the app lists it unasked. */
-  handOff?: (a: Agent, ref: string) => Promise<void>;
-  /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env and sends the literal `${LIFE_DESK_KEY}`, which it expands. */
+  /** The door's `Authorization` value for `key`: Claude puts the key in its adapter's env (`DOOR_KEY_ENV`) and sends that variable's name, which it expands. */
   header: (key: string) => string;
   /** A link that opens session `ref` in his app. */
   link: (ref: string) => string;
@@ -83,40 +82,15 @@ export async function readCliBlock(program: string) {
     : `${program} --version failed: ${r.stderr.slice(-200) || r.code}`;
 }
 
-/** Claude's own record of each live interactive session (the app's, a terminal's): `<pid>.json`, gone at its exit. */
-const CLAUDE_SESSIONS = join(HOME, ".claude", "sessions");
-
-/** Whether process `pid` runs (EPERM: it runs as someone else). */
-const isAlive = (pid: unknown) => {
-  try {
-    return typeof pid === "number" && process.kill(pid, 0);
-  } catch (error) {
-    return (error as { code?: string }).code === "EPERM";
-  }
-};
-
 /**
- * Whether a process runs Claude on session `ref`: Claude's own record names a live one (his app or a terminal, between
- * his turns too, however it was opened), or a Claude command line names it after a resume or session flag (the desk's
- * own runs, which write no record). A child naming the id only in a path (a dev server under its scratchpad) is neither.
+ * Whether a process runs Claude on session `ref`: Claude's own record names a live one (his app, a terminal or the
+ * desk's own run, between his turns too, however it was opened; `readClaudeSessionRecords`), or a Claude command line
+ * names it after a resume or session flag. A child naming the id only in a path (a dev server under its scratchpad) is neither.
  * ponytail: a record left by a crash whose pid is reused holds the session until that process ends (a wait, never a loss).
  */
-export async function isHeld(ref: string) {
-  let names: string[] = [];
-  try {
-    names = readdirSync(CLAUDE_SESSIONS).filter((n) => n.endsWith(".json"));
-  } catch {
-    // no record yet
-  }
-  for (const n of names) {
-    try {
-      const r = JSON.parse(readFileSync(join(CLAUDE_SESSIONS, n), "utf8"));
-      if (r.sessionId === ref && isAlive(r.pid)) {
-        return true;
-      }
-    } catch {
-      // gone or being written: the next look says
-    }
+export async function isSessionOpen(ref: string) {
+  if (readClaudeSessionRecords().has(ref)) {
+    return true;
   }
   const { code, stderr } = await exec([
     "pgrep",
@@ -193,7 +167,7 @@ function guardEnv() {
   }
   return {
     LIFE_BUN: process.execPath,
-    LIFE_SEND_FACTS: JSON.stringify(readSendFacts()),
+    [SEND_FACTS_ENV]: JSON.stringify(readSendFacts()),
     LIFE_SEND_GUARD: SEND_GUARD,
   };
 }
@@ -260,38 +234,10 @@ const transcriptOf = (ref: string) => {
 };
 
 /**
- * Opens session `ref` in the Claude app, so its link works: once no process runs it (the CLI refuses while one does),
- * under a pseudo-terminal (it refuses without one). It lists the session in the app; a process the app keeps for it
- * holds the next wake (`isHeld`).
- */
-async function handOff(a: Agent, ref: string) {
-  const r = await exec(
-    [
-      "script",
-      "-q",
-      "/dev/null",
-      readProgram("claude"),
-      "--desktop",
-      "--resume",
-      ref,
-    ],
-    { cwd: a.folder, timeout: 30_000 }
-  );
-  if (r.code !== 0) {
-    log("desk.runtime", {
-      agent: a.id,
-      code: r.code,
-      ok: false,
-      what: "link",
-    });
-  }
-}
-
-/**
  * His login environment for an agent of his own Life, less `engine`'s keys: passed through, they would move the agent from
  * his subscription to paid API billing.
  */
-const loginEnvLess = async (engine: string[]) =>
+export const loginEnvLess = async (engine: string[]) =>
   Object.fromEntries(
     Object.entries(await readLoginEnv()).filter(([k]) => !engine.includes(k))
   );
@@ -304,10 +250,7 @@ const loginEnvLess = async (engine: string[]) =>
 const claudeRow = (isOwn: boolean): Row => ({
   block: () => readCliBlock("claude"),
   config: { effort: "effort", model: "model" },
-  // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
-  handOff: isOwn && !WINDOWS ? handOff : undefined,
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: Claude expands it from the adapter's environment
-  header: () => "Bearer ${LIFE_DESK_KEY}",
+  header: () => `Bearer \${${DOOR_KEY_ENV}}`,
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
   // Every session of an agent, the fresh ones too, carries its title as its name in his app's list (`--name`).
   meta: (a) => ({
@@ -330,7 +273,7 @@ const claudeRow = (isOwn: boolean): Row => ({
   onlyDoorPrefix: isOwn ? undefined : "mcp__desk__",
   async readSessionState(ref) {
     // A process running it is his live session (or an orphaned run): never a second one beside it, between turns too.
-    if (await isHeld(ref)) {
+    if (await isSessionOpen(ref)) {
       return "running";
     }
     return transcriptOf(ref) ? "idle" : "gone";
@@ -350,7 +293,7 @@ const claudeRow = (isOwn: boolean): Row => ({
         ...adapter.env,
         ...(isOwn ? guardEnv() : {}),
         CLAUDE_CODE_EXECUTABLE: readProgram("claude"),
-        LIFE_DESK_KEY: a.door.key,
+        [DOOR_KEY_ENV]: a.door.key,
         ...(isOwn
           ? {}
           : {
@@ -499,7 +442,7 @@ const codexRow = (isOwn: boolean): Row => {
 /** The runtimes' rows, by name: his own Life's, or a second Life's (`isOwn` false), whose isolation is data. */
 export const runtimeRowsOf = (
   isOwn = isOwnLife()
-): Record<RuntimeName, Row> => ({
+): Record<Exclude<RuntimeName, "pi">, Row> => ({
   claude: claudeRow(isOwn),
   codex: codexRow(isOwn),
 });

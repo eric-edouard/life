@@ -3,25 +3,24 @@ import LifeConnector
 import SwiftUI
 
 /// What Life costs (Settings, decision 83), for looking only: this month's billed dollars and a bar a day, then its lists
-/// (`ModelSpending.sections`: billed and his plans' tokens never added). A top agent opens its sheet over its matter, a
-/// top matter its page.
+/// (`ModelSpending.sections`: billed and his plans' tokens never added). A top agent opens its page, a top matter its
+/// page. Opened from Settings into the Projects tab's detail column, with the tabs (DuoFoldSpending).
 struct SpendingPage: View {
-    /// Settings' Life page, for "Pair with Life".
-    let pair: () -> Void
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ReadScreen(
-            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: pair,
+            shown: life.spending.shown(), retry: { await life.refreshSpending() }, pair: { router.sheet = .settings },
             loading: { Spinner().foregroundStyle(Palette.fg).frame(maxHeight: .infinity) },
             empty: { EmptyView() },
             content: page
         )
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Palette.sheet)
+        .background(Palette.bg)
         .screenTitle("Spending")
+        .shellBar("", hasSettings: false)
         // On entry, on a new pairing, and back in front: "Today" is never yesterday's.
         .task(id: [AnyHashable(life.parties.generation.current), AnyHashable(scenePhase == .active)]) {
             if scenePhase == .active { await life.refreshSpending() }
@@ -30,44 +29,47 @@ struct SpendingPage: View {
 
     private func page(_ spending: ModelSpending) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-                SpendFigures(spending: spending)
+            // A list screen (decision 98): its parts are grouped inset cards under their `ListLabel`, no dividers.
+            VStack(alignment: .leading, spacing: 0) {
+                SpendFigures(spending: spending).padding(.horizontal, Metrics.gutter)
                 ForEach(spending.sections, id: \.label) { section in
-                    RowGroup(label: section.label, surface: .sheet) {
-                        ForEach(section.lines) { row($0) }
+                    ListLabel(section.label).padding(.top, Metrics.Spacing.s)
+                    ForEach(Array(section.lines.enumerated()), id: \.element.id) { at, line in
+                        row(line, at: at, of: section.lines.count)
                     }
                 }
             }
-            .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.xl).readingWidth()
+            .padding(.bottom, Metrics.Spacing.xl).readingWidth()
         }
     }
 
-    /// Its name, its figure in strong text ($0 muted), one muted line, and its share of the month as a bar under it.
-    @ViewBuilder private func row(_ line: SpendLine) -> some View {
+    /// Its name, its figure in strong text ($0 muted), one muted line, and its share of the month as a bar under it; one
+    /// that opens something is pressed as a whole (`groupedRow`'s button style).
+    @ViewBuilder private func row(_ line: SpendLine, at index: Int, of count: Int) -> some View {
         let open = opening(line.opens)
         let step: TypeStep = line.isZero ? .rowFigure : .rowName
         let shown = VStack(spacing: 0) {
-            Row(title: line.title, detail: line.detail) {
+            Row(title: line.title, detail: line.detail, isInList: true) {
                 Text(line.value).monospacedDigit().font(step)
                     .foregroundStyle(line.isZero ? Palette.muted : Palette.fg)
                 if open != nil { RowValue() }
             }
-            if let share = line.share { ProgressLine(fraction: share).padding(.horizontal, Metrics.Spacing.l) }
+            if let share = line.share {
+                ProgressLine(fraction: share, fill: Palette.muted).padding(.horizontal, Metrics.Spacing.l)
+            }
         }
         if let open {
-            Button(action: open) { shown }.buttonStyle(.plain)
+            Button(action: open) { shown }.buttonStyle(.groupedRow(at: index, of: count))
         } else {
-            shown
+            shown.groupedRow(at: index, of: count)
         }
     }
 
-    /// A top matter opens its page; a top agent its sheet over the matter its read names, when it names one.
+    /// A top matter opens its page; a top agent its page.
     private func opening(_ opens: SpendLine.Opens?) -> (() -> Void)? {
         switch opens {
         case .matter(let id): return { router.open(matter: id) }
-        case .agent(let id):
-            guard let matter = life.agents.value?.agents.first(where: { $0.id == id })?.matter else { return nil }
-            return { router.open(agent: id, matter: matter.id) }
+        case .agent(let id): return { router.open(agent: id) }
         case nil: return nil
         }
     }
@@ -107,7 +109,7 @@ private struct SpendFigures: View {
             .font(.small).foregroundStyle(Palette.muted)
         }
         .padding(Metrics.Spacing.l)
-        .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+        .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.card))
     }
 
     private func figure(_ label: String, _ amount: Double, step: TypeStep, alignment: HorizontalAlignment)

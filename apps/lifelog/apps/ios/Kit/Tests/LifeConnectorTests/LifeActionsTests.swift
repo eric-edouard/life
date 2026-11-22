@@ -32,6 +32,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     func readMatter(_ id: String) async throws -> String { matter }
     func readRegisteredAgents() async throws -> String { "{}" }
     func readSpending() async throws -> String { "{}" }
+    func readAgentSession(_ id: String) async throws -> String { "{}" }
     func readLogLines(_ query: LogQuery) async throws -> String { "{}" }
     /// What `fetch` answers: a test holds it, or fails it.
     var fetched: @Sendable () async throws -> String = { "" }
@@ -42,7 +43,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         if picturesDown.withLock({ $0 }) { throw MCPError.unreachable }
         return try wireText("life/read_person_pictures.json")
     }
-    func readPeopleAndOrganizations(query: String?) async throws -> String {
+    func readPeopleAndOrganizations() async throws -> String {
         try wireText("life/read_people_and_organizations.json")
     }
     func readPart(_ ref: String) async throws -> String { try wireText("life/read_people_and_organizations_now.json") }
@@ -53,11 +54,11 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         try wireText("life/change_appointment_removed.json")
     }
 
-    /// What Tell Life's call does: its lines to `onProgress`, then its answer; the key each call came with is kept.
+    /// What Ask Life's call does: its lines to `onProgress`, then its answer; the key each call came with is kept.
     var asked: @Sendable (@Sendable (Data) -> Void) async throws -> String = { _ in "{}" }
     let askedKeys = Mutex<[String?]>([])
     func askMainSession(
-        words: String?, screen: TellScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
         askedKeys.withLock { $0.append(answerKey) }
         return try await asked(onProgress)
@@ -93,6 +94,10 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     { "Done: memory." }
     func setProjectStatus(
         _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
+    ) async throws -> String { "{}" }
+    func setPicture(
+        of ref: String, kind: Party.Kind, from source: String, said: String,
+        onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String { "{}" }
 }
 
@@ -534,43 +539,6 @@ private func answered(_ reply: @escaping @Sendable () -> Reply) async -> (Int, A
     #expect(failure.kind == "offline" && !failure.mayHaveHappened)
 }
 
-/// His "Wrong…" succeeds only on Life's word that the caretaker has it; any other answer fails, to be tried again.
-@Test func aComplaintSucceedsOnlyOnceTheCaretakerHasIt() async {
-    let origin = testURL("https://life.example.test")
-    let wrong = AnswerRequest(
-        ref: "voice:v1", options: [], note: "Not her.",
-        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
-    let life = FakeLife()
-    life.answers = [
-        { _ in #"{"ask":"ask_1","reached":"caretaker"}"# },
-        { _ in #"{"ref":"voice:v1","kind":"voice"}"# },
-        { _ in throw MCPError.refused("Not done: the desk has not received it in 60 s.") },
-    ]
-    let actions = LifeActions(api: life, now: { at }, pause: noPause)
-    let reached = await run { await actions.answer(wrong, key: "tap-1", at: origin, emit: $0) }
-    #expect(reached == .succeeded(.complaintReceipt(ask: "ask_1"), steps: []))
-    for _ in 0..<2 {
-        let state = await run { await actions.answer(wrong, key: "tap-2", at: origin, emit: $0) }
-        guard case .failed = state else { Issue.record("\(state)"); continue }
-    }
-}
-
-/// His "Wrong…" repeated after a dropped connection says it is a repeat, under the same key: Life counts only his own
-/// Try again as a press again (a caretaker that never started tries once more), never the app's repeat.
-@Test func aComplaintsRepeatOfADroppedCallSaysItIsARepeat() async {
-    let wrong = AnswerRequest(
-        ref: "voice:v1", options: [], note: "Not her.",
-        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
-    let life = FakeLife()
-    life.answers = [{ _ in throw MCPError.streamDropped }, { _ in #"{"ask":"ask_1","reached":"caretaker"}"# }]
-    let state = await run {
-        await LifeActions(api: life, now: { at }, pause: noPause).answer(wrong, key: "tap-1", at: lifeA, emit: $0)
-    }
-    #expect(state == .succeeded(.complaintReceipt(ask: "ask_1"), steps: state.steps))
-    #expect(life.requests.withLock { $0.map { $0.value?.repeated } } == [nil, true])
-    #expect(life.keys.withLock { $0 } == ["tap-1", "tap-1"])
-}
-
 /// Life A on `a`, which drops every call after re-pairing the phone with Life B on `b`, as a pairing done while an
 /// answer was on its way; `b` records whether anything reached it.
 private func repairedDuringTheCall() -> (actions: LifeActions, a: URL, reachedB: @Sendable () -> Bool) {
@@ -604,51 +572,4 @@ private func repairedDuringTheCall() -> (actions: LifeActions, a: URL, reachedB:
         Issue.record("expected a refusal, got \(state)")
         return
     }
-}
-
-/// His "Wrong…" decided for Life A, its connection dropped while the phone was paired with Life B: its repeat goes to A
-/// or nowhere, so B never hears his words.
-@Test func aComplaintsRepeatAfterARepairingNeverReachesTheNewLife() async {
-    let (actions, a, reachedB) = repairedDuringTheCall()
-    let wrong = AnswerRequest(
-        ref: "name:alex", options: [], note: "Not her.",
-        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
-    let state = await run { await actions.answer(wrong, key: "tap-1", at: a, emit: $0) }
-    #expect(state.steps.contains { $0.id == "connection_retry" })
-    #expect(!reachedB())
-    guard case .failed = state else {
-        Issue.record("expected a refusal, got \(state)")
-        return
-    }
-}
-
-/// His "Wrong…" decided for one pairing, its connection dropped while the phone was paired again with a Life at the same
-/// address: its repeat is refused before it leaves the phone, so the new pairing's bearer never carries it.
-@Test func aComplaintsRepeatAfterARepairingAtTheSameAddressIsRefused() async {
-    let host = newHost()
-    let store = MemoryStore(credentials(host: host))
-    let generation = Mutex(0)
-    let bearers = Mutex<[String]>([])
-    let session = Stub.session(host: host) { seen in
-        bearers.withLock { $0.append(seen.headers.first { $0.key.lowercased() == "authorization" }?.value ?? "") }
-        store.save(credentials(host: host, access: "access-new"))
-        generation.withLock { $0 += 1 }
-        return .stream(failure: .networkConnectionLost)
-    }
-    let life = LifeSession(store: store, oauth: LifeOAuth(session: session, now: { epoch }), now: { epoch })
-    let actions = LifeActions(api: MCPLifeAPI(client: MCPClient(session: life, urlSession: session)), pause: noPause)
-    let wrong = AnswerRequest(
-        ref: "name:alex", options: [], note: "Not her.",
-        value: Complaint(cause: "c", shown: "s", seal: "x", report: false))
-    let state = await run {
-        await actions.answer(
-            wrong, key: "tap-1", at: testURL("https://\(host)"), whilePaired: { generation.withLock { $0 } == 0 },
-            emit: $0)
-    }
-    #expect(bearers.withLock { $0 } == ["Bearer access-1"])
-    guard case .failed(let failure, _) = state else {
-        Issue.record("expected a refusal, got \(state)")
-        return
-    }
-    #expect(failure.kind == ActionFailure(.notPaired).kind)
 }

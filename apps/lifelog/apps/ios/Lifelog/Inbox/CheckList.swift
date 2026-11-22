@@ -17,6 +17,7 @@ struct CheckList: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                CutToast(kind: .checks)
                 // Two cards: what waits on him, then the rest.
                 let split = min(order.canWaitFrom ?? order.checks.count, order.checks.count)
                 ForEach(Array(order.checks.enumerated()), id: \.element.ref) { at, check in

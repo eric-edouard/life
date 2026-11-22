@@ -466,6 +466,31 @@ test("he answered after an arrival's newest line: no agent wakes; a line of his 
     expect(
       s.desk.db.query("select 1 from event where event_id = 'whatsapp:1'").all()
     ).toEqual([]);
+    // life#1099: a mail he answered in its thread wakes no one either.
+    const mail = {
+      ...chat,
+      kind: "mail",
+      name: "mail",
+      read: () => [
+        { ...event("mail:1", false, 3), chat: "mail:7", source: "mail" },
+        { ...event("mail:2", true, 1), chat: "mail:7", source: "mail" },
+      ],
+    } as unknown as Descriptor;
+    await pollArrivals(s.desk, readPeopleOnce(), {
+      arrivals: [
+        {
+          at: now.toISOString(),
+          messages: ["mail|mail:1"],
+          people: ["person:ana"],
+          unit: "unit_0000000000a2",
+        },
+      ],
+      sources: [mail],
+      units: [
+        { ...unitOf(), id: "unit_0000000000a2", key: "mail:7", source: "mail" },
+      ],
+    });
+    expect(standingAgentOf(s.desk.db, "personal")).toBeUndefined();
   } finally {
     setSettings({ desk: null });
   }

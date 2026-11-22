@@ -125,6 +125,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // On Life's own checks and on a decision's options alike.
     #expect(try quoted("memory/life-checks.ts", /ends\?: ([^;]*);/) == client(Check.Option.Ends.self))
     #expect(try quoted("memory/card-request.ts", /ends: z\.enum\(\[([^\]]*)\]/) == client(Check.Option.Ends.self))
+    // The answer icons: Life's acts and the rest, one set.
+    #expect(
+        try quoted("records/answer-icon.ts", /(?s)LIFE_ACT_ICONS = \[(.*?)\] as const/)
+            .union(try quoted("records/answer-icon.ts", /(?s)ANSWER_ICONS = \[(.*?)\] as const/))
+            == client(AnswerIcon.self))
     let needs = try source("memory/needs.ts")
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
     #expect(kinds == client(Check.Need.Kind.self))
@@ -134,10 +139,13 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(
         try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
             == client(Check.DoneSeen.State.self))
-    // Tell Life's wire: every kind of line and of answer the session sends is one the phone draws or says it can't.
+    // Ask Life's wire: every kind of line and of answer the session sends is one the phone draws or says it can't.
     let wire = try source("records/main-session-wire.ts")
     let sent = Set(wire.matches(of: /kind: "([a-z]+)"/).map { String($0.output.1) })
-    #expect(sent == ["reply", "question", "error", "thinking", "working", "words", "answer"])
+    #expect(
+        sent == [
+            "reply", "question", "error", "done", "agent", "card", "fix", "thinking", "working", "words", "answer",
+        ])
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     #expect(
         try quoted("host/appointments-calendar.ts", /(?s)type Changed =(.*?)\};/)
@@ -152,7 +160,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     // An agent as read: the stored statuses, with `active` read as running or waiting.
     let stored = try quoted("records/registered-agent.ts", /export type AgentStatus = ([^;]*);/)
     #expect(stored.subtracting(["active"]).union(["running", "waiting"]) == client(AgentStatus.self))
-    let roles = try quoted("records/registered-agent.ts", /export type AgentRole = ([^;]*);/)
+    let roles = try quoted("core/names.ts", /AgentRole = z\.enum\(\[([^\]]*)\]/)
     #expect(roles == client(RegisteredAgent.Role.self))
     #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))
@@ -164,7 +172,11 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
             == client(RegisteredAgents.Desk.self))
     #expect(try quoted("host/registered-agents.ts", /helper: ([^;]*);/) == client(RegisteredAgents.Helper.self))
     #expect(try quoted("host/registered-agents.ts", /broken\?: ([^;]*);/) == client(WakeLine.Broken.self))
+    #expect(
+        try quoted("host/agent-health.ts", /export type HealthVerdict = ([^;]*);/) == client(AgentHealth.Verdict.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
+    // A line of an agent's session on pi (`read_agent_session`).
+    #expect(try quoted("host/agent-session-read.ts", /kind: ([^;]*);/) == client(AgentSession.Line.Kind.self))
     // Model spending's providers and kinds (`read_spending`).
     #expect(try quoted("memory/spends.ts", /SPEND_PROVIDERS = \[([^\]]*)\]/) == client(SpendProvider.self))
     #expect(try quoted("memory/spends.ts", /export type SpendKind = ([^;]*);/) == client(SpendKind.self))

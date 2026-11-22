@@ -4,6 +4,7 @@
 
 import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
+import type { AnswerIcon } from "../records/answer-icon";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import type { PlanStep } from "./card-request";
 import type { Decision, doneSeenShownOf } from "./decision-lines";
@@ -22,6 +23,8 @@ import type { RefKind } from "./refs";
  */
 export interface CheckOption {
   ends?: "matter" | "step";
+  /** Its answer icon, as `answerIconOf` works it out on the way out (`checksOf`); on Life's own cards, Life's pick where no mark decides it. */
+  icon?: AnswerIcon;
   id: string;
   label: string;
   looks?: true;
@@ -46,32 +49,42 @@ export const LIFE_CHECKS = {
   "at organization": {
     context: null,
     options: [
-      { id: "yes", label: "Yes", takes: null },
-      { id: "not-at-organization", label: "No", takes: null },
+      { icon: "done", id: "yes", label: "Yes", takes: null },
+      { icon: "no", id: "not-at-organization", label: "No", takes: null },
     ],
     title: "Link someone to an organization",
   },
   "contacts card": {
     context: null,
     options: [
-      { id: "same-person", label: "Someone else…", takes: "person or name" },
+      {
+        icon: "person",
+        id: "same-person",
+        label: "Someone else…",
+        takes: "person or name",
+      },
     ],
     title: "Place a Contacts card",
   },
   ending: {
     context: "A later step seems to show it done.",
     options: [
-      { id: "outdated", label: "Yes, done", takes: null },
-      { id: "false", label: "Not yet", takes: null },
+      { icon: "done", id: "outdated", label: "Yes, done", takes: null },
+      { icon: "later", id: "false", label: "Not yet", takes: null },
     ],
     title: "Close what is done",
   },
   "guessed person": {
     context: null,
     options: [
-      { id: "this-is", label: "Yes", takes: null },
-      { id: "not-this-person", label: "No", takes: null },
-      { id: "same-person", label: "Someone else…", takes: "person or name" },
+      { icon: "done", id: "this-is", label: "Yes", takes: null },
+      {
+        icon: "person",
+        id: "same-person",
+        label: "Someone else…",
+        takes: "person or name",
+      },
+      { icon: "no", id: "not-this-person", label: "No", takes: null },
     ],
     title: "Know who someone is",
   },
@@ -79,26 +92,41 @@ export const LIFE_CHECKS = {
     context: null,
     // "Organization" takes nothing more: his `name` for it (default the card's) and his `note` (what it is to him) are optional.
     options: [
-      { id: "this-is", label: "Someone else…", takes: "person or name" },
-      { id: "organization", label: "Organization", takes: null },
-      { id: "not-relevant", label: "I don't care", takes: null },
+      {
+        icon: "person",
+        id: "this-is",
+        label: "Someone else…",
+        takes: "person or name",
+      },
+      {
+        icon: "organization",
+        id: "organization",
+        label: "Organization",
+        takes: null,
+      },
+      { icon: "hide", id: "not-relevant", label: "I don't care", takes: null },
     ],
     title: "Place a name",
   },
   "new matter": {
     context: "Nothing blocks its next step: an agent could move it now.",
     options: [
-      { id: "start", label: "Start", takes: null },
+      { icon: "agent", id: "start", label: "Start an agent", takes: null },
       { id: "edit-goal", label: "Edit goal", takes: "note" },
-      { id: "dismiss", label: "No", takes: null },
+      { icon: "no", id: "dismiss", label: "No agent", takes: null },
     ],
     title: "Life found a new matter",
   },
   "same person": {
     context: "They go by the same whole name; nothing Life holds joins them.",
     options: [
-      { id: "same-person", label: "Same person", takes: null },
-      { id: "not-this-person", label: "Different people", takes: null },
+      { icon: "link", id: "same-person", label: "Same person", takes: null },
+      {
+        icon: "people",
+        id: "not-this-person",
+        label: "Different",
+        takes: null,
+      },
     ],
     title: "Join one person",
   },
@@ -107,24 +135,25 @@ export const LIFE_CHECKS = {
       "Heard in conversations: who it is goes to every turn of this voice.",
     // The three it offers; "Yes" only when a guess is in use. `not-anyone-i-know` and `media` stay accepted writers only (`answer-check.ts`: installed builds send them).
     options: [
-      { id: "is-them", label: "Yes", takes: null },
+      { icon: "done", id: "is-them", label: "Yes", takes: null },
       {
+        icon: "person",
         id: "this-is",
         label: "Someone else…",
         takes: "person or name",
       },
-      { id: "not-relevant", label: "Don't name", takes: null },
+      { icon: "hide", id: "not-relevant", label: "Don't name", takes: null },
     ],
     title: "Name a voice",
   },
-  // A matter's step that is his: "Hand to an agent" only while an agent could take it (`checks.ts` drops it otherwise).
+  // A matter's step that is his: "Hand over" only while an agent could take it (`checks.ts` drops it otherwise).
   "your move": {
-    context: "A step of yours is open on this matter.",
+    context: "Still yours to do? Life sees no sign it is done.",
     options: [
       { ends: "step", id: "done", label: "Mark as done", takes: null },
-      { id: "start", label: "Hand to an agent", takes: null },
-      { id: "not-now", label: "Not now", takes: null },
-      { ends: "step", id: "drop", label: "Drop", takes: null },
+      { icon: "agent", id: "start", label: "Hand over", takes: null },
+      { icon: "later", id: "not-now", label: "Not now", takes: null },
+      { ends: "step", icon: "drop", id: "drop", label: "Drop", takes: null },
     ],
     title: "Your move",
   },
@@ -193,7 +222,7 @@ export interface Check {
   group: CheckGroup;
   /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
   head?: { name: string; network: string } | null;
-  /** Whether a decision is its assignment's plan card (host's `planCardsOf`): worked out when read, never stored; absent on every other kind. */
+  /** Whether a decision is a plan card: it gives `plan`, its steps; absent on every other kind. */
   isPlan?: boolean;
   kind: CheckKind;
   /** The `life:` links of its `context`, each with its kind (`lifeLinksOf`): worked out when read, never stored. */
@@ -204,8 +233,8 @@ export interface Check {
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done), `important` when he marked it; null: none. */
   matter: CheckMatter | null;
-  /** On Life's own cards only (none of an agent's, the caretaker's included): what his "Wrong…" (`answer_check`'s `misread`) sends back: `cause` (what its guess rests on, `causeOf`) and, on the inbox's cards, `shown` (the card as shown, a digest) and `seal` (`withMisreadSealed`); null on an agent's. */
-  misread?: { cause: string; seal?: string; shown?: string } | null;
+  /** On Life's own cards only (none of an agent's, the caretaker's included): `cause`, what its guess rests on (`causeOf`), which shows his "Wrong…" (to Ask Life) and marks it being fixed; null on an agent's. */
+  misread?: { cause: string } | null;
   /** What he needs in hand to do a decision's step, each with Life's `line` of it, in the order to show them; absent on every other kind. */
   needs?: ReturnType<typeof needsShownOf>;
   /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
@@ -307,12 +336,11 @@ export type CardHolders = Readonly<
   Record<string, { agent: string; session?: string }>
 >;
 
-/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again, with the plan cards among the decisions read (host's `planCardsOf`); null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
+/** What registered agents hold, as the inbox reads it from the desk: a cheap stamp for the key (host's `heldStampOf`), and the facts (`heldByAgents`), read only when the list is read again; null facts when the desk can't be read then. And his complaints the caretaker holds (host's `complaintsAtWork`: a few rows, in the stamp), as cards show them over the decisions read (host's `beingFixedOf`). */
 export interface HeldRead {
   /** Each of the open `decisions` a registered agent asked, as its holder's, with that agent's session now (host's `cardHoldersOf`): given the one list the inbox reads, so a card asked meanwhile is never shown without it. */
   cardHolders?: (decisions: readonly Decision[]) => CardHolders;
   complaints?: (decisions: readonly Decision[]) => readonly BeingFixed[];
-  plans: (decisions: readonly Decision[]) => ReadonlySet<string>;
   read: () => readonly AgentHold[] | null;
   stamp: string;
 }

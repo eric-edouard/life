@@ -138,7 +138,7 @@ struct EndingBlock: View {
     }
 }
 
-/// The goal Start or Hand to an agent hands the agent, and the sentence that started it; on a new matter, a pencil that
+/// The goal Start or Hand over hands the agent, and the sentence that started it; on a new matter, a pencil that
 /// opens the goal as his words.
 struct NewMatterBlock: View {
     let goal: String?

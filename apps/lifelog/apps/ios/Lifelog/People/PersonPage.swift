@@ -16,7 +16,7 @@ struct PersonPage: View {
     var body: some View {
         let state = life.person[ref] ?? ReadState()
         ReadScreen(
-            shown: state.shown(), retry: { await life.refreshPerson(ref) },
+            shown: state.shown(), stamp: state.stamp, retry: { await life.refreshPerson(ref) },
             loading: { PersonPlaceholder(row: life.people.value?.people.first { $0.id == ref }) },
             empty: { EmptyView() },
             content: { now in
@@ -33,6 +33,7 @@ struct PersonPage: View {
             }
         )
         .background(Palette.bg)
+        .saysBack()
         .shellBar("", hasSettings: hasSettings)
         .task(id: life.parties.generation.current) { await life.refreshPerson(ref) }
         .task(id: state.value?.moreReach) {
@@ -44,7 +45,7 @@ struct PersonPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    Who(row: now.row)
+                    Who(row: now.row, now: now)
                     reach
                 }
                 OpenMatters(label: "Open with \(now.firstName)", now: now)
@@ -71,7 +72,7 @@ private struct PersonPlaceholder: View {
                     Who(row: row)
                 } else {
                     HStack(spacing: Metrics.Spacing.l) {
-                        Placeholder(width: 56, height: 56)
+                        Placeholder(width: PartyDisc.Size.head.rawValue, height: PartyDisc.Size.head.rawValue)
                         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
                             Placeholder(width: 180, height: 24, radius: 8)
                             Placeholder(width: 120, height: 14)
@@ -98,21 +99,23 @@ private struct PersonPlaceholder: View {
     }
 }
 
-/// Who: their picture (72) beside the name and who they are to him, then how close and their last exchange.
+/// Who: their picture (56) beside the name, and under it one small line: who they are to him, how close, their last
+/// exchange ("Partner · Close · last exchange Tue 17 Nov", `DuoFoldPerson`).
 private struct Who: View {
     let row: PersonRow
+    /// Their read, once it landed: its pictures make the disc open the picture sheet.
+    var now: PersonNow?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            HStack(spacing: Metrics.Spacing.l) {
-                PartyDisc(row.party, size: .page)
-                VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                    Text(row.party.name).font(.screenName).foregroundStyle(Palette.fg)
-                        .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                    if let line = row.party.line { Text(line).font(.body15).foregroundStyle(Palette.muted) }
-                }
+        HStack(spacing: Metrics.Spacing.l) {
+            HeadPicture(party: row.party, now: now)
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                Text(row.party.name).font(.screenName).foregroundStyle(Palette.fg)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                let line = [row.party.line, row.standing()].compactMap(\.self).joined(separator: " · ")
+                if !line.isEmpty { Text(line).font(.small).foregroundStyle(Palette.muted) }
             }
-            if let standing = row.standing() { Text(standing).font(.body15).foregroundStyle(Palette.muted) }
+            .stepsAsideForToast()
         }
     }
 }
@@ -269,8 +272,8 @@ struct OpenMatters: View {
                     .padding(.horizontal, Metrics.gutter).padding(.top, Metrics.Spacing.s)
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
             .motion(Motion.standard, value: rows.map(\.id))
             .task(id: isAll) {
                 if isAll, now.isOpenCut { await life.refreshOpenWith(ref) }
@@ -290,7 +293,7 @@ private struct Lately: View {
                 ListLabel("Lately") {
                     if !isWhole { QuietChip("More", symbol: "chevron.down") { isWhole = true } }
                 }
-                .padding(.horizontal, -Metrics.Spacing.m)
+                .padding(.horizontal, -Metrics.gutter)
                 Text(lines.joined(separator: " ")).font(.body15).foregroundStyle(Palette.fg)
                     .lineLimit(isWhole ? nil : 4).fixedSize(horizontal: false, vertical: true)
                     .padding(Metrics.Spacing.l)
@@ -396,8 +399,8 @@ private struct Knows: View {
                     }
                 }
             }
-            // The card on the page's gutter: a list keeps its inset from its column's edges.
-            .padding(.horizontal, -Metrics.Spacing.m)
+            // The card on the page's gutter: the list's own inset (the gutter) cancels the column's.
+            .padding(.horizontal, -Metrics.gutter)
         }
     }
 }

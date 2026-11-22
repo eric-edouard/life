@@ -23,15 +23,10 @@ test("mail from an unknown address is kept, in any thread; a no-reply sender's a
   const built = applyRules(
     messageUnits(
       [
-        mail("t1", "cousin@gmail.test", "Re: Trip", {
-          hasOwnerWrittenInThread: true,
-        }),
+        mail("t1", "cousin@gmail.test", "Re: Trip"),
         mail("t2", "sales@shop.test", "Your quote"),
         mail("t4", "no-reply@shop.test", "Your quote is ready"),
-        mail("t3", "list@club.test", "Issue 9", {
-          bulk: true,
-          hasOwnerWrittenInThread: true,
-        }),
+        mail("t3", "list@club.test", "Issue 9", { bulk: true }),
       ],
       () => null
     )

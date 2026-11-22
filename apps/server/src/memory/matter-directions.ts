@@ -36,7 +36,7 @@ import { dayNow } from "./zones";
 // a unit cited from its evidence (`readEvidence`) is not judged, like a draft whose own steps show it over). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v4";
+const PROMPT = "memory-matter-directions.v5";
 /** The most characters of matters a night is shown, those with no direction first, then the newest (before their evidence, about 2k more each); and one call. */
 const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;

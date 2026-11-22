@@ -7,7 +7,9 @@ import { join } from "node:path";
  * has no checkout around it and runs only with the app's environment (its paths and Keychain secrets): run by hand, it
  * stops here; by hand, use the checkout's `bun life`.
  */
-if (!process.env.LIFE_CODE_DIR && import.meta.dir.startsWith("/$bunfs")) {
+/** Whether this process is the app's compiled helper (its code in Bun's embedded files), not a checkout's bun. */
+export const IS_COMPILED_HELPER = import.meta.dir.startsWith("/$bunfs");
+if (!process.env.LIFE_CODE_DIR && IS_COMPILED_HELPER) {
   throw new Error(
     "Life's helper runs from Life.app only; by hand, use `bun life` in a checkout"
   );
@@ -47,14 +49,10 @@ export const LIFE_STATE_DIR = real(
 );
 /** The desk's store (`apps/server/src/desk/`): his registered agents, their waits, turns and queued events. Host reads it read-only. */
 export const DESK_STORE = join(LIFE_STATE_DIR, "desk", "desk.sqlite");
-/** When he last pressed "Wrong…" again under a press's key (`complain`): a press, for `roleStartBlockOf`, as a new complaint is. */
-export const COMPLAINT_RETRIED = join(
-  LIFE_STATE_DIR,
-  "desk",
-  "complaint-retried"
-);
 /** Where an agent started with no folder (and no repo of its project on the Mac) runs: a folder of its own, `<agt_…>`, made by the desk. */
 export const DESK_AGENT_FOLDERS = join(LIFE_STATE_DIR, "desk", "agents");
+/** Where the desk's pi keeps its sessions (`sessions/`) and its agent folder (`desk/runtimes/pi-runtime.ts`). */
+export const PI_DIR = join(LIFE_STATE_DIR, "desk", "pi");
 // ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete
 // old ones here if the temp folder ever matters.
 function copied(from: string) {

@@ -19,7 +19,7 @@ import {
 } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import type { Check, LIFE_CHECKS } from "./life-checks";
-import { matterOfSteps, openStepsOf } from "./matter-read";
+import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { samePersonPairOf } from "./same-person";
@@ -146,6 +146,10 @@ const correct = (said: object[], a: CheckAnswer) =>
     )
   );
 
+/** His answer's refusal when the ask he saw is gone (answered, or changed since it was shown), in words his app shows as they are. */
+export const NO_LONGER_OPEN =
+  "Not done: this ask is no longer open; it was answered or changed since it was shown, so nothing was saved.";
+
 /** A voice's queue item, as lifelog gives it now, and the people it was read with. */
 interface Voice {
   item: GuessedQueueItem;
@@ -169,9 +173,7 @@ async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
     (i) => i.kind !== "several" && voiceCardRefOf(people, i) === c.ref
   );
   if (!item) {
-    throw new Error(
-      `Not done: no open check ${c.ref} (lifelog may have changed it since it was shown; read the inbox again).`
-    );
+    throw new Error(NO_LONGER_OPEN);
   }
   return { item, people };
 }
@@ -186,7 +188,6 @@ const voiceTurn = oneAtATime();
 
 /** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
 async function answerVoice(
-  c: Check,
   voice: Voice | undefined,
   answerOf: (
     v: Voice
@@ -195,7 +196,7 @@ async function answerVoice(
     | Promise<Parameters<typeof answerNamingQueue>[1]>
 ) {
   if (!voice) {
-    throw new Error(`Not done: no open check ${c.ref}`);
+    throw new Error(NO_LONGER_OPEN);
   }
   return [
     await answerNamingQueue(
@@ -252,7 +253,7 @@ async function atOrganizationNow(c: Pick<Check, "ref">) {
     (p) => atOrganizationRefOf(p) === c.ref
   );
   if (!found) {
-    throw new Error(`Not done: no open check ${c.ref} (read the inbox again).`);
+    throw new Error(NO_LONGER_OPEN);
   }
   return found;
 }
@@ -263,7 +264,7 @@ export const NOT_NOW_DAYS = 3;
 /** The open matter a your move card is on, as it reads now: the one it named (`matter`), else the one holding its step. */
 async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
   const open = (await readMatterBook(await readPeople(), dayNow())).filter(
-    (m) => m.open
+    isAwaitingHisWord
   );
   const v =
     open.find((m) => m.id === c.matter?.id) ??
@@ -431,7 +432,7 @@ const WRITERS: {
       ];
     },
   },
-  // Bound to the pair he saw (`samePersonRefOf`): "Same person" folds the guess into the other; "Different people"
+  // Bound to the pair he saw (`samePersonRefOf`): "Same person" folds the guess into the other; "Different"
   // says each of the guess's handles is not them, so the pair is never asked again.
   "same person": {
     "not-this-person": (c, a) =>
@@ -456,20 +457,19 @@ const WRITERS: {
           `Not done: "Yes" names the person on ${c.ref}; another person or a name goes with "Someone else…".`
         );
       }
-      return answerVoice(c, voice, (i) =>
+      return answerVoice(voice, (i) =>
         thisIs(i, c, { ...a, person: c.subject ?? undefined })
       );
     },
-    media: (c, _a, { voice }) =>
-      answerVoice(c, voice, async () => ({ kind: "media" })),
-    "not-anyone-i-know": (c, _a, { voice }) =>
-      answerVoice(c, voice, async () => ({ kind: "ignore" })),
-    "not-relevant": (c, _a, { voice }) =>
-      answerVoice(c, voice, async () => ({ kind: "not_relevant" })),
-    "this-is": (c, a, { voice }) =>
-      answerVoice(c, voice, (v) => thisIs(v, c, a)),
+    media: (_c, _a, { voice }) =>
+      answerVoice(voice, async () => ({ kind: "media" })),
+    "not-anyone-i-know": (_c, _a, { voice }) =>
+      answerVoice(voice, async () => ({ kind: "ignore" })),
+    "not-relevant": (_c, _a, { voice }) =>
+      answerVoice(voice, async () => ({ kind: "not_relevant" })),
+    "this-is": (c, a, { voice }) => answerVoice(voice, (v) => thisIs(v, c, a)),
   },
-  // Done, Drop and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
+  // Done, Drop and Hand over act through host (`endYourMove`, `startAgent`), only as the card offers them now.
   "your move": {
     done: (_c, _a, x) => endYourMoveOf(x),
     drop: (_c, _a, x) => endYourMoveOf(x),
@@ -490,7 +490,7 @@ const WRITERS: {
     start: async (c, a, x) => {
       if (!(x.startAgent && c.options.some((o) => o.id === "start"))) {
         throw new Error(
-          "Not done: Hand to an agent comes only through his own answer_check, while the card offers it."
+          "Not done: Hand over comes only through his own answer_check, while the card offers it."
         );
       }
       return [await x.startAgent(c, a.note ?? c.goal ?? c.title)];

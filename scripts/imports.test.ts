@@ -31,6 +31,7 @@ const READS_LITERAL = new RegExp(
 );
 // Every file that calls a model (a spawn or a router's endpoint), in one list: the desk's runtimes may change shape.
 const MODEL_CALL_FILES = [
+  "apps/server/src/desk/runtimes/pi-runtime.ts",
   "apps/server/src/desk/runtimes/runtime-rows.ts",
   "apps/server/src/models/describer.ts",
   "apps/server/src/models/foundation-model.ts",
@@ -42,9 +43,9 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/jobs.test.ts": 1104,
   "apps/lifelog/apps/server/src/people.test.ts": 988,
   "apps/lifelog/apps/server/src/people.ts": 1177,
-  "apps/lifelog/packages/db/src/schema/index.ts": 1077,
+  "apps/lifelog/packages/db/src/schema/index.ts": 1065,
   "apps/server/src/host/status/snapshot.ts": 1142,
-  "apps/server/src/memory/units.test.ts": 1188,
+  "apps/server/src/memory/units.test.ts": 1186,
 };
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
@@ -174,6 +175,7 @@ test("forward and recordCorrection have only their known importers", () => {
     "apps/server/src/memory/answer-check.ts",
   ]);
   expect(importers(["recordHisCorrection"], "correct-matter")).toEqual([
+    "apps/server/src/desk/desk-door.ts",
     "apps/server/src/host/command.ts",
     "apps/server/src/host/http/mcp.ts",
   ]);

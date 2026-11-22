@@ -161,7 +161,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       subject: "obs_000000000005",
       title: "Kit is waiting for the quote.",
     },
-    // A transfer whose "I've paid" Life looked for and did not find yet: open again. A registered agent's plan (`planCardsOf`).
+    // A transfer whose "I've paid" Life looked for and did not find yet: open again.
     {
       agent: "agt_000000000001",
       asker: "Orbit",
@@ -215,8 +215,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       agent: "agt_000000000001",
       asker: "Orbit",
       at: "2026-10-14T10:00:00.000Z",
-      context:
-        "## Mend the strap\n1. Ask Kit for the quote\n2. Pay the deposit\n3. Book the repair\n\nWhat I read: [Kit's quote](life:unit_000000000001).",
+      context: "What I read: [Kit's quote](life:unit_000000000001).",
       deadline: "2099-01-02T09:00:00.000Z",
       gathered: { text: "From Kit's quote and two others" },
       id: "dec_000000000003",
@@ -429,7 +428,6 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         }) as Record<string, string>
       )[s] ?? null,
   },
-  plans: new Set(["dec_000000000002", "dec_000000000003"]),
   samePersons: [
     {
       called: null,

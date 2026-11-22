@@ -11,6 +11,7 @@ import {
   anchorsOf,
   openAssignmentOfMatter,
   openAssignmentsOf,
+  runtimeOf,
   type TurnRow,
 } from "./desk-read";
 
@@ -217,7 +218,7 @@ export const movedInOf = (
 /**
  * Which of assignment `s`'s cards count as asked (`isAsked`): for a holder that got it by his move (`movedInOf`), only a
  * card still open at the move or asked after, so its first card is the open one it inherited, else its own plan. The one
- * rule for the door's `hasAsked` and the inbox's `planCardsOf`.
+ * rule for the door's `hasAsked`.
  */
 export function countsAsAskedOf(
   db: Database,
@@ -296,9 +297,19 @@ const namesOf = (a: Pick<AgentRow, "brief" | "name">) => {
   return { name: `${short} agent`, short };
 };
 
-/** Where an agent on `runtime` can move: the other runtime (`moveTo`), or why not now (`moveBlocked`, from the desk's last look). */
-function moveToOf(db: Database, runtime: string) {
-  const to = RuntimeName.options.find((r) => r !== runtime);
+/**
+ * Where an agent on `runtime` can move (`moveTo`), or why not now (`moveBlocked`, from the desk's last look): its home
+ * runtime (`runtimeOf`: its role's, else the desk's default), and from there, or with none, the first other (one move
+ * offered: the phone shows one).
+ */
+export function moveTargetOf(runtime: string, defaultRuntime = runtimeOf({})) {
+  return defaultRuntime && runtime !== defaultRuntime
+    ? defaultRuntime
+    : RuntimeName.options.find((r) => r !== runtime);
+}
+
+function moveToOf(db: Database, a: Pick<AgentRow, "role" | "runtime">) {
+  const to = moveTargetOf(a.runtime, runtimeOf({ role: a.role }));
   if (!to) {
     return {};
   }
@@ -351,7 +362,7 @@ export function matterMoveReadOf(
           }
         : {}),
     },
-    ...moveToOf(db, a.runtime),
+    ...moveToOf(db, a),
     ...(move ? { move } : {}),
   };
 }
@@ -367,7 +378,7 @@ export function agentMoveReadOf(db: Database, id: string, now: number) {
   const phase = m && shown ? movePhaseOf(db, m) : null;
   return {
     ...namesOf(a),
-    ...moveToOf(db, a.runtime),
+    ...moveToOf(db, a),
     ...(shown
       ? {
           switch: {

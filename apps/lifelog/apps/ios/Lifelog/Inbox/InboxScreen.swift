@@ -43,12 +43,12 @@ struct InboxScreen: View {
             .background(Palette.bg)
             .navigationSplitViewColumnWidth(min: 280, ideal: 455, max: 455)
             .screenTitle("Inbox", state: waiting)
+            .askFilterBar(kinds: all.kinds, kind: $kind)
             // The Pendant and Settings are the ask column's when it is beside the list; the list alone (compact) has them.
             .shellBar("", hasSettings: sizeClass != .regular, hasPendant: sizeClass != .regular)
-            .askFilterBar(kinds: all.kinds, kind: $kind)
         } detail: {
             ReadScreen(
-                shown: shown, retry: { await life.refreshInbox() },
+                shown: shown, stamp: life.inbox.stamp, marks: .readsAndAgents, retry: { await life.refreshInbox() },
                 loading: { InboxSkeleton() }, empty: { InboxZero() },
                 content: { _ in
                     // The Filter's "Your moves" is a list to sort, not cards.
@@ -57,6 +57,19 @@ struct InboxScreen: View {
             )
             // The first card cross-fades in over the skeleton.
             .motion(Motion.standard, value: life.inboxOnShow == nil)
+            // The list hidden beside a wide ask (the open Duo): a swipe in from the left edge shows it, as in any split
+            // view. The pager's own swipe took that edge; this strip keeps it from the pager.
+            .overlay(alignment: .leading) {
+                if sizeClass == .regular, widths.ask >= widths.whole - 1 {
+                    Color.clear.frame(width: Metrics.Spacing.l).contentShape(.rect)
+                        .gesture(
+                            DragGesture(minimumDistance: Metrics.Spacing.s).onEnded {
+                                if $0.translation.width > max(Metrics.Spacing.xl, abs($0.translation.height)) {
+                                    withAnimation { visibility = .all }
+                                }
+                            })
+                }
+            }
             .background(Palette.bg)
             // Alone, the ask has the screen's title over it (the question stays the biggest line); beside the list, the
             // list has it, and the gear and the Pendant.
@@ -65,35 +78,29 @@ struct InboxScreen: View {
             // Declared before the Pendant and Settings: a vertical bar stacks trailing items bottom-up, so the order puts
             // this one under them; `sharedBackgroundVisibility(.hidden)` keeps it out of their capsule.
             .toolbar {
-                if inSideColumn, #available(iOS 27.1, *) {
+                // Only while there is something to undo: an empty capsule still took the column's room, and the column
+                // put the Pendant's neighbours in an overflow menu (seen in `design:shots`).
+                let said = life.saidBack?.undo == nil ? nil : life.saidBack
+                if inSideColumn, let said, #available(iOS 27.1, *) {
                     ToolbarItem(placement: .topBarTrailing) {
-                        // A held answer, else a project he parked from a card (`saidBack`).
-                        let said = life.saidBack?.undo == nil ? nil : life.saidBack
-                        ColumnToast(answered: life.latestHeld?.held.label ?? said?.words) {
-                            if let held = life.latestHeld { undo(held.ref) } else { said.flatMap(life.undoing)?() }
-                        }
+                        // A project he parked from a card (`saidBack`).
+                        ColumnToast(answered: said.words) { life.undoing(said)?() }
                     }
                     .sharedBackgroundVisibility(.hidden).axisBehavior(.verticalPreferred)
                 }
             }
-            .shellBar("")
+            // Back to the list of asks: the one Back of a list and its detail (his word, 21 Nov), never a sidebar's toggle.
+            .shellBar("", onBack: sizeClass == .regular ? nil : { router.inboxColumn = .sidebar })
             .reportsSideColumn($inSideColumn)
             .navigationBarBackButtonHidden()
-            // In the side column, the toast is the column's capsule.
-            .heldToast(shows: { _ in !inSideColumn }, undo: undo)
-            // A project parked from a card's "Tell the agent…", said back with Undo.
+            // What he just answered or parked, said back; in the side column, the toast is the column's capsule.
             .saidBackToast(inSideColumn: inSideColumn)
-            .toolbar {
-                if sizeClass != .regular {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Asks", systemImage: "sidebar.left") { router.inboxColumn = .sidebar }
-                    }
-                }
-            }
         }
         .navigationSplitViewStyle(.balanced)
         // Above the asks, so a read that takes his ask away (his answer was the last) never closes it before it does.
         .askSheets($notes) { leave($0, keep: false) }
+        // Ask Life's cut is of every kind: the asks it named show whatever kind he kept to.
+        .onChange(of: router.cut(of: .checks)) { _, cut in if cut != nil { kind = nil } }
         // The moves' list is the ask column's, which a compact width then shows.
         .onChange(of: kind) { _, kind in if kind == .yourMove { router.inboxColumn = .detail } }
         // The chosen kind has no ask left: the whole list again, so the filter never rests on a kind that is gone.
@@ -102,7 +109,7 @@ struct InboxScreen: View {
             // The guesses' card left with its last row: the next guesses start clean, not beside old answered rows.
             if !kinds.contains(.guessedPerson) {
                 (notes.guesses, notes.guessed) = ([], [:])
-                notes.working.remove(.guessedPerson)
+                notes.working[.guessedPerson] = nil
             }
         }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
@@ -127,9 +134,10 @@ struct InboxScreen: View {
 
     /// The inbox read as shown, except that his tap's result, or the ask the create sheet answers, stays up whatever the
     /// read did since: the inbox emptied (his answer was the last card) or its read failed. Only a new pairing, which
-    /// clears the inbox, takes it away.
+    /// clears the inbox, takes it away. A read on screen, fresh or stale, shows as it is: its note stays over his tap.
     private var shown: ReadState<Inbox>.Shown {
-        guard notes.taken != nil || notes.creating != nil, let inbox = life.inboxOnShow else { return life.inboxShown }
+        guard notes.taken != nil || notes.creating != nil, life.inboxShown.onScreen == nil, let inbox = life.inboxOnShow
+        else { return life.inboxShown }
         return .loaded(inbox)
     }
 
@@ -149,13 +157,7 @@ struct InboxScreen: View {
         notice = nil
         if keep { deferred.append(taken.check.ref) }
         // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
-        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
-    }
-
-    /// Undo: the ask is back where it was, and on show.
-    private func undo(_ ref: String) {
-        life.undo(ref)
-        current = shownOrder(kind).check(on: ref)?.ref
+        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : shownOrder(kind).next(of: taken.later))
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
@@ -169,7 +171,7 @@ struct InboxScreen: View {
     /// `all` as shown: of the kind he keeps to, with each kind Life pre-ticks folded into one bulk card unless he goes
     /// through it one by one.
     private func shownOrder(_ kind: CheckGroup?) -> InboxOrder {
-        all.only(kind).folded(except: notes.unfolded, working: notes.working)
+        all.only(kind).cut(to: router.cut(of: .checks)).folded(except: notes.unfolded, working: notes.working)
     }
 
     /// The ask on show, or his tap's result in its place: one arrangement for both, so the ask's context region stays

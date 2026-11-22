@@ -3,8 +3,8 @@ import SwiftUI
 
 /// The "your move" asks as a list to sort, not cards (the Inbox's Filter, "Your moves"): filtered by age, project or
 /// person, each row answered by swipe (Done, Hand, Drop) or many at once from Select, every answer that card's own
-/// option through `HeldAnswers` (one toast and one Undo per tap). Life decides what is open and what an option does;
-/// this only joins the checks to their matters (`YourMoves`) and sends. A row Life refused shows why on the row.
+/// option sent at once, each row working until Life answers, then one toast per tap. Life decides what is open and what
+/// an option does; this only joins the checks to their matters (`YourMoves`) and sends. A row Life refused shows why on the row.
 struct MovesList: View {
     /// The your move asks open now, in the inbox's order.
     let checks: [Check]
@@ -19,6 +19,10 @@ struct MovesList: View {
     @State private var opened: String?
     @State private var openedNotes = CardNotes()
     @State private var openedCurrent: String?
+    /// The opened card's answer, in place until the sheet closes: sending, its word, or why Life refused it. The card
+    /// is kept, since Life's read after the answer takes it out of `checks`.
+    @State private var openedSaid: (glyph: StateGlyph, word: String)?
+    @State private var openedKept: Check?
 
     var body: some View {
         let moves = YourMoves(checks: checks, matters: life.matters.value?.matters ?? [], now: Date())
@@ -33,12 +37,12 @@ struct MovesList: View {
             ForEach(sections(of: rows, in: moves), id: \.heading) { section in
                 ListLabel(section.heading) {
                     if isSelecting {
-                        QuietChip(allTicked(section.moves) ? "Untick all" : "Tick all", symbol: "checkmark") {
+                        QuietChip(allTicked(section.moves) ? "Untick all" : "Tick all") {
                             toggle(section.moves)
                         }
                     }
                 }
-                .padding(.horizontal, Metrics.gutter).quietListRow()
+                .quietListRow()
                 ForEach(Array(section.moves.enumerated()), id: \.element.id) { at, move in
                     row(move, at: at, of: section.moves.count).quietListRow()
                 }
@@ -48,47 +52,65 @@ struct MovesList: View {
         .safeAreaPadding(.bottom, Metrics.Spacing.xl)
         .safeAreaBar(edge: .bottom, spacing: 0) { if isSelecting { actions(rows) } }
         .motion(Motion.standard, value: rows.map(\.id))
-        .screenTitle("Your move", state: "\(moves.moves.count)")
+        // Select on the title's row, at its right (DuoFoldMoves).
+        .screenTitle("Your move", state: "\(moves.moves.count)") {
+            QuietChip(isSelecting ? "Cancel" : "Select") {
+                isSelecting.toggle()
+                // A filter already chosen is a pick: Select ticks what it shows.
+                ticked = isSelecting && filter != .all ? Set(moves.shown(filter).map(\.id)) : []
+                sent = []
+            }
+        }
         .sheet(
             isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }),
-            onDismiss: { openedNotes = CardNotes() }
+            onDismiss: { (openedNotes, openedSaid, openedKept) = (CardNotes(), nil, nil) }
         ) {
-            if let check = checks.first(where: { $0.ref == opened }) {
+            if let check = checks.first(where: { $0.ref == opened }) ?? openedKept {
                 NavigationStack {
                     CardView(
                         check: check, checks: [check], current: $openedCurrent, notes: $openedNotes,
                         context: ContextRegion(check: check, runtimeName: life.runtimeName(of: check)),
                         takes: { taken in
-                            life.hold(taken.request, as: taken.heldWords)
-                            opened = nil
+                            openedKept = check
+                            Task { await answerOpened(taken.request, as: taken.heldWords) }
                         }
                     ) { _, _ in opened = nil }
+                    .safeAreaInset(edge: .bottom) {
+                        if let openedSaid {
+                            StateMark(glyph: openedSaid.glyph, word: openedSaid.word).padding(Metrics.Spacing.l)
+                        }
+                    }
                     .background(Palette.bg)
                     .toolbar { CloseItem { opened = nil } }
                 }
             }
         }
         // A read can take a ticked row away (answered elsewhere): ticks only name rows still shown.
-        .onChange(of: rows.map(\.id)) { _, ids in ticked.formIntersection(ids) }
+        // A filter his answers emptied gives the whole list back, out of Select (DuoFoldMovesHanded): never "Nothing here."
+        // under a bar with nothing left to answer.
+        .onChange(of: rows.map(\.id)) { _, ids in
+            ticked.formIntersection(ids)
+            if ids.isEmpty, filter != .all, !sent.isEmpty { (filter, isSelecting, sent) = (.all, false, []) }
+        }
+    }
+
+    /// His answer from the opened card: the sheet says "Sending…", then Life's word in green before it closes, or
+    /// why Life refused (the toast says it too), and stays for another try.
+    private func answerOpened(_ request: AnswerRequest, as words: String) async {
+        openedSaid = (.busy, "Sending…")
+        if await life.answerRows([request], as: words) {
+            openedSaid = (.ok, life.saidBack?.words ?? words)
+            try? await Task.sleep(for: .seconds(2))
+            opened = nil
+        } else {
+            openedSaid = (.flag, life.saidBack?.words ?? "Life did not answer.")
+        }
     }
 
     // MARK: Header
 
     private func header(_ moves: YourMoves) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            HStack {
-                Spacer(minLength: 0)
-                QuietChip(isSelecting ? "Cancel" : "Select", symbol: isSelecting ? "xmark" : "checkmark.circle") {
-                    isSelecting.toggle()
-                    // A filter already chosen is a pick: Select ticks what it shows.
-                    ticked = isSelecting && filter != .all ? Set(moves.shown(filter).map(\.id)) : []
-                    sent = []
-                }
-            }
-            .padding(.horizontal, Metrics.gutter)
-            chips(moves)
-        }
-        .padding(.bottom, Metrics.Spacing.s)
+        chips(moves).padding(.bottom, Metrics.Spacing.s)
     }
 
     /// All, Over a month, then the projects and people the moves are in.
@@ -99,7 +121,12 @@ struct MovesList: View {
                 FilterChip(name: "All", isOn: filter == .all) { choose(.all) }
                 FilterChip(name: "Over a month", isOn: filter == .overMonth) { choose(.overMonth) }
                 ForEach(moves.projects(in: order), id: \.project.id) { entry in
-                    FilterChip(name: entry.project.name, isOn: filter == .project(entry.project.id)) {
+                    // The project's own icon, as its chip shows it in Projects.
+                    let chip = life.projects.value?.chips.first { $0.kind == .project && $0.id == entry.project.id }
+                    FilterChip(
+                        name: entry.project.name, icon: chip.map { MatterIcons.areaSymbol($0.area ?? $0.id) },
+                        isOn: filter == .project(entry.project.id)
+                    ) {
                         choose(.project(entry.project.id))
                     }
                 }
@@ -120,7 +147,7 @@ struct MovesList: View {
         VStack(alignment: .leading, spacing: 0) {
             ListLabel("Looks dead") {
                 if moves.dead.contains(where: { $0.answer("drop") != nil }) {
-                    QuietChip("Close \(moves.dead.count)", symbol: "xmark") {
+                    QuietChip("Close \(moves.dead.count)") {
                         act(moves.dead, "drop", words: "\(moves.dead.count) dropped")
                     }
                 }
@@ -143,7 +170,6 @@ struct MovesList: View {
                 }
             }
         }
-        .padding(.horizontal, Metrics.gutter)
     }
 
     // MARK: Rows
@@ -178,35 +204,29 @@ struct MovesList: View {
 
     private func row(_ move: YourMoves.Move, at index: Int, of count: Int) -> some View {
         let refused = failure(of: move)
-        let content = VStack(alignment: .leading, spacing: 2) {
-            Text(move.check.said?.text ?? move.check.question).font(.leadBold).foregroundStyle(Palette.fg)
-                .lineLimit(2)
-            if let refused {
-                Text(refused.reason).font(.small).foregroundStyle(Palette.flag)
-            } else {
-                Text(move.detail).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
-            }
-        }
+        // The list's one row (`Row`): its matter's icon in the 28 slot (as Projects draws it), the step, then its matter
+        // and its age, or why Life refused it, in `flag`.
+        let content = Row(
+            title: move.check.question, icon: isSelecting ? nil : move.symbol,
+            iconTint: Palette.muted, detail: move.detail,
+            state: refused.map { .refused($0.reason) }
+                ?? (life.state(of: .answer(ref: move.id)).isRunning ? .saving : .known),
+            isInList: true)
         return Group {
             if isSelecting {
                 TickRow(isTicked: ticked.contains(move.id), tick: { tick(move) }, open: { opened = move.id }) {
                     content
                 }
-                .padding(.horizontal, Metrics.Spacing.s)
+                .padding(.leading, Metrics.Spacing.s)
                 .groupedRow(at: index, of: count)
             } else {
                 Button {
                     opened = move.id
                 } label: {
-                    HStack {
-                        content; Spacer(minLength: 0)
-                    }.padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.s)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.groupedRow(at: index, of: count))
+                    content
+                }.buttonStyle(.groupedRow(at: index, of: count))
             }
         }
-        .padding(.horizontal, Metrics.gutter)
         .accessibilityElement(children: .combine)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if move.answer("done") != nil {
@@ -255,15 +275,24 @@ struct MovesList: View {
                     act(hand, "start", words: "\(hand.count) handed to \(projectName(of: hand))")
                 }
                 .buttonStyle(.pill(.filled)).disabled(hand.isEmpty)
-                Button("Done") { act(picked, "done", words: "\(picked.count) done") }
-                    .buttonStyle(.pill(.quiet)).disabled(picked.isEmpty)
+                // The check in `ok`: the answer that closes something (decision 98, rule 13).
+                Button {
+                    act(picked, "done", words: "\(picked.count) done")
+                } label: {
+                    Label {
+                        Text("Done")
+                    } icon: {
+                        Image(systemName: "checkmark").foregroundStyle(Palette.ok)
+                    }
+                }
+                .buttonStyle(.pill(.quiet)).disabled(picked.isEmpty)
                 if picked.contains(where: { $0.answer("drop") != nil }) {
                     Button("Drop") { act(picked, "drop", words: "\(picked.count) dropped") }
                         .buttonStyle(.pill(.quiet))
                 }
             }
         }
-        .padding(.horizontal, Metrics.Spacing.s).padding(.bottom, Metrics.Spacing.s).readingWidth()
+        .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s).readingWidth()
     }
 
     /// The one project the moves belong to, else "an agent".
@@ -272,7 +301,7 @@ struct MovesList: View {
         return names.count == 1 ? names.first ?? "an agent" : "an agent"
     }
 
-    /// The option `id` on each of `moves` that offers it, held as one (one toast, one Undo).
+    /// The option `id` on each of `moves` that offers it, sent at once: the rows work until Life has answered them all.
     private func act(_ moves: [YourMoves.Move], _ id: String, words: String) {
         let requests = moves.compactMap { $0.answer(id) }
         guard !requests.isEmpty, !life.saysOutOfReach() else { return }
@@ -280,7 +309,7 @@ struct MovesList: View {
         requests.forEach { life.forget(.answer(ref: $0.ref)) }
         sent.formUnion(requests.map(\.ref))
         ticked.subtract(requests.map(\.ref))
-        life.hold(requests, as: words)
+        Task { await life.answerRows(requests, as: words) }
     }
 
     private func failure(of move: YourMoves.Move) -> ActionFailure? {

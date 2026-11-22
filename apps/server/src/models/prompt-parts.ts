@@ -56,8 +56,11 @@ export const readOwnerName = (data = OWNER_DATA_DIR) => {
   return owner.called ?? firstNameOf(owner.name);
 };
 
-/** Said first in every prompt: who `{{owner}}` is, and never a pronoun for him in what is written. */
-const OWNER_RULE = `{{owner}} is the person whose memory this is: \`me\` in lines, \`person:me\` in refs. In everything you write, name {{owner}}; never write he, him, his, she, her, they or "the owner" for {{owner}}, not even later in a sentence that already named {{owner}}: "{{owner}} told Ana that {{owner}} would call {{owner}}'s father".\n\n`;
+/**
+ * Said first in every prompt: who `{{owner}}` is, never a pronoun for him in what is written, and anyone else named by
+ * their name or who they are to him, never by a family word copied from his notes (his functional pass of 21 Nov 2026).
+ */
+const OWNER_RULE = `{{owner}} is the person whose memory this is: \`me\` in lines, \`person:me\` in refs. In everything you write, name {{owner}}; never write he, him, his, she, her, they or "the owner" for {{owner}}, not even later in a sentence that already named {{owner}}: "{{owner}} told Ana that {{owner}} would call {{owner}}'s father". In your own words, name anyone else by their name or by who they are to {{owner}} ("{{owner}}'s father"), never by a family word copied from notes, to-dos, chats or a ref's id ("Mum", "Dad", "Grandpa", \`person:dad\`); quotes, nicknames asked for and names as written stay as they are.\n\n`;
 
 /**
  * What a call is shown of `prompt` (its name): the owner rule then its file, parts of the add-ons that are off cut

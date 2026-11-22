@@ -9,6 +9,7 @@
     "apps/lifelog/scripts/*.ts",
     "apps/server/src/desk/runtimes/fake-acp-agent.ts",
     "apps/server/src/desk/send-guard-hook.ts",
+    "apps/server/src/desk/runtimes/pi-extension.ts",
     "apps/claude-plugin/hooks/life.ts"
   ],
   "ignoreUnresolvedImports": ["./tokens.css", "./cloud.js", "./plotly.js"],
@@ -54,6 +55,10 @@
         "patterns": ["apps/server/src/payments/**"]
       },
       {
+        "name": "web-search",
+        "patterns": ["apps/server/src/web-search/**"]
+      },
+      {
         "name": "memory",
         "patterns": ["apps/server/src/memory/**"]
       },
@@ -93,6 +98,10 @@
       },
       {
         "from": "payments",
+        "allow": ["core"]
+      },
+      {
+        "from": "web-search",
         "allow": ["core"]
       },
       {
@@ -139,6 +148,7 @@
           "sources",
           "todo-list",
           "payments",
+          "web-search",
           "memory",
           "personal",
           "records",

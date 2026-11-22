@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { readChangeStamp, writeJson } from "../../core/files";
 import { HOME } from "../../core/platform";
 import { setSettings } from "../../core/settings";
-import { isSealed, type MisreadShown } from "../../memory/complaint-checks";
 import { withNetworkIdentity } from "../../memory/network-identity";
 import { PERSON_PICTURES, pictureFileOf } from "../../memory/party";
 import {
@@ -12,7 +11,6 @@ import {
   projectSituationPath,
   promptNameNow,
 } from "../../memory/project-situation-read";
-import { Misread } from "../complaints";
 import type { WakeLine } from "../registered-agents";
 import {
   GRAN_PICTURE,
@@ -39,6 +37,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   const agent = {
     amber: [],
     effort: "medium",
+    health: { verdict: "fine" as const, why: [] as string[] },
     id: "agt_000000000001",
     lastTurn: {
       cause: "start",
@@ -54,6 +53,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     project: null,
     role: "personal" as const,
     runtime: "claude",
+    sessionOpenIn: null,
+    sessionOpenSince: null,
     status: "running" as const,
     statusSince: "2026-10-13T09:00:00.000Z",
     steps: ["obs_000000000005"],
@@ -64,6 +65,12 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   // Waiting: one line of each kind (`wakesOnOf`).
   const waiting = {
     ...agent,
+    health: {
+      verdict: "attention" as const,
+      why: [
+        "Open in your Claude app since 09:02: its wakes wait until you close it there.",
+      ],
+    },
     id: "agt_000000000002",
     link: null,
     model: null,
@@ -141,7 +148,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   const spies = [
     // Every kind of check, as Life's own builders make them over made-up records (`checksOf`), never by hand.
     spyOn(checks, "checksAndKeyNow").mockImplementation(async () => ({
-      // As the inbox shows them (`inboxChecksOf`: push ids, urgency, the "Wrong…" sealed), under a made-up key.
+      // As the inbox shows them (`inboxChecksOf`: push ids, urgency), under a made-up key.
       checks: checks.inboxChecksOf(
         checks.checksOf(madeUpInbox).map((c) =>
           // Kit's guess, as its newest WhatsApp chat shows it (`networkIdentityOf` over a made-up chat-day).
@@ -255,6 +262,10 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         { ...waiting, matter: null },
       ],
       desk: "ok",
+      health: {
+        verdict: "broken",
+        why: ["No caretaker: your complaints have no one to fix them."],
+      },
       helper: "running",
       refused: [],
     }),
@@ -310,21 +321,15 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       name: "Kit",
       network: "WhatsApp",
     });
-    // Each "Wrong…" as the phone reads it is one Life sealed: sent back with his tick, the server takes it; a nested
-    // confirm's is its twin's at the top, so a press on either is the same press.
-    const asSent = (ref: unknown, m: unknown) =>
-      isSealed(String(ref), m as MisreadShown, "0".repeat(64)) &&
-      Misread.safeParse({ ...(m as object), kind: "misread", report: false })
-        .success;
+    // "Wrong…" shows on Life's own cards alone, by their cause; a nested confirm's is its twin's at the top.
     const ownCards = shown.filter((c) => c.misread);
     expect(ownCards.length).toBeGreaterThan(0);
-    expect(ownCards.every((c) => asSent(c.ref, c.misread))).toBe(true);
+    expect(ownCards.every((c) => c.asker === "life")).toBe(true);
     const nested = shown.flatMap(
       (c) => c.confirm as { misread: unknown; ref: string }[]
     );
     expect(nested.length).toBeGreaterThan(0);
     for (const x of nested) {
-      expect(asSent(x.ref, x.misread)).toBe(true);
       expect(x.misread).toEqual(shown.find((c) => c.ref === x.ref)?.misread);
     }
     const matters = await read("read_matters");
@@ -418,6 +423,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     spyOn(agents, "readRegisteredAgents").mockResolvedValue({
       agents: [{ ...gone, matter: null }],
       desk: "ok",
+      health: { verdict: "fine", why: [] },
       helper: "running",
       refused: [],
     });

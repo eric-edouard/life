@@ -71,8 +71,8 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   });
   expect(check?.options.map((o) => o.id)).toEqual([
     "this-is",
-    "not-this-person",
     "same-person",
+    "not-this-person",
   ]);
   expect(check?.about).toEqual(["+33600000001"]);
   const printed = checksText([check as Check]);
@@ -279,6 +279,13 @@ test("open decisions come first, soonest deadline first, each naming the agent t
   expect(
     checksOf({ ...base, matters: [matter(false)] }).map((c) => c.ref)
   ).toEqual(["dec_00000000000b", REF]);
+  // Probably done (a link, or Life reads it over) still waits on his word: its decision stays, on its matter.
+  expect(
+    checksOf({
+      ...base,
+      matters: [{ ...matter(false), status: "probably_done" as never }],
+    }).find((c) => c.ref === "dec_00000000000a")?.matter
+  ).toMatchObject({ id: "matter_bbbbbbbbbbbb" });
   // A step no matter holds any more (a re-group) keeps its decision.
   expect(checksOf({ ...base, matters: [] }).map((c) => c.ref)).toEqual([
     "dec_00000000000b",
@@ -618,7 +625,6 @@ test("the inbox is read again only when what it reads changed: not a unit sync; 
     expect(reads).toHaveBeenCalledTimes(1);
     // What agents hold keys on its stamp alone: the facts are read only when the list is.
     const held = (stamp: string) => ({
-      plans: () => new Set<string>(),
       read: () => anchored("obs_000000000001"),
       stamp,
     });

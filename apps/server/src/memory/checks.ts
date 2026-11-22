@@ -4,6 +4,7 @@ import { errorOf } from "../core/log-line";
 import { LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
 import { settings } from "../core/settings";
+import { answerIconOf } from "../records/answer-icon";
 import { isEndingCheck } from "../records/fact-check";
 import { KEEP_AT } from "../records/unit";
 import { readContactStores } from "../sources/contacts";
@@ -39,11 +40,7 @@ import {
 } from "./check-sentences";
 import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
-import {
-  fixingOf,
-  withComplaintFields,
-  withMisreadSealed,
-} from "./complaint-checks";
+import { fixingOf, withComplaintFields } from "./complaint-checks";
 import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
 import { decisionsNow, doneSeenByOf, isOnMatter, notSentOf } from "./decisions";
 import { guessedOf, plain } from "./doubts";
@@ -56,7 +53,12 @@ import {
   type HeldRead,
   LIFE_CHECKS,
 } from "./life-checks";
-import { directionDueOf, matterBookOf, matterFinderOf } from "./matter-read";
+import {
+  directionDueOf,
+  isAwaitingHisWord,
+  matterBookOf,
+  matterFinderOf,
+} from "./matter-read";
 import {
   MATTER_BOOK_READS,
   mattersNow,
@@ -132,7 +134,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           draft: d.draft ?? null,
           goal: null,
           group: "decision",
-          isPlan: c.plans?.has(d.id) ?? false,
+          isPlan: d.plan !== undefined,
           kind: "decision",
           likelyPeople: [],
           links: d.links,
@@ -344,6 +346,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
           onMatters: check.ridesOn.matterIds.flatMap(
             (id) => cardMatterOf(byId.get(id)) ?? []
           ),
+          options: check.options.map((o) => {
+            const icon = answerIconOf(o);
+            return icon ? { ...o, icon } : o;
+          }),
         };
         return {
           ...withComplaintFields(card, inputs.fixing, basis, quote?.text),
@@ -503,7 +509,7 @@ async function readChecks(
     lines,
     matterRank: new Map(
       rankedMattersOf(
-        matters.filter((v) => v.open),
+        matters.filter(isAwaitingHisWord),
         people.nameOf,
         today,
         rankContextOf(people)
@@ -516,7 +522,6 @@ async function readChecks(
     paged,
     people,
     places: readPlaces(),
-    plans: held?.plans(all),
     samePersons: samePersonPairsOf(people),
     titles,
     today,
@@ -532,14 +537,11 @@ async function readChecks(
   return inboxChecksOf(await withNetworkIdentities(checks, people), key);
 }
 
-/** The inbox's cards as finally shown (their network identities attached): with their push ids and urgency, then their "Wrong…" sealed on all of it (`withMisreadSealed`). */
+/** The inbox's cards as finally shown (their network identities attached): with their push ids and urgency. */
 export const inboxChecksOf = (identified: readonly Check[], key: string) =>
-  withMisreadSealed(
-    identified.map((c) => ({
-      ...c,
-      contactsCard: c.contactsCard ?? null,
-      pushId: pushIdOf(c.ref, key),
-      urgency: urgencyOf(c),
-    })),
-    key
-  );
+  identified.map((c) => ({
+    ...c,
+    contactsCard: c.contactsCard ?? null,
+    pushId: pushIdOf(c.ref, key),
+    urgency: urgencyOf(c),
+  }));

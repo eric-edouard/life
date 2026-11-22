@@ -33,9 +33,11 @@ public enum Outbox {
 
 /// Something the owner did that the server must apply: the switches, the vocabulary, a quiet range of this phone.
 public enum OwnerIntent: Sendable, Equatable, Codable {
-    /// The owner turns transcription on or off, or sets when the server asks him to open the app; `nil` leaves one as
-    /// it is. (`ai` and `engine` are the server's own: no screen writes them.)
-    case switches(transcription: Bool? = nil, openAppAfterMinutes: Int? = nil)
+    /// The owner turns transcription on or off, sets when the server asks him to open the app, or where his dictation
+    /// is heard; `nil` leaves one as it is. (`ai` and `engine` are the server's own: no screen writes them.)
+    case switches(
+        transcription: Bool? = nil, openAppAfterMinutes: Int? = nil,
+        dictationHeard: ServerClient.Switches.DictationHeard? = nil)
     /// The owner's whole word list (people's names are the server's own).
     case vocabulary([String])
     /// A stretch this app played a recording out loud, padded: never transcription. Its id is the edit's.
@@ -51,9 +53,10 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
         let path: String
         let body: (any Encodable)?
         switch self {
-        case .switches(let transcription, let openAppAfterMinutes):
+        case .switches(let transcription, let openAppAfterMinutes, let dictationHeard):
             path = "switches"
-            body = SwitchesBody(transcription: transcription, openAppAfterMinutes: openAppAfterMinutes)
+            body = SwitchesBody(
+                transcription: transcription, openAppAfterMinutes: openAppAfterMinutes, dictationHeard: dictationHeard)
         case .vocabulary(let terms):
             path = "vocabulary"
             body = ["terms": terms]
@@ -70,6 +73,7 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
     private struct SwitchesBody: Encodable {
         var transcription: Bool?
         var openAppAfterMinutes: Int?
+        var dictationHeard: ServerClient.Switches.DictationHeard?
     }
 
     private struct QuietBody: Encodable {
@@ -189,9 +193,12 @@ public struct PendingEdits: Sendable, Equatable {
     /// The feed's switches with the waiting changes applied, in order; `nil` until the feed said.
     public func switches(over feed: ServerClient.Switches?) -> ServerClient.Switches? {
         intents.reduce(feed) { shown, intent in
-            guard var shown, case .switches(let transcription, let openAppAfter) = intent else { return shown }
+            guard var shown, case .switches(let transcription, let openAppAfter, let heard) = intent else {
+                return shown
+            }
             shown.transcription = transcription ?? shown.transcription
             shown.openAppAfterMinutes = openAppAfter ?? shown.openAppAfterMinutes
+            shown.dictationHeard = heard ?? shown.dictationHeard
             return shown
         }
     }
@@ -222,11 +229,15 @@ public struct SwitchField<T: Sendable & Equatable>: Sendable {
     let isWrittenBy: @Sendable (OwnerIntent) -> Bool
 
     public static var transcription: SwitchField<Bool> {
-        .init(read: { $0.transcription }, isWrittenBy: { if case .switches(.some, _) = $0 { true } else { false } })
+        .init(read: { $0.transcription }, isWrittenBy: { if case .switches(.some, _, _) = $0 { true } else { false } })
     }
     public static var openAppAfterMinutes: SwitchField<Int> {
         .init(
-            read: { $0.openAppAfterMinutes }, isWrittenBy: { if case .switches(_, .some) = $0 { true } else { false } })
+            read: { $0.openAppAfterMinutes },
+            isWrittenBy: { if case .switches(_, .some, _) = $0 { true } else { false } })
+    }
+    public static var dictationHeard: SwitchField<ServerClient.Switches.DictationHeard> {
+        .init(read: { $0.dictationHeard }, isWrittenBy: { if case .switches(_, _, .some) = $0 { true } else { false } })
     }
 }
 

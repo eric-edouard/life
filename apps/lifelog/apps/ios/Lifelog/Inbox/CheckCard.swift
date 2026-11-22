@@ -52,11 +52,13 @@ struct CheckCard: View {
         }
         .motion(Motion.standard, value: input.isWritingOwnWords)
         .scrollBounceBehavior(.basedOnSize)
-        .scrollEdgeEffectStyle(.soft, for: .vertical)
         .safeAreaBar(edge: .bottom, spacing: 0) {
             // The answers themselves, never a scroll view of them: one at the screen's bottom edge took the bar's soft
             // edge as its own, blurred the answers and kept his taps (21 Nov). `fitsBar` keeps the bar short.
-            if isAnswersInBar { answers.padding(.horizontal, Metrics.Spacing.s).readingWidth() }
+            if isAnswersInBar {
+                answers.padding(.horizontal, Metrics.Spacing.s).readingWidth()
+                    .frame(maxWidth: .infinity).background { AnswersBackdrop() }
+            }
         }
         .sheet(item: $input.context) { context in
             ContextSheet(
@@ -154,7 +156,7 @@ struct CheckCard: View {
         DictationField(
             prompt: check.group == .newMatter
                 ? "The goal"
-                : check.draft != nil ? "\(check.tellTitle.dropLast()) what to change…" : "Say it in your own words",
+                : check.draft != nil ? "\(check.ownWordsTitle.dropLast()) what to change…" : "Say it in your own words",
             text: $input.words, axis: .vertical, focused: $isWriting
         )
         .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
@@ -207,22 +209,22 @@ struct CheckCard: View {
         return true
     }
 
-    /// The pager's dots (a spinner while a tapped push is checked: how many asks wait is not known yet), then the
-    /// answers.
+    /// The room for the pager's dots, which the pager draws there, still while the asks slide (a spinner while a tapped
+    /// push is checked: how many asks wait is not known yet), then the answers.
     private var answers: some View {
         VStack(spacing: Metrics.Spacing.m) {
             Group {
                 if life.isCheckingPush {
                     Spinner(size: .small).foregroundStyle(Palette.fg)
                 } else if let page {
-                    PagerDots(current: page.current, total: page.total)
+                    PagerDotsSlot(index: page.current)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .motion(Motion.standard, value: life.isCheckingPush)
             CheckActions(
                 check: check, input: $input, isBusy: isBusy, answer: answer, sameAs: sameAs, create: create,
-                wrong: wrong, pressed: pressed
+                wrong: wrong, runtimeName: runtimeName, pressed: pressed
             )
         }
         .padding(.bottom, Metrics.Spacing.s)

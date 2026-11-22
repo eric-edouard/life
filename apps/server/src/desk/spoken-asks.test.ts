@@ -207,6 +207,44 @@ test("an ask its assignment closed on unhanded is given back and routed again", 
   }
 });
 
+// life#1103: his words told to an agent that then ended waited for good; they go to the Personal agent, never by meaning.
+test("his words told to one agent go there; its agent ended, to the Personal agent at once, never by meaning", async () => {
+  const d = deskOf(() => ({ isWhole: false }));
+  try {
+    const to = asgOf(d.s.desk, await d.s.waiting());
+    const told = (quote: string) =>
+      ask(
+        { at: new Date().toISOString(), quote, ref: `tell-life:${quote}` },
+        { agent: DESK_AGENT, to },
+        "connector",
+        "his words through Tell Life to one agent"
+      ).id;
+    const facts = () =>
+      d
+        .events()
+        .map((e) => [e.assignment_id, e.event_id, JSON.parse(e.payload).by]);
+    const kept = told("book the test dentist");
+    await d.receive();
+    expect(facts()).toEqual([[to, kept, { to, why: "told" }]]);
+    // Its agent ends: the unhanded ask is given back, and both it and a later one go to Personal.
+    closeAssignmentRow(d.s.desk.db, to, { outcome: "done" });
+    const late = told("move the test appointment");
+    // The embedder is down: the Personal agent takes them now, without the 20 s wait for meaning.
+    await d.receive();
+    const personal = asgOf(
+      d.s.desk,
+      standingAgentOf(d.s.desk.db, "personal")?.id ?? ""
+    );
+    expect(facts()).toEqual([
+      [personal, kept, { to, why: "told" }],
+      [personal, late, { to, why: "told" }],
+    ]);
+    expect(readSpokenAsksCursor(d.s.desk.db).waiting).toEqual([]);
+  } finally {
+    d.done();
+  }
+});
+
 test("a spoken ask wakes its agent at once, and says to confirm a low one", () => {
   const at = "2026-11-18T09:00:00.000Z";
   const event = {

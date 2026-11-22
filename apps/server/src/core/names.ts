@@ -79,14 +79,28 @@ export type NotifyKind = z.infer<typeof NotifyKind>;
 export const NotifyLevel = z.enum(["off", "quiet", "normal", "urgent"]);
 export type NotifyLevel = z.infer<typeof NotifyLevel>;
 
+/** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his complaint through Ask Life), `main` (the main session: answers his words through Ask Life). */
+export const AgentRole = z.enum(["personal", "caretaker", "main"]);
+export type AgentRole = z.infer<typeof AgentRole>;
+
 /** The runtimes the desk drives (`desk/runtimes/`), by name. */
-export const RuntimeName = z.enum(["claude", "codex"]);
+export const RuntimeName = z.enum(["claude", "codex", "pi"]);
 export type RuntimeName = z.infer<typeof RuntimeName>;
+
+/** A web search provider, by the name his `desk.webSearch` gives it (`web-search/backend.ts`). */
+export const WebSearchProviderName = z.enum([
+  "brave",
+  "perplexity-search",
+  "serpapi",
+  "serper",
+]);
+export type WebSearchProviderName = z.infer<typeof WebSearchProviderName>;
 
 /** A runtime as he reads it, by its name: the program, as its maker calls it. */
 export const RUNTIME_WORDS: Record<RuntimeName, string> = {
   claude: "Claude Code",
   codex: "Codex",
+  pi: "pi",
 };
 
 /** Where a unit or an observation comes from. */
