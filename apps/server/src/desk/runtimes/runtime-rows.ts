@@ -267,6 +267,7 @@ const transcriptOf = (ref: string) => {
 async function handOff(a: Agent, ref: string) {
   const r = await exec([
     "open",
+    "-g",
     "-a",
     settings().desk?.claudeApp ?? "/Applications/Claude.app",
     `claude://resume?session=${ref}`,

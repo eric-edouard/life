@@ -233,7 +233,7 @@ async function mainOf(desk: Desk) {
 
 /**
  * His presence on the Ask Life screen: keeps the main session's session open, when it stands and has one (none: his
- * first words register it and make it; presence registers nothing). Why not, when it can't.
+ * first words make it; presence makes nothing). Why not, when it can't.
  */
 export async function keepMainSession(desk: Desk) {
   const a = standingAgentOf(desk.db, "main");

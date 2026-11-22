@@ -9,6 +9,7 @@ import { agentMoveReadOf } from "../host/move-read";
 import { type Desk, openDesk } from "./desk-store";
 import { roleAssignmentOf, roleStartBlockOf, standUp } from "./role-agents";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { sessionAgentOf } from "./turn-ends";
 
 // A runtime per role (`desk.roleRuntimes`): a standing role's agent starts on its role's runtime; a role left out takes
 // the desk's default. Made-up briefs.
@@ -94,4 +95,10 @@ test("the main session and the caretaker stand from the desk's start: an agent r
   stand();
   expect(agentInRole(db, "caretaker")).toMatchObject({ status: "active" });
   expect(agentInRole(db, "caretaker")?.id).not.toBe(caretaker);
+});
+
+test("a standing role's session is titled by its role until he names it", () => {
+  const a = agentInRole(desk.db, "main");
+  expect(a && sessionAgentOf(a).title).toBe("Agent: Ask Life");
+  expect(a && sessionAgentOf({ ...a, name: "Mine" }).title).toBe("Agent: Mine");
 });

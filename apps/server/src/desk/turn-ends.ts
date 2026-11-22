@@ -51,6 +51,7 @@ const now = () => clock().toISOString();
 const ROLE_NAMES: Partial<Record<AgentRole, string>> = {
   caretaker: "Caretaker",
   main: "Ask Life",
+  personal: "Personal",
 };
 
 /** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with. */
