@@ -92,13 +92,15 @@ public struct InboxOrder: Equatable, Sendable {
             ?? checks.first
     }
 
-    /// Each kind with 2 or more asks Life pre-ticks (`preTicked`) folded into its first ask, which stands for all of
-    /// them (`bulk`), unless he chose to go through it one by one (`unfolded`). A kind he is answering row by row
+    /// The voices to name fold into the first, whatever Life guesses: it is the way into the voice run, nothing is ticked
+    /// or dismissed in bulk. Each other kind with 2 or more asks Life pre-ticks (`preTicked`) folds into its first ask,
+    /// which stands for all of them (`bulk`), unless he chose to go through it one by one (`unfolded`). A kind he is answering row by row
     /// (`working`, by the ask its card was first shown under) stays one card down to its last row, never turning into
     /// a single ask under his finger, and keeps that ask as its page even once it was answered: the card never leaves
     /// and comes back under a new ref.
     public func folded(except unfolded: Set<CheckGroup> = [], working: [CheckGroup: Check] = [:]) -> InboxOrder {
         let inBulk = kinds.filter { kind in
+            if kind == .voice { return true }
             let pre = checks.count(where: { $0.bulkKind == kind && $0.preTicked != nil })
             return !unfolded.contains(kind) && (pre > 1 || (pre > 0 && working[kind] != nil))
         }

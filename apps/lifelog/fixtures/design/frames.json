@@ -1224,5 +1224,20 @@
     ],
     "taps": ["Retry"],
     "drawing": "tap feedback, no drawing"
+  },
+  "NameVoicesUXAStart": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "voice_guess"],
+    "drawing": "direction A, not in the frame map yet (built without its toast: a design change)"
+  },
+  "NameVoicesUXAGuess": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "voice_guess",
+      "-fixtureSheet",
+      "voiceRun"
+    ],
+    "drawing": "direction A, not in the frame map yet (built without its toast: a design change)"
   }
 }
