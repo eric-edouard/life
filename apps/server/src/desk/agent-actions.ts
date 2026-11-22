@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import type { AgentRole } from "../core/names";
 import { AGENT_POST_SIGNATURE, DESK_AGENT } from "../core/names";
 import { DESK_AGENT_FOLDERS } from "../core/paths";
 import { pathInside } from "../core/platform";
@@ -44,11 +45,7 @@ import {
 } from "../memory/read-truth";
 import { clip } from "../memory/units";
 import { nameRefusalOf, readPeople } from "../memory/who";
-import type {
-  AgentRole,
-  EventFilter,
-  OpenedBy,
-} from "../records/registered-agent";
+import type { EventFilter, OpenedBy } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
