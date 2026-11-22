@@ -180,12 +180,18 @@ export async function readRun(runId: string, withItems = true) {
   const items =
     withItems && run.status === "SUCCEEDED"
       ? await fetch(
-          `${API}/datasets/${run.defaultDatasetId}/items?clean=1&limit=${ITEMS}`,
+          `${API}/datasets/${encodeURIComponent(run.defaultDatasetId)}/items?clean=1&limit=${ITEMS}`,
           {
             headers: { Authorization: `Bearer ${apifyToken() ?? ""}` },
             signal: AbortSignal.timeout(30_000),
           }
-        ).then((r) => r.json() as Promise<unknown[]>)
+        ).then((r) => {
+          // A dataset's items are a bare array, not `data`: a refusal throws as `askApify`'s would.
+          if (!r.ok) {
+            throw new Error(`Apify ${r.status}: the run's items`);
+          }
+          return r.json() as Promise<unknown[]>;
+        })
       : [];
   return {
     finishedAt: run.finishedAt,

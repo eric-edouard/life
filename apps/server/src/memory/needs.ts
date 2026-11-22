@@ -148,7 +148,7 @@ const KINDS: {
   apify: {
     about: "a paid Apify run",
     line: (n) =>
-      `Apify: ${n.what}, by ${n.actor}, about $${n.estimateUsd}, at most $${n.maxUsd}`,
+      `Apify: ${n.what}, by ${n.actor}, about $${n.estimateUsd}, at most $${n.maxUsd}. Input: ${JSON.stringify(n.input)}`,
     page: `\`{kind: "apify", actor, input, what, estimateUsd, maxUsd}\`: a run of an Apify actor (a paid scraper of the web) Life starts on his yes, on his Apify account. \`actor\` the store's \`username/name\` from \`find_apify_actors\`, only one it marks \`capped\` (paid per event: Apify holds its run under a dollar cap); \`input\` the actor's input exactly as it runs (its own input schema; keep the counts small); \`what\` what it gets him, in a few words; \`estimateUsd\` your estimate from its prices at his tier (each event's price times how many you expect, its start included), at most \`maxUsd\`; \`maxUsd\` the cap, at least the actor's \`minimalCapUsd\`, at most $${APIFY_RUN_MAX_USD}: Apify charges nothing past it. Say in \`context\` how you estimated it. Mark the one option that runs it \`runs: true\` ("Run it"); his pick of it alone makes Life start the run, once, never retried, and \`decision.answered\` carries \`ran\`, the run's id or its error: read the run with \`read_apify_run\`. Never run an actor any other way. Example: \`{"kind":"apify","actor":"compass/crawler-google-places","input":{"searchStringsArray":["laser clinic"],"locationQuery":"Bangkok","maxCrawledPlacesPerSearch":20},"what":"20 laser clinics in Bangkok with phones and hours","estimateUsd":0.09,"maxUsd":0.5}\`.`,
   },
   app: {

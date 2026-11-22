@@ -697,22 +697,18 @@ export async function answerDecision(
   log("decision.answered", { id, note: !!note, options: options.length, via });
   onStep?.("recorded");
   const act = actDueOf(stored);
-  if (act === "add" && add) {
+  // The acts that write outside Life once, each with its outcome line's kind and its host writer (given or not).
+  const settles = {
+    add: ["added", add],
+    end: ["ended", end],
+    run: ["ran", run],
+  } as const;
+  const [kind, write] =
+    (act && act in settles && settles[act as keyof typeof settles]) || [];
+  if (kind && write) {
     return [
       line,
-      await settleOnAnswer("added", stored, () => add(stored), onStep),
-    ];
-  }
-  if (act === "end" && end) {
-    return [
-      line,
-      await settleOnAnswer("ended", stored, () => end(stored), onStep),
-    ];
-  }
-  if (act === "run" && run) {
-    return [
-      line,
-      await settleOnAnswer("ran", stored, () => run(stored), onStep),
+      await settleOnAnswer(kind, stored, () => write(stored), onStep),
     ];
   }
   if (act === "look" && look) {
