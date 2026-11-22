@@ -125,7 +125,10 @@ export async function pollArrivals(
 ) {
   const now = o.now ?? clock();
   const since = new Date(now.getTime() - LOOK_BACK).toISOString();
-  const arrivals = o.arrivals ?? readConfirmedArrivals(since);
+  // A low-priority one wakes no one (his decision of 21 Nov 2026); the night still reads its unit.
+  const arrivals = (o.arrivals ?? readConfirmedArrivals(since)).filter(
+    (a) => a.wakes
+  );
   if (arrivals.length === 0) {
     return;
   }
