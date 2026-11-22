@@ -401,7 +401,9 @@ test("how sure a stored guess is comes from the signals code counted for that vo
   const stored = (confidence: string, signals: number, elsewhere = false) =>
     checkedVoices({ voices: [entry({ confidence })] }, input, {
       ...NOTHING_KNOWN,
-      evidence: new Map([["V1 person:dana", { elsewhere, signals }]]),
+      evidence: new Map([
+        ["V1 person:dana", { elsewhere, signals, why: null }],
+      ]),
     }).voices[0]?.confidence;
   expect(stored("sure", 2)).toBe("sure");
   expect(stored("sure", 2, true)).toBe("likely");
@@ -417,6 +419,26 @@ test("how sure a stored guess is comes from the signals code counted for that vo
     checkedVoices({ voices: [entry({ person: "me" })] }, input, NOTHING_KNOWN)
       .voices[0]?.confidence
   ).toBe("sure");
+});
+
+// His ask of 22 Nov: each guess shows why. Code's reason is stored with it; a reason the model wrote is never kept.
+test("a stored guess carries code's why, never the model's", () => {
+  const why = (person: string) =>
+    checkedVoices(
+      { voices: [entry({ person, why: "the model says so" })] },
+      input,
+      {
+        ...NOTHING_KNOWN,
+        evidence: new Map([
+          [
+            "V1 person:dana",
+            { elsewhere: false, signals: 1, why: "Planned that day: lunch" },
+          ],
+        ]),
+      }
+    ).voices[0] as { why?: string } | undefined;
+  expect(why("person:dana")?.why).toBe("Planned that day: lunch");
+  expect(why("unknown")?.why).toBeUndefined();
 });
 
 test("a group's guess is stored under each of its recording voices, citing that voice's lines, else its first", () => {

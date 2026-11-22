@@ -78,6 +78,16 @@ export const voiceChecksOf = (
         // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
         subject: who ? known : null,
         title: LIFE_CHECKS.voice.title,
+        voiceGuesses: (item.guessed ?? []).flatMap((r) =>
+          people.names.has(people.refOf(r))
+            ? [
+                {
+                  person: people.partyOf(people.refOf(r)),
+                  why: item.whys?.[r] ?? null,
+                },
+              ]
+            : []
+        ),
       };
       const quote: Quote | undefined = first && {
         text: first.text,

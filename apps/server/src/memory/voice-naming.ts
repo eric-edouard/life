@@ -35,10 +35,12 @@ import {
   namingBriefOf,
   namingConfidenceOf,
   overlappingPhoneCallsOf,
-  plannedPeopleOf,
+  plannedBeforeOf,
   possibleSpeakersOf,
   SOUNDS_LIKE,
+  scheduledOf,
   voiceGroupsOf,
+  whyOf,
 } from "./naming-context";
 import {
   type Asked,
@@ -102,8 +104,11 @@ const TOKEN = /^V\d+$/;
 
 /** What code knows of a part and the model is not shown. */
 interface Known {
-  /** For a group `V` and a person offered (`${voice} ${person}`): the signals code counted, and whether one points to someone else. */
-  evidence: Map<string, { elsewhere: boolean; signals: number }>;
+  /** For a group `V` and a person offered (`${voice} ${person}`): the signals code counted, whether one points to someone else, and why it would be guessed (`whyOf`). */
+  evidence: Map<
+    string,
+    { elsewhere: boolean; signals: number; why: string | null }
+  >;
   /** Each group `V`'s recording voices, by the `V` they are stored as (`voiceTokensOf` of the part's unnamed keys), with their lines; a `V` not here is stored as itself. */
   members: Map<string, Map<string, number[]>>;
   /** The group `V`s of the voices his own answer says name no one: stored `unknown`, whatever the model said. */
@@ -154,8 +159,9 @@ export function checkedVoices(
               found?.signals ?? 0,
               found?.elsewhere ?? false
             ),
+            why: found?.why ?? undefined,
           }
-        : e,
+        : { ...e, why: undefined },
     ];
   });
   const answered = [...known.noOne].flatMap((voice) => {
@@ -210,8 +216,8 @@ interface Context {
   pictured: Map<string, Set<string>>;
   /** Voice's naming queue item of each voice in one (`voiceKey`): its group. */
   queue: Map<string, NamingQueueItem>;
-  /** Persons in an active plan for a day (its `when`) whose evidence is not a recording, by that day. */
-  scheduled: Map<string, Set<string>>;
+  /** Persons in an active plan for a day (its `when`) whose evidence is not a recording, by that day, each with the plan's words. */
+  scheduled: Map<string, Map<string, string>>;
 }
 
 const addTo = <K, V>(m: Map<K, Set<V>>, k: K, v: V) =>
@@ -235,26 +241,18 @@ async function readDayFacts(dates: string[], people: People) {
     }
   }
   const facts = new Map<string, Set<string>>();
-  const scheduled = new Map<string, Set<string>>();
   const { observations, statusInputs } = await observationsNow(people);
-  for (const o of observations) {
-    if (
-      o.source.channel === "lifelog" ||
-      observationStatusOf(o, statusInputs).state !== "active"
-    ) {
-      continue;
-    }
+  const active = observations.filter(
+    (o) =>
+      o.source.channel !== "lifelog" &&
+      observationStatusOf(o, statusInputs).state === "active"
+  );
+  for (const o of active.filter((x) => dates.includes(x.date))) {
     for (const s of o.subjects) {
-      if (dates.includes(o.date)) {
-        addTo(facts, o.date, s);
-      }
-      if (o.modality === "plan" && o.when && dates.includes(o.when)) {
-        for (const p of plannedPeopleOf(s, people.truth)) {
-          addTo(scheduled, o.when, p);
-        }
-      }
+      addTo(facts, o.date, s);
     }
   }
+  const scheduled = scheduledOf(active, dates, people.truth);
   return { facts, pictured, scheduled };
 }
 
@@ -494,7 +492,10 @@ function evidenceOf(
   const { c } = o;
   const refOf = (personId: string) =>
     voicePersonOf(c.people.resolve, personId, c.names.get(personId));
-  const evidence = new Map<string, { elsewhere: boolean; signals: number }>();
+  const evidence = new Map<
+    string,
+    { elsewhere: boolean; signals: number; why: string | null }
+  >();
   for (const [token, voices] of groups.members) {
     const lines = [...voices.values()].flat();
     const first = Math.min(...lines.map((n) => turnAtOf(part.keys[n] ?? "")));
@@ -512,8 +513,8 @@ function evidenceOf(
       )
     );
     for (const person of o.possible) {
-      const planned = isPlannedBefore(c.direct.get(person) ?? [], first);
-      const scheduled = Boolean(c.scheduled.get(part.day)?.has(person));
+      const planned = plannedBeforeOf(c.direct.get(person) ?? [], first);
+      const plan = c.scheduled.get(part.day)?.get(person);
       const named = isNameSaid(others, [
         c.people.nameOf(person),
         ...(o.chats.get(person) ?? []),
@@ -525,11 +526,18 @@ function evidenceOf(
           : [...strong].some((r) => r !== person),
         signals: [
           planned,
-          scheduled,
+          plan,
           named,
           o.onCall.includes(person),
           sounds,
         ].filter(Boolean).length,
+        why: whyOf({
+          named,
+          onCall: o.onCall.includes(person),
+          plan,
+          planned,
+          sounds,
+        }),
       });
     }
   }
@@ -579,7 +587,7 @@ export function namingOf(
       heard: c.heard,
       onCall: calls.people,
       pictured: [...(c.pictured.get(part.day) ?? [])],
-      scheduled: [...(c.scheduled.get(part.day) ?? [])],
+      scheduled: [...(c.scheduled.get(part.day)?.keys() ?? [])],
     },
     part.at,
     began,

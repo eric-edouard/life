@@ -2,15 +2,18 @@ import { DAY, HOUR, MIN } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { DetailLine } from "./details";
 import { OWNER, projectPeopleAndChatsOf, type Truth } from "./read-truth";
+import { sourceOf } from "./sources";
 import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
 import type { People } from "./who";
-import { offsetAt } from "./zones";
+import { offsetAt, time } from "./zones";
 
 // What the voice naming read (`memory/voice-naming.ts`) is told about a conversation, made by code from his rules and
 // never by a model (docs/glossary.md: calls, possible speaker, naming brief). Pure: the caller reads the data.
 
 /** The calls a naming read is shown: at most this many characters. */
 export const CALLS_CHARS = 600;
+/** A guess's why (`whyOf`): at most this many characters. */
+export const WHY_CHARS = 120;
 /** A person's naming brief: at most this many characters. */
 export const BRIEF_CHARS = 300;
 /** The most people a naming read offers. */
@@ -83,12 +86,47 @@ export function overlappingPhoneCallsOf(
 export const expectedWindowOf = (began: string, ended: string) =>
   [Date.parse(began) - EXPECTED_BEFORE, Date.parse(ended)] as const;
 
-/** Whether one of `events` (one-to-one) is a message, not a call, in the `PLANNED_WITHIN` up to `at` (ms): a plan to meet. */
-export const isPlannedBefore = (events: readonly SourceEvent[], at: number) =>
-  events.some((e) => {
+/** The last of `events` (one-to-one) that is a message, not a call, in the `PLANNED_WITHIN` up to `at` (ms): a plan to meet. */
+export const plannedBeforeOf = (events: readonly SourceEvent[], at: number) =>
+  events.findLast((e) => {
     const t = Date.parse(e.at);
     return !e.phoneCall && t >= at - PLANNED_WITHIN && t <= at;
   });
+
+/** Whether one of `events` is a plan to meet (`plannedBeforeOf`). */
+export const isPlannedBefore = (events: readonly SourceEvent[], at: number) =>
+  Boolean(plannedBeforeOf(events, at));
+
+/**
+ * Why a guess is shown, in his words on the card: the most telling signal code found for that voice and person, the
+ * plan for the day first (its words), then the message before (its app, time and words), the call, the name said, the
+ * sound. Null: none, the model's word alone.
+ */
+export function whyOf(s: {
+  named: boolean;
+  onCall: boolean;
+  plan?: string;
+  planned?: SourceEvent;
+  sounds: boolean;
+}) {
+  if (s.plan) {
+    return clip(`Planned that day: ${s.plan}`, WHY_CHARS);
+  }
+  if (s.planned) {
+    const e = s.planned;
+    return clip(
+      `${sourceOf(e.source).label}, ${time(e.at)}: ${e.text}`,
+      WHY_CHARS
+    );
+  }
+  if (s.onCall) {
+    return "On a call at that time";
+  }
+  if (s.named) {
+    return "Their name is said";
+  }
+  return s.sounds ? "Sounds like them" : null;
+}
 
 /**
  * The expected company of a conversation running from `began` to `ended`: everyone (a person ref, `direct`'s key) with a
@@ -188,6 +226,31 @@ export function plannedPeopleOf(
       ? o.people.filter((p) => !p.until).map((p) => `person:${p.id}`)
       : [r];
   });
+}
+
+/** The people of the active plans (`modality` plan) for each of `dates` (their `when`), each with its plan's words (`plannedPeopleOf`). */
+export function scheduledOf(
+  observations: readonly {
+    modality?: string | null;
+    subjects: string[];
+    text: string;
+    when?: string | null;
+  }[],
+  dates: readonly string[],
+  truth: Parameters<typeof plannedPeopleOf>[1]
+) {
+  const scheduled = new Map<string, Map<string, string>>();
+  for (const o of observations) {
+    if (o.modality !== "plan" || !o.when || !dates.includes(o.when)) {
+      continue;
+    }
+    const plans = scheduled.get(o.when) ?? new Map<string, string>();
+    for (const p of o.subjects.flatMap((s) => plannedPeopleOf(s, truth))) {
+      plans.set(p, o.text);
+    }
+    scheduled.set(o.when, plans);
+  }
+  return scheduled;
 }
 
 /**

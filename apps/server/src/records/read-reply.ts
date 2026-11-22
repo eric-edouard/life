@@ -56,12 +56,14 @@ export const SummaryReply = z
     reply: z.looseObject({ summary: z.string() }),
   })
   .strict();
-/** One voice's guess in a voice naming reply: `voice` is a `V` token of the part's lines, `person` an offered ref, `me` or `unknown`, `lines` the ones that show it. */
+/** One voice's guess in a voice naming reply: `voice` is a `V` token of the part's lines, `person` an offered ref, `me` or `unknown`, `lines` the ones that show it, `why` code's reason. */
 export const NamedVoice = z.object({
   confidence: z.enum(["sure", "likely", "weak"]),
   lines: z.array(z.int().min(0)).min(1),
   person: z.string(),
   voice: z.string(),
+  /** Why it is guessed, made by code (`whyOf`), never the model's; absent on guesses made before it, or with no signal. */
+  why: z.string().optional(),
 });
 export const VoiceNamingReply = z
   .object({
