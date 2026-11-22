@@ -64,7 +64,7 @@ struct CheckActions: View {
             } else if isBusy {
                 Button {
                 } label: {
-                    Text(check.draft != nil ? "Sending…" : "Saving…")
+                    WorkingWords(words: check.draft != nil ? "Sending…" : "Saving…", key: .answer(ref: check.ref))
                 }
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
@@ -415,7 +415,7 @@ struct CheckActions: View {
                     Text(pressed.doneWord(proof).trimmingCharacters(in: CharacterSet(charactersIn: ".")))
                 }
             } else {
-                Text(pressed.isStart ? "Starting…" : "Saving…")
+                WorkingWords(words: pressed.isStart ? "Starting…" : "Saving…", key: pressed.key)
             }
         }
         .buttonStyle(.pill(state.isDone(isSend: false) ? .done : kind, size: size, isBusy: state.isRunning))
@@ -436,6 +436,20 @@ struct CheckActions: View {
             } else {
                 life.show(.init(words: "This version of the app can’t answer that yet.", undo: nil, isDone: false))
             }
+        }
+    }
+}
+
+/// A running answer's words, "Still working…" once the Mac has said nothing for 8 s (`LifeStore.working`).
+struct WorkingWords: View {
+    let words: String
+    let key: LifeStore.ActionKey
+    @Environment(LifeStore.self) private var life
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let shown = life.working(words, of: key, at: context.date)
+            Text(shown).contentTransition(.opacity).motion(Motion.standard, value: shown)
         }
     }
 }

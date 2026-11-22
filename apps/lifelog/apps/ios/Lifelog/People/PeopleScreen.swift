@@ -34,7 +34,8 @@ private struct PeopleColumns: View {
         @Bindable var router = router
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.personColumn) {
             ReadScreen(
-                shown: life.people.shown(isEmpty: { $0.people.isEmpty }), retry: { await life.refreshPeople() },
+                shown: life.people.shown(isEmpty: { $0.people.isEmpty }), stamp: life.people.stamp,
+                retry: { await life.refreshPeople() },
                 loading: { RowsPlaceholder(hasDisc: true, label: "Loading the people") },
                 empty: {
                     Notice(
