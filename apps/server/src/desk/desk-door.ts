@@ -71,7 +71,7 @@ import {
   writeNotes,
 } from "./agent-actions";
 import { readApifyRun } from "./apify-reads";
-import { readComplaint } from "./complaint-intake";
+import { complaintWordsIn, readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
 import { doorOf, keyOf } from "./door-keys";
 import {
@@ -130,7 +130,8 @@ function turnRefusalOf(
       ? null
       : `Not done: the main session acts only on a turn of his words, through \`answer\`, \`request_decision\` and its acts (${[...MAIN_TOOLS].join(", ")}).`;
   }
-  if (MAIN_TOOLS.has(name)) {
+  // The caretaker fixes Life's memory itself, on the words of the complaint it holds (his ruling of 22 Nov 2026).
+  if (MAIN_TOOLS.has(name) && !isCaretakerFix(name, a)) {
     return `Not done: \`${name}\` is the main session's alone.`;
   }
   const isEnd = name === "set_wait" || name === "finish";
@@ -138,6 +139,10 @@ function turnRefusalOf(
     ? askFirstMessageOf(opensWithPlan(desk.db, s))
     : null;
 }
+
+/** Whether `name` is the caretaker's one act beside the ordinary door: `correct_memory`, on his complaint's words. */
+const isCaretakerFix = (name: string, a: AgentRow | null) =>
+  name === "correct_memory" && a?.role === "caretaker";
 
 /** The door's tools only the main session has, on a turn of his words: `answer` and its acts. */
 const MAIN_TOOLS = new Set([
@@ -360,13 +365,15 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "correct_memory",
-    "The main session only, on his words (`said`, his own words of this ask, verbatim): one correction to Life's memory, as the connector's `correct_memory` takes it for `memory` (`correction`: a fact wrong, kind `wrong`, or no longer true or done, kind `outdated`, with its obs_ ids; on a whole matter, `matter` its id: kind `outdated` (he says it is done: its open steps close, its to-do items ticked, his words its note; with `outcome` `dropped`, he drops it: its to-do items removed, not ticked), `matter-reopened` (he reopens a closed matter: its ticked to-do items unticked, its facts open again, his words its note), `matter-direction` (`goal`, `nextStep`), `matter-important`, `matter-project`, `matter-icon`). Returns the lines written.",
+    "The main session, on his words (`said`, his own words of this ask, verbatim), or the caretaker, on his complaint's (`said`, the words of a complaint it is fixing, verbatim): one correction to Life's memory, as the connector's `correct_memory` takes it for `memory` (`correction`: a fact wrong, kind `wrong`, or no longer true or done, kind `outdated`, with its obs_ ids; on a whole matter, `matter` its id: kind `outdated` (he says it is done: its open steps close, its to-do items ticked, his words its note; with `outcome` `dropped`, he drops it: its to-do items removed, not ticked), `matter-reopened` (he reopens a closed matter: its ticked to-do items unticked, its facts open again, his words its note), `matter-direction` (`goal`, `nextStep`), `matter-important`, `matter-project`, `matter-icon`). Returns the lines written.",
     z.object({
       correction: z.record(z.string(), z.unknown()),
       said: z.string().min(1).max(8000),
     }),
-    async ({ correction, said }, _, turn) => {
-      const words = hisWordsOf(turn, said);
+    async ({ correction, said }, s, turn) => {
+      const words = isCaretakerFix("correct_memory", agentOf(desk.db, id))
+        ? complaintWordsIn(desk, s, said)
+        : hisWordsOf(turn, said);
       const { matter } = correction;
       const done = isHisOnly(correction)
         ? await correctMatter(

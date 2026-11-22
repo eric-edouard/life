@@ -67,6 +67,8 @@ registered agent like the others, which the desk keeps standing from its start: 
 his screen as Life read it through its door,
 only a complaint its own assignment received, as data; the complaint is never listed, fed to the change feed or pulled
 by another agent, and his tick on the anonymized report only asks the caretaker for a card with its exact text.
+It corrects Life's memory itself (`correct_memory`), only with `said` found in the words of a complaint at work on its
+assignment: recorded text it reads can supply none (his ruling of 22 Nov 2026).
 Besides the desk, Life starts no agent, except the question cases' agent a developer's script starts to measure Life
 ("Models", above; his word, 10 Nov 2026), which reads through the connector. An agent run is outside Life's boundary: it has
 the Mac's access (his files, his accounts). The risk that remains: an agent acting on text it read can do, alone, anything his keys allow but what the send guard
@@ -135,7 +137,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
-  written for a moment to a private temporary folder for gog, and removed after.
+  written for a moment to a private temporary folder for gog, and removed after. One such card is the caretaker's
+  feedback: its audit of something Life's code got wrong, anonymized by the caretaker (no names, places, messages or
+  handles of his), as a mail to Life's developer (`DEVELOPER_CONTACT`, the alias `feedback@ericedouard.com`), sent only on his Send of that exact text (his
+  ruling of 22 Nov 2026: "Bug reports should be an email to me. It just writes an email through their usual gate").
 - To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
   he listed in `githubRepos`; and a card's draft (a comment's text, or a new issue's title and text),
   once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026). And, while an agent's wait names one (`github_activity`), requests for the events of the repos the open waits name (`owner/name`, or an owner's repos listed with `gh repo list`), read for a wake and never kept (his direction of 20 Nov 2026, life#774).
