@@ -29,8 +29,8 @@ extension View {
     /// content starts under it and scrolls beneath, softened by iOS's soft scroll edge alone, set once in `RootView`
     /// (decision 96: a blur growing toward the edge, invisible at rest, no band, tint or line; Reduce Transparency is
     /// the system's to draw). On a list screen only: a page whose first line is its name (a matter, a person, an agent)
-    /// and a sheet (its `SheetHeader`) have none. A nil name keeps the bar empty, so a column whose title moves
-    /// to its neighbour (the Inbox's ask beside its list) keeps its identity through a fold.
+    /// and a sheet (its `SheetHeader`) have none. A nil name keeps the bar empty, where the content titles itself (the
+    /// moves' list).
     func screenTitle(_ name: String?, state: String? = nil) -> some View {
         modifier(ScreenTitleBar(name: name, state: state) { EmptyView() })
     }

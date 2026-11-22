@@ -41,9 +41,6 @@ const CAPS: Record<string, Record<string, number>> = {
   "Inbox/AnswerResultView.swift": {
     padding: 9,
   },
-  "Inbox/CardArrangement.swift": {
-    padding: 5,
-  },
   "Inbox/CheckList.swift": {
     padding: 1,
   },
@@ -73,7 +70,7 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 2,
     width: 1,
   },
-  "Shell/NavDrawer.swift": { capsule: 2, height: 2, padding: 2, width: 1 },
+  "Shell/NavDrawer.swift": { capsule: 2, height: 2, padding: 1, width: 1 },
   "Shell/NavShell.swift": {
     font: 1,
     height: 2,
