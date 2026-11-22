@@ -51,7 +51,10 @@ struct RootView: View {
             }
             .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
             // What an answer shows: its tab's list cut, or a page, under Ask Life's strip.
-            .onChange(of: life.askLife.shown) { _, shown in if let shown { router.open(shown: shown.show) } }
+            // A page opens at once; a list waits behind the strip's nudge (`AppRouter.pendingList`).
+            .onChange(of: life.askLife.shown) { _, shown in
+                if let shown, case .page = shown.show { router.open(shown: shown.show) }
+            }
             // The one shell (decision 96): every screen's scroll runs edge to edge, top of the device to its foot, under the
             // floating title, controls, answers and tabs, softened at both edges by iOS's soft scroll edge alone.
             .scrollEdgeEffectStyle(.soft, for: .all)

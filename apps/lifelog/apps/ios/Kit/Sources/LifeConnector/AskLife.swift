@@ -192,6 +192,7 @@ public final class AskLife {
     /// The key of the call whose outcome he doesn't know (its connection failed), with the words it was minted for.
     private var pending: (key: String, words: String)?
     private var isAsking = false
+    private var showCount = 0
 
     public init(api: any LifeAPI) { self.api = api }
 
@@ -204,7 +205,7 @@ public final class AskLife {
         guard !text.isEmpty, !isAsking else { return }
         isAsking = true
         defer { isAsking = false }
-        (said, words, answer, strands, waiting, stage) = (text, "", nil, [], nil, .thinking)
+        (said, words, answer, strands, waiting, stage, shown) = (text, "", nil, [], nil, .thinking, nil)
         // Only the same words go again under the old key: other words are another ask.
         let key = pending.flatMap { $0.words == text ? $0.key : nil } ?? UUID().uuidString
         let (lines, feed) = AsyncStream.makeStream(of: Data.self)
@@ -217,7 +218,10 @@ public final class AskLife {
             await drawing.value
             pending = nil
             (answer, stage) = (AskLifeAnswer(result), .ready)
-            if let show = AskLifeShow(result) { shown = AskLifeShown(show: show, answer: (shown?.answer ?? 0) + 1) }
+            if let show = AskLifeShow(result) {
+                showCount += 1
+                shown = AskLifeShown(show: show, answer: showCount)
+            }
         } catch {
             feed.finish()
             await drawing.value

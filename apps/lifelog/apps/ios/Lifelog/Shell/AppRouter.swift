@@ -138,10 +138,27 @@ final class AppRouter {
     var isBarsInColumn = false
     /// Ask Life's one surface: away (its round button), the strip (the dictation card above the foot bar) or full screen.
     var askLife = AskLifeForm.away
+    /// How far the grabber has lifted the strip toward full screen while a finger drags it (0 strip, 1 full); nil at rest.
+    var askLifeLift: CGFloat?
+    /// The answer whose list he already put on screen (`AskLifeShown.answer`): its nudge is gone.
+    var askLifeApplied = 0
     /// Whether the strip opens listening: not when Undo brings it back with his words, nor from a card's "Wrong…".
     var isAskLifeListening = true
     /// What his words are about when he opens Ask Life from a card ("Wrong…"): the card's ref and its question.
     var askLifeContext: (ref: String, question: String)?
+
+    /// The strip's size as a number, 0 to 1: the finger's while it drags, else its form's. The veil, the stage and the
+    /// cross all read this one value, so the move is one view changing, never a copy.
+    var askLifeProgress: CGFloat { askLifeLift ?? (askLife == .full ? 1 : 0) }
+
+    /// The list Life's answer put before him that he has not opened yet: a list does not fit the strip, so it waits
+    /// behind a nudge there and a chip on the stage (`open(shown:)` once he taps it).
+    func pendingList(in tell: AskLife) -> ShownList? {
+        guard let shown = tell.shown, shown.answer != askLifeApplied, case .list(let list) = shown.show else {
+            return nil
+        }
+        return list
+    }
 
     /// What Ask Life's answer shows: the tab of a cut list, on the Projects list for the matters, or a page opened as a
     /// tap on it would; Ask Life shrinks back to its corner button, so what it shows is in view.
@@ -166,7 +183,8 @@ final class AppRouter {
         case .page(.agent, let id): open(agent: id)
         case .page(.project, let id): open(project: ProjectChips.Chip.identity(.project, id))
         }
-        askLife = .away
+        // A list stays under the strip, the conversation kept; a page puts Ask Life away.
+        if case .list = shown { askLife = .strip } else { askLife = .away }
         putListAway()
     }
 
@@ -224,6 +242,7 @@ final class AppRouter {
     func putAwayAskLife(_ tell: AskLife) {
         tell.draft = ""
         askLifeContext = nil
+        askLifeLift = nil
         askLife = .away
     }
     /// The person or organization on show in the People tab, by ref, what is pushed on them, and which column a compact
