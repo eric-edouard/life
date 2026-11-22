@@ -50,6 +50,8 @@ final class LifeStore {
         case appointment(String)
         /// His picture pick for a person or an organization of his directory, by their ref.
         case picture(String)
+        /// His "Continue on your Mac" for an agent, by its id.
+        case continueOnMac(String)
         enum Edit: Hashable { case goal, next, done, important, icon }
     }
 
