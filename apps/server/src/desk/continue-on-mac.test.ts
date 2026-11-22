@@ -106,9 +106,9 @@ test("open on his Mac, its wakes wait; closed there, they resume with what came 
 });
 
 test("a runtime that can't open on his Mac is refused by name", async () => {
-  const { desk, waiting } = setup();
+  const { desk, fake, waiting } = setup();
   const id = await waiting(HOUR);
-  const { continueOnMac: _, ...rest } = desk.runtimes.fake ?? ({} as never);
+  const { continueOnMac: _, ...rest } = fake.runtime;
   desk.runtimes.fake = rest;
   expect((await tapped(desk, id))?.error).toBe("not for fake yet");
 });

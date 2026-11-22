@@ -45,7 +45,7 @@ const STALE_AFTER = 10 * MIN;
 
 /** What a change reads before its transaction: a start's taker, a move's facts, and a continue on his Mac done (`continueOnMac`). */
 type ChangeFacts = HandOverFacts & {
-  continued?: { error?: string };
+  continued?: { error: string } | { id: string };
   taker?: string;
 };
 
@@ -248,9 +248,8 @@ function apply(
     case "hand_over":
       return applyHandOver(desk, ask, c, facts);
     case "continue_on_mac":
-      refused =
-        refusal(["active", "stopped"]) ?? facts.continued?.error ?? null;
-      break;
+      // Opened, or refused, before this transaction (`changeFactsOf`).
+      return facts.continued ?? { error: "not opened" };
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {

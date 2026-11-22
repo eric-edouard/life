@@ -339,7 +339,7 @@ export function piRowOf(
       ),
     continueOnMac: isOwn
       ? async (a, ref) => {
-          const run = await runOfMode(a, ref, false, false);
+          const run = runOfMode(a, ref, false, false);
           const launch: PiTerminalLaunch = {
             command: run.command,
             drop: [KEY],
@@ -369,7 +369,7 @@ export function piRowOf(
       return piSessionFileOf(sessions, ref) ? "idle" : "gone";
     },
     async spawn(a, ref, isNew) {
-      const run = await runOfMode(a, ref, isNew, true);
+      const run = runOfMode(a, ref, isNew, true);
       return {
         command: run.command,
         env: { ...(isOwn ? await loginEnvLess([KEY]) : {}), ...run.env },
@@ -380,12 +380,7 @@ export function piRowOf(
    * The command of agent `a`'s pi on session `ref` and Life's part of its environment (his own Life's run adds his login
    * environment less the engine's key): the desk's turn in pi's RPC mode (`isRpc`), else pi's own interface, in Terminal.
    */
-  async function runOfMode(
-    a: Agent,
-    ref: string,
-    isNew: boolean,
-    isRpc: boolean
-  ) {
+  function runOfMode(a: Agent, ref: string, isNew: boolean, isRpc: boolean) {
     const { effort, extension, file, id } = runOf(a, ref, isNew);
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(

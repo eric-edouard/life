@@ -5,24 +5,26 @@ import { sessionAgentOf } from "./turn-ends";
 // His word to continue an agent's session on his Mac (`continue_on_mac`, his app's tap; his decision of 22 Nov 2026):
 // the desk opens it there through its runtime (`Runtime.continueOnMac`: pi in Terminal, Claude in his Claude app). While
 // it is open there its runtime says `running`, so the desk's wakes wait (`wake`, `desk-clock.ts`) and resume on their own
-// once he closes it: there is no taking it back.
+// once he leaves it: closed, or quiet when a wake is due (`takeBackIfLeft`). No button takes it back.
 
 /** His one refusal while a turn runs: the words his phone shows. */
 export const BUSY = "Busy. Try in a moment";
 
 /**
  * Opens agent `id`'s session on his Mac, before his ask's row is written (`applyAgentChanges`, which applies its result):
- * why not, or nothing once it opened. Refused while a desk turn runs, while the session is open elsewhere, before it has
+ * why not, or the agent once it opened. Refused while a desk turn runs, while the session is open elsewhere, before it has
  * a session, and on a runtime that can't (Codex); a stopped agent opens too (nothing wakes it).
  */
 export async function continueOnMac(
   desk: Desk,
   id: string | undefined
-): Promise<{ error?: string }> {
+): Promise<{ error: string } | { id: string }> {
   const a = id ? agentOf(desk.db, id) : null;
-  if (!(a && ["active", "stopped"].includes(a.status))) {
-    // The change's own status refusal says why.
-    return {};
+  if (!a) {
+    return { error: `no registered agent ${id ?? "named"}` };
+  }
+  if (!["active", "stopped"].includes(a.status)) {
+    return { error: `${a.id} is ${a.status}` };
   }
   const runtime = desk.runtimes[a.runtime];
   if (!runtime?.continueOnMac) {
@@ -39,7 +41,7 @@ export async function continueOnMac(
   }
   try {
     await runtime.continueOnMac(sessionAgentOf(a), a.session);
-    return {};
+    return { id: a.id };
   } catch (e) {
     return { error: (e as Error).message };
   }
