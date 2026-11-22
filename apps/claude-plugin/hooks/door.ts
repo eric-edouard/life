@@ -47,7 +47,12 @@ export async function lookUpSession(fetch: Fetch, session: string) {
 }
 
 /** One JSON-RPC call to the door (stateless MCP over HTTP): its result. Throws on any failure. */
-async function rpc(fetch: Fetch, door: Door, method: string, params: object) {
+async function rpc(
+  fetch: Fetch,
+  door: Pick<Door, "key" | "url">,
+  method: string,
+  params: object
+) {
   const r = await fetch(door.url, {
     body: JSON.stringify({ id: 1, jsonrpc: "2.0", method, params }),
     headers: {
@@ -76,7 +81,7 @@ export const doorTools = async (fetch: Fetch, door: Door) =>
 /** Calls door tool `name`: its text, and whether the door refused it. */
 export async function callDoor(
   fetch: Fetch,
-  door: Door,
+  door: Pick<Door, "key" | "url">,
   name: string,
   args: object
 ) {

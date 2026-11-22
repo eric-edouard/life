@@ -1,7 +1,9 @@
 import type {
+  ContextEvent,
   ExtensionAPI,
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
+import { callDoor } from "../../../../claude-plugin/hooks/door";
 import type { WebSearchProviderName } from "../../core/names";
 import { searchableOf } from "../../web-search/backend";
 import {
@@ -43,6 +45,8 @@ export const PI_EXTENSION_ENV = {
   provider: "LIFE_PI_PROVIDER",
   /** The connector's reads as a stdio MCP entry (JSON), for his own Life. */
   reads: "LIFE_CONNECTOR_READS",
+  /** The agent's rules (`Agent.rules`): a section of every run's system prompt. */
+  rules: "LIFE_PI_RULES",
   /** The providers `web_search` asks, in order (JSON, `desk.webSearch`), for his own Life. */
   search: "LIFE_PI_SEARCH",
 } as const;
@@ -74,6 +78,8 @@ export interface LifeDeskConfig {
   provider: PiProvider;
   /** The connector's reads (`life connector-reads`) as a stdio MCP server; none in a subagent. */
   reads?: { args: string[]; command: string; env: Record<string, string> };
+  /** The agent's rules, pinned as a system prompt section; none in a subagent. */
+  rules?: string;
   /** The providers `web_search` asks, in order; none, no `web_search`. */
   search: WebSearchProviderName[];
 }
@@ -103,6 +109,7 @@ function configOfEnv(): LifeDeskConfig {
   taken(env.key);
   const isOwn = process.env[env.own] === "1";
   const reads = taken(env.reads);
+  const rules = process.env[env.rules];
   return {
     apiKey,
     door: { key: required(env.doorKey), url: required(env.doorUrl) },
@@ -111,8 +118,112 @@ function configOfEnv(): LifeDeskConfig {
     isOwn,
     provider: JSON.parse(required(env.provider)),
     ...(isOwn && reads ? { reads: JSON.parse(reads) } : {}),
+    ...(rules ? { rules } : {}),
     search: isOwn ? JSON.parse(process.env[env.search] ?? "[]") : [],
   };
+}
+
+/** The system prompt section holding the agent's rules (`<life-desk>`). */
+const RULES_SECTION = "life-desk";
+
+/** An old tool answer kept whole up to this many characters: a note of it would not be much shorter. */
+const OLD_ANSWER_KEPT = 1000;
+
+/** The door's tools, whose answers (a card asked, a wait set) are the agent's own record and stay whole. */
+const DOOR_TOOL = "mcp__desk__";
+
+/**
+ * What the model is sent of the session: each tool answer of an earlier wake (before the last prompt), but the door's,
+ * as a one-line note of what was read; the session file keeps every answer (pi's `context` hook changes only the
+ * request). None when nothing changes, so the request keeps its cached prefix.
+ */
+export function contextOf(messages: ContextEvent["messages"]) {
+  const last = messages.findLastIndex((m) => m.role === "user");
+  let isChanged = false;
+  const sent = messages.map((m, i) => {
+    if (
+      i > last ||
+      m.role !== "toolResult" ||
+      m.toolName.startsWith(DOOR_TOOL)
+    ) {
+      return m;
+    }
+    const chars = m.content.reduce(
+      (n, c) => n + (c.type === "text" ? c.text.length : OLD_ANSWER_KEPT),
+      0
+    );
+    if (chars <= OLD_ANSWER_KEPT) {
+      return m;
+    }
+    isChanged = true;
+    return {
+      ...m,
+      content: [
+        {
+          text: `(${m.toolName}'s answer of an earlier turn, ${chars} characters, is out of your context: call it again if you need it.)`,
+          type: "text" as const,
+        },
+      ],
+    };
+  });
+  return isChanged ? { messages: sent } : undefined;
+}
+
+/** The line between Life's record and pi's summary of the talk, in a compaction's summary. */
+const TALK_LINE = "What the session did, summarized:";
+
+/** Reads `url` as text, the plugin's fetch (`door.ts`). */
+const fetchText = async (
+  url: string,
+  init?: { body?: string; headers?: Record<string, string>; method?: string }
+) => {
+  const r = await fetch(url, init);
+  return { status: r.status, text: await r.text() };
+};
+
+/**
+ * Life writes each compaction's summary (the owner's yes of 22 Nov 2026, item 2): its record of the turn's assignment
+ * word for word, as the door's `read_packet` gives it (the matter as read now, its notes, its wait, its open card), then
+ * pi's own summary of the talk, which never re-reads an earlier record. No record (the door refused or is down), or a
+ * summary call that failed: pi's own compaction.
+ */
+function keepRecordOnCompaction(
+  pi: ExtensionAPI,
+  door: { key: string; url: string },
+  apiKey: string
+) {
+  pi.on("session_before_compact", async (event, ctx) => {
+    const record = await callDoor(fetchText, door, "read_packet", {}).catch(
+      () => undefined
+    );
+    if (!(record && !record.isError && ctx.model)) {
+      return;
+    }
+    const { compact } = await import("@earendil-works/pi-coding-agent");
+    const { preparation } = event;
+    const result = await compact(
+      {
+        ...preparation,
+        previousSummary: preparation.previousSummary?.split(TALK_LINE).at(-1),
+      },
+      ctx.model,
+      apiKey,
+      undefined,
+      event.customInstructions,
+      event.signal,
+      pi.getThinkingLevel()
+    ).catch(() => undefined);
+    // A summary call that failed: pi compacts on its own, or reports why.
+    if (!result) {
+      return;
+    }
+    return {
+      compaction: {
+        ...result,
+        summary: `${record.text}\n\n${TALK_LINE}\n${result.summary}`,
+      },
+    };
+  });
 }
 
 /** The extension on `config`: the default export's, and each subagent's (`pi-subagent.ts`) with no door or reads. */
@@ -147,8 +258,24 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
   if (config.isOwn && config.door) {
     registerSubagent(
       pi,
-      lifeDeskOf({ ...config, door: undefined, reads: undefined })
+      lifeDeskOf({
+        ...config,
+        door: undefined,
+        reads: undefined,
+        rules: undefined,
+      })
     );
+  }
+  const { rules } = config;
+  if (rules) {
+    // A section, not a message: no compaction summarizes it, and pi diffs it, so an unchanged one keeps the cached prefix.
+    pi.on("before_agent_start", (event) => {
+      event.systemPromptOptions.sections[RULES_SECTION] = rules;
+    });
+  }
+  if (config.door) {
+    pi.on("context", (event) => contextOf(event.messages));
+    keepRecordOnCompaction(pi, config.door, config.apiKey);
   }
   pi.on("tool_call", async (event, ctx) => {
     const call = guardedCallOf(event.toolName, event.input);
