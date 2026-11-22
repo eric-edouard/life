@@ -55,8 +55,8 @@ struct BulkCard: View {
         }
         .onChange(of: rows, initial: true) { _, rows in
             guard kind == .guessedPerson else { return }
-            notes.working.insert(kind)
-            notes.guesses += rows.filter { row in !notes.guesses.contains { $0.ref == row.ref } }
+            if notes.working[kind] == nil { notes.working[kind] = rows.first }
+            notes.guesses = .guessRows(met: notes.guesses, open: rows, answered: Set(notes.guessed.keys))
         }
         .motion(Motion.standard, value: shown.map(\.ref))
         .sheet(
@@ -196,7 +196,7 @@ struct BulkCard: View {
 
     /// The rows he has met on this card: the same person ask first, then the guesses, answered ones kept.
     private var guessRows: some View {
-        let all = notes.guesses + rows.filter { row in !notes.guesses.contains { $0.ref == row.ref } }
+        let all = [Check].guessRows(met: notes.guesses, open: rows, answered: Set(notes.guessed.keys))
         let same = all.filter { $0.group == .samePerson }
         return VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             ForEach(same) { check in
@@ -221,9 +221,8 @@ struct BulkCard: View {
     }
 
     private func guessState(_ check: Check) -> GuessState {
-        let yes = notes.guessed[check.ref] == "Yes"
-        if life.state(of: .answer(ref: check.ref)).isRunning { return .sending(yes: yes) }
-        return !rows.contains { $0.ref == check.ref } && notes.guessed[check.ref] != nil ? .answered(yes: yes) : .rest
+        life.state(of: .answer(ref: check.ref))
+            .guessState(words: notes.guessed[check.ref], isOpen: rows.contains { $0.ref == check.ref })
     }
 
     /// Life's reason when its last answer on the row did not land (a row back at rest only).
@@ -246,7 +245,8 @@ struct BulkCard: View {
         guard !life.saysOutOfReach() else { return }
         life.forget(.answer(ref: check.ref))
         notes.guessed[check.ref] = words
-        Task { await life.answerRows([request], as: words) }
+        // The row turns green, or says why it went nowhere: no toast besides.
+        Task { await life.answerRows([request], as: words, rowsSayIt: true) }
     }
 
     private var guessAnswers: some View {
@@ -257,7 +257,7 @@ struct BulkCard: View {
                 if let page { PagerDotsSlot(index: page.current) }
             }
             Button {
-                notes.working.remove(kind)
+                notes.working[kind] = nil
                 (notes.guesses, notes.guessed) = ([], [:])
                 finish()
             } label: {

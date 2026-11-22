@@ -1,11 +1,13 @@
 import type { AgentRole } from "../core/names";
 import { agentInRole, isFull, runtimeOf } from "../host/desk-read";
-import { openAssignment, register } from "./agent-actions";
+import { insertAgent, openAssignment, register } from "./agent-actions";
 import type { Desk } from "./desk-store";
 
-// The desk's standing roles (the caretaker, the Personal agent): the one place their agent is found, or registered by the
-// desk itself when his word needs one (his complaint; his spoken ask or an arrival no matter's agent takes, Direction's
-// ruling of 21 Nov 2026), one at most of each, never a second while one is active or stopped.
+// The desk's standing roles (the main session, the caretaker, the Personal agent): the one place their agent is found, or
+// registered by the desk itself: the main session and the caretaker from the desk's start (`standUp`, his word of 22 Nov
+// 2026: "we should create a main agent, and then we should also create the caretaker"), the Personal agent when his word
+// needs one (his spoken ask or an arrival no matter's agent takes, Direction's ruling of 21 Nov 2026); one at most of
+// each, never a second while one is active or stopped.
 
 /** The Personal agent's brief when the desk registers it (Direction's ruling of 21 Nov 2026): his words come in its events. */
 export const PERSONAL_BRIEF =
@@ -15,6 +17,26 @@ export const PERSONAL_BRIEF =
 export function standingAgentOf(db: Desk["db"], role: AgentRole) {
   const a = agentInRole(db, role);
   return a?.status === "active" || a?.status === "stopped" ? a : undefined;
+}
+
+/**
+ * Registers `role`'s agent on `brief` when none stands, each tick (his word of 22 Nov 2026): with no assignment, so it runs
+ * no turn until his words or a complaint come (`roleAssignmentOf` opens one then). None while its last agent's first turn
+ * never began (what comes next for it tries again: `roleStartBlockOf`), with no runtime named, or on a full desk.
+ */
+export function standUp(desk: Desk, role: AgentRole, brief: string) {
+  const { db } = desk;
+  const runtime = runtimeOf({ role });
+  db.transaction(() => {
+    if (
+      runtime &&
+      !standingAgentOf(db, role) &&
+      !agentInRole(db, role)?.why_not_started &&
+      !isFull(db)
+    ) {
+      insertAgent(db, { brief, role, runtime });
+    }
+  })();
 }
 
 /**

@@ -94,19 +94,43 @@ public struct InboxOrder: Equatable, Sendable {
 
     /// Each kind with 2 or more asks Life pre-ticks (`preTicked`) folded into its first ask, which stands for all of
     /// them (`bulk`), unless he chose to go through it one by one (`unfolded`). A kind he is answering row by row
-    /// (`working`) stays one card down to its last row, never turning into a single ask under his finger.
-    public func folded(except unfolded: Set<CheckGroup> = [], working: Set<CheckGroup> = []) -> InboxOrder {
+    /// (`working`, by the ask its card was first shown under) stays one card down to its last row, never turning into
+    /// a single ask under his finger, and keeps that ask as its page even once it was answered: the card never leaves
+    /// and comes back under a new ref.
+    public func folded(except unfolded: Set<CheckGroup> = [], working: [CheckGroup: Check] = [:]) -> InboxOrder {
         let inBulk = kinds.filter { kind in
             let pre = checks.count(where: { $0.bulkKind == kind && $0.preTicked != nil })
-            return !unfolded.contains(kind) && (pre > 1 || (pre > 0 && working.contains(kind)))
+            return !unfolded.contains(kind) && (pre > 1 || (pre > 0 && working[kind] != nil))
         }
-        let bulk = Dictionary(
+        let heads = Dictionary(
             uniqueKeysWithValues: inBulk.compactMap { kind in
-                let all = checks.filter { $0.bulkKind == kind }
-                return all.first.map { ($0.ref, all) }
+                (working[kind] ?? checks.first { $0.bulkKind == kind }).map { (kind, $0) }
             })
-        let kept = checks.filter { !inBulk.contains($0.bulkKind) || bulk[$0.ref] != nil }
+        let bulk = Dictionary(
+            uniqueKeysWithValues: heads.values.map { head in (head.ref, checks.filter { $0.bulkKind == head.bulkKind })
+            })
+        let kept = checks.compactMap { check -> Check? in
+            guard let head = heads[check.bulkKind] else { return check }
+            return checks.first { $0.bulkKind == check.bulkKind }?.ref == check.ref ? head : nil
+        }
         return InboxOrder(checks: kept, canWaitFrom: kept.canWaitFrom, bulk: bulk)
+    }
+
+    /// Where his answer leaves him: the first of the asks that were after it when he tapped (`later`) still on show,
+    /// or the bulk ask now holding it; nil when none is left (the first ask then shows). An ask his answer took away
+    /// too (a fold of two people) is passed over, never a jump back to the top.
+    public func next(of later: [String]) -> String? {
+        later.lazy.compactMap { ref in
+            checks.first { $0.ref == ref || bulk[$0.ref]?.contains { $0.ref == ref } == true }?.ref
+        }.first
+    }
+
+    /// Where the pager stays when a read changes the asks under it (`was`, the refs on show before): on the ask he is on
+    /// (or the bulk ask now holding it), whatever came, went or moved around it; that ask gone, on the first one after it
+    /// still there, else the last one before it; nil when none is left. A read in the background never moves him.
+    public func staying(on ref: String, was: [String]) -> String? {
+        let at = was.firstIndex(of: ref) ?? was.endIndex
+        return next(of: [ref] + was[min(at + 1, was.endIndex)...] + was[..<at].reversed())
     }
 
     /// The kinds of ask that wait, in the order they first appear: what the list's filter offers.
@@ -134,8 +158,11 @@ extension [Check] {
     var canWaitFrom: Int? { firstIndex { $0.urgency == .improves } }
 
     /// The ask after `ref`, where his answer leaves him.
-    public func ref(after ref: String) -> String? {
-        firstIndex { $0.ref == ref }.flatMap { dropFirst($0 + 1).first?.ref }
+    public func ref(after ref: String) -> String? { refs(after: ref).first }
+
+    /// The asks after `ref`, in order: where his answer may leave him (`InboxOrder.next(of:)`).
+    public func refs(after ref: String) -> [String] {
+        firstIndex { $0.ref == ref }.map { dropFirst($0 + 1).map(\.ref) } ?? []
     }
 }
 
@@ -150,5 +177,37 @@ extension Inbox {
         let open = checks.filter { !except.contains($0.ref) }
         let ordered = later(open.filter { $0.urgency != .improves }) + later(open.filter { $0.urgency == .improves })
         return InboxOrder(checks: ordered, canWaitFrom: ordered.canWaitFrom)
+    }
+}
+
+/// Where one row of the guesses' card stands: both answers on offer, its answer going to Life, or answered.
+public enum GuessState: Equatable, Sendable {
+    case rest
+    case sending(yes: Bool)
+    case answered(yes: Bool)
+}
+
+extension ActionState {
+    /// A guesses' row's state, from his answer's own state first (`words`, his answer on it here, "Yes" or "No"):
+    /// working, then answered as soon as Life confirmed, never back at rest while the read that drops it is under way.
+    /// A row whose answer ended elsewhere (a read without it, after his answer) stays answered; a refused one is at rest.
+    public func guessState(words: String?, isOpen: Bool) -> GuessState {
+        let yes = words == "Yes"
+        switch self {
+        case .running: return .sending(yes: yes)
+        case .succeeded: return .answered(yes: yes)
+        case .failed: return .rest
+        case .idle: return !isOpen && words != nil ? .answered(yes: yes) : .rest
+        }
+    }
+}
+
+extension [Check] {
+    /// The guesses' card's rows: those he met (`met`, in their order) that are still open or that he answered here
+    /// (`answered`), then the open ones new to him. A row another answer took away (his "Same person" folding a guess
+    /// with its own rows) leaves, never staying with answers Life would refuse.
+    public static func guessRows(met: [Check], open: [Check], answered: Set<String>) -> [Check] {
+        met.filter { row in answered.contains(row.ref) || open.contains { $0.ref == row.ref } }
+            + open.filter { row in !met.contains { $0.ref == row.ref } }
     }
 }

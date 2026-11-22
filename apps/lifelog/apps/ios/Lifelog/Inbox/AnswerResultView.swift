@@ -6,9 +6,14 @@ import SwiftUI
 struct Taken: Equatable {
     let check: Check
     let request: AnswerRequest
-    /// The card after this one in the inbox when he tapped, so the result still knows it once the inbox let it go.
-    let nextRef: String?
+    /// The asks paged beside it when he tapped: the pager holds them still while Life works, so no read moves the ask
+    /// under his finger.
+    let asks: [Check]
     let runtimeName: RuntimeName?
+
+    /// The cards after this one when he tapped, so the result still knows where to go once the inbox let it go: the
+    /// first still on show (`InboxOrder.next(of:)`).
+    var later: [String] { asks.refs(after: check.ref) }
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
     /// A new matter whose goal he changed is still waiting for Start or Dismiss.

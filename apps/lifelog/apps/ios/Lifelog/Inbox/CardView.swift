@@ -18,22 +18,21 @@ struct CardNotes: Equatable {
     /// On the guesses' card: each row's answer in its own words ("Yes", "No"), kept for the row after its ask leaves.
     var guessed: [String: String] = [:]
     /// The rows it has shown, kept so an answered one stays (dimmed) after its ask left the inbox; and that it is
-    /// being answered row by row (`InboxOrder.folded`'s `working`).
+    /// being answered row by row, by the ask its card was first shown under (`InboxOrder.folded`'s `working`).
     var guesses: [Check] = []
-    var working: Set<CheckGroup> = []
+    var working: [CheckGroup: Check] = [:]
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
 }
 
-/// The create sheet's ask and name, with where the asks go once it is created: the ask after it as he opened it (the
-/// ask leaves the list while its answer runs).
+/// The create sheet's ask and name, with the asks as he opened it: where they go once it is created (the ask leaves the
+/// list while its answer runs).
 struct Creating: Identifiable, Equatable {
     let check: Check
     let name: String
     /// Opened set to an organization ("Organization" on the card), else to a person.
     let isOrganization: Bool
-    let nextRef: String?
     /// The pager's asks as the sheet opened, kept under it until it closes.
     let asks: [Check]
     /// The answer it zooms out of: "Create <name>" or "Organization" on the card, or the answer that opened the people
@@ -76,7 +75,7 @@ private struct AskSheetsHost: ViewModifier {
                 CreateSheet(check: creating.check, name: creating.name, isOrganization: creating.isOrganization) {
                     request in
                     notes.creating = nil
-                    leave(Taken(check: creating.check, request: request, nextRef: creating.nextRef, runtimeName: nil))
+                    leave(Taken(check: creating.check, request: request, asks: creating.asks, runtimeName: nil))
                 }
                 .sheetStack()
                 .zooms(from: creating.source, in: zoom)
@@ -118,7 +117,7 @@ struct CardView: View {
     var body: some View {
         CardArrangement(
             context: context,
-            bar: result.flatMap { $0.isHeld ? nil : $0 }.map { taken in
+            bar: resultScreen.map { taken in
                 ResultButtons(
                     taken: taken, state: life.state(of: taken.key),
                     retry: { Task { await life.answer(taken.request, keepsCardOpen: taken.staysOpen) } },
@@ -126,13 +125,9 @@ struct CardView: View {
             }
         ) {
             // His tap's result takes the ask's place and rises in; once he moves on it goes the way an answered ask goes.
+            // An answer shown on its button stays in the pager, on the same card: only that button changes.
             ZStack {
-                if let taken = result, taken.isHeld {
-                    // On the button he pressed: the ask stays as it was, alone, until Life says.
-                    checkCard(taken.check, page: nil, pressed: taken)
-                        // Where the pager drew it, so nothing moves under his finger.
-                        .padding(.leading, Pager.gap).padding(.trailing, Pager.gap + (checks.isEmpty ? 0 : Pager.edge))
-                } else if let taken = result {
+                if let taken = resultScreen {
                     // A step ticking changes in place.
                     AnswerResultView(taken: taken, state: life.state(of: taken.key))
                         .motion(Motion.standard, value: life.state(of: taken.key))
@@ -153,7 +148,7 @@ struct CardView: View {
             }
             .clippedSideways()
         }
-        .motion(Motion.rise, value: result != nil)
+        .motion(Motion.rise, value: resultScreen != nil)
         // A send Life refused because someone wrote since: the ask is open again, with her message by its answers.
         .onChange(of: notes.taken != nil && result == nil) { _, isRefused in if isRefused { notes.taken = nil } }
         // A result that worked has said so: the next ask comes by itself.
@@ -202,7 +197,7 @@ struct CardView: View {
                                         submit(all: $0, from: check)
                                     }
                                 } else {
-                                    checkCard(check, page: page)
+                                    checkCard(check, page: page, pressed: pressed(on: check))
                                 }
                             }
                             .padding(.leading, Pager.gap)
@@ -217,7 +212,16 @@ struct CardView: View {
                 .frame(width: box.size.width - edge - Pager.gap)
                 .scrollPosition(id: $current, anchor: .leading)
                 .scrollTargetBehavior(.paging)
+                // His answer works on its button: he stays on its ask until Life says, as before it stood alone.
+                .scrollDisabled(pressedAsks != nil)
                 .scrollIndicators(.hidden)
+                // A read in the background keeps him on the ask on show, whatever came or moved around it; only that ask
+                // gone moves him, to the next still there (`InboxOrder.staying`), animated (`current`).
+                .onChange(of: self.checks.map(\.ref)) { was, _ in
+                    guard notes.creating == nil, pressedAsks == nil, let on = current ?? was.first else { return }
+                    let staying = InboxOrder(checks: self.checks, bulk: bulk).staying(on: on, was: was)
+                    if staying != on { current = staying } else { proxy.scrollTo(on, anchor: .leading) }
+                }
                 // The bottom edge effect sat over the answer bar and blurred the answers themselves (22 Nov, closed Duo):
                 // none, in the asks' scrolls too, whose answers draw their own backdrop (`CheckCard`). Its top edge is the
                 // soft one under the title.
@@ -238,8 +242,9 @@ struct CardView: View {
             }
         }
         .clippedSideways()
-        // An answered ask leaves and the next enters together (`Motion.passes`).
-        .motion(Motion.rise, value: checks.map(\.ref))
+        // An answered ask leaves and the next enters together (`Motion.passes`): he moved, or his ask went. A read that
+        // only changed the asks around it moves nothing.
+        .motion(Motion.rise, value: current)
     }
 
     /// One ask with its answers; `pressed`, the answer he gave on it while Life works on it.
@@ -257,6 +262,14 @@ struct CardView: View {
             pressed: pressed
         )
     }
+
+    /// His answer on `check`'s own button while Life works on it.
+    private func pressed(on check: Check) -> Taken? {
+        result.flatMap { $0.isHeld && $0.check.ref == check.ref ? $0 : nil }
+    }
+
+    /// His tap's result on a screen of its own, in the ask's place (a send, a start): not one shown on its button.
+    private var resultScreen: Taken? { result.flatMap { $0.isHeld ? nil : $0 } }
 
     /// His tap's result, unless it reopened the ask: a send refused because someone wrote since, or an answer shown on
     /// its button that Life did not take (its reason stands above the answers).
@@ -276,8 +289,9 @@ struct CardView: View {
     }
 
     /// The asks the pager shows: while the create sheet is up, those it opened over, so the next ask never comes in
-    /// behind it before it closes.
-    private var paged: [Check] { notes.creating?.asks ?? checks }
+    /// behind it before it closes; while an answer works on its button, those he answered among, so no read moves them.
+    private var paged: [Check] { notes.creating?.asks ?? pressedAsks ?? checks }
+    private var pressedAsks: [Check]? { result.flatMap { $0.isHeld ? $0.asks : nil } }
 
     /// The people sheet goes with its ask.
     private var isShowingPeople: Binding<Bool> {
@@ -312,14 +326,14 @@ struct CardView: View {
         )
     }
 
-    /// The create sheet for `check`, with the ask after it as he opened it, zooming out of the answer that opened it
+    /// The create sheet for `check`, with the asks after it as he opened it, zooming out of the answer that opened it
     /// (by default the card's own create answer).
     private func creating(_ check: Check, _ name: String, asOrganization: Bool = false, from source: AskSheet? = nil)
         -> Creating
     {
         Creating(
-            check: check, name: name, isOrganization: asOrganization, nextRef: checks.ref(after: check.ref),
-            asks: checks, source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
+            check: check, name: name, isOrganization: asOrganization, asks: checks,
+            source: source ?? .create(ref: check.ref, asOrganization: asOrganization))
     }
 
     /// A bulk card's answers, sent at once: its rows stay, working, until Life has answered them all, then the next ask.
@@ -335,7 +349,7 @@ struct CardView: View {
     private func submit(_ check: Check, _ request: AnswerRequest) {
         guard !life.saysOutOfReach() else { return }
         let taken = Taken(
-            check: check, request: request, nextRef: checks.ref(after: check.ref),
+            check: check, request: request, asks: checks,
             runtimeName: life.runtimeName(of: check))
         if let takes, taken.isHeld {
             takes(taken)

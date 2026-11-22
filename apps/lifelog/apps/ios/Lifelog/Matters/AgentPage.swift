@@ -160,6 +160,8 @@ struct AgentRunsOn: View {
     @State private var asking: RuntimeName?
     /// The program he last switched it to here: Try again repeats only that.
     @State private var tried: RuntimeName?
+    /// "Switched" for 2 s once a switch rests without a failure.
+    @State private var switched = RowState.known
 
     var body: some View {
         let current = agent.runtimeName
@@ -173,7 +175,7 @@ struct AgentRunsOn: View {
             call: call, shown: move, tried: life.retryable(tried, call: call, shown: move), offered: other)
         let ask = asking.map { MoveWords.switchAsk(agent.name ?? current.name, to: $0) }
         VStack(alignment: .leading, spacing: 0) {
-            Row(title: "Runs on") {
+            Row(title: "Runs on", state: switched) {
                 // Starting, it is on its new program already.
                 if let words = move.flatMap({ MoveWords.underWay($0, runtime: current) }) {
                     HStack(spacing: 6) {
@@ -210,6 +212,10 @@ struct AgentRunsOn: View {
             }
         }
         .motion(Motion.standard, value: move?.phase)
+        .onChange(of: isSwitching) { was, now in
+            guard was, !now, tried != nil, life.state(of: .move(agent.id)).failure == nil else { return }
+            Task { await RowState.tap($switched) { .done("Switched") } }
+        }
         .alert(
             ask?.title ?? "",
             isPresented: Binding {

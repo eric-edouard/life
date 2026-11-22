@@ -8,8 +8,8 @@ import SwiftUI
 struct PillStyle: ButtonStyle {
     enum Kind { case filled, quiet, done }
     /// `large` is a screen's or a sheet's answer; `compact` sits inside a card or a row; `row` is one of several
-    /// answers stacked, each on its line.
-    enum Size: CGFloat { case large = 54, row = 48, compact = 44 }
+    /// answers stacked, each on its line; `tile` shares a card's second row of answers, its icon above a 13 pt label.
+    enum Size: CGFloat { case large = 54, row = 48, compact = 44, tile = 60 }
 
     let kind: Kind
     var size: Size = .large
@@ -23,19 +23,26 @@ struct PillStyle: ButtonStyle {
             if isBusy { Spinner() }
             configuration.label.multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
-                .lineLimit(size == .compact ? 1 : 3)
+                .lineLimit(size == .compact || size == .tile ? 1 : 3)
         }
-        .font(.buttonLabel)
+        .font(size == .tile ? .smallStrong : .buttonLabel)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
         // A compact pill sits beside others in a row: it keeps less to its sides.
-        .padding(.horizontal, size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l)
+        .padding(
+            .horizontal, size == .tile ? Metrics.Spacing.s : size == .compact ? Metrics.Spacing.m : Metrics.Spacing.l
+        )
         .padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: .capsule)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: shape)
         .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
-        .contentShape(.capsule)
+        .contentShape(shape)
         .allowsHitTesting(!isBusy)
+    }
+
+    /// A tile is a rounded square's corners, every other size a capsule.
+    private var shape: AnyShape {
+        size == .tile ? AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) : AnyShape(.capsule)
     }
 }
 
@@ -757,12 +764,57 @@ enum Surface {
     }
 }
 
-/// Where a row's value stands. A value the server holds is never shown as known before it said (`ServerValue`); the
-/// other rows are always `known`. `saved` is view state, shown 2 s after a change was accepted.
+/// Where a row's value stands, and the tap rule every control follows: loading, then a green result, or a clear
+/// failure. A value the server holds is never shown as known before it said (`ServerValue`); the other rows are always
+/// `known`. `done` is view state, its word ("Saved", "Allowed") shown 2 s after the tap went through (`tap`).
 enum RowState: Equatable {
-    case known, asking, saving, saved
+    case known, asking, saving
+    case done(String)
     /// The change did not go: the control is back on the old value, the line says why.
     case refused(String)
+
+    static let saved = RowState.done("Saved")
+
+    /// A tap: `saving` while `work` runs, then what it ends on, a `done` word for 2 s or a `refused` reason.
+    @MainActor static func tap(_ state: Binding<RowState>, _ work: () async -> RowState) async {
+        // A second tap while the first runs is the same tap.
+        guard state.wrappedValue != .saving else { return }
+        state.wrappedValue = .saving
+        let end = await work()
+        state.wrappedValue = end
+        guard case .done = end else { return }
+        try? await Task.sleep(for: .seconds(2))
+        if state.wrappedValue == end { state.wrappedValue = .known }
+    }
+}
+
+/// A tap's line under its control, as a row's second line shows it: the spinner and "Saving…", the green result, or
+/// the failure; nothing once known.
+struct TapLine: View {
+    let state: RowState
+    var detail: String?
+    /// A row draws its spinner at the trailing edge; alone, the line draws it.
+    var isInRow = false
+
+    var body: some View {
+        switch state {
+        case .known:
+            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
+        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
+        case .saving:
+            HStack(spacing: 8) {
+                if !isInRow { StateGlyph.busy }
+                Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+            }
+        case .done(let word):
+            HStack(spacing: 6) {
+                StateGlyph.ok
+                Text(word).font(.smallStrong)
+            }
+            .foregroundStyle(Palette.ok)
+        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
+        }
+    }
 }
 
 /// One row of a `RowGroup`: a title, an optional second line, and one thing at the trailing edge (a `RowValue`, a
@@ -788,7 +840,7 @@ struct Row<Trailing: View>: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 titleText.font(.rowName).foregroundStyle(Palette.fg)
-                line
+                TapLine(state: state, detail: detail, isInRow: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 8) {
@@ -807,22 +859,6 @@ struct Row<Trailing: View>: View {
     private var titleText: Text {
         let flag = Text(Image(systemName: "flag.fill")).font(.system(size: 12)).foregroundStyle(Palette.icon)
         return isMarked ? Text("\(title) \(flag)") : Text(verbatim: title)
-    }
-
-    @ViewBuilder private var line: some View {
-        switch state {
-        case .known:
-            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
-        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
-        case .saving: Text("Saving…").font(.small).foregroundStyle(Palette.muted)
-        case .saved:
-            HStack(spacing: 6) {
-                StateGlyph.ok
-                Text("Saved").font(.smallStrong)
-            }
-            .foregroundStyle(Palette.ok)
-        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
-        }
     }
 }
 
@@ -1124,41 +1160,6 @@ struct LimitNote: View {
             if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
         }
     }
-}
-
-/// Quiet answers in one row: equal widths when each label fits its share; else each as wide as its label plus an equal
-/// part of what is left; and when the labels together are wider than the row, each gives up width in proportion, its
-/// label shrinking (the caller's `minimumScaleFactor`, under 0.8 since a pill's sides do not shrink), never cut. Its
-/// ideal width is the narrowest it can be (80%), so a `ViewThatFits` falls back to a stack only when that does not fit.
-struct AnswerRow: Layout {
-    var spacing: CGFloat = 8  // Metrics.Spacing.s, which a Layout (not on the main actor) cannot read
-    static let smallest = 0.8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let narrowest = sizes.reduce(0) { $0 + $1.width } * Self.smallest + gaps(subviews)
-        return CGSize(width: proposal.width ?? narrowest, height: sizes.map(\.height).max() ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let ideals = subviews.map { $0.sizeThatFits(.unspecified).width }
-        let room = bounds.width - gaps(subviews)
-        let total = ideals.reduce(0, +)
-        let share = room / CGFloat(max(subviews.count, 1))
-        var x = bounds.minX
-        for (subview, ideal) in zip(subviews, ideals) {
-            let width =
-                ideals.allSatisfy({ !(share < $0) })
-                ? share
-                : total < room ? ideal + (room - total) / CGFloat(subviews.count) : ideal * room / total
-            subview.place(
-                at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
-                proposal: ProposedViewSize(width: width, height: bounds.height))
-            x += width + spacing
-        }
-    }
-
-    private func gaps(_ subviews: Subviews) -> CGFloat { spacing * CGFloat(max(subviews.count - 1, 0)) }
 }
 
 /// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the

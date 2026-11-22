@@ -21,22 +21,9 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
 
     var body: some View {
         // Each face fades out as the next fades in (loading to content: the spinner goes as the content comes).
-        ZStack { face.appears(Motion.fade).id(faceName) }
+        ZStack { face.appears(Motion.fade).id(shown.face) }
             // The network back: what is on show is read again, whatever screen it is.
             .onChange(of: life.hasPath) { _, hasPath in if hasPath { Task { await retry() } } }
-    }
-
-    /// Which face shows, so a new face fades in and a new value of the same face changes in place.
-    private var faceName: String {
-        switch shown {
-        case .loading: "loading"
-        case .loaded: "loaded"
-        case .empty: "empty"
-        case .stale: "stale"
-        case .unreachable: "unreachable"
-        case .failed: "failed"
-        case .notPaired: "notPaired"
-        }
     }
 
     /// How what shows stands against the Mac, in the toast over it (`SyncMark`).
@@ -49,9 +36,9 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
     @ViewBuilder private var face: some View {
         switch shown {
         case .loading: loading
-        case .loaded(let value): marked(content(value))
+        // One branch for both, so the content is never made again as its read turns stale or fresh (`Shown.face`).
+        case .loaded(let value), .stale(let value, _, _): marked(content(value))
         case .empty: marked(empty)
-        case .stale(let value, _, _): marked(content(value))
         case .unreachable:
             Notice(
                 title: MacSilence.noAnswer + ".",

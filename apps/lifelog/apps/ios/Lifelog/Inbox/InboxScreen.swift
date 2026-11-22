@@ -109,7 +109,7 @@ struct InboxScreen: View {
             // The guesses' card left with its last row: the next guesses start clean, not beside old answered rows.
             if !kinds.contains(.guessedPerson) {
                 (notes.guesses, notes.guessed) = ([], [:])
-                notes.working.remove(.guessedPerson)
+                notes.working[.guessedPerson] = nil
             }
         }
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { widths.whole = $0 }
@@ -134,9 +134,10 @@ struct InboxScreen: View {
 
     /// The inbox read as shown, except that his tap's result, or the ask the create sheet answers, stays up whatever the
     /// read did since: the inbox emptied (his answer was the last card) or its read failed. Only a new pairing, which
-    /// clears the inbox, takes it away.
+    /// clears the inbox, takes it away. A read on screen, fresh or stale, shows as it is: its note stays over his tap.
     private var shown: ReadState<Inbox>.Shown {
-        guard notes.taken != nil || notes.creating != nil, let inbox = life.inboxOnShow else { return life.inboxShown }
+        guard notes.taken != nil || notes.creating != nil, life.inboxShown.onScreen == nil, let inbox = life.inboxOnShow
+        else { return life.inboxShown }
         return .loaded(inbox)
     }
 
@@ -156,7 +157,7 @@ struct InboxScreen: View {
         notice = nil
         if keep { deferred.append(taken.check.ref) }
         // A new matter whose goal he edited still waits for Start or Dismiss: back to its card.
-        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : taken.nextRef)
+        (notes.taken, current) = (nil, taken.staysOpen ? taken.check.ref : shownOrder(kind).next(of: taken.later))
     }
 
     /// What blocks, then what can wait: `Inbox.ordered`, the one rule for the list, the pager, the ask on show and where
