@@ -52,6 +52,7 @@ test("a first turn makes the session, ends with its usage, and the next turn res
   expect(await first.ended).toEqual({
     ok: true,
     usage: {
+      billedUsd: 0.001,
       contextFirst: 12,
       contextLast: 12,
       tokensCached: 4,

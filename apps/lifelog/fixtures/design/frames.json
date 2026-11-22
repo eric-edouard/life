@@ -37,20 +37,44 @@
     ]
   },
   "AskBannerArmedPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureDictation", "armed"],
-    "taps": ["Tell Life"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "armed"
+    ]
   },
   "AskBannerHoldingPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureDictation", "holding"],
-    "taps": ["Tell Life"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "holding"
+    ]
   },
   "AskBannerListeningPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureDictation", "listening"],
-    "taps": ["Tell Life"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "listening"
+    ]
   },
   "AskBannerSendingPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureDictation", "sending"],
-    "taps": ["Tell Life"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "sending"
+    ]
   },
   "AskNameNone": {
     "args": ["-fixtureLife", "ok", "-fixtureCard", "name_bastien"]
@@ -1025,7 +1049,13 @@
     "taps": ["Important"]
   },
   "AskBannerWritingPhone": {
-    "args": ["-fixtureLife", "ok", "-fixtureDictation", "writing"],
-    "taps": ["Tell Life"]
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureAsk",
+      "open",
+      "-fixtureDictation",
+      "writing"
+    ]
   }
 }

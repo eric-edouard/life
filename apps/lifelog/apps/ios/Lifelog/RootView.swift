@@ -3,8 +3,8 @@ import LifeConnector
 import SwiftUI
 import UIKit
 
-/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs and Tell Life, with the Settings
-/// and Pendant sheets over them. Every sheet is centred, the system's default, and closes from inside itself.
+/// The bottom group, all system pieces: the Inbox (home), Projects and People tabs, with the Settings
+/// and Pendant sheets over them, and Tell Life's round button over all. Every sheet is centred and closes from inside itself.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
@@ -47,20 +47,23 @@ struct RootView: View {
             } label: {
                 TabLabel("People", "person.2")
             }
-            // Tell Life is a tab of the bar, so the system places it in every pose; a tap opens it and leaves the tab on show
-            // (`tabs`). Not paired: no tab.
-            Tab(value: AppRouter.Tab.tellLife) {
-                Color.clear
-            } label: {
-                TabLabel("Tell Life", "waveform")
-            }
-            .badge(life.tell.strands.filter { !$0.isDone }.count)
-            .hidden(!life.isPaired)
         }
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack().zooms(from: sheet, in: topBarZoom)
             case .settings: SettingsSheet().zooms(from: sheet, in: topBarZoom)
+            }
+        }
+        // Tell Life: one round glass button in the bottom-right corner of the root, whatever the pose, so a fold or a
+        // rotation never moves it off the corner (52 on the phone; in the Duo's column 48, centred over the system tab pill, which the system keeps at the foot).
+        .overlay(alignment: .bottomTrailing) {
+            if life.isPaired {
+                AskLife(
+                    running: life.tell.strands.filter { !$0.isDone }.count,
+                    place: router.isBarsInColumn ? .column : .phone, isRegular: sizeClass == .regular
+                )
+                // Past the system's safe areas (the column's, the bar's): the screen's own corner.
+                .ignoresSafeArea()
             }
         }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
@@ -129,10 +132,6 @@ struct RootView: View {
         Binding(
             get: { router.tab },
             set: { tab in
-                guard tab != .tellLife else {
-                    router.isTellLifeOpen = true
-                    return
-                }
                 if tab == .projects, router.tab == .projects { router.chip = nil }
                 router.tab = tab
             })
@@ -193,6 +192,7 @@ struct RootView: View {
                 let agents = life.agents.value?.agents ?? []
                 if let agent = (agents.first { $0.matter?.id == id } ?? agents.first)?.id { router.open(agent: agent) }
             }
+            if LifeFixture.ask == "open" { router.isAskOpen = true }
             if LifeFixture.sheet == "icon" { router.matterSheet = LifeFixture.matter.map { .icon($0) } }
             if ["pair", "pairing"].contains(LifeFixture.sheet) {
                 confirming = URL(string: "lifelog://pair?life=https%3A%2F%2Flife.example.test&code=ABC234").flatMap(

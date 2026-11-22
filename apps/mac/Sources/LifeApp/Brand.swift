@@ -5,8 +5,8 @@ import SwiftUI
 /// copied from `assets/brand/tokens.css`, light and dark (brand.test.ts checks them); the app follows the Mac's
 /// appearance.
 enum Brand {
-  static let ground = Color(light: 0xf3f4f5, dark: 0x07080a)
-  static let card = Color(light: 0xe8e9eb, dark: 0x15161a)
+  static let ground = Color(light: 0xf3f4f5, dark: 0x000000)
+  static let card = Color(light: 0xe8e9eb, dark: 0x0b0c0e)
   static let rule = Color(light: 0xd8d9dc, dark: 0x1f2024)
   static let ink = Color(light: 0x0d0e11, dark: 0xfff8ea)
   static let muted = Color(light: 0x57544f, dark: 0x8a867e)

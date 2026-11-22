@@ -8,19 +8,19 @@ import UIKit
 /// Unspecified (the Watch, always dark) reads as dark. Nonisolated: SwiftUI resolves dynamic colors on its async render thread, and a main-actor provider closure traps
 /// there.
 nonisolated enum Palette {
-    static let bg = token(dark: 0x07080a, light: 0xf3f4f5)
+    static let bg = token(dark: 0x000000, light: 0xf3f4f5)
     static let fg = token(dark: 0xfff8ea, light: 0x0d0e11)
-    static let card = token(dark: 0x15161a, light: 0xe8e9eb)
-    static let tile = token(dark: 0x1d1e23, light: 0xe8e9eb)
-    static let sheet = token(dark: 0x101114, light: 0xf3f4f5)
-    static let paper = token(dark: 0x1b1c20, light: 0xfbfbfa)
+    static let card = token(dark: 0x0b0c0e, light: 0xe8e9eb)
+    static let tile = token(dark: 0x111214, light: 0xe8e9eb)
+    static let sheet = token(dark: 0x000000, light: 0xf3f4f5)
+    static let paper = token(dark: 0x131416, light: 0xfbfbfa)
     static let muted = token(dark: 0x8a867e, light: 0x57544f)
     static let faint = token(dark: 0x85817a, light: 0x6c6964)
     static let line = token(dark: 0x1f2024, light: 0xd8d9dc)
     static let flag = token(dark: 0xf0896f, light: 0xb3412b)
     static let ai = token(dark: 0x9aa8ec, light: 0x33468f)
     static let ok = token(dark: 0x30d158, light: 0x1a7f3c)
-    static let on = token(dark: 0x07080a, light: 0xf3f4f5)
+    static let on = token(dark: 0x000000, light: 0xf3f4f5)
     /// A line icon beside a row (components.md "Settings row"): `fg` at 85%.
     static let icon = fg.opacity(0.85)
     /// A QR's paper, white in both themes: a code scans dark on white.
