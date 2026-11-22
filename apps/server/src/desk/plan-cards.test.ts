@@ -9,7 +9,12 @@ import {
   decisionsNow,
   requestDecision,
 } from "../memory/decisions";
-import { askDecision, openAssignment, register } from "./agent-actions";
+import {
+  askDecision,
+  hasAsked,
+  openAssignment,
+  register,
+} from "./agent-actions";
 import { ahead, on, setup } from "./test-desk";
 
 // Which assignment must open with a plan card (life#816): one he opened; never the caretaker's, nor a hand-out's.
@@ -143,6 +148,46 @@ test("a plan card without `plan` is refused, its steps asked for", async () => {
       title: "Mend the watch",
     })
   ).rejects.toThrow("first card is its plan card: give its steps as `plan`");
+  setSystemTime();
+});
+
+// The pi trial (22 Nov 2026): an agent asked a throwaway plan card and withdrew it. A card its own agent withdrew is not
+// its plan card: the assignment has asked nothing, so its next card must be the plan again.
+test("a plan card its agent withdrew does not count as asked: the next card is the plan card again", async () => {
+  const { desk } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const s = on(desk, agent);
+  const card = (over: Record<string, unknown> = {}) => ({
+    context: "What I read:\n- Kit's quote, 80 €",
+    deadline: ahead(DAY),
+    onSilence: null,
+    options: [
+      { id: "start", label: "Start the plan" },
+      { id: "decline", label: "Not this plan" },
+    ],
+    plan: [{ by: "agent", text: "Ask Kit for the quote" }],
+    question: "Start with this plan?",
+    title: "Mend the watch",
+    ...over,
+  });
+  const { id } = await askDecision(desk, s, card());
+  expect(hasAsked(desk.db, s)).toBe(true);
+  await askDecision(desk, s, { why: "a probe", withdraw: id });
+  expect(hasAsked(desk.db, s)).toBe(false);
+  await expect(
+    askDecision(
+      desk,
+      s,
+      card({
+        options: [
+          { id: "go", label: "Go" },
+          { id: "no", label: "Not now" },
+        ],
+        plan: undefined,
+        question: "Go ahead?",
+      })
+    )
+  ).rejects.toThrow("first card is its plan card");
   setSystemTime();
 });
 
