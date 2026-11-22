@@ -348,6 +348,9 @@ export const enabledSources = <T extends Descriptor>(
   on = settings().sources
 ) => all.filter((s) => on.includes(s.name));
 
+/** Whether the `told-life` source is on: else nothing would read what `tell_life` keeps. */
+export const isToldLife = () => settings().sources.includes("told-life");
+
 export type Archived = Descriptor & { store: AppStore };
 /**
  * The sources whose app store an archive holds, on any system: an export carries them all, and an archive moved from
