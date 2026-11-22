@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { LOG_DIR } from "../core/log";
 import { dayStart } from "../memory/zones";
-import { readSpendingDay, writeSpendingDays } from "./spending";
+import { apifySpendsOf, readSpendingDay, writeSpendingDays } from "./spending";
 
 // Model spending's day files on made-up log days long past (the test state's own log folder).
 
@@ -114,4 +114,25 @@ test("a day is read only once its next local midnight has passed, whatever today
   expect(second[0]).toBe("2020-03-14");
   expect(second.filter((d) => first.includes(d))).toEqual([]);
   expect(readSpendingDay("2020-03-14")?.unsettled).toBe(0);
+});
+
+test("an Apify run counts once its bill is whole; one running or just ended keeps its day unsettled", () => {
+  const now = new Date("2026-11-20T10:00:00Z");
+  const run = (finishedAt: string | null, usd: number | null) => ({
+    at: "2026-11-19T09:00:00Z",
+    finishedAt,
+    usd,
+  });
+  const { spends, unsettled } = apifySpendsOf(
+    [
+      run("2026-11-19T09:01:00Z", 0.0026),
+      run(null, 0.000_05),
+      run("2026-11-20T09:59:30Z", 0.000_05),
+    ],
+    now
+  );
+  expect(spends).toEqual([
+    expect.objectContaining({ provider: "apify", reported: true, usd: 0.0026 }),
+  ]);
+  expect(unsettled).toBe(2);
 });

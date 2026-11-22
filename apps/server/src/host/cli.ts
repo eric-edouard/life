@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { APIFY_KEY_ENV } from "../apify/backend";
 import { daysBefore } from "../core/clock";
 import { FULL_DISK } from "../core/files";
 import { log } from "../core/log";
@@ -96,6 +97,8 @@ const commands: Record<string, () => number | Promise<number>> = {
             release: REMCTL_RELEASE,
           };
         })(),
+        /** The keys of his agents' skills, each a Keychain item the app asks for by this name. */
+        skillKeys: [APIFY_KEY_ENV],
         sources: SOURCES.map((s) => {
           const missing = s.missing?.() ?? null;
           return {

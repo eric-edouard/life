@@ -43,7 +43,12 @@ import {
 } from "./pi-extension";
 import { SPENDING_TOOLS } from "./pi-subagent";
 import type { PiTerminalLaunch } from "./pi-terminal";
-import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
+import {
+  GATED_KEYS,
+  loginEnvLess,
+  readSendFacts,
+  type SessionState,
+} from "./runtime-rows";
 import {
   type Connection,
   LAUNCH_WITHIN_MS,
@@ -342,7 +347,7 @@ export function piRowOf(
           const run = runOfMode(a, ref, false, false);
           const launch: PiTerminalLaunch = {
             command: run.command,
-            drop: [KEY],
+            drop: [KEY, ...GATED_KEYS],
             entrypoint: TERMINAL_ENTRYPOINT,
             env: run.env,
             file: run.file ?? "",
