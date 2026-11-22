@@ -367,7 +367,7 @@ test("a card that says it did not check, shows Life's inside or runs long is ref
     expect.stringContaining("`context` holds 1400 characters"),
   ]);
   const quoted =
-    "Kit fixed it ([his message](https://example.com/obs_5bdeee7a8a60)) and Anna didn't read it yet.\n> Not verified yet, said the shop\n*Kit*";
+    "Kit fixed it ([his message](https://example.com/obs_5bdeee7a8a60)) and Anna didn't read it yet; the bank couldn't verify the first transfer.\n> Not verified yet, said the shop\n*Kit*";
   await expect(
     requestDecision(DESK_AGENT, { ...card(quoted), agent })
   ).resolves.toMatchObject({ id: expect.any(String) });
