@@ -214,6 +214,22 @@ test("its step due first is shown, due to the last instant of its own day; a dat
   expect(hidden?.needs).toEqual([]);
 });
 
+// Inbox audit of 22 Nov 2026: a card asked him to mark done a pitch call dated six days before, and a third of the
+// cards were steps read from no-reply notices and his agents' reports. Life settles both: no card.
+test("a step dated more than two days ago, or said by a mailer, shows no your move card; a deadline missed yesterday still does", () => {
+  const today = "2026-11-22";
+  const call = { ...OWN, text: "Pitch call with the shop", when: "2026-11-16" };
+  const one = (step: typeof OWN & { byMailer?: true; when?: string }) =>
+    moves({ matters: [{ ...MATTER, openSteps: [step, WAIT] }], today });
+  expect(one(call)).toEqual([]);
+  expect(one({ ...call, when: "2026-11-20" })).toHaveLength(1);
+  expect(one({ ...OWN, byMailer: true })).toEqual([]);
+  // His undated step on the same matter still asks.
+  expect(
+    moves({ matters: [{ ...MATTER, openSteps: [call, OWN, WAIT] }], today })
+  ).toMatchObject([{ question: OWN.text }]);
+});
+
 test("a card due today counts in deadlinesToday on its day", () => {
   setSystemTime(new Date("2026-11-18T05:00:00.000Z"));
   try {
