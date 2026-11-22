@@ -647,7 +647,7 @@
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "A step of yours is open on this matter.\n\n> I must sign the lease\n\n*11 Oct*",
+      "context": "Still yours to do? Life sees no sign it is done.\n\n> I must sign the lease\n\n*11 Oct*",
       "deadline": null,
       "draft": null,
       "goal": "Renew the lease",
@@ -1090,5 +1090,5 @@
   },
   "deadlinesToday": 0,
   "total": 12,
-  "version": "ff1832d50451bf15"
+  "version": "30279b49399e2359"
 }
