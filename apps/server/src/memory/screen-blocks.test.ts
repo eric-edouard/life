@@ -2,7 +2,13 @@ import { expect, test } from "bun:test";
 import { iso, MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import { reconcile } from "./calendar-events";
-import { SCREEN_OF, screenDrafts, screenLine } from "./screen-blocks";
+import {
+  isBeforeScreenWindow,
+  SCREEN_OF,
+  screenDrafts,
+  screenLine,
+  screenWindowStart,
+} from "./screen-blocks";
 
 const T0 = Date.parse("2026-10-09T10:00:00.000Z");
 const stint = (
@@ -67,4 +73,17 @@ test("the nightly line gives each device's time in apps and its span", () => {
   expect(line.startsWith("Mac 1 h 24 (")).toBe(true);
   expect(line).toContain("), Phone 10 min (");
   expect(screenLine([])).toBe("");
+});
+
+test("the screen window starts no earlier than the calendar listing (a day before since) and keeps older blocks", () => {
+  const now = new Date("2026-10-09T12:00:00Z");
+  const since = new Date(now.getTime() - 3 * 24 * 60 * MIN);
+  const from = screenWindowStart(since, now);
+  expect(from >= iso(since.getTime() - 24 * 60 * MIN)).toBe(true);
+  expect(from <= iso(since.getTime())).toBe(true);
+  expect(screenWindowStart(undefined, now)).toBe(from);
+  expect(
+    isBeforeScreenWindow(`${SCREEN_OF}MAC/${iso(Date.parse(from) - MIN)}`, from)
+  ).toBe(true);
+  expect(isBeforeScreenWindow(`${SCREEN_OF}MAC/${from}`, from)).toBe(false);
 });

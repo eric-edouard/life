@@ -8,6 +8,7 @@ import { settings } from "../core/settings";
 import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
 import { described, wanted } from "../memory/past-events";
 import {
+  isBeforeScreenWindow,
   SCREEN_OF,
   screenWindowStart,
   wantedScreen,
@@ -166,7 +167,7 @@ export async function syncPast(since: Date | undefined, now = clock()) {
     ),
     (of) =>
       of.startsWith(SCREEN_OF)
-        ? of.slice(of.lastIndexOf("/") + 1) < screenFrom
+        ? isBeforeScreenWindow(of, screenFrom)
         : want.live.has(of)
   );
   for (const e of remove) {

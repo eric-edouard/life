@@ -38,7 +38,7 @@ const NAMES: Record<string, string> = {
   "net.whatsapp.WhatsApp": "WhatsApp",
   "net.whatsapp.WhatsApp.iOS": "WhatsApp",
 };
-export const appNameOf = (bundle: string) =>
+const appNameOf = (bundle: string) =>
   NAMES[bundle] ?? bundle.split(".").at(-1) ?? bundle;
 
 const length = (e: SourceEvent) =>
@@ -114,11 +114,17 @@ export function screenDrafts(events: SourceEvent[]): Draft[] {
 }
 
 /**
- * The first instant of the days a sync reads: the local day `WINDOW` before `since` (the sync's own, else `now`). Screen
- * blocks before it are left as they are.
+ * The first instant of the days a sync reads: the local day of `since` (a tick's is 3 days back, so the Past calendar's
+ * listing, which starts a day before it, always covers them), else of 3 days before `now`.
  */
 export const screenWindowStart = (since: Date | undefined, now: Date) =>
-  dayStart(localDate(iso((since ?? now).getTime() - WINDOW))).toISOString();
+  dayStart(
+    localDate(iso((since ?? new Date(now.getTime() - WINDOW)).getTime()))
+  ).toISOString();
+
+/** Whether a screen block's `of` starts before the window: it is left as it is, never listed as gone. */
+export const isBeforeScreenWindow = (of: string, windowStart: string) =>
+  of.slice(of.lastIndexOf("/") + 1) < windowStart;
 
 /** The screen blocks wanted since `windowStart`: only those days' stints are read, whatever the archive's age. */
 export const wantedScreen = (windowStart: string) =>
