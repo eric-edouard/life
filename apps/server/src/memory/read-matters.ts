@@ -249,6 +249,8 @@ export async function rankedMatters<R extends { book: MatterView[] }>(
       .map((v) => ({ at: matterEndOf(v)?.at ?? "", v }))
       .filter((e) => !q.before || e.at < q.before)
       .toSorted((a, b) => b.at.localeCompare(a.at));
+    // ponytail: the cursor is an instant, so matters ending at the very same instant across a page's edge skip the
+    // later ones; a compound cursor (instant and id) if that ever shows.
     const page = ended.slice(0, CLOSED_PAGE);
     return {
       ...base,
