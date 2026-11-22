@@ -8,8 +8,6 @@ import {
   type AgentRow,
   type AssignmentRow,
   agentOf,
-  assignmentOf,
-  assignmentOfCard,
   beingFixedOf,
   cardOwnersOf,
   complaintsAtWork,
@@ -18,40 +16,12 @@ import {
   readDesk,
 } from "./desk-read";
 import { ASK_SPOKEN } from "./events";
-import { countsAsAskedOf, movedInOf } from "./move-read";
+import { movedInOf } from "./move-read";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
 // its key, the facts only when the list is read again; and his complaints the caretaker holds (a few rows, in its key),
 // shown with the caretaker's open card among the decisions the list is read from.
-
-/**
- * The plan cards among the open decisions of `list` (every decision, in the order asked): an assignment he opened, its
- * first card asked (`countsAsAskedOf`, as the door's `hasAsked`); never the caretaker's, whose plan is his complaint, nor a hand-out's
- * one card (the desk opened it: what it found, not a plan). Worked out when read, never stored.
- */
-export function planCardsOf(db: Database, list: readonly Decision[]) {
-  const owners = new Map<string, string | null>();
-  const ownerOf = (d: Decision) => {
-    if (!owners.has(d.id)) {
-      owners.set(d.id, assignmentOfCard(db, d));
-    }
-    return owners.get(d.id) ?? null;
-  };
-  // ponytail: each candidate scans the history before it, each owner looked up once per read; a `card` index by assignment if it grows.
-  return new Set(
-    list.flatMap((d) => {
-      const s = d.state === "open" ? ownerOf(d) : null;
-      const opened = s ? assignmentOf(db, s) : null;
-      return opened &&
-        opensWithPlan(db, opened) &&
-        list.find((e) => ownerOf(e) === s && countsAsAskedOf(db, opened)(e)) ===
-          d
-        ? [d.id]
-        : [];
-    })
-  );
-}
 
 /**
  * Whether his own words are assignment `s`'s plan, so its first turn asks no plan card and may wait or finish without
@@ -72,7 +42,7 @@ export const isHisWordsPlanOf = (
       )
       .get(s.id, ASK_SPOKEN) !== null);
 
-/** Whether assignment `s`'s first card is its plan (`planCardsOf` when read, the door's `asksPlanOf` when asked): one he opened or moved to its agent (`movedInOf`), unless his own words are its plan (`isHisWordsPlanOf`). */
+/** Whether assignment `s`'s first card must be a plan card (the door's `asksPlanOf`): one he opened or moved to its agent (`movedInOf`), unless his own words are its plan (`isHisWordsPlanOf`). */
 export const opensWithPlan = (
   db: Database,
   s: Pick<AssignmentRow, "agent_id" | "id" | "opened_by">
@@ -125,10 +95,6 @@ function readHeld(): HeldRead | null {
             line: null,
             since,
           }));
-    },
-    plans: (decisions) => {
-      const r = readDesk((db) => planCardsOf(db, decisions), new Set<string>());
-      return r.state === "ok" ? r.value : new Set();
     },
     read: () => {
       const r = readDesk(heldByAgents, []);

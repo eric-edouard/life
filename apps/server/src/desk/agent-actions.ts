@@ -102,7 +102,7 @@ export const hasAsked = (
   list = decisionsNow()
 ) => cardsOf(db, s, list).some(countsAsAskedOf(db, s));
 
-/** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`), as `planCardsOf` reads it. */
+/** Whether the card assignment `s` asks now is its plan card: one that opens with a plan (`opensWithPlan`), nothing asked yet (`hasAsked`). */
 const asksPlanOf = (db: Desk["db"], s: AssignmentRow) =>
   opensWithPlan(db, s) && !hasAsked(db, s);
 

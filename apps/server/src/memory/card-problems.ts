@@ -49,7 +49,7 @@ export function pageHintOf(request: { needs?: unknown }, error: z.ZodError) {
   return page ? ` Read fetch("ask/${page}").` : "";
 }
 
-/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. `isPlan`: it is an assignment's plan card (the door's `asksPlanOf`). */
+/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. `isPlan`: it must be a plan card, an assignment's first (the door's `asksPlanOf`). */
 export function cardProblemOf(
   ask: z.infer<typeof Ask>,
   now: Date,
@@ -155,23 +155,36 @@ function lookProblemOf(
 export const planRoleOf = (id: string) =>
   PLAN_OPTIONS.find((o) => o.id === id)?.id;
 
-/** What breaks the plan card's rules (`fetch("ask/plan")`): `plan` and `gathered` on it alone, `plan` always on it (a plan in `context` alone drew an empty card on his phone, 21 Nov 2026), and its two options, `start` and `decline`; false when nothing does. */
+/** A Markdown numbered-list line, outside quotes and code: a plan's step written as text. */
+const NUMBERED_LINE = /^ {0,3}\d{1,2}[.)]\s/;
+const CODE_BLOCK = /```[\s\S]*?```/g;
+
+/** Whether `context` writes steps as a numbered list (two lines or more, quotes and code aside): a plan as text, which drew a wall of text on his phone (22 Nov 2026). */
+const isNumberedListOf = (context: string) =>
+  context
+    .replace(CODE_BLOCK, "")
+    .split("\n")
+    .filter((l) => NUMBERED_LINE.test(l)).length >= 2;
+
+/** What breaks the plan card's rules (`fetch("ask/plan")`): a card that presents a plan gives it as `plan`, its steps, never as a numbered list in `context` (his word of 22 Nov 2026); the assignment's plan card always does (`isPlan`, 21 Nov 2026); `gathered` goes with `plan`; its two options, `start` and `decline`; false when nothing does. */
 function planProblemOf(
   ask: z.infer<typeof Ask>,
   isPlan: boolean,
   silence?: z.infer<typeof Option>
 ) {
-  if (!(ask.plan || ask.gathered)) {
+  const resend =
+    'give its steps as `plan`, with options exactly `start` and `decline`, and keep `context` to what you found, as bullets (fetch("ask/plan"))';
+  if (isNumberedListOf(ask.context)) {
+    return `a numbered list in \`context\` is a plan as text: ${resend}; a list that is not steps goes as bullets`;
+  }
+  if (!ask.plan) {
     return (
-      isPlan &&
-      'an assignment\'s first card is its plan card: give `plan`, its steps, with options exactly `start` and `decline` (fetch("ask/plan"))'
+      (isPlan && `an assignment's first card is its plan card: ${resend}`) ||
+      (ask.gathered &&
+        'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))')
     );
   }
   return (
-    (!isPlan &&
-      '`plan` and `gathered` are only on an assignment\'s plan card, its first card (fetch("ask/plan"))') ||
-    (!ask.plan &&
-      'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))') ||
     ((ask.options.length !== PLAN_OPTIONS.length ||
       PLAN_OPTIONS.some(
         (p) => !ask.options.some((o) => o.id === p.id && o.label === p.label)

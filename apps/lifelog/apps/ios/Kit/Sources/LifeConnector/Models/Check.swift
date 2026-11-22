@@ -215,8 +215,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let head: Head?
     /// The older draft card into the same chat that this one replaces (his Send withdraws it); nil for most cards.
     public let replaces: String?
-    /// A decision that is its assignment's plan card (the first one of an assignment he opened, `planCardsOf`); nil on
-    /// other kinds, or from a Life that predates it.
+    /// A decision that is a plan card: it gives `plan`, its steps; nil on other kinds, or from a Life that predates
+    /// it.
     public let isPlan: Bool?
     /// A plan card's steps, in order; nil on an older plan card, which shows as any decision.
     public let plan: [PlanStep]?
@@ -251,8 +251,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let text: String
     }
 
-    /// The steps the card draws, whenever it holds them: `isPlan` is false while Life can't read its desk, and a card
-    /// with no steps (an older plan card too) draws as any decision.
+    /// The steps the card draws, whenever it holds them; a card with no steps (an older plan card too) draws as any
+    /// decision.
     public var planSteps: [PlanStep] { plan ?? [] }
     /// The names a name check asks about, as they were said: shown in bold in `said`.
     public let about: [String]?
