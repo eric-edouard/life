@@ -30,6 +30,7 @@ struct CheckCard: View {
 
     /// The card's context shows in a region of its own, so its matter row and "Why" link go: `CardArrangement` decides.
     @Environment(\.isContextBeside) private var isContextBeside
+    @Environment(\.isInThread) private var isInThread
     @Environment(LifeStore.self) private var life
     @Environment(\.dynamicTypeSize) private var typeSize
     @FocusState private var isWriting: Bool
@@ -39,7 +40,7 @@ struct CheckCard: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                if !input.isWritingOwnWords, check.matter != nil { matterPill }
+                if !input.isWritingOwnWords, check.matter != nil, !isInThread { matterPill }
                 question
                 tile
                 beingFixed

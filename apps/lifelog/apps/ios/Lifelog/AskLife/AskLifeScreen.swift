@@ -121,7 +121,12 @@ struct AskLifeScreen: View {
             Task {
                 guard await life.open(ref: ref) else { return isCardGone = true }
                 router.isAskLifeOpen = false
-                router.tab = .inbox
+                // An ask of a matter is in that matter's thread; one of no matter is the Inbox's.
+                if let matter = life.inbox.value?.checks.first(where: { $0.ref == ref })?.matterID {
+                    router.open(matter: matter)
+                } else {
+                    router.tab = .inbox
+                }
             }
             return
         }
