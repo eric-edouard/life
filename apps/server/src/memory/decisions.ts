@@ -5,6 +5,7 @@ import { clock, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { log } from "../core/log";
 import { payments } from "../payments/backend";
+import { CardPreview, cardDigestOf, cardPreviewOf } from "./card-preview";
 import {
   cardProblemOf,
   endsProblemOf,
@@ -379,7 +380,7 @@ export function requestDecision(
   request: Record<string, unknown>,
   now = clock(),
   readChat = resolveDraft,
-  held?: Held
+  held?: Partial<Held>
 ): Promise<{ id: string; waits?: { on: string; until: string; why: string } }> {
   // A withdrawal or a keep refuses as a rejection too, like an ask.
   if (request.withdraw) {
@@ -394,6 +395,8 @@ interface Held {
   claim: Claim;
   isPlan: boolean;
   prefer?: string;
+  /** The preview's digest the asker saw (`previewed`), or null for none: given, the card is asked only when it matches, else its preview is refused in its place (`CardPreview`). */
+  seen?: string | null;
 }
 
 /** Whose a card is (the desk's claim): handed the subject Life will store, the card's id, the asker's own card a merge withdraws and the card's write, which it runs at once inside its own writes (whose card it is), or refuses by throwing. */
@@ -414,6 +417,7 @@ async function askCard(
     claim = (_subject, _id, _replacing, write) => write({}),
     isPlan = false,
     prefer,
+    seen,
   }: Partial<Held> = {}
 ) {
   const notBuilt = notBuiltOf(request);
@@ -462,6 +466,10 @@ async function askCard(
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
+  const digest = seen !== undefined && cardDigestOf(ask, draft);
+  if (digest && digest !== seen) {
+    throw new CardPreview(cardPreviewOf(ask, draft, digest), digest);
+  }
   const { contests, merged } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
   const { draft: _given, ...given } = ask; // The draft is stored as Life resolved it.
