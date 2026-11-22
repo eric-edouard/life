@@ -166,7 +166,7 @@ struct CheckActions: View {
 
     /// An answer's words with its icon: beside them, or above them in a tile. `done` is Life's green check; `agent` the
     /// asking agent's mark.
-    @ViewBuilder private func words(_ choice: Choice, isTile: Bool) -> some View {
+    @ViewBuilder private func words(_ choice: Choice, isTile: Bool, isHalf: Bool = false) -> some View {
         if isTile {
             VStack(spacing: Metrics.Spacing.xs) {
                 icon(of: choice).font(.buttonLabel)
@@ -175,7 +175,8 @@ struct CheckActions: View {
         } else {
             HStack(spacing: Metrics.Spacing.s) {
                 icon(of: choice)
-                Text(choice.label)
+                // A half holds its label on one line, shrinking a little rather than wrapping.
+                Text(choice.label).lineLimit(isHalf ? 1 : 3).minimumScaleFactor(isHalf ? 0.75 : 1)
             }
         }
     }
@@ -289,8 +290,8 @@ struct CheckActions: View {
             if rest.count == 1, let other = rest.first, !typeSize.isAccessibilitySize {
                 // Two answers: one row, halves, each icon beside its label.
                 HStack(spacing: Metrics.Spacing.s) {
-                    answerButton(choice(first), kind: .filled, size: .large)
-                    answerButton(other, kind: .quiet, size: .large)
+                    answerButton(choice(first), kind: .filled, size: .large, isHalf: true)
+                    answerButton(other, kind: .quiet, size: .large, isHalf: true)
                 }
             } else {
                 answerButton(choice(first), kind: .filled, size: .large)
@@ -353,7 +354,7 @@ struct CheckActions: View {
             ForEach(rows.indices, id: \.self) { i in
                 HStack(spacing: Metrics.Spacing.s) {
                     ForEach(rows[i]) { choice in
-                        answerButton(choice, kind: .quiet, size: .tile).minimumScaleFactor(0.85)
+                        answerButton(choice, kind: .quiet, size: .tile).minimumScaleFactor(0.75)
                     }
                 }
             }
@@ -370,13 +371,17 @@ struct CheckActions: View {
 
     /// One answer's button: at rest, or, once he pressed an answer, the pressed one working, then green with Life's
     /// word (only on Life's say-so), and every other dimmed and off until it is over.
-    @ViewBuilder private func answerButton(_ choice: Choice, kind: PillStyle.Kind, size: PillStyle.Size) -> some View {
+    @ViewBuilder private func answerButton(
+        _ choice: Choice, kind: PillStyle.Kind, size: PillStyle.Size, isHalf: Bool = false
+    ) -> some View {
         if let pressed, case .option(let id) = choice.id, id == pressedChoice {
             pressedButton(pressed, kind: kind, size: size)
         } else {
-            Button(action: choice.run) { words(choice, isTile: size == .tile) }.buttonStyle(.pill(kind, size: size))
-                .zoomSource(choice.sheet, in: sheetZoom)
-                .opacity(pressed == nil ? 1 : 0.35).disabled(pressed != nil)
+            Button(action: choice.run) { words(choice, isTile: size == .tile, isHalf: isHalf) }.buttonStyle(
+                .pill(kind, size: size)
+            )
+            .zoomSource(choice.sheet, in: sheetZoom)
+            .opacity(pressed == nil ? 1 : 0.35).disabled(pressed != nil)
         }
     }
 
