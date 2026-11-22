@@ -64,7 +64,7 @@ struct CheckActions: View {
             } else if isBusy {
                 Button {
                 } label: {
-                    Text(check.draft != nil ? "Sending…" : "Saving…")
+                    WorkingWords(words: check.draft != nil ? "Sending…" : "Saving…", key: .answer(ref: check.ref))
                 }
                 .buttonStyle(.pill(.quiet, isBusy: true)).disabled(true)
             } else {
