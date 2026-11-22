@@ -7,7 +7,7 @@ struct ProfileScreen: View {
 
     var body: some View {
         @Bindable var router = router
-        NavigationStack {
+        NavigationStack(path: $router.profilePath) {
             ScrollView {
                 RowGroup {
                     Button {
@@ -23,7 +23,7 @@ struct ProfileScreen: View {
             .background(Palette.bg)
             .screenTitle("Profile")
             .shellBar("")
-            .navigationDestination(isPresented: $router.isSettingsOpen) { SettingsPage() }
+            .navigationDestination(for: AppRouter.ProfilePage.self) { _ in SettingsPage() }
         }
     }
 }

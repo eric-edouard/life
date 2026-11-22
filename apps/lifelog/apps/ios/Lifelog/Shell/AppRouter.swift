@@ -14,6 +14,8 @@ final class AppRouter {
 
     /// What is pushed on the Inbox's list: the ask on show, with its pager. The list is the root, so Back returns to it.
     enum InboxPage: Hashable { case ask }
+    /// What is pushed on the Profile page.
+    enum ProfilePage: Hashable { case settings }
 
     /// A page's own Back, in the foot bar on a regular width (`NavShell`): the page registers it while it shows, and its
     /// `id` keeps a page going away from clearing the one it revealed.
@@ -109,8 +111,8 @@ final class AppRouter {
     var matterPath: [MatterRoute] = []
     /// The ask pushed on the Inbox's list; empty is the list itself.
     var inboxPath: [InboxPage] = []
-    /// Whether Settings is pushed on the Profile page.
-    var isSettingsOpen = false
+    /// What is pushed on the Profile page: Settings.
+    var profilePath: [ProfilePage] = []
     /// The page on show's Back, for the foot bar on a regular width.
     var back: BackAction?
     var sheet: Sheet?
@@ -163,12 +165,12 @@ final class AppRouter {
 
     /// The Profile page, from the list's top row.
     func showProfile() {
-        (isDrawerOpen, isSettingsOpen, tab, cut) = (false, false, .profile, nil)
+        (isDrawerOpen, profilePath, tab, cut) = (false, [], .profile, nil)
     }
 
     /// Settings, the Profile page's child: from the list, or a screen's "Pair with Life".
     func openSettings() {
-        (isDrawerOpen, tab, isSettingsOpen) = (false, .profile, true)
+        (isDrawerOpen, tab, profilePath) = (false, .profile, [.settings])
     }
 
     /// The Projects page, on its whole list, from the list's top row.
@@ -248,7 +250,7 @@ final class AppRouter {
         matterColumn = .detail
     }
 
-    /// A page Settings opens (the agents, Spending) in the Projects tab's detail column, with the tabs: the sheet closes.
+    /// A page Settings opens (the agents, Spending) in the Projects tab's detail column.
     func show(_ page: Detail) {
         sheet = nil
         matterSheet = nil

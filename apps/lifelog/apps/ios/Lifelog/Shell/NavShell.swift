@@ -60,7 +60,7 @@ struct NavShell: View {
     private var bar: some View {
         HStack {
             // A pushed page's Back: the unfolded Duo's foot, where the toolbar would sit under the Pendant.
-            if let back = router.back, sizeClass == .regular, !isListShown {
+            if let back = router.back, sizeClass == .regular, !router.isDrawerOpen {
                 Button(action: back.run) { slot("chevron.backward") }
                     .accessibilityLabel("Back")
                     .accessibilityIdentifier("top.back")

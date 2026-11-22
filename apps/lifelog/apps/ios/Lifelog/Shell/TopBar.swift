@@ -42,8 +42,13 @@ private struct ShellBar: ViewModifier {
                 if hasPendant { fitted(pendant) }
                 if hasBack && !backInFoot && router.isBarsInColumn { fitted(back) }
             }
-            .onAppear {
-                if backInFoot { router.back = AppRouter.BackAction(id: id) { dismiss() } }
+            // Registered while it shows, and again when a fold or a turn makes the foot its place.
+            .onChange(of: backInFoot, initial: true) { _, isInFoot in
+                if isInFoot {
+                    router.back = AppRouter.BackAction(id: id) { dismiss() }
+                } else if router.back?.id == id {
+                    router.back = nil
+                }
             }
             .onDisappear {
                 if router.back?.id == id { router.back = nil }
