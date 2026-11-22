@@ -107,6 +107,28 @@ export const HOUR_PRICES: Row<HourPrice>[] = [
     usdPerHour: 0.05,
   },
 ];
+/** Dollars per request: a paid web search of an agent on pi (`web_search`, `desk/runtimes/web-tools.ts`), by provider. */
+interface RequestPrice {
+  usdPerRequest: number;
+}
+
+/** A web search provider's price per request, by `WebSearchProvider` (the owner's chain of 22 Nov 2026). */
+export const REQUEST_PRICES: Row<RequestPrice>[] = [
+  {
+    from: "2026-11-22",
+    item: "brave",
+    read: "2026-11-22",
+    source: "https://brave.com/search/api/",
+    usdPerRequest: 0.005,
+  },
+  {
+    from: "2026-11-22",
+    item: "perplexity-search",
+    read: "2026-11-22",
+    source: "https://docs.perplexity.ai/getting-started/pricing",
+    usdPerRequest: 0.005,
+  },
+];
 /** `item`'s row in force on `day` (YYYY-MM-DD): the latest whose `from` is on or before it; none before every row. */
 export const priceOn = <P>(rows: Row<P>[], item: string, day: string) =>
   rows

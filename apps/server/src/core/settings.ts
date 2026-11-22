@@ -8,6 +8,7 @@ import {
   NotifyLevel,
   RuntimeName,
   SourceName,
+  WebSearchProvider,
 } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
@@ -58,6 +59,9 @@ export const Settings = z
      * `agentsRepo`: his agents' git repo (an absolute path): each assignment's notes file, under `assignments/`, and each
      * agent's home, committed by the desk after each turn; absent, the notes files live under the desk's own folders and
      * nothing is committed.
+     * `webSearch`: the providers `web_search` asks, in order, for an agent of his own Life on pi
+     * (`desk/runtimes/web-tools.ts`); a provider whose key his environment lacks is skipped (the owner's chain of 22 Nov
+     * 2026: `["brave", "perplexity-search"]`). Absent means no `web_search`.
      */
     desk: z
       .object({
@@ -87,6 +91,7 @@ export const Settings = z
               .strict()
           )
           .default({}),
+        webSearch: z.array(WebSearchProvider).min(1).optional(),
       })
       .strict()
       .optional(),

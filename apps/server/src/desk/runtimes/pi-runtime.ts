@@ -14,6 +14,7 @@ import {
 } from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
+import { settings } from "../../core/settings";
 import { piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
 import type { ClaudeHookGroup } from "./claude-hooks";
@@ -24,7 +25,7 @@ import {
   PI_PROVIDER,
   type PiProvider,
 } from "./pi-extension";
-import { type CallUsage, SUBAGENT } from "./pi-subagent";
+import { type CallUsage, SPENDING_TOOLS } from "./pi-subagent";
 import { loginEnvLess, readSendFacts, type SessionState } from "./runtime-rows";
 import {
   type Connection,
@@ -359,6 +360,9 @@ export function piRowOf(
                 ),
                 [PI_EXTENSION_ENV.own]: "1",
                 [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
+                [PI_EXTENSION_ENV.search]: JSON.stringify(
+                  settings().desk?.webSearch ?? []
+                ),
               }
             : {}),
           [PI_EXTENSION_ENV.key]: process.env[KEY] ?? "",
@@ -370,7 +374,7 @@ export function piRowOf(
 }
 
 /** What pi prints on stdout, as far as the runtime reads it. */
-interface PiLine {
+export interface PiLine {
   aborted?: boolean;
   assistantMessageEvent?: { delta?: string; type: string };
   command?: string;
@@ -384,7 +388,7 @@ interface PiLine {
     stopReason?: string;
     usage?: CallUsage;
   };
-  /** A tool's result: a subagent's carries its calls' usage. */
+  /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`). */
   result?: { details?: { usage?: CallUsage[] } };
   success?: boolean;
   toolCallId?: string;
@@ -393,7 +397,7 @@ interface PiLine {
 }
 
 /** The run in progress on a connection: what it heard so far, and how to settle it. */
-interface Current {
+export interface Current {
   begun: () => void;
   end: (e: RunEnd) => void;
   onUpdate?: (u: Update) => void;
@@ -457,7 +461,7 @@ const parseLine = (text: string): PiLine | undefined => {
 };
 
 /** What line `l` does to the run `c`: its beginning, its usage and stop, its listener's update; its end at `agent_settled`. */
-function runHeard(c: Current, l: PiLine): RunEnd | undefined {
+export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
   if (l.type === "message_update") {
     c.begun();
   }
@@ -466,7 +470,10 @@ function runHeard(c: Current, l: PiLine): RunEnd | undefined {
     c.stop = l.message.stopReason;
     c.why = l.message.errorMessage;
   }
-  if (l.type === "tool_execution_end" && l.toolName === SUBAGENT) {
+  if (
+    l.type === "tool_execution_end" &&
+    SPENDING_TOOLS.includes(l.toolName ?? "")
+  ) {
     for (const m of l.result?.details?.usage ?? []) {
       addSpent(c.usage, m);
     }

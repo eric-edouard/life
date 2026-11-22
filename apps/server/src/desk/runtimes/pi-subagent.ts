@@ -2,12 +2,13 @@ import type {
   ExtensionAPI,
   ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
+import { WEB_SEARCH } from "./web-tools";
 
 // `subagent` for an agent of his own Life on pi (Claude Code's Task tool): a child session in the same pi process,
 // through pi's own SDK (the copy pi hands its extensions), given Life's extension as an object (`factory`, no door and
 // no connector reads), so the send guard is in the child by construction and the provider key never enters an
 // environment. The child runs on the parent's model and thinking, in the parent's folder, never trusts the folder's
-// `.pi`, has no `subagent` of its own, and keeps nothing (an in-memory session). Its calls' usage comes back in the
+// `.pi`, has no `subagent` of its own, and keeps nothing (an in-memory session). Its calls' usage, and its searches', comes back in the
 // tool result's `details.usage`, which the pi runtime adds to the turn's (`pi-runtime.ts`).
 
 /** One model call's usage, as pi's assistant messages carry it. */
@@ -22,6 +23,9 @@ export interface CallUsage {
 
 /** The tool's name: the child has none of it. */
 export const SUBAGENT = "subagent";
+
+/** Life's own tools whose result's `details.usage` is a spend: this one's child calls, `web_search`'s paid requests. */
+export const SPENDING_TOOLS = [SUBAGENT, WEB_SEARCH];
 
 /** Registers `subagent`, its child sessions built on `factory`. */
 export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
@@ -59,6 +63,13 @@ export function registerSubagent(pi: ExtensionAPI, factory: ExtensionFactory) {
       const usage: CallUsage[] = [];
       let answer = "";
       session.subscribe((e) => {
+        // The child's own searches are its spend too: none of its events reaches the runtime's reader.
+        if (
+          e.type === "tool_execution_end" &&
+          SPENDING_TOOLS.includes(e.toolName)
+        ) {
+          usage.push(...(e.result?.details?.usage ?? []));
+        }
         if (e.type === "message_end" && e.message.role === "assistant") {
           usage.push(e.message.usage);
           answer =
