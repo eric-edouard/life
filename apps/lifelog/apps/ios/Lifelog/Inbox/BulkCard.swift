@@ -133,32 +133,23 @@ struct BulkCard: View {
             },
             open: { opened = check }
         ) {
-            // A voice's sign is its Play, centred on the row; any other row opens its own card.
-            if kind == .voice, let clip = check.clips.first {
-                VoiceLine(clip: clip, below: detail(of: check))
-            } else {
-                HStack(spacing: Metrics.Spacing.s) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(check.said?.text ?? check.question).font(.leadBold).foregroundStyle(Palette.fg)
-                            .lineLimit(1)
-                        detail(of: check)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
+            HStack(spacing: Metrics.Spacing.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(check.said?.text ?? check.question).font(.leadBold).foregroundStyle(Palette.fg)
+                        .lineLimit(1)
+                    detail(of: check)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.smallStrong).foregroundStyle(Palette.muted)
             }
         }
     }
 
-    /// The row's muted line: when and how long for a voice, what came since for any other, then the answer it gives. An
+    /// The row's muted line: what came since, then the answer it gives. An
     /// answer that is a person says it first, then their disc, name and what they are to him, which tells two of one
     /// name apart ("Yes, <disc> <who> · <their line> · Fri 13 Nov"); the length leaves to make room.
     @ViewBuilder private func detail(of check: Check) -> some View {
-        let clip = check.clips.first
-        let about =
-            kind == .voice
-            ? [clip?.at.map { SaidWords.day($0) }, clip?.lengthText]
-            : [check.since?.text ?? check.matter?.name]
+        let about = [check.since?.text ?? check.matter?.name]
         let answer = answerOf(check)
         if let person = answer.person {
             HStack(spacing: Metrics.Spacing.xs) {
@@ -292,27 +283,5 @@ struct BulkCard: View {
                 .buttonStyle(.pill(.quiet, size: .compact))
         }
         .padding(.bottom, Metrics.Spacing.s)
-    }
-}
-
-/// A voice row's first words, lit as they play, with its Play at the right (`SpokenWords`, one clip at a time).
-private struct VoiceLine<Below: View>: View {
-    let clip: Check.Clip
-    /// The row's muted line under the words.
-    let below: Below
-
-    var body: some View {
-        if let audio = clip.audio, let job = UUID(uuidString: audio.jobId) {
-            SpokenWords(
-                text: clip.text, words: clip.words, job: job, start: audio.start, end: audio.end, style: .line,
-                below: below
-            )
-            .font(.lead)
-        } else {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("“\(clip.text)”").font(.lead).foregroundStyle(Palette.fg).lineLimit(1)
-                below
-            }
-        }
     }
 }

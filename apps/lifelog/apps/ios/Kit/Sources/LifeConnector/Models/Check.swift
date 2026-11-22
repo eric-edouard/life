@@ -463,6 +463,19 @@ extension Check {
         }
     }
 
+    /// A voice's answers that are no option of the card: "Me", his own person; and "TV or video" (`media`: Life accepts it
+    /// though the card no longer lists it). Nothing is ever pre-selected; each is one tap.
+    public var answerMe: AnswerRequest? { answer(naming: .person("person:me")) }
+    public var answerMedia: AnswerRequest { AnswerRequest(ref: ref, options: ["media"]) }
+    public var answerDontName: AnswerRequest { AnswerRequest(ref: ref, options: ["not-relevant"]) }
+
+    /// The people a voice may be, never him (he is "Me", always first), `recent` (named earlier in the run) first.
+    public func voiceGuesses(recent: [Party]) -> [Party] {
+        (recent + likelyPeople).filter { !$0.isOwner }.reduce(into: []) { all, party in
+            if !all.contains(where: { $0.ref == party.ref }) { all.append(party) }
+        }
+    }
+
     /// Who "Someone else…" offers (the people sheet): the card's likely people first, then everyone else he knows
     /// (`everyone`, the People list: his directory and everyone with a page), never him, and no organization on a voice.
     public func peopleToPick(among everyone: [Party]) -> [Party] {
@@ -585,7 +598,7 @@ extension CheckGroup {
     public var bulkQuestion: String {
         switch self {
         case .ending: "Are these done?"
-        case .voice: "Who are these voices?"
+        case .voice: "Voices to name"
         case .guessedPerson: "Are these the right people?"
         default: "Answer these?"
         }
@@ -595,8 +608,6 @@ extension CheckGroup {
     public func bulkHeading(_ preTicked: String?) -> String? {
         switch (self, preTicked) {
         case (_, nil): "Needs you"
-        case (.voice, "not-relevant"): "Heard once"
-        case (.voice, "is-them"): "Probably them"
         case (.ending, "outdated"): "Look done"
         default: nil
         }

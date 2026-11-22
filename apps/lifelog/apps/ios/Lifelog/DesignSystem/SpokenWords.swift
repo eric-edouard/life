@@ -4,15 +4,12 @@ import SwiftUI
 /// Words that come from a recording, with their Play: while it plays, the words said so far and the one being said are
 /// `fg` and the words to come `muted`, in colour only so no line moves. Tap a word to play from it. One recording plays
 /// at a time (`PlaybackStore`), and the one that leaves the screen stops it. The host sets the font and the box.
-struct SpokenWords<Below: View>: View {
+struct SpokenWords: View {
     enum Style {
         /// A 48 round Play at the left of the words.
         case box
         /// A 28 Play (in a 44 hit area) at the right of the words.
         case inline
-        /// Like `inline`, with a 48 Play at the row's right edge, centred on the words and the line under them (`below`),
-        /// the words on one line, cut with an ellipsis (a bulk card's voice row): no bold, no tap to seek, no `emphasis`.
-        case line
     }
 
     /// The words and when each is said (contract `TimedWords`); without them the text is shown whole.
@@ -29,8 +26,6 @@ struct SpokenWords<Below: View>: View {
     var caption: String?
     /// Told when the recording plays to its end (not when it is stopped).
     var onEnded: (() -> Void)?
-    /// `line` only: the row's muted line under the words, so the Play centres on both.
-    let below: Below
 
     /// Each word as shown (with the space after it) and whether it is part of a name, made once: `body` runs about
     /// 10 times a second while it plays.
@@ -39,9 +34,8 @@ struct SpokenWords<Below: View>: View {
     init(
         text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box,
         autoplay: Bool = false, emphasis: [String] = [], caption: String? = nil,
-        onEnded: (() -> Void)? = nil, below: Below
+        onEnded: (() -> Void)? = nil
     ) {
-        self.below = below
         self.text = text
         self.words = words
         self.job = job
@@ -86,15 +80,6 @@ struct SpokenWords<Below: View>: View {
                     }
                     spoken
                 }
-            } else if style == .line {
-                HStack(spacing: Metrics.Spacing.s) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        spoken
-                        below
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    playButton
-                }
             } else {
                 HStack(alignment: .top, spacing: style == .box ? 14 : 0) {
                     if style == .box { playButton }
@@ -115,32 +100,22 @@ struct SpokenWords<Below: View>: View {
             let spokenIndex = words.spokenIndex(at: Int64((playback.position - start) * 1000))
             // Resting and ended, every word is lit; playing or paused, the words begun.
             let isLit = { (index: Int) in !isCurrent || (spokenIndex.map { index <= $0 } ?? false) }
-            if style == .line {
-                pieces.enumerated().reduce(Text("")) { line, item in
-                    let piece = Text(item.element.text).foregroundStyle(isLit(item.offset) ? Palette.fg : Palette.muted)
-                    return Text("\(line)\(piece)")
-                }
-                .lineLimit(1).accessibilityLabel(text)
-            } else {
-                FlowLayout {
-                    // A word's position is its identity: the text is fixed for the view's life.
-                    ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
-                        Group {
-                            if piece.isBold { Text(piece.text).font(.quoteBold) } else { Text(piece.text) }
-                        }
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.3)
-                        .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
-                        .motion(.easeOut(duration: 0.12), value: isLit(index))
-                        .contentShape(.rect)
-                        .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
+            FlowLayout {
+                // A word's position is its identity: the text is fixed for the view's life.
+                ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+                    Group {
+                        if piece.isBold { Text(piece.text).font(.quoteBold) } else { Text(piece.text) }
                     }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.3)
+                    .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
+                    .motion(.easeOut(duration: 0.12), value: isLit(index))
+                    .contentShape(.rect)
+                    .onTapGesture { begin(at: Double(words[index][0]) / 1000) }
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(text)
             }
-        } else if style == .line {
-            Text("“\(text)”").lineLimit(1).foregroundStyle(Palette.fg)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(text)
         } else {
             WholeWords("“\(text)”").foregroundStyle(Palette.fg)
         }
@@ -188,16 +163,5 @@ struct SpokenWords<Below: View>: View {
                 return
             }
         }
-    }
-}
-
-extension SpokenWords where Below == EmptyView {
-    init(
-        text: String, words: [[Int64]]?, job: UUID, start: Double, end: Double, style: Style = .box,
-        autoplay: Bool = false, emphasis: [String] = [], caption: String? = nil, onEnded: (() -> Void)? = nil
-    ) {
-        self.init(
-            text: text, words: words, job: job, start: start, end: end, style: style, autoplay: autoplay,
-            emphasis: emphasis, caption: caption, onEnded: onEnded, below: EmptyView())
     }
 }

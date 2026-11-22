@@ -625,17 +625,28 @@ private func asks(
 /// unless he goes one by one; a lone pre-ticked ask stays a card. A ref folded away opens its bulk ask.
 @Test func aKindLifePreTicksFoldsIntoOneBulkAsk() throws {
     let order = try asks(
-        [("b1", .blocks), ("v1", .blocks), ("v2", .blocks), ("e1", .improves), ("v3", .improves)],
-        groups: ["v1": "voice", "v2": "voice", "v3": "voice", "e1": "ending"],
-        preTicked: ["v1": "not-relevant", "v3": "is-them", "e1": "outdated"]
+        [("b1", .blocks), ("e1", .blocks), ("e2", .blocks), ("e3", .improves)],
+        groups: ["e1": "ending", "e2": "ending", "e3": "ending"],
+        preTicked: ["e1": "outdated", "e3": "outdated"]
     ).ordered(deferred: [])
     let folded = order.folded()
-    #expect(folded.checks.map(\.ref) == ["b1", "v1", "e1"] && folded.canWaitFrom == 2)
-    #expect(folded.bulk.mapValues { $0.map(\.ref) } == ["v1": ["v1", "v2", "v3"]])
-    #expect(folded.check(on: "v3")?.ref == "v1" && folded.checks.ref(after: "v1") == "e1")
-    #expect(order.folded(except: [.voice]) == order)
-    let groups = Check.bulkGroups(try #require(folded.bulk["v1"])).map { $0.map(\.ref) }
-    #expect(groups == [["v2"], ["v1"], ["v3"]])
+    #expect(folded.checks.map(\.ref) == ["b1", "e1"] && folded.canWaitFrom == nil)
+    #expect(folded.bulk.mapValues { $0.map(\.ref) } == ["e1": ["e1", "e2", "e3"]])
+    #expect(folded.check(on: "e3")?.ref == "e1")
+    #expect(order.folded(except: [.ending]) == order)
+    let groups = Check.bulkGroups(try #require(folded.bulk["e1"])).map { $0.map(\.ref) }
+    #expect(groups == [["e2"], ["e1", "e3"]])
+}
+
+/// The voices to name are one way into the run, even one alone and with nothing guessed or pre-ticked: never a bulk list.
+@Test func theVoicesToNameFoldIntoOneRunEntry() throws {
+    let order = try asks(
+        [("b1", .blocks), ("v1", .blocks), ("v2", .blocks)], groups: ["v1": "voice", "v2": "voice"]
+    ).ordered(deferred: [])
+    #expect(order.folded().bulk.mapValues { $0.map(\.ref) } == ["v1": ["v1", "v2"]])
+    let one = try asks([("v1", .blocks)], groups: ["v1": "voice"], preTicked: ["v1": "not-relevant"]).ordered(
+        deferred: [])
+    #expect(one.folded().bulk.keys.contains("v1"))
 }
 
 /// A same person ask folds with the guessed people's (one screen of Yes or No rows); a kind he is answering row by row
@@ -714,9 +725,7 @@ private func asks(
 
 /// A group's heading on the bulk card follows the answer Life pre-ticks on it.
 @Test func theBulkCardHeadsEachGroupByItsPreTickedAnswer() {
-    #expect(
-        CheckGroup.voice.bulkHeading(nil) == "Needs you" && CheckGroup.voice.bulkHeading("is-them") == "Probably them")
-    #expect(CheckGroup.voice.bulkHeading("not-relevant") == "Heard once")
+    #expect(CheckGroup.ending.bulkHeading(nil) == "Needs you")
     #expect(CheckGroup.ending.bulkHeading("outdated") == "Look done" && CheckGroup.ending.bulkHeading("x") == nil)
 }
 
@@ -1038,4 +1047,18 @@ private func asks(
     #expect(
         voice.answer(naming: .name("Zed/Zeda"))
             == AnswerRequest(ref: "voice:v1", options: ["this-is"], name: "Zed/Zeda"))
+}
+
+/// The voice run's answers (his direction of 22 Nov): "Me" is his own person through the naming option, "TV or video" is
+/// `media`, and the guesses never hold him and put the people named in the run first.
+@Test func theVoiceRunAnswersMeMediaAndNamedPeopleFirst() throws {
+    let voice = try JSONDecoder().decode(
+        Check.self,
+        from: Data(
+            #"{"ref":"voice:v1","group":"voice","title":"t","question":"Who is this?","asker":"Life","options":[{"id":"is-them","label":"Yes"},{"id":"this-is","label":"Someone else…","takes":"person or name"},{"id":"not-relevant","label":"Don't name"}],"clips":[],"likelyPeople":[{"ref":"person:me","name":"Me","kind":"person"},{"ref":"person:test-ana","name":"Test Ana","kind":"person"}],"links":[]}"#
+                .utf8))
+    #expect(voice.answerMe == AnswerRequest(ref: "voice:v1", options: ["this-is"], person: "person:me"))
+    #expect(voice.answerMedia == AnswerRequest(ref: "voice:v1", options: ["media"]))
+    let bo = Party(ref: "person:test-bo", name: "Test Bo", kind: .person, line: nil, picture: nil)
+    #expect(voice.voiceGuesses(recent: [bo]).map(\.ref) == ["person:test-bo", "person:test-ana"])
 }
