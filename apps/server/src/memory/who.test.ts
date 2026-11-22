@@ -21,6 +21,7 @@ import {
   readUnresolvedPeople,
   voiceCardRefOf,
   voicePersonOf,
+  who,
 } from "./who";
 
 const INFERRED_ID = /^inf_[a-z0-9-]+$/;
@@ -404,4 +405,13 @@ test("a voice card's subject is its ref up to the first ~, whatever suggestion i
   expect(cardSubjectOf(ref)).toBe("voice:g1");
   expect(ref.startsWith(`${cardSubjectOf(ref)}~`)).toBe(true);
   expect(cardSubjectOf("dec_1")).toBe("dec_1");
+});
+
+test("a line's speaker with no name set is labelled by the name of its ref, never by an id a model would copy", () => {
+  const nameOf = (r: string) => (r === "person:gran" ? "Dana Reyes" : r);
+  expect(who({ speaker: "person:gran" }, nameOf)).toBe("Dana Reyes");
+  expect(who({ speaker: "person:gran", speakerName: "Dana" }, nameOf)).toBe(
+    "Dana"
+  );
+  expect(who({ speaker: "person:gran" })).toBe("gran");
 });

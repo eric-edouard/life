@@ -543,7 +543,7 @@ export async function extract(evidence: Evidence) {
             id: unit.id,
             lines: ls.map(
               (l, n) =>
-                `[${n}] ${localTime(l.at)} ${who(l)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
+                `[${n}] ${localTime(l.at)} ${who(l, people.nameOf)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
             ),
             people: unit.people,
             source: unit.source,

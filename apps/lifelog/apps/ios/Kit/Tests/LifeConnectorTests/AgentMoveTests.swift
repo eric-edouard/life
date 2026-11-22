@@ -63,7 +63,7 @@ private func agents(status: String = "waiting", role: String? = nil, extra: [Str
 @Test func theMoveOfferedIsBackToAnAgentAtWorkElseToTheOtherProgram() throws {
     let matter = try movedMatter(["moveTo": "claude"])
     #expect(try matter.moveChoice(among: agents().agents) == .back(agent: "agt_old", name: "Halden house agent"))
-    // The desk takes no stopped or ended agent, nor the caretaker: the other program is offered instead.
+    // The desk takes no stopped or ended agent, nor the caretaker: the program the desk offers is offered instead.
     for (status, role) in [("stopped", nil), ("ended", nil), ("waiting", "caretaker")] {
         #expect(try matter.moveChoice(among: agents(status: status, role: role).agents) == .runtime(.claude))
     }
@@ -134,7 +134,7 @@ private func agents(status: String = "waiting", role: String? = nil, extra: [Str
 @Test func tryAgainRepeatsOnlyTheMoveHeAskedWhileItIsStillOffered() {
     let back = MoveChoice.back(agent: "agt_old", name: "Halden house agent")
     let failed = AgentMove(id: "ask_1", phase: .failed, reason: "The Halden house agent has ended.")
-    // Moving back failed because that agent ended: the other program is offered now, never sent by Try again.
+    // Moving back failed because that agent ended: the program the desk offers is shown now, never sent by Try again.
     let ended = MoveReceipt.failure(call: nil, shown: failed, tried: back, offered: .runtime(.claude))
     #expect(ended?.reason == "The Halden house agent has ended." && ended?.retry == nil)
     #expect(MoveReceipt.failure(call: nil, shown: failed, tried: back, offered: back)?.retry == back)

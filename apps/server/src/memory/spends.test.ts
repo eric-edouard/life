@@ -97,6 +97,7 @@ test("a turn is its runtime's tokens at its model's list price, its cache reads 
   const turn = {
     agent_id: "agt_000000000001",
     assignment_id: "asg_000000000001",
+    cost_usd: null,
     ended_at: AT,
     model: "codex:default",
     runtime: "codex",
@@ -125,6 +126,30 @@ test("a turn is its runtime's tokens at its model's list price, its cache reads 
   });
   expect(spendOfTurn({ ...turn, model: null })).toMatchObject({
     provider: "codex",
+    reported: false,
+  });
+});
+
+test("a pi turn is billed by OpenRouter: its dollars, or not reported when they did not come", () => {
+  const turn = {
+    agent_id: "agt_000000000001",
+    assignment_id: "asg_000000000001",
+    cost_usd: 0.004,
+    ended_at: AT,
+    model: "pi:flash",
+    runtime: "pi",
+    tokens_cached: 0,
+    tokens_in: 1000,
+    tokens_out: 10,
+  };
+  expect(spendOfTurn(turn)).toMatchObject({
+    basis: "billed",
+    provider: "openrouter",
+    reported: true,
+    usd: 0.004,
+  });
+  expect(spendOfTurn({ ...turn, cost_usd: null })).toMatchObject({
+    basis: "billed",
     reported: false,
   });
 });

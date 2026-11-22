@@ -430,7 +430,7 @@ export function askMainSession(
 /**
  * The ref of an ask of the desk one of the main session's acts records on its turn `turn`: one per turn, act and its
  * arguments, so two acts never share an ask (a ref made from the time alone would, within a millisecond) and the same
- * act called again in its turn records once.
+ * act called again in its turn records once. Its `tell-life:` prefix is Ask Life's old name, kept: the ledger stores it.
  */
 export const askLifeRefOf = (turn: number, act: string, args: unknown) =>
   `tell-life:${turn}:${act}:${digest("sha256", JSON.stringify(args), 12)}`;

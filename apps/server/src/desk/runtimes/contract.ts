@@ -3,6 +3,9 @@
 // process speaking ACP, whose prompt reply is the run's end (`ended`), which the desk's clock takes as the turn's end
 // (`turnEnded`, `desk-clock.ts`). The main session's runs (`talk`) share one process kept open across them.
 
+/** The variable a runtime's process gets its door's key in (Claude expands it in the door's header; pi's extension reads it). */
+export const DOOR_KEY_ENV = "LIFE_DESK_KEY";
+
 /** `send`'s refusal of a session live elsewhere (his app, a terminal): the wake waits for it, never a failed turn. */
 export class SessionLive extends Error {}
 
@@ -21,6 +24,8 @@ export interface Run {
 
 /** The turn's tokens, and the whole context of its first and last call (null when the runtime reported none), kept as a record: no decision reads it. */
 export interface Usage {
+  /** Dollars the provider billed for the run (pi on OpenRouter): none on a plan's runtime; null when a call came without its cost. */
+  billedUsd?: number | null;
   contextFirst: number | null;
   contextLast: number | null;
   tokensCached: number;

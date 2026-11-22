@@ -325,6 +325,7 @@ export async function askedOf(
   await play(ref);
   t.fake.exit(ref, true, {
     usage: {
+      billedUsd: 0.002,
       contextFirst: 10,
       contextLast: 20,
       tokensCached: 1,

@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { htmlTextOf } from "../core/html-text";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
@@ -269,28 +270,6 @@ const decodeWords = (s: string) =>
       decode(text.replaceAll("_", " "), b.toLowerCase(), charset)
     );
 
-const ENTITIES: Record<string, string> = {
-  amp: "&",
-  apos: "'",
-  gt: ">",
-  lt: "<",
-  nbsp: " ",
-  quot: '"',
-};
-
-const htmlToText = (html: string) =>
-  html
-    .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d)[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&#(x?)([0-9a-f]+);/gi, (_, x: string, n: string) =>
-      String.fromCodePoint(Number.parseInt(n, x ? 16 : 10))
-    )
-    .replace(
-      /&(\w+);/g,
-      (m, name: string) => ENTITIES[name.toLowerCase()] ?? m
-    );
-
 /** The parts inside a multipart part, or null when it isn't one. */
 function childrenOf(part: Part): Part[] | null {
   const type = (part.headers.get("content-type") ?? "text/plain").toLowerCase();
@@ -327,7 +306,7 @@ function textOf(part: Part): { html: boolean; text: string } | null {
     return { html: false, text: decodeBody(part) };
   }
   if (type.startsWith("text/html")) {
-    return { html: true, text: htmlToText(decodeBody(part)) };
+    return { html: true, text: htmlTextOf(decodeBody(part)) };
   }
   return null;
 }

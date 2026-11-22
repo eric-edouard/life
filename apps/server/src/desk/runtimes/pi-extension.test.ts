@@ -2,82 +2,36 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LIFE_CODE_DIR } from "../../core/paths";
+import { fakePiProvider } from "./fake-pi-provider";
 import {
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
-  type PiProvider,
 } from "./pi-extension";
+import { PI_CLI } from "./pi-runtime";
 
 // Life's pi extension in a real pi (the pinned one, `--mode rpc`, under Bun as the helper runs it) against a made-up
 // OpenAI-shaped provider: the model asks for two shell calls, a send and a read of the provider key; the guard refuses
-// the send, the key is gone from the shell, every request (compaction's too) carries Life's routing and key, and a repo's
+// the send, his hook refuses its call, web_fetch reads a page, the key is gone from the shell, every request (compaction's too) carries Life's routing and key, and a repo's
 // own `.pi` extension (which would rewrite the routing) never loads, even with pi set to trust every project.
 
-const PI = join(
-  LIFE_CODE_DIR,
-  "node_modules",
-  "@earendil-works",
-  "pi-coding-agent",
-  "dist",
-  "bundle",
-  "cli.js"
-);
 const ROUTING = { only: ["host/fp8"], zdr: true };
-
-interface Asked {
-  auth: string | null;
-  body: { messages: unknown[]; provider?: unknown };
-}
-const asked: Asked[] = [];
-const sse = (chunks: object[]) =>
-  new Response(
-    `${chunks.map((c) => `data: ${JSON.stringify({ choices: [], ...c })}\n\n`).join("")}data: [DONE]\n\n`,
-    { headers: { "content-type": "text/event-stream" } }
-  );
-const call = (id: string, command: string, index: number) => ({
-  function: { arguments: JSON.stringify({ command }), name: "bash" },
-  id,
-  index,
-  type: "function",
-});
-const provider = Bun.serve({
-  async fetch(req) {
-    if (!new URL(req.url).pathname.startsWith("/v1/")) {
-      return new Response("not found", { status: 404 });
-    }
-    asked.push({
-      auth: req.headers.get("authorization"),
-      body: (await req.json()) as Asked["body"],
-    });
-    const delta =
-      asked.length === 1
-        ? {
-            tool_calls: [
-              call("c1", 'imsg send +15550100 "on my way"', 0),
-              call("c2", 'echo "key=$LIFE_PI_KEY"', 1),
-            ],
-          }
-        : { content: "done" };
-    return sse([
-      { choices: [{ delta: { role: "assistant", ...delta }, index: 0 }] },
-      {
-        choices: [
-          {
-            delta: {},
-            finish_reason: asked.length === 1 ? "tool_calls" : "stop",
-            index: 0,
-          },
+const provider = fakePiProvider((n) =>
+  n === 1
+    ? {
+        calls: [
+          'imsg send +15550100 "on my way"',
+          'echo "key=$LIFE_PI_KEY"',
+          "echo refuse-me",
+          { args: { url: `${base}/page` }, name: "web_fetch" },
         ],
-        usage: { completion_tokens: 2, prompt_tokens: 10 },
-      },
-    ]);
-  },
-  hostname: "127.0.0.1",
-  port: 0,
-});
-afterAll(() => provider.stop(true));
+      }
+    : { text: "done" }
+);
+let base = "";
+const { asked } = provider;
+base = `http://127.0.0.1:${provider.port}`;
+afterAll(provider.stop);
 
 interface Event {
   data?: { commands?: { name: string }[] };
@@ -108,26 +62,11 @@ async function runTurn() {
       defaultProjectTrust: "always",
     })
   );
-  const made: PiProvider = {
-    api: "openai-completions",
-    baseUrl: `http://127.0.0.1:${provider.port}/v1`,
-    models: [
-      {
-        compat: { openRouterRouting: ROUTING },
-        contextWindow: 100_000,
-        cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
-        id: "up",
-        input: ["text"],
-        maxTokens: 1000,
-        name: "up",
-        reasoning: false,
-      },
-    ],
-  };
+  const made = provider.providerOf(ROUTING);
   const pi = Bun.spawn(
     [
       process.execPath,
-      PI,
+      PI_CLI,
       "--mode",
       "rpc",
       "--provider",
@@ -154,7 +93,21 @@ async function runTurn() {
           ownAddresses: [],
           postRepos: [],
         }),
+        // His Claude hook, as Claude runs it: the call's JSON on stdin, exit 2 refuses with its stderr.
+        [PI_EXTENSION_ENV.hooks]: JSON.stringify([
+          {
+            hooks: [
+              {
+                command:
+                  "grep -q refuse-me && { echo 'his hook refused' >&2; exit 2; }; exit 0",
+                type: "command",
+              },
+            ],
+            matcher: "Bash|ExitPlanMode",
+          },
+        ]),
         [PI_EXTENSION_ENV.key]: "life-key",
+        [PI_EXTENSION_ENV.own]: "1",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
       },
       stderr: "ignore",
@@ -189,7 +142,7 @@ async function runTurn() {
   return events;
 }
 
-test("guards pi's shell calls, keeps the key from them, and routes every request Life's way", async () => {
+test("guards pi's shell calls, runs his Claude hooks and fetches the web, keeps the key from them, and routes every request Life's way", async () => {
   const events = await runTurn();
   const ended = (id: string) =>
     events.find((e) => e.type === "tool_execution_end" && e.toolCallId === id);
@@ -204,6 +157,8 @@ test("guards pi's shell calls, keeps the key from them, and routes every request
     "Life's send guard refused this (a send command)"
   );
   expect(ended("c2")?.result?.content[0]?.text.trim()).toBe("key=");
+  expect(ended("c3")?.result?.content[0]?.text).toContain("his hook refused");
+  expect(ended("c4")?.result?.content[0]?.text).toStartWith(`404 ${base}/page`);
   expect(events.find((e) => e.id === "compact")?.success).toBe(true);
   expect(asked).toHaveLength(3);
   for (const a of asked) {
