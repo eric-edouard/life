@@ -2,14 +2,24 @@ import LifeConnector
 import Observation
 import SwiftUI
 
-/// Where the app is: the tab, the chosen project chip, the asks pushed on a matter, and the sheet over them. One place, so a card's matter chip, a push and
-/// a tapped ask all go the same way, and a fold keeps them.
+/// Where the app is: the tab, the chosen project chip, the ask pushed on the Inbox, and the sheet over them. One place, so
+/// a card's matter chip, a push and a tapped ask all go the same way, and a fold keeps them.
 @MainActor @Observable
 final class AppRouter {
-    enum Tab: Hashable { case inbox, projects, people }
+    enum Tab: Hashable { case inbox, projects, people, profile }
     enum Sheet: String, Identifiable {
-        case pendant, settings
+        case pendant
         var id: String { rawValue }
+    }
+
+    /// What is pushed on the Inbox's list: the ask on show, with its pager. The list is the root, so Back returns to it.
+    enum InboxPage: Hashable { case ask }
+
+    /// A page's own Back, in the foot bar on a regular width (`NavShell`): the page registers it while it shows, and its
+    /// `id` keeps a page going away from clearing the one it revealed.
+    struct BackAction {
+        let id: UUID
+        let run: () -> Void
     }
 
     enum MatterSheet: Identifiable, Equatable {
@@ -97,8 +107,12 @@ final class AppRouter {
     var projectAsk: OpenAsk?
     /// What is pushed on the matter on show (`MatterRoute`): Back returns to the matter, the tab stays on Projects.
     var matterPath: [MatterRoute] = []
-    /// Which column of the Inbox a compact width shows: the ask (the default) or the list of asks.
-    var inboxColumn = NavigationSplitViewColumn.detail
+    /// The ask pushed on the Inbox's list; empty is the list itself.
+    var inboxPath: [InboxPage] = []
+    /// Whether Settings is pushed on the Profile page.
+    var isSettingsOpen = false
+    /// The page on show's Back, for the foot bar on a regular width.
+    var back: BackAction?
     var sheet: Sheet?
     /// The list (`NavDrawer`) over the page, where it is not a sidebar.
     var isDrawerOpen = false
@@ -126,7 +140,7 @@ final class AppRouter {
             case .matters:
                 (tab, chip, matterColumn) = (.projects, nil, .sidebar)
             case .checks:
-                (tab, inboxColumn) = (.inbox, .sidebar)
+                (tab, inboxPath) = (.inbox, [])
             case .people:
                 tab = .people
                 select(person: nil)
@@ -140,6 +154,21 @@ final class AppRouter {
         case .page(.project, let id): open(project: ProjectChips.Chip.identity(.project, id))
         }
         (isAskLifeOpen, isAskOpen, isAskLifeSmall, isDrawerOpen) = (false, false, false, false)
+    }
+
+    /// The Inbox, on its whole list, from the list's top row.
+    func showHome() {
+        (isDrawerOpen, tab, inboxPath, cut) = (false, .inbox, [], nil)
+    }
+
+    /// The Profile page, from the list's top row.
+    func showProfile() {
+        (isDrawerOpen, isSettingsOpen, tab, cut) = (false, false, .profile, nil)
+    }
+
+    /// Settings, the Profile page's child: from the list, or a screen's "Pair with Life".
+    func openSettings() {
+        (isDrawerOpen, tab, isSettingsOpen) = (false, .profile, true)
     }
 
     /// The Projects page, on its whole list, from the list's top row.
@@ -187,6 +216,7 @@ final class AppRouter {
             case .inbox: "inbox"
             case .projects: "projects"
             case .people: "people"
+            case .profile: "profile"
             }
         return MainSessionScreen(tab: tab, card: askLifeContext?.ref, matter: matter, person: person)
     }

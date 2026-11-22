@@ -1,10 +1,10 @@
 import LifeConnector
 import SwiftUI
 
-/// The one shell (navigation v3, no tabs): the page on show (the asks, Projects or People), the list (`NavDrawer`) beside
-/// or over it by pose, and the bottom bar: the list's button at the left, the asks' page dots in the middle, Ask Life's at
-/// the right. A phone and a folded Duo give the list a screen of its own; an upright open Duo a panel over the page;
-/// sideways, a sidebar the button hides.
+/// The one shell (navigation v3, no tabs): the page on show (the asks' list, Projects, People or Profile), the list
+/// (`NavDrawer`) beside or over it by pose, and the bottom bar: the slot at the left (the list's button, or a pushed
+/// page's Back on a regular width), the asks' page dots in the middle, Ask Life's at the right. A phone and a folded Duo
+/// give the list a screen of its own; an upright open Duo a panel over the page; sideways, a sidebar the button hides.
 struct NavShell: View {
     @Environment(AppRouter.self) private var router
     @Environment(LifeStore.self) private var life
@@ -39,6 +39,7 @@ struct NavShell: View {
         case .inbox: InboxScreen()
         case .projects: ProjectsScreen()
         case .people: PeopleScreen()
+        case .profile: ProfileScreen()
         }
     }
 
@@ -54,22 +55,30 @@ struct NavShell: View {
         }
     }
 
-    /// The list's button (a cross while it is open), the dots of the asks, and room for Ask Life's button.
+    /// The bar's slot (the list's button, or the page's Back on a regular width), the dots of the asks, and room for Ask
+    /// Life's button.
     private var bar: some View {
         HStack {
-            Button {
-                if isSideways { isSidebarHidden.toggle() } else { router.isDrawerOpen.toggle() }
-            } label: {
-                Image(systemName: isListShown ? "xmark" : "line.3.horizontal").font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    // Something waits on him while the list is away.
-                    .overlay(alignment: .topTrailing) {
-                        if life.badge > 0, !isListShown { StateDot(color: Palette.flag).offset(x: -4, y: 4) }
-                    }
+            // A pushed page's Back: the unfolded Duo's foot, where the toolbar would sit under the Pendant.
+            if let back = router.back, sizeClass == .regular, !isListShown {
+                Button(action: back.run) { slot("chevron.backward") }
+                    .accessibilityLabel("Back")
+                    .accessibilityIdentifier("top.back")
+            } else {
+                Button {
+                    if isSideways { isSidebarHidden.toggle() } else { router.isDrawerOpen.toggle() }
+                } label: {
+                    slot(isListShown ? "xmark" : "line.3.horizontal")
+                        // Something waits on him in the Inbox while the list is away.
+                        .overlay(alignment: .topTrailing) {
+                            if life.badge > 0, router.tab != .inbox, !isListShown {
+                                StateDot(color: Palette.flag).offset(x: -4, y: 4)
+                            }
+                        }
+                }
+                .accessibilityLabel(isListShown ? "Close the list" : "Open the list")
+                .accessibilityIdentifier("shell.list")
             }
-            .accessibilityLabel(isListShown ? "Close the list" : "Open the list")
-            .accessibilityIdentifier("shell.list")
             Spacer(minLength: 0)
             if let pager = router.pager, router.tab == .inbox, !isListShown {
                 PagerDots(current: pager.current, total: pager.total)
@@ -81,5 +90,12 @@ struct NavShell: View {
         // Over the column's room on a Duo, Ask Life stands in the column (its own place): no room kept for it here.
         .padding(.trailing, router.isBarsInColumn ? 98 : 0)
         .ignoresSafeArea()
+    }
+
+    /// The bar's one glass circle 48 (the list's button, the page's Back).
+    private func slot(_ symbol: String) -> some View {
+        Image(systemName: symbol).font(.system(size: 18, weight: .medium))
+            .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
+            .glassEffect(.regular.interactive(), in: .circle)
     }
 }
