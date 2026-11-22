@@ -370,7 +370,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
     transfer({ needs: [{ currency: "baht", kind: "amount", value: 4500 }] })
   ).rejects.toThrow('Read fetch("ask/amount")');
   await expect(transfer({ needs: [{ kind: "iban" }] })).rejects.toThrow(
-    "Expected 'account' | 'amount' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
+    "Expected 'account' | 'amount' | 'apify' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
   );
   await expect(
     transfer({ needs: [{ kind: "link", url: "shopapp://pay/1" }] })

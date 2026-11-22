@@ -39,6 +39,29 @@ const App = z
     url: https.optional(),
   })
   .strict();
+/** The most one Apify run may be capped at, in dollars: a bigger job is several cards. */
+export const APIFY_RUN_MAX_USD = 20;
+/** The most of an actor's input a card holds, as JSON. */
+const APIFY_INPUT_CHARS = 4000;
+const Apify = z
+  .object({
+    /** The store's `username/name`. */
+    actor: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
+    /** The agent's estimate of what the run costs, from the actor's prices at his tier (`find_apify_actors`). */
+    estimateUsd: z.number().positive(),
+    /** The actor's input, exactly as the run gets it. */
+    input: z
+      .record(z.string(), z.unknown())
+      .refine((i) => JSON.stringify(i).length <= APIFY_INPUT_CHARS, {
+        message: `the input is ${APIFY_INPUT_CHARS} characters of JSON at most`,
+      }),
+    kind: z.literal("apify"),
+    /** The cap Apify holds the run under: it never charges more. */
+    maxUsd: z.number().positive().max(APIFY_RUN_MAX_USD),
+    /** What the run gets him, in a few words: shown in the need's line. */
+    what: oneLine(120),
+  })
+  .strict();
 const Event = z
   .object({
     end: isoDateTime,
@@ -88,6 +111,7 @@ const Qr = z
 export const Need = z.discriminatedUnion("kind", [
   Account,
   Amount,
+  Apify,
   App,
   Event,
   Link,
@@ -111,7 +135,7 @@ const KINDS: {
   [K in Kind]: { about: string; line: (n: Of<K>) => string; page: string };
 } = {
   account: {
-    about: "a bank account (number, bank, holder)",
+    about: "a bank account",
     line: (n) =>
       `${[n.bank, n.number].filter(Boolean).join(" ")}${n.holder ? `, ${n.holder}` : ""}${n.bic ? ` (BIC ${n.bic})` : ""}`,
     page: '`{kind: "account", number, bank?, holder?, scheme?, bic?}`: where he sends money. `number` as the payee wrote it (an account number, an IBAN, a PromptPay phone or id); `bank` its bank\'s name; `holder` the name the bank will show, for him to check (never copied) and for Life to see the payment by; `scheme` one of `th_account`, `promptpay`, `iban`, `swift`, `other` (his phone picks the bank app by it); `bic` when the payee gave one. Give it before the `amount`: the phone shows needs in your order. Example: `{"kind":"account","bank":"Kasikornbank","number":"012-3-45678-9","holder":"Blue Reef Diving Co., Ltd.","scheme":"th_account"}`.',
@@ -120,6 +144,12 @@ const KINDS: {
     about: "what to pay (value, currency)",
     line: (n) => amountWordsOf(n.value, n.currency),
     page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
+  },
+  apify: {
+    about: "a paid Apify run",
+    line: (n) =>
+      `Apify: ${n.what}, by ${n.actor}, about $${n.estimateUsd}, at most $${n.maxUsd}`,
+    page: `\`{kind: "apify", actor, input, what, estimateUsd, maxUsd}\`: a run of an Apify actor (a paid scraper of the web) Life starts on his yes, on his Apify account. \`actor\` the store's \`username/name\` from \`find_apify_actors\`, only one it marks \`capped\` (paid per event: Apify holds its run under a dollar cap); \`input\` the actor's input exactly as it runs (its own input schema; keep the counts small); \`what\` what it gets him, in a few words; \`estimateUsd\` your estimate from its prices at his tier (each event's price times how many you expect, its start included), at most \`maxUsd\`; \`maxUsd\` the cap, at least the actor's \`minimalCapUsd\`, at most $${APIFY_RUN_MAX_USD}: Apify charges nothing past it. Say in \`context\` how you estimated it. Mark the one option that runs it \`runs: true\` ("Run it"); his pick of it alone makes Life start the run, once, never retried, and \`decision.answered\` carries \`ran\`, the run's id or its error: read the run with \`read_apify_run\`. Never run an actor any other way. Example: \`{"kind":"apify","actor":"compass/crawler-google-places","input":{"searchStringsArray":["laser clinic"],"locationQuery":"Bangkok","maxCrawledPlacesPerSearch":20},"what":"20 laser clinics in Bangkok with phones and hours","estimateUsd":0.09,"maxUsd":0.5}\`.`,
   },
   app: {
     about: "an app (name, link)",
@@ -147,7 +177,7 @@ const KINDS: {
     page: '`{kind: "qr", source, ref?, payload?}`: a QR code the payee sent. `source` where it is, in a few words (`"Kit\'s WhatsApp of 20 Nov"`); `ref` the message holding it as `fetch` opens it (`msg:<source>|<message id>`, from `read_chats`), which must open: his card\'s source chip opens it; `payload` the code\'s text when you read it. His phone draws the code from `payload` (its amount too, for a PromptPay code) and saves it to his photos for his bank app; without `payload` it shows `source` as words. Give the `account` (its `scheme` picks the bank app, its `holder` is the name shown under the code) and the `amount` beside it.',
   },
   text: {
-    about: "a reference or code (text, label, copy)",
+    about: "a reference or code",
     line: (n) => (n.label ? `${n.label}: ${n.text}` : n.text),
     page: '`{kind: "text", text, label?, copy?}`: a fact he needs in hand: a payment reference, an invoice number, a code, a point to say. `label` names it ("Reference"); `copy: true` gives it a copy button. Example: `{"kind":"text","label":"Reference","text":"INV-2041","copy":true}`.',
   },
@@ -222,6 +252,10 @@ export const isToPayee = (name: string, words: readonly string[]) => {
 /** The refs a card's needs name (a QR's message): each must open, like its `context`'s links. */
 export const needRefsOf = (needs: readonly Need[] = []) =>
   needs.flatMap((n) => (n.kind === "qr" && n.ref ? [n.ref] : []));
+
+/** The run a card's `runs` option starts: its one `apify` need. */
+export const apifyRunOf = (needs: readonly Need[] = []) =>
+  needs.find((n): n is Of<"apify"> => n.kind === "apify");
 
 /** The event a card's `adds` option writes: its one `event` need. */
 export const eventOf = (needs: readonly Need[] = []) =>

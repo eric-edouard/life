@@ -67,6 +67,8 @@ struct Info: Decodable {
   let desk: Bool
   /// The keys each engine takes, by engine (`PROVIDERS` in llm.ts): the subscription engines take none.
   let engineKeys: [String: [String]]
+  /// The keys of his agents' skills (`skillKeys` in cli.ts: Apify's token): Keychain items like the engines'.
+  let skillKeys: [String]
   let lastReport: String?
   let sources: [Source]
   /// The to-do list backend chosen ("reminders", "google"), nil while the to-do list is off.

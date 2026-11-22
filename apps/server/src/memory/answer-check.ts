@@ -11,7 +11,7 @@ import {
   atOrganizationRefOf,
   readAtOrganizationPairs,
 } from "./at-organization";
-import type { AddEventByHisWord } from "./decision-add";
+import type { AddEventByHisWord, RunApifyByHisWord } from "./decision-add";
 import {
   answerDecision,
   type EndByHisWord,
@@ -519,12 +519,14 @@ export async function answerCheck(
     endYourMove,
     look,
     onStep,
+    run,
     startAgent,
   }: Omit<WriterExtras, "voice"> & {
     add?: AddEventByHisWord;
     answerKey?: string;
     end?: EndByHisWord;
     look?: LookForDone;
+    run?: RunApifyByHisWord;
   } = {}
 ) {
   const { ref } = check;
@@ -538,6 +540,7 @@ export async function answerCheck(
         end,
         look,
         onStep,
+        run,
         via,
       }),
       item: undefined,

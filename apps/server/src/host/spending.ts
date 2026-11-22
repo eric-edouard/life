@@ -1,16 +1,19 @@
 import { join } from "node:path";
+import { readRun } from "../apify/backend";
 import { clock, daysBefore } from "../core/clock";
 import { isThere, readJson, writeJson } from "../core/files";
 import { type LogEvent, log, logDays, logEvents } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
+import { decisionsNow } from "../memory/decisions";
 import { assembleRuns } from "../memory/run-log";
 import {
   type Basis,
   type Spend,
   type SpendKind,
   type SpendProvider,
+  spendOfApifyRun,
   spendsOf,
   spendsOfVoice,
 } from "../memory/spends";
@@ -105,6 +108,24 @@ function linesIn(names: string[], from: string, to: string) {
   };
 }
 
+/** The Apify runs his yes started from `from` to `to` (each card's `ran`), as Apify billed them: a run it can't read (no token, a failure) or still running is not reported. */
+const apifySpends = (from: string, to: string) =>
+  Promise.all(
+    decisionsNow()
+      .flatMap((d) =>
+        d.ran?.runId && d.ran.at >= from && d.ran.at < to ? [d.ran] : []
+      )
+      .map(async (r) =>
+        spendOfApifyRun(
+          r.at,
+          await readRun(r.runId as string, false).then(
+            (x) => (x.finishedAt ? x.usd : null),
+            () => null
+          )
+        )
+      )
+  );
+
 /** Voice's spending, or none while Voice is not set up. */
 const voiceSpending = (from: string, to: string) =>
   // Set up without its token: it can't be read, so the day waits (never written without Voice).
@@ -132,6 +153,7 @@ export async function readDaySpends(
     spends: [
       ...spendsOf(lines, runs, desk.state === "ok" ? desk.value : []),
       ...spendsOfVoice(voice),
+      ...(await apifySpends(from, to)),
     ],
     unsettled: voice.unsettled,
   };
