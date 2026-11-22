@@ -3,7 +3,6 @@
 // absent (CI, other machines).
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { DEVELOPER_CONTACT } from "@life/server/src/core/names";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { handlesOf, loadTruth } from "@life/server/src/memory/read-truth";
 
@@ -38,8 +37,6 @@ const terms = new Set(
     ...chats.flatMap((c) => [c.id, c.whatsapp ?? ""]),
   ].filter((t) => t.length > 2)
 );
-// Life's developer contact is public on purpose (his ruling of 22 Nov 2026), whoever runs Life.
-terms.delete(DEVELOPER_CONTACT);
 const pattern = `(?<![\\p{L}\\d])(${[...terms].map(term).join("|")})(?![\\p{L}\\d])`;
 // git grep reads the tracked text files (binaries skipped); exit 1 means no match.
 const grep =
