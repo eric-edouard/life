@@ -387,8 +387,8 @@ test("a voice card asks about the one person the group's sure or likely guesses 
 // His ask of 22 Nov: a voice's clip names the conversation it was heard in (the test zones: Lagos, UTC+1).
 test("a clip's conversation is the narrowest episode holding its recording's unit and its time, none before the night reads it", () => {
   const voices = [{ conversationId: "c1", jobId: "job-1" }];
-  const clip = (jobId: string, at = "2026-10-30T12:00:00.000Z") => ({
-    at,
+  const clip = (jobId: string, when = "2026-10-30T12:00:00.000Z") => ({
+    at: when,
     audio: { jobId },
   });
   const unit = voiceUnitId("c1", "2026-10-30");
