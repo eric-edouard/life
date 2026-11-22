@@ -3,6 +3,12 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { exec, execOk } from "@life/server/src/core/proc";
 import {
+  gapsOf,
+  parseFrame,
+  placementOf,
+  type ScreenNode,
+} from "./design-compare";
+import {
   APP_ID,
   boot,
   buildApp,
@@ -78,14 +84,22 @@ function poseOf(frame: Frame) {
   return { args: ["-fixturePose", way], ratio: frame.size[1] / frame.size[0] };
 }
 
-/** `design:shots [Frame…] [--app <built app>] [--shutdown]`: the frames asked, an app already built, whether to stop the simulator after. */
+/**
+ * `design:shots [Frame…] [--app <built app>] [--compare <dir>] [--shutdown]`: the frames asked, an app already built, the
+ * folder of the frames' text (`design:export`) to compare each screen with, whether to stop the simulator after.
+ */
 export function parseArgs(argv: string[]) {
-  const at = argv.indexOf("--app");
+  const flagValue = (flag: string) => {
+    const at = argv.indexOf(flag);
+    return at === -1 ? undefined : argv[at + 1];
+  };
+  const values = new Set(
+    ["--app", "--compare"].map((flag) => argv.indexOf(flag) + 1).filter(Boolean)
+  );
   return {
-    app: at === -1 ? undefined : argv[at + 1],
-    asked: argv.filter(
-      (arg, i) => !arg.startsWith("--") && (at === -1 || i !== at + 1)
-    ),
+    app: flagValue("--app"),
+    asked: argv.filter((arg, i) => !(arg.startsWith("--") || values.has(i))),
+    compare: flagValue("--compare"),
     shutdownAfter: argv.includes("--shutdown"),
   };
 }
@@ -143,6 +157,28 @@ const press = async (labels: string[]) => {
   }
 };
 
+/** The screen's gaps against the frame's text in `dir`, from the accessibility tree with its frames. */
+async function compare(frame: Frame, dir: string) {
+  const { elements, size } = parseFrame(
+    readFileSync(join(dir, `${frame.name}.html`), "utf8")
+  );
+  const {
+    data: { nodes },
+  } = JSON.parse(await device(["snapshot", "--json"])) as {
+    data: { nodes: ScreenNode[] };
+  };
+  const { rect: window } =
+    nodes.find((node) => node.type === "Application") ?? {};
+  if (!window) {
+    throw new Error("the tree has no application frame");
+  }
+  return gapsOf(
+    elements,
+    nodes,
+    placementOf(size, [window.width, window.height], frame.pose)
+  );
+}
+
 async function shoot(udid: string, frame: Frame, app: AppFrame) {
   const pose = poseOf(frame);
   await launch(udid, [
@@ -196,7 +232,7 @@ function writeIndex(
     const result =
       outcome.get(frame.name) ?? `not mapped${why ? `: ${why}` : ""}`;
     const app =
-      result === "shot"
+      result === "shot" || result.endsWith(" gaps")
         ? `<a href="${frame.name}.app.png"><img src="${frame.name}.app.png"></a>`
         : `<p class="missing">${escaped(result)}</p>`;
     return `<section><h2>${escaped(frame.name)} <small>${escaped(frame.title)}</small></h2>
@@ -222,6 +258,7 @@ async function main() {
   const {
     asked,
     app: builtApp,
+    compare: specs,
     shutdownAfter,
   } = parseArgs(process.argv.slice(2));
   const unknown = asked.filter(
@@ -265,6 +302,10 @@ async function main() {
   const outcome = new Map<string, string>();
   try {
     await install(udid, builtApp ?? (await buildApp(udid, join(OUT, "build"))));
+    // The microphone's alert at launch would cover every frame: granted, never reset (the simulator is shared).
+    await execOk([
+      ...["xcrun", "simctl", "privacy", udid, "grant", "microphone", APP_ID],
+    ]);
     // The session reads the screen to know a frame is there, so every run opens it.
     await launch(udid, ["-fixtureReads", DESIGN_DATA, "-fixtureLife", "ok"]);
     await device(["open", APP_ID, "--platform", "ios", "--device", SIMULATOR]);
@@ -272,14 +313,20 @@ async function main() {
       const app = appFrames[frame.name] as AppFrame;
       // Once more on a miss: the first taps after a boot can find the app still settling.
       // biome-ignore lint/performance/noAwaitInLoops: one simulator, one frame at a time
-      const result = await shoot(udid, frame, app)
+      const shot = await shoot(udid, frame, app)
         .catch(() => shoot(udid, frame, app))
         .then(
           () => "shot",
           (e: Error) => `failed: ${e.message}`
         );
+      // The screen against the frame's text, while it is still up: each gap a line, and the frame not clean.
+      const gaps = specs && shot === "shot" ? await compare(frame, specs) : [];
+      const result = gaps.length > 0 ? `${gaps.length} gaps` : shot;
       outcome.set(frame.name, result);
       console.log(`${frame.name}: ${result}`);
+      for (const gap of gaps) {
+        console.log(`  ${gap}`);
+      }
     }
   } finally {
     // The simulator stays booted for the next run; `--shutdown` stops it (agent-device's runner boots it again unless its

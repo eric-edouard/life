@@ -390,6 +390,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | page stack | A tab's page on show and what is pushed on it (`PageStack`, Kit; the People tab's in `AppRouter`): opening a page, even the one on show, starts it bare. Not the tab's list. | |
 | design data | The made-up content the app's simulator fixture shows and the designer's frames draw: one file per connector read in `apps/lifelog/fixtures/design/`, in the wire shape (an instant without a zone is the phone's own time), read by Debug builds (`LifeFixture`, `-fixtureReads`). The designer owns its content; the repo holds the one copy. Not `fixtures/wire/`, which Life's server tests write. | |
 | frame map | Which screen state each designer's frame draws, joined by frame name: the designer's half (`frame-map.json` in the designer's folder: pose, size, picture, state) and the repo's (`frames.json` beside the design data: launch arguments and taps, or why a frame can't be reached). `bun run design:shots` reads both. | |
+| frame spec | A designer's frame as text, for a model that cannot see the picture: its layout tree with each element's box in points, token names, text and states (`render_frames.py --spec`, in the designer's folder). `bun run design:export` writes the ones a task needs beside their pictures and the design pack; `bun run design:shots --compare` checks the app's accessibility tree against it. | |
 
 ## Folders
 
