@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { appendFileSync, rmSync } from "node:fs";
 import { DAY, iso } from "../core/clock";
 import { setSettings } from "../core/settings";
-import { CARD } from "../memory/card-request";
+import { CARD, CARD_SELF_CHECK } from "../memory/card-request";
 import type { InboxCheck } from "../memory/checks";
 import { DECISIONS } from "../memory/decision-lines";
 import {
@@ -400,7 +400,8 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
 });
 
 test("the card's rules are short and each part's are a fetch away", async () => {
-  expect(CARD.length).toBeLessThan(1600);
+  expect(CARD.length - CARD_SELF_CHECK.length).toBeLessThan(1600);
+  expect(CARD_SELF_CHECK.length).toBeLessThan(1000);
   const page = await openById("ask/payment", undefined, undefined, () =>
     Promise.resolve("")
   );

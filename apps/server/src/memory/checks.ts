@@ -366,6 +366,11 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
   return withDraftConfirms(found, c.people);
 };
 
+/** Checks in the order they were asked, the newest last (a matter's thread stacks them so); Life's own guesses, never asked (`at` null), after. */
+export const byAsked = (a: Pick<Check, "at">, b: Pick<Check, "at">) =>
+  Number(a.at === null) - Number(b.at === null) ||
+  (a.at && b.at ? Date.parse(a.at) - Date.parse(b.at) : 0);
+
 /** The checks about matter `id`: every kind, open matters they ride on and the one holding their subject (an ending is about a matter that reads probably done). */
 export const checksOnMatterOf = <C extends Pick<Check, "matter" | "ridesOn">>(
   list: readonly C[],
