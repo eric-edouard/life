@@ -190,10 +190,13 @@ struct TellRoom: View {
 }
 
 extension View {
-    /// The composer's capsule: his words, the microphone and Send on a quiet fill.
+    /// The composer: his words, the microphone and Send in one glass capsule (the Claude app's bar, his reference of 22
+    /// Nov), the keys 4 in from its end. Ask Life's banner is the same.
     func tellComposer() -> some View {
-        padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xs)
-            .background(Color.fillTint, in: .rect(cornerRadius: 28))
+        padding(.leading, Metrics.Spacing.l).padding(.trailing, Metrics.Spacing.xs).padding(
+            .vertical, Metrics.Spacing.xs
+        )
+        .floatingGlass(in: .rect(cornerRadius: 28))
     }
 }
 
