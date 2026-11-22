@@ -72,9 +72,10 @@ import {
   readState,
   recordState,
 } from "../memory/schedule";
+import { screenLine } from "../memory/screen-blocks";
 import { situations } from "../memory/situations";
 import { readSourceUse, sourceUseLine } from "../memory/source-use";
-import { keptStores } from "../memory/sources";
+import { enabledSources, keptStores } from "../memory/sources";
 import { forReaders } from "../memory/status-inputs";
 import { publishUnits } from "../memory/unit-writer";
 import type { Built } from "../memory/units";
@@ -97,6 +98,7 @@ import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
+import { readScreen } from "../sources/screen";
 import { checks } from "../todo-list/backend";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
@@ -186,6 +188,26 @@ function coded(day: string, rec: Pick<RunRecorder, "error">) {
     rec.error(e, { step: "memory.nightly.code" });
     return [];
   });
+}
+
+/** Yesterday's line on his screens (`screenLine`): one local day of stints. Never fails the night. */
+function screenYesterday(day: string, rec: Pick<RunRecorder, "error">) {
+  try {
+    const line = enabledSources().some((s) => s.name === "screen")
+      ? screenLine(
+          readScreen(
+            dayStart(daysBefore(day, 1)),
+            undefined,
+            undefined,
+            dayStart(day)
+          )
+        )
+      : "";
+    return line && `Screens yesterday: ${line}`;
+  } catch (e) {
+    rec.error(e as Error, { step: "memory.nightly.screen" });
+    return "";
+  }
 }
 
 /** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
@@ -642,6 +664,7 @@ export async function runNight(
       quota: hasQuota() ? quotaLine(q) : undefined,
       repos,
       retired,
+      screen: screenYesterday(day, rec),
       spent: used.lines,
     });
     listed = keyObservations.map((f) => f.id);
