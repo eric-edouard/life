@@ -13,6 +13,8 @@ struct AgentSheet: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    /// The word of his last Stop or Resume once Life took it ("Stopped", "Resumed"), shown green beside a failure's place.
+    @State private var done: String?
 
     /// The agent named, in the matter's read or else in `read_registered_agents`; none named, the matter's first. Its
     /// names are only in `read_registered_agents` (`registered`).
@@ -28,12 +30,14 @@ struct AgentSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let agent {
-                content(agent)
-                // A refused Stop or Resume says why in the scroll, which holds any length; the bar keeps the buttons.
-                if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
-                    Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.l)
+                // His Stop or Resume ends above the page, where a long wait list never hides it.
+                if let done {
+                    StateMark(glyph: .ok, word: done).padding(.top, Metrics.Spacing.s)
+                } else if case .failed(let failure, _) = life.state(of: .agent(agent.id)) {
+                    Text(failure.reason).font(.small).foregroundStyle(Palette.flag).padding(.top, Metrics.Spacing.s)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                content(agent)
             }
         }
         .sheetScroll {
@@ -224,6 +228,15 @@ struct AgentSheet: View {
 
     // MARK: Buttons
 
+    /// His Stop or Resume: its result in place, green, once Life took it; a refusal shows its reason instead.
+    private func change(_ agent: String, word: String, _ act: @escaping (String) async -> Void) {
+        done = nil
+        Task {
+            await act(agent)
+            if case .succeeded = life.state(of: .agent(agent)) { done = word }
+        }
+    }
+
     /// Stop while it works or waits, a state's own action first; under them, a quiet link to its session in Claude Code or
     /// Codex, never needed (his word of 20 Nov: anything waiting on him comes back to the app).
     private func buttons(_ agent: RegisteredAgent) -> some View {
@@ -232,7 +245,7 @@ struct AgentSheet: View {
             if agent.notStarted != nil {
                 ("Try again", { router.matterSheet = matter.map { .start($0) } })
             } else if agent.status == .stopped {
-                ("Resume", { Task { await life.resumeAgent(agent.id) } })
+                ("Resume", { change(agent.id, word: "Resumed") { await life.resumeAgent($0) } })
             } else {
                 nil
             }
@@ -243,7 +256,7 @@ struct AgentSheet: View {
                     Button(primary.0, action: primary.1).buttonStyle(
                         .pill(.filled, size: .compact, isBusy: state.isRunning))
                 } else if agent.status == .running || agent.status == .waiting {
-                    Button("Stop the agent") { Task { await life.stopAgent(agent.id) } }
+                    Button("Stop the agent") { change(agent.id, word: "Stopped") { await life.stopAgent($0) } }
                         .buttonStyle(.pill(.quiet, size: .compact, isBusy: state.isRunning))
                 }
             }
