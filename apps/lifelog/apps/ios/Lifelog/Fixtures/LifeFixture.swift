@@ -44,6 +44,10 @@
         nonisolated static let page = value(of: "-fixturePage")
         nonisolated static let pair = value(of: "-fixturePair") ?? "ok"
         nonisolated static let pose = value(of: "-fixturePose")
+        /// `-fixtureRefuse <control>`: that control's tap fails, to photograph its failure (`notifications`,
+        /// `location`, `appleHealth`, `reconnect`).
+        nonisolated static let refuse = value(of: "-fixtureRefuse")
+        nonisolated static func refuses(_ control: String) -> Bool { isRequested && refuse == control }
         /// `-fixtureDictation <state>`: every dictation field in that state (`DictationFixture`).
         nonisolated static let dictation = value(of: "-fixtureDictation")
         /// `-fixtureReads <folder>`: where the design data is read, by default this checkout's

@@ -16,9 +16,13 @@ final class PermissionsStore {
         case restricted
     }
 
+    enum Kind: String { case notifications, location, appleHealth }
+
     private(set) var notifications = Access.allowed
     private(set) var location = Access.allowed
     private(set) var appleHealth = Access.notAsked
+    /// Each Allow's tap: asking iOS, then its answer for 2 s, or why iOS never asked (`RowState.tap`).
+    private(set) var asks: [Kind: RowState] = [:]
     /// Kept alive so its authorization prompt stays up.
     @ObservationIgnored private let locationManager = CLLocationManager()
 
@@ -52,14 +56,43 @@ final class PermissionsStore {
             }
     }
 
-    func askLocation() {
-        locationManager.requestAlwaysAuthorization()
+    /// His Allow: iOS asks; the row then shows the answer, or why iOS never asked.
+    func ask(_ kind: Kind) async {
+        await RowState.tap(
+            Binding {
+                self.asks[kind] ?? .known
+            } set: {
+                self.asks[kind] = $0
+            }
+        ) { await answer(kind) }
     }
 
-    func askAppleHealth() async {
+    private func answer(_ kind: Kind) async -> RowState {
         do {
-            try await AppleHealthReader.claim()
-            await refresh()
-        } catch { _ = report(error) }
+            #if DEBUG
+                if LifeFixture.refuses(kind.rawValue) { throw URLError(.cannotLoadFromNetwork) }
+            #endif
+            switch kind {
+            case .notifications:
+                _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            case .location:
+                locationManager.requestAlwaysAuthorization()
+                // ponytail: polls iOS's answer for a minute; a delegate if the 0.3 s step ever shows.
+                for _ in 0..<200 where locationManager.authorizationStatus == .notDetermined {
+                    try await Task.sleep(for: .milliseconds(300))
+                }
+            case .appleHealth: try await AppleHealthReader.claim()
+            }
+        } catch {
+            _ = report(error)
+            return .refused("iOS didn't ask. Try again, or allow it in iOS Settings.")
+        }
+        await refresh()
+        return switch kind == .notifications ? notifications : kind == .location ? location : appleHealth {
+        case .allowed, .limited: .done("Allowed")
+        case .asked: .done("Asked")
+        // His No shows as the row's own Off; no answer yet is not a failure of his.
+        case .denied, .restricted, .notAsked: .known
+        }
     }
 }

@@ -11,7 +11,6 @@ import SwiftUI
 /// a page per connection), which push in the sheet's own stack. Drawn only with `Row` and `RowGroup`.
 struct SettingsView: View {
     let permissions: PermissionsStore
-    let allowNotifications: () -> Void
     let close: () -> Void
 
     @Environment(SyncStore.self) private var sync
@@ -130,9 +129,10 @@ struct SettingsView: View {
                 let notAsked = permissions.notifications == .notAsked
                 Row(
                     title: notAsked ? "Notifications not allowed yet" : "Notifications are off", icon: "bell",
-                    detail: "Cards can't reach you."
+                    detail: "Cards can't reach you.", state: permissions.asks[.notifications] ?? .known
                 ) {
-                    RowButton(title: notAsked ? "Allow" : "Open", action: notAsked ? allowNotifications : openSettings)
+                    RowButton(
+                        title: notAsked ? "Allow" : "Open", action: notAsked ? { ask(.notifications) } : openSettings)
                 }
             }
         }
@@ -195,17 +195,19 @@ struct SettingsView: View {
     private var allows: some View {
         RowGroup(label: "This phone allows", surface: .sheet) {
             permission(
-                "Notifications", icon: "bell", "Inbox cards reach you", permissions.notifications,
-                ask: allowNotifications,
+                "Notifications", icon: "bell", "Inbox cards reach you", permissions.notifications, kind: .notifications,
+                ask: { ask(.notifications) },
                 listed: notificationsListed)
             permission("Bluetooth", icon: "dot.radiowaves.left.and.right", "The pendant", bluetooth, ask: nil)
             permission(
-                "Location", icon: "location", "Where things were said", permissions.location,
-                ask: permissions.askLocation)
+                "Location", icon: "location", "Where things were said", permissions.location, kind: .location,
+                ask: { ask(.location) })
             if AppleHealthReader.isAvailable {
-                permission("Apple Health", icon: "heart", "Sleep and workouts", permissions.appleHealth) {
+                permission(
+                    "Apple Health", icon: "heart", "Sleep and workouts", permissions.appleHealth, kind: .appleHealth
+                ) {
                     Task {
-                        await permissions.askAppleHealth()
+                        await permissions.ask(.appleHealth)
                         await appleHealth.sync()
                     }
                 }
@@ -225,19 +227,21 @@ struct SettingsView: View {
     /// One permission: on, or the one thing to do. Not asked has a button only when the app can ask from here (Bluetooth's
     /// ask comes with pairing a pendant); refused goes to iOS Settings.
     private func permission(
-        _ name: String, icon: String, _ why: String, _ access: PermissionsStore.Access, ask: (() -> Void)?,
-        listed: Bool = false
+        _ name: String, icon: String, _ why: String, _ access: PermissionsStore.Access,
+        kind: PermissionsStore.Kind? = nil,
+        ask: (() -> Void)?, listed: Bool = false
     ) -> some View {
         let id = "pendant.settings.\(name.lowercased())"
+        let state = kind.flatMap { permissions.asks[$0] } ?? .known
         return Group {
             switch access {
             case .allowed:
-                Row(title: name, icon: icon, detail: why) { StateMark(glyph: .ok, word: "On") }
+                Row(title: name, icon: icon, detail: why, state: state) { StateMark(glyph: .ok, word: "On") }
             case .asked:
                 // iOS never says whether reading was allowed.
-                Row(title: name, icon: icon, detail: why) { StateMark(glyph: .off, word: "Asked") }
+                Row(title: name, icon: icon, detail: why, state: state) { StateMark(glyph: .off, word: "Asked") }
             case .notAsked:
-                Row(title: name, icon: icon, detail: why) {
+                Row(title: name, icon: icon, detail: why, state: state) {
                     if let ask, !listed {
                         RowButton(title: "Allow", action: ask)
                     } else {
@@ -245,9 +249,11 @@ struct SettingsView: View {
                     }
                 }
             case .limited(let what):
-                Row(title: name, icon: icon, detail: what) { RowButton(title: "Open", action: openSettings) }
+                Row(title: name, icon: icon, detail: what, state: state) {
+                    RowButton(title: "Open", action: openSettings)
+                }
             case .denied, .restricted:
-                Row(title: name, icon: icon, detail: listed ? why : "Change it in iOS Settings") {
+                Row(title: name, icon: icon, detail: listed ? why : "Change it in iOS Settings", state: state) {
                     StateMark(glyph: .flag, word: "Off")
                     if !listed { RowButton(title: "Open", action: openSettings) }
                 }
@@ -256,8 +262,8 @@ struct SettingsView: View {
         .accessibilityIdentifier(id)
     }
 
-    private func allow(_ access: PermissionsStore.Access, ask: () -> Void) {
-        if access == .notAsked { ask() } else { openSettings() }
+    private func ask(_ kind: PermissionsStore.Kind) {
+        Task { await permissions.ask(kind) }
     }
 
     private func openSettings() {
@@ -541,25 +547,39 @@ struct ServerRow<Value: Sendable & Equatable, Trailing: View>: View {
     @State private var isSaved = false
 
     var body: some View {
-        Row(title: title, icon: icon, detail: detail, state: state) {
+        Row(title: title, icon: icon, detail: detail, state: value.rowState(isSaved: isSaved)) {
             if let shown = value.shown { trailing(shown) }
         }
-        .onChange(of: value) { old, new in
-            if case .saving = old, case .known = new { isSaved = true } else { isSaved = false }
-        }
-        .task(id: isSaved) {
-            guard isSaved else { return }
-            try? await Task.sleep(for: .seconds(2))
-            isSaved = false
-        }
+        .savedFlash(value, $isSaved)
     }
+}
 
-    private var state: RowState {
-        switch value {
+extension ServerValue {
+    /// As a row shows it; `isSaved`: "Saved", for 2 s after the server took his change (`savedFlash`).
+    func rowState(isSaved: Bool) -> RowState {
+        switch self {
         case .asking: .asking
         case .saving: .saving
         case .refused(_, let message): .refused(message)
         case .known: isSaved ? .saved : .known
+        }
+    }
+}
+
+extension View {
+    /// `isSaved` for 2 s once `value` goes from saving to known: the server took his change.
+    func savedFlash<T>(_ value: ServerValue<T>, _ isSaved: Binding<Bool>) -> some View {
+        onChange(of: value) { old, new in
+            if case .saving = old, case .known = new {
+                isSaved.wrappedValue = true
+            } else {
+                isSaved.wrappedValue = false
+            }
+        }
+        .task(id: isSaved.wrappedValue) {
+            guard isSaved.wrappedValue else { return }
+            try? await Task.sleep(for: .seconds(2))
+            isSaved.wrappedValue = false
         }
     }
 }
@@ -572,7 +592,6 @@ extension SyncStore {
 
 /// Settings as a sheet: its own stack, a close button, and the permissions it reads.
 struct SettingsSheet: View {
-    @Environment(CaptureStore.self) private var capture
     @Environment(\.dismiss) private var dismiss
     @State private var permissions = PermissionsStore()
 
@@ -580,12 +599,6 @@ struct SettingsSheet: View {
         NavigationStack {
             SettingsView(
                 permissions: permissions,
-                allowNotifications: {
-                    Task {
-                        await capture.notifier.requestPermission()
-                        await permissions.refresh()
-                    }
-                },
                 close: { dismiss() })
         }
         .task { await permissions.refresh() }

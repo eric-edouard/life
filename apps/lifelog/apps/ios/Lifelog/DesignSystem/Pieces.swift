@@ -757,12 +757,55 @@ enum Surface {
     }
 }
 
-/// Where a row's value stands. A value the server holds is never shown as known before it said (`ServerValue`); the
-/// other rows are always `known`. `saved` is view state, shown 2 s after a change was accepted.
+/// Where a row's value stands, and the tap rule every control follows: loading, then a green result, or a clear
+/// failure. A value the server holds is never shown as known before it said (`ServerValue`); the other rows are always
+/// `known`. `done` is view state, its word ("Saved", "Allowed") shown 2 s after the tap went through (`tap`).
 enum RowState: Equatable {
-    case known, asking, saving, saved
+    case known, asking, saving
+    case done(String)
     /// The change did not go: the control is back on the old value, the line says why.
     case refused(String)
+
+    static let saved = RowState.done("Saved")
+
+    /// A tap: `saving` while `work` runs, then what it ends on, a `done` word for 2 s or a `refused` reason.
+    @MainActor static func tap(_ state: Binding<RowState>, _ work: () async -> RowState) async {
+        state.wrappedValue = .saving
+        let end = await work()
+        state.wrappedValue = end
+        guard case .done = end else { return }
+        try? await Task.sleep(for: .seconds(2))
+        if state.wrappedValue == end { state.wrappedValue = .known }
+    }
+}
+
+/// A tap's line under its control, as a row's second line shows it: the spinner and "Saving…", the green result, or
+/// the failure; nothing once known.
+struct TapLine: View {
+    let state: RowState
+    var detail: String?
+    /// A row draws its spinner at the trailing edge; alone, the line draws it.
+    var isInRow = false
+
+    var body: some View {
+        switch state {
+        case .known:
+            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
+        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
+        case .saving:
+            HStack(spacing: 8) {
+                if !isInRow { StateGlyph.busy }
+                Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+            }
+        case .done(let word):
+            HStack(spacing: 6) {
+                StateGlyph.ok
+                Text(word).font(.smallStrong)
+            }
+            .foregroundStyle(Palette.ok)
+        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
+        }
+    }
 }
 
 /// One row of a `RowGroup`: a title, an optional second line, and one thing at the trailing edge (a `RowValue`, a
@@ -788,7 +831,7 @@ struct Row<Trailing: View>: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 titleText.font(.rowName).foregroundStyle(Palette.fg)
-                line
+                TapLine(state: state, detail: detail, isInRow: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 8) {
@@ -807,22 +850,6 @@ struct Row<Trailing: View>: View {
     private var titleText: Text {
         let flag = Text(Image(systemName: "flag.fill")).font(.system(size: 12)).foregroundStyle(Palette.icon)
         return isMarked ? Text("\(title) \(flag)") : Text(verbatim: title)
-    }
-
-    @ViewBuilder private var line: some View {
-        switch state {
-        case .known:
-            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
-        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
-        case .saving: Text("Saving…").font(.small).foregroundStyle(Palette.muted)
-        case .saved:
-            HStack(spacing: 6) {
-                StateGlyph.ok
-                Text("Saved").font(.smallStrong)
-            }
-            .foregroundStyle(Palette.ok)
-        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
-        }
     }
 }
 
