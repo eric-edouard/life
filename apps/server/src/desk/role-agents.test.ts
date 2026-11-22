@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { dirname } from "node:path";
+import { clock } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { agentInRole } from "../host/desk-read";
+import { agentMoveReadOf } from "../host/move-read";
 import { type Desk, openDesk } from "./desk-store";
 import { roleAssignmentOf, roleStartBlockOf } from "./role-agents";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -30,7 +32,7 @@ afterAll(() => {
   setSettings({ desk: null });
 });
 
-test("a role takes its own runtime from the settings, a role left out the desk's default", async () => {
+test("a role takes its own runtime from the settings, a role left out the desk's default; the move offered starts from it", async () => {
   expect(await roleStartBlockOf(desk, "caretaker", () => "")).toBe(
     "no runtime the desk drives"
   );
@@ -40,4 +42,15 @@ test("a role takes its own runtime from the settings, a role left out the desk's
   roleAssignmentOf(desk, "personal", "take his asks", undefined);
   expect(agentInRole(desk.db, "caretaker")?.runtime).toBe("claude");
   expect(agentInRole(desk.db, "personal")?.runtime).toBe("pi");
+  // The move offered starts from its role's runtime too: the caretaker is home on Claude, so no move to the default.
+  const read = (role: "caretaker" | "personal") =>
+    agentMoveReadOf(
+      desk.db,
+      agentInRole(desk.db, role)?.id ?? "",
+      clock().getTime()
+    );
+  expect([read("caretaker"), read("personal")]).toMatchObject([
+    { moveTo: "codex" },
+    { moveTo: "claude" },
+  ]);
 });
