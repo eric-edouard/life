@@ -142,10 +142,6 @@ public enum SpendWords {
 /// One row of the Spending page: its name, its figure, one muted line, its share of the month's billed total (a bar under
 /// it), and what it opens.
 public struct SpendLine: Sendable, Equatable, Identifiable {
-    public enum Opens: Sendable, Equatable {
-        case matter(String)
-    }
-
     public let title: String
     public let value: String
     public var detail: String?
@@ -153,14 +149,10 @@ public struct SpendLine: Sendable, Equatable, Identifiable {
     public var share: Double?
     /// $0: the value muted.
     public var isZero = false
-    public var opens: Opens?
+    /// The matter it opens, if any.
+    public var opens: String?
 
-    public var id: String {
-        switch opens {
-        case .matter(let id): id
-        case nil: title
-        }
-    }
+    public var id: String { opens ?? title }
 }
 
 /// A labelled list of the Spending page.
@@ -290,7 +282,7 @@ public struct ModelSpending: Decodable, Sendable, Equatable, ParsedRead, NamesPa
                     detail: [
                         SpendWords.listPrice($0.spent.equivalent.amount, isBilled: false),
                         $0.spent.reported ? nil : SpendWords.notReported,
-                    ].compactMap(\.self).joined(separator: ", "), opens: .matter($0.id))
+                    ].compactMap(\.self).joined(separator: ", "), opens: $0.id)
             }
         }
         return [

@@ -35,7 +35,7 @@ private let britain = Locale(identifier: "en_GB")
         sections[2].lines.map(\.detail)
             == [nil, "≈ $2 at list price, not billed", "for your matters", "for your matters", "1 not settled yet"])
     #expect(sections[3].lines.map(\.detail) == ["≈ $4 at list price, not billed"])
-    #expect(sections[3].lines.map(\.opens) == [.matter("matter_000000000001")])
+    #expect(sections[3].lines.map(\.opens) == ["matter_000000000001"])
 }
 
 /// The page names no agent anywhere (his correction, 22 Nov): no section for them, no row opening one, and the tools his
@@ -55,7 +55,7 @@ private func lines(_ kinds: String, providers: String = "[]", unsettled: Int = 0
     let zero = #"{"amount":0,"basis":"billed","currency":"USD"}"#
     return try decoded(
         ModelSpending.self,
-        #"{"today":\#(zero),"month":\#(zero),"days":[],"byKind":\#(kinds),"byProvider":\#(providers),"unsettled":\#(unsettled),"topAgents":[],"topMatters":[],"observedAt":"2026-11-18T10:00:00.000Z"}"#
+        #"{"today":\#(zero),"month":\#(zero),"days":[],"byKind":\#(kinds),"byProvider":\#(providers),"unsettled":\#(unsettled),"topMatters":[],"observedAt":"2026-11-18T10:00:00.000Z"}"#
     ).sections.flatMap(\.lines)
 }
 

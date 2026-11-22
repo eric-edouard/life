@@ -69,11 +69,8 @@ struct SpendingPage: View {
     }
 
     /// A top matter opens its page.
-    private func opening(_ opens: SpendLine.Opens?) -> (() -> Void)? {
-        switch opens {
-        case .matter(let id): return { router.open(matter: id) }
-        case nil: return nil
-        }
+    private func opening(_ opens: String?) -> (() -> Void)? {
+        opens.map { id in { router.open(matter: id) } }
     }
 }
 
