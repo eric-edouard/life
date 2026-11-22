@@ -136,7 +136,6 @@ struct ProjectsScreen: View {
         life.projects.shown().onScreen?.chips.first { $0.identity == router.chip }
     }
 
-    /// The read under a chip: All's is every running matter.
     /// The title's count: on Ask Life's cut, how many of All's rows it keeps ("3 of 7"), else the projects underway.
     private var header: String? {
         guard let cut = router.cut(of: .matters) else {
@@ -145,6 +144,7 @@ struct ProjectsScreen: View {
         return life.matters.shown().onScreen.map { "\(cut.cut($0.matters, ref: \.id).count) of \($0.matters.count)" }
     }
 
+    /// The read under a chip: All's is every running matter.
     private func list(of chip: ProjectChips.Chip?) -> ReadState<MatterList> {
         chip.map { life.scopedMatters[$0.identity] ?? ReadState() } ?? life.matters
     }
