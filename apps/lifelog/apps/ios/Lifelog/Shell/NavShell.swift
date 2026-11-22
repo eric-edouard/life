@@ -58,7 +58,7 @@ struct NavShell: View {
     /// holds it), the dots of the asks, and room for Ask Life's button.
     private var bar: some View {
         HStack {
-            if sizeClass != .regular { ListButton() } else { Color.clear.frame(width: 48, height: 48) }
+            if sizeClass != .regular { ListButton() }
             Spacer(minLength: 0)
             if let pager = router.pager, router.tab == .inbox, !isListShown {
                 PagerDots(current: pager.current, total: pager.total)
