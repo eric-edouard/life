@@ -73,7 +73,50 @@ export function cardProblemOf(
     (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
     ((ahead < HOUR || ahead > 14 * DAY) &&
       "the deadline must be 1 hour to 14 days ahead") ||
-    answersProblemOf(ask)
+    answersProblemOf(ask) ||
+    loadProblemOf(ask)
+  );
+}
+
+/** A Markdown link's target, a quote line (someone else's words) and code: none of them his card's own words. */
+const NOT_OWN_WORDS = [
+  /\]\([^)]*\)/g,
+  /^ {0,3}>.*$/gm,
+  /```[\s\S]*?```/g,
+  /`[^`\n]*`/g,
+];
+/** What he reads of a card's text, as it asks: its own words, less links' targets, quotes and code. */
+const ownWordsOf = (text: string) =>
+  NOT_OWN_WORDS.reduce((t, re) => t.replace(re, ""), text);
+/** An asker that says it did not check what it asks on (its own "I didn't…", or a "Couldn't verify" heading; never someone else's). ponytail: English words only. */
+const HEDGE =
+  /\bnot verified|^[\s*#-]*could ?n[o'’]t verify|\b(i|we) (could ?n[o'’]t|can ?n[o'’]t|was unable to|am unable to|have ?n[o'’]t|did ?n[o'’]t|did not|have not) (yet )?(verif|check|confirm|open|read|look)\w*|\bi'?m unable to (verif|check|confirm)\w*/im;
+/** What he never reads on a card: a stored ref, or a name of Life's roles and plumbing (the technology disappears, his word of 22 Nov 2026). */
+const INTERNAL =
+  /\b((obs|unit|matter|dec|agt|asg|apt)_[0-9a-f]{6,}|personal agent|main session|request_decision|life's connector)\b/i;
+/** The most of `context` he reads, as `ownWordsOf` counts it (most cards hold under 1,100). */
+const CONTEXT_CHARS = 1200;
+
+/** What code can see of the self-check (`CARD_SELF_CHECK`): a card that says it left something unchecked, shows an id or a role's name, or holds more than he needs to read; false when nothing does. */
+function loadProblemOf(ask: z.infer<typeof Ask>) {
+  const context = ownWordsOf(ask.context);
+  const read = [
+    ask.title,
+    ask.question,
+    context,
+    ask.gathered?.text ?? "",
+    ...ask.options.map((o) => o.label),
+    ...(ask.plan ?? []).flatMap((p) => [p.text, p.when ?? ""]),
+  ].join("\n");
+  const hedge = HEDGE.exec([ask.title, ask.question, context].join("\n"));
+  const internal = INTERNAL.exec(read);
+  return (
+    (hedge &&
+      `"${hedge[0]}": check it with your tools before asking; a fact no tool reaches that decides the card is its question, asked plainly, never a note of what you did not check`) ||
+    (internal &&
+      `"${internal[0]}" is Life's inside: he reads no ids and no names of agents or roles; link Life's things as \`[words](life:<ref>)\``) ||
+    (context.length > CONTEXT_CHARS &&
+      `\`context\` holds ${context.length} characters as he reads them (${CONTEXT_CHARS} at most): keep only what he needs to decide`)
   );
 }
 

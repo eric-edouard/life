@@ -20,7 +20,7 @@ import {
   readPartRefOf,
 } from "./read-part";
 import { OWNER } from "./read-truth";
-import { kindOf, sourceOf } from "./sources";
+import { chatOpenUrlOf, kindOf, sourceOf } from "./sources";
 import type { People } from "./who";
 import { unitLines } from "./words";
 import { localDate } from "./zones";
@@ -384,7 +384,6 @@ async function latestOf(
     return [];
   }
   const messages = (await unitLines(u, people))?.built.messages ?? [];
-  const source = sourceOf(u.source);
   const senders = messages.filter((m) => !m.fromMe).map((m) => m.sender);
   const held = {
     chat: u.key,
@@ -395,8 +394,10 @@ async function latestOf(
   if (!isWithThemAlone(held, ref, people)) {
     return [];
   }
-  const handle = source.handleOf?.(u.key) ?? senders[0];
-  const url = handle && source.chatLinkOf?.(handle);
+  const url = chatOpenUrlOf(u.source, [
+    sourceOf(u.source).handleOf?.(u.key),
+    senders[0],
+  ]);
   return exchangesOf(messages).map((exchange) => ({
     at: (exchange[0] as { at: string }).at,
     channel: u.source,

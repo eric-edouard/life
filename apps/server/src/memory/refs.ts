@@ -7,6 +7,7 @@ import { ObservationId } from "../records/observation";
 import { parseTurnRef } from "../sources/lifelog";
 import { isAskPage } from "./card-request";
 import { parseReadPartRef, type ReadPartRef } from "./read-part";
+import { isDay } from "./zones";
 
 // The one grammar of what `fetch` opens (`openById`), which a card's `life:` links name and the phone is told the kind of
 // (`lifeLinksOf`). Pure: whether a ref names something that exists is its kind's reader's to say (`find-refs.ts`).
@@ -17,7 +18,7 @@ export type Ref = { id: string } & (
   | { kind: "ask" }
   | { kind: "conversation" }
   | { kind: "file"; file: string }
-  | { kind: "matter" }
+  | { kind: "matter"; thread?: { before?: string; matter: string } }
   | { kind: "message"; message: string; source: SourceName }
   | { kind: "observation" }
   | { kind: "person"; read: ReadPartRef }
@@ -27,6 +28,8 @@ export type Ref = { id: string } & (
 export type RefKind = Ref["kind"];
 
 const LIFE = "life:";
+/** A matter's thread: `<matter or step id>/thread[/before/<day>]` (`readMatterThread`). */
+const THREAD = /^([^/]+)\/thread(?:\/before\/([^/]+))?$/;
 const MESSAGE = "msg:";
 const FILE = "file:";
 
@@ -59,6 +62,10 @@ export function parseRef(id: string): Ref | { error: string } {
   if (id.startsWith(MESSAGE)) {
     return parseMessageRef(id);
   }
+  const thread = THREAD.exec(id);
+  if (thread) {
+    return parseThreadRef(id, thread[1] as string, thread[2]);
+  }
   if (id.startsWith(FILE)) {
     return id.length > FILE.length
       ? { file: id.slice(FILE.length), id, kind: "file" }
@@ -75,6 +82,22 @@ export function parseRef(id: string): Ref | { error: string } {
   return id.trim() === id && id !== ""
     ? { id, kind: "conversation" }
     : { error: `"${id}" is not a ref` };
+}
+
+/** A matter's thread ref: its head a matter's id or a step's (a lone matter has its observation's or to-do item's), `before` a day. */
+function parseThreadRef(
+  id: string,
+  matter: string,
+  before: string | undefined
+): Ref | { error: string } {
+  const head = BY_FORM.find((f) => f.is(matter))?.kind;
+  if (head !== "matter" && head !== "observation") {
+    return { error: `"${matter}" in "${id}" is not a matter's id` };
+  }
+  if (before !== undefined && !isDay(before)) {
+    return { error: `before "${before}" in "${id}" is not a day (YYYY-MM-DD)` };
+  }
+  return { id, kind: "matter", thread: { before, matter } };
 }
 
 /** A message ref: `msg:<source>|<id>` (`eventKey`), split at the first `|`, so the message id may hold anything. */
