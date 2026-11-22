@@ -1224,5 +1224,18 @@
     ],
     "taps": ["Retry"],
     "drawing": "tap feedback, no drawing"
+  },
+  "NameVoicesUXAStart": {
+    "args": ["-fixtureLife", "ok", "-fixtureCard", "voice_guess"]
+  },
+  "NameVoicesUXAGuess": {
+    "args": [
+      "-fixtureLife",
+      "ok",
+      "-fixtureCard",
+      "voice_guess",
+      "-fixtureSheet",
+      "voiceRun"
+    ]
   }
 }

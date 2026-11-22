@@ -21,9 +21,18 @@ struct CardNotes: Equatable {
     /// being answered row by row, by the ask its card was first shown under (`InboxOrder.folded`'s `working`).
     var guesses: [Check] = []
     var working: [CheckGroup: Check] = [:]
+    /// The voices the run began with, while it is open over the asks (`NameVoicesRun`): kept by the host, above the entry
+    /// card, whose ref changes with each voice answered.
+    var voiceRun: [Check]?
 
     /// The ask the host keeps on show whatever the read says: his result's, else the one the create sheet answers.
     var shownCheck: Check? { taken?.check ?? creating?.check }
+}
+
+/// The run's voices as a presented item.
+private struct VoiceRunBox: Identifiable {
+    let voices: [Check]
+    var id: String { voices.first?.ref ?? "" }
 }
 
 /// The create sheet's ask and name, with the asks as he opened it: where they go once it is created (the ask leaves the
@@ -147,6 +156,11 @@ struct CardView: View {
             .clippedSideways()
         }
         .motion(Motion.rise, value: resultScreen != nil)
+        .fullScreenCover(
+            item: Binding(get: { notes.voiceRun.map(VoiceRunBox.init) }, set: { notes.voiceRun = $0?.voices })
+        ) {
+            NameVoicesRun(voices: $0.voices) { notes.voiceRun = nil }
+        }
         // A send Life refused because someone wrote since: the ask is open again, with her message by its answers.
         .onChange(of: notes.taken != nil && result == nil) { _, isRefused in if isRefused { notes.taken = nil } }
         // A result that worked has said so: the next ask comes by itself.
@@ -188,7 +202,9 @@ struct CardView: View {
                     LazyHStack(spacing: 0) {
                         ForEach(checks, id: \.ref) { check in
                             Group {
-                                if let rows = bulk[check.ref] {
+                                if let rows = bulk[check.ref], check.bulkKind == .voice {
+                                    VoiceRunEntry(voices: rows) { notes.voiceRun = rows }
+                                } else if let rows = bulk[check.ref] {
                                     BulkCard(
                                         kind: check.bulkKind, rows: rows, notes: $notes,
                                         finish: { current = checks.ref(after: check.ref) }
@@ -289,9 +305,10 @@ struct CardView: View {
         Binding(get: { checks.contains { $0.ref == peopleRef } }, set: { if !$0 { peopleRef = nil } })
     }
 
-    /// `-fixtureSheet create`: the create sheet over the ask on show, to be photographed.
+    /// `-fixtureSheet create`: the create sheet over the ask on show, to be photographed; `voiceRun`: the voice run.
     private func openFixtureSheet() {
         #if DEBUG
+            if LifeFixture.sheet == "voiceRun", let rows = bulk[check.ref] { notes.voiceRun = rows }
             if LifeFixture.sheet == "create", check.createsByName, let name = check.askedName {
                 notes.creating = creating(check, name)
             }
