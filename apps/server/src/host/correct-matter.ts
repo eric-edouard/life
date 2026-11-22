@@ -109,7 +109,7 @@ export async function endByHisWord(
  * His Reopen of the closed matter `v`: its ticked to-do items unticked (`changeMatterTodoItems`), then one
  * `matter-reopened` line pinned to all its steps, which lifts the words and links that closed them. Refused while it
  * is open, and when it would still read closed (`matterBookOf` with the line, its steps ended only by newer records or
- * removed items): Life never says reopened for a matter that is not.
+ * removed items), so Life does not say reopened for a matter that is not (but see the `ponytail:` corner below).
  */
 async function reopenMatter(
   v: MatterView,

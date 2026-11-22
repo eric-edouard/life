@@ -196,7 +196,7 @@ export const PageSection = z.enum([
  * matter wins, and its projects are that one alone (`matterBookOf`), so the agent that takes it follows (`agentForOf`);
  * his word only. `matter-reopened` is his Reopen on a closed matter, pinned by its steps: every `outdated` on them
  * before it is lifted (`outdatedBy`), a link whose evidence came before it ends nothing (`readMatterRecords`), and a
- * Life draft reading the matter over before it is out of date (`isNewerThan`); a later `outdated` closes them again.
+ * Life draft reading the matter over before it is dropped (`readMatterPins`); a later `outdated` closes them again.
  * These five keep the matter's id beside its steps (`PINNED`): between matters holding the same steps,
  * the one he picked. `your-move-not-now` is his "Not now" on a your move card, pinned by its matter and steps: that card
  * hides until `until` (a local day, exclusive), or until the matter gets a step not in `steps`. `not-at-organization` is

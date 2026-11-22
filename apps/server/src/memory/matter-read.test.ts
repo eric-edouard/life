@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import { isEnded, type MatterRecords, matterBookOf } from "./matter-read";
-import { outdatedBy } from "./memory-files";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
 import { doneOf, doneOnOf, matterItems } from "./read-open-items";
 import { OWNER } from "./read-truth";
+import { outdatedBy } from "./retirements";
 import { isMailerHandle } from "./units";
 
 const pad = (n: number) => String(n).padStart(12, "0");

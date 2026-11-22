@@ -33,6 +33,7 @@ import {
   Unresolved,
 } from "../records/observation";
 import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
+import { outdatedBy, type Retirement, retiredBy } from "./retirements";
 
 // memory/ on disk and its search index: every path, the readers of the ledgers and of the index, and what the ledgers
 // say of an observation (`observationStatusOf`: where it stands), and commits them to the data repo (`commitMemory`). It appends only what
@@ -356,21 +357,6 @@ export function newSince(all: Observation[], at?: string) {
   return (o: Observation) => !cited.has(o.source.ref);
 }
 
-/** A supersession as `observationStatusOf` reads it: a line of supersessions.jsonl, or one his `outdated` correction retires (`outdatedBy`). */
-type Retirement = Omit<Supersession, "madeBy"> & { dropped?: true };
-
-/**
- * Observations a newer one replaced (memory/supersessions.jsonl), or he said are outdated (`by` itself): id -> the first
- * retirement recorded whose `by` is still current (a replacement re-read away no longer retires anything).
- */
-export const retiredBy = (list: Retirement[], current: Set<string>) =>
-  new Map(
-    list
-      .filter((s) => current.has(s.by))
-      .toReversed() // the first recorded wins: a later entry overwrites
-      .map((s): [string, Retirement] => [s.observation, s])
-  );
-
 /** The owner's answers to the fact checks: the latest for each memory line (null: taken back). */
 export const latestFactCheckAnswers = (list: FactCheckAnswer[]) =>
   latestBy(list, (r) => r.ref);
@@ -428,42 +414,6 @@ export const answeredFactCheckCorrections = (
         ]
       : [];
   });
-
-/**
- * What his `outdated` corrections retire (true then, not anymore), as extraction retires a fact later evidence closed:
- * kept as history, not wrong. `by` is the observation itself (no successor: readers of `by` skip it); `why` his words.
- * One his later `matter-reopened` pins is lifted (`reopenedAtOf`): the latest of his words on it wins.
- */
-export const outdatedBy = (corrections: Correction[]): Retirement[] => {
-  const reopened = reopenedAtOf(corrections);
-  return corrections.flatMap((c) =>
-    c.kind === "outdated"
-      ? c.observations
-          .filter((id) => !((reopened.get(id) ?? "") > c.at))
-          .map((id) => ({
-            at: c.at,
-            by: id,
-            observation: id,
-            schemaVersion: 1 as const,
-            validTo: c.at.slice(0, 10), // his word's UTC day (a local day needs zones.ts, which imports this file)
-            why: c.note ?? "outdated",
-            ...(c.outcome === "dropped" ? { dropped: true as const } : {}),
-          }))
-      : []
-  );
-};
-
-/** When he last reopened each step (`matter-reopened`), by its ref: the latest of his Reopens pinning it. Pure. */
-export const reopenedAtOf = (corrections: readonly Correction[]) =>
-  new Map(
-    corrections
-      .flatMap((c) =>
-        c.kind === "matter-reopened"
-          ? c.steps.map((ref): [string, string] => [ref, c.at])
-          : []
-      )
-      .toSorted((a, b) => a[1].localeCompare(b[1])) // the latest last: it overwrites
-  );
 
 /** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredFactCheckCorrections`). */
 export const readCorrections = (): Correction[] => [

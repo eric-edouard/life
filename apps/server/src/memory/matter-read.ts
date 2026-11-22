@@ -106,8 +106,6 @@ export interface MatterRecords {
   projects: readonly ProjectPin[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
-  /** When he last reopened each step (`reopenedAtOf`), by its ref: a Life draft before it is out of date (`isNewerThan`). */
-  reopenedAt?: ReadonlyMap<string, string>;
   /** The observations that ended for sure, by id: replaced by a newer one (`replacedBy`) or said outdated (`why`, his or an agent's note; `dropped`, his Drop); `at`, the instant of that evidence. */
   retired: ReadonlyMap<
     string,
@@ -554,18 +552,16 @@ export const matterOfSteps = <V extends Found>(
   prefer?: string
 ) => matterFinderOf(book)(refs, prefer);
 
-/** Whether `v` got a step, a step's ending or his Reopen of a step that `pin` was not drafted on: its next step is then out of date. Pure. */
+/** Whether `v` got a step, or a step's ending, that `pin` was not drafted on: its next step is then out of date. Pure. */
 const isNewerThan = (
   v: { steps: readonly MatterStepNow[] },
   pin: DirectionPin,
-  today: string,
-  reopenedAt: MatterRecords["reopenedAt"]
+  today: string
 ) =>
   v.steps.some(
     (s) =>
       !pin.steps.includes(s.ref) ||
       (s.ending && s.ending.at > pin.at) ||
-      (reopenedAt?.get(s.ref) ?? "") > pin.at ||
       // An open step's date passed since the pin: his rule of 21 Nov 2026, a dated thing past is looked into again.
       (isOpenStep(s) &&
         localDate(pin.at) <= (s.when ?? "") &&
@@ -695,13 +691,12 @@ export const isDirectionDue = (
   v: MatterView,
   latest: DirectionPin | undefined,
   later: () => readonly string[],
-  today: string,
-  reopenedAt?: MatterRecords["reopenedAt"]
+  today: string
 ) => {
   if (v.lone || !isRunning(v)) {
     return false;
   }
-  if (!(latest && v.goal) || isNewerThan(v, latest, today, reopenedAt)) {
+  if (!(latest && v.goal) || isNewerThan(v, latest, today)) {
     return true;
   }
   const end = offerEndOf(v);
@@ -722,10 +717,7 @@ export const isDirectionDue = (
  */
 export function directionDueOf(
   book: readonly MatterView[],
-  rec: Pick<
-    MatterRecords,
-    "directions" | "observations" | "refOf" | "reopenedAt"
-  >,
+  rec: Pick<MatterRecords, "directions" | "observations" | "refOf">,
   today: string
 ) {
   const directions = directionsOf(matterFinderOf(book), rec.directions);
@@ -738,8 +730,7 @@ export function directionDueOf(
         v,
         directions.get(v)?.latest,
         () => laterShownOf(v, rec.observations, rec.refOf).map((o) => o.id),
-        today,
-        rec.reopenedAt
+        today
       )
     );
   };
@@ -825,7 +816,7 @@ export function matterBookOf(
       const over =
         d?.latest?.by === "life" &&
         d.latest.endingRecords !== undefined &&
-        !isNewerThan(v, d.latest, today, rec.reopenedAt);
+        !isNewerThan(v, d.latest, today);
       const ownerIcon = icons.get(v.id);
       const project = projects.get(v.id);
       return {
