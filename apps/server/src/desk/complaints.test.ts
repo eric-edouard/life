@@ -89,8 +89,8 @@ beforeAll(async () => {
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
   rmSync(LEDGER, { force: true });
   rmSync(COMPLAINTS, { force: true });
-  setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
-  desk = { db: openDesk(), runtimes: { claude: fake.runtime } };
+  setSettings({ desk: { runtimes: {} } });
+  desk = { db: openDesk(), runtimes: { pi: fake.runtime } };
   inbox = spyOn(
     await import("../host/inbox"),
     "openChecksNow"

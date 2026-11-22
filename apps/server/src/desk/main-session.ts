@@ -36,6 +36,7 @@ import {
   roleStartBlockOf,
   standingAgentOf,
 } from "./role-agents";
+import { runnableAgentOf } from "./runtime-fallback";
 import { SessionLive, type Update } from "./runtimes/contract";
 import {
   claimTurn,
@@ -282,7 +283,8 @@ async function answer(
   if ("why" in main) {
     return { kind: "error", what: main.why };
   }
-  const { a, s } = main;
+  const { s } = main;
+  const a = await runnableAgentOf(desk, main.a);
   const runtime = desk.runtimes[a.runtime];
   if (!runtime) {
     return { kind: "error", what: `no runtime ${a.runtime}` };

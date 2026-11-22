@@ -35,6 +35,7 @@ import { dayNow } from "../memory/zones";
 import { type AgentChange, hasFixedSubject } from "../records/registered-agent";
 import { insertAgent, stopOpenRun } from "./agent-actions";
 import { type Desk, endWhenIdle, moveAssignment } from "./desk-store";
+import { setRuntime } from "./runtime-fallback";
 import { turnEnded } from "./turn-ends";
 
 // A move (decision 78, his `hand_over`): a matter's assignment to a new agent on another runtime or to the agent he
@@ -288,10 +289,7 @@ function commitSwitch(desk: Desk, m: MoveRow, a: AgentRow) {
       "update move set from_runtime = ?, from_model = ?, from_effort = ?, from_session = ?, from_link = ?, moved_at = ? where ask = ?",
       [a.runtime, a.model, a.effort, a.session, a.link, now(), m.ask]
     );
-    db.run(
-      "update agent set runtime = ?, model = null, effort = null, session = null, link = null where id = ?",
-      [m.to_runtime, a.id]
-    );
+    setRuntime(db, a.id, m.to_runtime ?? a.runtime);
     db.run(
       "update session set ended_at = ?, why_ended = 'runtime' where agent_id = ? and ended_at is null",
       [now(), a.id]

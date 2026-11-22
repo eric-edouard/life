@@ -299,13 +299,13 @@ const namesOf = (a: Pick<AgentRow, "brief" | "name">) => {
 
 /**
  * Where an agent on `runtime` can move (`moveTo`), or why not now (`moveBlocked`, from the desk's last look): its home
- * runtime (`runtimeOf`: its role's, else the desk's default), and from there, or with none, the first other (one move
+ * runtime (`runtimeOf`: its role's, else the desk's default, else pi), and from there the first other (one move
  * offered: the phone shows one).
  */
 export function moveTargetOf(runtime: string, defaultRuntime = runtimeOf({})) {
-  return defaultRuntime && runtime !== defaultRuntime
-    ? defaultRuntime
-    : RuntimeName.options.find((r) => r !== runtime);
+  return runtime === defaultRuntime
+    ? RuntimeName.options.find((r) => r !== runtime)
+    : defaultRuntime;
 }
 
 function moveToOf(db: Database, a: Pick<AgentRow, "role" | "runtime">) {

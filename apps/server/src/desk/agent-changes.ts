@@ -33,6 +33,7 @@ import { applyHandOver, type HandOverFacts } from "./agent-moves";
 import { continueOnMac } from "./continue-on-mac";
 import { closeAssignmentRow, type Desk, saveCursor } from "./desk-store";
 import { ownAssignmentOf, standingAgentOf } from "./role-agents";
+import { startBlockOf } from "./runtime-fallback";
 
 // His word about his registered agents (`change_registered_agent`): each is an ask of the desk (`DESK_AGENT`) in the
 // ledger, read here every tick from the desk's own cursor and applied once, in code. What was done, or why not, is the
@@ -96,7 +97,7 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
 /**
  * Starts on his words (`brief`). On a matter: an assignment of the agent that takes it (`taker`, `agentForOf`), his words
  * kept as `said`; an agent that holds it already answers. On a project or as the Personal agent: a new agent, on a
- * runtime the desk drives that answers (`blocked`: why it can't now), in a folder that exists when one is named (the
+ * runtime the desk drives that answers, or else pi (`blocked`: why neither can now, `startBlockOf`), in a folder that exists when one is named (the
  * Personal agent's home by default). A repeat (an active agent on the same project, or the Personal agent, started on
  * the same words) is that agent, not a refusal. A start hands over the stopped agents on its subject.
  */
@@ -141,7 +142,7 @@ export function start(
   if (repeat) {
     return { id: repeat };
   }
-  if (!(runtime && desk.runtimes[runtime])) {
+  if (!desk.runtimes[runtime]) {
     return {
       error: `name a runtime: ${Object.keys(desk.runtimes).join(", ")}`,
     };
@@ -343,10 +344,7 @@ async function changeFactsOf(
       taker: (await readTakerOf(desk.db))(c.data.steps, c.data.matter),
     };
   }
-  const runtime = runtimeOf(c.data);
-  return {
-    blocked: runtime ? await desk.runtimes[runtime]?.block() : undefined,
-  };
+  return { blocked: await startBlockOf(desk, runtimeOf(c.data)) };
 }
 
 /** What the desk does with one ask: why it is refused (spoken, stale, or the change refused), else the change applied. */

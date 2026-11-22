@@ -4,10 +4,12 @@ import { dirname } from "node:path";
 import { clock } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
-import { agentInRole } from "../host/desk-read";
+import { agentInRole, agentOf, runtimeOf } from "../host/desk-read";
 import { agentMoveReadOf } from "../host/move-read";
+import { insertAgent } from "./agent-actions";
 import { type Desk, openDesk } from "./desk-store";
 import { roleAssignmentOf, roleStartBlockOf, standUp } from "./role-agents";
+import { runnableAgentOf, startBlockOf } from "./runtime-fallback";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { sessionAgentOf } from "./turn-ends";
 
@@ -34,9 +36,8 @@ afterAll(() => {
 });
 
 test("a role takes its own runtime from the settings, a role left out the desk's default; the move offered starts from it", async () => {
-  expect(await roleStartBlockOf(desk, "caretaker", () => "")).toBe(
-    "no runtime the desk drives"
-  );
+  // Claude not driven: the caretaker still starts, pi being able to run (`startBlockOf`).
+  expect(await roleStartBlockOf(desk, "caretaker", () => "")).toBeUndefined();
   expect(await roleStartBlockOf(desk, "personal", () => "")).toBeUndefined();
   desk.runtimes.claude = fakeRuntime().runtime;
   roleAssignmentOf(desk, "caretaker", "fix what went wrong", undefined);
@@ -101,4 +102,78 @@ test("a standing role's session is titled by its role until he names it", () => 
   const a = agentInRole(desk.db, "main");
   expect(a && sessionAgentOf(a).title).toBe("Agent: Ask Life");
   expect(a && sessionAgentOf({ ...a, name: "Mine" }).title).toBe("Agent: Mine");
+});
+
+test("a fresh install, no runtime in its settings: every role and every project's agent runs on pi", () => {
+  setSettings({ desk: { runtimes: {} } });
+  const { db } = desk;
+  db.run("delete from assignment");
+  db.run("delete from agent");
+  standUp(desk, "main", "answer his words");
+  standUp(desk, "caretaker", "fix what went wrong");
+  roleAssignmentOf(desk, "personal", "take his asks", undefined);
+  expect(
+    (["main", "caretaker", "personal"] as const).map(
+      (r) => agentInRole(db, r)?.runtime
+    )
+  ).toEqual(["pi", "pi", "pi"]);
+  expect(runtimeOf({})).toBe("pi");
+  setSettings({
+    desk: {
+      defaultRuntime: "pi",
+      roleRuntimes: { caretaker: "claude" },
+      runtimes: {},
+    },
+  });
+});
+
+test("a runtime that can't run: a start goes on pi; an agent with no session takes pi, once; one with a session stays", async () => {
+  const claude = fakeRuntime();
+  const pi = fakeRuntime();
+  const d: Desk = {
+    db: desk.db,
+    runtimes: { claude: claude.runtime, pi: pi.runtime },
+  };
+  claude.blocked = "claude is not signed in";
+  expect(await startBlockOf(d, "claude")).toBeUndefined();
+  const { id: fresh } = insertAgent(d.db, {
+    brief: "fix what went wrong",
+    model: "opus",
+    runtime: "claude",
+  });
+  const { id: kept } = insertAgent(d.db, {
+    brief: "a project",
+    runtime: "claude",
+  });
+  d.db.run("update agent set session = 'ses_kept' where id = ?", [kept]);
+  const asked: string[] = [];
+  const block = (r: string) => {
+    asked.push(r);
+    return d.runtimes[r]?.block() ?? Promise.resolve(undefined);
+  };
+  const a = agentOf(d.db, fresh);
+  expect(a && (await runnableAgentOf(d, a, block))).toMatchObject({
+    model: null,
+    runtime: "pi",
+  });
+  expect(agentOf(d.db, fresh)).toMatchObject({ model: null, runtime: "pi" });
+  // Already on pi: nothing asked again.
+  const after = agentOf(d.db, fresh);
+  asked.length = 0;
+  expect(after && (await runnableAgentOf(d, after, block))).toBe(after);
+  expect(asked).toEqual([]);
+  // A session can't change runtime: it stays, blocked.
+  const k = agentOf(d.db, kept);
+  expect(k && (await runnableAgentOf(d, k))).toBe(k);
+  // pi can't run either: nothing gained, it stays, and a start says both.
+  pi.blocked = "pi needs OPENROUTER_API_KEY";
+  const { id: other } = insertAgent(d.db, {
+    brief: "another",
+    runtime: "claude",
+  });
+  const o = agentOf(d.db, other);
+  expect(o && (await runnableAgentOf(d, o))).toBe(o);
+  expect(await startBlockOf(d, "claude")).toBe(
+    "claude is not signed in; pi: pi needs OPENROUTER_API_KEY"
+  );
 });
