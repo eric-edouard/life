@@ -59,9 +59,11 @@ import { type HandleFrom, holdsName, nameKey, PERSON, UNKNOWN } from "./units";
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
 
 const WHO = /^(person|unknown):/;
-/** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
-export const who = (x: { speaker: string; speakerName?: string }) =>
-  x.speakerName ?? x.speaker.replace(WHO, "");
+/** A speaker as a reader sees it: the readable name when there is one (else `nameOf`'s, so an id never reaches a model as a word), else the id without its `person:` prefix. */
+export const who = (
+  x: { speaker: string; speakerName?: string },
+  nameOf?: (ref: string) => string
+) => x.speakerName ?? nameOf?.(x.speaker) ?? x.speaker.replace(WHO, "");
 
 const tierOf = (ref: string) => {
   if (ref.startsWith(`person:${INFERRED_PREFIX}`)) {
