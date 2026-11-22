@@ -621,15 +621,7 @@
     ]
   },
   "DuoFoldSpendingEnd": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureSheet",
-      "settings",
-      "-fixturePage",
-      "spending"
-    ],
-    "scroll": "bottom"
+    "why": "A scroll to the end: the shot's scroll does not move this page (shot 22 Nov, stays at the top). By hand, as DuoFoldSpendingLower, scrolled to the end."
   },
   "DuoFoldSpendingLower": {
     "why": "A scroll: design:shots presses labels only. By hand: -fixtureLife ok -fixtureSheet settings -fixturePage spending, then scroll to By kind."
