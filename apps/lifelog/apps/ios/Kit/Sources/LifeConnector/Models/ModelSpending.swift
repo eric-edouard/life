@@ -7,6 +7,7 @@ import Library
 /// A spend's provider, by Life's own name (`SPEND_PROVIDERS`, `memory/spends.ts`; checked by `ContractTests`).
 public enum SpendProvider: String, UnknownTolerant, Sendable {
     case openrouter, allmodels, elevenlabs, claude, codex, describer, apple, speech, apify
+    case webSearch = "web_search"
     case unknown
 
     public var name: String {
@@ -20,6 +21,7 @@ public enum SpendProvider: String, UnknownTolerant, Sendable {
         case .apple: "the arrival reader"
         case .speech: "speech"
         case .apify: "Apify"
+        case .webSearch: "Web search"
         case .unknown: "Another provider"
         }
     }
@@ -30,7 +32,9 @@ public enum SpendProvider: String, UnknownTolerant, Sendable {
 
 /// What a spend was for (`SpendKind`, `memory/spends.ts`; checked by `ContractTests`), in the page's order.
 public enum SpendKind: String, UnknownTolerant, Sendable {
-    case night, daytime, agents, voice
+    case night, daytime, agents
+    case webSearch = "web_search"
+    case apify, voice
     case unknown
 
     var name: String {
@@ -38,6 +42,8 @@ public enum SpendKind: String, UnknownTolerant, Sendable {
         case .night: "The night"
         case .daytime: "Daytime readers"
         case .agents: "Agents"
+        case .webSearch: "Web search"
+        case .apify: "Apify"
         case .voice: "Voice"
         case .unknown: "Other"
         }

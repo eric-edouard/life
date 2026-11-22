@@ -29,6 +29,8 @@ export interface HealthFacts {
   /** Where his Claude app lists its session (a Claude agent of his own Life with a session); null: not judged. */
   app: AppListing | null;
   failedInARow: number;
+  /** Why it runs on pi, not its home runtime (`runtimeOf`): its home's block at the desk's last look; null: it runs at home, or its home runs. */
+  fellBack: string | null;
   notStarted: string | null;
   runtime: string;
   /** Why its runtime can't run at the desk's last look (`runtime_block`); null or absent: it ran. */
@@ -76,6 +78,9 @@ export function agentHealthOf(f: HealthFacts, now: number): Health {
   const attention: string[] = [];
   if (f.runtimeBlock) {
     broken.push(`${f.runtime} can't run: ${f.runtimeBlock}`);
+  }
+  if (f.fellBack) {
+    attention.push(`Runs on ${f.runtime}: ${f.fellBack}.`);
   }
   if (f.notStarted) {
     broken.push(`It never started: ${f.notStarted}`);

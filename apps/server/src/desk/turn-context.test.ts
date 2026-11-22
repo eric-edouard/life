@@ -74,7 +74,7 @@ test("a first turn that is reminded still sets the session's first call, from it
   ).toEqual({ context_at_first_call: 30_000 });
 });
 
-test("a reminded turn's billed cost adds up over its runs, and stays none once a run came without it", async () => {
+test("a reminded turn's billed cost and search cost each add up over its runs, and stay none once a run came without it", async () => {
   const billedOver = async (obs: string, runs: (number | null)[]) => {
     const { desk, fake } = setup();
     const id = await started(desk, obs);
@@ -93,6 +93,7 @@ test("a reminded turn's billed cost adds up over its runs, and stays none once a
           billedUsd,
           contextFirst: 1,
           contextLast: 1,
+          searchUsd: billedUsd === null ? null : billedUsd / 10,
           tokensCached: 0,
           tokensIn: 1,
           tokensOut: 1,
@@ -101,16 +102,19 @@ test("a reminded turn's billed cost adds up over its runs, and stays none once a
       await Bun.sleep(5);
     }
     return desk.db
-      .query("select cost_usd from turn where agent_id = ?")
+      .query("select cost_usd, search_usd from turn where agent_id = ?")
       .get(id);
   };
   expect(await billedOver("obs_00000000b017", [0.1, 0.2])).toEqual({
     cost_usd: expect.closeTo(0.3),
+    search_usd: expect.closeTo(0.03),
   });
   expect(await billedOver("obs_00000000b018", [null, 0.2])).toEqual({
     cost_usd: null,
+    search_usd: null,
   });
   expect(await billedOver("obs_00000000b019", [0.1, null])).toEqual({
     cost_usd: null,
+    search_usd: null,
   });
 });

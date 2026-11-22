@@ -5,11 +5,11 @@ import type { TurnSpent } from "../memory/spends";
 // read-only, through `readDesk`. A turn's matter is its assignment's (its anchors), the one rule for both.
 
 /**
- * The turns with their session's runtime for a turn before `turn.model` (a model names its own, read by `spendOfTurn`),
+ * The turns with their session's runtime for a turn before `turn.model` (a model names its own, read by `spendsOfTurn`),
  * found in one pass over the sessions (`session.ref` has no index).
  */
 const SPENT =
-  "agent_id, assignment_id, cost_usd, ended_at, model, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join (select ref, min(runtime) as runtime from session group by ref) legacy on turn.model is null and legacy.ref = turn.session";
+  "agent_id, assignment_id, cost_usd, ended_at, model, search_usd, tokens_cached, tokens_in, tokens_out, legacy.runtime as runtime from turn left join (select ref, min(runtime) as runtime from session group by ref) legacy on turn.model is null and legacy.ref = turn.session";
 
 /** A move's notes turn that never began ran no model (no session to resume, or a send that failed): never counted as spent. */
 const RAN = "not (turn.cause = 'move_notes' and turn.begun_at is null)";

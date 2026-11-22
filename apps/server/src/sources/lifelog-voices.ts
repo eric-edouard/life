@@ -189,6 +189,18 @@ export async function readVoiceNames(
   });
 }
 
+/** The person id lifelog gives the owner (the newest of its owner's turns), none before it has heard him. */
+export async function readOwnerVoiceId(): Promise<string | undefined> {
+  return await withStore(
+    (store) =>
+      store.db
+        .query<{ id: string }, []>(
+          "select person_id as id from turns where is_owner = 1 and person_id is not null order by start_at desc limit 1"
+        )
+        .get()?.id
+  );
+}
+
 /** Whether lifelog now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
 export function isTurnNamed(store: Store, ref: string) {
   const t = parseTurnRef(ref);

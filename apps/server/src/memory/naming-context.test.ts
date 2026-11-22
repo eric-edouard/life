@@ -121,6 +121,7 @@ const none = {
   heard: [] as { at: string; ref: string }[],
   onCall: [] as string[],
   pictured: [] as string[],
+  scheduled: [] as string[],
 };
 const possible = (signs: Partial<typeof none>) =>
   possibleSpeakersOf({ ...none, ...signs }, FROM, FROM, TO, () => false);
@@ -151,11 +152,13 @@ test("each sign alone makes a person possible; callers come first, then his answ
       heard: [{ at: "2026-10-20T10:00:00.000Z", ref: "person:c" }],
       onCall: ["person:a"],
       pictured: ["person:d"],
+      scheduled: ["person:g"],
     })
   ).toEqual([
     "person:a",
     "person:b",
     "person:f",
+    "person:g",
     "person:c",
     "person:d",
     "person:e",
@@ -166,6 +169,7 @@ test("each sign alone makes a person possible; callers come first, then his answ
     "facts",
     "onCall",
     "pictured",
+    "scheduled",
   ] as const) {
     expect(possible({ [sign]: ["person:x"] })).toEqual(["person:x"]);
   }
@@ -195,6 +199,18 @@ test("heard in person counts in another conversation, within 90 days either side
       ],
     }).toSorted()
   ).toEqual(["person:after", "person:in"]);
+});
+
+// His report of 22 Nov: a client met by video, set by mail for that day, was never offered: 12 people heard in the 90
+// days filled the list first.
+test("a plan for that day is offered before the people heard in the 90 days, who cannot crowd it out", () => {
+  const heard = Array.from({ length: 12 }, (_, i) => ({
+    at: `2026-10-${String(10 + i).padStart(2, "0")}T10:00:00.000Z`,
+    ref: `person:heard-${i}`,
+  }));
+  expect(possible({ heard, scheduled: ["person:client"] })).toContain(
+    "person:client"
+  );
 });
 
 test("at most 12 are offered, those on a call before the rest, the most recently heard first", () => {

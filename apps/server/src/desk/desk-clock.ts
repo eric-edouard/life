@@ -91,6 +91,7 @@ import {
   relatedMessages,
 } from "./matter-net";
 import { standUp } from "./role-agents";
+import { blockOf, runnableAgentOf } from "./runtime-fallback";
 import { SessionLive } from "./runtimes/contract";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
 import {
@@ -637,7 +638,7 @@ async function launch(
 /**
  * Starts the turns due now: his answers and new assignments' first turns first, then the oldest deadline, until 3 have
  * started this tick (an agent whose session runs a turn, of the desk's or his, or whose runtime is blocked, takes no
- * place). Each is read again as its turn is written.
+ * place; one with no session yet takes pi first, `runnableAgentOf`). Each is read again as its turn is written.
  */
 export async function wakeDue(desk: Desk) {
   const t = clock().getTime();
@@ -649,11 +650,8 @@ export async function wakeDue(desk: Desk) {
     .toSorted((x, y) => x.rank - y.rank || x.at - y.at);
   // Each runtime asked once a tick, and only when a turn of it is due: a blocked one starts nothing, so no try is spent.
   const blocks = new Map<string, Promise<string | undefined>>();
-  const blockOf = (runtime: string) => {
-    const b =
-      blocks.get(runtime) ??
-      desk.runtimes[runtime]?.block() ??
-      Promise.resolve(undefined);
+  const blockOnce = (runtime: string) => {
+    const b = blocks.get(runtime) ?? blockOf(desk, runtime);
     blocks.set(runtime, b);
     return b;
   };
@@ -663,8 +661,9 @@ export async function wakeDue(desk: Desk) {
       break;
     }
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
-    if (!(await blockOf(d.a.runtime))) {
-      started += (await wake(desk, d.a, d.s)) ? 1 : 0;
+    const a = await runnableAgentOf(desk, d.a, blockOnce);
+    if (!(await blockOnce(a.runtime))) {
+      started += (await wake(desk, a, d.s)) ? 1 : 0;
     }
   }
 }

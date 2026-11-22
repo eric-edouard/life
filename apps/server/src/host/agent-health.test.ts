@@ -14,6 +14,7 @@ const fine: HealthFacts = {
   amber: [],
   app: { inGroup: true, listed: true },
   failedInARow: 0,
+  fellBack: null,
   notStarted: null,
   runtime: "claude",
   runtimeBlock: null,
@@ -68,6 +69,23 @@ test("not listening, a blocked runtime, three failures, not in its group: each s
     "Its last turn ended without saying what it waits for.",
     "Not in the Life Agents group of your Claude app.",
   ]);
+});
+
+test("an agent that fell back to pi works, and says why once in its health: attention, never broken", () => {
+  expect(
+    agentHealthOf(
+      {
+        ...fine,
+        app: null,
+        fellBack: "claude can't run (claude is not signed in)",
+        runtime: "pi",
+      },
+      NOW
+    )
+  ).toEqual({
+    verdict: "attention",
+    why: ["Runs on pi: claude can't run (claude is not signed in)."],
+  });
 });
 
 test("the desk: off, a standing role missing, the plugin off", () => {

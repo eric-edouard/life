@@ -30,6 +30,7 @@ type LogKind =
   | "desk.net"
   | "desk.queued"
   | "desk.runtime"
+  | "desk.runtime_fallback"
   | "desk.session_open"
   | "desk.session_taken_back"
   | "desk.store_step"

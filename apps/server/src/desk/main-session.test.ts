@@ -46,8 +46,8 @@ import { endLostTurns } from "./turn-ends";
 let t = setup();
 beforeEach(() => {
   t = setup();
-  t.desk.runtimes = { claude: t.fake.runtime };
-  setSettings({ desk: { defaultRuntime: "claude", runtimes: {} } });
+  t.desk.runtimes = { pi: t.fake.runtime };
+  setSettings({ desk: { runtimes: {} } });
 });
 afterAll(() => setSettings({ desk: null }));
 
@@ -307,7 +307,7 @@ test("`answer` adds why to its words, or likely answers that make it a question;
   const other = register(t.desk, {
     brief: "Test brief",
     folder: t.dir,
-    runtime: "claude",
+    runtime: "pi",
   });
   expect(await callDoor(other, "answer", { why: "x" })).toContain(
     "the main session's alone"
@@ -363,8 +363,8 @@ test("presence of a stopped main session, or one whose runtime can't run, says w
   const id = main()?.id ?? "";
   // Its runtime is gone from the desk.
   t.desk.runtimes = {};
-  expect(await keepMainSession(t.desk)).toBe(MOVE_REASONS.blocked("claude"));
-  t.desk.runtimes = { claude: t.fake.runtime };
+  expect(await keepMainSession(t.desk)).toBe(MOVE_REASONS.blocked("pi"));
+  t.desk.runtimes = { pi: t.fake.runtime };
   t.desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
   expect(await keepMainSession(t.desk)).toBe("Life's main session is stopped.");
   expect(t.fake.kept).toEqual([]);
@@ -402,7 +402,7 @@ test("on his words the main session acts through its door: each act's `said` mus
   const other = register(t.desk, {
     brief: "Test brief",
     folder: t.dir,
-    runtime: "claude",
+    runtime: "pi",
   });
   const own =
     ownAssignmentOf(t.desk.db, other) ??
@@ -499,7 +499,7 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
   const other = register(t.desk, {
     brief: "Test dentist agent",
     folder: t.dir,
-    runtime: "claude",
+    runtime: "pi",
   });
   if (!ownAssignmentOf(t.desk.db, other)) {
     openAssignment(t.desk, other, { openedBy: "owner" });
@@ -578,7 +578,7 @@ test("`tell_agent` on an assignment the agent holds open puts his words there; o
   const other = register(t.desk, {
     brief: "Test agent of two matters",
     folder: t.dir,
-    runtime: "claude",
+    runtime: "pi",
   });
   openAssignment(t.desk, other, { openedBy: "owner", steps: ["obs_test_one"] });
   const second = openAssignment(t.desk, other, {

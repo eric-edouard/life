@@ -143,7 +143,8 @@ create table if not exists turn (
   context_used integer,
   model text,
   move text,
-  cost_usd real
+  cost_usd real,
+  search_usd real
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);
