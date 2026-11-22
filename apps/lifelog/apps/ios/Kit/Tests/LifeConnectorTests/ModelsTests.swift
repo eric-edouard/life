@@ -124,7 +124,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
-    #expect(found.options.map(\.label) == ["Start", "Edit goal", "No"])
+    #expect(found.options.map(\.label) == ["Start an agent", "Edit goal", "No agent"])
     #expect(found.goal == "Gran's photo is framed.")
     #expect(inbox.checks.last?.draft == nil)
 
@@ -647,9 +647,53 @@ private func asks(
     let one = try asks([("g1", .improves)], groups: ["g1": "guessed person"], preTicked: ["g1": "this-is"])
         .ordered(deferred: [])
     #expect(one.folded().bulk.isEmpty)
-    #expect(one.folded(working: [.guessedPerson]).bulk.keys.contains("g1"))
+    #expect(one.folded(working: [.guessedPerson: one.checks[0]]).bulk.keys.contains("g1"))
     // Same person has no filter chip of its own: it is the guessed people's.
     #expect(order.kinds == [.guessedPerson] && order.only(.guessedPerson).checks.count == 3)
+}
+
+/// His "Same person" on the guesses' card (22 Nov): the row he answered was the card's first, and the fold took a
+/// guess's own row with it. The card keeps its page (no leave and come back under a new ref), and the row the fold took
+/// leaves instead of offering answers Life would refuse.
+@Test func theGuessesCardKeepsItsPageWhenItsFirstRowIsAnswered() throws {
+    let before = try asks(
+        [("b1", .blocks), ("s1", .improves), ("g1", .improves), ("g2", .improves)],
+        groups: ["s1": "same person", "g1": "guessed person", "g2": "guessed person"],
+        preTicked: ["s1": "same-person", "g1": "this-is", "g2": "this-is"]
+    ).ordered(deferred: [])
+    let head = before.checks[1]
+    #expect(before.folded().bulk.keys.sorted() == ["s1"])
+    // After the fold: s1 answered, g1 folded away with it.
+    let after = try asks(
+        [("b1", .blocks), ("g2", .improves)], groups: ["g2": "guessed person"], preTicked: ["g2": "this-is"]
+    ).ordered(deferred: [])
+    let folded = after.folded(working: [.guessedPerson: head])
+    #expect(folded.checks.map(\.ref) == ["b1", "s1"])
+    #expect(folded.bulk.mapValues { $0.map(\.ref) } == ["s1": ["g2"]])
+    #expect(folded.check(on: "s1")?.ref == "s1")
+    let rows = [Check].guessRows(
+        met: before.checks.dropFirst().map(\.self), open: try #require(folded.bulk["s1"]), answered: ["s1"])
+    #expect(rows.map(\.ref) == ["s1", "g2"])
+}
+
+/// A row he answered is answered as soon as Life confirms it, never back at Yes or No while the read that drops it is
+/// on its way (22 Nov: "Saving…", then Yes and No again, then "Yes").
+@Test func aGuessRowIsAnsweredOnLifesWordNotOnTheNextRead() {
+    let running = ActionState<ActionProof>.running(steps: [], limit: nil)
+    #expect(running.guessState(words: "Yes", isOpen: true) == .sending(yes: true))
+    let done = ActionState<ActionProof>.succeeded(.recorded, steps: [])
+    #expect(done.guessState(words: "Yes", isOpen: true) == .answered(yes: true))
+    let refused = ActionState<ActionProof>.failed(ActionFailure(reason: "No", retry: .allowed), steps: [])
+    #expect(refused.guessState(words: "No", isOpen: true) == .rest)
+    #expect(ActionState<ActionProof>.idle.guessState(words: "No", isOpen: false) == .answered(yes: false))
+    #expect(ActionState<ActionProof>.idle.guessState(words: nil, isOpen: true) == .rest)
+}
+
+/// His answer leaves him on the first ask after it that is still there, passing over one his answer took away too.
+@Test func anAnswerLeadsToTheFirstAskStillThere() throws {
+    let order = try asks([("b1", .blocks), ("b3", .blocks)]).ordered(deferred: [])
+    #expect(order.next(of: ["b2", "b3"]) == "b3")
+    #expect(order.next(of: ["gone"]) == nil)
 }
 
 /// A group's heading on the bulk card follows the answer Life pre-ticks on it.

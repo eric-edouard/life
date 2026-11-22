@@ -431,7 +431,7 @@ const WRITERS: {
       ];
     },
   },
-  // Bound to the pair he saw (`samePersonRefOf`): "Same person" folds the guess into the other; "Different people"
+  // Bound to the pair he saw (`samePersonRefOf`): "Same person" folds the guess into the other; "Different"
   // says each of the guess's handles is not them, so the pair is never asked again.
   "same person": {
     "not-this-person": (c, a) =>
@@ -469,7 +469,7 @@ const WRITERS: {
     "this-is": (c, a, { voice }) =>
       answerVoice(c, voice, (v) => thisIs(v, c, a)),
   },
-  // Done, Drop and Hand to an agent act through host (`endYourMove`, `startAgent`), only as the card offers them now.
+  // Done, Drop and Hand over act through host (`endYourMove`, `startAgent`), only as the card offers them now.
   "your move": {
     done: (_c, _a, x) => endYourMoveOf(x),
     drop: (_c, _a, x) => endYourMoveOf(x),
@@ -490,7 +490,7 @@ const WRITERS: {
     start: async (c, a, x) => {
       if (!(x.startAgent && c.options.some((o) => o.id === "start"))) {
         throw new Error(
-          "Not done: Hand to an agent comes only through his own answer_check, while the card offers it."
+          "Not done: Hand over comes only through his own answer_check, while the card offers it."
         );
       }
       return [await x.startAgent(c, a.note ?? c.goal ?? c.title)];

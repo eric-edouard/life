@@ -1,5 +1,5 @@
+import type { AgentRole } from "../core/names";
 import { agentInRole, isFull, runtimeOf } from "../host/desk-read";
-import type { AgentRole } from "../records/registered-agent";
 import { openAssignment, register } from "./agent-actions";
 import type { Desk } from "./desk-store";
 
@@ -38,7 +38,7 @@ export async function roleStartBlockOf(
   ) {
     return `the ${role} agent did not start (${last.why_not_started}); what comes next tries again`;
   }
-  const runtime = runtimeOf({});
+  const runtime = runtimeOf({ role });
   const r = runtime ? desk.runtimes[runtime] : undefined;
   return r ? await r.block() : "no runtime the desk drives";
 }
@@ -63,7 +63,8 @@ export function roleAssignmentOf(
     return { why: blocked ?? "the desk keeps 50 agents active at most" };
   }
   const id =
-    a?.id ?? register(desk, { brief, role, runtime: runtimeOf({}) ?? "" });
+    a?.id ??
+    register(desk, { brief, role, runtime: runtimeOf({ role }) ?? "" });
   return {
     assignment:
       ownAssignmentOf(db, id) ??

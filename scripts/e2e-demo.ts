@@ -55,7 +55,7 @@ const FOUND_TO_CLOSED: Step[] = [
   },
   {
     name: "Start: goal saved, runtime, session, first turn",
-    tap: "Start",
+    tap: "Start an agent",
     until: "Its first turn has begun, done",
     waitS: 180,
   },

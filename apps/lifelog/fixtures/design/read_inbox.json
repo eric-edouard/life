@@ -1361,7 +1361,7 @@
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to call the roofer back\n\n*11 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1391,14 +1391,14 @@
       ],
       "pushId": "push_move_1",
       "question": "Call the roofer back",
-      "ref": "move_1",
+      "ref": "move:matter_gutter/obs_move_1",
       "ridesOn": {
         "matterIds": ["matter_gutter"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Roof gutter",
       "urgency": "improves",
       "matter": {
         "id": "matter_gutter",
@@ -1410,13 +1410,25 @@
           "name": "Roof gutter"
         }
       ],
-      "at": "2026-10-11T09:00:00",
-      "subject": "obs_move_1"
+      "subject": "obs_move_1",
+      "goal": "Roof gutter",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-11",
+        "by": null,
+        "channel": null,
+        "text": "I need to call the roofer back",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to send Idris the March quote\n\n*14 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1446,14 +1458,14 @@
       ],
       "pushId": "push_move_2",
       "question": "Send Idris the March quote",
-      "ref": "move_2",
+      "ref": "move:matter_kitchen/obs_move_2",
       "ridesOn": {
         "matterIds": ["matter_kitchen"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Kitchen quote, Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_kitchen",
@@ -1465,13 +1477,25 @@
           "name": "Kitchen quote, Halden house"
         }
       ],
-      "at": "2026-10-14T09:00:00",
-      "subject": "obs_move_2"
+      "subject": "obs_move_2",
+      "goal": "Kitchen quote, Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-14",
+        "by": null,
+        "channel": null,
+        "text": "I need to send Idris the March quote",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to ask the council about the shed\n\n*30 Sep*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1501,14 +1525,14 @@
       ],
       "pushId": "push_move_3",
       "question": "Ask the council about the shed",
-      "ref": "move_3",
+      "ref": "move:matter_shed/obs_move_3",
       "ridesOn": {
         "matterIds": ["matter_shed"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Garden shed permit",
       "urgency": "improves",
       "matter": {
         "id": "matter_shed",
@@ -1520,13 +1544,25 @@
           "name": "Garden shed permit"
         }
       ],
-      "at": "2026-09-30T09:00:00",
-      "subject": "obs_move_3"
+      "subject": "obs_move_3",
+      "goal": "Garden shed permit",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-09-30",
+        "by": null,
+        "channel": null,
+        "text": "I need to ask the council about the shed",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to reply to Camille about Saturday\n\n*18 Nov*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1556,14 +1592,14 @@
       ],
       "pushId": "push_move_4",
       "question": "Reply to Camille about Saturday",
-      "ref": "move_4",
+      "ref": "move:matter_table/obs_move_4",
       "ridesOn": {
         "matterIds": ["matter_table"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Table for Mum’s 60th",
       "urgency": "improves",
       "matter": {
         "id": "matter_table",
@@ -1575,13 +1611,25 @@
           "name": "Table for Mum’s 60th"
         }
       ],
-      "at": "2026-11-18T09:00:00",
-      "subject": "obs_move_4"
+      "subject": "obs_move_4",
+      "goal": "Table for Mum’s 60th",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-11-18",
+        "by": null,
+        "channel": null,
+        "text": "I need to reply to Camille about Saturday",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to book the car service\n\n*18 Sep*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1611,14 +1659,14 @@
       ],
       "pushId": "push_move_5",
       "question": "Book the car service",
-      "ref": "move_5",
+      "ref": "move:matter_car_insurance/obs_move_5",
       "ridesOn": {
         "matterIds": ["matter_car_insurance"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Car insurance",
       "urgency": "improves",
       "matter": {
         "id": "matter_car_insurance",
@@ -1630,13 +1678,25 @@
           "name": "Car insurance"
         }
       ],
-      "at": "2026-09-18T09:00:00",
-      "subject": "obs_move_5"
+      "subject": "obs_move_5",
+      "goal": "Car insurance",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-09-18",
+        "by": null,
+        "channel": null,
+        "text": "I need to book the car service",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to thank Paul for the boxes\n\n*19 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1666,14 +1726,14 @@
       ],
       "pushId": "push_move_6",
       "question": "Thank Paul for the boxes",
-      "ref": "move_6",
+      "ref": "move:matter_moving_boxes/obs_move_6",
       "ridesOn": {
         "matterIds": ["matter_moving_boxes"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Moving boxes",
       "urgency": "improves",
       "matter": {
         "id": "matter_moving_boxes",
@@ -1685,13 +1745,25 @@
           "name": "Moving boxes"
         }
       ],
-      "at": "2026-10-19T09:00:00",
-      "subject": "obs_move_6"
+      "subject": "obs_move_6",
+      "goal": "Moving boxes",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-19",
+        "by": null,
+        "channel": null,
+        "text": "I need to thank Paul for the boxes",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to renew the parking permit\n\n*5 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1721,14 +1793,14 @@
       ],
       "pushId": "push_move_7",
       "question": "Renew the parking permit",
-      "ref": "move_7",
+      "ref": "move:matter_home/obs_move_7",
       "ridesOn": {
         "matterIds": ["matter_home"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Home",
       "urgency": "improves",
       "matter": {
         "id": "matter_home",
@@ -1740,13 +1812,25 @@
           "name": "Home"
         }
       ],
-      "at": "2026-10-05T09:00:00",
-      "subject": "obs_move_7"
+      "subject": "obs_move_7",
+      "goal": "Home",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-05",
+        "by": null,
+        "channel": null,
+        "text": "I need to renew the parking permit",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to answer Nora about the plans\n\n*12 Nov*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1776,14 +1860,14 @@
       ],
       "pushId": "push_move_8",
       "question": "Answer Nora about the plans",
-      "ref": "move_8",
+      "ref": "move:matter_nora/obs_move_8",
       "ridesOn": {
         "matterIds": ["matter_nora"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Quote for Nora Keller",
       "urgency": "improves",
       "matter": {
         "id": "matter_nora",
@@ -1795,13 +1879,25 @@
           "name": "Quote for Nora Keller"
         }
       ],
-      "at": "2026-11-12T09:00:00",
-      "subject": "obs_move_8"
+      "subject": "obs_move_8",
+      "goal": "Quote for Nora Keller",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-11-12",
+        "by": null,
+        "channel": null,
+        "text": "I need to answer Nora about the plans",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to measure the kitchen window\n\n*8 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1831,14 +1927,14 @@
       ],
       "pushId": "push_move_9",
       "question": "Measure the kitchen window",
-      "ref": "move_9",
+      "ref": "move:matter_kitchen/obs_move_9",
       "ridesOn": {
         "matterIds": ["matter_kitchen"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Kitchen quote, Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_kitchen",
@@ -1850,13 +1946,25 @@
           "name": "Kitchen quote, Halden house"
         }
       ],
-      "at": "2026-10-08T09:00:00",
-      "subject": "obs_move_9"
+      "subject": "obs_move_9",
+      "goal": "Kitchen quote, Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-08",
+        "by": null,
+        "channel": null,
+        "text": "I need to measure the kitchen window",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to pick the worktop colour\n\n*12 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1886,14 +1994,14 @@
       ],
       "pushId": "push_move_10",
       "question": "Pick the worktop colour",
-      "ref": "move_10",
+      "ref": "move:matter_kitchen/obs_move_10",
       "ridesOn": {
         "matterIds": ["matter_kitchen"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Kitchen quote, Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_kitchen",
@@ -1905,13 +2013,25 @@
           "name": "Kitchen quote, Halden house"
         }
       ],
-      "at": "2026-10-12T09:00:00",
-      "subject": "obs_move_10"
+      "subject": "obs_move_10",
+      "goal": "Kitchen quote, Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-12",
+        "by": null,
+        "channel": null,
+        "text": "I need to pick the worktop colour",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to ask Inès for the site plan\n\n*1 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1941,14 +2061,14 @@
       ],
       "pushId": "push_move_11",
       "question": "Ask Inès for the site plan",
-      "ref": "move_11",
+      "ref": "move:matter_halden_house/obs_move_11",
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_halden_house",
@@ -1960,13 +2080,25 @@
           "name": "Halden house"
         }
       ],
-      "at": "2026-10-01T09:00:00",
-      "subject": "obs_move_11"
+      "subject": "obs_move_11",
+      "goal": "Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-01",
+        "by": null,
+        "channel": null,
+        "text": "I need to ask Inès for the site plan",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to send the gutter photos\n\n*17 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1996,14 +2128,14 @@
       ],
       "pushId": "push_move_12",
       "question": "Send the gutter photos",
-      "ref": "move_12",
+      "ref": "move:matter_gutter/obs_move_12",
       "ridesOn": {
         "matterIds": ["matter_gutter"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Roof gutter",
       "urgency": "improves",
       "matter": {
         "id": "matter_gutter",
@@ -2015,13 +2147,25 @@
           "name": "Roof gutter"
         }
       ],
-      "at": "2026-10-17T09:00:00",
-      "subject": "obs_move_12"
+      "subject": "obs_move_12",
+      "goal": "Roof gutter",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-17",
+        "by": null,
+        "channel": null,
+        "text": "I need to send the gutter photos",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to find the boiler manual\n\n*1 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2051,14 +2195,14 @@
       ],
       "pushId": "push_move_13",
       "question": "Find the boiler manual",
-      "ref": "move_13",
+      "ref": "move:matter_halden_house/obs_move_13",
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_halden_house",
@@ -2070,13 +2214,25 @@
           "name": "Halden house"
         }
       ],
-      "at": "2026-10-01T09:00:00",
-      "subject": "obs_move_13"
+      "subject": "obs_move_13",
+      "goal": "Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-01",
+        "by": null,
+        "channel": null,
+        "text": "I need to find the boiler manual",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to ask Samir about the beam\n\n*3 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2106,14 +2262,14 @@
       ],
       "pushId": "push_move_14",
       "question": "Ask Samir about the beam",
-      "ref": "move_14",
+      "ref": "move:matter_halden_house/obs_move_14",
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_halden_house",
@@ -2125,13 +2281,25 @@
           "name": "Halden house"
         }
       ],
-      "at": "2026-10-03T09:00:00",
-      "subject": "obs_move_14"
+      "subject": "obs_move_14",
+      "goal": "Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-03",
+        "by": null,
+        "channel": null,
+        "text": "I need to ask Samir about the beam",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to book the chimney sweep\n\n*1 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2161,14 +2329,14 @@
       ],
       "pushId": "push_move_15",
       "question": "Book the chimney sweep",
-      "ref": "move_15",
+      "ref": "move:matter_halden_house/obs_move_15",
       "ridesOn": {
         "matterIds": ["matter_halden_house"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Halden house",
       "urgency": "improves",
       "matter": {
         "id": "matter_halden_house",
@@ -2180,13 +2348,25 @@
           "name": "Halden house"
         }
       ],
-      "at": "2026-10-01T09:00:00",
-      "subject": "obs_move_15"
+      "subject": "obs_move_15",
+      "goal": "Halden house",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-01",
+        "by": null,
+        "channel": null,
+        "text": "I need to book the chimney sweep",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to check the fence line\n\n*16 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2216,14 +2396,14 @@
       ],
       "pushId": "push_move_16",
       "question": "Check the fence line",
-      "ref": "move_16",
+      "ref": "move:matter_shed/obs_move_16",
       "ridesOn": {
         "matterIds": ["matter_shed"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Garden shed permit",
       "urgency": "improves",
       "matter": {
         "id": "matter_shed",
@@ -2235,13 +2415,25 @@
           "name": "Garden shed permit"
         }
       ],
-      "at": "2026-10-16T09:00:00",
-      "subject": "obs_move_16"
+      "subject": "obs_move_16",
+      "goal": "Garden shed permit",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-16",
+        "by": null,
+        "channel": null,
+        "text": "I need to check the fence line",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to order the shed base\n\n*7 Oct*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2271,14 +2463,14 @@
       ],
       "pushId": "push_move_17",
       "question": "Order the shed base",
-      "ref": "move_17",
+      "ref": "move:matter_shed/obs_move_17",
       "ridesOn": {
         "matterIds": ["matter_shed"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Garden shed permit",
       "urgency": "improves",
       "matter": {
         "id": "matter_shed",
@@ -2290,13 +2482,25 @@
           "name": "Garden shed permit"
         }
       ],
-      "at": "2026-10-07T09:00:00",
-      "subject": "obs_move_17"
+      "subject": "obs_move_17",
+      "goal": "Garden shed permit",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-10-07",
+        "by": null,
+        "channel": null,
+        "text": "I need to order the shed base",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to send Camille the photos\n\n*9 Nov*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2326,14 +2530,14 @@
       ],
       "pushId": "push_move_18",
       "question": "Send Camille the photos",
-      "ref": "move_18",
+      "ref": "move:matter_holidays/obs_move_18",
       "ridesOn": {
         "matterIds": ["matter_holidays"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Holidays",
       "urgency": "improves",
       "matter": {
         "id": "matter_holidays",
@@ -2345,13 +2549,25 @@
           "name": "Holidays"
         }
       ],
-      "at": "2026-11-09T09:00:00",
-      "subject": "obs_move_18"
+      "subject": "obs_move_18",
+      "goal": "Holidays",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-11-09",
+        "by": null,
+        "channel": null,
+        "text": "I need to send Camille the photos",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to book the restaurant for her birthday\n\n*2 Nov*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2381,14 +2597,14 @@
       ],
       "pushId": "push_move_19",
       "question": "Book the restaurant for her birthday",
-      "ref": "move_19",
+      "ref": "move:matter_camille_s_birthday/obs_move_19",
       "ridesOn": {
         "matterIds": ["matter_camille_s_birthday"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Camille’s birthday",
       "urgency": "improves",
       "matter": {
         "id": "matter_camille_s_birthday",
@@ -2400,13 +2616,25 @@
           "name": "Camille’s birthday"
         }
       ],
-      "at": "2026-11-02T09:00:00",
-      "subject": "obs_move_19"
+      "subject": "obs_move_19",
+      "goal": "Camille’s birthday",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-11-02",
+        "by": null,
+        "channel": null,
+        "text": "I need to book the restaurant for her birthday",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Passport for Léa\n\n*3 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2436,14 +2664,14 @@
       ],
       "pushId": "push_move_20",
       "question": "Follow up on Passport for Léa",
-      "ref": "move_20",
+      "ref": "move:matter_dormant_1/obs_move_20",
       "ridesOn": {
         "matterIds": ["matter_dormant_1"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Passport for Léa",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_1",
@@ -2455,13 +2683,25 @@
           "name": "Passport for Léa"
         }
       ],
-      "at": "2026-07-03T09:00:00",
-      "subject": "obs_move_20"
+      "subject": "obs_move_20",
+      "goal": "Passport for Léa",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-03",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Passport for Léa",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Passport for Léa for good\n\n*4 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2491,14 +2731,14 @@
       ],
       "pushId": "push_move_21",
       "question": "Close Passport for Léa for good",
-      "ref": "move_21",
+      "ref": "move:matter_dormant_1/obs_move_21",
       "ridesOn": {
         "matterIds": ["matter_dormant_1"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Passport for Léa",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_1",
@@ -2510,13 +2750,25 @@
           "name": "Passport for Léa"
         }
       ],
-      "at": "2026-07-04T09:00:00",
-      "subject": "obs_move_21"
+      "subject": "obs_move_21",
+      "goal": "Passport for Léa",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-04",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Passport for Léa for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Bike repair\n\n*5 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2546,14 +2798,14 @@
       ],
       "pushId": "push_move_22",
       "question": "Follow up on Bike repair",
-      "ref": "move_22",
+      "ref": "move:matter_dormant_2/obs_move_22",
       "ridesOn": {
         "matterIds": ["matter_dormant_2"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Bike repair",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_2",
@@ -2565,13 +2817,25 @@
           "name": "Bike repair"
         }
       ],
-      "at": "2026-07-05T09:00:00",
-      "subject": "obs_move_22"
+      "subject": "obs_move_22",
+      "goal": "Bike repair",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-05",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Bike repair",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Bike repair for good\n\n*6 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2601,14 +2865,14 @@
       ],
       "pushId": "push_move_23",
       "question": "Close Bike repair for good",
-      "ref": "move_23",
+      "ref": "move:matter_dormant_2/obs_move_23",
       "ridesOn": {
         "matterIds": ["matter_dormant_2"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Bike repair",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_2",
@@ -2620,13 +2884,25 @@
           "name": "Bike repair"
         }
       ],
-      "at": "2026-07-06T09:00:00",
-      "subject": "obs_move_23"
+      "subject": "obs_move_23",
+      "goal": "Bike repair",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-06",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Bike repair for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Dentist follow-up\n\n*7 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2656,14 +2932,14 @@
       ],
       "pushId": "push_move_24",
       "question": "Follow up on Dentist follow-up",
-      "ref": "move_24",
+      "ref": "move:matter_dormant_3/obs_move_24",
       "ridesOn": {
         "matterIds": ["matter_dormant_3"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Dentist follow-up",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_3",
@@ -2675,13 +2951,25 @@
           "name": "Dentist follow-up"
         }
       ],
-      "at": "2026-07-07T09:00:00",
-      "subject": "obs_move_24"
+      "subject": "obs_move_24",
+      "goal": "Dentist follow-up",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-07",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Dentist follow-up",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Dentist follow-up for good\n\n*8 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2711,14 +2999,14 @@
       ],
       "pushId": "push_move_25",
       "question": "Close Dentist follow-up for good",
-      "ref": "move_25",
+      "ref": "move:matter_dormant_3/obs_move_25",
       "ridesOn": {
         "matterIds": ["matter_dormant_3"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Dentist follow-up",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_3",
@@ -2730,13 +3018,25 @@
           "name": "Dentist follow-up"
         }
       ],
-      "at": "2026-07-08T09:00:00",
-      "subject": "obs_move_25"
+      "subject": "obs_move_25",
+      "goal": "Dentist follow-up",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-08",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Dentist follow-up for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Gym membership\n\n*9 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2766,14 +3066,14 @@
       ],
       "pushId": "push_move_26",
       "question": "Follow up on Gym membership",
-      "ref": "move_26",
+      "ref": "move:matter_dormant_4/obs_move_26",
       "ridesOn": {
         "matterIds": ["matter_dormant_4"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Gym membership",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_4",
@@ -2785,13 +3085,25 @@
           "name": "Gym membership"
         }
       ],
-      "at": "2026-07-09T09:00:00",
-      "subject": "obs_move_26"
+      "subject": "obs_move_26",
+      "goal": "Gym membership",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-09",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Gym membership",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Gym membership for good\n\n*10 Jul*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2821,14 +3133,14 @@
       ],
       "pushId": "push_move_27",
       "question": "Close Gym membership for good",
-      "ref": "move_27",
+      "ref": "move:matter_dormant_4/obs_move_27",
       "ridesOn": {
         "matterIds": ["matter_dormant_4"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Gym membership",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_4",
@@ -2840,13 +3152,25 @@
           "name": "Gym membership"
         }
       ],
-      "at": "2026-07-10T09:00:00",
-      "subject": "obs_move_27"
+      "subject": "obs_move_27",
+      "goal": "Gym membership",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-07-10",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Gym membership for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Old laptop sale\n\n*11 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2876,14 +3200,14 @@
       ],
       "pushId": "push_move_28",
       "question": "Follow up on Old laptop sale",
-      "ref": "move_28",
+      "ref": "move:matter_dormant_5/obs_move_28",
       "ridesOn": {
         "matterIds": ["matter_dormant_5"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Old laptop sale",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_5",
@@ -2895,13 +3219,25 @@
           "name": "Old laptop sale"
         }
       ],
-      "at": "2026-08-11T09:00:00",
-      "subject": "obs_move_28"
+      "subject": "obs_move_28",
+      "goal": "Old laptop sale",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-11",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Old laptop sale",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Old laptop sale for good\n\n*12 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2931,14 +3267,14 @@
       ],
       "pushId": "push_move_29",
       "question": "Close Old laptop sale for good",
-      "ref": "move_29",
+      "ref": "move:matter_dormant_5/obs_move_29",
       "ridesOn": {
         "matterIds": ["matter_dormant_5"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Old laptop sale",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_5",
@@ -2950,13 +3286,25 @@
           "name": "Old laptop sale"
         }
       ],
-      "at": "2026-08-12T09:00:00",
-      "subject": "obs_move_29"
+      "subject": "obs_move_29",
+      "goal": "Old laptop sale",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-12",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Old laptop sale for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Garden table\n\n*13 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -2986,14 +3334,14 @@
       ],
       "pushId": "push_move_30",
       "question": "Follow up on Garden table",
-      "ref": "move_30",
+      "ref": "move:matter_dormant_6/obs_move_30",
       "ridesOn": {
         "matterIds": ["matter_dormant_6"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Garden table",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_6",
@@ -3005,13 +3353,25 @@
           "name": "Garden table"
         }
       ],
-      "at": "2026-08-13T09:00:00",
-      "subject": "obs_move_30"
+      "subject": "obs_move_30",
+      "goal": "Garden table",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-13",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Garden table",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Garden table for good\n\n*14 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3041,14 +3401,14 @@
       ],
       "pushId": "push_move_31",
       "question": "Close Garden table for good",
-      "ref": "move_31",
+      "ref": "move:matter_dormant_6/obs_move_31",
       "ridesOn": {
         "matterIds": ["matter_dormant_6"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Garden table",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_6",
@@ -3060,13 +3420,25 @@
           "name": "Garden table"
         }
       ],
-      "at": "2026-08-14T09:00:00",
-      "subject": "obs_move_31"
+      "subject": "obs_move_31",
+      "goal": "Garden table",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-14",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Garden table for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Piano lessons\n\n*15 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3096,14 +3468,14 @@
       ],
       "pushId": "push_move_32",
       "question": "Follow up on Piano lessons",
-      "ref": "move_32",
+      "ref": "move:matter_dormant_7/obs_move_32",
       "ridesOn": {
         "matterIds": ["matter_dormant_7"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Piano lessons",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_7",
@@ -3115,13 +3487,25 @@
           "name": "Piano lessons"
         }
       ],
-      "at": "2026-08-15T09:00:00",
-      "subject": "obs_move_32"
+      "subject": "obs_move_32",
+      "goal": "Piano lessons",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-15",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Piano lessons",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Piano lessons for good\n\n*16 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3151,14 +3535,14 @@
       ],
       "pushId": "push_move_33",
       "question": "Close Piano lessons for good",
-      "ref": "move_33",
+      "ref": "move:matter_dormant_7/obs_move_33",
       "ridesOn": {
         "matterIds": ["matter_dormant_7"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Piano lessons",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_7",
@@ -3170,13 +3554,25 @@
           "name": "Piano lessons"
         }
       ],
-      "at": "2026-08-16T09:00:00",
-      "subject": "obs_move_33"
+      "subject": "obs_move_33",
+      "goal": "Piano lessons",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-16",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Piano lessons for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Tax letter 2025\n\n*17 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3206,14 +3602,14 @@
       ],
       "pushId": "push_move_34",
       "question": "Follow up on Tax letter 2025",
-      "ref": "move_34",
+      "ref": "move:matter_dormant_8/obs_move_34",
       "ridesOn": {
         "matterIds": ["matter_dormant_8"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Tax letter 2025",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_8",
@@ -3225,13 +3621,25 @@
           "name": "Tax letter 2025"
         }
       ],
-      "at": "2026-08-17T09:00:00",
-      "subject": "obs_move_34"
+      "subject": "obs_move_34",
+      "goal": "Tax letter 2025",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-17",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Tax letter 2025",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Tax letter 2025 for good\n\n*18 Aug*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3261,14 +3669,14 @@
       ],
       "pushId": "push_move_35",
       "question": "Close Tax letter 2025 for good",
-      "ref": "move_35",
+      "ref": "move:matter_dormant_8/obs_move_35",
       "ridesOn": {
         "matterIds": ["matter_dormant_8"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Tax letter 2025",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_8",
@@ -3280,13 +3688,25 @@
           "name": "Tax letter 2025"
         }
       ],
-      "at": "2026-08-18T09:00:00",
-      "subject": "obs_move_35"
+      "subject": "obs_move_35",
+      "goal": "Tax letter 2025",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-08-18",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Tax letter 2025 for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Phone contract\n\n*18 Sep*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3316,14 +3736,14 @@
       ],
       "pushId": "push_move_36",
       "question": "Follow up on Phone contract",
-      "ref": "move_36",
+      "ref": "move:matter_dormant_9/obs_move_36",
       "ridesOn": {
         "matterIds": ["matter_dormant_9"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Phone contract",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_9",
@@ -3335,13 +3755,25 @@
           "name": "Phone contract"
         }
       ],
-      "at": "2026-09-18T09:00:00",
-      "subject": "obs_move_36"
+      "subject": "obs_move_36",
+      "goal": "Phone contract",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-09-18",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Phone contract",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Phone contract for good\n\n*20 Sep*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3371,14 +3803,14 @@
       ],
       "pushId": "push_move_37",
       "question": "Close Phone contract for good",
-      "ref": "move_37",
+      "ref": "move:matter_dormant_9/obs_move_37",
       "ridesOn": {
         "matterIds": ["matter_dormant_9"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Phone contract",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_9",
@@ -3390,13 +3822,25 @@
           "name": "Phone contract"
         }
       ],
-      "at": "2026-09-20T09:00:00",
-      "subject": "obs_move_37"
+      "subject": "obs_move_37",
+      "goal": "Phone contract",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-09-20",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Phone contract for good",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to follow up on Storage unit\n\n*21 Sep*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3426,14 +3870,14 @@
       ],
       "pushId": "push_move_38",
       "question": "Follow up on Storage unit",
-      "ref": "move_38",
+      "ref": "move:matter_dormant_10/obs_move_38",
       "ridesOn": {
         "matterIds": ["matter_dormant_10"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Storage unit",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_10",
@@ -3445,13 +3889,25 @@
           "name": "Storage unit"
         }
       ],
-      "at": "2026-09-21T09:00:00",
-      "subject": "obs_move_38"
+      "subject": "obs_move_38",
+      "goal": "Storage unit",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-09-21",
+        "by": null,
+        "channel": null,
+        "text": "I need to follow up on Storage unit",
+        "to": null
+      }
     },
     {
       "asker": "life",
       "clips": [],
-      "context": "A step of yours is open on this matter.",
+      "context": "A step of yours is open on this matter.\n\n> I need to close Storage unit for good\n\n*22 Sep*",
       "group": "your move",
       "likelyPeople": [],
       "links": [],
@@ -3481,14 +3937,14 @@
       ],
       "pushId": "push_move_39",
       "question": "Close Storage unit for good",
-      "ref": "move_39",
+      "ref": "move:matter_dormant_10/obs_move_39",
       "ridesOn": {
         "matterIds": ["matter_dormant_10"],
         "matters": 1,
-        "observations": 1,
+        "observations": 0,
         "pages": 0
       },
-      "title": "Your move",
+      "title": "Storage unit",
       "urgency": "improves",
       "matter": {
         "id": "matter_dormant_10",
@@ -3500,8 +3956,20 @@
           "name": "Storage unit"
         }
       ],
-      "at": "2026-09-22T09:00:00",
-      "subject": "obs_move_39"
+      "subject": "obs_move_39",
+      "goal": "Storage unit",
+      "at": null,
+      "since": null,
+      "deadline": null,
+      "about": [],
+      "needs": [],
+      "said": {
+        "at": "2026-09-22",
+        "by": null,
+        "channel": null,
+        "text": "I need to close Storage unit for good",
+        "to": null
+      }
     }
   ],
   "deadlinesToday": 1
