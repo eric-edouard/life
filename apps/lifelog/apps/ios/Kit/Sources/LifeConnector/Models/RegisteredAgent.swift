@@ -62,6 +62,13 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
         case unknown
     }
 
+    /// Where its session is open outside the desk: his Claude app, or Claude Code elsewhere (a terminal, an editor).
+    public enum SessionOpenIn: String, UnknownTolerant, Sendable {
+        case claudeApp = "claude_app"
+        case claudeCode = "claude_code"
+        case unknown
+    }
+
     public struct Matter: Decodable, Sendable, Equatable {
         public let id: String
         public let name: String
@@ -88,6 +95,10 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     /// What will wake it while it waits, in its own order; none otherwise.
     public let wakesOn: [WakeLine]
     public let amber: [String]
+    /// Where its session is open outside the desk while it waits, and since when: its wakes wait until that lets go.
+    /// Nil when it is not (or from an older Life).
+    public let sessionOpenIn: SessionOpenIn?
+    public let sessionOpenSince: Date?
     /// Its current session's model spending (`read_registered_agents` only); nil when the desk can't be read.
     public let spending: AgentSpending?
     /// Its name ("Halden house agent") and short name (`read_registered_agents` only; an older Life sends neither).

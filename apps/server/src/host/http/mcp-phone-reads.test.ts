@@ -52,6 +52,8 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     project: null,
     role: "personal" as const,
     runtime: "claude",
+    sessionOpenIn: null,
+    sessionOpenSince: null,
     status: "running" as const,
     statusSince: "2026-10-13T09:00:00.000Z",
     steps: ["obs_000000000005"],

@@ -14,8 +14,8 @@ import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../door-keys";
 import { SEND_GUARD_HOOK } from "../send-guard";
 import {
-  isHeld,
   isRolloutTurnOpen,
+  isSessionOpen,
   readProgram,
   runtimeRowsOf,
 } from "./runtime-rows";
@@ -214,7 +214,7 @@ test("a claude session is running while Claude's own record names a live process
     app.kill();
     await app.exited;
     // A stale record: its process is gone. Neither a non-Claude flag nor a path holds it.
-    expect(await isHeld(ref)).toBe(false);
+    expect(await isSessionOpen(ref)).toBe(false);
     expect(await row.readSessionState(ref)).toBe("idle");
     expect(await row.readSessionState(`ref-${crypto.randomUUID()}`)).toBe(
       "gone"
@@ -235,7 +235,7 @@ test("a Claude command line resuming the session holds it with no record", async
     `made-up/claude --resume ${ref}`,
   ]);
   try {
-    expect(await isHeld(ref)).toBe(true);
+    expect(await isSessionOpen(ref)).toBe(true);
   } finally {
     resumed.kill();
   }

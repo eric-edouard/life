@@ -179,9 +179,18 @@ extension RegisteredAgent {
         }
     }
 
+    /// While its session is open outside the desk: where, and since when ("Paused: open in your Claude app since 09:12"). Its wakes
+    /// wait until that lets go.
+    public func sessionOpenLine(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
+        guard let sessionOpenIn else { return nil }
+        let place = sessionOpenIn == .claudeApp ? "your Claude app" : "Claude Code"
+        let since = sessionOpenSince.map { " since \(SaidWords.time($0, locale: locale, timeZone: timeZone))" } ?? ""
+        return "Paused: open in \(place)\(since)"
+    }
+
     /// The line under the agent's name on its row: waiting, the first two people or chats it listens for, "+N" for every
     /// other line that can fire, then its deadline ("Idris, Camille +5, or Fri 18:00"); working, since when; stopped,
-    /// "Stopped"; not started, why. Finished and the rest have none.
+    /// "Stopped"; not started, why; open outside the desk, where. Finished and the rest have none.
     public func rowLine(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
         if let notStarted { return "\(AgentWords.notStarted): \(notStarted)" }
         switch status {
@@ -190,6 +199,7 @@ extension RegisteredAgent {
                 ?? stateWord
         case .stopped: return stateWord
         case .waiting:
+            if let open = sessionOpenLine(locale: locale, timeZone: timeZone) { return open }
             let live = wakesOn.filter { !$0.isBroken }
             let first = live.compactMap { line -> String? in
                 guard case .waker(let waker) = line.row(locale: locale, timeZone: timeZone) else { return nil }

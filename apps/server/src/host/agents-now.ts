@@ -6,6 +6,12 @@ import type {
   EventFilter,
 } from "../records/registered-agent";
 import {
+  type ClaudeSessionRecord,
+  readClaudeSessionRecords,
+  type SessionOpenIn,
+  sessionOpenInOf,
+} from "./claude-session-records";
+import {
   type AgentRow,
   type AssignmentRow,
   activeAgents,
@@ -65,7 +71,7 @@ const waitOf = (a: AgentRow, s: AssignmentRow) => {
 
 /** A registered agent as read now: what it works on, where it stands, what it waits for, its last turn, its link. */
 export interface AgentNow {
-  /** What shows amber: a default wait, a late deadline, a silent turn, a failed last turn, events dropped in the last day. */
+  /** What shows amber: its session open outside the desk, a default wait, a late deadline, a silent turn, a failed last turn, events dropped in the last day. */
   amber: string[];
   effort: string | null;
   id: string;
@@ -89,6 +95,10 @@ export interface AgentNow {
   /** Its standing role (`personal`, `caretaker`): what the app calls it ("the Personal agent"); null for any other. */
   role: AgentRole | null;
   runtime: string;
+  /** Where its session is open outside the desk while it waits (his Claude app, Claude Code elsewhere): its wakes wait until that lets go (`isSessionOpen`); null when it is not. */
+  sessionOpenIn: SessionOpenIn | null;
+  /** Since when that process has held it open. */
+  sessionOpenSince: string | null;
   status: Exclude<AgentStatus, "active"> | "running" | "waiting";
   /** When its current status began: its open turn's start (running), its last turn's end (waiting), its end (ended, handed over), its stop (stopped); null for a stopped agent stopped before its stop time was stored, or one with no turn yet. */
   statusSince: string | null;
@@ -150,11 +160,13 @@ function amberOf(
   last: TurnRow | undefined,
   open: TurnRow | null,
   dropped: number,
-  now: number
+  now: number,
+  openIn: SessionOpenIn | null
 ) {
   const f = flagsOf(agentWaitOf(a, s), open, dropped, now);
   return a.status === "active"
     ? [
+        ...(openIn ? [`session open in ${OPEN_IN_WORDS[openIn]}`] : []),
         ...(f.defaultWait ? ["default wait"] : []),
         ...(f.late ? ["deadline late"] : []),
         ...(f.silent ? ["turn silent over an hour"] : []),
@@ -163,6 +175,12 @@ function amberOf(
       ]
     : [];
 }
+
+/** Where a session is open outside the desk, in words. */
+const OPEN_IN_WORDS: Record<SessionOpenIn, string> = {
+  claude_app: "your Claude app",
+  claude_code: "Claude Code",
+};
 
 /** When `a`'s current status began (`AgentNow.statusSince`), from its last turn. */
 const statusSinceOf = (
@@ -187,11 +205,13 @@ function subjectPartOf(
     isForWakes,
     last,
     now,
+    openIn,
     status,
   }: {
     isForWakes: boolean;
     last: TurnRow | undefined;
     now: number;
+    openIn: SessionOpenIn | null;
     status: AgentNow["status"];
   }
 ) {
@@ -216,7 +236,7 @@ function subjectPartOf(
       .get(s.id, new Date(now - DAY).toISOString())?.n ?? 0;
   const open = last && !last.ended_at ? last : null;
   return {
-    amber: amberOf(a, s, last, open, dropped, now),
+    amber: amberOf(a, s, last, open, dropped, now, openIn),
     assignment: s.id,
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
     filters: filtersOf(s),
@@ -235,6 +255,7 @@ function nowOf(
   a: AgentRow,
   now: number,
   isForWakes: boolean,
+  records: Map<string, ClaudeSessionRecord>,
   on?: AssignmentRow
 ): AgentRead {
   const last =
@@ -245,11 +266,16 @@ function nowOf(
       .get(a.id) ?? undefined;
   const waiting = last && !last.ended_at ? "running" : "waiting";
   const status = a.status === "active" ? waiting : a.status;
+  // Open elsewhere only while it waits: a turn of the desk's own runs it.
+  const record =
+    status === "waiting" && a.session ? records.get(a.session) : undefined;
+  const openIn = record ? sessionOpenInOf(record) : null;
   return {
     ...subjectPartOf(db, a, on ?? currentAssignmentOf(db, a.id) ?? undefined, {
       isForWakes,
       last,
       now,
+      openIn,
       status,
     }),
     ...modelOf(a),
@@ -267,6 +293,8 @@ function nowOf(
     project: a.project,
     role: a.role,
     runtime: a.runtime,
+    sessionOpenIn: openIn,
+    sessionOpenSince: openIn ? (record?.since ?? null) : null,
     status,
     statusSince: statusSinceOf(a, status, last),
     title: headOf(a.brief),
@@ -292,7 +320,8 @@ export function agentsNow(db: Database, now: number, isForWakes = false) {
       )
       .all(new Date(now - 7 * DAY).toISOString(), MAX_ACTIVE),
   ];
-  return rows.map((a) => nowOf(db, a, now, isForWakes));
+  const records = readClaudeSessionRecords();
+  return rows.map((a) => nowOf(db, a, now, isForWakes, records));
 }
 
 /** How many past agents a matter's or a project's read lists, after its active ones. */
@@ -314,6 +343,7 @@ export function agentsOnSteps(
     )
     .all(...steps);
   const seen = new Set<string>();
+  const records = readClaudeSessionRecords();
   return rows
     .filter((r) => !seen.has(r.id) && seen.add(r.id))
     .slice(0, MAX_ACTIVE + PAST_SHOWN)
@@ -323,6 +353,7 @@ export function agentsOnSteps(
         r,
         now,
         isForWakes,
+        records,
         assignmentOf(db, r.on_assignment) ?? undefined
       )
     );
@@ -337,10 +368,11 @@ export function agentsOnProjects(
   if (projects.length === 0) {
     return [];
   }
+  const records = readClaudeSessionRecords();
   return db
     .query<AgentRow, (string | number)[]>(
       `select * from agent where status <> 'handed_over' and project in (${projects.map(() => "?").join(",")}) order by status = 'active' desc, created_at desc limit ?`
     )
     .all(...projects, MAX_ACTIVE + PAST_SHOWN)
-    .map((a) => nowOf(db, a, now, false));
+    .map((a) => nowOf(db, a, now, false, records));
 }

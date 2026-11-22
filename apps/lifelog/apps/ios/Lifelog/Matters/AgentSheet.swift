@@ -102,6 +102,9 @@ struct AgentSheet: View {
                 Text("Since \(SaidWords.moment(since))").font(.small).foregroundStyle(Palette.muted)
                     .padding(.top, Metrics.Spacing.xs)
             }
+            if let open = agent.sessionOpenLine() {
+                Text(open).font(.small).foregroundStyle(Palette.fg).padding(.top, Metrics.Spacing.xs)
+            }
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 if !wakers.isEmpty {
                     group("Wakes on a message or a call from") {

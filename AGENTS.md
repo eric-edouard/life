@@ -416,8 +416,9 @@ own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
   (`lifelog.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).
 - The desk never resumes a Claude session a live process runs (Claude's own record, `~/.claude/sessions/<pid>.json`: his
-  app keeps one while the session is open, between his turns too): the wake stays queued until it lets go (`isHeld`,
-  `runtime-rows.ts`; a send it refuses deletes its unbegun turn). One session, one process.
+  app keeps one while the session is open, between his turns too): the wake stays queued until it lets go (`isSessionOpen`,
+  `runtime-rows.ts`; a send it refuses deletes its unbegun turn), logged once per hold (`desk.session_open`) and shown on the
+  agent (`sessionOpenIn`, amber). One session, one process.
 - The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`). The desk takes a call's words as in the same way (`recordingsOf`, `sources/lifelog-speech.ts`): a turn past the call's end, or `endedOnSilence` or `closed`, and no earlier recording queued or submitted.
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).
