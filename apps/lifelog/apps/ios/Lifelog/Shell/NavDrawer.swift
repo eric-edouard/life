@@ -117,7 +117,17 @@ struct NavDrawer: View {
                     .accessibilityElement(children: .combine)
                 }
                 .buttonStyle(.groupedRow(at: at, of: asks.count))
+                .contextMenu { actions(of: check).menu }
+                .rowSwipe(main: actions(of: check).main, drop: actions(of: check).drop)
             }
+        }
+    }
+
+    private func actions(of check: Check) -> AskRowActions {
+        AskRowActions(check: check, life: life) {
+            router.isDrawerOpen = false
+            Task { await life.open(ref: check.ref) }
+            router.tab = .inbox
         }
     }
 
@@ -132,6 +142,14 @@ struct NavDrawer: View {
                     MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))
                 }
                 .buttonStyle(.groupedRow(at: at, of: rows.count))
+                .contextMenu {
+                    let isMarked = life.isImportant(row.id, as: row.important)
+                    Button(isMarked ? "Not important" : "Mark important", systemImage: isMarked ? "flag.slash" : "flag")
+                    {
+                        Task { await life.setImportant(row.id, !isMarked) }
+                    }
+                    Button("Done", systemImage: "checkmark") { Task { await life.markDone(row.id) } }
+                }
             }
         }
     }
