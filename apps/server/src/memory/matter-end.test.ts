@@ -30,4 +30,14 @@ test("a closed matter ends when its last step ended, or with its last step when 
   expect(
     matterEndOf({ ...closed, open: true, status: "moving", steps: [later] })
   ).toBeUndefined();
+  // Read over by Life with a step still open: it ends at its last step.
+  const open = step("c", "2026-10-02T10:00:00.000Z");
+  expect(
+    matterEndOf({
+      ...closed,
+      openSteps: [open],
+      status: "probably_done",
+      steps: [done, open, later],
+    })
+  ).toEqual({ at: "2026-10-04T10:00:00.000Z", outcome: "probably_done" });
 });

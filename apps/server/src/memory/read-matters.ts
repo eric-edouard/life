@@ -195,7 +195,11 @@ const IS_IN_STATE: Record<MatterState, (v: MatterView) => boolean> = {
   running: isRunning,
 };
 /** A page of closed matters: this many, newest ended first. */
-const CLOSED_PAGE = 50;
+export const CLOSED_PAGE = 50;
+
+/** A closed matter's place in the pages: its end's instant, then its id (ties keep their order across a page's edge). */
+const closedKeyOf = (at: string | number, id = "") =>
+  `${new Date(at).toISOString()}|${id}`;
 
 /** A matter of a parked or done project, or a quiet one, ranks after every other: a stable partition, quiet before parked. */
 const sunkOf = (isParked: (v: MatterView) => boolean) => (v: MatterView) =>
@@ -204,8 +208,8 @@ const sunkOf = (isParked: (v: MatterView) => boolean) => (v: MatterView) =>
 /**
  * The matters of the book `read` gives in a `state` (running when not given; `MATTER_STATES`), of one `person`, `project`
  * or `area` when given, or of an area in no project. Open ones ranked as `read_day`'s Due (`rankedMattersOf`), quiet and
- * parked ones last; closed ones newest ended first (`matterEndOf`), a page of `CLOSED_PAGE` ended `before` an instant,
- * with `nextBefore` when more are left. With what rows are read from and what `read` gave. Throws when a name goes by no one known.
+ * parked ones last; closed ones newest ended first (`matterEndOf`), a page of `CLOSED_PAGE` before `before` (the last
+ * page's `nextBefore`, or an instant), with `nextBefore` when more are left. With what rows are read from and what `read` gave. Throws when a name goes by no one known.
  */
 export async function rankedMatters<R extends { book: MatterView[] }>(
   q: {
@@ -245,16 +249,16 @@ export async function rankedMatters<R extends { book: MatterView[] }>(
   );
   const base = { ...r, decisions: openDecisions(), people, project };
   if (q.state === "closed") {
+    const [at, id] = (q.before ?? "").split("|");
+    const before = at ? closedKeyOf(at, id) : undefined;
     const ended = picked
-      .map((v) => ({ at: matterEndOf(v)?.at ?? "", v }))
-      .filter((e) => !q.before || e.at < q.before)
-      .toSorted((a, b) => b.at.localeCompare(a.at));
-    // ponytail: the cursor is an instant, so matters ending at the very same instant across a page's edge skip the
-    // later ones; a compound cursor (instant and id) if that ever shows.
+      .map((v) => ({ key: closedKeyOf(matterEndOf(v)?.at ?? 0, v.id), v }))
+      .filter((e) => !before || e.key < before)
+      .toSorted((a, b) => b.key.localeCompare(a.key));
     const page = ended.slice(0, CLOSED_PAGE);
     return {
       ...base,
-      nextBefore: ended.length > page.length ? page.at(-1)?.at : undefined,
+      nextBefore: ended.length > page.length ? page.at(-1)?.key : undefined,
       ranked: page.map((e) => e.v),
     };
   }
