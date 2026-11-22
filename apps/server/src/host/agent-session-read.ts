@@ -6,7 +6,7 @@ import { agentOf, readDesk } from "./desk-read";
 // An agent's session on pi as his app shows it, read-only (the owner's decision 2 of 22 Nov 2026,
 // `docs/plans/pi-runtime.md`): pi's own session file under the desk's folder, its newest lines, each cut short. pi has
 // no app of its own, so his app is where he reads one; an agent on Claude Code or Codex opens in its program (`link`).
-// What Life sent it is `asked`, its words `said`, its tool calls `tool` and their answers `result` (`error` when the tool
+// What Life sent it is `asked`, its words `said` (a failed turn's why too, `isError`), its tool calls `tool` and their answers `result` (`error` when the tool
 // failed), and a compaction's summary `summary`; its thinking is left out.
 
 /** The most of a session's end read, the lines shown, and the characters of one line. */
@@ -42,6 +42,8 @@ type Part =
 interface Entry {
   message?: {
     content: Part[] | string;
+    /** Why an assistant turn failed (the provider's refusal, an abort). */
+    errorMessage?: string;
     isError?: boolean;
     role: string;
     toolName?: string;
@@ -51,8 +53,13 @@ interface Entry {
   type: string;
 }
 
-const cut = (t: string) =>
-  t.length > LINE_CHARS ? `${t.slice(0, LINE_CHARS)}…` : t;
+/** `t` within `LINE_CHARS`, never splitting a character (half an emoji is not JSON his app reads). */
+const cut = (t: string) => {
+  const chars = [...t];
+  return chars.length > LINE_CHARS
+    ? `${chars.slice(0, LINE_CHARS).join("")}…`
+    : t;
+};
 
 const textOf = (content: Part[] | string) =>
   typeof content === "string"
@@ -86,22 +93,27 @@ function linesOf(e: Entry): SessionLine[] {
   if (m.role !== "assistant" || typeof m.content === "string") {
     return [];
   }
-  return m.content.flatMap((p): SessionLine[] => {
-    if (p.type === "text" && p.text.trim()) {
-      return [{ at, kind: "said", text: cut(p.text) }];
-    }
-    if (p.type === "toolCall") {
-      return [
-        {
-          at,
-          kind: "tool",
-          text: cut(JSON.stringify(p.arguments)),
-          tool: p.name,
-        },
-      ];
-    }
-    return [];
-  });
+  const failed: SessionLine[] = m.errorMessage
+    ? [{ at, isError: true, kind: "said", text: cut(m.errorMessage) }]
+    : [];
+  return m.content
+    .flatMap((p): SessionLine[] => {
+      if (p.type === "text" && p.text.trim()) {
+        return [{ at, kind: "said", text: cut(p.text) }];
+      }
+      if (p.type === "toolCall") {
+        return [
+          {
+            at,
+            kind: "tool",
+            text: cut(JSON.stringify(p.arguments)),
+            tool: p.name,
+          },
+        ];
+      }
+      return [];
+    })
+    .concat(failed);
 }
 
 /** The newest lines of the session file at `file`: its last `TAIL_BYTES` read, a line cut by that start left out. */

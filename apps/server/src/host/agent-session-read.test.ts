@@ -88,3 +88,28 @@ test("a pi session reads as asked, said, tool, result and summary lines, each cu
   expect(lines[3]).toMatchObject({ isError: true });
   expect(lines[3]?.text.length).toBe(2001);
 });
+
+test("a line is cut whole characters at a time, and a failed turn says why", async () => {
+  const sessions = mkdtempSync(join(tmpdir(), "life-pi-sessions-"));
+  const file = join(sessions, "t_ref-cut.jsonl");
+  const said = (content: object[], errorMessage?: string) =>
+    JSON.stringify({
+      message: { content, errorMessage, role: "assistant" },
+      timestamp: at,
+      type: "message",
+    });
+  writeFileSync(
+    file,
+    [
+      said([{ text: `${"a".repeat(1999)}😀😀`, type: "text" }]),
+      said([], "429 rate limited"),
+    ].join("\n")
+  );
+  const [long, failed] = await readSessionLines(file);
+  expect(long?.text).toBe(`${"a".repeat(1999)}😀…`);
+  expect(failed).toMatchObject({
+    isError: true,
+    kind: "said",
+    text: "429 rate limited",
+  });
+});
