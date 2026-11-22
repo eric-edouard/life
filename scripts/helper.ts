@@ -51,13 +51,16 @@ await Promise.all([
       }
     );
   }),
-  // The send guard's hook and Life's pi extension, each bundled alone (`runtime-rows.ts` and pi's runtime run them from here).
+  // The send guard's hook and Life's pi extension, each bundled alone (`runtime-rows.ts` and pi's runtime run them from
+  // here); pi hands its extensions its own copy of its SDK (a subagent's), so the extension leaves it out.
   ...["desk/send-guard-hook", "desk/runtimes/pi-extension"].map((at) =>
     execOk(
       [
         "bun",
         "build",
         "--target=bun",
+        "--external",
+        "@earendil-works/pi-coding-agent",
         join(ROOT, "apps", "server", "src", `${at}.ts`),
         "--outfile",
         join(resources, "apps", "server", "src", `${at}.js`),

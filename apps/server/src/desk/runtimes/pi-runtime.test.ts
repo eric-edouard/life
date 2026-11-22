@@ -182,7 +182,7 @@ test("his own agent reads his Claude instructions, imports followed from the fil
   expect(readClaudeHooks(dir)).toEqual([]);
 });
 
-test("his own agent's spawn carries his instructions, hooks and own mark; a second Life's none of them", async () => {
+test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a second Life's none of them, its door's tools alone", async () => {
   const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
   writeFileSync(join(claude, "CLAUDE.md"), "His rules");
   const place = {
@@ -199,5 +199,11 @@ test("his own agent's spawn carries his instructions, hooks and own mark; a seco
   const second = await piRowOf(false, place).spawn(agent, "ref-second", true);
   expect(second.env[PI_EXTENSION_ENV.own]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.hooks]).toBeUndefined();
+  expect(second.env[PI_EXTENSION_ENV.reads]).toBeUndefined();
+  // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
+  expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
+  expect(JSON.parse(own.env[PI_EXTENSION_ENV.reads] ?? "{}").args).toContain(
+    "connector-reads"
+  );
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
