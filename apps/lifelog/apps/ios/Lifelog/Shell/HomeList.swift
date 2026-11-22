@@ -36,7 +36,8 @@ struct HomeList: View {
                             page("Profile", "person", count: nil) { router.showProfile() }
                                 .accessibilityIdentifier("drawer.profile")
                         }
-                        .padding(.bottom, Metrics.Spacing.m)
+                        .padding(.horizontal, Metrics.Spacing.s)
+                        Divider().overlay(Palette.line).padding(.vertical, Metrics.Spacing.s)
                         CheckList(order: asks) { ref in
                             if let taken = router.asks.notes.taken { life.forget(taken.key) }
                             router.open(ask: ref)
