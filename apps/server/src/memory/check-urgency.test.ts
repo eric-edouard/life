@@ -169,12 +169,8 @@ test("can't be forgotten: an ending check is not in his inbox, and still on its 
     "move",
   ]);
   expect(
-    checksOnMatterOf(
-      list as {
-        matter: { id: string };
-        ridesOn: { matterIds: string[] };
-        ref: string;
-      }[],
+    checksOnMatterOf<{ matter: never; ref: string; ridesOn: never }>(
+      list,
       "m1"
     ).map((c) => c.ref)
   ).toEqual(["ending", "move"]);
