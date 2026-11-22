@@ -48,14 +48,13 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 12)
-    #expect(inbox.blocking == 7)
-    #expect(inbox.badge == 7)
-    #expect(inbox.counts.values.reduce(0, +) == 12)
+    #expect(inbox.total == 11)
+    #expect(inbox.blocking == 6)
+    #expect(inbox.badge == 6)
+    #expect(inbox.counts.values.reduce(0, +) == 11)
     #expect(
         inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves,
-            .improves,
+            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
@@ -118,7 +117,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     let name = try #require(inbox.checks.first { $0.group == .name })
     #expect(name.said?.by == "Gran")
     #expect(name.askedName == "Sam")
-    #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
+    #expect(inbox.checks.contains { $0.group == .ending } == false)  // endings show on their matter's page
+    #expect(try everyKindOfCheck().first { $0.group == .ending }?.ridesOn?.matters == 1)
     let found = try #require(
         try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
     #expect(found.group == .newMatter)
@@ -392,6 +392,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 private func everyKindOfCheck() throws -> [Check] {
     try decoded(Inbox.self, wireText("life/read_inbox.json")).checks
         + decoded(Matter.self, wireText("life/read_matter_found.json")).checks
+        + decoded(Matter.self, wireText("life/read_matter.json")).checks.filter { $0.group == .ending }
 }
 
 /// Every kind Life sends answers with its own options, as `answer_check` takes them: one tap for an option that takes

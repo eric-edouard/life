@@ -328,9 +328,6 @@ export function preTickedOf(
     : null;
 }
 
-/** Whether a check asks if a step is done (never in the nightly email). */
-export const isEndingKind = (c: Pick<Check, "kind">) => c.kind === "ending";
-
 /** Open cards by id, each as its holder's: the agent and its session now, if any. */
 export type CardHolders = Readonly<
   Record<string, { agent: string; session?: string }>

@@ -11,7 +11,7 @@ import {
   openTurn,
   turnModelOf,
 } from "../host/desk-read";
-import { openChecksNow } from "../host/inbox";
+import { inboxChecksNow } from "../host/inbox";
 import {
   readMatterRowsNow,
   readPeopleAndOrganizations,
@@ -142,7 +142,7 @@ async function personProblemOf(
 
 /** The rows each list cuts, as its tab shows them, by the very read behind it: a row it never shows is never named. */
 const LIST_ROWS = {
-  checks: async () => (await openChecksNow()).map((c) => c.ref),
+  checks: async () => (await inboxChecksNow()).map((c) => c.ref),
   matters: async () =>
     (await readMatterRowsNow({}, readActiveAgentOf())).matters.map((m) => m.id),
   people: async () => {

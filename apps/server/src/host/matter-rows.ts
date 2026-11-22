@@ -14,8 +14,10 @@ export const matterRowsNowOf = <
   R extends { id: string; nextStep?: { kind: string }; status: string },
 >(
   rows: readonly R[],
-  open: readonly (Pick<Check, "group" | "matter" | "ridesOn" | "subject"> &
-    Partial<Pick<Check, "deadline">>)[]
+  open: readonly Pick<
+    Check,
+    "deadline" | "group" | "matter" | "ridesOn" | "subject"
+  >[]
 ) =>
   rows.map((m) => {
     const on = checksOnMatterOf(open, m.id);
