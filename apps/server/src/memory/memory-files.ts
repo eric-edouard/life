@@ -432,20 +432,37 @@ export const answeredFactCheckCorrections = (
 /**
  * What his `outdated` corrections retire (true then, not anymore), as extraction retires a fact later evidence closed:
  * kept as history, not wrong. `by` is the observation itself (no successor: readers of `by` skip it); `why` his words.
+ * One his later `matter-reopened` pins is lifted (`reopenedAtOf`): the latest of his words on it wins.
  */
-export const outdatedBy = (corrections: Correction[]): Retirement[] =>
-  corrections.flatMap((c) =>
+export const outdatedBy = (corrections: Correction[]): Retirement[] => {
+  const reopened = reopenedAtOf(corrections);
+  return corrections.flatMap((c) =>
     c.kind === "outdated"
-      ? c.observations.map((id) => ({
-          at: c.at,
-          by: id,
-          observation: id,
-          schemaVersion: 1 as const,
-          validTo: c.at.slice(0, 10), // his word's UTC day (a local day needs zones.ts, which imports this file)
-          why: c.note ?? "outdated",
-          ...(c.outcome === "dropped" ? { dropped: true as const } : {}),
-        }))
+      ? c.observations
+          .filter((id) => !((reopened.get(id) ?? "") > c.at))
+          .map((id) => ({
+            at: c.at,
+            by: id,
+            observation: id,
+            schemaVersion: 1 as const,
+            validTo: c.at.slice(0, 10), // his word's UTC day (a local day needs zones.ts, which imports this file)
+            why: c.note ?? "outdated",
+            ...(c.outcome === "dropped" ? { dropped: true as const } : {}),
+          }))
       : []
+  );
+};
+
+/** When he last reopened each step (`matter-reopened`), by its ref: the latest of his Reopens pinning it. Pure. */
+export const reopenedAtOf = (corrections: readonly Correction[]) =>
+  new Map(
+    corrections
+      .flatMap((c) =>
+        c.kind === "matter-reopened"
+          ? c.steps.map((ref): [string, string] => [ref, c.at])
+          : []
+      )
+      .toSorted((a, b) => a[1].localeCompare(b[1])) // the latest last: it overwrites
   );
 
 /** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredFactCheckCorrections`). */

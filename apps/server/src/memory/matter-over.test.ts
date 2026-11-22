@@ -105,3 +105,15 @@ test("his word on a Looks done matter closes its steps and reads done, whether a
     bookWithRecords({ linkEndings: linked, retired: his(STEPS) })?.status
   ).toBe("done");
 });
+
+// His yes of 22 Nov 2026: Reopen on a closed matter (`matter-reopened`): what closed its steps before it is lifted.
+test("his Reopen after Life's over reading reads the matter open again, and a newer reading closes it again", () => {
+  const reopenedAt = new Map(STEPS.map((id) => [id, "2026-10-20T05:00:00Z"]));
+  expect(bookWithRecords({ directions: [over()], reopenedAt })?.open).toBe(
+    true
+  );
+  const later = { ...over(), at: "2026-10-20T06:00:00Z" };
+  expect(bookWithRecords({ directions: [later], reopenedAt })?.status).toBe(
+    "probably_done"
+  );
+});

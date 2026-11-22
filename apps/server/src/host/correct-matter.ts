@@ -6,15 +6,16 @@ import {
 } from "../memory/find-refs";
 import {
   type MatterStepNow,
+  type MatterView,
   matterOfSteps,
   openStepsOf,
 } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
-import { readPeople } from "../memory/who";
+import { type People, readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { Correction } from "../records/observation";
-import { closeTodoItems, TICK_LIMIT_MS } from "./change-todo-item";
+import { changeMatterTodoItems, TICK_LIMIT_MS } from "./change-todo-item";
 import type { ToolCall } from "./http/mcp-tool";
 
 // His word on a whole matter, by its id (`correct_memory` with `matter`): Life reads which of its steps he means as
@@ -32,6 +33,7 @@ const HIS_ONLY_KINDS = new Set([
   "matter-icon",
   "matter-important",
   "matter-project",
+  "matter-reopened",
   "your-move-not-now",
 ]);
 
@@ -64,7 +66,7 @@ export const closedStepOf = (isDropped: boolean) =>
 
 /**
  * His word that the steps `open` (`openStepsOf`) are done, or with `isDropped` won't be done (his Drop), through the
- * writers that already exist: their to-do items ticked, or removed from his list when dropped (`closeTodoItems`, with
+ * writers that already exist: their to-do items ticked, or removed from his list when dropped (`changeMatterTodoItems`, with
  * `note`, else Life's words saying he gave none), then their observations by one `outdated` correction (`outcome`
  * `dropped` when dropped). Returns the lines written; none when nothing is open any more.
  */
@@ -80,7 +82,7 @@ export async function endByHisWord(
     .map((s) => s.ref);
   const closed =
     items.length > 0
-      ? await closeTodoItems(
+      ? await changeMatterTodoItems(
           items,
           note ??
             `${isDropped ? "Dropped" : "Marked done"} (Life's words: he gave none).`,
@@ -101,6 +103,65 @@ export async function endByHisWord(
         ]
       : []),
   ];
+}
+
+/**
+ * His Reopen of the closed matter `v`: its ticked to-do items unticked (`changeMatterTodoItems`), then one
+ * `matter-reopened` line pinned to all its steps, which lifts the words and links that closed them. Refused while it
+ * is open, and when it would still read closed (`matterBookOf` with the line, its steps ended only by newer records or
+ * removed items): Life never says reopened for a matter that is not.
+ */
+async function reopenMatter(
+  v: MatterView,
+  said: Record<string, unknown>,
+  people: People,
+  report: ToolCall["report"]
+) {
+  if (v.open) {
+    throw new Error(`Not done: ${v.id} is open.`);
+  }
+  const line = Correction.parse({
+    ...said,
+    at: clock().toISOString(),
+    matter: v.id,
+    schemaVersion: 1,
+    steps: v.steps.map((s) => s.ref),
+  });
+  const ticked = v.steps
+    .filter(
+      (s) =>
+        s.kind === "todo_item" &&
+        s.ending?.by === "todo_item" &&
+        !s.ending.dropped
+    )
+    .map((s) => s.ref);
+  // ponytail: an item ticked then cleared from his list counts here but is left unticked (`changeMatterTodoItems`);
+  // a matter of only such items says reopened and stays closed. Read the item's state here if that ever shows up.
+  if (ticked.length === 0) {
+    const after = await readMatterBook(
+      { ...people, corrections: [...people.corrections, line] },
+      dayNow()
+    );
+    if (!matterOfSteps(after, [v.id], v.id)?.open) {
+      throw new Error(
+        `Not done: nothing of ${v.id} can reopen (its steps ended by newer records or removed from his list).`
+      );
+    }
+  }
+  report({
+    limitSeconds: Math.ceil((ticked.length * TICK_LIMIT_MS + QUICK_MS) / 1000),
+    plan: [...(ticked.length > 0 ? ["todo_items_reopened"] : []), "recorded"],
+  });
+  const note = typeof said.note === "string" ? said.note : "Reopened.";
+  const undone = await changeMatterTodoItems(
+    ticked,
+    note,
+    "undone",
+    (done, of, key) => report({ done, key, of, step: "todo_items_reopened" })
+  );
+  const written = await recordCorrection(line);
+  report({ step: "recorded" });
+  return [...undone, written];
 }
 
 /**
@@ -142,9 +203,12 @@ export async function correctMatter(
     report({ step: "recorded" });
     return [written];
   }
+  if (said.kind === "matter-reopened") {
+    return await reopenMatter(v, said, people, report);
+  }
   if (said.kind !== "outdated") {
     throw new Error(
-      "Not done: `matter` goes with kind `outdated` (it is done), `matter-direction`, `matter-important`, `matter-icon` or `matter-project`."
+      "Not done: `matter` goes with kind `outdated` (it is done), `matter-reopened`, `matter-direction`, `matter-important`, `matter-icon` or `matter-project`."
     );
   }
   const open = openStepsOf(v);

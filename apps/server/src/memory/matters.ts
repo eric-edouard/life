@@ -47,6 +47,7 @@ import {
   readBy,
   readLedger,
   readUnitsFor,
+  reopenedAtOf,
   SUPERSESSIONS,
   UNRESOLVED,
 } from "./memory-files";
@@ -259,11 +260,17 @@ export async function readMatterRecords(people: People) {
     ...episodes.map((e): [string, string] => [e.id, episodeAt(e)]),
     ...observations.map((o): [string, string] => [o.id, o.at]),
   ]);
+  const reopenedAt = reopenedAtOf(statusInputs.corrections);
+  // A link whose evidence came before his Reopen of its step ends nothing: the latest of his words wins.
   const linkEndings = new Map(
-    [...endingsRead((ref) => current.has(ref)).linkEndings].map(([ref, l]) => [
-      ref,
-      { ...l, at: atOf.get(l.later) ?? l.at },
-    ])
+    [...endingsRead((ref) => current.has(ref)).linkEndings].flatMap(
+      ([ref, l]) => {
+        const at = atOf.get(l.later) ?? l.at;
+        return (reopenedAt.get(ref) ?? "") >= at
+          ? []
+          : [[ref, { ...l, at }] as const];
+      }
+    )
   );
   const retired = new Map(
     [...statusInputs.retired].map(([id, r]) => [
@@ -284,6 +291,7 @@ export async function readMatterRecords(people: People) {
     linkEndings,
     observations,
     refOf: people.refOf,
+    reopenedAt,
     retired,
     todoItems: [...todoItemsOf(ledger).values()],
   };
