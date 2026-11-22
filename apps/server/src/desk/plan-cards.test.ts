@@ -361,13 +361,13 @@ test("a card that says it did not check, shows Life's inside or runs long is ref
     refusals.map((r) => r.status === "rejected" && String(r.reason))
   ).toEqual([
     expect.stringContaining('"Not verified": check it with your tools'),
-    expect.stringContaining('"didn\'t open": check it with your tools'),
+    expect.stringContaining('"I didn\'t open": check it with your tools'),
     expect.stringContaining('"Personal agent" is Life\'s inside'),
     expect.stringContaining('"obs_5bdeee7a8a60" is Life\'s inside'),
     expect.stringContaining("`context` holds 1400 characters"),
   ]);
   const quoted =
-    "Kit fixed it ([his message](https://example.com/obs_5bdeee7a8a60)).\n> Not verified yet, said the shop\n*Kit*";
+    "Kit fixed it ([his message](https://example.com/obs_5bdeee7a8a60)) and Anna didn't read it yet.\n> Not verified yet, said the shop\n*Kit*";
   await expect(
     requestDecision(DESK_AGENT, { ...card(quoted), agent })
   ).resolves.toMatchObject({ id: expect.any(String) });
