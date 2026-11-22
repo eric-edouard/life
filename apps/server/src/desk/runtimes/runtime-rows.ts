@@ -18,7 +18,7 @@ import { type Agent, DOOR_KEY_ENV } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
 // pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the
-// prefix its door's tools carry (a second Life's only), its link, its hand-off, and the small reader of its CLI's own record that tells whether a session of his
+// prefix its door's tools carry (a second Life's only), its link and the small reader of its CLI's own record that tells whether a session of his
 // is running (ACP has no such signal). The adapters are pinned; the CLIs stay his (`CLAUDE_CODE_EXECUTABLE`, `CODEX_PATH`):
 // his apps open these sessions, so the same CLI writes them.
 // An agent of his own Life is held back by nothing but the send guard (his decisions of 19 and 20 Nov 2026): his settings,
