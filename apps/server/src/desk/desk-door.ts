@@ -371,10 +371,9 @@ function doorServer(desk: Desk, id: string) {
       said: z.string().min(1).max(8000),
     }),
     async ({ correction, said }, s, turn) => {
-      const words =
-        agentOf(desk.db, id)?.role === "caretaker"
-          ? complaintWordsIn(desk, s, said)
-          : hisWordsOf(turn, said);
+      const words = isCaretakerFix("correct_memory", agentOf(desk.db, id))
+        ? complaintWordsIn(desk, s, said)
+        : hisWordsOf(turn, said);
       const { matter } = correction;
       const done = isHisOnly(correction)
         ? await correctMatter(
