@@ -32,9 +32,9 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Desk door | MCP server `desk` passed in `session/new` with its bearer | `pi.registerMcpServer("desk", {url, headers, exposure: "direct"})` from the extension, key from the spawn env (pi's default exposure is `codemode`, reachable only from scripts); tools keep the names `mcp__desk__<tool>` the guard reads | on par |
 | The owner's Life connector (reads) | the Life plugin's MCP server, under the owner's token | not there: pi reaches no claude.ai connector. Fix: the desk pairs a read-only grant for pi (Life signs its own tokens) and writes it into `mcp.json` in Life's agent dir, `direct` exposure | gap |
 | Other connectors (Gmail, Calendar, 1Password, Chrome) | claude.ai connectors and plugins of the owner's Claude account | none: they live in Anthropic's account. The CLIs in the owner's tool list (`gog`, `op`, Playwriter, `agent-desktop`) cover the same reach, through skills | gap |
-| Instruction files | the global CLAUDE.md (an `@` import of the global AGENTS.md), each repo's AGENTS.md and CLAUDE.md | pi loads `AGENTS.md` and `CLAUDE.md` from the folder up and from its agent dir. Fix: Life's agent dir carries an `AGENTS.md` that is a link to the global one (pi does not follow `@` imports) | gap |
+| Instruction files | the global CLAUDE.md (an `@` import of the global AGENTS.md), each repo's AGENTS.md and CLAUDE.md | pi loads `AGENTS.md` and `CLAUDE.md` from the folder up and from its agent dir. Fix (PR 4): Life's agent dir carries an `AGENTS.md` written at each spawn from the global `CLAUDE.md`, its `@` imports followed (pi follows none); a repo's `CLAUDE.md` that only imports its `AGENTS.md` needs nothing, as pi reads that `AGENTS.md` itself | gap |
 | Skills | `~/.claude/skills`, plugins' skills | pi reads `~/.agents/skills` (most of the owner's) and `skills` paths in settings; Life's settings add `~/.claude/skills`. Plugin-only skills (`work-on-code` from a plugin, if any) need a path each | on par |
-| The owner's own Claude hooks (work-on-code gate, other `PreToolUse` scripts) | run on every Bash call | do not run. Fix: the extension runs the `PreToolUse` command hooks of `~/.claude/settings.json` for `bash` calls, in Claude's hook JSON, exit 2 blocks | gap |
+| The owner's own Claude hooks (work-on-code gate, other `PreToolUse` scripts) | run on every Bash call | do not run. Fix (PR 4): the extension runs the `PreToolUse` command hooks of `~/.claude/settings.json` for `bash` calls, in Claude's hook JSON, exit 2 or a JSON deny blocks; his `Edit`, `Write` and MCP hooks stay unrun on pi | gap |
 | Login environment | `readLoginEnv` less Anthropic's keys | the same `readLoginEnv`, plus the OpenRouter key Life's engine already uses (pi's `bash` inherits it, as it inherits every other key today) | on par |
 | Session titles | `--name` through `_meta` | `--name` at the first run, `set_session_name` after a rename | on par |
 | `isHeld`, a live process of the owner's | Claude's `~/.claude/sessions/<pid>.json`, then `pgrep` | the desk's own runs are in its `live` map; any other pi on the session is found by `pgrep -f "pi .*--session <id>"`. No app holds pi sessions open between turns, so wakes stop waiting on a forgotten window | better |
@@ -43,7 +43,7 @@ outcome. Better: pi does more or does it more cheaply. Gap: missing until the na
 | Effort | Claude's effort config | `set_thinking_level` (DeepSeek's thinking through OpenRouter) | on par |
 | Usage and context (decision 83) | prompt reply's tokens (unstable ACP field) and `usage_update` context; spend is an `equivalent` at list price | each `message_end` carries input, output, cache read and write and its cost in dollars; `get_session_stats` gives the turn's context. Spend becomes `billed`, exact | better |
 | Subagents | the Task tool | none built in; pi's `examples/extensions/subagent/` spawns pi processes. Fix: ship it with the same extension loaded in each child, so the guard holds there too | gap |
-| Web search and fetch | built-in WebSearch and WebFetch | none built in. Fix: two extension tools, `web_fetch` (Bun's fetch to Markdown) and `web_search` (the SerpAPI key the owner keeps); never OpenRouter's web plugin, which ZDR does not cover | gap |
+| Web search and fetch | built-in WebSearch and WebFetch | none built in. Fix: two extension tools, `web_fetch` (Bun's fetch, a page as its text) (PR 4) and `web_search`, a setting over several providers, free first, then the Mac's own browser, then paid ones, each search's cost recorded (the owner's answer of 22 Nov 2026; its own PR); never OpenRouter's web plugin, which ZDR does not cover | gap |
 | Browser use | Claude in Chrome (a Claude feature) | Playwriter on the owner's Chrome, by shell and skill, as Codex agents do; the guard reads its command text like any shell call | on par |
 | Computer use | Claude's computer-use MCP | `agent-desktop` by shell; the guard's rule already names it | on par |
 | Images | pasted or read images | `images[]` on `prompt`; V4.1 Flash takes image input | on par |
@@ -196,10 +196,12 @@ saw it"), and a line for pi; SECURITY.md's "Agents" (the guard as a hook, the ag
 | 1 | `pi-extension.ts`: the guard in `tool_call`, the door, Life's provider with its routing on every request, a repo's `.pi` never trusted; tests in a real pi (#1173) | hard (strict path) |
 | 2 | `pi-runtime.ts` over RPC behind the one runtime (`session-runtime.ts`, split from ACP's), pi pinned and bundled, `pi` in `RuntimeName` and the phone's list, SECURITY.md's and AGENTS.md's lines (decision 3) | hard (strict path) |
 | 3 | the move offered goes to the desk's default runtime, from it to the first other (`moveTargetOf`; `hand_over` already takes any runtime); a pi turn's spending `billed` from OpenRouter's cost, kept in `turn.cost_usd` by its store step (`stepTurnCost`, the owner's yes of 22 Nov 2026) | hard (strict path: a store step) |
-| 4 | parity extensions: `web_fetch`, `web_search`, subagents, the owner's Claude hooks, the Life connector grant, the global `AGENTS.md` | standard |
+| 4 | parity in the extension (`claude-hooks.ts`, `web-tools.ts`), his own Life only: his Claude `PreToolUse` hooks on each shell call, `web_fetch`, his global instructions (`CLAUDE.md`, imports followed) as the agent folder's `AGENTS.md` | standard |
+| 4c | `web_search` over the providers the owner's setting names, each search's cost recorded | standard |
+| 4b | subagents (the extension loaded in each child) and the Life connector's read grant in `mcp.json` (strict path: `host/http/`) | hard |
 | 5 | folded into PR 2 | |
 | 6 | the read-only view of a pi agent's session in Life's app (decision 2) | standard |
-| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 4 have landed and their tests pass | small |
+| 7 | `desk.defaultRuntime: "pi"` in the owner's settings, once PRs 1 to 4b have landed and their tests pass | small |
 
 Existing agents keep their runtime: only agents started after PR 7 run on pi by default.
 

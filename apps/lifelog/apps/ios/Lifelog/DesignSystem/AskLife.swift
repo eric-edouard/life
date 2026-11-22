@@ -11,8 +11,8 @@ struct TellMetrics: Equatable {
 }
 
 /// Ask Life: the round button at rest, a wide banner along the bottom when open. One glass that morphs between them
-/// (`glassEffectID` in one `GlassEffectContainer`). The banner holds the dictation (`AskDictationSlot`, the dictation
-/// helper's component) and one line of what Life answered; the X, or a swipe down, morphs it back.
+/// (`glassEffectID` in one `GlassEffectContainer`). The banner holds the dictation (`AskDictationSlot`, a
+/// `DictationField` that listens as it opens) and one line of what Life answered; the X, or a swipe down, morphs it back.
 struct AskLife: View {
     let running: Int
     let place: TellMetrics
@@ -71,9 +71,23 @@ struct AskLife: View {
     }
 }
 
-/// Where the dictation helper's component goes: his live words, "Swipe up" to send. Until it lands, a prompt.
+/// The banner's words: the one dictation field, listening as the banner opens (the tap that opened it was the
+/// microphone's), its Send handing his words to Tell Life as the full screen's does.
 private struct AskDictationSlot: View {
+    @Environment(AppRouter.self) private var router
+    @Environment(LifeStore.self) private var life
+    @State private var draft = ""
+
     var body: some View {
-        Text("Ask Life…").font(.body).foregroundStyle(Palette.fg).lineLimit(1)
+        DictationField(prompt: "Ask Life…", text: $draft, listens: true, send: submit)
+            .font(.body).foregroundStyle(Palette.fg).lineLimit(1)
+    }
+
+    private func submit() {
+        // His words are never dropped: while Life works, they stay in the field.
+        guard !life.tell.isBusy else { return }
+        let words = draft
+        draft = ""
+        Task { await life.tell.send(words, screen: router.tellScreen) }
     }
 }

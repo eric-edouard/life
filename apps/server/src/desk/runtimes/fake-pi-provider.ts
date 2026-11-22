@@ -14,7 +14,10 @@ export interface Asked {
 const BASE_PATH = "/openrouter.ai/v1";
 
 /** What the provider streams for one request. */
-export type Reply = { calls: string[] } | { text: string } | "hang";
+export type Reply = { calls: Call[] } | { text: string } | "hang";
+
+/** A tool call the model asks for: a shell command, or another tool with its arguments. */
+export type Call = string | { args: object; name: string };
 
 const sse = (chunks: object[]) =>
   `${chunks.map((c) => `data: ${JSON.stringify({ choices: [], ...c })}\n\n`).join("")}data: [DONE]\n\n`;
@@ -25,8 +28,11 @@ const streamOf = (reply: Exclude<Reply, "hang">) => {
     "text" in reply
       ? { content: reply.text }
       : {
-          tool_calls: reply.calls.map((command, index) => ({
-            function: { arguments: JSON.stringify({ command }), name: "bash" },
+          tool_calls: reply.calls.map((c, index) => ({
+            function:
+              typeof c === "string"
+                ? { arguments: JSON.stringify({ command: c }), name: "bash" }
+                : { arguments: JSON.stringify(c.args), name: c.name },
             id: `c${index + 1}`,
             index,
             type: "function",
