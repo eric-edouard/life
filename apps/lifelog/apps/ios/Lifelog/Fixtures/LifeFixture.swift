@@ -22,7 +22,7 @@
         nonisolated static let card = value(of: "-fixtureCard")
         /// `-fixtureOnly <ref>`: the inbox holds that one card, for a screenshot of a card that is not the first.
         nonisolated static let tab = value(of: "-fixtureTab")
-        /// `-fixtureDrawer open`: the list (`NavDrawer`) is open over the page.
+        /// `-fixtureDrawer open`: the open Duo's list (`HomeList`) is shown, over the page upright.
         nonisolated static let drawer = value(of: "-fixtureDrawer")
         /// `-fixtureFilter moves`: the Inbox opens on its Filter's "Your moves" list.
         nonisolated static let filter = value(of: "-fixtureFilter")

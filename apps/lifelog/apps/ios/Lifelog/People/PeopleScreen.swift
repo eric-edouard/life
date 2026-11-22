@@ -86,7 +86,9 @@ private struct PeopleColumns: View {
         .onChange(of: kind) { fillSelection() }
         .onChange(of: query) { fillSelection() }
         // Back from someone opened elsewhere (a matter, a card) goes back there, not to this list.
-        .onChange(of: router.personColumn) { _, column in if column == .sidebar, !isSplit { router.closePerson() } }
+        .onChange(of: router.personColumn) { _, column in
+            if column == .sidebar, !isSplit { router.returnToWhereOpened() }
+        }
         .task(id: life.parties.generation.current) { await life.refreshPeople() }
     }
 

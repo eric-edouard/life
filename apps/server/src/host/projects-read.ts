@@ -15,46 +15,20 @@ import { isUnderway } from "../records/truth";
 import { listRepos } from "../sources/git";
 import { openChecksAndKeyNow, unchangedOf, versionOf } from "./inbox";
 import { matterRowsNowOf } from "./matter-rows";
-import {
-  readActiveAgentOf,
-  readAgentsOnSteps,
-  readRegisteredAgents,
-} from "./registered-agents";
+import { readActiveAgentOf, readAgentsOnSteps } from "./registered-agents";
 
 // `read_projects` and `read_project` (life#712): the Projects tab's chip row and a project chip's header with its
 // Details. The list under a chip is `read_matters` (`project`, or `area` with `noProject`); a chip's counts and that list
 // come from one rule, `isInScope`. What comes from memory is read once per checks' key (the matter book, the cards, the
-// project situations); who is at work (the desk) is read on every call and joins it before the version is made, so an
-// agent's turn that ends moves the version.
+// project situations); a project's header joins who is at work (the desk), read on every call, before its version is made,
+// so an agent's turn that ends moves it.
 
 type Open = Awaited<ReturnType<typeof openChecksAndKeyNow>>["checks"];
-type People = Awaited<ReturnType<typeof readPeople>>;
-type Book = Awaited<ReturnType<typeof readMatterBook>>;
-
-/** The agents at work now (running or waiting) on a project: its own, or one an open assignment holds a matter of it for. */
-async function readAtWork(
-  people: People,
-  book: Book,
-  decisions: ReturnType<typeof openDecisions>
-) {
-  const alive = (
-    await readRegisteredAgents(undefined, { book, decisions, people })
-  ).agents.filter((a) => a.status === "running" || a.status === "waiting");
-  const holder = readActiveAgentOf();
-  return (project: string | undefined, matters: Book) => {
-    const held = new Set(
-      matters.flatMap((v) => holder(v.steps.map((s) => s.ref)) ?? [])
-    );
-    return alive.filter(
-      (a) => (project !== undefined && a.project === project) || held.has(a.id)
-    );
-  };
-}
 
 async function readChipsFromMemory(open: Open) {
   const people = await readPeople();
   const { truth } = people;
-  const { book, decisions, ranked } = await rankedMatters(
+  const { decisions, ranked } = await rankedMatters(
     {},
     async (p, t) => ({ book: await readMatterBook(p, t) }),
     people
@@ -73,18 +47,13 @@ async function readChipsFromMemory(open: Open) {
   );
   const chipOf = <C extends { id: string; kind: "area" | "project" }>(
     c: C,
-    scope: Parameters<typeof isInScope>[1],
-    isParked = false
+    scope: Parameters<typeof isInScope>[1]
   ) => {
     const held = ranked.filter(isInScope(truth, scope));
     return {
-      chip: {
-        ...c,
-        matters: held.length,
-        needYou: held.filter((v) => needs.has(v.id)).length,
-      },
-      held,
-      isParked,
+      ...c,
+      matters: held.length,
+      needYou: held.filter((v) => needs.has(v.id)).length,
     };
   };
   const goalRank = (id: string) => {
@@ -109,19 +78,17 @@ async function readChipsFromMemory(open: Open) {
             name: p.name,
             status: p.status,
           },
-          { project: p.id },
-          group !== "underway"
+          { project: p.id }
         )
       );
   return {
     all: { needYou: needs.size, open: ranked.length },
-    book,
     chips: [
       // Those needing him first, then by his goals, the directory's order for a tie (a stable sort).
       ...projectChips("underway").toSorted(
         (a, b) =>
-          Number(b.chip.needYou > 0) - Number(a.chip.needYou > 0) ||
-          goalRank(a.chip.id) - goalRank(b.chip.id)
+          Number(b.needYou > 0) - Number(a.needYou > 0) ||
+          goalRank(a.id) - goalRank(b.id)
       ),
       ...truth.areas
         .map((a) =>
@@ -130,30 +97,16 @@ async function readChipsFromMemory(open: Open) {
             { area: a.id, noProject: true }
           )
         )
-        .filter((c) => c.chip.matters > 0),
+        .filter((c) => c.matters > 0),
       // A done project is never lost: after the parked ones.
       ...projectChips("parked"),
       ...projectChips("done"),
     ],
-    decisions,
-    people,
   };
 }
 
-/** The chip row: memory's part kept per key, the agents at work read now. */
-async function finishChips(m: Awaited<ReturnType<typeof readChipsFromMemory>>) {
-  const onProject = await readAtWork(m.people, m.book, m.decisions);
-  const answer = {
-    all: m.all,
-    chips: m.chips.map(({ chip, held, isParked }) => ({
-      ...chip,
-      agentAtWork:
-        !isParked &&
-        onProject(chip.kind === "project" ? chip.id : undefined, held).some(
-          (a) => a.status === "running"
-        ),
-    })),
-  };
+/** The chip row, all from memory. */
+function finishChips(answer: Awaited<ReturnType<typeof readChipsFromMemory>>) {
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 

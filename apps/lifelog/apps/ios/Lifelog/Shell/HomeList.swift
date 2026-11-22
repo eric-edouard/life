@@ -1,53 +1,64 @@
 import LifeConnector
 import SwiftUI
 
-/// Navigation v3's one list: Home (the Inbox), Projects, People and Profile on top, then every matter by Priority (Waiting
-/// on you, Waiting on others, Moving) or Latest. A full screen on a phone and a folded Duo, a panel over the page on an
-/// upright open Duo, the sidebar sideways (`NavShell`). A tap opens the page and puts the list away.
-struct NavDrawer: View {
+/// The list, titled Life: Projects, People and Profile, then the asks (the one inbox: what blocks, then what can wait),
+/// then the matters that don't wait on him, by Priority (Waiting on others, Moving) or Latest. The Inbox page's root on a
+/// phone and the closed Duo (an ask pushed on it, the pages replacing it), the sidebar sideways and a panel upright
+/// (`NavShell`). With the Filter on Your moves it is the moves' list.
+struct HomeList: View {
     enum Order: String, CaseIterable {
         case priority = "Priority", latest = "Latest"
     }
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    @Environment(\.horizontalSizeClass) private var sizeClass
     /// Remembered: the order he last chose.
     @AppStorage("drawerOrder") private var order = Order.priority
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                CutToast(kind: .checks)
-                page("Home", "tray", count: life.waiting) { router.showHome() }
-                    // A compact width draws the list's own Pendant over this first row.
-                    .padding(.trailing, sizeClass == .regular ? 0 : 52)
-                page("Projects", "folder", count: life.projects.value?.chips.filter { $0.kind == .project }.count) {
-                    router.showProjects()
+        @Bindable var router = router
+        let asks = router.asks.shown(life.inboxOnShow, kind: router.asks.kind, cut: router.cut(of: .checks))
+        Group {
+            if router.asks.kind == .yourMove {
+                MovesList(checks: router.asks.all(life.inboxOnShow).only(.yourMove).checks)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        CutToast(kind: .checks)
+                        VStack(spacing: 0) {
+                            page(
+                                "Projects", "folder",
+                                count: life.projects.value?.chips.filter { $0.kind == .project }.count
+                            ) {
+                                router.showProjects()
+                            }
+                            page("People", "person.2", count: life.people.value?.people.count) { router.showPeople() }
+                            // In the Duo's column Profile is the button at its foot.
+                            if !router.isBarsInColumn {
+                                page("Profile", "person", count: nil) { router.showProfile() }
+                                    .accessibilityIdentifier("list.profile")
+                            }
+                        }
+                        .padding(.horizontal, Metrics.Spacing.s)
+                        Divider().overlay(Palette.line).padding(.vertical, Metrics.Spacing.s)
+                        CheckList(order: asks) { ref in
+                            if let taken = router.asks.notes.taken { life.forget(taken.key) }
+                            router.open(ask: ref)
+                        }
+                        switcher.padding(.top, Metrics.Spacing.m)
+                        switch order {
+                        case .priority: priority
+                        case .latest: latest
+                        }
+                    }
+                    .padding(.bottom, 24).readingWidth()
                 }
-                page("People", "person.2", count: life.people.value?.people.count) { router.showPeople() }
-                page("Profile", "person", count: nil) { router.showProfile() }
-                    .accessibilityIdentifier("drawer.profile")
-                Divider().overlay(Palette.line).padding(.vertical, Metrics.Spacing.s)
-                switcher
-                switch order {
-                case .priority: priority
-                case .latest: latest
-                }
-            }
-            .padding(.horizontal, Metrics.Spacing.s).readingWidth()
-        }
-        // Beside the page's own Pendant (a regular width), the list keeps none of its own.
-        .overlay(alignment: .topTrailing) {
-            if sizeClass != .regular {
-                PendantItem { router.sheet = .pendant }.frame(width: 44, height: 44)
-                    .padding(.trailing, Metrics.Spacing.s)
+                .motion(Motion.standard, value: order)
+                .screenTitle("Life", state: life.waiting.flatMap { $0 > 0 ? "\($0) waiting" : nil })
             }
         }
-        // Room for the bottom bar, which stays over the list.
-        .safeAreaPadding(.bottom, 80)
         .background(Palette.bg)
-        .motion(Motion.standard, value: order)
+        .askFilterBar(kinds: router.asks.all(life.inboxOnShow).kinds, kind: $router.asks.kind)
     }
 
     // MARK: Top
@@ -78,9 +89,8 @@ struct NavDrawer: View {
 
     // MARK: Priority
 
-    /// Every matter by where it stands, the ones that need him first.
+    /// The matters that don't wait on him (the asks above are what does), by where they stand.
     @ViewBuilder private var priority: some View {
-        group("Waiting on you", matters: matters.filter { $0.needsYou == true })
         group("Waiting on others", matters: matters.filter { $0.needsYou != true && $0.status == .waitingOnSomeone })
         group("Moving", matters: matters.filter { $0.needsYou != true && $0.status != .waitingOnSomeone })
     }
@@ -96,7 +106,6 @@ struct NavDrawer: View {
             heading(label)
             ForEach(Array(rows.enumerated()), id: \.element.id) { at, row in
                 Button {
-                    router.isDrawerOpen = false
                     router.open(matter: row.id)
                 } label: {
                     MatterRowView(row: row, isMarked: life.isImportant(row.id, as: row.important))

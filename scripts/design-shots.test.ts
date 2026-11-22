@@ -135,9 +135,12 @@ test("the create flow's answers and Life's guess read as the designer's extract,
 });
 
 test("the simulator stays booted unless --shutdown; a built app is taken as given", () => {
-  expect(parseArgs(["A", "--app", "/x/lifelog.app", "B"])).toEqual({
+  expect(
+    parseArgs(["A", "--app", "/x/lifelog.app", "B", "--compare", "d"])
+  ).toEqual({
     app: "/x/lifelog.app",
     asked: ["A", "B"],
+    compare: "d",
     shutdownAfter: false,
   });
   expect(parseArgs(["--shutdown"]).shutdownAfter).toBe(true);

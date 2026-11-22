@@ -155,37 +155,26 @@ const chosenOf = (db: Database, id: string): Chosen => ({
 });
 
 /**
- * The month's agents and matters by their turns' tokens, by id, named last: an agent by its name (else its id), a
- * matter by its assignment's anchors (`matterFinderOf`, the one rule `tokenRowsOf` and `read_matter` follow). The book
+ * The month's matters by their turns' tokens, by id, named last: a matter by its assignment's anchors (`matterFinderOf`, the one rule `tokenRowsOf` and `read_matter` follow). The book
  * is read only when an assignment has anchors.
  */
 async function readTops(from: string, to: string) {
-  const { anchors, names, turns } = deskValueOf(
+  const { anchors, turns } = deskValueOf(
     readDesk(
       (db) => {
         const ended = turnsEndedIn(db, from, to);
-        const ids = [...new Set(ended.map((t) => t.agent_id))];
         return {
           anchors: [...new Set(ended.map((t) => t.assignment_id))].map(
             (id) => [id, chosenOf(db, id)] as const
           ),
-          names:
-            ids.length === 0
-              ? []
-              : db
-                  .query<{ id: string; name: string | null }, string[]>(
-                    `select id, name from agent where id in (${ids.map(() => "?").join(",")})`
-                  )
-                  .all(...ids),
           turns: ended,
         };
       },
-      { anchors: [], names: [], turns: [] },
+      { anchors: [], turns: [] },
       true
     ),
-    { anchors: [], names: [], turns: [] }
+    { anchors: [], turns: [] }
   );
-  const nameOf = new Map(names.map((a) => [a.id, a.name ?? a.id]));
   const anchored = anchors.filter(([, c]) => c.steps.length > 0);
   const find: Finder =
     anchored.length > 0
@@ -198,10 +187,6 @@ async function readTops(from: string, to: string) {
     })
   );
   return {
-    topAgents: topOf(turns, (t) => t.agent_id).map((t) => ({
-      agent: nameOf.get(t.id) ?? t.id,
-      ...t,
-    })),
     topMatters: topOf(turns, (t) => matterOf.get(t.assignment_id)?.id).map(
       (t) => ({
         matter: [...matterOf.values()].find((m) => m.id === t.id)?.name ?? t.id,

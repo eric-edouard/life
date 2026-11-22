@@ -111,6 +111,34 @@ const handleIndex = (people: Person[]) => ({
 });
 
 /**
+ * What his `this-is` and `not-this-person` corrections say by name key: `said` everywhere, `saidIn` only in the
+ * conversation a line names (`inConversation`, keyed `<conversation>|<key>`), `not` as `<key>|<person>`.
+ */
+function wordOf(corrections: Correction[]) {
+  const said = new Map<string, string>();
+  const saidIn = new Map<string, string>();
+  const not = new Set<string>();
+  for (const c of corrections) {
+    if (c.kind !== "this-is" && c.kind !== "not-this-person") {
+      continue;
+    }
+    for (const k of kindKeysOf(
+      c.nameOrHandle,
+      writtenContactKeyOf(c.nameOrHandle)
+    )) {
+      if (c.kind === "not-this-person") {
+        not.add(`${k}|${c.person}`);
+      } else if (c.inConversation) {
+        saidIn.set(`${c.inConversation}|${k}`, c.person);
+      } else {
+        said.set(k, c.person);
+      }
+    }
+  }
+  return { not, said, saidIn };
+}
+
+/**
  * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
  * (handles, then names and aliases), the person his Contacts name (a handle of its card, else its name when one
  * contact person alone goes by it), then its latest confident inferred guess (the person in truth/ it links to, else
@@ -153,23 +181,7 @@ export function readingOf(
     }
   }
   const cardNames = nameIndex(contacts.map((c) => ({ ...c, aliases: [] })));
-  const said = new Map<string, string>();
-  const not = new Set<string>();
-  for (const c of corrections) {
-    if (c.kind !== "this-is" && c.kind !== "not-this-person") {
-      continue;
-    }
-    for (const k of kindKeysOf(
-      c.nameOrHandle,
-      writtenContactKeyOf(c.nameOrHandle)
-    )) {
-      if (c.kind === "this-is") {
-        said.set(k, c.person);
-      } else {
-        not.add(`${k}|${c.person}`);
-      }
-    }
-  }
+  const { not, said, saidIn } = wordOf(corrections);
   const guessed = guessesOf(inferred);
   const meet = (
     index: { contact: Map<string, string>; exact: Map<string, string> },
@@ -181,7 +193,11 @@ export function readingOf(
       : ks.map((k) => index.exact.get(k)).find(Boolean);
   // A phone or an email (it has a contact key) meets only truth/'s and a card's phones and emails, anything else only
   // their exact handles and names; his word and Life's guesses hold no kind, so they meet by `kindKeysOf`.
-  const read = (nameOrHandle: string, from?: HandleFrom): Reading | null => {
+  const read = (
+    nameOrHandle: string,
+    from?: HandleFrom,
+    inConversation?: string
+  ): Reading | null => {
     const key = contactKeyFrom(nameOrHandle, from);
     const ks = keysOf(nameOrHandle);
     const words = kindKeysOf(nameOrHandle, key);
@@ -194,7 +210,12 @@ export function readingOf(
       meet(carded, key, ks) ?? (bare ? cardNames.get(bare) : undefined);
     const isShared =
       !!bare && (names.get(bare) === null || cardNames.get(bare) === null);
+    // His word said of this very conversation is more specific than any ruling-out of the name everywhere.
+    const here = inConversation
+      ? words.flatMap((k) => saidIn.get(`${inConversation}|${k}`) ?? [])
+      : [];
     const tiers: (readonly [Reading["by"], string | null | undefined])[] = [
+      ...here.map((r) => ["his word", r] as const),
       ...words.map((k) => ["his word", said.get(k)] as const),
       ["truth", truth && `person:${truth}`],
       ["truth", named && `person:${named}`],
@@ -203,7 +224,8 @@ export function readingOf(
       ...guesses.map((g) => ["guess", g && `person:${g.id}`] as const),
     ];
     const found = tiers.find(
-      ([, r]) => r && !words.some((k) => not.has(`${k}|${r}`))
+      ([, r]) =>
+        r && (here.includes(r) || !words.some((k) => not.has(`${k}|${r}`)))
     );
     return found?.[1] ? { by: found[0], isShared, ref: found[1] } : null;
   };
@@ -213,13 +235,17 @@ export function readingOf(
     ...said.keys(),
     ...[...not].map((x) => x.split("|")[0]),
   ]);
-  return (nameOrHandle: string, from?: HandleFrom): Reading | null => {
+  return (
+    nameOrHandle: string,
+    from?: HandleFrom,
+    inConversation?: string
+  ): Reading | null => {
     const phone = lidPhones.get(nameOrHandle.trim());
     return (
       (phone &&
         !keysOf(nameOrHandle).some((k) => heard.has(k)) &&
         read(phone)) ||
-      read(nameOrHandle, from)
+      read(nameOrHandle, from, inConversation)
     );
   };
 }

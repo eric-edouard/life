@@ -18,7 +18,7 @@ afterAll(() => {
 });
 const sum = { billedUsd: 0, calls: 1, equivalentUsd: 0, tokens: 0 };
 
-test("read_spending: a past month's days as held, billed and equivalent apart by provider and kind, today live, unsettled Voice work counted, the top agents and matters by tokens and id, a pi turn billed apart", async () => {
+test("read_spending: a past month's days as held, billed and equivalent apart by provider and kind, today live, unsettled Voice work counted, the top matters by tokens and id, a pi turn billed apart", async () => {
   const book = await import("../memory/matters");
   const who = await import("../memory/who");
   const desk = await import("./desk-read");
@@ -97,13 +97,6 @@ test("read_spending: a past month's days as held, billed and equivalent apart by
     state: "ok",
     value: {
       anchors: [["asg_000000000001", { steps: ["obs_000000000001"] }]],
-      names: [
-        {
-          brief: "Test brief",
-          id: "agt_000000000001",
-          name: "Test shop agent",
-        },
-      ],
       turns: [
         {
           agent_id: "agt_000000000001",

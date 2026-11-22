@@ -6,9 +6,10 @@ import PendantProtocol
 import ServerAPI
 import SwiftUI
 
-/// Settings, a page of Profile, in the order of what breaks the app: what needs him, the two connections, what this
-/// phone allows, the Pendant, appearance, his data, help. It has pages of its own (Vocabulary, Light guide, Backup,
-/// a page per connection), which push in Profile's stack. Drawn only with `Row` and `RowGroup`.
+/// Settings, a page of Profile, in the order of what breaks the app: what needs him, what this phone allows, the
+/// agents, sending, dictation, the Pendant, Ask Life, appearance, help. Profile holds the connections, Spending, the
+/// vocabulary, the apps and his data. Its pages (Light guide, a connection's, Diagnostics, Live logs) push in Profile's
+/// stack. Drawn only with `Row` and `RowGroup`.
 struct SettingsView: View {
     let permissions: PermissionsStore
 
@@ -26,16 +27,13 @@ struct SettingsView: View {
     @State private var isLiveLogsOpen = false
     /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
     @State private var problems: String?
-    @State private var isAppsOpen = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             needsYou
-            connections
             allows
             agents
             sending
-            cards
             pendant
             dictation
             RowGroup(label: "Ask Life", surface: .sheet) {
@@ -57,8 +55,6 @@ struct SettingsView: View {
                 .padding(8)
                 .accessibilityIdentifier("settings.appearance")
             }
-            yourData
-            spending
             help
         }
         .motion(Motion.standard, value: needsYouRows)
@@ -75,7 +71,6 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
         .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage { page = .life } }
         .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
-        .navigationDestination(isPresented: $isAppsOpen) { AppsPage() }
         #if DEBUG
             .task {
                 switch LifeFixture.page {
@@ -84,7 +79,7 @@ struct SettingsView: View {
                 case "diagnostics": isDiagnosticsOpen = true
                 case "logs": isLiveLogsOpen = true
                 case "spending": router.show(.spending)
-                case "apps": isAppsOpen = true
+                case "apps": router.profilePath = [.apps]
                 default: break
                 }
             }
@@ -162,36 +157,6 @@ struct SettingsView: View {
     private var lifeSilence: String {
         let since = life.inbox.loadedAt.map { "Last read \($0.formatted(date: .omitted, time: .shortened)). " } ?? ""
         return since + "The Mac may be asleep."
-    }
-
-    // MARK: Connections
-
-    private var connections: some View {
-        RowGroup(label: "Connections", surface: .sheet) {
-            Button {
-                page = .life
-            } label: {
-                Row(title: "Life", icon: "desktopcomputer", detail: life.pairedOrigin?.addressWords ?? "No Mac paired")
-                {
-                    HStack(spacing: 8) {
-                        life.link.mark; RowValue()
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.life")
-            Button {
-                page = .server
-            } label: {
-                Row(title: "Pendant server", icon: "cloud", detail: sync.server?.addressWords ?? "No server paired") {
-                    HStack(spacing: 8) {
-                        sync.link.mark; RowValue()
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("pendant.settings.server")
-        }
     }
 
     // MARK: This phone allows
@@ -306,20 +271,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: Cards
-
-    private var cards: some View {
-        RowGroup(label: "Cards", surface: .sheet) {
-            Button {
-                isAppsOpen = true
-            } label: {
-                Row(title: "Apps", icon: "square.grid.2x2", detail: "The bank app a transfer opens") { RowValue() }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.apps")
-        }
-    }
-
     // MARK: Dictation
 
     /// Where his words are heard when he talks into any field: one choice, each with what it means.
@@ -380,18 +331,6 @@ struct SettingsView: View {
                 ) { minutes in Task { await sync.perform(.switches(openAppAfterMinutes: minutes)) } }
             }
             .accessibilityIdentifier("settings.openAppAfter")
-            NavigationLink {
-                VocabularyView()
-            } label: {
-                let words = serverVocabulary(feed: sync.feed.vocabulary, pending: sync.pending)
-                Row(
-                    title: "Vocabulary", icon: "textformat",
-                    detail: words.shown.map { $0.count == 1 ? "1 word" : "\($0.count) words" },
-                    state: words == .asking ? .asking : .known
-                ) { RowValue() }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.vocabulary")
             Row(title: "Warn me at low battery", icon: "bolt.batteryblock") {
                 RowMenu(
                     title: "Warn me at low battery",
@@ -444,48 +383,7 @@ struct SettingsView: View {
         if case .ready = capture.shown.connection { true } else { false }
     }
 
-    // MARK: Your data, help
-
-    private var yourData: some View {
-        RowGroup(label: "Your data", surface: .sheet) {
-            NavigationLink {
-                BackupView()
-            } label: {
-                Row(title: "Backup", icon: "square.and.arrow.up") {
-                    HStack(spacing: 8) {
-                        if backupValue == nil { StateGlyph.busy }
-                        RowValue(text: backupValue)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("pendant.settings.backup")
-        }
-    }
-
-    /// What Life costs: one plain row, no figure on it (a figure is never in front of him unless he opens it).
-    private var spending: some View {
-        RowGroup(surface: .sheet) {
-            Button {
-                router.show(.spending)
-            } label: {
-                Row(title: "Spending", icon: "chart.bar") { RowValue() }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.spending")
-        }
-    }
-
-    /// The backup row's value; nil until the status is read.
-    private var backupValue: String? {
-        guard sync.server != nil else { return "Not paired" }
-        guard let backup = sync.backup else { return nil }
-        guard let at = backup.snapshot?.recordedAt else { return "None yet" }
-        let time = at.formatted(date: .omitted, time: .shortened)
-        if Calendar.current.isDateInToday(at) { return "Today, \(time)" }
-        if Calendar.current.isDateInYesterday(at) { return "Yesterday, \(time)" }
-        return at.formatted(date: .abbreviated, time: .shortened)
-    }
+    // MARK: Help
 
     /// "2 problems" from one page of the log's problems; "100+" when the page is full of the last hour's. Nil when there
     /// are none, or the read failed: the row never says none it does not know.
