@@ -79,7 +79,9 @@ struct ListButton: View {
     @Environment(LifeStore.self) private var life
 
     var body: some View {
-        Button { router.toggleList() } label: {
+        Button {
+            router.toggleList()
+        } label: {
             Image(systemName: router.isListShown ? "xmark" : "line.3.horizontal")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(Palette.fg).frame(width: 48, height: 48)
