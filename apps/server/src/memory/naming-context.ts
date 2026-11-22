@@ -1,8 +1,7 @@
 import { DAY, HOUR, MIN } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
-import type { Organization } from "../records/truth";
 import type { DetailLine } from "./details";
-import { OWNER } from "./read-truth";
+import { OWNER, projectPeopleAndChatsOf, type Truth } from "./read-truth";
 import { sourceOf } from "./sources";
 import { callLine, callSpanOf, chatPerson, clip, holdsName } from "./units";
 import type { People } from "./who";
@@ -209,25 +208,24 @@ export function isHeardAround(
 }
 
 /**
- * Who a plan's subject brings to a meeting: a project's or an organization's people, as his directory lists them now
- * (an organization's `people` with no `until`, for a project those of every organization that holds it), else the
- * subject itself. A meeting set by an invitation names the client's project, rarely each guest (his report of 22 Nov).
+ * Who a plan's subject brings to a meeting: a project's people as his directory holds them (`projectPeopleAndChatsOf`),
+ * an organization's current `people` (no `until`) in its place, else the subject itself. A meeting set by an invitation
+ * names the client's project, rarely each guest (his report of 22 Nov).
  */
 export function plannedPeopleOf(
   subject: string,
-  organizations: readonly Pick<Organization, "id" | "people" | "projects">[]
+  truth: Pick<Truth, "chats" | "organizations" | "people" | "projects">
 ) {
   const project = subject.startsWith("project:")
-    ? subject.slice("project:".length)
+    ? projectPeopleAndChatsOf(truth, subject.slice("project:".length))
     : null;
-  const held = organizations.filter((o) =>
-    project ? o.projects.includes(project) : subject === `person:${o.id}`
-  );
-  return held.length > 0
-    ? held.flatMap((o) =>
-        o.people.filter((p) => !p.until).map((p) => `person:${p.id}`)
-      )
-    : [subject];
+  const refs = project?.people.map((p) => `person:${p.id}`) ?? [subject];
+  return refs.flatMap((r) => {
+    const o = truth.organizations.find((x) => `person:${x.id}` === r);
+    return o
+      ? o.people.filter((p) => !p.until).map((p) => `person:${p.id}`)
+      : [r];
+  });
 }
 
 /**

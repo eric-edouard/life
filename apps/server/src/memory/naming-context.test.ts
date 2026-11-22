@@ -216,25 +216,36 @@ test("a plan for that day is offered before the people heard in the 90 days, who
 });
 
 // His report of 22 Nov: a client meeting set by an invitation was planned with the client's project, not its guests.
-test("a plan's project or organization brings that organization's people, past members left out", () => {
-  const organizations = [
-    {
-      id: "acme",
-      people: [
-        { id: "ceo", role: "CEO" },
-        { id: "old", role: "sales", until: 2025 },
-      ],
-      projects: ["acme-site"],
-    },
-  ];
-  expect(plannedPeopleOf("project:acme-site", organizations)).toEqual([
+test("a plan's project or organization brings its people, an organization's past members left out", () => {
+  const party = (id: string, projects: string[] = []) => ({
+    aliases: [],
+    handles: {},
+    id,
+    name: id,
+    projects,
+  });
+  const truth = {
+    chats: [],
+    organizations: [
+      {
+        ...party("acme", ["site"]),
+        domains: [],
+        people: [
+          { id: "ceo", role: "CEO" },
+          { id: "old", role: "sales", until: 2025 },
+        ],
+      },
+    ],
+    people: [party("dev", ["site"])],
+    projects: [{ chats: [], id: "site", people: ["lead"] }],
+  } as unknown as Parameters<typeof plannedPeopleOf>[1];
+  expect(plannedPeopleOf("project:site", truth)).toEqual([
+    "person:dev",
     "person:ceo",
   ]);
-  expect(plannedPeopleOf("person:acme", organizations)).toEqual(["person:ceo"]);
-  expect(plannedPeopleOf("person:ana", organizations)).toEqual(["person:ana"]);
-  expect(plannedPeopleOf("project:other", organizations)).toEqual([
-    "project:other",
-  ]);
+  expect(plannedPeopleOf("person:acme", truth)).toEqual(["person:ceo"]);
+  expect(plannedPeopleOf("person:ana", truth)).toEqual(["person:ana"]);
+  expect(plannedPeopleOf("project:other", truth)).toEqual(["project:other"]);
 });
 
 test("at most 12 are offered, those on a call before the rest, the most recently heard first", () => {

@@ -256,7 +256,7 @@ async function readDayFacts(dates: string[], people: People) {
       }
       if (o.modality === "plan" && o.when && dates.includes(o.when)) {
         const plans = scheduled.get(o.when) ?? new Map<string, string>();
-        for (const p of plannedPeopleOf(s, people.truth.organizations)) {
+        for (const p of plannedPeopleOf(s, people.truth)) {
           plans.set(p, o.text);
         }
         scheduled.set(o.when, plans);
