@@ -166,6 +166,23 @@ line per block in the door's description, always in context (it also tells the s
 block fits, the session answers in words (with `life:` links) and Life records the miss with what was being shown; the
 catalog grows from those records, each new block designed, never improvised.
 
+**The owner's direction of 23 Nov 2026: a component library the agent composes.** His real questions showed that a
+good answer's shape depends on its content (a bead order as a table, a shop's receipt in its own type, a phrase in
+Thai with his language under it): no fixed set of blocks foresees them. Generated HTML would, but costs tokens and
+brings every web hassle. So Life writes its own library of small display components, already in its brand, and the
+agent composes them per answer as JSON, the way [json-render](https://github.com/vercel-labs/json-render) (Vercel
+Labs, Apache-2.0) does. Borrowed from it: the catalog as zod schemas, from which the agent's instructions are generated
+(Life's card pattern: one line per component always in context, `fetch("show/<name>")` for the rest); a flat spec
+streamed in patches, so blocks appear as they are written; the model never writing layout or style. Not borrowed: its
+React and shadcn components (the app draws each one natively in SwiftUI), and actions in the spec. Life's rules hold:
+
+- What acts stays Life's own and fixed: an item (ask, matter) is a ref with its states, answers and Undo; no
+  component the agent composes can act, only open a link on his tap or show a picture full screen.
+- What Life holds goes as a ref the app reads (a photo, a message, a place); values the agent writes (a table, a
+  translation) are checked against the sources the answer cites before they show, like the words.
+- The library starts from what the 23 Nov answers needed (Markdown text, a table, pictures, a phrase to say, a
+  document as sent, a place) and grows by the misses recorded, each component designed once.
+
 ## The order of the work (for the plan)
 
 The owner's yes of 23 Nov 2026: the plan orders its work by what most lowers his load, so the first big PRs go where
