@@ -166,22 +166,27 @@ line per block in the door's description, always in context (it also tells the s
 block fits, the session answers in words (with `life:` links) and Life records the miss with what was being shown; the
 catalog grows from those records, each new block designed, never improvised.
 
-**The owner's direction of 23 Nov 2026: a component library the agent composes.** His real questions showed that a
-good answer's shape depends on its content (a bead order as a table, a shop's receipt in its own type, a phrase in
-Thai with his language under it): no fixed set of blocks foresees them. Generated HTML would, but costs tokens and
-brings every web hassle. So Life writes its own library of small display components, already in its brand, and the
-agent composes them per answer as JSON, the way [json-render](https://github.com/vercel-labs/json-render) (Vercel
-Labs, Apache-2.0) does. Borrowed from it: the catalog as zod schemas, from which the agent's instructions are generated
-(Life's card pattern: one line per component always in context, `fetch("show/<name>")` for the rest); a flat spec
-streamed in patches, so blocks appear as they are written; the model never writing layout or style. Not borrowed: its
-React and shadcn components (the app draws each one natively in SwiftUI), and actions in the spec. Life's rules hold:
+**For the plan to decide, not a decision yet (the owner, 23 Nov 2026: "I'm not sure; make the best decision on what
+we got").** His real questions showed that a good answer's shape depends on its content (a bead order as a table, a
+shop's receipt in its own type, a phrase in Thai with his language under it), which a small fixed set of blocks may
+not foresee. Three ways are on the table; the plan weighs them on the research above, on
+[json-render](https://github.com/vercel-labs/json-render) (Vercel Labs, Apache-2.0: a catalog of components defined
+as zod schemas, from which the model's instructions are generated; the model writes a flat JSON spec, streamed in
+patches, never layout or style; React and shadcn components) and on MCP Apps (the official MCP extension of
+26 Jan 2026: a server's predesigned HTML in a sandboxed frame), and picks one, saying why:
 
-- What acts stays Life's own and fixed: an item (ask, matter) is a ref with its states, answers and Undo; no
-  component the agent composes can act, only open a link on his tap or show a picture full screen.
-- What Life holds goes as a ref the app reads (a photo, a message, a place); values the agent writes (a table, a
-  translation) are checked against the sources the answer cites before they show, like the words.
-- The library starts from what the 23 Nov answers needed (Markdown text, a table, pictures, a phrase to say, a
-  document as sent, a place) and grows by the misses recorded, each component designed once.
+1. Fixed blocks, as recommended above: each designed whole, the agent only picks them and gives refs.
+2. A library of smaller display components, already in Life's brand, that the agent composes per answer as JSON
+   (json-render's way, drawn natively in SwiftUI): more shapes for few tokens; the risk is a library that drifts into
+   layout primitives, which the recommendation above warns against.
+3. Generated HTML in a sandboxed web view: any shape, but slow, costly in tokens, and every web hassle (Dynamic Type,
+   VoiceOver, dark mode).
+
+Whatever it picks, these hold: what acts (an ask, a matter, answers, Undo) stays Life's own and fixed, and nothing
+composed can act beyond opening a link on his tap or a picture full screen; what Life holds goes as a ref the app
+reads; values the agent writes (a table, a translation) are checked against the sources the answer cites before they
+show; and it must cover the 23 Nov answers (Markdown text, a table, pictures, a phrase to say, a document as sent, a
+place: the [answers page](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R), private to the owner).
 
 ## The order of the work (for the plan)
 

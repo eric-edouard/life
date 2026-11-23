@@ -179,9 +179,9 @@ Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to
   their states, pictures, a table, a phrase to say, a place.
 - A picture, or a phrase to show someone, opens full screen on a tap (owner, 23 Nov 2026: worth it, the one
   exception to "nothing opens a screen", since holding the phone up is the task).
-- The agent composes those shapes per answer from Life's own component library, as JSON, already branded (owner, 23 Nov 2026; the plan, "Life's own catalog of blocks").
+- How those shapes are made (fixed blocks, components the agent composes, or generated HTML) is the plan's to decide (the plan, "Life's own catalog of blocks").
 
 ## Open
 
-- Which components the library starts with, and each one's look.
+- How the answer shapes are made (the plan decides).
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.
