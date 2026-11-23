@@ -53,7 +53,7 @@ reached; where the two differ, this page wins. The plan is
   His own words appear at once; under Reduce Motion everything appears whole.
 - A page-sized answer of Life's (a matter, a person, a list longer than the screen) shows whole while it is the
   latest, and collapses into its card when he next writes.
-- A real document (an attached PDF, a long mail) opens in the system's own viewer; nothing of Life's opens a screen.
+- A real document (an attached PDF, a long mail) opens in the system's own viewer; nothing of Life's opens a screen but a picture or a phrase to show someone, full screen ("Answers to his questions").
 
 ## Items
 
@@ -169,7 +169,19 @@ the item shows.
 - From AI chat apps: many conversations, a sidebar, regenerate, edit a message, copy, a model picker, a trace of
   the work.
 
+## Answers to his questions
+
+Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to say at the shop).
+
+- Life's words are full Markdown, as he knows it from AI chat apps: headings, lists, bold, quotes, code, tables,
+  images, `life:` names that unfold. He will ask about people, patterns, his past, not only lookups.
+- Under the words, only what the answer is about, never a data model's page: the things that wait as item rows in
+  their states, pictures, a table, a phrase to say, a place.
+- A picture, or a phrase to show someone, opens full screen on a tap (owner, 23 Nov 2026: worth it, the one
+  exception to "nothing opens a screen", since holding the phone up is the task).
+- Open: whether those shapes are a fixed catalog or drawn by the agent per answer, in Life's brand (the plan).
+
 ## Open
 
-- Answers to his own questions ("where are we with the boiler?"): most of his use, not designed yet.
+- How the answer shapes are made (above).
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.
