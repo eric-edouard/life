@@ -58,7 +58,8 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
   asked "show me the boiler matter", it is simply there. It collapses into a preview when the owner sends the next
   message, never on its own.
 - A collapsed matter is a row on a subtle solid card: the face or initial, the title, one line of where it stands. It
-  shows the thing as it is now, never a snapshot.
+  shows the thing as it is now, never a snapshot. Its line has the same shape as a waiting row's: what it is, then
+  when it is due ("240 € for the leak · Fri"), coral only for today; a matter with no date shows none.
 - Tapping a preview, a row or a person opens the page with the system's zoom out of what was tapped
   (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the same spot.
 - What a page adds to the thread: looked and left, nothing; an act, one line with Undo; words asked on it, the
