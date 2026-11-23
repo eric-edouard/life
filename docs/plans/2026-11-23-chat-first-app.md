@@ -82,7 +82,7 @@ These came out of the discussion; the ones marked as proposed were drawn without
 - The owner's decision of 23 Nov 2026: action buttons (Later, Send, any act) show only on the thread's latest item;
   older items keep only their tap to open.
 - What a page adds to the thread: looked and left, nothing; an act on it (Send, Done, Pay), one line ("Sent to
-  Camille · Undo"), which is also the history of what Life did; words asked on a pushed page, the exchange, marked
+  Camille"; Undo only on what can be taken back, never a send), which is also the history of what Life did; words asked on a pushed page, the exchange, marked
   "Asked on Boiler repair" (on the expanded latest page, no marker: it is already the conversation).
 - Proposed: nothing moves by itself after an act. After Send, two buttons offer the next item or the list.
 - Proposed: an answer that arrives while the owner is elsewhere comes as a note with See, never a jump; ignored, the

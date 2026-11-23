@@ -80,7 +80,7 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 - Action buttons (Later, Send, Mark as done, any act) show only on the latest item of the thread. Once anything newer
   arrives, older items keep only their tap to open: the history is read, not acted on in place, and only the newest
   thing asks for a decision.
-- What a page adds to the thread: looked and left, nothing; an act, one line with Undo; words asked on it, the
+- What a page adds to the thread: looked and left, nothing; an act, one line, with Undo only when it can be taken back; words asked on it, the
   exchange marked "Asked on <page>".
 
 ## What waits on you
@@ -120,7 +120,7 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
   waiting on someone has no action bar: one line and their last message.
 - Every action reads the same way, on a row or a page: the button turns to doing (a spinner and "Sending…"), then to
   done (a tick and "Sent", green) for one second, and only then does anything move (the row leaves, the page shows
-  its done state, a line with Undo lands in the thread). It shows the owner that Life did it and recorded it.
+  its done state, a line lands in the thread, with Undo only when it can be taken back). It shows the owner that Life did it and recorded it.
 - An ask that is done leaves what waits on you, and the count goes down.
 
 ## Tried on the owner's real asks
@@ -226,6 +226,15 @@ between two places), and what changed because of it:
 - What the button already shows covers most failures: "Sending…" waits for the real outcome, then Sent, or the
   failure on the button itself ("Not sent", tap to try again; "May have gone"). Left to design: someone wrote in the
   chat since (their message shown above the button), his words while the phone is offline, and Life failing to answer.
+
+- A send has no Undo (owner, 23 Nov 2026): Life sends at once, on the exact text he approved, and nothing takes a
+  message back. Undo stays on what Life only records or schedules (Later, marked done, a payment noted, an
+  appointment). No hold-before-send delay: the safeguard is that he saw the whole draft.
+- Answered on the notification: his answer enters the thread as his bubble in the card's own words ("Send the
+  recap"), the bell and the time under it, after the ask's folded card and before Life's line ("Sent to Idris"). It
+  records who decided, which matters most for a send in his name, and follows the rule the count and opening an ask
+  already use: a tap made outside the thread's own buttons enters it as his words. (In the app his tap on the
+  button is seen happening, so it stays in place.)
 
 ## Open
 
