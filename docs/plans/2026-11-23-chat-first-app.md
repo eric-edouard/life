@@ -44,8 +44,8 @@ These came out of the discussion; the ones marked as proposed were drawn without
   always-on badge with the count, not a message. Tapping it plays a shortcut: a bubble from the owner, "What's waiting
   on me?", and Life's answer ("9 things wait on you. The most pressing first." with the rows). Both are built by code
   from the inbox (`openChecksNow`, `inboxOrderOf`), never by the model: instant, offline, and never leaving an ask out,
-  which the inbox invariant requires. The badge reads the same words as the bubble, so the bubble is the tap said
-  aloud and holds no surprise. With nothing waiting, the badge goes rather than saying all is well (brand rule).
+  which the inbox invariant requires. The badge is only the count and the flag dot, no words (brand: minimal); the
+  pendant's pill is only its dot. With nothing waiting, the badge goes rather than saying all is well (brand rule).
 - The shortcut's bubble is not the owner's words. It reaches the main session as an event of the screen ("the owner
   opened what's waiting", with the rows' refs, as `MainSessionScreen` carries), never as text that `hisWordsIn` could
   find, so no act can take its `said` from a tap. The owner's next words ("the second one", "do the plumber first")

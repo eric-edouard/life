@@ -31,6 +31,9 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   600), muted, in sentence case: no capitals anywhere (owner, 19 Nov 2026). Web pages load it from Google Fonts
   through tokens.css; mail loads no web font, so it shows Manrope only where installed. The phone bundles Manrope.
 - **Hierarchy.** Size and weight carry it, not colour: one filled button for the primary action, the others quiet.
+- **Minimal** (owner, 23 Nov 2026: "minimalism is our brand"): a control shows a mark or a number, never a word
+  label, wherever a mark or a number can say it (the waiting count, the pendant's dot, the microphone, Send). Words go
+  to VoiceOver labels, not on screen. Ease for anyone comes from fewer things on screen, not from labelled buttons.
 - **Voice** (owner, 23 Nov 2026): a button that starts voice is always the microphone. The voice-bars glyph appears
   only while someone is speaking, and then it moves with the voice; it is never a static icon or a button.
 - **Shape.** Controls 12 px radius, panels 22 px, buttons full pills in the app, icon strokes 1.5 px, spacing 8, 16, 24,
