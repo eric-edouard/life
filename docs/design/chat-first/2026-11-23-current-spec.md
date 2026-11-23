@@ -62,6 +62,10 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 
 ### Its states, wherever it shows
 
+The grid grows with what really happens (owner, 23 Nov 2026: chat apps are complex for good reasons); what it never
+does is allow a state outside it. A new state gets its row here (its line, its tap, its Undo), and holds in every place
+the item shows.
+
 | State | Its line (row and card alike) | Tap | Undo |
 |---|---|---|---|
 | Needs you | What it is about · when it is due (coral only for today) | Unfolds it | — |
