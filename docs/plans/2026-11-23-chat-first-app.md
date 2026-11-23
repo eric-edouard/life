@@ -188,6 +188,13 @@ reads; values the agent writes (a table, a translation) are checked against the 
 show; and it must cover the 23 Nov answers (Markdown text, a table, pictures, a phrase to say, a document as sent, a
 place: the [answers page](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R), private to the owner).
 
+A starting library to weigh, drawn on 23 Nov 2026 ([components page](https://claude.ai/artifact/8rseTbvcmkZTWfEdewW9Md),
+private to the owner): `text` (Markdown), `items` (Life's own, refs, they act), `pictures` (photo refs, full screen on
+a tap), `table` (groups, notes per cell, a total, `from`), `phrase` (`lang`, `text`, his words under it; said aloud,
+shown full screen), `document` (a paper as sent: `from`, title, key lines, total), `place` (a ref, or a name and an
+address). The three answers drew from them alone, each spec about 140 to 170 tokens with Life's words. It serves
+option 1 or 2 alike: the same seven, picked whole or composed.
+
 ## The order of the work (for the plan)
 
 The owner's yes of 23 Nov 2026: the plan orders its work by what most lowers his load, so the first big PRs go where
