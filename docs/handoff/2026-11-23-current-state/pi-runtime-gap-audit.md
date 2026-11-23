@@ -1,4 +1,4 @@
-# Pi runtime: an outside gap audit (24 Nov 2026)
+# Pi runtime: an outside gap audit (23 Nov 2026)
 
 Explanation: an outside audit of Life's pi runtime against Oh My Pi (OMP), Claude Code and Codex, which the owner
 brought in as input for the overhaul's plan (issue #1373). Not to be taken at face value: the benchmark is one small

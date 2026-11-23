@@ -458,6 +458,8 @@ ruling of 29 Oct).
 
 ## Workflow
 
+- Handoffs, research, audits and plans are dated (his word of 23 Nov 2026): one file is `YYYY-MM-DD-<name>.md`; several
+  files go in one folder `YYYY-MM-DD-<name>/`, in `docs/handoff/`, `docs/plans/` or where they belong.
 - A branch and a PR per change, small commits. Prefer deleting code to adding it; one way to do each thing; docs stay
   short and written for humans.
 - Every PR follows the `work-on-code` skill where available: a debt plan checked before code, and the debt
