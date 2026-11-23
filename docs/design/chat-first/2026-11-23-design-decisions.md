@@ -177,7 +177,9 @@ between two places), and what changed because of it:
 - An ask comes into the thread (the default). A page-sized thing follows the thread's rule (expanded while latest,
   collapsed after); the zoom to full screen is only for opening a preview from the history.
 - Accepted cost of the thread: an ask opened from a list appears again at the bottom. Its row in the list dims, so
-  it reads as opened, not as a second ask.
+  it reads as opened, not as a second ask. Opening another row adds that ask below; the ones opened before stay as
+  they are (only the newest keeps its buttons). Tapping a row whose ask is already below scrolls to it and lights it
+  once, never a second copy.
 - Motion is dialled back only after the owner has used it on the phone.
 - Next: the unhappy paths (a send that fails, offline, what is broken first, nothing waiting), then the path from a
   notification.
