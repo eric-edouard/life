@@ -73,7 +73,7 @@ the item shows.
 | Under way | What Life is doing ("Contacting Clinic North"), a small spinner | None | Life tries to stop it |
 | Waiting on someone | What it waits on · when ("Waiting on Tomas's quote · Thu") | Unfolds it to read | — |
 | Settled | A tick and how it ended ("Sent to Nora", "Dropped") | None: it is history | While Life can still try; never a send |
-| Outdated | Why: someone wrote since, he replied there himself, or a newer card replaced it (look being chosen) | None | — |
+| Outdated | The whole row faded to the back, its line the reason ("Nora wrote since", "You replied in WhatsApp") | None | — |
 
 - An item changes state where it is. It never moves or vanishes: a list keeps its rows, the count says what is left.
 - The item says how it stands, so no line repeats it. Life's lines are only for what happens between items: a
@@ -164,5 +164,5 @@ the item shows.
 ## Open
 
 - Answers to his own questions ("where are we with the boiler?"): most of his use, not designed yet.
-- The outdated look (five proposals) and the system messages' family (first pass).
+- The system messages' family (first pass).
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.

@@ -312,6 +312,9 @@ between two places), and what changed because of it:
   one system message says he is offline, part of a family of system messages still to design; a failed answer
   never offers the caretaker.
 
+- An outdated ask is faded (owner, 23 Nov 2026, over struck through, a pointer to its replacement, a ghost line and a
+  hollow face): the whole row to the back, its line the reason.
+
 ## Open (see the current spec's)
 
 - The icons of the two always-on buttons.
