@@ -137,8 +137,6 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 
 ## Open
 
-- An ask taller than the view hides its answers below the field. Proposed: the answer bar sticks above the field while
-  the ask is on screen.
 - Answers to his own questions ("where are we with the boiler?"): most of his use, not designed yet.
 - Unhappy paths left: someone wrote in the chat since the ask, his words while offline, Life failing to answer.
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.
