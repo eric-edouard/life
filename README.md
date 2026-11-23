@@ -9,6 +9,8 @@ what's open.
 
 <sub>Early: one user so far, installed from source on an Apple-silicon Mac that stays on.</sub>
 
+> **Deprecated:** this README describes Life before the app overhaul ([#1373](https://github.com/eric-edouard/life/issues/1373)) and is no longer kept up to date. Until it is rewritten, see [`docs/product.md`](docs/product.md) and [`docs/handoff/current-state/`](docs/handoff/current-state/).
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-181818.svg)](LICENSE)
 ![macOS 14+ on Apple silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-181818.svg)
 ![Local first](https://img.shields.io/badge/memory-on%20your%20Mac-181818.svg)
