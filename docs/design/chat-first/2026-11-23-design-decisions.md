@@ -253,6 +253,12 @@ between two places), and what changed because of it:
   said it three times). Three ways being compared; the default folds the ask into its card as asked, with Life's line
   under it saying how it ended, the same shape as an answer from a notification.
 
+- One rule for every item's taps (owner's report, 23 Nov 2026: a sent reply's card could be tapped again, replaying
+  his "Reply to Camille" and a done page with Reopen): an item is tappable only while it needs him or is under way.
+  Once settled it is history, like a past message in a chat: no tap, no Reopen, its due date no longer coral; how it
+  ended is the line under it. Bringing it back is the Undo's Reopen, or asking Life. Only rows of a list dim when
+  their ask is opened below.
+
 ## Open
 
 - The icons of the two always-on buttons.
