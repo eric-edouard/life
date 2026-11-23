@@ -184,6 +184,14 @@ between two places), and what changed because of it:
 - Next: the unhappy paths (a send that fails, offline, what is broken first, nothing waiting), then the path from a
   notification.
 
+- No "more details" button on an ask, and no full-screen view of all its details (the owner's word of 23 Nov 2026,
+  catching himself). An ask already shows what he needs to answer; everything else Life holds stays behind the field,
+  where he can ask for it. A view of all details makes sense to whoever builds Life, not to someone who wants things
+  done with little to think about.
+- The test for any UI idea, his or ours: does it help the owner get something done, with less to think about? If it
+  serves the builder's view (completeness, inspection, "just in case"), it is out. Whoever designs with him says so
+  when an idea fails that test, before building it.
+
 ## Open
 
 - The icons of the two always-on buttons.
