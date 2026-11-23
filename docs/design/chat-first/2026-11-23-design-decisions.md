@@ -192,6 +192,10 @@ between two places), and what changed because of it:
   serves the builder's view (completeness, inspection, "just in case"), it is out. Whoever designs with him says so
   when an idea fails that test, before building it.
 
+- An ask he skips is closed, never left with live buttons: when he does something else (types, speaks, opens another
+  ask, taps what waits), the ask's buttons go and one quiet line closes it, right under the ask and before his new
+  message: "Left for now, still waiting on you" (no repeat of the ask's title). It stays in the list.
+
 ## Open
 
 - The icons of the two always-on buttons.
