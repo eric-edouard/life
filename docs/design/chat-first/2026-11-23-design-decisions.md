@@ -1,7 +1,8 @@
 # Chat-first app: design decisions of 23 Nov 2026
 
-Explanation: what the owner decided, and what was learned, while designing the chat-first app's shell and first
-components on 23 Nov 2026. The plan is [`docs/plans/2026-11-23-chat-first-app.md`](../../plans/2026-11-23-chat-first-app.md);
+Explanation: the history of the design session of 23 Nov 2026, in the order things were decided, including what was
+later reversed. **What the app does now is [`2026-11-23-current-spec.md`](2026-11-23-current-spec.md), which wins
+wherever this log differs**; read this log only to learn why something was decided. The plan is [`docs/plans/2026-11-23-chat-first-app.md`](../../plans/2026-11-23-chat-first-app.md);
 the product rules are [`docs/product.md`](../../product.md); the brand is [`docs/brand.md`](../../brand.md). The canvas is
 [Life app (Chat)](https://claude.ai/artifact/CwiSJncrntgP6CsKSFrkpu); the clickable shell is the
 [shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg). Both are private to the owner.
@@ -259,7 +260,7 @@ between two places), and what changed because of it:
   ended is the line under it. Bringing it back is the Undo's Reopen, or asking Life. Only rows of a list dim when
   their ask is opened below.
 
-- The item states grid (owner, 23 Nov 2026), [`2026-11-23-item-states.md`](2026-11-23-item-states.md), replaces the
+- The item states grid (owner, 23 Nov 2026), (now in [`2026-11-23-current-spec.md`](2026-11-23-current-spec.md), "Items"), replaces the
   per-path rules above where they differ: an item has one state (needs you, Later, under way, waiting on someone,
   settled), shown alike wherever it appears; it changes state where it is and never moves or vanishes (a sent row
   stays in its list, Later shows on the row); the item says how it ended, so no line below repeats it (this settles
@@ -298,7 +299,11 @@ between two places), and what changed because of it:
   just answered there (what usually comes after it), or else what his last action brought to the bottom of the thread
   (Life's newest answer), even while older items stay unfolded above.
 
-## Open
+- The log folded into one current spec (owner, 23 Nov 2026): [`2026-11-23-current-spec.md`](2026-11-23-current-spec.md).
+  The two "your turn" ways of opening are dropped: an item unfolds where it is. "Left for now" stays, for an ask Life
+  brought to the bottom.
+
+## Open (see the current spec's)
 
 - The icons of the two always-on buttons.
 - What Later offers (a fixed "tomorrow morning", or a few choices).

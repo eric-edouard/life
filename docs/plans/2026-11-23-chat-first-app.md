@@ -49,9 +49,9 @@ These came out of the discussion; the ones marked as proposed were drawn without
   dot per row, no dividers, no line of what Life prepared (that shows once the thing is open). Each thing is a row on
   its own solid rounded background (`card`, no gradient, no border): who it is about (their picture or initial; an
   organization's mark), their name, what it is in a few words with when it is due (coral only for today), and a quiet
-  Later pill on the right. The whole row is the tap: the thing opens in the thread, ready to act on. Later takes the row out,
-  lowers the count and leaves one line ("Pay the plumber, tomorrow morning · Undo"). Details and the other decisions
-  of the design session: [`docs/design/chat-first/2026-11-23-design-decisions.md`](../design/chat-first/2026-11-23-design-decisions.md).
+  Later pill on the right. The whole row is the tap: the item unfolds where it is, ready to act on. What the app does
+  today, in one place: [`docs/design/chat-first/2026-11-23-current-spec.md`](../design/chat-first/2026-11-23-current-spec.md),
+  which wins over this page's older lines where they differ.
 - The shortcut's bubble is not the owner's words. It reaches the main session as an event of the screen ("the owner
   opened what's waiting", with the rows' refs, as `MainSessionScreen` carries), never as text that `hisWordsIn` could
   find, so no act can take its `said` from a tap. The owner's next words ("the second one", "do the plumber first")
@@ -166,11 +166,24 @@ line per block in the door's description, always in context (it also tells the s
 block fits, the session answers in words (with `life:` links) and Life records the miss with what was being shown; the
 catalog grows from those records, each new block designed, never improvised.
 
+## The order of the work (for the plan)
+
+The owner's yes of 23 Nov 2026: the plan orders its work by what most lowers his load, so the first big PRs go where
+the load is decided, not to the most visible part.
+
+1. **Ask quality:** few, clear asks (below). It decides the load more than any screen.
+2. **The thread:** the field, the thread and items with their states, unfolding, answering
+   ([the current spec](../design/chat-first/2026-11-23-current-spec.md)).
+3. **Notifications:** the notification as the ask, answers on it entering the thread, arrivals in the app.
+4. **Undo,** once the rest works (below).
+
+Then, in a planning session of its own, the prediction layer (end of this page).
+
 ## Items have one set of states (for the plan)
 
-Every ask and matter the app shows follows one grid of states, wherever it appears (a list row, a folded card, the
-open ask): [`docs/design/chat-first/2026-11-23-item-states.md`](../design/chat-first/2026-11-23-item-states.md). The
-app builds it once, as one model of an item's state read live from Life, not per screen.
+Every ask and matter the app shows follows one grid of states, wherever it appears (a list row, a folded card, an
+unfolded item): [the current spec](../design/chat-first/2026-11-23-current-spec.md), "Items". The app builds it once,
+as one model of an item's state read live from Life, not per screen.
 
 ## Ask quality comes first (for the plan)
 
@@ -188,7 +201,7 @@ polish:
   asks at all (ranked, not every card), on the lock screen and in the app alike, is the plan's to decide with the
   ranking (the owner's word of 23 Nov 2026). The design's proposal meanwhile: in the app, an unrelated ask follows
   its push level (off or quiet, only the count; normal or urgent, it lands once he is free); a follow-up to what he
-  just did always lands (`docs/design/chat-first/2026-11-23-design-decisions.md`).
+  just did always lands (`docs/design/chat-first/2026-11-23-current-spec.md`).
 - Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
   prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
 
