@@ -62,6 +62,10 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
   when it is due ("240 € for the leak · Fri"), coral only for today; a matter with no date shows none.
 - Tapping a preview, a row or a person opens the page with the system's zoom out of what was tapped
   (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the same spot.
+- Whatever Life adds to the thread (its words, a list, a page, an ask, a line) comes in progressively, like
+  dictated words: text word by word, blocks one after another, each from blurred to sharp. The thread follows as it
+  grows and stops with the new block's top in view. The owner's own words appear at once. Under Reduce Motion,
+  everything appears whole.
 - Action buttons (Later, Send, Mark as done, any act) show only on the latest item of the thread. Once anything newer
   arrives, older items keep only their tap to open: the history is read, not acted on in place, and only the newest
   thing asks for a decision.
