@@ -126,6 +126,13 @@ between two places), and what changed because of it:
   on its row: answering takes a second, and an unanswered decision waits anyway.
 - A rich choice shows each option as a row with its few deciding facts and Life's pick marked; the pick is preselected
   and the button names it ("Contact Clinic North").
+- An option that is a place carries its map: a round pin button on the option opens it in Maps (or the place's
+  business page), without picking it.
+- Alternatives are real buttons: quiet pills (`tint`) in a row above the bar, never bare text.
+- No one can foresee every ask. What makes that safe: asks are built from a few typed parts, and an option can carry
+  the same parts as a card (a place, a link, an amount) from the registry of card needs; anything the parts don't fit
+  still renders through a plain fallback (text, answer buttons, links); every fallback is recorded as a miss, and the
+  owner's real inbox, run through the prototype from time to time, is the test set that surfaces new kinds.
 - At most one line of why under the header; the rest of a card's long context stays reachable, not shown.
 - Naming voices is a separate, larger problem (many open voice cards), left for later.
 
