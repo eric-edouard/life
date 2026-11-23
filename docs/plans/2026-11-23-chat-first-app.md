@@ -50,6 +50,11 @@ These came out of the discussion; the ones marked as proposed were drawn without
   opened what's waiting", with the rows' refs, as `MainSessionScreen` carries), never as text that `hisWordsIn` could
   find, so no act can take its `said` from a tap. The owner's next words ("the second one", "do the plumber first")
   are a normal ask, about the rows on screen.
+- The owner's decision of 23 Nov 2026: the pendant's button is always on screen too, beside the badge, as today's top
+  bar has it (it opens the Pendant sheet, `PendantView`). It is a control, not a question: pausing in front of someone
+  must be one tap, instant, never a turn of the main session. So it opens the sheet rather than playing a bubble. It
+  shows the pendant's state itself: the recording dot while it records (one of the brand's three things that move by
+  themselves), a flag when something needs the owner (not paired, offline, battery low, not recording when it should).
 - Proposed: the same pattern for the other fixed doors (Today, People, Projects): a tap plays a deterministic bubble
   pair, so the conversation is the one way in and still nothing waits on a model.
 - Proposed: opening a page adds nothing to the conversation; only words do. What the owner asks on a page is added to
