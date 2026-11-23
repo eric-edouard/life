@@ -40,8 +40,7 @@ These came out of the discussion; the ones marked as proposed were drawn without
   seconds for a model would make the app unusable.
 - The same thing getting longer expands in place ("Show the other 6"); a different thing is pushed.
 - Back says "Back" from the first page and names its destination from the second on ("‹ Boiler repair").
-- The owner's decision of 23 Nov 2026: the conversation opens with no history, and "what's waiting on you" is an
-  always-on badge with the count, not a message. Tapping it plays a shortcut: a bubble from the owner, "What's waiting
+- The owner's decision of 23 Nov 2026: "what's waiting on you" is an always-on badge with the count, not a message. Tapping it plays a shortcut: a bubble from the owner, "What's waiting
   on me?", and Life's answer ("9 things wait on you. The most pressing first." with the rows). Both are built by code
   from the inbox (`openChecksNow`, `inboxOrderOf`), never by the model: instant, offline, and never leaving an ask out,
   which the inbox invariant requires. The badge is only the count and the flag dot, no words (brand: minimal); the
@@ -64,8 +63,18 @@ These came out of the discussion; the ones marked as proposed were drawn without
   burn rate projected from spending and a prepaid balance watched (rules in [`docs/product.md`](../product.md)).
 - Proposed: the same pattern for the other fixed doors (Today, People, Projects): a tap plays a deterministic bubble
   pair, so the conversation is the one way in and still nothing waits on a model.
-- Proposed: opening a page adds nothing to the conversation; only words do. What the owner asks on a page is added to
-  the conversation, marked with where it was asked.
+- The owner's decision of 23 Nov 2026, the thread: one endless conversation that opens at its bottom, with Show
+  earlier at the top (a few days at a time) and day separators. Small blocks stay as they are in it: a card, up to
+  about 10 rows, an outside-data block, short text. A page-sized answer (the full view of a matter, a person, an
+  organization, a project or settings; more than one section; more than about two-thirds of the screen) shows
+  expanded in the thread while it is the latest answer: asked "show me the boiler matter", the matter is simply
+  there, no button and no push, and the field speaks about it. It collapses into a preview (title, its key line, a
+  couple of facts) when the owner sends the next message, so nothing changes size on its own. A preview shows the
+  thing as it is now, never a snapshot. Tapping a preview in the history pushes the page with Back, which returns to
+  the same scroll point; a tap inside any page that opens something else pushes too.
+- What a page adds to the thread: looked and left, nothing; an act on it (Send, Done, Pay), one line ("Sent to
+  Camille · Undo"), which is also the history of what Life did; words asked on a pushed page, the exchange, marked
+  "Asked on Boiler repair" (on the expanded latest page, no marker: it is already the conversation).
 - Proposed: nothing moves by itself after an act. After Send, two buttons offer the next item or the list.
 - Proposed: an answer that arrives while the owner is elsewhere comes as a note with See, never a jump; ignored, the
   note goes after 8 seconds and the answer waits in the conversation.
@@ -162,6 +171,5 @@ catalog grows from those records, each new block designed, never improvised.
 - The brand exception for the edge: its words and date in `docs/brand.md`.
 - Whether the session may add a line after code's answer to the badge's shortcut, or it stays code's alone.
 - Whether fixed subscriptions count toward the monthly amount.
-- Where earlier conversation lives once the thread opens empty (an "Earlier" fold, or kept only in the session).
 - Whether suggestion buttons are a fixed set or chosen by the session with "what's waiting" always among them.
 - The open Duo and the notification landing were discussed but not drawn.
