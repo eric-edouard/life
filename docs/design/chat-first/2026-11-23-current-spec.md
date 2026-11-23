@@ -36,7 +36,7 @@ reached; where the two differ, this page wins. The plan is
 - Typing, or holding to talk. Dictated words arrive a word at a time, their letters inking in from blurred to sharp;
   no cursor, no timer; the voice levels fill the width between Cancel and the microphone, which is filled in `fg`.
 - **Suggested asks, always on:** the empty field shows Life's three likeliest next asks, one at a time, every 3
-  seconds, inked in like dictation, with a quiet send at its end (an outlined circle, not filled); tapping the field types as usual. They come from a
+  seconds, inked in like dictation, with a quiet send at its end (an outlined circle, not filled, inking in last, after the words); tapping the field types as usual. They come from a
   quick second run on what is shown, and follow his latest action: an item he just unfolded (its asks), an item he
   just answered (what usually comes next), or else what his last action brought to the bottom. They are the first
   face of the prediction layer ([`docs/plans/2026-11-23-prediction-layer.md`](../../plans/2026-11-23-prediction-layer.md)).
