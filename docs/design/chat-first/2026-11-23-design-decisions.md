@@ -92,12 +92,16 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 
 ## A draft
 
-- Branded per app: the app's mark and the chat's name on top, its bubble shapes, in Life's colours.
+- Branded per app. The chat's head: the app's own logo (never a generic bubble), the chat's name, and its size in a
+  quieter face ("Halden house · 5"), no app name; on the right, a subtle button in the app's colour, "Open WhatsApp ↗",
+  which opens the real chat. The owner's own messages and the draft take the app's colour (WhatsApp's green) mixed
+  into the brand's black.
 - Only the messages the matter's facts cite, at most the last 5 plus the one the draft replies to; older ones are
   "Earlier in WhatsApp". Messages in between that are not the matter's become one quiet count ("3 unrelated
   messages"), not tappable.
-- The top line (the app's mark and the chat's name) opens the real chat in the app; tapping any message does too.
-- The draft wears the brand's dashed outline (1.5 px), which fades once it is sent.
+- Tapping any message also opens the real chat.
+- The draft: a subtle background of the app's colour and the brand's dashed outline (1.5 px) in that colour too,
+  which fades once it is sent.
 
 ## Open
 
