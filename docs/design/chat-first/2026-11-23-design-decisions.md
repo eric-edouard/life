@@ -108,6 +108,27 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
   its done state, a line with Undo lands in the thread). It shows the owner that Life did it and recorded it.
 - An ask that is done leaves what waits on you, and the count goes down.
 
+## Tried on the owner's real asks
+
+What the real inbox showed when two real asks went into the prototype (a recap to send with a file, and a choice
+between two places), and what changed because of it:
+
+- A row's title is the one-line ask, what is asked of the owner ("Send Idris the call recap", "Pick a dentist"), never a
+  person's name: a name alone does not read as something waiting. Its line is who it is about and when it is due. The
+  page's header repeats both.
+- Life's card titles today are mostly news ("The ads numbers are in…", "… gone from Google"), and the card's question
+  is too long for one line. Cards need a short imperative ask line, written by the agent that asks: a new field of the
+  card's contract, for the plan.
+- Real cards often carry two or three answers. The page keeps one wide button for the recommended answer (the
+  card's first option); the other answers sit as one quiet line just above the bar ("Send the recap only", "Drop
+  it"); an option meaning "not now" takes the Later slot, in the card's own word.
+- Later on a row only for a task the owner does outside Life (pay, call, create a passkey). A decision has no Later
+  on its row: answering takes a second, and an unanswered decision waits anyway.
+- A rich choice shows each option as a row with its few deciding facts and Life's pick marked; the pick is preselected
+  and the button names it ("Contact Clinic North").
+- At most one line of why under the header; the rest of a card's long context stays reachable, not shown.
+- Naming voices is a separate, larger problem (many open voice cards), left for later.
+
 ## A draft
 
 - Branded per app. The chat's head: the app's own logo (never a generic bubble), the chat's name, and its size in a
