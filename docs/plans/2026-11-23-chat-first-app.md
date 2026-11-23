@@ -45,12 +45,13 @@ These came out of the discussion; the ones marked as proposed were drawn without
   from the inbox (`openChecksNow`, `inboxOrderOf`), never by the model: instant, offline, and never leaving an ask out,
   which the inbox invariant requires. The badge is only the count and the flag dot, no words (brand: minimal); the
   pendant's pill is only its dot. With nothing waiting, the badge goes rather than saying all is well (brand rule).
-- The owner's decision of 23 Nov 2026, the waiting list ("Faces, with what is ready"): no headline sentence (the
-  button already gave the count), no dot per row, no dividers. Each thing is a row led by who it is about (their
-  picture or initial; an organization's mark), their name, what it is in a few words with when it is due (coral only
-  for today), and one quiet line of what Life already prepared ("Yes, Saturday works. Book for 8.", "Payment ready,
-  from your main account"). No action icon on the row: the whole row is the tap, and the thing zooms open ready to
-  act on.
+- The owner's decision of 23 Nov 2026, the waiting list: no headline sentence (the button already gave the count), no
+  dot per row, no dividers, no line of what Life prepared (that shows once the thing is open). Each thing is a row on
+  its own solid rounded background (`card`, no gradient, no border): who it is about (their picture or initial; an
+  organization's mark), their name, what it is in a few words with when it is due (coral only for today), and a quiet
+  Later pill on the right. The whole row is the tap: the thing zooms open ready to act on. Later takes the row out,
+  lowers the count and leaves one line ("Pay the plumber, tomorrow morning · Undo"). Details and the other decisions
+  of the design session: [`docs/design/chat-first/2026-11-23-design-decisions.md`](../design/chat-first/2026-11-23-design-decisions.md).
 - The shortcut's bubble is not the owner's words. It reaches the main session as an event of the screen ("the owner
   opened what's waiting", with the rows' refs, as `MainSessionScreen` carries), never as text that `hisWordsIn` could
   find, so no act can take its `said` from a tap. The owner's next words ("the second one", "do the plumber first")
