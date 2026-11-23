@@ -76,11 +76,31 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
   solid rounded background: face or initial, name, what it is with when it is due (coral only for today), and the
   Later pill. Later takes the row out, lowers the count and leaves "…, tomorrow morning · Undo".
 
+## A matter's page
+
+- Not everything is shown, but everything stays reachable by asking. Something shows only if the owner needs it to
+  answer what is asked now, if it changes what the owner does next, or if the owner would otherwise have to ask for it.
+- The matter's state decides the layout. Needs you: the ask first (a draft with Send, or the decision), then the few
+  messages that explain it. Waiting on someone: one line ("Waiting on Marc's quote · since Tue · Life will bring it to
+  you") and their last relevant message. Life is on it: what Life is doing, in one line. Done: how it ended, and
+  Reopen.
+- Kept: the name; one status line (what, when it is due, who it is with as faces); the ask; the relevant messages.
+- Dropped from the old page: the icon, people's roles, the project, the token cost (it lives in Settings), the
+  "since" span.
+- Hidden: the goal (Life's framing; changed by saying so). Done and Drop show only when nothing is asked; Drop is also
+  said. One ask at a time; the others show as "1 more after this".
+
+## A draft
+
+- Branded per app: the app's mark and the chat's name on top, its bubble shapes, in Life's colours.
+- Only the messages the matter's facts cite, at most the last 5 plus the one the draft replies to; older ones are
+  "Earlier in WhatsApp". Messages in between that are not the matter's become one quiet count ("3 unrelated
+  messages"), not tappable.
+- The top line (the app's mark and the chat's name) opens the real chat in the app; tapping any message does too.
+- The draft wears the brand's dashed outline (1.5 px), which fades once it is sent.
+
 ## Open
 
-- The matter's full view: three directions on the [options page](https://claude.ai/artifact/LRTUmmswRj64fECboXFocT)
-  (just the ask; the conversation; one sentence), tried on a real matter. The recommendation is "just the ask"; not
-  decided.
 - The icons of the two always-on buttons.
 - What Later offers (a fixed "tomorrow morning", or a few choices).
 - Found while trying real data: a card can sit on the wrong matter (a builder's pipe question filed under the lawyer's
