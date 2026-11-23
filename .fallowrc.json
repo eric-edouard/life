@@ -21,7 +21,7 @@
     "fallow",
     "ultracite"
   ],
-  "ignorePatterns": [".claude/**"],
+  "ignorePatterns": [".claude/**", "docs/design/**"],
   "health": {
     "maxCyclomatic": 20,
     "maxCognitive": 25,

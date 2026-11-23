@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The edge</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+@property --a{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes spin{to{--a:360deg}}
+@keyframes breathe{0%,100%{opacity:.42}50%{opacity:.95}}
+@keyframes voice{0%{opacity:.72}9%{opacity:1}18%{opacity:.8}31%{opacity:1}44%{opacity:.7}57%{opacity:.98}70%{opacity:.78}84%{opacity:1}100%{opacity:.72}}
+@keyframes pulse{0%{opacity:.45}10%{opacity:1}35%{opacity:.5}100%{opacity:.45}}
+.bd{background:#141518;color:#fff8ea;font-family:'Manrope',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:60px}
+.bd h1{margin:0;font-size:44px;font-weight:700;letter-spacing:-.025em;line-height:1.1}
+.bd .sub{margin:12px 0 0;font-size:19px;line-height:1.45;color:#b9b4aa;max-width:1000px}
+.row{display:flex;gap:56px;align-items:flex-start;margin-top:44px}
+.fr{width:390px;flex:none;display:flex;flex-direction:column;gap:20px}
+.cap{font-size:15.5px;line-height:1.48;color:#b9b4aa;margin:0}
+.cap b{display:block;color:#fff8ea;font-size:17px;font-weight:700;margin-bottom:4px}
+.ph{position:relative;width:390px;height:844px;border-radius:54px;background:#000;overflow:hidden;color:#fff8ea;font-size:16px;line-height:1.42;font-weight:450;flex:none}
+.ph button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer}
+.ph svg{display:block;flex:none}
+.edge{position:absolute;inset:0;border-radius:54px;pointer-events:none;z-index:60;--spin:26s;animation:breathe 6s ease-in-out infinite}
+.edge .gw{position:absolute;inset:0;filter:blur(18px)}
+.edge i{position:absolute;inset:0;border-radius:54px;padding:3px;background:conic-gradient(from var(--a),rgba(255,248,234,.06),rgba(255,248,234,.7) 60deg,rgba(255,248,234,.14) 140deg,rgba(255,248,234,.55) 225deg,rgba(255,248,234,.1) 300deg,rgba(255,248,234,.06));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin var(--spin) linear infinite}
+.edge .gw i{padding:20px;opacity:.7}
+.edge.listen{--spin:7s;animation:voice 1.3s linear infinite}
+.edge.listen>i{padding:4px}
+.edge.listen .gw i{padding:34px;opacity:1}
+.edge.answer{--spin:2.4s;animation:none;opacity:1}
+.edge.answer i{background:conic-gradient(from var(--a),rgba(255,248,234,.1) 0deg,rgba(255,248,234,.1) 230deg,rgba(255,248,234,.95) 330deg,rgba(255,248,234,.1) 360deg)}
+.edge.pulse{animation:pulse 4s ease-out infinite}
+.edge.still{animation:none;opacity:.5}
+.edge.still i{animation:none;background:rgba(255,248,234,.16)}
+.edge.still .gw{display:none}
+@media (prefers-reduced-motion:reduce){.edge i{animation:none}.edge.listen,.edge.answer{animation:breathe 2s ease-in-out infinite}}
+.scroll{position:absolute;inset:0;padding:70px 22px 160px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;-webkit-mask-image:linear-gradient(transparent 40px,#000 100px);mask-image:linear-gradient(transparent 40px,#000 100px)}
+.day{align-self:center;font-size:13px;font-weight:600;color:#8a867e;margin:6px 0 18px}
+.hi{font-size:30px;font-weight:700;letter-spacing:-.025em;line-height:1.15;margin:0}
+.lf{font-size:18px;line-height:1.45;margin:8px 0 0}
+.mt{color:#8a867e}
+.me{align-self:flex-end;max-width:84%;background:#23242a;border-radius:22px 22px 6px 22px;padding:11px 15px;font-size:17px;line-height:1.38;margin:22px 0 14px}
+.list{display:flex;flex-direction:column;margin-top:12px}
+.it{display:flex;align-items:center;gap:14px;width:100%;min-height:78px;padding:12px 6px;border-radius:18px;position:relative}
+.it+.it:before{content:"";position:absolute;left:64px;right:6px;top:0;height:1px;background:#1f2024}
+.tl{width:44px;height:44px;border-radius:14px;background:#111214;display:flex;align-items:center;justify-content:center;color:#fff8ea;flex:none}
+.it .tx{flex:1;min-width:0}
+.it .t{font-size:17.5px;font-weight:650;line-height:1.25}
+.it .s{font-size:14.5px;color:#8a867e;margin-top:3px;line-height:1.3}
+.it .s.f{color:#f0896f}
+.it .cv{color:#5d5a55}
+.ff{position:absolute;left:0;right:0;bottom:0;height:190px;background:linear-gradient(rgba(0,0,0,0),#000 50%);z-index:30;pointer-events:none}
+.bar{position:absolute;left:14px;right:14px;bottom:30px;z-index:40;display:flex;flex-direction:column;gap:8px}
+.inr{display:flex;gap:10px;align-items:center}
+.fld{flex:1;height:60px;border-radius:30px;background:#1a1b1f;display:flex;align-items:center;padding:0 22px;font-size:17.5px;color:#8a867e}
+.mic{width:60px;height:60px;border-radius:30px;background:#fff8ea;color:#000;display:flex;align-items:center;justify-content:center;flex:none}
+.card{border-radius:30px;background:#1a1b1f;padding:18px 20px 14px}
+.card .w{font-size:21px;line-height:1.36;font-weight:600;letter-spacing:-.01em}
+.card .w span{color:#6f6b64}
+.card .cq{font-size:14.5px;color:#8a867e;line-height:1.4}
+.card .ca{font-size:17.5px;line-height:1.42;margin-top:6px}
+.ctl{display:flex;align-items:center;gap:10px;margin-top:14px}
+.meter{display:flex;gap:3px;align-items:center;height:26px}
+.meter i{width:3px;border-radius:2px;background:#fff8ea;display:block}
+.bt1{height:50px;border-radius:25px;background:#fff8ea;color:#000;font-weight:700;font-size:16.5px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 22px;margin-left:auto}
+.bt3{height:50px;padding:0 16px;color:#8a867e;font-weight:650;font-size:16px;display:flex;align-items:center}
+.wk{display:flex;align-items:center;gap:9px;font-size:15.5px;color:#b9b4aa;font-weight:600;margin-top:12px}
+.spin{width:16px;height:16px;border-radius:8px;border:2px solid currentColor;border-right-color:transparent;flex:none}
+.off{font-size:15.5px;line-height:1.45;color:#b9b4aa;margin:0}
+</style>
+</helmet>
+<div class="bd" style="width: 2294px; height: 1260px">
+<h1>The edge: Life is always there</h1>
+<p class="sub">A soft grey light runs along the screen's edge on every screen, all the time. It breathes at rest, moves with his voice, runs as one bright light while Life works, and goes still only when Life can't hear him. Greys only. Under Reduce Motion the light stays in place and only its brightness changes.</p>
+<div class="row">
+
+<div class="fr">
+<div class="ph">
+<div class="edge"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<div class="day">Monday 23 November</div>
+<p class="hi">Good morning.</p>
+<p class="lf">3 things wait on you. The most pressing first.</p>
+<div class="list">
+<button class="it" type="button"><span class="tl"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></span><span class="tx"><span class="t" style="display:block">Reply to Camille</span><span class="s" style="display:block">She asks if Saturday still works</span></span><svg class="cv" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+<button class="it" type="button"><span class="tl"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M17 6.5A6 6 0 1 0 17 17.5M4 10h9M4 14h9"/></svg></span><span class="tx"><span class="t" style="display:block">Pay the plumber</span><span class="s f" style="display:block">€180, due tomorrow</span></span><svg class="cv" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+</div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>At rest</b>A soft light drifts slowly around the edge and breathes every 6 seconds. It never stops while Life can hear him.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge listen"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<p class="hi">Good morning.</p>
+<p class="lf">3 things wait on you. The most pressing first.</p>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="card"><div class="w">What's happening with the <span>flat</span></div><div class="ctl"><div class="meter"><i style="height:8px"></i><i style="height:16px"></i><i style="height:24px"></i><i style="height:12px"></i><i style="height:20px"></i><i style="height:9px"></i><i style="height:15px"></i></div><button class="bt3" type="button">Cancel</button><button class="bt1" type="button">Done talking</button></div></div></div>
+</div>
+<p class="cap"><b>While he speaks</b>Brighter and wider, and it moves with his voice: a louder word, a brighter edge. His words appear as he says them.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge answer"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<p class="hi">Good morning.</p>
+<p class="lf">3 things wait on you. The most pressing first.</p>
+<div class="me">What's happening with the flat?</div>
+<div class="wk"><span class="spin"></span>Life is reading your messages with Marc</div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>While Life works</b>A different motion: one bright light runs around the edge, about once every 2 seconds. Waiting looks like work being done, on any screen he goes to.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge pulse"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<div class="me">What's happening with the flat?</div>
+<p class="lf">Marc still hasn't fixed the boiler. He said Friday on Tuesday, then went quiet.</p>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>When the answer lands</b>One bright breath around the whole edge, then back to rest. The same breath tells him something new arrived while he was elsewhere.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge still"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<div class="me">What's happening with the flat?</div>
+<p class="off">Life can't reach your Mac right now. Your question is kept, and Life will answer when it's back.</p>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>When Life can't hear him</b>The light stops and dims. This is the only time it's still, so a still edge always means something is wrong. One plain line says what, and his words are kept.</p>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2294,"height":1260}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

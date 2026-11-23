@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flow 3: Life answers after you moved on</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+@property --a{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes spin{to{--a:360deg}}
+@keyframes breathe{0%,100%{opacity:.42}50%{opacity:.95}}
+@keyframes voice{0%{opacity:.72}9%{opacity:1}18%{opacity:.8}31%{opacity:1}44%{opacity:.7}57%{opacity:.98}70%{opacity:.78}84%{opacity:1}100%{opacity:.72}}
+@keyframes pulse{0%{opacity:.45}10%{opacity:1}35%{opacity:.5}100%{opacity:.45}}
+.bd{background:#141518;color:#fff8ea;font-family:'Manrope',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:60px}
+.bd h1{margin:0;font-size:44px;font-weight:700;letter-spacing:-.025em;line-height:1.1}
+.bd .sub{margin:12px 0 0;font-size:19px;line-height:1.45;color:#b9b4aa;max-width:1100px}
+.row{display:flex;gap:56px;align-items:flex-start;margin-top:44px}
+.fr{width:390px;flex:none;display:flex;flex-direction:column;gap:20px}
+.cap{font-size:15.5px;line-height:1.48;color:#b9b4aa;margin:0}
+.cap b{display:block;color:#fff8ea;font-size:17px;font-weight:700;margin-bottom:4px}
+.ph{position:relative;width:390px;height:844px;border-radius:54px;background:#000;overflow:hidden;color:#fff8ea;font-size:16px;line-height:1.42;font-weight:450;flex:none}
+.ph button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer}
+.ph svg{display:block;flex:none}
+.edge{position:absolute;inset:0;border-radius:54px;pointer-events:none;z-index:60;--spin:26s;animation:breathe 6s ease-in-out infinite}
+.edge .gw{position:absolute;inset:0;filter:blur(18px)}
+.edge i{position:absolute;inset:0;border-radius:54px;padding:3px;background:conic-gradient(from var(--a),rgba(255,248,234,.06),rgba(255,248,234,.7) 60deg,rgba(255,248,234,.14) 140deg,rgba(255,248,234,.55) 225deg,rgba(255,248,234,.1) 300deg,rgba(255,248,234,.06));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin var(--spin) linear infinite}
+.edge .gw i{padding:20px;opacity:.7}
+.edge.listen{--spin:7s;animation:voice 1.3s linear infinite}
+.edge.listen>i{padding:4px}
+.edge.listen .gw i{padding:34px;opacity:1}
+.edge.answer{--spin:2.4s;animation:none;opacity:1}
+.edge.answer i{background:conic-gradient(from var(--a),rgba(255,248,234,.1) 0deg,rgba(255,248,234,.1) 230deg,rgba(255,248,234,.95) 330deg,rgba(255,248,234,.1) 360deg)}
+.edge.pulse{animation:pulse 4s ease-out infinite}
+.edge.still{animation:none;opacity:.5}
+.edge.still i{animation:none;background:rgba(255,248,234,.16)}
+.edge.still .gw{display:none}
+@media (prefers-reduced-motion:reduce){.edge i{animation:none}.edge.listen,.edge.answer{animation:breathe 2s ease-in-out infinite}}
+.scroll{position:absolute;inset:0;padding:70px 22px 160px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;-webkit-mask-image:linear-gradient(transparent 40px,#000 100px);mask-image:linear-gradient(transparent 40px,#000 100px)}
+.lf{font-size:18px;line-height:1.45;margin:8px 0 0}
+.mt{color:#8a867e}
+.me{align-self:flex-end;max-width:84%;background:#23242a;border-radius:22px 22px 6px 22px;padding:11px 15px;font-size:17px;line-height:1.38;margin:22px 0 12px}
+.where{align-self:flex-end;display:flex;align-items:center;gap:6px;font-size:13.5px;color:#8a867e;font-weight:600;margin:26px 4px -14px 0}
+.list{display:flex;flex-direction:column;margin-top:12px}
+.it{display:flex;align-items:center;gap:14px;width:100%;min-height:74px;padding:12px 6px;border-radius:18px;position:relative}
+.it+.it:before{content:"";position:absolute;left:64px;right:6px;top:0;height:1px;background:#1f2024}
+.it.press{background:rgba(255,248,234,.11)}
+.it.press:before,.it.press+.it:before{display:none}
+.tl{width:44px;height:44px;border-radius:14px;background:#111214;display:flex;align-items:center;justify-content:center;color:#fff8ea;flex:none}
+.it .tx{flex:1;min-width:0}
+.it .t{display:block;font-size:17.5px;font-weight:650;line-height:1.25}
+.it .s{display:block;font-size:14.5px;color:#8a867e;margin-top:3px;line-height:1.3}
+.it .s.f{color:#f0896f}
+.it .cv{color:#5d5a55}
+.it .op{height:40px;border-radius:20px;background:rgba(255,248,234,.09);padding:0 14px;font-size:15px;font-weight:650;display:flex;align-items:center;flex:none}
+.sugg{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.sg{height:42px;border-radius:21px;background:rgba(255,248,234,.09);padding:0 16px;font-size:15.5px;font-weight:600;display:inline-flex;align-items:center}
+.ff{position:absolute;left:0;right:0;bottom:0;height:190px;background:linear-gradient(rgba(0,0,0,0),#000 50%);z-index:30;pointer-events:none}
+.bar{position:absolute;left:14px;right:14px;bottom:30px;z-index:40;display:flex;flex-direction:column;gap:8px}
+.ctx{font-size:13.5px;color:#8a867e;font-weight:600;padding-left:20px}
+.inr{display:flex;gap:10px;align-items:center}
+.fld{flex:1;height:60px;border-radius:30px;background:#1a1b1f;display:flex;align-items:center;padding:0 22px;font-size:17.5px;color:#8a867e}
+.mic{width:60px;height:60px;border-radius:30px;background:#fff8ea;color:#000;display:flex;align-items:center;justify-content:center;flex:none}
+.card{border-radius:30px;background:#1a1b1f;padding:18px 20px 14px}
+.card .w{font-size:21px;line-height:1.36;font-weight:600;letter-spacing:-.01em}
+.card .w span{color:#6f6b64}
+.card .cq{font-size:14.5px;color:#8a867e;line-height:1.4}
+.ctl{display:flex;align-items:center;gap:10px;margin-top:14px}
+.meter{display:flex;gap:3px;align-items:center;height:26px}
+.meter i{width:3px;border-radius:2px;background:#fff8ea;display:block}
+.bt1{height:58px;border-radius:29px;background:#fff8ea;color:#000;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.bt2{height:54px;border-radius:27px;background:rgba(255,248,234,.09);font-weight:650;font-size:16.5px;display:flex;align-items:center;justify-content:center;gap:8px;flex:1}
+.ctl .bt1{width:auto;padding:0 22px;margin-left:auto;height:50px;font-size:16.5px}
+.bt3{height:50px;padding:0 16px;color:#8a867e;font-weight:650;font-size:16px;display:flex;align-items:center}
+.wk{display:flex;align-items:center;gap:9px;font-size:15.5px;color:#b9b4aa;font-weight:600;margin-top:4px}
+.spin{width:16px;height:16px;border-radius:8px;border:2px solid currentColor;border-right-color:transparent;flex:none}
+.back{position:absolute;top:58px;left:14px;height:46px;border-radius:23px;background:#1a1b1f;padding:0 18px 0 10px;display:flex;align-items:center;gap:4px;font-size:17px;font-weight:650;z-index:20}
+.back.press{background:#34353b}
+.pg{position:absolute;inset:0;padding:124px 22px 170px;overflow:hidden;display:flex;flex-direction:column}
+.ttl{font-size:30px;font-weight:700;letter-spacing:-.025em;line-height:1.12;margin:0}
+.why{font-size:17px;line-height:1.45;color:#c9c4ba;margin:10px 0 0}
+.sec{font-size:14.5px;font-weight:650;color:#8a867e;margin:26px 0 8px}
+.kv{display:flex;flex-direction:column;gap:12px;margin:18px 0}
+.kv div{display:flex;flex-direction:column;gap:2px}
+.kv small{font-size:13.5px;color:#8a867e;font-weight:600}
+.kv span{font-size:17px;line-height:1.4}
+.kv span.big{font-size:26px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.btns{display:flex;flex-direction:column;gap:10px}
+.btns .r{display:flex;gap:10px}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:25}
+.banner{position:absolute;top:56px;left:12px;right:12px;border-radius:26px;background:#26272c;padding:12px 12px 12px 18px;display:flex;align-items:center;gap:12px;z-index:45;box-shadow:0 16px 44px rgba(0,0,0,.75)}
+.banner .bx{flex:1;font-size:16.5px;font-weight:650;line-height:1.3}
+.banner .bx small{display:block;font-size:14px;color:#8a867e;font-weight:500;margin-top:2px}
+.banner .bt1{width:auto;height:48px;padding:0 22px}
+.off{font-size:16px;line-height:1.45;color:#b9b4aa;margin:0}
+</style>
+</helmet>
+<div class="bd" style="width: 2740px; height: 1260px">
+<h1>Flow 3: Life answers after you moved on</h1>
+<p class="sub">Some answers take a while. He asks, leaves the page, opens something else. Life keeps working wherever he goes (the edge shows it), the answer never pulls him away, and he chooses when to see it. If Life can't be reached, the edge goes still and his words wait.</p>
+<div class="row">
+
+<div class="fr">
+<div class="ph">
+<div class="edge listen"><div class="gw"><i></i></div><i></i></div>
+<button class="back" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+<div class="pg">
+<p class="ttl">Pay the plumber</p>
+<p class="why">Léo Martin repaired the kitchen sink on 14 November. His bill is due tomorrow.</p>
+<div class="kv"><div><small>Amount</small><span class="big">€180.00</span></div><div><small>To</small><span>Léo Martin Plomberie</span></div></div>
+</div>
+<div class="scrim"></div>
+<div class="bar"><div class="card"><div class="w">Also find me a train to Lyon on Friday <span>morning</span></div><div class="ctl"><div class="meter"><i style="height:9px"></i><i style="height:20px"></i><i style="height:13px"></i><i style="height:25px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:8px"></i></div><button class="bt3" type="button">Cancel</button><button class="bt1" type="button">Done talking</button></div></div></div>
+</div>
+<p class="cap"><b>He asks something unrelated, from a page</b>He's on "Pay the plumber" and asks about a train. Life works out that it isn't about this page; the page only gives Life a starting point.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge answer"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<div class="where">Asked on Pay the plumber</div>
+<div class="me">Also find me a train to Lyon on Friday morning</div>
+<div class="wk"><span class="spin"></span>Looking at trains. 2 sites checked.</div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>He taps Back while Life works</b>Leaving the page doesn't stop anything. His question is in the conversation with a live line of what Life is doing, and the edge keeps its working motion.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge answer"><div class="gw"><i></i></div><i></i></div>
+<button class="back" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+<div class="pg">
+<p class="ttl">Call the bank</p>
+<p class="why">Your card was blocked on Saturday after a payment abroad. Only you can unblock it, by phone.</p>
+<div class="kv"><div><small>Number</small><span class="big">01 42 00 00 00</span></div><div><small>Have ready</small><span>Your card, and the payment of €42 at a shop in Porto</span></div></div>
+<div class="btns"><button class="bt1" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Call the bank</button><button class="bt2" type="button" style="flex:none;width:100%">Mark as done</button></div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="ctx">About calling the bank</div><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>He opens something else meanwhile</b>A different page, and the edge is still running: Life is still on the train question. He doesn't have to wait or remember to come back.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge pulse"><div class="gw"><i></i></div><i></i></div>
+<div class="banner"><div class="bx">Life found 3 trains to Lyon<small>For Friday morning</small></div><button class="bt1" type="button">See</button></div>
+<div class="pg">
+<p class="ttl">Call the bank</p>
+<p class="why">Your card was blocked on Saturday after a payment abroad. Only you can unblock it, by phone.</p>
+<div class="kv"><div><small>Number</small><span class="big">01 42 00 00 00</span></div><div><small>Have ready</small><span>Your card, and the payment of €42 at a shop in Porto</span></div></div>
+<div class="btns"><button class="bt1" type="button">Call the bank</button><button class="bt2" type="button" style="flex:none;width:100%">Mark as done</button></div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="ctx">About calling the bank</div><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>The answer arrives: a note, never a jump</b>One bright breath on the edge, and a note slides down over the Back button, saying what came and offering See. The page doesn't move. Ignored, the note goes after 8 seconds and the answer waits in the conversation.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<div class="where">Asked on Pay the plumber</div>
+<div class="me">Also find me a train to Lyon on Friday morning</div>
+<p class="lf">3 trains on Friday morning, cheapest first. All direct, about 2 hours.</p>
+<div class="list">
+<div class="it"><span class="tx"><span class="t">7:04, arrives 9:02</span><span class="s">€39, Paris Gare de Lyon</span></span><button class="op" type="button">Open</button></div>
+<div class="it"><span class="tx"><span class="t">9:34, arrives 11:30</span><span class="s">€47, Paris Gare de Lyon</span></span><button class="op" type="button">Open</button></div>
+<div class="it"><span class="tx"><span class="t">8:04, arrives 10:00</span><span class="s">€54, Paris Gare de Lyon</span></span><button class="op" type="button">Open</button></div>
+</div>
+<div class="sugg"><button class="sg" type="button">Put the 7:04 in my calendar</button><button class="sg" type="button">Remind me Thursday</button></div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>See takes him to the answer in the conversation</b>The bank page closes; it's still on his list. Open goes to the train company's page to book; Life itself books nothing. The buttons below are things to ask Life next.</p>
+</div>
+
+<div class="fr">
+<div class="ph">
+<div class="edge still"><div class="gw"><i></i></div><i></i></div>
+<div class="scroll">
+<div class="me">Also find me a train to Lyon on Friday morning</div>
+<p class="off">Life can't reach your Mac right now, so it can't look yet. Your question is kept, and Life will answer as soon as it's back.</p>
+<div class="sugg"><button class="sg" type="button">Try again</button></div>
+</div>
+<div class="ff"></div>
+<div class="bar"><div class="inr"><div class="fld">Ask Life</div><button class="mic" type="button" aria-label="Talk to Life"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div></div>
+</div>
+<p class="cap"><b>If Life can't be reached</b>The edge stops and dims, the one sign something's wrong. One plain line says what happened and what happens next. His words aren't lost, and he can still read everything already on his phone.</p>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2740,"height":1260}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
