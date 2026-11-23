@@ -251,7 +251,20 @@ word). A question to Life must feel like a reply in a chat, so the server rework
   exists); tool calls in parallel; a compact read made for questions, so a lookup isn't a whole matter's JSON; a
   faster model for lookups that hands over when it needs depth; the words streamed as they come; answers to the
   likely next asks prepared ahead (the prediction layer's suggested asks).
-- Right: a number or name in the words is checked against the source the answer cites before it is shown. The beads
+- Right: a number or name in the words is checked against the source the answer cites before it is shown.
+- Six more questions taken from his days (23 Nov 2026, late evening, the session warm): each answered in 15 to 36
+  seconds, counted from the call to the reply. Still too slow for a chat, and the first three of the day took more
+  than a minute: a cold session costs the most.
+- What they showed, for the plan:
+  - Life does not settle what it can read: a bill paid on 9 Nov (the payment matches the bill's amount) was still
+    "stuck, overdue" in his due list on 23 Nov, though the session found the payment at once when asked. The
+    settling pass should have closed it (`docs/product.md`); an audit with its regression case.
+  - Sources must be right: a spending answer cited an unrelated matter as its source.
+  - Just after midnight "today" and "this morning" meant the day before to him; the session answered with a
+    question. Near midnight, answer for the day he most likely means and say which.
+  - Answers still use the old app's shapes: raw GitHub links in the words, and `show` opening a person's page ("her
+    page is open on your screen"), which the chat-first app has no more.
+  - A voice Life had named "lawyer" was a gym trainer counting reps: the session caught it; the day record kept it. The beads
   answer said "16 bags of Tila, 17 of Half Tila" while its own source, the shop's receipt, gives 19 and 14.
 
 ## Fix asks (for the plan)
