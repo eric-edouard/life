@@ -76,6 +76,9 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 
 ### Unfolding
 
+- No cards (owner, 23 Nov 2026): rows are bare (face, ask, line, no background). An unfolded item looks the same
+  wherever it is (in a list, or an ask Life brings to the bottom): it takes room above and below, its header grows (a
+  larger face and title), and a very faint wash of light sits behind it, with no edge. Folded, it is a bare row again.
 - A tap unfolds an item where it is, several at once if he likes; each folds by its ⌃ or when answered. Typing,
   speaking or Life's next message leave them open.
 - Answer buttons live only on unfolded items (and on an ask Life brings to the bottom). A row of a list offers only
@@ -134,8 +137,6 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 
 ## Open
 
-- The card background: today an unfolded item sits on a card and an ask Life brings to the bottom does not. Proposed:
-  every item is a card wherever it lands, Life's words stay bare text.
 - An ask taller than the view hides its answers below the field. Proposed: the answer bar sticks above the field while
   the ask is on screen.
 - Answers to his own questions ("where are we with the boiler?"): most of his use, not designed yet.

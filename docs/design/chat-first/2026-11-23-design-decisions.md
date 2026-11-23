@@ -303,6 +303,9 @@ between two places), and what changed because of it:
   The two "your turn" ways of opening are dropped: an item unfolds where it is. "Left for now" stays, for an ask Life
   brought to the bottom.
 
+- No cards (owner, 23 Nov 2026, choosing "space and scale" over a spine and focus by dimming): rows are bare; an
+  unfolded item, in a list or brought by Life, takes room, its header grows, a faint wash of light behind it, no edge.
+
 ## Open (see the current spec's)
 
 - The icons of the two always-on buttons.
