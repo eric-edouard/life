@@ -181,6 +181,18 @@ Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to
   exception to "nothing opens a screen", since holding the phone up is the task).
 - How those shapes are made (fixed blocks, components the agent composes, or generated HTML) is the plan's to decide (the plan, "Life's own catalog of blocks").
 
+### Life's questions
+
+- Life answers as it wants, then ends with its question when it needs one (owner, 23 Nov 2026). A question is not an
+  item: it is not counted and never notifies; its suggested answers become his words. How they look is being chosen
+  ([questions page](https://claude.ai/artifact/1KczjS4siwxnjYkEJ5RHLU), private to the owner: seven kinds, five
+  designs).
+- An answer can start real work and move a matter (owner, 23 Nov 2026: "a question could lead to real agent work").
+  Such an answer carries a small lit mark; once tapped, the work shows under his bubble as an item in its state
+  (under way, with Undo while Life can still stop it), and settles or hands on to what comes next. Work that would
+  send anything in his name becomes an ask with its draft instead: the yes is on the exact words, never on the
+  question's answer.
+
 ## Open
 
 - How the answer shapes are made (the plan decides).

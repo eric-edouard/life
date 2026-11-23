@@ -267,6 +267,14 @@ word). A question to Life must feel like a reply in a chat, so the server rework
   - A voice Life had named "lawyer" was a gym trainer counting reps: the session caught it; the day record kept it. The beads
   answer said "16 bags of Tila, 17 of Half Tila" while its own source, the shop's receipt, gives 19 and 14.
 
+## Questions that start work (for the plan)
+
+The main session's `question` answer kind gets suggested answers that can act (the owner, 23 Nov 2026): his tap on
+one is his word, so the session may then tell an agent, correct a matter, start or hand over work, as it does on his
+typed words today. The plan decides how an answer says it will act (a field on the answer, so the app can mark it),
+how that work shows as an item with its state and Undo, and keeps the send guard as it is: anything outward in his
+name still becomes a card on the exact words.
+
 ## Fix asks (for the plan)
 
 Failures that need the owner are asks of a kind of their own, "fix", written by the caretaker for where he is
