@@ -294,6 +294,10 @@ between two places), and what changed because of it:
   laid out before it shows, so when the revealed part reaches the bottom edge the thread makes one smooth move that
   leaves about half the view for what comes next, never so far that the message's top passes under the top edge.
 
+- The suggested asks follow his latest action (owner, 23 Nov 2026): an item he just unfolded (its asks), an item he
+  just answered there (what usually comes after it), or else what his last action brought to the bottom of the thread
+  (Life's newest answer), even while older items stay unfolded above.
+
 ## Open
 
 - The icons of the two always-on buttons.
