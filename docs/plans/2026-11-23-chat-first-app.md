@@ -166,6 +166,12 @@ line per block in the door's description, always in context (it also tells the s
 block fits, the session answers in words (with `life:` links) and Life records the miss with what was being shown; the
 catalog grows from those records, each new block designed, never improvised.
 
+## Items have one set of states (for the plan)
+
+Every ask and matter the app shows follows one grid of states, wherever it appears (a list row, a folded card, the
+open ask): [`docs/design/chat-first/2026-11-23-item-states.md`](../design/chat-first/2026-11-23-item-states.md). The
+app builds it once, as one model of an item's state read live from Life, not per screen.
+
 ## Ask quality comes first (for the plan)
 
 The owner's word of 23 Nov 2026: the app's low load rests on the asks Life sends more than on how they look. No

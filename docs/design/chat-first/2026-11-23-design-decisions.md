@@ -259,6 +259,12 @@ between two places), and what changed because of it:
   ended is the line under it. Bringing it back is the Undo's Reopen, or asking Life. Only rows of a list dim when
   their ask is opened below.
 
+- The item states grid (owner, 23 Nov 2026), [`2026-11-23-item-states.md`](2026-11-23-item-states.md), replaces the
+  per-path rules above where they differ: an item has one state (needs you, Later, under way, waiting on someone,
+  settled), shown alike wherever it appears; it changes state where it is and never moves or vanishes (a sent row
+  stays in its list, Later shows on the row); the item says how it ended, so no line below repeats it (this settles
+  the three ways compared for an answered ask, and drops the outcome line after a notification answer).
+
 ## Open
 
 - The icons of the two always-on buttons.
