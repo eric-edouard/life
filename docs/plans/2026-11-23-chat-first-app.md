@@ -178,6 +178,11 @@ polish:
   Life's suggested follow-ups: two new fields of the card's contract, written by the agent that asks, refused when
   missing like a plan card's steps.
 - Answerable in place: the recommended answer first, the others as equal pills, what each answer does said plainly.
+- Interrupting: today every new card notifies once at its kind's level. Whether Life should notify fewer unrelated
+  asks at all (ranked, not every card), on the lock screen and in the app alike, is the plan's to decide with the
+  ranking (the owner's word of 23 Nov 2026). The design's proposal meanwhile: in the app, an unrelated ask follows
+  its push level (off or quiet, only the count; normal or urgent, it lands once he is free); a follow-up to what he
+  just did always lands (`docs/design/chat-first/2026-11-23-design-decisions.md`).
 - Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
   prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
 
