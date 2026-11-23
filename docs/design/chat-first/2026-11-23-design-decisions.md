@@ -217,6 +217,16 @@ between two places), and what changed because of it:
   long mail) in the system's own viewer, never one of Life's objects. Not taken: many conversations and a sidebar,
   regenerate, edit a message, copy, a model picker, a step-by-step trace of the work.
 
+- Notifications (owner, 23 Nov 2026): an ask answered on its rich notification lands in the main session's thread, the
+  same ask as in the app, marked as answered from the notification. One opened without being answered lands as
+  usual: Life brings it to the bottom with its buttons. The notification: the ask line, who and when, the draft, at
+  most two answers (the main one and Later). Silence when it worked; only a failure notifies, opening the ask with its
+  button showing the failure. How the answered ask looks in the thread: four proposals being compared (one line; the
+  card settled; the answer as his bubble; the full ask answered).
+- What the button already shows covers most failures: "Sending…" waits for the real outcome, then Sent, or the
+  failure on the button itself ("Not sent", tap to try again; "May have gone"). Left to design: someone wrote in the
+  chat since (their message shown above the button), his words while the phone is offline, and Life failing to answer.
+
 ## Open
 
 - The icons of the two always-on buttons.
