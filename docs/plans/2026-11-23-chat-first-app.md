@@ -171,7 +171,7 @@ catalog grows from those records, each new block designed, never improvised.
 The owner's yes of 23 Nov 2026: the plan orders its work by what most lowers his load, so the first big PRs go where
 the load is decided, not to the most visible part.
 
-1. **Ask quality:** few, clear asks (below). It decides the load more than any screen.
+1. **Ask quality:** few, clear asks (below). It decides the load more than any screen. Answer speed (below) goes with it: a slow answer is load too.
 2. **The thread:** the field, the thread and items with their states, unfolding, answering
    ([the current spec](../design/chat-first/2026-11-23-current-spec.md)).
 3. **Notifications:** the notification as the ask, answers on it entering the thread, arrivals in the app.
@@ -204,6 +204,22 @@ polish:
   just did always lands (`docs/design/chat-first/2026-11-23-current-spec.md`).
 - Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
   prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
+
+## Answers come fast, and right (for the plan)
+
+On 23 Nov 2026 the owner's real questions went to the main session through the connector ("Where are we regarding
+the house?", "What was the order for Alice's beads?", "What do I say to the guy when I arrive there?"). The answers
+were good, the third one what a human assistant would text, but each took more than a minute: too long (the owner's
+word). A question to Life must feel like a reply in a chat, so the server rework the plan proposes includes speed:
+
+- Measure first, per answer: time to its first words, time to its whole answer, each tool call's time and size, the
+  model's time. A target to start from: first words within about 3 seconds, a lookup answered within about 10.
+- Then what the measures point to. Candidates: the session kept warm while he is in the app (the presence call
+  exists); tool calls in parallel; a compact read made for questions, so a lookup isn't a whole matter's JSON; a
+  faster model for lookups that hands over when it needs depth; the words streamed as they come; answers to the
+  likely next asks prepared ahead (the prediction layer's suggested asks).
+- Right: a number or name in the words is checked against the source the answer cites before it is shown. The beads
+  answer said "16 bags of Tila, 17 of Half Tila" while its own source, the shop's receipt, gives 19 and 14.
 
 ## Fix asks (for the plan)
 
