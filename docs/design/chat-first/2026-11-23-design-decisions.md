@@ -141,7 +141,8 @@ between two places), and what changed because of it:
   "Google Maps ↗" chip with the Maps mark inside the card, which opens the place without picking it.
 - Open question being tried in the prototype: with the noise gone, many asks no longer need a full screen. A switch
   lets the owner try an ask coming into the thread as its newest message, in the same layout, with no empty space
-  between the ask and its answers; Later folds it into its preview.
+  between the ask and its answers; Later folds it into its preview. In the thread it keeps the page's spacing a
+  little tighter (header to content), with more space above it to set it apart from what came before.
 - No one can foresee every ask. What makes that safe: asks are built from a few typed parts, and an option can carry
   the same parts as a card (a place, a link, an amount) from the registry of card needs; anything the parts don't fit
   still renders through a plain fallback (text, answer buttons, links); every fallback is recorded as a miss, and the
