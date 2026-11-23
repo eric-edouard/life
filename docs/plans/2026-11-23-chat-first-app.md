@@ -49,7 +49,7 @@ These came out of the discussion; the ones marked as proposed were drawn without
   dot per row, no dividers, no line of what Life prepared (that shows once the thing is open). Each thing is a row on
   its own solid rounded background (`card`, no gradient, no border): who it is about (their picture or initial; an
   organization's mark), their name, what it is in a few words with when it is due (coral only for today), and a quiet
-  Later pill on the right. The whole row is the tap: the thing zooms open ready to act on. Later takes the row out,
+  Later pill on the right. The whole row is the tap: the thing opens in the thread, ready to act on. Later takes the row out,
   lowers the count and leaves one line ("Pay the plumber, tomorrow morning · Undo"). Details and the other decisions
   of the design session: [`docs/design/chat-first/2026-11-23-design-decisions.md`](../design/chat-first/2026-11-23-design-decisions.md).
 - The shortcut's bubble is not the owner's words. It reaches the main session as an event of the screen ("the owner
@@ -77,9 +77,8 @@ These came out of the discussion; the ones marked as proposed were drawn without
   expanded in the thread while it is the latest answer: asked "show me the boiler matter", the matter is simply
   there, no button and no push, and the field speaks about it. It collapses into a preview (title, its key line, a
   couple of facts) when the owner sends the next message, so nothing changes size on its own. A preview shows the
-  thing as it is now, never a snapshot. Tapping a preview in the history opens the page with the system's zoom out of
-  the preview (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the preview, at
-  the same scroll point. A tap inside any page that opens something else zooms out of what was tapped the same way.
+  thing as it is now, never a snapshot. Tapping a preview in the history opens it in the thread, the same way an ask
+  opens (which way is still being tried), never another screen: no zoom, no push.
 - The owner's decision of 23 Nov 2026: action buttons (Later, Send, any act) show only on the thread's latest item;
   older items keep only their tap to open.
 - What a page adds to the thread: looked and left, nothing; an act on it (Send, Done, Pay), one line ("Sent to

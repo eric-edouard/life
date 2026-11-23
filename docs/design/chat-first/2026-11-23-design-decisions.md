@@ -71,8 +71,8 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 - A collapsed matter is a row on a subtle solid card: the face or initial, the title, one line of where it stands. It
   shows the thing as it is now, never a snapshot. Its line has the same shape as a waiting row's: what it is, then
   when it is due ("240 € for the leak · Fri"), coral only for today; a matter with no date shows none.
-- Tapping a preview, a row or a person opens the page with the system's zoom out of what was tapped
-  (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the same spot.
+- Superseded below: tapping a preview, a row or a person opened the page with a zoom out of what was tapped; now
+  everything opens in the thread, with no other screen.
 - Whatever Life adds to the thread (its words, a list, a page, an ask, a line) comes in progressively, like
   dictated words: text word by word, blocks one after another, each from blurred to sharp. The thread follows as it
   grows and stops with the new block's top in view. The owner's own words appear at once. Under Reduce Motion,
@@ -176,7 +176,7 @@ between two places), and what changed because of it:
   so nothing is ever lost; the model orders it and chooses the few shown first ("3 of 11, the rest after these"). The
   ranking is made in the background, so the count's tap stays instant.
 - An ask comes into the thread (the default). A page-sized thing follows the thread's rule (expanded while latest,
-  collapsed after); the zoom to full screen is only for opening a preview from the history.
+  collapsed after). (The zoom kept here for past items went later the same day: see below.)
 - Accepted cost of the thread: an ask opened from a list appears again at the bottom. Its row in the list dims, so
   it reads as opened, not as a second ask. Opening another row adds that ask below; the ones opened before stay as
   they are (only the newest keeps its buttons). Tapping a row whose ask is already below scrolls to it and lights it
@@ -202,7 +202,9 @@ between two places), and what changed because of it:
   whether that assistant would need it. Written into `docs/product.md`.
 
 - No full-screen view to answer an ask (the yardstick: an assistant never sends him to another screen to answer). An
-  ask is answered in the thread; the zoom to full screen stays only for looking back at a past item from the history.
+  ask is answered in the thread. The zoom goes too (owner, 23 Nov 2026): a past item opens the same way an ask does,
+  so there is one gesture and no other screen. Which way that is (in place, your turn then the item, or older ones
+  fold) is still being tried.
 
 ## Open
 
