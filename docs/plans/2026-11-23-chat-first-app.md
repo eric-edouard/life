@@ -40,9 +40,18 @@ These came out of the discussion; the ones marked as proposed were drawn without
   seconds for a model would make the app unusable.
 - The same thing getting longer expands in place ("Show the other 6"); a different thing is pushed.
 - Back says "Back" from the first page and names its destination from the second on ("‹ Boiler repair").
-- The day's opener ("9 things wait on you. The most pressing first.") is built by code from the inbox
-  (`openChecksNow`, `inboxOrderOf`), never written by the model: it is instant, works offline and never leaves an ask
-  out, which the inbox invariant requires.
+- The owner's decision of 23 Nov 2026: the conversation opens with no history, and "what's waiting on you" is an
+  always-on badge with the count, not a message. Tapping it plays a shortcut: a bubble from the owner, "What's waiting
+  on me?", and Life's answer ("9 things wait on you. The most pressing first." with the rows). Both are built by code
+  from the inbox (`openChecksNow`, `inboxOrderOf`), never by the model: instant, offline, and never leaving an ask out,
+  which the inbox invariant requires. The badge reads the same words as the bubble, so the bubble is the tap said
+  aloud and holds no surprise. With nothing waiting, the badge goes rather than saying all is well (brand rule).
+- The shortcut's bubble is not the owner's words. It reaches the main session as an event of the screen ("the owner
+  opened what's waiting", with the rows' refs, as `MainSessionScreen` carries), never as text that `hisWordsIn` could
+  find, so no act can take its `said` from a tap. The owner's next words ("the second one", "do the plumber first")
+  are a normal ask, about the rows on screen.
+- Proposed: the same pattern for the other fixed doors (Today, People, Projects): a tap plays a deterministic bubble
+  pair, so the conversation is the one way in and still nothing waits on a model.
 - Proposed: opening a page adds nothing to the conversation; only words do. What the owner asks on a page is added to
   the conversation, marked with where it was asked.
 - Proposed: nothing moves by itself after an act. After Send, two buttons offer the next item or the list.
@@ -139,6 +148,7 @@ catalog grows from those records, each new block designed, never improvised.
 ## Open questions
 
 - The brand exception for the edge: its words and date in `docs/brand.md`.
-- Whether the opener's wording stays plain and counted, or the session adds a line after code's list.
+- Whether the session may add a line after code's answer to the badge's shortcut, or it stays code's alone.
+- Where earlier conversation lives once the thread opens empty (an "Earlier" fold, or kept only in the session).
 - Whether suggestion buttons are a fixed set or chosen by the session with "what's waiting" always among them.
 - The open Duo and the notification landing were discussed but not drawn.
