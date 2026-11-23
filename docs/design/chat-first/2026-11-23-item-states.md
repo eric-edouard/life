@@ -17,18 +17,18 @@ follow-ups, Undo) follows this grid instead of its own rules. The decisions behi
    message for Clinic North"), and an ask skipped ("Left for now, still waiting on you").
 4. **A tap is alive only while the item needs the owner or is worth reading.** Settled is history, like a past message
    in a chat.
-5. **Answer buttons live only on the newest open ask.** A row offers only Later, and only for a task done outside Life
-   (pay, call). An answered ask folds into its card.
+5. **Answer buttons live only on the one open item.** A tap unfolds an item where it is, one at a time; a row offers
+   only Later, and only for a task done outside Life (pay, call). An answered item folds back into its row or card.
 6. **Undo is on the item, while Life can still try.** Never on a send.
 
 ## The grid
 
 | State | Its line (row and card alike) | Tap | Buttons | Undo |
 |---|---|---|---|---|
-| Needs you | Who it is about · when it is due (coral only for today) | Opens it: his turn, then the ask at the bottom | On the newest open ask only; a row's Later for a task | — |
-| Later | Later · tomorrow 9:00 | Opens it (he changed his mind) | None | Undo: lifts it back to needs you |
+| Needs you | Who it is about · when it is due (coral only for today) | Unfolds it where it is | On the newest open ask only; a row's Later for a task | — |
+| Later | Later · tomorrow 9:00 | Unfolds it (he changed his mind) | None | Undo: lifts it back to needs you |
 | Under way | Life is on it, in a few words ("Contacting Clinic North"), a small spinner | Nothing to answer; no tap | None | Undo: Life tries to stop it |
-| Waiting on someone | What it waits on · when (Waiting on Tomas's quote · Thu) | Opens it to read: its line and their last message | None | — |
+| Waiting on someone | What it waits on · when (Waiting on Tomas's quote · Thu) | Unfolds it to read: its line and their last message | None | — |
 | Settled | A tick and how it ended (Sent to Nora, Dropped) | None | None | Undo while Life can try, never on a send |
 
 What a tap on Undo shows, on the item's line: "Undoing…", then either "Undone · Reopen" (the item is back to needs
@@ -38,10 +38,13 @@ booking") and nothing else.
 ## Where each path lands
 
 - **Answered on the newest open ask:** the ask folds into its card, its line now under way or settled. No line below.
+- **Answered on an item unfolded away from the bottom:** it folds back in its new state, and Life's line at the
+  bottom says so, the item's name a link back to it.
 - **Later on a row, or on the open ask:** the item's line becomes Later; the count goes down. No line at the bottom.
 - **Answered on a notification:** the ask's card (its state line, settled), then his answer as his bubble in the
   card's words with the bell and the time. No line below.
 - **Opened from a notification without answering:** the ask at the bottom, needs you, with its buttons.
 - **A follow-up:** the answered ask stays under way until the next card is ready; then it settles, and Life's lead
   and the new ask land at the bottom.
-- **Skipped (he did something else):** the ask folds, still needs you, closed by Life's one line.
+- **Skipped (he did something else):** the item folds back, still needs you; an ask Life brought to the bottom is closed
+  by Life's one line.

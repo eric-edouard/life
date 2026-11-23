@@ -270,6 +270,14 @@ between two places), and what changed because of it:
   in turn in the empty field. It is the first face of the prediction layer
   ([`docs/plans/2026-11-23-prediction-layer.md`](../../plans/2026-11-23-prediction-layer.md)).
 
+- Opening in place is back, as the default (owner, 23 Nov 2026, after using the prototype: every tap becoming his
+  bubble and a copy at the bottom felt like a chat bot, a step back). A tap on a row or a card unfolds it where it is,
+  one at a time, its buttons on it: the one open item is the one place to act. Opening another, typing or speaking
+  folds it back into its row, which keeps its state (no skip line). Answered away from the bottom of the thread, it
+  folds back in its new state and Life's line at the bottom says so ("You answered Pay Marc 240 €"), the item's name a
+  link that scrolls to it and lights it once. The thread grows only with what he and Life say. The two "your turn"
+  ways (1 and 5) stay selectable in the prototype to compare.
+
 ## Open
 
 - The icons of the two always-on buttons.
