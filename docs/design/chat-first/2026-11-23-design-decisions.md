@@ -265,6 +265,11 @@ between two places), and what changed because of it:
   stays in its list, Later shows on the row); the item says how it ended, so no line below repeats it (this settles
   the three ways compared for an answered ask, and drops the outcome line after a notification answer).
 
+- Suggested asks are always on (owner, 23 Nov 2026), not only while an ask is open: after any big change on screen or
+  any new message from Life, a quick second run reads what is shown and proposes the three likeliest next asks, shown
+  in turn in the empty field. It is the first face of the prediction layer
+  ([`docs/plans/2026-11-23-prediction-layer.md`](../../plans/2026-11-23-prediction-layer.md)).
+
 ## Open
 
 - The icons of the two always-on buttons.
