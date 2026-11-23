@@ -196,6 +196,10 @@ between two places), and what changed because of it:
   ask, taps what waits), the ask's buttons go and one quiet line closes it, right under the ask and before his new
   message: "Left for now, still waiting on you" (no repeat of the ask's title). It stays in the list.
 
+- The yardstick (the owner's word of 23 Nov 2026): if a good human assistant could do it with him in an iMessage or
+  WhatsApp thread, Life does it in its thread, better, since it owns the UI. Before adding a screen or control, ask
+  whether that assistant would need it. Written into `docs/product.md`.
+
 ## Open
 
 - The icons of the two always-on buttons.

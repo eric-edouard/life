@@ -13,6 +13,11 @@ really, really we cannot do and actually needs you, then we spoon-feed it to you
 and of 23 Nov 2026 ("Never show anything useless to the user. Only show what actually needs them, or what they asked
 for"). The bar is a 70-year-old who doesn't know how to use an iPhone.
 
+The yardstick for the app's design (his word of 23 Nov 2026): a good human assistant gets almost everything done with
+him in an iMessage or WhatsApp thread. What they can do there, Life can do in its own thread, and better, since it owns
+the screen (cards with answers, a draft shown as it will go, a map link, an ask that closes itself). A screen, view or
+control that such an assistant would never need is a sign the design serves the builder, not the person.
+
 ## Why this is hard
 
 A menu is an app saying "I don't know what you want, so here is everything." Apps, Apple's included, can't judge
