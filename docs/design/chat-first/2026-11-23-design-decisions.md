@@ -32,8 +32,9 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 
 ## Buttons and words
 
-- The cream fill (`fg` as a background) means the owner: their own messages and the one main answer button. Nothing
-  else takes it. A selected option in a choice is only a little lighter than the others, with its radio filled
+- The cream fill (`fg` as a background) is the one main answer button. Nothing else takes it. The owner's own messages
+  are a quiet tinted bubble (cream at 11%, cream text): the full cream bubble was too loud in the thread (owner,
+  23 Nov 2026, over a bare-text variant). A selected option in a choice is only a little lighter than the others, with its radio filled
   (owner, 23 Nov 2026).
 
 - Minimal is the brand: a button shows a mark or a number, not a word, wherever a mark can say it. Words go to
