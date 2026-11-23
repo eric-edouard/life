@@ -73,6 +73,7 @@ the item shows.
 | Under way | What Life is doing ("Contacting Clinic North"), a small spinner | None | Life tries to stop it |
 | Waiting on someone | What it waits on · when ("Waiting on Tomas's quote · Thu") | Unfolds it to read | — |
 | Settled | A tick and how it ended ("Sent to Nora", "Dropped") | None: it is history | While Life can still try; never a send |
+| Queued | A small clock · Goes when you're back (answered while offline) | None | — |
 | Outdated | The whole row faded to the back, its line the reason ("Nora wrote since", "You replied in WhatsApp") | None | — |
 
 - An item changes state where it is. It never moves or vanishes: a list keeps its rows, the count says what is left.
@@ -148,7 +149,7 @@ the item shows.
   most one button, only when he can fix it; grey for information, coral when it needs him. Each is one live message
   at the bottom that updates in place, never repeated, and settles into a quiet line once fixed ("Back online · 2
   answers sent"). The family: offline, the Mac not answering, a login to renew, the pendant not recording, the
-  budget (first pass, being designed).
+  budget (in the prototype; the owner found them fine, to judge on the phone).
 - Life failing to answer: "I couldn't answer that." Tapping his bubble asks again. Never "tell the caretaker": it is
   told without him.
 
@@ -164,5 +165,4 @@ the item shows.
 ## Open
 
 - Answers to his own questions ("where are we with the boiler?"): most of his use, not designed yet.
-- The system messages' family (first pass).
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.
