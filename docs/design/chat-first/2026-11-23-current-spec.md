@@ -151,9 +151,12 @@ the item shows.
   Later in his situation's words. It ranks first in what waits ("what is broken comes first") and has every state of
   an ask. The caretaker writes it from what Life knows: at home by the Mac, the steps; away, its main answer is
   "Remind me when I'm home", which wakes it on his arrival. It offers only a step Life can really do.
-- What he can do nothing about right now is not an ask but one quiet centred line, the mark and a few words: "You're
-  offline · what you do goes when you're back", "Your Mac isn't answering · since 14:10, nothing is lost", settling
-  into "Back online · 2 sent".
+- What he can do nothing about right now is not an ask but a notice: an ask's header and nothing else (owner, 23 Nov
+  2026), so the thread has one shape for anything Life puts in front of him. Its mark in the face (no signal, the Mac),
+  what is wrong as the title ("You're offline", "Your Mac isn't answering"), what it means for him and since when as
+  the line ("What you do waits · since 15:40", "Nothing is lost · since 14:10"). No body, no answers, no tap, not in
+  the count. One per problem, updated where it is; fixed, it settles like an item: a tick and how it ended ("Back
+  online · 2 sent", "Back · caught up").
 - Life failing to answer: "I couldn't answer that." Tapping his bubble asks again. Never "tell the caretaker": it is
   told without him.
 
