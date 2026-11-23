@@ -36,6 +36,9 @@ Every time Life offers something, it is a prediction, and his choice scores it:
   inputs, his preferences, its rules about him) changes until it would predict all of them, this latest one included.
   The way Life already proves a change against its regression cases (`AGENTS.md`, "Prove a change cheaply";
   `docs/operations.md`, "Regression cases"), but scored on his own choices.
+- **The benchmark rolls** (his word of 23 Nov 2026): an entry is retired only when it is old and fails. As long as
+  Life still predicts it, it stays, however old; an old one Life can no longer predict is taken as him having changed,
+  not as Life's error, and leaves the set. A new miss is never retired: Life must learn it.
 
 Much of the record exists already: his answers to cards with the options he was shown (`decisions.jsonl`), what was
 sent against the draft he approved, his importance labels and his corrections. What is new is reading them as scores
