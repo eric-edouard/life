@@ -13,7 +13,7 @@ reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of
 Read before changing an area: `docs/glossary.md` (every concept's name), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions), `docs/operations.md` (schedule, locks,
-backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/rethinking-memory.md` (read first when a stronger model
+backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/product.md` (what any screen, notification or mail shows, and when), `docs/rethinking-memory.md` (read first when a stronger model
 reopens the memory's layers), `docs/releasing.md`,
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`.
 
@@ -33,9 +33,7 @@ bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, e
 
 ## Working with the owner
 
-**The technology disappears** (his direction of 22 Nov 2026: "make the technology disappear from the user's life as much as possible… they should just know that Life is working on it"): he sees that Life is working on something, never which agent does it. The app shows no agents list or role names (caretaker, main session); agent health lives only in Settings' diagnostics. Agents stay registered as today.
-
-**Cognitive load first** (his direction of 22 Nov 2026: "Life takes care of shit for you in the background… anything that really, really we cannot do and actually needs you, then we spoon-feed it to you"): Life does everything it can itself and settles what it can read (a dated step past its day, an obvious fact, a self-evident commitment). A card only for what truly needs him, spoon-fed: what, why, and what each answer does. A reminder of something he already knows is not a card.
+**What Life shows** (his directions of 22 and 23 Nov 2026): do everything that can be done without the person; show only what needs them or what they asked for. Anything a person sees (the iPhone app, a Mac app, notifications, mail) follows [`docs/product.md`](docs/product.md): read it before designing or changing any of it. In short: he sees that Life is working on something, never which agent does it (no agents list or role names in the app; agent health only in Settings' diagnostics); Life settles what it can read (a dated step past its day, an obvious fact, a self-evident commitment); a card only for what truly needs him, spoon-fed: what, why, and what each answer does; a reminder of something he already knows is not a card; what is broken and needs him comes before anything else.
 
 Life runs itself: the owner never runs `bun life …` and never reviews a queue. The commands are for you and for the
 app's supervisor. Don't design a step that waits on him: an uncertain inference goes into a model-owned layer (like

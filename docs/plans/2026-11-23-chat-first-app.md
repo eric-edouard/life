@@ -55,6 +55,13 @@ These came out of the discussion; the ones marked as proposed were drawn without
   must be one tap, instant, never a turn of the main session. So it opens the sheet rather than playing a bubble. It
   shows the pendant's state itself: the recording dot while it records (one of the brand's three things that move by
   themselves), a flag when something needs the owner (not paired, offline, battery low, not recording when it should).
+- The owner's decision of 23 Nov 2026: what is wrong and needs the owner comes before what is waiting. The thread then
+  opens on it, not empty: Life's line and the one button that fixes it, then the badge as usual. What Life fixes itself
+  never shows, and what is degraded but works shows nothing. The phone judges its own part (the pendant, its network,
+  whether the Mac answers), since an unreachable Mac can't say what is wrong; the Mac judges the rest, one read over
+  what exists (`read_life_status`, `agentHealthOf`, `deskHealthOf`, messaging status, `ConnectionSummary`).
+- The owner's decision of 23 Nov 2026: one monthly amount for Life's paid services, set at setup, a soft cap, with a
+  burn rate projected from spending and a prepaid balance watched (rules in [`docs/product.md`](../product.md)).
 - Proposed: the same pattern for the other fixed doors (Today, People, Projects): a tap plays a deterministic bubble
   pair, so the conversation is the one way in and still nothing waits on a model.
 - Proposed: opening a page adds nothing to the conversation; only words do. What the owner asks on a page is added to
@@ -154,6 +161,7 @@ catalog grows from those records, each new block designed, never improvised.
 
 - The brand exception for the edge: its words and date in `docs/brand.md`.
 - Whether the session may add a line after code's answer to the badge's shortcut, or it stays code's alone.
+- Whether fixed subscriptions count toward the monthly amount.
 - Where earlier conversation lives once the thread opens empty (an "Earlier" fold, or kept only in the session).
 - Whether suggestion buttons are a fixed set or chosen by the session with "what's waiting" always among them.
 - The open Duo and the notification landing were discussed but not drawn.
