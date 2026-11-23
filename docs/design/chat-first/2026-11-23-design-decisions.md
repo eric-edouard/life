@@ -236,6 +236,15 @@ between two places), and what changed because of it:
   already use: a tap made outside the thread's own buttons enters it as his words. (In the app his tap on the
   button is seen happening, so it stays in place.)
 
+- An ask arriving while the owner is in the app (owner, 23 Nov 2026), often the next card of one he just answered:
+  no banner (the system notification is suppressed while Life is on screen); a follow-up to what he just did lands
+  in the thread at once as the newest item, after the line of his answer; it never pushes away an ask that is open,
+  nor lands while he types, speaks or Life answers him (it waits, the count goes up, and it lands once he is free);
+  if he has scrolled up nothing jumps, a small down pill shows instead. Haptics are a design topic of their own.
+- Proposed, not decided: an unrelated ask in the app follows the same level as its push (`notifications`): off or
+  quiet, only the count; normal or urgent, it lands in the thread once he is free. Whether Life should push fewer
+  unrelated asks at all (ranked, not every card) is a rethinking of notifications, for the plan with ask quality.
+
 ## Open
 
 - The icons of the two always-on buttons.
