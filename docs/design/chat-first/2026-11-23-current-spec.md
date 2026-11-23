@@ -184,9 +184,14 @@ Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to
 ### Life's questions
 
 - Life answers as it wants, then ends with its question when it needs one (owner, 23 Nov 2026). A question is not an
-  item: it is not counted and never notifies; its suggested answers become his words. How they look is being chosen
-  ([questions page](https://claude.ai/artifact/1KczjS4siwxnjYkEJ5RHLU), private to the owner: seven kinds, five
-  designs).
+  item: it is not counted and never notifies; its suggested answers become his words.
+- Each kind of question gets its own control (owner, 23 Nov 2026: design E of the
+  [questions page](https://claude.ai/artifact/1KczjS4siwxnjYkEJ5RHLU); drawn on the Answers page of the Chat design
+  canvas): which one or an offer, two equal pills under the question, the likelier outlined; a yes before an act, the
+  same, the act's answer outlined; an option with consequences, option cards with one line of facts and Life's pick
+  in Life's blue; a value, a segmented pick; a person, their faces side by side; his own words, the field starts his
+  sentence with Life's suggestion and the microphone calls softly. Typing or speaking always answers too; doing
+  something else leaves the question, with no closing line.
 - An answer can start real work and move a matter (owner, 23 Nov 2026: "a question could lead to real agent work").
   Such an answer carries a small lit mark; once tapped, the work shows under his bubble as an item in its state
   (under way, with Undo while Life can still stop it), and settles or hands on to what comes next. Work that would
