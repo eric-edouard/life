@@ -90,6 +90,24 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 - Hidden: the goal (Life's framing; changed by saying so). Done and Drop show only when nothing is asked; Drop is also
   said. One ask at a time; the others show as "1 more after this".
 
+## One page shape for every ask
+
+- Every ask, whatever its kind, opens on the same shape: who asks, in large (their face or mark, their name, and the
+  row's own line "what · when"), then the body of its kind, then one action bar: a quiet Later and one wide button
+  that says what it does ("Send to Camille", "I paid it", "Add to calendar", "Confirm Thu 27 Nov", "Done"). A
+  standard way to show what an ask is about matters more than a layout that suits one kind (owner, 23 Nov 2026,
+  choosing "who asks, in large" with the wide Send of the action-bar proposal).
+- The page repeats the row: the same face, name and line, in the same type roles, only larger, then what the row had
+  no room for. What the owner saw in the list is what they find at the top of the page.
+- The bodies by kind: a reply, the chat with the draft; a choice, its options as rows to pick (the button waits for a
+  pick and then names it); a payment, the amount large, to whom, the IBAN in mono, the reference, and "Open your bank";
+  a calendar add, the event's when, where and reminder; a call, the number as a tap to call and what to say. A matter
+  waiting on someone has no action bar: one line and their last message.
+- Every action reads the same way, on a row or a page: the button turns to doing (a spinner and "Sending…"), then to
+  done (a tick and "Sent", green) for one second, and only then does anything move (the row leaves, the page shows
+  its done state, a line with Undo lands in the thread). It shows the owner that Life did it and recorded it.
+- An ask that is done leaves what waits on you, and the count goes down.
+
 ## A draft
 
 - Branded per app. The chat's head: the app's own logo (never a generic bubble), the chat's name, and its size in a
