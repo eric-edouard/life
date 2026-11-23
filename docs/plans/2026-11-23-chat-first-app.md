@@ -195,6 +195,9 @@ shown full screen), `document` (a paper as sent: `from`, title, key lines, total
 address). The three answers drew from them alone, each spec about 140 to 170 tokens with Life's words. It serves
 option 1 or 2 alike: the same seven, picked whole or composed.
 
+Growing the library comes later, in bulk (the owner, 23 Nov 2026): a workflow of real questions asked, answers
+generated, A/B tested with him until he is happy, then each new component designed and specced.
+
 ## The order of the work (for the plan)
 
 The owner's yes of 23 Nov 2026: the plan orders its work by what most lowers his load, so the first big PRs go where
