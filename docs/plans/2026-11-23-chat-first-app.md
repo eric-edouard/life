@@ -166,6 +166,21 @@ line per block in the door's description, always in context (it also tells the s
 block fits, the session answers in words (with `life:` links) and Life records the miss with what was being shown; the
 catalog grows from those records, each new block designed, never improvised.
 
+## Ask quality comes first (for the plan)
+
+The owner's word of 23 Nov 2026: the app's low load rests on the asks Life sends more than on how they look. No
+thread design saves 15 vague asks. The plan treats ask quality as a deliverable of its own, ahead of the app's
+polish:
+
+- Few: the main session ranks what reaches the owner (top few, the rest after them), the complete list kept by code.
+  Life settles what it can on its own before anything becomes an ask (`docs/product.md`).
+- Clear: each card carries a short imperative ask line ("Pick a clinic for the tattoo"), never news or a name, and
+  Life's suggested follow-ups: two new fields of the card's contract, written by the agent that asks, refused when
+  missing like a plan card's steps.
+- Answerable in place: the recommended answer first, the others as equal pills, what each answer does said plainly.
+- Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
+  prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
+
 ## Steps
 
 1. The bar and the edge in today's app: the Ask Life round button and strip become the always-on field and voice
@@ -181,4 +196,4 @@ catalog grows from those records, each new block designed, never improvised.
 - Whether the session may add a line after code's answer to the badge's shortcut, or it stays code's alone.
 - Whether fixed subscriptions count toward the monthly amount.
 - Whether suggestion buttons are a fixed set or chosen by the session with "what's waiting" always among them.
-- The open Duo and the notification landing were discussed but not drawn.
+- The open Duo was discussed but not drawn. The notification path and the unhappy paths are next in the design.

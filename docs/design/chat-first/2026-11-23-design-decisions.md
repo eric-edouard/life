@@ -178,8 +178,8 @@ between two places), and what changed because of it:
 - An ask comes into the thread (the default). A page-sized thing follows the thread's rule (expanded while latest,
   collapsed after). (The zoom kept here for past items went later the same day: see below.)
 - Accepted cost of the thread: an ask opened from a list appears again at the bottom. Its row in the list dims, so
-  it reads as opened, not as a second ask. Opening another row adds that ask below; the ones opened before stay as
-  they are (only the newest keeps its buttons). Tapping a row whose ask is already below scrolls to it and lights it
+  it reads as opened, not as a second ask. Opening another row adds that ask below (only the newest keeps its
+  buttons); what happens to the ones opened before is the fold setting, below. Tapping a row whose ask is already below scrolls to it and lights it
   once, never a second copy.
 - Motion is dialled back only after the owner has used it on the phone.
 - Next: the unhappy paths (a send that fails, offline, what is broken first, nothing waiting), then the path from a
@@ -205,6 +205,17 @@ between two places), and what changed because of it:
   ask is answered in the thread. The zoom goes too (owner, 23 Nov 2026): a past item opens the same way an ask does,
   so there is one gesture and no other screen. Which way that is (in place, your turn then the item, or older ones
   fold) is still being tried.
+
+- Opening an ask or a past item (owner, 23 Nov 2026): always your turn, then the item at the bottom (reopening is
+  re-asking, as in any chat app). Whether the pages opened before fold into their cards (5, the default) or stay open
+  (1) is a developer flag in debug builds only, never in Settings, removed with the losing branch once the owner has
+  used both on the phone. Opening in place (4) is parked: a second way of opening mid-thread, with exceptions to the
+  newest-item rules (buttons, the skip line, the suggestions), and no chat app does it.
+- Benchmark, AI chat apps (ChatGPT, Claude): their in-thread choices vanish once passed because they are about the
+  conversation; Life's asks are about the owner's life, so they leave the thread but never the list behind the count.
+  Their separate screen is for a long work product; Life's only full screen is a real document (an attached PDF, a
+  long mail) in the system's own viewer, never one of Life's objects. Not taken: many conversations and a sidebar,
+  regenerate, edit a message, copy, a model picker, a step-by-step trace of the work.
 
 ## Open
 
