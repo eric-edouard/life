@@ -101,7 +101,7 @@ the item shows.
 - The answers: the recommended one full width (the only cream fill on screen), saying what it does ("Send to Nora",
   "I paid it", "Contact Clinic North"); under it the others as equal quiet pills: Later (or the card's own "Not now"),
   an alternative, Drop it.
-- Bodies by kind: a reply, its chat with the draft; a choice, options as cards (radio, name, Life's pick preselected,
+- Bodies by kind: a fix, why in a line and the numbered steps; a reply, its chat with the draft; a choice, options as cards (radio, name, Life's pick preselected,
   one line of facts, a "Google Maps ↗" chip for a place); a payment, the amount large, to whom, the IBAN in mono, the
   reference, "Open your bank"; a calendar add, when, where, reminder; a call, the number to tap and what to say;
   waiting on someone, one line and their last message, no answers.
@@ -145,11 +145,15 @@ the item shows.
   sends. Back online, each goes only if nothing changed meanwhile; an answer to an ask that went out of date is
   dropped and said so. Nothing is greyed.
 - The edge goes still while Life can't be reached.
-- Life's system messages share one shape: a round mark, one line of what is wrong, one of what it means for him, at
-  most one button, only when he can fix it; grey for information, coral when it needs him. Each is one live message
-  at the bottom that updates in place, never repeated, and settles into a quiet line once fixed ("Back online · 2
-  answers sent"). The family: offline, the Mac not answering, a login to renew, the pendant not recording, the
-  budget (in the prototype; the owner found them fine, to judge on the phone).
+- A failure that needs him is an ask, of the kind "fix" (owner, 23 Nov 2026): its face is what broke (the WhatsApp
+  mark, the pendant, €), its title the one-line fix ("Sign WhatsApp back in"), its line what it costs and since when
+  ("Can't send on WhatsApp · since 11:02"), its body the steps, spoon-fed for where he is, its answers the fix and
+  Later in his situation's words. It ranks first in what waits ("what is broken comes first") and has every state of
+  an ask. The caretaker writes it from what Life knows: at home by the Mac, the steps; away, its main answer is
+  "Remind me when I'm home", which wakes it on his arrival. It offers only a step Life can really do.
+- What he can do nothing about right now is not an ask but one quiet centred line, the mark and a few words: "You're
+  offline · what you do goes when you're back", "Your Mac isn't answering · since 14:10, nothing is lost", settling
+  into "Back online · 2 sent".
 - Life failing to answer: "I couldn't answer that." Tapping his bubble asks again. Never "tell the caretaker": it is
   told without him.
 

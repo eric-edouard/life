@@ -205,6 +205,15 @@ polish:
 - Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
   prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
 
+## Fix asks (for the plan)
+
+Failures that need the owner are asks of a kind of their own, "fix", written by the caretaker for where he is
+([the current spec](../design/chat-first/2026-11-23-current-spec.md), "When Life can't be reached"). Two things to
+check before any fix ask offers a step: Life reads WhatsApp from the Mac's app and its bridge only sends, so the
+bridge signed out means "can't send on WhatsApp", not "can't read"; and whether the bridge can be linked again by
+WhatsApp's 8-character pairing code (typed in WhatsApp's Linked devices) instead of a QR code, which would let the
+phone alone fix it. Until then, signing the bridge in is a fix at the Mac.
+
 ## Undo, tried wherever it can be (for the plan)
 
 The owner's word of 23 Nov 2026: every answer but a send gets an Undo that Life tries, and says plainly whether it

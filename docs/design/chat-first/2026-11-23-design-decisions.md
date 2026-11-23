@@ -315,6 +315,10 @@ between two places), and what changed because of it:
 - An outdated ask is faded (owner, 23 Nov 2026, over struck through, a pointer to its replacement, a ghost line and a
   hollow face): the whole row to the back, its line the reason.
 
+- Failures that need him are asks, a "fix" kind, one look with every other ask (owner, 23 Nov 2026, rather than a
+  family of system messages); the caretaker spoon-feeds them for where he is (at home the steps, away a reminder on
+  arriving home), offering only steps Life can really do. What he can do nothing about stays one quiet line.
+
 ## Open (see the current spec's)
 
 - The icons of the two always-on buttons.
