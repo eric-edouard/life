@@ -200,6 +200,9 @@ between two places), and what changed because of it:
   WhatsApp thread, Life does it in its thread, better, since it owns the UI. Before adding a screen or control, ask
   whether that assistant would need it. Written into `docs/product.md`.
 
+- No full-screen view to answer an ask (the yardstick: an assistant never sends him to another screen to answer). An
+  ask is answered in the thread; the zoom to full screen stays only for looking back at a past item from the history.
+
 ## Open
 
 - The icons of the two always-on buttons.
