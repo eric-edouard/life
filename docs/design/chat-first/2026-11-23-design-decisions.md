@@ -144,8 +144,8 @@ between two places), and what changed because of it:
   (`tint`) in one row: Later (or the card's own "Not now"), an alternative ("Recap only"), Drop it. Never bare text.
 - A choice's options are cards: a radio, the name and Life's pick, one line of deciding facts, and for a place a
   "Google Maps ↗" chip with the Maps mark inside the card, which opens the place without picking it.
-- Open question being tried in the prototype: with the noise gone, many asks no longer need a full screen. A switch
-  lets the owner try an ask coming into the thread as its newest message, in the same layout, with no empty space
+- Tried in the prototype, now the default: with the noise gone, many asks no longer need a full screen. A switch
+  still lets the owner compare with full screen: an ask coming into the thread as its newest message, in the same layout, with no empty space
   between the ask and its answers; Later folds it into its preview. In the thread it keeps the page's spacing a
   little tighter (header to content), with more space above it to set it apart from what came before.
 - No one can foresee every ask. What makes that safe: asks are built from a few typed parts, and an option can carry
@@ -167,6 +167,20 @@ between two places), and what changed because of it:
 - Tapping any message also opens the real chat.
 - The draft: a subtle background of the app's colour and the brand's dashed outline (1.5 px) in that colour too,
   which fades once it is sent.
+
+## After the first full review (23 Nov 2026)
+
+- What reaches the owner is ranked by the main session, from the owner's situation (what they are doing, what they
+  set for later, their preferences), as the owner asked in the overhaul's notes. Code still holds the complete list,
+  so nothing is ever lost; the model orders it and chooses the few shown first ("3 of 11, the rest after these"). The
+  ranking is made in the background, so the count's tap stays instant.
+- An ask comes into the thread (the default). A page-sized thing follows the thread's rule (expanded while latest,
+  collapsed after); the zoom to full screen is only for opening a preview from the history.
+- Accepted cost of the thread: an ask opened from a list appears again at the bottom. Its row in the list dims, so
+  it reads as opened, not as a second ask.
+- Motion is dialled back only after the owner has used it on the phone.
+- Next: the unhappy paths (a send that fails, offline, what is broken first, nothing waiting), then the path from a
+  notification.
 
 ## Open
 
