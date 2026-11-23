@@ -80,6 +80,8 @@ These came out of the discussion; the ones marked as proposed were drawn without
   thing as it is now, never a snapshot. Tapping a preview in the history opens the page with the system's zoom out of
   the preview (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the preview, at
   the same scroll point. A tap inside any page that opens something else zooms out of what was tapped the same way.
+- The owner's decision of 23 Nov 2026: action buttons (Later, Send, any act) show only on the thread's latest item;
+  older items keep only their tap to open.
 - What a page adds to the thread: looked and left, nothing; an act on it (Send, Done, Pay), one line ("Sent to
   Camille · Undo"), which is also the history of what Life did; words asked on a pushed page, the exchange, marked
   "Asked on Boiler repair" (on the expanded latest page, no marker: it is already the conversation).

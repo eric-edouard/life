@@ -62,6 +62,9 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
   when it is due ("240 € for the leak · Fri"), coral only for today; a matter with no date shows none.
 - Tapping a preview, a row or a person opens the page with the system's zoom out of what was tapped
   (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the same spot.
+- Action buttons (Later, Send, Mark as done, any act) show only on the latest item of the thread. Once anything newer
+  arrives, older items keep only their tap to open: the history is read, not acted on in place, and only the newest
+  thing asks for a decision.
 - What a page adds to the thread: looked and left, nothing; an act, one line with Undo; words asked on it, the
   exchange marked "Asked on <page>".
 
