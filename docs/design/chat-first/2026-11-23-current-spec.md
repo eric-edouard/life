@@ -24,7 +24,7 @@ reached; where the two differ, this page wins. The plan is
 - On every screen: the edge, the field at the bottom, and two round buttons at the top: what waits on you (left, the
   count) and the pendant (right). No tab bar, no drawer, no other screen.
 - The edge has three states. Idle and You speak: two soft grey lights turning over a faint ring that never goes dark,
-  quiet at rest; speaking doubles their speed and pools the light by the field. Life is working: the blue swell in
+  the ring at its full strength at rest (dimming it made the moving lights stand out more), every halo kept close to its edge (thin rings, little blur); speaking doubles their speed and pools the light by the field. Life is working: the blue swell in
   Life's ai colour (`#9aa8ec`), stronger and faster. Changes glide over about a second. It needs the owner's exception
   written into `docs/brand.md` (borders, motion, colour) before it is built.
 - The pendant: the lit cream dot, breathing, while it records; a hollow ring when paused; coral only when it needs
