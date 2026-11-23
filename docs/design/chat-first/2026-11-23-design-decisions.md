@@ -51,7 +51,7 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 
 - When an ask is the latest thing (its page open, or the newest item of the thread), the empty field's placeholder
   becomes Life's suggested follow-ups for that ask ("Say 8:30 instead", "Ask her to book it"), one at a time, changing
-  every 3 seconds. A quiet send button sits at the end of the suggestion (smaller than Send: a soft cream disc, the arrow in the
+  every 3 seconds, each written in like dictated words (letter by letter, blurred to sharp). A quiet send button sits at the end of the suggestion (smaller than Send: a soft cream disc, the arrow in the
   background's black) and
   sends it as the owner's ask. Tapping anywhere else in the field types as usual; typing hides the suggestion.
 
