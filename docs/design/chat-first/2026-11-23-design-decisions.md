@@ -306,6 +306,12 @@ between two places), and what changed because of it:
 - No cards (owner, 23 Nov 2026, choosing "space and scale" over a spine and focus by dimming): rows are bare; an
   unfolded item, in a list or brought by Life, takes room, its header grows, a faint wash of light behind it, no edge.
 
+- Unhappy paths (owner, 23 Nov 2026): an ask overtaken (someone wrote since, he replied himself, a newer card) is one
+  state, outdated, which will be common since he often answers outside Life; under way has a limit; offline queues
+  everything, words, answers and sends, each going only if nothing changed, nothing greyed; the edge goes still and
+  one system message says he is offline, part of a family of system messages still to design; a failed answer
+  never offers the caretaker.
+
 ## Open (see the current spec's)
 
 - The icons of the two always-on buttons.

@@ -69,6 +69,7 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 | Under way | What Life is doing ("Contacting Clinic North"), a small spinner | None | Life tries to stop it |
 | Waiting on someone | What it waits on · when ("Waiting on Tomas's quote · Thu") | Unfolds it to read | — |
 | Settled | A tick and how it ended ("Sent to Nora", "Dropped") | None: it is history | While Life can still try; never a send |
+| Outdated | Why: someone wrote since, he replied there himself, or a newer card replaced it (look being chosen) | None | — |
 
 - An item changes state where it is. It never moves or vanishes: a list keeps its rows, the count says what is left.
 - The item says how it stands, so no line repeats it. Life's lines are only for what happens between items: a
@@ -111,6 +112,13 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 - A failure shows on the button itself: "Not sent", tap to try again; or "May have gone", no retry.
 - Undo is an attempt, never a promise: "Undoing…", then "Undone · Reopen" (Reopen brings the ask back), or one line
   saying why it couldn't. A send never has Undo. What each undo needs is in the plan.
+- An ask goes out of date when someone wrote in its chat since (its agent writes a new draft, a follow-up card), when he
+  answered there himself (he often will, outside Life), or when its agent withdrew or replaced it; unfolded, it folds.
+- Under way never spins for ever: Life first tries to fix a stalled task unseen; if it can't, the item comes back to
+  needs you with one line of why ("Couldn't reach Clinic North"). The limit: a few minutes for a draft, a long task's
+  own deadline for the rest.
+- Answered at the same moment elsewhere (the Watch, a notification, another copy): the later tap does nothing and its
+  button reads "Already answered: Sent".
 - An ask Life brought to the bottom that he skips (he types, speaks, opens something else) loses its buttons, and one
   quiet line closes it: "Left for now, still waiting on you".
 
@@ -126,6 +134,20 @@ show the same ask): they are one item, live, so a choice made in one shows in al
   the thread as its card in its state, then his answer as his bubble in the card's words with the bell and the time.
   Opened without answering, Life brings the ask to the bottom with its answers.
 
+## When Life can't be reached
+
+- Offline, everything still works and is queued: his words (his bubble with a small clock), his answers and his
+  sends. Back online, each goes only if nothing changed meanwhile; an answer to an ask that went out of date is
+  dropped and said so. Nothing is greyed.
+- The edge goes still while Life can't be reached.
+- Life's system messages share one shape: a round mark, one line of what is wrong, one of what it means for him, at
+  most one button, only when he can fix it; grey for information, coral when it needs him. Each is one live message
+  at the bottom that updates in place, never repeated, and settles into a quiet line once fixed ("Back online · 2
+  answers sent"). The family: offline, the Mac not answering, a login to renew, the pendant not recording, the
+  budget (first pass, being designed).
+- Life failing to answer: "I couldn't answer that." Tapping his bubble asks again. Never "tell the caretaker": it is
+  told without him.
+
 ## Not doing, and why
 
 - A full screen for an ask, the zoom, a "more details" view: an assistant never sends him to another screen.
@@ -138,5 +160,5 @@ show the same ask): they are one item, live, so a choice made in one shows in al
 ## Open
 
 - Answers to his own questions ("where are we with the boiler?"): most of his use, not designed yet.
-- Unhappy paths left: someone wrote in the chat since the ask, his words while offline, Life failing to answer.
+- The outdated look (five proposals) and the system messages' family (first pass).
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.
