@@ -17,7 +17,8 @@ follow-ups, Undo) follows this grid instead of its own rules. The decisions behi
    message for Clinic North"), and an ask skipped ("Left for now, still waiting on you").
 4. **A tap is alive only while the item needs the owner or is worth reading.** Settled is history, like a past message
    in a chat.
-5. **Answer buttons live only on the one open item.** A tap unfolds an item where it is, one at a time; a row offers
+5. **Answer buttons live only on unfolded items.** A tap unfolds an item where it is, several at once if he likes; each
+   copy of one item shows the same choices, live, so nothing can be decided twice. A row offers
    only Later, and only for a task done outside Life (pay, call). An answered item folds back into its row or card.
 6. **Undo is on the item, while Life can still try.** Never on a send.
 

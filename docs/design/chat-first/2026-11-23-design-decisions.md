@@ -278,6 +278,13 @@ between two places), and what changed because of it:
   link that scrolls to it and lights it once. The thread grows only with what he and Life say. The two "your turn"
   ways (1 and 5) stay selectable in the prototype to compare.
 
+- Copies are fine (owner, 23 Nov 2026): the same ask may show in several places of one thread (two lists, a card and
+  a row); they are one item, live, so a choice made in one shows in all and he can never decide two things on one ask.
+- Several items can be unfolded at once (owner, 23 Nov 2026), each with its buttons. Each folds by its own mark or
+  when answered; typing, speaking or Life's next message leave them open, and what lands below never waits on them.
+- Opening an ask: unfolding where it is is the default for now; the two "your turn" ways stay in the prototype to
+  compare.
+
 ## Open
 
 - The icons of the two always-on buttons.
