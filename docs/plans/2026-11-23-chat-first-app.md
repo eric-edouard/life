@@ -70,8 +70,9 @@ These came out of the discussion; the ones marked as proposed were drawn without
   expanded in the thread while it is the latest answer: asked "show me the boiler matter", the matter is simply
   there, no button and no push, and the field speaks about it. It collapses into a preview (title, its key line, a
   couple of facts) when the owner sends the next message, so nothing changes size on its own. A preview shows the
-  thing as it is now, never a snapshot. Tapping a preview in the history pushes the page with Back, which returns to
-  the same scroll point; a tap inside any page that opens something else pushes too.
+  thing as it is now, never a snapshot. Tapping a preview in the history opens the page with the system's zoom out of
+  the preview (`navigationTransition(.zoom)`), never a right-to-left push; Back shrinks it back into the preview, at
+  the same scroll point. A tap inside any page that opens something else zooms out of what was tapped the same way.
 - What a page adds to the thread: looked and left, nothing; an act on it (Send, Done, Pay), one line ("Sent to
   Camille · Undo"), which is also the history of what Life did; words asked on a pushed page, the exchange, marked
   "Asked on Boiler repair" (on the expanded latest page, no marker: it is already the conversation).
