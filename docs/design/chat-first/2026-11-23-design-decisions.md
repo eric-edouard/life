@@ -49,6 +49,11 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 - The voice levels fill the whole width between Cancel and the microphone.
 - The live microphone is filled in `fg`, never in the ai blue: the blue means Life, not the owner.
 
+- When an ask is the latest thing (its page open, or the newest item of the thread), the empty field's placeholder
+  becomes Life's suggested follow-ups for that ask ("Say 8:30 instead", "Ask her to book it"), one at a time, changing
+  every 3 seconds. A quiet send button (the usual arrow on a `tint` background) sits at the end of the suggestion and
+  sends it as the owner's ask. Tapping anywhere else in the field types as usual; typing hides the suggestion.
+
 ## The thread
 
 - One endless conversation, opening at its bottom, with Show earlier at the top and day separators.
