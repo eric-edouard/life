@@ -186,7 +186,26 @@ polish:
 - Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
   prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
 
-## Steps
+## Undo, tried wherever it can be (for the plan)
+
+The owner's word of 23 Nov 2026: every answer but a send gets an Undo that Life tries, and says plainly whether it
+worked. On screen: Undo turns to "Undoing…" while Life tries; then either "Undone", with Reopen, which brings the ask
+back as the newest item in the thread, or, when it can't, one line saying so ("Can't undo: Life already drafted the
+booking") and nothing else. A send never has Undo: it is gone.
+
+What each undo needs, none of it built today:
+
+- A decision's answer (any card option): today the first answer stands and a second is refused
+  (`answerDecision`, `memory/decisions.ts`), and its asker is woken at once. Undo needs a withdrawal of his answer (a
+  new line, the file staying append-only) and the asker told: stopped mid-turn if it is still on it (the desk
+  interrupts its run), or, once it acted, the undo refused with what it already did. Strict paths: `decisions.ts`,
+  `desk/`; changes an invariant in `AGENTS.md`, so the plan words it for his yes.
+- An Apify run (a `runs` option): abort the run on Apify; what it spent stays spent and is said.
+- A calendar event added from a card (an `adds` option): remove that one event, its `added` line followed by a
+  removal (today one he deletes stays deleted, and only Life's appointments have Remove and Undo).
+- Later or Not now (`your-move-not-now`, a pin): a correction that lifts it; nothing lifts one today.
+- Done or dropped: already there, as Reopen (`matter-reopened`, `correctMatter`).
+
 
 1. The bar and the edge in today's app: the Ask Life round button and strip become the always-on field and voice
    button on every screen, and the edge shows Life's state. Navigation unchanged. Needs the brand exception first.

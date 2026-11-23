@@ -245,6 +245,14 @@ between two places), and what changed because of it:
   quiet, only the count; normal or urgent, it lands in the thread once he is free. Whether Life should push fewer
   unrelated asks at all (ranked, not every card) is a rethinking of notifications, for the plan with ask quality.
 
+- Undo is an attempt, never a promise (owner, 23 Nov 2026): on every answer but a send. "Undoing…" while Life tries
+  (it may stop an agent still at work, abort a run, remove an event, lift Later), then "Undone · Reopen" (Reopen
+  brings the ask back as the newest item), or one line saying it couldn't, and nothing else. What each needs is in the
+  plan ("Undo, tried wherever it can be").
+- An answered ask says how it ended once (owner's report, 23 Nov 2026: the open page's "Done", its Reopen and the line
+  said it three times). Three ways being compared; the default folds the ask into its card as asked, with Life's line
+  under it saying how it ended, the same shape as an answer from a notification.
+
 ## Open
 
 - The icons of the two always-on buttons.
