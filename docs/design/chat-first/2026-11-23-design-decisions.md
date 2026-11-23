@@ -32,6 +32,10 @@ the product rules are [`docs/product.md`](../../product.md); the brand is [`docs
 
 ## Buttons and words
 
+- The cream fill (`fg` as a background) means the owner: their own messages and the one main answer button. Nothing
+  else takes it. A selected option in a choice is only a little lighter than the others, with its radio filled
+  (owner, 23 Nov 2026).
+
 - Minimal is the brand: a button shows a mark or a number, not a word, wherever a mark can say it. Words go to
   VoiceOver. The 70-year-old bar means fewer things on screen, never labelled buttons.
 - Exception: "Later" is a word on a quiet pill (solid `tint` background, no border); a clock icon confused.
