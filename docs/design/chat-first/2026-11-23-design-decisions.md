@@ -285,6 +285,11 @@ between two places), and what changed because of it:
 - Opening an ask: unfolding where it is is the default for now; the two "your turn" ways stay in the prototype to
   compare.
 
+- Unfolding has its own motion (owner, 23 Nov 2026): no ink, which is for what Life says. Its height is measured
+  first; the thread scrolls just enough for the whole item to fit, never so far that its header passes under the top's
+  blurred edge; then it opens in one vertical reveal (about 0.4 s), the scroll continuous throughout. Folding is the
+  same reveal in reverse.
+
 ## Open
 
 - The icons of the two always-on buttons.
