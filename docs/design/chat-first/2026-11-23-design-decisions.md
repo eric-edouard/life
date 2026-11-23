@@ -290,6 +290,10 @@ between two places), and what changed because of it:
   blurred edge; then it opens in one vertical reveal (about 0.4 s), the scroll continuous throughout. Folding is the
   same reveal in reverse.
 
+- The thread follows Life's streaming reveal in batches, never word by word (owner, 23 Nov 2026): the whole message is
+  laid out before it shows, so when the revealed part reaches the bottom edge the thread makes one smooth move that
+  leaves about half the view for what comes next, never so far that the message's top passes under the top edge.
+
 ## Open
 
 - The icons of the two always-on buttons.
