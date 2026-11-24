@@ -301,6 +301,47 @@ word). A question to Life must feel like a reply in a chat, so the server rework
   - A voice Life had named "lawyer" was a gym trainer counting reps: the session caught it; the day record kept it. The beads
   answer said "16 bags of Tila, 17 of Half Tila" while its own source, the shop's receipt, gives 19 and 14.
 
+## While Life works: what the main session streams (for the plan)
+
+The owner's ask of 24 Nov 2026: while the main session works, his phone shows one line of what it is doing (the
+current spec, "While Life works"). Mapped on pi, the main session's runtime:
+
+- **What pi gives** (its JSON event stream): `thinking_start/delta/end` (the model's reasoning, as text);
+  `text_delta` (the answer's words); `toolcall_start/delta/end` (a call being written, its arguments streaming);
+  `tool_execution_start` (with `args`), `tool_execution_update` (a partial result), `tool_execution_end` (`isError`,
+  `durationMs`); `turn_start/end`; `auto_retry_start/end` (a provider error retried); `compaction_start/end`;
+  `queue_update` (his words sent while it runs); `agent_settled` (done).
+- **What Life passes on today** (`updateOf`, `pi-runtime.ts`; `ask_main_session`'s progress lines): `thinking` with
+  no text, `words`, and `working` with the tool's raw name and its state, never its arguments. Not enough for a line
+  that says what it acts on, and a tool's name is a builder's word.
+- **What the line needs:** Life turns each tool start into a step, `{verb, what}`, where `what` is a ref (a person, a
+  matter, a chat, a day: the app draws its name and face) or a short text (a search's words, a site's host). Life
+  writes the words, from the tool and its arguments, never the model. Thinking stays text-free on the wire: "Thinking…"
+  is enough. A retry becomes "Taking a little longer…".
+- **The tools and their steps** (the main session on pi: the connector's reads, the door, the web tools):
+
+  | Tool | Step |
+  |---|---|
+  | `search` | Looking for “its words” |
+  | `fetch` | by the ref's kind: Reading a person; Opening a matter or project; Reading your chat with someone; Looking at a day; Reading a message, a receipt, a photo |
+  | `read_people_and_organizations` | Looking up a person, or Looking through your people |
+  | `read_matters`, `read_matter` | Going through what's running; Opening a matter |
+  | `read_chats` | Reading your chats with someone |
+  | `read_day`, `read_appointments` | Looking at a day; Checking your calendar |
+  | `read_payments`, `read_open_todo_items`, `read_inbox`, `read_places_visited` | Checking your payments, your list, what's waiting on you, where you've been |
+  | `read_project(s)`, `read_area_page`, `read_observation` | Opening a project; Reading about an area; Checking a fact |
+  | Life's own reads (status, runs, logs, agents, spending) | Checking on Life |
+  | `web_search`, `web_fetch` | Searching the web for “its words”; Reading a site's host |
+  | `subagent` | Looking into several things at once |
+  | pi's file and shell tools | Working on your Mac |
+  | door acts: `change_todo_item`, `correct_memory`, `tell_life`, `change_appointment`, `change_directory_entry`, `request_decision`, `tell_agent`, `change_registered_agent`, `complain` | what it does, in his words: Adding it to your list; Noting the bill is paid; Remembering it; Drafting it to someone; Passing it on (never an agent's name); Telling Life what went wrong |
+  | `answer`, `show`, a failed call, a picture read | no step: part of the answer, or nothing he needs |
+
+- **Grouping:** calls of one kind in a row or at once merge ("Reading Nora and Sam", then "Reading 3 people"); a step
+  stays at least about 0.6 s, so fast steps queue and merge rather than flicker.
+- **Words before a tool call:** the brief asks for no preamble, so words that a tool call follows are rare; if some
+  come, they fold away when the next step starts (as `working` resets the words today).
+
 ## Questions that start work (for the plan)
 
 The main session's `question` answer kind gets suggested answers that can act (the owner, 23 Nov 2026): his tap on

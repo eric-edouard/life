@@ -194,6 +194,19 @@ Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to
   exception to "nothing opens a screen", since holding the phone up is the task).
 - How those shapes are made (fixed blocks, components the agent composes, or generated HTML) is the plan's to decide (the plan, "Life's own catalog of blocks").
 
+### While Life works
+
+One line under his words says what Life is doing now, until its answer starts (owner, 24 Nov 2026):
+
+- A step is a verb and what it acts on: "Reading your chat with Nora", "Opening the kitchen", "Searching the web for
+  “opening hours”". The verb is quiet, the object bright; a person shows with their face. Never a tool's name, an
+  agent's or a ref.
+- Each new step takes the last one's place: the old line blurs away upward while the new one inks in letter by
+  letter, the entrance of dictated words. One line, never a list of steps.
+- A step that reads or acts turns a spinner. Thinking turns a mark of its own (three dots circling, breathing) and
+  says "Thinking…", the word shimmering. A retry says "Taking a little longer…".
+- When his answer starts, the line blurs away and the words ink in where it was.
+
 ### Life's questions
 
 - Life answers as it wants, then ends with its question when it needs one (owner, 23 Nov 2026). A question is not an
