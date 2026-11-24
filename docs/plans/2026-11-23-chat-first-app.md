@@ -280,8 +280,9 @@ name still becomes a card on the exact words.
 Tapping a face opens that person's or organization's profile as an overlay over the thread (the face rises to the
 top, the thread blurs and darkens behind; a glass back button, or a drag in any direction, lets it go). Its sections,
 in order: who they are to him, the ways to reach them, what needs him, where things stand, what waits on them, what
-is coming up, the last time, what they are like ([the shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg),
-"Profile style"; the presentation is still being chosen). Checked against the connector's read of a real person on
+is coming up, the last time, what they are like ([the shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg); the owner kept plain titled sections on
+24 Nov 2026, after trying a letter, swipeable moments, a timeline, their own words set large, progressive disclosure
+and a labels rail). A lead paragraph is no longer asked for. Checked against the connector's read of a real person on
 24 Nov 2026, what it needs:
 
 - Already there: the picture, the ways to reach them, what needs him, what waits on them (open matters naming them),
@@ -290,7 +291,7 @@ is coming up, the last time, what they are like ([the shell prototype](https://c
 - A small reader, code only: what is coming up with them (appointments, dated open steps naming them, a birthday
   within a month).
 - New output, and the one open question for the owner: where things stand reads naturally only in "you", two or three
-  short lines, and a lead paragraph (one short paragraph in Life's words) helps the most. Stored readings name the
+  short lines. Stored readings name the
   owner, never a pronoun (`AGENTS.md`, "Prompts and what they write name the owner"). Two ways: rewrite them for
   display when the profile opens (a model call, slow), or write a short display version in "you" each night beside
   the situation, for the people whose situation changed (a new output of a prompt, and a first run for everyone with
