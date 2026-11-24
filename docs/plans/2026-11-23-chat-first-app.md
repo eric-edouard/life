@@ -146,6 +146,40 @@ watching".
   what remains is an envelope around Life's own components plus a pre-1.0 dependency. The ideas worth taking: blocks
   in a flat list with ids, a block updated in place, and the client saying which catalog version it draws.
 
+### A2UI 1.0, read again on 24 Nov 2026
+
+A2UI 1.0 is out (11 Nov 2026, Apache 2.0; read from the specification in its repository,
+`specification/v1_0/docs/a2ui_protocol.md`). It answers the three objections above:
+
+- **Its own catalog only.** A renderer can declare its own catalog and give the agent only that, "in place of the basic
+  catalog", to "restrict the agent to using exactly the components and visual language that exist in your
+  application"; catalogs can be mixed, and 1.0 removed themes from the wire, so all styling is the app's. Life's
+  components (refs as props, no layout primitives) can be an A2UI catalog.
+- **Taps that act stay the app's.** An action is either an event sent to the agent or a local function of the
+  renderer. A function marked `rendererOnly` can never be called by the agent, and one marked
+  `requiresUserActivation` runs only on a real tap. Life's acts (`answer_check` on his token, a send) fit as local,
+  renderer-only, tap-only functions; the agent's events stay words.
+- **Data.** The agent still sends a data model, but a component of Life's catalog can take refs and read Life's data
+  itself, as `show` does.
+
+Also new and useful: streaming updates of a flat component list (`updateComponents`), a whole answer in one
+message, typed function calls both ways (checked against the catalog), accessibility rules every component gets, and
+an MCP binding (Life's connector is MCP). The SwiftUI renderer (iOS 17+) hosts custom SwiftUI components in a custom
+catalog, but its package is still 0.12 with breaking changes between minor versions. Its engine alone, `A2UISwiftCore`
+(`swift/core`: the message parser, the data model and its bindings, the calls both ways, validation, and catalogs
+of custom components and functions, with no views), would let Life draw its own components in its own SwiftUI and
+keep the protocol's checks; it builds for iOS 17 and up (the app targets 27), depends on a pre-1.0 JSON Schema
+library, and has tests of its own. A TypeScript agent package (`typescript/agents`) exists for the server side. Its `Package.swift` sits at the repository's root (Swift tools 6.1): the app would depend on the
+`A2UISwiftCore` product alone (targets `A2UIJSON` and `A2UICore`), pulling `swift-json-schema` (0.13, pre-1.0) and
+nothing else at run time (`Yams` is for its tests); `A2UIJSON` runs a build-tool plugin (`A2UISchemaGeneratorPlugin`)
+at every build, which Xcode asks to trust; and Swift Package Manager checks out the whole repository (every language's
+code, over 200 MB at depth 1). Pin an exact version, or vendor `swift/core` under its Apache 2.0 licence; the plan
+chooses.
+
+So the plan's choice for answers ("For the plan to decide", below) has a fourth way: A2UI 1.0 as the envelope, with
+Life's own catalog and renderer-only acts. The plan weighs it with the others; the 0.12 Swift package and how much
+of the protocol Life would use are its costs.
+
 ## Recommendation: Life's own catalog of blocks
 
 The agent chooses what to show, never how it is laid out: layout, spacing and how many rows show before "Show more"
@@ -266,6 +300,47 @@ word). A question to Life must feel like a reply in a chat, so the server rework
     page is open on your screen"), which the chat-first app has no more.
   - A voice Life had named "lawyer" was a gym trainer counting reps: the session caught it; the day record kept it. The beads
   answer said "16 bags of Tila, 17 of Half Tila" while its own source, the shop's receipt, gives 19 and 14.
+
+## While Life works: what the main session streams (for the plan)
+
+The owner's ask of 24 Nov 2026: while the main session works, his phone shows one line of what it is doing (the
+current spec, "While Life works"). Mapped on pi, the main session's runtime:
+
+- **What pi gives** (its JSON event stream): `thinking_start/delta/end` (the model's reasoning, as text);
+  `text_delta` (the answer's words); `toolcall_start/delta/end` (a call being written, its arguments streaming);
+  `tool_execution_start` (with `args`), `tool_execution_update` (a partial result), `tool_execution_end` (`isError`,
+  `durationMs`); `turn_start/end`; `auto_retry_start/end` (a provider error retried); `compaction_start/end`;
+  `queue_update` (his words sent while it runs); `agent_settled` (done).
+- **What Life passes on today** (`updateOf`, `pi-runtime.ts`; `ask_main_session`'s progress lines): `thinking` with
+  no text, `words`, and `working` with the tool's raw name and its state, never its arguments. Not enough for a line
+  that says what it acts on, and a tool's name is a builder's word.
+- **What the line needs:** Life turns each tool start into a step, `{verb, what}`, where `what` is a ref (a person, a
+  matter, a chat, a day: the app draws its name and face) or a short text (a search's words, a site's host). Life
+  writes the words, from the tool and its arguments, never the model. Thinking stays text-free on the wire: "Thinking…"
+  is enough. A retry becomes "Taking a little longer…".
+- **The tools and their steps** (the main session on pi: the connector's reads, the door, the web tools):
+
+  | Tool | Step |
+  |---|---|
+  | `search` | Looking for “its words” |
+  | `fetch` | by the ref's kind: Reading a person; Opening a matter or project; Reading your chat with someone; Looking at a day; Reading a message, a receipt, a photo |
+  | `read_people_and_organizations` | Looking up a person, or Looking through your people |
+  | `read_matters`, `read_matter` | Going through what's running; Opening a matter |
+  | `read_chats` | Reading your chats with someone |
+  | `read_day`, `read_appointments` | Looking at a day; Checking your calendar |
+  | `read_payments`, `read_open_todo_items`, `read_inbox`, `read_places_visited` | Checking your payments, your list, what's waiting on you, where you've been |
+  | `read_project(s)`, `read_area_page`, `read_observation` | Opening a project; Reading about an area; Checking a fact |
+  | Life's own reads (status, runs, logs, agents, spending) | Checking on Life |
+  | `web_search`, `web_fetch` | Searching the web for “its words”; Reading a site's host |
+  | `subagent` | Looking into several things at once |
+  | pi's file and shell tools | Working on your Mac |
+  | door acts: `change_todo_item`, `correct_memory`, `tell_life`, `change_appointment`, `change_directory_entry`, `request_decision`, `tell_agent`, `change_registered_agent`, `complain` | what it does, in his words: Adding it to your list; Noting the bill is paid; Remembering it; Drafting it to someone; Passing it on (never an agent's name); Telling Life what went wrong |
+  | `answer`, `show`, a failed call, a picture read | no step: part of the answer, or nothing he needs |
+
+- **Grouping:** calls of one kind in a row or at once merge ("Reading Nora and Sam", then "Reading 3 people"); a step
+  stays at least about 0.6 s, so fast steps queue and merge rather than flicker.
+- **Words before a tool call:** the brief asks for no preamble, so words that a tool call follows are rare; if some
+  come, they fold away when the next step starts (as `working` resets the words today).
 
 ## Questions that start work (for the plan)
 
