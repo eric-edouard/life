@@ -87,8 +87,9 @@ import {
   whatsappRoomOf,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
-import { readFiles } from "./memory-files";
-import { showFiles } from "./message-files";
+import { deletedEventsOf } from "./deletions";
+import { deletionsNow } from "./memory-files";
+import { readFiles, showFiles } from "./message-files";
 import {
   newestToldLife,
   readEarliestToldLife,
@@ -399,6 +400,15 @@ const withFiles =
   (since: Date, before?: Date): SourceEvent[] =>
     showFiles(read(since, before), readFiles());
 
+/**
+ * A source's reader with what he deleted applied (`deletedEventsOf`): the one way a source's words come in, the send paths
+ * aside (`draft-send.ts`, which must send exactly what he approved).
+ */
+export const deletedReadOf =
+  (name: string, read: (since: Date, before?: Date) => SourceEvent[]) =>
+  (since: Date, before?: Date): SourceEvent[] =>
+    deletedEventsOf(name, read(since, before), deletionsNow());
+
 /** Whether search reads a source's text as passages (`passages.ts`): chats, mail, his own writing and his photos, one passage each. */
 export const isSearched = (s: Pick<Descriptor, "kind">) =>
   s.kind === "chat" ||
@@ -419,7 +429,9 @@ export function tablesOf(sources: Descriptor[]) {
     show = withFiles
   ) =>
     Object.fromEntries(
-      messages.filter(keep).map((s) => [s.name, show(s.read)])
+      messages
+        .filter(keep)
+        .map((s) => [s.name, show(deletedReadOf(s.name, s.read))])
     );
   return {
     /** The chat apps, where people speak for themselves (not mail, nor his notes). */

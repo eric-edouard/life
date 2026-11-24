@@ -103,7 +103,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public struct LifeLink: Decodable, Sendable, Equatable {
         /// What a ref names (`RefKind`, `memory/refs.ts`).
         public enum Kind: String, UnknownTolerant, Sendable {
-            case appointment, ask, conversation, file, matter, message, observation, person, turn, unit
+            case appointment, ask, card, conversation, episode, file, matter, message, observation, person, turn, unit
             case unknown
         }
         public let ref: String

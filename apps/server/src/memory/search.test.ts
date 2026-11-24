@@ -18,13 +18,19 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { currentSummaries } from "./conversation-summaries";
+import { cutOf, type Deletions, NO_DELETIONS } from "./deletions";
 import { buildIndex, reindexUnits } from "./index-writer";
 import { INDEX, readReplyPath, situationPath } from "./memory-files";
 import { heldLines } from "./read-person-page";
 import { READS, storeReply } from "./read-replies";
 import { OWNER } from "./read-truth";
 import { madeBy } from "./record-fixtures";
-import { readSituationsOf, search, matches as searchMatches } from "./search";
+import {
+  readSituationsOf,
+  search,
+  matches as searchMatches,
+  shownVoiceHitsOf,
+} from "./search";
 import { turnKey } from "./units";
 
 test("search: an observation hit names the unit it comes from and who is in it", async () => {
@@ -253,4 +259,26 @@ test("search: a conversation summary is found by a word of it and listed with th
     cleanup.db.run("delete from turns where job_id = 'job-search'");
     cleanup.db.close();
   }
+});
+
+test("a voice passage shows only while every turn of its span is his: a turn deleted, or cut words in, drops it whole", () => {
+  const hits = [
+    { firstTurn: 0, jobId: "job-1", lastTurn: 1, text: "one" },
+    { firstTurn: 2, jobId: "job-1", lastTurn: 3, text: "two" },
+    { firstTurn: 4, jobId: "job-2", lastTurn: 4, text: "three" },
+  ];
+  const shown = (d: Deletions) => shownVoiceHitsOf(hits, d).map((h) => h.text);
+  expect(shown(NO_DELETIONS)).toEqual(["one", "two", "three"]);
+  // The span's middle turn goes: lifelog's passage would show half of what was said, so the whole hit goes.
+  expect(shown({ ...NO_DELETIONS, refs: new Set(["job-1:2"]) })).toEqual([
+    "one",
+    "three",
+  ]);
+  // A cut inside one of its turns: the passage's words are lifelog's as they were, at places of its own.
+  expect(
+    shown({
+      ...NO_DELETIONS,
+      cuts: new Map([["job-1:1", [cutOf("job-1:1", "one", 0, 3)]]]),
+    })
+  ).toEqual(["two", "three"]);
 });

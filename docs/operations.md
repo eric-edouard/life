@@ -513,6 +513,10 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the directory is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
+- `delete '<json>' [--dry]` (CLI only; the connector's `delete_from_memory` and the main session do the same): what a
+  deletion would lose, one line per ref, with the digest of that exact set, and nothing written; with `--dry` it never
+  writes, else the same JSON with the preview's `confirm` writes it and reads its days again (`docs/glossary.md`,
+  "deletion").
 - `status`, `runs`, `changes`, `observation`: the status reads (`docs/status-reads.md`).
 
 Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`, `messenger.sqlite`,

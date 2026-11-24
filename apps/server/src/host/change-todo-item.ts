@@ -165,11 +165,12 @@ export function changeAskedTodoItem(
 /** The most one tick takes: both backends' commands are killed after a minute (`exec`'s default). */
 export const TICK_LIMIT_MS = MIN;
 
-/** Why his word on a matter changes its to-do items, by the change. */
-const MATTER_WHY = {
-  done: "his matter marked done",
-  remove: "his step dropped",
-  undone: "his matter reopened",
+/** What his word does to a matter's to-do items: the change it makes, and why (the ledger's line). */
+const MATTER_CHANGE = {
+  deleted: { change: "remove", why: "he deleted them from memory" },
+  done: { change: "done", why: "his matter marked done" },
+  remove: { change: "remove", why: "his step dropped" },
+  undone: { change: "undone", why: "his matter reopened" },
 } as const;
 
 /**
@@ -182,7 +183,7 @@ const MATTER_WHY = {
 export async function changeMatterTodoItems(
   keys: readonly string[],
   said: string,
-  kind: keyof typeof MATTER_WHY,
+  kind: keyof typeof MATTER_CHANGE,
   onChanged?: (done: number, of: number, key: string) => void
 ) {
   const b = backend();
@@ -202,11 +203,11 @@ export async function changeMatterTodoItems(
     // biome-ignore lint/performance/noAwaitInLoops: one change at a time, each its own ledger lines
     const change = await changeAskedTodoItem(
       {
-        kind,
+        kind: MATTER_CHANGE[kind].change,
         said,
         target: it.target.slice(b.prefix.length + 1),
         title,
-        why: MATTER_WHY[kind],
+        why: MATTER_CHANGE[kind].why,
       },
       "connector"
     );

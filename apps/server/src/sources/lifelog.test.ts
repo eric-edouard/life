@@ -252,6 +252,7 @@ test("search posts the words and the range with the device token and returns the
           conversationId: "c1",
           firstTurn: 1,
           jobId: "job-1",
+          lastTurn: 2,
           score: 0.9,
           speakers: ["Anne-Sophie"],
           text: "Anne-Sophie: la vitre",

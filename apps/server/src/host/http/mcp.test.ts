@@ -118,6 +118,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_registered_agent",
     "change_todo_item",
     "correct_memory",
+    "delete_from_memory",
     "fetch",
     "read_agent_session",
     "read_appointments",
@@ -164,6 +165,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
+    "delete_from_memory(about,confirm,cuts,refs,said,withSources)",
     "fetch(at,fromTurn,id,limit,until)",
     "read_agent_session(id)",
     "read_appointments(appointment,pushId)",
@@ -218,6 +220,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
         "correct_memory",
         "answer_check",
         "change_registered_agent",
+        "delete_from_memory",
       ].includes(name),
       openWorldHint: false,
       readOnlyHint: false,
@@ -764,4 +767,22 @@ test("change_directory_entry is his: an agent's token is refused, and `said` is 
   expect(missing).toMatchObject({ isError: true });
   expect(missing.content[0].text).toContain("said");
   expect(readFileSync(areas, "utf8")).toBe(before);
+});
+
+test("delete_from_memory is his: an agent's token is refused, and `said` is required", async () => {
+  const call = async (over: Record<string, unknown>, args: object) =>
+    (
+      await rpc(await token(over), "tools/call", {
+        arguments: args,
+        name: "delete_from_memory",
+      })
+    ).json.result;
+  const deletion = { refs: ["unit_000000000000"], said: "that goes" };
+  const agent = await call({}, deletion);
+  expect(agent).toMatchObject({ isError: true });
+  expect(agent.content[0].text).toContain("paired as an agent");
+  const { said: _, ...unsaid } = deletion;
+  const missing = await call({ agent: undefined }, unsaid);
+  expect(missing).toMatchObject({ isError: true });
+  expect(missing.content[0].text).toContain("said");
 });

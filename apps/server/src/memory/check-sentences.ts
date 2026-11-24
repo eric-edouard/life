@@ -3,10 +3,11 @@ import type { Unresolved } from "../records/observation";
 import type { Unit } from "../records/unit";
 import { parseTurnRef } from "../sources/lifelog";
 import { readTurnClip } from "../sources/lifelog-voices";
+import { isCut, isGone } from "./deletions";
 import { plain } from "./doubts";
 import type { Check, Said } from "./life-checks";
 import { offerEndOf } from "./matter-read";
-import { readUnitsFor } from "./memory-files";
+import { deletionsNow, readUnitsFor } from "./memory-files";
 import { locate, type SourceLine } from "./quote-check";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
@@ -94,9 +95,13 @@ export async function readNameContexts(
           return null;
         }
         const to = unit.title === unit.key ? null : unit.title;
+        // A turn he deleted or cut words in keeps no clip: lifelog's clip would play its words as they were.
         const turn = parseTurnRef(found.ref);
+        const d = deletionsNow();
         const clip =
           turn &&
+          !isGone(found.ref, d) &&
+          !isCut(found.ref, d) &&
           (await readTurnClip(turn.jobId, turn.turnIndex).catch(() => null));
         const show = (l: SourceLine) => saidOf(l, unit.source, to, people);
         const context = {

@@ -51,6 +51,8 @@ export interface CheckInputs {
   atOrganizations: readonly AtOrganization[];
   /** The open decisions (`decisionsNow`), each as asked by the agent holding it now, with its session (`HeldRead.cardHolders`). */
   decisions: readonly (Decision & { session?: string })[];
+  /** Every ref he deleted (`deletionsOf`): a card on one never shows again. */
+  deleted: ReadonlySet<string>;
   /** The matters he dismissed as new matter checks, each as the steps it was pinned to (`readDismissedMatterPins`). */
   dismissed: readonly (readonly string[])[];
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */

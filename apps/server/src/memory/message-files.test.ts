@@ -9,17 +9,20 @@ import * as logs from "../core/log";
 import { setSettings, settings } from "../core/settings";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as models from "../models/llm";
+import { Correction } from "../records/observation";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { FileEntry } from "../records/unit";
 import { readImessage } from "../sources/imessage";
 import { imessageFixture, whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
-import { FILES, readFiles } from "./memory-files";
+import { CORRECTIONS, FILES } from "./memory-files";
 import {
   asChatOrNot,
   describeFilesOnArrival,
   FILES_ON_ARRIVAL_A_DAY,
   filesDueOnArrival,
+  keptFileLines,
+  readFiles,
   showFiles,
   triage,
 } from "./message-files";
@@ -69,6 +72,36 @@ test("a file read once shows its description by its ref, also once it is gone; o
   expect(showFiles([event(photo("imessage:at_1"))], known)[0]?.text).toBe(
     "[photo IMG_2910.HEIC, not on this Mac]"
   );
+});
+
+test("a file he deleted is left out of every read that shows it, and the pass that describes files still knows it", () => {
+  writeFileSync(FILES, `${JSON.stringify(id)}\n`);
+  try {
+    expect(readFiles().get(id.ref)?.description).toBe(id.description);
+    // His word, as his door recorded it: the file's ref, `file:<ref>`.
+    const deleted = Correction.parse({
+      at: "2026-11-24T09:00:00.000Z",
+      kind: "deleted",
+      refs: [`file:${id.ref}`],
+      said: "that goes",
+      schemaVersion: 1,
+      withSources: false,
+    });
+    writeFileSync(CORRECTIONS, `${JSON.stringify(deleted)}\n`, { flag: "a" });
+    expect(readFiles().has(id.ref)).toBe(false);
+    // The description passes ask the ledger as it is: its line still holds it, so it is never read (or paid) again.
+    expect(keptFileLines().get(id.ref)?.description).toBe(id.description);
+    expect(
+      filesDueOnArrival(
+        [event(photo(id.ref, "/here.heic"))],
+        keptFileLines(),
+        new Set()
+      ).due
+    ).toEqual([]);
+  } finally {
+    rmSync(FILES, { force: true });
+    rmSync(CORRECTIONS, { force: true });
+  }
 });
 
 test("triage: a known ref is not opened, a known hash is copied under its new ref, a new content is listed once", async () => {

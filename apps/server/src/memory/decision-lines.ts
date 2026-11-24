@@ -14,7 +14,8 @@ export const DECISIONS = join(MEMORY, "decisions.jsonl");
 
 /** The version decision lines are written at; earlier lines (the old decisions page's, the cards before titles) are skipped. */
 export const DECISIONS_VERSION = 3;
-const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
+/** A card's id: `dec_` and the digest of its ask (his app's ref for it). */
+export const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
 export const Asked = Ask.extend({
   asker: z.string().min(1),
   /** The desk's assignment that asked it (`askDecision`), which owns it when the desk's own row of it is missing; cards before it have none. */

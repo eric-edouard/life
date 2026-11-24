@@ -23,11 +23,18 @@ import {
   measurementDayText,
   photoDayText,
 } from "./activity-days";
+import { cutsOn, type Deletions, isGone, NO_DELETIONS } from "./deletions";
 import { LIFE_MAIL } from "./email";
-import { keptConversations, readFiles } from "./memory-files";
-import { showFiles } from "./message-files";
+import { keptConversations } from "./memory-files";
+import { readFiles, showFiles } from "./message-files";
 import { OWNER, type Truth } from "./read-truth";
-import { isDirect, isWithPeople, kindOf, sourceOf } from "./sources";
+import {
+  deletedReadOf,
+  isDirect,
+  isWithPeople,
+  kindOf,
+  sourceOf,
+} from "./sources";
 import { dayUnitId, voiceUnitId } from "./unit-ids";
 import { dayStart, localDate, time } from "./zones";
 
@@ -199,6 +206,17 @@ export function conversationLabel(start: string, names: string[]) {
   return `Conversation at ${time(start)}${who.length > 0 ? ` with ${who.join(", ")}` : ""}`;
 }
 
+/**
+ * What a deletion did to a turn, folded into its unit's hash so the unit is read again: its ref when the turn is gone whole,
+ * each cut's digest (never its words) for one he cut words out of.
+ */
+const deletionKeysOf = (t: LifelogTurn, deletions: Deletions) => {
+  const ref = turnRef(t.jobId, t.turnIndex, t.at);
+  return isGone(ref, deletions)
+    ? [`${ref} deleted`]
+    : cutsOn(ref, deletions).map((c) => `${ref} cut:${c.digest}`);
+};
+
 /** A turn's identity: its ref and who lifelog says spoke it (his, its person id, else its name). */
 export const turnKey = (t: LifelogTurn) =>
   `${turnRef(t.jobId, t.turnIndex, t.at)} ${t.owner ? OWNER : (authorOf(t) ?? "")}`;
@@ -243,13 +261,14 @@ export const turnsByDayOf = (c: LifelogConversation) =>
  * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
  * unresolved (`unknown:`, read by `refOf`), and him when he spoke. Life holds no words: its text is filled when it is
  * read (`voiceText`, words.ts), and its hash is its turns, who lifelog says spoke each (his, its person id, else its
- * name) and its marks, so a turn added, moved, marked or given to someone else (29 Oct 2026: he named 96 voices, and
- * their days kept the old names) has it read again.
+ * name), its marks and what he deleted of it (`deletionKeysOf`), so a turn added, moved, marked or given to someone else
+ * (29 Oct 2026: he named 96 voices, and their days kept the old names) or whose words he deleted has it read again.
  * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
  */
 export function lifelogUnits(
   conversations: LifelogConversation[],
-  frozenKeys: Set<string>
+  frozenKeys: Set<string>,
+  deletions: Deletions = NO_DELETIONS
 ): Built[] {
   return conversations
     .filter((c) => !frozenKeys.has(c.id))
@@ -265,7 +284,13 @@ export function lifelogUnits(
           unit: {
             date,
             end: c.endedAt < next ? c.endedAt : next,
-            hash: contentHash([...turns.map(turnKey), ...marked].join("\n")),
+            hash: contentHash(
+              [
+                ...turns.map(turnKey),
+                ...turns.flatMap((t) => deletionKeysOf(t, deletions)),
+                ...marked,
+              ].join("\n")
+            ),
             id: voiceUnitId(c.id, date),
             key: c.id,
             ...(marked.length > 0 ? { marked } : {}),
@@ -719,13 +744,23 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 }
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
-/** A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
+
+/**
+ * A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no
+ * files (a commit without a subject is dropped, like any empty message), and every source's words as a deletion leaves them.
+ */
 export const readEventsOf = (
   s: Read,
   since: Date,
   map: { me: Person; repos: RepoMap },
   before?: Date
-) => (s.kind === "repo" ? s.read(since, map, before) : s.read(since, before));
+) =>
+  deletedReadOf(
+    s.name,
+    s.kind === "repo"
+      ? (at: Date, until?: Date) => s.read(at, map, until)
+      : s.read
+  )(since, before);
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its

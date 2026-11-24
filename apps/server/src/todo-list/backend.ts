@@ -27,6 +27,10 @@ export function backend(): TodoListBackend {
   return built.b;
 }
 
+/** This install's list app's prefix (`backend`), or nothing while the actions output is off. */
+export const backendPrefix = () =>
+  isOn("todoList") ? backend().prefix : undefined;
+
 /** A change's `target` as the contract's id (a string; Reminders' numbers come as numbers too). */
 export const idOf = (target: number | string | undefined) =>
   target === undefined ? undefined : String(target);

@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { pickCompared, todoItemsOf } from "./todo-items-from-ledger";
+import {
+  openTodoItemKeysOf,
+  pickCompared,
+  todoItemsOf,
+} from "./todo-items-from-ledger";
 
 const action = (over: Partial<LedgerEntry>): LedgerEntry => ({
   after: {},
@@ -71,4 +75,19 @@ test("an item's closedAt is the last time it turned closed; reopening clears it"
   expect(item([add, ticked, renamed])?.closedAt).toBe(ticked.at);
   expect(item([add, ticked, reopened])?.closedAt).toBeUndefined();
   expect(item([add, ticked, reopened, again])?.closedAt).toBe(again.at);
+});
+
+test("a deletion names the keys of this install's list app only: another app's item stays as it is", () => {
+  const add = (target: string, at: string, id: string) =>
+    action({ after: { title: String(target) }, at, id, target });
+  const actions = [
+    add("reminder:12", "2026-10-15T10:00:00.000Z", "entry_0123456789ab"),
+    add(
+      "gtask:list-1/task-9",
+      "2026-10-15T10:01:00.000Z",
+      "entry_0123456789ac"
+    ),
+  ];
+  // The test's settings use Apple Reminders (`backendPrefix`): the Google task's line is no item of this list.
+  expect(openTodoItemKeysOf(actions)).toEqual(["entry_0123456789ab"]);
 });

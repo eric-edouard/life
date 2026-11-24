@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { lifeLinksOf, lifeRefsOf, parseRef } from "./refs";
+import { deletionRefusalOf, lifeLinksOf, lifeRefsOf, parseRef } from "./refs";
 
 test("parseRef: one grammar, each kind from its ref", () => {
   const kind = (id: string) => {
@@ -17,6 +17,9 @@ test("parseRef: one grammar, each kind from its ref", () => {
   expect(kind("file:whatsapp:120@g.us/S1")).toBe("file");
   expect(kind("job-1:3@2026-10-14T10:06:00.000Z")).toBe("turn");
   expect(kind("claude:w1")).toBe("conversation");
+  // What a deletion may name: an episode, a card.
+  expect(kind("ep_0123456789ab")).toBe("episode");
+  expect(kind("dec_0123456789ab")).toBe("card");
   expect(kind("person:test-ana")).toContain("not a read part ref");
   expect(kind("msg:nowhere|x")).toContain("not a message ref");
   expect(kind("msg:whatsapp|")).toContain("not a message ref");
@@ -81,4 +84,12 @@ test("lifeRefsOf: link destinations as Markdown reads them, never in code, perce
   expect(lifeRefsOf("![a record](life:obs_0123456789ab)")).toEqual([
     "obs_0123456789ab",
   ]);
+});
+
+test("a deletion refuses a person, a project or an area: his directory has its own door", () => {
+  expect(deletionRefusalOf("person:kit")).toContain("change_directory_entry");
+  expect(deletionRefusalOf("project:cove")).toContain("change_directory_entry");
+  expect(deletionRefusalOf("area:home")).toContain("change_directory_entry");
+  expect(deletionRefusalOf("unit_0123456789ab")).toBeNull();
+  expect(deletionRefusalOf("msg:whatsapp|m1")).toBeNull();
 });

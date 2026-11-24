@@ -6,12 +6,17 @@ import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import { readConversations, type Store, withStore } from "../sources/lifelog";
 import {
+  deletionsNow,
   keptConversations,
-  readFiles,
   readInferredRepos,
   readUnits,
 } from "./memory-files";
-import { asChatOrNot, describeFiles, showFiles } from "./message-files";
+import {
+  asChatOrNot,
+  describeFiles,
+  readFiles,
+  showFiles,
+} from "./message-files";
 import type { Truth } from "./read-truth";
 import {
   enabledSources,
@@ -203,7 +208,11 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
   );
   const chapters = frozenUnits(store, have);
   return {
-    built: lifelogUnits(conversations, new Set(chapters.map((u) => u.key))),
+    built: lifelogUnits(
+      conversations,
+      new Set(chapters.map((u) => u.key)),
+      deletionsNow()
+    ),
     chapters,
     conversations,
     have,

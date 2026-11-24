@@ -275,7 +275,7 @@ polish:
 ## Answers come fast, and right (for the plan)
 
 On 23 Nov 2026 the owner's real questions went to the main session through the connector ("Where are we regarding
-the house?", "What was the order for Alice's beads?", "What do I say to the guy when I arrive there?"). The answers
+the house?", "What was the order for Maya's beads?", "What do I say to the guy when I arrive there?"). The answers
 were good, the third one what a human assistant would text, but each took more than a minute: too long (the owner's
 word). A question to Life must feel like a reply in a chat, so the server rework the plan proposes includes speed:
 

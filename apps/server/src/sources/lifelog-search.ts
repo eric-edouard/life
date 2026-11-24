@@ -10,6 +10,7 @@ export const Hits = z.object({
       conversationId: z.string(),
       firstTurn: z.number(),
       jobId: z.string(),
+      lastTurn: z.number(),
       speakers: z.array(z.string()),
       text: z.string(),
     })

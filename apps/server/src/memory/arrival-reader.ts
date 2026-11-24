@@ -32,8 +32,8 @@ import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { EXCHANGE_ENDS_AFTER, exchangesOf, isFinished } from "./exchanges";
 import { closedConversations } from "./extract";
 import { type Evidence, voiceUnits } from "./gather";
-import { keptConversations, READ_REPLIES, readFiles } from "./memory-files";
-import { filesDueOnArrival } from "./message-files";
+import { keptConversations, READ_REPLIES } from "./memory-files";
+import { filesDueOnArrival, readFiles } from "./message-files";
 import type { SourceLine } from "./quote-check";
 import {
   type Asked,

@@ -1,11 +1,12 @@
 import { SourceName } from "../core/names";
 import { AppointmentId } from "../records/appointment";
-import { SUBJECT_PREFIX, UnitId } from "../records/fields";
+import { EpisodeId, SUBJECT_PREFIX, UnitId } from "../records/fields";
 import { LedgerEntry } from "../records/ledger-entry";
 import { MatterId } from "../records/matter";
 import { ObservationId } from "../records/observation";
 import { parseTurnRef } from "../sources/lifelog";
 import { isAskPage } from "./card-request";
+import { DecisionId } from "./decision-lines";
 import { parseReadPartRef, type ReadPartRef } from "./read-part";
 import { isDay } from "./zones";
 
@@ -16,7 +17,9 @@ import { isDay } from "./zones";
 export type Ref = { id: string } & (
   | { kind: "appointment" }
   | { kind: "ask" }
+  | { kind: "card" }
   | { kind: "conversation" }
+  | { kind: "episode" }
   | { kind: "file"; file: string }
   | { kind: "matter"; thread?: { before?: string; matter: string } }
   | { kind: "message"; message: string; source: SourceName }
@@ -36,9 +39,11 @@ const FILE = "file:";
 /** The kinds told by their id's form alone. */
 const BY_FORM: {
   is: (id: string) => boolean;
-  kind: "appointment" | "matter" | "observation" | "unit";
+  kind: "appointment" | "card" | "episode" | "matter" | "observation" | "unit";
 }[] = [
   { is: (id) => AppointmentId.safeParse(id).success, kind: "appointment" },
+  { is: (id) => DecisionId.safeParse(id).success, kind: "card" },
+  { is: (id) => EpisodeId.safeParse(id).success, kind: "episode" },
   {
     is: (id) =>
       MatterId.safeParse(id).success ||
@@ -143,3 +148,9 @@ export const lifeLinksOf = (
       ? []
       : [{ kind: isMatter(ref) ? "matter" : r.kind, ref }];
   });
+
+/** Why a deletion may not name a ref: a person, a project or an area is his directory's, and that has its own door. */
+export const deletionRefusalOf = (id: string) =>
+  SUBJECT_PREFIX.test(id)
+    ? `${id} is his directory's, not memory's: change it with change_directory_entry`
+    : null;

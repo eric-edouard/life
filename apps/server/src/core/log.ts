@@ -41,6 +41,7 @@ type LogKind =
   | "lifelog.write"
   | "matter.icons"
   | "mcp.call"
+  | "memory.deleted"
   | "model.local"
   | "model.retry"
   | "model.run"

@@ -69,6 +69,7 @@ import {
 import {
   APPOINTMENTS,
   CLOSENESS,
+  deletionsNow,
   PAGES,
   readDismissedMatterPins,
   readFactCheckAnswers,
@@ -117,14 +118,15 @@ export const decisionCardOf = (d: Decision) => ({
 
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
-  /** Every open decision; one on a matter step leaves once the matters holding it have all ended (a step no matter holds now, after a re-group, keeps it). */
+  /** Every open decision, but one he deleted what it rests on (`deletionsOf`: its own ref or its step); one on a matter step leaves once the matters holding it have all ended (a step no matter holds now, after a re-group, keeps it). */
   decision: (c) =>
     c.decisions
       .filter(
         (d) =>
-          !isOnMatter(d.subject) ||
-          c.mattersByStep.has(d.subject) ||
-          !c.matterSteps.has(d.subject)
+          !(c.deleted.has(d.id) || (d.subject && c.deleted.has(d.subject))) &&
+          (!isOnMatter(d.subject) ||
+            c.mattersByStep.has(d.subject) ||
+            !c.matterSteps.has(d.subject))
       )
       .map((d) => ({
         check: {
@@ -457,7 +459,6 @@ export async function checksAndKeyNow(held: HeldRead | null) {
     return guessed;
   });
   const all = decisionsNow();
-  // Each open card as its holder's, read from this one list (`HeldRead.cardHolders`).
   const decisions = all.filter((d) => d.state === "open");
   const holders = held?.cardHolders?.(decisions) ?? {};
   const key = checksKeyOf(held, voices, decisions, holders);
@@ -542,6 +543,7 @@ async function readChecks(
     answered,
     atOrganizations: readAtOrganizationPairs(people),
     decisions,
+    deleted: deletionsNow().refs,
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,

@@ -1,13 +1,8 @@
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
-import {
-  readTranscript,
-  type Store,
-  turnRef,
-  turnsBetween,
-  whose,
-  writeMarks,
-} from "../sources/lifelog";
+import { transcripts } from "../memory/words";
+import type { Store } from "../sources/lifelog";
+import { turnRef, turnsBetween, whose, writeMarks } from "../sources/lifelog";
 import { isSettledAfter } from "../sources/lifelog-speech";
 import { ask } from "./asks";
 
@@ -136,13 +131,10 @@ export async function hear(
   now = clock().getTime()
 ) {
   const all = turnsBetween(store, conversation);
-  const jobs = [
-    ...new Set(all.filter((t) => t.at >= from).map((t) => t.jobId)),
-  ];
-  const words = new Map(
-    await Promise.all(
-      jobs.map(async (job) => [job, await readTranscript(job)] as const)
-    )
+  // His words as a deletion leaves them: what he deleted is never heard, never asked on.
+  const words = await transcripts(
+    all.filter((t) => t.at >= from),
+    true
   );
   const turns = all.map(
     (t): Turn => ({

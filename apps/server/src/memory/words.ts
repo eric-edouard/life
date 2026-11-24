@@ -25,9 +25,10 @@ import {
 } from "../sources/lifelog-voices";
 import { PAGE, readChats, readWhoChats } from "./chat-events";
 import { communicationStylesOf } from "./communication-styles";
+import { deletedWordsOf } from "./deletions";
 import { chatTakesLinesOf } from "./draft-send";
 import { findTurn, findUnit } from "./find-refs";
-import { readInferredRepos, readJudgments } from "./memory-files";
+import { deletionsNow, readInferredRepos, readJudgments } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import type { SourceLine } from "./quote-check";
@@ -115,20 +116,37 @@ export async function readEach<T>(
 }
 
 /**
- * The transcripts of every recording these turns are in. A recording lifelog no longer has (404) has no words; any
- * other failure throws, so a fetch that failed never reads as silence.
+ * The transcripts of every recording these turns are in, each turn's words as a deletion leaves them (`deletedWordsOf`,
+ * a turn known by its recording and index): a turn he deleted keeps no words, a cut's words are blanked, and its place in
+ * the recording holds. A recording lifelog no longer has (404) has no words (unless `missingThrows`, which the hearing
+ * wants); any other failure throws, so a fetch that failed never reads as silence.
  */
-export const transcripts = (turns: { jobId: string }[]) =>
-  readEach(
+export async function transcripts(
+  turns: { jobId: string }[],
+  /** A recording lifelog no longer has (404) throws instead of reading as no words: the hearing hears it again. */
+  missingThrows = false
+) {
+  const deletions = deletionsNow();
+  const jobs = await readEach(
     turns.map((t) => t.jobId),
     (job) =>
       readTranscript(job).catch((e: { status?: number }) => {
-        if (e.status === 404) {
+        if (e.status === 404 && !missingThrows) {
           return [];
         }
         throw e;
       })
   );
+  return new Map(
+    [...jobs].map(([job, list]) => [
+      job,
+      list.map((turn, i) => ({
+        ...turn,
+        text: deletedWordsOf(`${job}:${i}`, turn.text, deletions),
+      })),
+    ])
+  );
+}
 
 /**
  * The lines of each group of turns among `turnsById`, from lifelog's words and how it heard the voices of its
@@ -524,7 +542,7 @@ async function spokenPage(
   const shown = turns.slice(from, from + limit);
   const said = await transcripts(shown);
   if (span) {
-    await clipEdges(shown, said, span);
+    await clipEdges(shown, said, span, deletionsNow());
   }
   // A voice guess is shown here, in the display alone: the lines extraction and the episodes read never carry it.
   // Each line keeps its turn's place, so a page on starts after the last turn shown, not the last line.

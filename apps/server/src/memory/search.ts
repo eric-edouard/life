@@ -10,6 +10,7 @@ import {
   summaryLine,
   summaryTextOf,
 } from "./conversation-summaries";
+import { type Deletions, isCut, isGone } from "./deletions";
 import {
   COLUMNS,
   CURRENT,
@@ -22,7 +23,7 @@ import {
   unitLine,
   withIndex,
 } from "./index-rows";
-import { episodesWhere, readIndex } from "./memory-files";
+import { deletionsNow, episodesWhere, readIndex } from "./memory-files";
 import { directoryPartiesOf, OWNER } from "./read-truth";
 import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
@@ -180,13 +181,30 @@ export function matches(
   ];
 }
 
+/** A passage of `search` as it shows: a turn of its span gone whole or cut in drops it, since its words are lifelog's as they were. */
+export const shownVoiceHitsOf = <
+  H extends { firstTurn: number; jobId: string; lastTurn: number },
+>(
+  hits: H[],
+  d: Deletions = deletionsNow()
+) =>
+  hits.filter((h) => {
+    for (let i = h.firstTurn; i <= h.lastTurn; i += 1) {
+      const ref = `${h.jobId}:${i}`;
+      if (isGone(ref, d) || isCut(ref, d)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
 /** The voice section of `search`: lifelog's best passages for the words, each with its place in its conversation. */
 async function voiceHits(words: string, range: DayRange) {
   if (!listening()) {
     return ["(no voice source)"];
   }
   try {
-    const hits = await searchVoice(words, range, VOICE_LIMIT);
+    const hits = shownVoiceHitsOf(await searchVoice(words, range, VOICE_LIMIT));
     return withStore((store) =>
       hits.length > 0
         ? hits.map((h) => {

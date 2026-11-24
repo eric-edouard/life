@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { voiceChecksOf } from "./voice-checks";
+import { cutOf, NO_DELETIONS } from "./deletions";
+import { shownClipsOf, voiceChecksOf } from "./voice-checks";
 import type { GuessedQueueItem } from "./voice-guesses";
 
 // Made-up people. His ask of 22 Nov: each guess on a voice card shows why it was guessed.
@@ -39,4 +40,61 @@ test("a voice card lists each guess known today with its why, null for a guess m
     },
     { person: { name: "Kofi", ref: "person:kofi" }, why: null },
   ] as never);
+});
+
+test("a clip or an evidence line of a recording he deleted words in never reaches a card, however it was indexed", () => {
+  const item = {
+    clips: [
+      {
+        at: "2026-10-14T10:00:05.000Z",
+        audio: { end: 4, jobId: "job-1", start: 1 },
+        text: "hello there",
+        until: null,
+        words: [[0, 300, 5]],
+      },
+    ],
+    evidence: [
+      { at: "2026-10-14T10:00:05.000Z", conversationId: "c1", text: "hello" },
+    ],
+    voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
+  };
+  expect(shownClipsOf(item, NO_DELETIONS)).toEqual({
+    clips: item.clips,
+    evidence: item.evidence,
+  });
+  // A turn of that recording gone, or words cut in it: evidence names no turn, so its recording answers for it.
+  for (const d of [
+    { ...NO_DELETIONS, refs: new Set(["job-1:7"]) },
+    {
+      ...NO_DELETIONS,
+      cuts: new Map([["job-1:0", [cutOf("job-1:0", "hello there", 0, 5)]]]),
+    },
+  ]) {
+    expect(shownClipsOf(item, d)).toEqual({ clips: [], evidence: [] });
+  }
+});
+
+test("a clip with no audio, which names no recording, goes too once any of its item's recordings was touched", () => {
+  const clip = {
+    at: null,
+    audio: null,
+    text: "hello there",
+    until: null,
+    words: [[0, 300, 5]],
+  };
+  const item = {
+    clips: [clip],
+    evidence: [],
+    voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
+  };
+  expect(shownClipsOf(item, NO_DELETIONS).clips).toEqual([clip]);
+  for (const d of [
+    { ...NO_DELETIONS, refs: new Set(["job-1:7"]) },
+    {
+      ...NO_DELETIONS,
+      cuts: new Map([["job-1:0", [cutOf("job-1:0", "hello there", 0, 5)]]]),
+    },
+  ]) {
+    expect(shownClipsOf(item, d).clips).toEqual([]);
+  }
 });

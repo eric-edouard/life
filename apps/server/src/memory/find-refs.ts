@@ -8,7 +8,8 @@ import { openStore, turnPlace, withStore } from "../sources/lifelog";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
-import { readFiles, readIndex, readUnit } from "./memory-files";
+import { readIndex, readUnit } from "./memory-files";
+import { readFiles } from "./message-files";
 import { type Need, needRefsOf } from "./needs";
 import {
   type AppointmentSheet,
@@ -16,7 +17,7 @@ import {
 } from "./read-appointments";
 import { partErrorOf, type ReadPartRef } from "./read-part";
 import { lifeRefsOf, parseRef, type Ref } from "./refs";
-import { enabledSources } from "./sources";
+import { deletedReadOf, enabledSources } from "./sources";
 import { isLifeOutput } from "./units";
 import { meant, type People, personFor, readPeople } from "./who";
 import { dayNow } from "./zones";
@@ -119,6 +120,10 @@ export async function findRef(
         ? hit({ appointment, kind: "appointment" })
         : miss(`no appointment ${ref.id}`);
     }
+    case "card":
+      return miss(`a card (${ref.id}) is his to answer in Life, not to fetch`);
+    case "episode":
+      return miss(`an episode (${ref.id}) is read through its day's units`);
     case "file": {
       const file = readFiles().get(ref.file);
       return file ? hit({ file, kind: "file" }) : miss(`no file ${ref.file}`);
@@ -214,7 +219,10 @@ async function findMatterOrObservation(
 /** A message by its id, from its source's store whatever its age (`messageAt`), as its reader gives it; never Life's own. */
 export function findMessageIn(
   d: Pick<Descriptor, "kind" | "label" | "messageAt"> &
-    Partial<{ read: (since: Date, before?: Date) => SourceEvent[] }>,
+    Partial<{
+      name: string;
+      read: (since: Date, before?: Date) => SourceEvent[];
+    }>,
   id: string
 ) {
   if (!(d.messageAt && d.read)) {
@@ -227,9 +235,10 @@ export function findMessageIn(
     // A second past its last version: a store may keep instants without milliseconds, compared as text.
     const event =
       at &&
-      d
-        .read(new Date(at.first), new Date(Date.parse(at.last) + SECOND))
-        .find((e) => e.id === id && !isLifeOutput(e));
+      deletedReadOf(d.name ?? "", d.read)(
+        new Date(at.first),
+        new Date(Date.parse(at.last) + SECOND)
+      ).find((e) => e.id === id && !isLifeOutput(e));
     return event
       ? hit({ event, kind: "message" })
       : miss(`no ${d.label} message ${id}`);

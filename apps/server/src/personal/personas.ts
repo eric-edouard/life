@@ -8,12 +8,14 @@ import {
   type WithPeople,
   YEARS,
 } from "../memory/closeness";
+import { isHiddenUntilRedone, shownKeyOf } from "../memory/deletions";
 import {
   exchangeCountsOf,
   type PairCounts,
   pairCountsOf,
 } from "../memory/exchange-counts";
 import {
+  deletionsNow,
   PERSONAS,
   pagePath,
   personaPath,
@@ -64,10 +66,16 @@ const REBUILD_AFTER = 7 * DAY;
 const SOLID_DAYS = 3;
 const OLD_AFTER_DAYS = 365;
 
-/** Someone's persona; none when there is none or it was written in an older shape (then it is due). */
+/**
+ * Someone's persona; none when there is none, when it was written in an older shape (then it is due), or when it was shown
+ * words he deleted (hidden until it is redone: absent, it is due now, past its rebuild's rate cap).
+ */
 export const readPersona = (ref: string) => {
   const p = Persona.safeParse(readJson(personaPath(ref)));
-  return p.success ? p.data : null;
+  return p.success &&
+    !isHiddenUntilRedone(shownKeyOf.persona(ref), p.data.built, deletionsNow())
+    ? p.data
+    : null;
 };
 
 /** How well a line is backed, from its quotes' days: a pattern seen once is a guess, one not seen for a year may be over. */
