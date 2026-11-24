@@ -18,12 +18,17 @@ import {
   type HeldSummary,
 } from "../memory/conversation-summaries";
 import {
+  deletionsOf,
+  isHiddenUntilRedone,
+  shownKeyOf,
+} from "../memory/deletions";
+import {
   batchLines,
   charsOf,
   EXCHANGE_BATCH_CHARS,
   exchangesOf,
 } from "../memory/exchanges";
-import { historyPath } from "../memory/memory-files";
+import { historyPath, readCorrections } from "../memory/memory-files";
 import { foundQuotes } from "../memory/quote-check";
 import { begin, inBatches, inputsOf, readsOf, type Step } from "../memory/run";
 import { dayUnitId } from "../memory/unit-ids";
@@ -160,6 +165,27 @@ export function monthCallsOf(
 }
 
 /**
+ * The months and the story a deletion did not touch: one it was shown words of before it shows again only once redone
+ * (dropped here, it is due: a missing month or story is asked again).
+ */
+function hiddenUntilRedone(ref: string, history: History) {
+  const d = deletionsOf(readCorrections());
+  const months = history.months.filter(
+    (m) => !isHiddenUntilRedone(shownKeyOf.history(ref, m.month), m.built, d)
+  );
+  const story =
+    history.story &&
+    !isHiddenUntilRedone(
+      shownKeyOf.history(ref, `story:${history.story.through}`),
+      history.story.built,
+      d
+    )
+      ? history.story
+      : null;
+  return { ...history, months, story };
+}
+
+/**
  * Someone's history: an empty one when there is no file; a file in a shape this code does not know (a month written by
  * a newer version, a damaged file) is an error naming the file and the month, never an empty history: the next write
  * would drop every stored month.
@@ -172,7 +198,7 @@ export function readHistory(ref: string): History {
   const raw = readJson<{ months?: { month?: unknown }[] }>(path);
   const parsed = History.safeParse(raw);
   if (parsed.success) {
-    return parsed.data;
+    return hiddenUntilRedone(ref, parsed.data);
   }
   const at = parsed.error.issues[0]?.path;
   const month =

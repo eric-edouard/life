@@ -25,9 +25,14 @@ import {
 } from "../sources/lifelog-voices";
 import { PAGE, readChats, readWhoChats } from "./chat-events";
 import { communicationStylesOf } from "./communication-styles";
+import { deletedWordsOf, deletionsOf } from "./deletions";
 import { chatTakesLinesOf } from "./draft-send";
 import { findTurn, findUnit } from "./find-refs";
-import { readInferredRepos, readJudgments } from "./memory-files";
+import {
+  readCorrections,
+  readInferredRepos,
+  readJudgments,
+} from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import type { SourceLine } from "./quote-check";
@@ -115,20 +120,50 @@ export async function readEach<T>(
 }
 
 /**
- * The transcripts of every recording these turns are in. A recording lifelog no longer has (404) has no words; any
- * other failure throws, so a fetch that failed never reads as silence.
+ * The transcripts of every recording these turns are in, each turn's words as a deletion leaves them (`deletedWordsOf`:
+ * a turn he deleted keeps no words, a cut's words are blanked, and its place in the recording holds). A recording lifelog
+ * no longer has (404) has no words (unless `missingThrows`, which the hearing wants); any other failure throws, so a
+ * fetch that failed never reads as silence.
  */
-export const transcripts = (turns: { jobId: string }[]) =>
-  readEach(
+export async function transcripts(
+  turns: { at?: string; jobId: string; turnIndex?: number }[],
+  /** A recording lifelog no longer has (404) throws instead of reading as no words: the hearing hears it again. */
+  missingThrows = false
+) {
+  const deletions = deletionsOf(readCorrections());
+  const jobs = await readEach(
     turns.map((t) => t.jobId),
     (job) =>
       readTranscript(job).catch((e: { status?: number }) => {
-        if (e.status === 404) {
+        if (e.status === 404 && !missingThrows) {
           return [];
         }
         throw e;
       })
   );
+  // A caller that hands no turn (a recording's transcript read whole): no ref, so no deletion to apply to it.
+  const atOf = new Map(
+    turns.flatMap((t) =>
+      t.at === undefined || t.turnIndex === undefined
+        ? []
+        : [[`${t.jobId}:${t.turnIndex}`, t.at] as const]
+    )
+  );
+  return new Map(
+    [...jobs].map(([job, list]) => [
+      job,
+      list.map((turn, i) => {
+        const at = atOf.get(`${job}:${i}`);
+        return at === undefined
+          ? turn
+          : {
+              ...turn,
+              text: deletedWordsOf(turnRef(job, i, at), turn.text, deletions),
+            };
+      }),
+    ])
+  );
+}
 
 /**
  * The lines of each group of turns among `turnsById`, from lifelog's words and how it heard the voices of its

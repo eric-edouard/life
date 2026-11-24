@@ -21,7 +21,12 @@ import { readFiles } from "../memory/memory-files";
 import { hearVoiceNotes, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
 import { readySources, SOURCES } from "../memory/sources";
-import { callSpanOf, isLifeOutput, speakerOf } from "../memory/units";
+import {
+  callSpanOf,
+  isLifeOutput,
+  readSourceEventsNow,
+  speakerOf,
+} from "../memory/units";
 import { meant, nameRefusalOf, type People, readPeople } from "../memory/who";
 import { EventFilter } from "../records/registered-agent";
 import { eventKey, type SourceEvent } from "../records/source";
@@ -370,7 +375,7 @@ function readNewMessages(s: Messaging, from: number | undefined) {
   // ponytail: `read` has no upper bound, so a cursor far behind (an agent's first, a long backlog) reads from its oldest
   // kept row to now on each page; give `read` an `until` if an agent ever pages through months.
   const byId = new Map(
-    (since ? s.read(new Date(since)) : []).map((e) => [e.id, e])
+    (since ? readSourceEventsNow(s, new Date(since)) : []).map((e) => [e.id, e])
   );
   const isCut = rows.length > kept.length;
   return {
@@ -631,7 +636,7 @@ export function readEndedCalls(
   return sources.flatMap((s) => {
     let events: SourceEvent[];
     try {
-      events = s.read(new Date(now - CALLS_BACK));
+      events = readSourceEventsNow(s, new Date(now - CALLS_BACK));
     } catch (error) {
       log("source.read", {
         ...errorOf(error),

@@ -12,6 +12,7 @@ import {
   type Observation,
   type Supersession,
 } from "../records/observation";
+import { type Deletions, NO_DELETIONS } from "./deletions";
 import { buildIndex } from "./index-writer";
 import {
   answeredFactCheckCorrections,
@@ -315,6 +316,64 @@ async function view(f: typeof fixture) {
   });
   return { index, onPage, statusReads };
 }
+
+test("deleted beats hidden, gone, replaced and retired: a fact read from words he deleted is gone, never history", () => {
+  const x = {
+    ...obs("obs_000000000001", "unit_1", "h1"),
+    source: { channel: "whatsapp", ref: "m1" },
+    subjects: [],
+    validTo: null,
+  } as unknown as Observation;
+  const at = (
+    over: Partial<ObservationStatusInputs>
+  ): ObservationStatusInputs => ({
+    corrections: [],
+    live: new Set(["unit_1"]),
+    retired: new Map(),
+    standing: new Map(),
+    ...over,
+  });
+  const deletions = (over: Partial<Deletions> = {}) =>
+    ({
+      ...NO_DELETIONS,
+      ...over,
+    }) as Deletions;
+  // The line it cites, its unit, its id or the hash it was read under: gone, whatever else says where it stands.
+  for (const d of [
+    deletions({ refs: new Set(["m1"]) }),
+    deletions({ refs: new Set(["unit_1"]) }),
+    deletions({ refs: new Set(["obs_000000000001"]) }),
+    deletions({ oldHashes: new Set(["h1"]) }),
+  ]) {
+    expect(observationStatusOf(x, at({ deleted: d }))).toEqual({
+      state: "deleted",
+    });
+  }
+  expect(
+    observationStatusOf(
+      x,
+      at({
+        corrections: [
+          { at: "t", kind: "wrong", observations: [x.id] },
+        ] as Correction[],
+        deleted: deletions({ refs: new Set(["m1"]) }),
+        live: new Set(),
+      })
+    )
+  ).toEqual({ state: "deleted" });
+  // Another line, another unit, another hash: as it was.
+  expect(
+    observationStatusOf(
+      x,
+      at({
+        deleted: deletions({
+          oldHashes: new Set(["h9"]),
+          refs: new Set(["m9"]),
+        }),
+      })
+    )
+  ).toEqual({ hiddenOn: [], state: "active" });
+});
 
 test("hidden beats gone beats replaced beats retired beats active", () => {
   const x = obs("obs_000000000001", "unit_1", "h1");

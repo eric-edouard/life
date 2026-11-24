@@ -33,6 +33,12 @@ import {
   Unresolved,
 } from "../records/observation";
 import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
+import {
+  type Deletions,
+  deletionsOf,
+  isDeleted,
+  NO_DELETIONS,
+} from "./deletions";
 import { outdatedBy, type Retirement, retiredBy } from "./retirements";
 
 // memory/ on disk and its search index: every path, the readers of the ledgers and of the index, and what the ledgers
@@ -245,16 +251,21 @@ export const daysOf = (m: Episode) =>
   ] as const;
 
 /** Each episode as it stands: its line from the latest day that read it, with the units (and copies) of every day's line, in day order; never one the owner said is wrong or unimportant (an episode is on no page: any such correction hides it). */
-export const episodesNow = (lines: Episode[], corrections: Correction[]) =>
-  [...Map.groupBy(lines, (m) => m.id).values()].flatMap((ls) => {
+export const episodesNow = (lines: Episode[], corrections: Correction[]) => {
+  const gone = deletionsOf(corrections).refs;
+  return [...Map.groupBy(lines, (m) => m.id).values()].flatMap((ls) => {
     const m = ls.at(-1) as Episode;
-    const all = (k: "copies" | "units") => [
-      ...new Set(ls.flatMap((l) => l[k])),
-    ];
-    return hiding(corrections, m.id).length > 0
+    const all = (k: "copies" | "units") =>
+      [...new Set(ls.flatMap((l) => l[k]))].filter((u) => !gone.has(u));
+    const units = all("units");
+    // Gone: he deleted the episode, or every unit of it.
+    return hiding(corrections, m.id).length > 0 ||
+      gone.has(m.id) ||
+      units.length === 0
       ? []
-      : [{ ...m, copies: all("copies"), units: all("units") }];
+      : [{ ...m, copies: all("copies"), units }];
   });
+};
 
 /**
  * Each unit's episode, the one its facts sit under: of the episodes holding it, the one reaching furthest forward (its
@@ -431,6 +442,8 @@ export const readCorrections = (): Correction[] => [
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's standing readings, the supersessions. */
 export interface ObservationStatusInputs {
   corrections: Correction[];
+  /** What he deleted, as the reads apply it (`deletionsOf`); left out, nothing was deleted. */
+  deleted?: Deletions;
   /** Cited only by lines of a section whose add-on is off (`frozenOnlyOf`); left out, none. */
   frozenOnly?: ReadonlySet<string>;
   live: Set<string>;
@@ -473,7 +486,12 @@ export async function readObservationStatusInputs(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
   );
   const retirements = [...supersessions, ...outdatedBy(corrections)];
-  return { corrections, ...c, retired: retiredBy(retirements, current) };
+  return {
+    corrections,
+    deleted: deletionsOf(corrections),
+    ...c,
+    retired: retiredBy(retirements, current),
+  };
 }
 
 /**
@@ -548,6 +566,16 @@ export function observationStatusOf(
   o: Observation,
   s: ObservationStatusInputs
 ) {
+  const readFrom = {
+    id: o.id,
+    ref: o.source?.ref ?? "",
+    unit: o.unit,
+    unitHash: o.madeBy?.unitHash,
+  };
+  // He deleted its words: gone, before anything else says where it stands.
+  if (isDeleted(readFrom, s.deleted ?? NO_DELETIONS)) {
+    return { state: "deleted" as const };
+  }
   const hid = hiding(s.corrections, o.id);
   const everywhere = hid.find((c) => !c.page);
   if (everywhere) {

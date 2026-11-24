@@ -3,6 +3,7 @@ import { digest } from "../core/hash";
 import { SourceName } from "../core/names";
 import {
   Birthday,
+  ContentHash,
   EpisodeId,
   isoDate,
   isoDateTime,
@@ -179,6 +180,23 @@ export const PageSection = z.enum([
 ]);
 
 /**
+ * Words removed from the middle of one line, identified by their places in it and the digest of what was there (never the
+ * words themselves): a read blanks `from` to `to` when the digest is the words it finds there, and nothing otherwise.
+ */
+export const Cut = z
+  .object({
+    digest: ContentHash,
+    from: z.int().min(0),
+    ref: z.string().min(1),
+    to: z.int().min(0),
+  })
+  .strict()
+  .refine((c) => c.to > c.from, {
+    message: "a cut removes at least one character",
+  });
+export type Cut = z.infer<typeof Cut>;
+
+/**
  * memory/corrections.jsonl: what the owner told Life, append-only, written by a Claude session when he says it in
  * conversation (`bun life memory correct`) and by the pages step when it finds him editing a page file. Every
  * rebuild respects it. `wrong` and `not-important` hide observations (on one page when `page` is set, else
@@ -201,6 +219,12 @@ export const PageSection = z.enum([
  * the one he picked. `your-move-not-now` is his "Not now" on a your move card, pinned by its matter and steps: that card
  * hides until `until` (a local day, exclusive), or until the matter gets a step not in `steps`. `not-at-organization` is
  * his No on an at organization card: `person` is not at `organization`, and that pair is never asked again (life#874).
+ * `deleted` is his word that something goes from his memory: `refs` (units, facts, episodes, messages, turns, files, matters,
+ * cards) whose line is gone, and `cuts` (words inside a line, by their places and a digest, never the words themselves).
+ * `oldHashes` are the hashes of the units it changed, so a fact read from those words is deleted, not replaced; `shown`
+ * the derived reads (a persona, a history's month, a situation) it was shown to, which must be redone before they show
+ * again. `withSources`: his word covers the copies in the sources too (raw text in an app's store, lifelog, a backup
+ * stays as it is until code can purge it). Never a person, a project or an area: those are `change_directory_entry`'s.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -342,7 +366,25 @@ export const Correction = z
         work: ClosenessLevel.optional(),
       })
       .strict(),
+    z
+      .object({
+        ...Correcting,
+        cuts: z.array(Cut).default([]),
+        kind: z.literal("deleted"),
+        /** The hashes of the units it changed, as they stood before it. */
+        oldHashes: z.array(ContentHash).default([]),
+        refs: z.array(z.string().min(1)).default([]),
+        /** His words, as he said them: never stored by any other layer. */
+        said: z.string().trim().min(1).max(300),
+        /** The derived reads shown those words (a persona, a history's month, a situation), by their keys. */
+        shown: z.array(z.string().min(1)).default([]),
+        withSources: z.boolean(),
+      })
+      .strict(),
   ])
+  .refine((c) => c.kind !== "deleted" || c.refs.length + c.cuts.length > 0, {
+    message: "a deletion names refs, cuts or both",
+  })
   .refine((c) => c.kind !== "matter-direction" || !!(c.goal || c.nextStep), {
     message: "a matter-direction gives a goal, a next step or both",
   })

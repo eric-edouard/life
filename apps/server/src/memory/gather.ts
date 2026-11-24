@@ -5,8 +5,10 @@ import { ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import { readConversations, type Store, withStore } from "../sources/lifelog";
+import { deletionsOf } from "./deletions";
 import {
   keptConversations,
+  readCorrections,
   readFiles,
   readInferredRepos,
   readUnits,
@@ -203,7 +205,11 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
   );
   const chapters = frozenUnits(store, have);
   return {
-    built: lifelogUnits(conversations, new Set(chapters.map((u) => u.key))),
+    built: lifelogUnits(
+      conversations,
+      new Set(chapters.map((u) => u.key)),
+      deletionsOf(readCorrections())
+    ),
     chapters,
     conversations,
     have,

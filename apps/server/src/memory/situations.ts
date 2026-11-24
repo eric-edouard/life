@@ -15,10 +15,12 @@ import {
   pagedNow,
   personallyClose,
 } from "./closeness";
+import { deletionsOf, isHiddenUntilRedone, shownKeyOf } from "./deletions";
 import {
   daysOf,
   episodesNow,
   pagePath,
+  readCorrections,
   readEpisodes,
   SITUATIONS,
   situationPath,
@@ -39,9 +41,17 @@ const SITUATION_PROMPT = "memory-situation.v3";
 /** Days of episodes a situation reads, ending at the newest; older ones live on in the page's sections and Earlier. */
 const DAYS = 30;
 
+/** Someone's situation; null when there is none, or when it was shown words he deleted: hidden until it is redone. */
 const readSituation = (ref: string) => {
   const p = Situation.safeParse(readJson(situationPath(ref)));
-  return p.success ? p.data : null;
+  return p.success &&
+    !isHiddenUntilRedone(
+      shownKeyOf.situation(ref),
+      p.data.built,
+      deletionsOf(readCorrections())
+    )
+    ? p.data
+    : null;
 };
 
 /**
