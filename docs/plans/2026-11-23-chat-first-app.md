@@ -165,7 +165,11 @@ A2UI 1.0 is out (11 Nov 2026, Apache 2.0; read from the specification in its rep
 Also new and useful: streaming updates of a flat component list (`updateComponents`), a whole answer in one
 message, typed function calls both ways (checked against the catalog), accessibility rules every component gets, and
 an MCP binding (Life's connector is MCP). The SwiftUI renderer (iOS 17+) hosts custom SwiftUI components in a custom
-catalog, but its package is still 0.12 with breaking changes between minor versions.
+catalog, but its package is still 0.12 with breaking changes between minor versions. Its engine alone, `A2UISwiftCore`
+(`swift/core`: the message parser, the data model and its bindings, the calls both ways, validation, and catalogs
+of custom components and functions, with no views), would let Life draw its own components in its own SwiftUI and
+keep the protocol's checks; it builds for iOS 17 and up (the app targets 27), depends on a pre-1.0 JSON Schema
+library, and has tests of its own. A TypeScript agent package (`typescript/agents`) exists for the server side.
 
 So the plan's choice for answers ("For the plan to decide", below) has a fourth way: A2UI 1.0 as the envelope, with
 Life's own catalog and renderer-only acts. The plan weighs it with the others; the 0.12 Swift package and how much
