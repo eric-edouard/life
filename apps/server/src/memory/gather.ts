@@ -14,7 +14,7 @@ import {
 import {
   asChatOrNot,
   describeFiles,
-  keptFileLines,
+  readFiles,
   showFiles,
 } from "./message-files";
 import type { Truth } from "./read-truth";
@@ -113,7 +113,7 @@ export async function gather(
           readable.filter((e) => e.at >= recent),
           { engine: options.engine }
         );
-  const known = keptFileLines();
+  const known = readFiles();
   const shown = read.map(({ events, s }) => ({
     events: showFiles(events, known),
     s,

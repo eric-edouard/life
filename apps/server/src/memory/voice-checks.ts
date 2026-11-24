@@ -30,8 +30,12 @@ export const shownClipsOf = (
   const touched = (jobId: string) =>
     [...d.refs, ...d.cuts.keys()].some((ref) => ref.startsWith(`${jobId}:`));
   const jobs = new Map(item.voices.map((v) => [v.conversationId, v.jobId]));
+  // A clip of no audio names no recording of its own: any recording of the item gone answers for it, as evidence's does.
+  const gone = item.voices.some((v) => touched(v.jobId));
   return {
-    clips: item.clips.filter((c) => !(c.audio && touched(c.audio.jobId))),
+    clips: item.clips.filter((c) =>
+      c.audio ? !touched(c.audio.jobId) : !gone
+    ),
     evidence: item.evidence.filter(
       (e) => !touched(jobs.get(e.conversationId) ?? "")
     ),

@@ -73,3 +73,28 @@ test("a clip or an evidence line of a recording he deleted words in never reache
     expect(shownClipsOf(item, d)).toEqual({ clips: [], evidence: [] });
   }
 });
+
+test("a clip with no audio, which names no recording, goes too once any of its item's recordings was touched", () => {
+  const clip = {
+    at: null,
+    audio: null,
+    text: "hello there",
+    until: null,
+    words: [[0, 300, 5]],
+  };
+  const item = {
+    clips: [clip],
+    evidence: [],
+    voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
+  };
+  expect(shownClipsOf(item, NO_DELETIONS).clips).toEqual([clip]);
+  for (const d of [
+    { ...NO_DELETIONS, refs: new Set(["job-1:7"]) },
+    {
+      ...NO_DELETIONS,
+      cuts: new Map([["job-1:0", [cutOf("job-1:0", "hello there", 0, 5)]]]),
+    },
+  ]) {
+    expect(shownClipsOf(item, d).clips).toEqual([]);
+  }
+});
