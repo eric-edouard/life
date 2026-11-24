@@ -45,6 +45,10 @@ import { MOVE_NOTES, shortNameOf } from "../host/move-read";
 import { CardPreview } from "../memory/card-preview";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
+import {
+  DeletionRequest,
+  deleteFromMemory,
+} from "../memory/delete-from-memory";
 import { readsOnce, refsProblemOf } from "../memory/find-refs";
 import { isToldLife } from "../memory/sources";
 import { recordToldLife, TellLife } from "../memory/told-life";
@@ -153,6 +157,7 @@ const MAIN_TOOLS = new Set([
   "change_todo_item",
   "complain",
   "correct_memory",
+  "delete_from_memory",
   "show",
   "tell_agent",
   "tell_life",
@@ -388,6 +393,19 @@ function doorServer(desk: Desk, id: string) {
         ...(typeof matter === "string" ? { matter } : {}),
       });
       return { done };
+    }
+  );
+  door(
+    "delete_from_memory",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): what goes from his memory, as the connector's `delete_from_memory` takes it (`refs`, `cuts`, `about`, `withSources`): a preview first, then the same set with its `confirm`. Nothing is written without the preview's `confirm`.",
+    DeletionRequest,
+    async (request, _, turn) => {
+      const done = await deleteFromMemory({
+        ...request,
+        said: hisWordsOf(turn, request.said),
+      });
+      acted(turn, { kind: "done" });
+      return done;
     }
   );
   // His to-do list, his calendar's appointments, what he tells Life and his directory: the connector's own writers, on

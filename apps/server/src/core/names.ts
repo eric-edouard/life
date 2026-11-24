@@ -36,6 +36,7 @@ export const CONNECTOR_WRITES = [
   "change_registered_agent",
   "change_todo_item",
   "correct_memory",
+  "delete_from_memory",
   "request_decision",
   "tell_life",
 ];

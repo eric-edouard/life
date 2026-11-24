@@ -318,6 +318,24 @@ export function withdrawDraftsAnsweredInChat(
   return lines.map((l) => l.id);
 }
 
+/** Why Life withdraws a card whose step or words he deleted, as its asker reads it. */
+const STEP_DELETED = "he deleted what it rests on";
+
+/**
+ * Withdraws the open cards a deletion reaches (`dependentsOf`: their step, or the words they rest on, are gone), by Life's
+ * word: nothing is asked from what he deleted. Returns the ids withdrawn.
+ */
+export function withdrawDeletedCards(ids: readonly string[], now = clock()) {
+  const open = new Set(
+    decisionsNow(now).flatMap((d) => (d.state === "open" ? [d.id] : []))
+  );
+  const lines = ids
+    .filter((id) => open.has(id))
+    .map((id) => withdrawnOf(id, now, STEP_DELETED));
+  appendWithdrawals(lines, "life");
+  return lines.map((l) => l.id);
+}
+
 /** Withdrawals appended in one write, each one `decision.withdrawn` line by `by` (who withdrew it). */
 function appendWithdrawals(lines: Withdrawn[], by: string) {
   appendJsonl(DECISIONS, Withdrawn, lines);

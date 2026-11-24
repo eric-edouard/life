@@ -12,6 +12,10 @@ agents that act for him. This page says what it protects and what it does not.
   versions.
 - The owner's claude.ai and ChatGPT exports are kept whole as export copies in `imports/` of his data (outside its
   git), the assistant's replies included; they are read as data, never as his words.
+- A deletion he asks for (`delete_from_memory`) is a marker in `memory/corrections.jsonl`: what he deleted stops being
+  read anywhere, but the words themselves stay where their sources hold them (the app's own store, the archive, lifelog)
+  and in his data repo's git history and backups. Purging them needs code that does not exist yet: `withSources` records
+  his word that those copies go too, nothing more.
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.

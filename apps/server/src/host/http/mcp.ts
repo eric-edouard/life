@@ -89,6 +89,7 @@ import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
+import { deleteFromMemoryTool } from "./mcp-deletions";
 import { mainSessionTool } from "./mcp-main-session";
 import { personPicturesTool } from "./mcp-people";
 import { projectTools } from "./mcp-projects";
@@ -316,6 +317,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   if (!readsOnly) {
     personPicturesTool(server);
     spendingTool(server, NOT_HIS);
+    deleteFromMemoryTool(server, NOT_HIS);
     mainSessionTool(server, NOT_HIS);
     // An agent's session on pi, read-only in his app; never on the tokenless reads-only server.
     tool(

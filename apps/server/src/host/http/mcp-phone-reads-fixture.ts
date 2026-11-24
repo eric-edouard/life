@@ -246,6 +246,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       title: "Mend the strap",
     },
   ],
+  deleted: new Set(),
   dismissed: [],
   doubted: new Set(),
   endings: new Map([

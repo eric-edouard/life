@@ -65,6 +65,7 @@ function withoutGroups(
     answered: new Set(),
     atOrganizations: [],
     decisions: [],
+    deleted: new Set(),
     dismissed: [],
     doubted: new Set(),
     endings: new Map(),

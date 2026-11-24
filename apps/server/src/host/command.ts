@@ -13,6 +13,7 @@ import {
   NIGHT_CALLS,
   readConversationSummaryWork,
 } from "../memory/conversation-summaries";
+import { deleteFromMemory } from "../memory/delete-from-memory";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
@@ -81,6 +82,7 @@ const OPTIONS = {
   chat: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
+  dry: { type: "boolean" },
   force: { type: "boolean" },
   from: { type: "string" },
   "from-turn": { type: "string" },
@@ -259,6 +261,28 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
   day: (_values, [date = ""]) => printed(isDay(date) ? day(date) : null),
+  /**
+   * `delete '<json>' [--dry]`: what a deletion of those refs, cuts or `about` would lose, and with `--dry` nothing more;
+   * else, with the preview's `confirm` in the JSON, the deletion itself (`deleteFromMemory`).
+   */
+  async delete(values, rest) {
+    try {
+      const said = JSON.parse(rest.join(" "));
+      console.log(
+        JSON.stringify(
+          await deleteFromMemory(
+            values.dry ? { ...said, confirm: undefined } : said
+          ),
+          null,
+          1
+        )
+      );
+      return 0;
+    } catch (e) {
+      console.error((e as Error).message);
+      return usage();
+    }
+  },
   episodes: step(async (v) => {
     const evidence = await gathered(v);
     if (evidence.failed.length === 0) {
@@ -522,7 +546,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | hear-voice-notes --from d [--to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] [--at instant] [--until instant] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|latest|reach|page|persona|story|year|month|evidence] [--span YYYY[-MM] | <accounts to skip, for reach>] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | hear-voice-notes --from d [--to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | delete '<json>' [--dry] | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] [--at instant] [--until instant] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|latest|reach|page|persona|story|year|month|evidence] [--span YYYY[-MM] | <accounts to skip, for reach>] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | source-use [--days 7] [--json] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }
