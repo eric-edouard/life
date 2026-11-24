@@ -21,7 +21,7 @@ struct LifeLinkTarget: Hashable, Identifiable {
         case .file: "doc"
         case .observation: "text.quote"
         case .conversation, .turn: "waveform"
-        case .ask, .unknown: "link"
+        case .ask, .card, .episode, .unknown: "link"
         }
     }
 }
