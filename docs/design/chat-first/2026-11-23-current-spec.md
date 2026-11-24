@@ -192,8 +192,9 @@ Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to
   their states, pictures, a table, a phrase to say, a place.
 - A picture, or a phrase to show someone, opens full screen on a tap (owner, 23 Nov 2026: worth it, the one
   exception to "nothing opens a screen", since holding the phone up is the task).
-- "Show me" a matter or an ask: Life says where it stands in a sentence, then its item in its state, which unfolds by
-  itself once in place, since seeing it is what he asked (24 Nov 2026). No page of its own.
+- An answer with a single item shows it unfolded, in place, under Life's sentence of where it stands ("show me the
+  dentist matter"); it folds back to its row like any item. Several items come as rows (owner, 24 Nov 2026). No page
+  of its own.
 - How those shapes are made (fixed blocks, components the agent composes, or generated HTML) is the plan's to decide (the plan, "Life's own catalog of blocks").
 
 ### While Life works
