@@ -169,7 +169,12 @@ catalog, but its package is still 0.12 with breaking changes between minor versi
 (`swift/core`: the message parser, the data model and its bindings, the calls both ways, validation, and catalogs
 of custom components and functions, with no views), would let Life draw its own components in its own SwiftUI and
 keep the protocol's checks; it builds for iOS 17 and up (the app targets 27), depends on a pre-1.0 JSON Schema
-library, and has tests of its own. A TypeScript agent package (`typescript/agents`) exists for the server side.
+library, and has tests of its own. A TypeScript agent package (`typescript/agents`) exists for the server side. Its `Package.swift` sits at the repository's root (Swift tools 6.1): the app would depend on the
+`A2UISwiftCore` product alone (targets `A2UIJSON` and `A2UICore`), pulling `swift-json-schema` (0.13, pre-1.0) and
+nothing else at run time (`Yams` is for its tests); `A2UIJSON` runs a build-tool plugin (`A2UISchemaGeneratorPlugin`)
+at every build, which Xcode asks to trust; and Swift Package Manager checks out the whole repository (every language's
+code, over 200 MB at depth 1). Pin an exact version, or vendor `swift/core` under its Apache 2.0 licence; the plan
+chooses.
 
 So the plan's choice for answers ("For the plan to decide", below) has a fourth way: A2UI 1.0 as the envelope, with
 Life's own catalog and renderer-only acts. The plan weighs it with the others; the 0.12 Swift package and how much
