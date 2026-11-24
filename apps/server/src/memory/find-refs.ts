@@ -8,7 +8,8 @@ import { openStore, turnPlace, withStore } from "../sources/lifelog";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
-import { readFiles, readIndex, readUnit } from "./memory-files";
+import { readIndex, readUnit } from "./memory-files";
+import { readFiles } from "./message-files";
 import { type Need, needRefsOf } from "./needs";
 import {
   type AppointmentSheet,
@@ -16,8 +17,8 @@ import {
 } from "./read-appointments";
 import { partErrorOf, type ReadPartRef } from "./read-part";
 import { lifeRefsOf, parseRef, type Ref } from "./refs";
-import { enabledSources } from "./sources";
-import { isLifeOutput, readSourceEventsNow } from "./units";
+import { deletedReadOf, enabledSources } from "./sources";
+import { isLifeOutput } from "./units";
 import { meant, type People, personFor, readPeople } from "./who";
 import { dayNow } from "./zones";
 
@@ -234,8 +235,7 @@ export function findMessageIn(
     // A second past its last version: a store may keep instants without milliseconds, compared as text.
     const event =
       at &&
-      readSourceEventsNow(
-        { name: d.name ?? "", read: d.read },
+      deletedReadOf(d.name ?? "", d.read)(
         new Date(at.first),
         new Date(Date.parse(at.last) + SECOND)
       ).find((e) => e.id === id && !isLifeOutput(e));

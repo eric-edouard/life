@@ -9,11 +9,15 @@ import { deletionsOf } from "./deletions";
 import {
   keptConversations,
   readCorrections,
-  readFiles,
   readInferredRepos,
   readUnits,
 } from "./memory-files";
-import { asChatOrNot, describeFiles, showFiles } from "./message-files";
+import {
+  asChatOrNot,
+  describeFiles,
+  readFiles,
+  showFiles,
+} from "./message-files";
 import type { Truth } from "./read-truth";
 import {
   enabledSources,

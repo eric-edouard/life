@@ -2,8 +2,13 @@ import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import type { LifelogConversation } from "../sources/lifelog";
-import { cutOf, type Deletions, NO_DELETIONS } from "./deletions";
-import { deletedEventsOf, lifelogUnits } from "./units";
+import {
+  cutOf,
+  type Deletions,
+  deletedEventsOf,
+  NO_DELETIONS,
+} from "./deletions";
+import { lifelogUnits } from "./units";
 
 // What he deleted of a day's words: the words a read takes, and the hash that makes that day read again. Made-up turns.
 

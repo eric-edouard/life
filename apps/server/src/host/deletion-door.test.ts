@@ -3,6 +3,8 @@ import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { appendJsonl } from "../core/files";
 import { setSettings, settings } from "../core/settings";
+import { readChats } from "../memory/chat-events";
+import { deletionsOf, isDeleted } from "../memory/deletions";
 import { wroteSince } from "../memory/draft-send";
 import { reindex } from "../memory/index-writer";
 import {
@@ -21,9 +23,9 @@ import {
 } from "../memory/memory-files";
 import { writePassages } from "../memory/passages";
 import { unit } from "../memory/record-fixtures";
+import { deletedReadOf, tablesOf } from "../memory/sources";
 import { writeUnits } from "../memory/unit-writer";
-import { readSourceEventsNow } from "../memory/units";
-import { chatHits, transcripts } from "../memory/words";
+import { chatHits, fetchOf, transcripts } from "../memory/words";
 import { dayRange } from "../memory/zones";
 import { readPersona } from "../personal/personas";
 import {
@@ -32,6 +34,7 @@ import {
   Observation,
 } from "../records/observation";
 import type { SourceEvent } from "../records/source";
+import type { Descriptor } from "../sources/contract";
 import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
 import {
   conversation,
@@ -65,13 +68,30 @@ const ENGINE = "claude" as const;
 const said = (text: string) => ({ speakerId: "speaker_0", text });
 
 /** The lifelog stand-in: one closed conversation of two turns, its transcript held apart as lifelog holds it. */
+const WORDS = "Meet me at the pier at noon.";
+/** Each word of `WORDS` with its milliseconds into the turn: lifelog's own timing of a turn's words. */
+const TIMED = [
+  [0, 1000, 5],
+  [1000, 2000, 3],
+  [2000, 3000, 3],
+  [3000, 3500, 4],
+  [3500, 4500, 5],
+  [4500, 5500, 3],
+  [5500, 6500, 5],
+];
+
 const lifelog = () =>
   lifelogServer({
     [`/transcription-jobs/${JOB}/transcript`]: () => ({
-      turns: [
-        said("Meet me at the pier at noon."),
-        said("Bring the drawings."),
-      ],
+      turns: [said(WORDS), said("Bring the drawings.")],
+    }),
+    // The first turn's timings stop early: a span past them keeps its words and says the rest went unread.
+    "/turns/clip": () => ({
+      at: AT,
+      audio: null,
+      text: WORDS,
+      until: "2026-10-14T09:00:05.000Z",
+      words: TIMED,
     }),
   });
 
@@ -82,7 +102,10 @@ function recorded() {
     store,
     pageFixture({
       conversations: [conversation("c1", { endAt: AT2, startAt: AT })],
-      turns: [turnFixture(0, AT, null, null), turnFixture(1, AT2, null, null)],
+      turns: [
+        { ...turnFixture(0, AT, null, null), endAt: AT2 },
+        turnFixture(1, AT2, null, null),
+      ],
     })
   );
   store.db.close();
@@ -264,10 +287,9 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
     expect("askAgain" in wrong).toBe(true);
     expect(readCorrections().some((c) => c.kind === "deleted")).toBe(false);
     // Before the write, the words are still there.
-    expect(
-      (await transcripts([{ at: AT, jobId: JOB, turnIndex: 0 }])).get(JOB)?.[0]
-        ?.text
-    ).toContain("pier");
+    expect((await transcripts([{ jobId: JOB }])).get(JOB)?.[0]?.text).toContain(
+      "pier"
+    );
 
     const confirm = "reaches" in preview ? preview.confirm : "";
     const done = await deleteFromMemoryAndTodoItems({ ...ask, confirm });
@@ -288,11 +310,12 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
       `situation:${KIT}`,
     ]);
     expect(line?.withSources).toBe(false);
+    // His words could quote what he deleted: the record keeps their digest, never them.
+    expect(line?.said).toMatch(DIGEST);
+    expect(line?.said).not.toContain("that goes");
 
     // The words, once they come in: cut in the transcript, the day read again with the words as he deleted them.
-    const cut = (await transcripts([{ at: AT, jobId: JOB, turnIndex: 0 }])).get(
-      JOB
-    );
+    const cut = (await transcripts([{ jobId: JOB }])).get(JOB);
     // Its places hold, its words blank; nothing after it moved.
     expect(cut?.[0]?.text).toBe("Meet me at          at noon.");
     expect(cut?.[1]?.text).toBe("Bring the drawings.");
@@ -319,9 +342,19 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
         withSources: false,
       },
     ]);
-    expect(readSourceEventsNow(source, new Date(0)).map((e) => e.id)).toEqual([
-      "S2",
-    ]);
+    const readNow = deletedReadOf("whatsapp", source.read);
+    expect(readNow(new Date(0)).map((e) => e.id)).toEqual(["S2"]);
+    // Every reader of the sources' tables sees the message gone, `read_chats` among them: the table's read is guarded.
+    const chatSource = {
+      chatDays: 1,
+      kind: "chat",
+      label: "WhatsApp",
+      name: "whatsapp",
+      read: source.read,
+    } as unknown as Descriptor;
+    expect(
+      readChats(range, tablesOf([chatSource]).CHATS).events.map((e) => e.id)
+    ).toEqual(["S2"]);
     // A fact read from it again, under a new id and its unit's new hash, stays hidden: `withSources` false records that
     // the copies in the sources stay as they are, never that what memory reads from them comes back.
     const again = {
@@ -350,10 +383,91 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
       )[0]?.map((e) => e.id)
     ).toEqual(["S1", "S2"]);
     // The passages republished over the guarded read no longer hold its words.
-    writePassages(readSourceEventsNow(source, new Date(0)), window, [], {
-      whatsapp: () => readSourceEventsNow(source, new Date(0)),
+    writePassages(readNow(new Date(0)), window, [], {
+      whatsapp: () => readNow(new Date(0)),
     });
     expect((await chatHits("pier", range)).join("\n")).not.toContain("pier");
+
+    // A call's span over that turn: the clipped words are his again, blanked where he cut them.
+    const page = await fetchOf("c1", 0, 200, openStore, {
+      at: AT,
+      until: "2026-10-14T09:00:30.000Z",
+    });
+    expect(page).toContain("Meet me at          at noon.");
+    // The clip ran: the turn is said to go on inside the span, and it was those clipped words that his cut blanked.
+    expect(page).toContain("goes on inside the span unread");
+    expect(page).not.toContain("the pier");
+
+    // A unit gone whole: `fetch` opens nothing of it any more.
+    appendJsonl(CORRECTIONS, CorrectionSchema, [
+      {
+        at: AT,
+        cuts: [],
+        kind: "deleted",
+        oldHashes: [],
+        refs: ["unit_0000000000aa"],
+        said: "that day goes",
+        schemaVersion: 1,
+        shown: [],
+        withSources: false,
+      },
+    ]);
+    expect(await fetchOf("unit_0000000000aa")).toContain("no unit");
+  } finally {
+    server.close();
+    setSettings({ sources: before });
+  }
+});
+
+test("a chapter unit is never read again: a deletion names its turn, never its hash", async () => {
+  const before = settings().sources;
+  const server = lifelog();
+  setSettings({ sources: ["lifelog"] });
+  try {
+    recorded();
+    // A chapter as lifelog stored it before conversation-days: its own summary, and a hash no read ever rebuilds.
+    const chapter = "unit_0000000000bb";
+    const chapterHash = "aaaaaaaaaaaaaaaa";
+    await writeUnits(
+      [DAY],
+      [
+        unit({
+          date: DAY,
+          end: AT2,
+          hash: chapterHash,
+          id: chapter,
+          key: "c1",
+          refs: [TURN],
+          source: "lifelog",
+          start: AT,
+          summary: "A chapter about the pier.",
+          title: "Chapter 1",
+        }),
+      ]
+    );
+    const ofChapter = (id: string, ref: string) => ({
+      id,
+      ref,
+      unit: chapter,
+      unitHash: chapterHash,
+    });
+    const ask = { refs: [TURN], said: "that turn goes" };
+    const preview = await deleteFromMemoryAndTodoItems(ask);
+    const confirm = "reaches" in preview ? preview.confirm : "";
+    await deleteFromMemoryAndTodoItems({ ...ask, confirm });
+
+    const line = readCorrections()
+      .filter(
+        (c): c is Extract<Correction, { kind: "deleted" }> =>
+          c.kind === "deleted"
+      )
+      .at(-1);
+    // The chapter's hash is never hidden: chapters are never read again, so every fact of it would be gone for good.
+    expect(line?.oldHashes).toEqual([]);
+    const d = deletionsOf(readCorrections());
+    // Only what cites the deleted turn goes; the chapter's other facts stand.
+    expect(isDeleted(ofChapter("obs_00000000000c", TURN), d)).toBe(true);
+    expect(isDeleted(ofChapter("obs_00000000000d", "c1"), d)).toBe(false);
   } finally {
     server.close();
     setSettings({ sources: before });

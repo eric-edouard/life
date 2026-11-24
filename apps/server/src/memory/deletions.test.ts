@@ -116,25 +116,21 @@ test("a derived read shown deleted words shows again only once it is redone afte
 
 const layers = (over: Partial<DeletionLayers> = {}): DeletionLayers => ({
   cards: [],
-  links: [],
   matters: [],
   observations: [],
-  replies: [],
   shown: [],
   todoItems: ["entry_0123456789ab"],
   units: [],
   ...over,
 });
 
-test("what a deletion reaches: a message its unit, the unit its facts, the facts their matter, cards, links and reads", () => {
+test("what a deletion reaches: a message its unit, the unit its facts, the facts their matter and the cards on them", () => {
   const dependents = dependentsOf(["m1"], {
     cards: [
       { id: "dec_aaaaaaaaaaaa", subject: "obs_1" },
       { id: "dec_bbbbbbbbbbbb" },
-    ],
-    links: [
-      { earlier: "obs_1", later: "ep_1" },
-      { earlier: "obs_9", later: "ep_9" },
+      { id: "dec_cccccccccccc", refs: ["m1"] },
+      { id: "dec_dddddddddddd", refs: ["m2"] },
     ],
     matters: [
       { id: "matter_1", steps: ["obs_1", "unit_1"] },
@@ -143,10 +139,6 @@ test("what a deletion reaches: a message its unit, the unit its facts, the facts
     observations: [
       { id: "obs_1", source: "m1", unit: "unit_1" },
       { id: "obs_2", source: "m2", unit: "unit_2" },
-    ],
-    replies: [
-      { id: "reply:aa", refs: ["m1"] },
-      { id: "reply:bb", refs: ["m2"] },
     ],
     shown: [
       { id: shownKeyOf.persona("person:kit"), units: ["unit_1"] },
@@ -159,12 +151,10 @@ test("what a deletion reaches: a message its unit, the unit its facts, the facts
     ],
   });
   expect(dependents).toEqual({
-    // A card on nothing it names goes too: it may show the words (`subject` absent).
-    cards: ["dec_aaaaaaaaaaaa", "dec_bbbbbbbbbbbb"],
+    // A card is withdrawn when a step or a link of it is reached, never because it names nothing.
+    cards: ["dec_aaaaaaaaaaaa", "dec_cccccccccccc"],
     facts: ["obs_1"],
-    links: ["obs_1"],
     matters: ["matter_1"],
-    replies: ["reply:aa"],
     shown: ["persona:person:kit"],
     todoItems: [],
     units: ["unit_1"],

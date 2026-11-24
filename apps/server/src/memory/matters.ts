@@ -33,6 +33,7 @@ import {
   CONTACT_PEOPLE,
   CORRECTIONS,
   daysOf,
+  deletionsNow,
   EPISODES,
   EXTRACTED,
   episodesWhere,
@@ -135,9 +136,9 @@ export const readMatters = () =>
  * The matters as the lines of the current prompt say now, and every record they were offered: a new prompt version is
  * a new grouping (every record offered again, every matter a new id; the older lines stay as stored). A matter is its
  * latest name, areas and projects (the latest line naming it) and the union of its steps over the lines, a later line's
- * placement of a record winning (the record leaves the matter it was in).
+ * placement of a record winning (the record leaves the matter it was in). A matter he deleted is no matter any more.
  */
-export function mattersNow(all: MatterBatch[]) {
+export function mattersNow(all: MatterBatch[], deleted = deletionsNow().refs) {
   const batches = all.filter((b) =>
     isPromptVersion(b.madeBy.prompt, MATTERS_PROMPT)
   );
@@ -163,7 +164,9 @@ export function mattersNow(all: MatterBatch[]) {
     }
   }
   return {
-    matters: [...byId.values()].filter((m) => m.steps.length > 0),
+    matters: [...byId.values()].filter(
+      (m) => m.steps.length > 0 && !deleted.has(m.id)
+    ),
     offered,
   };
 }

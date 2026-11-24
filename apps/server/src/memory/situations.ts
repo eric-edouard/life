@@ -15,12 +15,12 @@ import {
   pagedNow,
   personallyClose,
 } from "./closeness";
-import { deletionsOf, isHiddenUntilRedone, shownKeyOf } from "./deletions";
+import { isHiddenUntilRedone, shownKeyOf } from "./deletions";
 import {
   daysOf,
+  deletionsNow,
   episodesNow,
   pagePath,
-  readCorrections,
   readEpisodes,
   SITUATIONS,
   situationPath,
@@ -48,7 +48,7 @@ const readSituation = (ref: string) => {
     !isHiddenUntilRedone(
       shownKeyOf.situation(ref),
       p.data.built,
-      deletionsOf(readCorrections())
+      deletionsNow()
     )
     ? p.data
     : null;

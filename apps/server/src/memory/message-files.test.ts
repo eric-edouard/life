@@ -14,12 +14,13 @@ import type { FileEntry } from "../records/unit";
 import { readImessage } from "../sources/imessage";
 import { imessageFixture, whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
-import { FILES, readFiles } from "./memory-files";
+import { FILES } from "./memory-files";
 import {
   asChatOrNot,
   describeFilesOnArrival,
   FILES_ON_ARRIVAL_A_DAY,
   filesDueOnArrival,
+  readFiles,
   showFiles,
   triage,
 } from "./message-files";

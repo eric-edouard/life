@@ -23,6 +23,8 @@ import {
 } from "./find-refs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryFiles from "./memory-files";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as messageFiles from "./message-files";
 import { openById } from "./open-by-id";
 import { unit } from "./record-fixtures";
 import { parseRef, type Ref } from "./refs";
@@ -98,7 +100,7 @@ test("an observation by its index row, a unit, a file's line", async () => {
   spyOn(memoryFiles, "readUnit").mockImplementation((id) =>
     Promise.resolve(id === "unit_000000000001" ? unit() : undefined)
   );
-  spyOn(memoryFiles, "readFiles").mockReturnValue(
+  spyOn(messageFiles, "readFiles").mockReturnValue(
     new Map([
       [
         "whatsapp:120@g.us/S1",

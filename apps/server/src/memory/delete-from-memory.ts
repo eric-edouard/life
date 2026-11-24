@@ -15,7 +15,7 @@ import {
   dependentsOf,
   shownKeyOf,
 } from "./deletions";
-import { findMessage } from "./find-refs";
+import { findMessage, findTurn } from "./find-refs";
 import { gather } from "./gather";
 import { reindex } from "./index-writer";
 import { mattersNow, readMatters } from "./matters";
@@ -23,7 +23,6 @@ import {
   HISTORIES,
   PERSONAS,
   readEpisodes,
-  readFiles,
   readIndex,
   readLedger,
   readObservations,
@@ -33,11 +32,12 @@ import {
   SITUATIONS,
 } from "./memory-files";
 import { locked } from "./memory-lock";
+import { readFiles } from "./message-files";
 import { locate } from "./quote-check";
-import { deletionRefusalOf, parseRef } from "./refs";
+import { deletionRefusalOf, lifeRefsOf, parseRef } from "./refs";
 import { search } from "./search";
 import { publishUnits } from "./unit-writer";
-import { clip } from "./units";
+import { clip, isFrozen } from "./units";
 import { readPeople } from "./who";
 import { transcripts } from "./words";
 import { localDate } from "./zones";
@@ -146,6 +146,20 @@ export function cutInLine(text: string, quote: string, ref: string) {
     : null;
 }
 
+/** A turn as a deletion names it, its day from the ref: refused unless lifelog's store still has it. */
+async function namedTurn(id: string, t: { jobId: string; turnIndex: number }) {
+  const found = await findTurn(id, t);
+  if (!found.found) {
+    throw new Error(`Not done: ${found.why}.`);
+  }
+  return {
+    day: localDate(id.slice(id.indexOf("@") + 1)),
+    id,
+    kind: "turn",
+    line: clip(id, 120),
+  };
+}
+
 /** A ref's kind and one short line of it, with the day its words sat on when it has one. Throws when it is not there. */
 async function namedOf(id: string): Promise<DeletionNamed> {
   const refusal = deletionRefusalOf(id);
@@ -202,7 +216,7 @@ async function namedOf(id: string): Promise<DeletionNamed> {
       return named("message", found.event.text, localDate(found.event.at));
     }
     case "turn":
-      return named("turn", id, localDate(id.slice(id.indexOf("@") + 1)));
+      return await namedTurn(id, ref);
     case "file": {
       const file = readFiles().get(ref.file);
       if (!file) {
@@ -242,10 +256,7 @@ async function textOf(ref: string): Promise<string> {
     throw new Error(`Not done: ${found.why}.`);
   }
   if (!("error" in parsed) && parsed.kind === "turn") {
-    const at = parsed.id.slice(parsed.id.indexOf("@") + 1);
-    const lines = await transcripts([
-      { at, jobId: parsed.jobId, turnIndex: parsed.turnIndex },
-    ]);
+    const lines = await transcripts([{ jobId: parsed.jobId }]);
     const line = lines.get(parsed.jobId)?.[parsed.turnIndex];
     if (line) {
       return line.text;
@@ -260,10 +271,28 @@ async function textOf(ref: string): Promise<string> {
 /** A search line's ref: the id it opens with (`index-rows.ts`). */
 const LINE_ID = /^- (\S+) /;
 
+/** The kinds a deletion names, one by one (`namedOf`); a search's person, conversation or voice lines are none of them. */
+const DELETABLE = new Set([
+  "card",
+  "episode",
+  "file",
+  "matter",
+  "message",
+  "observation",
+  "turn",
+  "unit",
+]);
+
 /** The refs a search for `about` names, from its own lines' ids (each line opens with one): the preview's only answer to it. */
 export async function refsAbout(about: string) {
   const found = await search(about);
-  return found.split("\n").flatMap((line) => LINE_ID.exec(line)?.[1] ?? []);
+  return found.split("\n").flatMap((line) => {
+    const id = LINE_ID.exec(line)?.[1];
+    const ref = id === undefined ? { error: "" } : parseRef(id);
+    return id !== undefined && !("error" in ref) && DELETABLE.has(ref.kind)
+      ? [id]
+      : [];
+  });
 }
 
 /** The refs of the derived reads that exist now, one folder's files: `person:<id>` each. */
@@ -340,9 +369,9 @@ export async function planDeletion(
   const layers: DeletionLayers = {
     cards: [...decisionsNow()].map((d) => ({
       id: d.id,
+      refs: lifeRefsOf(d.context ?? ""),
       ...(d.subject === undefined ? {} : { subject: d.subject }),
     })),
-    links: [],
     matters: mattersNow(readMatters()).matters.map((m) => ({
       id: m.id,
       steps: m.steps.map((s) => s.ref),
@@ -352,7 +381,6 @@ export async function planDeletion(
       source: o.source?.ref ?? "",
       unit: o.unit,
     })),
-    replies: [],
     shown: [],
     todoItems: openTodoItemsOf(await readLedger()).map((it) => it.key),
     units: units.map((u) => ({ id: u.id, refs: u.refs })),
@@ -368,8 +396,9 @@ export async function planDeletion(
     cuts,
     days,
     named,
+    // A chapter unit is never read again (AGENTS.md): its hash in `oldHashes` would hide every fact of it for good.
     oldHashes: units
-      .filter((u) => reaches.units.includes(u.id))
+      .filter((u) => !isFrozen(u) && reaches.units.includes(u.id))
       .map((u) => u.hash),
     reaches,
     withSources: ask.withSources,
@@ -436,7 +465,8 @@ export async function deleteFromMemory(ask: unknown) {
     kind: "deleted",
     oldHashes: plan.oldHashes,
     refs: request.refs,
-    said: request.said,
+    // His words could quote what he deleted: the record keeps their digest, never them.
+    said: digest("sha256", request.said, 16),
     schemaVersion: 1,
     shown: plan.reaches.shown,
     withSources: plan.withSources,

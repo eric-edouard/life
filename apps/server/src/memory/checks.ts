@@ -44,7 +44,6 @@ import { pagedNow } from "./closeness";
 import { fixingOf, withComplaintFields } from "./complaint-checks";
 import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
 import { decisionsNow, doneSeenByOf, isOnMatter, notSentOf } from "./decisions";
-import { deletionsOf } from "./deletions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
 import {
@@ -70,8 +69,8 @@ import {
 import {
   APPOINTMENTS,
   CLOSENESS,
+  deletionsNow,
   PAGES,
-  readCorrections,
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
@@ -544,7 +543,7 @@ async function readChecks(
     answered,
     atOrganizations: readAtOrganizationPairs(people),
     decisions,
-    deleted: deletionsOf(readCorrections()).refs,
+    deleted: deletionsNow().refs,
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,

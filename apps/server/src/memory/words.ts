@@ -25,14 +25,10 @@ import {
 } from "../sources/lifelog-voices";
 import { PAGE, readChats, readWhoChats } from "./chat-events";
 import { communicationStylesOf } from "./communication-styles";
-import { deletedWordsOf, deletionsOf } from "./deletions";
+import { deletedWordsOf } from "./deletions";
 import { chatTakesLinesOf } from "./draft-send";
 import { findTurn, findUnit } from "./find-refs";
-import {
-  readCorrections,
-  readInferredRepos,
-  readJudgments,
-} from "./memory-files";
+import { deletionsNow, readInferredRepos, readJudgments } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import type { SourceLine } from "./quote-check";
@@ -120,17 +116,17 @@ export async function readEach<T>(
 }
 
 /**
- * The transcripts of every recording these turns are in, each turn's words as a deletion leaves them (`deletedWordsOf`:
- * a turn he deleted keeps no words, a cut's words are blanked, and its place in the recording holds). A recording lifelog
- * no longer has (404) has no words (unless `missingThrows`, which the hearing wants); any other failure throws, so a
- * fetch that failed never reads as silence.
+ * The transcripts of every recording these turns are in, each turn's words as a deletion leaves them (`deletedWordsOf`,
+ * a turn known by its recording and index): a turn he deleted keeps no words, a cut's words are blanked, and its place in
+ * the recording holds. A recording lifelog no longer has (404) has no words (unless `missingThrows`, which the hearing
+ * wants); any other failure throws, so a fetch that failed never reads as silence.
  */
 export async function transcripts(
-  turns: { at?: string; jobId: string; turnIndex?: number }[],
+  turns: { jobId: string }[],
   /** A recording lifelog no longer has (404) throws instead of reading as no words: the hearing hears it again. */
   missingThrows = false
 ) {
-  const deletions = deletionsOf(readCorrections());
+  const deletions = deletionsNow();
   const jobs = await readEach(
     turns.map((t) => t.jobId),
     (job) =>
@@ -141,26 +137,13 @@ export async function transcripts(
         throw e;
       })
   );
-  // A caller that hands no turn (a recording's transcript read whole): no ref, so no deletion to apply to it.
-  const atOf = new Map(
-    turns.flatMap((t) =>
-      t.at === undefined || t.turnIndex === undefined
-        ? []
-        : [[`${t.jobId}:${t.turnIndex}`, t.at] as const]
-    )
-  );
   return new Map(
     [...jobs].map(([job, list]) => [
       job,
-      list.map((turn, i) => {
-        const at = atOf.get(`${job}:${i}`);
-        return at === undefined
-          ? turn
-          : {
-              ...turn,
-              text: deletedWordsOf(turnRef(job, i, at), turn.text, deletions),
-            };
-      }),
+      list.map((turn, i) => ({
+        ...turn,
+        text: deletedWordsOf(`${job}:${i}`, turn.text, deletions),
+      })),
     ])
   );
 }
@@ -559,7 +542,7 @@ async function spokenPage(
   const shown = turns.slice(from, from + limit);
   const said = await transcripts(shown);
   if (span) {
-    await clipEdges(shown, said, span);
+    await clipEdges(shown, said, span, deletionsNow());
   }
   // A voice guess is shown here, in the display alone: the lines extraction and the episodes read never carry it.
   // Each line keeps its turn's place, so a page on starts after the last turn shown, not the last line.

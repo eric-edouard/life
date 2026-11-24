@@ -32,11 +32,12 @@ import {
   Supersession,
   Unresolved,
 } from "../records/observation";
-import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
+import { MemoryLabel, Unit, Verdict } from "../records/unit";
 import {
   type Deletions,
   deletionsOf,
   isDeleted,
+  isGone,
   NO_DELETIONS,
 } from "./deletions";
 import { outdatedBy, type Retirement, retiredBy } from "./retirements";
@@ -134,11 +135,16 @@ const readFolder = async <T>(dir: string, schema: z.ZodType<T>, from = "") =>
     .filter((n) => n >= from)
     .flatMap((n) => rowsOf(join(dir, n), schema));
 
-/** Every unit in memory/units/ (of `day` and every day after it), oldest day first. */
-export const readUnits = (day = "") => readFolder(UNITS, Unit, day);
-/** The units of these days only. */
+/** A unit he deleted is gone from every read of them (`isGone`): its index row and pages too. */
+const undeleted = (units: Unit[]) =>
+  units.filter((u) => !isGone(u.id, deletionsNow()));
+
+/** Every unit in memory/units/ (of `day` and every day after it), oldest first, a deleted one left out. */
+export const readUnits = async (day = "") =>
+  undeleted(await readFolder(UNITS, Unit, day));
+/** The units of these days only, a deleted one left out. */
 export const readUnitsOf = (dates: string[]) =>
-  dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
+  undeleted(dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit)));
 
 /** The search index (`buildIndex`, index-writer.ts). */
 export const INDEX = join(OUT, "index.sqlite");
@@ -148,10 +154,7 @@ export const PASSAGES = join(OUT, "passages.sqlite");
 export const VECTORS = join(OUT, "vectors.sqlite");
 /** What code counts between him and each person, exchange by exchange, rebuilt whole each night (`exchange-counts.ts`). */
 export const EXCHANGE_COUNTS = join(OUT, "exchange-counts.json");
-/**
- * The mentions the replies of the mentions read hold, one file a month (by local day, like `READ_REPLIES`), rebuilt whole
- * each night (`mentions.ts`): a reader of one day parses one month.
- */
+/** The mentions the replies of the mentions read hold, one file a month (`mentions.ts`, rebuilt whole each night). */
 export const MENTIONS = join(OUT, "mentions");
 export const mentionsPath = (month: string) => join(MENTIONS, `${month}.json`);
 /** The local days the pendant recorded on, as lifelog says, rebuilt whole each night (`recorded-days.ts`). */
@@ -280,10 +283,7 @@ export const readBy = (episodes: Episode[]) =>
       .flatMap((m) => m.units.map((u) => [u, m] as const))
   );
 
-/**
- * The readings of each unit that stand, the latest last: its last line in extracted.jsonl and each line before it
- * while the later one `continues` (a reading that is not a continuation replaces all before it).
- */
+/** The readings of each unit that stand, the latest last: its last line, and each before it while the later one `continues`. */
 export const standingReadings = (ledger: Extracted[]) => {
   const standing = new Map<string, Extracted[]>();
   for (const e of ledger) {
@@ -303,10 +303,7 @@ export const latestReading = (
 /** The units an observation can stand on: in memory/units and not dropped by a code rule. */
 export const liveUnits = (units: Pick<Unit, "drop" | "id">[]) =>
   new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
-/**
- * A unit line as liveness reads it: its id and drop alone, the rest left unchecked. The whole `Unit` schema on every
- * day's file was most of the first read's time; the readers that use a unit's content parse it whole.
- */
+/** A unit line as liveness reads it: its id and drop alone (the whole schema on every day's file was most of a read). */
 const UnitLiveness = z.object({ drop: Unit.shape.drop, id: Unit.shape.id });
 const liveIn = keptReader((path) => liveUnits(rowsOf(path, UnitLiveness)));
 /** The live units (`liveUnits`), a day's file read again only once it changed (`keptReader`). */
@@ -438,6 +435,11 @@ export const readCorrections = (): Correction[] => [
     )
   ),
 ];
+
+/** Every deletion as the reads apply them, worked out once per process and again only once corrections.jsonl changed. */
+const deletionsIn = (path: string) => deletionsOf(rowsOf(path, Correction));
+const keptDeletions = keptReader(deletionsIn);
+export const deletionsNow = (): Deletions => keptDeletions(CORRECTIONS);
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's standing readings, the supersessions. */
 export interface ObservationStatusInputs {
@@ -770,17 +772,6 @@ export const keptConversations = () =>
 export const readLabels = () => [
   ...latestBy(rowsOf(LABELS, MemoryLabel), (l) => l.unitId).values(),
 ];
-
-/** What Life read off each file a message carried: the latest line for each ref wins. */
-export const readFiles = (): ReadonlyMap<string, FileEntry> =>
-  readAppended<FileEntry, Map<string, FileEntry>>(
-    FILES,
-    FileEntry,
-    (last) => new Map(last),
-    (all, e) => {
-      all.set(e.ref, e);
-    }
-  );
 
 /** Verdicts by unit and content: the latest line for each (unit, hash) wins. */
 export type Verdicts = ReadonlyMap<string, Verdict>;

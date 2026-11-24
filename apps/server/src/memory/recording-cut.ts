@@ -1,7 +1,8 @@
 import { iso } from "../core/clock";
 import type { Unit } from "../records/unit";
-import type { LifelogTurn } from "../sources/lifelog";
+import { type LifelogTurn, turnRef } from "../sources/lifelog";
 import { readTurnClip } from "../sources/lifelog-voices";
+import { type Deletions, deletedWordsOf } from "./deletions";
 
 // A recording read cut to a span of instants, such as a call's exact one (`fetch`'s `at` and `until`, life#875): the
 // turns that overlap it (`turnsOverlapping`), a turn crossing an edge kept to its words wholly inside.
@@ -65,12 +66,14 @@ const isCrossing = (t: LifelogTurn, { at, until }: Within) =>
  * A recording cut to a span keeps, of a turn that crosses an edge, only its words wholly inside, by lifelog's word timings
  * (`readTurnClip`, a turn's first seconds as its cards play them): a turn with no timings is said to be left out, and one
  * whose timings stop before the span's part of it is said to go on unread (life#884). A read that failed throws, so it
- * never reads as silence. Rewrites `said` in place.
+ * never reads as silence. A clipped turn's words come from lifelog's timings, so what he deleted is applied again after
+ * the clip. Rewrites `said` in place.
  */
 export async function clipEdges(
   shown: LifelogTurn[],
   said: Map<string, { speakerId: string | null; text: string }[]>,
-  span: Within
+  span: Within,
+  deletions: Deletions
 ) {
   await Promise.all(
     shown
@@ -82,7 +85,11 @@ export async function clipEdges(
           const timed = await readTurnClip(t.jobId, t.turnIndex);
           recording[t.turnIndex] = {
             ...words,
-            text: clippedOf(t, timed, span),
+            text: deletedWordsOf(
+              turnRef(t.jobId, t.turnIndex, t.at),
+              clippedOf(t, timed, span),
+              deletions
+            ),
           };
         }
       })

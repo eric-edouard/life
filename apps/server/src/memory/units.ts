@@ -23,17 +23,18 @@ import {
   measurementDayText,
   photoDayText,
 } from "./activity-days";
-import {
-  blankCuts,
-  type Deletions,
-  deletionsOf,
-  NO_DELETIONS,
-} from "./deletions";
+import { cutsOn, type Deletions, isGone, NO_DELETIONS } from "./deletions";
 import { LIFE_MAIL } from "./email";
-import { keptConversations, readCorrections, readFiles } from "./memory-files";
-import { showFiles } from "./message-files";
+import { keptConversations } from "./memory-files";
+import { readFiles, showFiles } from "./message-files";
 import { OWNER, type Truth } from "./read-truth";
-import { isDirect, isWithPeople, kindOf, sourceOf } from "./sources";
+import {
+  deletedReadOf,
+  isDirect,
+  isWithPeople,
+  kindOf,
+  sourceOf,
+} from "./sources";
 import { dayUnitId, voiceUnitId } from "./unit-ids";
 import { dayStart, localDate, time } from "./zones";
 
@@ -211,9 +212,9 @@ export function conversationLabel(start: string, names: string[]) {
  */
 const deletionKeysOf = (t: LifelogTurn, deletions: Deletions) => {
   const ref = turnRef(t.jobId, t.turnIndex, t.at);
-  return deletions.refs.has(ref)
+  return isGone(ref, deletions)
     ? [`${ref} deleted`]
-    : (deletions.cuts.get(ref) ?? []).map((c) => `${ref} cut:${c.digest}`);
+    : cutsOn(ref, deletions).map((c) => `${ref} cut:${c.digest}`);
 };
 
 /** A turn's identity: its ref and who lifelog says spoke it (his, its person id, else its name). */
@@ -744,47 +745,6 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
 
-/** A message's ref as a deletion names it (`msg:<source>|<id>`, `refs.ts`). */
-export const messageRefOf = (source: string, id: string) =>
-  `msg:${source}|${id}`;
-
-/**
- * `events` with what he deleted applied: a message whose words are gone whole is dropped, a cut's words blanked. Only the
- * words a read of the source gives (`readSourceEventsNow`); the send paths read the source raw (`draft-send.ts`).
- */
-export const deletedEventsOf = (
-  name: string,
-  events: SourceEvent[],
-  d: Deletions
-) =>
-  events.flatMap((e) => {
-    const ref = messageRefOf(name, e.id);
-    return d.refs.has(ref) || d.refs.has(e.id)
-      ? []
-      : [
-          {
-            ...e,
-            text: blankCuts(e.text, d.cuts.get(ref) ?? d.cuts.get(e.id)),
-          },
-        ];
-  });
-
-/**
- * A source's events since `since`, its words as a deletion leaves them: the one way a source's messages come in, the send
- * paths aside (`draft-send.ts`, which must send exactly what he approved).
- */
-export function readSourceEventsNow(
-  d: { name: string; read: (since: Date, before?: Date) => SourceEvent[] },
-  since: Date,
-  before?: Date
-) {
-  return deletedEventsOf(
-    d.name,
-    d.read(since, before),
-    deletionsOf(readCorrections())
-  );
-}
-
 /**
  * A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no
  * files (a commit without a subject is dropped, like any empty message), and every source's words as a deletion leaves them.
@@ -795,16 +755,12 @@ export const readEventsOf = (
   map: { me: Person; repos: RepoMap },
   before?: Date
 ) =>
-  readSourceEventsNow(
+  deletedReadOf(
+    s.name,
     s.kind === "repo"
-      ? {
-          name: s.name,
-          read: (at: Date, until?: Date) => s.read(at, map, until),
-        }
-      : s,
-    since,
-    before
-  );
+      ? (at: Date, until?: Date) => s.read(at, map, until)
+      : s.read
+  )(since, before);
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its

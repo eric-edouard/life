@@ -354,6 +354,15 @@ test("a matter is its latest name and the union of its steps, a later placement 
     [b, "Other", ["r2"]],
   ]);
   expect([...now.offered].sort()).toEqual(["r1", "r2", "r3"]);
+  // A matter he deleted is no matter any more; its records stay as they were (a step deleted is not a matter deleted).
+  const deleted = mattersNow(
+    [
+      line("2026-10-12T10:00:00.000Z", a, "New name", [["r4", "2026-10-11"]]),
+      line("2026-10-13T10:00:00.000Z", b, "Other", [["r2", "2026-10-02"]]),
+    ],
+    new Set([a])
+  );
+  expect(deleted.matters.map((m) => m.id)).toEqual([b]);
 });
 
 test("the errand's small steps are shown: an observation rated 1, and a mail no episode holds as an episode of its own", () => {

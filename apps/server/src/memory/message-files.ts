@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { z } from "zod";
 import { clock, daysBefore, MIN } from "../core/clock";
-import { appendJsonl } from "../core/files";
+import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
@@ -15,7 +15,7 @@ import { FileEntry } from "../records/unit";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { emlxPart } from "../sources/mail";
 import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
-import { FILES, readFiles, runAt } from "./memory-files";
+import { deletionsNow, FILES, runAt } from "./memory-files";
 import { begin, chunks, inBatches, readsOf } from "./run";
 import { dayUnitId } from "./unit-ids";
 import { dayNow, localDate } from "./zones";
@@ -87,6 +87,25 @@ export const showFiles = (
   });
 
 /** Whether a ledger line is of the current prompt (a line of code's own reading has no prompt). */
+/** What Life read off each file a message carried: the latest line for each ref wins, a file he deleted left out. */
+export const readFiles = (): ReadonlyMap<string, FileEntry> => {
+  const all = keptFileLines();
+  const { refs } = deletionsNow();
+  return refs.size === 0
+    ? all
+    : new Map([...all].filter(([ref]) => !refs.has(ref)));
+};
+
+const keptFileLines = (): ReadonlyMap<string, FileEntry> =>
+  readAppended<FileEntry, Map<string, FileEntry>>(
+    FILES,
+    FileEntry,
+    (last) => new Map(last),
+    (all, e) => {
+      all.set(e.ref, e);
+    }
+  );
+
 const isCurrent = (e: FileEntry | undefined): e is FileEntry =>
   !!e &&
   (!e.madeBy ||

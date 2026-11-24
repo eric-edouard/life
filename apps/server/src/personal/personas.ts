@@ -8,21 +8,17 @@ import {
   type WithPeople,
   YEARS,
 } from "../memory/closeness";
-import {
-  deletionsOf,
-  isHiddenUntilRedone,
-  shownKeyOf,
-} from "../memory/deletions";
+import { isHiddenUntilRedone, shownKeyOf } from "../memory/deletions";
 import {
   exchangeCountsOf,
   type PairCounts,
   pairCountsOf,
 } from "../memory/exchange-counts";
 import {
+  deletionsNow,
   PERSONAS,
   pagePath,
   personaPath,
-  readCorrections,
   readUnits,
 } from "../memory/memory-files";
 import { meContext } from "../memory/model-context";
@@ -77,11 +73,7 @@ const OLD_AFTER_DAYS = 365;
 export const readPersona = (ref: string) => {
   const p = Persona.safeParse(readJson(personaPath(ref)));
   return p.success &&
-    !isHiddenUntilRedone(
-      shownKeyOf.persona(ref),
-      p.data.built,
-      deletionsOf(readCorrections())
-    )
+    !isHiddenUntilRedone(shownKeyOf.persona(ref), p.data.built, deletionsNow())
     ? p.data
     : null;
 };

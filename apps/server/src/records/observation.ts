@@ -374,7 +374,7 @@ export const Correction = z
         /** The hashes of the units it changed, as they stood before it. */
         oldHashes: z.array(ContentHash).default([]),
         refs: z.array(z.string().min(1)).default([]),
-        /** His words, as he said them: never stored by any other layer. */
+        /** A digest of his words (`deleteFromMemory`): they could quote what he deleted, so they are never stored. */
         said: z.string().trim().min(1).max(300),
         /** The derived reads shown those words (a persona, a history's month, a situation), by their keys. */
         shown: z.array(z.string().min(1)).default([]),

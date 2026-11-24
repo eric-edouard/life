@@ -10,6 +10,7 @@ import {
   summaryLine,
   summaryTextOf,
 } from "./conversation-summaries";
+import { isGone } from "./deletions";
 import {
   COLUMNS,
   CURRENT,
@@ -22,7 +23,7 @@ import {
   unitLine,
   withIndex,
 } from "./index-rows";
-import { episodesWhere, readIndex } from "./memory-files";
+import { deletionsNow, episodesWhere, readIndex } from "./memory-files";
 import { directoryPartiesOf, OWNER } from "./read-truth";
 import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
@@ -186,7 +187,10 @@ async function voiceHits(words: string, range: DayRange) {
     return ["(no voice source)"];
   }
   try {
-    const hits = await searchVoice(words, range, VOICE_LIMIT);
+    // A turn he deleted is no hit, however lifelog indexed it.
+    const hits = (await searchVoice(words, range, VOICE_LIMIT)).filter(
+      (h) => !isGone(`${h.jobId}:${h.firstTurn}`, deletionsNow())
+    );
     return withStore((store) =>
       hits.length > 0
         ? hits.map((h) => {

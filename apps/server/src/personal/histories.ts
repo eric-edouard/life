@@ -17,18 +17,14 @@ import {
   currentSummaries,
   type HeldSummary,
 } from "../memory/conversation-summaries";
-import {
-  deletionsOf,
-  isHiddenUntilRedone,
-  shownKeyOf,
-} from "../memory/deletions";
+import { isHiddenUntilRedone, shownKeyOf } from "../memory/deletions";
 import {
   batchLines,
   charsOf,
   EXCHANGE_BATCH_CHARS,
   exchangesOf,
 } from "../memory/exchanges";
-import { historyPath, readCorrections } from "../memory/memory-files";
+import { deletionsNow, historyPath } from "../memory/memory-files";
 import { foundQuotes } from "../memory/quote-check";
 import { begin, inBatches, inputsOf, readsOf, type Step } from "../memory/run";
 import { dayUnitId } from "../memory/unit-ids";
@@ -169,7 +165,7 @@ export function monthCallsOf(
  * (dropped here, it is due: a missing month or story is asked again).
  */
 function hiddenUntilRedone(ref: string, history: History) {
-  const d = deletionsOf(readCorrections());
+  const d = deletionsNow();
   const months = history.months.filter(
     (m) => !isHiddenUntilRedone(shownKeyOf.history(ref, m.month), m.built, d)
   );

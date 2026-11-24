@@ -1,5 +1,7 @@
 import { digest } from "../core/hash";
 import type { Correction, Cut } from "../records/observation";
+import type { SourceEvent } from "../records/source";
+import { parseTurnRef } from "../sources/lifelog";
 
 // A deletion (docs/glossary.md): his word that something goes from memory, kept as one line of corrections.jsonl (kind
 // `deleted`) and applied by every read of the words it removed: a ref's line is gone whole, a cut's words are blanked, and
@@ -27,6 +29,23 @@ export const NO_DELETIONS: Deletions = {
   refs: new Set(),
 };
 
+/**
+ * A ref as a deletion knows it: a turn by its recording and index alone (`job:turn`), never its instant, so the same turn
+ * is found whatever `at` a reader or his card spelled it with.
+ */
+const refKeyOf = (ref: string) => {
+  const t = parseTurnRef(ref);
+  return t ? `${t.jobId}:${t.turnIndex}` : ref;
+};
+
+/** Whether he deleted `ref`'s line whole (a turn matched by `refKeyOf`, however either side spelled it). */
+export const isGone = (ref: string, d: Deletions) =>
+  d.refs.has(ref) || d.refs.has(refKeyOf(ref));
+
+/** The cuts he made on `ref`, in the order he recorded them (a turn matched as `isGone` matches it). */
+export const cutsOn = (ref: string, d: Deletions) =>
+  d.cuts.get(ref) ?? d.cuts.get(refKeyOf(ref)) ?? [];
+
 /** Every deletion among his corrections, as the reads apply them. Pure. */
 export function deletionsOf(corrections: readonly Correction[]): Deletions {
   const refs = new Set<string>();
@@ -38,13 +57,14 @@ export function deletionsOf(corrections: readonly Correction[]): Deletions {
       continue;
     }
     for (const ref of c.refs) {
-      refs.add(ref);
+      refs.add(refKeyOf(ref));
     }
     for (const hash of c.oldHashes) {
       oldHashes.add(hash);
     }
     for (const cut of c.cuts) {
-      cuts.set(cut.ref, [...(cuts.get(cut.ref) ?? []), cut]);
+      const ref = refKeyOf(cut.ref);
+      cuts.set(ref, [...(cuts.get(ref) ?? []), cut]);
     }
     for (const key of c.shown) {
       hidden.set(key, [hidden.get(key) ?? "", c.at].sort().at(-1) as string);
@@ -92,16 +112,40 @@ export function blankCuts(text: string, cuts: readonly Cut[] = []): string {
   return blanked;
 }
 
+/** A message's ref as a deletion names it (`msg:<source>|<id>`, `refs.ts`). */
+export const messageRefOf = (source: string, id: string) =>
+  `msg:${source}|${id}`;
+
 /**
  * The words a read takes of one line: none at all when the line is gone whole, else its cuts blanked. The one way a
- * line's words come in (`words.ts`'s `transcripts`, `units.ts`'s `readSourceEventsNow`).
+ * line's words come in (`words.ts`'s `transcripts`, `sources.ts`'s `deletedReadOf`).
  */
 export const deletedWordsOf = (
   ref: string,
   text: string,
   d: Deletions
-): string => (d.refs.has(ref) ? "" : blankCuts(text, d.cuts.get(ref)));
+): string => (isGone(ref, d) ? "" : blankCuts(text, cutsOn(ref, d)));
 
+/**
+ * `events` with what he deleted applied: a message whose words are gone whole is dropped, a cut's words blanked. The one
+ * way a source's messages come in, the send paths aside (`draft-send.ts`, which must send exactly what he approved).
+ */
+export const deletedEventsOf = (
+  name: string,
+  events: SourceEvent[],
+  d: Deletions
+) =>
+  events.flatMap((e) => {
+    const ref = messageRefOf(name, e.id);
+    return isGone(ref, d) || isGone(e.id, d)
+      ? []
+      : [
+          {
+            ...e,
+            text: blankCuts(e.text, [...cutsOn(ref, d), ...cutsOn(e.id, d)]),
+          },
+        ];
+  });
 /** The key a derived read is known by in a deletion's `shown`: a persona, a history's month or story, a situation. */
 export const shownKeyOf = {
   history: (ref: string, month: string) => `history:${ref}:${month}`,
@@ -135,9 +179,9 @@ export interface ReadFrom {
  * unit hash a deletion changed (its words went, so what was read from them is gone, never history).
  */
 export const isDeleted = (r: ReadFrom, d: Deletions) =>
-  d.refs.has(r.id) ||
-  d.refs.has(r.ref) ||
-  (r.unit !== undefined && d.refs.has(r.unit)) ||
+  isGone(r.id, d) ||
+  isGone(r.ref, d) ||
+  (r.unit !== undefined && isGone(r.unit, d)) ||
   (r.unitHash !== undefined && d.oldHashes.has(r.unitHash));
 
 /**
@@ -145,16 +189,12 @@ export const isDeleted = (r: ReadFrom, d: Deletions) =>
  * what is deleted is read here.
  */
 export interface DeletionLayers {
-  /** The cards, with the step each rides on (`subject`), when it names one. */
-  cards: { id: string; subject?: string }[];
-  /** The link lines: the step each ends (`earlier`) and the record that ends it (`later`). */
-  links: { earlier: string; later: string }[];
+  /** The cards, with the step each rides on (`subject`) and the refs its links name (`refs`), when it has any. */
+  cards: { id: string; subject?: string; refs?: string[] }[];
   /** The matters and their steps. */
   matters: { id: string; steps: string[] }[];
   /** The facts, with the line they cite and their unit. */
   observations: { id: string; source: string; unit: string }[];
-  /** The stored reads, by their keys and the keys they were shown (a reply's messages, a summary's turns). */
-  replies: { id: string; refs: string[] }[];
   /** The derived reads shown units: a persona, a history's month, a situation, and the units each was shown. */
   shown: { id: string; units: string[] }[];
   /** The to-do items' ledger keys. */
@@ -169,12 +209,8 @@ export interface Dependents {
   cards: string[];
   /** The facts read from the deleted words. */
   facts: string[];
-  /** What he said of those facts: nothing new is read from them. */
-  links: string[];
   /** The matters holding a deleted step. */
   matters: string[];
-  /** The stored reads of them, which no longer match and are asked again. */
-  replies: string[];
   /** The derived reads shown them, which are redone before they show again. */
   shown: string[];
   /** The to-do items to remove from his list (`changeTodoItem`). */
@@ -185,9 +221,9 @@ export interface Dependents {
 
 /**
  * What deleting `refs` reaches, in the stored layers it is shown: a message or a turn reaches its unit, the unit its facts,
- * a fact its matter, its links and the cards on it; a matter reaches the cards on its steps, the to-do items among them and
- * the reads shown them; a to-do item's key is removed from his list; a stored read or a derived one shown them is no
- * longer good. Pure.
+ * a fact its matter and the cards on it; a matter reaches the cards on its steps and the to-do items among them; a to-do
+ * item's key is removed from his list, and a derived read shown them is no longer good. A card is withdrawn when he names
+ * it, or when a step or a link of it is reached. Pure.
  */
 export function dependentsOf(
   refs: readonly string[],
@@ -213,16 +249,15 @@ export function dependentsOf(
   ]);
   return {
     cards: layers.cards
-      .filter((c) => c.subject === undefined || steps.has(c.subject))
+      .filter(
+        (c) =>
+          asked.has(c.id) ||
+          (c.subject !== undefined && steps.has(c.subject)) ||
+          (c.refs ?? []).some((r) => steps.has(r))
+      )
       .map((c) => c.id),
     facts: facts.map((o) => o.id),
-    links: layers.links
-      .filter((l) => steps.has(l.earlier) || steps.has(l.later))
-      .map((l) => l.earlier),
     matters: matters.map((m) => m.id),
-    replies: layers.replies
-      .filter((r) => r.refs.some((x) => asked.has(x)))
-      .map((r) => r.id),
     shown: layers.shown
       .filter((s) => s.units.some((u) => asked.has(u) || unitIds.has(u)))
       .map((s) => s.id),
