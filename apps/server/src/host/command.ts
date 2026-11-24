@@ -13,7 +13,6 @@ import {
   NIGHT_CALLS,
   readConversationSummaryWork,
 } from "../memory/conversation-summaries";
-import { deleteFromMemory } from "../memory/delete-from-memory";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
@@ -66,6 +65,7 @@ import {
 import { histories, readHistoryWork } from "../personal/histories";
 import { personaReadingsOf, personas } from "../personal/personas";
 import { recordHisCorrection } from "./correct-matter";
+import { deleteFromMemoryAndTodoItems } from "./deletion-door";
 import { openCheckOf, openChecksNow } from "./inbox";
 import { readPeopleAndOrganizations } from "./matter-rows";
 import { nightly } from "./nightly";
@@ -270,7 +270,7 @@ const HANDLERS: Record<string, Handler> = {
       const said = JSON.parse(rest.join(" "));
       console.log(
         JSON.stringify(
-          await deleteFromMemory(
+          await deleteFromMemoryAndTodoItems(
             values.dry ? { ...said, confirm: undefined } : said
           ),
           null,

@@ -177,6 +177,21 @@ test("a to-do item's key among the refs is his list's to remove", () => {
   ]);
 });
 
+test("a matter deleted takes its own to-do items with it, never another matter's", () => {
+  const withMatters = layers({
+    matters: [
+      { id: "matter_1", steps: ["entry_0123456789ab", "obs_1"] },
+      { id: "matter_2", steps: ["entry_0123456789ac"] },
+    ],
+    todoItems: ["entry_0123456789ab", "entry_0123456789ac"],
+  });
+  expect(dependentsOf(["matter_1"], withMatters).todoItems).toEqual([
+    "entry_0123456789ab",
+  ]);
+  // A step he names closes its matter, but the matter itself stays: its to-do items stay in his list too.
+  expect(dependentsOf(["obs_1"], withMatters).todoItems).toEqual([]);
+});
+
 test("a deletion names refs, cuts or both: one that names neither is refused when it is recorded", () => {
   expect(Correction.safeParse(deleted()).success).toBe(false);
   expect(

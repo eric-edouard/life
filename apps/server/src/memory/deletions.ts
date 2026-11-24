@@ -185,8 +185,9 @@ export interface Dependents {
 
 /**
  * What deleting `refs` reaches, in the stored layers it is shown: a message or a turn reaches its unit, the unit its facts,
- * a fact its matter, its links and the cards on it; a matter reaches the cards on its steps and the reads shown them; a
- * to-do item's key is removed from his list; a stored read or a derived one shown them is no longer good. Pure.
+ * a fact its matter, its links and the cards on it; a matter reaches the cards on its steps, the to-do items among them and
+ * the reads shown them; a to-do item's key is removed from his list; a stored read or a derived one shown them is no
+ * longer good. Pure.
  */
 export function dependentsOf(
   refs: readonly string[],
@@ -201,9 +202,15 @@ export function dependentsOf(
     (o) => asked.has(o.id) || asked.has(o.source) || unitIds.has(o.unit)
   );
   const steps = new Set([...asked, ...facts.map((o) => o.id)]);
-  const matters = layers.matters.filter((m) =>
-    m.steps.some((s) => steps.has(s))
+  // A matter he names is reached by its own id; another by a step of it.
+  const matters = layers.matters.filter(
+    (m) => asked.has(m.id) || m.steps.some((s) => steps.has(s))
   );
+  // A matter he deleted takes its to-do items with it: his list's steps go as his Drop removes them.
+  const removed = new Set([
+    ...asked,
+    ...matters.filter((m) => asked.has(m.id)).flatMap((m) => m.steps),
+  ]);
   return {
     cards: layers.cards
       .filter((c) => c.subject === undefined || steps.has(c.subject))
@@ -219,7 +226,7 @@ export function dependentsOf(
     shown: layers.shown
       .filter((s) => s.units.some((u) => asked.has(u) || unitIds.has(u)))
       .map((s) => s.id),
-    todoItems: layers.todoItems.filter((t) => asked.has(t)),
+    todoItems: layers.todoItems.filter((t) => removed.has(t)),
     units: [...unitIds],
   };
 }

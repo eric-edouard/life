@@ -1,28 +1,36 @@
 import { z } from "zod";
 import { clock } from "../core/clock";
+import { filesIn } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import type { Cut } from "../records/observation";
+import type { Unit } from "../records/unit";
+import { openTodoItemsOf } from "../todo-list/todo-items-from-ledger";
 import { decisionsNow, withdrawDeletedCards } from "./decisions";
 import {
   cutOf,
   type DeletionLayers,
   type Dependents,
   dependentsOf,
+  shownKeyOf,
 } from "./deletions";
 import { findMessage } from "./find-refs";
 import { gather } from "./gather";
 import { reindex } from "./index-writer";
 import { mattersNow, readMatters } from "./matters";
 import {
+  HISTORIES,
+  PERSONAS,
   readEpisodes,
   readFiles,
   readIndex,
+  readLedger,
   readObservations,
   readUnit,
   readUnitsOf,
   recordCorrection,
+  SITUATIONS,
 } from "./memory-files";
 import { locked } from "./memory-lock";
 import { locate } from "./quote-check";
@@ -258,6 +266,47 @@ export async function refsAbout(about: string) {
   return found.split("\n").flatMap((line) => LINE_ID.exec(line)?.[1] ?? []);
 }
 
+/** The refs of the derived reads that exist now, one folder's files: `person:<id>` each. */
+const readRefsInFolder = async (dir: string) =>
+  new Set(
+    (await filesIn(dir, ".json")).map(
+      (f) => `person:${f.slice(0, -".json".length)}`
+    )
+  );
+
+/**
+ * The derived reads the words of `units` could have been shown: a persona, a history's month and a situation of each
+ * person the unit holds (`Unit.people`), which is who they read it for. The derived reads store no list of the units they
+ * read, so this is who a unit could have reached, never what one was handed: hiding one too many costs a redo, hiding one
+ * too few shows words he deleted.
+ */
+async function readShownDerivedOf(units: readonly Unit[]) {
+  const [personas, histories, situations] = await Promise.all([
+    readRefsInFolder(PERSONAS),
+    readRefsInFolder(HISTORIES),
+    readRefsInFolder(SITUATIONS),
+  ]);
+  const shown = new Map<string, string[]>();
+  const add = (key: string, unit: string) =>
+    shown.set(key, [...new Set([...(shown.get(key) ?? []), unit])]);
+  for (const u of units) {
+    for (const ref of u.people) {
+      if (personas.has(ref)) {
+        add(shownKeyOf.persona(ref), u.id);
+      }
+      if (histories.has(ref)) {
+        add(shownKeyOf.history(ref, u.date.slice(0, 7)), u.id);
+      }
+      if (situations.has(ref)) {
+        add(shownKeyOf.situation(ref), u.id);
+      }
+    }
+  }
+  return [...shown]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, held]) => ({ id, units: held }));
+}
+
 /** What a deletion would reach: its refs read, its cuts made, the stored layers holding them, the days to read again. */
 export async function planDeletion(
   ask: DeletionRequest
@@ -285,8 +334,8 @@ export async function planDeletion(
   ].sort();
   const asked = new Set([...ask.refs, ...cuts.map((c) => c.ref)]);
   // The layers the cascade is worked out over: the days' units, every fact (the ones he names or whose unit he does, it
-  // picks), the matters' steps and the cards' subjects. The stored reads and the derived ones are filtered where they are
-  // read, so they are no layer of it.
+  // picks), the matters' steps, the cards' subjects and his open to-do items. The stored reads and the derived ones are
+  // filtered where they are read, so they are no layer of it.
   const units = readUnitsOf(days);
   const layers: DeletionLayers = {
     cards: [...decisionsNow()].map((d) => ({
@@ -305,10 +354,15 @@ export async function planDeletion(
     })),
     replies: [],
     shown: [],
-    todoItems: [...asked],
+    todoItems: openTodoItemsOf(await readLedger()).map((it) => it.key),
     units: units.map((u) => ({ id: u.id, refs: u.refs })),
   };
-  const reaches = dependentsOf([...asked], layers);
+  // The derived reads are settled over the units it reaches, in a second pass: those are the only ones whose words go.
+  const first = dependentsOf([...asked], layers);
+  const shown = await readShownDerivedOf(
+    units.filter((u) => first.units.includes(u.id))
+  );
+  const reaches = dependentsOf([...asked], { ...layers, shown });
   return {
     confirm: deletionDigestOf({ cuts, named, withSources: ask.withSources }),
     cuts,
@@ -375,16 +429,16 @@ export async function deleteFromMemory(ask: unknown) {
       "Not done: `about` only previews what it finds: name the refs it shows, or the words to cut."
     );
   }
-  const ids = plan.named.map((n) => n.id);
+  // What goes whole is what he named: a cut's ref keeps its line, with only its own words blanked.
   const deleted = await recordCorrection({
     at: clock().toISOString(),
     cuts: plan.cuts,
     kind: "deleted",
     oldHashes: plan.oldHashes,
-    refs: ids,
+    refs: request.refs,
     said: request.said,
     schemaVersion: 1,
-    shown: [],
+    shown: plan.reaches.shown,
     withSources: plan.withSources,
   });
   const withdrawn = withdrawDeletedCards(plan.reaches.cards);
@@ -392,14 +446,16 @@ export async function deleteFromMemory(ask: unknown) {
   log("memory.deleted", {
     cards: withdrawn.length,
     days: plan.days.length,
-    refs: ids.length,
+    refs: request.refs.length,
   });
   return {
     at: deleted.at,
     days: plan.days,
     published: published ?? [],
-    refs: ids,
+    refs: request.refs,
     reindexed: published !== null,
+    // His list's own: the host layer removes them (`deleteFromMemoryAndTodoItems`).
+    todoItems: plan.reaches.todoItems,
     withdrawn,
   };
 }

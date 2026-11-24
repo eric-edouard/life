@@ -26,6 +26,7 @@ import {
   isHisOnly,
   recordHisCorrection,
 } from "../host/correct-matter";
+import { deleteFromMemoryAndTodoItems } from "../host/deletion-door";
 import {
   type AgentRow,
   type AssignmentRow,
@@ -45,10 +46,7 @@ import { MOVE_NOTES, shortNameOf } from "../host/move-read";
 import { CardPreview } from "../memory/card-preview";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
-import {
-  DeletionRequest,
-  deleteFromMemory,
-} from "../memory/delete-from-memory";
+import { DeletionRequest } from "../memory/delete-from-memory";
 import { readsOnce, refsProblemOf } from "../memory/find-refs";
 import { isToldLife } from "../memory/sources";
 import { recordToldLife, TellLife } from "../memory/told-life";
@@ -400,7 +398,7 @@ function doorServer(desk: Desk, id: string) {
     "The main session only, on his words (`said`, his own words of this ask, verbatim): what goes from his memory, as the connector's `delete_from_memory` takes it (`refs`, `cuts`, `about`, `withSources`): a preview first, then the same set with its `confirm`. Nothing is written without the preview's `confirm`.",
     DeletionRequest,
     async (request, _, turn) => {
-      const done = await deleteFromMemory({
+      const done = await deleteFromMemoryAndTodoItems({
         ...request,
         said: hisWordsOf(turn, request.said),
       });
