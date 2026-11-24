@@ -127,6 +127,19 @@ the item shows.
 - An ask Life brought to the bottom that he skips (he types, speaks, opens something else) loses its buttons, and one
   quiet line closes it: "Left for now, still waiting on you".
 
+## Profiles
+
+- A face is a person's or organization's; a tap opens their profile over the thread (owner, 23 and 24 Nov 2026): the
+  face rises and grows to the top, the thread blurs and darkens behind, and their page eases in under it, in plain
+  titled sections: who they are to him, the ways to reach them (round app buttons, no words), what needs him, where
+  things stand, what waits on them, what is coming up, the last time, what they are like (in Life's blue). A glass
+  back button, or a drag in any direction, lets it go: it follows the finger, shrinks, and the face flies back to its
+  place.
+- A profile is one level deep, never a stack: tapping an item on it (an ask, a matter, something that waits on them)
+  closes the profile first, the face flying back, then asks it in the thread: his bubble in his own words ("What do I
+  owe Tomas for the old company?"), then Life's answer as usual, ending on its question when it has one. An ask comes
+  as Life brings it to the bottom, with its answers.
+
 ## Arrivals
 
 - **A follow-up card** (the next card of one he just answered): the answered item is under way meanwhile; the card
