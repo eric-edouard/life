@@ -275,6 +275,32 @@ typed words today. The plan decides how an answer says it will act (a field on t
 how that work shows as an item with its state and Undo, and keeps the send guard as it is: anything outward in his
 name still becomes a card on the exact words.
 
+## Profiles of people and organizations (for the plan)
+
+Tapping a face opens that person's or organization's profile as an overlay over the thread (the face rises to the
+top, the thread blurs and darkens behind; a glass back button, or a drag in any direction, lets it go). Its sections,
+in order: who they are to him, the ways to reach them, what needs him, where things stand, what waits on them, what
+is coming up, the last time, what they are like ([the shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg),
+"Profile style"; the presentation is still being chosen). Checked against the connector's read of a real person on
+24 Nov 2026, what it needs:
+
+- Already there: the picture, the ways to reach them, what needs him, what waits on them (open matters naming them),
+  their last exchange (with code to pick the newest episode's title and its app), what they are like (the persona's
+  first sentence, while the personas add-on is on), the birthday.
+- A small reader, code only: what is coming up with them (appointments, dated open steps naming them, a birthday
+  within a month).
+- New output, and the one open question for the owner: where things stand reads naturally only in "you", two or three
+  short lines, and a lead paragraph (one short paragraph in Life's words) helps the most. Stored readings name the
+  owner, never a pronoun (`AGENTS.md`, "Prompts and what they write name the owner"). Two ways: rewrite them for
+  display when the profile opens (a model call, slow), or write a short display version in "you" each night beside
+  the situation, for the people whose situation changed (a new output of a prompt, and a first run for everyone with
+  a page: a backfill of a new output, not of the memory). The second is the recommendation; it needs the owner's yes,
+  on the wording rule and on the run.
+- Two gaps seen: the line of who someone is comes from his directory and can go stale (one read "partner — confirm
+  role" while every reading says otherwise), so Life should ask him to correct it rather than show it as is; and an
+  organization Life only inferred came back with no ways to reach it although he has a chat with it, which looks like
+  a bug in how reach finds an inferred organization's chats.
+
 ## Fix asks (for the plan)
 
 Failures that need the owner are asks of a kind of their own, "fix", written by the caretaker for where he is
