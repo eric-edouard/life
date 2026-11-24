@@ -187,9 +187,9 @@ Tried on his real Life on 23 Nov 2026 (the house, a sister's bead order, what to
   item: it is not counted and never notifies; its suggested answers become his words.
 - Each kind of question gets its own control (owner, 23 Nov 2026: design E of the
   [questions page](https://claude.ai/artifact/1KczjS4siwxnjYkEJ5RHLU); drawn on the Answers page of the Chat design
-  canvas): which one or an offer, two equal pills under the question, the likelier outlined; a yes before an act, the
-  same, the act's answer outlined; an option with consequences, option cards with one line of facts and Life's pick
-  in Life's blue; a value, a segmented pick; a person, their faces side by side; his own words, the field starts his
+  canvas): which one or an offer, two equal pills under the question, the likelier inverted (cream, black text) and on
+  the right, as on an ask (owner, 24 Nov 2026); a yes before an act, the same, the act's answer inverted on the right; an option with consequences, option cards with one line of facts and Life's pick
+  in Life's blue; a value, a row of equal round pills with a gap between them, never a merged segmented control; a person, their faces side by side; his own words, the field starts his
   sentence with Life's suggestion and the microphone calls softly. Typing or speaking always answers too; doing
   something else leaves the question, with no closing line.
 - An answer can start real work and move a matter (owner, 23 Nov 2026: "a question could lead to real agent work").
