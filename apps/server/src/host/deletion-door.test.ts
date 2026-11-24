@@ -147,6 +147,8 @@ afterAll(() => {
   for (const path of MADE) {
     rmSync(path, { force: true });
   }
+  // What his word left: the tests' own deletions, which no other test may read.
+  rmSync(CORRECTIONS, { force: true });
   rmSync(UNITS, { force: true, recursive: true });
   rmSync(OBSERVATIONS, { force: true, recursive: true });
   rmSync(WATCH, { force: true, recursive: true });
@@ -388,14 +390,12 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
     });
     expect((await chatHits("pier", range)).join("\n")).not.toContain("pier");
 
-    // A call's span over that turn: the clipped words are his again, blanked where he cut them.
+    // A call's span over that turn: its clip holds lifelog's words at places of its own, so a line he cut shows none.
     const page = await fetchOf("c1", 0, 200, openStore, {
       at: AT,
       until: "2026-10-14T09:00:30.000Z",
     });
-    expect(page).toContain("Meet me at          at noon.");
-    // The clip ran: the turn is said to go on inside the span, and it was those clipped words that his cut blanked.
-    expect(page).toContain("goes on inside the span unread");
+    expect(page).not.toContain("Meet me at");
     expect(page).not.toContain("the pier");
 
     // A unit gone whole: `fetch` opens nothing of it any more.

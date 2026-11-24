@@ -1,4 +1,5 @@
 import { type LedgerEntry, stands } from "../records/ledger-entry";
+import { backendPrefix } from "./backend";
 
 // His items (to-do items, Google tasks) as the ledger holds them: what Life wrote (`changeTodoItem`, its intents too) and what it read
 // back as his (`via: "todo_list"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
@@ -141,3 +142,7 @@ export const openTodoItemsOf = (
       isOpenTodoItem(it) &&
       (prefix === undefined || it.target.startsWith(`${prefix}:`))
   );
+
+/** The open items of this install's list app (`backendPrefix`), by key: what his list may be asked to remove (a deletion's preview and its door). */
+export const openTodoItemKeysOf = (actions: readonly LedgerEntry[]) =>
+  openTodoItemsOf(actions, backendPrefix()).map((it) => it.key);

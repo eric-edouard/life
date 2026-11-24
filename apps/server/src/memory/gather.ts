@@ -5,17 +5,16 @@ import { ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import { readConversations, type Store, withStore } from "../sources/lifelog";
-import { deletionsOf } from "./deletions";
 import {
+  deletionsNow,
   keptConversations,
-  readCorrections,
   readInferredRepos,
   readUnits,
 } from "./memory-files";
 import {
   asChatOrNot,
   describeFiles,
-  readFiles,
+  keptFileLines,
   showFiles,
 } from "./message-files";
 import type { Truth } from "./read-truth";
@@ -114,7 +113,7 @@ export async function gather(
           readable.filter((e) => e.at >= recent),
           { engine: options.engine }
         );
-  const known = readFiles();
+  const known = keptFileLines();
   const shown = read.map(({ events, s }) => ({
     events: showFiles(events, known),
     s,
@@ -212,7 +211,7 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
     built: lifelogUnits(
       conversations,
       new Set(chapters.map((u) => u.key)),
-      deletionsOf(readCorrections())
+      deletionsNow()
     ),
     chapters,
     conversations,

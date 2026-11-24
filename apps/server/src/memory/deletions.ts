@@ -46,6 +46,9 @@ export const isGone = (ref: string, d: Deletions) =>
 export const cutsOn = (ref: string, d: Deletions) =>
   d.cuts.get(ref) ?? d.cuts.get(refKeyOf(ref)) ?? [];
 
+/** Whether he cut words inside `ref` (its line stays, some of its words gone): a text built beside it, a clip of it, shows none. */
+export const isCut = (ref: string, d: Deletions) => cutsOn(ref, d).length > 0;
+
 /** Every deletion among his corrections, as the reads apply them. Pure. */
 export function deletionsOf(corrections: readonly Correction[]): Deletions {
   const refs = new Set<string>();
@@ -115,6 +118,9 @@ export function blankCuts(text: string, cuts: readonly Cut[] = []): string {
 /** A message's ref as a deletion names it (`msg:<source>|<id>`, `refs.ts`). */
 export const messageRefOf = (source: string, id: string) =>
   `msg:${source}|${id}`;
+
+/** A file's ref as a deletion names it (`file:<ref>`, `refs.ts`). */
+export const fileRefOf = (ref: string) => `file:${ref}`;
 
 /**
  * The words a read takes of one line: none at all when the line is gone whole, else its cuts blanked. The one way a

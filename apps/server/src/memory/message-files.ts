@@ -15,6 +15,7 @@ import { FileEntry } from "../records/unit";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { emlxPart } from "../sources/mail";
 import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
+import { fileRefOf, isGone } from "./deletions";
 import { deletionsNow, FILES, runAt } from "./memory-files";
 import { begin, chunks, inBatches, readsOf } from "./run";
 import { dayUnitId } from "./unit-ids";
@@ -86,17 +87,8 @@ export const showFiles = (
     return text || e.phoneCall ? [{ ...e, text }] : [];
   });
 
-/** Whether a ledger line is of the current prompt (a line of code's own reading has no prompt). */
-/** What Life read off each file a message carried: the latest line for each ref wins, a file he deleted left out. */
-export const readFiles = (): ReadonlyMap<string, FileEntry> => {
-  const all = keptFileLines();
-  const { refs } = deletionsNow();
-  return refs.size === 0
-    ? all
-    : new Map([...all].filter(([ref]) => !refs.has(ref)));
-};
-
-const keptFileLines = (): ReadonlyMap<string, FileEntry> =>
+/** Every line the ledger read, the latest for each ref winning: what the description paths ask, so a file he deleted is never read again. */
+export const keptFileLines = (): ReadonlyMap<string, FileEntry> =>
   readAppended<FileEntry, Map<string, FileEntry>>(
     FILES,
     FileEntry,
@@ -106,6 +98,16 @@ const keptFileLines = (): ReadonlyMap<string, FileEntry> =>
     }
   );
 
+/** What Life read off each file a message carried (`keptFileLines`), a file he deleted left out: what every reader shows. */
+export const readFiles = () => {
+  const all = keptFileLines();
+  const d = deletionsNow();
+  return d.refs.size === 0
+    ? all
+    : new Map([...all].filter(([ref]) => !isGone(fileRefOf(ref), d)));
+};
+
+/** Whether a ledger line is of the current prompt (a line of code's own reading has no prompt). */
 const isCurrent = (e: FileEntry | undefined): e is FileEntry =>
   !!e &&
   (!e.madeBy ||
@@ -116,7 +118,7 @@ const isCurrent = (e: FileEntry | undefined): e is FileEntry =>
  * night, an arrival pass) meet the same file. Read and append are synchronous, so within a process none slips in between.
  */
 function appendNew(entries: FileEntry[]) {
-  const have = readFiles();
+  const have = keptFileLines();
   appendJsonl(
     FILES,
     FileEntry,
@@ -312,7 +314,7 @@ export async function describeFiles(
   );
   const { copies, fresh } = await triage(
     events,
-    [...readFiles().values()].filter(isCurrent)
+    [...keptFileLines().values()].filter(isCurrent)
   );
   /** The ledger's lines for one content, one per ref it was met under. */
   const lines = (
@@ -386,7 +388,7 @@ export async function describeFiles(
       appendNew(entries);
     };
     await inBatches(chunks(shown, PER_CALL), step, describe);
-    const have = readFiles();
+    const have = keptFileLines();
     const waiting = new Set(images.slice(shown.length).flatMap((p) => p.refs));
     const summary = step.end({
       copied: copies.length,
@@ -470,7 +472,7 @@ const triedOnArrival = new Set<string>();
 export async function describeFilesOnArrival(events: SourceEvent[]) {
   const { atMost, due } = filesDueOnArrival(
     events,
-    readFiles(),
+    keptFileLines(),
     triedOnArrival
   );
   const online = due.length > 0 && (await isOnline());
@@ -503,7 +505,7 @@ export async function describeFilesOnArrival(events: SourceEvent[]) {
  * a backfill): no model call. Nothing to hear, no run.
  */
 export function hearVoiceNotes(events: SourceEvent[]) {
-  const known = readFiles();
+  const known = keptFileLines();
   const due = events.flatMap((e) => {
     const files = (e.files ?? []).filter(
       (f) => readable(f) && isVoiceNote(f) && !isCurrent(known.get(f.ref))

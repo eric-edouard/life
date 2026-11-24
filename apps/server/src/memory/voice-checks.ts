@@ -1,8 +1,13 @@
 import { LIFE_ASKER } from "../core/names";
-import { namingQueueGuessesOf } from "../sources/lifelog-voices";
+import {
+  type NamingQueueItem,
+  namingQueueGuessesOf,
+} from "../sources/lifelog-voices";
 import type { Quote } from "./check-quotes";
+import type { Deletions } from "./deletions";
 import { plain } from "./doubts";
 import { type Check, LIFE_CHECKS, preTickedOf } from "./life-checks";
+import { deletionsNow } from "./memory-files";
 import type { GuessedQueueItem } from "./voice-guesses";
 import {
   type People,
@@ -14,6 +19,25 @@ import { localDate } from "./zones";
 
 // The voice checks: each voice lifelog asks him to name, as one of the checks (`checksOf`).
 
+/**
+ * A queue item's clips and evidence as a card shows them: one of a recording holding words he deleted goes. A turn's key
+ * is `<job>:<turn>` (`deletions.ts`) and evidence names no turn, so its whole recording answers for it.
+ */
+export const shownClipsOf = (
+  item: Pick<NamingQueueItem, "clips" | "evidence" | "voices">,
+  d: Deletions = deletionsNow()
+) => {
+  const touched = (jobId: string) =>
+    [...d.refs, ...d.cuts.keys()].some((ref) => ref.startsWith(`${jobId}:`));
+  const jobs = new Map(item.voices.map((v) => [v.conversationId, v.jobId]));
+  return {
+    clips: item.clips.filter((c) => !(c.audio && touched(c.audio.jobId))),
+    evidence: item.evidence.filter(
+      (e) => !touched(jobs.get(e.conversationId) ?? "")
+    ),
+  };
+};
+
 /** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
 export const voiceChecksOf = (
   people: Pick<People, "nameOf" | "names" | "partyOf" | "refOf" | "resolve">,
@@ -22,6 +46,7 @@ export const voiceChecksOf = (
   voices
     .filter((item) => item.kind !== "several")
     .map((item) => {
+      const { clips, evidence } = shownClipsOf(item);
       const known = voiceSuggestionOf(people, item);
       const likely = namingQueueGuessesOf(item)
         .flatMap((id) => {
@@ -31,13 +56,13 @@ export const voiceChecksOf = (
         .filter((ref, i, all) => all.indexOf(ref) === i)
         .slice(0, 5)
         .map(people.partyOf);
-      const [first] = item.evidence;
+      const [first] = evidence;
       const who = known ? people.nameOf(known) : null;
       const check: Omit<Check, "confirm" | "lifeLinks" | "matter"> = {
         about: item.name ? [item.name] : [],
         asker: LIFE_ASKER,
         at: null,
-        clips: item.clips,
+        clips,
         context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
         deadline: null,
         draft: null,

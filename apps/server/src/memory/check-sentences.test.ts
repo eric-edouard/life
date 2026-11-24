@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { rmSync, writeFileSync } from "node:fs";
 import type { Correction } from "../records/observation";
 import type { Unit } from "../records/unit";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -10,6 +11,8 @@ import {
 } from "./check-sentences";
 import { checksOf } from "./checks";
 import { inputs, line, nameRow, stepsOf } from "./checks-test-inputs";
+import { cutOf } from "./deletions";
+import { CORRECTIONS } from "./memory-files";
 import { holdsName } from "./units";
 import type { People } from "./who";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -308,4 +311,47 @@ test("a name is asked only while the person matters: an exchange or 3 days; neve
       ],
     })
   ).toEqual([]);
+});
+
+test("a spoken sentence whose turn he cut words in keeps its line and no clip: the clip would play the words as they were", async () => {
+  const at = "2026-11-01T09:00:00.000Z";
+  const said = {
+    ...turnOf(0, "unknown:speaker", "ask Bastien about the tiles"),
+    ref: `job-1:0@${at}`,
+  };
+  const spoken = spyOn(words, "spokenLines").mockResolvedValue(
+    new Map([["unit_000000000001", [said]]]) as never
+  );
+  const lifelog = spyOn(lifelogVoices, "readTurnClip");
+  const clip = {
+    at,
+    audio: { end: 4, jobId: "job-1", start: 1 },
+    text: "ask Bastien about the tiles",
+    until: null,
+    words: [[0, 300, 3]],
+  };
+  const correction = {
+    at: "2026-11-24T09:00:00.000Z",
+    cuts: [cutOf("job-1:0", said.text, 0, 3)],
+    kind: "deleted",
+    refs: [],
+    said: "that goes",
+    schemaVersion: 1,
+    withSources: false,
+  };
+  const held = [unit({ hash: "h6", key: "conv-1", source: "lifelog" })];
+  try {
+    lifelog.mockResolvedValue(clip);
+    writeFileSync(CORRECTIONS, `${JSON.stringify(correction)}\n`, {
+      flag: "a",
+    });
+    const [cut] = [...(await readNameContexts(wanted, people, held)).values()];
+    // Its line keeps the words it can show; its clip would play them all, so none is shown.
+    expect(cut?.clips).toEqual([]);
+    expect(lifelog).not.toHaveBeenCalled();
+  } finally {
+    spoken.mockRestore();
+    lifelog.mockRestore();
+    rmSync(CORRECTIONS, { force: true });
+  }
 });

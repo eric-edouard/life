@@ -173,10 +173,6 @@ const MATTER_CHANGE = {
   undone: { change: "undone", why: "his matter reopened" },
 } as const;
 
-/** The open to-do items of this install's app, by their keys: what may be removed from his list here. */
-export const openTodoItemKeys = async () =>
-  openTodoItemsOf(await readLedger(), backend().prefix).map((it) => it.key);
-
 /**
  * Changes the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said` about their
  * matter: ticks them (`done`), removes them from his list (`remove`: his Drop, won't be done), or unticks the ticked

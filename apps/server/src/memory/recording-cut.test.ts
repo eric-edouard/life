@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { rmSync, writeFileSync } from "node:fs";
 import { apply, openStore } from "../sources/lifelog";
 import {
   conversation,
@@ -7,6 +8,8 @@ import {
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
+import { cutOf } from "./deletions";
+import { CORRECTIONS } from "./memory-files";
 import { openById } from "./open-by-id";
 import {
   clippedOf,
@@ -198,4 +201,31 @@ test("a clip's words wholly inside a span, as spelled; an open side holds all; n
   );
   expect(wordsWithin({ ...timed, at: null }, span)).toBe("");
   expect(wordsWithin(null, span)).toBe("");
+});
+
+test("a crossing turn he cut words in is shown with no words at all: its clip holds them at places of its own", async () => {
+  const turn = "job-call:1";
+  const correction = {
+    at: "2026-11-24T09:00:00.000Z",
+    cuts: [cutOf(turn, "Ringing hello", 8, 13)],
+    kind: "deleted",
+    refs: [],
+    said: "that goes",
+    schemaVersion: 1,
+    withSources: false,
+  };
+  try {
+    writeFileSync(CORRECTIONS, `${JSON.stringify(correction)}\n`, {
+      flag: "a",
+    });
+    const read = await fetchOf("c-call", undefined, 200, open, CALL);
+    // Its timed words inside the span ("hello") are the clip's, cut at places of the turn's own: the turn shows none.
+    expect(read).not.toContain("hello");
+    expect(read).not.toContain("Ringing");
+    // The turns wholly inside the call are read as they were.
+    expect(read).toContain("Call middle");
+    expect(read).toContain("Goodbye");
+  } finally {
+    rmSync(CORRECTIONS, { force: true });
+  }
 });

@@ -6,7 +6,7 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import type { Cut } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { openTodoItemsOf } from "../todo-list/todo-items-from-ledger";
+import { openTodoItemKeysOf } from "../todo-list/todo-items-from-ledger";
 import { decisionsNow, withdrawDeletedCards } from "./decisions";
 import {
   cutOf,
@@ -382,7 +382,7 @@ export async function planDeletion(
       unit: o.unit,
     })),
     shown: [],
-    todoItems: openTodoItemsOf(await readLedger()).map((it) => it.key),
+    todoItems: openTodoItemKeysOf(await readLedger()),
     units: units.map((u) => ({ id: u.id, refs: u.refs })),
   };
   // The derived reads are settled over the units it reaches, in a second pass: those are the only ones whose words go.

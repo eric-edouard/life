@@ -2,7 +2,7 @@ import {
   DeletionRequest,
   deleteFromMemory,
 } from "../memory/delete-from-memory";
-import { changeMatterTodoItems, openTodoItemKeys } from "./change-todo-item";
+import { changeMatterTodoItems } from "./change-todo-item";
 
 // A deletion as his doors make it (`delete_from_memory`, the main session's, `bun life memory delete`): memory's door,
 // then the to-do items it reaches taken off his list as his Drop takes them (`changeMatterTodoItems`, `changeTodoItem`),
@@ -14,10 +14,7 @@ import { changeMatterTodoItems, openTodoItemKeys } from "./change-todo-item";
  */
 export async function deleteFromMemoryAndTodoItems(ask: unknown) {
   const done = await deleteFromMemory(ask);
-  // A key of another install's list app is not on this one's: it stays as it is (`changeTodoItem` refuses it).
-  const here = new Set(await openTodoItemKeys());
-  const keys =
-    "reindexed" in done ? done.todoItems.filter((k) => here.has(k)) : [];
+  const keys = "reindexed" in done ? done.todoItems : [];
   if (keys.length === 0) {
     return done;
   }
