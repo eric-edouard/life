@@ -146,6 +146,31 @@ watching".
   what remains is an envelope around Life's own components plus a pre-1.0 dependency. The ideas worth taking: blocks
   in a flat list with ids, a block updated in place, and the client saying which catalog version it draws.
 
+### A2UI 1.0, read again on 24 Nov 2026
+
+A2UI 1.0 is out (11 Nov 2026, Apache 2.0; read from the specification in its repository,
+`specification/v1_0/docs/a2ui_protocol.md`). It answers the three objections above:
+
+- **Its own catalog only.** A renderer can declare its own catalog and give the agent only that, "in place of the basic
+  catalog", to "restrict the agent to using exactly the components and visual language that exist in your
+  application"; catalogs can be mixed, and 1.0 removed themes from the wire, so all styling is the app's. Life's
+  components (refs as props, no layout primitives) can be an A2UI catalog.
+- **Taps that act stay the app's.** An action is either an event sent to the agent or a local function of the
+  renderer. A function marked `rendererOnly` can never be called by the agent, and one marked
+  `requiresUserActivation` runs only on a real tap. Life's acts (`answer_check` on his token, a send) fit as local,
+  renderer-only, tap-only functions; the agent's events stay words.
+- **Data.** The agent still sends a data model, but a component of Life's catalog can take refs and read Life's data
+  itself, as `show` does.
+
+Also new and useful: streaming updates of a flat component list (`updateComponents`), a whole answer in one
+message, typed function calls both ways (checked against the catalog), accessibility rules every component gets, and
+an MCP binding (Life's connector is MCP). The SwiftUI renderer (iOS 17+) hosts custom SwiftUI components in a custom
+catalog, but its package is still 0.12 with breaking changes between minor versions.
+
+So the plan's choice for answers ("For the plan to decide", below) has a fourth way: A2UI 1.0 as the envelope, with
+Life's own catalog and renderer-only acts. The plan weighs it with the others; the 0.12 Swift package and how much
+of the protocol Life would use are its costs.
+
 ## Recommendation: Life's own catalog of blocks
 
 The agent chooses what to show, never how it is laid out: layout, spacing and how many rows show before "Show more"
