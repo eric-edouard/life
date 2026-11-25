@@ -17,7 +17,10 @@ import type { Runtime } from "./runtimes/contract";
 
 // The desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`, WAL): the one state of the desk. Every rule reads its rows and
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
-// agents, or one agent's rows.
+// agents, or one agent's rows. The Life thread's entries are here too (`thread_entry`: one per ask of his to the main
+// session, its words and answer blankable in place, the row, its time and `deleted_at` kept), with the work each handed
+// on (`handed_work`): never `memory/`, since Life's own words are never read back as his life. A new table needs no
+// store step: `SCHEMA` makes it on open (as `card` and `handed_step` were, #749).
 
 /** At most one active or stopped agent of each role: the fresh schema's, `stepRoles`' and `stepRoleCheck`'s. */
 export const ONE_AGENT_PER_ROLE =
@@ -183,6 +186,29 @@ create table if not exists handed_step (
   step text not null,
   primary key (assignment_id, step)
 );
+create table if not exists thread_entry (
+  id integer primary key,
+  ask_key text unique,
+  asked_at text not null,
+  words text,
+  screen text,
+  turn_id integer,
+  answer text,
+  error text,
+  refs text not null default '[]',
+  reactions text not null default '[]',
+  answered_at text,
+  deleted_at text
+);
+create index if not exists thread_entry_by_asked on thread_entry (asked_at);
+create table if not exists handed_work (
+  entry_id integer not null,
+  assignment_id text not null,
+  kind text not null,
+  handed_at text not null,
+  primary key (entry_id, assignment_id)
+);
+create index if not exists handed_work_by_kind on handed_work (kind, handed_at);
 ${MOVE_TABLES}`;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */

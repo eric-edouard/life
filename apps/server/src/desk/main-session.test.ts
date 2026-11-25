@@ -65,6 +65,15 @@ const turnsOf = (id: string) =>
 
 const asked = (words: string, play: (ref: string) => unknown, key?: string) =>
   askedOf(t, words, play, key);
+/** A reply as the phone gets it: its Markdown, no acts or refs unless given. */
+const reply = (text: string, more: Record<string, unknown> = {}) => ({
+  acts: [],
+  entry: expect.any(Number),
+  kind: "reply" as const,
+  refs: [],
+  text,
+  ...more,
+});
 
 test("his first words register the main session and start its session from its brief and his words; the answer is its text after its last tool call; the turn ends replied with its tokens and its billed cost", async () => {
   const { answer, lines, ref } = await asked("Where is my passport?", (r) => {
@@ -78,16 +87,13 @@ test("his first words register the main session and start its session from its b
     t.fake.hear(r, { kind: "words", text: "In the drawer, " });
     t.fake.hear(r, { kind: "words", text: "by your notes." });
   });
-  expect(answer).toEqual({
-    kind: "reply",
-    words: "In the drawer, by your notes.",
+  expect(answer).toEqual(reply("In the drawer, by your notes."));
+  expect(lines.map((l) => l.kind)).toEqual(["words", "step", "words", "words"]);
+  expect(lines[1]).toEqual({
+    kind: "step",
+    verb: "Opening",
+    what: "what Life holds",
   });
-  expect(lines.map((l) => l.kind)).toEqual([
-    "words",
-    "working",
-    "words",
-    "words",
-  ]);
   const a = main();
   expect(a).toMatchObject({ role: "main", session: ref, status: "active" });
   expect(t.fake.said[0]?.message).toStartWith(MAIN_BRIEF);
@@ -121,16 +127,16 @@ test("his next words go to the same session without its brief, with his screen's
   await Bun.sleep(5);
   expect(t.fake.said[1]).toEqual({
     message:
-      'His words, through Ask Life: "And this one?"\nOn his screen (refs; `fetch` opens one): {"open":"matter:mat_x","tab":"inbox"}',
+      'His words, through Ask Life: "And this one?"\nOn his screen (refs; `fetch` opens one): {"open":"matter:mat_x","tab":"inbox"}\nHanded work takes about: booking 10 min, lookup 60 s, other 3 min, redraft 30 s, reply 60 s, research 5 min.',
     ref: first.ref,
   });
   t.fake.hear(first.ref, { kind: "words", text: "It waits on Ana." });
   t.fake.exit(first.ref);
-  expect(await next).toEqual({ kind: "reply", words: "It waits on Ana." });
+  expect(await next).toEqual(reply("It waits on Ana."));
   expect(agentInRole(t.desk.db, "main")?.id).toBe(main()?.id);
 });
 
-test("one ask at a time; a retry under its key replays its lines and ends with the same answer, asking once", async () => {
+test("an ask while one runs waits its turn, Life's eyes on it at once; a retry under its key replays its lines and ends with the same answer, asking once", async () => {
   const lines: MainSessionLine[] = [];
   const first = askMainSession(t.desk, { key: "k1", words: "One" }, (l) =>
     lines.push(l)
@@ -138,22 +144,62 @@ test("one ask at a time; a retry under its key replays its lines and ends with t
   await Bun.sleep(5);
   const ref = t.fake.said[0]?.ref ?? "";
   t.fake.hear(ref, { kind: "words", text: "Yes." });
-  expect(
-    await askMainSession(t.desk, { words: "Two" }, () => undefined)
-  ).toEqual({
-    kind: "error",
-    what: "Life is still answering your last words.",
-  });
+  const queued: MainSessionLine[] = [];
+  const second = askMainSession(t.desk, { words: "Two" }, (l) =>
+    queued.push(l)
+  );
+  expect(queued).toEqual([{ kind: "reaction", with: "👀" }]);
   const replayed: MainSessionLine[] = [];
   const retry = askMainSession(t.desk, { key: "k1", words: "One" }, (l) =>
     replayed.push(l)
   );
   t.fake.hear(ref, { kind: "words", text: " Done." });
   t.fake.exit(ref);
-  expect(await first).toEqual({ kind: "reply", words: "Yes. Done." });
-  expect(await retry).toEqual({ kind: "reply", words: "Yes. Done." });
+  expect(await first).toEqual(reply("Yes. Done."));
+  expect(await retry).toEqual(reply("Yes. Done."));
   expect(replayed).toEqual(lines);
-  expect(t.fake.said).toHaveLength(1);
+  // After a restart (a new handle on the store: nothing kept in memory), the key gets its stored answer, never asked
+  // again; other words under it are refused.
+  const restarted = { ...t.desk, db: openDesk(t.desk.db.filename) };
+  expect(
+    await askMainSession(
+      restarted,
+      { key: "k1", words: "One" },
+      () => undefined
+    )
+  ).toEqual(reply("Yes. Done."));
+  expect(
+    await askMainSession(
+      restarted,
+      { key: "k1", words: "Uno" },
+      () => undefined
+    )
+  ).toEqual({ kind: "error", what: "Not done: this key asked other words." });
+  // The second runs once the first ended, on the same session.
+  for (let i = 0; i < 20 && t.fake.said.length < 2; i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: a poll
+    await Bun.sleep(5);
+  }
+  expect(t.fake.said[1]?.message).toContain('"Two"');
+  t.fake.hear(ref, { kind: "words", text: "Two it is." });
+  t.fake.exit(ref);
+  expect(await second).toEqual(reply("Two it is."));
+  expect(
+    t.desk.db
+      .query<{ answer: string; reactions: string; words: string }, []>(
+        "select words, answer, reactions from thread_entry order by id"
+      )
+      .all()
+      .map((e) => ({
+        ...e,
+        reactions: (
+          JSON.parse(e.reactions) as { by: string; with: string }[]
+        ).map((r) => `${r.by} ${r.with}`),
+      }))
+  ).toEqual([
+    { answer: "Yes. Done.", reactions: [], words: "One" },
+    { answer: "Two it is.", reactions: ["life 👀"], words: "Two" },
+  ]);
 });
 
 test("an ask its session would not take keeps no retry key: the retry asks again; the main session holds no wait", async () => {
@@ -163,7 +209,7 @@ test("an ask its session would not take keeps no retry key: the retry asks again
     Promise.reject(new SessionLive("session is running"));
   expect(
     await askMainSession(t.desk, { key: "k", words: "Again" }, () => undefined)
-  ).toEqual({
+  ).toMatchObject({
     kind: "error",
     what: "Life's main session is busy or closed: send your words again.",
   });
@@ -178,7 +224,7 @@ test("an ask its session would not take keeps no retry key: the retry asks again
   expect(t.fake.said.at(-1)?.message).toContain('"Again"');
   t.fake.hear(ref, { kind: "words", text: "Hi again." });
   t.fake.exit(ref);
-  expect(await again).toEqual({ kind: "reply", words: "Hi again." });
+  expect(await again).toEqual(reply("Hi again."));
   const a = main();
   const s = a && currentAssignmentOf(t.desk.db, a.id);
   expect(a && s && agentWaitOf(a, s)).toBeNull();
@@ -188,11 +234,11 @@ test("a failed run answers an error and ends its turn failed; a run with no word
   const { answer } = await asked("Hello", (r) =>
     t.fake.hear(r, { kind: "thinking" })
   );
-  expect(answer).toEqual({ kind: "error", what: "Life gave no answer." });
+  expect(answer).toMatchObject({ kind: "error", what: "Life gave no answer." });
   const failing = askMainSession(t.desk, { words: "Again" }, () => undefined);
   await Bun.sleep(5);
   t.fake.exit(t.fake.said[1]?.ref ?? "", false, { why: "rate_limit" });
-  expect(await failing).toEqual({ kind: "error", what: "rate_limit" });
+  expect(await failing).toMatchObject({ kind: "error", what: "rate_limit" });
   await Bun.sleep(0);
   expect(turnsOf(main()?.id ?? "").map((x) => x.outcome)).toEqual([
     "replied",
@@ -211,6 +257,11 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
       })
     );
   expect((await post({ words: "Hi" }, "wrong")).status).toBe(401);
+  // Words go alone: never with a reaction or a Stop.
+  expect((await post({ stop: true, words: "Hi" })).status).toBe(400);
+  expect(
+    (await post({ react: { entry: 1, with: "👍" }, words: "Hi" })).status
+  ).toBe(400);
   const res = await post({ words: "Hi" });
   await Bun.sleep(5);
   const ref = t.fake.said[0]?.ref ?? "";
@@ -242,10 +293,22 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
     .map((l) => JSON.parse(l));
   expect(lines).toEqual([
     { kind: "words", text: "Hello." },
-    { answer: { kind: "reply", words: "Hello." }, kind: "answer" },
+    { answer: reply("Hello."), kind: "answer" },
   ]);
-  expect(await (await post({})).json()).toEqual({ kept: true });
+  expect(await (await post({})).json()).toEqual({ done: true });
   expect(t.fake.kept).toEqual([ref]);
+  // His reaction is kept on the entry and starts no turn; Stop with nothing running says so.
+  expect(await (await post({ react: { entry: 1, with: "❤️" } })).json()).toEqual(
+    { done: true }
+  );
+  expect(
+    t.desk.db.query("select reactions from thread_entry where id = 1").get()
+  ).toEqual({ reactions: expect.stringContaining('"by":"owner","with":"❤️"') });
+  expect(t.fake.said).toHaveLength(1);
+  expect(await (await post({ stop: true })).json()).toEqual({
+    done: false,
+    why: "Life is not answering anything now.",
+  });
 });
 
 /** A made-up card. */
@@ -263,59 +326,7 @@ const card = (question: string) => ({
 const callDoor = (id: string, name: string, args: unknown) =>
   callDoorOf(t, id, name, args);
 
-test("`answer` adds why to its words, or likely answers that make it a question; a dead source is refused; its words stay its text after its last tool call", async () => {
-  const play = (extras: unknown) => async (r: string) => {
-    expect(await callDoor(main()?.id ?? "", "answer", extras)).not.toContain(
-      "Not done"
-    );
-    t.fake.hear(r, { kind: "words", text: "**Friday**, at ten." });
-  };
-  const said = async (words: string, extras: unknown) =>
-    (await asked(words, play(extras))).answer;
-  expect(
-    await said("When is the fitting?", { why: "Since his mail of 2 October." })
-  ).toEqual({
-    kind: "reply",
-    why: "Since his mail of 2 October.",
-    words: "**Friday**, at ten.",
-  });
-  // A later call replaces the earlier one.
-  const twice = await asked("And the fitting?", async (r) => {
-    await callDoor(main()?.id ?? "", "answer", { answers: ["A", "B"] });
-    await play({ why: "Replaced." })(r);
-  });
-  expect(twice.answer).toEqual({
-    kind: "reply",
-    why: "Replaced.",
-    words: "**Friday**, at ten.",
-  });
-  expect(await said("Which day?", { answers: ["Friday", "Monday"] })).toEqual({
-    answers: ["Friday", "Monday"],
-    kind: "question",
-    question: "**Friday**, at ten.",
-  });
-  // A source that opens nothing is refused; the answer stays its words alone.
-  const id = main()?.id ?? "";
-  const dead = await asked("And then?", async (r) => {
-    expect(
-      await callDoor(id, "answer", { sources: ["obs_doesnotexist"] })
-    ).toContain("opens nothing");
-    t.fake.hear(r, { kind: "words", text: "Done." });
-  });
-  expect(dead.answer).toEqual({ kind: "reply", words: "Done." });
-  // Outside a turn of his words, `answer` is refused; any other agent never has it.
-  expect(await callDoor(id, "answer", { why: "x" })).toContain("Not done");
-  const other = register(t.desk, {
-    brief: "Test brief",
-    folder: t.dir,
-    runtime: "pi",
-  });
-  expect(await callDoor(other, "answer", { why: "x" })).toContain(
-    "the main session's alone"
-  );
-});
-
-test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a busy ask is not kept by its key, and a key with other words is refused", async () => {
+test("presence registers nothing; a turn launching is never ended by the lost turns' sweep; a key with other words is refused", async () => {
   expect(await keepMainSession(t.desk)).toBe(
     "Life's main session opens on your first words."
   );
@@ -338,25 +349,11 @@ test("presence registers nothing; a turn launching is never ended by the lost tu
   t.fake.runtime.state = state;
   expect(openTurn(t.desk.db, main()?.id ?? "")?.ended_at).toBeNull();
   expect(
-    await askMainSession(t.desk, { key: "k3", words: "Busy" }, () => undefined)
-  ).toMatchObject({ kind: "error" });
-  expect(
     await askMainSession(t.desk, { key: "k2", words: "Other" }, () => undefined)
   ).toEqual({ kind: "error", what: "Not done: this key asked other words." });
   t.fake.hear(first.ref, { kind: "words", text: "Again, hi." });
   t.fake.exit(first.ref);
-  expect(await next).toEqual({ kind: "reply", words: "Again, hi." });
-  // "Busy" was refused before its turn: its key asks again.
-  const again = askMainSession(
-    t.desk,
-    { key: "k3", words: "Busy" },
-    () => undefined
-  );
-  await Bun.sleep(5);
-  expect(t.fake.said.at(-1)?.message).toContain('"Busy"');
-  t.fake.hear(first.ref, { kind: "words", text: "Ok." });
-  t.fake.exit(first.ref);
-  expect(await again).toEqual({ kind: "reply", words: "Ok." });
+  expect(await next).toEqual(reply("Again, hi."));
 });
 
 test("presence of a stopped main session, or one whose runtime can't run, says why and keeps nothing", async () => {
@@ -483,11 +480,17 @@ test("on his words the main session acts through its door: each act's `said` mus
     ref: "",
     report: false,
   });
-  // Its answer is its last act's kind, from what the act wrote, with its words.
-  expect(answered).toEqual({
-    kind: "fix",
-    words: "**Done**.",
-  });
+  // Its answer carries its acts, from what each act wrote, with its words.
+  expect(answered).toEqual(
+    reply("**Done**.", {
+      acts: [
+        { agent: "Test brief", kind: "agent", told: "book the dentist" },
+        { agent: "Test brief", kind: "agent", told: "then stop it" },
+        { card: expect.any(String), kind: "card" },
+        { kind: "fix" },
+      ],
+    })
+  );
   // No other agent has its acts: the caretaker, active now, is refused them.
   const caretaker = agentInRole(t.desk.db, "caretaker")?.id ?? "";
   expect(
@@ -496,7 +499,7 @@ test("on his words the main session acts through its door: each act's `said` mus
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
 }, 30_000);
 
-test("an answer's kind is its turn's last act: an agent told, a card asked as his", async () => {
+test("an answer carries its turn's acts: an agent told (handed work, Life's eyes on his words), a card asked as his, a matter marked", async () => {
   const other = register(t.desk, {
     brief: "Test dentist agent",
     folder: t.dir,
@@ -514,12 +517,21 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
     "Tell the dentist agent to move my appointment",
     play("tell_agent", { agent: other, said: "move my appointment" })
   );
-  expect(told.answer).toEqual({
-    agent: "Test dentist agent",
-    kind: "agent",
-    told: "move my appointment",
-    words: "**On it**.",
-  });
+  expect(told.answer).toEqual(
+    reply("**On it**.", {
+      acts: [
+        {
+          agent: "Test dentist agent",
+          kind: "agent",
+          told: "move my appointment",
+        },
+      ],
+    })
+  );
+  expect(told.lines).toContainEqual({ kind: "reaction", with: "👀" });
+  expect(t.desk.db.query("select kind from handed_work").all()).toEqual([
+    { kind: "other" },
+  ]);
   const carded = await asked(
     "Ask me later about the dentist bill",
     play("request_decision", {
@@ -527,12 +539,18 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
       said: "Ask me later about the dentist bill",
     })
   );
-  expect(carded.answer).toEqual({
-    card:
-      decisionsNow().find((d) => d.question === "The dentist bill?")?.id ?? "",
-    kind: "card",
-    words: "**On it**.",
-  });
+  expect(carded.answer).toEqual(
+    reply("**On it**.", {
+      acts: [
+        {
+          card:
+            decisionsNow().find((d) => d.question === "The dentist bill?")
+              ?.id ?? "",
+          kind: "card",
+        },
+      ],
+    })
+  );
   // life#1103: a matter marked by his word answers `done` with its matter.
   const matter = {
     id: "matter_aaaaaaaaaaaa",
@@ -564,11 +582,9 @@ test("an answer's kind is its turn's last act: an agent told, a card asked as hi
         said: "Mark the boiler as important",
       })
     );
-    expect(marked.answer).toEqual({
-      kind: "done",
-      matter: matter.id,
-      words: "**On it**.",
-    });
+    expect(marked.answer).toEqual(
+      reply("**On it**.", { acts: [{ kind: "done", matter: matter.id }] })
+    );
   } finally {
     book.mockRestore();
   }
