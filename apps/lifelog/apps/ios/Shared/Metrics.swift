@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Spacing and corner radii from the approved mockups. Use these rather than numbers.
 enum Metrics {
-    /// Side margin of every page.
+    /// Side margin of a full page (the profile's 20); the thread, its wash and the field use `Spacing.l`, the prototype's 16.
     static let gutter: CGFloat = 20
     static let cardPadding = Spacing.l
 

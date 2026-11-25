@@ -7,7 +7,15 @@ struct ThreadView: View {
     let screen: MainSessionScreen
     let actions: BlockActions
     var isPaired = true
+    /// The buttons over the thread's top: it starts below them and fades out under them.
+    var topHeight: CGFloat = 0
+    /// The field that covers the thread's bottom: the last row rests above it. Kept as a margin on purpose: the
+    /// safe-area inset alone left the last row under the field (the flow tests failed without it).
+    var fieldHeight: CGFloat = 0
     @State private var showsEarlier = false
+    /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
+    @State private var followsEnd = true
+    @State private var isNearEnd = true
     @Environment(\.calendar) private var calendar
     @Environment(LifeStore.self) private var life
 
@@ -28,18 +36,33 @@ struct ThreadView: View {
         }?.id
     }
 
+    /// Today and yesterday by name, else the weekday and date.
+    private func dayName(_ day: Date) -> String {
+        if calendar.isDateInToday(day) { return String(localized: "Today") }
+        if calendar.isDateInYesterday(day) { return String(localized: "Yesterday") }
+        return day.formatted(.dateTime.weekday(.wide).day().month())
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+                LazyVStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if shown.count < thread.entries.count {
-                        Button("Show earlier") { showsEarlier = true }.font(.heading).foregroundStyle(Palette.muted)
-                            .frame(maxWidth: .infinity)
+                        Button("Show earlier") {
+                            // What was at the top stays where it is: the older entries grow above it.
+                            let top = shown.first?.id
+                            showsEarlier = true
+                            if let top { Task { proxy.scrollTo(top, anchor: .top) } }
+                        }
+                        .font(.heading).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
+                        .frame(minHeight: Metrics.tapTarget)
                     }
                     ForEach(Array(shown.enumerated()), id: \.element.id) { i, entry in
                         if i == 0 || !calendar.isDate(shown[i - 1].at, inSameDayAs: entry.at) {
-                            Text(entry.at.formatted(.dateTime.weekday(.wide).day().month()))
-                                .font(.line).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
+                            Text(dayName(entry.at))
+                                .font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity).padding(.top, i == 0 ? 0 : Metrics.Spacing.s)
+                                .accessibilityAddTraits(.isHeader)
                         }
                         EntryView(
                             entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
@@ -51,13 +74,43 @@ struct ThreadView: View {
                     }
                     Color.clear.frame(height: 1).id("end")
                 }
-                .padding(.horizontal, Metrics.Spacing.l)
+                .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(
+                    .bottom, Metrics.Spacing.s)
+            }
+            .contentMargins(.top, topHeight, for: .scrollContent)
+            .contentMargins(.bottom, fieldHeight, for: .scrollContent)
+            .mask(alignment: .top) {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: topHeight)
+                    Rectangle()
+                }
             }
             .defaultScrollAnchor(.bottom)
             // The keyboard shrinks the thread from below: its bottom stays where it was.
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: thread.entries.count) { proxy.scrollTo("end", anchor: .bottom) }
+            .onScrollGeometryChange(for: Bool.self) {
+                $0.visibleRect.maxY >= $0.contentSize.height - Metrics.listRow
+            } action: {
+                isNearEnd = $1
+            }
+            // A drag that ends away from the end stops following; one that ends at it follows again. Growth never counts.
+            .onScrollPhaseChange { old, new in
+                if new == .idle, old == .interacting || old == .decelerating { followsEnd = isNearEnd }
+            }
+            // His own ask goes to the end whatever he was reading; a late reply or a new card only when he is there.
+            .onChange(of: thread.entries.count) {
+                if thread.entries.last?.phase == .sending { followsEnd = true }
+                if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
+            }
+            // The keyboard or the field growing shrinks the view from below: at the end, it stays at the end.
+            .onChange(of: fieldHeight) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.containerSize.height
+            } action: { _, _ in
+                if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
+            }
             .onChange(of: life.focused) {
                 guard let ref = life.focused else { return }
                 // On screen already: scroll to its row (it unfolds itself); else it was brought to the bottom.
@@ -67,7 +120,7 @@ struct ThreadView: View {
                     proxy.scrollTo("end", anchor: .bottom)
                 }
             }
-            .onChange(of: thread.live) { proxy.scrollTo("end", anchor: .bottom) }
+            .onChange(of: thread.live) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
         }
     }
 }
@@ -80,12 +133,14 @@ private struct EntryView: View {
     let screen: MainSessionScreen
     let actions: BlockActions
     private static let reactions = ["👍", "❤️", "😂", "🙏"]
+    /// His bubble's widest: the design's, grown with the text size so a large type still wraps in a bubble.
+    @ScaledMetric private var bubbleWidth = Metrics.bubbleWidth
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             bubble
             if let live {
-                VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if let step = live.step {
                         HStack(spacing: Metrics.Spacing.s) {
                             Spinner(size: .small).foregroundStyle(Palette.ai)
@@ -127,7 +182,7 @@ private struct EntryView: View {
                 Text(entry.words)
                 if let emoji = entry.lifeReaction { Text(emoji).font(.line) }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10).foregroundStyle(Palette.fg)
+            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s).foregroundStyle(Palette.fg)
             .background(
                 Palette.tint,
                 in: UnevenRoundedRectangle(
@@ -136,6 +191,6 @@ private struct EntryView: View {
             )
         }
         .buttonStyle(.plain).disabled(entry.phase != .failed)
-        .frame(maxWidth: 300, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
+        .frame(maxWidth: bubbleWidth, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
     }
 }

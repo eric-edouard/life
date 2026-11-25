@@ -31,7 +31,7 @@ import SwiftUI
                         if show("settings") { settings }
                         if show("aura") { aura }
                     }
-                    .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.xl)
+                    .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xl)
                     // A standard iPhone's width, so the catalog reads the same on the Duo's wider screen.
                     .frame(maxWidth: Metrics.phoneWidth).frame(maxWidth: .infinity)
                 }
@@ -243,7 +243,7 @@ import SwiftUI
                         AskCard(
                             question: "Reply to Lena?", answers: ["Send", "Edit"], recommended: "Send", busy: "Send")
                     }
-                    .padding(.horizontal, -Metrics.gutter)
+                    .padding(.horizontal, -Metrics.Spacing.l)
                 }
                 section("Ask card with its draft, in each app: WhatsApp, Messages, mail, sent") {
                     VStack(spacing: Metrics.Spacing.m) {
@@ -258,10 +258,10 @@ import SwiftUI
                             question: "Send this to Helene?", check: Self.draft("mail", isMail: true),
                             answers: ["Send", "Not now"], recommended: "Send")
                         if let sent = DraftBlock(check: Self.draft("whatsapp"), delivery: .sent, isBoxed: false) {
-                            sent.padding(.horizontal, Metrics.gutter)
+                            sent.padding(.horizontal, Metrics.Spacing.l)
                         }
                     }
-                    .padding(.horizontal, -Metrics.gutter)
+                    .padding(.horizontal, -Metrics.Spacing.l)
                 }
                 section("Question in an answer, and an offer") {
                     QuestionBlock(answers: ["Sunday", "Saturday", "Neither"], recommended: "Sunday")

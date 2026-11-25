@@ -118,8 +118,7 @@ enum ItemState: Equatable {
 }
 
 /// One item of the thread as a bare row that unfolds: its round icon, the title, a line under it when the state has
-/// one, its state's mark at the end; unfolded it sits on a `wash` that bleeds to the screen's edges (the page's
-/// gutter is the caller's), with no dividers between rows.
+/// one, its state's mark at the end; unfolded it sits on a `wash` that fades out to the screen's edges (`washed`), with no dividers between rows.
 struct ThreadItemRow<Detail: View>: View {
     let title: String
     let state: ItemState
@@ -148,8 +147,7 @@ struct ThreadItemRow<Detail: View>: View {
             if isOpen { detail }
         }
         .opacity(state == .outdated ? Metrics.Opacity.faded : 1)
-        .padding(.horizontal, isOpen ? Metrics.gutter : 0).padding(.vertical, isOpen ? Metrics.Spacing.s : 0)
-        .background(isOpen ? Palette.wash : .clear).padding(.horizontal, isOpen ? -Metrics.gutter : 0)
+        .padding(.vertical, isOpen ? Metrics.Spacing.m : 0).washed(isOpen)
     }
 
     @ViewBuilder private var lineView: some View {
