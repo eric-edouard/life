@@ -1,0 +1,22 @@
+{
+  "name": "Outdated while open",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    },
+    {
+      "reads": {
+        "read_thread": "life/read_thread_outdated.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": [
+    "dec_000000000001"
+  ]
+}

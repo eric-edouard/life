@@ -322,3 +322,27 @@ targets:
       path: Watch/Widgets/Widgets.entitlements
       properties:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+  # The end-to-end flows (`LifelogE2E/`): the app launched in the simulator against a fake Life inside it
+  # (`Lifelog/E2E`), run by `bun run e2e:phone`. Finds elements by `Lifelog/AccessibilityIDs.swift`.
+  LifelogE2E:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - LifelogE2E
+      - Lifelog/AccessibilityIDs.swift
+    dependencies:
+      - target: Lifelog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).e2e
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  LifelogE2E:
+    build:
+      targets:
+        Lifelog: all
+        LifelogE2E: all
+    test:
+      config: Debug
+      targets: [LifelogE2E]

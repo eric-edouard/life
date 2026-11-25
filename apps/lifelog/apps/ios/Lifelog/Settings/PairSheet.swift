@@ -65,7 +65,7 @@ struct PairSheet: View {
         .background(Palette.sheet)
         .presentationBackground(Palette.sheet)
         .interactiveDismissDisabled(phase == .pairing)
-        .accessibilityIdentifier("pair.sheet")
+        .accessibilityIdentifier(AID.pairSheet)
     }
 
     private var title: String {
@@ -149,15 +149,15 @@ struct PairSheet: View {
         switch phase {
         case .confirming:
             Button("Pair this phone") { Task { await pair() } }.buttonStyle(.pill(.filled))
-                .accessibilityIdentifier("pair.confirm")
+                .accessibilityIdentifier(AID.pairConfirm)
             Button("Cancel") { dismiss() }.buttonStyle(.pill(.quiet))
         case .pairing:
             Button("Pairing…") {}.buttonStyle(.pill(.filled, isBusy: true))
         case .done where runs.values.allSatisfy(\.isKept):
-            Button("Done") { dismiss() }.buttonStyle(.pill(.filled)).accessibilityIdentifier("pair.done")
+            Button("Done") { dismiss() }.buttonStyle(.pill(.filled)).accessibilityIdentifier(AID.pairDone)
         case .done:
-            Button("Try again") { Task { await pair() } }.buttonStyle(.pill(.filled))
-            Button("Cancel") { dismiss() }.buttonStyle(.pill(.quiet))
+            Button("Try again") { Task { await pair() } }.buttonStyle(.pill(.filled)).accessibilityIdentifier(AID.pairRetry)
+            Button("Cancel") { dismiss() }.buttonStyle(.pill(.quiet)).accessibilityIdentifier(AID.pairCancel)
         }
     }
 

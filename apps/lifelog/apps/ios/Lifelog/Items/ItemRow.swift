@@ -26,7 +26,7 @@ struct ItemRow: View {
                 }
                 .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain).accessibilityIdentifier(AID.askRow(ask.ref))
             if isOpen { detail.transition(Motion.appears) }
             Hairline()
         }
@@ -38,7 +38,8 @@ struct ItemRow: View {
     @ViewBuilder private var mark: some View {
         if isQueued {
             Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel(
-                "Goes when Life is back")
+                "Goes when Life is back"
+            ).accessibilityIdentifier(AID.askQueued(ask.ref))
         } else {
             switch ask.state {
             case .needsYou:
@@ -49,7 +50,9 @@ struct ItemRow: View {
             case .waitingOnSomeone:
                 Image(systemName: "hourglass").foregroundStyle(Palette.muted).accessibilityLabel("Waiting on someone")
             case .settled: Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
-            case .outdated, .unknown: EmptyView()
+                    .accessibilityIdentifier(AID.askSettled(ask.ref))
+            case .outdated: Color.clear.frame(width: 1, height: 1).accessibilityIdentifier(AID.askOutdated(ask.ref))
+            case .unknown: EmptyView()
             }
         }
     }
@@ -59,7 +62,8 @@ struct ItemRow: View {
             if !ask.question.isEmpty { Text(ask.question).foregroundStyle(Palette.muted) }
             if let text = ask.check?.draft?.text { Text(text).font(.quote).padding(.leading, Metrics.Spacing.m) }
             if let check = ask.check, ask.isAnswerable, !isQueued { answers(check) }
-            if case .failed(let failure, _) = action { Text(failure.reason).font(.note).foregroundStyle(Palette.flag) }
+            if case .failed(let failure, _) = action { Text(failure.reason).font(.note).foregroundStyle(Palette.flag).accessibilityIdentifier(AID.askFailure(ask.ref))
+            }
             if ask.undoLine != nil { undo }
         }
     }
@@ -93,7 +97,7 @@ struct ItemRow: View {
                 isDone ? .done : option.id == check.recommended ? .filled : .quiet, size: .compact,
                 isBusy: action.isRunning)
         )
-        .accessibilityLabel(option.label)
+        .accessibilityLabel(option.label).accessibilityIdentifier(AID.askAnswer(ask.ref, option.id))
         .disabled((option.takes != nil && words.isEmpty) || action.isRunning)
     }
 
@@ -104,6 +108,6 @@ struct ItemRow: View {
             Image(systemName: "arrow.uturn.backward")
         }
         .buttonStyle(.pill(.quiet, size: .compact, isBusy: action.isRunning))
-        .accessibilityLabel("Undo").accessibilityHint(ask.undoLine ?? "")
+        .accessibilityLabel("Undo").accessibilityHint(ask.undoLine ?? "").accessibilityIdentifier(AID.askUndo(ask.ref))
     }
 }
