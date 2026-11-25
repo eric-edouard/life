@@ -110,16 +110,28 @@ test("the phone's tint, glass, wash, aura colours, type scale and block radius a
   ].map((m) => [m[1], hex(m[2] ?? ""), hex(m[3] ?? "")]);
   expect(aura.length).toBe(8);
   expect(copies).toEqual(aura);
-  const type = await asset("apps/lifelog/apps/ios/Lifelog/DesignSystem/Typography.swift");
-  const sizes = [...tokens.matchAll(/--text-[a-z]+:\s*([\d.]+)px/g)].map((m) => Number(m[1]));
+  const type = await asset(
+    "apps/lifelog/apps/ios/Lifelog/DesignSystem/Typography.swift"
+  );
+  const sizes = [...tokens.matchAll(/--text-[a-z]+:\s*([\d.]+)px/g)].map((m) =>
+    Number(m[1])
+  );
   const used = new Set(
     [...type.matchAll(/TypeStep\(size: ([\d.]+), weight: (\d+)/g)]
-      .filter((m) => !/isMono/.test(m.input?.split("\n").find((l) => l.includes(m[0])) ?? ""))
+      .filter(
+        (m) =>
+          !/isMono/.test(
+            m.input?.split("\n").find((l) => l.includes(m[0])) ?? ""
+          )
+      )
       .flatMap((m) => [Number(m[1]), -Number(m[2])])
   );
   for (const u of used) {
-    if (u > 0) expect(sizes).toContain(u);
-    else expect([450, 600, 650]).toContain(-u);
+    if (u > 0) {
+      expect(sizes).toContain(u);
+    } else {
+      expect([450, 600, 650]).toContain(-u);
+    }
   }
   const metrics = await asset("apps/lifelog/apps/ios/Shared/Metrics.swift");
   expect(Number(metrics.match(/static let block: CGFloat = (\d+)/)?.[1])).toBe(
