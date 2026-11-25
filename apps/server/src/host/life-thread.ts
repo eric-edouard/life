@@ -4,6 +4,10 @@ import { readChangeStamp } from "../core/files";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
+import type {
+  DeletionCopy,
+  ThreadEntriesHolding,
+} from "../memory/delete-from-memory";
 import type { MatterView } from "../memory/matter-read";
 import {
   laterUntilOf,
@@ -20,9 +24,9 @@ import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
 // as they were delivered and answered (`decisions.jsonl`) and Life's own checks, merged by time, a few days a page. Never
-// a second copy: each item's state is worked out when read, by `itemStateOf` alone. An entry whose answer cites what he
-// deleted is hidden here, at read (memory cannot read the desk); the entry itself keeps a second copy of his words on
-// the Mac until it is removed (SECURITY.md).
+// a second copy: each item's state is worked out when read, by `itemStateOf` alone. An entry his deletion names
+// (`thread:<id>`) or whose answer cites what he deleted is hidden here, at read; the desk blanks the named ones in place
+// on its tick (`desk/thread-deletions.ts`), the only writer of its store.
 
 /** How many days of the thread a page holds. */
 const PAGE_DAYS = 3;
@@ -191,7 +195,13 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const statuses = await matterStatuses();
   const items = [
     ...entries
-      .filter((e) => !(JSON.parse(e.refs) as string[]).some((r) => gone.has(r)))
+      .filter(
+        (e) =>
+          !(
+            gone.has(threadEntryRefOf(e.id)) ||
+            (JSON.parse(e.refs) as string[]).some((r) => gone.has(r))
+          )
+      )
       .map((e) => ({
         answer: e.answer,
         answeredAt: e.answered_at,
@@ -250,3 +260,35 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     version,
   };
 }
+
+/** A thread entry's ref, as a deletion names it. */
+export const threadEntryRefOf = (id: number) => `thread:${id}`;
+
+/**
+ * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`): its preview's.
+ * Every entry is read: a deletion is rare and the thread small (ponytail: a scan; by day if it ever grows large).
+ */
+export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
+  const read = readDesk(
+    (db) =>
+      db
+        .query<
+          {
+            answer: string | null;
+            id: number;
+            refs: string;
+            words: string | null;
+          },
+          []
+        >(
+          "select id, words, answer, refs from thread_entry where deleted_at is null order by id"
+        )
+        .all(),
+    []
+  );
+  return (read.state === "ok" ? read.value : []).flatMap((e): DeletionCopy[] =>
+    holds([e.words, e.answer], JSON.parse(e.refs) as string[])
+      ? [{ id: threadEntryRefOf(e.id), kind: "thread entry" }]
+      : []
+  );
+};
