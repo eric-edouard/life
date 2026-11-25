@@ -80,14 +80,14 @@ struct PairPendantSheet: View {
         case .looking:
             VStack(alignment: .leading, spacing: 8) {
                 Text("Looking nearby").font(.bodyStrong)
-                Text("Hold its button until the light blinks blue.").font(.note).foregroundStyle(Palette.muted)
+                Text("Hold its button until the light blinks blue.").font(.line).foregroundStyle(Palette.muted)
             }
         case .pairing, .paired:
             RowGroup(surface: .sheet) { checks(failedAt: nil) }
         case .failed(let reason):
             VStack(alignment: .leading, spacing: 16) {
                 RowGroup(surface: .sheet) { checks(failedAt: 1) }
-                Text(reason).font(.note).foregroundStyle(Palette.muted)
+                Text(reason).font(.line).foregroundStyle(Palette.muted)
             }
         }
     }

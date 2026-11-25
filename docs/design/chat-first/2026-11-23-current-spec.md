@@ -75,6 +75,10 @@ the item shows.
 | Settled | A tick and how it ended ("Sent to Nora", "Dropped") | None: it is history | While Life can still try; never a send |
 | Queued | A small clock · Goes when you're back (answered while offline) | None | — |
 | Outdated | The whole row faded to the back, its line the reason ("Nora wrote since", "You replied in WhatsApp") | None | — |
+| Held | A held separator: "Held · waits for the ask above" (another open ask into the same chat) | None | — |
+| Earlier draft | The older draft, faded under the new one, its line "Earlier draft" | None | — |
+| Deleted for both of you | A struck line: "Deleted for both of you" | None | — |
+| Stopped | What stopped it, in Life's words, with its one fix ask when there is one (a notice) | The fix ask | — |
 
 - An item changes state where it is. It never moves or vanishes: a list keeps its rows, the count says what is left.
 - The item says how it stands, so no line repeats it. Life's lines are only for what happens between items: a
@@ -116,7 +120,7 @@ the item shows.
   (a tick, "Sent", green) for one second; then the item takes its new state.
 - A failure shows on the button itself: "Not sent", tap to try again; or "May have gone", no retry.
 - Undo is an attempt, never a promise: "Undoing…", then "Undone · Reopen" (Reopen brings the ask back), or one line
-  saying why it couldn't. A send never has Undo. What each undo needs is in the plan.
+  saying why it couldn't. A send has Undo only for the short while Life holds it (the sent line shows it, then it settles); after that, never. Quick edits (shorter, warmer, other words) change a draft before it goes and never need Undo. A held ask waits behind the open one and is asked when it settles. The aura on the phone's edge follows the same states. What each undo needs is in the plan.
 - An ask goes out of date when someone wrote in its chat since (its agent writes a new draft, a follow-up card), when he
   answered there himself (he often will, outside Life), or when its agent withdrew or replaced it; unfolded, it folds.
 - Under way never spins for ever: Life first tries to fix a stalled task unseen; if it can't, the item comes back to
@@ -180,6 +184,7 @@ the item shows.
 - Each tap becoming his bubble with a copy of the item at the bottom: it felt like a chat bot. (Kept only behind the
   ask Life brings itself, and the notification answer, which happened outside the thread.)
 - Reopen buttons on settled items; an outcome said twice.
+- Light mode on the phone (dark only), and words on an answer outside the listed ones.
 - From AI chat apps: many conversations, a sidebar, regenerate, edit a message, copy, a model picker, a trace of
   the work.
 

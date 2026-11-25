@@ -10,8 +10,8 @@ struct OmiCustodyCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("This Omi deletes audio once it's sent").font(.bodyStrong).foregroundStyle(Palette.fg)
                 .accessibilityIdentifier("pendant.card.omiCustody")
-            Text(detail).font(.note).foregroundStyle(Palette.muted)
-            if let revision { Text("Omi firmware \(revision)").font(.small).foregroundStyle(Palette.faint) }
+            Text(detail).font(.line).foregroundStyle(Palette.muted)
+            if let revision { Text("Omi firmware \(revision)").font(.line).foregroundStyle(Palette.faint) }
         }
         .box()
     }

@@ -19,7 +19,7 @@ struct ItemRow: View {
                 withAnimation(Motion.standard) { isOpen.toggle() }
             } label: {
                 HStack(spacing: Metrics.Spacing.m) {
-                    Text(ask.title).font(.rowName).foregroundStyle(ask.state == .outdated ? Palette.faint : Palette.fg)
+                    Text(ask.title).font(.rowTitle).foregroundStyle(ask.state == .outdated ? Palette.faint : Palette.fg)
                         .strikethrough(ask.state == .outdated).multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
                     mark
@@ -43,7 +43,7 @@ struct ItemRow: View {
         } else {
             switch ask.state {
             case .needsYou:
-                Image(systemName: "circle.fill").font(.badge).foregroundStyle(Palette.flag).accessibilityLabel(
+                Image(systemName: "circle.fill").font(.metaStrong).foregroundStyle(Palette.flag).accessibilityLabel(
                     "Needs you")
             case .later: Image(systemName: "clock").foregroundStyle(Palette.muted).accessibilityLabel("Later")
             case .underWay: Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("Under way")
@@ -62,7 +62,8 @@ struct ItemRow: View {
             if !ask.question.isEmpty { Text(ask.question).foregroundStyle(Palette.muted) }
             if let text = ask.check?.draft?.text { Text(text).font(.quote).padding(.leading, Metrics.Spacing.m) }
             if let check = ask.check, ask.isAnswerable, !isQueued { answers(check) }
-            if case .failed(let failure, _) = action { Text(failure.reason).font(.note).foregroundStyle(Palette.flag).accessibilityIdentifier(AID.askFailure(ask.ref))
+            if case .failed(let failure, _) = action {
+                Text(failure.reason).font(.line).foregroundStyle(Palette.flag).accessibilityIdentifier(AID.askFailure(ask.ref))
             }
             if ask.undoLine != nil { undo }
         }
@@ -73,7 +74,7 @@ struct ItemRow: View {
         return VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             if taking {
                 TextField("", text: $words, axis: .vertical).padding(Metrics.Spacing.m)
-                    .background(Color.fillTint, in: .rect(cornerRadius: Metrics.Radius.tile))
+                    .background(Palette.tint, in: .rect(cornerRadius: Metrics.Radius.control))
             }
             HStack(spacing: Metrics.Spacing.s) {
                 ForEach(check.options.filter { $0.takes != .person }, id: \.id) { option in answer(option, of: check) }

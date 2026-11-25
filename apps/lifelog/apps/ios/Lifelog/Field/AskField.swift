@@ -24,7 +24,7 @@ struct AskField: View {
             )
             .font(.body15).foregroundStyle(Palette.fg)
             .padding(.horizontal, Metrics.Spacing.m).padding(.bottom, Metrics.Spacing.xs)
-            .glassEffect(.regular, in: .rect(cornerRadius: 26))
+            .glassEffect(.regular, in: .rect(cornerRadius: Metrics.Radius.sheet))
         }
     }
 }

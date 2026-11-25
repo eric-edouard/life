@@ -61,14 +61,14 @@ struct DurationText: View {
 
 extension View {
     /// The card surface: `surface1`, no edge. Content sits on cards; glass stays for the controls.
-    func card(radius: CGFloat = Metrics.Radius.card) -> some View {
+    func card(radius: CGFloat = Metrics.Radius.block) -> some View {
         background(Palette.card, in: .rect(cornerRadius: radius))
     }
 }
 
 /// The half-point rule between rows.
 struct Hairline: View {
-    /// `line` on the page; `fillTint` inside a filled group, where `line` cannot be seen.
+    /// `line` on the page; `tint` inside a filled group, where `line` cannot be seen.
     var color = Palette.line
 
     var body: some View {

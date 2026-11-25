@@ -34,6 +34,16 @@ enum Motion {
     static let follow = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.7)
     /// One breath of the lit lens.
     static let pulse: TimeInterval = 2.4
+    /// The lit lens breathing: half a pulse each way, forever.
+    static let breath = Animation.easeInOut(duration: pulse / 2).repeatForever()
+    /// The dictation thumb: following the finger while it is down, home with a little spring, growing when held, the
+    /// armed state arriving, the mark flying off, and the level bars moving.
+    static let thumbFollows = Animation.interactiveSpring(duration: 0.2)
+    static let thumbHome = Animation.spring(duration: 0.4, bounce: 0.25)
+    static let thumbGrows = Animation.spring(duration: 0.3, bounce: 0.2)
+    static let armed = Animation.easeOut(duration: 0.15)
+    static let flightOff = Animation.spring(duration: 0.22, bounce: 0)
+    static let level = Animation.easeOut(duration: 0.12)
     /// A drafted part's shadow going once it is sent.
     static let undrafted = Animation.easeOut(duration: 0.2)
 }

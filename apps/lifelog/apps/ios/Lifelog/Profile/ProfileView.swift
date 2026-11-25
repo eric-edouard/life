@@ -20,7 +20,7 @@ struct ProfileView: View {
                 if let read {
                     VStack(spacing: Metrics.Spacing.s) {
                         Face(party: read.row.party, size: 96)
-                        Text(read.row.party.name).font(.screenName)
+                        Text(read.row.party.name).font(.profileName)
                         if let line = read.row.party.line { Text(line).foregroundStyle(Palette.muted) }
                     }
                     .frame(maxWidth: .infinity)
@@ -57,7 +57,7 @@ struct ProfileView: View {
     @ViewBuilder private func section(_ title: String, _ lines: [String]) -> some View {
         if !lines.isEmpty {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                Text(title).font(.smallStrong).foregroundStyle(Palette.muted)
+                Text(title).font(.heading).foregroundStyle(Palette.muted)
                 ForEach(lines, id: \.self) { Text($0) }
             }
         }

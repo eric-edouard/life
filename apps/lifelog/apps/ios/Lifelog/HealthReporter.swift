@@ -101,6 +101,9 @@ enum ScreenTiming {
 /// through `HealthOutbox`, off the main actor: capture never waits on it, and nothing is lost when the server can't be
 /// reached.
 final class HealthReporter {
+    /// The design catalog (Debug `-catalog`) never raises the Focus prompt over itself.
+    private static let isCatalog = CommandLine.arguments.contains("-catalog")
+
     private static let scheduleKey = "heartbeatSchedule"
 
     nonisolated fileprivate static let outbox = HealthOutbox(
@@ -168,7 +171,7 @@ final class HealthReporter {
             default: nil
             }
         // The one Focus prompt: asked the first time a heartbeat is built, never again.
-        if INFocusStatusCenter.default.authorizationStatus == .notDetermined {
+        if INFocusStatusCenter.default.authorizationStatus == .notDetermined, !Self.isCatalog {
             INFocusStatusCenter.default.requestAuthorization { _ in }
         }
         let phone = Heartbeat.Phone(

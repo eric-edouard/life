@@ -22,9 +22,9 @@ struct BlockView: View {
         case .table(let table): TableBlock(table: table)
         case .document(let doc):
             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                Text(doc.title).font(.rowName)
-                ForEach(doc.lines, id: \.self) { Text($0).font(.note).foregroundStyle(Palette.muted) }
-                if let total = doc.total { Text(total).font(.rowName) }
+                Text(doc.title).font(.rowTitle)
+                ForEach(doc.lines, id: \.self) { Text($0).font(.line).foregroundStyle(Palette.muted) }
+                if let total = doc.total { Text(total).font(.rowTitle) }
             }
             .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
         case .phrase(let phrase):
@@ -33,7 +33,7 @@ struct BlockView: View {
             } label: {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                     Text(phrase.text).font(.quote)
-                    Text(phrase.mine).font(.small).foregroundStyle(Palette.muted)
+                    Text(phrase.mine).font(.line).foregroundStyle(Palette.muted)
                 }
                 .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
             }
@@ -46,8 +46,8 @@ struct BlockView: View {
                 if let url = c?.url { openURL(url) }
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(place.name).font(.rowName)
-                    Text(place.address).font(.note).foregroundStyle(Palette.muted)
+                    Text(place.name).font(.rowTitle)
+                    Text(place.address).font(.line).foregroundStyle(Palette.muted)
                 }
                 .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
             }
@@ -71,13 +71,13 @@ private struct TableBlock: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: Metrics.Spacing.l, verticalSpacing: Metrics.Spacing.xs) {
             GridRow {
-                ForEach(table.columns, id: \.self) { Text($0).font(.smallStrong).foregroundStyle(Palette.muted) }
+                ForEach(table.columns, id: \.self) { Text($0).font(.heading).foregroundStyle(Palette.muted) }
             }
             ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
                 GridRow { ForEach(Array(row.enumerated()), id: \.offset) { _, cell in Text(cell) } }
             }
             if let total = table.total {
-                GridRow { Text(total).font(.rowName).gridCellColumns(table.columns.count) }
+                GridRow { Text(total).font(.rowTitle).gridCellColumns(table.columns.count) }
             }
         }
     }
@@ -89,7 +89,7 @@ private struct PhraseScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Text(phrase.text).font(.screenName).multilineTextAlignment(.center).padding(Metrics.Spacing.xl)
+        Text(phrase.text).font(.profileName).multilineTextAlignment(.center).padding(Metrics.Spacing.xl)
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.bg).onTapGesture { dismiss() }
     }
 }

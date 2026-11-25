@@ -30,7 +30,7 @@ struct ConnectionPage: View {
                     if let lines { RowGroup(surface: .sheet) { CheckLines(lines: lines).padding(16) }.appears() }
                     RowGroup(surface: .sheet) {
                         Row(title: "Address") {
-                            Text(address?.addressWords ?? "").font(.note).foregroundStyle(Palette.muted)
+                            Text(address?.addressWords ?? "").font(.line).foregroundStyle(Palette.muted)
                         }
                     }
                     if connection == .server { waiting }
@@ -59,11 +59,11 @@ struct ConnectionPage: View {
                     connection == .life
                         ? "Inbox and Matters need Life on your Mac." : "Recording goes on; nothing is sent."
                 )
-                .font(.note).foregroundStyle(Palette.muted)
+                .font(.line).foregroundStyle(Palette.muted)
             } else if let reason = isChecking ? nil : ConnectionCheck.reason(connection, outcome) {
-                Text(reason).font(.note).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                Text(reason).font(.line).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             } else if let checkedAt {
-                Text("Checked \(checkedAt.formatted(.relative(presentation: .named)))").font(.small)
+                Text("Checked \(checkedAt.formatted(.relative(presentation: .named)))").font(.line)
                     .foregroundStyle(Palette.muted)
             }
         }
@@ -83,7 +83,7 @@ struct ConnectionPage: View {
         RowGroup(label: "Waiting", surface: .sheet) {
             if let uploads = sync.uploads, uploads.unsent > .zero {
                 Row(title: "Audio to upload") {
-                    Text(DurationText.string(uploads.unsent, width: .wide)).font(.note).foregroundStyle(Palette.muted)
+                    Text(DurationText.string(uploads.unsent, width: .wide)).font(.line).foregroundStyle(Palette.muted)
                 }
             }
             if let error = sync.uploads?.lastError {
@@ -92,18 +92,18 @@ struct ConnectionPage: View {
             }
             if summary.editsWaiting > 0 {
                 Row(title: "Your edits to send") {
-                    Text("\(summary.editsWaiting)").font(.note).foregroundStyle(Palette.muted)
+                    Text("\(summary.editsWaiting)").font(.line).foregroundStyle(Palette.muted)
                 }
             }
             if let backup = sync.backup, backup.packs + backup.jobs > 0 {
                 let files = backup.packs + backup.jobs
                 Row(title: "Recordings to back up") {
-                    Text(files == 1 ? "1 file" : "\(files) files").font(.note).foregroundStyle(Palette.muted)
+                    Text(files == 1 ? "1 file" : "\(files) files").font(.line).foregroundStyle(Palette.muted)
                 }
             }
             ForEach(sync.waiting.sorted { $0.key.rawValue < $1.key.rawValue }, id: \.key) { reason, count in
                 Row(title: reason.sentence) {
-                    Text(conversationCount(count)).font(.note).foregroundStyle(Palette.muted)
+                    Text(conversationCount(count)).font(.line).foregroundStyle(Palette.muted)
                 }
             }
         }
@@ -159,7 +159,7 @@ struct ConnectionPage: View {
                     .labelStyle(.titleOnly).buttonBorderShape(.capsule)
                 }
             }
-            if let refusal { Text(refusal).font(.note).foregroundStyle(Palette.flag) }
+            if let refusal { Text(refusal).font(.line).foregroundStyle(Palette.flag) }
         }
     }
 

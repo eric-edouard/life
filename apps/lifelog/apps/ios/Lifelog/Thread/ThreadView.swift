@@ -20,13 +20,13 @@ struct ThreadView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                     if shown.count < thread.entries.count {
-                        Button("Show earlier") { showsEarlier = true }.font(.smallStrong).foregroundStyle(Palette.muted)
+                        Button("Show earlier") { showsEarlier = true }.font(.heading).foregroundStyle(Palette.muted)
                             .frame(maxWidth: .infinity)
                     }
                     ForEach(Array(shown.enumerated()), id: \.element.id) { i, entry in
                         if i == 0 || !calendar.isDate(shown[i - 1].at, inSameDayAs: entry.at) {
                             Text(entry.at.formatted(.dateTime.weekday(.wide).day().month()))
-                                .font(.small).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
+                                .font(.line).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
                         }
                         EntryView(
                             entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
@@ -60,7 +60,7 @@ private struct EntryView: View {
                     if let step = live.step {
                         HStack(spacing: Metrics.Spacing.s) {
                             Spinner(size: .small).foregroundStyle(Palette.ai)
-                            Text("\(step.verb) \(step.what)").font(.note).foregroundStyle(Palette.muted)
+                            Text("\(step.verb) \(step.what)").font(.line).foregroundStyle(Palette.muted)
                         }
                     } else if live.parts.isEmpty {
                         Spinner(size: .small).foregroundStyle(Palette.ai)
@@ -75,13 +75,13 @@ private struct EntryView: View {
                         }
                     }
                 if let mine = entry.ownerReaction {
-                    Text(mine).font(.note).padding(.horizontal, Metrics.Spacing.s).background(
-                        Color.fillTint, in: .capsule)
+                    Text(mine).font(.line).padding(.horizontal, Metrics.Spacing.s).background(
+                        Palette.tint, in: .capsule)
                 }
             } else if entry.phase == .failed {
                 Text("I couldn't answer that.").foregroundStyle(Palette.muted)
             } else if entry.phase == .stopped {
-                Text("Stopped").font(.note).foregroundStyle(Palette.muted)
+                Text("Stopped").font(.line).foregroundStyle(Palette.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,16 +93,17 @@ private struct EntryView: View {
         } label: {
             HStack(spacing: Metrics.Spacing.xs) {
                 if entry.phase == .waiting {
-                    Image(systemName: "clock").font(.small).accessibilityLabel("Goes when you're back")
+                    Image(systemName: "clock").font(.line).accessibilityLabel("Goes when you're back")
                 }
                 Text(entry.words)
-                if let emoji = entry.lifeReaction { Text(emoji).font(.note) }
+                if let emoji = entry.lifeReaction { Text(emoji).font(.line) }
             }
             .padding(.horizontal, 14).padding(.vertical, 10).foregroundStyle(Palette.fg)
             .background(
-                Palette.fg.opacity(0.11),
+                Palette.tint,
                 in: UnevenRoundedRectangle(
-                    topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20)
+                    topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
+                    bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
             )
         }
         .buttonStyle(.plain).disabled(entry.phase != .failed)

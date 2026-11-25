@@ -62,7 +62,7 @@ struct DiagnosticsView: View {
                     }
                     .buttonStyle(.pill(.quiet))
                 }
-                Text(version).font(.note).foregroundStyle(Palette.muted)
+                Text(version).font(.line).foregroundStyle(Palette.muted)
                 #if DEBUG
                     NavigationLink {
                         CaptureDump()

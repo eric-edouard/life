@@ -14,13 +14,19 @@ struct LifelogApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                // A fallback cycle while in the foreground only; background sync follows the Pendant's events.
-                .task(id: scenePhase == .active) {
-                    guard scenePhase == .active else { return }
-                    await appDelegate.capture.resyncWhileActive()
+            #if DEBUG
+                // The design system's catalog, one page of it (`-catalog values 600`: its page, then where to start), instead of the app.
+                if let at = CommandLine.arguments.firstIndex(of: "-catalog") {
+                    let rest = CommandLine.arguments.dropFirst(at + 1)
+                    CatalogView(
+                        page: rest.first ?? "",
+                        scrolled: rest.dropFirst().first.flatMap(Double.init).map { CGFloat($0) } ?? 0)
+                } else {
+                    root
                 }
-                .stores(of: appDelegate)
+            #else
+                root
+            #endif
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -31,6 +37,16 @@ struct LifelogApp: App {
             default: break
             }
         }
+    }
+
+    private var root: some View {
+        RootView()
+            // A fallback cycle while in the foreground only; background sync follows the Pendant's events.
+            .task(id: scenePhase == .active) {
+                guard scenePhase == .active else { return }
+                await appDelegate.capture.resyncWhileActive()
+            }
+            .stores(of: appDelegate)
     }
 }
 

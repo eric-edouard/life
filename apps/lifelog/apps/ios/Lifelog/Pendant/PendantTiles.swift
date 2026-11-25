@@ -9,7 +9,7 @@ struct RingMeter: View {
 
     var body: some View {
         ZStack {
-            Circle().inset(by: 3).stroke(Color.fillTint, lineWidth: 6)
+            Circle().inset(by: 3).stroke(Palette.tint, lineWidth: 6)
             Circle().inset(by: 3).trim(from: 0, to: min(max(fraction, 0), 1))
                 .stroke(tone, style: .init(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
@@ -35,14 +35,14 @@ struct StatTile<Visual: View>: View {
         ZStack {
             visual.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: visualEdge)
             VStack(alignment: .leading, spacing: 0) {
-                Text(figure).font(.tileFigure).foregroundStyle(figureColor)
-                if let caption { Text(caption).font(.small).foregroundStyle(Palette.muted) }
+                Text(figure).font(.profileName).foregroundStyle(figureColor)
+                if let caption { Text(caption).font(.line).foregroundStyle(Palette.muted) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         }
         .padding(Metrics.Spacing.l)
         .frame(maxWidth: .infinity).frame(height: Metrics.Tile.statHeight)
-        .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+        .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.block))
         .opacity(isDim ? 0.6 : 1)
         .motion(Motion.standard, value: isDim)
         .accessibilityElement(children: .ignore)
@@ -55,7 +55,7 @@ struct LightTile: View {
     var isOn: Bool
 
     var body: some View {
-        RoundedRectangle(cornerRadius: Metrics.Radius.card).fill(Surface.sheet.fill)
+        RoundedRectangle(cornerRadius: Metrics.Radius.block).fill(Surface.sheet.fill)
             .frame(width: Metrics.Tile.light, height: Metrics.Tile.light)
             .overlay { StateDot(color: isOn ? Palette.fg : Palette.muted, isLit: isOn).scaleEffect(1.15) }
             .opacity(isOn ? 1 : 0.4)
@@ -72,6 +72,6 @@ struct TileCard<Content: View>: View {
         content
             .padding(Metrics.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.card))
+            .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.block))
     }
 }

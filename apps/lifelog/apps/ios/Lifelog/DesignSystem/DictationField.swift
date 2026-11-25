@@ -108,7 +108,7 @@ struct DictationField: View {
             HStack(spacing: Metrics.Spacing.s) {
                 Button(action: cancel) {
                     Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                        .frame(width: 36, height: 36).background(Color.fillTint, in: .circle)
+                        .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
                         .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
                 .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
@@ -116,7 +116,7 @@ struct DictationField: View {
                     if dictation.phase == .rest {
                         Color.clear
                     } else if isHolding {
-                        Text("Slide up to send").font(.small).foregroundStyle(Palette.muted)
+                        Text("Slide up to send").font(.line).foregroundStyle(Palette.muted)
                     } else {
                         DictationStream(dictation: dictation)
                     }
@@ -209,7 +209,7 @@ private struct ProblemLine: View {
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            Text(problem.line).font(.small).foregroundStyle(Palette.flag)
+            Text(problem.line).font(.line).foregroundStyle(Palette.flag)
             if let link = problem.fix { QuietChip(link.title, symbol: link.symbol, action: fix) }
         }
     }
@@ -324,11 +324,11 @@ private struct DictationMic: View {
             .opacity(isGone ? 0 : 1)
             // With the thumb while it is down, home with a little spring once it lets go.
             .animation(
-                press.isDown ? .interactiveSpring(duration: 0.2) : .spring(duration: 0.4, bounce: 0.25),
+                press.isDown ? Motion.thumbFollows : Motion.thumbHome,
                 value: press.lift
             )
-            .animation(.spring(duration: 0.3, bounce: 0.2), value: press.isHolding)
-            .motion(.easeOut(duration: 0.15), value: press.isArmed)
+            .animation(Motion.thumbGrows, value: press.isHolding)
+            .motion(Motion.armed, value: press.isArmed)
             .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
             .contentShape(.rect)
             .gesture(
@@ -405,7 +405,7 @@ private struct DictationMic: View {
         dictation.send()
         guard !reduceMotion else { return }
         flight = from
-        withAnimation(.spring(duration: 0.22, bounce: 0)) {
+        withAnimation(Motion.flightOff) {
             isGone = true
         } completion: {
             var still = Transaction()
@@ -431,7 +431,7 @@ private struct VoiceMark: View {
         }
         .foregroundStyle(Palette.on)
         .frame(height: 20)
-        .motion(.easeOut(duration: 0.12), value: level)
+        .motion(Motion.level, value: level)
         .accessibilityHidden(true)
     }
 }
@@ -447,13 +447,13 @@ private struct ListeningLine: View {
         HStack(spacing: Metrics.Spacing.s) {
             Button(action: dictation.cancel) {
                 Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                    .frame(width: 28, height: 28).background(Color.fillTint, in: .circle)
+                    .frame(width: 28, height: 28).background(Palette.tint, in: .circle)
                     .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Cancel dictation")
             TimelineView(.periodic(from: dictation.runStarted, by: 1)) { context in
-                Text(status(at: context.date)).font(.small).monospacedDigit().foregroundStyle(Palette.muted)
+                Text(status(at: context.date)).font(.line).monospacedDigit().foregroundStyle(Palette.muted)
             }
             .fixedSize()
             if let live, !live.words.isEmpty, !live.hasFailed {

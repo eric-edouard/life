@@ -15,6 +15,29 @@ enum Metrics {
     /// The height of Spending's bars, a day each.
     static let trend: CGFloat = 72
 
+    /// A round icon disc leading a thread row; a reaction's corner mark; a still pie (small, and in a line); a colour swatch.
+    static let disc: CGFloat = 40
+    static let reactionMark: CGFloat = 24
+    static let pie: CGFloat = 18
+    static let pieSmall: CGFloat = 12
+    static let swatch: CGFloat = 32
+    /// A small mark (the needs-you dot); a rating's tap mark.
+    static let flagDot: CGFloat = 7
+    static let ratingMark: CGFloat = 36
+    /// A switch: its track and its knob.
+    static let switchTrack = CGSize(width: 51, height: 31)
+    static let switchKnob: CGFloat = 27
+    /// A bubble's widest, and the catalog's phone width.
+    static let bubbleWidth: CGFloat = 300
+    static let phoneWidth: CGFloat = 393
+
+    /// How faded a thing goes: an outdated row, an answer beside a busy one, a draft redrafted past.
+    enum Opacity {
+        static let faded = 0.4
+        static let dim = 0.5
+        static let earlier = 0.6
+    }
+
     /// The Pendant sheet's tiles: a stat tile's height, the light's square, the storage ring.
     enum Tile {
         static let statHeight: CGFloat = 128
@@ -35,16 +58,14 @@ enum Metrics {
         static let personRow: CGFloat = 52
     }
 
-    /// Corner radii, smallest to largest.
+    /// Corner radii (docs/brand.md, Shape): a button is a full pill, the other three are these.
     enum Radius {
-        /// A quote inside a draft, photo tiles and thumbnails.
-        static let tile: CGFloat = 10
-        /// A draft, a piece of evidence, a clip, a multi-line field.
-        static let passage: CGFloat = 16
-        /// Every card, row group and box.
-        static let card: CGFloat = 22
-        /// The floating player.
-        static let player: CGFloat = 30
+        /// A small control, a quote inside a draft, a thumbnail, a field.
+        static let control: CGFloat = 12
+        /// A block in the thread: an option card, a box, a settings block, a draft, a row group.
+        static let block: CGFloat = 18
+        /// A sheet, a panel, the floating player.
+        static let sheet: CGFloat = 22
     }
 
     /// Space between and inside elements, on a 4-point grid.
