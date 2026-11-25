@@ -40,6 +40,8 @@ struct RootView: View {
 
     /// The field, as tall as it is now: the thread keeps its last row clear of it.
     @State private var fieldHeight: CGFloat = 0
+    /// The two round buttons and the notices over the thread: it starts below them.
+    @State private var topHeight: CGFloat = 0
 
     private struct Profile: Hashable { let ref: String }
 
@@ -55,7 +57,7 @@ struct RootView: View {
             ZStack {
                 Palette.bg.ignoresSafeArea()
                 if life.isPaired {
-                    ThreadView(thread: thread, screen: screen, actions: actions, fieldHeight: fieldHeight)
+                    ThreadView(thread: thread, screen: screen, actions: actions, topHeight: topHeight, fieldHeight: fieldHeight)
                 } else {
                     Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(80)
                 }
@@ -63,8 +65,9 @@ struct RootView: View {
             .safeAreaInset(edge: .top) {
                 VStack(spacing: Metrics.Spacing.s) {
                     buttons
-                    Notices { sheet = .settings }.padding(.horizontal, Metrics.threadGutter)
+                    Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { topHeight = $0 }
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) { ProfileView(ref: $0.ref) }
@@ -76,7 +79,7 @@ struct RootView: View {
             ) {
                 Task { await thread.stop() }
             }
-            .padding(.horizontal, Metrics.threadGutter).padding(.bottom, Metrics.Spacing.s)
+            .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldHeight = $0 }
         }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it.

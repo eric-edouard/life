@@ -2,10 +2,8 @@ import SwiftUI
 
 /// Spacing and corner radii from the approved mockups. Use these rather than numbers.
 enum Metrics {
-    /// Side margin of every page.
+    /// Side margin of a full page (the profile's 20); the thread, its wash and the field use `Spacing.l`, the prototype's 16.
     static let gutter: CGFloat = 20
-    /// Side margin of the thread and what bleeds out of it (a wash): the prototype's 16, one number for the page, the wash and the field.
-    static let threadGutter = Spacing.l
     static let cardPadding = Spacing.l
 
     /// The state dot beside a status word.

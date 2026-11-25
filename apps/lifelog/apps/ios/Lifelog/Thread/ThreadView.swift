@@ -7,7 +7,10 @@ struct ThreadView: View {
     let screen: MainSessionScreen
     let actions: BlockActions
     var isPaired = true
-    /// The field that covers the thread's bottom: the last row rests above it, and stays there as words stream in.
+    /// The buttons over the thread's top: it starts below them and fades out under them.
+    var topHeight: CGFloat = 0
+    /// The field that covers the thread's bottom: the last row rests above it. Kept as a margin on purpose: the
+    /// safe-area inset alone left the last row under the field (the flow tests failed without it).
     var fieldHeight: CGFloat = 0
     @State private var showsEarlier = false
     /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
@@ -33,10 +36,17 @@ struct ThreadView: View {
         }?.id
     }
 
+    /// Today and yesterday by name, else the weekday and date.
+    private func dayName(_ day: Date) -> String {
+        if calendar.isDateInToday(day) { return String(localized: "Today") }
+        if calendar.isDateInYesterday(day) { return String(localized: "Yesterday") }
+        return day.formatted(.dateTime.weekday(.wide).day().month())
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
+                LazyVStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if shown.count < thread.entries.count {
                         Button("Show earlier") {
                             // What was at the top stays where it is: the older entries grow above it.
@@ -49,7 +59,7 @@ struct ThreadView: View {
                     }
                     ForEach(Array(shown.enumerated()), id: \.element.id) { i, entry in
                         if i == 0 || !calendar.isDate(shown[i - 1].at, inSameDayAs: entry.at) {
-                            Text(entry.at.formatted(.dateTime.weekday(.wide).day().month()))
+                            Text(dayName(entry.at))
                                 .font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity).padding(.top, i == 0 ? 0 : Metrics.Spacing.s)
                                 .accessibilityAddTraits(.isHeader)
@@ -64,10 +74,17 @@ struct ThreadView: View {
                     }
                     Color.clear.frame(height: 1).id("end")
                 }
-                .padding(.horizontal, Metrics.threadGutter).padding(.vertical, Metrics.Spacing.l)
+                .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
             }
-            .overlay { if thread.entries.isEmpty && !thread.isWorking { EmptyThread() } }
+            .contentMargins(.top, topHeight, for: .scrollContent)
             .contentMargins(.bottom, fieldHeight, for: .scrollContent)
+            .mask(alignment: .top) {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: topHeight)
+                    Rectangle()
+                }
+            }
             .defaultScrollAnchor(.bottom)
             // The keyboard shrinks the thread from below: its bottom stays where it was.
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
@@ -79,9 +96,15 @@ struct ThreadView: View {
             .onScrollPhaseChange { old, new in
                 if new == .idle, old == .interacting || old == .decelerating { followsEnd = isNearEnd }
             }
+            // His own ask goes to the end whatever he was reading; a late reply or a new card only when he is there.
             .onChange(of: thread.entries.count) {
-                followsEnd = true
-                proxy.scrollTo("end", anchor: .bottom)
+                if thread.entries.last?.phase == .sending { followsEnd = true }
+                if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
+            }
+            // The keyboard or the field growing shrinks the view from below: at the end, it stays at the end.
+            .onChange(of: fieldHeight) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
+            .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.height } action: { _, _ in
+                if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
             }
             .onChange(of: life.focused) {
                 guard let ref = life.focused else { return }
@@ -94,14 +117,6 @@ struct ThreadView: View {
             }
             .onChange(of: thread.live) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
         }
-    }
-}
-
-/// A thread with nothing in it yet: one quiet line where the first words will land.
-private struct EmptyThread: View {
-    var body: some View {
-        Text("Ask me anything.").font(.body15).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
-            .padding(Metrics.gutter).allowsHitTesting(false)
     }
 }
 

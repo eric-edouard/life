@@ -88,7 +88,7 @@ struct AskCard: View {
             }
             AnswerPills(answers: answers, recommended: recommended, busy: busy)
         }
-        .padding(.vertical, isInItem ? 0 : Metrics.Spacing.l).padding(.horizontal, isInItem ? 0 : Metrics.threadGutter)
+        .padding(.vertical, isInItem ? 0 : Metrics.Spacing.l).padding(.horizontal, isInItem ? 0 : Metrics.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading).washed(!isInItem)
     }
 }
