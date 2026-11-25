@@ -228,6 +228,7 @@ test("the main session's question wakes its agent at once; its turn ends only on
   expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
   expect(() => readQuestion(desk, s, late.id)).toThrow("is no question");
   // A reply after the main session stopped waiting lands as an entry of its own that follows his ask.
+  setSystemTime(new Date(Date.now() + 1000));
   const roof = askAssignment(desk, s.id, "And the roof?", 7);
   if ("error" in roof) {
     throw new Error(roof.error);
