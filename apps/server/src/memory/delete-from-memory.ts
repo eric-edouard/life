@@ -85,7 +85,7 @@ export function copyMatchOf(
 export interface DeletionPlan {
   /** The digest of the exact set: the second call's `confirm`, so nothing is written that he did not see. */
   confirm: string;
-  /** The copies of his words outside memory that hold them: blanked by the write. */
+  /** The copies of his words outside memory that hold them: named by the write's record; the thread entries listed, never digested. */
   copies: DeletionCopy[];
   cuts: Cut[];
   days: string[];
@@ -448,8 +448,9 @@ export async function planDeletion(
     })),
   ];
   return {
+    // The thread entries stay out of the digest: an answer to the preview quoting the words is a new match at confirm.
     confirm: deletionDigestOf({
-      copies,
+      copies: copies.filter((c) => c.kind === "instruction"),
       cuts,
       named,
       withSources: ask.withSources,
@@ -509,7 +510,7 @@ async function readDaysAgain(days: readonly string[]) {
  * His refs deleted: the preview, or, with its `confirm`, the one write: the record (refs, the instruction lines holding
  * the words, cuts' places and digests, the units' hashes before it, `withSources`), the open cards it reaches withdrawn,
  * then its days read again and the index rebuilt. Anything but the preview's exact set is previewed again, never
- * written. The thread entries it reaches are returned (`entries`) for the host's door to blank: memory cannot write them.
+ * written. The thread entries it reaches (found by the host's `threadEntriesHolding`) go in the record too.
  */
 export async function deleteFromMemory(
   ask: unknown,
@@ -531,11 +532,9 @@ export async function deleteFromMemory(
     cuts: plan.cuts,
     kind: "deleted",
     oldHashes: plan.oldHashes,
-    // An instruction line holding the words goes whole, applied at read (`instructionsFor`); its file is never rewritten.
-    refs: [
-      ...request.refs,
-      ...plan.copies.flatMap((c) => (c.kind === "instruction" ? [c.id] : [])),
-    ],
+    // An instruction line or a thread entry holding the words goes whole, applied at read (`instructionsFor`,
+    // `readThread`); the desk blanks the entry on its tick, and the instructions' file is never rewritten.
+    refs: [...request.refs, ...plan.copies.map((c) => c.id)],
     // His words could quote what he deleted: the record keeps their digest, never them.
     said: digest("sha256", request.said, 16),
     schemaVersion: 1,
@@ -552,9 +551,6 @@ export async function deleteFromMemory(
   return {
     at: deleted.at,
     days: plan.days,
-    entries: plan.copies.flatMap((c) =>
-      c.kind === "thread entry" ? [c.id] : []
-    ),
     published: published ?? [],
     refs: request.refs,
     reindexed: published !== null,

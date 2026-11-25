@@ -2,11 +2,14 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
+import { appendJsonl } from "../core/files";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { DECISIONS } from "../memory/decision-lines";
+import { CORRECTIONS } from "../memory/memory-files";
+import { Correction } from "../records/observation";
 import { expectWire } from "./http/wire-fixture";
-import { blankThreadEntries, itemStateOf, readThread } from "./life-thread";
+import { itemStateOf, readThread } from "./life-thread";
 
 // Made-up asks, answers and cards throughout.
 
@@ -122,12 +125,25 @@ test("an entry whose answer cites what he deleted is hidden; a blanked entry is 
   });
 });
 
-test("a blanked entry reads empty: its words and answer gone, the row kept, the thread showing it no more", async () => {
-  entry("Where is the spare key?", ["obs_00000000000a"]);
-  blankThreadEntries(["thread:1"]);
-  expect(
-    db.query("select words, answer from thread_entry where id = 1").get()
-  ).toEqual({ answer: "", words: "" });
-  const page = await readThread();
-  expect("items" in page && page.items).toEqual([]);
+test("an entry his deletion names is hidden at read, before the desk blanks it", async () => {
+  entry("Where is the spare key?", []);
+  appendJsonl(CORRECTIONS, Correction, [
+    {
+      at: new Date().toISOString(),
+      cuts: [],
+      kind: "deleted",
+      oldHashes: [],
+      refs: ["thread:1"],
+      said: "0123456789abcdef",
+      schemaVersion: 1,
+      shown: [],
+      withSources: false,
+    },
+  ]);
+  try {
+    const page = await readThread();
+    expect("items" in page && page.items).toEqual([]);
+  } finally {
+    rmSync(CORRECTIONS, { force: true });
+  }
 });
