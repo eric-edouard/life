@@ -26,7 +26,7 @@ import * as draftSend from "../memory/draft-send";
 import { askDecision, readCard } from "./agent-actions";
 import { nextWakeOf } from "./agent-wait";
 import { pollAnswers } from "./desk-clock";
-import { advance, ahead, asgOf, on, pastPlan, setup } from "./test-desk";
+import { advance, ahead, asgOf, on, pastFirstCard, setup } from "./test-desk";
 
 // The desk's side of a draft's contest, made up: two agents each draft into Noa's group chat.
 
@@ -44,6 +44,7 @@ const readChat = () =>
   });
 const card = (agent: string, over = {}) => ({
   agent,
+  ask: "Decide it",
   context: "A made-up reason to ask.",
   deadline: ahead(DAY),
   draft: {
@@ -51,11 +52,13 @@ const card = (agent: string, over = {}) => ({
     text: "See you at seven",
     to: "Climbing group",
   },
+  follow: [],
   options: [
     { id: "send", label: "Send it", outgoing: true },
     { id: "skip", label: "Skip" },
   ],
   question: "Send this to the group?",
+  recommended: "send",
   title: "Reply to the group",
   ...over,
 });
@@ -139,7 +142,7 @@ test("a merged card's answer wakes both agents", async () => {
   const { desk, waiting } = setup();
   const holder = await waiting(DAY);
   const asker = await waiting(DAY);
-  await pastPlan(desk, on(desk, holder));
+  await pastFirstCard(desk, on(desk, holder));
   pollAnswers(desk);
   await askDecision(desk, on(desk, holder), card(holder) as never);
   const w = await ask(asker);
@@ -233,7 +236,7 @@ test("a desk holder's merge: the paired agent whose card it merged hears his ans
   );
   const { desk, waiting } = setup();
   const holder = await waiting(DAY);
-  const plan = await pastPlan(desk, on(desk, holder));
+  const plan = await pastFirstCard(desk, on(desk, holder));
   pollAnswers(desk);
   const from = clock();
   await askDecision(desk, on(desk, holder), card(holder) as never);

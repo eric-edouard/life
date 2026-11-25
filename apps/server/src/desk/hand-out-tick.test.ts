@@ -12,6 +12,7 @@ import { setSettings, settings } from "../core/settings";
 import { answerWithResult } from "../host/answer-result";
 import { agentOf, assignmentOf, readNotes } from "../host/desk-read";
 import { DECISION_ANSWERED } from "../host/events";
+
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
 import { DECISIONS } from "../memory/decision-lines";
@@ -39,9 +40,10 @@ import {
 } from "./matter-net";
 import {
   asgOf,
+  cardFields as fields,
   matterView,
   on,
-  pastPlan,
+  pastFirstCard,
   setup,
   toDo,
   withBook,
@@ -269,6 +271,7 @@ const views = () =>
 const ask = (desk: ReturnType<typeof deskOf>, id: string) =>
   withMatters(views(), () =>
     askDecision(desk, byId(desk, id), {
+      ...fields("yes"),
       context: "A made-up reason to ask.",
       deadline: iso(clock().getTime() + DAY),
       options: [
@@ -341,7 +344,7 @@ test("a matter whose hand-out ended is not handed out again a week later without
   }
 });
 
-test("a handed-out agent's packet carries the one-card first turn, a plain agent's the plan", async () => {
+test("a handed-out agent's packet says Life handed it the matter, a plain agent's that he gave it; neither asks a plan card", async () => {
   const desk = deskOf();
   const handed = await handOutNext(desk, book().read);
   const plain = register(desk, {
@@ -353,11 +356,13 @@ test("a handed-out agent's packet carries the one-card first turn, a plain agent
   expect(one).toContain("Life handed you this matter");
   // Every card of a handed-out agent lets him drop the matter: it closes in Life on his pick.
   expect(one).toContain(
-    'Every card also offers Drop it, marked `ends: "matter"`'
+    'Such a card also offers Drop it, marked `ends: "matter"`'
   );
-  expect(one).not.toContain("Start the plan");
-  expect(two).toContain("Start the plan");
+  expect(two).toContain("He gave you this.");
   expect(two).not.toContain("Life handed you this matter");
+  for (const packet of [one, two]) {
+    expect(packet).not.toContain("Start the plan");
+  }
   expect(byId(desk, handed ?? "").opened_by).toBe("desk");
 });
 
@@ -410,6 +415,7 @@ test("Done on an `ends: matter` card closes the matter: off the matters to do; i
       // The desk reads his answers from here on.
       pollAnswers(desk);
       const { id } = await askDecision(desk, byId(desk, handed), {
+        ...fields("done"),
         context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
@@ -461,11 +467,12 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
         runtime: "claude",
         steps: [theirs],
       });
-      await pastPlan(desk, on(desk, asker));
-      await pastPlan(desk, on(desk, holder));
+      await pastFirstCard(desk, on(desk, asker));
+      await pastFirstCard(desk, on(desk, holder));
       pollAnswers(desk);
       const card = (agent: string, title: string) =>
         askDecision(desk, on(desk, agent), {
+          ...fields("yes"),
           context: "A made-up reason to ask.",
           deadline: iso(clock().getTime() + DAY),
           onSilence: null,
@@ -521,7 +528,8 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
             name: "Test bakery",
             notes: "",
             people: [],
-            repos: [],
+            // A project's agent takes its matters only while it has a repo.
+            repos: ["test-bakery-app"],
             status: "active",
           },
         ],
@@ -531,9 +539,10 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
         project: "test-bakery",
         runtime: "claude",
       });
-      await pastPlan(desk, on(desk, agent));
+      await pastFirstCard(desk, on(desk, agent));
       pollAnswers(desk);
       const { id } = await askDecision(desk, on(desk, agent), {
+        ...fields("done"),
         context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,
@@ -582,9 +591,10 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
         steps: [step],
       });
       const s = on(desk, old);
-      await pastPlan(desk, s);
+      await pastFirstCard(desk, s);
       pollAnswers(desk);
       const { id: card } = await askDecision(desk, s, {
+        ...fields("yes"),
         context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
         onSilence: null,

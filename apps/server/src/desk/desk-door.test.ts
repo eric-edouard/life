@@ -7,14 +7,12 @@ import { DESK_AGENT } from "../core/names";
 import { ask as recordAsk } from "../host/asks";
 import { currentAssignmentOf } from "../host/desk-read";
 import { ASK_SPOKEN } from "../host/events";
-import { isHisWordsPlanOf } from "../host/inbox";
 import { decisionsNow } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
 import { readPacket, register } from "./agent-actions";
 import { doorFetch } from "./desk-door";
 import { type Desk, openDesk } from "./desk-store";
 import { doorOf } from "./door-keys";
-import { firstTurnOf } from "./first-turns";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { on } from "./test-desk";
 
@@ -95,23 +93,22 @@ async function askCard(id: string, key: string, card: object) {
 }
 
 const ask = (question: string) => ({
+  ask: "Decide it",
   context: "A made-up reason to ask.",
   deadline: ahead(DAY),
+  follow: [],
   options: [
     { id: "yes", label: "Yes" },
     { id: "no", label: "No" },
   ],
   question,
+  recommended: "yes",
   title: "a test",
 });
 
-/** An assignment's plan card: its steps, and the two options a plan card has. */
+/** A card that presents a plan: its steps, what happens after his yes. */
 const planAsk = (question: string) => ({
   ...ask(question),
-  options: [
-    { id: "start", label: "Start the plan" },
-    { id: "decline", label: "Not this plan" },
-  ],
   plan: [{ by: "agent", text: "Do the one step" }],
 });
 
@@ -194,51 +191,18 @@ test("an agent's card comes back as its preview, asked only when repeated unchan
   expect(JSON.parse(done.text ?? "{}").id).toMatch(DECISION_ID);
 });
 
-test("a new agent waits or finishes only once it asked its plan", async () => {
+// No plan card (his yes of 25 Nov 2026): an agent may wait or finish with no card, whoever opened its assignment.
+test("a new agent may wait or finish with no card", async () => {
   const id = agent();
   const { key } = doorOf(id);
   const wait = { events: [], reason: "r", until: ahead(HOUR) };
-  expect((await call(id, key, "set_wait", wait)).text).toContain(
-    "ask your plan first"
-  );
-  expect(
-    (await call(id, key, "finish", { outcome: "Test: done" })).text
-  ).toContain("ask your plan first");
-  const withdrawn = await askCard(id, key, planAsk("Test: plan?"));
-  await call(id, key, "request_decision", {
-    why: "Test: rethought",
-    withdraw: JSON.parse(withdrawn.text ?? "{}").id,
-  });
-  expect((await call(id, key, "set_wait", wait)).text).toContain(
-    "ask your plan first"
-  );
-  await askCard(id, key, planAsk("Test: go with the plan?"));
   expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
-});
-
-test("the Personal agent holding his spoken ask may wait without a plan card: his words are its plan", async () => {
-  const id = agent();
-  const s = on(desk, id);
-  const wait = { events: [], reason: "r", until: ahead(HOUR) };
-  desk.db.run("update agent set role = 'personal' where id = ?", [id]);
-  // Personal with no spoken ask yet: a plan card first.
-  expect(firstTurnOf(desk.db, { role: "personal" }, s)).toContain("plan card");
-  expect((await call(id, doorOf(id).key, "set_wait", wait)).text).toContain(
-    "ask your plan first"
-  );
-  desk.db.run(
-    "insert into event (assignment_id, event_id, name, payload, received_at) values (?, 'entry_00000000000a', ?, '{}', ?)",
-    [s.id, ASK_SPOKEN, clock().toISOString()]
-  );
-  expect(firstTurnOf(desk.db, { role: "personal" }, s)).toContain(
-    "his words are your plan"
-  );
   expect(
-    (await call(id, doorOf(id).key, "set_wait", wait)).result?.isError
+    (await call(id, key, "finish", { outcome: "Test: done" })).result?.isError
   ).toBe(false);
 });
 
-test("a spoken ask is read at the door only by the assignment it was routed to; a matter's assignment keeps its card", async () => {
+test("a spoken ask is read at the door only by the assignment it was routed to", async () => {
   const id = agent();
   const other = agent();
   const spoken = spokenAsk();
@@ -252,31 +216,6 @@ test("a spoken ask is read at the door only by the assignment it was routed to; 
     words: "hey Life, order the test cake",
   });
   expect((await read(other)).text).toContain("was received here");
-  // On a matter (anchored), the Personal agent's assignment keeps its card even with a spoken ask.
-  expect(isHisWordsPlanOf(desk.db, { role: "personal" }, on(desk, id))).toBe(
-    true
-  );
-  desk.db.run(
-    "insert into anchor (assignment_id, step, added_at) values (?, 'obs_00000000000a', ?)",
-    [on(desk, id).id, clock().toISOString()]
-  );
-  expect(isHisWordsPlanOf(desk.db, { role: "personal" }, on(desk, id))).toBe(
-    false
-  );
-});
-
-test("a handed-out agent is told to ask its card, not its plan", async () => {
-  const id = agent();
-  desk.db.run("update assignment set opened_by = 'desk' where agent_id = ?", [
-    id,
-  ]);
-  const { key } = doorOf(id);
-  const wait = { events: [], reason: "r", until: ahead(HOUR) };
-  const refused = (await call(id, key, "set_wait", wait)).text;
-  expect(refused).toContain("ask your card first");
-  expect(refused).not.toContain("plan");
-  await askCard(id, key, ask("Test: send this?"));
-  expect((await call(id, key, "set_wait", wait)).result?.isError).toBe(false);
 });
 
 test("an agent that finished may read its packet, nothing else", async () => {
@@ -316,14 +255,11 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   }
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
+    // No plan card (his yes of 25 Nov 2026): work first, ask only what is his; Life's voice on every card.
+    expect(text).toContain("Ask him only what is his");
+    expect(text).toContain("a finish with no card sends nothing");
     expect(text).toContain(
-      "Act only after his `start`; on his `decline`, `finish`"
-    );
-    // The plan card's rules are in the brief: an agent with its door alone has no `fetch`.
-    expect(text).toContain('{"id":"start","label":"Start the plan"}');
-    // His words of 21 and 22 Nov 2026: a plan reads as steps his app draws, never a wall of text in `context`.
-    expect(text).toContain(
-      "Any plan on any card goes in `plan`, its steps, never as a numbered list in `context`."
+      "write it in Life's voice: Life's voice, in every answer"
     );
     expect(text).toContain("name the matter before you act");
     expect(text).toContain("never with a Monitor");

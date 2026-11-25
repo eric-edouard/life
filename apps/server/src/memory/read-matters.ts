@@ -8,6 +8,7 @@ import {
   isHeldOf,
   type StandingAgent,
 } from "./held-matters";
+import { instructionsFor } from "./instructions";
 import { matterEndOf } from "./matter-end";
 import { iconNow } from "./matter-icons";
 import {
@@ -395,6 +396,7 @@ export const dismissedIdsOf = (
 export type HandOutGate =
   | "not_do"
   | "project_parked"
+  | "hands_off"
   | "direction_due"
   | "dismissed"
   | "held"
@@ -412,6 +414,8 @@ export interface HandOutFacts {
   decisions: Parameters<typeof nextStepNow>[1];
   dismissed: ReadonlySet<string>;
   isDue: (id: string) => boolean;
+  /** Whether his `hands-off` instruction holds on the matter's project: Life helps there only when asked (absent: none). */
+  isHandsOff?: (id: string) => boolean;
   isHeld: (v: HandOutMatter) => AgentHold | undefined;
   isHis: (id: string) => boolean;
   isParked: (id: string) => boolean;
@@ -419,7 +423,7 @@ export interface HandOutFacts {
 
 /**
  * The first gate a running matter fails for the hand-out, or null when it passes every one: its next step is not `do`
- * as it reads now (`nextStepNow`), its project is parked, its direction is due (news may have overtaken it), he
+ * as it reads now (`nextStepNow`), its project is parked or hands off (his `hands-off` instruction), its direction is due (news may have overtaken it), he
  * dismissed it, an agent holds it, it is not one of his (`isOneOfHis`, so a stranger's matter reads "not his"), no
  * agent takes it (`agentFor`: no agent of its project and no Personal agent). The one rule of the hand-out, the new
  * matter check and the report's agent coverage. Pure.
@@ -433,6 +437,9 @@ export function handOutGateOf(
   }
   if (f.isParked(v.id)) {
     return "project_parked";
+  }
+  if (f.isHandsOff?.(v.id)) {
+    return "hands_off";
   }
   if (f.isDue(v.id)) {
     return "direction_due";
@@ -449,14 +456,21 @@ export function handOutGateOf(
   return !f.agentFor || f.agentFor(v) ? null : "no_agent";
 }
 
-/** Which agent takes matter `v`, by id (`agentForOf`, by the project it shows under, `projectOf`), among `standing`. Pure. */
+/**
+ * Which agent takes matter `v`, by id, among `standing` (`agentForOf`): a project's agent only when the project it shows
+ * under (`projectOf`) has a repo, since code work needs that folder and its rules; else the Personal agent, which reads
+ * the project's context all the same (his yes of 25 Nov 2026, question 6). Pure.
+ */
 export const agentForMatterOf = (
   standing: readonly StandingAgent[],
   truth: Pick<People["truth"], "projects">
 ) => {
   const take = agentForOf(standing);
   const shown = projectOf(truth);
-  return (v: Pick<MatterView, "projects">) => take(shown(v)?.id)?.id;
+  return (v: Pick<MatterView, "projects">) => {
+    const p = shown(v);
+    return take(p?.repos.length ? p.id : undefined)?.id;
+  };
 };
 
 /**
@@ -477,11 +491,23 @@ export async function readHandOutMatters(
   const isParked = isParkedMatterOf(people.truth);
   const his = ids(ranked.filter((v) => isOneOfHis(v, people)));
   const parked = ids(ranked.filter(isParked));
+  const shown = projectOf(people.truth);
+  const handsOff = new Set(
+    instructionsFor({ projects: people.truth.projects.map((p) => p.id) })
+      .filter((i) => i.effect === "hands-off")
+      .map((i) => i.scope)
+  );
+  const offIds = ids(
+    ranked.filter(
+      (v) => handsOff.has("all") || handsOff.has(`project:${shown(v)?.id}`)
+    )
+  );
   return {
     facts: {
       decisions,
       dismissed: dismissedIdsOf(book, readDismissedMatterPins()),
       isDue: directionDueOf(book, records, dayNow()),
+      isHandsOff: (id: string) => offIds.has(id),
       isHis: (id: string) => his.has(id),
       isParked: (id: string) => parked.has(id),
     },

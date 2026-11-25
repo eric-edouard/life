@@ -92,7 +92,8 @@ test("his turn outside a desk turn reads the packet and acts on the agent's one 
     reason: "Test: the baker's answer",
     until: iso(clock().getTime() + HOUR),
   });
-  expect(early.isError).toBe(true);
+  // No plan card (his yes of 25 Nov 2026): his turn may wait with no card.
+  expect(early.isError).toBe(false);
 });
 
 test("with several assignments open, his turn names one: none named lists them", async () => {

@@ -5,6 +5,7 @@ import {
   isHeldOf,
   MATTER_OVER_OUTCOME,
 } from "./held-matters";
+import { agentForMatterOf } from "./read-matters";
 
 // The one rule of "held", for the hand-out and the new matter check alike. Made-up steps and agents.
 
@@ -84,4 +85,30 @@ test("a matter goes to the oldest agent of its project, else the Personal agent,
   expect(take("test-farm")?.id).toBe("agt_000000000001");
   expect(take(undefined)?.id).toBe("agt_000000000001");
   expect(agentForOf(standing.slice(1))("test-farm")).toBeUndefined();
+});
+
+// A project is context, never agents (his yes of 25 Nov 2026, question 6): its agent takes its matters only while the
+// project has a repo; else the Personal agent does, the project still its context.
+test("a project's agent takes its matters only when the project has a repo; else the Personal agent", () => {
+  const standing = [
+    {
+      id: "agt_000000000001",
+      name: null,
+      project: null,
+      role: "personal" as const,
+    },
+    { id: "agt_000000000002", name: null, project: "test-shop", role: null },
+    { id: "agt_000000000003", name: null, project: "test-farm", role: null },
+  ];
+  const project = (id: string, repos: string[]) =>
+    ({ id, repos, status: "active" }) as never;
+  const take = agentForMatterOf(standing, {
+    projects: [
+      project("test-shop", ["test-shop-app"]),
+      project("test-farm", []),
+    ],
+  });
+  expect(take({ projects: ["test-shop"] })).toBe("agt_000000000002");
+  expect(take({ projects: ["test-farm"] })).toBe("agt_000000000001");
+  expect(take({ projects: [] })).toBe("agt_000000000001");
 });

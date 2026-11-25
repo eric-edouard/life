@@ -43,7 +43,7 @@ import {
   asgOf,
   matterView,
   on,
-  pastPlan,
+  pastFirstCard,
   setup,
   started,
   withMatters,
@@ -258,17 +258,20 @@ test("a matter's card takes its matter as subject (stored as its newest step), r
     throw new Error("no assignment");
   }
   const card = (subject?: string) => ({
+    ask: "Decide it",
     context: "A made-up reason to ask.",
     deadline: ahead(DAY),
+    follow: [],
     options: [
       { id: "yes", label: "Yes" },
       { id: "no", label: "No" },
     ],
     question: "Test: order it?",
+    recommended: "yes",
     title: "a test",
     ...(subject ? { subject } : {}),
   });
-  await pastPlan(desk, row);
+  await pastFirstCard(desk, row);
   await withMatters(MATTERS, async () => {
     await expect(askDecision(desk, row, card("obs_b1"))).rejects.toThrow(
       "is not on a matter you hold"
@@ -326,13 +329,16 @@ test("after a turn the desk commits the agent's home and the assignment's folder
 // matters and cards; `own` is the agent's own assignment, `onA` its assignment on a made-up matter.
 
 const yesNo = (subject?: string) => ({
+  ask: "Decide it",
   context: "A made-up reason to ask.",
   deadline: ahead(DAY),
+  follow: [],
   options: [
     { id: "yes", label: "Yes" },
     { id: "no", label: "No" },
   ],
   question: "Test: order it?",
+  recommended: "yes",
   title: "a test",
   ...(subject ? { subject } : {}),
 });
@@ -350,8 +356,8 @@ async function twoAssignments() {
   };
   const own = () => row(asgOf(t.desk, id));
   const planIds = [
-    await pastPlan(t.desk, own()),
-    await pastPlan(t.desk, row(a)),
+    await pastFirstCard(t.desk, own()),
+    await pastFirstCard(t.desk, row(a)),
   ];
   return { ...t, id, onA: () => row(a), own, planIds };
 }
@@ -379,7 +385,7 @@ test("a card stays its asking assignment's when its subject is later anchored on
     throw new Error("no assignment on b");
   }
   const own = () => b;
-  planIds.push(await pastPlan(desk, b));
+  planIds.push(await pastFirstCard(desk, b));
   await withMatters(MATTERS, async () => {
     pollAnswers(desk);
     const { id: card } = await askDecision(desk, own(), yesNo("obs_b1"));
