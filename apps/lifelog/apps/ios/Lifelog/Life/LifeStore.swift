@@ -293,7 +293,6 @@ final class LifeStore {
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
     }
 
-
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: Self.peopleKey) {
             try await $0.readPeopleAndOrganizations()
@@ -336,8 +335,6 @@ final class LifeStore {
     func latestChain(of subject: String) -> PageChain<LatestPage> {
         PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
     }
-
-
 
     func refreshOpenWith(_ ref: String) async {
         await load(
@@ -385,7 +382,6 @@ final class LifeStore {
         return state(of: .appointment(id))
     }
 
-
     func refreshMatter(_ id: String) async {
         let key = "read_matter-\(id)"
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
@@ -395,7 +391,6 @@ final class LifeStore {
             try await $0.readMatter(id)
         }
     }
-
 
     func refreshProjects() async {
         await load({ self.projects.apply($0) }, key: Self.projectsKey, held: { self.projects.value }) {

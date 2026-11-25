@@ -12,7 +12,6 @@ struct LifelogApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
 
-
     var body: some Scene {
         WindowGroup {
             RootView()
