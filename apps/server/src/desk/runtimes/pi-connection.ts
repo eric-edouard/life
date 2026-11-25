@@ -293,15 +293,16 @@ async function extensionLoaded(
 
 /**
  * What event `l` does: its measures logged; on the run `c` in progress, `runHeard`, an abort once a tool keeps failing
- * (`stopWhy`), and its end told to the provider's pause (a good run lifts it, the provider's error grows it, any other
- * end says nothing). The run's end, if `l` ends it.
+ * (`stopWhy`), and its end told to the provider's pause (a good run lifts it, a background turn's provider error grows
+ * it, any other end says nothing). The run's end, if `l` ends it.
  */
 function eventHeard(
   a: Agent,
   l: PiLine,
   c: Current | undefined,
   pause: ReturnType<typeof providerPause>,
-  abort: () => void
+  abort: () => void,
+  isAsk: boolean | undefined
 ) {
   logMeasures(a, l);
   const ended = c && runHeard(c, l);
@@ -309,7 +310,8 @@ function eventHeard(
     c.isStopping = true;
     abort();
   }
-  if (c && ended && (ended.ok || c.stop === "error")) {
+  // His own ask's failure never arms the pause; its success, like any, lifts it.
+  if (c && ended && (ended.ok || (c.stop === "error" && !isAsk))) {
     pause.heard(!ended.ok);
   }
   return ended;
@@ -375,7 +377,7 @@ export const piOpenOf =
       }
       const c = current;
       const ended =
-        l && eventHeard(a, l, c, pause, () => send({ type: "abort" }));
+        l && eventHeard(a, l, c, pause, () => send({ type: "abort" }), isAsk);
       if (!(c && ended)) {
         return;
       }

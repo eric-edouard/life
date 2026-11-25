@@ -4,6 +4,7 @@ import {
   type Door,
   doorTools,
   type Fetch,
+  FILE_TOOLS,
   guardRefusalOf,
   isGuarded,
   isHisTurn,
@@ -12,7 +13,7 @@ import {
 
 // The Life plugin: in a registered agent's session that the desk did not start (he opened it in the Claude app), it
 // gives the session its door (the door's own tools, relayed), adds the agent's packet to each turn he typed, and runs
-// the desk's send guard before every shell and MCP call, refusing them all when the guard fails. In any other session
+// the desk's send guard before every tool call, refusing them all but the file tools when the guard fails. In any other session
 // every hook passes the event on untouched. It never starts a turn, sets a wait or decides: the desk does.
 
 /**
@@ -138,7 +139,10 @@ export const register: Register = (on) => {
     const tool = String(e.tool);
     const { id, s } = await seenOf($);
     if (isDown(s)) {
-      return isGuarded(s.down, tool) ? { deny: DOWN } : next(e);
+      // A file tool is never refused by the guard: denying it while Life is down would hold him back for nothing.
+      return isGuarded(s.down, tool) && !FILE_TOOLS.has(tool)
+        ? { deny: DOWN }
+        : next(e);
     }
     if (!isDoor(s)) {
       return next(e);

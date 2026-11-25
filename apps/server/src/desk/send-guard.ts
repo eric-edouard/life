@@ -7,6 +7,7 @@
 // Partial on purpose (SECURITY.md): it reads a call's text, so a tab already open on a messaging site, a script that
 // builds its address, `gh api` or `curl` to a service's API, or another program the agent starts get past it.
 
+import { FILE_TOOLS } from "../../../claude-plugin/hooks/door";
 import { AGENT_POST_SIGNATURE, CONNECTOR_WRITES } from "../core/names";
 
 /** A tool call as both runtimes hand it to a `PreToolUse` hook. */
@@ -75,28 +76,6 @@ function isConnectorWrite(tool: string) {
 
 const CARD =
   "Ask him with a card instead (`request_decision` with the message as its draft): Life sends it on his yes.";
-
-/**
- * The tools that only read or write his files (Claude's, Codex's and pi's names): what they hold is never sent, so the
- * guard reads none of it. A script one writes is guarded when a shell runs it.
- */
-const FILE_TOOLS = new Set([
-  "Edit",
-  "Glob",
-  "Grep",
-  "LS",
-  "MultiEdit",
-  "NotebookEdit",
-  "Read",
-  "Write",
-  "apply_patch",
-  "edit",
-  "find",
-  "grep",
-  "ls",
-  "read",
-  "write",
-]);
 
 /** A call's text: a shell call's command, nothing of a file tool's, else its whole input. */
 const textOf = (c: GuardedCall) => {

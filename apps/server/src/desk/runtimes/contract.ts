@@ -91,6 +91,11 @@ export interface Runtime {
   continueOnMac?: (agent: Agent, ref: string) => Promise<void>;
   /** Keeps session `ref` open for `agent` with no prompt (his presence on Ask Life), as `talk` keeps it; refused with `SessionLive` while anything else runs it. */
   keep: (agent: Agent, ref: string) => Promise<void>;
+  /**
+   * Why background turns wait now though the program runs (its model provider failing, `provider-pause.ts`); none when
+   * they may run. Read only by the desk's wake of a due turn: his own asks, starts and moves never wait on it.
+   */
+  paused?: () => string | undefined;
   /** Holds `Agent.rules` as standing instructions on every run (pi), so a fresh session's first message leaves them out (`readPacket`). */
   pinsRules?: boolean;
   /** Launches `message` in the session now, answering once the run is launched (`Run.begun` says when the turn is under way); refused with `SessionLive` while anything else runs it. */

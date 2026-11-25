@@ -193,13 +193,18 @@ function engineOf(
   return { $, call, kept, registered };
 }
 
-test("the plugin's module: a known session with Life down denies every call, the guard reading every tool", async () => {
+test("the plugin's module: a known session with Life down denies every call but the file tools, which the guard never refuses", async () => {
   agentWithSession("sess-plugin-1");
   const door = await lookUpSession(fetch, "sess-plugin-1");
   const e = engineOf("sess-plugin-1", { down: true });
   e.kept.set("agent-session:sess-plugin-1", door?.matcher);
   expect(await e.call("Bash", { command: "ls" })).toHaveProperty("deny");
-  expect(await e.call("Read", { file_path: "x" })).toHaveProperty("deny");
+  expect(await e.call("Read", { file_path: "x" })).toHaveProperty("passed");
+  expect(await e.call("Edit", { file_path: "x" })).toHaveProperty("passed");
+  expect(await e.call("WebFetch", { url: "https://x.test" })).toHaveProperty(
+    "deny"
+  );
+  expect(await e.call("mcp__x__send_message", {})).toHaveProperty("deny");
 });
 
 test("the plugin's module: its door's tools are registered and answered by the door", async () => {

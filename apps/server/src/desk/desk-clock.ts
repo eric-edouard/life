@@ -662,7 +662,10 @@ export async function wakeDue(desk: Desk) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
     const a = await runnableAgentOf(desk, d.a, blockOnce);
-    if (!(await blockOnce(a.runtime))) {
+    // A runtime paused on its failing provider waits too (`Runtime.paused`): only here, never for his own asks.
+    if (
+      !((await blockOnce(a.runtime)) || desk.runtimes[a.runtime]?.paused?.())
+    ) {
       started += (await wake(desk, a, d.s)) ? 1 : 0;
     }
   }

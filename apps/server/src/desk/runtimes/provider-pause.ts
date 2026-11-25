@@ -2,8 +2,9 @@ import { clock, iso, MIN } from "../../core/clock";
 
 // Background turns pause on a failing model provider (the v4 plan, bundle C, after Nod's `failureWindow`): each run that
 // ends on the provider's error doubles the pause, from `PAUSE_FIRST_MS` up to `PAUSE_MOST_MS`, and a run that ends well
-// clears it. The pause is the runtime's `block`, which the desk's tick reads before it starts a due turn, so a paused
-// turn spends no try; his asks (`talk`) never read it, so they still try, and one that ends well lifts the pause.
+// clears it. The pause is the runtime's `paused`, which only the desk's wake of a due turn reads, so a paused turn spends
+// no try; his asks, starts and moves never read it. His own asks never arm it (their failure is his to see); one that
+// ends well lifts it.
 
 const PAUSE_FIRST_MS = 30_000;
 const PAUSE_MOST_MS = 30 * MIN;

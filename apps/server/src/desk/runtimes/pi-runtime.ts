@@ -488,7 +488,7 @@ export const piRuntime = (
   const pause = providerPause();
   return {
     ...sessionRuntime(row, piOpenOf(row, launchWithin, pause), keepWarm),
-    block: async () => (await row.block()) ?? pause.block(),
+    paused: pause.block,
     // Life's extension holds an agent's rules as a section of every run's system prompt (`pi-extension.ts`).
     pinsRules: true,
   };
