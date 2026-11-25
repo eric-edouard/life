@@ -1,0 +1,244 @@
+<title>Life ask cards</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: a summary of his picks on top, then one section per item with its three phones side by side (stacked when narrow).
+   Dark only, as the app (the owner's answer 11); values from tokens.css. */
+:root{--bg:#000;--fg:#fff8ea;--muted:#8a867e;--tile:#111214;--card:#0b0c0e;--tint:rgba(255,248,234,.1);--line:#1f2024;--ok:#30d158;--ai:#9aa8ec;--sans:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.page{max-width:1280px;margin:0 auto;padding-block:28px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:26px;font-weight:700;letter-spacing:-.015em;margin:0 0 6px}
+.intro{color:var(--muted);max-width:68ch;margin:0 0 22px}
+.sum{background:var(--tile);border-radius:22px;padding:16px 18px;margin-bottom:36px}
+.sum h2{font-size:13px;font-weight:650;color:var(--muted);margin:0 0 10px}
+.sumg{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:2px 18px}
+.sumr{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px;color:var(--fg);text-decoration:none;min-width:0}
+.sumr span{flex:1;min-width:0}.sumr b{font-weight:650;white-space:nowrap}.sumr b.none{color:var(--muted);font-weight:500}.sumr small{display:block;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.save{font-size:12.5px;color:var(--muted);margin-top:10px}
+.grp{font-size:13px;font-weight:650;color:var(--muted);margin:44px 0 0}
+section{padding-top:22px;border-top:1px solid var(--line);margin-top:14px;scroll-margin-top:12px}
+section h3{font-size:19px;font-weight:650;margin:0}
+section>p{color:var(--muted);margin:2px 0 16px;max-width:76ch}
+.vars{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:26px 18px;justify-items:center}
+.var{width:390px;max-width:100%;display:flex;flex-direction:column;gap:10px}
+.vh{display:flex;align-items:center;gap:10px}
+.vk{width:30px;height:30px;border-radius:15px;background:var(--tint);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.var.picked .vk{background:var(--fg);color:#000}
+.vh .what{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.3}
+.rec{font-size:11.5px;font-weight:650;color:#000;background:var(--ai);border-radius:9px;padding:2px 8px;white-space:nowrap}
+.way{font-size:13px;color:var(--muted)}.way b{color:var(--fg);font-weight:600}
+.tgw{min-height:36px}.tg{display:flex;gap:4px;padding:3px;border-radius:18px;background:var(--tile);align-self:flex-start}
+.tg button{font:inherit;font-size:13px;font-weight:650;border:0;height:30px;padding:0 12px;border-radius:15px;background:none;color:var(--fg);cursor:pointer}
+.tg button[aria-pressed="true"]{background:var(--fg);color:#000}
+.vph{position:relative;width:390px;height:760px;border-radius:48px;background:#000;box-shadow:inset 0 0 0 1.5px #2a2b31;overflow:hidden;font-family:var(--sans)}
+.vsb{position:absolute;top:14px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:14px;font-weight:650}
+.vpl{position:absolute;top:50px;left:16px;right:16px;display:flex;justify-content:space-between}
+.vpl i{width:38px;height:38px;border-radius:19px;background:rgba(40,41,48,.8);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700}
+.vpl i.pd::after{content:"";width:9px;height:9px;border-radius:5px;background:var(--fg)}
+.vth{position:absolute;top:98px;bottom:92px;left:16px;right:16px;overflow-y:auto;scrollbar-width:none}
+.vth .cbf{min-height:100%;justify-content:flex-end;padding-bottom:6px}
+.vfl{position:absolute;left:16px;right:16px;bottom:26px}
+.vctx{opacity:.55}
+.ctl{display:flex;flex-direction:column;gap:8px}
+.pick{font:inherit;font-weight:650;font-size:14.5px;height:44px;border:0;border-radius:22px;background:var(--tint);color:var(--fg);cursor:pointer}
+.var.picked .pick{background:var(--fg);color:#000}
+.parts{display:flex;flex-wrap:wrap;gap:6px}
+.parts label{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 8px;border-radius:16px;background:var(--tile);font-size:13px;font-weight:600;cursor:pointer}
+.parts input{accent-color:var(--fg);width:16px;height:16px;margin:0}
+.note{margin-top:14px;max-width:820px}
+.note label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.note textarea{width:100%;min-height:48px;box-sizing:border-box;background:var(--tile);color:var(--fg);border:0;border-radius:12px;padding:10px 12px;font:inherit;font-size:14.5px;resize:vertical}
+button:focus-visible,textarea:focus-visible,.parts label:focus-within{outline:2px solid var(--fg);outline-offset:2px}
+@media (max-width:430px){.vph,.var{width:100%}.vph{zoom:.92}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<div class="page">
+<h1>Ask cards: pick or mix</h1>
+<p class="intro">Each ask that has no design yet, in three directions, as you would meet it in the thread. Tap <b>Pick</b> to take one whole, or tick parts from different ones to mix them, and add a note if you like. Your choices save as you go.</p>
+<div class="sum" id="sum"><h2>Your choices</h2><div class="sumg" id="sumg"></div><div class="save" id="save">Saving on this device only until Life’s store answers.</div></div>
+<div id="items"></div>
+</div>
+<script src="card-blocks.js"></script>
+<script>
+(function(){
+var B=CB.B;
+var st=document.createElement('style');st.textContent=CB.css.base+CB.css.cards;document.head.appendChild(st);
+/* the thread around a card, as data: the same few moments reused */
+var CTX={
+ waiting:[['bm','What’s waiting on me?'],['lead','Three things. This one first:']],
+ push:[['lead','Earlier today:'],['row','S','Reply to Sam about the hedge','Sent to Sam','ok']],
+ lunch:[['row','J','Reply to Jade','Sent to Jade','ok'],['lead','A voice from lunch today, and I don’t know whose:']],
+ ben:[['bm','What did Ben say this week?'],['lead','Before I answer: two Bens, maybe one.']],
+ leak:[['matter','Kitchen leak','Paul · open since 12 Nov']],
+ jade:[['lead','Jade asked about Saturday:']],
+ hedge:[['lead','Sam asked about the hedge:'],['row','S','Reply to Sam about the hedge','Sent to Sam','ok']],
+ lawyer:[['bm','Has the lawyer answered?'],['lead','Not yet. I’ll tell you when she does.'],['bm','What’s on today?'],['lead','Just the dentist at 16:00.']],
+ physio:[['bm','Find me a physio who can see me this week']],
+ none:null,
+ mum:[['lead','Your passport renewal went through.']]
+};
+var W={none:'Asked earlier, <b>the answer came later</b>',waiting:'Asked <b>“What’s waiting on me?”</b>',push:'Tapped <b>the notification</b>',lunch:'Tapped <b>the notification</b> after lunch',ben:'Asked <b>“What did Ben say this week?”</b>',leak:'Opened <b>the leak matter</b> from its row',jade:'Life brought <b>a draft</b> to the thread',hedge:'Right after <b>a reply went</b>',lawyer:'Asked earlier, <b>the answer came later</b>',physio:'Asked for <b>long work</b>',mum:'Said <b>“Remind me to call Mum on Sunday”</b>'};
+/* shared content the variants reuse */
+var NORA='N/339',KIT='K/30',PAUL='P/200',JADE='J/160',MAX1='M/30',MAX2='M/200',LEA='L/280';
+var PAY_H=['hero',PAUL,'Pay Paul 240 €','For the leak · due Fri'],PAYA=['answers','I paid it',['Later']];
+var PAY_ROWS=[['To','Plomberie Garnier'],['IBAN','FR76 3000 6000 0112 3456 7890 189',1],['Reference','Invoice 2611-07']];
+var EV={title:'Parents’ meeting',day:'Thursday',time:'18:00',place:'Linden School, room 4',rem:['1 hour before','At 17:30'],around:[['17:00','Free',0],['18:00','Parents’ meeting',1],['19:30','Dinner with Jade',0]]};
+var EV_H=['hero','ic:cal','Add the parents’ meeting?','From Ms Hale’s mail · Thu'];
+var RUN={what:'Physios within 3 km, with their prices',est:1.2,cap:3,cur:'$',month:'50 €',left:'31 €'};
+var RUN_H=['hero','ic:search','Look up the physios near home?','For your shoulder'];
+var STEPS=[{text:'Ask Kit for the inspection date',by:'agent',when:'today, for your yes'},{text:'Be there for the inspection',by:'owner',when:'once Kit answers'},{text:'Remind Kit of the 14-day limit',by:'agent',when:'if nothing by 2 Dec'}];
+var DRAFT='Yes, Saturday works. Book for 8, I’ll be there.',DRAFT2='Yes, Saturday works, I can’t wait! Book for 8 and I’ll be there.';
+var JCHAT=[['Hey! Are we still on for dinner Saturday?','9:12'],['Should I book? 8 or 8:30?','9:40']];
+var REPLY='The lawyer answered: the contract is fine, and she sends the signed copy Monday.';
+var CLINIC_H=['hero','ic:pin','Pick a clinic for the tattoo','For you and Nora · Tue'];
+var SAM_H=['hero','ic:voice','Did Sam say 9 or 10?','From this morning’s call'];
+var CALL=['Then let’s say Saturday at nine, I bring the big ladder','0:06'];
+
+/* every item: its parts (what can be mixed), its default way in and thread, and three variants (blocks before, and after his tap) */
+var ITEMS=[
+{g:'The seven cards',id:'voice',n:'Voice naming',d:'A voice Life heard but cannot name. He plays it, then says who it is, someone new included.',parts:['Clips','Who it may be','Answers'],ctx:'lunch',rec:'A',v:{
+ A:{w:'Clips with their words; Life’s guess is the answer',b:[['hero','ic:voice','Who is this voice?','Heard at 2 lunches · 620 words'],['clip','Then let’s say Saturday at nine, I bring the big ladder','0:06','wave',1],['clip','No, the blue one, it’s cheaper','0:03','wave',4],['answers','Yes, Nora',['Someone else…','Don’t name']],['foot','TV or radio? Say “not a person” and I stop asking.']],
+  a:[['row','ic:voice','Nora','Named in 2 conversations','ok'],['lead','Done: those lines are Nora’s now.']]},
+ B:{w:'Guess first, one short clip; faces only after No',b:[['hero',NORA,'Is this Nora?','Heard at lunch today'],['clip','','0:06','pill',2],['answers','Yes',['No'],'row']],
+  a:[['then','After No'],['why','Then who is it?'],['people',[[MAX1,'Max Weber',''],[LEA,'Lea Moreau',''],[JADE,'Jade','']],'grid'],['answers',null,['TV or video','Don’t name']]]},
+ C:{w:'No guess: the words, then faces to tap',b:[['hero','ic:voice','Who said this?','At lunch today · 620 words'],['clip','Then let’s say Saturday at nine, I bring the big ladder','0:06','text'],['people',[[NORA,'Nora',''],[LEA,'Lea',''],[MAX1,'Max','']],'chips'],['answers',null,['TV or video','Don’t name']]]}}},
+{id:'newmatter',n:'New matter: start, or not',d:'Life found something running in his life that it could move now. Start hands it to Life; nothing leaves without his yes.',parts:['What it shows','Evidence','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Goal and next step in a box; says what Start does',b:[['hero',KIT,'Get the deposit back from Kit','New · from Kit’s message, Tue'],['box',[['Goal','800 € back'],['Next','Ask Kit for the inspection date']]],['foot','Start: I write to Kit for your yes. Nothing goes without you.'],['answers','Start',['Edit goal','Not this']]],
+  a:[['row',KIT,'Get the deposit back from Kit','Drafting the message to Kit','ring',.15]]},
+ B:{w:'One sentence; Start and No side by side',b:[['hero',KIT,'Get the deposit back from Kit','New · Tue'],['why','I can ask Kit for the inspection date now, and follow it until your 800 € is back.'],['answers','Start',['No'],'row'],['foot','To change the goal, just say it.']]},
+ C:{w:'Kit’s own words first, then the offer',b:[['quote','The deposit comes back after the inspection, I’ll tell you when','Kit · WhatsApp, Tue',KIT],['bt','Want me to follow this until the 800 € is back?'],['answers','Yes, follow it',['No'],'row']]}}},
+{id:'ending',n:'“Is this done?”',d:'On its matter’s page only: a later message seems to show a step done.',parts:['Where it sits','Evidence','Answers'],ctx:'leak',rec:'A',v:{
+ A:{w:'A small card on the step, with Paul’s words',b:[['step','Send Paul the photos of the leak','Yours · since Mon'],['quote','Got the photos, thanks! Coming Thursday','Paul · Wed',PAUL],['why','Is this done?'],['answers','Yes, done',['Not yet'],'row']],
+  a:[['step','Send Paul the photos of the leak','Done · Wed','struck'],['step','Let Paul in on Thursday','Yours · Thu']]},
+ B:{w:'Marks right on the step, evidence as its line',b:[['step','Send Paul the photos of the leak','Paul: “Got the photos, thanks” · Wed','ask'],['step','Let Paul in on Thursday','Yours · Thu']]},
+ C:{w:'Shown done already; one tap reopens',b:[['step','Send Paul the photos of the leak','Looks done: Paul got them · Wed','struck'],['answers',null,['Not done yet']],['step','Let Paul in on Thursday','Yours · Thu']]}}},
+{id:'same',n:'Same person',d:'Two people with the same whole name. Join them, or keep them apart.',parts:['Layout','Evidence','Answers'],ctx:'ben',rec:'A',v:{
+ A:{w:'Side by side, each with where you see them',b:[['hero','ic:link','One Ben, or two?','Same whole name; nothing else joins them'],['pair',['B','Ben Carter','WhatsApp','+33 6 12 40 77 81'],['B','Ben Carter','Mail','ben@fernway.co']],['answers','Same person',['Different'],'row']],
+  a:[['lead','One Ben now. He said three things this week:']]},
+ B:{w:'Shows the one person joining makes',b:[['hero','ic:link','Join the two Bens?','Same whole name'],['pair',['B','Ben Carter','WhatsApp +33 6 12 40 77 81'],['B','','Mail ben@fernway.co'],'merged'],['answers','Join them',['Keep apart']]]},
+ C:{w:'One sentence, yes or no',b:[['bt','Is <b>Ben Carter</b> on WhatsApp the same Ben who mails you from Fernway?'],['answers','Yes',['No'],'row']]}}},
+{id:'contacts',n:'Contacts card',d:'A card in his Contacts that could be one of several people.',parts:['The card','Who it may be','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'The card, then who it may be; tap one',b:[['hero','M','Which Max is this?','Contacts card · +33 6 44 12 90 03'],['people',[[MAX1,'Max Weber','Your landlord'],[MAX2,'Max Ruiz','Climbing']],'rows','Tap the one it is']]},
+ B:{w:'Life’s best guess, yes or someone else',b:[['hero',MAX1,'Is this Max Weber?','Your landlord · the card says +33 6 44 12 90 03'],['answers','Yes',['Someone else…'],'row']]},
+ C:{w:'One line and chips',b:[['bt','<b>Max</b>, +33 6 44 12 90 03, in your Contacts. Who is it?'],['people',[[MAX1,'Max Weber',''],[MAX2,'Max Ruiz','']],'chips']]}}},
+{id:'atorg',n:'At organization',d:'Is someone at an organization, with a role? From their Contacts card.',parts:['Question','Evidence','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'The question with where it comes from',b:[['hero','ic:org','Is Lea at Fernway?','As designer · from her Contacts card'],['answers','Yes',['No'],'row']],a:[['row','ic:org','Fernway','Lea added as designer','ok']]},
+ B:{w:'Fernway’s people, with Lea added',b:[['hero','ic:org','Add Lea to Fernway?','From her Contacts card'],['row','B','Ben Carter','Founder'],['row',LEA,'Lea Moreau','Designer · new'],['answers','Add her',['No']]]},
+ C:{w:'A row with two marks',b:[['step','Lea Moreau, designer at Fernway','From her Contacts card','ask']]}}},
+{id:'yourmove',n:'Your move',d:'A step that is his own. Done, later, or dropped.',parts:['Step','Details','Answers'],ctx:'push',way:'Tapped <b>the notification</b> on Thursday',rec:'A',v:{
+ A:{w:'The step with where; Mark as done first',b:[['lead','This one is yours, due tomorrow:'],['hero','ic:car','Book the car’s service','Yours · due Fri'],['box',[['Where','Garage Lemoine'],['Phone','+33 1 44 55 66 77',1]]],['answers','Mark as done',['Later','Drop']]],
+  a:[['lead','This one is yours, due tomorrow:'],['row','ic:car','Book the car’s service','Done','ok']]},
+ B:{w:'Life offers to do it',b:[['lead','This one is yours, due tomorrow:'],['hero','ic:car','Book the car’s service','Yours · due Fri'],['why','I can call the garage and book Friday morning.'],['answers','Hand it to Life',['Mark as done','Later']]],
+  a:[['lead','This one is yours, due tomorrow:'],['row','ic:car','Book the car’s service','Calling the garage · about 10 min','ring',.2]]},
+ C:{w:'A checklist row: tap the circle when done',b:[['lead','This one is yours, due tomorrow:'],['step','Book the car’s service','Due Fri · Garage Lemoine'],['answers',null,['Later','Drop']]]}}},
+{g:'What a card shows so he can answer without leaving',id:'payment',n:'A payment: amount and account',d:'What to pay, to whom, from where.',parts:['Amount','Account','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Big amount, the account as rows, bank link',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],['link','your bank'],PAYA]},
+ B:{w:'Each field with its own copy button',b:[PAY_H,['copyrows',[['Amount','240,00 €']].concat(PAY_ROWS)],PAYA]},
+ C:{w:'One sentence to read or copy whole',b:[PAY_H,['slip','Send <b>240,00 €</b> to <b>Plomberie Garnier</b>, FR76 3000 6000 0112 3456 7890 189, reference <b>Invoice 2611-07</b>.'],PAYA]}}},
+{id:'qr',n:'A payment code',d:'A PromptPay code someone sent.',parts:['Code','Amount','Source'],ctx:'waiting',rec:'A',v:{
+ A:{w:'The code large, ready to scan',b:[['hero','M/30','Pay Mali 4,500 THB','Cleaning · today'],['qr','4,500 THB','Mali’s message','big'],['answers','I paid it',['Later']]]},
+ B:{w:'A small code beside the amount',b:[['hero','M/30','Pay Mali 4,500 THB','Cleaning · today'],['qr','4,500 THB','Mali’s message','thumb'],['answers','I paid it',['Later']]]},
+ C:{w:'Amount first; the code on a tap',b:[['hero','M/30','Pay Mali 4,500 THB','Cleaning · today'],['qr','4,500 THB','Mali’s message','hidden'],['answers','I paid it',['Later']]]}}},
+{id:'link',n:'A link',d:'Where he does the step himself.',parts:['Link','Answers'],ctx:'waiting',rec:'B',v:{
+ A:{w:'A plain “Open” line',b:[['hero','ic:link','Book your flu jab','Pharmacy · this week'],['link','Doctolib'],['answers','Done',['Later']]]},
+ B:{w:'A preview of the page',b:[['hero','ic:link','Book your flu jab','Pharmacy · this week'],['link','Doctolib','doctolib.fr','Pharmacie du Centre · flu jabs','card'],['answers','Done',['Later']]]},
+ C:{w:'Inside the sentence',b:[['hero','ic:link','Book your flu jab','Pharmacy · this week'],['link','Doctolib','','','inline'],['answers','Done',['Later']]]}}},
+{id:'event',n:'An event, with its reminders',d:'What goes in his calendar on his yes.',parts:['Event','Reminders','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'A box: when, where, reminders',b:[EV_H,['event',EV,'box'],['answers','Add to calendar',['No']]]},
+ B:{w:'The slot among the rest of his day',b:[EV_H,['event',EV,'day'],['answers','Add to calendar',['No']]]},
+ C:{w:'One line and its reminders',b:[EV_H,['event',EV,'line'],['answers','Add to calendar',['No']]]}}},
+{id:'apify',n:'A paid search, with its estimate and cap',d:'A run that costs a little. What it gets, about how much, and the most it can cost.',parts:['What it gets','Cost','Answers'],ctx:'physio',way:'Asked for <b>a physio</b>',rec:'A',v:{
+ A:{w:'Estimate and “never more than”',b:[RUN_H,['spend',RUN,'line'],['answers','Run it',['No']]]},
+ B:{w:'A bar: estimate inside its cap',b:[RUN_H,['spend',RUN,'meter'],['answers','Run it',['No']]]},
+ C:{w:'In words, against this month’s amount',b:[RUN_H,['spend',RUN,'month'],['answers','Run it',['No']]]}}},
+{id:'plan',n:'A plan’s steps',d:'What happens after his yes, and which steps are his.',parts:['Steps','Source','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Each step with who and when',b:[['hero',KIT,'Get the deposit back','After your yes'],['plan',STEPS,'list','From the lease and Kit’s messages'],['answers','Go ahead',['Not now']]]},
+ B:{w:'The chain in one glance; his step filled',b:[['hero',KIT,'Get the deposit back','After your yes'],['plan',STEPS,'chips','From the lease and Kit’s messages'],['answers','Go ahead',['Not now']]]},
+ C:{w:'Only the first step; how many after',b:[['hero',KIT,'Get the deposit back','After your yes'],['plan',STEPS,'next','From the lease and Kit’s messages'],['answers','Go ahead',['Not now']]]}}},
+{id:'context',n:'Context, with links',d:'Why Life asks, with links to Life’s own things and a quote.',parts:['Text','Quote','Links'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Short paragraph, links in it, the quote under',b:[CLINIC_H,['md','**Dr. Ink** is 10 min by metro and does both. Nora asked for [her scars too](life:obs).\n> Can they do both of us the same day?\n*Nora · WhatsApp, Mon*'],['answers','Contact Dr. Ink',['Later']]]},
+ B:{w:'One line; the rest behind a chip',b:[CLINIC_H,['why','Dr. Ink does both, 10 min by metro.'],['raw','<a class="cb-srcchip" href="#" onclick="return false">Why this one</a>'],['answers','Contact Dr. Ink',['Later']]]},
+ C:{w:'Bullets, then the quote',b:[CLINIC_H,['md','- Tattoos and scars\n- 10 min by metro\n- About ฿1,000 per cm²\n> Can they do both of us the same day?\n*[Nora](life:person) · WhatsApp, Mon*'],['answers','Contact Dr. Ink',['Later']]]}}},
+{id:'doneseen',n:'Life sees it done',d:'Life watches his bank for the payment, so he need not tell it.',parts:['Before','While looking','When seen'],ctx:'waiting',rec:'C',v:{
+ A:{w:'A status line: looking, then seen',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA],a:[['row',PAUL,'Pay Paul 240 €','Looking in your bank…','spin'],['then','Wed 14:02'],['row',PAUL,'Pay Paul 240 €','Seen in your bank · Wed 14:02','ok']]},
+ B:{w:'Says up front that Life will see it',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],['seen','looking','I’ll see it in your bank','badge'],PAYA]},
+ C:{w:'Nothing to tap: the ask closes itself',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],['answers',null,['Later']]],a:[['row',PAUL,'Pay Paul 240 €','Paid · Wed 14:02','ok'],['lead','Paul’s 240 € went out Wed 14:02, so I closed it.']]}}},
+{id:'clip',n:'A voice clip on a card',d:'When the answer rests on what was said.',parts:['Clip','Words','Answers'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Waveform and the words',b:[SAM_H,['clip',CALL[0],CALL[1],'wave',3],['answers','9:00',['10:00'],'row']]},
+ B:{w:'A play pill, words left out',b:[SAM_H,['clip','',CALL[1],'pill',3],['answers','9:00',['10:00'],'row']]},
+ C:{w:'The words, a small play',b:[SAM_H,['clip',CALL[0],CALL[1],'text'],['answers','9:00',['10:00'],'row']]}}},
+{g:'Answers and what follows them',id:'adds',n:'Add to calendar',d:'His yes writes the event; the result says where it went.',parts:['Button','Result line'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Result as the row’s line, with Undo',b:[EV_H,['event',EV,'line'],['answers','Add to calendar',['No']]],a:[['row','ic:cal','Parents’ meeting','In your calendar · Thu 18:00 · <u>Undo</u>','ok']]},
+ B:{w:'Result as the event itself, ticked',b:[EV_H,['event',EV,'box'],['answers','Add to calendar',['No']]],a:[['raw','<div class="box"><b><span class="okt">'+CB.I.check+'</span> In your calendar</b><div class="kv"><span>Thursday</span><b>18:00, Linden School</b></div></div>']]},
+ C:{w:'Life says it in a sentence',b:[EV_H,['event',EV,'line'],['answers','Add to calendar',['No']]],a:[['row','ic:cal','Parents’ meeting','Added','ok'],['lead','Added for Thursday. I’ll remind you an hour before.']]}}},
+{id:'runs',n:'Run it',d:'His yes starts a paid search; then its result.',parts:['While running','Result'],ctx:'physio',way:'Asked for <b>a physio</b>',rec:'A',v:{
+ A:{w:'A still ring with its estimate, then the count and cost',b:[RUN_H,['spend',RUN,'line'],['answers','Run it',['No']]],a:[['row','ic:search','Physios near home','Running · about 4 min','ring',.4],['then','4 minutes later'],['row','ic:search','Physios near home','38 found · cost $1.10','ok']]},
+ B:{w:'Only the result, as Life’s line',b:[RUN_H,['spend',RUN,'line'],['answers','Run it',['No']]],a:[['lead','Done: 38 physios, $1.10. Two can see you Thursday.']]},
+ C:{w:'The result is the next ask',b:[RUN_H,['spend',RUN,'line'],['answers','Run it',['No']]],a:[['row','ic:search','Physios near home','38 found · $1.10','ok'],['hero','ic:pin','Book a physio for your shoulder','Two can see you Thu'],['answers','Book Harbour Physio',['Later']]]}}},
+{id:'looks',n:'Looks done (I paid it)',d:'He says he did it; Life looks for proof.',parts:['Looking','Not found'],ctx:'waiting',rec:'A',v:{
+ A:{w:'Row line: looking, then not found yet, keeps looking',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA],a:[['row',PAUL,'Pay Paul 240 €','Looking in your bank…','spin'],['then','A minute later'],['row',PAUL,'Pay Paul 240 €','Not in your bank yet · I look again until Fri','']]},
+ B:{w:'Taken at his word; checked tonight',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA],a:[['row',PAUL,'Pay Paul 240 €','Paid · I check your bank tonight','ok']]},
+ C:{w:'Life explains in a sentence',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA],a:[['row',PAUL,'Pay Paul 240 €','Not seen yet',''],['lead','I don’t see it in your bank yet; a transfer can take a day. I’ll look until Friday.']]}}},
+{id:'rate',n:'How am I doing?',d:'At most once a day, after something settled. Three marks and dismiss.',parts:['Placement','Marks'],ctx:'hedge',rec:'A',v:{
+ A:{w:'A bar under the settled row',b:[['rate','bar']],a:[['raw','<div class="hd"><span class="q">Thanks</span></div>']]},
+ B:{w:'Three small marks tucked under the row',b:[['rate','under']]},
+ C:{w:'One question, two marks',b:[['rate','one']]}}},
+{id:'edit',n:'Changing a draft',d:'By tapping a quick edit, or by saying what to change.',parts:['Chips','Words','Old version'],ctx:'jade',rec:'A',v:{
+ A:{w:'Chips under the draft; it changes in place',b:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT],['edits',['Warmer','Shorter','In French']],['answers','Send to Jade',['Later']]],a:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT2],['edits',['back','Shorter','In French']],['answers','Send to Jade',['Later']]]},
+ B:{w:'Chips inside the draft; words in the field',b:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT+CB.B.edits(['Warmer','Shorter','In French'],'inside')],['answers','Send to Jade',['Later']]],a:[['row',JADE,'Reply to Jade','Earlier draft','old'],['bm','Warmer, and say I’ll bring wine'],['chat','Jade',[],'Yes, Saturday works, I’m looking forward to it! Book for 8, and I’ll bring the wine.'],['answers','Send to Jade',['Later']]]},
+ C:{w:'Words only, no chips',b:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT],['answers','Send to Jade',['Later']]],a:[['row',JADE,'Reply to Jade','Earlier draft','old'],['bm','Make it warmer'],['chat','Jade',[],DRAFT2],['answers','Send to Jade',['Later']]]}}},
+{id:'follows',n:'A late reply',d:'An answer that arrives after the thread moved on, tied to what he asked.',parts:['Tie to the ask','Reply'],ctx:'lawyer',rec:'A',v:{
+ A:{w:'His ask quoted on top of the reply',b:[['follows','Has the lawyer answered?',REPLY]]},
+ B:{w:'The reply lands under his old question, marked new',ctx:'none',b:[['bm','Has the lawyer answered?'],['lead','Not yet. I’ll tell you when she does.'],['follows','',REPLY+' <small class="cb-new">New</small>','thread'],['bm','What’s on today?'],['lead','Just the dentist at 16:00.']]},
+ C:{w:'A plain reply with a way back',b:[['follows','Has the lawyer answered?',REPLY,'goto']]}}},
+{id:'handed',n:'I’m on it, with an estimate',d:'Long work handed off: he keeps going, the result lands later.',parts:['Words','Progress'],ctx:'physio',rec:'A',v:{
+ A:{w:'A sentence, then the row with a still ring',b:[['bm','Find me a physio who can see me this week','👀'],['lead','I’m on it. It takes a few calls; I’ll come back with the best times.'],['row','ic:pin','Find a physio for this week','About 20 min','ring',.1]]},
+ B:{w:'The ring in Life’s sentence, no row',b:[['bm','Find me a physio who can see me this week','👀'],['bt',CB.B.ring(.1)+' On it, about 20 minutes. Carry on.']]},
+ C:{w:'No words: the mark and the row',b:[['bm','Find me a physio who can see me this week','👀'],['row','ic:pin','Find a physio for this week','About 20 min','ring',.1]]}}},
+{id:'reaction',n:'Life’s mark on his message',d:'👀 taken on, 👍 done. Never his OK for anything.',parts:['Mark'],ctx:'mum',rec:'A',v:{
+ A:{w:'On the bubble’s corner',b:[['bm','Remind me to call Mum on Sunday','👍'],['lead','Sunday at 10:00.']]},
+ B:{w:'Where a delivery tick sits',b:[['bm','Remind me to call Mum on Sunday','👍','tick'],['lead','Sunday at 10:00.']]},
+ C:{w:'The mark with one word',b:[['bm','Remind me to call Mum on Sunday','👍','words'],['lead','Sunday at 10:00.']]}}}
+];
+/* blocks that read as context in the thread fade back, so the card stands out */
+function phone(ctx,blocks,count){return '<div class="vph"><div class="vsb"><span>9:41</span><span>●●● ▮</span></div><div class="vpl"><i>'+count+'</i><i class="pd"></i></div><div class="vth"><div class="cbf">'+(ctx?'<div class="cbf vctx">'+CB.draw(ctx)+'</div>':'')+CB.draw(blocks)+'</div></div><div class="vfl">'+B.field('Ask anything')+'</div></div>';}
+var CH={};
+function varHTML(it,k){var v=it.v[k],ctx=CTX[v.ctx||it.ctx];
+ return '<div class="var" data-i="'+it.id+'" data-k="'+k+'"><div class="vh"><span class="vk">'+k+'</span><span class="what">'+v.w+'</span>'+(it.rec===k?'<span class="rec">Recommended</span>':'')+'</div>'+
+  '<div class="way">'+(v.way||it.way||W[v.ctx||it.ctx])+'</div>'+'<div class="tgw">'+(v.a?'<div class="tg" role="group" aria-label="Before or after the tap"><button type="button" data-tg="b" aria-pressed="true">Before</button><button type="button" data-tg="a" aria-pressed="false">After the tap</button></div>':'')+'</div>'+
+  '<div class="ph">'+phone(ctx,v.b,3)+'</div>'+
+  '<div class="ctl"><button type="button" class="pick" data-pick>Pick '+k+'</button><div class="parts">'+it.parts.map(function(p,j){var id='m-'+it.id+'-'+k+'-'+j;return '<label for="'+id+'"><input type="checkbox" id="'+id+'" data-part="'+CB.esc(p)+'">'+CB.esc(p)+'</label>';}).join('')+'</div></div></div>';}
+var root=document.getElementById('items'),h='';
+ITEMS.forEach(function(it){if(it.g)h+='<h2 class="grp">'+it.g+'</h2>';h+='<section id="'+it.id+'"><h3>'+it.n+'</h3><p>'+it.d+'</p><div class="vars">'+['A','B','C'].map(function(k){return varHTML(it,k);}).join('')+'</div><div class="note"><label for="n-'+it.id+'">Note</label><textarea id="n-'+it.id+'" data-note="'+it.id+'" placeholder="Anything to change?"></textarea></div></section>';});
+root.innerHTML=h;
+function bottom(){root.querySelectorAll('.vth').forEach(function(t){t.scrollTop=t.scrollHeight;});}
+bottom();
+/* his choices: one doc per item {pick, mix, note}; mix maps each part to the variant it comes from */
+function get(id){return CH[id]||(CH[id]={pick:null,mix:{},note:''});}
+function paint(){ITEMS.forEach(function(it){var c=get(it.id);
+  document.querySelectorAll('.var[data-i="'+it.id+'"]').forEach(function(v){var k=v.dataset.k;v.classList.toggle('picked',c.pick===k);v.querySelector('[data-pick]').setAttribute('aria-pressed',String(c.pick===k));
+    v.querySelectorAll('[data-part]').forEach(function(x){x.checked=c.mix[x.dataset.part]===k;});});
+  var ta=document.getElementById('n-'+it.id);if(document.activeElement!==ta)ta.value=c.note||'';});
+ document.getElementById('sumg').innerHTML=ITEMS.map(function(it){var c=get(it.id),m=Object.keys(c.mix),t=c.pick?'<b>'+c.pick+'</b>':m.length?'<b>Mix</b>':'<b class="none">Not yet</b>';
+  var line=c.pick?it.v[c.pick].w:m.length?m.map(function(p){return p+' '+c.mix[p];}).join(', '):'';if(c.note)line+=(line?' · ':'')+'“'+c.note+'”';
+  return '<a class="sumr" href="#'+it.id+'"><span>'+CB.esc(it.n)+(line?'<small>'+CB.esc(line)+'</small>':'')+'</span>'+t+'</a>';}).join('');}
+var db=null,col=null,LS='life-card-variants';
+function local(){try{localStorage.setItem(LS,JSON.stringify(CH));}catch(e){}}
+try{CH=JSON.parse(localStorage.getItem(LS)||'{}')||{};}catch(e){CH={};}
+paint();
+function save(id){local();if(!col)return;var c=get(id);document.getElementById('save').textContent='Saving…';
+ col.doc(id).set({pick:c.pick,mix:c.mix,note:c.note||'',at:new Date().toISOString()}).then(function(){document.getElementById('save').textContent='Saved.';},function(){document.getElementById('save').textContent='Couldn’t save to Life’s store; kept on this device. Try again in a moment.';});}
+root.addEventListener('click',function(e){var t=e.target.closest('[data-pick],[data-tg]');if(!t)return;var v=t.closest('.var'),id=v.dataset.i,k=v.dataset.k,c=get(id);
+ if(t.matches('[data-tg]')){var it=ITEMS.filter(function(x){return x.id===id;})[0],vv=it.v[k],a=t.dataset.tg==='a';v.querySelectorAll('[data-tg]').forEach(function(b){b.setAttribute('aria-pressed',String(b===t));});
+  v.querySelector('.ph').innerHTML=phone(CTX[vv.ctx||it.ctx],a?vv.a:vv.b,a?2:3);bottom();return;}
+ c.pick=c.pick===k?null:k;c.mix={};paint();save(id);});
+root.addEventListener('change',function(e){var x=e.target.closest('[data-part]');if(!x)return;var v=x.closest('.var'),id=v.dataset.i,c=get(id),p=x.dataset.part;
+ if(x.checked)c.mix[p]=v.dataset.k;else delete c.mix[p];c.pick=null;paint();save(id);});
+var nt={};root.addEventListener('input',function(e){var ta=e.target.closest('[data-note]');if(!ta)return;var id=ta.dataset.note;get(id).note=ta.value;clearTimeout(nt[id]);nt[id]=setTimeout(function(){paint();save(id);},700);});
+/* Life's store, when this view can reach it: the store wins over this device's copy */
+if(window.claude&&claude.use)claude.use('db').then(function(d){if(!d)return;db=d;col=db.collection('choices');
+ var tm=setTimeout(function(){document.getElementById('save').textContent='Life’s store is slow; your choices stay on this device meanwhile.';},10000);
+ col.onSnapshot(function(s){clearTimeout(tm);s.docs.forEach(function(doc){var x=doc.data()||{};CH[doc.id]={pick:x.pick||null,mix:x.mix||{},note:x.note||''};});document.getElementById('save').textContent='Saved to Life’s store as you go.';paint();},
+  function(){clearTimeout(tm);document.getElementById('save').textContent='Couldn’t reach Life’s store; your choices stay on this device.';});});
+})();
+</script>
