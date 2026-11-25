@@ -25,7 +25,7 @@ struct PillStyle: ButtonStyle {
                 // A long label stops at 3 lines, so the answer bar stays bounded (compact pills hold one).
                 .lineLimit(size == .compact || size == .tile ? 1 : 3)
         }
-        .font(size == .tile ? .smallStrong : .buttonLabel)
+        .font(size == .tile ? .heading : .bodyStrong)
         .foregroundStyle(isFilled ? Palette.on : Palette.fg)
         // A compact pill sits beside others in a row: it keeps less to its sides.
         .padding(
@@ -33,7 +33,7 @@ struct PillStyle: ButtonStyle {
         )
         .padding(.vertical, Metrics.Spacing.s)
         .frame(maxWidth: .infinity, minHeight: size.rawValue)
-        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Color.fillTint, in: shape)
+        .background(isFilled ? (kind == .done ? Palette.ok : Palette.fg) : Palette.tint, in: shape)
         .motion(Motion.standard, value: kind == .done)
         .opacity(isBusy ? 1 : isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
         .contentShape(shape)
@@ -42,7 +42,8 @@ struct PillStyle: ButtonStyle {
 
     /// A tile is a rounded square's corners, every other size a capsule.
     private var shape: AnyShape {
-        size == .tile ? AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous)) : AnyShape(.capsule)
+        size == .tile
+            ? AnyShape(RoundedRectangle(cornerRadius: Metrics.Radius.block, style: .continuous)) : AnyShape(.capsule)
     }
 }
 
@@ -59,7 +60,7 @@ struct Spinner: View {
         TimelineView(.animation) { context in
             let seconds = context.date.timeIntervalSinceReferenceDate
             ZStack {
-                Circle().stroke(Color.fillTint, lineWidth: 2)
+                Circle().stroke(Palette.tint, lineWidth: 2)
                 Circle().trim(from: 0, to: 0.25).stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round))
                     // Centred on 12 o'clock at rest (a trim starts at 3), as the frames draw it.
                     .rotationEffect(.degrees(-135))
@@ -102,12 +103,12 @@ struct TextLink: View {
     /// The link's look, for a system link that navigates itself (`NavigationLink`).
     static func label(_ title: String, to goes: Goes) -> some View {
         Text("\(title) \(Image(systemName: goes == .page ? "chevron.right" : "arrow.up.right"))")
-            .font(.smallStrong).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
+            .font(.heading).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
     }
 }
 
 /// An action, or what opens a sheet, as a quiet chip (decision 85): a 14 glyph (when it has one: a label row's chip has
-/// none, "Select", "Close 20") then its words, 13 / 600, on a `fillTint` capsule 32 high in a 44 tap area, no border;
+/// none, "Select", "Close 20") then its words, 13 / 600, on a `tint` capsule 32 high in a 44 tap area, no border;
 /// `isMuted` for a line that says where something came from, `iconTint` for Life's own mark in `ai`.
 struct QuietChip: View {
     let title: String
@@ -135,13 +136,14 @@ struct QuietChip: View {
                 if isBusy {
                     Spinner(size: .small)
                 } else if let symbol {
-                    Image(systemName: symbol).font(.chip).foregroundStyle(iconTint ?? color).accessibilityHidden(true)
+                    Image(systemName: symbol).font(.lineStrong).foregroundStyle(iconTint ?? color).accessibilityHidden(
+                        true)
                 }
-                Text(title).font(.smallStrong)
+                Text(title).font(.heading)
             }
             .foregroundStyle(color)
             .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
-            .background(Color.fillTint, in: .capsule)
+            .background(Palette.tint, in: .capsule)
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
         }
         .buttonStyle(.plain).disabled(isBusy)
@@ -164,7 +166,7 @@ struct ListLabel<Action: View>: View {
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            Text(text).font(.small).foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
+            Text(text).font(.line).foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             action
         }
@@ -185,10 +187,10 @@ extension View {
     /// takes it as its button style (`.buttonStyle(.groupedRow(…))`), so the whole 60 is the tap.
     func groupedRow(at index: Int, of count: Int, isChosen: Bool = false, isPressed: Bool = false) -> some View {
         // The lit container: the card radius on every corner, a little wider than the row's text and 2 off the hairlines.
-        let lit = RoundedRectangle(cornerRadius: Metrics.Radius.card)
+        let lit = RoundedRectangle(cornerRadius: Metrics.Radius.block)
         return frame(minHeight: Metrics.listRow).contentShape(.rect)
             .background {
-                lit.fill(Color.pick).padding(.horizontal, -Metrics.Spacing.xs * 2).padding(.vertical, 2)
+                lit.fill(Palette.glass).padding(.horizontal, -Metrics.Spacing.xs * 2).padding(.vertical, 2)
                     .opacity(isChosen || isPressed ? 1 : 0)
             }
             .overlay(alignment: .top) { if index > 0 { Hairline() } }
@@ -257,10 +259,12 @@ struct SegmentedChoice<Choice: Hashable>: View {
                         if withIcons, let symbol = icon(choice) {
                             Image(systemName: symbol).font(.system(size: 16)).accessibilityHidden(true)
                         }
-                        Text(title(choice)).font(.chip).lineLimit(1)
+                        Text(title(choice)).font(.lineStrong).lineLimit(1)
                         if let detail = detail(choice) {
-                            Text(detail).font(.chip).foregroundStyle(isChosen ? Palette.on.opacity(0.6) : Palette.muted)
-                                .lineLimit(1)
+                            Text(detail).font(.lineStrong).foregroundStyle(
+                                isChosen ? Palette.on.opacity(0.6) : Palette.muted
+                            )
+                            .lineLimit(1)
                         }
                     }
                     .fixedSize()
@@ -279,7 +283,7 @@ struct SegmentedChoice<Choice: Hashable>: View {
 extension View {
     /// A draft, a piece of evidence or a clip on paper: the `paper` fill at the passage radius (a quote sits on `tile`).
     func paperBox() -> some View {
-        background(Palette.paper, in: .rect(cornerRadius: Metrics.Radius.passage))
+        background(Palette.paper, in: .rect(cornerRadius: Metrics.Radius.block))
     }
 }
 
@@ -296,7 +300,7 @@ struct ProgressLine: View {
     var body: some View {
         HStack(spacing: 12) {
             if let label { Caps(label, color: Palette.muted) }
-            Capsule().fill(Color.fillTint).frame(height: 6)
+            Capsule().fill(Palette.tint).frame(height: 6)
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in
                         Capsule().fill(fill).frame(width: proxy.size.width * min(max(fraction ?? 0, 0), 1))
@@ -313,7 +317,7 @@ struct ProgressLine: View {
 extension View {
     /// A `card` fill at the card radius with 16 of padding: the goal and next step, an agent, a choice waiting.
     func box() -> some View {
-        padding(16).frame(maxWidth: .infinity, alignment: .leading).card(radius: Metrics.Radius.card)
+        padding(16).frame(maxWidth: .infinity, alignment: .leading).card(radius: Metrics.Radius.block)
     }
 }
 
@@ -468,7 +472,7 @@ struct StateMark: View {
     var body: some View {
         HStack(spacing: 6) {
             glyph
-            Text(word).font(.smallStrong).foregroundStyle(glyph.color)
+            Text(word).font(.heading).foregroundStyle(glyph.color)
         }
         .fixedSize()
         .accessibilityElement(children: .combine)
@@ -522,20 +526,20 @@ struct TapLine: View {
     var body: some View {
         switch state {
         case .known:
-            if let detail { Text(detail).font(.small).foregroundStyle(Palette.muted) }
-        case .asking: Text("Asking the server…").font(.small).foregroundStyle(Palette.muted)
+            if let detail { Text(detail).font(.line).foregroundStyle(Palette.muted) }
+        case .asking: Text("Asking the server…").font(.line).foregroundStyle(Palette.muted)
         case .saving:
             HStack(spacing: 8) {
                 if !isInRow { StateGlyph.busy }
-                Text("Saving…").font(.small).foregroundStyle(Palette.muted)
+                Text("Saving…").font(.line).foregroundStyle(Palette.muted)
             }
         case .done(let word):
             HStack(spacing: 6) {
                 StateGlyph.ok
-                Text(word).font(.smallStrong)
+                Text(word).font(.heading)
             }
             .foregroundStyle(Palette.ok)
-        case .refused(let message): Text(message).font(.small).foregroundStyle(Palette.flag)
+        case .refused(let message): Text(message).font(.line).foregroundStyle(Palette.flag)
         }
     }
 }
@@ -562,7 +566,7 @@ struct Row<Trailing: View>: View {
                     .frame(width: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
-                titleText.font(.rowName).foregroundStyle(Palette.fg)
+                titleText.font(.rowTitle).foregroundStyle(Palette.fg)
                 TapLine(state: state, detail: detail, isInRow: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -600,7 +604,7 @@ struct RowValue: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if let text { Text(text).font(.note).foregroundStyle(Palette.muted) }
+            if let text { Text(text).font(.line).foregroundStyle(Palette.muted) }
             Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(
                 Palette.muted
             )
@@ -670,14 +674,16 @@ struct RowGroup<Content: View>: View {
                         ForEach(rows) { row in
                             row.appears().overlay(alignment: .top) {
                                 if row.id != rows.first?.id {
-                                    Hairline(color: surface == .page ? Palette.line : .fillTint).padding(.leading, 16)
+                                    Hairline(color: surface == .page ? Palette.line : Palette.tint).padding(
+                                        .leading, 16)
                                 }
                             }
                         }
                     }
                     .foregroundStyle(Palette.fg)
                     // A list sits on the page with hairlines; only a sheet's group keeps its tile.
-                    .background(surface == .sheet ? surface.fill : .clear, in: .rect(cornerRadius: Metrics.Radius.card))
+                    .background(
+                        surface == .sheet ? surface.fill : .clear, in: .rect(cornerRadius: Metrics.Radius.block))
                 }
                 .appears()
             }
@@ -712,8 +718,8 @@ struct SheetHeader: View {
     /// `nil` for a sheet whose first line names itself (the pendant's big word is the state).
     var title: String?
     var color: Color = Palette.fg
-    /// A sheet's heading; a screen shown in a sheet ("Settings") passes `.screenName`.
-    var font: TypeStep = .sheetQuestion
+    /// A sheet's heading; a screen shown in a sheet ("Settings") passes `.profileName`.
+    var font: TypeStep = .profileName
     let close: () -> Void
 
     /// One head row inside the sheet: the title at the left, Close at the right. The stack's bar (`sheetStack()`) is

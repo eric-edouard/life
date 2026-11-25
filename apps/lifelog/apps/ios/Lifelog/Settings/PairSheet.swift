@@ -83,12 +83,12 @@ struct PairSheet: View {
             RowGroup(surface: .sheet) {
                 ForEach(offer.connections) { connection in
                     Row(title: connection.name) {
-                        Text(offer.address(of: connection)).font(.note).foregroundStyle(Palette.muted)
+                        Text(offer.address(of: connection)).font(.line).foregroundStyle(Palette.muted)
                     }
                 }
             }
             if let replaced {
-                Text(replaced).font(.note).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                Text(replaced).font(.line).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -122,7 +122,7 @@ struct PairSheet: View {
                             + (runs[connection]?.isKept == false && hadPairing(connection)
                                 ? " Your old pairing still works." : "")
                     )
-                    .font(.note).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                    .font(.line).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

@@ -35,16 +35,14 @@ enum Metrics {
         static let personRow: CGFloat = 52
     }
 
-    /// Corner radii, smallest to largest.
+    /// Corner radii (docs/brand.md, Shape): a button is a full pill, the other three are these.
     enum Radius {
-        /// A quote inside a draft, photo tiles and thumbnails.
-        static let tile: CGFloat = 10
-        /// A draft, a piece of evidence, a clip, a multi-line field.
-        static let passage: CGFloat = 16
-        /// Every card, row group and box.
-        static let card: CGFloat = 22
-        /// The floating player.
-        static let player: CGFloat = 30
+        /// A small control, a quote inside a draft, a thumbnail, a field.
+        static let control: CGFloat = 12
+        /// A block in the thread: an option card, a box, a settings block, a draft, a row group.
+        static let block: CGFloat = 18
+        /// A sheet, a panel, the floating player.
+        static let sheet: CGFloat = 22
     }
 
     /// Space between and inside elements, on a 4-point grid.

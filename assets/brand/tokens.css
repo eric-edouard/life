@@ -25,8 +25,35 @@
   --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   /* Code, figures and the pairing code. */
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  /* Cream at a strength, over whatever it sits on (the phone's `Palette.tint`, `glass`, `wash`). Quiet pills and his
+     bubble; floating controls; an unfolded item. */
+  --tint: color-mix(in srgb, var(--fg) 10%, transparent);
+  --glass: color-mix(in srgb, var(--fg) 14%, transparent);
+  --wash: color-mix(in srgb, var(--fg) 5%, transparent);
+  /* Four shapes: a button is a full pill; a small control 12; a block in the thread (option card, box, settings
+     block) 18; a sheet 22. */
   --control-radius: 12px;
+  --block-radius: 18px;
   --panel-radius: 22px;
+  /* One type scale: a profile's name 26, an unfolded header 19, a row's title 16, body 15, a row's line 13.5, a
+     section heading 13, meta 11.5. Weights 450, 600, 650 only. */
+  --text-profile: 26px;
+  --text-header: 19px;
+  --text-title: 16px;
+  --text-body: 15px;
+  --text-line: 13.5px;
+  --text-heading: 13px;
+  --text-meta: 11.5px;
+  /* The aura's ten colours (docs/design/chat-first/2026-11-25-app-v4-design-system.md), each at least 3:1 on `bg`.
+     Never red or bright green: those mean `flag` and `ok`. Life blue is `ai`, cream is `fg`. */
+  --aura-rose: light-dark(#a3345e, #ee8fb1);
+  --aura-amber: light-dark(#8f5510, #f2ad5b);
+  --aura-sand: light-dark(#7a5a24, #e3c48f);
+  --aura-sage: light-dark(#3f6b35, #a7cf96);
+  --aura-teal: light-dark(#126e66, #6cd0c4);
+  --aura-sky: light-dark(#1f5f8b, #86c5f0);
+  --aura-orchid: light-dark(#6a3ba6, #c59bf0);
+  --aura-silver: light-dark(#555963, #c4c7cf);
   color-scheme: light dark;
 }
 /* Dark is each colour's second value (light-dark). The system's choice unless a page sets data-theme (the decisions

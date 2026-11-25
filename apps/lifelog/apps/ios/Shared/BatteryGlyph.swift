@@ -16,7 +16,7 @@ struct BatteryGlyph: View {
         let inset = (height * 0.09).rounded()
         let fraction = Double(min(max(percent ?? 0, 0), 100)) / 100
         HStack(spacing: 1) {
-            RoundedRectangle(cornerRadius: height * 0.27).fill(Palette.fg.opacity(0.08))
+            RoundedRectangle(cornerRadius: height * 0.27).fill(Palette.tint)
                 .overlay(alignment: .leading) {
                     if fraction > 0 {
                         RoundedRectangle(cornerRadius: height * 0.18).fill(
@@ -34,7 +34,7 @@ struct BatteryGlyph: View {
                 }
                 .frame(width: width, height: height)
             UnevenRoundedRectangle(bottomTrailingRadius: 1.5, topTrailingRadius: 1.5)
-                .fill(Palette.fg.opacity(0.08)).frame(width: max(width * 0.05, 2), height: height * 0.36)
+                .fill(Palette.tint).frame(width: max(width * 0.05, 2), height: height * 0.36)
         }
         .accessibilityHidden(true)
     }

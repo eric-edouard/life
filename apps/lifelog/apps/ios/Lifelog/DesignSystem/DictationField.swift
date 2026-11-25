@@ -108,7 +108,7 @@ struct DictationField: View {
             HStack(spacing: Metrics.Spacing.s) {
                 Button(action: cancel) {
                     Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                        .frame(width: 36, height: 36).background(Color.fillTint, in: .circle)
+                        .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
                         .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
                 .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
@@ -116,7 +116,7 @@ struct DictationField: View {
                     if dictation.phase == .rest {
                         Color.clear
                     } else if isHolding {
-                        Text("Slide up to send").font(.small).foregroundStyle(Palette.muted)
+                        Text("Slide up to send").font(.line).foregroundStyle(Palette.muted)
                     } else {
                         DictationStream(dictation: dictation)
                     }
@@ -209,7 +209,7 @@ private struct ProblemLine: View {
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            Text(problem.line).font(.small).foregroundStyle(Palette.flag)
+            Text(problem.line).font(.line).foregroundStyle(Palette.flag)
             if let link = problem.fix { QuietChip(link.title, symbol: link.symbol, action: fix) }
         }
     }
@@ -447,13 +447,13 @@ private struct ListeningLine: View {
         HStack(spacing: Metrics.Spacing.s) {
             Button(action: dictation.cancel) {
                 Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                    .frame(width: 28, height: 28).background(Color.fillTint, in: .circle)
+                    .frame(width: 28, height: 28).background(Palette.tint, in: .circle)
                     .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Cancel dictation")
             TimelineView(.periodic(from: dictation.runStarted, by: 1)) { context in
-                Text(status(at: context.date)).font(.small).monospacedDigit().foregroundStyle(Palette.muted)
+                Text(status(at: context.date)).font(.line).monospacedDigit().foregroundStyle(Palette.muted)
             }
             .fixedSize()
             if let live, !live.words.isEmpty, !live.hasFailed {

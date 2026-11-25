@@ -43,10 +43,19 @@ nonisolated enum Palette {
     }
 }
 
-extension Color {
-    /// The quiet fill of a secondary button, a chip or a disc: the page's ink at a low strength, as the design's `--tint`.
-    static let fillTint = Palette.fg.opacity(0.08)
-    /// The one selected look of a control (his mark on), and his past bubbles in a draft's chat: the page's ink
-    /// stronger than `fillTint`, as the design's `--pick`.
-    static let pick = Palette.fg.opacity(0.16)
+extension Palette {
+    /// Cream at a strength, as tokens.css's `--tint`, `--glass`, `--wash`: a quiet pill and his bubble; a floating
+    /// control; an unfolded item. The only greys the phone draws.
+    static let tint = fg.opacity(0.10)
+    static let glass = fg.opacity(0.14)
+    static let wash = fg.opacity(0.05)
+
+    /// The aura's colours, in hue order (tokens.css `--aura-*`, checked by `brand.test.ts`). Life blue is `ai` and
+    /// cream is `fg`: they are the two ends the aura's own ones sit between.
+    static let auraColours: [(name: String, color: Color)] = [
+        ("rose", token(dark: 0xee8fb1, light: 0xa3345e)), ("amber", token(dark: 0xf2ad5b, light: 0x8f5510)),
+        ("sand", token(dark: 0xe3c48f, light: 0x7a5a24)), ("sage", token(dark: 0xa7cf96, light: 0x3f6b35)),
+        ("teal", token(dark: 0x6cd0c4, light: 0x126e66)), ("sky", token(dark: 0x86c5f0, light: 0x1f5f8b)),
+        ("orchid", token(dark: 0xc59bf0, light: 0x6a3ba6)), ("silver", token(dark: 0xc4c7cf, light: 0x555963)),
+    ]
 }

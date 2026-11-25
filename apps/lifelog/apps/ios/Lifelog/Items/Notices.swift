@@ -14,18 +14,18 @@ struct Notices: View {
                     Button {
                         withAnimation(Motion.standard) { isOpen.toggle() }
                     } label: {
-                        Text("Your Mac isn't answering").font(.rowName).frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Your Mac isn't answering").font(.rowTitle).frame(maxWidth: .infinity, alignment: .leading)
                             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                     if isOpen {
-                        if let why = life.whyOutOfReach { Text(why).font(.note).foregroundStyle(Palette.muted) }
+                        if let why = life.whyOutOfReach { Text(why).font(.line).foregroundStyle(Palette.muted) }
                         Button("Settings", action: openSettings).buttonStyle(.pill(.quiet, size: .compact))
                     }
                 }
                 .padding(.horizontal, Metrics.Spacing.l).card().transition(Motion.appears)
             } else if let back = life.caughtUp {
-                Text(back.sent == 0 ? "Back" : "Back · \(back.sent) sent").font(.note).foregroundStyle(Palette.muted)
+                Text(back.sent == 0 ? "Back" : "Back · \(back.sent) sent").font(.line).foregroundStyle(Palette.muted)
                     .task {
                         try? await Task.sleep(for: .seconds(4))
                         life.clearCaughtUp()

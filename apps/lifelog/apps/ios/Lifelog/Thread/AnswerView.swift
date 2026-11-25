@@ -47,24 +47,24 @@ struct MarkdownView: View {
 
     @ViewBuilder private func draw(_ block: ContextBlock) -> some View {
         switch block {
-        case .heading(let level, let runs): Text(runs.attributed).font(level == 2 ? .lead : .leadBold)
+        case .heading(let level, let runs): Text(runs.attributed).font(level == 2 ? .rowTitle : .header)
         case .paragraph(let runs): Text(runs.attributed)
         case .list(let items): ListView(items: items)
         case .quote(let runs, let source):
             VStack(alignment: .leading, spacing: 2) {
                 Text(runs.attributed)
-                if let source { Text(source.attributed).font(.small).foregroundStyle(Palette.muted) }
+                if let source { Text(source.attributed).font(.line).foregroundStyle(Palette.muted) }
             }
             .padding(.leading, Metrics.Spacing.m).overlay(alignment: .leading) {
-                Rectangle().fill(Color.pick).frame(width: 2)
+                Rectangle().fill(Palette.glass).frame(width: 2)
             }
         case .code(let code):
             Text(code).font(.monoDetail).padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.tile))
+                .background(Palette.card, in: .rect(cornerRadius: Metrics.Radius.control))
         case .table(let head, let rows):
             Grid(alignment: .leading, horizontalSpacing: Metrics.Spacing.l, verticalSpacing: Metrics.Spacing.xs) {
                 GridRow {
-                    ForEach(Array(head.enumerated()), id: \.offset) { _, c in Text(c.attributed).font(.smallStrong) }
+                    ForEach(Array(head.enumerated()), id: \.offset) { _, c in Text(c.attributed).font(.heading) }
                 }
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     GridRow { ForEach(Array(row.enumerated()), id: \.offset) { _, c in Text(c.attributed) } }

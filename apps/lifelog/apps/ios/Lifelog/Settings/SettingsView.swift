@@ -46,7 +46,7 @@ struct SettingsView: View {
         .readingWidth()
         // Its name over the page, left aligned, as every page whose first line is its name.
         .sheetScroll {
-            Text("Settings").font(.screenName).foregroundStyle(Palette.fg)
+            Text("Settings").font(.profileName).foregroundStyle(Palette.fg)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .tint(Palette.fg)
@@ -248,7 +248,7 @@ struct SettingsView: View {
                         value: isChosen || heard.shown == nil ? heard : .known(choice.heard)
                     ) { shown in
                         if isChosen, shown == choice.heard {
-                            Image(systemName: "checkmark").font(.smallStrong).foregroundStyle(Palette.fg)
+                            Image(systemName: "checkmark").font(.heading).foregroundStyle(Palette.fg)
                         }
                     }
                 }
@@ -331,7 +331,7 @@ struct SettingsView: View {
     private var help: some View {
         RowGroup(label: "Help", surface: .sheet) {
             Row(title: "Build", icon: "info.circle") {
-                Text(Bundle.main.buildWords).font(.note).foregroundStyle(Palette.muted)
+                Text(Bundle.main.buildWords).font(.line).foregroundStyle(Palette.muted)
             }
             Button {
                 isDiagnosticsOpen = true

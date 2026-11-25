@@ -98,7 +98,7 @@ struct ReplaceSheet: View {
                     Text(
                         "If the new pendant is another model, the \(left.phoneDuration.shortWords) on this phone stop uploading until this one is paired again."
                     )
-                    .font(.note).foregroundStyle(Palette.muted)
+                    .font(.line).foregroundStyle(Palette.muted)
                 }
             }
         }

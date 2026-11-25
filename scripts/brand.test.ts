@@ -87,6 +87,46 @@ test("the phone's palette is tokens.css's, light and dark", async () => {
   }
 });
 
+test("the phone's tint, glass, wash, aura colours, type scale and block radius are tokens.css's", async () => {
+  const swift = await asset("apps/lifelog/apps/ios/Shared/Palette.swift");
+  for (const name of ["tint", "glass", "wash"]) {
+    const percent = tokens.match(
+      new RegExp(`--${name}:\\s*color-mix\\(in srgb, var\\(--fg\\) (\\d+)%`)
+    )?.[1];
+    const opacity = swift.match(
+      new RegExp(`static let ${name} = fg\\.opacity\\(([0-9.]+)\\)`)
+    )?.[1];
+    expect([name, Number(opacity)]).toEqual([name, Number(percent) / 100]);
+  }
+  const aura = [
+    ...tokens.matchAll(
+      /--aura-([a-z]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/g
+    ),
+  ].map((m) => [m[1], m[3], m[2]]);
+  const copies = [
+    ...swift.matchAll(
+      /\("([a-z]+)", token\(dark: (0x\w+), light: (0x\w+)\)\)/g
+    ),
+  ].map((m) => [m[1], hex(m[2] ?? ""), hex(m[3] ?? "")]);
+  expect(aura.length).toBe(8);
+  expect(copies).toEqual(aura);
+  const type = await asset("apps/lifelog/apps/ios/Lifelog/DesignSystem/Typography.swift");
+  const sizes = [...tokens.matchAll(/--text-[a-z]+:\s*([\d.]+)px/g)].map((m) => Number(m[1]));
+  const used = new Set(
+    [...type.matchAll(/TypeStep\(size: ([\d.]+), weight: (\d+)/g)]
+      .filter((m) => !/isMono/.test(m.input?.split("\n").find((l) => l.includes(m[0])) ?? ""))
+      .flatMap((m) => [Number(m[1]), -Number(m[2])])
+  );
+  for (const u of used) {
+    if (u > 0) expect(sizes).toContain(u);
+    else expect([450, 600, 650]).toContain(-u);
+  }
+  const metrics = await asset("apps/lifelog/apps/ios/Shared/Metrics.swift");
+  expect(Number(metrics.match(/static let block: CGFloat = (\d+)/)?.[1])).toBe(
+    Number.parseFloat(tokens.match(/--block-radius:\s*([\d.]+)px/)?.[1] ?? "")
+  );
+});
+
 test("the email's and the app's radii and the email's font stack are tokens.css's", async () => {
   const value = (name: string) =>
     tokens.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1] ?? "";

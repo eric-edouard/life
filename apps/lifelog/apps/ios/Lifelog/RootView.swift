@@ -92,7 +92,7 @@ struct RootView: View {
             Button {
                 thread.ask("What's waiting on me?", screen: screen)
             } label: {
-                Text(life.waitingCount.map(String.init) ?? "·").font(.rowName).frame(width: 44, height: 44)
+                Text(life.waitingCount.map(String.init) ?? "·").font(.rowTitle).frame(width: 44, height: 44)
             }
             .accessibilityLabel("What's waiting on me")
             Spacer()
