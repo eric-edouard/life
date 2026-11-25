@@ -31,9 +31,13 @@ struct ProfileView: View {
                     ForEach(read.reach) { reach in
                         ForEach(reach.accounts) { account in
                             if let url = URL(string: account.open.url) {
-                                Button { openURL(url) } label: {
-                                    Text("\(reach.label) · \(account.title ?? account.handle)").frame(maxWidth: .infinity, alignment: .leading)
-                                        .frame(minHeight: Metrics.tapTarget)
+                                Button {
+                                    openURL(url)
+                                } label: {
+                                    Text("\(reach.label) · \(account.title ?? account.handle)").frame(
+                                        maxWidth: .infinity, alignment: .leading
+                                    )
+                                    .frame(minHeight: Metrics.tapTarget)
                                 }
                                 .buttonStyle(.plain)
                             }

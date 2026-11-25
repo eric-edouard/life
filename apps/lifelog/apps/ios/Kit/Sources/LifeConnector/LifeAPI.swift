@@ -14,7 +14,8 @@ public struct AnswerRequest: Encodable, Sendable, Equatable {
         ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil,
         undo: Bool? = nil
     ) {
-        (self.ref, self.options, self.note, self.person, self.name, self.undo) = (ref, options, note, person, name, undo)
+        (self.ref, self.options, self.note) = (ref, options, note)
+        (self.person, self.name, self.undo) = (person, name, undo)
     }
 
     /// His Later on an ask: Life picks until when.

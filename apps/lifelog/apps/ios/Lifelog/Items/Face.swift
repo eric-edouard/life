@@ -16,7 +16,9 @@ struct Face: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.fillTint)
             }
         }
-        .frame(width: size, height: size).clipShape(party.kind == .organization ? AnyShape(.rect(cornerRadius: size / 5)) : AnyShape(.circle))
+        .frame(width: size, height: size).clipShape(
+            party.kind == .organization ? AnyShape(.rect(cornerRadius: size / 5)) : AnyShape(.circle)
+        )
         .accessibilityLabel(party.name)
     }
 }

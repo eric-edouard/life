@@ -21,12 +21,16 @@ struct AnswerView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         // A `life:` link: a person or organization opens their profile, an ask unfolds in its row; the rest is Life's own page.
-        .environment(\.openURL, OpenURLAction { url in
-            guard url.scheme == "life-open", let ref = url.absoluteString.dropFirst("life-open:".count).removingPercentEncoding
-            else { return .systemAction }
-            if life.ask(ref) != nil { life.focus(ref: ref) } else { opened = ref }
-            return .handled
-        })
+        .environment(
+            \.openURL,
+            OpenURLAction { url in
+                guard url.scheme == "life-open",
+                    let ref = url.absoluteString.dropFirst("life-open:".count).removingPercentEncoding
+                else { return .systemAction }
+                if life.ask(ref) != nil { life.focus(ref: ref) } else { opened = ref }
+                return .handled
+            }
+        )
         .sheet(item: $opened) { LinkSheet(ref: $0).sheetStack() }
     }
 }
@@ -103,7 +107,8 @@ extension [Inline] {
             case .web(let url), .system(let url): piece.link = url
             case .life(let ref, _):
                 piece.inlinePresentationIntent = .stronglyEmphasized
-                piece.link = URL(string: "life-open:" + (ref.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ref))
+                piece.link = URL(
+                    string: "life-open:" + (ref.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ref))
             case nil: break
             }
             text += piece

@@ -37,10 +37,13 @@ struct ItemRow: View {
     /// The state, drawn small at the row's end.
     @ViewBuilder private var mark: some View {
         if isQueued {
-            Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel("Goes when Life is back")
+            Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel(
+                "Goes when Life is back")
         } else {
             switch ask.state {
-            case .needsYou: Image(systemName: "circle.fill").font(.badge).foregroundStyle(Palette.flag).accessibilityLabel("Needs you")
+            case .needsYou:
+                Image(systemName: "circle.fill").font(.badge).foregroundStyle(Palette.flag).accessibilityLabel(
+                    "Needs you")
             case .later: Image(systemName: "clock").foregroundStyle(Palette.muted).accessibilityLabel("Later")
             case .underWay: Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("Under way")
             case .waitingOnSomeone:
@@ -85,7 +88,11 @@ struct ItemRow: View {
         } label: {
             Image(systemName: isDone ? "checkmark" : option.icon?.symbol ?? "checkmark")
         }
-        .buttonStyle(.pill(isDone ? .done : option.id == check.recommended ? .filled : .quiet, size: .compact, isBusy: action.isRunning))
+        .buttonStyle(
+            .pill(
+                isDone ? .done : option.id == check.recommended ? .filled : .quiet, size: .compact,
+                isBusy: action.isRunning)
+        )
         .accessibilityLabel(option.label)
         .disabled((option.takes != nil && words.isEmpty) || action.isRunning)
     }

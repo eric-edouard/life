@@ -12,7 +12,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 /// What Life's server tests wrote (`fixtures/wire/life/`) read with the phone's models: a read that changes shape fails
 /// there first, then here, naming the model.
 
-
 /// A plan's start is its filled answer whatever order its asker sent; a card with no roles keeps its order; its steps
 /// draw whatever `isPlan` says.
 @Test func aPlanStartsFirstAndDrawsItsStepsWhateverItsMarker() throws {
@@ -100,7 +99,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.nextStep?.kind == .unknown)
     #expect(row.goal?.by == .unknown)
 }
-
 
 @Test func aParkedOrDoneProjectsMattersAreParked() throws {
     let text = #"""
@@ -208,7 +206,8 @@ private func everyKindOfCheck() throws -> [Check] {
 @Test func everyKindOfCardAnswersAsLifeTakesIt() throws {
     let all = try everyKindOfCheck()
     func card(_ group: CheckGroup) throws -> Check { try #require(all.first { $0.group == group }) }
-    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown, .fix])  // no `fix` card in the fixtures yet)
+    // no `fix` card in the fixtures yet
+    #expect(Set(all.map(\.group)) == Set(CheckGroup.allCases).subtracting([.unknown, .fix]))
 
     let decision = try card(.decision)
     #expect(decision.answer(decision.options[0]) == AnswerRequest(ref: decision.ref, options: ["yes"]))
@@ -607,7 +606,6 @@ private func asks(
     #expect(!decision.keepsOpen(after: AnswerRequest(ref: decision.ref, options: ["edit-goal"])))
     #expect(!newMatter.keepsOpen(after: AnswerRequest(ref: newMatter.ref, options: ["start"])))
 }
-
 
 /// A tapped push shows its card from the first frame: the cached inbox's, else the notification's, first in what is in
 /// hand. Only a read asked after the tap says whether it is still open.

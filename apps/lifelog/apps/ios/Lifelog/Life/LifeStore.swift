@@ -364,7 +364,9 @@ final class LifeStore {
         await send(request, for: life ?? pairedLife)
         awake.end()
         // The button shows its done for a moment, then the ask takes the state Life gives it.
-        if life == nil, case .succeeded = state(of: .answer(ref: request.ref)) { try? await Task.sleep(for: .seconds(1)) }
+        if life == nil, case .succeeded = state(of: .answer(ref: request.ref)) {
+            try? await Task.sleep(for: .seconds(1))
+        }
         await refreshItems()
     }
 
