@@ -1,7 +1,9 @@
 // The send guard: what an agent of his own Life may not send by itself (his word of 20 Nov 2026: "yes you can add it":
 // the tools that put words in front of another person in his name, outside a card, are refused; everything else keeps
-// full power). Pure: the rules over one tool call and the facts its row passes (`SendFacts`). Both runtimes run it as a
-// `PreToolUse` command hook (`send-guard-hook.ts`) before every shell and MCP call; nothing goes in his own config.
+// full power). Pure: the rules over one tool call and the facts its row passes (`SendFacts`). Claude and Codex run it as
+// a `PreToolUse` command hook (`send-guard-hook.ts`), pi inside its process (`pi-extension.ts`), before every tool call
+// whatever its name (the v4 plan, bundle C), so a tool that comes later is guarded as it comes; nothing goes in his own
+// config.
 // Partial on purpose (SECURITY.md): it reads a call's text, so a tab already open on a messaging site, a script that
 // builds its address, `gh api` or `curl` to a service's API, or another program the agent starts get past it.
 
@@ -29,7 +31,7 @@ export const SEND_FACTS_ENV = "LIFE_SEND_FACTS";
 export const SEND_GUARD_HOOK = {
   command:
     '[ -f "$LIFE_SEND_GUARD" ] && BUN_BE_BUN=1 "$LIFE_BUN" "$LIFE_SEND_GUARD" || exit 2',
-  matcher: "Bash|mcp__.*",
+  matcher: ".*",
 };
 
 const MESSAGING_SITES =
@@ -74,9 +76,34 @@ function isConnectorWrite(tool: string) {
 const CARD =
   "Ask him with a card instead (`request_decision` with the message as its draft): Life sends it on his yes.";
 
-/** A call's text: a shell call's command, else its whole input. */
+/**
+ * The tools that only read or write his files (Claude's, Codex's and pi's names): what they hold is never sent, so the
+ * guard reads none of it. A script one writes is guarded when a shell runs it.
+ */
+const FILE_TOOLS = new Set([
+  "Edit",
+  "Glob",
+  "Grep",
+  "LS",
+  "MultiEdit",
+  "NotebookEdit",
+  "Read",
+  "Write",
+  "apply_patch",
+  "edit",
+  "find",
+  "grep",
+  "ls",
+  "read",
+  "write",
+]);
+
+/** A call's text: a shell call's command, nothing of a file tool's, else its whole input. */
 const textOf = (c: GuardedCall) => {
   const input = c.tool_input as { command?: unknown } | undefined;
+  if (FILE_TOOLS.has(c.tool_name)) {
+    return "";
+  }
   return c.tool_name === "Bash" && typeof input?.command === "string"
     ? input.command
     : JSON.stringify(c.tool_input ?? {});

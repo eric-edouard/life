@@ -1,4 +1,5 @@
 import {
+  type Run,
   type RunEnd,
   type Runtime,
   SessionLive,
@@ -23,12 +24,18 @@ export function fakeRuntime() {
   let isBegunHeld = false;
   /** Sessions started, so a forgotten session's ref is never given again. */
   let startedCount = 0;
-  const run = (ref: string) => ({
-    begun: isBegunHeld
-      ? new Promise<void>((ok, fail) => begins.set(ref, { fail, ok }))
-      : Promise.resolve(),
-    ended: new Promise<RunEnd>((resolve) => runs.set(ref, resolve)),
-  });
+  /** Each session's last run. */
+  const lastRuns = new Map<string, Run>();
+  const run = (ref: string) => {
+    const r = {
+      begun: isBegunHeld
+        ? new Promise<void>((ok, fail) => begins.set(ref, { fail, ok }))
+        : Promise.resolve(),
+      ended: new Promise<RunEnd>((resolve) => runs.set(ref, resolve)),
+    };
+    lastRuns.set(ref, r);
+    return r;
+  };
   const fake = {
     /** Settles the session's last run as under way (after `holdBegun`). */
     begin(ref: string) {
@@ -75,6 +82,12 @@ export function fakeRuntime() {
     kept: [] as string[],
     runtime: {
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
+      cancel(ref) {
+        if (sessions.get(ref)?.running && hearers.has(ref)) {
+          fake.exit(ref, false, { why: "cancelled" });
+        }
+        return Promise.resolve();
+      },
       continueOnMac(_agent, ref) {
         const s = sessions.get(ref);
         if (s) {

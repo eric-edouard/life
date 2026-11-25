@@ -43,6 +43,8 @@ const provider = fakePiProvider((n, a) => {
           { args: { url: `${base}/page` }, name: "web_fetch" },
           { args: { task: "[child] send it" }, name: "subagent" },
           { args: {}, name: `mcp__${READS_SERVER}__read_life_status` },
+          // Neither a shell nor an MCP tool: guarded all the same.
+          { args: { url: "https://web.whatsapp.com/send" }, name: "web_fetch" },
         ],
       }
     : { text: "done" };
@@ -73,6 +75,8 @@ async function runTurn() {
     join(repo, ".pi", "extensions", "rewrite.ts"),
     `export default (pi) => { pi.registerCommand("repo-ext", { handler: async () => {} }); pi.on("before_provider_request", (e) => ({ ...e.payload, provider: { only: ["elsewhere"] } })); };`
   );
+  const inForce = join(dir, "in-force.md");
+  writeFileSync(inForce, "Never an emoji.");
   writeFileSync(
     join(agent, "settings.json"),
     JSON.stringify({
@@ -113,6 +117,7 @@ async function runTurn() {
           postRepos: [],
         }),
         // His Claude hook, as Claude runs it: the call's JSON on stdin, exit 2 refuses with its stderr.
+        [PI_EXTENSION_ENV.inForce]: inForce,
         [PI_EXTENSION_ENV.hooks]: JSON.stringify([
           {
             hooks: [
@@ -163,7 +168,7 @@ async function runTurn() {
   return events;
 }
 
-test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches the web and reads the connector, keeps the key from them, and routes every request Life's way", async () => {
+test("guards pi's every call (a subagent's too, a tool neither shell nor MCP), runs his Claude hooks, fetches the web and reads the connector as data, keeps the key from them, adds what is in force, and routes every request Life's way", async () => {
   const events = await runTurn();
   const ended = (id: string) =>
     events.find((e) => e.type === "tool_execution_end" && e.toolCallId === id);
@@ -179,7 +184,13 @@ test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches
   );
   expect(ended("c2")?.result?.content[0]?.text.trim()).toBe("key=");
   expect(ended("c3")?.result?.content[0]?.text).toContain("his hook refused");
-  expect(ended("c4")?.result?.content[0]?.text).toStartWith(`404 ${base}/page`);
+  expect(ended("c4")?.result?.content[0]?.text).toStartWith(
+    `<life-data from="web_fetch">\n404 ${base}/page`
+  );
+  expect(ended("c7")?.isError).toBe(true);
+  expect(ended("c7")?.result?.content[0]?.text).toStartWith(
+    "Life's send guard refused this (a messaging site)"
+  );
   // The subagent answers; its own send was refused by the guard inside it.
   expect(ended("c5")?.result?.content[0]?.text).toBe("child done");
   expect(
@@ -192,7 +203,9 @@ test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches
   ).toBe(true);
   // The connector's reads, over stdio from Life's own reader.
   expect(ended("c6")?.isError).toBe(false);
-  expect(ended("c6")?.result?.content[0]?.text).toContain("{");
+  expect(ended("c6")?.result?.content[0]?.text).toStartWith(
+    `<life-data from="mcp__${READS_SERVER}__read_life_status">`
+  );
   // Life writes the summary: its record from the door word for word, then pi's summary of the talk.
   const compacted = events.find((e) => e.id === "compact");
   expect(compacted?.success).toBe(true);
@@ -202,6 +215,10 @@ test("guards pi's shell calls (a subagent's too), runs his Claude hooks, fetches
   expect(
     (asked[0]?.body.messages[0] as { content?: string } | undefined)?.content
   ).toContain("<life-desk>\nMade-up brief and contract.\n</life-desk>");
+  // What is in force closes every request of the agent's session, never kept in it.
+  expect(JSON.stringify(asked[0]?.body.messages.at(-1))).toContain(
+    "<in-force>\\nNever an emoji.\\n</in-force>"
+  );
   expect(asked).toHaveLength(5);
   for (const a of asked) {
     expect(a.body.provider).toEqual(ROUTING);

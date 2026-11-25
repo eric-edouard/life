@@ -49,7 +49,14 @@ export interface Usage {
 export type Update =
   | { kind: "thinking" }
   | { kind: "words"; text: string }
-  | { id: string; kind: "working"; state: string; title: string };
+  | {
+      /** The tool's arguments, as the model gave them (on its start). */
+      args?: unknown;
+      id: string;
+      kind: "working";
+      state: string;
+      title: string;
+    };
 
 /** What the desk gives a session it starts or wakes: the agent, where it runs, its model, and its door (its MCP address and key). */
 export interface Agent {
@@ -58,6 +65,11 @@ export interface Agent {
   effort: string | null;
   folder: string;
   id: string;
+  /**
+   * What holds on every request (Life's voice, his standing instructions), added after compaction and never part of it:
+   * pi re-reads it on each request of the run, another runtime gets it ahead of each message. None: nothing added.
+   */
+  inForce?: string;
   model: string | null;
   /** What every session of the agent must always hold (`rulesOf`: its brief, the door's contract), for a runtime that pins it (`pinsRules`). */
   rules?: string;
@@ -67,6 +79,11 @@ export interface Agent {
 export interface Runtime {
   /** Why the program can't run now (not installed, not answering); none when it can: the same meaning as `SendPath.block`. */
   block: () => Promise<string | undefined>;
+  /**
+   * Cancels what session `ref`'s `talk` runs and keeps the session open: the run
+   * ends `{ ok: false, why: "cancelled" }`. Nothing when no talk runs on it.
+   */
+  cancel: (ref: string) => Promise<void>;
   /**
    * Opens session `ref` on his Mac for him to continue there (his word, `continue_on_mac`), answering once the Mac says it
    * opened; while open there, `state` says `running` and the desk holds its wakes. None: this runtime can't yet.
