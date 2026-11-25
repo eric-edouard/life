@@ -36,7 +36,8 @@ async function* linesOf(body: ReadableStream<Uint8Array>) {
 
 /**
  * Hands `ask` to the desk at `url`: with words, each line it streams goes to `report` and its answer is returned; with
- * none, his presence (`{kept, why}`). A desk that can't be reached, or ends with no answer, answers an error.
+ * none, his Stop, his reaction or his presence (`{done, why}`). A desk that can't be reached, or ends with no answer,
+ * answers an error.
  */
 export async function askDesk(
   ask: MainSessionAsk,
@@ -59,7 +60,7 @@ export async function askDesk(
     return error(`Life's desk refused: ${res.status}`);
   }
   if (!ask.words) {
-    return (await res.json()) as { kept: boolean; why?: string };
+    return (await res.json()) as { done: boolean; why?: string };
   }
   for await (const text of linesOf(res.body)) {
     const line = JSON.parse(text) as MainSessionLine;
@@ -75,9 +76,9 @@ export function mainSessionTool(server: McpServer, notHis: string) {
   tool(
     server,
     "ask_main_session",
-    "His app's token only: Ask Life. His `words` (as he sent them, verbatim) to Life's main session, with `screen`, the refs on his screen (`tab`, `open`: the ref open, `visible`: up to 20 refs in view; never text). Its progress notifications stream what it does as it goes, each a JSON line: `thinking`, `working` (`id`, `title`, `state`: a tool call), `words` (`text`, a chunk of its answer; a `working` line after words starts them again). Returns its answer (JSON), one kind of a closed list: `reply` (`words`, the key word in `**`; `why`, a line of why; `sources`, the refs it rests on), `question` (`question`, with `answers`: likely answers he may tap, each sent as his words), `error` (`what`; his words stay his to send again), or, when it acted, its last act with its `words`: `done` (a correction; `matter`, its id, when on a matter), `agent` (`agent`, the agent's name, `told`, his words it acted on), `card` (`card`, the id of the card asked as his) or `fix` (his complaint, received by the caretaker). Any kind but `error` may carry `show`, what the app shows with it, changing no data: `kind` `page` with `page` and `id` (`page` `matter`, `person`, `project` or `agent`) or `kind` `list` with `list`, `refs` and `label` (`list` `matters`, `checks` or `people`: that tab cut to the rows `refs` names, in order, under `label`, until he closes it). Without `words`, his presence on the Ask Life screen: the session is kept open so his next words start at once (`{kept, why}`). The tap's `life/answerKey` makes a retry ask once. It acts on his words when he asks (his agents, his cards, a matter done, a correction, a complaint to the caretaker); it never sends: anything outward is a card he taps.",
-    MainSessionAsk.pick({ screen: true, words: true }),
-    async ({ screen, words }, agent, call) => {
+    "His app's token only: Ask Life. His `words` (as he sent them, verbatim) to Life's main session, with `screen`, the refs on his screen (`tab`, `open`: the ref open, `visible`: up to 20 refs in view; never text), and `catalog`, the version of Life's blocks his phone draws. An ask while one runs waits its turn. Its progress notifications stream what it does as it goes, each a JSON line: `thinking`; `step` (`verb`, `what`: what it does now); `words` (`text`, a chunk of its Markdown); `block` (`type`, `block`: one of Life's components, once checked: `items`, `pictures`, `table`, `document`, `phrase`, `place`, `question`, `settings`); `reaction` (`with`: Life's reaction to his words). A `step` after words starts the words and blocks again. Returns its answer (JSON): `reply` (`entry`, its thread entry; `text`, its Markdown with its checked blocks fenced as ```life:<type>; `refs`, the `life:` refs it cites; `acts`, what it did, in order: `done`, `agent`, `card`, `fix`; `reaction`) or `error` (`what`; his words stay his to send again). Without `words`: `stop` true stops the running ask; `react` (`entry`, `with`) puts his reaction on one of Life's entries (never his word for an act, and it starts no turn); neither is his presence on the screen, which keeps the session open (`{done, why}`). The tap's `life/answerKey` makes a retry ask once. It acts on his words when he asks (his agents, his cards, a matter done, a correction, a complaint to the caretaker); it never sends: anything outward is a card he taps.",
+    MainSessionAsk.omit({ key: true }),
+    async (ask, agent, call) => {
       if (agent) {
         throw new Error(notHis);
       }
@@ -86,7 +87,7 @@ export function mainSessionTool(server: McpServer, notHis: string) {
         return error(why);
       }
       // Each line is a step of the call's log, named by its kind, never its words.
-      return await askDesk({ key: call.answerKey, screen, words }, (line) =>
+      return await askDesk({ ...ask, key: call.answerKey }, (line) =>
         call.report({ ...line, step: line.kind })
       );
     },

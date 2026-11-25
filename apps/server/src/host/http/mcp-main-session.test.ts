@@ -4,7 +4,7 @@ import { localKey } from "./local-key";
 import { askDesk } from "./mcp-main-session";
 
 // `ask_main_session`'s relay against a made-up desk on a port of its own (never the live door): the key it shows, each
-// streamed line reported, the answer returned, presence as JSON, a desk gone or silent answering an error.
+// streamed line reported, the answer returned, presence (or Stop, or a reaction) as JSON, a desk gone or silent answering an error.
 
 const asks: unknown[] = [];
 const desk = Bun.serve({
@@ -15,17 +15,23 @@ const desk = Bun.serve({
     const ask = (await req.json()) as { words?: string };
     asks.push(ask);
     if (!ask.words) {
-      return Response.json({ kept: true });
+      return Response.json({ done: true });
     }
     const lines =
       ask.words === "silent"
         ? [{ kind: "thinking" }]
         : [
             { kind: "thinking" },
-            { id: "c1", kind: "working", state: "pending", title: "fetch" },
+            { kind: "step", verb: "Opening", what: "the matter" },
             { kind: "words", text: "In the drawer." },
             {
-              answer: { kind: "reply", words: "In the drawer." },
+              answer: {
+                acts: [],
+                entry: 1,
+                kind: "reply",
+                refs: [],
+                text: "In the drawer.",
+              },
               kind: "answer",
             },
           ];
@@ -54,8 +60,8 @@ test("his words go to the desk with his key and screen; each streamed line is re
     (l) => reported.push(l),
     url
   );
-  expect(answer).toEqual({ kind: "reply", words: "In the drawer." });
-  expect(reported.map((l) => l.kind)).toEqual(["thinking", "working", "words"]);
+  expect(answer).toMatchObject({ kind: "reply", text: "In the drawer." });
+  expect(reported.map((l) => l.kind)).toEqual(["thinking", "step", "words"]);
   expect(asks.at(-1)).toEqual({
     key: "tap-1",
     screen: { tab: "inbox" },
@@ -64,7 +70,7 @@ test("his words go to the desk with his key and screen; each streamed line is re
 });
 
 test("no words is his presence; a desk that ends with no answer, or is gone, answers an error", async () => {
-  expect(await askDesk({}, () => undefined, url)).toEqual({ kept: true });
+  expect(await askDesk({}, () => undefined, url)).toEqual({ done: true });
   expect(await askDesk({ words: "silent" }, () => undefined, url)).toEqual({
     kind: "error",
     what: "Life's desk ended with no answer.",
