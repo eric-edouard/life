@@ -5,7 +5,10 @@ import { dirname } from "node:path";
 import { appendJsonl } from "../core/files";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
+import { rateDecision } from "../memory/decision-after-answer";
+import { recordDelivered } from "../memory/decision-delivery";
 import { DECISIONS } from "../memory/decision-lines";
+import { answerDecision, requestDecision } from "../memory/decisions";
 import { CORRECTIONS } from "../memory/memory-files";
 import { Correction } from "../records/observation";
 import { expectWire } from "./http/wire-fixture";
@@ -146,4 +149,36 @@ test("an entry his deletion names is hidden at read, before the desk blanks it",
   } finally {
     rmSync(CORRECTIONS, { force: true });
   }
+});
+
+test("How am I doing? shows on the first card he answered in the app that day, with his mark", async () => {
+  const now = new Date(Date.now() - 3_600_000);
+  const { id } = await requestDecision(
+    "desk",
+    {
+      agent: "agt_0123456789ab",
+      ask: "Pick a day for the plumber",
+      context: "A made-up reason to ask.",
+      deadline: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      follow: [],
+      onSilence: null,
+      options: [
+        { id: "tue", label: "Tuesday" },
+        { id: "wed", label: "Wednesday" },
+      ],
+      question: "Which day suits you?",
+      recommended: "tue",
+      title: "Book the plumber",
+    },
+    now
+  );
+  recordDelivered(id, { rules: ["good moment"], verdict: "deliver" }, now);
+  await answerDecision(id, ["tue"], undefined, { now, via: "connector" });
+  rateDecision(id, "good", now);
+  const page = (await readThread()) as {
+    items: { card: { rate?: unknown }; ref?: string }[];
+  };
+  expect(page.items.find((i) => i.ref === id)?.card.rate).toEqual({
+    mark: "good",
+  });
 });

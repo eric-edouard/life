@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { LIFE_ASKER, OWNER_ASKER } from "../core/names";
 import {
@@ -9,8 +10,16 @@ import {
 } from "../memory/answer-check";
 import { atOrganizationPairOf } from "../memory/at-organization";
 import { ADD_LIMIT_MS, RUN_LIMIT_MS } from "../memory/decision-add";
-import { notSentOf, withdrawAnswer } from "../memory/decision-after-answer";
-import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
+import {
+  notSentOf,
+  rateDecision,
+  withdrawAnswer,
+} from "../memory/decision-after-answer";
+import {
+  type Decision,
+  doneSeenShownOf,
+  MARKS,
+} from "../memory/decision-lines";
 import {
   actDueOf,
   actOf,
@@ -624,6 +633,39 @@ export function undoOf(d: Decision, now = clock()) {
     return line && !isTakenOf(d) ? { line } : null;
   }
   return isTakenOf(d) ? null : { line: null };
+}
+
+/** `answer_check`'s arguments on a card he answered: his Undo, or his mark ("How am I doing?", `rateOffersOf`). */
+export const AFTER_ANSWER = {
+  rate: z
+    .enum(MARKS)
+    .optional()
+    .describe(
+      "His mark on how Life did on this answered card (its `rate` in `read_thread`)"
+    ),
+  undo: z
+    .literal(true)
+    .optional()
+    .describe("Undo his answer to this card (its `undo` in `read_thread`)"),
+};
+
+/** His mark on card `ref` (one `rated` line, nothing else changes), or his Undo of his answer (`undoAnswer`); never both at once. */
+export function afterAnswer(
+  ref: string,
+  { rate, undo: isUndo }: { rate?: (typeof MARKS)[number]; undo?: true }
+) {
+  if (rate && isUndo) {
+    return Promise.reject(
+      new Error("Not done: `undo` and `rate` are two answers; send one.")
+    );
+  }
+  return rate
+    ? Promise.resolve({
+        done: [rateDecision(ref, rate)],
+        kind: "decision",
+        ref,
+      })
+    : undoAnswer(ref);
 }
 
 /**

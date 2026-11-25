@@ -780,4 +780,7 @@ test("Life's time for Later: tomorrow 9:00, sooner before a deadline, never soon
   );
   expect(evening).toBeGreaterThan(now.getTime());
   expect(evening - now.getTime()).toBeLessThan(DAY);
+  expect(laterOf({ deadline: null, matter: null }, now, "when I'm home")).toBe(
+    "2026-11-21T10:00:00.000Z"
+  );
 });
