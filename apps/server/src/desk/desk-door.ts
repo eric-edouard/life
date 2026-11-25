@@ -28,7 +28,6 @@ import {
 } from "../host/correct-matter";
 import { deleteFromMemoryAndTodoItems } from "../host/deletion-door";
 import {
-  type AgentRow,
   type AssignmentRow,
   agentOf,
   agentOfSession,
@@ -41,8 +40,7 @@ import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, MAIN_SESSION_PATH, text } from "../host/http/http";
 import { keyRefusal } from "../host/http/local-key";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
-import { isHisWordsPlanOf, opensWithPlan } from "../host/inbox";
-import { MOVE_NOTES, shortNameOf } from "../host/move-read";
+import { shortNameOf } from "../host/move-read";
 import { CardPreview } from "../memory/card-preview";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
@@ -63,9 +61,7 @@ import { AgentWait } from "../records/registered-agent";
 import { Change } from "../todo-list/contract";
 import {
   askDecision,
-  askFirstMessageOf,
   finish,
-  hasAsked,
   pendingCardOf,
   readCard,
   readPacket,
@@ -84,13 +80,13 @@ import {
   keepAnswerExtras,
   keepMainSession,
   keepShow,
-  MAIN_ASK,
   showProblemOf,
   tellAgent,
 } from "./main-session";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
 import { readSpokenAsk } from "./spoken-ask-intake";
+import { isCaretakerFix, turnRefusalOf } from "./turn-refusal";
 
 // The door (the desk spec, 5.2): the desk's MCP server for its registered agents, on loopback only, at `/mcp/<agt_…>`.
 // An agent is known by its key alone, `HMAC(deskKey, its id)` (`door-keys.ts`): derived, never stored, given to the
@@ -98,68 +94,12 @@ import { readSpokenAsk } from "./spoken-ask-intake";
 // himself (`/session`, below). Its other path is the main session's (`MAIN_SESSION_PATH`, `main-session.ts`), for the
 // connector, by the local key. Its tools are each one of `agent-actions.ts` (the caretaker's `read_complaint`, of
 // `complaint-intake.ts`; `read_spoken_ask`, of `spoken-ask-intake.ts`), and the main session's, each the one writer that
-// already exists (`MAIN_TOOLS`); everything else an agent does with its own tools.
+// already exists (`MAIN_TOOLS`, `turn-refusal.ts`); everything else an agent does with its own tools.
 
 const BEARER = /^Bearer /;
 const DOOR_PATH = /^\/(mcp|guard)\/(agt_[0-9a-f]+)$/;
 const SESSION_PATH = /^\/session\/([\w-]{1,100})$/;
 const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
-
-/**
- * Why the door refuses tool `name` on a desk turn of cause `cause` (none outside one) of `a` on `s`: a move's notes turn only writes its notes
- * (`agent-moves.ts`); and his rule, an assignment's first turn ends on its plan (or card), asked, so it waits or
- * finishes only after (not when his words are its plan, `isHisWordsPlanOf`). Null: it may go.
- */
-function turnRefusalOf(
-  desk: Desk,
-  name: string,
-  cause: string | undefined,
-  a: AgentRow | null,
-  s: AssignmentRow
-) {
-  if (
-    cause === MOVE_NOTES &&
-    name !== "write_notes" &&
-    name !== "read_packet"
-  ) {
-    return "Not done: this turn only writes your notes before the move (`write_notes`), then stops.";
-  }
-  // The main session (Ask Life): on a turn of his words, `answer`, a card (`request_decision`) and its acts, each of
-  // his words (`said`); nothing else of the door, and no other agent has its acts.
-  if (cause === MAIN_ASK || a?.role === "main") {
-    return cause === MAIN_ASK &&
-      (MAIN_TOOLS.has(name) || name === "request_decision")
-      ? null
-      : `Not done: the main session acts only on a turn of his words, through \`answer\`, \`request_decision\` and its acts (${[...MAIN_TOOLS].join(", ")}).`;
-  }
-  // The caretaker fixes Life's memory itself, on the words of the complaint it holds (his ruling of 22 Nov 2026).
-  if (MAIN_TOOLS.has(name) && !isCaretakerFix(name, a)) {
-    return `Not done: \`${name}\` is the main session's alone.`;
-  }
-  const isEnd = name === "set_wait" || name === "finish";
-  return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
-    ? askFirstMessageOf(opensWithPlan(desk.db, s))
-    : null;
-}
-
-/** Whether `name` is the caretaker's one act beside the ordinary door: `correct_memory`, on his complaint's words. */
-const isCaretakerFix = (name: string, a: AgentRow | null) =>
-  name === "correct_memory" && a?.role === "caretaker";
-
-/** The door's tools only the main session has, on a turn of his words: `answer` and its acts. */
-const MAIN_TOOLS = new Set([
-  "answer",
-  "change_appointment",
-  "change_directory_entry",
-  "change_registered_agent",
-  "change_todo_item",
-  "complain",
-  "correct_memory",
-  "delete_from_memory",
-  "show",
-  "tell_agent",
-  "tell_life",
-]);
 
 const NO_TURN =
   "No desk turn of yours is running: he wrote in your session himself (the Life plugin serves your door there, its tools named `mcp__life__<tool>`). Your tools act on the assignment you name with `assignment`, or on your one open assignment.";
