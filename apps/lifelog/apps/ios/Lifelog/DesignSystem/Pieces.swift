@@ -806,7 +806,9 @@ extension View {
 
     /// `sheetBars` with no buttons.
     func sheetBars<Head: View>(@ViewBuilder head: () -> Head) -> some View {
+        // On the sheet's own fill, so what scrolls under the title never shows through it.
         let top = head().padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+            .background(Palette.sheet)
         return safeAreaBar(edge: .top, spacing: 0) { top }
             .scrollEdgeEffectStyle(.soft, for: .vertical)
     }

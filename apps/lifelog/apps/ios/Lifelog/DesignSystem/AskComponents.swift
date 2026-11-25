@@ -193,7 +193,7 @@ struct OfferBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             Text(question).font(.body15)
-            AnswerPills(answers: answers, recommended: answers.first, hasLater: false, say: say)
+            QuestionBlock(answers: answers, recommended: answers.first, say: say)
         }
     }
 }

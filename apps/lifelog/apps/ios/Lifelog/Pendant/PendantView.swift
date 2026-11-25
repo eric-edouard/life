@@ -174,7 +174,10 @@ struct PendantScreen: View {
         let isCharging = battery.isCurrent && status.charging?.value == .charging
         let percent = battery.value
         let used = storage.value?.usedFraction
-        return HStack(spacing: Metrics.Spacing.m) {
+        let layout =
+            size.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: Metrics.Spacing.m)) : AnyLayout(HStackLayout(spacing: Metrics.Spacing.m))
+        return layout {
             StatTile(
                 name: "Battery", figure: percent.map { "\($0)%" } ?? "Unknown",
                 caption: batteryCaption(battery, isCharging: isCharging, reading: reading),
