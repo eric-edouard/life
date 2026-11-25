@@ -7,7 +7,8 @@ import { appendJsonl, readAppended } from "../core/files";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { readOwnerName } from "../models/prompt-parts";
 import { isoDateTime } from "../records/fields";
-import { MEMORY } from "./memory-files";
+import { type HoldsDeleted, isGone } from "./deletions";
+import { deletionsNow, MEMORY } from "./memory-files";
 
 // What he wants of Life, in his words (an instruction: "never draft to my landlord", "keep it short"), each held to a
 // scope and, when code enforces it, one effect of a closed list. Append-only, one synchronous line each, outside the
@@ -103,12 +104,17 @@ const scopesOf = (s: InstructionSubject) =>
 const isLiveOf = (i: Instruction, replaced: ReadonlySet<string>, now: Date) =>
   !(replaced.has(i.id) || (i.until && Date.parse(i.until) <= now.getTime()));
 
-/** Every instruction in force now, oldest first, and the scopes `subject` names. */
+/** Every instruction in force now, oldest first: one he deleted (a `deleted` correction naming its id) is none. */
 function liveOf(now: Date) {
   const all = readAll();
   const replaced = new Set(all.flatMap((i) => i.replaces ?? []));
-  return all.filter((i) => isLiveOf(i, replaced, now));
+  const d = deletionsNow();
+  return all.filter((i) => isLiveOf(i, replaced, now) && !isGone(i.id, d));
 }
+
+/** The ids of the instructions in force whose words (`said`, `text`) hold what a deletion removes: the door's preview. */
+export const instructionsHolding = (holds: HoldsDeleted, now = clock()) =>
+  liveOf(now).flatMap((i) => (holds([i.said, i.text], []) ? [i.id] : []));
 
 /** The instructions in force now on `subject`, oldest first: of a scope it names (`all` always), not replaced, not past `until`. */
 export function instructionsFor(subject: InstructionSubject, now = clock()) {

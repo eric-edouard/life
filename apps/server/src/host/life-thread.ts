@@ -1,9 +1,15 @@
 import type { Database } from "bun:sqlite";
 import { clock, DAY } from "../core/clock";
 import { readChangeStamp } from "../core/files";
+import { DESK_STORE } from "../core/paths";
+import { openWritable } from "../core/sqlite";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
+import type {
+  DeletionCopy,
+  ThreadEntriesHolding,
+} from "../memory/delete-from-memory";
 import type { MatterView } from "../memory/matter-read";
 import {
   laterUntilOf,
@@ -20,9 +26,9 @@ import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
 // as they were delivered and answered (`decisions.jsonl`) and Life's own checks, merged by time, a few days a page. Never
-// a second copy: each item's state is worked out when read, by `itemStateOf` alone. An entry whose answer cites what he
-// deleted is hidden here, at read (memory cannot read the desk); the entry itself keeps a second copy of his words on
-// the Mac until it is removed (SECURITY.md).
+// a second copy: each item's state is worked out when read, by `itemStateOf` alone. His deletion blanks an entry holding
+// what he deleted in place (`blankThreadEntries`, its door's write: words, answer and screen emptied, `deleted_at` set,
+// the row kept); one citing what he deleted before that is hidden here, at read (memory cannot read the desk).
 
 /** How many days of the thread a page holds. */
 const PAGE_DAYS = 3;
@@ -249,4 +255,62 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     items,
     version,
   };
+}
+
+/** The thread entry ref a deletion lists (`thread:<id>`), and back. */
+const ENTRY = "thread:";
+
+/**
+ * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`): its preview's.
+ * Every entry is read: a deletion is rare and the thread small (ponytail: a scan; by day if it ever grows large).
+ */
+export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
+  const read = readDesk(
+    (db) =>
+      db
+        .query<
+          {
+            answer: string | null;
+            id: number;
+            refs: string;
+            words: string | null;
+          },
+          []
+        >(
+          "select id, words, answer, refs from thread_entry where deleted_at is null order by id"
+        )
+        .all(),
+    []
+  );
+  return (read.state === "ok" ? read.value : []).flatMap((e): DeletionCopy[] =>
+    holds([e.words, e.answer], JSON.parse(e.refs) as string[])
+      ? [{ id: `${ENTRY}${e.id}`, kind: "thread entry" }]
+      : []
+  );
+};
+
+/**
+ * His deletion's write on the thread: each entry `ids` names blanked in place (words, answer and screen emptied,
+ * `deleted_at` set), the row and its time kept, so the thread reads it no more. The one write of the desk's store
+ * outside the desk, the deletion door's (the plan v4.1, bundle J).
+ */
+export function blankThreadEntries(ids: readonly string[]) {
+  const rows = ids.map((id) => Number(id.slice(ENTRY.length)));
+  if (rows.length === 0) {
+    return;
+  }
+  const db = openWritable(DESK_STORE);
+  try {
+    const blank = db.prepare(
+      "update thread_entry set words = '', answer = '', screen = null, deleted_at = ? where id = ? and deleted_at is null"
+    );
+    const at = clock().toISOString();
+    db.transaction(() => {
+      for (const id of rows) {
+        blank.run(at, id);
+      }
+    })();
+  } finally {
+    db.close();
+  }
 }

@@ -6,7 +6,7 @@ import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { DECISIONS } from "../memory/decision-lines";
 import { expectWire } from "./http/wire-fixture";
-import { itemStateOf, readThread } from "./life-thread";
+import { blankThreadEntries, itemStateOf, readThread } from "./life-thread";
 
 // Made-up asks, answers and cards throughout.
 
@@ -120,4 +120,14 @@ test("an entry whose answer cites what he deleted is hidden; a blanked entry is 
   expect(await readThread({ ifNot: page.version })).toMatchObject({
     unchanged: true,
   });
+});
+
+test("a blanked entry reads empty: its words and answer gone, the row kept, the thread showing it no more", async () => {
+  entry("Where is the spare key?", ["obs_00000000000a"]);
+  blankThreadEntries(["thread:1"]);
+  expect(
+    db.query("select words, answer from thread_entry where id = 1").get()
+  ).toEqual({ answer: "", words: "" });
+  const page = await readThread();
+  expect("items" in page && page.items).toEqual([]);
 });

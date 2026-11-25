@@ -1,12 +1,19 @@
+import { Database } from "bun:sqlite";
 import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
+import { DESK_STORE } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
 import { readChats } from "../memory/chat-events";
 import { deletionsOf, isDeleted } from "../memory/deletions";
 import { wroteSince } from "../memory/draft-send";
 import { reindex } from "../memory/index-writer";
+import {
+  INSTRUCTIONS,
+  instructionsFor,
+  recordInstruction,
+} from "../memory/instructions";
 import {
   CORRECTIONS,
   HISTORIES,
@@ -471,5 +478,101 @@ test("a chapter unit is never read again: a deletion names its turn, never its h
   } finally {
     server.close();
     setSettings({ sources: before });
+  }
+});
+
+test("the copies of his words outside memory: the thread entries and instruction lines holding them are previewed, then blanked", async () => {
+  const before = settings().sources;
+  const server = lifelog();
+  setSettings({
+    desk: { defaultRuntime: "claude", runtimes: { claude: {} } },
+    sources: ["lifelog"],
+  });
+  rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  mkdirSync(dirname(DESK_STORE), { recursive: true });
+  const db = new Database(DESK_STORE, { create: true, strict: true });
+  // The conversation's second turn: the first went in the tests above.
+  const SECOND = turnRef(JOB, 1, AT2);
+  try {
+    recorded();
+    // The thread as the desk's store holds it: an answer quoting the words, an entry citing the turn, and one unrelated.
+    db.run(
+      "create table thread_entry (id integer primary key, ask_key text unique, asked_at text not null, words text, screen text, turn_id integer, answer text, error text, refs text not null default '[]', reactions text not null default '[]', answered_at text, deleted_at text)"
+    );
+    const entry = (words: string, answer: string, refs: string[]) =>
+      db.run(
+        "insert into thread_entry (asked_at, words, answer, refs, screen) values (?, ?, ?, ?, '{}')",
+        [AT, words, answer, JSON.stringify(refs)]
+      );
+    entry("Where do I meet Kit?", "Bring the drawings, at noon.", []);
+    entry("What did we say?", "You agreed on a time.", [SECOND]);
+    entry("Any news?", "Nothing new today.", []);
+    const quoting = recordInstruction({
+      said: "Never ask me about the drawings again",
+      scope: "all",
+      text: "Never ask about the drawings.",
+    });
+    const other = recordInstruction({
+      said: "Keep it short",
+      scope: "all",
+      text: "Keep answers short.",
+    });
+
+    const ask = {
+      cuts: [{ quote: "drawings", ref: SECOND }],
+      refs: [],
+      said: "that goes",
+    };
+    const preview = await deleteFromMemoryAndTodoItems(ask);
+    // The preview lists them, and its digest covers them.
+    expect("askAgain" in preview && preview.copies).toEqual([
+      { id: "thread:1", kind: "thread entry" },
+      { id: "thread:2", kind: "thread entry" },
+      { id: quoting.id, kind: "instruction" },
+    ]);
+    expect(
+      db.query("select count(*) as n from thread_entry where words = ''").get()
+    ).toEqual({ n: 0 });
+    expect(instructionsFor({}).map((i) => i.id)).toEqual([
+      quoting.id,
+      other.id,
+    ]);
+
+    const confirm = "askAgain" in preview ? preview.confirm : "";
+    await deleteFromMemoryAndTodoItems({ ...ask, confirm });
+    // The write blanks the entries in place, the rows and their times kept; the unrelated one stands.
+    expect(
+      db
+        .query(
+          "select id, words, answer, screen, asked_at, deleted_at is not null as gone from thread_entry order by id"
+        )
+        .all()
+    ).toEqual([
+      { answer: "", asked_at: AT, gone: 1, id: 1, screen: null, words: "" },
+      { answer: "", asked_at: AT, gone: 1, id: 2, screen: null, words: "" },
+      {
+        answer: "Nothing new today.",
+        asked_at: AT,
+        gone: 0,
+        id: 3,
+        screen: "{}",
+        words: "Any news?",
+      },
+    ]);
+    // The instruction quoting them is gone at read, its file never rewritten.
+    expect(instructionsFor({}).map((i) => i.id)).toEqual([other.id]);
+    const line = readCorrections()
+      .filter(
+        (c): c is Extract<Correction, { kind: "deleted" }> =>
+          c.kind === "deleted"
+      )
+      .at(-1);
+    expect(line?.refs).toEqual([quoting.id]);
+  } finally {
+    db.close();
+    server.close();
+    setSettings({ desk: null, sources: before });
+    rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+    rmSync(INSTRUCTIONS, { force: true });
   }
 });
