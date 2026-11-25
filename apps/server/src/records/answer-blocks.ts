@@ -142,7 +142,17 @@ export function blockRefsOf(b: AnswerBlock): string[] {
 /** The edges of a word that are not part of it: punctuation and signs around it ("(4,820).", "#12", "฿4,820"). */
 const EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 /** A number as written: digits, comma-grouped by thousands or not, with decimals. */
-const NUMBER = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
+const NUMBER = /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
+/** A minus sign right before a word that starts with a digit: kept, so money in and money out never match. */
+const SIGN = /[-−]$/;
+const DIGIT = /^\d/;
+
+/** A word without the punctuation around it, a number's sign kept ("-4,820" stays "-4,820"). */
+function bareOf(w: string) {
+  const core = w.replace(EDGES, "");
+  const before = w.slice(0, w.indexOf(core));
+  return core && DIGIT.test(core) && SIGN.test(before) ? `-${core}` : core;
+}
 const COMMAS = /,/g;
 const SPACES = /\s+/;
 
@@ -153,7 +163,7 @@ const wordsOf = (s: string) =>
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .split(SPACES)
-    .map((w) => w.replace(EDGES, ""))
+    .map(bareOf)
     .filter(Boolean);
 
 /** The number a word writes ("4,820" is 4820), if it is one whole. */
@@ -207,11 +217,16 @@ export function valueProblemOf(
 }
 
 /** A fence opening a `life:` block: up to 3 spaces, three or more backticks or tildes, then `life:<kind>` and anything after. */
+/** A blockquote's marks at a line's start ("> ", "> > "): a fence inside one is a fence too. */
+const QUOTE = /^(?: {0,3}>\s?)*/;
+/** A fence opening a `life:` block, its quote marks gone: up to 3 spaces, three or more backticks or tildes, then `life:<kind>` and anything after. */
 const OPEN = /^ {0,3}(`{3,}|~{3,})\s*life:(\S*)/;
-/** A line that may still become a fence's opening: empty, up to 3 spaces, or fence characters after them. */
-const MAY_OPEN = /^ {0,3}(?:[`~]|$)/;
+/** A line that may still become a fence's opening: empty, up to 3 spaces, or fence characters after them, quoted or not. */
+const MAY_OPEN = /^(?: {0,3}>\s?)* {0,3}(?:[`~]|$)/;
 /** A `life:` fence's marker anywhere in a line: never shown as words. */
 const LIFE_FENCE = /(`{3,}|~{3,})\s*life:/;
+/** Where a line's words may start a marker: from its first fence character on, they wait for the line's end. */
+const FENCE_CHAR = /[`~]/;
 
 /**
  * Splits a stream of Markdown into its words and its fenced blocks as they come: `words` hears the text outside a
@@ -227,21 +242,22 @@ export function blockSplitter(on: {
   let fence: { body: string[]; close: RegExp; kind: string } | null = null;
   /** A line of words, unless it holds a `life:` fence's marker (a block never passes unchecked). */
   const words = (text: string) => {
-    if (!LIFE_FENCE.test(text)) {
+    if (text && !LIFE_FENCE.test(text)) {
       on.words(text);
     }
   };
   const take = (whole: string) => {
     if (fence) {
-      if (fence.close.test(whole)) {
+      const unquoted = whole.replace(QUOTE, "");
+      if (fence.close.test(unquoted)) {
         on.block({ json: fence.body.join("\n"), kind: fence.kind });
         fence = null;
       } else {
-        fence.body.push(whole);
+        fence.body.push(unquoted);
       }
       return;
     }
-    const open = OPEN.exec(whole);
+    const open = OPEN.exec(whole.replace(QUOTE, ""));
     if (open) {
       const [, marks = "```", kind = ""] = open;
       // Closed by the same character, at least as many, alone on its line.
@@ -269,18 +285,22 @@ export function blockSplitter(on: {
         if (fence || isLineStart) {
           take(line + part);
         } else {
-          words(`${part}\n`);
+          words(`${line}${part}\n`);
         }
         line = "";
         isLineStart = true;
       }
-      if (fence || (isLineStart && MAY_OPEN.test(line + rest))) {
-        line += rest;
-      } else {
-        words(line + rest);
-        line = "";
-        isLineStart = false;
+      const all = line + rest;
+      if (fence || (isLineStart && MAY_OPEN.test(all))) {
+        line = all;
+        return;
       }
+      // Mid-line words stream up to a fence character; from it, the line waits for its end, so a marker split across
+      // chunks is still seen whole.
+      const at = all.search(FENCE_CHAR);
+      words(at < 0 ? all : all.slice(0, at));
+      line = at < 0 ? "" : all.slice(at);
+      isLineStart = false;
     },
   };
 }

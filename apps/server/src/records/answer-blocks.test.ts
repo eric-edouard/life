@@ -22,6 +22,15 @@ test('a number is matched whole: 820, 11 from a date, and "4,820" as text are no
   expect(valueProblemOf(table([["Total", 820]]), SOURCE)).toBeDefined();
   expect(valueProblemOf(table([["Total", "4,820"]]), SOURCE)).toBeDefined();
   expect(valueProblemOf(table([["Day", 11]]), SOURCE)).toBeDefined();
+  // A number keeps its sign: money in is never money out.
+  expect(valueProblemOf(table([["Refund", "-4,820"]]), SOURCE)).toBeDefined();
+  expect(valueProblemOf(table([["Refund", -14_820]]), SOURCE)).toBeDefined();
+  expect(
+    valueProblemOf(table([["Refund", -3]]), "Refund (-3 bags)")
+  ).toBeUndefined();
+  expect(
+    valueProblemOf(table([["Bags", 3]]), "Refund (-3 bags)")
+  ).toBeDefined();
   // Text matches whole words only.
   expect(valueProblemOf(table([["Half Tila", 14]]), SOURCE)).toBeUndefined();
   expect(valueProblemOf(table([["alf Til", 14]]), SOURCE)).toBeDefined();
@@ -63,6 +72,15 @@ test("every `life:` fence is a block, never words: indented (its space a chunk o
   expect(split([`~~~life:question\n${body}\n\`\`\`\n`])).toEqual({
     blocks: ["open question"],
     words: "",
+  });
+  // Inside a blockquote, a fence is a block too, its body with it.
+  expect(
+    split([`Look:\n> \`\`\`life:question\n> ${body}\n> \`\`\`\nDone.`])
+  ).toEqual({ blocks: ["question"], words: "Look:\nDone." });
+  // A marker split across chunks mid-line is still seen whole: its line is dropped, the words before it stream.
+  expect(split(["Here ``", "`li", "fe:table\n", "Next."])).toEqual({
+    blocks: [],
+    words: "Here Next.",
   });
   // A marker that is no fence (mid-line) is dropped from the words; ordinary code stays.
   expect(split(["See ```life:table here\n```js\nx\n```\n"])).toEqual({
