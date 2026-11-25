@@ -16,6 +16,10 @@ The design data (`apps/lifelog/fixtures/design/`, one JSON file per connector re
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>` (see `FakeScenario.swift`), `-offline` and `-serverFlaky`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
+- **Run the end-to-end flows** with `bun run e2e:phone [TestClass …]` (failures only); `--watch O7` runs one flow on a visible simulator, slowed, and records it. The flows
+  are in `LifelogE2E/`, each with its scenario in `LifelogE2E/scenarios/`; the app's fake Life is `Lifelog/E2E/` (Debug
+  only). Screens are found by the ids in `Lifelog/AccessibilityIDs.swift`: keep them when a screen changes, and never put
+  an id on a container (it overrides its children's).
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
   DEBUG-only that leaks out of `#if DEBUG` breaks the install:
   `xcodebuild -project apps/lifelog/apps/ios/Lifelog.xcodeproj -scheme Lifelog -configuration Release -destination 'generic/platform=iOS Simulator' build`.

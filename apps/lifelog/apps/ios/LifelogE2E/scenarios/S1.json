@@ -1,0 +1,17 @@
+{
+  "name": "Pair by link",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": [
+    "dec_000000000001"
+  ]
+}

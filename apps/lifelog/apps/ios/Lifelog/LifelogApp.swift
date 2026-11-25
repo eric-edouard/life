@@ -65,12 +65,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     let appleHealth = AppleHealthReader()
     /// Life's reads (the thread's asks) and its pairing: the phone is one more app of Life's connector.
     lazy var life: LifeStore = {
-        return LifeStore(path: path)
+        #if DEBUG
+            return LifeStore(now: E2E.now, path: path)
+        #else
+            return LifeStore(path: path)
+        #endif
     }()
     /// Plays recorded audio and marks it quiet for the Pendant.
     lazy var playback = PlaybackStore(library: library, sync: sync)
 
     override init() {
+        #if DEBUG
+            E2E.install()
+        #endif
         _ = ScreenTiming.launched
         // Before any store opens: a restored library the owner chose replaces the live one.
         BackupStore.applyScheduledSwitch()
@@ -134,8 +141,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         capture.onAudioSaved = { [sync] in sync.run(audio: true) }
         capture.start()
         appEvent("app.launch", launch)
-        startLocation()
-        appleHealth.start()
+        // An end-to-end run asks the phone for nothing: no location or Health sheet over a flow.
+        var isEndToEnd = false
+        #if DEBUG
+            E2E.start(life: life)
+            isEndToEnd = E2E.isOn
+        #endif
+        if !isEndToEnd {
+            startLocation()
+            appleHealth.start()
+        }
         // Back online, the pendant's run goes at once; Life's reads are made again when the app comes forward.
         Task { [path, sync] in await path.follow { sync.run() } }
         application.registerForRemoteNotifications()

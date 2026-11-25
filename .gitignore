@@ -13,3 +13,4 @@ apps/mac/Frameworks/
 .build/
 # Python bytecode, wherever a script runs (apps/lifelog/apps/identity, apps/lifelog/apps/stt-bench/local)
 __pycache__/
+docs/research/2026-11-26-ios-e2e/*.mp4

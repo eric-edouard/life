@@ -1,0 +1,17 @@
+{
+  "name": "No undo on an iMessage",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_settled_imessage.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": [
+    "dec_000000000001"
+  ]
+}
