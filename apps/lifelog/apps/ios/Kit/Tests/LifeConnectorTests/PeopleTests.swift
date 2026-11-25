@@ -268,31 +268,6 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     return #"{"latest":[\#(items.joined(separator: ","))],"nextBefore":\#(before.map { "\"\($0)\"" } ?? "null")}"#
 }
 
-@Test func aFailedPageIsAskedAgainAndEachExchangeShowsOnce() throws {
-    let (first, second) = ("person:c/latest", "person:c/latest/before/2026-11-10")
-    var states: [String: ReadState<LatestPage>] = [:]
-    let chain = { PageChain(from: first, states: states) { $0.earlier(of: "person:c") } }
-    states[first, default: ReadState()].apply(
-        .succeeded(try decoded(LatestPage.self, latestPage(["a", "b"], from: 20, before: "2026-11-10")), .now))
-    #expect(chain().next == .more(second))
-    states[second, default: ReadState()].apply(.started)
-    states[second, default: ReadState()].apply(.failed(.failed("Life did not answer.")))
-    #expect(chain().next == .failed(second) && chain().toRead == second && chain().whole == nil)
-    #expect(chain().pages.flatMap(\.latest).count == 2)
-    states[second, default: ReadState()].apply(.started)
-    #expect(chain().next == .reading(second) && chain().toRead == nil)
-    states[second, default: ReadState()].apply(
-        .succeeded(try decoded(LatestPage.self, latestPage(["c", "d"], from: 10, before: nil)), .now))
-    let ids = chain().pages.flatMap(\.latest).map(\.id)
-    #expect(ids.count == 4 && Set(ids).count == 4 && chain().next == .end)
-    // A page naming itself as the next ends the chain, never a loop.
-    var looped: [String: ReadState<LatestPage>] = [:]
-    looped[second, default: ReadState()].apply(
-        .succeeded(try decoded(LatestPage.self, latestPage(["e"], from: 10, before: "2026-11-10")), .now))
-    let loop = PageChain(from: second, states: looped) { $0.earlier(of: "person:c") }
-    #expect(loop.pages.count == 1 && loop.next == .end)
-}
-
 @Test func anExchangeKeepsEveryMessageItsReplyIncluded() throws {
     let page = try decoded(
         LatestPage.self,
@@ -300,17 +275,6 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     )
     #expect(page.latest[0].lines?.map(\.text) == ["Free tonight?", "Around 8", "Yes, see you"])
     #expect(page.latest[0].lines?.last?.by == .them)
-}
-
-@Test func openingAPageEvenTheOneOnShowStartsItBare() {
-    var people = PageStack<String>()
-    people.open("person:atelier")
-    people.path.append("person:member")
-    people.open("person:atelier")
-    #expect(people.page == "person:atelier" && people.path.isEmpty)
-    people.path.append("person:atelier/page")
-    people.open(nil)
-    #expect(people.page == nil && people.path.isEmpty)
 }
 
 @Test func anOrganizationSaysWhatItsReadLeftOut() throws {

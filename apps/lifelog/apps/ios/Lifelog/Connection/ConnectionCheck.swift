@@ -35,7 +35,7 @@ enum CheckOutcome: Equatable {
 extension LifeStore {
     var outcome: CheckOutcome {
         guard isPaired else { return .notPaired }
-        return switch inbox.phase {
+        return switch items.phase {
         case .unreachable: .unreachable
         case .notPaired: .notPaired
         case .failed(let reason): .unreadable(reason)
@@ -61,7 +61,7 @@ enum ConnectionCheck {
     /// Answers, knows this phone, and for Life reads: the first line a failure reaches is the one that fails, the rest wait.
     static func lines(_ connection: Connection, _ outcome: CheckOutcome?) -> [CheckLine] {
         let words =
-            ["\(connection.answerer) answers", "It knows this phone"] + (connection == .life ? ["The inbox reads"] : [])
+            ["\(connection.answerer) answers", "It knows this phone"] + (connection == .life ? ["Your thread reads"] : [])
         let failedAt: Int? =
             switch outcome {
             case .unreachable: 0

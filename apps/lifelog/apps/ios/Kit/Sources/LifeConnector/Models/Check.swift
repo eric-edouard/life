@@ -3,7 +3,7 @@ import Library
 
 /// What a check is, for counting and for the card's look (`CheckGroup`, `core/names.ts`).
 public enum CheckGroup: String, UnknownTolerant, Sendable {
-    case decision, ending, name, voice
+    case decision, ending, name, voice, fix
     case contactsCard = "contacts card"
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
@@ -309,6 +309,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
     public let beingFixed: BeingFixed?
+    /// The ask this card belongs to (`read_thread`'s `ask`), and the option Life suggests (its id).
+    public let ask: String?
+    public let recommended: String?
+    /// A redraft: the older card this one took the place of, and what changed (`changed`).
+    public let replacedBy: String?
 
     /// What a card of Life's rests on (`causeOf`, `memory/complaint-checks.ts`).
     public struct Misread: Decodable, Sendable, Equatable {
@@ -398,7 +403,7 @@ extension Check {
         case .guessedPerson, .name, .voice, .contactsCard, .samePerson, .atOrganization:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
-        case .decision, .unknown: return "Why it asks"
+        case .decision, .fix, .unknown: return "Why it asks"
         }
     }
 

@@ -60,6 +60,8 @@ public struct CardNotification: Sendable, Equatable {
     public static let send = "send"
     /// The action that answers in his own words, typed or dictated (a decision's, `Check.takesOwnWords`).
     public static let reply = "reply"
+    /// The action that holds the card for later: Life picks until when.
+    public static let later = "later"
     private static let optionPrefix = "option:"
     /// Where the service extension keeps the card in its notification's `userInfo`.
     public static let userInfoKey = "card"
@@ -152,6 +154,11 @@ public struct CardNotification: Sendable, Equatable {
         UNNotificationAction(identifier: send, title: "Send", options: [.authenticationRequired])
     }
 
+    /// Later: the one word a button carries.
+    public static var laterAction: UNNotificationAction {
+        UNNotificationAction(identifier: later, title: "Later", options: [])
+    }
+
     /// Reply…: his own words, typed or dictated. A category's button, so the Watch shows it.
     public static var replyAction: UNTextInputNotificationAction {
         UNTextInputNotificationAction(
@@ -165,7 +172,7 @@ public struct CardNotification: Sendable, Equatable {
         buttons(check).map {
             UNNotificationAction(identifier: $0.id, title: $0.label, options: [.authenticationRequired])
         }
-            + (check.takesOwnWords ? [replyAction] : [])
+            + (check.takesOwnWords ? [replyAction] : []) + [laterAction]
     }
 
     /// The answer a tapped action gives: one of `buttons`, or his words through `reply`; nil when the card can't be
@@ -180,6 +187,7 @@ public struct CardNotification: Sendable, Equatable {
             }
             return check.answer(words: typed)
         }
+        if action == later { return .later(check.ref) }
         if action == send {
             return asksFaceID && category == sendCategory ? nil : sendOption(check).flatMap(check.answer)
         }

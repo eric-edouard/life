@@ -7,6 +7,8 @@ import SwiftUI
 struct AnswerView: View {
     let parts: [AnswerPart]
     let actions: BlockActions
+    @Environment(LifeStore.self) private var life
+    @State private var opened: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -18,6 +20,14 @@ struct AnswerView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // A `life:` link: a person or organization opens their profile, an ask unfolds in its row; the rest is Life's own page.
+        .environment(\.openURL, OpenURLAction { url in
+            guard url.scheme == "life-open", let ref = url.absoluteString.dropFirst("life-open:".count).removingPercentEncoding
+            else { return .systemAction }
+            if life.ask(ref) != nil { life.focus(ref: ref) } else { opened = ref }
+            return .handled
+        })
+        .sheet(item: $opened) { LinkSheet(ref: $0).sheetStack() }
     }
 }
 
@@ -80,7 +90,7 @@ private struct ListView: View {
 }
 
 extension [Inline] {
-    /// The runs as one styled text. A web or system link opens; a `life:` name is bold (it unfolds, in P3's items).
+    /// The runs as one styled text. A web or system link opens; a `life:` name is bold and opens (`life-open:`, handled by `AnswerView`).
     var attributed: AttributedString {
         reduce(into: AttributedString()) { text, run in
             var piece = AttributedString(run.text)
@@ -91,10 +101,34 @@ extension [Inline] {
             if run.isCode { piece.inlinePresentationIntent = .code }
             switch run.link {
             case .web(let url), .system(let url): piece.link = url
-            case .life: piece.inlinePresentationIntent = .stronglyEmphasized
+            case .life(let ref, _):
+                piece.inlinePresentationIntent = .stronglyEmphasized
+                piece.link = URL(string: "life-open:" + (ref.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ref))
             case nil: break
             }
             text += piece
+        }
+    }
+}
+
+/// What a `life:` link names: a person's profile, else Life's own text of it.
+private struct LinkSheet: View {
+    let ref: String
+    @Environment(LifeStore.self) private var life
+    @State private var read = ReadState<LifeLinkRead>()
+
+    var body: some View {
+        if ref.hasPrefix("person:") {
+            ProfileView(ref: ref)
+        } else {
+            ScrollView {
+                switch read.value {
+                case .person(let name, let line)?: Text([name, line].compactMap { $0 }.joined(separator: "\n"))
+                case .text(let text)?: MarkdownView(text: text)
+                case nil: Spinner().frame(maxWidth: .infinity)
+                }
+            }
+            .padding(Metrics.Spacing.l).task { await life.fetch(ref) { read.apply($0) } }
         }
     }
 }

@@ -1,6 +1,8 @@
+import CallKit
 import Capture
 import Foundation
 import Health
+import Intents
 import MetricKit
 import OSLog
 import ServerAPI
@@ -165,12 +167,19 @@ final class HealthReporter {
             case .unplugged: false
             default: nil
             }
+        // The one Focus prompt: asked the first time a heartbeat is built, never again.
+        if INFocusStatusCenter.default.authorizationStatus == .notDetermined {
+            INFocusStatusCenter.default.requestAuthorization { _ in }
+        }
         let phone = Heartbeat.Phone(
             batteryLevel: device.batteryLevel < 0 ? nil : Double(device.batteryLevel), charging: charging,
             freeBytes: phoneFreeBytes, lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled)
         let heartbeat = Heartbeat(
             reason: reason, at: .now, build: Self.build, status: status, connectionSince: connectionSince,
-            lastContact: lastContact, phone: phone, wakeLog: wakeLog)
+            lastContact: lastContact, phone: phone, wakeLog: wakeLog,
+            focus: INFocusStatusCenter.default.authorizationStatus == .authorized
+                ? INFocusStatusCenter.default.focusStatus.isFocused : nil,
+            onCall: !CXCallObserver().calls.filter { !$0.hasEnded }.isEmpty)
         let outbox = Self.outbox
         Task { @concurrent in
             try? await outbox.enqueue(heartbeat, path: "health/heartbeat", urgent: reason != .periodic)

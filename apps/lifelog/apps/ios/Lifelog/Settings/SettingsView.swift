@@ -124,7 +124,7 @@ struct SettingsView: View {
     }
 
     private var lifeSilence: String {
-        let since = life.inbox.loadedAt.map { "Last read \($0.formatted(date: .omitted, time: .shortened)). " } ?? ""
+        let since = life.items.loadedAt.map { "Last read \($0.formatted(date: .omitted, time: .shortened)). " } ?? ""
         return since + "The Mac may be asleep."
     }
 

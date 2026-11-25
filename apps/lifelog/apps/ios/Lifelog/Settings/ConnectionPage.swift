@@ -20,7 +20,7 @@ struct ConnectionPage: View {
     private var address: URL? { connection == .life ? life.pairedOrigin : sync.server }
     private var link: LinkState { connection == .life ? life.link : sync.link }
     private var outcome: CheckOutcome { connection == .life ? life.outcome : sync.outcome }
-    private var checkedAt: Date? { connection == .life ? life.inbox.loadedAt : sync.feed.pulledAt }
+    private var checkedAt: Date? { connection == .life ? life.items.loadedAt : sync.feed.pulledAt }
 
     var body: some View {
         ScrollView {
@@ -165,7 +165,7 @@ struct ConnectionPage: View {
 
     private func check() async {
         isChecking = true
-        if connection == .life { await life.refreshInbox() } else { await sync.checkNow() }
+        if connection == .life { await life.refreshItems() } else { await sync.checkNow() }
         isChecking = false
         isChecked = true
     }

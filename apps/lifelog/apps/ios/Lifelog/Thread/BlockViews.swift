@@ -8,8 +8,7 @@ struct BlockActions {
     var openSettings: () -> Void = {}
 }
 
-/// One of Life's components (`LifeBlock`). Items and pictures are Life's own things by ref: P3's rows draw them in
-/// their states; until then each shows as a quiet row.
+/// One of Life's components (`LifeBlock`). Items and pictures are Life's own things by ref, drawn live (`Items/`).
 struct BlockView: View {
     let block: LifeBlock
     let actions: BlockActions
@@ -18,7 +17,8 @@ struct BlockView: View {
 
     var body: some View {
         switch block {
-        case .items(let refs), .pictures(let refs): RefRows(refs: refs)
+        case .items(let refs): ItemsBlock(refs: refs)
+        case .pictures(let refs): PicturesBlock(refs: refs)
         case .table(let table): TableBlock(table: table)
         case .document(let doc):
             VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
@@ -61,22 +61,6 @@ struct BlockView: View {
             }
         case .settings:
             Button("Settings", action: actions.openSettings).buttonStyle(.pill(.quiet, size: .compact))
-        }
-    }
-}
-
-private struct RefRows: View {
-    let refs: [String]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(refs, id: \.self) { ref in
-                Text(ref.split(separator: "/").last.map(String.init) ?? ref).font(.rowName).foregroundStyle(
-                    Palette.muted
-                )
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, Metrics.Spacing.m)
-                Hairline()
-            }
         }
     }
 }

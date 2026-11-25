@@ -38,12 +38,12 @@ final class IncidentNotifier: NSObject {
     /// Watch, a collapsed one); the expanded one adds the card's one-tap answers (`NotificationContent`). Every answer
     /// asks for an unlocked phone or Watch.
     private static let cardCategory = UNNotificationCategory(
-        identifier: CardNotification.category, actions: [CardNotification.replyAction], intentIdentifiers: [],
+        identifier: CardNotification.category, actions: [CardNotification.replyAction, CardNotification.laterAction], intentIdentifiers: [],
         options: [.hiddenPreviewsShowTitle])
     /// A card it can send from, whole draft as its text (`NotificationService`): Send and Reply…, on the Watch too.
     private static let sendCategory = UNNotificationCategory(
         identifier: CardNotification.sendCategory,
-        actions: [CardNotification.sendAction, CardNotification.replyAction],
+        actions: [CardNotification.sendAction, CardNotification.replyAction, CardNotification.laterAction],
         intentIdentifiers: [], options: [.hiddenPreviewsShowTitle])
 
     /// An appointment Life added: Remove (in the background) and Open in Calendar, under the expanded notification.

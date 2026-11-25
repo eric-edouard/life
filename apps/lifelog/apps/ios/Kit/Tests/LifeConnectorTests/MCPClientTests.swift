@@ -157,31 +157,7 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     #expect(took < .seconds(1))
 }
 
-@Test func hisIconForAMatterIsSentAsAKeyOrAsNull() async throws {
-    let sent = Mutex<[Data]>([])
-    let mcp = client(host: newHost()) { request in
-        let params = request.json["params"] as? [String: Any]
-        let arguments = params?["arguments"] as? [String: Any] ?? [:]
-        sent.withLock { $0.append((try? JSONSerialization.data(withJSONObject: arguments)) ?? Data()) }
-        return .json(resultMessage("{}"))
-    }
-    let api = MCPLifeAPI(client: mcp)
-    _ = try await api.setMatterIcon(matter: "matter_aaaaaaaaaaaa", icon: "key", onProgress: { _ in })
-    _ = try await api.setMatterIcon(matter: "matter_aaaaaaaaaaaa", icon: nil, onProgress: { _ in })
-    let corrections = try sent.withLock {
-        try $0.map {
-            let arguments = try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any])
-            return try #require(arguments["correction"] as? [String: Any])
-        }
-    }
-    #expect(corrections[0]["kind"] as? String == "matter-icon")
-    #expect(corrections[0]["matter"] as? String == "matter_aaaaaaaaaaaa")
-    #expect(corrections[0]["icon"] as? String == "key")
-    // Life picks again only on an explicit null: a dropped field would be refused.
-    #expect(corrections[1]["icon"] is NSNull)
-}
-
-@Test func aPushReadAsksLifeForThatOneCardAndTheWholeReadForEveryCard() async throws {
+@Test func aPushReadAsksLifeForThatOneCardAndTheThreadReadForItsPageAndVersion() async throws {
     let sent = Mutex<[Data]>([])
     let mcp = client(host: newHost()) { request in
         let params = request.json["params"] as? [String: Any]
@@ -191,69 +167,15 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     }
     let api = MCPLifeAPI(client: mcp)
     _ = try await api.readInbox(pushId: "0123456789abcdef", at: nil)
-    _ = try await api.readInbox(ifNot: nil)
-    _ = try await api.readInbox(ifNot: "v1")
+    _ = try await api.readThread(before: nil, ifNot: nil)
+    _ = try await api.readThread(before: "2026-11-20", ifNot: "v1")
     let arguments = try sent.withLock {
         try $0.map { try #require(JSONSerialization.jsonObject(with: $0) as? [String: Any]) }
     }
     #expect(arguments[0]["pushId"] as? String == "0123456789abcdef")
-    #expect(arguments[0]["limit"] == nil)
-    #expect(arguments[1]["limit"] as? Int == 500)
-    #expect(arguments[1]["ifNot"] == nil)
+    #expect(arguments[1]["before"] == nil && arguments[1]["ifNot"] == nil)
+    #expect(arguments[2]["before"] as? String == "2026-11-20")
     #expect(arguments[2]["ifNot"] as? String == "v1")
-}
-
-@Test func hisMarkAndAProjectsStatusGoAsLifeTakesThem() async throws {
-    let sent = Mutex<[(String, Data)]>([])
-    let mcp = client(host: newHost()) { request in
-        let params = request.json["params"] as? [String: Any]
-        let arguments = params?["arguments"] as? [String: Any] ?? [:]
-        let name = params?["name"] as? String ?? ""
-        sent.withLock { $0.append((name, (try? JSONSerialization.data(withJSONObject: arguments)) ?? Data())) }
-        return .json(resultMessage("{}"))
-    }
-    let api = MCPLifeAPI(client: mcp)
-    _ = try await api.setImportant(matter: "matter_1", false) { _ in }
-    _ = try await api.setProjectStatus("halden", .parked, said: "Parked the project Halden house") { _ in }
-    _ = try await api.readMatters(project: "halden", ifNot: nil)
-    _ = try await api.readMatters(person: "person:test-ana")
-    _ = try await api.readMatters(area: "home", ifNot: "v2")
-    _ = try await api.setPicture(
-        of: "person:test-bakery", kind: .organization, from: "none", said: "No picture for Test Bakery"
-    ) { _ in }
-    let calls = try sent.withLock {
-        try $0.map { ($0.0, try #require(JSONSerialization.jsonObject(with: $0.1) as? [String: Any])) }
-    }
-    #expect(
-        calls.map(\.0) == [
-            "correct_memory", "change_directory_entry", "read_matters", "read_matters", "read_matters",
-            "change_directory_entry",
-        ])
-    // His picture pick edits the entry by its id in his directory, never by the ref the phone holds.
-    #expect(calls[5].1["kind"] as? String == "organization")
-    #expect(calls[5].1["action"] as? String == "edit")
-    #expect(calls[5].1["id"] as? String == "test-bakery")
-    #expect(calls[5].1["pictureFrom"] as? String == "none")
-    // An area chip's list: the area's matters in no project, by the one rule the chip's count used.
-    #expect(calls[4].1["area"] as? String == "home")
-    #expect(calls[4].1["noProject"] as? Bool == true)
-    #expect(calls[4].1["ifNot"] as? String == "v2")
-    #expect(calls[2].1.keys.sorted() == ["project"])
-    #expect(calls[5].1["project"] as? String == "halden")
-    // Life resolves a person by id (`test-ana`), never by the ref the phone holds.
-    #expect(calls[3].1["person"] as? String == "test-ana")
-    let mark = try #require(calls[0].1["correction"] as? [String: Any])
-    #expect(calls[0].1["kind"] as? String == "memory")
-    #expect(mark["kind"] as? String == "matter-important")
-    #expect(mark["matter"] as? String == "matter_1")
-    #expect(mark["important"] as? Bool == false)
-    let edit = calls[1].1
-    #expect(edit["kind"] as? String == "project")
-    #expect(edit["action"] as? String == "edit")
-    #expect(edit["id"] as? String == "halden")
-    #expect(edit["status"] as? String == "parked")
-    #expect(edit["said"] as? String == "Parked the project Halden house")
-    #expect(calls[2].1["project"] as? String == "halden")
 }
 
 @Test func noInternetIsOfflineNotUnreachable() async throws {

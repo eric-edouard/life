@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     let path = NetworkPath()
     private let location = LocationRecorder()
     let appleHealth = AppleHealthReader()
-    /// Life's reads (inbox, matters, agents) and its pairing: the phone is one more app of Life's connector.
+    /// Life's reads (the thread's asks) and its pairing: the phone is one more app of Life's connector.
     lazy var life: LifeStore = {
         return LifeStore(path: path)
     }()
@@ -66,6 +66,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         AppDependencyManager.shared.add(dependency: capture)
         capture.notifier.card = { [weak self] pushId, kept, life in
             await self?.life.notifiedCard(pushId: pushId, kept: kept, life: life)
+        }
+        capture.notifier.answer = { [weak self] check, request, life in
+            guard let self else { return ("Not answered.", "Open lifelog and try again.") }
+            await self.life.answer(request, for: life)
+            // Life's own words say how it went; a tap that is still running or never ran says so too.
+            let ended = self.life.state(of: .answer(ref: request.ref))
+            self.life.forget(.answer(ref: request.ref))
+            if let said = ended.heldAnswerWords(as: "Done") { return (said.isDone ? "Done" : "Not done", said.words) }
+            return ("Not answered.", "Open lifelog to check \(check.title).")
         }
         capture.notifier.removeAppointment = { [weak self] id in
             guard case .succeeded? = await self?.life.changeAppointment(id, isOn: false) else { return false }

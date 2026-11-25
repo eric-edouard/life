@@ -107,11 +107,17 @@ public struct Heartbeat: Codable, Sendable, Equatable {
     var droppedMessages: Int
     /// The phone's zone, "Europe/Berlin": the server shows the owner's days and times in it.
     var timeZone: String
+    /// A Focus is on, and a phone call is connected, so Life holds what can wait (nil: not allowed to know).
+    var focus: Bool?
+    var onCall: Bool?
 
     public init(
         id: UUID = UUID(), reason: Reason, at now: Date, build: BuildInfo, status: CaptureStatus, connectionSince: Date,
-        lastContact: Date?, phone: Phone, wakeLog: WakeLog, timeZone: TimeZone = .current
+        lastContact: Date?, phone: Phone, wakeLog: WakeLog, timeZone: TimeZone = .current, focus: Bool? = nil,
+        onCall: Bool? = nil
     ) {
+        self.focus = focus
+        self.onCall = onCall
         self.id = id
         self.timeZone = timeZone.identifier
         self.reason = reason
