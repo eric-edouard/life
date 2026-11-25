@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock, DAY } from "../core/clock";
 import { readChangeStamp } from "../core/files";
+import { rateOffersOf } from "../memory/decision-after-answer";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
@@ -140,7 +141,10 @@ function matterStatuses() {
 }
 
 /** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
-const closedCardOf = (d: Decision) => ({
+const closedCardOf = (
+  d: Decision,
+  offers: ReturnType<typeof rateOffersOf>
+) => ({
   answer: d.answer
     ? {
         at: d.answer.at,
@@ -151,6 +155,8 @@ const closedCardOf = (d: Decision) => ({
   ask: d.ask ?? null,
   options: d.options.map(({ id, label }) => ({ id, label })),
   question: d.question,
+  /** "How am I doing?" on it (`rateOffersOf`): his mark so far, null when none; null when not asked. */
+  rate: offers.has(d.id) ? { mark: offers.get(d.id)?.mark ?? null } : null,
   sent: d.send?.kind === "sent" ? { at: d.send.at } : null,
   title: d.title,
   undo: undoOf(d),
@@ -177,6 +183,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const { entries, isOlder } =
     desk.state === "ok" ? desk.value : { entries: [], isOlder: false };
   const all = decisionsNow(now);
+  const offers = rateOffersOf(all);
   const cards = all.filter(
     (d) =>
       d.at >= from &&
@@ -222,7 +229,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
       const later = laterUntilOf(d.id, now);
       return {
         at: d.at,
-        card: check ?? closedCardOf(d),
+        card: check ?? closedCardOf(d, offers),
         kind: "ask" as const,
         later: later ?? null,
         ref: d.id,

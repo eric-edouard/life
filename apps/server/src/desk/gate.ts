@@ -4,12 +4,15 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { cardInstructionsOf } from "../host/card-push";
 import { assignmentOfCard, lastTurns } from "../host/desk-read";
-import { ownerStateNow } from "../host/owner-state";
+import { appOpenSinceOf, ownerStateNow } from "../host/owner-state";
+import { recordArrivalHome } from "../memory/arrival-home";
 import { deliveryOf, recordDelivered } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
-import { draftWords } from "../memory/draft";
+import { draftWords, type StoredDraft } from "../memory/draft";
+import { readExchangeCounts, replyHourOf } from "../memory/exchange-counts";
 import type { instructionsFor } from "../memory/instructions";
+import { OWNER } from "../memory/read-truth";
 import { begin, readsOf } from "../memory/run";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import { MAIN_QUESTION } from "./agent-questions";
@@ -58,9 +61,13 @@ export interface GateFacts {
   deadline: string;
   /** `interrupt` (pass) or `quiet` (hold) in force on it; a refusal beats a grant. */
   effect?: "interrupt" | "quiet";
+  /** Life's app is open in his hand (`appOpenSinceOf`): now is free, never "not now". */
+  isAppOpen?: boolean;
   now: Date;
   /** Null: the call failed or was late, so the card goes through. */
   readings: GateReadings | null;
+  /** A draft's: the next of his usual reply hours in its chat (`replyAtOf`), when he answers it in batches. */
+  replyAt?: number;
   /** A card of the same work was already sent back once: never again. */
   wasSentBack: boolean;
 }
@@ -68,7 +75,8 @@ export interface GateFacts {
 /**
  * Deliver, hold or send back, the one rule (pure): a failed call delivers; a send-back (asked for, or a sensitive
  * subject) only once per piece of work, a sensitive card then delivered with no push; `interrupt` delivers; `quiet`,
- * a `batch` moment ahead, or not a good moment (or not one he can act in) holds, unless urgency is high. A hold lasts
+ * a `batch` moment ahead, his usual reply hour in a draft's chat within 12 hours, or not a good moment (or not one he can
+ * act in, and Life's app not open) holds, unless urgency is high. A hold lasts
  * 12 hours at most (or to the batch moment), never into the 3 hours before the deadline; one that would end now delivers.
  */
 export function gateVerdictOf(f: GateFacts): GateVerdict {
@@ -99,13 +107,7 @@ export function gateVerdictOf(f: GateFacts): GateVerdict {
   }
   const now = f.now.getTime();
   const latest = Date.parse(f.deadline) - DEADLINE_MARGIN;
-  const wanted = [
-    ...(f.batchAt === undefined ? [] : [{ at: f.batchAt, rule: "batch" }]),
-    ...(f.effect === "quiet" ? [{ at: now + MAX_HOLD, rule: "quiet" }] : []),
-    ...(r.goodMoment && r.canActNow
-      ? []
-      : [{ at: now + HOLD_FOR[r.urgency], rule: "not now" }]),
-  ];
+  const wanted = holdsWantedOf(f, r);
   if (wanted.length === 0) {
     return { rules: ["good moment"], verdict: "deliver" };
   }
@@ -116,6 +118,21 @@ export function gateVerdictOf(f: GateFacts): GateVerdict {
   return until <= now
     ? { rules: [...rules, "deadline near"], verdict: "deliver" }
     : { rules, until: iso(until), verdict: "hold" };
+}
+
+/** The holds a card's facts ask for, each to when (none: a good moment). */
+function holdsWantedOf(f: GateFacts, r: GateReadings) {
+  const now = f.now.getTime();
+  return [
+    ...(f.batchAt === undefined ? [] : [{ at: f.batchAt, rule: "batch" }]),
+    ...(f.effect === "quiet" ? [{ at: now + MAX_HOLD, rule: "quiet" }] : []),
+    ...(f.replyAt !== undefined && f.replyAt - now <= MAX_HOLD
+      ? [{ at: f.replyAt, rule: "reply time" }]
+      : []),
+    ...((r.goodMoment && r.canActNow) || f.isAppOpen
+      ? []
+      : [{ at: now + HOLD_FOR[r.urgency], rule: "not now" }]),
+  ];
 }
 
 const HM = /\b([01]?\d|2[0-3])[:h]([0-5]\d)\b/g;
@@ -146,6 +163,31 @@ export function effectsOf(list: readonly Instruction[], now: Date) {
     batchAt: batch ? nextBatchAtOf(batch.text, now) : undefined,
     effect,
   };
+}
+
+/**
+ * The next instant of his usual reply hour (`replyHourOf`) in a draft's 1:1 chat, after `now`, where he is; none for a
+ * group, a new chat, or a person he answers at once. The person is the other sender of its last messages.
+ */
+export function replyAtOf(
+  draft: StoredDraft | undefined,
+  now: Date,
+  // Read only for a 1:1 draft: the file is a few MB.
+  counted = readExchangeCounts
+) {
+  const ref =
+    draft && !draft.people
+      ? draft.recent?.find((m) => m.sender.ref !== OWNER)?.sender.ref
+      : undefined;
+  const hour = ref ? replyHourOf(counted()?.people[ref] ?? [], now) : undefined;
+  if (hour === undefined) {
+    return;
+  }
+  const hm = `${String(hour).padStart(2, "0")}:00`;
+  const today = dayNow(now);
+  return [today, daysBefore(today, -1)]
+    .map((day) => dayStart(day, zoneNow(), hm).getTime())
+    .find((t) => t > now.getTime());
 }
 
 /** A card as the gate reads it: what his phone shows of it. */
@@ -247,10 +289,13 @@ const gateCardOf = (d: Decision): GateCard => ({
 
 /**
  * The gate's step of the desk's tick: each agent's card not gated yet (`deliveryOf` pending) gets its verdict, one
- * `delivered` line (`recordDelivered`); a follow-up to what he just did is delivered unread. A card sent back wakes its
+ * `delivered` line (`recordDelivered`); a follow-up to what he just did is delivered unread. First, his last arrival home
+ * is kept while a Later waits for it. A card sent back wakes its
  * agent (`SENT_BACK`, facts only). A hold ends by itself at its time (`deliveryOf`). One card at a time.
  */
 export async function gateCards(desk: Desk, now = clock()) {
+  // His Laters that wait for home end at his arrival there (`recordArrivalHome`, read by `laterUntilOf`).
+  await recordArrivalHome(now);
   const all = decisionsNow(now);
   const pending = all.filter(
     (d) => d.state === "open" && deliveryOf(d, now).state === "pending"
@@ -296,9 +341,12 @@ async function gateCard(
       assignmentOfCard(desk.db, o) === assignment &&
       deliveryOf(o, now).state === "sent_back"
   );
+  const replyAt = replyAtOf(d.draft, now);
   const v = gateVerdictOf({
     deadline: d.deadline,
+    isAppOpen: Boolean(appOpenSinceOf(now)),
     now: clock(),
+    ...(replyAt === undefined ? {} : { replyAt }),
     readings,
     wasSentBack,
     ...effectsOf(instructions, now),
