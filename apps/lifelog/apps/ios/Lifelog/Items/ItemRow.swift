@@ -49,10 +49,10 @@ struct ItemRow: View {
             case .underWay: Spinner(size: .small).foregroundStyle(Palette.ai).accessibilityLabel("Under way")
             case .waitingOnSomeone:
                 Image(systemName: "hourglass").foregroundStyle(Palette.muted).accessibilityLabel("Waiting on someone")
-            case .settled: Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
+            case .settled:
+                Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
                     .accessibilityIdentifier(AID.askSettled(ask.ref))
-            case .outdated: Color.clear.frame(width: 1, height: 1).accessibilityIdentifier(AID.askOutdated(ask.ref))
-            case .unknown: EmptyView()
+            case .outdated, .unknown: EmptyView()
             }
         }
     }
@@ -63,7 +63,8 @@ struct ItemRow: View {
             if let text = ask.check?.draft?.text { Text(text).font(.quote).padding(.leading, Metrics.Spacing.m) }
             if let check = ask.check, ask.isAnswerable, !isQueued { answers(check) }
             if case .failed(let failure, _) = action {
-                Text(failure.reason).font(.line).foregroundStyle(Palette.flag).accessibilityIdentifier(AID.askFailure(ask.ref))
+                Text(failure.reason).font(.line).foregroundStyle(Palette.flag).accessibilityIdentifier(
+                    AID.askFailure(ask.ref))
             }
             if ask.undoLine != nil { undo }
         }

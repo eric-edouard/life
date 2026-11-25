@@ -116,17 +116,23 @@
         }
         static let state = Mutex<Held?>(nil)
 
-        static func origin(of name: String) -> URL { URL(string: "https://life-\(name).e2e.test") ?? URL(filePath: "/") }
+        static func origin(of name: String) -> URL {
+            URL(string: "https://life-\(name).e2e.test") ?? URL(filePath: "/")
+        }
         static func step(in dir: URL) -> Int {
             (try? String(contentsOf: dir.appending(path: "step"), encoding: .utf8))
                 .flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
         }
 
-        override class func canInit(with request: URLRequest) -> Bool { request.url?.host()?.hasSuffix(".e2e.test") == true }
+        override class func canInit(with request: URLRequest) -> Bool {
+            request.url?.host()?.hasSuffix(".e2e.test") == true
+        }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
         override func stopLoading() { Self.note("stopped \(request.url?.path() ?? "")") }
         static func note(_ text: String) {
-            guard let dir = state.withLock({ $0?.dir }), let data = try? JSONSerialization.data(withJSONObject: ["note": text]) else { return }
+            guard let dir = state.withLock({ $0?.dir }),
+                let data = try? JSONSerialization.data(withJSONObject: ["note": text])
+            else { return }
             let file = dir.appending(path: "calls.jsonl")
             if let handle = try? FileHandle(forWritingTo: file) {
                 handle.seekToEndOfFile()
@@ -184,7 +190,9 @@
         private func form(_ data: Data) -> [String: String] {
             Dictionary(
                 String(decoding: data, as: UTF8.self).split(separator: "&").map { pair in
-                    let parts = pair.split(separator: "=", maxSplits: 1).map { String($0).removingPercentEncoding ?? "" }
+                    let parts = pair.split(separator: "=", maxSplits: 1).map {
+                        String($0).removingPercentEncoding ?? ""
+                    }
                     return (parts[0], parts.count > 1 ? parts[1] : "")
                 }, uniquingKeysWith: { $1 })
         }
@@ -200,7 +208,9 @@
                 line["origin"] = name
                 guard let data = try? JSONSerialization.data(withJSONObject: line, options: .sortedKeys) else { return }
                 let file = held.dir.appending(path: "calls.jsonl")
-                if !FileManager.default.fileExists(atPath: file.path) { FileManager.default.createFile(atPath: file.path, contents: nil) }
+                if !FileManager.default.fileExists(atPath: file.path) {
+                    FileManager.default.createFile(atPath: file.path, contents: nil)
+                }
                 if let handle = try? FileHandle(forWritingTo: file) {
                     handle.seekToEndOfFile()
                     handle.write(data + Data("\n".utf8))
@@ -227,10 +237,13 @@
                 log(["authorize": isRight ? "approved" : "wrong_code"])
                 guard isRight else { return Reply(headers: ["content-type": "text/html"], chunks: [Data("pair".utf8)]) }
                 return Reply(
-                    status: 302, headers: ["location": "http://127.0.0.1/life-app?code=e2e-code&state=\(fields["state"] ?? "")"])
+                    status: 302,
+                    headers: ["location": "http://127.0.0.1/life-app?code=e2e-code&state=\(fields["state"] ?? "")"])
             case "/token":
                 log(["token": "issued"])
-                return Self.json(["access_token": "e2e-access-\(name)", "refresh_token": "e2e-refresh-\(name)", "expires_in": 3600])
+                return Self.json([
+                    "access_token": "e2e-access-\(name)", "refresh_token": "e2e-refresh-\(name)", "expires_in": 3600,
+                ])
             case "/mcp": return tool(held: held, name: name, step: step, steps: Array(steps), log: log)
             default: return Self.json([:], status: 404)
             }
@@ -255,7 +268,9 @@
 
         private static func message(_ result: String, isError: Bool = false) -> String {
             let content = [["type": "text", "text": result]]
-            let object: [String: Any] = ["jsonrpc": "2.0", "id": 1, "result": ["content": content, "isError": isError]]
+            let object: [String: Any] = [
+                "jsonrpc": "2.0", "id": 1, "result": ["content": content, "isError": isError],
+            ]
             return String(decoding: (try? JSONSerialization.data(withJSONObject: object)) ?? Data(), as: UTF8.self)
         }
 
@@ -292,26 +307,39 @@
             case "answer_check":
                 let ref = arguments["ref"] as? String ?? ""
                 let options = arguments["options"] as? [String] ?? []
-                let reply: (text: String, isError: Bool, lines: [Any], drop: Bool, outcome: String, advances: Bool)? = Self.state.withLock { held in
-                    guard var now = held else { return nil }
-                    defer { held = now }
-                    if let first = now.answered[ref] {
-                        return (first, false, [], false, "repeat", true)
+                let reply: (text: String, isError: Bool, lines: [Any], drop: Bool, outcome: String, advances: Bool)? =
+                    Self.state.withLock { held in
+                        guard var now = held else { return nil }
+                        defer { held = now }
+                        if let first = now.answered[ref] {
+                            return (first, false, [], false, "repeat", true)
+                        }
+                        let scenario = now.scenario
+                        guard
+                            let at = scenario.answers.indices.first(where: {
+                                !now.used.contains($0) && scenario.answers[$0].ref == ref
+                                    && scenario.answers[$0].options == options
+                            })
+                        else { return nil }
+                        now.used.insert(at)
+                        let answer = scenario.answers[at]
+                        let steps = answer.progress ?? []
+                        let lines: [Any] =
+                            steps.isEmpty ? [] : [["plan": steps, "limitSeconds": 45]] + steps.map { ["step": $0] }
+                        let text =
+                            answer.error ?? answer.then.flatMap {
+                                try? String(contentsOf: now.fixtures.appending(path: "wire/\($0)"), encoding: .utf8)
+                            } ?? "{}"
+                        if answer.error == nil, text.contains("\"state\": \"answered\"") { now.answered[ref] = text }
+                        return (
+                            text, answer.error != nil, lines, answer.drop == "before_result",
+                            answer.error != nil
+                                ? "refused"
+                                : answer.drop != nil
+                                    ? "dropped" : answer.then?.contains("not_sent") == true ? "not_sent" : "answered",
+                            answer.advance == true
+                        )
                     }
-                    let scenario = now.scenario
-                    guard let at = scenario.answers.indices.first(where: {
-                        !now.used.contains($0) && scenario.answers[$0].ref == ref && scenario.answers[$0].options == options
-                    }) else { return nil }
-                    now.used.insert(at)
-                    let answer = scenario.answers[at]
-                    let steps = answer.progress ?? []
-                    let lines: [Any] = steps.isEmpty ? [] : [["plan": steps, "limitSeconds": 45]] + steps.map { ["step": $0] }
-                    let text = answer.error ?? answer.then.flatMap {
-                        try? String(contentsOf: now.fixtures.appending(path: "wire/\($0)"), encoding: .utf8)
-                    } ?? "{}"
-                    if answer.error == nil, text.contains("\"state\": \"answered\"") { now.answered[ref] = text }
-                    return (text, answer.error != nil, lines, answer.drop == "before_result", answer.error != nil ? "refused" : answer.drop != nil ? "dropped" : answer.then?.contains("not_sent") == true ? "not_sent" : "answered", answer.advance == true)
-                }
                 log([
                     "tool": tool, "ref": ref, "options": options, "key": key ?? "",
                     "outcome": reply?.outcome ?? "unmatched",
@@ -329,12 +357,24 @@
                     return ended(#"{"kind":"reply","entry":0,"text":"","refs":[],"acts":[]}"#)
                 }
                 log(["tool": tool, "words": words])
-                let blocks = held.scenario.items.isEmpty ? "" : "\n\n```life:items\n" + (String(decoding: (try? JSONSerialization.data(withJSONObject: held.scenario.items)) ?? Data(), as: UTF8.self)) + "\n```"
+                let blocks =
+                    held.scenario.items.isEmpty
+                    ? ""
+                    : "\n\n```life:items\n"
+                        + (String(
+                            decoding: (try? JSONSerialization.data(withJSONObject: held.scenario.items)) ?? Data(),
+                            as: UTF8.self)) + "\n```"
                 let text = "It waits on you.\(blocks)"
-                let reply: [String: Any] = ["kind": "reply", "entry": 1, "text": text, "refs": held.scenario.items, "acts": []]
-                let lines: [[String: Any]] = [["kind": "step", "verb": "Reading", "what": "your asks"]]
-                    + (held.scenario.items.isEmpty ? [] : [["kind": "block", "type": "items", "block": held.scenario.items]])
-                return ended(String(decoding: (try? JSONSerialization.data(withJSONObject: reply)) ?? Data(), as: UTF8.self), lines: lines)
+                let reply: [String: Any] = [
+                    "kind": "reply", "entry": 1, "text": text, "refs": held.scenario.items, "acts": [],
+                ]
+                let lines: [[String: Any]] =
+                    [["kind": "step", "verb": "Reading", "what": "your asks"]]
+                    + (held.scenario.items.isEmpty
+                        ? [] : [["kind": "block", "type": "items", "block": held.scenario.items]])
+                return ended(
+                    String(decoding: (try? JSONSerialization.data(withJSONObject: reply)) ?? Data(), as: UTF8.self),
+                    lines: lines)
             default:
                 let path = steps.reversed().compactMap { $0.reads?[tool] }.first
                 let text = path.map { fixture($0, in: held) } ?? "{}"

@@ -155,7 +155,8 @@ struct PairSheet: View {
         case .done where runs.values.allSatisfy(\.isKept):
             Button("Done") { dismiss() }.buttonStyle(.pill(.filled)).accessibilityIdentifier(AID.pairDone)
         case .done:
-            Button("Try again") { Task { await pair() } }.buttonStyle(.pill(.filled)).accessibilityIdentifier(AID.pairRetry)
+            Button("Try again") { Task { await pair() } }.buttonStyle(.pill(.filled)).accessibilityIdentifier(
+                AID.pairRetry)
             Button("Cancel") { dismiss() }.buttonStyle(.pill(.quiet)).accessibilityIdentifier(AID.pairCancel)
         }
     }

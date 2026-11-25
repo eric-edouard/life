@@ -114,7 +114,8 @@ for (const d of udids) {
     "com.ericedouard.lifelog",
   ]);
 }
-run(["xcrun", "simctl", "bootstatus", udids[0].udid]);
+const visible = udids[0]?.udid ?? "";
+run(["xcrun", "simctl", "bootstatus", visible]);
 lap("simulators ready");
 
 // --watch <flow> (O7, or a class name): one visible simulator, animations on, a pause per step, recorded to
@@ -122,7 +123,7 @@ lap("simulators ready");
 const args = process.argv.slice(2);
 const at = args.indexOf("--watch");
 const flow = at < 0 ? "" : args[at + 1];
-const classes = at < 0 ? args : [flowClass(flow)];
+const classes = at < 0 ? args : [flowClass(flow ?? "")];
 let recording: ReturnType<typeof Bun.spawn> | undefined;
 if (flow) {
   run(["open", "-a", "Simulator"]);
@@ -135,7 +136,7 @@ if (flow) {
     "xcrun",
     "simctl",
     "io",
-    udids[0].udid,
+    visible,
     "recordVideo",
     "--force",
     video,
@@ -154,7 +155,7 @@ const test = run([
   "-derivedDataPath",
   DERIVED,
   "-destination",
-  `platform=iOS Simulator,id=${udids[0].udid}`,
+  `platform=iOS Simulator,id=${visible}`,
   "-resultBundlePath",
   RESULT,
   "-parallel-testing-enabled",

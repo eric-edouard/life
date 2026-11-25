@@ -18,7 +18,6 @@ enum AID {
     static func askAnswer(_ ref: String, _ option: String) -> String { "ask.answer.\(ref).\(option)" }
     static func askQueued(_ ref: String) -> String { "ask.queued.\(ref)" }
     static func askSettled(_ ref: String) -> String { "ask.settled.\(ref)" }
-    static func askOutdated(_ ref: String) -> String { "ask.outdated.\(ref)" }
     static func askFailure(_ ref: String) -> String { "ask.failure.\(ref)" }
     static func askUndo(_ ref: String) -> String { "ask.undo.\(ref)" }
 }

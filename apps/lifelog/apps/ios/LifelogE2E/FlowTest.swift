@@ -61,7 +61,11 @@ class FlowTest: XCTestCase {
     func poll(_ what: String, within seconds: Double = 20, _ isTrue: () -> Bool) {
         let end = Date.now.addingTimeInterval(seconds)
         while !isTrue() {
-            if Date.now > end { return XCTFail("Waited \(seconds) s for: \(what)\n\(app.debugDescription.split(separator: "\n").filter { $0.contains("identifier") || $0.contains("Button") || $0.contains("StaticText") }.joined(separator: "\n"))") }
+            if Date.now > end {
+                return XCTFail(
+                    "Waited \(seconds) s for: \(what)\n\(app.debugDescription.split(separator: "\n").filter { $0.contains("identifier") || $0.contains("Button") || $0.contains("StaticText") }.joined(separator: "\n"))"
+                )
+            }
             Thread.sleep(forTimeInterval: 0.1)
         }
         watchPause()

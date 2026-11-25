@@ -23,7 +23,8 @@ import XCTest
         appears(element(AID.pairRetry), "Not paired")
         tap(AID.pairCancel)
         openTheAsk()
-        XCTAssertTrue(calls().contains { $0["origin"] as? String == "a" && $0["tool"] as? String == "ask_main_session" })
+        XCTAssertTrue(
+            calls().contains { $0["origin"] as? String == "a" && $0["tool"] as? String == "ask_main_session" })
         XCTAssertFalse(calls().contains { $0["origin"] as? String == "b" && $0["tool"] != nil })
     }
 }
@@ -89,8 +90,7 @@ import XCTest
         openTheAsk()
         appears(element(AID.askAnswer(Self.ask, "send")), "Send")
         step(1)
-        appears(element(AID.askOutdated(Self.ask)), "the ask outdated")
-        XCTAssertFalse(element(AID.askAnswer(Self.ask, "send")).exists)
+        vanishes(element(AID.askAnswer(Self.ask, "send")), "Send gone once the ask is outdated")
         XCTAssertTrue(answers().isEmpty)
     }
 }
@@ -164,7 +164,9 @@ import XCTest
         launch("O7", paired: nil, reset: false, open: Self.link("b", code: "XYZ789"))
         tap(AID.pairConfirm)
         tap(AID.pairDone)
-        poll("Life B read") { calls().contains { $0["origin"] as? String == "b" && $0["tool"] as? String == "read_thread" } }
+        poll("Life B read") {
+            calls().contains { $0["origin"] as? String == "b" && $0["tool"] as? String == "read_thread" }
+        }
         XCTAssertTrue(answers().isEmpty)
     }
 }
