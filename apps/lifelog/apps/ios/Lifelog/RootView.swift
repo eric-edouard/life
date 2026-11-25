@@ -11,46 +11,88 @@ struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var isPendantShown = false
-    @State private var isSettingsShown = false
+    /// The one sheet that may be up: opening another replaces it, a pairing link included.
+    @State private var sheet: Sheet?
+    /// What is pushed over the thread: a profile, one level deep.
+    @State private var profiles: [Profile] = []
     @State private var text = ""
     @State private var isSpeaking = false
-    /// A pairing link the owner is asked to confirm: the lifelog server, Life, or both.
-    @State private var confirming: PairOffer?
+    @FocusState private var isAsking: Bool
+    /// A pairing is being checked (`PairSheet`): another pairing link waits for it.
+    @State private var isPairing = false
+    /// A pairing link that came while a sheet was up: asked once that sheet has gone.
+    @State private var pendingPair: PairOffer?
+
+    private enum Sheet: Identifiable {
+        case pendant, settings, link(String)
+        /// A pairing link the owner is asked to confirm: the lifelog server, Life, or both.
+        case pair(PairOffer)
+
+        var id: String {
+            switch self {
+            case .pendant: "pendant"
+            case .settings: "settings"
+            case .link(let ref): "link:" + ref
+            case .pair(let offer): "pair:\(offer.id)"
+            }
+        }
+    }
+
+    private struct Profile: Hashable { let ref: String }
 
     private var thread: LifeThread { life.thread }
-    /// What he sees now, as refs only: the thread is the one screen.
-    private let screen = MainSessionScreen(tab: "thread")
+    /// What he sees now, as refs only: the thread, or the profile pushed over it.
+    private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref, tab: "thread") }
     private var edge: EdgeState {
         life.isOutOfReach ? .still : thread.isWorking ? .working : isSpeaking ? .speaking : .rest
     }
 
     var body: some View {
-        ZStack {
-            Palette.bg.ignoresSafeArea()
-            if life.isPaired {
-                ThreadView(thread: thread, screen: screen, actions: actions)
-                    .safeAreaPadding(.top, 56).safeAreaPadding(.bottom, 8)
-            } else {
-                Button("Pair Life") { isSettingsShown = true }.buttonStyle(.pill(.filled, size: .compact)).padding(80)
+        NavigationStack(path: $profiles) {
+            ZStack {
+                Palette.bg.ignoresSafeArea()
+                if life.isPaired {
+                    ThreadView(thread: thread, screen: screen, actions: actions)
+                } else {
+                    Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(80)
+                }
             }
-            EdgeView(state: edge)
-        }
-        .safeAreaInset(edge: .top) {
-            VStack(spacing: Metrics.Spacing.s) {
-                buttons
-                Notices { isSettingsShown = true }.padding(.horizontal, Metrics.Spacing.l)
+            .safeAreaInset(edge: .top) {
+                VStack(spacing: Metrics.Spacing.s) {
+                    buttons
+                    Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
+                }
             }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: Profile.self) { ProfileView(ref: $0.ref) }
         }
+        // The field is on every screen, a pushed profile too: it asks with that screen's refs.
         .safeAreaInset(edge: .bottom) {
-            AskField(text: $text, isWorking: thread.isWorking, isSpeaking: $isSpeaking, send: send) {
+            AskField(
+                text: $text, isWorking: thread.isWorking, isSpeaking: $isSpeaking, isFocused: $isAsking, send: send
+            ) {
                 Task { await thread.stop() }
             }
             .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
         }
-        .sheet(isPresented: $isPendantShown) { PendantView().sheetStack() }
-        .sheet(isPresented: $isSettingsShown) { NavigationStack { SettingsPage() }.sheetStack() }
-        .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
+        // The ring is round the whole screen, a pushed profile too; a sheet covers it.
+        .overlay { EdgeView(state: edge) }
+        .sheet(
+            item: $sheet,
+            onDismiss: {
+                if let offer = pendingPair {
+                    pendingPair = nil
+                    sheet = .pair(offer)
+                }
+            }
+        ) { sheet in
+            switch sheet {
+            case .pendant: PendantView().sheetStack()
+            case .settings: SettingsPage().toolbar { CloseItem { self.sheet = nil } }.sheetStack()
+            case .link(let ref): LinkSheet(ref: ref)
+            case .pair(let offer): PairSheet(offer: offer, isPairing: $isPairing).sheetStack()
+            }
+        }
         .environment(\.windowSizeClass, sizeClass)
         .preferredColorScheme(.dark)
         .task(id: scenePhase == .active) {
@@ -60,27 +102,85 @@ struct RootView: View {
             await thread.sendWaiting(screen: screen)
             await thread.keepWarm()
         }
-        // A new card's push reads the asks again; a tapped notification unfolds its ask; back in reach, the held answers go.
+        // A new card's push reads the asks again; a tapped notification lands on the thread with its ask unfolded;
+        // back in reach, the held answers go.
         .onChange(of: capture.cardPushes) { Task { await life.refreshItems() } }
         .onChange(of: capture.routeToOpen) {
-            guard case .card(let pushId, _, _)? = capture.routeToOpen else { return }
+            guard let route = capture.routeToOpen else { return }
             capture.routeToOpen = nil
-            Task { await life.focus(pushId: pushId) }
+            toThread()
+            Task {
+                if case .card(let pushId, _, _) = route {
+                    await life.focus(pushId: pushId)
+                } else {
+                    await life.refreshItems()
+                }
+            }
+        }
+        // The ask he was sent to is let go once it is answered or settled.
+        .onChange(of: life.focused.flatMap(life.ask)?.state) { old, new in
+            if old != nil, let new, [.underWay, .settled, .outdated].contains(new) { life.clearFocus() }
         }
         .onChange(of: life.isOutOfReach) { if !life.isOutOfReach { Task { await life.flushQueued() } } }
-        // A pairing link (`lifelog://pair?...`), from the Camera or pasted in Settings: it is asked here, never applied alone.
+        // `lifelog://pair?...` (from the Camera or pasted in Settings) is asked here, never applied alone;
+        // `lifelog://open?ref=...` opens a `life:` ref (`LinkAction`).
         .onOpenURL { url in
-            if let offer = PairOffer(link: url) { confirming = offer }
+            let offer = PairOffer(link: url)
+            switch LinkAction(url: url, isPairLink: offer != nil, isPairing: isPairing) {
+            case .pair:
+                guard let offer else { return }
+                // Over an open sheet: it goes first, and the pairing is presented when it has gone.
+                if sheet == nil {
+                    sheet = .pair(offer)
+                } else {
+                    pendingPair = offer
+                    sheet = nil
+                }
+            case .open(let ref): open(ref)
+            case .ignore: break
+            }
         }
+        // A `life:` link in Life's words (`life-open:`, made by `[Inline].attributed`) opens here, wherever it is tapped.
+        .environment(
+            \.openURL,
+            OpenURLAction { url in
+                guard url.scheme == "life-open",
+                    let ref = url.absoluteString.dropFirst("life-open:".count).removingPercentEncoding
+                else { return .systemAction }
+                open(ref)
+                return .handled
+            }
+        )
         .font(.body15)
         .tint(Palette.fg)
     }
 
+    /// Back to the thread, nothing open over it.
+    private func toThread() {
+        sheet = nil
+        profiles = []
+    }
+
+    /// A `life:` ref: a person's profile is pushed (a sheet closes first); an ask unfolds in its row; the rest is Life's
+    /// own page in a sheet.
+    private func open(_ ref: String) {
+        if life.ask(ref) != nil {
+            toThread()
+            life.focus(ref: ref)
+        } else if ref.hasPrefix("person:") {
+            sheet = nil
+            profiles = [Profile(ref: ref)]
+        } else {
+            sheet = .link(ref)
+        }
+    }
+
     private var actions: BlockActions {
-        BlockActions(say: { thread.ask($0, screen: screen) }, openSettings: { isSettingsShown = true })
+        BlockActions(say: { thread.ask($0, screen: screen) }, openSettings: { sheet = .settings })
     }
 
     private func send() {
+        life.clearFocus()
         thread.ask(text, screen: screen)
         text = ""
     }
@@ -96,11 +196,11 @@ struct RootView: View {
             .accessibilityLabel("What's waiting on me")
             Spacer()
             Button {
-                isPendantShown = true
+                sheet = .pendant
             } label: {
                 Image(systemName: "waveform").frame(width: 44, height: 44)
             }
-            .contextMenu { Button("Settings") { isSettingsShown = true } }
+            .contextMenu { Button("Settings") { sheet = .settings } }
             .accessibilityLabel("Pendant")
         }
         .buttonStyle(.glass).buttonBorderShape(.circle).padding(.horizontal, Metrics.Spacing.l)

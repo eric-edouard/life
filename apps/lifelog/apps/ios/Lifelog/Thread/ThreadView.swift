@@ -9,10 +9,23 @@ struct ThreadView: View {
     var isPaired = true
     @State private var showsEarlier = false
     @Environment(\.calendar) private var calendar
+    @Environment(LifeStore.self) private var life
 
     private var shown: [ThreadEntry] {
         let from = calendar.date(byAdding: .day, value: -3, to: thread.entries.last?.at ?? .now) ?? .distantPast
         return showsEarlier ? thread.entries : thread.entries.filter { $0.at >= from }
+    }
+
+    /// The entry whose answer already shows the ask `ref` as a row.
+    private func row(of ref: String) -> UUID? {
+        func holds(_ parts: [AnswerPart]) -> Bool {
+            parts.contains { if case .block(.items(let refs)) = $0 { refs.contains(ref) } else { false } }
+        }
+        return shown.first { entry in
+            holds(
+                thread.live[entry.id]?.parts ?? entry.answer.map { AnswerPart.parts(of: $0, sent: Set(entry.checked)) }
+                    ?? [])
+        }?.id
     }
 
     var body: some View {
@@ -31,13 +44,29 @@ struct ThreadView: View {
                         EntryView(
                             entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
                     }
+                    // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
+                    // unfolded with its answers.
+                    if let ask = life.focused.flatMap(life.ask), row(of: ask.ref) == nil {
+                        ItemRow(ask: ask).id(ask.ref)
+                    }
                     Color.clear.frame(height: 1).id("end")
                 }
                 .padding(.horizontal, Metrics.Spacing.l)
             }
             .defaultScrollAnchor(.bottom)
+            // The keyboard shrinks the thread from below: its bottom stays where it was.
+            .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: thread.entries.count) { proxy.scrollTo("end", anchor: .bottom) }
+            .onChange(of: life.focused) {
+                guard let ref = life.focused else { return }
+                // On screen already: scroll to its row (it unfolds itself); else it was brought to the bottom.
+                if let id = row(of: ref) {
+                    proxy.scrollTo(id, anchor: .center)
+                } else {
+                    proxy.scrollTo("end", anchor: .bottom)
+                }
+            }
             .onChange(of: thread.live) { proxy.scrollTo("end", anchor: .bottom) }
         }
     }
