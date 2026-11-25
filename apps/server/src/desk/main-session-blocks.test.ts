@@ -8,6 +8,8 @@ import * as matters from "../memory/matters";
 import { readCorrections } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as openByIdModule from "../memory/open-by-id";
+import { openAssignment, register } from "./agent-actions";
+import { ownAssignmentOf } from "./role-agents";
 import { askedOf, callDoorOf, setup } from "./test-desk";
 
 // Ask Life's answers: Markdown with Life's blocks, each checked before his phone draws it; and an ask through an act
@@ -144,10 +146,40 @@ test("“I paid the lawyer” closes the matter's open steps with his words; “
 });
 
 // An agent's reply enters the main session as data: an act still takes `said` from his words of this ask alone.
-test("an act refuses `said` that is not his words of this ask, an agent's reply in its context included", async () => {
+test("a question to an agent returns its reply as data; an act refuses `said` taken from that reply", async () => {
+  const plumber = register(t.desk, {
+    brief: "Test plumber agent",
+    folder: t.dir,
+    runtime: "claude",
+  });
+  if (!ownAssignmentOf(t.desk.db, plumber)) {
+    openAssignment(t.desk, plumber, { openedBy: "owner" });
+  }
+  const place = ownAssignmentOf(t.desk.db, plumber) ?? "";
   await asked("Where are we with the plumber?", async (r) => {
+    const id = main()?.id ?? "";
+    const asking = callDoor(id, "tell_agent", {
+      agent: plumber,
+      kind: "question",
+      said: "Where are we with the plumber",
+    });
+    await Bun.sleep(10);
+    const question =
+      t.desk.db
+        .query<{ event_id: string }, [string]>(
+          "select event_id from event where assignment_id = ? and name = 'main_question'"
+        )
+        .get(place)?.event_id ?? "";
+    expect(await callDoor(plumber, "read_question", { question })).toContain(
+      "Where are we with the plumber"
+    );
+    await callDoor(plumber, "answer_question", {
+      question,
+      text: "The plumber comes on Tuesday at nine.",
+    });
+    expect(await asking).toContain("The plumber comes on Tuesday at nine.");
     expect(
-      await callDoor(main()?.id ?? "", "tell_life", {
+      await callDoor(id, "tell_life", {
         said: "The plumber comes on Tuesday at nine",
       })
     ).toContain("must be his own words of this ask");

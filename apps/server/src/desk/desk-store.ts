@@ -18,9 +18,9 @@ import type { Runtime } from "./runtimes/contract";
 // The desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`, WAL): the one state of the desk. Every rule reads its rows and
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows. The Life thread's entries are here too (`thread_entry`: one per ask of his to the main
-// session, or an agent's reply that landed after it (`follows`); its words and answer blankable in place, the row, its
-// time and `deleted_at` kept), with the work each handed on (`handed_work`): never `memory/`, since Life's own words are never read back as his life. A new table needs no
-// store step: `SCHEMA` makes it on open.
+// session, its words and answer blankable in place, the row, its time and `deleted_at` kept), with the work each handed
+// on (`handed_work`): never `memory/`, since Life's own words are never read back as his life. A new table needs no
+// store step: `SCHEMA` makes it on open (as `card` and `handed_step` were, #749).
 
 /** At most one active or stopped agent of each role: the fresh schema's, `stepRoles`' and `stepRoleCheck`'s. */
 export const ONE_AGENT_PER_ROLE =
@@ -198,7 +198,6 @@ create table if not exists thread_entry (
   refs text not null default '[]',
   reactions text not null default '[]',
   answered_at text,
-  follows integer,
   deleted_at text
 );
 create index if not exists thread_entry_by_asked on thread_entry (asked_at);

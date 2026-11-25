@@ -69,17 +69,26 @@ export const stepTurnsOf = (db: Database, steps: string[]) =>
         )
         .all(...steps);
 
-/** The kinds of work the main session hands to an agent (`tell_agent`), each with a first guess of how long it takes. */
-const HANDED_GUESS_MS = {
+/** The kinds of work the main session hands to an agent (`tell_agent`). */
+export const HANDED_KINDS = [
+  "booking",
+  "lookup",
+  "other",
+  "redraft",
+  "reply",
+  "research",
+] as const;
+export type HandedKind = (typeof HANDED_KINDS)[number];
+
+/** Each kind's first guess of how long it takes, until it has run five times. */
+const HANDED_GUESS_MS: Record<HandedKind, number> = {
   booking: 600_000,
   lookup: 60_000,
   other: 180_000,
   redraft: 30_000,
   reply: 60_000,
   research: 300_000,
-} as const;
-export type HandedKind = keyof typeof HANDED_GUESS_MS;
-export const HANDED_KINDS = Object.keys(HANDED_GUESS_MS) as HandedKind[];
+};
 
 /** How many of a kind's last hand-overs `estimateOf` reads, and how many it needs before it trusts them over its guess. */
 const ESTIMATE_OF_LAST = 20;

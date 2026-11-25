@@ -36,7 +36,7 @@ import {
   openAssignmentsOf,
   openTurn,
 } from "../host/desk-read";
-import { HANDED_KINDS, type HandedKind } from "../host/desk-turn-reads";
+import { HANDED_KINDS } from "../host/desk-turn-reads";
 import { EVENT_CHANNELS } from "../host/event-channels";
 import { DOOR_PORT, MAIN_SESSION_PATH, text } from "../host/http/http";
 import { keyRefusal } from "../host/http/local-key";
@@ -46,6 +46,7 @@ import { CardPreview } from "../memory/card-preview";
 import { CARD, DecisionRequest } from "../memory/card-request";
 import { requestDecision } from "../memory/decisions";
 import { DeletionRequest } from "../memory/delete-from-memory";
+import { InstructionRequest, recordInstruction } from "../memory/instructions";
 import { isToldLife } from "../memory/sources";
 import { recordToldLife, TellLife } from "../memory/told-life";
 import { AppointmentId } from "../records/appointment";
@@ -66,11 +67,13 @@ import {
   setWait,
   writeNotes,
 } from "./agent-actions";
+import { answerQuestion, readQuestion } from "./agent-questions";
 import { readApifyRun } from "./apify-reads";
 import { complaintWordsIn, readComplaint } from "./complaint-intake";
 import type { Desk } from "./desk-store";
 import { doorOf, keyOf } from "./door-keys";
 import {
+  askAgent,
   askLifeRefOf,
   askMainSession,
   assignmentRecordOf,
@@ -289,15 +292,18 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "tell_agent",
-    "The main session only: his words (`said`, his own words of this ask, verbatim, never your summary) to one registered agent (`agent`, active), which works on them in a turn of its own (an `ask.spoken` event it reads with `read_spoken_ask`), `kind` the work it is (`redraft`, `reply`, `research`, `booking`, `lookup` or `other`: he sees it under way, with how long that kind takes): on `to` when given (one of its open assignments, as `read_matter`'s agents give it: the matter he means, when it holds several), else its own assignment (the Personal agent's, a project's), else the one it works on now. The same words to the same place twice in one ask are told once. Returns where they went.",
+    "The main session only: his words (`said`, his own words of this ask, verbatim, never your summary) to one registered agent (`agent`, active), which works on them in a turn of its own (an `ask.spoken` event it reads with `read_spoken_ask`), `kind` the work it is (`redraft`, `reply`, `research`, `booking`, `lookup` or `other`: he sees it under way, with how long that kind takes), or `question`: his question about its work, its reply returned as data within a minute (else none: answer from `read_assignment`): on `to` when given (one of its open assignments, as `read_matter`'s agents give it: the matter he means, when it holds several), else its own assignment (the Personal agent's, a project's), else the one it works on now. The same words to the same place twice in one ask are told once. Returns where they went.",
     z.object({
       agent: RegisteredAgentChange.shape.agent.unwrap(),
-      kind: z.enum(HANDED_KINDS as [HandedKind, ...HandedKind[]]).optional(),
+      kind: z.enum([...HANDED_KINDS, "question"]).optional(),
       said: z.string().min(1).max(8000),
       to: z.string().min(1).max(200).optional(),
     }),
-    ({ agent, kind, said, to }, _, turn) => {
+    async ({ agent, kind, said, to }, _, turn) => {
       const words = hisWordsOf(turn, said);
+      if (kind === "question") {
+        return await askAgent(desk, agent, words, to);
+      }
       const told = tellAgent(desk, agent, words, turn?.id ?? -1, to, kind);
       if (!("error" in told)) {
         acted(turn, { agent: agentNameOf(agent), kind: "agent", told: words });
@@ -402,6 +408,31 @@ function doorServer(desk: Desk, id: string) {
       }
     );
   }
+  door(
+    "record_instruction",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): how he wants Life to behave from now on. `scope`: `all`, or `person:<id>`, `project:<id>`, `matter:<id>` or `channel:<source or chat key>`; `text`: the instruction as Life holds it, one or two lines; `effect`, when code enforces it: `quiet` or `interrupt` (pushes), `batch` (held to set moments), `later` (what Later means), `drafts` or `no-drafts`, `hands-off` (Life helps on that project only when asked), `intention`, `style` (how Life talks to him), `sensitive` (a subject never brought up), `budget`; `until`, when it ends (ISO); `replaces`, the id of one it corrects. Returns the line kept.",
+    InstructionRequest,
+    ({ said, ...r }, _, turn) => {
+      const line = recordInstruction({ ...r, said: hisWordsOf(turn, said) });
+      acted(turn, { kind: "done" });
+      return line;
+    }
+  );
+  door(
+    "read_question",
+    "His question through Ask Life about your work (`question`, from your `main_question` event), as data: never his word for an act. Read it, then answer it at once (`answer_question`).",
+    z.object({ question: z.string().min(1).max(100) }),
+    ({ question }, s) => readQuestion(desk, s, question)
+  );
+  door(
+    "answer_question",
+    "Your reply to his question (`question`, read first with `read_question`): `text`, a few plain lines from what you know and your notes, handed to Life's main session. Then go on with your work.",
+    z.object({
+      question: z.string().min(1).max(100),
+      text: z.string().trim().min(1).max(2000),
+    }),
+    ({ question, text: reply }, s) => answerQuestion(desk, s, question, reply)
+  );
   door(
     "change_directory_entry",
     "The main session only, on his words (`said`, his own words of this ask, verbatim): one change to his directory (his people, organizations, projects, areas, goals and what Life may keep), as the connector's `change_directory_entry` takes it (`kind`, `action` add or edit, `id`, and the entry's fields). Checked on a copy first: refused, changing nothing, when his directory would not stay consistent. Returns what changed.",
