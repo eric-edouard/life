@@ -19,7 +19,19 @@ import { LAUNCH_WITHIN_MS } from "./session-runtime";
 // Each case starts a process: a loaded Mac needs more than the default 5 s.
 setDefaultTimeout(30_000);
 
-const FAKE = join(import.meta.dir, "fake-acp-agent.ts");
+/** The fake agent built once into one file (#1150): each case's spawn then starts at once, with no transpile under load. */
+const FAKE = await (async () => {
+  const outdir = mkdtempSync(join(tmpdir(), "life-acp-fake-"));
+  const built = await Bun.build({
+    entrypoints: [join(import.meta.dir, "fake-acp-agent.ts")],
+    outdir,
+    target: "bun",
+  });
+  if (!built.success) {
+    throw new Error("the fake ACP agent did not build");
+  }
+  return built.outputs[0]?.path ?? "";
+})();
 
 /** A row for the fake agent; its log is read by `logOf`. */
 const rowFor = (

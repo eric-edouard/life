@@ -1,27 +1,35 @@
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Agent, Update } from "./contract";
 import { fakePiProvider } from "./fake-pi-provider";
+import { type PiRow, runHeard } from "./pi-connection";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
   compactAtOf,
   connectorReadsOf,
-  PI_COMPACT_AT,
-  type PiRow,
   piRowOf,
   piRuntime,
   readClaudeHooks,
   readClaudeInstructions,
-  runHeard,
 } from "./pi-runtime";
+import { closeDanglingCalls, INTERRUPTED } from "./pi-session-repair";
 
 // The pi runtime over a real pi (the pinned one, run as the helper runs it) and a made-up provider that answers by the
-// prompt's words: `[hang]` streams nothing until aborted, `[sep]` an answer holding U+2028, anything else "hello". One
-// case per rule the desk leans on.
+// prompt's words: `[hang]` streams nothing until aborted, `[sep]` an answer holding U+2028, anything else "hello". One case per rule the desk leans on.
 
 setDefaultTimeout(30_000);
+
+/** Where a turn's end compacts on the made-up model's window. */
+const COMPACT_AT = compactAtOf(1_048_576);
 
 const provider = fakePiProvider((_n, a) => {
   const last = JSON.stringify(a.body.messages.at(-1));
@@ -30,8 +38,8 @@ const provider = fakePiProvider((_n, a) => {
   }
   return {
     text: last.includes("[sep]") ? "one\u2028two" : "hello",
-    // A turn past `PI_COMPACT_AT`; its summary's request is a short one.
-    ...(last.includes("[big]") ? { tokens: PI_COMPACT_AT + 1 } : {}),
+    // A turn past its compaction point; its summary's request is a short one.
+    ...(last.includes("[big]") ? { tokens: COMPACT_AT + 1 } : {}),
   };
 });
 const KEY = "OPENROUTER_API_KEY";
@@ -86,7 +94,7 @@ test("a first turn makes the session, ends with its usage, and the next turn res
   expect(await pi.state("no-such-session")).toBe("gone");
 });
 
-test("a turn that ends past PI_COMPACT_AT compacts its session before it ends, the summary in its spend", async () => {
+test("a turn that ends past its compaction point compacts its session before it ends, the summary in its spend", async () => {
   // This short session has something to compact only when pi keeps no recent turn.
   const pi = piRuntime({
     ...row,
@@ -108,7 +116,7 @@ test("a turn that ends past PI_COMPACT_AT compacts its session before it ends, t
   // The turn's call, then the summary's, both billed.
   expect(provider.asked.length - before).toBe(2);
   expect(ended.usage?.billedUsd).toBe(0.002);
-  expect(ended.usage?.contextLast).toBe(PI_COMPACT_AT + 3);
+  expect(ended.usage?.contextLast).toBe(COMPACT_AT + 3);
   expect(pi.pinsRules).toBe(true);
   const { env } = await row.spawn(
     { ...agent, rules: "Made-up rules." },
@@ -118,10 +126,76 @@ test("a turn that ends past PI_COMPACT_AT compacts its session before it ends, t
   expect(env[PI_EXTENSION_ENV.rules]).toBe("Made-up rules.");
 });
 
-test("a model whose window is under PI_COMPACT_AT compacts below its window, leaving pi's reserve twice over", () => {
-  expect(compactAtOf(1_048_576)).toBe(PI_COMPACT_AT);
-  expect(compactAtOf(undefined)).toBe(PI_COMPACT_AT);
-  expect(compactAtOf(300_000)).toBe(300_000 - 2 * 16_384);
+test("a turn's end compacts at a share of the model's window; with no window known, only pi's own trigger does", () => {
+  expect(COMPACT_AT).toBe(419_430);
+  expect(compactAtOf(300_000)).toBe(120_000);
+  expect(compactAtOf(undefined)).toBe(Number.POSITIVE_INFINITY);
+});
+
+test("a cancel ends what a talk runs and keeps its session open", async () => {
+  const pi = piRuntime(row);
+  const one = await pi.talk(agent, null, "Hi.", () => undefined);
+  expect((await one.ended).ok).toBe(true);
+  const hung = await pi.talk(agent, one.ref, "[hang]", () => undefined);
+  await Bun.sleep(300);
+  await pi.cancel(one.ref);
+  expect(await hung.ended).toEqual({ ok: false, why: "cancelled" });
+  expect(await pi.state(one.ref)).toBe("running");
+  await pi.stop(one.ref);
+});
+
+test("a session left with a call that has no result resumes with that call closed as interrupted, its outcome unknown", async () => {
+  const pi = piRuntime(row);
+  const first = await pi.start(agent, "Your brief.");
+  await first.ended;
+  const sessions = join(dir, "sessions");
+  const file = join(
+    sessions,
+    readdirSync(sessions).find((f) => f.includes(first.ref)) ?? ""
+  );
+  const last = readFileSync(file, "utf8").trim().split("\n").at(-1) ?? "{}";
+  appendFileSync(
+    file,
+    `${JSON.stringify({
+      id: "dangle01",
+      message: {
+        api: "openai-completions",
+        content: [
+          {
+            arguments: { command: "ls" },
+            id: "call_cut",
+            name: "bash",
+            type: "toolCall",
+          },
+        ],
+        model: "up",
+        provider: "life",
+        role: "assistant",
+        stopReason: "toolUse",
+        timestamp: 1,
+        usage: {
+          cacheRead: 0,
+          cacheWrite: 0,
+          cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0, total: 0 },
+          input: 0,
+          output: 0,
+          totalTokens: 0,
+        },
+      },
+      parentId: JSON.parse(last).id,
+      timestamp: new Date(1).toISOString(),
+      type: "message",
+    })}\n`
+  );
+  const before = provider.asked.length;
+  expect((await (await pi.send(agent, first.ref, "A wake.")).ended).ok).toBe(
+    true
+  );
+  expect(JSON.stringify(provider.asked[before]?.body.messages)).toContain(
+    INTERRUPTED
+  );
+  // Closed once: the session's last answer has every result now.
+  expect(closeDanglingCalls(file)).toBe(0);
 });
 
 test("talk keeps one pi across prompts and tells what its model says", async () => {

@@ -30,6 +30,28 @@ export interface DoorTool {
 export const isHisTurn = (kind: string) =>
   kind === "composer" || kind === "bridge";
 
+/**
+ * The tools that only read or write his files (Claude's, Codex's and pi's names): what they hold is never sent, so the
+ * guard reads none of it (`send-guard.ts`), and the plugin passes them even while Life is down. A script one writes is guarded when a shell runs it.
+ */
+export const FILE_TOOLS = new Set([
+  "Edit",
+  "Glob",
+  "Grep",
+  "LS",
+  "MultiEdit",
+  "NotebookEdit",
+  "Read",
+  "Write",
+  "apply_patch",
+  "edit",
+  "find",
+  "grep",
+  "ls",
+  "read",
+  "write",
+]);
+
 /** Whether a call goes through the send guard: the tools the desk's matcher names (`SEND_GUARD_HOOK.matcher`). */
 export const isGuarded = (matcher: string, tool: string) =>
   new RegExp(`^(?:${matcher})$`).test(tool);
