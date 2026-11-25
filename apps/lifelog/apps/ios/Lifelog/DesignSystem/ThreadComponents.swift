@@ -266,6 +266,8 @@ struct NoticeBlock<Detail: View>: View {
     var symbol = "exclamationmark.circle"
     var isOpen = false
     var toggle: () -> Void = {}
+    /// The tests' handle (`AID`), on the tap itself.
+    var id: String?
     @ViewBuilder var detail: Detail
 
     var body: some View {
@@ -283,7 +285,7 @@ struct NoticeBlock<Detail: View>: View {
                 }
                 .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain).accessibilityIdentifier(id ?? "")
             if isOpen { detail }
         }
     }

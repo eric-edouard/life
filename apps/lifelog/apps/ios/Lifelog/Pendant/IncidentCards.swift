@@ -66,7 +66,7 @@ private struct IncidentCard: View {
     private var pages: Int { incident.ids.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             Text(title).font(.bodyStrong).foregroundStyle(Palette.fg).accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("pendant.card.incident.\(incident.kind.rawValue)")
             Text(
@@ -221,10 +221,10 @@ extension IncidentResolution {
 
     #Preview("Incidents") {
         ScrollView {
-            VStack(spacing: 12) {
+            VStack(spacing: Metrics.Spacing.m) {
                 IncidentCards(incidents: previewIncidents.grouped(), resolve: { _, _ in })
             }
-            .padding(16)
+            .padding(Metrics.Spacing.l)
         }
         .background(Palette.bg)
         .preferredColorScheme(.dark)

@@ -39,7 +39,7 @@ struct PairPendantSheet: View {
             .sheetScroll {
                 SheetHeader(title: title, color: color) { dismiss() }
             } buttons: {
-                VStack(spacing: 10) { buttons }.faces(phase)
+                VStack(spacing: Metrics.Spacing.m) { buttons }.faces(phase)
             }
             .readingWidth()
             .background(Palette.sheet)
@@ -78,14 +78,14 @@ struct PairPendantSheet: View {
     @ViewBuilder private var content: some View {
         switch phase {
         case .looking:
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
                 Text("Looking nearby").font(.bodyStrong)
                 Text("Hold its button until the light blinks blue.").font(.line).foregroundStyle(Palette.muted)
             }
         case .pairing, .paired:
             RowGroup(surface: .sheet) { checks(failedAt: nil) }
         case .failed(let reason):
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                 RowGroup(surface: .sheet) { checks(failedAt: 1) }
                 Text(reason).font(.line).foregroundStyle(Palette.muted)
             }

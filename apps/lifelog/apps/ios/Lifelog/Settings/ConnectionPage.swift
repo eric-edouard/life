@@ -24,10 +24,12 @@ struct ConnectionPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 status
                 if address != nil {
-                    if let lines { RowGroup(surface: .sheet) { CheckLines(lines: lines).padding(16) }.appears() }
+                    if let lines {
+                        RowGroup(surface: .sheet) { CheckLines(lines: lines).padding(Metrics.Spacing.l) }.appears()
+                    }
                     RowGroup(surface: .sheet) {
                         Row(title: "Address") {
                             Text(address?.addressWords ?? "").font(.line).foregroundStyle(Palette.muted)
@@ -40,8 +42,8 @@ struct ConnectionPage: View {
             .motion(Motion.standard, value: lines?.count)
             .motion(Motion.standard, value: sync.pending.refused.count)
             .padding(.horizontal, Metrics.gutter)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .padding(.top, Metrics.Spacing.s)
+            .padding(.bottom, Metrics.Spacing.xl)
             .readingWidth()
         }
         .background(Palette.sheet)
@@ -52,7 +54,7 @@ struct ConnectionPage: View {
     // MARK: Status
 
     private var status: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             (isChecking ? LinkState.checking : link).mark
             if address == nil {
                 Text(
@@ -131,7 +133,7 @@ struct ConnectionPage: View {
     // MARK: Actions
 
     @ViewBuilder private var actions: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             if address != nil {
                 if outcome == .works || isChecking {
                     Button("Check now") { Task { await check() } }.buttonStyle(.pill(.quiet, isBusy: isChecking))

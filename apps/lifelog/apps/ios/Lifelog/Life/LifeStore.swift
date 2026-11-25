@@ -16,6 +16,8 @@ final class LifeStore {
     private(set) var items = ReadState<ThreadRead>()
     /// A person's or organization's page, by ref: what their profile shows.
     private(set) var person: [String: ReadState<PersonNow>] = [:]
+    /// His directory (`PeopleList`), for the person picker.
+    private(set) var people = ReadState<PeopleList>()
     /// Everyone the reads name, and their pictures.
     let parties: PartyBook
 
@@ -191,6 +193,11 @@ final class LifeStore {
         await load({ self.person[ref, default: ReadState()].apply($0) }, key: "person-\(ref)", isKept: false) {
             try await $0.readPart("\(ref)/now")
         }
+    }
+
+    /// His directory, read when the person picker opens.
+    func refreshPeople() async {
+        await load({ self.people.apply($0) }, key: "people", isKept: false) { try await $0.readPeople() }
     }
 
     /// A `life:` link's page (`fetch`): read when opened, kept by the page that shows it.

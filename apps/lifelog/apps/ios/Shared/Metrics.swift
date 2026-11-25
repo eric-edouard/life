@@ -17,6 +17,8 @@ enum Metrics {
 
     /// A round icon disc leading a thread row; a reaction's corner mark; a still pie (small, and in a line); a colour swatch.
     static let disc: CGFloat = 40
+    /// A profile's face.
+    static let profileFace: CGFloat = 96
     static let reactionMark: CGFloat = 24
     static let pie: CGFloat = 18
     static let pieSmall: CGFloat = 12

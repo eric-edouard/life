@@ -53,12 +53,12 @@ struct PendantScreen: View {
                 status: capture.status, context: capture.context, recordingSince: capture.recordingSince,
                 lowBatteryPercent: settings.lowBattery ? settings.lowBatteryPercent : nil, now: now)
             let held = whatIsNotOnTheMac(backlog: capture.status.backlog, uploads: capture.uploads, now: now)
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: Metrics.gutter) {
                         status(reading, now: now)
                         if reading.state != .noPendant {
-                            VStack(spacing: 12) {
+                            VStack(spacing: Metrics.Spacing.m) {
                                 tiles(reading, now: now)
                                 upload(held, now: now)
                             }
@@ -92,10 +92,10 @@ struct PendantScreen: View {
 
     /// The light as a tile and the state word, then what it means and what to do, one `flag` line when it needs him.
     private func status(_ reading: PendantReading, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            HStack(spacing: Metrics.Spacing.l) {
                 LightTile(isOn: reading.state == .recording && !reading.isFlag)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
                     if capture.macDictatingSince != nil {
                         Text("\(Image(systemName: "laptopcomputer")) Mac dictating").font(.line)
                             .foregroundStyle(Palette.muted)
@@ -116,7 +116,7 @@ struct PendantScreen: View {
                     .padding(.top, Metrics.Spacing.xs * 2)
             }
             ForEach(reading.conditions, id: \.means) { condition in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
                     Text(condition.means).font(.line).foregroundStyle(Palette.muted)
                     Text(condition.todo).font(.bodyStrong)
                     if let recovery = condition.recovery {
@@ -169,7 +169,7 @@ struct PendantScreen: View {
         let isCharging = battery.isCurrent && status.charging?.value == .charging
         let percent = battery.value
         let used = storage.value?.usedFraction
-        return HStack(spacing: 12) {
+        return HStack(spacing: Metrics.Spacing.m) {
             StatTile(
                 name: "Battery", figure: percent.map { "\($0)%" } ?? "Unknown",
                 caption: batteryCaption(battery, isCharging: isCharging, reading: reading),
@@ -225,14 +225,14 @@ struct PendantScreen: View {
                 TileCard { Text("Last seen \(clock(seen))").font(.bodyStrong) }
             } else if held.isPhoneUnknown {
                 TileCard {
-                    HStack(spacing: 10) {
+                    HStack(spacing: Metrics.Spacing.m) {
                         StateGlyph.busy
                         Text("Asking…").font(.bodyStrong)
                     }
                 }
             } else if let words = held.words {
                 TileCard {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         Text("Catching up").font(.bodyStrong)
                         if let fraction = catchUpFraction {
                             ProgressLine(fraction: fraction)
@@ -244,7 +244,7 @@ struct PendantScreen: View {
                 }
             } else if held.isEmpty {
                 TileCard {
-                    HStack(spacing: 10) {
+                    HStack(spacing: Metrics.Spacing.m) {
                         Text("All on your Mac").font(.bodyStrong)
                         Spacer()
                         if let sent = capture.uploads?.sentThrough {
@@ -275,7 +275,7 @@ struct PendantScreen: View {
     @ViewBuilder private var boxes: some View {
         let omi = capture.pairedKind == .omi && OmiFirmware.freesOnDelivery(capture.status.firmwareRevision)
         if omi || !capture.incidents.isEmpty {
-            VStack(spacing: 12) {
+            VStack(spacing: Metrics.Spacing.m) {
                 if omi { OmiCustodyCard(revision: capture.status.firmwareRevision) }
                 IncidentCards(incidents: capture.incidents, resolve: actions.resolve)
             }

@@ -24,6 +24,10 @@ public enum LifeBlock: Equatable, Sendable {
         public let answers: [String]
         public let recommended: String?
     }
+    /// One setting offered where it helps: `key` the setting, `label` the question, sent as his words on a tap.
+    public struct Offer: Equatable, Sendable {
+        public let key, label: String
+    }
     public struct Table: Equatable, Sendable {
         public let columns: [String]
         public let rows: [[String]]
@@ -35,7 +39,7 @@ public enum LifeBlock: Equatable, Sendable {
     case pictures([String])
     case place(Place)
     case question(Question)
-    case settings(keys: [String]?)
+    case settings(keys: [String]?, offer: Offer?)
     case table(Table)
 
     /// The version of Life's blocks this phone draws, sent with every ask.
@@ -57,7 +61,11 @@ public enum LifeBlock: Equatable, Sendable {
         switch kind {
         case "items": self = .items(strings(body) ?? [])
         case "pictures": self = .pictures(strings(body) ?? [])
-        case "settings": self = .settings(keys: strings(o["keys"]))
+        case "settings":
+            let offer = (o["offer"] as? [String: Any]).flatMap { o in
+                (o["key"] as? String).flatMap { key in (o["label"] as? String).map { Offer(key: key, label: $0) } }
+            }
+            self = .settings(keys: strings(o["keys"]), offer: offer)
         case "place":
             guard let name = string("name"), let address = string("address") else { return nil }
             self = .place(Place(address: address, name: name))

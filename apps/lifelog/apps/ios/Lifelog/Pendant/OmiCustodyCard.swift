@@ -7,7 +7,7 @@ struct OmiCustodyCard: View {
     let revision: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             Text("This Omi deletes audio once it's sent").font(.bodyStrong).foregroundStyle(Palette.fg)
                 .accessibilityIdentifier("pendant.card.omiCustody")
             Text(detail).font(.line).foregroundStyle(Palette.muted)

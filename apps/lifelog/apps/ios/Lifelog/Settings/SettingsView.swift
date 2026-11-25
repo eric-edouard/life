@@ -24,7 +24,7 @@ struct SettingsView: View {
     @State private var isDiagnosticsOpen = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
             needsYou
             allows
             sending
