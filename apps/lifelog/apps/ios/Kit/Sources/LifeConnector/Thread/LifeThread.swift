@@ -71,6 +71,8 @@ public final class LifeThread {
     private var wire: [ThreadWireEntry]
     /// His reactions given since the last read, by entry: shown until Life's record says them.
     private var reacted: [Int: String] = [:]
+    /// Failed entries of Life's record asked again as new asks: the old one is no longer shown.
+    private var retried: Set<Int> = []
     private static let key = "thread"
     private static let kept = 300
     /// How long an ask Life's record holds with no answer is taken to be under way.
@@ -96,7 +98,7 @@ public final class LifeThread {
 
     /// Another Life: nothing of the last one's conversation stays.
     public func startOver() {
-        (pending, wire, reacted, live, stopped) = ([], [], [:], [:], [])
+        (pending, wire, reacted, live, stopped, retried) = ([], [], [:], [:], [], [])
         cache?.clear()
     }
 
@@ -105,7 +107,7 @@ public final class LifeThread {
     public var entries: [ThreadEntry] {
         let held = Set(pending.compactMap(\.entry))
         let record = wire.filter { w in
-            w.follows == nil && !held.contains(w.id) && !pending.contains { isTheAsk($0, w) }
+            w.follows == nil && !held.contains(w.id) && !retried.contains(w.id) && !pending.contains { isTheAsk($0, w) }
         }
         return (record.map(entry(of:)) + pending).enumerated()
             .sorted { ($0.element.at, $0.offset) < ($1.element.at, $1.offset) }.map(\.element)
@@ -183,8 +185,21 @@ public final class LifeThread {
 
     /// A tap on his bubble when Life couldn't answer: the same words, as a new ask.
     public func askAgain(_ id: UUID, screen: MainSessionScreen) {
-        guard let at = pending.firstIndex(where: { $0.id == id }), pending[at].phase == .failed else { return }
-        (pending[at].phase, pending[at].key, pending[at].why) = (.sending, UUID().uuidString, nil)
+        if let at = pending.firstIndex(where: { $0.id == id }), pending[at].phase == .failed {
+            (pending[at].phase, pending[at].key, pending[at].why) = (.sending, UUID().uuidString, nil)
+        } else if let old = entries.first(where: { $0.id == id }), old.phase == .failed, let number = old.entry,
+            old.follows == nil
+        {
+            // A failed entry of Life's record (its error, or no answer past `underWayFor`): the same words, as a new ask.
+            retried.insert(number)
+            pending.append(
+                ThreadEntry(id: UUID(), at: now(), words: old.words, key: UUID().uuidString, phase: .sending))
+            Task { await deliver(pending[pending.count - 1].id, screen: screen) }
+            save()
+            return
+        } else {
+            return
+        }
         save()
         Task { await deliver(id, screen: screen) }
     }

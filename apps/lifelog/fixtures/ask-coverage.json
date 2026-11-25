@@ -269,6 +269,36 @@
       "lacks": ["catalog"],
       "reason": "no view draws it yet (part 2)",
       "issue": 1411
+    },
+    {
+      "kind": "card change: deadline",
+      "lacks": ["catalog"],
+      "reason": "no view draws it yet (part 2)",
+      "issue": 1411
+    },
+    {
+      "kind": "card change: condition",
+      "lacks": ["fixture", "catalog"],
+      "reason": "no server test writes a fixture with it yet; no view draws it yet (part 2)",
+      "issue": 1411
+    },
+    {
+      "kind": "card change: option",
+      "lacks": ["fixture", "catalog"],
+      "reason": "no server test writes a fixture with it yet; no view draws it yet (part 2)",
+      "issue": 1411
+    },
+    {
+      "kind": "card change: edit:tap",
+      "lacks": ["catalog"],
+      "reason": "no view draws it yet (part 2)",
+      "issue": 1411
+    },
+    {
+      "kind": "card change: edit:words",
+      "lacks": ["catalog"],
+      "reason": "no view draws it yet (part 2)",
+      "issue": 1411
     }
   ]
 }

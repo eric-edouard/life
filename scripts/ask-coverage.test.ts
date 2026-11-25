@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CheckGroup } from "@life/server/src/core/names";
 import { ITEM_STATES } from "@life/server/src/host/life-thread";
-import { Option } from "@life/server/src/memory/card-request";
+import { CHANGES, Option } from "@life/server/src/memory/card-request";
 import { LINE_KINDS, MARKS } from "@life/server/src/memory/decision-lines";
 import { MessageDraft } from "@life/server/src/memory/draft";
 import { NEED_KINDS } from "@life/server/src/memory/needs";
@@ -33,6 +33,7 @@ const catalog = readFileSync(
 
 const lists: Record<string, readonly string[]> = {
   "answer block": Object.keys(BLOCKS),
+  "card change": CHANGES,
   "check group": CheckGroup.options,
   "decision line": LINE_KINDS,
   "draft field": Object.keys(MessageDraft.shape),
