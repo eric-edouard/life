@@ -2,6 +2,9 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
+
+const IS_MONO = /isMono/;
+
 import { C, RADIUS, SANS } from "@life/server/src/memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
@@ -84,6 +87,71 @@ test("the phone's palette is tokens.css's, light and dark", async () => {
   expect(pairs.map((m) => m[1]).toSorted()).toEqual(names.toSorted());
   for (const [, name = "", d = "", l = ""] of pairs) {
     expect([name, hex(d), hex(l)]).toEqual([name, dark[name], light[name]]);
+  }
+});
+
+test("the phone's tint, glass, wash, aura colours, type scale and block radius are tokens.css's", async () => {
+  const swift = await asset("apps/lifelog/apps/ios/Shared/Palette.swift");
+  for (const name of ["tint", "glass", "wash"]) {
+    const percent = tokens.match(
+      new RegExp(`--${name}:\\s*color-mix\\(in srgb, var\\(--fg\\) (\\d+)%`)
+    )?.[1];
+    const opacity = swift.match(
+      new RegExp(`static let ${name} = fg\\.opacity\\(([0-9.]+)\\)`)
+    )?.[1];
+    expect([name, Number(opacity)]).toEqual([name, Number(percent) / 100]);
+  }
+  const aura = [
+    ...tokens.matchAll(
+      /--aura-([a-z]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/g
+    ),
+  ].map((m) => [m[1], m[3], m[2]]);
+  const copies = [
+    ...swift.matchAll(
+      /\("([a-z]+)", token\(dark: (0x\w+), light: (0x\w+)\)\)/g
+    ),
+  ].map((m) => [m[1], hex(m[2] ?? ""), hex(m[3] ?? "")]);
+  expect(aura.length).toBe(8);
+  expect(copies).toEqual(aura);
+  const type = await asset(
+    "apps/lifelog/apps/ios/Lifelog/DesignSystem/Typography.swift"
+  );
+  const sizes = [...tokens.matchAll(/--text-[a-z]+:\s*([\d.]+)px/g)].map((m) =>
+    Number(m[1])
+  );
+  const used = new Set(
+    [...type.matchAll(/TypeStep\(size: ([\d.]+), weight: (\d+)/g)]
+      .filter(
+        (m) =>
+          !IS_MONO.test(
+            m.input?.split("\n").find((l) => l.includes(m[0])) ?? ""
+          )
+      )
+      .flatMap((m) => [Number(m[1]), -Number(m[2])])
+  );
+  for (const u of used) {
+    if (u > 0) {
+      expect(sizes).toContain(u);
+    } else {
+      expect([450, 600, 650]).toContain(-u);
+    }
+  }
+  const metrics = await asset("apps/lifelog/apps/ios/Shared/Metrics.swift");
+  for (const [swiftName, cssName] of [
+    ["control", "control"],
+    ["block", "block"],
+    ["sheet", "panel"],
+  ] as const) {
+    const swiftRadius = metrics.match(
+      new RegExp(`static let ${swiftName}: CGFloat = (\\d+)`)
+    )?.[1];
+    const cssRadius = tokens.match(
+      new RegExp(`--${cssName}-radius:\\s*([\\d.]+)px`)
+    )?.[1];
+    expect([swiftName, Number(swiftRadius)]).toEqual([
+      swiftName,
+      Number.parseFloat(cssRadius ?? ""),
+    ]);
   }
 });
 

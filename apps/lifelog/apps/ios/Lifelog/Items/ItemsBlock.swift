@@ -31,7 +31,7 @@ struct PicturesBlock: View {
                         } label: {
                             VStack(spacing: Metrics.Spacing.xs) {
                                 Face(party: party, size: 56)
-                                Text(party.name).font(.small).foregroundStyle(Palette.muted).lineLimit(1)
+                                Text(party.name).font(.line).foregroundStyle(Palette.muted).lineLimit(1)
                             }
                             .frame(minWidth: Metrics.tapTarget)
                         }

@@ -31,13 +31,13 @@ struct DraftBlock: View {
             ChatHead(check: check, draft: draft, look: look).padding(.bottom, Metrics.Spacing.s)
             if check.replaces != nil {
                 // ponytail: the plain muted line until the final design pass draws it.
-                Text("Replaces an older draft").font(.small).foregroundStyle(Palette.muted)
+                Text("Replaces an older draft").font(.line).foregroundStyle(Palette.muted)
             }
             if draft.isMail { mail } else { chat }
         }
         .padding(isBoxed ? Metrics.Spacing.l : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isBoxed ? Palette.paper : .clear, in: .rect(cornerRadius: Metrics.Radius.passage))
+        .background(isBoxed ? Palette.paper : .clear, in: .rect(cornerRadius: Metrics.Radius.block))
         .motion(Motion.rise, value: delivery)
         .accessibilityElement(children: .combine)
     }
@@ -52,7 +52,7 @@ struct DraftBlock: View {
             // it, the emoji on its corner.
             quote(quoted).padding(.top, Metrics.Spacing.s)
                 .overlay(alignment: .bottomTrailing) {
-                    Text(reaction).font(.note).padding(.horizontal, 7).padding(.vertical, 1)
+                    Text(reaction).font(.line).padding(.horizontal, 7).padding(.vertical, 1)
                         .background(look.sent, in: .capsule)
                         .modifier(Drafted(isSent: isSent))
                         .offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
@@ -73,11 +73,11 @@ struct DraftBlock: View {
     @ViewBuilder private func line(_ line: Check.Draft.ChatLine) -> some View {
         if let day = line.newDay {
             Text(day.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                .font(.small).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
+                .font(.line).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
                 .padding(.vertical, Metrics.Spacing.xs)
         }
         if let sender = line.sender {
-            Text(sender.name).font(.smallStrong).foregroundStyle(ChatLook.senders[sender.tone % ChatLook.senders.count])
+            Text(sender.name).font(.heading).foregroundStyle(ChatLook.senders[sender.tone % ChatLook.senders.count])
                 .padding(.leading, Metrics.Spacing.xs).padding(.top, Metrics.Spacing.xs)
         }
         side(isMine: line.isMine) {
@@ -87,9 +87,9 @@ struct DraftBlock: View {
                 }
                 if let text = line.text { Text(text) }
             }
-            .font(.note).foregroundStyle(Palette.fg)
+            .font(.line).foregroundStyle(Palette.fg)
             .padding(.horizontal, 11).padding(.vertical, 7)
-            .background(line.isMine ? Color.pick : Color.fillTint, in: bubble(isMine: line.isMine))
+            .background(line.isMine ? Palette.glass : Palette.tint, in: bubble(isMine: line.isMine))
         }
     }
 
@@ -107,13 +107,13 @@ struct DraftBlock: View {
     /// its words, in the platform's quote (WhatsApp's with its bar).
     private func quote(_ quoted: Check.Draft.Quoted) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(quoted.sender).font(.smallStrong).foregroundStyle(look.bar)
-            Text(quoted.text).font(.small).lineLimit(1).opacity(0.9)
+            Text(quoted.sender).font(.heading).foregroundStyle(look.bar)
+            Text(quoted.text).font(.line).lineLimit(1).opacity(0.9)
         }
         .padding(.horizontal, 9).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading)
-        .background(look.quoteTint, in: .rect(cornerRadius: Metrics.Radius.tile))
+        .background(look.quoteTint, in: .rect(cornerRadius: Metrics.Radius.control))
         .overlay(alignment: .leading) { if look.hasQuoteBar { look.bar.frame(width: 3) } }
-        .clipShape(.rect(cornerRadius: Metrics.Radius.tile))
+        .clipShape(.rect(cornerRadius: Metrics.Radius.control))
     }
 
     /// His words, each mention the draft names drawn the platform's way.
@@ -126,7 +126,7 @@ struct DraftBlock: View {
 
     /// A drafted bubble: the platform's full sent colour on a shadow until it is sent.
     private func drafted(_ content: some View) -> some View {
-        content.font(.note).foregroundStyle(look.text)
+        content.font(.line).foregroundStyle(look.text)
             .padding(.horizontal, 11).padding(.vertical, 7)
             .background(look.sent, in: bubble(isMine: true))
             .modifier(Drafted(isSent: isSent))
@@ -155,7 +155,7 @@ struct DraftBlock: View {
         if let thread = sheet?.thread {
             let who = Text(thread.sender).foregroundStyle(Palette.fg).bold()
             let when = thread.at.map { " · " + $0.formatted(.dateTime.day().month(.abbreviated)) } ?? ""
-            Text("\(who)\(when) · \(thread.text)").font(.note).foregroundStyle(Palette.muted).lineLimit(1)
+            Text("\(who)\(when) · \(thread.text)").font(.line).foregroundStyle(Palette.muted).lineLimit(1)
         }
         VStack(alignment: .leading, spacing: 6) {
             ForEach(sheet?.fields ?? [], id: \.label) { field in
@@ -163,18 +163,18 @@ struct DraftBlock: View {
                     Text(field.label).foregroundStyle(Palette.muted).frame(width: 52, alignment: .leading)
                     Text(field.value).fontWeight(field.isBold ? .semibold : nil)
                 }
-                .font(.note)
+                .font(.line)
             }
             if draft.text != nil { words.font(.body15).padding(.top, 2) }
             if let file = draft.file {
                 Label("\(file.name) · \(file.size.formatted(.byteCount(style: .file)))", systemImage: file.glyph)
-                    .font(.note)
+                    .font(.line)
                     .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(Color.fillTint, in: .rect(cornerRadius: Metrics.Radius.tile))
+                    .background(Palette.tint, in: .rect(cornerRadius: Metrics.Radius.control))
             }
         }
         .foregroundStyle(Palette.fg).padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.pick, in: .rect(cornerRadius: Metrics.Radius.tile))
+        .background(Palette.glass, in: .rect(cornerRadius: Metrics.Radius.control))
         .modifier(Drafted(isSent: isSent))
         status(isMine: true)
     }
@@ -184,10 +184,10 @@ struct DraftBlock: View {
     private func fileRow(_ name: String, size: Int?, glyph: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: glyph).frame(width: 36, height: 36)
-                .background(look.quoteTint, in: .rect(cornerRadius: Metrics.Radius.tile))
+                .background(look.quoteTint, in: .rect(cornerRadius: Metrics.Radius.control))
             VStack(alignment: .leading, spacing: 0) {
                 Text(name).fontWeight(.semibold)
-                if let size { Text(size.formatted(.byteCount(style: .file))).font(.small).opacity(0.75) }
+                if let size { Text(size.formatted(.byteCount(style: .file))).font(.line).opacity(0.75) }
             }
         }
     }
@@ -209,7 +209,7 @@ struct DraftBlock: View {
             }
             Text(statusWords)
         }
-        .font(.small).foregroundStyle(Palette.muted)
+        .font(.line).foregroundStyle(Palette.muted)
         .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
     }
 
@@ -238,7 +238,7 @@ private struct ChatHead: View {
         let url = check.networkIdentity?.openUrl
         VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
             head(url)
-            if isUnopened { Text("Couldn't open the chat.").font(.small).foregroundStyle(Palette.flag) }
+            if isUnopened { Text("Couldn't open the chat.").font(.line).foregroundStyle(Palette.flag) }
         }
         .motion(Motion.standard, value: isUnopened)
     }
@@ -250,14 +250,14 @@ private struct ChatHead: View {
         } label: {
             HStack(spacing: Metrics.Spacing.s) {
                 NetworkMark(network: draft.channel)
-                Text(name).font(.rowName).foregroundStyle(Palette.fg).lineLimit(1)
+                Text(name).font(.rowTitle).foregroundStyle(Palette.fg).lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if let people = draft.people, people > 1 {
-                    Text("\(people) people").font(.small).foregroundStyle(Palette.muted)
+                    Text("\(people) people").font(.line).foregroundStyle(Palette.muted)
                 }
                 if url != nil {
-                    Image(systemName: "arrow.up.right").font(.smallStrong).foregroundStyle(Palette.fg)
-                        .frame(width: 32, height: 32).background(Color.fillTint, in: .circle)
+                    Image(systemName: "arrow.up.right").font(.heading).foregroundStyle(Palette.fg)
+                        .frame(width: 32, height: 32).background(Palette.tint, in: .circle)
                 }
             }
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)

@@ -75,15 +75,15 @@ private struct IncidentCard: View {
                         ? " Until you decide, lifelog keeps these pages on the Pendant and clears nothing past them."
                         : "")
             )
-            .font(.note).foregroundStyle(Palette.muted)
+            .font(.line).foregroundStyle(Palette.muted)
             if let error {
-                Text("That didn't work: \(error)").font(.note).foregroundStyle(Palette.flag)
+                Text("That didn't work: \(error)").font(.line).foregroundStyle(Palette.flag)
             }
             Text(
                 "Found \(incident.recordedAt.moment) · "
                     + (pages == 1 ? "page \(incident.index)" : "pages \(incident.index)–\(incident.lastIndex)")
             )
-            .font(.small).foregroundStyle(Palette.faint)
+            .font(.line).foregroundStyle(Palette.faint)
             ForEach(incident.kind.choices, id: \.self) { resolution in
                 Button(resolution.action(pages: pages)) { choice = resolution }
                     .buttonStyle(.pill(.quiet, size: .compact, isBusy: isResolving))

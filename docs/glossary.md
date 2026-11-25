@@ -401,6 +401,16 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | design data | The made-up content the Kit tests decode with the phone's own models: one file per connector read in `apps/lifelog/fixtures/design/`, in the wire shape (an instant without a zone is the phone's own time), read by Kit's `DesignReplies`. Not `fixtures/wire/`, which Life's server tests write. | |
 | frame map | Which screen state each designer's frame draws, joined by frame name: the designer's half (`frame-map.json` in the designer's folder: pose, size, picture, state) and the repo's (`frames.json` beside the design data: launch arguments and taps, or why a frame can't be reached). `bun run design:shots` reads both. | |
 | frame spec | A designer's frame as text, for a model that cannot see the picture: its layout tree with each element's box in points, token names, text and states (`render_frames.py --spec`, in the designer's folder). `bun run design:export` writes the ones a task needs beside their pictures and the design pack; `bun run design:shots --compare` checks the app's accessibility tree against it. | |
+| thread item | One ask or matter as the thread shows it, in one of its states: needs you, later, under way, waiting on someone, settled, queued, outdated, held, earlier draft, deleted for both, stopped (`ItemState`, `ThreadComponents.swift`; the grid is in the current spec). Not a matter step. | |
+| under way | The state of an item while Life is doing it: a line of what, a small spinner (a still ring when the work is long), Undo while Life can still stop it. Not "waiting on someone". | |
+| held | The state of an ask that waits behind another open ask into the same chat (`contests`): shown as a held separator with its line, never as a second open card. | |
+| notice | A short block of Life's words about something that happened between items (a stop, a lapse, a limit): a line and, when there is one, one button. Not a card and not an ask. | |
+| fix ask | The ask Life brings when something it needs from him is broken (a sign-in, a permission, a limit): one button that fixes it. Shown as a notice. | |
+| reaction | A mark on his bubble that Life or a person gave it (`Reaction`, `ReactionMark`). Not an answer and not a rating. | |
+| rated | A reply he rated with the thumbs (`RatingRow`): kept as a label, never an action. | |
+| edits | The quick changes a draft ask offers as chips (shorter, warmer, other words; `EditChips`): each is one tap, and the draft stays his to send. | |
+| spending stop | The line a notice shows when Life stopped itself at the owner's spending limit; one button lifts it. | |
+| aura | The coloured light along the phone's edge that says what Life is doing (`EdgeView`, `AuraSetting`): ten colours and five knobs (speed, brightness, glow, colour, voice light), each state's range in one table (`AuraBands`). The pendant's own ring is separate. | |
 
 ## Folders
 

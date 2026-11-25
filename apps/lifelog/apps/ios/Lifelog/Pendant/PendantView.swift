@@ -97,16 +97,16 @@ struct PendantScreen: View {
                 LightTile(isOn: reading.state == .recording && !reading.isFlag)
                 VStack(alignment: .leading, spacing: 6) {
                     if capture.macDictatingSince != nil {
-                        Text("\(Image(systemName: "laptopcomputer")) Mac dictating").font(.small)
+                        Text("\(Image(systemName: "laptopcomputer")) Mac dictating").font(.line)
                             .foregroundStyle(Palette.muted)
                             .accessibilityLabel("Mac dictating").accessibilityIdentifier("pendant.macDictating")
                     }
-                    Text(reading.state.word).font(.statusWord)
+                    Text(reading.state.word).font(.profileName)
                         .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
                         .lit(reading.state == .recording)
                         .lineLimit(1).minimumScaleFactor(0.6)
                         .accessibilityIdentifier("pendant.status")
-                    if let line = line(reading) { Text(line).font(.small).foregroundStyle(Palette.muted) }
+                    if let line = line(reading) { Text(line).font(.line).foregroundStyle(Palette.muted) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -117,7 +117,7 @@ struct PendantScreen: View {
             }
             ForEach(reading.conditions, id: \.means) { condition in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(condition.means).font(.note).foregroundStyle(Palette.muted)
+                    Text(condition.means).font(.line).foregroundStyle(Palette.muted)
                     Text(condition.todo).font(.bodyStrong)
                     if let recovery = condition.recovery {
                         Button(recovery.title) {
@@ -239,7 +239,7 @@ struct PendantScreen: View {
                         } else {
                             Spinner(size: .small).foregroundStyle(Palette.fg)
                         }
-                        Text("\(words). It goes faster with the app open.").font(.small).foregroundStyle(Palette.muted)
+                        Text("\(words). It goes faster with the app open.").font(.line).foregroundStyle(Palette.muted)
                     }
                 }
             } else if held.isEmpty {
@@ -253,7 +253,7 @@ struct PendantScreen: View {
                                     ? "just now"
                                     : sent.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
                             )
-                            .font(.small).foregroundStyle(Palette.muted)
+                            .font(.line).foregroundStyle(Palette.muted)
                         }
                     }
                 }
