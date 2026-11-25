@@ -42,11 +42,11 @@ struct DiagnosticsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 RowGroup(surface: .sheet) {
                     ForEach(rows, id: \.title) { row in Row(title: row.title) { row.mark } }
                 }
-                VStack(spacing: 10) {
+                VStack(spacing: Metrics.Spacing.m) {
                     Button("Run all checks") { Task { await runAll() } }
                         .buttonStyle(.pill(.filled, isBusy: isChecking))
                     Button(copied ? "Copied" : "Copy report") {
@@ -72,8 +72,8 @@ struct DiagnosticsView: View {
                 #endif
             }
             .padding(.horizontal, Metrics.gutter)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .padding(.top, Metrics.Spacing.s)
+            .padding(.bottom, Metrics.Spacing.xl)
             .readingWidth()
         }
         .background(Palette.sheet)

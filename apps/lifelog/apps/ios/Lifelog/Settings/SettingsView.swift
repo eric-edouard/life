@@ -18,13 +18,12 @@ struct SettingsView: View {
     @Environment(AppleHealthReader.self) private var appleHealth
     @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
-    @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceIDToSend = false
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
             needsYou
             allows
             sending
@@ -202,15 +201,7 @@ struct SettingsView: View {
 
     private var sending: some View {
         RowGroup(label: "Sending", surface: .sheet) {
-            Row(
-                title: "Face ID before Send", icon: "faceid",
-                detail: asksFaceIDToSend
-                    ? "Send from a notification waits for Face ID, on the phone only"
-                    : "Send from a notification, on the phone or the Watch"
-            ) {
-                RowSwitch(title: "Face ID before Send", isOn: asksFaceIDToSend) { asksFaceIDToSend = $0 }
-            }
-            .accessibilityIdentifier("settings.switch.faceIDToSend")
+            FaceIDRow()
         }
     }
 

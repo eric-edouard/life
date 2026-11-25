@@ -26,8 +26,13 @@ public struct ThreadAsk: Decodable, Sendable, Equatable, Identifiable {
             public let why: String?
             public let replacedBy: String?
         }
+        /// That it was sent, and when.
+        public struct Sent: Decodable, Sendable, Equatable {
+            public let at: Date?
+        }
         public let title: String?
         public let question: String?
+        public let sent: Sent?
         public let undo: Undo?
         public let withdrawn: Withdrawn?
     }

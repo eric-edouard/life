@@ -83,13 +83,15 @@ public final class LifeThread {
     public var isWorking: Bool { entries.contains { $0.phase == .sending } }
 
     /// His words, sent at once with what is on his screen. The call runs on; the entry shows its state.
-    public func ask(_ text: String, screen: MainSessionScreen) {
+    /// Whether the words were taken: none, when they are empty.
+    @discardableResult public func ask(_ text: String, screen: MainSessionScreen) -> Bool {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else { return false }
         let entry = ThreadEntry(id: UUID(), at: now(), words: text, key: UUID().uuidString, phase: .sending)
         entries.append(entry)
         save()
         Task { await deliver(entry.id, screen: screen) }
+        return true
     }
 
     /// His words that never reached Life, again, in order (the way back online).

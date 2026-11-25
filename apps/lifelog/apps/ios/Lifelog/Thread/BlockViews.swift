@@ -4,11 +4,12 @@ import SwiftUI
 /// What a block may do: only his words and the phone's own screens, never an act of its own.
 struct BlockActions {
     /// An answer he taps in a question goes as his words.
-    var say: (String) -> Void = { _ in }
+    var say: (String) -> Bool = { _ in false }
     var openSettings: () -> Void = {}
 }
 
-/// One of Life's components (`LifeBlock`). Items and pictures are Life's own things by ref, drawn live (`Items/`).
+/// One of Life's components (`LifeBlock`). Items and pictures are Life's own things by ref, drawn live (`Items/`); the
+/// rest are the design system's blocks.
 struct BlockView: View {
     let block: LifeBlock
     let actions: BlockActions
@@ -19,23 +20,13 @@ struct BlockView: View {
         switch block {
         case .items(let refs): ItemsBlock(refs: refs)
         case .pictures(let refs): PicturesBlock(refs: refs)
-        case .table(let table): TableBlock(table: table)
-        case .document(let doc):
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                Text(doc.title).font(.rowTitle)
-                ForEach(doc.lines, id: \.self) { Text($0).font(.line).foregroundStyle(Palette.muted) }
-                if let total = doc.total { Text(total).font(.rowTitle) }
-            }
-            .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
+        case .table(let table): TableBlock(columns: table.columns, rows: table.rows, total: table.total)
+        case .document(let doc): DocumentBlock(title: doc.title, lines: doc.lines, total: doc.total)
         case .phrase(let phrase):
             Button {
                 shownPhrase = phrase
             } label: {
-                VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                    Text(phrase.text).font(.quote)
-                    Text(phrase.mine).font(.line).foregroundStyle(Palette.muted)
-                }
-                .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
+                PhraseBlock(text: phrase.text, mine: phrase.mine)
             }
             .buttonStyle(.plain)
             .fullScreenCover(item: $shownPhrase) { PhraseScreen(phrase: $0) }
@@ -45,40 +36,13 @@ struct BlockView: View {
                 c?.queryItems = [URLQueryItem(name: "q", value: "\(place.name), \(place.address)")]
                 if let url = c?.url { openURL(url) }
             } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(place.name).font(.rowTitle)
-                    Text(place.address).font(.line).foregroundStyle(Palette.muted)
-                }
-                .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
+                PlaceBlock(name: place.name, address: place.address)
             }
             .buttonStyle(.plain)
         case .question(let q):
-            VStack(spacing: Metrics.Spacing.s) {
-                ForEach(q.answers, id: \.self) { answer in
-                    Button(answer) { actions.say(answer) }
-                        .buttonStyle(.pill(answer == q.recommended ? .filled : .quiet, size: .compact))
-                }
-            }
-        case .settings:
-            Button("Settings", action: actions.openSettings).buttonStyle(.pill(.quiet, size: .compact))
-        }
-    }
-}
-
-private struct TableBlock: View {
-    let table: LifeBlock.Table
-
-    var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: Metrics.Spacing.l, verticalSpacing: Metrics.Spacing.xs) {
-            GridRow {
-                ForEach(table.columns, id: \.self) { Text($0).font(.heading).foregroundStyle(Palette.muted) }
-            }
-            ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
-                GridRow { ForEach(Array(row.enumerated()), id: \.offset) { _, cell in Text(cell) } }
-            }
-            if let total = table.total {
-                GridRow { Text(total).font(.rowTitle).gridCellColumns(table.columns.count) }
-            }
+            QuestionBlock(answers: q.answers, recommended: q.recommended, say: { _ = actions.say($0) })
+        case .settings(let keys, let offer):
+            LiveSettingsBlock(keys: keys, offer: offer, say: actions.say, openSettings: actions.openSettings)
         }
     }
 }

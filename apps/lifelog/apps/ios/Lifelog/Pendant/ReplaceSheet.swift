@@ -38,7 +38,7 @@ struct ReplaceSheet: View {
             .sheetScroll {
                 SheetHeader(title: title, color: phase.isFailure ? Palette.flag : Palette.fg) { dismiss() }
             } buttons: {
-                VStack(spacing: 10) { buttons }.faces(face)
+                VStack(spacing: Metrics.Spacing.m) { buttons }.faces(face)
             }
             .readingWidth()
             .background(Palette.sheet)
@@ -68,7 +68,7 @@ struct ReplaceSheet: View {
     @ViewBuilder private var content: some View {
         switch phase {
         case .asking:
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 Text(held.sentence("uploaded first.") ?? "This phone forgets this pendant and looks for another.")
                     .font(.body15).foregroundStyle(Palette.muted)
             }
@@ -88,7 +88,7 @@ struct ReplaceSheet: View {
             )
             .font(.body15).foregroundStyle(Palette.muted)
         case .unreachable(let left):
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                 Text(
                     "This pendant can't be reached, so what is left on it can't be uploaded. "
                         + (left.sentence("not on your Mac yet.") ?? "Some audio is not on your Mac yet.")

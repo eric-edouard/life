@@ -40,6 +40,9 @@ public protocol LifeAPI: Sendable {
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
 
+    /// His directory: everyone with a page, as `PeopleList` (`read_people_and_organizations` with no name).
+    func readPeople() async throws -> String
+
     /// His answer, to the Life it was decided for (`origin`, a `PairedLife`'s) and no other.
     func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void
@@ -91,6 +94,9 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_person_pictures", ["ids": ids])
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
+    public func readPeople() async throws -> String {
+        try await client.call("read_people_and_organizations", [String: String]())
+    }
 
     public func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void

@@ -30,18 +30,32 @@ struct StatTile<Visual: View>: View {
     var isDim = false
     var visualEdge = Alignment.topLeading
     @ViewBuilder var visual: Visual
+    @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
-        ZStack {
-            visual.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: visualEdge)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(figure).font(.profileName).foregroundStyle(figureColor)
-                if let caption { Text(caption).font(.line).foregroundStyle(Palette.muted) }
+        let words = VStack(alignment: .leading, spacing: 0) {
+            // Beside the ring a long figure ("Unknown") shrinks to its line; at the largest sizes the tile stacks.
+            Text(figure).font(.profileName).foregroundStyle(figureColor)
+                .lineLimit(size.isAccessibilitySize ? nil : 1).minimumScaleFactor(size.isAccessibilitySize ? 1 : 0.6)
+            if let caption { Text(caption).font(.line).foregroundStyle(Palette.muted) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        Group {
+            // At the accessibility sizes the picture sits above the words, so no figure is cut.
+            if size.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                    visual.frame(maxWidth: .infinity, alignment: visualEdge)
+                    words.frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                ZStack {
+                    visual.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: visualEdge)
+                    words.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         }
         .padding(Metrics.Spacing.l)
-        .frame(maxWidth: .infinity).frame(height: Metrics.Tile.statHeight)
+        .frame(maxWidth: .infinity).frame(minHeight: Metrics.Tile.statHeight)
         .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.block))
         .opacity(isDim ? 0.6 : 1)
         .motion(Motion.standard, value: isDim)
@@ -70,6 +84,7 @@ struct TileCard<Content: View>: View {
 
     var body: some View {
         content
+            .fixedSize(horizontal: false, vertical: true)
             .padding(Metrics.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Surface.sheet.fill, in: .rect(cornerRadius: Metrics.Radius.block))

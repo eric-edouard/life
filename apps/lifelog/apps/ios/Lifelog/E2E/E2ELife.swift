@@ -342,6 +342,7 @@
                     }
                 log([
                     "tool": tool, "ref": ref, "options": options, "key": key ?? "",
+                    "undo": arguments["undo"] as? Bool ?? false, "person": arguments["person"] as? String ?? "",
                     "outcome": reply?.outcome ?? "unmatched",
                 ])
                 if reply?.advances == true {
