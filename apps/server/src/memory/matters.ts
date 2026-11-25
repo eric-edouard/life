@@ -46,6 +46,7 @@ import {
   MATTERS,
   OBSERVATIONS,
   readBy,
+  readHomeArrival,
   readLedger,
   readUnitsFor,
   SUPERSESSIONS,
@@ -277,10 +278,17 @@ export function readMatterPins() {
 const MOVE_STEP = /^(move:[^/]*)\/.*$/;
 const laterKeyOf = (ref: string) => ref.replace(MOVE_STEP, "$1");
 
-/** Until when his Later holds check `ref` at `now` (its latest `deferred`), or undefined once it passed or when none does. */
+/** Until when his Later holds check `ref` at `now` (its latest `deferred`), or undefined once it passed (or, waiting for home, he got there) or when none does. */
 export function laterUntilOf(ref: string, now = clock()) {
-  const until = readMatterPins().deferred.get(laterKeyOf(ref));
-  return until && Date.parse(until) > now.getTime() ? until : undefined;
+  const pins = readMatterPins();
+  const key = laterKeyOf(ref);
+  const until = pins.deferred.get(key);
+  if (!until || Date.parse(until) <= now.getTime()) {
+    return;
+  }
+  // A Later that waits for home ends at his first arrival home after it (`recordArrivalHome`).
+  const home = pins.deferredHome.get(key);
+  return home && (readHomeArrival() ?? "") > home ? undefined : until;
 }
 
 /**

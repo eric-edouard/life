@@ -593,7 +593,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
         throw new Error(NOT_HIS);
       }
       if (undo || rate) {
-        return afterAnswer(ref, rate);
+        return afterAnswer(ref, { rate, undo });
       }
       // Declared once with the asks contract, so a typed answer (a person, a channel switch) never changes the arguments.
       if (value) {

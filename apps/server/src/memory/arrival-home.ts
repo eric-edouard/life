@@ -1,18 +1,21 @@
 import { DAY } from "../core/clock";
 import { distanceM } from "../core/distance";
+import { writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { visits, whereAt } from "../sources/lifelog";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { readMatterPins } from "./matters";
-import { recordCorrection } from "./memory-files";
+import { HOME_ARRIVAL, readHomeArrival } from "./memory-files";
 import { dayNow, dayStart } from "./zones";
 
 // His Later "when I'm home" (v4.1, bundle H): a `later` instruction naming home holds a check 24 hours (`laterOf`), and
-// his next arrival home ends it sooner: Life appends one `deferred` line until now, the latest for a ref winning.
+// his next arrival home ends it sooner, worked out when read (`laterUntilOf`) from the last arrival home the desk saw.
 
-const HOME = /\bhome\b/i;
-/** Whether a `later` instruction's words name home ("when I'm home", "back home"). Pure. */
+/** A `later` instruction that waits for home, as written ("when I'm home", "once I get back home", "at home"), never a negated one. */
+const HOME =
+  /(?<!\bnot\s)\b(?:(?:when|once|until|till)\s+I(?:'m|\s+am|\s+get|\s+got|\s+arrive)(?:\s+back)?\s+home|at\s+home)\b/i;
+/** Whether a `later` instruction's words ask to wait until he is home. Pure. */
 export const isHomeLaterOf = (text: string) => HOME.test(text);
 
 /** How long a Later that waits for home holds at most. */
@@ -22,8 +25,9 @@ export const HOME_LATER_FOR = DAY;
 const HOME_WITHIN_M = 150;
 
 /**
- * Where he slept: his stay at the last 4:00 where he is. ponytail: last night's place stands for home, so a hotel is
- * "home" while he travels; a home of his directory's address once places carry one.
+ * Where he slept: his stay at the last 4:00 where he is. ponytail: his directory holds no home address (Contacts' is
+ * text, with no point to compare stays with), so last night's place stands for home and a hotel is "home" while he
+ * travels; his home's point once his directory carries one.
  */
 async function homeOf(now: Date) {
   const today = dayStart(dayNow(now), undefined, "04:00");
@@ -34,41 +38,31 @@ async function homeOf(now: Date) {
 }
 
 /**
- * Ends each Later in force that waits for home once he arrived home after it was written (`deferredHome`): one `deferred`
- * line until `now` per check, written by Life. Never throws: lifelog unreadable leaves them to their 24 hours.
+ * While a Later waits for home (`deferredHome`, in force), keeps his newest arrival home since it in Life's state
+ * (`HOME_ARRIVAL`), never his data; nothing of his is written. Never throws: lifelog unreadable leaves them to their 24 hours.
  */
-export async function endLatersAtHome(now: Date) {
+export async function recordArrivalHome(now: Date) {
   const pins = readMatterPins();
-  const waiting = [...pins.deferredHome].filter(
-    ([ref]) => Date.parse(pins.deferred.get(ref) ?? "") > now.getTime()
-  );
-  if (waiting.length === 0 || lifelogMissing()) {
-    return 0;
+  const since = [...pins.deferredHome]
+    .filter(([ref]) => Date.parse(pins.deferred.get(ref) ?? "") > now.getTime())
+    .map(([, at]) => at)
+    .toSorted()[0];
+  if (!since || lifelogMissing()) {
+    return;
   }
   try {
     const home = await homeOf(now);
-    if (!home) {
-      return 0;
+    const last = home
+      ? (await visits({ from: since }))
+          .filter((s) => distanceM(s, home) <= HOME_WITHIN_M)
+          .map((s) => s.arrivedAt)
+          .toSorted()
+          .at(-1)
+      : undefined;
+    if (last && last > (readHomeArrival() ?? "")) {
+      writeJson(HOME_ARRIVAL, { at: last });
     }
-    const since = waiting.map(([, at]) => at).toSorted()[0] ?? "";
-    const arrivals = (await visits({ from: since }))
-      .filter((s) => distanceM(s, home) <= HOME_WITHIN_M)
-      .map((s) => s.arrivedAt);
-    const ended = waiting.filter(([, at]) =>
-      arrivals.some((a) => Date.parse(a) > Date.parse(at))
-    );
-    for (const [ref] of ended) {
-      // biome-ignore lint/performance/noAwaitInLoops: one line each, in order
-      await recordCorrection({
-        kind: "deferred",
-        note: "arrived home",
-        ref,
-        until: now.toISOString(),
-      });
-    }
-    return ended.length;
   } catch (e) {
     log("run.error", { ...errorOf(e), step: "later.home" });
-    return 0;
   }
 }

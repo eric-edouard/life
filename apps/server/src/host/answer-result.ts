@@ -649,15 +649,24 @@ export const AFTER_ANSWER = {
     .describe("Undo his answer to this card (its `undo` in `read_thread`)"),
 };
 
-/** His mark on card `ref` (one `rated` line, nothing else changes), else his Undo of his answer (`undoAnswer`). */
-export const afterAnswer = (ref: string, rate?: (typeof MARKS)[number]) =>
-  rate
+/** His mark on card `ref` (one `rated` line, nothing else changes), or his Undo of his answer (`undoAnswer`); never both at once. */
+export function afterAnswer(
+  ref: string,
+  { rate, undo }: { rate?: (typeof MARKS)[number]; undo?: true }
+) {
+  if (rate && undo) {
+    return Promise.reject(
+      new Error("Not done: `undo` and `rate` are two answers; send one.")
+    );
+  }
+  return rate
     ? Promise.resolve({
         done: [rateDecision(ref, rate)],
         kind: "decision",
         ref,
       })
     : undoAnswer(ref);
+}
 
 /**
  * His Undo of his answer to card `ref` (`answer_check` with `undo`): a sent draft deleted for everyone first, where its

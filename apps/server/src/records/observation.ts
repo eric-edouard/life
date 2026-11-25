@@ -217,7 +217,7 @@ export type Cut = z.infer<typeof Cut>;
  * Life draft reading the matter over before it is dropped (`readMatterPins`); a later `outdated` closes them again.
  * These five keep the matter's id beside its steps (`PINNED`): between matters holding the same steps,
  * the one he picked. `deferred` is his Later on any check, by its `ref`: until `until` (an instant Life picked, or a
- * `later` instruction's; one naming home, 24 hours, ended at his arrival home by a line of Life's), the latest for a ref wins (replaced `your-move-not-now` on 25 Nov 2026). `not-at-organization` is
+ * `later` instruction's; one naming home, 24 hours, ended when read once he arrived home), the latest for a ref wins (replaced `your-move-not-now` on 25 Nov 2026). `not-at-organization` is
  * his No on an at organization card: `person` is not at `organization`, and that pair is never asked again (life#874).
  * `deleted` is his word that something goes from his memory: `refs` (units, facts, episodes, messages, turns, files, matters,
  * cards) whose line is gone, and `cuts` (words inside a line, by their places and a digest, never the words themselves).
@@ -313,7 +313,7 @@ export const Correction = z
     z
       .object({
         ...Correcting,
-        /** His `later` instruction named home: it ends at his next arrival home (`endLatersAtHome`), else at `until`. */
+        /** His `later` instruction named home: it ends at his next arrival home (`laterUntilOf`), else at `until`. */
         home: z.literal(true).optional(),
         kind: z.literal("deferred"),
         ref: z.string().min(1),

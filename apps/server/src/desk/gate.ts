@@ -5,7 +5,7 @@ import { errorOf } from "../core/log-line";
 import { cardInstructionsOf } from "../host/card-push";
 import { assignmentOfCard, lastTurns } from "../host/desk-read";
 import { appOpenSinceOf, ownerStateNow } from "../host/owner-state";
-import { endLatersAtHome } from "../memory/arrival-home";
+import { recordArrivalHome } from "../memory/arrival-home";
 import { deliveryOf, recordDelivered } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
@@ -289,13 +289,13 @@ const gateCardOf = (d: Decision): GateCard => ({
 
 /**
  * The gate's step of the desk's tick: each agent's card not gated yet (`deliveryOf` pending) gets its verdict, one
- * `delivered` line (`recordDelivered`); a follow-up to what he just did is delivered unread. First, his Laters that wait
- * for home end once he got there. A card sent back wakes its
+ * `delivered` line (`recordDelivered`); a follow-up to what he just did is delivered unread. First, his last arrival home
+ * is kept while a Later waits for it. A card sent back wakes its
  * agent (`SENT_BACK`, facts only). A hold ends by itself at its time (`deliveryOf`). One card at a time.
  */
 export async function gateCards(desk: Desk, now = clock()) {
-  // His Laters that wait for home end at his arrival there (`endLatersAtHome`): the card is his again.
-  await endLatersAtHome(now);
+  // His Laters that wait for home end at his arrival there (`recordArrivalHome`, read by `laterUntilOf`).
+  await recordArrivalHome(now);
   const all = decisionsNow(now);
   const pending = all.filter(
     (d) => d.state === "open" && deliveryOf(d, now).state === "pending"

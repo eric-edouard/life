@@ -5,9 +5,9 @@ import { clock, HOUR, iso } from "../core/clock";
 import * as lifelog from "../sources/lifelog";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelogCall from "../sources/lifelog-call";
-import { endLatersAtHome } from "./arrival-home";
+import { isHomeLaterOf, recordArrivalHome } from "./arrival-home";
 import { laterUntilOf } from "./matters";
-import { CORRECTIONS, recordCorrection } from "./memory-files";
+import { CORRECTIONS, HOME_ARRIVAL, recordCorrection } from "./memory-files";
 
 // Made-up places throughout.
 const home = { latitude: 48.85, longitude: 2.35 };
@@ -19,9 +19,19 @@ const stay = (p: typeof home, arrivedAt: string) => ({
   place: null,
 });
 
-afterEach(() => rmSync(CORRECTIONS, { force: true }));
+afterEach(() => {
+  rmSync(CORRECTIONS, { force: true });
+  rmSync(HOME_ARRIVAL, { force: true });
+});
 
-test("a Later that waits for home ends at his next arrival home, not at an arrival elsewhere", async () => {
+test("a home Later is the home effect as written, never a mention", () => {
+  expect(isHomeLaterOf("when I'm home")).toBe(true);
+  expect(isHomeLaterOf("once I get back home")).toBe(true);
+  expect(isHomeLaterOf("not when I'm home")).toBe(false);
+  expect(isHomeLaterOf("about the home insurance")).toBe(false);
+});
+
+test("a Later that waits for home ends when read once he arrived home, not elsewhere; nothing of his is written", async () => {
   const start = clock();
   const later = (h: number) => new Date(start.getTime() + h * HOUR);
   spyOn(lifelogCall, "lifelogMissing").mockReturnValue(undefined);
@@ -33,17 +43,27 @@ test("a Later that waits for home ends at his next arrival home, not at an arriv
     ref: "dec_home",
     until: iso(later(24).getTime()),
   });
+  const lines = () =>
+    readAppended(
+      CORRECTIONS,
+      Correction,
+      () => [] as unknown[],
+      (a, r) => {
+        a.push(r);
+      }
+    ).length;
   seen.mockResolvedValue([stay(cafe, iso(later(1).getTime()))]);
-  expect(await endLatersAtHome(later(2))).toBe(0);
+  await recordArrivalHome(later(2));
   expect(laterUntilOf("dec_home", later(2))).toBeDefined();
   seen.mockResolvedValue([
     stay(home, iso(later(3).getTime())),
     stay(cafe, iso(later(1).getTime())),
   ]);
-  expect(await endLatersAtHome(later(4))).toBe(1);
+  await recordArrivalHome(later(4));
   expect(laterUntilOf("dec_home", later(4))).toBeUndefined();
+  expect(lines()).toBe(1);
   // Nothing waits any more: lifelog is not asked again.
   seen.mockClear();
-  expect(await endLatersAtHome(later(5))).toBe(0);
+  await recordArrivalHome(later(5));
   expect(seen).not.toHaveBeenCalled();
 });

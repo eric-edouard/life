@@ -9,6 +9,7 @@ import {
   keptReader,
   linesOf,
   readAppended,
+  readJson,
   rowsOf,
 } from "../core/files";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
@@ -154,6 +155,11 @@ export const PASSAGES = join(OUT, "passages.sqlite");
 export const VECTORS = join(OUT, "vectors.sqlite");
 /** What code counts between him and each person, exchange by exchange, rebuilt whole each night (`exchange-counts.ts`). */
 export const EXCHANGE_COUNTS = join(OUT, "exchange-counts.json");
+/** His last arrival home the desk saw, while a Later waited for it (`recordArrivalHome`): Life's state, never his data. */
+export const HOME_ARRIVAL = join(OUT, "home-arrival.json");
+/** When he last arrived home, as the desk saw it; none before. */
+export const readHomeArrival = () =>
+  readJson<{ at?: string }>(HOME_ARRIVAL)?.at;
 /** The mentions the replies of the mentions read hold, one file a month (`mentions.ts`, rebuilt whole each night). */
 export const MENTIONS = join(OUT, "mentions");
 export const mentionsPath = (month: string) => join(MENTIONS, `${month}.json`);
