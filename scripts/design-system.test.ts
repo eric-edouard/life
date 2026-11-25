@@ -35,49 +35,10 @@ const RULES: Record<string, RegExp> = {
 };
 
 const CAPS: Record<string, Record<string, number>> = {
-  "DiagnosticsView.swift": {
-    padding: 2,
-  },
-  "Inbox/AnswerResultView.swift": {
-    padding: 9,
-  },
-  "Inbox/NameVoices.swift": {
-    capsule: 2,
-    height: 1,
-    width: 2,
-  },
-  "Matters/MatterThreadPage.swift": {
-    padding: 5,
-  },
-  "Matters/StartAgentSheet.swift": {
-    padding: 4,
-  },
-  "Pendant/IncidentCards.swift": {
-    padding: 1,
-  },
-  "Settings/ConnectionPage.swift": {
-    padding: 3,
-  },
-  "Settings/SettingsView.swift": {
-    padding: 1,
-  },
-  "Settings/VocabularyView.swift": {
-    font: 1,
-    height: 1,
-    padding: 2,
-    width: 1,
-  },
-  "Shell/HomeList.swift": { capsule: 2, height: 1, padding: 2 },
-  "Shell/NavShell.swift": {
-    font: 1,
-    height: 2,
-    opacity: 1,
-    padding: 2,
-    width: 3,
-  },
-  "Shell/ReadScreen.swift": {
-    padding: 2,
-  },
+  "DiagnosticsView.swift": { padding: 2 },
+  "Pendant/IncidentCards.swift": { padding: 1 },
+  "Settings/ConnectionPage.swift": { padding: 3 },
+  "Settings/SettingsView.swift": { padding: 1 },
 };
 
 const countsOf = (text: string) =>

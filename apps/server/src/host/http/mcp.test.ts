@@ -190,7 +190,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_registered_agents()",
     "read_resource_samples()",
     "read_spending(month)",
-    "request_decision(context,deadline,doneSeenBy,draft,gathered,keep,links,merges,needs,onSilence,options,plan,question,subject,title,why,withdraw)",
+    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);

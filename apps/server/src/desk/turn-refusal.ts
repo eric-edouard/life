@@ -1,7 +1,6 @@
 import type { AgentRow, AssignmentRow } from "../host/desk-read";
-import { isHisWordsPlanOf, opensWithPlan } from "../host/inbox";
 import { MOVE_NOTES } from "../host/move-read";
-import { askFirstMessageOf, hasAsked } from "./agent-actions";
+import { hasUnreadQuestion } from "./agent-questions";
 import type { Desk } from "./desk-store";
 import { MAIN_ASK } from "./main-session";
 
@@ -10,8 +9,8 @@ import { MAIN_ASK } from "./main-session";
 
 /**
  * Why the door refuses tool `name` on a desk turn of cause `cause` (none outside one) of `a` on `s`: a move's notes turn only writes its notes
- * (`agent-moves.ts`); and his rule, an assignment's first turn ends on its plan (or card), asked, so it waits or
- * finishes only after (not when his words are its plan, `isHisWordsPlanOf`). Null: it may go.
+ * (`agent-moves.ts`); the main session's acts are its own; and a turn waits or finishes only once it read his question
+ * to it (`hasUnreadQuestion`). Null: it may go.
  */
 export function turnRefusalOf(
   desk: Desk,
@@ -40,8 +39,8 @@ export function turnRefusalOf(
     return `Not done: \`${name}\` is the main session's alone.`;
   }
   const isEnd = name === "set_wait" || name === "finish";
-  return isEnd && !isHisWordsPlanOf(desk.db, a, s) && !hasAsked(desk.db, s)
-    ? askFirstMessageOf(opensWithPlan(desk.db, s))
+  return isEnd && hasUnreadQuestion(desk.db, s)
+    ? "Not done: he asked you a question through Ask Life: read it (`read_question`) and answer it (`answer_question`) first."
     : null;
 }
 

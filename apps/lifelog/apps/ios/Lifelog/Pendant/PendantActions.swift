@@ -23,12 +23,9 @@ struct PendantActions {
         case .reconnect: await capture.reconnect()
         case .syncNow: await capture.syncNow()
         }
-        var isStill = CaptureCondition.evaluate(capture.status, context: capture.context, now: .now).contains {
+        let isStill = CaptureCondition.evaluate(capture.status, context: capture.context, now: .now).contains {
             $0.recovery == recovery
         }
-        #if DEBUG
-            isStill = isStill || LifeFixture.refuses("reconnect")
-        #endif
         if isStill { return .refused("Still not fixed. Try again in a moment.") }
         return .done(recovery == .reconnect ? "Reconnected" : "Synced")
     }

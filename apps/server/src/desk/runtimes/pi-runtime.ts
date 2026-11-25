@@ -6,7 +6,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { log } from "../../core/log";
 import {
   IS_COMPILED_HELPER,
   LIFE_CODE_DIR,
@@ -23,40 +22,23 @@ import {
   TERMINAL_ENTRYPOINT,
   TERMINAL_SESSIONS,
 } from "../../host/open-session-records";
-import { piRouteOf } from "../../models/llm";
+import { ASK_EFFORT, piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
 import { WEB_SEARCH_CHAIN } from "../../web-search/backend";
 import type { ClaudeHookGroup } from "./claude-hooks";
-import type {
-  Agent,
-  CallUsage,
-  RunEnd,
-  Runtime,
-  Update,
-  Usage,
-} from "./contract";
-import {
-  PI_EXTENSION_COMMAND,
-  PI_EXTENSION_ENV,
-  PI_PROVIDER,
-  type PiProvider,
-} from "./pi-extension";
-import { SPENDING_TOOLS, type SpentDetails } from "./pi-subagent";
+import type { Agent, Runtime } from "./contract";
+import { type PiRow, piOpenOf } from "./pi-connection";
+import { PI_EXTENSION_ENV, PI_PROVIDER, type PiProvider } from "./pi-extension";
+import { closeDanglingCalls } from "./pi-session-repair";
 import type { PiTerminalLaunch } from "./pi-terminal";
+import { providerPause } from "./provider-pause";
 import {
   GATED_KEYS,
   loginEnvLess,
   readSendFacts,
   type SessionState,
 } from "./runtime-rows";
-import {
-  type Connection,
-  LAUNCH_WITHIN_MS,
-  type Open,
-  type SessionRow,
-  sessionRuntime,
-  spawnFor,
-} from "./session-runtime";
+import { LAUNCH_WITHIN_MS, sessionRuntime } from "./session-runtime";
 
 // The pi runtime (the owner's decisions of 22 Nov 2026, `docs/plans/pi-runtime.md`): the pinned pi
 // (`@earendil-works/pi-coding-agent`), run by the helper as bun, in its RPC mode (JSONL on stdio), one process per
@@ -141,8 +123,9 @@ const KEY = "OPENROUTER_API_KEY";
 /** The desk's word for pi's one model (the phone's choice, `RuntimeName.models`): the provider's model, whatever its id. */
 const PI_MODEL_WORD = "flash";
 
-/** Where pi keeps the desk's sessions and settings, the provider it asks, and the effort an agent naming none thinks at. */
+/** Where pi keeps the desk's sessions and settings, the provider it asks, and the effort an agent naming none thinks at (`askEffort` when it answers him). */
 export interface PiPlace {
+  askEffort?: string;
   /** His Claude folder: his instructions and hooks, for his own Life. */
   claude: string;
   dir: string;
@@ -172,38 +155,23 @@ export function lifeProviderOf(): PiProvider {
   };
 }
 
-/** pi's row: what `sessionRuntime` reads, and the command and environment of a run. */
-export interface PiRow extends SessionRow {
-  spawn: (
-    a: Agent,
-    ref: string,
-    isNew: boolean
-  ) => Promise<{
-    /** The context past which a turn that ended well compacts its session (`compactAtOf`). */
-    compactAt: number;
-    command: string[];
-    env: Record<string, string>;
-  }>;
-}
-
 /**
- * The context, in tokens, past which a turn that ended well compacts its session before it ends (`compactedAfter`): long
- * before the model's window, where a model grows slow, costly and vague, and between wakes, where nothing is lost (the
- * owner's yes of 22 Nov 2026, `pi-harness-opportunities-2026-11-22.md` item 1, raised to 400k by his word the same day).
- * A smaller window takes its window less twice pi's reserve (`compactAtOf`); pi's own trigger, inside a long turn, at
- * twice it, within the window.
+ * The share of the model's window past which a turn that ended well compacts its session before it ends
+ * (`compactedAfter`): long before the window, where a model grows slow, costly and vague, and between wakes, where
+ * nothing is lost (the owner's yes of 22 Nov 2026, `pi-harness-opportunities-2026-11-22.md` item 1: about his 400k on
+ * today's window of a million). pi's own trigger, inside a long turn, at twice it (`settingsOf`).
  */
-export const PI_COMPACT_AT = 400_000;
+const COMPACT_SHARE = 0.4;
 
 /** pi's default reserve (`compaction.md`): never less, so a small window still compacts as pi would. */
 const PI_RESERVE_TOKENS = 16_384;
 
-/** Where a turn's end compacts on a model of `window` tokens (unknown: `PI_COMPACT_AT`). */
+/** Where a turn's end compacts on a model of `window` tokens (unknown: never at the end, pi's own trigger alone). */
 export const compactAtOf = (window: number | undefined) =>
-  Math.min(
-    PI_COMPACT_AT,
-    (window ?? Number.POSITIVE_INFINITY) - 2 * PI_RESERVE_TOKENS
-  );
+  window ? Math.floor(window * COMPACT_SHARE) : Number.POSITIVE_INFINITY;
+
+/** A model silent this long (no header, no byte) fails its request, which pi's own retry asks again (the v4 plan, bundle C). */
+const SILENT_RETRY_MS = 30_000;
 
 /** The settings of Life's agent folder for pi, written whole at each spawn: `window` is the model's context, if known. */
 const settingsOf = (
@@ -227,6 +195,7 @@ const settingsOf = (
     "-builtin:tool-search",
     "-builtin:llama.cpp",
   ],
+  httpIdleTimeoutMs: SILENT_RETRY_MS,
   quietStartup: true,
   // His skills where Claude Code reads them, beside `~/.agents/skills`, which pi reads itself.
   skills: claude ? [join(claude, "skills")] : [],
@@ -340,6 +309,7 @@ export const readClaudeHooks = (claude: string): ClaudeHookGroup[] => {
 export function piRowOf(
   isOwn = isOwnLife(),
   place: PiPlace = {
+    askEffort: ASK_EFFORT,
     claude: CLAUDE_HOME,
     dir: PI_DIR,
     effort: piRouteOf().effort,
@@ -350,7 +320,7 @@ export function piRowOf(
   const agentDir = join(place.dir, "agent");
   const [model] = place.provider.models ?? [];
   /** What agent `a`'s run on session `ref` needs (the session file to resume, its model and effort), or why it can't run. */
-  const runOf = (a: Agent, ref: string, isNew: boolean) => {
+  const runOf = (a: Agent, ref: string, isNew: boolean, isAsk = false) => {
     if (!(PI_EXTENSION && model)) {
       throw new Error("Life's pi extension or its model is missing");
     }
@@ -363,8 +333,11 @@ export function piRowOf(
     if (!(isNew || file)) {
       throw new Error(`pi has no session ${ref}`);
     }
+    if (file) {
+      closeDanglingCalls(file);
+    }
     return {
-      effort: a.effort ?? place.effort,
+      effort: a.effort ?? (isAsk ? place.askEffort : place.effort),
       extension: PI_EXTENSION,
       file,
       id: model.id,
@@ -411,12 +384,13 @@ export function piRowOf(
       }
       return piSessionFileOf(sessions, ref) ? "idle" : "gone";
     },
-    async spawn(a, ref, isNew) {
-      const run = runOfMode(a, ref, isNew, true);
+    async spawn(a, ref, isNew, isAsk) {
+      const run = runOfMode(a, ref, isNew, true, isAsk);
       return {
         command: run.command,
         compactAt: compactAtOf(run.window),
         env: { ...(isOwn ? await loginEnvLess([KEY]) : {}), ...run.env },
+        inForceFile: run.inForceFile,
       };
     },
   };
@@ -424,9 +398,16 @@ export function piRowOf(
    * The command of agent `a`'s pi on session `ref` and Life's part of its environment (his own Life's run adds his login
    * environment less the engine's key): the desk's turn in pi's RPC mode (`isRpc`), else pi's own interface, in Terminal.
    */
-  function runOfMode(a: Agent, ref: string, isNew: boolean, isRpc: boolean) {
-    const { effort, extension, file, id, window } = runOf(a, ref, isNew);
+  function runOfMode(
+    a: Agent,
+    ref: string,
+    isNew: boolean,
+    isRpc: boolean,
+    isAsk = false
+  ) {
+    const { effort, extension, file, id, window } = runOf(a, ref, isNew, isAsk);
     mkdirSync(agentDir, { recursive: true });
+    const inForceFile = join(place.dir, "in-force", `${ref}.md`);
     writeFileSync(
       join(agentDir, "settings.json"),
       JSON.stringify(settingsOf(isOwn ? place.claude : undefined, window))
@@ -474,6 +455,7 @@ export function piRowOf(
         [PI_EXTENSION_ENV.doorKey]: a.door.key,
         [PI_EXTENSION_ENV.doorUrl]: a.door.url,
         [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
+        [PI_EXTENSION_ENV.inForce]: inForceFile,
         ...(isOwn
           ? {
               [PI_EXTENSION_ENV.hooks]: JSON.stringify(
@@ -491,325 +473,23 @@ export function piRowOf(
         ...(a.rules ? { [PI_EXTENSION_ENV.rules]: a.rules } : {}),
       },
       file,
+      inForceFile,
       window,
     };
   }
 }
-
-/** What pi prints on stdout, as far as the runtime reads it. */
-export interface PiLine {
-  aborted?: boolean;
-  assistantMessageEvent?: { delta?: string; type: string };
-  command?: string;
-  data?: { commands?: { name: string }[]; disposition?: string };
-  error?: string;
-  id?: string;
-  isError?: boolean;
-  message?: {
-    errorMessage?: string;
-    role: string;
-    stopReason?: string;
-    usage?: CallUsage;
-  };
-  /** A tool's result: a spending tool's carries its usage (`SPENDING_TOOLS`); a compaction's, its summary call's (`compaction_end`). */
-  result?: { details?: SpentDetails; usage?: CallUsage };
-  success?: boolean;
-  toolCallId?: string;
-  toolName?: string;
-  type: string;
-}
-
-/** The run in progress on a connection: what it heard so far, and how to settle it. */
-export interface Current {
-  begun: () => void;
-  end: (e: RunEnd) => void;
-  /** It ended past its compaction point (`compactAtOf`): its session is compacting before it ends. */
-  isCompacting?: boolean;
-  onUpdate?: (u: Update) => void;
-  stop?: string;
-  usage: Usage;
-  why?: string;
-}
-
-/** What a pi line tells the run's listener, if anything. */
-function updateOf(l: PiLine): Update | undefined {
-  const e = l.assistantMessageEvent?.type ?? "";
-  if (l.type === "message_update" && e === "text_delta") {
-    return { kind: "words", text: l.assistantMessageEvent?.delta ?? "" };
-  }
-  if (l.type === "message_update" && e.startsWith("thinking")) {
-    return { kind: "thinking" };
-  }
-  if (l.type === "tool_execution_start" || l.type === "tool_execution_end") {
-    const state = l.isError ? "failed" : "completed";
-    return {
-      id: l.toolCallId ?? "",
-      kind: "working",
-      state: l.type === "tool_execution_start" ? "in_progress" : state,
-      title: l.toolName ?? "",
-    };
-  }
-}
-
-/**
- * Adds one model call's usage to the run's: its tokens, its whole context as the first and last call saw it, and what
- * OpenRouter billed for it (pi reads the response's cost: `totalFromProvider`), null once a call came without it.
- */
-function addUsage(u: Usage, m: CallUsage | undefined) {
-  if (!m) {
-    return;
-  }
-  addSpent(u, m);
-  u.contextFirst ??= m.totalTokens;
-  u.contextLast = m.totalTokens;
-}
-
-/** Adds one model call's tokens and billed dollars to the run's, never its context: a subagent's calls are not the session's. */
-function addSpent(u: Usage, m: CallUsage) {
-  u.billedUsd =
-    m.cost?.totalFromProvider && typeof u.billedUsd === "number"
-      ? u.billedUsd + m.cost.total
-      : null;
-  u.tokensIn += m.input + m.cacheWrite;
-  u.tokensCached += m.cacheRead;
-  u.tokensOut += m.output;
-}
-
-/** A line pi printed, read as JSON; none when it is not. */
-const parseLine = (text: string): PiLine | undefined => {
-  try {
-    return JSON.parse(text) as PiLine;
-  } catch {
-    // not a line of pi's protocol
-    return undefined;
-  }
-};
-
-/** The calls line `l` bills beside the turn's own: a spending tool's, and every compaction's summary (pi's own inside the turn, the runtime's at its end). */
-function spentOf(l: PiLine): CallUsage[] {
-  if (l.type === "compaction_end" && l.result?.usage) {
-    return [l.result.usage];
-  }
-  return isSpendingToolEnd(l) ? (l.result?.details?.usage ?? []) : [];
-}
-
-/** Whether `l` is a spending tool's result (`SPENDING_TOOLS`): its model calls and its searches' prices are the turn's. */
-const isSpendingToolEnd = (l: PiLine) =>
-  l.type === "tool_execution_end" && SPENDING_TOOLS.includes(l.toolName ?? "");
-
-/** What line `l` does to the run `c`: its beginning, its usage and stop, its listener's update; its end at `agent_settled`. */
-export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
-  if (l.type === "message_update") {
-    c.begun();
-  }
-  if (l.type === "message_end" && l.message?.role === "assistant") {
-    addUsage(c.usage, l.message.usage);
-    c.stop = l.message.stopReason;
-    c.why = l.message.errorMessage;
-  }
-  for (const m of spentOf(l)) {
-    addSpent(c.usage, m);
-  }
-  for (const usd of isSpendingToolEnd(l)
-    ? (l.result?.details?.searchUsd ?? [])
-    : []) {
-    c.usage.searchUsd =
-      typeof usd === "number" && typeof c.usage.searchUsd === "number"
-        ? c.usage.searchUsd + usd
-        : null;
-  }
-  const heard = updateOf(l);
-  if (heard) {
-    c.onUpdate?.(heard);
-  }
-  if (l.type !== "agent_settled") {
-    return;
-  }
-  if (l.aborted) {
-    return { ok: false, why: "cancelled" };
-  }
-  return c.stop === "error" || c.stop === "aborted"
-    ? { ok: false, why: c.why ?? c.stop }
-    : { ok: true, usage: c.usage };
-}
-
-/**
- * Spawns pi in `a.folder` on session `resume` (none: a new one, its id made here) and waits for Life's extension to
- * answer (`PI_EXTENSION_COMMAND` in `get_commands`): within `launchWithin`, else pi is killed and the open fails.
- */
-const openOf =
-  (row: PiRow, launchWithin: number): Open =>
-  async (a, resume, opening) => {
-    const ref = resume ?? crypto.randomUUID();
-    const { command, compactAt, env } = await row.spawn(a, ref, !resume);
-    const { child, close, exited, stopping } = spawnFor(
-      a,
-      command,
-      env,
-      opening
-    );
-    const answers = new Map<string, (l: PiLine) => void>();
-    let current: Current | undefined;
-    let asked = 0;
-    const send = (line: object) =>
-      child.stdin.write(`${JSON.stringify(line)}\n`);
-    const ask = (line: { message?: string; type: string }) =>
-      new Promise<PiLine>((answer) => {
-        asked += 1;
-        const id = `life-${asked}`;
-        answers.set(id, answer);
-        send({ ...line, id });
-      });
-    const settle = (e: RunEnd) => {
-      const c = current;
-      current = undefined;
-      // Logged by its stop reason only, a code word: pi's error message can echo the call.
-      if (c && !e.ok) {
-        log("desk.runtime", {
-          agent: a.id,
-          error: c.stop ?? "ended",
-          ok: false,
-          what: "turn",
-        });
-      }
-      c?.end(e);
-    };
-    /** One line pi printed: a response to what the runtime asked, else an event of the run. */
-    const hear = (text: string) => {
-      const l = parseLine(text);
-      if (l?.type === "response") {
-        answers.get(l.id ?? "")?.(l);
-        answers.delete(l.id ?? "");
-        return;
-      }
-      const c = current;
-      const ended = l && c && runHeard(c, l);
-      if (!(c && ended)) {
-        return;
-      }
-      if (
-        c.isCompacting ||
-        !(ended.ok && (c.usage.contextLast ?? 0) > compactAt)
-      ) {
-        settle(ended);
-        return;
-      }
-      // The turn ends once its session is compacted (its summary billed by `compaction_end`); pi exiting first fails it.
-      c.isCompacting = true;
-      compactedAfter().then(() => settle(ended));
-    };
-    /** Compacts the session after a turn; one that fails leaves the session whole. */
-    const compactedAfter = async () => {
-      const r = await Promise.race([
-        ask({ type: "compact" }),
-        exited.then(() => undefined),
-      ]);
-      log("desk.runtime", {
-        agent: a.id,
-        ok: r?.success === true,
-        what: "compact",
-      });
-    };
-    // Split on line feeds only (pi's rpc.md): a reader by lines would also split a JSON string at U+2028 or U+2029.
-    let rest = "";
-    child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-      const lines = (rest + chunk).split("\n");
-      rest = lines.pop() ?? "";
-      for (const line of lines) {
-        hear(line.endsWith("\r") ? line.slice(0, -1) : line);
-      }
-    });
-    exited.then(() => settle({ ok: false, why: "pi exited" }));
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const listed = await Promise.race([
-        ask({ type: "get_commands" }),
-        exited.then(() => {
-          throw new Error("pi exited as it started");
-        }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () =>
-              reject(
-                new Error(`pi did not answer within ${launchWithin / 1000} s`)
-              ),
-            launchWithin
-          );
-        }),
-      ]);
-      if (
-        !listed.data?.commands?.some((c) => c.name === PI_EXTENSION_COMMAND)
-      ) {
-        throw new Error(
-          "Life's pi extension did not load: no agent runs unguarded"
-        );
-      }
-    } catch (error) {
-      child.kill("SIGKILL");
-      await close();
-      throw error;
-    } finally {
-      clearTimeout(timer);
-    }
-
-    let ended: Promise<RunEnd> | undefined;
-    let isPrompted = false;
-    const prompt: Connection["prompt"] = (message, onUpdate) => {
-      let begun: () => void = () => undefined;
-      let notBegun: (e: Error) => void = () => undefined;
-      const began = new Promise<void>((ok, fail) => {
-        begun = ok;
-        notBegun = fail;
-      });
-      began.catch(() => undefined);
-      isPrompted = true;
-      ended = new Promise<RunEnd>((end) => {
-        current = {
-          begun,
-          end: (e) => {
-            notBegun(new Error(e.why ?? "it ended before the turn began"));
-            end(e);
-          },
-          onUpdate,
-          usage: {
-            billedUsd: 0,
-            contextFirst: null,
-            contextLast: null,
-            searchUsd: 0,
-            tokensCached: 0,
-            tokensIn: 0,
-            tokensOut: 0,
-          },
-        };
-      });
-      ask({ message, type: "prompt" }).then((r) => {
-        if (r.success === false) {
-          settle({ ok: false, why: r.error ?? "pi refused the prompt" });
-        }
-        // A prompt pi handled itself (an extension's command) starts no run: no `agent_settled` comes.
-        if (r.data?.disposition === "handled") {
-          settle({ ok: false, why: "pi handled the prompt as a command" });
-        }
-      });
-      return { begun: began, ended };
-    };
-    const stop = async () => {
-      if (!isPrompted) {
-        return;
-      }
-      send({ type: "abort" });
-      await stopping(ended);
-    };
-    return { close, exited, prompt, ref, stop };
-  };
 
 /** pi as a runtime: the one runtime (`sessionRuntime`) over pi's RPC. */
 export const piRuntime = (
   row: PiRow = piRowOf(),
   launchWithin = LAUNCH_WITHIN_MS,
   keepWarm?: number
-): Runtime => ({
-  ...sessionRuntime(row, openOf(row, launchWithin), keepWarm),
-  // Life's extension holds an agent's rules as a section of every run's system prompt (`pi-extension.ts`).
-  pinsRules: true,
-});
+): Runtime => {
+  const pause = providerPause();
+  return {
+    ...sessionRuntime(row, piOpenOf(row, launchWithin, pause), keepWarm),
+    paused: pause.block,
+    // Life's extension holds an agent's rules as a section of every run's system prompt (`pi-extension.ts`).
+    pinsRules: true,
+  };
+};

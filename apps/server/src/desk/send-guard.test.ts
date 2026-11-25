@@ -26,6 +26,13 @@ const mcp = (name: string, input: unknown = {}): GuardedCall => ({
 });
 
 const REFUSED: [string, GuardedCall][] = [
+  [
+    "a web fetch of a messaging site (neither shell nor MCP)",
+    {
+      tool_input: { url: "https://web.whatsapp.com/" },
+      tool_name: "web_fetch",
+    },
+  ],
   ...[
     "claude_ai_Life__answer_check",
     "2dc4e169_2994__request_decision",
@@ -170,6 +177,13 @@ const LET_THROUGH: [string, GuardedCall][] = [
     ),
   ],
   ["reading issues", bash("gh issue list --repo other/repo")],
+  [
+    "a note written with a messaging link in it",
+    {
+      tool_input: { content: "https://wa.me/15550100", path: "n.md" },
+      tool_name: "write",
+    },
+  ],
 ];
 
 test("every kind of send is refused, with a reason that names a card", () => {

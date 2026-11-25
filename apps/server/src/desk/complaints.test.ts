@@ -363,7 +363,7 @@ test("the caretaker's notes stay out of its row; its packet names Life's data an
   ).toBe("");
   const packet = await readPacket(desk, s as never, true);
   expect(packet).toContain("Your subject: Life's data.");
-  expect(packet).toContain("ask no plan card and wait for no `start`");
+  expect(packet).toContain("his words are your plan");
   expect(packet).not.toContain("asks your plan");
 });
 

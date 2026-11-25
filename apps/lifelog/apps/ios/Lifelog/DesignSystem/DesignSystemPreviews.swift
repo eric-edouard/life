@@ -18,15 +18,6 @@ import SwiftUI
         Swatch(name: "liveDot", color: Palette.flag),
     ]
 
-    #Preview("Ask Life button") {
-        HStack(spacing: 24) {
-            AskLifeButton {}
-            AskLifeButton(isListening: true) {}
-            AskLifeButton(isWorking: true) {}
-        }
-        .padding(40).background(Palette.bg)
-    }
-
     #Preview("Palette") {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 12) {
@@ -62,62 +53,6 @@ import SwiftUI
         .foregroundStyle(Palette.fg)
         .padding(Metrics.gutter)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.bg)
-        .preferredColorScheme(.dark)
-    }
-
-    #Preview("Components") {
-        @Previewable @State var playing = false
-        @Previewable @State var runtime: RuntimeName? = .claude
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack {
-                        CountBadge(count: 3); TextLink("All 5", to: .page) {};
-                        TextLink("Open in Claude", to: .outside) {}
-                    }
-                    QuietChip("Why this reply?", symbol: "questionmark.circle") {}
-                    QuietChip("From two quotes", symbol: "doc", isMuted: true) {}
-                    AddRow("Add someone") {}
-                    Button("Sending…") {}.buttonStyle(.pill(.quiet, size: .compact, isBusy: true))
-                    SegmentedChoice(choices: RuntimeName.offered, selection: $runtime, title: \.name)
-                    Text("A draft on paper").font(.quote).padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                        .paperBox()
-                    SectionHeader(title: "Today", detail: "Wed 7 Oct", trailing: "5 conversations")
-                    HStack(spacing: Tag.between) {
-                        Tag(systemImage: "person", value: Text("Julien, Nok"))
-                        Tag(systemImage: "photo", value: Text("5"))
-                    }
-                    .font(.caption)
-                    .foregroundStyle(Palette.muted)
-                    HStack {
-                        DurationText(.seconds(40))
-                        DurationText(.seconds(7080), step: .monoTime)
-                    }
-                    .foregroundStyle(Palette.faint)
-                }
-                .foregroundStyle(Palette.fg)
-                .padding(Metrics.gutter)
-            }
-            GlassEffectContainer(spacing: 12) {
-                HStack(spacing: 12) {
-                    Text("30:20").font(.monoSmall).padding(14)
-                        .floatingGlass(in: .rect(cornerRadius: Metrics.Radius.player))
-                    Button("Back 15 seconds", systemImage: "gobackward.15") {}
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.glass)
-                        .buttonBorderShape(.circle)
-                    Button(playing ? "Pause" : "Play", systemImage: playing ? "pause.fill" : "play.fill") {
-                        playing.toggle()
-                    }
-                    .labelStyle(.iconOnly)
-                    .primaryGlassButton()
-                    .buttonBorderShape(.circle)
-                    .controlSize(.large)
-                }
-            }
-            .padding(.bottom, 24)
-        }
         .background(Palette.bg)
         .preferredColorScheme(.dark)
     }
@@ -167,39 +102,4 @@ import SwiftUI
         .background(Palette.sheet)
         .preferredColorScheme(.dark)
     }
-
-    /// A recording of nine words at 0.6 s each, with a quiet tone as its audio, put where `ClipAudio` finds it.
-    struct SpokenWordsBoard: View {
-        private static let job = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xA1))
-        private static let text = "Meet me at the market on Saturday around ten"
-        private static let words: [[Int64]] = text.split(separator: " ").enumerated().map { index, word in
-            [Int64(index) * 600, Int64(index) * 600 + 500, Int64(word.count + (index == 0 ? 0 : 1))]
-        }
-
-        @State private var playback = PlaybackStore(library: nil, sync: nil)
-        @State private var life = LifeStore(path: NetworkPath())
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 24) {
-                SpokenWords(text: Self.text, words: Self.words, job: Self.job, start: 0, end: 5.4)
-                    .padding(16).paperBox()
-                SpokenWords(text: Self.text, words: Self.words, job: Self.job, start: 0, end: 5.4, style: .inline)
-                SpokenWords(
-                    text: "No timings, so the whole text stays as it is.", words: nil, job: UUID(), start: 0, end: 5.4)
-            }
-            .font(.quote)
-            .padding(Metrics.gutter)
-            .frame(maxWidth: 390, maxHeight: .infinity, alignment: .top)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.bg)
-            .environment(playback)
-            .environment(life)
-            .preferredColorScheme(.dark)
-            .task { Self.seedAudio() }
-        }
-
-        private static func seedAudio() { ClipAudio.writeTone(job: job.uuidString, seconds: 6) }
-    }
-
-    #Preview("Spoken words") { SpokenWordsBoard() }
 #endif

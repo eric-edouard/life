@@ -80,16 +80,6 @@ extension ButtonStyle where Self == PillStyle {
     }
 }
 
-/// A count on a tab or a row: 20 high, the flag fill.
-struct CountBadge: View {
-    let count: Int
-
-    var body: some View {
-        Text("\(count)").font(.badge).foregroundStyle(Palette.on)
-            .padding(.horizontal, 6).frame(minWidth: 20, minHeight: 20).background(Palette.flag, in: .capsule)
-    }
-}
-
 /// A link, 44 high (decision 85): its words in `fg`, 13 / 600, then where it goes, always: a chevron for a page of the
 /// app, an arrow for something outside it. An action is a `QuietChip`.
 struct TextLink: View {
@@ -159,215 +149,6 @@ struct QuietChip: View {
 
     /// The chip's colour, its glyph's unless `iconTint` gives it another.
     private var color: Color { isMuted ? Palette.muted : Palette.fg }
-}
-
-/// A line added to a list (decision 85): a plus in a 24 `fillTint` circle, then its words in `fg`.
-struct AddRow: View {
-    let title: String
-    let action: () -> Void
-
-    init(_ title: String, action: @escaping () -> Void) {
-        self.title = title
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Metrics.Spacing.m) {
-                Image(systemName: "plus").font(.smallStrong).frame(width: 24, height: 24)
-                    .background(Color.fillTint, in: .circle).accessibilityHidden(true)
-                Text(title).font(.body15)
-            }
-            .foregroundStyle(Palette.fg)
-            .frame(maxWidth: .infinity, minHeight: Metrics.tapTarget, alignment: .leading).contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// What he just answered or changed (the toast spec of 20 Nov): a glass capsule 44 high that hugs its content, a check
-/// in `ok` (a change that was not made: `flag`'s glyph and why), its words on one line (a flag's on up to 3, so Life's
-/// reason reads whole), and Undo while it can be taken back, a `pick` capsule inside it. It sits at the top of the
-/// pane, so it takes no room from the answers. Ask Life's cut list keeps one until he closes it: its words after a filter glyph (`cut`, up to 2 lines),
-/// and an X (`symbol`) in a `pick` circle.
-struct Toast: View {
-    let words: String
-    var glyph: StateGlyph? = .ok
-    /// The capsule's one action: Undo, or Retry or Show on the sync mark (`SyncNote`), or "Show all" with an X.
-    var action = "Undo"
-    /// The action drawn as this symbol instead of its word (which VoiceOver says).
-    var symbol: String?
-    let undo: (() -> Void)?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if let glyph { glyph }
-            Text(words).font(.chip).foregroundStyle(Palette.fg).lineLimit(glyph == .ok ? 1 : glyph == .cut ? 2 : 3)
-            if let undo {
-                Button(action: undo) {
-                    Group {
-                        if let symbol {
-                            Image(systemName: symbol).font(.chip).frame(width: 32, height: 32)
-                        } else {
-                            Text(action).font(.chip).padding(.horizontal, 12).frame(height: 32)
-                        }
-                    }
-                    .foregroundStyle(Palette.fg).background(Color.pick, in: .capsule).contentShape(.capsule)
-                    // The circle's tap reaches the toast's whole height.
-                    .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
-                }
-                .buttonStyle(.plain).fixedSize().accessibilityLabel(action)
-            }
-        }
-        .padding(.leading, 14).padding(.trailing, undo == nil ? 14 : symbol == nil ? 6 : 0)
-        .frame(minWidth: 120, minHeight: 44)
-        // Glass tinted with the page, so titles behind the toast do not read through.
-        .glassEffect(.regular.tint(Palette.bg.opacity(0.75)), in: .capsule)
-    }
-}
-
-/// Ask Life's cut of a tab's list (`AppRouter.cut`): the toast, first in the list, in the place of the list's own
-/// filter, kept until his X, which gives the whole list back. Nothing while that list is whole.
-struct CutToast: View {
-    let kind: ShownList.Kind
-    @Environment(AppRouter.self) private var router
-
-    var body: some View {
-        ZStack {
-            if let cut = router.cut(of: kind) {
-                Toast(words: cut.label, glyph: .cut, action: "Show all", symbol: "xmark") { router.cut = nil }
-                    .padding(.horizontal, Metrics.gutter).padding(.bottom, Metrics.Spacing.s)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .appears().id(cut.refs)
-            }
-        }
-        .motion(Motion.standard, value: router.cut(of: kind))
-    }
-}
-
-extension View {
-    /// His last mark or project status, said back (`LifeStore.saidBack`), over the top as the toast; in
-    /// the closed Duo's side column (`inSideColumn`) only a change that was not made, the column's capsule says the rest.
-    func saidBackToast(inSideColumn: Bool) -> some View { modifier(SaidBackToast(inSideColumn: inSideColumn)) }
-
-    /// A page's said-back toast, over the top of its pane (the toast spec: the closed Duo's column capsule is gone).
-    func saysBack() -> some View { saidBackToast(inSideColumn: false) }
-
-    /// A page's title steps aside while a toast is over it: on the closed Duo, where no bar holds the toast.
-    func stepsAsideForToast() -> some View { modifier(StepsAsideForToast()) }
-}
-
-private struct StepsAsideForToast: ViewModifier {
-    @Environment(LifeStore.self) private var life
-    @State private var inSideColumn = false
-
-    func body(content: Content) -> some View {
-        let isCovered = inSideColumn && life.saidBack != nil
-        content.opacity(isCovered ? 0 : 1).motion(Motion.standard, value: isCovered)
-            .reportsSideColumn($inSideColumn)
-    }
-}
-
-private struct SaidBackToast: ViewModifier {
-    let inSideColumn: Bool
-    @Environment(LifeStore.self) private var life
-    /// The closed Duo, where no bar holds the toast: its slot is 10 from the screen's top, over the stepped-aside title.
-    @State private var isClosed = false
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .top) {
-            ZStack {
-                if let said = life.saidBack, !inSideColumn || said.undo == nil {
-                    Toast(words: said.words, glyph: said.isDone ? .ok : .flag, undo: life.undoing(said))
-                        .appears().id(said.id)
-                }
-            }
-            .padding(.top, isClosed ? 10 : 0)
-            .ignoresSafeArea(.container, edges: isClosed ? .top : [])
-            .motion(Motion.standard, value: life.saidBack?.id)
-        }
-        .reportsSideColumn($isClosed)
-    }
-}
-
-/// The Toast in the side column of the closed Duo, where there is no top bar: a capsule two tap targets high, no words:
-/// the check in `ok`, then Undo as its glyph. It is always in the column while the bars are there, and fades with
-/// `answered` (nil: nothing held), so the column never changes shape. VoiceOver reads the answer on the capsule and
-/// "Undo" on the button. Larger than `StateGlyph.ok` (13): the capsule has no words to carry it.
-struct ColumnToast: View {
-    let answered: String?
-    let undo: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Image(systemName: "checkmark").font(.columnGlyph).foregroundStyle(Palette.ok)
-                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).accessibilityHidden(true)
-            Button(action: undo) {
-                Image(systemName: "arrow.uturn.backward").font(.columnGlyph).foregroundStyle(Palette.fg)
-                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget).contentShape(.rect)
-            }
-            .buttonStyle(.plain).accessibilityLabel("Undo")
-        }
-        .floatingGlass()
-        .opacity(answered == nil ? 0 : 1).allowsHitTesting(answered != nil)
-        .motion(Motion.standard, value: answered)
-        .accessibilityElement(children: .contain).accessibilityLabel(answered.map { "Answered: \($0)" } ?? "")
-        .accessibilityHidden(answered == nil)
-    }
-}
-
-/// A matter's name (the asking agent's mark before it, in `fg`) on a `card` capsule 32 high, in a 44 hit area. A long
-/// name is cut with an ellipsis, except at an accessibility text size, where it may take two lines.
-struct InlinePill: View {
-    let name: String
-    /// The asking agent's mark (`RuntimeName.mark`), nil when Life asks itself.
-    var agentMark: String?
-    /// His mark on the matter: a small flag after the name (`SmallFlag`).
-    var isImportant = false
-    let action: () -> Void
-
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Metrics.Spacing.s) {
-                if let agentMark { Image(symbol: agentMark).accessibilityHidden(true) }
-                Text(name).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
-                if isImportant { SmallFlag() }
-            }
-            .font(.smallStrong).foregroundStyle(Palette.fg)
-            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.xs).frame(minHeight: 32)
-            .background(Palette.card, in: .rect(cornerRadius: 16))
-            .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Matter: \(name)\(isImportant ? ", important" : "")")
-    }
-}
-
-/// His mark on a matter as a toolbar item, a round glass button (the system places it: in the bar left of the Pendant,
-/// or in the closed Duo's side column): off, the line flag; on, the one selected look, `pick` filled, the filled flag.
-/// Always in `fg`, never the orange `flag`.
-struct MarkItem: View {
-    let isOn: Bool
-    let toggle: () -> Void
-
-    var body: some View {
-        let button = Button("Important", systemImage: isOn ? "flag.fill" : "flag", action: toggle)
-            .labelStyle(.iconOnly).foregroundStyle(Palette.fg)
-        // Off, the bar's own glass like its neighbours; on, the one selected look.
-        Group {
-            // Two views, so each says how it comes and goes: the one crossfade.
-            if isOn {
-                button.buttonStyle(.glassProminent).tint(Color.pick).transition(.opacity)
-            } else {
-                button.transition(.opacity)
-            }
-        }
-        .motion(Motion.standard, value: isOn)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
-        .accessibilityIdentifier("matter.important")
-    }
 }
 
 /// Where a list's next part begins, in a small muted label: "The rest can wait" in the Inbox, "Parked" in Matters. Its
@@ -568,78 +349,6 @@ struct StateDot: View {
             )
             .onAppear { isDim = isLit }
             .accessibilityHidden(true)
-    }
-}
-
-/// A list's Filter: a system menu of inline pickers (a line icon per row, a check on the chosen one), its glyph filled
-/// while a choice narrows the list. In the closed Duo's column it is More, three dots, last in the Pendant and Settings
-/// group (placement, 22 Nov: nothing bottom-left; `VisFoldMatters`, `DuoFoldPeople`).
-struct FilterMenu<Choices: View>: View {
-    let isFiltered: Bool
-    var isMore = false
-    let identifier: String
-    /// What VoiceOver reads: what the menu does ("Filter", "Sort").
-    let label: String
-    let choices: Choices
-
-    var body: some View {
-        Menu {
-            choices
-        } label: {
-            Image(systemName: symbol)
-        }
-        .accessibilityLabel(label)
-        .accessibilityIdentifier(identifier)
-    }
-
-    private var symbol: String {
-        switch (isMore, isFiltered) {
-        case (true, true): "ellipsis.circle.fill"
-        case (true, false): "ellipsis"
-        case (false, true): "line.3.horizontal.decrease.circle.fill"
-        case (false, false): "line.3.horizontal.decrease"
-        }
-    }
-}
-
-extension View {
-    /// A list's Filter, in the top group by where the system puts the bars: a top-leading toolbar item, or, in the side
-    /// column (`reportsSideColumn`), More, the last item of the right-edge group under the Pendant and Settings (apply it
-    /// inside `shellBar`, so its item comes after theirs); nothing floats.
-    func filterBar<Choices: View>(
-        isFiltered: Bool, identifier: String, isResting: Bool = false, label: String = "Filter",
-        @ViewBuilder choices: () -> Choices
-    ) -> some View {
-        modifier(
-            FilterBar(
-                isFiltered: isFiltered, identifier: identifier, isResting: isResting, label: label, choices: choices()))
-    }
-}
-
-private struct FilterBar<Choices: View>: ViewModifier {
-    let isFiltered: Bool
-    let identifier: String
-    let isResting: Bool
-    let label: String
-    let choices: Choices
-    @State private var isInColumn = false
-
-    // A control that comes and goes is unreliable: it stays and rests when there is nothing to choose between.
-    private var menu: some View {
-        FilterMenu(isFiltered: isFiltered, isMore: isInColumn, identifier: identifier, label: label, choices: choices)
-            .disabled(isResting)
-    }
-
-    func body(content: Content) -> some View {
-        content
-            .reportsSideColumn($isInColumn)
-            .toolbar {
-                if isInColumn {
-                    fitted(ToolbarItem(placement: .topBarTrailing) { menu })
-                } else {
-                    ToolbarItem(placement: .topBarLeading) { menu }
-                }
-            }
     }
 }
 
@@ -849,7 +558,7 @@ struct Row<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon {
-                Image(symbol: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
+                Image(systemName: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
                     .frame(width: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -1043,7 +752,7 @@ extension View {
     }
 
     /// Every sheet's shell, the screens' own (decision 96): its head in the top bar and its buttons in the bottom bar,
-    /// the scroll under both (this view holds it, a `ReadScreen`'s included) softened at both edges by iOS's soft
+    /// the scroll under both (this view holds it) softened at both edges by iOS's soft
     /// scroll edge, set on the sheet itself.
     func sheetBars<Head: View, Buttons: View>(
         @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
@@ -1090,143 +799,10 @@ extension View {
     }
 }
 
-/// The quiet placeholder of a read still loading: a few shapes where the content will be, no spinner, in the quiet fill
-/// with a slow shimmer crossing it (2.6 s), still with Reduce Motion. A capsule unless given its corner `radius`.
-struct Placeholder: View {
-    var width: CGFloat? = nil
-    var height: CGFloat = 14
-    var radius: CGFloat? = nil
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var crossed = false
-
-    var body: some View {
-        // The band runs the shape's width twice over, from past its right edge to past its left.
-        let band = LinearGradient(
-            stops: [
-                .init(color: .clear, location: 0.35), .init(color: Palette.fg.opacity(0.09), location: 0.5),
-                .init(color: .clear, location: 0.65),
-            ],
-            startPoint: UnitPoint(x: crossed ? -2 : 1, y: 0), endPoint: UnitPoint(x: crossed ? 0 : 3, y: 0))
-        RoundedRectangle(cornerRadius: radius ?? height / 2)
-            .fill(Color.fillTint)
-            .overlay { if !reduceMotion { RoundedRectangle(cornerRadius: radius ?? height / 2).fill(band) } }
-            .frame(width: width, height: height)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: false)) { crossed = true }
-            }
-            .accessibilityHidden(true)
-    }
-}
-
-/// A list still loading, in its own shape: one group of rows (`groupedRow`), each its leading slot (a 28 icon, or
-/// a 40 disc for people) and two lines, so the list fades in over it.
-struct RowsPlaceholder: View {
-    var rows = 6
-    var hasDisc = false
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(0..<rows, id: \.self) { _ in
-                HStack(spacing: Metrics.Spacing.m) {
-                    Placeholder(width: hasDisc ? PartyDisc.Size.row.rawValue : 28, height: hasDisc ? 40 : 22)
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-                        Placeholder(width: 170, height: 14)
-                        Placeholder(width: 230, height: 11)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding(.horizontal, Metrics.Spacing.l).frame(minHeight: Metrics.listRow)
-            }
-        }
-        .padding(.horizontal, Metrics.gutter)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .readingWidth()
-        .accessibilityElement().accessibilityLabel(label)
-    }
-}
-
 extension View {
     /// A screen's content at a readable width, centred, whatever width it is given (a folded phone, an unfolded Duo, a split's
     /// column): it fills a narrow container and stops growing in a wide one.
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
-    }
-}
-
-/// A line that names the server's limit ("20 seconds at most"): the limit as it was when the action began, kept while it
-/// counts down. `text` gets the phrase, or nil while the server has named none. Past the limit the action is late, never
-/// failed: the line says so, and the app still waits for Life's answer.
-struct LimitNote: View {
-    let state: ActionState<ActionProof>
-    let text: (String?) -> String
-    @State private var seconds: Int?
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(
-                state.isLate(at: context.date)
-                    ? "Taking longer than Life said; still waiting." : text(seconds.map { "\($0) seconds at most" }))
-        }
-        .onChange(of: state.limit, initial: true) { _, limit in
-            if seconds == nil, let limit { seconds = max(1, Int(limit.timeIntervalSinceNow.rounded(.up))) }
-        }
-    }
-}
-
-/// Under an ask's answers in the bar: the scroll blurs and darkens into the page from above the bar's top, over half the
-/// bar's height again, so the answers stand clear of the text going under them (his ask of 22 Nov, open Duo). It grows
-/// with the bar. The system's soft edge stays off here: the pager hides it, since its own sat over the answers.
-struct AnswersBackdrop: View {
-    var body: some View {
-        GeometryReader { bar in
-            let fade = bar.size.height / 2
-            let solid = fade / (bar.size.height + fade)
-            Rectangle().fill(.ultraThinMaterial)
-                .overlay {
-                    LinearGradient(
-                        stops: [
-                            .init(color: Palette.bg.opacity(0.6), location: 0),
-                            .init(color: Palette.bg, location: solid),
-                        ],
-                        startPoint: .top, endPoint: .bottom)
-                }
-                .mask {
-                    LinearGradient(
-                        stops: [.init(color: .clear, location: 0), .init(color: .black, location: solid)],
-                        startPoint: .top, endPoint: .bottom)
-                }
-                .frame(height: bar.size.height + fade)
-                .offset(y: -fade)
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .allowsHitTesting(false)
-    }
-}
-
-/// Where an ask stands among the asks: a dot each (6, 6 apart, the current `fg`, the others `tint`), at most 7 at once,
-/// as the system's page control does: past 7 the row slides with the current ask, and a dot at an end with more asks
-/// beyond it is smaller. Never a count in words: "6 of 234" said nothing he could use.
-struct PagerDots: View {
-    let current: Int
-    let total: Int
-
-    private static let shown = 7
-
-    var body: some View {
-        let first = min(max(current - Self.shown / 2, 0), max(total - Self.shown, 0))
-        let last = min(first + Self.shown, total) - 1
-        HStack(spacing: 6) {
-            // A half-open range: no asks draws no dot rather than trapping.
-            ForEach(first..<(last + 1), id: \.self) { index in
-                let isCut = (index == first && first > 0) || (index == last && last < total - 1)
-                Circle().fill(index == current ? Palette.fg : Color.fillTint)
-                    .frame(width: isCut ? 4 : 6, height: isCut ? 4 : 6).frame(width: 6, height: 6)
-            }
-        }
-        .motion(Motion.standard, value: current)
-        .accessibilityElement().accessibilityLabel("\(current + 1) of \(total)")
     }
 }

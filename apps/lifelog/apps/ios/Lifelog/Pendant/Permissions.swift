@@ -69,9 +69,6 @@ final class PermissionsStore {
 
     private func answer(_ kind: Kind) async -> RowState {
         do {
-            #if DEBUG
-                if LifeFixture.refuses(kind.rawValue) { throw URLError(.cannotLoadFromNetwork) }
-            #endif
             switch kind {
             case .notifications:
                 _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])

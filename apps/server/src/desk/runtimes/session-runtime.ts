@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { MIN } from "../../core/clock";
+import { log } from "../../core/log";
 import { cliEnv } from "../../core/platform";
 import {
   type Agent,
@@ -62,6 +63,8 @@ export interface Connection {
   close: () => Promise<void>;
   /** Settles when the adapter's process is gone. */
   exited: Promise<void>;
+  /** Sets what holds on every request of the session (`Agent.inForce`); none: the runtime puts it ahead of each message. */
+  inForce?: (text: string) => void;
   /** Sends `message` as one run on the session; `onUpdate` hears what its model says and does. */
   prompt: (message: string, onUpdate?: (u: Update) => void) => Run;
   ref: string;
@@ -122,12 +125,53 @@ export type SessionRow = Pick<
   "block" | "continueOnMac" | "link" | "readSessionState"
 >;
 
-/** Opens a process on session `resume` (none: a new one) for agent `a`; `opening.kill` kills it while it opens. */
+/**
+ * Opens a process on session `resume` (none: a new one) for agent `a`; `opening.kill` kills it while it opens. `isAsk`:
+ * it answers the owner (`talk`), so it thinks at an ask's effort when the agent names none.
+ */
 export type Open = (
   a: Agent,
   resume: string | undefined,
-  opening: Opening
+  opening: Opening,
+  isAsk?: boolean
 ) => Promise<Connection>;
+
+/** `message` as the session is sent it: on a runtime that adds `Agent.inForce` itself, as it is; else after it. */
+function promptOf(c: Connection, a: Agent, message: string) {
+  if (c.inForce) {
+    c.inForce(a.inForce ?? "");
+    return message;
+  }
+  return a.inForce ? `${a.inForce}\n\n${message}` : message;
+}
+
+/** Logs an ask's timings (`desk.runtime`, `what: "ask"`): to its first step, its first words and its whole answer, in ms; nothing waits on them. */
+function timedAsk(agent: string, onUpdate: (u: Update) => void) {
+  const at = performance.now();
+  const ms = () => Math.round(performance.now() - at);
+  let firstStepMs: number | undefined;
+  let firstWordsMs: number | undefined;
+  return {
+    ended: (ok: boolean) =>
+      log("desk.runtime", {
+        agent,
+        firstStepMs,
+        firstWordsMs,
+        ok,
+        what: "ask",
+        wholeMs: ms(),
+      }),
+    onUpdate: (u: Update) => {
+      if (u.kind === "working") {
+        firstStepMs ??= ms();
+      }
+      if (u.kind === "words") {
+        firstWordsMs ??= ms();
+      }
+      onUpdate(u);
+    },
+  };
+}
 
 export function sessionRuntime(
   row: SessionRow,
@@ -164,7 +208,7 @@ export function sessionRuntime(
       throw error;
     }
     live.set(c.ref, active);
-    const run = c.prompt(message);
+    const run = c.prompt(promptOf(c, a, message));
     const opened = c;
     const ended = run.ended.then(async (end) => {
       await opened.close();
@@ -243,7 +287,8 @@ export function sessionRuntime(
       if (ref && (await row.readSessionState(ref)) === "running") {
         throw new SessionLive(`session ${ref} is running`);
       }
-      const c = await open(a, ref ?? undefined, made.opening);
+      // A kept session answers him (`talk`, `keep`): it thinks at an ask's effort.
+      const c = await open(a, ref ?? undefined, made.opening, true);
       made.c = c;
       made.ref = c.ref;
       if (kept.get(a.id) !== made) {
@@ -260,8 +305,15 @@ export function sessionRuntime(
     return made;
   }
 
+  /** The kept session on `ref` while its talk runs. */
+  const answeringOn = (ref: string) =>
+    [...kept.values()].find((k) => k.ref === ref && k.isPrompting && k.c);
+
   const runtime: Runtime = {
     block: row.block,
+    async cancel(ref) {
+      await answeringOn(ref)?.c?.stop();
+    },
     continueOnMac: row.continueOnMac,
     async keep(a, ref) {
       const k = await keptOf(a, ref);
@@ -299,8 +351,10 @@ export function sessionRuntime(
       }
       k.isPrompting = true;
       clearTimeout(k.timer);
-      const run = c.prompt(message, onUpdate);
+      const timed = timedAsk(a.id, onUpdate);
+      const run = c.prompt(promptOf(c, a, message), timed.onUpdate);
       const ended = run.ended.then((end) => {
+        timed.ended(end.ok);
         k.isPrompting = false;
         if (kept.get(k.id) === k) {
           keepFor(k);

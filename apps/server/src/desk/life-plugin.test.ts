@@ -92,7 +92,8 @@ test("his turn outside a desk turn reads the packet and acts on the agent's one 
     reason: "Test: the baker's answer",
     until: iso(clock().getTime() + HOUR),
   });
-  expect(early.isError).toBe(true);
+  // No plan card (his yes of 25 Nov 2026): his turn may wait with no card.
+  expect(early.isError).toBe(false);
 });
 
 test("with several assignments open, his turn names one: none named lists them", async () => {
@@ -122,7 +123,8 @@ test("the send guard answers his turn's calls, and refuses when it can't be aske
     throw new Error("no door");
   }
   expect(isGuarded(door.matcher, "Bash")).toBe(true);
-  expect(isGuarded(door.matcher, "Read")).toBe(false);
+  // Every tool, whatever its name (the v4 plan, bundle C).
+  expect(isGuarded(door.matcher, "Read")).toBe(true);
   expect(
     await guardRefusalOf(fetch, door, "Bash", {
       command: "gog gmail send --to someone@example.test --body hi",
@@ -192,13 +194,18 @@ function engineOf(
   return { $, call, kept, registered };
 }
 
-test("the plugin's module: a known session with Life down denies Bash, and passes what the guard does not read", async () => {
+test("the plugin's module: a known session with Life down denies every call but the file tools, which the guard never refuses", async () => {
   agentWithSession("sess-plugin-1");
   const door = await lookUpSession(fetch, "sess-plugin-1");
   const e = engineOf("sess-plugin-1", { down: true });
   e.kept.set("agent-session:sess-plugin-1", door?.matcher);
   expect(await e.call("Bash", { command: "ls" })).toHaveProperty("deny");
   expect(await e.call("Read", { file_path: "x" })).toHaveProperty("passed");
+  expect(await e.call("Edit", { file_path: "x" })).toHaveProperty("passed");
+  expect(await e.call("WebFetch", { url: "https://x.test" })).toHaveProperty(
+    "deny"
+  );
+  expect(await e.call("mcp__x__send_message", {})).toHaveProperty("deny");
 });
 
 test("the plugin's module: its door's tools are registered and answered by the door", async () => {
