@@ -47,14 +47,22 @@ export const PlanStep = z
     when: oneLine(80).optional(),
   })
   .strict();
-/** What a card that replaces an earlier one on the same subject says changed: without it, the same subject is never asked twice. */
+/**
+ * What a card that replaces an earlier one on the same subject says changed: without it, the same subject is never asked
+ * twice. A redraft says how he asked it: `edit:tap` (a quick edit he tapped) or `edit:words` (his typed or spoken words).
+ */
 export const CHANGES = [
   "deadline",
   "condition",
   "option",
   "message",
-  "edit",
+  "edit:tap",
+  "edit:words",
 ] as const;
+
+/** Whether `changed` says the card is a redraft (`edit:tap` or `edit:words`). */
+export const isRedraftOf = (changed: readonly string[] | undefined) =>
+  changed?.some((c) => c.startsWith("edit:")) === true;
 /** What an asker gives (`requestDecision`, the connector's `request_decision`): an `asked` line less what Life stamps. */
 export const Ask = z
   .object({
@@ -119,7 +127,7 @@ export const Keep = Withdrawal.omit({ withdraw: true }).extend({
 export const CARD_SELF_CHECK = `Before any card, read it as he will, on his phone, with nothing else open, and ask: is this the clearest, lightest way to put it to him? 0. First check you can't do it yourself: ask only what is his (outward, spending, only he can). 1. Only what truly needs him: never a reminder of something he knows, a fact to confirm, or something already past (a call, a meeting, a date gone). 2. Checked first: read everything your tools reach that bears on it (the thread to its newest message, the mail, the chat, his payments); never hand him what you left unchecked, and never write what you did not check: a fact no tool reaches that decides the card is the question itself, asked plainly. 3. What, why, and what each answer does, in plain words a stranger would understand. 4. No ids, refs, jargon or names of agents and roles: he sees that Life works on it, never how. 5. Options he can tap without reading anything else, each saying what it does ("Send it", "Close it").`;
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
-export const CARD = `${CARD_SELF_CHECK} One card: \`title\` (what you try to do, 80), \`ask\` (what he does, an imperative line, 80), \`question\` (what he decides, 120, ending in a ?), \`options\` (2 or 3 \`{id, label, icon?}\`), \`recommended\` (the best one's id: 5 words; the rest 14 letters), \`follow\` (0 to 3 next asks, in his voice), \`context\` (required Markdown, 1,200 characters he reads: why you ask, what you tried, what it rests on; Life's things as \`[words](life:<ref>)\`, each must open; quotes as \`> …\` then \`*source*\`; no numbered list), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option taken if he doesn't answer, or null), \`subject\` (a matter's id or a step's, off his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message, sent on his yes, and its \`edits\`; \`changed\` (${CHANGES.join(", ")}: asking again on a subject he never answered); \`plan\`, steps after his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done (\`payment\`, \`tap\`); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`runs\`, \`takes\`). Read \`fetch("ask/<name>")\` before using one (\`draft\`, \`options\`, \`payment\`, \`plan\`, a need's kind). He can always answer in his own words instead (the answer's \`note\`).`;
+export const CARD = `${CARD_SELF_CHECK} One card: \`title\` (what you try to do, 80), \`ask\` (what he does, an imperative line, 80), \`question\` (what he decides, 120, ending in a ?), \`options\` (2 or 3 \`{id, label, icon?}\`), \`recommended\` (the best one's id: 5 words; the rest 14 letters), \`follow\` (0 to 3 next asks, in his voice), \`context\` (required Markdown, 1,200 characters he reads: why you ask, what you tried, what it rests on; Life's things as \`[words](life:<ref>)\`, each must open; quotes as \`> …\` then \`*source*\`; no numbered list), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option taken if he doesn't answer, or null), \`subject\` (a matter's id or a step's, off his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message, sent on his yes, and its \`edits\`; \`changed\` (${CHANGES.join(", ")}: asking again on a subject he never answered); \`plan\`, steps after his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done (\`payment\`, \`tap\`); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`runs\`, \`takes\`). Read \`fetch("ask/<name>")\` before using one (\`draft\`, \`options\`, \`payment\`, \`plan\`, a need's kind). He can always answer in his own words (the answer's \`note\`).`;
 
 const PAGES: Record<string, string> = {
   draft:

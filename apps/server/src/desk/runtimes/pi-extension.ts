@@ -4,6 +4,7 @@ import type {
   ContextEvent,
   ExtensionAPI,
   ProviderConfig,
+  SessionEntry,
 } from "@earendil-works/pi-coding-agent";
 import { callDoor } from "../../../../claude-plugin/hooks/door";
 import { clock } from "../../core/clock";
@@ -24,7 +25,8 @@ import { registerWebFetch, registerWebSearch } from "./web-tools";
 // decision 3 of 22 Nov 2026, `docs/plans/pi-runtime.md`). For an agent of his own Life also his Claude hooks after the
 // guard, on shell calls (`claude-hooks.ts`), and `web_fetch` (`web-tools.ts`). Everything comes from the spawn's environment. pi blocks a
 // call whose `tool_call` handler throws, so a guard that cannot decide refuses. pi only logs an extension that fails to
-// load: the runtime checks `PI_EXTENSION_COMMAND` before it prompts.
+// load: the runtime checks `PI_EXTENSION_COMMAND` before it prompts. After each tool call, the work's spending stop
+// (`stopAtSpendingStop`): past it, only the door's tools run, so the turn ends with its notes and its card.
 
 /** The command this extension registers: the runtime starts no turn on a pi that does not list it. */
 export const PI_EXTENSION_COMMAND = "life-desk";
@@ -260,6 +262,64 @@ function keepRecordOnCompaction(
   });
 }
 
+/** What the model calls of the current turn (since the last prompt) were billed, as pi read each response's cost. */
+const turnBilledOf = (entries: readonly SessionEntry[]) =>
+  entries
+    .slice(
+      entries.findLastIndex(
+        (e) => e.type === "message" && e.message.role === "user"
+      ) + 1
+    )
+    .reduce(
+      (n, e) =>
+        n +
+        (e.type === "message" && e.message.role === "assistant"
+          ? (e.message.usage?.cost?.total ?? 0)
+          : 0),
+      0
+    );
+
+/**
+ * The spending stop inside a turn (the v4.1 plan): after each tool call, what the turn was billed goes to the door
+ * (`POST /spending/<agent>`); once the desk answers a stop, every later call but the door's (its notes, its card, its
+ * wait) is refused with the desk's line, so the turn ends there. A door that cannot answer stops nothing.
+ * ponytail: the turn's spending tools (subagents, searches) are not counted here; the desk counts them at the turn's end.
+ */
+function stopAtSpendingStop(
+  pi: ExtensionAPI,
+  door: { key: string; url: string }
+) {
+  const url = door.url.replace("/mcp/", "/spending/");
+  let stop: string | undefined;
+  pi.on("agent_start", () => {
+    stop = undefined;
+  });
+  pi.on("tool_result", async (_event, ctx) => {
+    if (stop) {
+      return;
+    }
+    const usd = turnBilledOf(ctx.sessionManager.getBranch());
+    const r = await fetch(url, {
+      body: JSON.stringify({ usd }),
+      headers: {
+        authorization: `Bearer ${door.key}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    }).catch(() => undefined);
+    const answer =
+      r?.status === 200
+        ? ((await r.json()) as { stop: string | null })
+        : undefined;
+    stop = answer?.stop ?? undefined;
+  });
+  pi.on("tool_call", (event) =>
+    stop && !event.toolName.startsWith(DOOR_TOOL)
+      ? { block: true, reason: stop }
+      : undefined
+  );
+}
+
 /** The extension on `config`: the default export's, and each subagent's (`pi-subagent.ts`) with no door or reads. */
 export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
   pi.registerProvider(PI_PROVIDER, {
@@ -318,6 +378,7 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
   });
   if (door) {
     keepRecordOnCompaction(pi, door, config.apiKey);
+    stopAtSpendingStop(pi, door);
   }
   pruneResults(config.results, clock().getTime());
   pi.on("tool_result", (event) => resultOf(event, config.results));

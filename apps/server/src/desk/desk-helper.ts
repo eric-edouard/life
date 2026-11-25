@@ -19,6 +19,7 @@ import {
   stepRoleCheck,
   stepRoles,
   stepStore,
+  stepThreadFollows,
   stepTurnModel,
   stepTurnSearchCost,
 } from "./store-step";
@@ -81,6 +82,10 @@ export async function desk() {
     log("desk.store_step", {
       done: stepTurnSearchCost(),
       step: "turn search cost",
+    });
+    log("desk.store_step", {
+      done: stepThreadFollows(),
+      step: "thread follows",
     });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });

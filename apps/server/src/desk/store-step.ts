@@ -22,6 +22,7 @@ import {
   isBeforeMoves,
   isBeforeRoleCheck,
   isBeforeRoles,
+  isBeforeThreadFollows,
   isBeforeTurnModel,
   isBeforeTurnSearchCost,
 } from "../host/desk-shape";
@@ -40,7 +41,7 @@ import {
 // caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
 // turn keeps the model it ran on (`turn.model`; older turns null). `stepMatterIds` (life#826): an assignment keeps the
 // matter he chose. `stepMoves`, of decision 78: a move's tables and `turn.move`. `stepRoleCheck`, of the main session: the
-// agents' role check goes, so a new role needs no step. `stepTurnSearchCost`, of spending: a turn keeps what its web searches cost, apart. Only the desk helper runs them, at its
+// agents' role check goes, so a new role needs no step. `stepTurnSearchCost`, of spending: a turn keeps what its web searches cost, apart. `stepThreadFollows`, of v4.1: a thread entry keeps the ask a late reply follows. Only the desk helper runs them, at its
 // start, in that order (any order ends in one shape); `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
@@ -281,6 +282,19 @@ export const stepTurnSearchCost = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
     isBeforeTurnSearchCost,
     "desk-before-turn-search-cost-",
     (db) => db.run("alter table turn add column search_usd real")
+  );
+
+/**
+ * Gives the store's thread entries the ask a late reply follows (`stepThreadFollows`, v4.1): `thread_entry.follows`
+ * added, null on every older entry (none was a late reply: those were dropped).
+ */
+export const stepThreadFollows = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+  stepOnce(
+    path,
+    state,
+    isBeforeThreadFollows,
+    "desk-before-thread-follows-",
+    (db) => db.run("alter table thread_entry add column follows integer")
   );
 
 /**

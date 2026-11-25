@@ -67,6 +67,7 @@ interface EntryRow {
   answered_at: string | null;
   asked_at: string;
   error: string | null;
+  follows: number | null;
   id: number;
   reactions: string;
   refs: string;
@@ -77,7 +78,7 @@ interface EntryRow {
 function entriesOf(db: Database, from: string, to: string) {
   const rows = db
     .query<EntryRow, [string, string]>(
-      "select id, asked_at, words, answer, error, refs, reactions, answered_at from thread_entry where asked_at >= ? and asked_at < ? and deleted_at is null order by asked_at"
+      "select id, asked_at, words, answer, error, refs, reactions, answered_at, follows from thread_entry where asked_at >= ? and asked_at < ? and deleted_at is null order by asked_at"
     )
     .all(from, to);
   const handed = db.query<
@@ -197,6 +198,8 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
         answeredAt: e.answered_at,
         at: e.asked_at,
         error: e.error,
+        // A late reply of an agent: the entry of his ask it follows (no words of his).
+        follows: e.follows,
         handed: e.handed,
         id: e.id,
         kind: "entry" as const,

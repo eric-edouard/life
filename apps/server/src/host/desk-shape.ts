@@ -38,6 +38,11 @@ export const isBeforeTurnModel = (db: Database) =>
 export const isBeforeTurnSearchCost = (db: Database) =>
   hasColumn(db, "turn", "id") && !hasColumn(db, "turn", "search_usd");
 
+/** Whether the store's thread entries predate a late reply (`stepThreadFollows` adds it): entries and no `thread_entry.follows`. */
+export const isBeforeThreadFollows = (db: Database) =>
+  hasColumn(db, "thread_entry", "id") &&
+  !hasColumn(db, "thread_entry", "follows");
+
 /** Whether the store's agents predate moves (`stepMoves` reshapes it, decision 78): agents, and no `move` table or no `turn.move`. */
 export const isBeforeMoves = (db: Database) =>
   hasColumn(db, "agent", "id") &&
@@ -57,7 +62,8 @@ export const isOldShape = (db: Database) =>
   isBeforeTurnModel(db) ||
   isBeforeMatterIds(db) ||
   isBeforeMoves(db) ||
-  isBeforeTurnSearchCost(db);
+  isBeforeTurnSearchCost(db) ||
+  isBeforeThreadFollows(db);
 
 /** Why a store of the old shape is not read: the desk helper's store step has not run on it (its log says why). */
 export const NOT_MIGRATED =

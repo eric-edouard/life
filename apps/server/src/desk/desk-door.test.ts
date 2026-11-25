@@ -281,3 +281,37 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     );
   }
 });
+
+test("the spending stop inside a turn: under it nothing; at it the line, and the turn counts as asked at its stop; a wrong key is refused", async () => {
+  const { setSettings } = await import("../core/settings");
+  setSettings({ budget: { monthlyUsd: 100 } });
+  try {
+    const id = agent();
+    const spent = (key: string, usd: number) =>
+      fetchDoor(
+        new Request(`http://127.0.0.1/spending/${id}`, {
+          body: JSON.stringify({ usd }),
+          headers: { authorization: `Bearer ${key}` },
+          method: "POST",
+        })
+      );
+    // 2% of the month's 100 dollars: a stop at 2.
+    expect(await (await spent(doorOf(id).key, 1.5)).json()).toEqual({
+      stop: null,
+    });
+    const { stop } = (await (await spent(doorOf(id).key, 2.5)).json()) as {
+      stop: string;
+    };
+    expect(stop).toContain("past its spending stop of 2.00");
+    expect(
+      desk.db
+        .query<{ cause: string }, [string]>(
+          "select cause from turn where agent_id = ?"
+        )
+        .all(id)
+    ).toEqual([{ cause: "spending_stop" }]);
+    expect((await spent("wrong", 9)).status).toBe(401);
+  } finally {
+    setSettings({ budget: null });
+  }
+});

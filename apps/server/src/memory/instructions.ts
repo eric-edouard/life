@@ -110,6 +110,10 @@ function liveOf(now: Date) {
   return all.filter((i) => isLiveOf(i, replaced, now));
 }
 
+/** His standing intentions in force now, oldest first: each opens one assignment (`openIntentions`, the desk's hand-out tick). */
+export const intentionsNow = (now = clock()) =>
+  liveOf(now).filter((i) => i.effect === "intention");
+
 /** The instructions in force now on `subject`, oldest first: of a scope it names (`all` always), not replaced, not past `until`. */
 export function instructionsFor(subject: InstructionSubject, now = clock()) {
   const scopes = scopesOf(subject);

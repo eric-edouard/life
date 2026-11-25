@@ -20,7 +20,7 @@ beforeEach(async () => {
   // Only the tables the thread reads, as the desk's store has them.
   db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
-    "create table thread_entry (id integer primary key, ask_key text unique, asked_at text not null, words text, screen text, turn_id integer, answer text, error text, refs text not null default '[]', reactions text not null default '[]', answered_at text, deleted_at text)"
+    "create table thread_entry (id integer primary key, ask_key text unique, asked_at text not null, words text, screen text, turn_id integer, answer text, error text, refs text not null default '[]', reactions text not null default '[]', answered_at text, deleted_at text, follows integer)"
   );
   db.run(
     "create table handed_work (entry_id integer, assignment_id text, kind text, handed_at text)"
@@ -120,4 +120,20 @@ test("an entry whose answer cites what he deleted is hidden; a blanked entry is 
   expect(await readThread({ ifNot: page.version })).toMatchObject({
     unchanged: true,
   });
+});
+
+test("an agent's late reply is an entry of its own that follows his ask", async () => {
+  entry("How is the boiler going?", []);
+  db.run(
+    "insert into thread_entry (asked_at, answer, answered_at, follows) values (?1, 'The plumber comes Thursday.', ?1, 1)",
+    [new Date(Date.now() - 30_000).toISOString()]
+  );
+  const page = (await readThread()) as {
+    items: { follows?: number | null; words?: string | null }[];
+  };
+  expect(page.items.map((i) => [i.words, i.follows])).toEqual([
+    ["How is the boiler going?", null],
+    [null, 1],
+  ]);
+  expectWire("read_thread_late_reply", { ...page, version: "fixed" }, true);
 });
