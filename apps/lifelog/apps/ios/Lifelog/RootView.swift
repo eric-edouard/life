@@ -8,6 +8,7 @@ import UIKit
 struct RootView: View {
     @Environment(SyncStore.self) private var sync
     @Environment(LifeStore.self) private var life
+    @Environment(CaptureStore.self) private var capture
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("appearance") private var appearance = Appearance.auto
@@ -36,7 +37,12 @@ struct RootView: View {
             }
             EdgeView(state: edge)
         }
-        .safeAreaInset(edge: .top) { buttons }
+        .safeAreaInset(edge: .top) {
+            VStack(spacing: Metrics.Spacing.s) {
+                buttons
+                Notices { isSettingsShown = true }.padding(.horizontal, Metrics.Spacing.l)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             AskField(text: $text, isWorking: thread.isWorking, isSpeaking: $isSpeaking, send: send) {
                 Task { await thread.stop() }
@@ -55,6 +61,14 @@ struct RootView: View {
             await thread.sendWaiting(screen: screen)
             await thread.keepWarm()
         }
+        // A new card's push reads the asks again; a tapped notification unfolds its ask; back in reach, the held answers go.
+        .onChange(of: capture.cardPushes) { Task { await life.refreshItems() } }
+        .onChange(of: capture.routeToOpen) {
+            guard case .card(let pushId, _, _)? = capture.routeToOpen else { return }
+            capture.routeToOpen = nil
+            Task { await life.focus(pushId: pushId) }
+        }
+        .onChange(of: life.isOutOfReach) { if !life.isOutOfReach { Task { await life.flushQueued() } } }
         // A pairing link (`lifelog://pair?...`), from the Camera or pasted in Settings: it is asked here, never applied alone.
         .onOpenURL { url in
             if let offer = PairOffer(link: url) { confirming = offer }

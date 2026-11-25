@@ -73,8 +73,16 @@ public struct Heartbeat: Codable, Sendable, Equatable {
         public var charging: Bool?
         public var freeBytes: Int64?
         public var lowPowerMode: Bool
+        /// A Focus is on, and a call is connected: so Life holds what can wait (nil: not asked, or not allowed).
+        public var focusOn: Bool?
+        public var onCall: Bool?
 
-        public init(batteryLevel: Double?, charging: Bool?, freeBytes: Int64?, lowPowerMode: Bool) {
+        public init(
+            batteryLevel: Double?, charging: Bool?, freeBytes: Int64?, lowPowerMode: Bool, focusOn: Bool? = nil,
+            onCall: Bool? = nil
+        ) {
+            self.focusOn = focusOn
+            self.onCall = onCall
             self.batteryLevel = batteryLevel
             self.charging = charging
             self.freeBytes = freeBytes

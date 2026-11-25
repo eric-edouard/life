@@ -299,6 +299,9 @@ final class LifeStore {
         focused = items.value?.asks.first { $0.check?.pushId == pushId }?.ref
     }
 
+    /// Unfolds an ask he reached by a link in Life's words.
+    func focus(ref: String) { focused = ref }
+
     func clearFocus() { focused = nil }
 
     // MARK: Actions
