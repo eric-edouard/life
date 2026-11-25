@@ -26,7 +26,9 @@ struct PicturesBlock: View {
             HStack(spacing: Metrics.Spacing.m) {
                 ForEach(refs, id: \.self) { ref in
                     if let party = life.parties.byRef[ref] {
-                        Button { opened = ref } label: {
+                        Button {
+                            opened = ref
+                        } label: {
                             VStack(spacing: Metrics.Spacing.xs) {
                                 Face(party: party, size: 56)
                                 Text(party.name).font(.small).foregroundStyle(Palette.muted).lineLimit(1)

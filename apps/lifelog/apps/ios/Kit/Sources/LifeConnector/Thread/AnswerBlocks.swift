@@ -138,7 +138,7 @@ public enum AnswerPart: Equatable, Sendable {
             }
             flush()
             let json = Data(body.joined(separator: "\n").utf8)
-            if sent == nil || LifeBlock.key(kind: kind, json: json).map({ sent!.contains($0) }) == true,
+            if sent.map({ set in LifeBlock.key(kind: kind, json: json).map { set.contains($0) } == true }) ?? true,
                 let block = LifeBlock(kind: kind, json: json)
             {
                 parts.append(.block(block))
