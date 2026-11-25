@@ -111,7 +111,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         appEvent("app.launch", launch)
         startLocation()
         appleHealth.start()
-        // Back online, the pendant's run goes at once; Life's read screens read again themselves (`ReadScreen`).
+        // Back online, the pendant's run goes at once; Life's reads are made again when the app comes forward.
         Task { [path, sync] in await path.follow { sync.run() } }
         application.registerForRemoteNotifications()
         // Handlers must be registered before launch ends. `.main` delivers the task on the main actor.

@@ -752,7 +752,7 @@ extension View {
     }
 
     /// Every sheet's shell, the screens' own (decision 96): its head in the top bar and its buttons in the bottom bar,
-    /// the scroll under both (this view holds it, a `ReadScreen`'s included) softened at both edges by iOS's soft
+    /// the scroll under both (this view holds it) softened at both edges by iOS's soft
     /// scroll edge, set on the sheet itself.
     func sheetBars<Head: View, Buttons: View>(
         @ViewBuilder head: () -> Head, @ViewBuilder buttons: () -> Buttons
