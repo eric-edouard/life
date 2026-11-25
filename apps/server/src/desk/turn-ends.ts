@@ -18,6 +18,7 @@ import {
 } from "../host/desk-read";
 import { ASK_SPOKEN } from "../host/events";
 import { MOVE_NOTES } from "../host/move-read";
+import { inForceOf } from "../memory/instructions";
 import type { TurnOutcome } from "../records/registered-agent";
 import { notifyPhone } from "../sources/lifelog-push";
 import {
@@ -60,12 +61,13 @@ const ROLE_NAMES: Partial<Record<AgentRole, string>> = {
   personal: "Personal",
 };
 
-/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with, and its rules (`rulesOf`). */
+/** What a session of `a` is given: its door, its folder, its title ("Agent: <name>", the name he gave it, else its role's, else his brief's first line), the model it runs with, its rules (`rulesOf`), and what holds on every request (`inForceOf`: Life's voice, his `style` and `sensitive` instructions), read fresh. */
 export const sessionAgentOf = (a: AgentRow): SessionAgent => ({
   ...modelOf(a),
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
+  inForce: inForceOf(),
   rules: rulesOf(a, isOwnLife()),
   title: `Agent: ${a.name ?? (a.role ? ROLE_NAMES[a.role] : undefined) ?? (a.brief.trim().split("\n")[0] ?? "").slice(0, 60)}`,
 });

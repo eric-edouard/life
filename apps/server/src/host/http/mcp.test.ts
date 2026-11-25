@@ -159,7 +159,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       .sort()
   ).toEqual([
     "answer_check(name,note,options,person,ref,value)",
-    "ask_main_session(screen,words)",
+    "ask_main_session(catalog,react,screen,stop,words)",
     "change_appointment(action,appointment)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",

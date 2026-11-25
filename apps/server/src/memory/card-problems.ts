@@ -5,7 +5,7 @@ import { isOn } from "../core/outputs";
 import { isLifeActIcon } from "../records/answer-icon";
 import type { Ask, Option } from "./card-request";
 import type { Decision } from "./decision-lines";
-import { effectOf, type Instruction, instructionsFor } from "./instructions";
+import { effectOf, instructionsFor } from "./instructions";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
 import { eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
 
@@ -357,7 +357,7 @@ export function endsProblemOf(
 /** What refuses a card's draft where his instructions in force (`inForce`, `instructionsFor`) say Life drafts no replies (`no-drafts` over `drafts`, `effectOf`); false when nothing does. */
 const draftsProblemOf = (
   ask: Pick<z.infer<typeof Ask>, "draft">,
-  inForce: readonly Pick<Instruction, "effect" | "scope">[]
+  inForce: Parameters<typeof effectOf>[0]
 ) =>
   ask.draft !== undefined &&
   effectOf(inForce, "drafts", "no-drafts") === false &&

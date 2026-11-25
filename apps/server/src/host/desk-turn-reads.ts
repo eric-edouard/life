@@ -1,8 +1,8 @@
 import type { Database } from "bun:sqlite";
 import type { TurnSpent } from "../memory/spends";
 
-// The desk store's turns as spending reads them (`host/spending.ts`, the nightly's token rows): beside `desk-read.ts`,
-// read-only, through `readDesk`. A turn's matter is its assignment's (its anchors), the one rule for both.
+// The desk store's turns as spending reads them (`host/spending.ts`, the nightly's token rows), and how long handed work
+// takes (`estimateOf`): beside `desk-read.ts`, read-only. A turn's matter is its assignment's (its anchors).
 
 /**
  * The turns with their session's runtime for a turn before `turn.model` (a model names its own, read by `spendsOfTurn`),
@@ -68,3 +68,47 @@ export const stepTurnsOf = (db: Database, steps: string[]) =>
           `select ${SPENT} where ended_at is not null and ${RAN} and assignment_id in (select assignment_id from anchor where step in (${steps.map(() => "?").join(",")}))`
         )
         .all(...steps);
+
+/** The kinds of work the main session hands to an agent (`tell_agent`). */
+export const HANDED_KINDS = [
+  "booking",
+  "lookup",
+  "other",
+  "redraft",
+  "reply",
+  "research",
+] as const;
+export type HandedKind = (typeof HANDED_KINDS)[number];
+
+/** Each kind's first guess of how long it takes, until it has run five times. */
+const HANDED_GUESS_MS: Record<HandedKind, number> = {
+  booking: 600_000,
+  lookup: 60_000,
+  other: 180_000,
+  redraft: 30_000,
+  reply: 60_000,
+  research: 300_000,
+};
+
+/** How many of a kind's last hand-overs `estimateOf` reads, and how many it needs before it trusts them over its guess. */
+const ESTIMATE_OF_LAST = 20;
+const ESTIMATE_FROM = 5;
+
+/**
+ * How long handed work of `kind` takes now, in ms: the median of its last 20 hand-overs, each from the hand-over to the
+ * end of the first turn of its assignment that began after it (the agent's next card or `finish`); its fixed guess
+ * until five have ended.
+ */
+export function estimateOf(db: Database, kind: HandedKind) {
+  const took = db
+    .query<{ ms: number }, [string, number]>(
+      `select (julianday((select min(t.ended_at) from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null)) - julianday(h.handed_at)) * 86400000 as ms
+        from handed_work h where h.kind = ? order by h.handed_at desc limit ?`
+    )
+    .all(kind, ESTIMATE_OF_LAST)
+    .flatMap((r) => (r.ms === null ? [] : [r.ms]))
+    .sort((a, b) => a - b);
+  return took.length < ESTIMATE_FROM
+    ? HANDED_GUESS_MS[kind]
+    : (took[Math.floor(took.length / 2)] as number);
+}
