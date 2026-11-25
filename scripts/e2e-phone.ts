@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The iPhone app's end-to-end flows (apps/lifelog/apps/ios/LifelogE2E): build once when Swift changed, keep three
@@ -13,6 +13,11 @@ const WORKERS = 3;
 const RESULT = join(DERIVED, "result.xcresult");
 const STAMP = join(DERIVED, "built");
 
+/** The test class of a flow id (`O7` is `O7QueueTiedToItsLifeTests`), or the name as given. */
+const flowClass = (id: string) =>
+  new RegExp(`class (${id}\\w*Tests)\\b`).exec(
+    readFileSync(join(IOS, "LifelogE2E/Flows.swift"), "utf8")
+  )?.[1] ?? id;
 const run = (cmd: string[], cwd = IOS) => {
   const { stdout, stderr, exitCode } = Bun.spawnSync(cmd, { cwd });
   return { ok: exitCode === 0, out: stdout.toString() + stderr.toString() };
@@ -112,9 +117,32 @@ for (const d of udids) {
 run(["xcrun", "simctl", "bootstatus", udids[0].udid]);
 lap("simulators ready");
 
-const only = process.argv
-  .slice(2)
-  .flatMap((c) => ["-only-testing", `LifelogE2E/${c}`]);
+// --watch <flow> (O7, or a class name): one visible simulator, animations on, a pause per step, recorded to
+// docs/research/2026-11-26-ios-e2e/<flow>.mp4 (not committed).
+const args = process.argv.slice(2);
+const at = args.indexOf("--watch");
+const flow = at < 0 ? "" : args[at + 1];
+const classes = at < 0 ? args : [flowClass(flow)];
+let recording: ReturnType<typeof Bun.spawn> | undefined;
+if (flow) {
+  run(["open", "-a", "Simulator"]);
+  const video = join(
+    IOS,
+    "../../../../docs/research/2026-11-26-ios-e2e",
+    `${flow}.mp4`
+  );
+  recording = Bun.spawn([
+    "xcrun",
+    "simctl",
+    "io",
+    udids[0].udid,
+    "recordVideo",
+    "--force",
+    video,
+  ]);
+  process.env.TEST_RUNNER_E2E_WATCH = "1";
+}
+const only = classes.flatMap((c) => ["-only-testing", `LifelogE2E/${c}`]);
 run(["rm", "-rf", RESULT]);
 const test = run([
   "xcodebuild",
@@ -122,7 +150,7 @@ const test = run([
   "-project",
   "Lifelog.xcodeproj",
   "-scheme",
-  "LifelogE2E",
+  "Lifelog",
   "-derivedDataPath",
   DERIVED,
   "-destination",
@@ -130,7 +158,7 @@ const test = run([
   "-resultBundlePath",
   RESULT,
   "-parallel-testing-enabled",
-  "YES",
+  flow ? "NO" : "YES",
   "-parallel-testing-worker-count",
   String(WORKERS),
   "-collect-test-diagnostics",
@@ -142,6 +170,7 @@ const test = run([
   ...only,
 ]);
 await Bun.write(join(DERIVED, "last.log"), test.out);
+recording?.kill("SIGINT");
 const lines = test.out.split("\n");
 if (!test.ok) {
   const summary = JSON.parse(

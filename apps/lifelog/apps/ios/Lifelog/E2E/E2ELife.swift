@@ -32,7 +32,7 @@
                 let scenario = try? JSONDecoder().decode(
                     E2EScenario.self, from: Data(contentsOf: URL(filePath: file)))
             else { return }
-            UIView.setAnimationsEnabled(false)
+            if !defaults.bool(forKey: "e2eKeepAnimations") { UIView.setAnimationsEnabled(false) }
             let fixtures = URL(filePath: defaults.string(forKey: "e2eFixtures") ?? "")
             FakeLife.state.withLock { $0 = FakeLife.Held(scenario: scenario, fixtures: fixtures, dir: dir) }
             MCPClient.protocolsOfTests = [FakeLife.self]

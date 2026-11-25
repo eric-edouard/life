@@ -13,6 +13,10 @@ class FlowTest: XCTestCase {
         "lifelog://pair?life=https%3A%2F%2Flife-\(origin).e2e.test&code=\(code)"
     }
 
+    /// `bun run e2e:phone --watch <flow>`: animations on, a pause after each step, for a person watching.
+    private static let isWatched = ProcessInfo.processInfo.environment["E2E_WATCH"] != nil
+    private func watchPause() { if Self.isWatched { Thread.sleep(forTimeInterval: 1.5) } }
+
     override func setUp() async throws {
         continueAfterFailure = false
         app = XCUIApplication()
@@ -35,6 +39,7 @@ class FlowTest: XCTestCase {
         if let paired { arguments += ["-e2ePaired", paired] }
         if reset { arguments += ["-e2eReset", "YES"] }
         if let open { arguments += ["-e2eOpenURL", open] }
+        if Self.isWatched { arguments += ["-e2eKeepAnimations", "YES"] }
         app.launchArguments = arguments
         app.launch()
     }
@@ -59,6 +64,7 @@ class FlowTest: XCTestCase {
             if Date.now > end { return XCTFail("Waited \(seconds) s for: \(what)\n\(app.debugDescription.split(separator: "\n").filter { $0.contains("identifier") || $0.contains("Button") || $0.contains("StaticText") }.joined(separator: "\n"))") }
             Thread.sleep(forTimeInterval: 0.1)
         }
+        watchPause()
     }
 
     /// His round button's ask, then the ask it brings back unfolded.
@@ -75,6 +81,7 @@ class FlowTest: XCTestCase {
         let target = element(id)
         appears(target, id)
         target.tap()
+        watchPause()
     }
 
     /// Every call the app made to a fake Life, in order.
