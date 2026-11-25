@@ -460,35 +460,20 @@ The numbers are read as bundles land; a bundle that misses its target gets a fix
 | 22 | `change_setting` for the monthly amount | Yes |
 | 23 | The effects `batch`, `later`, `hands-off` | Yes |
 | 25 | `SECURITY.md` says the thread's copy plainly | Yes; true deletion is #1384, and the entries are built to be blanked in place |
+| 21 | One list of people; the folder renamed `stated/` | Yes to one list and to `stated/` (it holds only what the owner stated; the merged list is a read, not the folder). He finds today's merging poor, with many duplicates: #727 |
+| 26 | The effects `style`, `sensitive`, `budget` | Yes |
+| 27 | Life's voice: today's plain voice in one file, its words settled with him later | Yes |
+| 28 | The phone reports Focus and a connected call | Yes; motion later |
+| 29 | His reaction through `ask_main_session`, stored on the thread entry | Decided by the planning session as recommended (a technical shape, never his word for an act) |
 
 ### Still the owner's
 
-Questions 26 and 27 touch wave 1; each says what is built meanwhile.
+Nothing waits on these.
 
 7. One session per assignment for the Personal agent. Open, on the context numbers C records: yes if a Personal
    turn carries more than twice a project agent's. Nothing waits on it.
-21. The folder `truth/`, and whether the owner should ever see two lists of people. There are two today: the
-    people, organizations and projects the owner named or confirmed (the folder), and the ones Life guessed from
-    the sources (lines in `memory/`). Every reader merges them, with the owner's word winning. Recommended: the
-    owner never sees two lists. People is one list; whether someone was confirmed is Life's own bookkeeping, and
-    when a guess matters Life asks, as it does today. A "confirmed" mark on each row would show that bookkeeping
-    and is not recommended. The name is then only for those who build Life, and it should say which half the
-    folder is: `stated/`, beside the guesses that are already called inferred. This replaces the earlier proposal
-    of `directory/`, which names the merged list and would repeat the confusion. The rename (#1379) still needs
-    the one exception to "never migrated", and waits for the server bundles.
 24. After v4: a project's one line of what it is about, read by the matters step. A new version of the matters
     prompt, which regroups every matter. Recommended: try it on a few weeks of a copy first.
-26. Three more effects: `style`, `sensitive` and `budget`. Recommended: yes. Each has code behind it (the table
-    under bundle A). Until the answer, A builds the six approved ones; these three are lines of the same list.
-27. Life's voice. Recommended: one file, `prompts/life-voice.md`, started warm and plain as described under
-    bundle A, and its words settled with the owner in one sitting. Until then A ships the file with today's
-    plain voice, so nothing waits.
-28. The phone tells the Mac whether a Focus is on and whether a call is connected. Recommended: yes to both; the
-    Focus needs one permission prompt, the call none. The phone's motion, for driving without a Focus, needs a
-    second prompt: recommended later.
-29. The owner's reaction to one of Life's lines travels through `ask_main_session` and is stored on the thread's
-    entry. Recommended: yes. It widens what that tool carries (the connector's list) and gives nothing authority:
-    a reaction is never the owner's word for an act.
 
 ## Debt plan
 
