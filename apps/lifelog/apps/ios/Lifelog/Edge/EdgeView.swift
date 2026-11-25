@@ -135,8 +135,10 @@ private final class AuraBand {
 
     /// The gradient: clear, the colour at `peak`, clear at `end`, clear again.
     private func fill(_ spin: CAGradientLayer, _ colour: UIColor, peak: NSNumber, end: NSNumber) {
-        spin.colors = [colour.withAlphaComponent(0), colour, colour.withAlphaComponent(0), colour.withAlphaComponent(0)]
-            .map(\.cgColor)
+        spin.colors = [
+            colour.withAlphaComponent(0), colour, colour.withAlphaComponent(0), colour.withAlphaComponent(0),
+        ]
+        .map(\.cgColor)
         spin.locations = [0, peak, end, 1]
     }
 
