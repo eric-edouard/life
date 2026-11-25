@@ -39,8 +39,18 @@ afterEach(() => rmSync(DECISIONS, { force: true }));
 
 test("an agent's card not gated yet is pending yet open; held it is in no list until its time; sent back it never is; delivered, open", async () => {
   const { id } = await card();
-  const read = () => decisionsNow(NOW).find((d) => d.id === id);
-  expect(deliveryOf(read() ?? {}, NOW)).toEqual({ state: "pending" });
+  const read = () => {
+    const d = decisionsNow(NOW).find((x) => x.id === id);
+    if (!d) {
+      throw new Error("no card");
+    }
+    return d;
+  };
+  expect(deliveryOf(read(), NOW)).toEqual({ state: "pending" });
+  // Ungated 10 minutes on (the desk off, its tick failing): delivered all the same, never pending forever.
+  expect(deliveryOf(read(), later(10 * 60_000))).toEqual({
+    state: "delivered",
+  });
   expect(stateOf(id)).toBe("open");
   expect(() => recordDelivered(id, { verdict: "hold" }, NOW)).toThrow(
     "until when"
@@ -57,7 +67,7 @@ test("an agent's card not gated yet is pending yet open; held it is in no list u
   expect(stateOf(id)).toBe("held");
   expect(stateOf(id, later(HOUR))).toBe("open");
   recordDelivered(id, { silent: true, verdict: "deliver" }, NOW);
-  expect(deliveryOf(read() ?? {}, NOW)).toEqual({
+  expect(deliveryOf(read(), NOW)).toEqual({
     silent: true,
     state: "delivered",
   });
@@ -69,7 +79,9 @@ test("an agent's card not gated yet is pending yet open; held it is in no list u
   );
   expect(stateOf(back)).toBe("sent_back");
   // His own card never waits on the gate.
-  expect(deliveryOf({ ask: "Pick one" }, NOW)).toEqual({ state: "delivered" });
+  expect(deliveryOf({ ask: "Pick one", at: NOW.toISOString() }, NOW)).toEqual({
+    state: "delivered",
+  });
 });
 
 test("his Undo voids his answer and opens the card; an answer whose act wrote outside Life is never undone; his mark only on an answered card", async () => {

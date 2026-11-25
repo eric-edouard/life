@@ -2,7 +2,6 @@ import { expect, setSystemTime, test } from "bun:test";
 import {
   blockingCountOf,
   inboxOrderOf,
-  inboxRankOf,
   isInboxCheck,
   urgencyOf,
 } from "./check-urgency";
@@ -11,7 +10,7 @@ import { checksOnMatterOf } from "./checks";
 const check = (group: string, subject: string | null = null) =>
   ({ deadline: null, group, subject }) as never;
 
-test("by kind: decision, unnamed voice, name and card together (these block), then his move (it blocks only when due soon), one person held twice, a guess in use, a new matter, an ending", () => {
+test("what blocks: a decision, an unnamed voice, a name and a card (these block); a your move card only when due soon; the rest improves", () => {
   const list = [
     check("decision"),
     check("voice"),
@@ -24,7 +23,6 @@ test("by kind: decision, unnamed voice, name and card together (these block), th
     check("new matter"),
     check("ending"),
   ];
-  expect(list.map(inboxRankOf)).toEqual([0, 1, 1, 1, 2, 3, 4, 4, 5, 6]);
   expect(list.map(urgencyOf)).toEqual([
     "blocks",
     "blocks",
@@ -61,8 +59,8 @@ test("can't be forgotten: a your move card blocks when due within 3 days; later 
     expect(inboxOrderOf(list).map((c: { ref: string }) => c.ref)).toEqual([
       "move-soon",
       "move-later",
-      "move-undated",
       "guess",
+      "move-undated",
     ]);
   } finally {
     setSystemTime();
@@ -97,53 +95,34 @@ const ask = (
     subject: null,
   }) as never;
 
-test("the order: deadlines soonest first, decisions oldest first, unnamed asks by matters then newest; then guesses, offers, endings; a matter's asks together", () => {
+test("the order: deadlines soonest, then important, then the longest waiting, whatever the kind; a matter's asks together", () => {
   const order = inboxOrderOf([
-    ask("ending", "ending"),
-    ask("offer", "new matter"),
-    ask("guess-many-lines", "guessed person", { observations: 3 }),
-    ask("guess-one-matter", "guessed person", { matters: 1 }),
-    ask("name-new", "name", { day: "2026-11-05" }),
-    ask("voice-old", "voice", { day: "2026-11-02", observations: 5 }),
-    ask("card-on-matter", "contacts card", { matter: "m1", matters: 2 }),
+    ask("ending", "ending", { day: "2026-11-01" }),
+    ask("offer", "new matter", { day: "2026-11-04" }),
     ask("decision-new", "decision", { day: "2026-11-03" }),
-    ask("decision-old", "decision", { day: "2026-11-01" }),
     ask("due-late", "decision", { deadline: "2026-11-09" }),
-    ask("due-soon", "decision", { deadline: "2026-11-07" }),
-    // Of m1, sorted last of its group: it moves up behind m1's first ask.
-    ask("voice-on-m1", "voice", { day: "2026-10-01", matter: "m1" }),
-    // No matter of its own, but it rides on m1: it joins m1's asks too.
-    ask("name-rides-m1", "name", { day: "2026-10-02", matterIds: ["m1"] }),
-    // Of m1 too, but it improves: it stays with what improves.
-    ask("offer-on-m1", "new matter", { matter: "m1" }),
+    ask("due-soon", "voice", { deadline: "2026-11-07" }),
+    Object.assign(ask("high", "decision", { day: "2026-11-05" }), {
+      importance: "high",
+    }),
+    ask("marked", "guessed person", {
+      day: "2026-11-05",
+      important: true,
+      matter: "m1",
+    }),
+    // Of m1, asked long ago, but not important: it moves up behind m1's first ask.
+    ask("name-on-m1", "name", { day: "2026-11-02", matter: "m1" }),
   ]).map((c: { ref: string }) => c.ref);
   expect(order).toEqual([
     "due-soon",
     "due-late",
-    "decision-old",
-    "decision-new",
-    "card-on-matter",
-    "name-rides-m1",
-    "voice-on-m1",
-    "name-new",
-    "voice-old",
-    "guess-one-matter",
-    "guess-many-lines",
-    "offer",
-    "offer-on-m1",
+    "high",
+    "marked",
+    "name-on-m1",
     "ending",
+    "decision-new",
+    "offer",
   ]);
-});
-
-// His important mark (20 Nov 2026): a marked matter's asks come first in their tier, before deadlines; what blocks stays first.
-test("a marked matter's asks lead their tier, before a sooner deadline; what blocks still comes before what improves", () => {
-  const order = inboxOrderOf([
-    ask("due-soon", "decision", { deadline: "2026-11-07" }),
-    ask("offer-marked", "new matter", { important: true, matter: "m2" }),
-    ask("marked", "decision", { important: true, matter: "m1" }),
-    ask("unmarked", "decision", { matter: "m3" }),
-  ]).map((c: { ref: string }) => c.ref);
-  expect(order).toEqual(["marked", "due-soon", "unmarked", "offer-marked"]);
 });
 
 // Review of #782: matter grouping pulled a card the caretaker is fixing back ahead of an actionable one.

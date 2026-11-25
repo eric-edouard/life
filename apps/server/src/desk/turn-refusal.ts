@@ -53,6 +53,7 @@ const MAIN_TOOLS = new Set([
   "change_appointment",
   "change_directory_entry",
   "change_registered_agent",
+  "change_setting",
   "change_todo_item",
   "complain",
   "correct_memory",

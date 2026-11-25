@@ -6,6 +6,7 @@ import { OWNER_ASKER } from "../core/names";
 import { isOn } from "../core/outputs";
 import { isOwnLife } from "../core/platform";
 import { same } from "../core/secret";
+import { changeSetting, SettingChange } from "../core/settings";
 import {
   removeAppointment,
   restoreAppointment,
@@ -408,6 +409,17 @@ function doorServer(desk: Desk, id: string) {
       }
     );
   }
+  door(
+    "change_setting",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count). Past it, background work slows; one piece of work stops and asks at 2% of it. Returns the setting as it now stands.",
+    SettingChange.extend({ said: z.string().min(1).max(2000) }),
+    ({ monthlyUsd, said }, _, turn) => {
+      hisWordsOf(turn, said);
+      const now = changeSetting({ monthlyUsd });
+      acted(turn, { kind: "done" });
+      return now;
+    }
+  );
   door(
     "record_instruction",
     "The main session only, on his words (`said`, his own words of this ask, verbatim): how he wants Life to behave from now on. `scope`: `all`, or `person:<id>`, `project:<id>`, `matter:<id>` or `channel:<source or chat key>`; `text`: the instruction as Life holds it, one or two lines; `effect`, when code enforces it: `quiet` or `interrupt` (pushes), `batch` (held to set moments), `later` (what Later means), `drafts` or `no-drafts`, `hands-off` (Life helps on that project only when asked), `intention`, `style` (how Life talks to him), `sensitive` (a subject never brought up), `budget`; `until`, when it ends (ISO); `replaces`, the id of one it corrects. Returns the line kept.",

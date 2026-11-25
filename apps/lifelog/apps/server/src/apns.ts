@@ -299,13 +299,21 @@ export const phoneNotice =
 export type Notice = ReturnType<typeof phoneNotice>;
 
 // A silent push telling the phone a transcript or a summary is ready, so it collects it now
-// instead of at its next poll, or that it holds audio to send (`upload`, latency.ts askForUploads).
+// instead of at its next poll, or that it holds audio to send (`upload`, latency.ts askForUploads),
+// or the Mac's check-in every 15 minutes (`check_in`): the phone answers with a heartbeat (what the
+// owner is doing now, for Life) and moves its "Life hasn't checked in" notice further.
 // Background pushes go at priority 5: iOS may hold or drop them, and the phone still polls while it
 // waits on the server. `open` is the visible one: it asks the owner to open the app, and says how
 // long the Pendant's audio has waited (`behindSeconds`). Never throws.
 export function phoneNudger(db: Db, push: Pusher | null, bundleId: string) {
   return (
-    ready: "open" | "resumed" | "summary" | "transcript" | "upload",
+    ready:
+      | "check_in"
+      | "open"
+      | "resumed"
+      | "summary"
+      | "transcript"
+      | "upload",
     fields: Fields = {}
   ) =>
     sendPush(

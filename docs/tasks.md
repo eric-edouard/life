@@ -189,7 +189,7 @@ the watcher, every 30 minutes, brings that calendar in line, through the client 
   (`change_appointment`, his token or the main session on his words) deletes it and records `refused`; its Undo records `restored` and writes it
   again, while Life still holds the appointment (confirmed if he had confirmed it; restored once its own event is
   written, whatever else the sync failed on). His Remove holds in any calendar the setting later names.
-- Its first event pushes `calendar.added` (his `notifications` setting's `calendar`, quiet by default) with an opaque id;
+- Its first event pushes `calendar.added` (quiet: it never interrupts) with an opaque id;
   the phone reads the event sheet with `read_appointments` (`pushId` or `appointment`). An arrival's event names the
   unit it was read from and a meeting link copied exactly (https only), and stays until it ends.
 - Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it

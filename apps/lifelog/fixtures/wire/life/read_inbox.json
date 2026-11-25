@@ -414,41 +414,101 @@
       "about": [],
       "asker": "life",
       "at": null,
-      "clips": [
+      "clips": [],
+      "context": "Still yours to do? Life sees no sign it is done.\n\n> I must sign the lease\n\n*11 Oct*",
+      "deadline": null,
+      "draft": null,
+      "goal": "Renew the lease",
+      "group": "your move",
+      "kind": "your move",
+      "likelyPeople": [],
+      "links": [],
+      "needs": [],
+      "notSent": null,
+      "onMatters": [
         {
-          "at": "2026-10-14T08:00:00.000Z",
-          "audio": {
-            "end": 4.5,
-            "jobId": "job-1",
-            "start": 1.2
-          },
-          "text": "It's the shop, about the watch.",
-          "until": "2026-10-14T08:00:04.000Z",
-          "words": [
-            [0, 300, 4],
-            [350, 500, 4],
-            [550, 900, 6],
-            [950, 1200, 6],
-            [1250, 1400, 4],
-            [1450, 1900, 7]
-          ]
+          "id": "matter_bbbbbbbbbbbb",
+          "name": "Renew the lease"
         }
       ],
-      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.\n\n> It's the shop, about the watch.\n\n*a recorded conversation, 14 Oct*",
+      "onSilence": null,
+      "options": [
+        {
+          "ends": "step",
+          "id": "done",
+          "label": "Mark as done",
+          "takes": null,
+          "icon": "done"
+        },
+        {
+          "icon": "agent",
+          "id": "start",
+          "label": "Hand over",
+          "takes": null
+        },
+        {
+          "icon": "later",
+          "id": "not-now",
+          "label": "Not now",
+          "takes": null
+        },
+        {
+          "ends": "step",
+          "icon": "drop",
+          "id": "drop",
+          "label": "Drop",
+          "takes": null
+        }
+      ],
+      "question": "Sign the lease renewal",
+      "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
+      "ridesOn": {
+        "matterIds": ["matter_bbbbbbbbbbbb"],
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "said": {
+        "at": "2026-10-11",
+        "by": null,
+        "channel": null,
+        "text": "I must sign the lease",
+        "to": null
+      },
+      "since": null,
+      "subject": "obs_000000000010",
+      "title": "Renew the lease",
+      "lifeLinks": [],
+      "matter": {
+        "id": "matter_bbbbbbbbbbbb",
+        "name": "Renew the lease"
+      },
+      "misread": {
+        "cause": "3f8aa0d63fc5994e"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "contactsCard": null,
+      "pushId": "f686b7df91114fb8",
+      "urgency": "improves"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "contactsCard": null,
+      "context": "Their Contacts card says “Owner, Test Bakery”.",
       "deadline": null,
       "draft": null,
       "goal": null,
-      "group": "voice",
-      "kind": "voice",
+      "group": "at organization",
+      "kind": "person",
       "likelyPeople": [
         {
           "kind": "person",
-          "line": "Your grandmother",
-          "name": "Gran",
-          "picture": {
-            "id": "00000000000000000000000000000a02"
-          },
-          "ref": "person:gran"
+          "name": "person:test-bakery",
+          "ref": "person:test-bakery"
         }
       ],
       "links": [],
@@ -457,47 +517,112 @@
       "onSilence": null,
       "options": [
         {
-          "icon": "person",
-          "id": "this-is",
-          "label": "Someone else…",
-          "takes": "person or name"
-        },
-        {
-          "id": "media",
-          "label": "TV or video",
+          "icon": "done",
+          "id": "yes",
+          "label": "Yes",
           "takes": null
         },
         {
-          "icon": "hide",
-          "id": "not-relevant",
-          "label": "Don't name",
+          "icon": "no",
+          "id": "not-at-organization",
+          "label": "No",
           "takes": null
         }
       ],
       "preTicked": null,
-      "question": "Who is this?",
-      "ref": "voice:v1~b9462232",
+      "question": "Is Kit at person:test-bakery as Owner?",
+      "ref": "at:person:test-bakery~person:inf_kit~89ff3122",
       "ridesOn": {
         "matterIds": [],
         "matters": 0,
-        "observations": 0,
+        "observations": 1,
         "pages": 0
       },
       "said": null,
       "since": null,
       "subject": null,
-      "title": "Name a voice",
-      "voiceGuesses": [],
+      "title": "Link someone to an organization",
       "lifeLinks": [],
       "matter": null,
       "misread": {
-        "cause": "f094d10b549822d0"
+        "cause": "a2fc300ae36cf927"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "e17351fad95db35b",
+      "urgency": "improves"
+    },
+    {
+      "said": {
+        "at": "2026-10-12",
+        "by": null,
+        "channel": null,
+        "text": "Gran wants it framed",
+        "to": null
+      },
+      "since": null,
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [],
+      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*12 Oct*",
+      "deadline": null,
+      "draft": null,
+      "goal": "Gran's photo is framed.",
+      "group": "new matter",
+      "kind": "new matter",
+      "likelyPeople": [],
+      "links": [],
+      "notSent": null,
+      "onMatters": [
+        {
+          "id": "matter_cccccccccccc",
+          "name": "Frame Gran's photo"
+        }
+      ],
+      "onSilence": null,
+      "options": [
+        {
+          "icon": "agent",
+          "id": "start",
+          "label": "Start an agent",
+          "takes": null
+        },
+        {
+          "id": "edit-goal",
+          "label": "Edit goal",
+          "takes": "note"
+        },
+        {
+          "icon": "no",
+          "id": "dismiss",
+          "label": "No agent",
+          "takes": null
+        }
+      ],
+      "question": "Start an agent on this?",
+      "ref": "matter_cccccccccccc",
+      "ridesOn": {
+        "matterIds": ["matter_cccccccccccc"],
+        "matters": 1,
+        "observations": 0,
+        "pages": 0
+      },
+      "subject": null,
+      "title": "Life found a new matter: Frame Gran's photo",
+      "lifeLinks": [],
+      "matter": {
+        "id": "matter_cccccccccccc",
+        "name": "Frame Gran's photo"
+      },
+      "misread": {
+        "cause": "e33422a9ac5b7ce7"
       },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
-      "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks"
+      "pushId": "47c2deda3a5b51cd",
+      "urgency": "improves"
     },
     {
       "about": ["Sam"],
@@ -664,208 +789,6 @@
       "urgency": "blocks"
     },
     {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "context": "Still yours to do? Life sees no sign it is done.\n\n> I must sign the lease\n\n*11 Oct*",
-      "deadline": null,
-      "draft": null,
-      "goal": "Renew the lease",
-      "group": "your move",
-      "kind": "your move",
-      "likelyPeople": [],
-      "links": [],
-      "needs": [],
-      "notSent": null,
-      "onMatters": [
-        {
-          "id": "matter_bbbbbbbbbbbb",
-          "name": "Renew the lease"
-        }
-      ],
-      "onSilence": null,
-      "options": [
-        {
-          "ends": "step",
-          "id": "done",
-          "label": "Mark as done",
-          "takes": null,
-          "icon": "done"
-        },
-        {
-          "icon": "agent",
-          "id": "start",
-          "label": "Hand over",
-          "takes": null
-        },
-        {
-          "icon": "later",
-          "id": "not-now",
-          "label": "Not now",
-          "takes": null
-        },
-        {
-          "ends": "step",
-          "icon": "drop",
-          "id": "drop",
-          "label": "Drop",
-          "takes": null
-        }
-      ],
-      "question": "Sign the lease renewal",
-      "ref": "move:matter_bbbbbbbbbbbb/obs_000000000010",
-      "ridesOn": {
-        "matterIds": ["matter_bbbbbbbbbbbb"],
-        "matters": 1,
-        "observations": 0,
-        "pages": 0
-      },
-      "said": {
-        "at": "2026-10-11",
-        "by": null,
-        "channel": null,
-        "text": "I must sign the lease",
-        "to": null
-      },
-      "since": null,
-      "subject": "obs_000000000010",
-      "title": "Renew the lease",
-      "lifeLinks": [],
-      "matter": {
-        "id": "matter_bbbbbbbbbbbb",
-        "name": "Renew the lease"
-      },
-      "misread": {
-        "cause": "3f8aa0d63fc5994e"
-      },
-      "confirm": [],
-      "networkIdentity": null,
-      "contactsCard": null,
-      "pushId": "f686b7df91114fb8",
-      "urgency": "improves"
-    },
-    {
-      "about": ["+33600000001"],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "contactsCard": null,
-      "context": "They go by the same whole name; nothing Life holds joins them.",
-      "deadline": null,
-      "draft": null,
-      "goal": null,
-      "group": "same person",
-      "kind": "person",
-      "likelyPeople": [
-        {
-          "kind": "person",
-          "name": "Robin",
-          "ref": "person:partner"
-        }
-      ],
-      "links": [],
-      "notSent": null,
-      "onMatters": [],
-      "onSilence": null,
-      "options": [
-        {
-          "icon": "link",
-          "id": "same-person",
-          "label": "Same person",
-          "takes": null
-        },
-        {
-          "icon": "people",
-          "id": "not-this-person",
-          "label": "Different",
-          "takes": null
-        }
-      ],
-      "preTicked": "same-person",
-      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
-      "ref": "same:person:inf_kit~person:partner",
-      "ridesOn": {
-        "matterIds": [],
-        "matters": 0,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": null,
-      "since": null,
-      "subject": null,
-      "title": "Join one person",
-      "lifeLinks": [],
-      "matter": null,
-      "misread": {
-        "cause": "6c04307dd5deaa49"
-      },
-      "confirm": [],
-      "networkIdentity": null,
-      "pushId": "87f3c9ef6bcd1334",
-      "urgency": "improves"
-    },
-    {
-      "about": [],
-      "asker": "life",
-      "at": null,
-      "clips": [],
-      "contactsCard": null,
-      "context": "Their Contacts card says “Owner, Test Bakery”.",
-      "deadline": null,
-      "draft": null,
-      "goal": null,
-      "group": "at organization",
-      "kind": "person",
-      "likelyPeople": [
-        {
-          "kind": "person",
-          "name": "person:test-bakery",
-          "ref": "person:test-bakery"
-        }
-      ],
-      "links": [],
-      "notSent": null,
-      "onMatters": [],
-      "onSilence": null,
-      "options": [
-        {
-          "icon": "done",
-          "id": "yes",
-          "label": "Yes",
-          "takes": null
-        },
-        {
-          "icon": "no",
-          "id": "not-at-organization",
-          "label": "No",
-          "takes": null
-        }
-      ],
-      "preTicked": null,
-      "question": "Is Kit at person:test-bakery as Owner?",
-      "ref": "at:person:test-bakery~person:inf_kit~89ff3122",
-      "ridesOn": {
-        "matterIds": [],
-        "matters": 0,
-        "observations": 1,
-        "pages": 0
-      },
-      "said": null,
-      "since": null,
-      "subject": null,
-      "title": "Link someone to an organization",
-      "lifeLinks": [],
-      "matter": null,
-      "misread": {
-        "cause": "a2fc300ae36cf927"
-      },
-      "confirm": [],
-      "networkIdentity": null,
-      "pushId": "e17351fad95db35b",
-      "urgency": "improves"
-    },
-    {
       "about": ["+33600000001"],
       "asker": "life",
       "at": null,
@@ -948,91 +871,168 @@
       "urgency": "improves"
     },
     {
-      "said": {
-        "at": "2026-10-12",
-        "by": null,
-        "channel": null,
-        "text": "Gran wants it framed",
-        "to": null
-      },
-      "since": null,
-      "about": [],
+      "about": ["+33600000001"],
       "asker": "life",
       "at": null,
       "clips": [],
-      "context": "Nothing blocks its next step: an agent could move it now. Next step: Ask the shop for a quote. Asked until 18 Oct.\n\n> Gran wants it framed\n\n*12 Oct*",
+      "contactsCard": null,
+      "context": "They go by the same whole name; nothing Life holds joins them.",
       "deadline": null,
       "draft": null,
-      "goal": "Gran's photo is framed.",
-      "group": "new matter",
-      "kind": "new matter",
-      "likelyPeople": [],
-      "links": [],
-      "notSent": null,
-      "onMatters": [
+      "goal": null,
+      "group": "same person",
+      "kind": "person",
+      "likelyPeople": [
         {
-          "id": "matter_cccccccccccc",
-          "name": "Frame Gran's photo"
+          "kind": "person",
+          "name": "Robin",
+          "ref": "person:partner"
         }
       ],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
       "onSilence": null,
       "options": [
         {
-          "icon": "agent",
-          "id": "start",
-          "label": "Start an agent",
+          "icon": "link",
+          "id": "same-person",
+          "label": "Same person",
           "takes": null
         },
         {
-          "id": "edit-goal",
-          "label": "Edit goal",
-          "takes": "note"
-        },
-        {
-          "icon": "no",
-          "id": "dismiss",
-          "label": "No agent",
+          "icon": "people",
+          "id": "not-this-person",
+          "label": "Different",
           "takes": null
         }
       ],
-      "question": "Start an agent on this?",
-      "ref": "matter_cccccccccccc",
+      "preTicked": "same-person",
+      "question": "Is Kit (the watchmaker, +33600000001) the same person as Robin (his partner)?",
+      "ref": "same:person:inf_kit~person:partner",
       "ridesOn": {
-        "matterIds": ["matter_cccccccccccc"],
-        "matters": 1,
+        "matterIds": [],
+        "matters": 0,
+        "observations": 1,
+        "pages": 0
+      },
+      "said": null,
+      "since": null,
+      "subject": null,
+      "title": "Join one person",
+      "lifeLinks": [],
+      "matter": null,
+      "misread": {
+        "cause": "6c04307dd5deaa49"
+      },
+      "confirm": [],
+      "networkIdentity": null,
+      "pushId": "87f3c9ef6bcd1334",
+      "urgency": "improves"
+    },
+    {
+      "about": [],
+      "asker": "life",
+      "at": null,
+      "clips": [
+        {
+          "at": "2026-10-14T08:00:00.000Z",
+          "audio": {
+            "end": 4.5,
+            "jobId": "job-1",
+            "start": 1.2
+          },
+          "text": "It's the shop, about the watch.",
+          "until": "2026-10-14T08:00:04.000Z",
+          "words": [
+            [0, 300, 4],
+            [350, 500, 4],
+            [550, 900, 6],
+            [950, 1200, 6],
+            [1250, 1400, 4],
+            [1450, 1900, 7]
+          ]
+        }
+      ],
+      "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.\n\n> It's the shop, about the watch.\n\n*a recorded conversation, 14 Oct*",
+      "deadline": null,
+      "draft": null,
+      "goal": null,
+      "group": "voice",
+      "kind": "voice",
+      "likelyPeople": [
+        {
+          "kind": "person",
+          "line": "Your grandmother",
+          "name": "Gran",
+          "picture": {
+            "id": "00000000000000000000000000000a02"
+          },
+          "ref": "person:gran"
+        }
+      ],
+      "links": [],
+      "notSent": null,
+      "onMatters": [],
+      "onSilence": null,
+      "options": [
+        {
+          "icon": "person",
+          "id": "this-is",
+          "label": "Someone else…",
+          "takes": "person or name"
+        },
+        {
+          "id": "media",
+          "label": "TV or video",
+          "takes": null
+        },
+        {
+          "icon": "hide",
+          "id": "not-relevant",
+          "label": "Don't name",
+          "takes": null
+        }
+      ],
+      "preTicked": null,
+      "question": "Who is this?",
+      "ref": "voice:v1~b9462232",
+      "ridesOn": {
+        "matterIds": [],
+        "matters": 0,
         "observations": 0,
         "pages": 0
       },
+      "said": null,
+      "since": null,
       "subject": null,
-      "title": "Life found a new matter: Frame Gran's photo",
+      "title": "Name a voice",
+      "voiceGuesses": [],
       "lifeLinks": [],
-      "matter": {
-        "id": "matter_cccccccccccc",
-        "name": "Frame Gran's photo"
-      },
+      "matter": null,
       "misread": {
-        "cause": "e33422a9ac5b7ce7"
+        "cause": "f094d10b549822d0"
       },
       "confirm": [],
       "networkIdentity": null,
       "contactsCard": null,
-      "pushId": "47c2deda3a5b51cd",
-      "urgency": "improves"
+      "pushId": "0ec1de1a26d04e58",
+      "urgency": "blocks"
     }
   ],
   "blocking": 6,
   "counts": {
     "decision": 3,
-    "voice": 1,
+    "your move": 1,
+    "at organization": 1,
+    "new matter": 1,
     "name": 1,
     "contacts card": 1,
-    "your move": 1,
-    "same person": 1,
-    "at organization": 1,
     "guessed person": 1,
-    "new matter": 1
+    "same person": 1,
+    "voice": 1
   },
   "deadlinesToday": 0,
   "total": 11,
-  "version": "f76a9e4674b1122b"
+  "version": "86524a8f5809976c"
 }

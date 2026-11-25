@@ -1,6 +1,7 @@
 import { clock, daysBefore } from "../core/clock";
 import { oneAtATime } from "../core/lock";
 import type { CheckGroup } from "../core/names";
+import { changeSetting, readMonthlyUsd } from "../core/settings";
 import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
@@ -332,6 +333,14 @@ export function laterOf(
   ).toISOString();
 }
 
+/** The first instant of next month where he is: a fix ask he kept is asked again then, if still due. */
+const monthEndOf = (now = clock()) => {
+  const [y = 0, m = 0] = dayNow(now).split("-").map(Number);
+  const next =
+    m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  return dayStart(next).toISOString();
+};
+
 /** His Later on check `c`: one `deferred` correction by its ref, until Life's time (`laterOf`). */
 const deferOf = (c: Check, a: CheckAnswer) =>
   correct([{ kind: "deferred", ref: c.ref, until: laterOf(c) }], a);
@@ -414,6 +423,20 @@ const WRITERS: {
     outdated: async (c, a) => [
       await recordFactCheckAnswer(c.ref, "outdated", a.note),
     ],
+  },
+  // A fix ask: Raise doubles the monthly amount (his `change_setting`); Keep holds it until the month's end; Later, Life's time.
+  fix: {
+    keep: (c, a) =>
+      correct([{ kind: "deferred", ref: c.ref, until: monthEndOf() }], a),
+    later: deferOf,
+    raise: () => {
+      const monthly = readMonthlyUsd();
+      if (monthly === undefined) {
+        throw new Error("Not done: no monthly amount is set.");
+      }
+      changeSetting({ monthlyUsd: monthly * 2 });
+      return Promise.resolve([]);
+    },
   },
   "guessed person": {
     // One name or handle is enough: his `this-is` to the guess is what confirms it (`guessTestOf`).

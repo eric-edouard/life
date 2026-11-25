@@ -10,6 +10,8 @@ import {
   standingAgents,
 } from "../host/desk-read";
 import { openChecksNow } from "../host/inbox";
+import { monthBudgetOf } from "../host/spending";
+import { deliveryOf } from "../memory/decision-delivery";
 import { decisionsNow } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
 import {
@@ -42,10 +44,13 @@ interface HandOutBook {
   matters: readonly HandOutMatter[];
 }
 
-/** How many of the agents' cards he is shown now: his inbox's decisions a registered agent asked (`openChecksNow`), never one his inbox hides. */
+/** How many of the agents' cards wait for him: his inbox's decisions a registered agent asked (`openChecksNow`), and those the gate holds for a better moment (`deliveryOf`), which his inbox hides. */
 const readCardsShown = async () =>
   (await openChecksNow()).filter(
     (c) => c.kind === "decision" && c.asker === DESK_AGENT
+  ).length +
+  decisionsNow().filter(
+    (d) => d.asker === DESK_AGENT && deliveryOf(d).state === "held"
   ).length;
 
 /** Gives the top matter that qualifies to the agent that takes it, when his settings allow and his pace has room: an assignment the desk opened. Returns its id. */
@@ -55,7 +60,8 @@ export async function handOutNext(
 ) {
   const { db } = desk;
   const pace = settings().desk?.handOut;
-  if (!pace) {
+  // Past the month's amount, Life starts no new work by itself (`monthBudgetOf`).
+  if (!pace || monthBudgetOf()?.isPassed) {
     return;
   }
   const last = readCursor(db, CURSOR);

@@ -5,8 +5,6 @@ import { writeWhole } from "./files";
 import {
   AgentRole,
   Engine,
-  NotifyKind,
-  NotifyLevel,
   RuntimeName,
   SourceName,
   WebSearchProviderName,
@@ -36,6 +34,13 @@ export const Settings = z
       .object({ password: z.string(), repository: z.string() })
       .strict()
       .optional(),
+    /**
+     * What Life may spend in a month, in billed dollars (his subscriptions don't count), changed by his word
+     * (`change_setting`, his yes of 25 Nov 2026). Asked once before it is passed (a fix ask); past it, background work
+     * slows, recording and answering never stop; one piece of work stops at 2% of it (`spendingStopOf`, `host/spending.ts`).
+     * Absent means no amount: no stop.
+     */
+    budget: z.object({ monthlyUsd: z.number().positive() }).strict().optional(),
     /** The connector (/mcp) and its sign-in (Life's own issuer, `oauth.ts`); without it Life serves no HTTP at all. */
     connector: z
       .object({
@@ -125,11 +130,6 @@ export const Settings = z
      * (`models/prompt-parts.ts`). Quotes stay as said; topic tags stay English. Absent: English, as before the key.
      */
     memoryLanguage: z.string().min(1).default("English"),
-    /**
-     * How each kind of new card reaches his phone (`pushNewCards`, `host/card-push.ts`): off, quiet, normal or urgent.
-     * The one key whose missing parts are not off: a kind left out takes Life's default (`NOTIFY_DEFAULTS`).
-     */
-    notifications: z.partialRecord(NotifyKind, NotifyLevel).default({}),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })
@@ -240,6 +240,20 @@ export function setSettings(
   );
   writeSettings(SETTINGS, next);
   read = next;
+}
+
+/** His monthly amount as the file holds it now, read afresh: his `change_setting` reaches the desk without a restart. */
+export const readMonthlyUsd = () => readSettings().budget?.monthlyUsd;
+
+/** What his word may change through `change_setting` (question 22): the monthly amount, in billed dollars. */
+export const SettingChange = z
+  .object({ monthlyUsd: z.number().positive().max(100_000) })
+  .strict();
+
+/** His `change_setting`: writes the monthly amount; the settings as they now stand. */
+export function changeSetting({ monthlyUsd }: z.infer<typeof SettingChange>) {
+  setSettings({ budget: { monthlyUsd } });
+  return { budget: settings().budget };
 }
 
 /** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */

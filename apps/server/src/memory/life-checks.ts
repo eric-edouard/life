@@ -74,6 +74,16 @@ export const LIFE_CHECKS = {
     ],
     title: "Close what is done",
   },
+  // Something broken that needs him, from code's fixed list (`fix-checks.ts`); each fix offers its own of these.
+  fix: {
+    context: null,
+    options: [
+      { icon: "done", id: "raise", label: "Raise it", takes: null },
+      { icon: "no", id: "keep", label: "Keep it", takes: null },
+      { icon: "later", id: "later", label: "Later", takes: null },
+    ],
+    title: "Fix",
+  },
   "guessed person": {
     context: null,
     options: [
@@ -166,6 +176,7 @@ export const LIFE_CHECKS = {
 export type CheckKind =
   | "decision"
   | "ending"
+  | "fix"
   | "new matter"
   | "person"
   | "voice"
@@ -225,6 +236,8 @@ export interface Check {
   group: CheckGroup;
   /** A draft card's chat as his card heads it (`draftHeadOf`): its network and its name; absent on every other check. */
   head?: { name: string; network: string } | null;
+  /** An agent's card the gate read as high stakes (its `delivered` line's readings): first among cards of the same deadline; absent on every other. */
+  importance?: "high";
   /** Whether a decision is a plan card: it gives `plan`, its steps; absent on every other kind. */
   isPlan?: boolean;
   kind: CheckKind;
