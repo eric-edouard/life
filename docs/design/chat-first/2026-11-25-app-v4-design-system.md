@@ -144,3 +144,12 @@ Each with the recommendation first.
 - A reaction is a mark on a message, never `said`, never an answer.
 - Every new item state (Held, Earlier draft, Deleted for both, Stopped) is a row of the spec's table before it is
   built.
+
+## The owner's answers (26 Nov 2026)
+
+All eleven as recommended, taken one by one: 1 the 13 tokens plus `tint`, `glass`, `wash`; 2 the type scale of seven
+sizes, weights 450, 600, 650; 3 four radii (pill, 12, 18, 22); 4 the motion exceptions listed, a still ring for long
+work; 5 the three colour exceptions; 6 monotone emoji in Life's interface; 7 "I" in Life's sentences, never on a
+button; 8 words only on an ask's and a question's answers, a confirm's two choices and a draft's quick-edit chips;
+9 an instruction he just gave shows as its switch, "What can I change?" lists only settings; 10 the spec and glossary
+updated in one pass; 11 dark only for now.
