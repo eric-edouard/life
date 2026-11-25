@@ -97,6 +97,7 @@ class FlowTest: XCTestCase {
     }
 
     func answers() -> [[String: Any]] { calls().filter { $0["tool"] as? String == "answer_check" } }
+    func undos() -> [[String: Any]] { answers().filter { $0["undo"] as? Bool == true } }
 
     /// The answers Life took as new (never a repeat of one it had, never one it refused): the sends.
     func sends() -> [[String: Any]] { answers().filter { ["answered", "dropped"].contains($0["outcome"] as? String) } }

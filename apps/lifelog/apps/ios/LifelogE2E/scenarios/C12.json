@@ -1,0 +1,26 @@
+{
+  "name": "A person as the answer",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_person.json",
+        "read_people_and_organizations": "life/read_people_and_organizations.json"
+      }
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "who"
+      ],
+      "then": "life/answer_check_sent.json"
+    }
+  ],
+  "items": [
+    "dec_000000000001"
+  ]
+}

@@ -75,7 +75,8 @@ struct ThreadView: View {
                     Color.clear.frame(height: 1).id("end")
                 }
                 .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(
-                    .bottom, Metrics.Spacing.s)
+                    // The prototype leaves 52 pt between the last answer and the field.
+                    .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs)
             }
             .contentMargins(.top, topHeight, for: .scrollContent)
             .contentMargins(.bottom, fieldHeight, for: .scrollContent)

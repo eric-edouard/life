@@ -6,12 +6,14 @@ struct Notices: View {
     @Environment(LifeStore.self) private var life
     let openSettings: () -> Void
     @State private var isOpen = false
+    /// When this phone first found Life out of reach, for a path that is gone (a read says it itself otherwise).
+    @State private var seenAt: Date?
 
     var body: some View {
         VStack(spacing: Metrics.Spacing.s) {
             if life.isOutOfReach {
                 NoticeBlock(
-                    title: "Your Mac isn't answering", message: life.whyOutOfReach, symbol: "desktopcomputer",
+                    title: title, symbol: life.isOffline ? "wifi.slash" : "desktopcomputer",
                     isOpen: isOpen, toggle: { withAnimation(Motion.standard) { isOpen.toggle() } },
                     id: AID.noticeOutOfReach
                 ) {
@@ -28,5 +30,13 @@ struct Notices: View {
             }
         }
         .animation(Motion.standard, value: life.isOutOfReach)
+        .onChange(of: life.isOutOfReach, initial: true) { seenAt = life.isOutOfReach ? seenAt ?? life.now() : nil }
+    }
+
+    /// One sentence: what is wrong, and since when.
+    private var title: String {
+        let what = life.isOffline ? "You're offline" : "Your Mac isn't answering"
+        guard let since = life.lostSince ?? seenAt else { return what }
+        return "\(what) · since \(since.formatted(.dateTime.hour().minute()))"
     }
 }

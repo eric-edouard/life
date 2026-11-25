@@ -52,22 +52,26 @@ struct ProfileView: View {
         }
     }
 
-    /// How to reach them, one row per account, each opening its app.
+    /// How to reach them: a round button per account, its app's mark, no words (VoiceOver says which app and account).
     @ViewBuilder private func reach(_ reach: [PersonNow.Reach]) -> some View {
-        let accounts = reach.flatMap { page in page.accounts.map { (page.label, $0) } }
+        let accounts = reach.flatMap { page in page.accounts.map { (page, $0) } }
         if !accounts.isEmpty {
-            RowGroup(label: "Reach", surface: .page) {
+            HStack(spacing: Metrics.Spacing.m) {
                 ForEach(Array(accounts.enumerated()), id: \.offset) { _, entry in
                     if let url = URL(string: entry.1.open.url) {
                         Button {
                             openURL(url)
                         } label: {
-                            Row(title: "\(entry.0) · \(entry.1.title ?? entry.1.handle)") { RowValue() }
+                            NetworkMark(network: entry.0.network, size: Metrics.Spacing.xl)
+                                .frame(width: Metrics.disc, height: Metrics.disc).background(Palette.tint, in: .circle)
+                                .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("\(entry.0.label), \(entry.1.title ?? entry.1.handle)")
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
         }
     }
 }

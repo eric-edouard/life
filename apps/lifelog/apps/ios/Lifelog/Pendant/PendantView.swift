@@ -31,6 +31,7 @@ struct PendantView: View {
 }
 
 struct PendantScreen: View {
+    @Environment(\.dynamicTypeSize) private var size
     let capture: CaptureFacts
     let actions: PendantActions
 
@@ -93,7 +94,11 @@ struct PendantScreen: View {
     /// The light as a tile and the state word, then what it means and what to do, one `flag` line when it needs him.
     private func status(_ reading: PendantReading, now: Date) -> some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            HStack(spacing: Metrics.Spacing.l) {
+            let tileAndWords =
+                size.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: Metrics.Spacing.m))
+                : AnyLayout(HStackLayout(spacing: Metrics.Spacing.l))
+            tileAndWords {
                 LightTile(isOn: reading.state == .recording && !reading.isFlag)
                 VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
                     if capture.macDictatingSince != nil {
@@ -104,7 +109,7 @@ struct PendantScreen: View {
                     Text(reading.state.word).font(.profileName)
                         .foregroundStyle(reading.isFlag ? Palette.flag : Palette.fg)
                         .lit(reading.state == .recording)
-                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("pendant.status")
                     if let line = line(reading) { Text(line).font(.line).foregroundStyle(Palette.muted) }
                 }

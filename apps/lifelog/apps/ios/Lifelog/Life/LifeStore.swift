@@ -71,6 +71,7 @@ final class LifeStore {
     /// The key of a tap whose call may have run (its connection failed): the same tap repeats with it, so Life sends nothing twice.
     private var taps = AnswerTaps()
     private var isFlushing = false
+    @ObservationIgnored private var hasReadSinceLaunch = false
 
     private static let itemsKey = "read_thread"
     private static let queuedKey = "queued_answers"
@@ -122,6 +123,8 @@ final class LifeStore {
         return connection.whyNot(hasPath: hasPath)
     }
     var isOutOfReach: Bool { whyOutOfReach != nil }
+    /// Out of reach because the phone has no way out (not because the Mac does not answer).
+    var isOffline: Bool { !hasPath || lost == .offline }
     /// Whether Life answers: its thread read, the one every screen starts from.
     var link: LinkState { outcome.link(hasRead: items.value != nil) }
 
@@ -134,7 +137,10 @@ final class LifeStore {
 
     /// Coming forward: the thread's asks, unless read in the last 30 s (a card's push says what changed since).
     func refreshOnForeground() async {
-        if let read = items.loadedAt, now().timeIntervalSince(read) < Self.foregroundReadsAfter { return }
+        // A read kept from the last launch is not one of this launch: Life may be gone since, and only a read says so.
+        if hasReadSinceLaunch, let read = items.loadedAt, now().timeIntervalSince(read) < Self.foregroundReadsAfter {
+            return
+        }
         await refresh()
     }
 
@@ -152,6 +158,7 @@ final class LifeStore {
     func retryFirstReads() async { if items.needsRetry { await refreshItems() } }
 
     func refreshItems() async {
+        hasReadSinceLaunch = true
         let before = items.loadedAt
         await load({ self.items.apply($0) }, key: Self.itemsKey, held: { self.items.value }) {
             try await $0.readThread(before: nil, ifNot: $1)

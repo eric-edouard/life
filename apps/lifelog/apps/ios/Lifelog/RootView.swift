@@ -212,7 +212,7 @@ struct RootView: View {
             Button {
                 thread.ask("What's waiting on me?", screen: screen)
             } label: {
-                Text(life.waitingCount.map(String.init) ?? "·").font(.rowTitle).frame(
+                Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle).frame(
                     width: Metrics.tapTarget, height: Metrics.tapTarget)
             }
             .accessibilityLabel("What's waiting on me")

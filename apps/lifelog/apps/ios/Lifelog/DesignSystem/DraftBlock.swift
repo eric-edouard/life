@@ -14,16 +14,15 @@ struct DraftBlock: View {
     var delivery = DraftDelivery.notSent
     /// A send he tried that went nowhere: only then does the chat say "Not sent". A draft still waiting for his answer
     /// says nothing under it.
-    var hasFailed = false
     /// On paper of its own (the notification); in an ask it sits on the thing's `tile` with no box.
     var isBoxed = true
 
     @Environment(\.calendar) private var calendar
 
-    init?(check: Check, delivery: DraftDelivery = .notSent, hasFailed: Bool = false, isBoxed: Bool = true) {
+    init?(check: Check, delivery: DraftDelivery = .notSent, isBoxed: Bool = true) {
         guard let draft = check.draft else { return nil }
-        (self.check, self.draft, self.delivery, self.hasFailed, self.isBoxed) = (
-            check, draft, delivery, hasFailed, isBoxed
+        (self.check, self.draft, self.delivery, self.isBoxed) = (
+            check, draft, delivery, isBoxed
         )
     }
 
@@ -207,7 +206,7 @@ struct DraftBlock: View {
     /// Where the ticks will be: "Not sent" and a clock; once handed, one tick; once in the chat, two; a call that never
     /// gave its answer, "May have gone".
     @ViewBuilder private func status(isMine: Bool) -> some View {
-        if delivery != .notSent || hasFailed { statusLine(isMine: isMine) }
+        if delivery != .notSent { statusLine(isMine: isMine) }
     }
 
     private func statusLine(isMine: Bool) -> some View {

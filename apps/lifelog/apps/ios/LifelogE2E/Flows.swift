@@ -83,6 +83,34 @@ import XCTest
     }
 }
 
+/// C11: Undo asks what the other side will see, then Delete asks Life once to delete it.
+@MainActor final class C11UndoThenDeleteTests: FlowTest {
+    func testUndoThenDelete() {
+        launch("C11")
+        openTheAsk()
+        tap(AID.askUndo(Self.ask))
+        tap(AID.askUndo(Self.ask))
+        poll("the undo reached Life") { !undos().isEmpty }
+        XCTAssertEqual(undos().count, 1)
+    }
+}
+
+/// C12: an answer that takes a person sends the person he picked.
+@MainActor final class C12PersonAsTheAnswerTests: FlowTest {
+    func testPersonAsTheAnswer() {
+        launch("C12")
+        openTheAsk()
+        tap(AID.askAnswer(Self.ask, "who"))
+        let ana = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Test Ana")).firstMatch
+        appears(ana, "the people")
+        ana.tap()
+        poll("the answer reached Life") { !answers().isEmpty }
+        XCTAssertEqual(answers().count, 1)
+        XCTAssertEqual(answers()[0]["person"] as? String, "person:test-ana")
+        XCTAssertEqual(answers()[0]["options"] as? [String], ["who"])
+    }
+}
+
 /// C16: an ask that goes outdated while open loses its answers: nothing can be sent.
 @MainActor final class C16OutdatedWhileOpenTests: FlowTest {
     func testOutdatedWhileOpen() {
@@ -108,6 +136,7 @@ import XCTest
         app.terminate()
         launch("O2", paired: nil, reset: false)
         appears(element(AID.askQueued(Self.ask)), "the answer still waiting after a relaunch")
+        appears(element(AID.noticeOutOfReach), "the notice again after a relaunch with Life out of reach")
         XCTAssertTrue(answers().isEmpty)
     }
 }
@@ -167,6 +196,7 @@ import XCTest
         poll("Life B read") {
             calls().contains { $0["origin"] as? String == "b" && $0["tool"] as? String == "read_thread" }
         }
-        XCTAssertTrue(answers().isEmpty)
+        // Life A, back at step 2, may take its own answer on the relaunch's read; Life B never gets it.
+        XCTAssertFalse(answers().contains { $0["origin"] as? String == "b" })
     }
 }

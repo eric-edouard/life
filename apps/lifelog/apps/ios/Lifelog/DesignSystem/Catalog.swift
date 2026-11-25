@@ -187,9 +187,9 @@ import SwiftUI
                 section("Held asks") { HeldSeparator(text: "While you were in your meeting · 14:00 to 15:00") }
                 section("Notice: closed, open with its settings, back") {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                        NoticeBlock(title: "Your Mac isn't answering", message: "Not for 12 minutes")
+                        NoticeBlock(title: "Your Mac isn't answering · since 10:42", symbol: "desktopcomputer")
                         NoticeBlock(
-                            title: "Your Mac isn't answering", message: "Not for 12 minutes", isOpen: true
+                            title: "You're offline · since 15:40", symbol: "wifi.slash", isOpen: true
                         ) {
                             SettingsBlock {
                                 SettingSwitchRow(title: "Tell me when it is back", isOn: true)
@@ -204,19 +204,25 @@ import SwiftUI
         // MARK: Items
 
         private var items: some View {
-            let states: [(String, String, ItemState)] = [
-                ("Reply to Sara about Sunday", "bubble.left", .needsYou), ("Renew the passport", "doc", .later),
-                ("Find a physio near home", "figure.walk", .underWay(progress: 0.4, estimate: "About 10 min left")),
-                ("Waiting for the landlord", "house", .waitingOnSomeone), ("Book the dentist", "calendar", .settled),
-                ("Tell Lena I'm late", "bubble.left", .undone("Deleted for both of you")),
-                ("Old plan for Friday", "calendar", .outdated), ("Send the invoice", "envelope", .queued),
-                ("Look for a flat", "building.2", .stopped),
+            let states: [(String, String, ItemState, String?)] = [
+                ("Reply to Sara about Sunday", "bubble.left", .needsYou, "Sara · today"),
+                ("Renew the passport", "doc", .later, "Later · tomorrow 9:00"),
+                (
+                    "Find a physio near home", "figure.walk", .underWay(progress: 0.4, estimate: "About 10 min left"),
+                    nil
+                ),
+                ("Waiting for the landlord", "house", .waitingOnSomeone, "Waiting for a reply · Thu"),
+                ("Book the dentist", "calendar", .settled, "Done"),
+                ("Tell Lena I'm late", "bubble.left", .undone("Deleted for both of you"), nil),
+                ("Old plan for Friday", "calendar", .outdated, "Sara wrote since"),
+                ("Send the invoice", "envelope", .queued, "Goes when you're back"),
+                ("Look for a flat", "building.2", .stopped, nil),
             ]
             return section("Thread item: every state; the first one unfolded") {
                 VStack(spacing: Metrics.Spacing.xs) {
                     ForEach(Array(states.enumerated()), id: \.offset) { i, item in
                         ThreadItemRow(
-                            title: item.0, state: item.2, icon: item.1, isOpen: opened.contains(i),
+                            title: item.0, state: item.2, icon: item.1, line: item.3, isOpen: opened.contains(i),
                             toggle: { if !opened.insert(i).inserted { opened.remove(i) } }
                         ) {
                             AskCard(

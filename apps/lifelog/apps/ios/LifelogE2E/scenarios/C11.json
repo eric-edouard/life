@@ -1,0 +1,17 @@
+{
+  "name": "Undo then Delete",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_settled_undo.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": [
+    "dec_000000000001"
+  ]
+}

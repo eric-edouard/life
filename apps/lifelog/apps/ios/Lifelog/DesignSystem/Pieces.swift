@@ -559,27 +559,47 @@ struct Row<Trailing: View>: View {
     var isInList = false
     @ViewBuilder var trailing: Trailing
 
+    @Environment(\.dynamicTypeSize) private var size
+
     var body: some View {
-        HStack(spacing: 12) {
-            if let icon {
-                Image(systemName: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
-                    .frame(width: 28).accessibilityHidden(true)
+        let text = VStack(alignment: .leading, spacing: 2) {
+            titleText.font(.rowTitle).foregroundStyle(Palette.fg)
+            TapLine(state: state, detail: detail, isInRow: true)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        let end = HStack(spacing: 8) {
+            if state == .asking || state == .saving { StateGlyph.busy }
+            if state != .asking { trailing }
+        }
+        .tint(Palette.fg)
+        // At the accessibility sizes the trailing control goes under the text, so no word is squeezed.
+        let stacked = size.isAccessibilitySize
+        return Group {
+            if stacked {
+                HStack(alignment: .top, spacing: 12) {
+                    iconView
+                    VStack(alignment: .leading, spacing: 8) {
+                        text; end
+                    }
+                }
+            } else {
+                HStack(spacing: 12) {
+                    iconView; text; end
+                }
             }
-            VStack(alignment: .leading, spacing: 2) {
-                titleText.font(.rowTitle).foregroundStyle(Palette.fg)
-                TapLine(state: state, detail: detail, isInRow: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 8) {
-                if state == .asking || state == .saving { StateGlyph.busy }
-                if state != .asking { trailing }
-            }
-            .tint(Palette.fg)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(minHeight: isInList ? nil : (state == .known && detail == nil ? 56 : 64))
         .contentShape(.rect)
+    }
+
+    @ViewBuilder private var iconView: some View {
+        if let icon {
+            Image(systemName: icon).font(.system(size: 22, weight: .regular)).foregroundStyle(iconTint)
+                .frame(width: 28).accessibilityHidden(true)
+        }
     }
 
     /// The name, and his mark after it on its last line (the flag as `SmallFlag` draws it).

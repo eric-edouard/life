@@ -17,14 +17,17 @@ struct AnswerPills: View {
     /// The id of an answer's button, for the end-to-end tests.
     var identify: (String) -> String? = { _ in nil }
     var say: (String) -> Void = { _ in }
+    @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
         let rest = answers.filter { $0 != recommended } + (hasLater ? ["Later"] : [])
+        // At the largest sizes each answer gets the full width: a word is never broken to fit two.
+        let per = size.isAccessibilitySize ? 1 : 2
         VStack(spacing: Metrics.Spacing.s) {
             if let recommended, answers.contains(recommended) { pill(recommended, .filled) }
-            ForEach(Array(stride(from: 0, to: rest.count, by: 2)), id: \.self) { i in
+            ForEach(Array(stride(from: 0, to: rest.count, by: per)), id: \.self) { i in
                 HStack(spacing: Metrics.Spacing.s) {
-                    ForEach(rest[i..<min(i + 2, rest.count)], id: \.self) { pill($0, .quiet) }
+                    ForEach(rest[i..<min(i + per, rest.count)], id: \.self) { pill($0, .quiet) }
                 }
             }
         }
@@ -39,17 +42,25 @@ struct AnswerPills: View {
     }
 }
 
-/// A question inside Life's answer: its answers stacked, the recommended one filled.
+/// A question inside Life's answer: its answers as equal pills side by side, the likelier one filled, on the right
+/// (owner, 24 Nov 2026). At the largest sizes they stack, each at full width.
 struct QuestionBlock: View {
     let answers: [String]
     var recommended: String?
     var say: (String) -> Void = { _ in }
+    @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
+        let order = answers.filter { $0 != recommended } + answers.filter { $0 == recommended }
+        let per = size.isAccessibilitySize ? 1 : 2
         VStack(spacing: Metrics.Spacing.s) {
-            ForEach(answers, id: \.self) { answer in
-                Button(answer) { say(answer) }.buttonStyle(
-                    .pill(answer == recommended ? .filled : .quiet, size: .row))
+            ForEach(Array(stride(from: 0, to: order.count, by: per)), id: \.self) { i in
+                HStack(spacing: Metrics.Spacing.s) {
+                    ForEach(order[i..<min(i + per, order.count)], id: \.self) { answer in
+                        Button(answer) { say(answer) }.buttonStyle(
+                            .pill(answer == recommended ? .filled : .quiet, size: .row))
+                    }
+                }
             }
         }
     }
@@ -86,8 +97,6 @@ struct AskCard: View {
     var taking: Binding<String>?
     var disabled: Set<String> = []
     var identify: (String) -> String? = { _ in nil }
-    /// A draft he has tried to send that did not go: its chat says "Not sent".
-    var hasFailed = false
     var say: (String) -> Void = { _ in }
     var isInItem = false
 
@@ -105,7 +114,7 @@ struct AskCard: View {
             }
             if let why { Text(why).font(.line).foregroundStyle(Palette.muted) }
             if let amounts { Text(amounts).font(.meta).foregroundStyle(Palette.faint) }
-            if let check, let draft = DraftBlock(check: check, hasFailed: hasFailed, isBoxed: false) {
+            if let check, let draft = DraftBlock(check: check, isBoxed: false) {
                 draft
                 if !edits.isEmpty { EditChips(edits: edits) }
             }

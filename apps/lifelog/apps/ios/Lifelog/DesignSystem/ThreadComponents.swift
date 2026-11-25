@@ -153,6 +153,8 @@ struct ThreadItemRow<Detail: View>: View {
     let title: String
     let state: ItemState
     var icon = "circle.dashed"
+    /// What the row says under its title: "Jade · today", "Later · 9:00", why it went out of date.
+    var line: String?
     var isOpen = false
     /// The ask's ref, when the row is a live ask: the end-to-end tests find its controls by it (`AID`).
     var ref: String?
@@ -170,6 +172,7 @@ struct ThreadItemRow<Detail: View>: View {
                         Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
                         lineView
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     mark
                 }
@@ -191,7 +194,7 @@ struct ThreadItemRow<Detail: View>: View {
             }
         case .undone(let outcome): Text(outcome).font(.line).foregroundStyle(Palette.muted)
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
-        default: EmptyView()
+        default: if let line { Text(line).font(.line).foregroundStyle(Palette.muted) }
         }
     }
 
@@ -328,6 +331,7 @@ struct NoticeBlock<Detail: View>: View {
                         Text(title).font(.rowTitle).multilineTextAlignment(.leading)
                         if let message { Text(message).font(.line).foregroundStyle(Palette.muted) }
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
