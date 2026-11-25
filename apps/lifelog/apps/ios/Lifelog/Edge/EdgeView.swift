@@ -57,7 +57,7 @@ enum AuraBands {
 
 /// The edge: a ring round the screen on every screen. It glides between states over about a second.
 /// brand.md's motion and colour exceptions (26 Nov 2026) name it as their home. The app draws nothing per frame: the
-/// lights are conic gradients the render server spins, under a ring mask drawn once (the glow's blurred once, kept).
+/// lights are conic gradients the render server spins, under a ring mask drawn once (the glow's blurred once per change).
 struct EdgeView: View {
     let state: EdgeState
     var aura = AuraSetting()
@@ -174,7 +174,6 @@ private final class AuraLayerView: UIView {
     private var look: AuraLook?
     private var laidOut = CGRect.zero
     private static let blurred = CIContext()
-    private nonisolated(unsafe) static var glowMasks: [String: CGImage] = [:]
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -224,13 +223,10 @@ private final class AuraLayerView: UIView {
         glow.band.spin(at: speed)
     }
 
-    /// The screen's rounded rectangle as a stroke, blurred (a gaussian of the glow's width) and kept
-    /// by width and size: the blur never runs per frame.
+    /// The screen's rounded rectangle as a stroke, blurred (a gaussian of the glow's width); drawn
+    /// once per glow change, never per frame.
     private func ring(width: CGFloat, blur: CGFloat) -> CGImage? {
-        let key = "\(bounds.size)|\(width)|\(blur)"
-        if let kept = Self.glowMasks[key] { return kept }
-        // ponytail: the screen's corner radius is a private key; 55 pt if it ever stops answering.
-        let radius = (window?.screen.value(forKey: "_displayCornerRadius") as? CGFloat) ?? 55
+        let radius = Metrics.Radius.screen
         let sharp = UIGraphicsImageRenderer(bounds: bounds).image { _ in
             UIColor.white.setStroke()
             let path = UIBezierPath(
@@ -240,8 +236,6 @@ private final class AuraLayerView: UIView {
         }
         guard blur > 0, let input = CIImage(image: sharp) else { return sharp.cgImage }
         let out = input.applyingGaussianBlur(sigma: blur).cropped(to: input.extent)
-        let image = Self.blurred.createCGImage(out, from: input.extent) ?? sharp.cgImage
-        Self.glowMasks[key] = image
-        return image
+        return Self.blurred.createCGImage(out, from: input.extent) ?? sharp.cgImage
     }
 }

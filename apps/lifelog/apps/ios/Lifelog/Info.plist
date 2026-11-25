@@ -6,6 +6,8 @@
 	<array>
 		<string>$(LIFELOG_BUNDLE_ID).processing</string>
 	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
@@ -50,8 +52,6 @@
 		<string>audio</string>
 		<string>remote-notification</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>
