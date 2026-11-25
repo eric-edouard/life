@@ -162,7 +162,8 @@ the item shows.
   mark, the pendant, €), its title the one-line fix ("Sign WhatsApp back in"), its line what it costs and since when
   ("Can't send on WhatsApp · since 11:02"), its body the steps, spoon-fed for where he is, its answers the fix and
   Later in his situation's words. It ranks first in what waits ("what is broken comes first") and has every state of
-  an ask. The caretaker writes it from what Life knows: at home by the Mac, the steps; away, its main answer is
+  an ask. Life's code writes it from a fixed list of failures it knows how to fix (the owner, 25 Nov 2026; the
+  caretaker takes only what is not on the list): at home by the Mac, the steps; away, its main answer is
   "Remind me when I'm home", which wakes it on his arrival. It offers only a step Life can really do.
 - What he can do nothing about right now is not an ask but a notice: an ask's header and nothing else (owner, 23 Nov
   2026), so the thread has one shape for anything Life puts in front of him. Its mark in the face (no signal, the Mac),

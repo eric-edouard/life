@@ -1,259 +1,282 @@
 # Life v4: where the plan stands, and why
 
-Explanation: the reasoning behind each recommendation of [the v4 plan](README.md), on every "to weigh", open
-question and note of issue #1373, on issue #1376, on Settings, on how answers are drawn, on the pi audit and on the
-open issues. Each section ends on its recommendation and the PR that carries it.
+Explanation: the reasoning behind each verdict of [the v4 plan](README.md), on every "to weigh", open question and
+note of issue #1373, on issue #1376, and on the owner's review of 25 Nov 2026. Most of that review was input, not
+decisions; where this page disagrees with it, or concludes that what exists was right, it says so. Each section
+ends on its verdict and the bundle that carries it.
 
-## The main session gates every ask
+## The gate on every ask
 
-The idea is right about the goal: something that knows the owner's load should stand between an agent and the
-owner's attention, and the fixed order by card kind is not that. It is wrong only about where to run it. Three
-facts from the code decide.
+The goal is right: something that knows the owner's load should stand between an agent and the owner's attention,
+and a fixed order by card kind is not that. The only question was where it runs. The main session takes one ask
+at a time (`desk/main-session.ts:311`), so a turn per card would make the owner's own question wait behind cards,
+and its session would grow by every card ever asked. And what the main session "knows" is not in its head: the
+instructions, what is open, the last exchanges and the hour are records code can hand to any call.
 
-The main session takes one ask at a time (`desk/main-session.ts:311`). A turn per card would make the owner's own
-question wait behind cards, on the session whose speed matters most. Its session would also grow by every card
-ever asked, which every later answer then pays for. And what the main session "knows" is not in its head: the
-owner's instructions, what is open, the last exchanges and the hour are all records that code can hand to any
-call. Safety is not the argument: the main session already reads other people's messages as data, and `said`
-protects each of its acts whatever it has read.
+So the gate is a call with no tools, on the agents' own model (DeepSeek Flash; v4 has one model), given the card
+as the phone would show it and that packet. Following Nod's proactivity code (`src/server/proactivity.ts`), the
+model does not decide delivery: it returns four readings (importance, urgency, whether now is a good moment,
+whether the owner can act now) and an optional note to the agent, and code decides. A model cannot talk a card
+past a limit, and the four measures stay apart as the personalization research asks.
 
-So the gate is a model call with no tools (as every memory step is), given the card as the phone would show it and
-that packet. Following Nod's proactivity design, which holds up in its code (`src/server/proactivity.ts`), the model
-does not decide delivery. It returns readings: importance, urgency, whether now is a good moment, whether the owner
-can act now, and an optional note to the agent (a clearer question, a better draft, something the agent can settle
-itself). Code turns the readings into deliver, hold or send back. This keeps the four measures apart, as the
-personalization research asks, and it means a model cannot talk a card past a limit.
-
-The limits are in the plan (never held past three hours before a deadline, 12 hours at most, sent back once, fail
-open in 10 seconds, fix asks and follow-ups skip it). Cost: cards waiting are read in one call on the fast tier,
-under 0.2 cent a card at today's prices. A card sent back wakes its agent with facts only, and the agent reads
-the gate's note at its door as data, so it learns within its session and no wake carries words. Every verdict is a `delivered` line. Issue #784's steps 2 and 3
-(a draft check and a "could you do this yourself?" check at Life's door) are this gate's send-back and are not
-built apart.
-
-It runs in shadow for a week first: verdicts recorded, nothing changed, then read against what the owner did with
-each card. Recommendation: yes, in this form (PR 7, question 1).
+It is live from the first day (the owner, 25 Nov). That is sound because the limits are code's: a deadline is
+never passed, 12 hours at most, one send-back, and any failure lets the card through. Every verdict is a
+`delivered` line, so a wrong call is seen and corrected by an instruction or a fix, not by a week of watching.
+Issue #784's draft check and "could you do this yourself?" check are this gate's send-back. Bundle E.
 
 ### "How am I doing?"
 
-Worth having, because it is the only signal that says whether asking at all was right; an accepted first option
-only says the option was fine. Two marks, not four: a four-step scale asks the owner to grade, which is thinking,
-and its extra resolution serves the builder. Code samples it: at most once a day, never on two asks in a row,
-never within an hour of a deadline, twice as likely for an asker's first five cards. No answer writes nothing and
-changes nothing. An answer is a `rated` line with the ask as shown; in v4 it feeds one thing, the gate's packet
-(the last twenty ratings as examples). The marks are a thumb up and a thumb down, no words. Recommendation: yes
-(PR 7, question 2).
+Worth having: it is the only signal of whether asking at all was right. The first draft of this plan argued for
+two marks; the owner chose three (down, up, delighted) and a cross to dismiss, and that is a question of feel
+that is the owner's to settle. What stays from the plan: code samples it, at most once a day, never on two asks
+in a row; the cross and silence write nothing. An answer is a `rated` line; in v4 it feeds the gate's packet as
+examples. Bundle E.
 
 ## Agents working together
 
-The gap the owner names is real: "Where are we with the plumber?" should reach what the agent knows. Most of what
-it knows is already Life's record, by the owner's own rule that nothing rests on an agent's memory: the
-assignment's wait, its reason, its notes file and its open cards. The main session cannot read those today. Giving
-it that read answers the common case at once, with no agent turn.
+"Where are we with the plumber?" should reach what the agent knows. Most of that is already Life's record, by the
+owner's own rule that nothing rests on an agent's memory: the assignment's wait, its reason, its notes, its open
+cards. The main session cannot read them today; giving it that read answers the common case at once. When it is
+not enough, the main session asks the agent, which has 60 seconds. Research stays in the agent's context: the
+main session gets the answer, not the pages read to reach it, which keeps its own session small and fast.
 
-When the record is not enough, `tell_agent` gains a reply. The words are the owner's (found in the ask, as today);
-the desk gives the holding agent one turn; its reply returns as data, read like any chat the main session opens,
-and no act can take its `said` from it. Sixty seconds, then Life answers from the
-record and the reply lands in the thread later. One step on screen, "Checking on the plumber", never a name.
+The reply enters the main session as data, like every chat and mail it already reads; an act still takes `said`
+from the owner's words of that ask alone. Free agent-to-agent chat: no. Content would travel with no record of
+where it came from, and two agents would each believe the other owns the next step. From OpenBot, ideas only: a
+message to a busy agent is queued, delegated work needs an explicit reply and never moves ownership, bounds by
+count. Bundles A and B, in the first wave (the owner, 25 Nov).
 
-Free agent-to-agent chat: no. Content one agent read would travel to another with no record of where it came from,
-and two agents would each believe the other owns the next step. Life's records are the shared channel, and the desk
-is the only dispatcher.
+## Plan cards, and which arrivals become work
 
-From OpenBot, ideas only (its licence forbids its code): a busy agent's incoming message is queued or steers the
-turn (Ask Life's queue and cancel, PR 4); delegated work needs an explicit reply and keeps its parent's owner (the
-reply above; a question never moves an assignment); bounds by count (one open question per assignment). Not taken:
-shared channels, reactions and file transfers between agents, its many runtimes (ACP is already there), agents made
-from a prompt (the owner never sees agents), its embedded browser (later, behind the guard). Recommendation: the
-record read and the reply (PR 9).
+The owner asked for a step back: plan cards were never designed, and a cleaning company writing "thanks for your
+payment, we'll come tomorrow at 12" surely needs none.
 
-## Is Life too opinionated about projects and matters?
+On arrivals, the step back finds the present design right. The arrival reader's confirm already leaves out "what
+others will do; greetings, thanks, reactions, news, receipts", and a matter needs "something to be done or
+awaited" that can end. So that message wakes no agent and is no matter. The one thing Life may do with it is its
+own appointment read: if it judges a visit agreed, it adds it to the calendar as Life's own event, free and
+removable, and says so once. That is the right rung of acting without asking. Nothing here needs a prompt change.
 
-Partly, and the part that is can go.
+On plan cards, the step back finds the rule wrong. It makes an agent ask permission to read, research and draft,
+which need none: the Mac and the web are free, and every step that does need the owner (anything outward,
+anything that spends, anything only the owner can do) is already a card on the exact thing. The rule's effect
+today is a first ask that carries no decision, and a door that refuses `finish` before a card, so an agent woken
+on an arrival that needs nothing cannot simply end. The verdict is to remove the rule, not to add exceptions to
+it. A plan's steps stay as an optional body of any card, for saying what happens after a yes. What replaces the
+rule as a bound is cheaper than an ask: the two-hour close on work that neither asked nor waits, the seven-day
+wait, the 3-dollar stop.
 
-Matters earn their place. They are Life's reading, not the owner's filing; they are what the thread shows as an
-item; cards, done, dropped and deletion hang on them; and they bound what an agent reads. An agent that organised
-its own work with no matters would have to rebuild the same thing in its notes, where the owner could neither see
-nor correct it. On the default model (DeepSeek Flash), structure is also what makes a cheap model reliable. The
-systems that let agents organise themselves, Nod included, track tasks in a table with one owner each and a unique
-key per piece of proactive work: the same structure under another name, and none of them holds a person's whole
-life.
+The "in between" message (a conversation that a short "thank you, see you tomorrow" would close): this is not a
+new kind of ask. Asking the owner to approve a thanks costs more attention than typing it. By default Life drafts
+none. Where an instruction asks for it ("close conversations politely with the cleaner"), it is an ordinary draft
+with a day's deadline whose silence sends nothing, which the gate rates low and never pushes. Bundle A; the rule's
+removal is question 19.
 
-Projects do not earn the routing they have. Which agent works on the plumber depends today on whether a Home
-project exists and has an agent: a filing choice. The only real reason for a second agent is capability: an agent
-that works in a repo needs that repo's folder, rules and session. So a project gets an agent only when it has
-`repos:`; every other matter goes to the Personal agent, and "life admin" needs no concept. Projects stay as a
-grouping the owner names when one helps, and the ruling that Ask Life can make a Home project stands: it makes a
-label.
+## Projects: label or container of context
 
-What this costs is one honest risk: one agent, one session, holding every life matter. Each wake would load
-context from unrelated matters, which costs tokens and mixes one matter's messages with another's drafts. PR 1
-measures it. If a Personal turn carries more than twice a project agent's context, the Personal agent should run a
-session per assignment, with the desk still the only one that opens them. That reverses the 20 Nov ruling for one
-agent, so it is the owner's (question 7).
+The first draft said projects "become a label" while a project "has an agent when it has a repo". The owner found
+that contradictory, and it was: a thing with repos, people, chats and deadlines is not a label.
 
-What stays fixed by code: who acts, the gates, deletion, the audit trail, the owner's corrections. What an agent
-works out itself: how to do the work inside an assignment, in its notes and with subagents, as today.
-Recommendation: matters stay, projects become a label, routing by repo (PR 9, question 6).
+The code settles what a project is. Its file in the owner's directory holds a status, an area, people, chats,
+repos, deadlines and a free-text body; each night Life writes the project's situation from its running matters;
+and the packet gives every agent working on a matter the context of each project that matter is under: the
+header, the body, the situation (`desk/agent-actions.ts:720-760`). So a project is already a container of context
+shared by the agents on its matters, whoever they are. What the plan changes is only who acts: the worker no
+longer follows the filing. A dedicated agent exists where the context includes a place to work, a repo, since
+code work needs that folder, its rules and its own session. Everything else goes to the Personal agent, which
+reads the same project context. One sentence: a project holds context, never agents, and a repo is context that
+calls for a dedicated worker.
 
-Issue #713 (Life proposes changes to projects, agents and pace) is mostly a builder's view under this model: the
-owner never sees agents or pace, so asking about them is load. The desk ends an idle agent itself; the gate
-replaces the pace on cards; Life does not suggest filing. Its one user-facing part, a source that stopped, is the
-fix ask.
+Should a project also hold knowledge that its agents write and other agents read? The honest weighing:
 
-## The personalization foundation
+For it: knowledge larger than one matter (the contractor always quotes high, the landlord answers only by mail)
+is useful the same day, and today it reaches other agents only through the night.
 
-The research is right on sequencing: lay the contract now or the gate, the push and the drafts each grow their
-own. It overreaches on the learner, which stays in the prediction plan.
+Against it: it would be a second memory. Written by models, so interpretation would be stored where other agents
+read it as fact, against the owner's own point that only what happened is sure. Outside the checks every memory
+line passes (a quote verified against its source). Outside deletion and correction, which reach `memory/` and
+nothing else. And with several writers, which the memory avoids with one lock.
 
-Where instructions live: `memory/instructions.jsonl`, append-only, one line per instruction, the latest per id
-ruling, written by one function as the owner's single lines already are (a correction, a fact-check answer). Not
-`truth/`: that is the directory of who and what, strict YAML the owner may edit by hand, and a line that expires
-on Monday and replaces last week's does not belong in it. Not settings: those are read once per process, so
-nothing the owner can change by voice may live there. An append-only file read through `readAppended` is fresh in
-every process at the next read, which gives "takes effect at the next turn or send" with no cache to invalidate.
+And the path already exists: what an agent did enters the memory as the agent's source, the night extracts facts
+from it with their quotes, and the project's situation is rebuilt from them. That is slower by a day and right in
+every other way. The same-day gap is closed without a new store: an agent can read the records of the other
+assignments under the same project, as the main session can.
 
-An instruction has a scope, the owner's words, an optional end, the one it replaces, and optionally one effect from
-a closed list that code enforces: `quiet` and `interrupt` (the push and the gate), `drafts` and `no-drafts` (smart
-mode), `intention` (a standing intention). Everything else is text for a model to follow. The closed list is small
-on purpose: an effect exists only when some code enforces it.
+Verdict: no store of project knowledge written by agents. A project's context is the owner's declaration, Life's
+nightly situation, and its matters' records. A matter can be under several projects, as the data model already
+allows. The owner's idea of a line of what a project is about, read by the matters step to group matters, is
+good and is the body's first line; but it is a new version of the matters prompt, which regroups everything and
+changes every matter's id, so it comes after v4, proved on a few weeks of a copy first (question 24). A project's
+view is an answer built from its matters, and its mark is additive UI. One gap found on the way: deletion does
+not reach the agents' notes; the brief keeps the owner's words out of them, and closing the gap is named as
+later. Bundle A.
 
-One reader, `instructionsFor`, given the people, project, matter and channel at hand. Its callers in v4: the main
-session's brief, an agent's packet, a draft's start, the gate, `levelOf`. Precedence follows Nod's rule, which is
-sound: within a scope a refusal beats a grant, and a later correction changes only what it addresses.
+Matters themselves stay. They are Life's reading, what the thread shows as an item, what cards, done and deletion
+hang on, and what bounds an agent's reads. On a cheap model, structure is what makes the work reliable; the
+systems that let agents organise themselves, Nod included, keep a task table with one owner each and a unique key
+per piece of proactive work, the same structure by another name. Issue #713 (Life proposes changes to projects,
+agents and pace) is closed by doing instead of asking: the desk ends an idle agent, the gate and the pace are
+Life's insides, and the one part the owner should see, a source that stopped, is the fix ask.
 
-Inferred preferences get their place in the contract (a `source` of `said` or `inferred` on what the reader
-returns) and no writer in v4. The decision records start keeping what a learner will need: `recommended` and the
-instruction ids on the `asked` line; the four readings, the level and the position shown on `delivered`;
-`answer-withdrawn` and `rated`; and the `deferred` correction. A standing intention is an instruction with an assignment, as the plan
-says. Recommendation: as above (PR 3, PR 7, question 5).
+## What `truth/` is
+
+The owner finds the name misleading: only what happened is sure, and nothing in that folder is a record of what
+happened. That is correct, and the folder never claimed otherwise in the code, where its one writer is
+`changeDirectoryEntry` and its entries are "directory entries". It holds what the owner declares to exist and how
+it is named: people, organizations, chats, areas, projects, and in `me.md` who the owner is, the goals and what
+Life may keep. It is not a store of facts (those are observations, with their sources), and not a store of the
+owner's dated statements either: corrections, labels, what the owner told Life and fact-check answers are
+appended lines in `memory/`.
+
+So the folder is the owner's directory, and `directory/` is its name; the code already says so everywhere but in
+the path. That also answers where instructions go. An instruction is not a declaration that something exists; it
+is a dated statement that ends and is replaced, the same kind of thing as a correction. It belongs with the
+appended lines, in `memory/instructions.jsonl`, read fresh by every process at its next read (settings are read
+once per process, so nothing changeable by voice can live there).
+
+The rename (#1379) depends on three things: the owner's yes to the name; one exception to "`truth/` is never
+migrated", for moving the folder once with its files untouched; and the server bundles having landed, since it
+touches 113 places in 38 server files. Bundle Z; questions 5 and 21.
+
+## Memory in git
+
+Nod was read for this ([`nod.md`](nod.md)). Its memory is one JSON document of at most 256 KiB in a Postgres
+row, built only from the user's chat messages, with the whole of it placed in every prompt. No git, no files, no
+index. It cannot hold ten years of many sources and is no model for Life.
+
+Is git right for Life? For what it is used for, yes. The data repo holds append-only lines and derived text; git
+adds a diff of every night, a rollback of one bad night, plain files with no server, and a backup that is a
+folder. Its limits are real and known: history keeps what was deleted (Life applies a deletion at read, and
+`SECURITY.md` says a purge needs code that does not exist); it answers no query (the index does); and it wants
+one committer (the lock gives that). None of those argues for another store; two of them argue for work later: a
+purge that rewrites history, and a measure of how the repo grows with files rewritten every night. Git would be
+the wrong store for knowledge with several writers, which is one more reason not to build that.
+
+Verdict: git stays, for memory and the directory. No project knowledge in git or anywhere else. From Nod's memory
+only ideas Life already has: a quote checked against its source, only the owner's words making a stated fact.
+
+## Quick or long work
+
+The owner's input is right and fits what exists. The main session should not decide by rule whether a redraft is
+quick; it should know how long each kind of work takes and choose. The desk already times every turn. So handed
+work carries a kind from a closed list, and `estimateOf` reads the median time of that kind's recent runs; the
+main session sees those numbers in its packet, does in its own turn what fits a chat reply, and hands the rest.
+Handed work is a thread item under way with its estimate; its result lands as a follow-up. The wire carries the
+state, the kind, the estimate and since when; the look is the owner's next prototype.
+
+This also answers Adjust. A quick redraft is the main session's own replacement card, which needs to take the
+open card's place at once (question 10); a long one goes to the card's agent and shows under way. Bundle B.
+
+## Personalizing behaviour
+
+The owner's list, weighed. Batching asks into set moments: yes, an effect the gate enforces. What Later means:
+yes, one effect read when Later is tapped. How proactive per project: yes, as `hands-off`, which the hand-out
+enforces. How much Life does alone before asking: no effect, because there is nothing left for it to switch.
+Once plan cards go, everything that needs no send, no spend and no deletion is done without asking, and those
+three stay fixed. An effect that changes nothing would be a dial for its own sake.
+
+The rule for the list stays: an effect exists only when some code enforces it; everything else is text a model
+follows. Bundles A, D and E; question 23.
+
+## Settings, and finding them
+
+The owner's version is better than the plan's small page: no page at all. Settings are a component of the answer
+catalog whose switches act in place on the owner's token, and "what can I change?" shows all of them in one
+block. Offline, when Life cannot answer, the phone's own notice unfolds to the settings that live on the phone
+(the pendant, pairing again, Face ID before Send, appearance), built by the app alone. This removes the page and
+the quiet mark the first draft added to reach it.
+
+Discoverability is the real risk of having no page, and offering a setting at the moment it helps is the right
+answer, with one caution: every offer is an ask. So offers come from a fixed list in code, at most one a week,
+never the same one twice. The field's fixed suggestions carry one ability not yet used. Bundles B, E and P3;
+question 22 for the one setting the Mac holds.
+
+## Undo of a send
+
+The spec said a send never has Undo. The owner asks for it where a platform allows, and that is right: the
+platforms do it, and "deleted for both, they'll see that a message was deleted" is honest.
+
+What each allows, as far as it could be checked from outside (windows change; the last column is what matters):
+
+| Channel | Take back for everyone | What the other side sees | Through Life's route |
+|---|---|---|---|
+| WhatsApp | Yes, for about two and a half days | "This message was deleted" | The bridge maps a Matrix redaction to it |
+| Telegram | Yes, no limit in private chats | The message disappears | The bridge maps a redaction |
+| Messenger, Instagram | Yes; windows reported differently | "Unsent a message" | The bridge lists redactions as supported |
+| LINE | Yes, an hour (longer on its paid plan) | "Unsent a message" | Not verified |
+| LinkedIn | Yes, about an hour | The message removed | Not verified |
+| iMessage | Two minutes, in the app only | Older systems still show it | No: Messages.app cannot unsend from a script |
+| Mail | No | — | No |
+| GitHub comment | Yes | The comment gone; mails already sent | `gh api -X DELETE` |
+
+Two rules follow. Life never hardcodes a window: it reads the chat's own features when Undo is tapped (the
+bridges publish `delete` and `delete_max_age`; Life reads neither today), and shows Undo only when they allow it.
+And it says "Deleted" only on the bridge's confirmation, since a redaction can succeed on Life's side and fail on
+the network's. A notification already delivered keeps the text on every network, and the Undo line does not
+pretend otherwise. Each network's Undo is switched on after one real try. Mail could get a true undo by delaying
+every send a few seconds; that changes when a send happens, so it is not in v4. Bundle D; question 20.
 
 ## Direct and smart mode (#1376)
 
-Direct mode asks the owner to silence every messaging app and trust one Mac to deliver everything within seconds.
-Today a message takes up to five minutes to be read as an arrival, and a closed lid delivers nothing. Getting to
-seconds is possible (the archive copies every 5 seconds; a push straight from the copy, with the phone reading the
-message itself, would do it) but the failure case is the whole of the owner's messaging going silent, and the only
-defence is a second path that does not exist yet. For a mode whose gain over the apps' own notifications is one
-tidier lock screen, that is the wrong trade to make first.
-
-Smart mode is where Life adds something no app does: one notification, hours later, with the reply ready. Its rule
-is in the plan (the arrival reader's yes, a person who has a page, the owner's usual reply time passed, withdrawn
-when the owner answers). The agent drafts early and quietly so the card is ready the moment it is due; wasted
-drafts cost fractions of a cent.
-
-Who Life answers for: people who have a page, by default; "never draft to my mother" and "let Life answer for
-Sam" are instructions with the `no-drafts` and `drafts` effects. No setup card and no list of everyone, which the
-settings board itself flagged as a chore. The words "direct" and "smart" never show.
-
-v4 builds what direct mode would need and smart mode already wants: the notice when Life can't be reached, and
-per-person instructions. Recommendation: smart only in v4; direct mode in its own plan (PR 7, question 3).
-
-## Settings
-
-The board's recommendations hold, cut to what the first app needs.
-
-How the owner wants things: said in the thread (1B), answered by one line with Undo ("I'll keep the kitchen quiet
-until Monday"); "what have I told you" is an answer that lists them. A person's profile shows what was set for
-that person (1C), one more section fed by the same reader. No page of all choices (1A): it grows, and nobody opens
-it.
-
-Something broken: the fix ask comes first in the thread and in the count, and the count's button turns coral (2B).
-The Mac itself down is the armed local notification (the board's 2C, done without an outside service; the mail path
-needs one and would add to what leaves the Mac, so it waits for direct mode).
-
-Mode: nothing to set (3A and 3C wait for direct mode).
-
-What is left is one small pushed page: the Mac and the pendant with their state, Face ID before Send, the monthly
-amount, and one row for the developer (diagnostics, kept code). It opens when asked for, and from a quiet mark at
-the bottom of the pendant sheet, because re-pairing must be reachable when Life cannot answer. Face ID before Send
-is a switch on that page only: turning a protection off by voice would need Face ID anyway, so Life answers that
-request by showing the page.
+Direct mode asks the owner to silence every messaging app and trust one Mac to deliver everything within
+seconds. Its failure case is all of the owner's messaging going silent, and the second path that would guard it
+does not exist. Smart mode is where Life adds what no app does: one notification, hours later, with the reply
+ready. v4 ships smart mode, and builds two things direct mode would need anyway: the notice when Life can't be
+reached, and per-person instructions. The owner agreed on 25 Nov. Bundle E.
 
 ## How answers are drawn
 
-Four ways were on the table. The owner's real questions settle it: a bead order wants a table, a receipt its own
-type, a phrase to show a shopkeeper, and no fixed set of whole blocks foresees the next one.
-
-Generated HTML is out: slow, costly in tokens, and it gives up Dynamic Type, VoiceOver and the brand. Fixed whole
-blocks are too few shapes. A2UI 1.0 now answers the earlier objections, but once Life's catalog replaces its basic
-one, its acts become renderer-only and its data becomes refs, what remains is an envelope, paid for with a Swift
-package still at 0.12, a build plugin Xcode must trust and a 200 MB checkout.
-
-So: components composed from Life's own catalog, as the answer-components page proposes, carried as fenced blocks
-in the Markdown the session already writes. That last choice matters for speed: there is no `answer` tool call
-and no second round trip, words stream as they come, and a model writes Markdown with fenced JSON very reliably.
-The rules of the answer-components page all hold: refs and never copies for what Life holds, written values
-checked against `from`, no style in any block, nothing composed can act (only `items` act, through the owner's
-own answers), a miss recorded when nothing fits.
-
-Room for what follows v4: a component is a schema, a view and a brief line; the catalog has a version the phone
-declares; the shape (flat blocks, a catalog the client owns, acts the agent cannot call) is A2UI's, so wrapping it
-in A2UI later, if its Swift side settles, is a change of envelope and not of components (PR 4, PR 6).
+Generated HTML is slow, costly, and gives up Dynamic Type, VoiceOver and the brand. Fixed whole blocks are too
+few shapes for the owner's real questions. A2UI 1.0 answers the earlier objections, but with Life's catalog,
+renderer-only acts and refs in place of data, what remains is an envelope, paid for with a Swift package at 0.12,
+a build plugin and a 200 MB checkout. So: components composed from Life's own catalog, carried as fenced blocks
+in the Markdown the session already writes. There is no `answer` tool call, words stream, and a model writes
+Markdown with fenced JSON reliably. The rules of the answer-components page hold: refs and never copies, written
+values checked against `from`, no style, nothing composed can act. The shape (flat blocks, a catalog the client
+owns) is A2UI's, so wrapping it later is a change of envelope. Bundles B and P2.
 
 ## The other notes of #1373
 
-Sends approved in an agent's chat, or in Claude Code. In the Life app there is no agent's chat: the thread is the
-chat, and a draft with its Send button in it is this note, built. In one of the owner's own Claude Code sessions
-the path exists and stays: the session asks the card as `owner` and answers it once the owner approved the exact
-text there. The decision line is still written, because it is the record of every send; what goes is the card on
-the phone, which shows such a send only as history when asked. No new send path, no invariant changed.
+Sends approved in an agent's chat, or in Claude Code: in the Life app the thread is the chat, and a draft with
+its Send in it is this note, built. In one of the owner's own Claude Code sessions the existing path stays (the
+card asked as `owner`, answered once the exact text was approved there); the decision line is still written as
+the record of the send.
 
-"Draft an answer for X?" Not for a reply (the draft is the ask). It is the plan card of longer work, which stays.
-
-Standing intentions. In the foundation (PR 3's `intention` effect, PR 9's assignment). The nudge is an ask through
-the gate, so it waits when the owner is loaded, and its Later is the ordinary one.
-
-Mac admin access. Later, in the security plan. Its shape when it comes: the password entered once into the
-Keychain by the app, never seen by Life or an agent; each use an ask that names the exact command and what it does
-to the machine, answered by a tap; no automatic mode until a check that reads only the program's text has been
-measured. Nod has nothing for sudo to borrow.
-
-Life or the Voice host unreachable. Fixed in PR 7: a notice in the thread judged by the phone, and the armed local
-notification when the app is closed.
-
-The default model on OpenRouter. Already `deepseek/deepseek-v4.1-flash-1017` for every pi turn
-(`models/llm.ts`, `routed`). v4 keeps it and varies only the effort by turn.
-
-Remind me. The Later pill, with Life picking the time and other times said (question 8).
-
-Adjust. Said or typed with the draft unfolded; the main session asks the replacement on those words; the field
-suggests "Shorter" and "Warmer" from the card's `follow` (PR 5, question 10).
-
-The monthly budget. In PR 7, as the plan says: soft, projected, asked once, subscriptions not counted.
+Standing intentions: an instruction with an assignment (bundle A). Mac admin access: later, in the security
+plan; Nod has nothing for sudo. Life or the Voice host unreachable: the notice and the armed notification
+(bundles E and P3). The default model on OpenRouter is already DeepSeek Flash 4.1 1017 for every pi turn. The
+monthly budget: bundle E, soft, subscriptions not counted.
 
 ## The pi audit
 
-Its conclusion holds: keep pi; the gains are in Life's configuration and request flow. Its ranks, weighed.
+Its conclusion holds: keep pi; the gains are in Life's configuration and request flow.
 
 | Gap | Verdict |
 |---|---|
-| Tool schemas deferred | Measure first (PR 1). Life's model caches a stable prefix, so the gain may be small. Done in PR 4 only above a fifth of a turn's uncached input |
-| Model and effort by task | Effort yes (PR 4). A second model no: one more thing to prove, and the bench has no case for it yet |
-| Provider failover | The route already names two hosts. Added: background turns pause on a failing provider, the owner's asks still try (PR 4) |
-| Cold starts | Only the main session's matter to the owner, and it is kept warm. A background turn's start is unseen. Measured in PR 1, nothing built |
-| Steer, queue, cancel | Queue and cancel yes (PR 4). Steering a running answer no: a second message is a second ask |
-| Web and documents, browser and desktop tools | Later, behind the guard |
+| Tool schemas deferred | Recorded by C; built later only above a fifth of a turn's uncached input |
+| Model and effort by task | Effort yes (C). A second model no |
+| Provider failover | The route names two hosts; background turns pause on a failing provider (C) |
+| Cold starts | Only the main session's matter to the owner, and it is kept warm |
+| Steer, queue, cancel | Queue and cancel (C, B). Steering no: a second message is a second ask |
+| Web, documents, browser and desktop tools | Later, behind the guard |
 | Subagents with their own model | No |
-
-The audit's benchmark is one outside run on other tasks; nothing in the plan rests on it.
 
 ## The open issues
 
 | Issue | Position |
 |---|---|
-| #784 agent gating | Step 1 in PR 3; steps 2 and 3 are the gate's send-back (PR 7); step 4 is the stops in PR 4 and PR 7 |
-| #785 fresh wakes | PR 3: the delay on the owner's own promises, the brief rule; the gate holds the rest |
-| #713 Life proposes changes | No to suggestions about projects, agents and pace; the stopped source is the fix ask (PR 7) |
-| #842 the matter id on a decision | PR 3 |
-| #722 an answer reads the whole inbox | PR 5 |
-| #1006 payment and event cards | Closed in PR 1 after checking #1093 |
-| #1341 ask card follow-ups | Closed with the old app (PR 2) |
-| #869 pi built in, Codex on demand | PR 10 |
-| #1150, #846, #766 flaky tests | Settled in PR 1 |
-| #1243 | Not a flaky test: phone leftovers, closed in PR 2 |
-| #655 the desk renamed | Yes, after v4 (PR 10): during it, every PR would conflict |
-| #1030 glossary names | PR 1, in the glossary only |
+| #784 agent gating | The self-check line in A; the gate's send-back in E; the stops in C and E |
+| #785 fresh wakes | A: the delay on the owner's own promises; E: the gate holds the rest |
+| #713 Life proposes changes | No to suggestions about projects, agents and pace; the stopped source is the fix ask (E) |
+| #842 the matter id on a decision | A |
+| #722 an answer reads the whole inbox | D |
+| #1006 payment and event cards | Closed in C after checking #1093 |
+| #1341 ask card follow-ups | Closed with the old app (P1) |
+| #869 pi built in, Codex on demand | Z |
+| #1150, #846, #766 flaky tests | Settled in C |
+| #1243 | Not a flaky test: phone leftovers, closed in P1 |
+| #655 the desk renamed, #1379 `truth/` renamed | Z, after the server bundles |
+| #1030 glossary names | C, in the glossary only |
 | #1274, #1271, #1377, #982, #981, #983, #748, #1016 | Later, not in v4 |
 
 Next: [what v4 takes from Nod](nod.md).
