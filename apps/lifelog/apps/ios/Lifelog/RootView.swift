@@ -20,6 +20,8 @@ struct RootView: View {
     @FocusState private var isAsking: Bool
     /// A pairing is being checked (`PairSheet`): another pairing link waits for it.
     @State private var isPairing = false
+    /// A pairing link that came while a sheet was up: asked once that sheet has gone.
+    @State private var pendingPair: PairOffer?
 
     private enum Sheet: Identifiable {
         case pendant, settings, link(String)
@@ -75,7 +77,15 @@ struct RootView: View {
         }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it.
         .overlay { EdgeView(state: edge) }
-        .sheet(item: $sheet) { sheet in
+        .sheet(
+            item: $sheet,
+            onDismiss: {
+                if let offer = pendingPair {
+                    pendingPair = nil
+                    sheet = .pair(offer)
+                }
+            }
+        ) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack()
             case .settings: SettingsPage().toolbar { CloseItem { self.sheet = nil } }.sheetStack()
@@ -107,16 +117,25 @@ struct RootView: View {
                 }
             }
         }
+        // The ask he was sent to is let go once it is answered or settled.
+        .onChange(of: life.focused.flatMap(life.ask)?.state) { old, new in
+            if old != nil, let new, [.underWay, .settled, .outdated].contains(new) { life.clearFocus() }
+        }
         .onChange(of: life.isOutOfReach) { if !life.isOutOfReach { Task { await life.flushQueued() } } }
         // `lifelog://pair?...` (from the Camera or pasted in Settings) is asked here, never applied alone;
         // `lifelog://open?ref=...` opens a `life:` ref (`LinkAction`).
         .onOpenURL { url in
-            switch LinkAction(url: url, isPairLink: PairOffer(link: url) != nil, isPairing: isPairing) {
+            let offer = PairOffer(link: url)
+            switch LinkAction(url: url, isPairLink: offer != nil, isPairing: isPairing) {
             case .pair:
-                guard let offer = PairOffer(link: url) else { return }
-                // Over an open sheet: it goes first, the pairing is presented on the next turn.
-                sheet = nil
-                Task { sheet = .pair(offer) }
+                guard let offer else { return }
+                // Over an open sheet: it goes first, and the pairing is presented when it has gone.
+                if sheet == nil {
+                    sheet = .pair(offer)
+                } else {
+                    pendingPair = offer
+                    sheet = nil
+                }
             case .open(let ref): open(ref)
             case .ignore: break
             }
