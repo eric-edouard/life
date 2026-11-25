@@ -2,6 +2,11 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
+
+const IS_MONO = /isMono/;
+const BLOCK_SWIFT = /static let block: CGFloat = (\d+)/;
+const BLOCK_CSS = /--block-radius:\s*([\d.]+)px/;
+
 import { C, RADIUS, SANS } from "@life/server/src/memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
@@ -120,7 +125,7 @@ test("the phone's tint, glass, wash, aura colours, type scale and block radius a
     [...type.matchAll(/TypeStep\(size: ([\d.]+), weight: (\d+)/g)]
       .filter(
         (m) =>
-          !/isMono/.test(
+          !IS_MONO.test(
             m.input?.split("\n").find((l) => l.includes(m[0])) ?? ""
           )
       )
@@ -134,8 +139,8 @@ test("the phone's tint, glass, wash, aura colours, type scale and block radius a
     }
   }
   const metrics = await asset("apps/lifelog/apps/ios/Shared/Metrics.swift");
-  expect(Number(metrics.match(/static let block: CGFloat = (\d+)/)?.[1])).toBe(
-    Number.parseFloat(tokens.match(/--block-radius:\s*([\d.]+)px/)?.[1] ?? "")
+  expect(Number(metrics.match(BLOCK_SWIFT)?.[1])).toBe(
+    Number.parseFloat(tokens.match(BLOCK_CSS)?.[1] ?? "")
   );
 });
 
