@@ -7,7 +7,7 @@ order in them is made up: the live artifacts use the owner's real questions, the
 
 | File | What it is | Its live artifact (private to the owner) |
 |---|---|---|
-| `shell.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications. The side panel drives it. | [Life shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) |
+| `shell.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications, and since 25 Nov (v4) long work handed off, redrafts, reactions, "How am I doing?", Undo after a send, settings in the thread, held asks and the spending stop. The side panel drives it. | [app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF); before v4: [Life shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) |
 | `answer-components.html` | The answer components side by side (text, items, pictures, table, phrase, document, place) | [Answer components](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R) |
 | `settings-board.html` | Settings: 9 proposals, not decided (below) | [Settings proposals](https://claude.ai/artifact/WajtHgFc6Z1PLE2izdBjzo) |
 

@@ -1,24 +1,4 @@
 {
-  "DuoAskLifeShown": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "projects",
-      "-fixtureShow",
-      "matters"
-    ]
-  },
-  "DuoFoldAskLifeShown": {
-    "args": [
-      "-fixtureLife",
-      "ok",
-      "-fixtureTab",
-      "projects",
-      "-fixtureShow",
-      "matters"
-    ]
-  },
   "AgentPage": {
     "args": [
       "-fixtureLife",

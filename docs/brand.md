@@ -49,6 +49,9 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   rule line separates rows of a list, never draws a box. Urgency is a `flag` dot and `flag` words, never a ring.
   His one exception (decision 82, 21 Nov 2026): every drafted part of a draft card (its bubble, reaction, file, mail block)
   wears a dashed outline, 1.5 px, that fades once it is sent.
+- **The edge** (owner, 23 Nov 2026, built in v4): a ring round the screen on every screen, drawn stroke and glow, moving
+  (two soft `fg` lights turning; faster while he speaks; Life's `ai` blue swell while it works; still when no Mac
+  answers). It is the one exception to the no-borders, motion and colour rules, and it carries no words.
 - **Parked (30 Oct 2026).** The Mac app's UI is the exception to the type, shape and wording rules of this page until
   it is unparked: it keeps its old layout, fonts, capital labels and strokes (`Brand.swift`), with the colours above.
   Android keeps the old look (`Brand.kt`, lifelog's `docs/design.md`).
