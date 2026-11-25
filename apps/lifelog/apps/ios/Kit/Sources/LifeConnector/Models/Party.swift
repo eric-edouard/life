@@ -45,7 +45,7 @@ extension ParsedRead where Self: Decodable {
     }
 }
 
-/// A read Life versions (`read_inbox`, `read_matters`, `read_projects`, `read_project`): asked again with `ifNot` its
+/// A read Life versions (`read_thread`): asked again with `ifNot` its
 /// `version` (nil in a read kept before Life sent one), Life answers only `{version, unchanged: true}` while nothing
 /// changed.
 public protocol VersionedRead {
@@ -70,8 +70,6 @@ private struct Unchanged: Decodable {
 
 extension Inbox: ParsedRead, VersionedRead {}
 extension MatterList: ParsedRead, VersionedRead {}
-extension ProjectChips: VersionedRead {}
-extension ProjectHeader: VersionedRead {}
 extension Matter: ParsedRead {}
 extension RegisteredAgents: ParsedRead {}
 extension PeopleList: ParsedRead {}

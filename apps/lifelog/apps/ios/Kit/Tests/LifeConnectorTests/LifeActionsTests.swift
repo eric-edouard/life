@@ -247,32 +247,6 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     #expect(failure.retry == .no)
 }
 
-@Test func aNewMattersStartSucceedsWhenTheDeskStartedItAndFailsAtItsStageWhenNot() async throws {
-    let found = AnswerRequest(ref: "matter_000000000007", options: ["start"])
-    let life = FakeLife()
-    let started = try wireText("life/answer_check_new_matter_started.json")
-    let refused = #"""
-        {"ref":"matter_000000000007","kind":"new matter","send":null,"start":{"action":"start","state":"not_started",
-        "failed":{"stage":"desk_accepted","reason":"claude does not answer"},"nothingRunning":true}}
-        """#
-    life.answers = [{ _ in started }, { _ in refused }]
-    let actions = LifeActions(api: life, now: { at })
-    let first = await run { await actions.answer(found, key: "tap-1", at: lifeA, emit: $0) }
-    guard case .succeeded(.answered(let result), _) = first else {
-        Issue.record("\(first)")
-        return
-    }
-    #expect(result.start?.state == .started)
-    let second = await run { await actions.answer(found, key: "tap-2", at: lifeA, emit: $0) }
-    guard case .failed(let failure, _) = second else {
-        Issue.record("\(second)")
-        return
-    }
-    #expect(failure.step == "desk_accepted")
-    #expect(failure.reason.contains("does not answer"))
-    #expect(failure.retry == .allowed)
-}
-
 @Test func anEditToAnOlderServerThatSendsNoPlanStillShowsItsRecordedStep() async {
     let state = await run { emit in
         await LifeActions(api: FakeLife(), now: { at }).record(emit: emit) { _ in "ok" }

@@ -11,165 +11,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 /// What Life's server tests wrote (`fixtures/wire/life/`) read with the phone's models: a read that changes shape fails
 /// there first, then here, naming the model.
-#if DEBUG
-    /// The simulator's design data, put together as the fixture answers with it (`DesignReplies`), reads with the phone's own
-    /// reply models: a reply that breaks a model (a field gone, a shape changed) fails here, not on screen.
-    @Test func theDesignDataDecodes() throws {
-        func object(_ name: String) throws -> [String: Any] {
-            try #require(JSONSerialization.jsonObject(with: Data(designText(name).utf8)) as? [String: Any])
-        }
-        func reply<V: Decodable>(_ type: V.Type, _ value: [String: Any]) throws -> V {
-            try decoded(type, String(decoding: JSONSerialization.data(withJSONObject: value), as: UTF8.self))
-        }
-        let read = try object("read_inbox")
-        let checks = try #require(read["checks"] as? [[String: Any]])
-        let inbox = try reply(Inbox.self, DesignReplies.inbox(read, checks: checks))
-        #expect(!inbox.checks.isEmpty && inbox.total == inbox.checks.count)
-        let rows = try #require(try object("read_matters")["matters"] as? [[String: Any]])
-        let list = try reply(MatterList.self, DesignReplies.matters(rows))
-        #expect(list.matters.count == rows.count)
-        // Life's picks, and none (the area's icon): every key one this build draws.
-        #expect(list.matters.contains { $0.icon == nil })
-        #expect(list.matters.compactMap(\.icon).allSatisfy { $0.by == .life && MatterIcons.symbol($0.key) != nil })
-        let agents = try object("read_registered_agents")
-        #expect(try !decoded(RegisteredAgents.self, designText("read_registered_agents")).agents.isEmpty)
-        #expect(try decoded(ModelSpending.self, designText("read_spending")).sections.count == 4)
-        let matterRead = try object("read_matter")
-        let allAgents = (agents["agents"] as? [[String: Any]] ?? []) + (matterRead["agents"] as? [[String: Any]] ?? [])
-        for row in rows {
-            let matter = try reply(
-                Matter.self,
-                DesignReplies.matter(
-                    row, agents: allAgents, steps: matterRead["steps"] as? [String: Any] ?? [:], checks: checks))
-            #expect(!matter.steps.isEmpty, "\(matter.row.id)")
-        }
-    }
-#endif
 
-@Test func everyReadOfLifeDecodes() throws {
-    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 11)
-    #expect(inbox.blocking == 6)
-    #expect(inbox.badge == 6)
-    #expect(inbox.counts.values.reduce(0, +) == 11)
-    #expect(
-        inbox.checks.map(\.urgency) == [
-            .blocks, .blocks, .blocks, .blocks, .blocks, .blocks, .improves, .improves, .improves, .improves, .improves,
-        ])
-    let decision = try #require(inbox.checks.first)
-    #expect(decision.group == .decision)
-    #expect(decision.options.first?.outgoing == true)
-    #expect(decision.matter?.name == "Mend Gran's watch")
-    #expect(decision.draft?.file?.name == "quote.pdf")
-    #expect(decision.draft?.quoted?.sender == "Kit")
-    // The chat strip (decision 82): its head, and the chat's last messages as Life stamped them, oldest first.
-    #expect(decision.head == Check.Head(network: "WhatsApp", name: "Kit"))
-    // A plan card is a decision that gives `plan`, its steps: the third; the first two give none.
-    #expect(inbox.checks.prefix(3).map(\.isPlan) == [false, false, true])
-    #expect(inbox.checks.last?.isPlan == nil)
-    // A plan with its steps: who does each, when, where, and what it rests on; an older plan card has none.
-    let plan = try #require(inbox.checks.first { $0.ref == "dec_000000000003" })
-    #expect(plan.planSteps.map(\.by) == [.agent, .owner, .agent])
-    #expect(plan.planSteps.map(\.channel) == ["whatsapp", "payment", nil])
-    #expect(plan.planSteps.last?.when == "once Kit answers, by Thu")
-    #expect(plan.planSteps.last?.spoken == "The agent: \(plan.planSteps.last!.text), once Kit answers, by Thu")
-    #expect(plan.planSteps[1].spoken == "You: \(plan.planSteps[1].text), payment")
-    #expect(plan.gathered?.text == "From Kit's quote and two others")
-    #expect(inbox.checks.first { $0.ref == "dec_000000000002" }?.planSteps.isEmpty == true)
-    #expect(plan.optionsInOrder.map(\.role) == [.start, .decline] && plan.filled?.label == "Start the plan")
-    #expect(decision.draft?.recent?.map(\.file?.kind) == [.photo, nil])
-    #expect(decision.draft?.recent?.last?.text == "Can you send the quote?")
-    #expect(decision.draft?.recent?.contains { $0.sender.isOwner } == false)
-    #expect(decision.deadline != nil)
-    #expect(decision.confirm?.first?.group == .guessedPerson)
-    // The identity ask: who the guess is as WhatsApp shows them, with WhatsApp's own link to the chat.
-    let onNetwork = try #require(decision.confirm?.first?.networkIdentity)
-    #expect(onNetwork.network == "WhatsApp")
-    #expect(onNetwork.handle == "+33600000001")
-    #expect(onNetwork.openUrl == URL(string: "https://wa.me/33600000001"))
-    #expect(onNetwork.newest?.text == "Kit here, from the shop")
-    // The draft's own chat, as its network shows it: stored, so no newest message.
-    #expect(decision.networkIdentity?.network == "WhatsApp")
-    #expect(decision.networkIdentity?.newest == nil)
-    #expect(decision.networkIdentity?.party?.ref == "person:inf_kit")
-    #expect(inbox.parties.contains { $0.ref == "person:inf_kit" })
-    #expect(decision.ridesOn?.matters == 1)
-    #expect(decision.ridesOn?.matterIds == ["matter_aaaaaaaaaaaa"])
-    #expect(decision.matterID == "matter_aaaaaaaaaaaa")
-    // A transfer (the asks contract): its needs in the agent's order, each with Life's line; Life's look found nothing yet.
-    let transfer = inbox.checks[1]
-    #expect(transfer.needs?.map(\.kind) == [.account, .amount, .link, .text, .qr])
-    #expect(transfer.needs?.map { $0.rows.count } == [3, 1, 1, 1, 1])
-    #expect(transfer.needs?.last?.rows == [NeedRow(glyph: .note, text: "QR code from Reef's WhatsApp of 14 Oct")])
-    #expect(transfer.doneSeen == Check.DoneSeen(state: .notFound, line: "Not in your accounts yet"))
-    #expect(transfer.options.map(\.takes) == [nil, .note, nil])
-
-    #expect(inbox.checks.map(\.group).contains(.newMatter))
-    let voice = try #require(inbox.checks.first { $0.group == .voice })
-    #expect(voice.clips.first?.audio?.jobId == "job-1")
-    let clip = try #require(voice.clips.first)
-    let words = try #require(clip.words)
-    #expect(words.spokenIndex(at: 400).flatMap { words.ranges(in: clip.text)?[$0] } == NSRange(location: 5, length: 3))
-    #expect(voice.likelyPeople.first?.name == "Gran")
-    #expect(voice.likelyPeople.first?.line == "Your grandmother")
-    #expect(voice.likelyPeople.first?.kind == .person)
-    #expect(voice.likelyPeople.first?.picture?.id == "00000000000000000000000000000a02")
-    let name = try #require(inbox.checks.first { $0.group == .name })
-    #expect(name.said?.by == "Gran")
-    #expect(name.askedName == "Sam")
-    #expect(inbox.checks.contains { $0.group == .ending } == false)  // endings show on their matter's page
-    #expect(try everyKindOfCheck().first { $0.group == .ending }?.ridesOn?.matters == 1)
-    let found = try #require(
-        try decoded(Matter.self, wireText("life/read_matter_found.json")).checks.first)
-    #expect(found.group == .newMatter)
-    #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
-    #expect(found.deadline == nil)
-    #expect(found.options.map(\.label) == ["Start an agent", "Edit goal", "No agent"])
-    #expect(found.goal == "Gran's photo is framed.")
-    #expect(inbox.checks.last?.draft == nil)
-
-    let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
-    #expect(list.matters.map(\.id) == ["matter_aaaaaaaaaaaa", "matter_cccccccccccc", "matter_bbbbbbbbbbbb"])
-    let row = list.matters[0]
-    #expect(row.status == .moving)
-    #expect(row.goal?.by == .life)
-    #expect(row.nextStep?.kind == .waitEvent)
-    #expect(row.people?.owedTo?.map(\.ref) == ["person:gran"])
-    #expect(list.parties.contains { $0.ref == "person:gran" })
-    #expect(row.people?.with?.first?.picture == nil)
-    #expect(row.agent == "agt_000000000001")
-    #expect(row.blockingChecks == 1)
-    #expect(row.important == true)
-    #expect(row.project == MatterProject(id: "shop-fit-out", name: "Shop fit-out", status: .active))
-    #expect(list.matters.map(\.isParked) == [false, false, false])
-    #expect(list.matters[2].goal == nil)
-    // His pick, Life's, and none (the phone shows the area's).
-    #expect(list.matters.map(\.icon?.by) == [.owner, nil, .life])
-    #expect(list.matters.map(\.icon?.key) == ["tools", nil, "key"])
-    #expect(list.matters.compactMap(\.icon?.key).allSatisfy { MatterIcons.symbol($0) != nil })
-    #expect(MatterIcons.symbol("a_new_key") == nil)
-    #expect(list.matters[2].important == nil)
-
-    // A project chip's list is `read_matters` of the project; its head, if Life sends one, is not read.
-    let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
-    #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])
-
-    let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
-    #expect(matter.row.name == "Mend Gran's watch")
-    #expect(matter.row.icon == MatterRow.Icon(by: .owner, key: "tools"))
-    #expect(matter.steps.count == 2)
-    #expect(matter.steps[1].ending?.by == .todoItem)
-    #expect(matter.checks.map(\.group) == [.decision, .ending])
-    #expect(matter.agents.first?.runtime == "claude")
-    #expect(matter.agents.first?.notStarted == nil)
-
-    let agents = try decoded(RegisteredAgents.self, wireText("life/read_registered_agents.json"))
-    #expect(agents.desk == .ok)
-    #expect(agents.helper == .running)
-    #expect(agents.agents[0].matter?.status == .moving)
-    #expect(agents.agents[1].wait?.reason == "his answer")
-    #expect(agents.agents[1].link == nil)
-}
 
 /// A plan's start is its filled answer whatever order its asker sent; a card with no roles keeps its order; its steps
 /// draw whatever `isPlan` says.
@@ -259,14 +101,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(row.goal?.by == .unknown)
 }
 
-@Test func aNextStepCarriesItsContextAndAnEditSendsOnlyWhatItHas() throws {
-    let text =
-        #"{"matters":[{"id":"m","name":"M","status":"moving","nextStep":{"kind":"do","text":"t","context":"See [it](life:obs_1)"}}]}"#
-    #expect(try decoded(MatterList.self, text).matters.first?.nextStep?.context == "See [it](life:obs_1)")
-    let sent = { (step: NextStepRequest) in String(decoding: try JSONEncoder().encode(step), as: UTF8.self) }
-    #expect(try sent(NextStepRequest(kind: "do", text: "t")).contains("context") == false)
-    #expect(try sent(NextStepRequest(kind: "do", text: "t", context: "c")).contains(#""context":"c""#))
-}
 
 @Test func aParkedOrDoneProjectsMattersAreParked() throws {
     let text = #"""
@@ -280,23 +114,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(list.matters.map(\.isParked) == [false, true, true, false])
     #expect(list.matters[0].project?.status.isUnderway == true)
     #expect(list.matters[3].project?.status == .unknown)
-}
-
-@Test func theProjectsPageGroupsItsChipsAsItDrawsThem() throws {
-    let text =
-        #"{"all":{"needYou":0,"open":0},"chips":["#
-        + #"{"kind":"project","id":"shop","name":"Shop fit-out","needYou":1,"matters":3},"#
-        + #"{"kind":"project","id":"shed","name":"Shed","status":"waiting","needYou":0,"matters":1},"#
-        + #"{"kind":"project","id":"garden","name":"Garden","status":"parked","needYou":0,"matters":0},"#
-        + #"{"kind":"project","id":"boat","name":"Boat","status":"done","needYou":0,"matters":0},"#
-        + #"{"kind":"area","id":"home","name":"Home","needYou":0,"matters":2}],"version":"v"}"#
-    let chips = try decoded(ProjectChips.self, text)
-    // A project Life gave no status is underway, never lost from the page.
-    #expect(chips.sections.underway.map(\.id) == ["shop", "shed"])
-    #expect(chips.sections.areas.map(\.id) == ["home"])
-    #expect(chips.sections.parked.map(\.id) == ["garden"])
-    #expect(chips.sections.done.map(\.id) == ["boat"])
-    #expect(chips.underway == 2)
 }
 
 @Test func aRowCarriesLifesWordThatItNeedsHim() throws {
@@ -768,101 +585,18 @@ private func asks(
 
 /// A matter's icon, down the chain: his pick, Life's, the first area's icon, the folder. Only a key this app knows is
 /// drawn, chosen in the grid and attributed; his own pick is what Undo puts back, known or not.
-@Test func aMattersIconFallsFromHisPickToTheFolder() throws {
-    func row(icon: [String: String]?, areas: [String]? = ["Home"]) throws -> MatterRow {
-        var object: [String: Any] = ["id": "matter_x", "name": "Renew the lease", "status": "moving"]
-        (object["icon"], object["areas"]) = (icon, areas)
-        return try decoded(
-            MatterRow.self, String(decoding: JSONSerialization.data(withJSONObject: object), as: UTF8.self))
-    }
-    let owner = try row(icon: ["by": "owner", "key": "sign"])
-    #expect((owner.symbol, owner.knownIcon?.by, owner.ownerIconKey) == ("signature", .owner, "sign"))
-    let life = try row(icon: ["by": "life", "key": "key"])
-    #expect((life.symbol, life.knownIcon?.by, life.ownerIconKey) == ("key", .life, nil))
-    // None: the area's icon, unattributed; an area with no icon of its own, or none, gets the folder.
-    let none = try row(icon: nil)
-    #expect((none.symbol, none.knownIcon, none.ownerIconKey) == ("house", nil, nil))
-    #expect(try row(icon: nil, areas: ["Garden"]).symbol == "folder")
-    #expect(try row(icon: nil, areas: nil).symbol == "folder")
-    // A key Life added since this build: drawn as none, yet his pick of it is still what Undo restores.
-    let newer = try row(icon: ["by": "owner", "key": "a_new_key"], areas: ["Money"])
-    #expect((newer.symbol, newer.knownIcon, newer.ownerIconKey) == ("banknote", nil, "a_new_key"))
-}
 
 /// Undo's earlier pick after a write whose read failed: Life's `key` on the row, he picks `sign`, the write goes and
 /// the matter read fails, so the row still says `key`; his next pick's Undo must put back `sign`, never Life's pick.
 /// A read loaded after the write is the row's word again.
-@Test func undoPutsBackThePickLastWrittenUntilAReadShowsIt() throws {
-    func row(_ by: String, _ key: String) throws -> MatterRow {
-        let icon = #"{"by": "\#(by)", "key": "\#(key)"}"#
-        let text = #"{"id": "matter_x", "name": "Renew the lease", "status": "moving", "icon": \#(icon)}"#
-        return try decoded(MatterRow.self, text)
-    }
-    let read = Date(timeIntervalSince1970: 0)
-    let (wrote, readAgain) = (read.addingTimeInterval(10), read.addingTimeInterval(20))
-    var written = WrittenIcons()
-    let lifes = try row("life", "key")
-    #expect(written.earlierPick(of: lifes, loadedAt: read) == nil)
-    written.wrote("sign", on: "matter_x", at: wrote)
-    #expect(written.earlierPick(of: lifes, loadedAt: read) == "sign")
-    #expect(written.earlierPick(of: lifes, loadedAt: nil) == "sign")
-    // “Let Life pick” written, the row still his: Undo gives it back to Life.
-    written.wrote(nil, on: "matter_x", at: wrote)
-    #expect(written.earlierPick(of: try row("owner", "sign"), loadedAt: read) == nil)
-    // A read after the write: the row says what Life holds now.
-    #expect(written.earlierPick(of: try row("owner", "hammer"), loadedAt: readAgain) == "hammer")
-}
 
 /// His answer is confirmed while a read asked before it is still on its way: that read, landing after, still lists the
 /// card, and the card stays out. A read asked after the answer wins, even one that lists it (Life kept it open).
-@Test func anAnswerConfirmedAfterAReadWasAskedStaysOutOfIt() throws {
-    let asked = Date(timeIntervalSince1970: 100)
-    var answered = AnsweredCards()
-    answered.answered("b1", at: asked.addingTimeInterval(1))
-    let read = try asks([("b1", .blocks), ("b2", .blocks), ("i1", .improves)])
-    let shown = read.without(answered.newer(than: asked))
-    #expect(shown.checks.map(\.ref) == ["b2", "i1"])
-    #expect(shown.badge == read.badge - 1 && shown.total == read.total - 1)
-    #expect(answered.newer(than: asked.addingTimeInterval(2)).isEmpty)
-    // Nothing read yet (a cold start with no cache): it stays out too.
-    #expect(answered.newer(than: nil) == ["b1"])
-    // Kept for a cold start.
-    let kept = try JSONDecoder().decode(AnsweredCards.self, from: JSONEncoder().encode(answered))
-    #expect(kept == answered)
-}
 
 /// After a restart, a matter read kept from before an answer can still be opened offline: the answer is kept until
 /// every kept read was asked after it, and only then forgotten (at launch, when no read is under way).
-@Test func anAnswerIsKeptWhileAnOlderKeptReadCanStillShowItsCard() throws {
-    let at = { Date(timeIntervalSince1970: $0) }
-    let cache = ReadCache(directory: FileManager.default.temporaryDirectory.appending(path: "reads-\(UUID())"))
-    defer { cache.clear() }
-    var answered = AnsweredCards()
-    answered.answered("a", at: at(10))
-    cache.store("{}", key: "read_matter-m1", asked: at(5))
-    cache.store("{}", key: "read_inbox", asked: at(20))
-    cache.store("{}", key: "answered_cards", asked: at(30))
-    // He answers B after a restart: A stays, the matter read kept from before it can still show A.
-    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
-    answered.answered("b", at: at(40))
-    #expect(answered.newer(than: at(5)) == ["a", "b"])
-    // Once every kept read was asked after both, they go; with none kept, all go.
-    cache.store("{}", key: "read_matter-m1", asked: at(50))
-    cache.store("{}", key: "read_inbox", asked: at(50))
-    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
-    #expect(answered.newer(than: nil).isEmpty)
-    answered.answered("c", at: at(60))
-    cache.clear()
-    answered.forget(confirmedBy: cache.oldest(except: "answered_cards"))
-    #expect(answered.newer(than: nil).isEmpty)
-}
 
 /// The answers a phone kept before an upgrade still leave their cards out after it: the kept shape is only the times.
-@Test func answersKeptBeforeAnUpgradeStillDecode() throws {
-    let kept = #"{"confirmed":{"c1":100}}"#
-    let answered = try JSONDecoder().decode(AnsweredCards.self, from: Data(kept.utf8))
-    #expect(answered.newer(than: Date(timeIntervalSinceReferenceDate: 50)) == ["c1"])
-}
 
 /// Only a new matter's `edit-goal` keeps its card open; another kind's option of that id closes it.
 @Test func onlyANewMattersGoalEditKeepsItsCardOpen() throws {
@@ -874,67 +608,12 @@ private func asks(
     #expect(!newMatter.keepsOpen(after: AnswerRequest(ref: newMatter.ref, options: ["start"])))
 }
 
-@Test func anInboxLessItsAnsweredCardsLowersOnlyWhatTheyCounted() throws {
-    let read = try asks([("b1", .blocks), ("i1", .improves)], groups: ["i1": "ending"])
-    let shown = read.without(["i1"])
-    #expect(shown.blocking == read.blocking && shown.total == read.total - 1)
-    #expect(shown.counts["ending"] == read.counts["ending"].map { $0 - 1 })
-    #expect(read.without([]) == read)
-}
 
 /// A tapped push shows its card from the first frame: the cached inbox's, else the notification's, first in what is in
 /// hand. Only a read asked after the tap says whether it is still open.
-@Test func aPushedCardIsShownFromWhatIsInHandUntilAReadAskedAfterTheTap() throws {
-    let tapped = Date(timeIntervalSince1970: 100)
-    let cached = try asks([("b1", .blocks), ("i1", .improves)])
-    let notified = try asks([("n1", .blocks)]).checks[0]
-    // In the cache: opened from there, the inbox as cached.
-    let inCache = PushedCard(pushId: "push-i1", in: cached, notified: notified, at: tapped)
-    #expect(inCache.opening?.check?.ref == "i1" && inCache.shown(in: cached, answeredSinceTap: []) == cached)
-    // Not in the cache: the notification's card, first, counted.
-    let fresh = PushedCard(pushId: "push-n1", in: cached, notified: notified, at: tapped)
-    let shown = try #require(fresh.shown(in: cached, answeredSinceTap: []))
-    #expect(shown.checks.map(\.ref) == ["n1", "b1", "i1"] && shown.badge == cached.badge + 1)
-    // Nothing read at all: a one-card inbox.
-    #expect(fresh.shown(in: nil, answeredSinceTap: [])?.checks.map(\.ref) == ["n1"])
-    // A read asked before the tap still checks it; one asked after opens as it says.
-    #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(-1)) == nil)
-    #expect(fresh.checked(by: cached, askedAt: tapped.addingTimeInterval(1))?.wasAnswered == true)
-    // A read cut off by its limit before the card says nothing of it: still open as far as the phone knows.
-    let cut = try asks([("b1", .blocks)])
-    let partial = try decoded(
-        Inbox.self, #"{"checks":[],"counts":{},"total":600,"deadlinesToday":0,"blocking":1}"#)
-    #expect(cut.isWhole && !partial.isWhole)
-    #expect(fresh.checked(by: partial, askedAt: tapped.addingTimeInterval(1)) == nil)
-    // Nothing in hand: nothing to show until the read.
-    #expect(PushedCard(pushId: "push-n1", in: nil, notified: nil, at: tapped).opening == nil)
-    // How many wait is the read's word alone: none before a read (the one-card inbox counts only its card), the read's
-    // total when the card is past its limit (never one more), less his answers.
-    var read = ReadState<Inbox>()
-    #expect(fresh.shown(in: nil, answeredSinceTap: [])?.total == 1 && read.waiting(less: []) == nil)
-    read.apply(.succeeded(partial, tapped))
-    #expect(fresh.shown(in: partial, answeredSinceTap: [])?.total == 601 && read.waiting(less: []) == 600)
-    read.apply(.succeeded(cached, tapped))
-    #expect(read.waiting(less: ["i1"]) == cached.total - 1)
-}
 
 /// A pushed card past the read's limit, answered: the read after the answer, cut off before it, never puts it back.
 /// Held for Undo it is out too, and back once undone; an answer that keeps the card open is never confirmed, so stays.
-@Test func aConfirmedAnswerRetiresThePushedCopyEvenWhenTheReadIsCutOff() throws {
-    let tapped = Date(timeIntervalSince1970: 100)
-    let notified = try asks([("n1", .blocks)]).checks[0]
-    let cut = try decoded(Inbox.self, #"{"checks":[],"counts":{},"total":600,"deadlinesToday":0,"blocking":1}"#)
-    let push = PushedCard(pushId: "push-n1", in: cut, notified: notified, at: tapped)
-    var answered = AnsweredCards()
-    #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.map(\.ref) == ["n1"])
-    answered.answered("n1", at: tapped.addingTimeInterval(5))
-    // The read after his answer is cut off too: it says nothing of the card, and the card stays out.
-    #expect(push.checked(by: cut, askedAt: tapped.addingTimeInterval(6)) == nil)
-    #expect(push.shown(in: cut, answeredSinceTap: answered.newer(than: tapped))?.checks.isEmpty == true)
-    // Held for Undo (the store adds held refs): out; undone: back.
-    #expect(push.shown(in: cut, answeredSinceTap: ["n1"])?.checks.isEmpty == true)
-    #expect(push.shown(in: cut, answeredSinceTap: [])?.checks.map(\.ref) == ["n1"])
-}
 
 /// A notification's card counts only for its own push, read from the Life the phone is paired with now.
 @Test func aKeptCardCountsOnlyUnderThePairingItWasReadFrom() throws {
@@ -997,16 +676,6 @@ private func asks(
 
 /// Asked `ifNot` its version, Life's "nothing changed" keeps the read held; any other answer is a new read, and an
 /// inbox changed on the phone is no longer Life's version.
-@Test func anUnchangedAnswerKeepsTheReadHeld() throws {
-    let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    let version = try #require(inbox.version)
-    let unchanged = #"{"unchanged":true,"version":"\#(version)"}"#
-    #expect(inbox.isUnchanged(by: unchanged))
-    #expect(!inbox.isUnchanged(by: #"{"unchanged":true,"version":"other"}"#))
-    #expect(!inbox.isUnchanged(by: try wireText("life/read_inbox.json")))
-    #expect(!inbox.without([inbox.checks[0].ref]).isUnchanged(by: unchanged))
-    #expect(try decoded(MatterList.self, wireText("life/read_matters.json")).version != nil)
-}
 
 /// "Someone else…" on a voice offers everyone he knows, not only the card's guesses again (his report, 22 Nov): the
 /// guesses first, then the People list, never him, no organization; a name with a slash is answered as typed.

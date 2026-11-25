@@ -51,7 +51,7 @@ struct DiagnosticsView: View {
                         .buttonStyle(.pill(.filled, isBusy: isChecking))
                     Button(copied ? "Copied" : "Copy report") {
                         UIPasteboard.general.string =
-                            ([version] + rows.map { "\($0.title): \($0.mark.word)" }
+                            ([version] + rows.map { "\($0.title): \($0.mark.word)" })
                             .joined(separator: "\n")
                         copied = true
                     }

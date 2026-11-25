@@ -163,7 +163,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(stored.subtracting(["active"]).union(["running", "waiting"]) == client(AgentStatus.self))
     let roles = try quoted("core/names.ts", /AgentRole = z\.enum\(\[([^\]]*)\]/)
     #expect(roles == client(RegisteredAgent.Role.self))
-    #expect(try states("host/answer-result.ts") == client(AnswerResult.SendState.self))
+    // `open` is an undone answer's `changed.state`, not a send's.
+    #expect(try states("host/answer-result.ts").subtracting(["open"]) == client(AnswerResult.SendState.self))
     #expect(try states("host/change-registered-agent.ts") == client(AgentChangeResult.State.self))
     // A move's phase, worked out when read (`movePhaseOf`).
     let phases = try source("host/move-read.ts").matches(of: /phase: "([a-z]+)" as const/).map { String($0.output.1) }
