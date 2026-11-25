@@ -34,13 +34,7 @@ final class SyncStore {
     /// third of the app's CPU (Oct 20).
     private(set) var generation = 0
     /// Blocks or maps the server doesn't have yet; `nil` before the cutover.
-    private(set) var uploads: UploadStatus? = {
-        #if DEBUG
-            LifeFixture.uploads
-        #else
-            nil
-        #endif
-    }()
+    private(set) var uploads: UploadStatus?
     /// Raw packs and old jobs' audio the bucket doesn't have yet (`Uploader.backUp`).
     private(set) var backup: Uploader.BackupStatus?
     /// The owner's edits not accepted yet, and the refused ones.
@@ -193,15 +187,6 @@ final class SyncStore {
         #endif
         server = DeviceToken.paired
         generation += 1
-        #if DEBUG
-            if FixtureLibrary.isRequested {
-                Task {
-                    await FixtureLibrary.ready()
-                    await readState()
-                }
-                return
-            }
-        #endif
         run()
     }
 
@@ -374,9 +359,6 @@ final class SyncStore {
             uploads = (try? await uploader.status()) ?? uploads
             backup = (try? await uploader.backupStatus()) ?? backup
         }
-        #if DEBUG
-            if FixtureLibrary.isRequested { uploads = FixtureLibrary.uploads }
-        #endif
         if changed, UIApplication.shared.applicationState != .background { generation += 1 }
     }
 
@@ -408,7 +390,6 @@ final class SyncStore {
         guard let library else { return nil }
         let client = ServerClient.production
         #if DEBUG
-            if FixtureLibrary.isRequested { return nil }
             // A simulated Pendant writes a throwaway source store; keep it out of the real library.
             if FakeScenario.selected != nil {
                 driver = Driver(library: library, client: client, capture: nil, event: appEvent)
