@@ -32,6 +32,7 @@ extension URL {
 /// checked before it is kept and Life's tokens are kept once it approved, so a failed pairing leaves the old one working.
 struct PairSheet: View {
     let offer: PairOffer
+    @Binding var isPairing: Bool
     @Environment(SyncStore.self) private var sync
     @Environment(LifeStore.self) private var life
     @Environment(\.dismiss) private var dismiss
@@ -65,6 +66,8 @@ struct PairSheet: View {
         .background(Palette.sheet)
         .presentationBackground(Palette.sheet)
         .interactiveDismissDisabled(phase == .pairing)
+        .onChange(of: phase) { isPairing = phase == .pairing }
+        .onDisappear { isPairing = false }
         .accessibilityIdentifier("pair.sheet")
     }
 

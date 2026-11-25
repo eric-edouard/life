@@ -91,5 +91,6 @@ private struct PhraseScreen: View {
     var body: some View {
         Text(phrase.text).font(.profileName).multilineTextAlignment(.center).padding(Metrics.Spacing.xl)
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.bg).onTapGesture { dismiss() }
+            .overlay(alignment: .topTrailing) { CloseButton { dismiss() }.padding(Metrics.Spacing.l) }
     }
 }
