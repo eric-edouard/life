@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { exec, execOk } from "@life/server/src/core/proc";
 
-// The iOS simulator for the scripts that drive the phone app (`e2e-demo.ts`, `design-shots.ts`): build the Debug app,
+// The iOS simulator for the scripts that drive the phone app (`e2e-demo.ts`): build the Debug app,
 // find or create a simulator, boot it, install, launch, photograph a display, shut down.
 
 const REPO = join(import.meta.dir, "..");

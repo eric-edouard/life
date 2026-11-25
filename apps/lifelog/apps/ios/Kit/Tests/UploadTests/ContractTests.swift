@@ -175,16 +175,9 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(
         try quoted("host/agent-health.ts", /export type HealthVerdict = ([^;]*);/) == client(AgentHealth.Verdict.self))
     #expect(try quoted("memory/party.ts", /kind: ([^;]*);/) == client(Party.Kind.self))
-    // A line of an agent's session on pi (`read_agent_session`).
-    #expect(try quoted("host/agent-session-read.ts", /kind: ([^;]*);/) == client(AgentSession.Line.Kind.self))
     // Model spending's providers and kinds (`read_spending`).
     #expect(try quoted("memory/spends.ts", /SPEND_PROVIDERS = \[([^\]]*)\]/) == client(SpendProvider.self))
     #expect(try quoted("memory/spends.ts", /export type SpendKind =([^;]*);/) == client(SpendKind.self))
-    // A log line's level, and the processes the Live logs menu lists.
-    #expect(try quoted("core/log-line.ts", /LOG_LEVELS = \[([^\]]*)\]/) == client(LogLevel.self))
-    #expect(
-        try quoted("core/log-line.ts", /const PROCESSES = new Set\(\[([^\]]*)\]/)
-            == Set(LogProcess.allCases.map(\.rawValue)))
     #expect(
         try quoted("records/observation.ts", /ClosenessLevel = z\.enum\(\[([^\]]*)\]/) == client(ClosenessLevel.self))
     // A person's details by kind: the keys of `LABELS`; a line of `latest`, his or theirs.

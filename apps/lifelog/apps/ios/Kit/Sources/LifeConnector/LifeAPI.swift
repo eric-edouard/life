@@ -93,10 +93,6 @@ public protocol LifeAPI: Sendable {
     func readMatters(person: String) async throws -> String
     func readMatter(_ id: String) async throws -> String
     func readRegisteredAgents() async throws -> String
-    /// What Life costs this month (`ModelSpending`), his token only.
-    func readSpending() async throws -> String
-    /// An agent's session on pi, read-only (`AgentSession`), his token only.
-    func readAgentSession(_ id: String) async throws -> String
     /// What a `life:` link names, opened by its ref: Life's text, or a person's read as JSON (`LifeLinkRead`).
     func fetch(_ ref: String) async throws -> String
     /// The pictures these ids name (a party's `picture.id`), at most 64 (`PictureCache`).
@@ -105,8 +101,6 @@ public protocol LifeAPI: Sendable {
     func readPeopleAndOrganizations() async throws -> String
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
-    /// A page of Life's log, newest first (`LogPage`), for the Live logs page.
-    func readLogLines(_ query: LogQuery) async throws -> String
 
     /// His answer, to the Life it was decided for (`origin`, a `PairedLife`'s) and no other.
     func answerCheck(
@@ -198,10 +192,6 @@ public struct MCPLifeAPI: LifeAPI {
     }
     public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readRegisteredAgents() async throws -> String { try await client.call("read_registered_agents") }
-    public func readSpending() async throws -> String { try await client.call("read_spending") }
-    public func readAgentSession(_ id: String) async throws -> String {
-        try await client.call("read_agent_session", ["id": id])
-    }
     public func fetch(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
     public func readPersonPictures(_ ids: [String]) async throws -> String {
         try await client.call("read_person_pictures", ["ids": ids])
@@ -210,9 +200,6 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_people_and_organizations")
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
-    public func readLogLines(_ query: LogQuery) async throws -> String {
-        try await client.call("read_log_lines", query)
-    }
 
     public func answerCheck(
         _ answer: AnswerRequest, answerKey: String, at origin: URL, onProgress: @escaping @Sendable (Data) -> Void

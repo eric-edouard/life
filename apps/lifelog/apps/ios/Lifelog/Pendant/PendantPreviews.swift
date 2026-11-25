@@ -97,11 +97,6 @@
         .preferredColorScheme(.dark)
     }
 
-    #Preview("Light guide") {
-        NavigationStack { LightGuideView(isConnected: true, set: { _ in true }) }
-            .preferredColorScheme(.dark)
-    }
-
     #Preview("Recording") { pendant(healthy) }
 
     #Preview("Not recording, paused on the pendant") {
