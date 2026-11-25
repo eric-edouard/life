@@ -233,3 +233,64 @@ export async function writeSpendingDays(
   }
   return written;
 }
+
+/** The days of `today`'s month before it, oldest first: the closed days its spending is read from. */
+const closedDaysOfMonth = (today: string) => {
+  const days: string[] = [];
+  for (let d = `${today.slice(0, 7)}-01`; d < today; d = daysBefore(d, -1)) {
+    days.push(d);
+  }
+  return days;
+};
+
+/**
+ * The month's billed spending against his monthly amount (`budget.monthlyUsd`; his subscriptions don't count): spent on
+ * its closed days (the night's day files) and that pace projected to the month's end. None without an amount.
+ */
+export function monthBudgetOf(today = dayNow()) {
+  const monthly = settings().budget?.monthlyUsd;
+  if (monthly === undefined) {
+    return;
+  }
+  const closed = closedDaysOfMonth(today);
+  const spent = closed.reduce(
+    (n, d) => n + billedOf(readSpendingDay(d) ?? { byProvider: [] }),
+    0
+  );
+  const [y = 0, m = 0] = today.split("-").map(Number);
+  const inMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    isPassed: spent >= monthly,
+    monthly,
+    projected: (spent / Math.max(closed.length, 1)) * inMonth,
+    spent,
+  };
+}
+
+/** A day's billed dollars, every provider's. */
+export const billedOf = (d: Pick<DaySpending, "byProvider">) =>
+  d.byProvider.reduce((n, p) => n + p.billedUsd, 0);
+
+/** One piece of work's share of the month: 2%, three times that for an important one (`isImportant`). */
+const STOP_SHARE = 0.02;
+const IMPORTANT_TIMES = 3;
+const AMOUNT = /\d+(?:[.,]\d+)?/;
+
+/**
+ * Where one piece of work stops and asks him (the v4 plan, bundle E), in billed dollars: what a `budget` instruction on
+ * it says (its first number), else 2% of the monthly amount, three times that when important; none without either.
+ * ponytail: the instruction's number is read as dollars, whatever currency its words name.
+ */
+export function spendingStopOf(
+  monthly: number | undefined,
+  isImportant: boolean,
+  budget?: string
+) {
+  const said = budget ? AMOUNT.exec(budget)?.[0] : undefined;
+  if (said) {
+    return Number(said.replace(",", "."));
+  }
+  return monthly === undefined
+    ? undefined
+    : monthly * STOP_SHARE * (isImportant ? IMPORTANT_TIMES : 1);
+}

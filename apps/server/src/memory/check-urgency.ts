@@ -15,43 +15,28 @@ interface Rankable {
   subject: string | null;
 }
 
-const RANK: Record<CheckGroup, number> = {
-  "at organization": 4,
-  "contacts card": 1,
-  decision: 0,
-  ending: 6,
-  "guessed person": 4,
-  name: 1,
-  "new matter": 5,
-  "same person": 3,
-  voice: 1,
-  "your move": 2,
-};
 /**
- * A check's kind, first to last: an agent's decision; a voice nobody has named, a name with no person or an ambiguous
- * Contacts card, mixed (these block); then his own step on a matter (`your move`); then one person Life holds twice
- * (`same person`: it bends every reader), then a guess in use (a guessed person, a voice lifelog suggests a person for, someone who may be at an organization), a
- * new matter's offer, and last "is this done?". What blocks, and the inbox's order (`inboxOrderOf`), go by it.
+ * What blocks (the badge): an agent's decision, and what Life cannot answer at
+ * all (a voice nobody has named, a name with no person, an ambiguous Contacts card); then his own step (`your move`), only
+ * when due within `DUE_SOON_DAYS` (the cognitive-load rule of 22 Nov 2026). Never one the caretaker is at work on
+ * (`beingFixed`). Everything else (Life's guesses in use, an offer) improves.
  */
-export const inboxRankOf = (c: Rankable) =>
-  c.group === "voice" && c.subject !== null
-    ? RANK["guessed person"]
-    : RANK[c.group];
-
-const LAST_BLOCKING_RANK = RANK["your move"];
+const BLOCKING = new Set<CheckGroup>([
+  "decision",
+  "voice",
+  "name",
+  "contacts card",
+  "your move",
+]);
 /** How many days ahead a your move card's deadline makes it block. */
 const DUE_SOON_DAYS = 3;
 
-/** A your move card: in its tier, last in the blocking tier, after every agent's decision and every other ask that blocks, whatever its mark or deadline; among them by its matter's place in his ranking (`matterRank`, which weighs its dates), then by deadline, then the longest waiting. */
 const isMove = (c: Pick<Rankable, "group">) => c.group === "your move";
 
-/** Its tier in his inbox's order: the blocking kinds (`inboxRankOf`), unless the caretaker is at work on it (`beingFixed`). */
-const isFirstTier = (c: Rankable) =>
-  inboxRankOf(c) <= LAST_BLOCKING_RANK && !c.beingFixed;
-
-/** What blocks (the badge): a first-tier ask (`isFirstTier`), a your move card only when due within `DUE_SOON_DAYS` (the cognitive-load rule of 22 Nov 2026: the badge counts what needs him soon; every card stays, in its place). */
 export const urgencyOf = (c: Rankable): Urgency =>
-  isFirstTier(c) &&
+  BLOCKING.has(c.group) &&
+  !(c.group === "voice" && c.subject !== null) &&
+  !c.beingFixed &&
   (!isMove(c) ||
     (c.deadline !== null &&
       localDate(c.deadline) <= daysBefore(dayNow(), -DUE_SOON_DAYS)))
@@ -61,70 +46,38 @@ export const urgencyOf = (c: Rankable): Urgency =>
 /** Whether a check shows in his inbox: every kind but an ending check, which shows on its matter's page (`checksOnMatterOf`): its link is Life's evidence, the step reads probably done until his word (the cognitive-load rule of 22 Nov 2026). */
 export const isInboxCheck = (c: Pick<Rankable, "group">) =>
   c.group !== "ending";
-/** An ask of a matter he marked important, which goes first in its tier; never a your move card (they keep their own order). */
+/** Important: the gate read it high, or he marked its matter. */
 const isImportant = (c: Orderable) =>
-  Boolean(c.matter?.important) && !isMove(c);
+  c.importance === "high" || Boolean(c.matter?.important);
 
 interface Orderable extends Rankable {
   /** When it was asked (a decision's `at`), a your move card's step's day, else its newest evidence. */
   day: string;
+  /** An agent's card: the gate's reading of what is at stake. */
+  importance?: "low" | "normal" | "high";
   matter: { id: string; important?: boolean } | null;
-  /** A your move card's matter's place in his ranking (`rankedMattersOf`); none: after every ranked one. */
-  matterRank?: number;
   ref: string;
-  ridesOn: {
-    matterIds: string[];
-    matters: number;
-    observations: number;
-    pages: number;
-  };
+  ridesOn: { matterIds: string[] };
 }
 
-/** Two your move cards: by their matters' place in his ranking (`matterRank`; an unranked one after); any other pair ties. */
-const byMatterRank = (a: Orderable, b: Orderable) =>
-  isMove(a) && isMove(b)
-    ? (a.matterRank ?? Number.MAX_SAFE_INTEGER) -
-      (b.matterRank ?? Number.MAX_SAFE_INTEGER)
-    : 0;
-
-/** Two asks of one kind: decisions and moves asked longest ago first; voices, names and cards by matters, then newest only; the rest by matters, lines, pages, then newest. */
-const withinKind = (a: Orderable, b: Orderable) =>
-  inboxRankOf(a) === RANK.decision || isMove(a)
-    ? a.day.localeCompare(b.day)
-    : b.ridesOn.matters - a.ridesOn.matters ||
-      (inboxRankOf(a) === RANK.name
-        ? 0
-        : b.ridesOn.observations - a.ridesOn.observations ||
-          b.ridesOn.pages - a.ridesOn.pages) ||
-      b.day.localeCompare(a.day);
-
 const before = (a: Orderable, b: Orderable) =>
-  Number(!isFirstTier(a)) - Number(!isFirstTier(b)) ||
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
-  Number(isMove(a) && inboxRankOf(b) < RANK["your move"]) -
-    Number(isMove(b) && inboxRankOf(a) < RANK["your move"]) ||
-  Number(!isImportant(a)) - Number(!isImportant(b)) ||
-  byMatterRank(a, b) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
-  inboxRankOf(a) - inboxRankOf(b) ||
-  withinKind(a, b) ||
+  Number(!isImportant(a)) - Number(!isImportant(b)) ||
+  a.day.localeCompare(b.day) ||
   a.ref.localeCompare(b.ref);
 
-/** A matter's place among its tier's asks: those the caretaker is fixing, and its your move card, keep to their own group, never pulled ahead with its other asks. */
+/** A matter's place among the asks: those the caretaker is fixing keep to their own group, never pulled ahead with its other asks. */
 const matterKeyOf = (c: Orderable) => {
   const id = c.matter?.id ?? c.ridesOn.matterIds[0];
-  return (
-    id &&
-    `${isFirstTier(c)}${c.beingFixed ? " fixing" : ""}${isMove(c) ? " move" : ""} ${id}`
-  );
+  return id && `${c.beingFixed ? "fixing " : ""}${id}`;
 };
 
 /**
- * His inbox's order, the one rule: what blocks, then what improves, the asks the caretaker is fixing last. In each, an ask of a matter he marked important
- * first; then an ask with a deadline, soonest first; then by kind (`inboxRankOf`): decisions asked longest ago first;
- * unnamed voices, names and cards by the matters resting on them, then newest; the rest by matters, lines, pages, then
- * newest. Then a matter's asks follow its first one, in that order; an ask with no matter keeps its place.
+ * His inbox's order, the one rule (the v4 plan, bundle E: no ranks by kind): by deadline,
+ * soonest first, then what is important (`isImportant`), then the longest waiting; the asks the caretaker is fixing
+ * last. Then a matter's asks follow its first one; an ask with no matter keeps its place.
  */
 export const inboxOrderOf = <C extends Orderable>(list: C[]): C[] => {
   const sorted = list.toSorted(before);

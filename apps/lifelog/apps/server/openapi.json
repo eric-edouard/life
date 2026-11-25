@@ -243,6 +243,10 @@
             "minimum": 0,
             "description": "Pendant messages the phone dropped since launch: a malformed fragment or one that didn't decode."
           },
+          "focus": {
+            "type": "boolean",
+            "description": "Whether a Focus is on (sleep, driving and do not disturb show alike): what the owner is doing now, for when Life asks."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -265,6 +269,10 @@
           "observedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "onCall": {
+            "type": "boolean",
+            "description": "Whether a phone call is connected now."
           },
           "pendant": {
             "type": "object",

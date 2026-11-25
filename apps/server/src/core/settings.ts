@@ -36,6 +36,13 @@ export const Settings = z
       .object({ password: z.string(), repository: z.string() })
       .strict()
       .optional(),
+    /**
+     * What Life may spend in a month, in billed dollars (his subscriptions don't count), changed by his word
+     * (`change_setting`, his yes of 25 Nov 2026). Asked once before it is passed (a fix ask); past it, background work
+     * slows, recording and answering never stop; one piece of work stops at 2% of it (`spendingStopOf`, `host/spending.ts`).
+     * Absent means no amount: no stop.
+     */
+    budget: z.object({ monthlyUsd: z.number().positive() }).strict().optional(),
     /** The connector (/mcp) and its sign-in (Life's own issuer, `oauth.ts`); without it Life serves no HTTP at all. */
     connector: z
       .object({

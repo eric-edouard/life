@@ -16,6 +16,7 @@ import { anchorsOf, assignmentOf, type DeskRead, readDesk } from "./desk-read";
 import { sessionTurnsOf, stepTurnsOf, turnsEndedIn } from "./desk-turn-reads";
 import type { RegisteredAgents } from "./registered-agents";
 import {
+  billedOf,
   type DaySpending,
   type KindSpending,
   type ProviderSpending,
@@ -41,9 +42,6 @@ const amountOf = <B extends Basis>(usd: number, basis: B): Amount<B> => ({
 });
 /** How many agents and matters `read_spending` ranks, by tokens. */
 const TOP = 5;
-
-const billedOf = (d: Pick<DaySpending, "byProvider">) =>
-  d.byProvider.reduce((n, p) => n + p.billedUsd, 0);
 
 /** A local day's spending: its file, else read live from its records (today, or a closed day the night has not rolled up). A live read that fails throws: never a day shown as $0. */
 async function dayOf(
