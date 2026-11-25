@@ -212,14 +212,34 @@ test("the main session's question wakes its agent at once; its turn ends only on
   expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
   answerQuestion(desk, s, asked.id, "Waiting on his quote, due Thursday.");
   expect(await asked.reply).toBe("Waiting on his quote, due Thursday.");
-  // Unanswered past its minute, a question goes: its agent is never held by it.
+  // Unanswered, a question goes once a turn of its assignment that began after it ends: its agent is never held by it.
   const late = askAssignment(desk, s.id, "And the boiler?");
   if ("error" in late) {
     throw new Error(late.error);
   }
   setSystemTime(new Date(Date.now() + QUESTION_WAIT + 1000));
+  expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toContain(
+    "read it"
+  );
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at, ended_at) values (?1, ?2, 'main_question', ?3, ?3)",
+    [agent, s.id, new Date().toISOString()]
+  );
   expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
   expect(() => readQuestion(desk, s, late.id)).toThrow("is no question");
+  // A reply after the main session stopped waiting lands as an entry of its own that follows his ask.
+  const roof = askAssignment(desk, s.id, "And the roof?", 7);
+  if ("error" in roof) {
+    throw new Error(roof.error);
+  }
+  roof.late();
+  expect(answerQuestion(desk, s, roof.id, "Fixed on Monday.")).toEqual({
+    answered: roof.id,
+    late: true,
+  });
+  expect(
+    desk.db.query("select words, answer, follows from thread_entry").all()
+  ).toEqual([{ answer: "Fixed on Monday.", follows: 7, words: null }]);
   expect(
     desk.db.query("select name from event where assignment_id = ?").all(s.id)
   ).toContainEqual({ name: "main_question" });
