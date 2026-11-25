@@ -4,8 +4,6 @@ import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 
 const IS_MONO = /isMono/;
-const BLOCK_SWIFT = /static let block: CGFloat = (\d+)/;
-const BLOCK_CSS = /--block-radius:\s*([\d.]+)px/;
 
 import { C, RADIUS, SANS } from "@life/server/src/memory/email";
 
@@ -139,9 +137,22 @@ test("the phone's tint, glass, wash, aura colours, type scale and block radius a
     }
   }
   const metrics = await asset("apps/lifelog/apps/ios/Shared/Metrics.swift");
-  expect(Number(metrics.match(BLOCK_SWIFT)?.[1])).toBe(
-    Number.parseFloat(tokens.match(BLOCK_CSS)?.[1] ?? "")
-  );
+  for (const [swiftName, cssName] of [
+    ["control", "control"],
+    ["block", "block"],
+    ["sheet", "panel"],
+  ] as const) {
+    const swiftRadius = metrics.match(
+      new RegExp(`static let ${swiftName}: CGFloat = (\\d+)`)
+    )?.[1];
+    const cssRadius = tokens.match(
+      new RegExp(`--${cssName}-radius:\\s*([\\d.]+)px`)
+    )?.[1];
+    expect([swiftName, Number(swiftRadius)]).toEqual([
+      swiftName,
+      Number.parseFloat(cssRadius ?? ""),
+    ]);
+  }
 });
 
 test("the email's and the app's radii and the email's font stack are tokens.css's", async () => {

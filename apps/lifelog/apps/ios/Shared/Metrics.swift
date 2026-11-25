@@ -15,6 +15,29 @@ enum Metrics {
     /// The height of Spending's bars, a day each.
     static let trend: CGFloat = 72
 
+    /// A round icon disc leading a thread row; a reaction's corner mark; a still pie (small, and in a line); a colour swatch.
+    static let disc: CGFloat = 40
+    static let reactionMark: CGFloat = 24
+    static let pie: CGFloat = 18
+    static let pieSmall: CGFloat = 12
+    static let swatch: CGFloat = 32
+    /// A small mark (the needs-you dot); a rating's tap mark.
+    static let flagDot: CGFloat = 7
+    static let ratingMark: CGFloat = 36
+    /// A switch: its track and its knob.
+    static let switchTrack = CGSize(width: 51, height: 31)
+    static let switchKnob: CGFloat = 27
+    /// A bubble's widest, and the catalog's phone width.
+    static let bubbleWidth: CGFloat = 300
+    static let phoneWidth: CGFloat = 393
+
+    /// How faded a thing goes: an outdated row, an answer beside a busy one, a draft redrafted past.
+    enum Opacity {
+        static let faded = 0.4
+        static let dim = 0.5
+        static let earlier = 0.6
+    }
+
     /// The Pendant sheet's tiles: a stat tile's height, the light's square, the storage ring.
     enum Tile {
         static let statHeight: CGFloat = 128

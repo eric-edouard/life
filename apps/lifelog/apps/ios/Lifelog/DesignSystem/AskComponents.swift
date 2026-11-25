@@ -1,24 +1,36 @@
+import LifeConnector
 import SwiftUI
 
 // What Life puts to him, and what he sets: the ask card, a question's answers, a draft's quick edits, a settings
 // block. Words go only on an ask's and a question's answers, a confirm's two choices and a draft's chips; every other
 // control is a mark, or "Later".
 
-/// An ask's answers: the recommended one filled, the rest quiet, then "Later".
+/// An ask's answers: the recommended one filled and full width, the rest two to a row, "Later" last. An answer is
+/// never cut off: a long one wraps. While one is busy, it keeps its fill and its spinner and the others dim.
 struct AnswerPills: View {
     let answers: [String]
     var recommended: String?
     var hasLater = true
+    var busy: String?
     var say: (String) -> Void = { _ in }
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            ForEach(answers, id: \.self) { answer in
-                Button(answer) { say(answer) }.buttonStyle(
-                    .pill(answer == recommended ? .filled : .quiet, size: .compact))
+        let rest = answers.filter { $0 != recommended } + (hasLater ? ["Later"] : [])
+        VStack(spacing: Metrics.Spacing.s) {
+            if let recommended, answers.contains(recommended) { pill(recommended, .filled) }
+            ForEach(Array(stride(from: 0, to: rest.count, by: 2)), id: \.self) { i in
+                HStack(spacing: Metrics.Spacing.s) {
+                    ForEach(rest[i..<min(i + 2, rest.count)], id: \.self) { pill($0, .quiet) }
+                }
             }
-            if hasLater { Button("Later") { say("Later") }.buttonStyle(.pill(.quiet, size: .compact)) }
         }
+        .allowsHitTesting(busy == nil)
+    }
+
+    private func pill(_ answer: String, _ kind: PillStyle.Kind) -> some View {
+        Button(answer) { say(answer) }
+            .buttonStyle(.pill(kind, size: .row, isBusy: answer == busy))
+            .opacity(busy == nil || answer == busy ? 1 : Metrics.Opacity.dim)
     }
 }
 
@@ -32,50 +44,52 @@ struct QuestionBlock: View {
         VStack(spacing: Metrics.Spacing.s) {
             ForEach(answers, id: \.self) { answer in
                 Button(answer) { say(answer) }.buttonStyle(
-                    .pill(answer == recommended ? .filled : .quiet, size: .compact))
+                    .pill(answer == recommended ? .filled : .quiet, size: .row))
             }
         }
     }
 }
 
-/// A draft's quick edits (the card's `edits`): up to three chips under the draft.
+/// A draft's quick edits (the card's `edits`): up to three chips under the draft, at its trailing edge, muted.
 struct EditChips: View {
     let edits: [String]
     var pick: (String) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            ForEach(edits.prefix(3), id: \.self) { edit in QuietChip(edit) { pick(edit) } }
+            Spacer(minLength: 0)
+            ForEach(edits.prefix(3), id: \.self) { edit in QuietChip(edit, isMuted: true) { pick(edit) } }
         }
     }
 }
 
-/// An ask unfolded: its question, why in one line, the draft as a `paper` quote with its quick edits, and the answers.
-/// A spending stop carries one small line of amounts under the why, never in the title.
+/// An ask unfolded: a header (its question, why in one line), the draft as its chat (`DraftBlock`) with its quick edits,
+/// and the answers, on a `wash` with no edge. A spending stop carries one small line of amounts under the why. Inside a
+/// thread item (`isInItem`) it has no wash and no side padding of its own: the item's is the page's.
 struct AskCard: View {
     let question: String
     var why: String?
-    var draft: String?
+    var check: Check?
     var edits: [String] = []
     var amounts: String?
     let answers: [String]
     var recommended: String?
-    var isBusy = false
+    var busy: String?
+    var isInItem = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             Text(question).font(.header)
             if let why { Text(why).font(.line).foregroundStyle(Palette.muted) }
             if let amounts { Text(amounts).font(.meta).foregroundStyle(Palette.faint) }
-            if let draft {
-                Text(draft).font(.body15).padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.paper, in: .rect(cornerRadius: Metrics.Radius.control))
+            if let check, let draft = DraftBlock(check: check, isBoxed: false) {
+                draft
                 if !edits.isEmpty { EditChips(edits: edits) }
             }
-            AnswerPills(answers: answers, recommended: recommended)
-                .opacity(isBusy ? 0.5 : 1).allowsHitTesting(!isBusy)
+            AnswerPills(answers: answers, recommended: recommended, busy: busy)
         }
-        .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
+        .padding(.vertical, isInItem ? 0 : Metrics.Spacing.l).padding(.horizontal, isInItem ? 0 : Metrics.gutter)
+        .frame(maxWidth: .infinity, alignment: .leading).background(isInItem ? .clear : Palette.wash)
     }
 }
 

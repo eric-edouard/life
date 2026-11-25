@@ -324,11 +324,11 @@ private struct DictationMic: View {
             .opacity(isGone ? 0 : 1)
             // With the thumb while it is down, home with a little spring once it lets go.
             .animation(
-                press.isDown ? .interactiveSpring(duration: 0.2) : .spring(duration: 0.4, bounce: 0.25),
+                press.isDown ? Motion.thumbFollows : Motion.thumbHome,
                 value: press.lift
             )
-            .animation(.spring(duration: 0.3, bounce: 0.2), value: press.isHolding)
-            .motion(.easeOut(duration: 0.15), value: press.isArmed)
+            .animation(Motion.thumbGrows, value: press.isHolding)
+            .motion(Motion.armed, value: press.isArmed)
             .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
             .contentShape(.rect)
             .gesture(
@@ -405,7 +405,7 @@ private struct DictationMic: View {
         dictation.send()
         guard !reduceMotion else { return }
         flight = from
-        withAnimation(.spring(duration: 0.22, bounce: 0)) {
+        withAnimation(Motion.flightOff) {
             isGone = true
         } completion: {
             var still = Transaction()
@@ -431,7 +431,7 @@ private struct VoiceMark: View {
         }
         .foregroundStyle(Palette.on)
         .frame(height: 20)
-        .motion(.easeOut(duration: 0.12), value: level)
+        .motion(Motion.level, value: level)
         .accessibilityHidden(true)
     }
 }

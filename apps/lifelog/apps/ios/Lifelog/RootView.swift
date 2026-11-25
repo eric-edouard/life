@@ -11,7 +11,6 @@ struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @AppStorage("appearance") private var appearance = Appearance.auto
     @State private var isPendantShown = false
     @State private var isSettingsShown = false
     @State private var text = ""
@@ -53,7 +52,7 @@ struct RootView: View {
         .sheet(isPresented: $isSettingsShown) { NavigationStack { SettingsPage() }.sheetStack() }
         .sheet(item: $confirming) { PairSheet(offer: $0).sheetStack() }
         .environment(\.windowSizeClass, sizeClass)
-        .preferredColorScheme(appearance.scheme)
+        .preferredColorScheme(.dark)
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
             sync.becameActive()
@@ -105,18 +104,5 @@ struct RootView: View {
             .accessibilityLabel("Pendant")
         }
         .buttonStyle(.glass).buttonBorderShape(.circle).padding(.horizontal, Metrics.Spacing.l)
-    }
-}
-
-/// Dark, light, or whatever the phone says.
-enum Appearance: String {
-    case auto, light, dark
-
-    var scheme: ColorScheme? {
-        switch self {
-        case .auto: nil
-        case .light: .light
-        case .dark: .dark
-        }
     }
 }

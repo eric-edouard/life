@@ -349,7 +349,7 @@ struct StateDot: View {
             .shadow(color: isLit ? color.opacity(0.5) : .clear, radius: 4)
             .opacity(isLit && isDim ? 0.45 : 1)
             .animation(
-                isLit && !reduceMotion ? .easeInOut(duration: Motion.pulse / 2).repeatForever() : nil, value: isDim
+                isLit && !reduceMotion ? Motion.breath : nil, value: isDim
             )
             .onAppear { isDim = isLit }
             .accessibilityHidden(true)
@@ -633,14 +633,31 @@ struct RowMenu<Choice: Hashable>: View {
     }
 }
 
-/// A row's switch: the system's, tinted `fg` by the row.
+/// A row's switch: a cream track with a black knob when on, a `tint` track with a cream knob when off. Never the
+/// system's green: green means it worked (`ok`), and only the tick says so.
 struct RowSwitch: View {
     let title: String
     let isOn: Bool
     let set: (Bool) -> Void
 
     var body: some View {
-        Toggle(title, isOn: Binding(get: { isOn }, set: set)).labelsHidden()
+        let gap = (Metrics.switchTrack.height - Metrics.switchKnob) / 2
+        Button {
+            set(!isOn)
+        } label: {
+            Capsule().fill(isOn ? Palette.fg : Palette.glass)
+                .frame(width: Metrics.switchTrack.width, height: Metrics.switchTrack.height)
+                .overlay(alignment: isOn ? .trailing : .leading) {
+                    Circle().fill(isOn ? Palette.on : Palette.fg).frame(
+                        width: Metrics.switchKnob, height: Metrics.switchKnob
+                    )
+                    .padding(gap)
+                }
+                .motion(Motion.standard, value: isOn)
+                .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain).accessibilityLabel(title).accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
     }
 }
 

@@ -24,7 +24,7 @@ struct ReactionMark: View {
 }
 
 /// His words, a bubble on the right with Life's mark on it. `waiting` goes when he is back, `failed` is tapped to ask
-/// again.
+/// again. A reaction sits on the bubble's bottom-left corner, outside the words.
 struct HisBubble: View {
     enum State { case sent, waiting, failed }
     let words: String
@@ -37,7 +37,6 @@ struct HisBubble: View {
                 Image(systemName: "clock").font(.line).accessibilityLabel("Goes when you're back")
             }
             Text(words)
-            if let reaction { ReactionMark(reaction: reaction) }
         }
         .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s).foregroundStyle(Palette.fg)
         .background(
@@ -47,12 +46,18 @@ struct HisBubble: View {
                 bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
         )
         .overlay(alignment: .bottomLeading) {
-            if state == .failed {
-                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Palette.flag).offset(x: -6, y: 6)
-                    .accessibilityLabel("Not sent. Tap to try again")
+            if let reaction {
+                ReactionMark(reaction: reaction).frame(width: Metrics.reactionMark, height: Metrics.reactionMark)
+                    .background(Palette.card, in: .circle).offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
+            } else if state == .failed {
+                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Palette.flag).offset(
+                    x: -Metrics.Spacing.s, y: Metrics.Spacing.s
+                )
+                .accessibilityLabel("Not sent. Tap to try again")
             }
         }
-        .frame(maxWidth: 300, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.bottom, reaction == nil ? 0 : Metrics.Spacing.m)
+        .frame(maxWidth: Metrics.bubbleWidth, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -61,30 +66,44 @@ struct EarlierDraftRow: View {
     let words: String
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 2) {
+        VStack(alignment: .trailing, spacing: Metrics.Spacing.xs / 2) {
             Text("Earlier draft").font(.meta).foregroundStyle(Palette.faint)
             Text(words).font(.line).foregroundStyle(Palette.muted)
         }
-        .frame(maxWidth: .infinity, alignment: .trailing).opacity(0.6)
+        .frame(maxWidth: .infinity, alignment: .trailing).opacity(Metrics.Opacity.earlier)
     }
 }
 
-/// A long task's mark: a still ring that fills at each milestone, never a spinner.
+/// A long task's mark: a still pie in `muted` that fills at each milestone. It never turns, so it never reads as a
+/// spinner (owner, 26 Nov 2026).
 struct StillRing: View {
     /// 0 to 1.
     let progress: Double
-    var size: CGFloat = 18
+    var size = Metrics.pie
 
     var body: some View {
         ZStack {
-            Circle().stroke(Palette.tint, lineWidth: 2)
-            Circle().trim(from: 0, to: max(progress, 0.04)).stroke(
-                Palette.ai, style: .init(lineWidth: 2, lineCap: .round)
-            )
-            .rotationEffect(.degrees(-90))
+            Circle().fill(Palette.glass)
+            Pie(fraction: max(progress, 0.06)).fill(Palette.muted)
         }
         .frame(width: size, height: size).accessibilityLabel("Under way").accessibilityValue(
             Text(progress, format: .percent.precision(.fractionLength(0))))
+    }
+}
+
+/// A filled slice from 12 o'clock, clockwise.
+private nonisolated struct Pie: Shape {
+    let fraction: Double
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let centre = CGPoint(x: rect.midX, y: rect.midY)
+        path.move(to: centre)
+        path.addArc(
+            center: centre, radius: rect.width / 2, startAngle: .degrees(-90),
+            endAngle: .degrees(-90 + 360 * min(fraction, 1)), clockwise: false)
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -92,17 +111,19 @@ struct StillRing: View {
 /// `HeldSeparator`.
 enum ItemState: Equatable {
     case needsYou, later, waitingOnSomeone, settled, outdated, queued, stopped
-    /// Handed off: the ring's fill and the estimate ("About 20 min", then "About 10 min left").
+    /// Handed off: the pie's fill and the estimate ("About 20 min", then "About 10 min left").
     case underWay(progress: Double, estimate: String?)
     /// A send he undid: the outcome, in his words' place ("Deleted for both of you").
     case undone(String)
 }
 
-/// One item of the thread as a row that unfolds: title, its state's mark at the end, a line under it when the state
-/// has one, and the unfolded `detail` on a `wash`.
+/// One item of the thread as a bare row that unfolds: its round icon, the title, a line under it when the state has
+/// one, its state's mark at the end; unfolded it sits on a `wash` that bleeds to the screen's edges (the page's
+/// gutter is the caller's), with no dividers between rows.
 struct ThreadItemRow<Detail: View>: View {
     let title: String
     let state: ItemState
+    var icon = "circle.dashed"
     var isOpen = false
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
@@ -111,10 +132,12 @@ struct ThreadItemRow<Detail: View>: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             Button(action: toggle) {
                 HStack(spacing: Metrics.Spacing.m) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(title).font(isOpen ? .header : .rowTitle).foregroundStyle(titleColor)
-                            .strikethrough(state == .outdated).multilineTextAlignment(.leading)
-                        if let line { Text(line).font(.line).foregroundStyle(Palette.muted) }
+                    Image(systemName: icon).font(.rowTitle).foregroundStyle(Palette.muted)
+                        .frame(width: Metrics.disc, height: Metrics.disc).background(Palette.tint, in: .circle)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
+                        Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
+                        lineView
                     }
                     Spacer(minLength: 0)
                     mark
@@ -123,30 +146,31 @@ struct ThreadItemRow<Detail: View>: View {
             }
             .buttonStyle(.plain)
             if isOpen { detail }
-            Hairline()
         }
-        .padding(.horizontal, isOpen ? Metrics.Spacing.m : 0)
-        .background(isOpen ? Palette.wash : .clear, in: .rect(cornerRadius: Metrics.Radius.block))
+        .opacity(state == .outdated ? Metrics.Opacity.faded : 1)
+        .padding(.horizontal, isOpen ? Metrics.gutter : 0).padding(.vertical, isOpen ? Metrics.Spacing.s : 0)
+        .background(isOpen ? Palette.wash : .clear).padding(.horizontal, isOpen ? -Metrics.gutter : 0)
     }
 
-    private var titleColor: Color { state == .outdated || state == .stopped ? Palette.faint : Palette.fg }
-
-    private var line: String? {
+    @ViewBuilder private var lineView: some View {
         switch state {
-        case .underWay(_, let estimate): estimate
-        case .undone(let outcome): outcome
-        case .stopped: "Stopped"
-        default: nil
+        case .underWay(let progress, let estimate):
+            HStack(spacing: Metrics.Spacing.s) {
+                StillRing(progress: progress, size: Metrics.pieSmall)
+                Text(estimate ?? "Under way").font(.line).foregroundStyle(Palette.muted)
+            }
+        case .undone(let outcome): Text(outcome).font(.line).foregroundStyle(Palette.muted)
+        case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
+        default: EmptyView()
         }
     }
 
     @ViewBuilder private var mark: some View {
         switch state {
         case .needsYou:
-            Image(systemName: "circle.fill").font(.metaStrong).foregroundStyle(Palette.flag).accessibilityLabel(
+            Circle().fill(Palette.flag).frame(width: Metrics.flagDot, height: Metrics.flagDot).accessibilityLabel(
                 "Needs you")
         case .later: Image(systemName: "clock").foregroundStyle(Palette.muted).accessibilityLabel("Later")
-        case .underWay(let progress, _): StillRing(progress: progress)
         case .waitingOnSomeone:
             Image(systemName: "hourglass").foregroundStyle(Palette.muted).accessibilityLabel("Waiting on someone")
         case .settled, .undone: Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
@@ -154,21 +178,18 @@ struct ThreadItemRow<Detail: View>: View {
             Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel(
                 "Goes when Life is back")
         case .stopped: Image(systemName: "stop.circle").foregroundStyle(Palette.muted).accessibilityLabel("Stopped")
-        case .outdated: EmptyView()
+        case .underWay, .outdated: EmptyView()
         }
     }
 }
 
-/// One quiet separator over asks that were held (a meeting, a Focus, Sleep): "While you were in your meeting".
+/// One quiet line over asks that were held (a meeting, a Focus, Sleep): "While you were in your meeting". Words only.
 struct HeldSeparator: View {
     let text: String
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.m) {
-            Hairline()
-            Text(text).font(.meta).foregroundStyle(Palette.faint).fixedSize()
-            Hairline()
-        }
+        Text(text).font(.meta).foregroundStyle(Palette.faint).multilineTextAlignment(.center).frame(
+            maxWidth: .infinity)
     }
 }
 
@@ -198,16 +219,20 @@ struct SentLine: View {
                 }
             case .undoing:
                 HStack(spacing: Metrics.Spacing.s) {
-                    StillRing(progress: 0.3, size: 14)
+                    Spinner(size: .small).foregroundStyle(Palette.muted)
                     Text("Undoing…").font(.line).foregroundStyle(Palette.muted)
                 }
-            case .undone: Text("Deleted for both of you").font(.line).foregroundStyle(Palette.ok)
+            case .undone:
+                HStack(spacing: Metrics.Spacing.xs) {
+                    Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)
+                    Text("Deleted for both of you").font(.line).foregroundStyle(Palette.muted)
+                }
             }
         }
     }
 }
 
-/// "How am I doing?": one quiet row under an answered ask. A tap keeps the mark and the row fades; nothing follows.
+/// "How am I doing?": one quiet pill under an answered ask. A tap keeps the mark and the row fades; nothing follows.
 struct RatingRow: View {
     var question = "How am I doing?"
     var pick: (Reaction) -> Void = { _ in }
@@ -221,49 +246,58 @@ struct RatingRow: View {
                 Button {
                     pick(mark)
                 } label: {
-                    ReactionMark(reaction: mark).frame(width: 36, height: Metrics.tapTarget)
+                    ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
                 }
                 .accessibilityLabel(mark.rawValue)
             }
             Button(action: close) {
                 Image(systemName: "xmark").font(.line).foregroundStyle(Palette.faint).frame(
-                    width: 36, height: Metrics.tapTarget)
+                    width: Metrics.ratingMark, height: Metrics.tapTarget)
             }
             .accessibilityLabel("Close")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).padding(.horizontal, Metrics.Spacing.l).background(Palette.card, in: .capsule)
     }
 }
 
-/// A notice at the top of the thread: a title, and when it opens a body and the one thing to do ("Your Mac isn't
-/// answering", then "Settings"). `isBack` is the quiet line after it passes.
-struct NoticeBlock: View {
+/// A notice at the top of the thread, shaped as a row: a round icon, the title, one muted line. Opened it shows what
+/// to do about it in place (the settings block), never a button with a word (owner, 26 Nov 2026).
+struct NoticeBlock<Detail: View>: View {
     let title: String
     var message: String?
-    var action: String?
+    var symbol = "exclamationmark.circle"
     var isOpen = false
     var toggle: () -> Void = {}
-    var act: () -> Void = {}
+    @ViewBuilder var detail: Detail
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             Button(action: toggle) {
-                Text(title).font(.rowTitle).frame(maxWidth: .infinity, alignment: .leading).frame(
-                    minHeight: Metrics.tapTarget
-                )
-                .contentShape(.rect)
+                HStack(spacing: Metrics.Spacing.m) {
+                    Image(systemName: symbol).font(.rowTitle).foregroundStyle(Palette.muted)
+                        .frame(width: Metrics.disc, height: Metrics.disc).background(Palette.tint, in: .circle)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
+                        Text(title).font(.rowTitle).multilineTextAlignment(.leading)
+                        if let message { Text(message).font(.line).foregroundStyle(Palette.muted) }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
             }
             .buttonStyle(.plain)
-            if isOpen {
-                if let message { Text(message).font(.line).foregroundStyle(Palette.muted) }
-                if let action { Button(action, action: act).buttonStyle(.pill(.quiet, size: .compact)) }
-            }
+            if isOpen { detail }
         }
-        .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, isOpen ? Metrics.Spacing.m : 0).card()
     }
 }
 
-/// A round control over the thread: the system's glass circle with one mark.
+extension NoticeBlock where Detail == EmptyView {
+    init(title: String, message: String? = nil, symbol: String = "exclamationmark.circle") {
+        self.init(title: title, message: message, symbol: symbol, detail: { EmptyView() })
+    }
+}
+
+/// A round control over the thread: one mark on Life's `glass` fill, no rim.
 struct RoundButton: View {
     let symbol: String
     let label: String
@@ -273,14 +307,14 @@ struct RoundButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol).font(.bodyStrong).frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+                .background(Palette.glass, in: .circle)
         }
-        .buttonStyle(.glass).buttonBorderShape(.circle).accessibilityLabel(label)
+        .buttonStyle(.plain).accessibilityLabel(label)
         .overlay(alignment: .topTrailing) {
             if let badge {
-                Text("\(badge)").font(.metaStrong).foregroundStyle(Palette.on).padding(.horizontal, 5).frame(
-                    minWidth: 18
-                )
-                .background(Palette.flag, in: .capsule).accessibilityHidden(true)
+                Text("\(badge)").font(.metaStrong).foregroundStyle(Palette.on).padding(.horizontal, Metrics.Spacing.xs)
+                    .frame(minWidth: Metrics.pie)
+                    .background(Palette.flag, in: .capsule).accessibilityHidden(true)
             }
         }
     }

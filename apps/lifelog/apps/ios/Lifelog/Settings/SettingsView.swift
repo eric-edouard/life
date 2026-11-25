@@ -18,7 +18,6 @@ struct SettingsView: View {
     @Environment(AppleHealthReader.self) private var appleHealth
     @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
-    @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceIDToSend = false
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
@@ -31,15 +30,6 @@ struct SettingsView: View {
             sending
             pendant
             dictation
-            RowGroup(label: "Appearance", surface: .sheet) {
-                SegmentedChoice(
-                    choices: [Appearance.auto, .light, .dark],
-                    selection: Binding(get: { appearance }, set: { appearance = $0 ?? appearance }),
-                    title: { $0.rawValue.capitalized }
-                )
-                .padding(8)
-                .accessibilityIdentifier("settings.appearance")
-            }
             help
         }
         .motion(Motion.standard, value: needsYouRows)

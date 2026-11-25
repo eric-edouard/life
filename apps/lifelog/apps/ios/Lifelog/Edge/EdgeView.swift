@@ -7,8 +7,8 @@ enum EdgeState { case rest, speaking, working, still }
 /// The aura: the edge's colour and, for each state, how far each knob sits in its band (0 is the band's low end, 1 its
 /// high). Life's main session changes it only through this setting, clamped by `AuraBands`.
 struct AuraSetting: Equatable {
-    /// An index into `Palette.auraColours`; nil is Life blue (`ai`).
-    var colour: Int?
+    /// An index into `choices`: Life blue (the default), cream, then the eight of `Palette.auraColours`.
+    var colour = 0
     var knobs: [EdgeState: [AuraKnob: Double]] = AuraSetting.standard
 
     /// Today's look: cream at rest and when he speaks, blue when Life works.
@@ -18,7 +18,11 @@ struct AuraSetting: Equatable {
         .working: [.speed: 1, .brightness: 0.8, .glow: 0.5, .colour: 1],
     ]
 
-    var tint: Color { colour.map { Palette.auraColours[$0].color } ?? Palette.ai }
+    /// The aura's ten colours, as the settings offer them.
+    static let choices: [(name: String, color: Color)] =
+        [("Life blue", Palette.ai), ("cream", Palette.fg)] + Palette.auraColours
+
+    var tint: Color { Self.choices[colour].color }
 
     /// A knob's value in its band's units; the idle colour never rises above You speak's.
     func value(_ knob: AuraKnob, in state: EdgeState) -> Double {
@@ -60,7 +64,7 @@ struct EdgeView: View {
     @State private var clock = EdgeClock()
 
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion || state == .still)) { context in
+        TimelineView(.animation(paused: reduceMotion)) { context in
             let p = clock.step(
                 to: context.date, state: state, speed: state == .still ? 0 : aura.value(.speed, in: state))
             let glow = aura.value(.glow, in: state)
@@ -85,7 +89,8 @@ struct EdgeView: View {
 
     private func layers(_ p: EdgeClock.Pose, width: CGFloat) -> some View {
         let ring = ContainerRelativeShape()
-        let bright = aura.value(.brightness, in: state)
+        // No Mac: cream only, fainter than idle; blue belongs to Working alone.
+        let bright = aura.value(.brightness, in: state) * (state == .still ? Metrics.Opacity.dim : 1)
         let calm = ink(state == .working ? .rest : state)
         return ZStack {
             ring.strokeBorder(calm.opacity(0.4 * bright * (1 - p.blue)), lineWidth: width)
