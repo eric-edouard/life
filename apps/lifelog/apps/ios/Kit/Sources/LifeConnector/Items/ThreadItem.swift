@@ -30,8 +30,21 @@ public struct ThreadAsk: Decodable, Sendable, Equatable, Identifiable {
         public struct Sent: Decodable, Sendable, Equatable {
             public let at: Date?
         }
+        /// His answer: what he picked, his words and when.
+        public struct Answer: Decodable, Sendable, Equatable {
+            public let at: Date?
+            public let note: String?
+            public let options: [String]
+        }
+        /// "How am I doing?" on a closed card: his mark so far (nil: none yet). Absent when Life did not ask.
+        public struct Rate: Decodable, Sendable, Equatable {
+            public let mark: RatingMark?
+        }
         public let title: String?
+        public let ask: String?
         public let question: String?
+        public let answer: Answer?
+        public let rate: Rate?
         public let sent: Sent?
         public let undo: Undo?
         public let withdrawn: Withdrawn?
@@ -71,9 +84,54 @@ public struct ThreadAsk: Decodable, Sendable, Equatable, Identifiable {
     public var undoLine: String? { closed?.undo.map { $0.line ?? "" } }
 }
 
-/// One page of `read_thread`: only its asks matter here (the entries are `LifeThread`'s).
+/// An entry of the thread as Life keeps it (`read_thread`'s `entry` items): his words and Life's answer, or a late reply of an
+/// agent (no words of his; `follows` the entry of his ask it answers). The one source the thread is drawn from.
+public struct ThreadWireEntry: Codable, Sendable, Equatable, Identifiable {
+    /// A reaction on it: Life's on his words (`by` `life`), his on the answer (`by` `owner`).
+    public struct Reaction: Codable, Sendable, Equatable {
+        public let by: String
+        public let with: String
+        public let at: Date?
+    }
+
+    /// Work handed on from it: what kind, since when, and how long that kind takes (a median of the last, ms).
+    public struct Handed: Codable, Sendable, Equatable {
+        /// `HANDED_KINDS` (`desk/desk-turn-reads.ts`).
+        public enum Kind: String, UnknownTolerant, Codable, Sendable {
+            case booking, lookup, other, redraft, reply, research
+            case unknown
+        }
+        public let kind: Kind
+        public let since: Date?
+        public let estimateMs: Int?
+        /// `under_way` while an agent's turn runs on it, else `settled`.
+        public let state: ThreadAsk.State
+    }
+
+    /// Life's number for the entry: what a reaction names.
+    public let id: Int
+    public let at: Date
+    public let words: String?
+    public let answer: String?
+    public let answeredAt: Date?
+    public let error: String?
+    public let follows: Int?
+    public let handed: [Handed]
+    public let reactions: [Reaction]
+    public let refs: [String]
+}
+
+extension ThreadAsk.State: Encodable {
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+/// One page of `read_thread`: its asks and its entries.
 public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParties, VersionedRead {
     public let asks: [ThreadAsk]
+    public let entries: [ThreadWireEntry]
     public let earlier: String?
     public let version: String?
 
@@ -86,11 +144,16 @@ public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParti
         version = try c.decodeIfPresent(String.self, forKey: .version)
         var items = try c.nestedUnkeyedContainer(forKey: .items)
         var asks: [ThreadAsk] = []
+        var entries: [ThreadWireEntry] = []
         while !items.isAtEnd {
             let item = try items.superDecoder()
-            if (try? Kind(from: item))?.kind == "ask", let ask = try? ThreadAsk(from: item) { asks.append(ask) }
+            switch (try? Kind(from: item))?.kind {
+            case "ask": if let ask = try? ThreadAsk(from: item) { asks.append(ask) }
+            case "entry": if let entry = try? ThreadWireEntry(from: item) { entries.append(entry) }
+            default: break
+            }
         }
-        self.asks = asks
+        (self.asks, self.entries) = (asks, entries)
     }
 
     public var parties: [Party] { asks.flatMap { $0.check?.parties ?? [] } }
@@ -128,7 +191,7 @@ public struct QueuedAnswers: Codable, Sendable, Equatable {
 }
 
 extension AnswerRequest: Decodable {
-    private enum Key: String, CodingKey { case ref, options, note, person, name, undo }
+    private enum Key: String, CodingKey { case ref, options, note, person, name, undo, rate }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: Key.self)
@@ -137,6 +200,7 @@ extension AnswerRequest: Decodable {
             note: try c.decodeIfPresent(String.self, forKey: .note),
             person: try c.decodeIfPresent(String.self, forKey: .person),
             name: try c.decodeIfPresent(String.self, forKey: .name),
-            undo: try c.decodeIfPresent(Bool.self, forKey: .undo))
+            undo: try c.decodeIfPresent(Bool.self, forKey: .undo),
+            rate: try c.decodeIfPresent(RatingMark.self, forKey: .rate))
     }
 }

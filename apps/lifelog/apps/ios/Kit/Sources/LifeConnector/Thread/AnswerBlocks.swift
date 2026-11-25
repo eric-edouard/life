@@ -111,11 +111,39 @@ public enum AnswerPart: Equatable, Sendable {
     /// (shown when it reads, dropped when it does not), never Markdown. With `sent`, only a block whose key the server
     /// streamed is drawn: a fence the model wrote that the server never checked is dropped (nil: every one, for live text).
     public static func parts(of text: String, sent: Set<String>? = nil) -> [AnswerPart] {
-        var parts: [AnswerPart] = []
+        scan(text).compactMap { piece in
+            switch piece {
+            case .prose(let text): return .markdown(text)
+            case .fence(let kind, let json):
+                guard
+                    sent.map({ set in LifeBlock.key(kind: kind, json: json).map { set.contains($0) } == true }) ?? true,
+                    let block = LifeBlock(kind: kind, json: json)
+                else { return nil }
+                return .block(block)
+            }
+        }
+    }
+
+    /// The keys of the blocks that read in an answer (`LifeBlock.key`): an answer read from Life's thread was checked
+    /// whole by the server, so every one of them is drawn.
+    public static func blockKeys(of text: String) -> [String] {
+        scan(text).compactMap { piece in
+            guard case .fence(let kind, let json) = piece, LifeBlock(kind: kind, json: json) != nil else { return nil }
+            return LifeBlock.key(kind: kind, json: json)
+        }
+    }
+
+    private enum Piece {
+        case prose(String)
+        case fence(kind: String, json: Data)
+    }
+
+    private static func scan(_ text: String) -> [Piece] {
+        var parts: [Piece] = []
         var prose: [Substring] = []
         func flush() {
             let joined = prose.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !joined.isEmpty { parts.append(.markdown(joined)) }
+            if !joined.isEmpty { parts.append(.prose(joined)) }
             prose = []
         }
         var lines = text.split(separator: "\n", omittingEmptySubsequences: false)[...]
@@ -145,12 +173,7 @@ public enum AnswerPart: Equatable, Sendable {
                 body.append(unquoted(next))
             }
             flush()
-            let json = Data(body.joined(separator: "\n").utf8)
-            if sent.map({ set in LifeBlock.key(kind: kind, json: json).map { set.contains($0) } == true }) ?? true,
-                let block = LifeBlock(kind: kind, json: json)
-            {
-                parts.append(.block(block))
-            }
+            parts.append(.fence(kind: kind, json: Data(body.joined(separator: "\n").utf8)))
         }
         flush()
         return parts

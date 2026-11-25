@@ -40,6 +40,10 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let ended: Ended?
         /// "Not now" on a your move card: the local day (`YYYY-MM-DD`) it is back in his inbox. Any other answer: absent.
         public let until: String?
+        /// An `adds` answer's calendar event: its id, or the error it failed with. No event written: absent.
+        public let added: Outcome?
+        /// A `runs` answer's Apify run: its id, or the error it failed with. No run started: absent.
+        public let ran: Outcome?
 
         /// What "Not now" says back: "Snoozed until Tue 24 Nov." (a new step on its matter can bring it back sooner).
         public func snoozed(locale: Locale = .current, timeZone: TimeZone = .current) -> String? {
@@ -47,6 +51,28 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
                 "Snoozed until \(SaidWords.day($0.date, locale: locale, timeZone: timeZone))."
             }
         }
+    }
+
+    /// What an `adds` or `runs` answer did (`added`, `ran`, `memory/decision-lines.ts`): written once, never retried.
+    public struct Outcome: Decodable, Sendable, Equatable {
+        public let at: Date?
+        public let error: String?
+        /// The calendar event's id (`adds`).
+        public let eventId: String?
+        /// The Apify run's id (`runs`).
+        public let runId: String?
+    }
+
+    /// A line his answer wrote (`done`, the proof): its kind (`answered`, `sent`, `added`, `ran`, `rated`, `ended`…); a
+    /// new matter's own line has none.
+    public struct Line: Decodable, Sendable, Equatable {
+        public let kind: String?
+        public let at: Date?
+        public let error: String?
+        public let eventId: String?
+        public let runId: String?
+        /// A `rated` line's mark.
+        public let mark: RatingMark?
     }
 
     public struct Ended: Decodable, Sendable, Equatable {
@@ -63,4 +89,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     public let start: AgentChangeResult?
     /// "I've paid": Life's look for the step done, `seen` or `not_found`, beside the answer. No look: absent.
     public let doneSeen: Check.DoneSeen?
+    /// The lines the answer wrote, in order.
+    public let done: [Line]?
 }

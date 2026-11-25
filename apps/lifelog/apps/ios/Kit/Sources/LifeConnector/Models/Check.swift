@@ -38,6 +38,12 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let label: String
         /// Choosing it sends, pays, books, deletes or changes something.
         public let outgoing: Bool?
+        /// His pick of it alone writes the card's `event` need into his calendar, once (`adds`, "Add to calendar").
+        public let adds: Bool?
+        /// His pick of it alone starts the card's Apify run, once (`runs`, "Run it").
+        public let runs: Bool?
+        /// His pick of it alone is his word that he did the step: Life looks for it done (`looks`, "I've paid").
+        public let looks: Bool?
         public let takes: Takes?
         /// His pick of it, alone and with no words, is his word that the card's step or matter is done: Life writes an
         /// `outdated` correction no code unsays, so the phone holds it for Undo wherever the card is shown.
@@ -314,6 +320,20 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let recommended: String?
     /// A redraft: the older card this one took the place of, and what changed (`changed`).
     public let replacedBy: String?
+    /// A draft card's quick edits, a few words each ("More concise"): a tap redrafts (`MainSessionRequest.tap`).
+    public let edits: [String]?
+    /// His next asks, in his own voice ("Book the earliest one").
+    public let follow: [String]?
+    /// What a card that replaces an earlier one on its subject says changed; a redraft says how he asked it.
+    public let changed: [Change]?
+
+    /// What changed on a replacing card (`CHANGES`, `memory/card-request.ts`): `edit:tap` and `edit:words` mark a redraft.
+    public enum Change: String, UnknownTolerant, Sendable {
+        case deadline, condition, option, message
+        case editTap = "edit:tap"
+        case editWords = "edit:words"
+        case unknown
+    }
 
     /// What a card of Life's rests on (`causeOf`, `memory/complaint-checks.ts`).
     public struct Misread: Decodable, Sendable, Equatable {

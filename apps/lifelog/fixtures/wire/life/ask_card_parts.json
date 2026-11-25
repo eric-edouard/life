@@ -1,0 +1,283 @@
+[
+  {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": "A made-up reason to ask.",
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": {
+      "channel": "whatsapp",
+      "text": "Can you come Friday?",
+      "to": "Kit Moreau",
+      "chat": "155@s.whatsapp.net"
+    },
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": null,
+    "ask": "Pick one",
+    "changed": ["edit:tap"],
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": ["More concise", "Warmer"],
+    "follow": ["Book the earliest"],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+      {
+        "id": "do",
+        "label": "Do it",
+        "outgoing": true,
+        "takes": null
+      },
+      {
+        "id": "no",
+        "label": "No",
+        "takes": null
+      }
+    ],
+    "plan": null,
+    "recommended": "do",
+    "replaces": null,
+    "pushId": "push-dec_000000000001",
+    "question": "Do it?",
+    "ref": "dec_000000000001",
+    "title": "Edit by tap",
+    "urgency": "blocks"
+  },
+  {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": "A made-up reason to ask.",
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": {
+      "channel": "whatsapp",
+      "text": "Can you come Friday?",
+      "to": "Kit Moreau",
+      "chat": "155@s.whatsapp.net"
+    },
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": null,
+    "ask": "Pick one",
+    "changed": ["edit:words", "message"],
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": ["Warmer"],
+    "follow": ["Book the earliest"],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+      {
+        "id": "do",
+        "label": "Do it",
+        "outgoing": true,
+        "takes": null
+      },
+      {
+        "id": "no",
+        "label": "No",
+        "takes": null
+      }
+    ],
+    "plan": null,
+    "recommended": "do",
+    "replaces": null,
+    "pushId": "push-dec_000000000002",
+    "question": "Do it?",
+    "ref": "dec_000000000002",
+    "title": "Edit by words",
+    "urgency": "blocks"
+  },
+  {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": "A made-up reason to ask.",
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": null,
+    "ask": "Pick one",
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": ["Book the earliest"],
+    "gathered": null,
+    "needs": [
+      {
+        "bank": "Kasikornbank",
+        "holder": "Blue Reef Diving Co., Ltd.",
+        "kind": "account",
+        "number": "012-3-45678-9",
+        "scheme": "th_account",
+        "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd."
+      },
+      {
+        "currency": "THB",
+        "kind": "amount",
+        "value": 4500,
+        "line": "4,500 THB"
+      }
+    ],
+    "notSent": null,
+    "options": [
+      {
+        "id": "do",
+        "label": "Do it",
+        "looks": true,
+        "takes": null
+      },
+      {
+        "id": "no",
+        "label": "No",
+        "takes": null
+      }
+    ],
+    "plan": null,
+    "recommended": "do",
+    "replaces": null,
+    "pushId": "push-dec_000000000003",
+    "question": "Do it?",
+    "ref": "dec_000000000003",
+    "title": "I've paid",
+    "urgency": "blocks"
+  },
+  {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": "A made-up reason to ask.",
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": null,
+    "ask": "Pick one",
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": ["Book the earliest"],
+    "gathered": null,
+    "needs": [
+      {
+        "end": "2026-12-01T12:00:00+07:00",
+        "kind": "event",
+        "reminders": [60],
+        "start": "2026-12-01T08:00:00+07:00",
+        "title": "Dive course",
+        "line": "Dive course, 2026-12-01 08:00"
+      }
+    ],
+    "notSent": null,
+    "options": [
+      {
+        "adds": true,
+        "id": "do",
+        "label": "Do it",
+        "takes": null
+      },
+      {
+        "id": "no",
+        "label": "No",
+        "takes": null
+      }
+    ],
+    "plan": null,
+    "recommended": "do",
+    "replaces": null,
+    "pushId": "push-dec_000000000004",
+    "question": "Do it?",
+    "ref": "dec_000000000004",
+    "title": "Dive",
+    "urgency": "blocks"
+  },
+  {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": "A made-up reason to ask.",
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": null,
+    "ask": "Pick one",
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": ["Book the earliest"],
+    "gathered": null,
+    "needs": [
+      {
+        "actor": "made/up-actor",
+        "estimateUsd": 0.1,
+        "input": {
+          "query": "clinics"
+        },
+        "kind": "apify",
+        "maxUsd": 0.5,
+        "what": "20 clinics",
+        "line": "Apify: 20 clinics, by made/up-actor, about $0.1, at most $0.5. Input: {\"query\":\"clinics\"}"
+      }
+    ],
+    "notSent": null,
+    "options": [
+      {
+        "id": "do",
+        "label": "Do it",
+        "runs": true,
+        "takes": null
+      },
+      {
+        "id": "no",
+        "label": "No",
+        "takes": null
+      }
+    ],
+    "plan": null,
+    "recommended": "do",
+    "replaces": null,
+    "pushId": "push-dec_000000000005",
+    "question": "Do it?",
+    "ref": "dec_000000000005",
+    "title": "Run",
+    "urgency": "blocks"
+  }
+]

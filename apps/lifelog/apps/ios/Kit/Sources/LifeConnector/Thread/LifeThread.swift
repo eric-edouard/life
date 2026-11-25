@@ -1,8 +1,9 @@
 import Foundation
 import Observation
 
-/// One exchange of the thread: his words and Life's answer to them, with a reaction each way. Kept on the phone so the
-/// thread opens as he left it; Life keeps its own copy on the Mac (`read_thread` takes this one's place when it lands).
+/// One exchange of the thread: his words and Life's answer to them, with a reaction each way. Life's own record of it
+/// (`read_thread`'s entries) is the source; the phone holds an entry itself only until a read holds it: his ask under way,
+/// waiting to go, failed or stopped, and an answer taken before the next read.
 public struct ThreadEntry: Identifiable, Equatable, Sendable, Codable {
     public enum Phase: String, Sendable, Codable {
         /// Sent, no answer yet (it may be waiting its turn behind another ask).
@@ -33,6 +34,11 @@ public struct ThreadEntry: Identifiable, Equatable, Sendable, Codable {
     public var lifeReaction: String?
     public var ownerReaction: String?
     public var why: String?
+    /// The entry of his ask this one is a late reply to (an agent's), from Life's record.
+    public var follows: Int?
+    /// Work handed on from it, and every reaction on it, from Life's record.
+    public var handed: [ThreadWireEntry.Handed]?
+    public var reactions: [ThreadWireEntry.Reaction]?
 }
 
 /// What the session is doing for one ask as it streams: the step it is on, and the answer so far.
@@ -49,7 +55,6 @@ public struct LiveAnswer: Equatable, Sendable {
 /// acts for him: his words are only words, and a reaction starts no turn.
 @MainActor @Observable
 public final class LifeThread {
-    public private(set) var entries: [ThreadEntry]
     /// By entry: what the session is doing for each ask under way.
     public private(set) var live: [UUID: LiveAnswer] = [:]
 
@@ -59,24 +64,99 @@ public final class LifeThread {
     private var stopped: Set<UUID> = []
     /// Entries with a call under way: one call each, so a repeat never sends the same ask twice.
     private var flying: Set<UUID> = []
+    /// His asks Life's record does not hold yet (or that its read cannot show): under way, waiting, failed, stopped, and an
+    /// answer taken before the next read.
+    private var pending: [ThreadEntry]
+    /// Life's record of the thread as last read, and what it held before that window (older entries stay as they were).
+    private var wire: [ThreadWireEntry]
+    /// His reactions given since the last read, by entry: shown until Life's record says them.
+    private var reacted: [Int: String] = [:]
     private static let key = "thread"
     private static let kept = 300
+    /// How long an ask Life's record holds with no answer is taken to be under way.
+    private static let underWayFor: TimeInterval = 600
+
+    /// What the cache keeps: only a copy of what is above.
+    private struct Kept: Codable {
+        var pending: [ThreadEntry]
+        var wire: [ThreadWireEntry]
+    }
 
     public init(api: any LifeAPI, cache: ReadCache? = nil, now: @escaping @Sendable () -> Date = { Date() }) {
         (self.api, self.cache, self.now) = (api, cache, now)
-        let saved = cache?.load(Self.key).flatMap {
-            try? JSONDecoder().decode([ThreadEntry].self, from: Data($0.text.utf8))
-        }
+        let text = cache?.load(Self.key).map { Data($0.text.utf8) }
+        let saved = text.flatMap { try? JSONDecoder().decode(Kept.self, from: $0) }
         // A call under way when the app closed is gone: its words go again under their key, so Life asks once.
-        entries = (saved ?? []).map {
-            var e = $0; if e.phase == .sending { e.phase = .waiting }; return e
-        }
+        pending = (saved?.pending ?? text.flatMap { try? JSONDecoder().decode([ThreadEntry].self, from: $0) } ?? [])
+            .map {
+                var e = $0; if e.phase == .sending { e.phase = .waiting }; return e
+            }
+        wire = saved?.wire ?? []
     }
 
     /// Another Life: nothing of the last one's conversation stays.
     public func startOver() {
-        (entries, live, stopped) = ([], [:], [])
+        (pending, wire, reacted, live, stopped) = ([], [], [:], [:], [])
         cache?.clear()
+    }
+
+    /// The thread, oldest first: Life's record, then his asks it does not hold yet. A late reply of an agent is not in it
+    /// (`lateReplies`).
+    public var entries: [ThreadEntry] {
+        let held = Set(pending.compactMap(\.entry))
+        let record = wire.filter { w in
+            w.follows == nil && !held.contains(w.id) && !pending.contains { isTheAsk($0, w) }
+        }
+        return (record.map(entry(of:)) + pending).enumerated()
+            .sorted { ($0.element.at, $0.offset) < ($1.element.at, $1.offset) }.map(\.element)
+    }
+
+    /// The late replies of an agent to his ask `entry` (Life's number), oldest first.
+    public func lateReplies(to entry: Int) -> [ThreadEntry] {
+        wire.filter { $0.follows == entry }.map(self.entry(of:))
+    }
+
+    /// Life's record of the thread, as a read gave it: the entries in its window replace what the phone held there, older
+    /// ones stay. An ask the phone held that the record now holds is the record's.
+    public func adopt(_ read: [ThreadWireEntry], asked: Date? = nil) {
+        let from = (asked ?? now()).addingTimeInterval(-Self.window)
+        wire = (wire.filter { w in w.at < from && !read.contains(where: { r in r.id == w.id }) } + read)
+            .sorted { $0.at < $1.at }
+        let numbers = Set(read.map(\.id))
+        pending.removeAll { $0.phase == .answered && $0.entry.map(numbers.contains) == true }
+        for (number, emoji) in reacted where read.first(where: { $0.id == number }).flatMap(Self.ownerReaction) == emoji
+        {
+            reacted[number] = nil
+        }
+        save()
+    }
+
+    /// The days one read of the thread holds (`PAGE_DAYS`, `host/life-thread.ts`), as seconds: older entries are the cache's.
+    private static let window: TimeInterval = 3 * 86_400
+
+    private func entry(of w: ThreadWireEntry) -> ThreadEntry {
+        let tail = String(format: "%012d", w.id)
+        let unanswered = w.answer == nil && w.error == nil
+        let isOver = unanswered && now().timeIntervalSince(w.at) > Self.underWayFor
+        var e = ThreadEntry(
+            id: UUID(uuidString: "00000000-0000-0000-0000-\(tail)") ?? UUID(), at: w.at, words: w.words ?? "", key: "",
+            phase: w.error != nil || isOver ? .failed : unanswered ? .sending : .answered)
+        e.entry = w.id
+        e.answer = w.answer
+        e.refs = w.refs
+        e.checked = w.answer.map(AnswerPart.blockKeys(of:)) ?? []
+        e.lifeReaction = w.reactions.last { $0.by == "life" }?.with
+        e.ownerReaction = reacted[w.id] ?? Self.ownerReaction(w)
+        e.why = w.error ?? (isOver ? "Life did not answer." : nil)
+        (e.follows, e.handed, e.reactions) = (w.follows, w.handed, w.reactions)
+        return e
+    }
+
+    private static func ownerReaction(_ w: ThreadWireEntry) -> String? { w.reactions.last { $0.by == "owner" }?.with }
+
+    /// Whether Life's record holds this ask of his, still unanswered: the same words, within a minute.
+    private func isTheAsk(_ e: ThreadEntry, _ w: ThreadWireEntry) -> Bool {
+        e.entry == nil && w.words == e.words && abs(w.at.timeIntervalSince(e.at)) < 60
     }
 
     /// Whether Life is answering something now (the edge's blue).
@@ -88,7 +168,7 @@ public final class LifeThread {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return false }
         let entry = ThreadEntry(id: UUID(), at: now(), words: text, key: UUID().uuidString, phase: .sending)
-        entries.append(entry)
+        pending.append(entry)
         save()
         Task { await deliver(entry.id, screen: screen) }
         return true
@@ -96,30 +176,31 @@ public final class LifeThread {
 
     /// His words that never reached Life, again, in order (the way back online).
     public func sendWaiting(screen: MainSessionScreen) async {
-        for e in entries where e.phase == .waiting || (e.phase == .sending && !flying.contains(e.id)) {
+        for e in pending where e.phase == .waiting || (e.phase == .sending && !flying.contains(e.id)) {
             await deliver(e.id, screen: screen)
         }
     }
 
     /// A tap on his bubble when Life couldn't answer: the same words, as a new ask.
     public func askAgain(_ id: UUID, screen: MainSessionScreen) {
-        guard let at = entries.firstIndex(where: { $0.id == id }), entries[at].phase == .failed else { return }
-        (entries[at].phase, entries[at].key, entries[at].why) = (.sending, UUID().uuidString, nil)
+        guard let at = pending.firstIndex(where: { $0.id == id }), pending[at].phase == .failed else { return }
+        (pending[at].phase, pending[at].key, pending[at].why) = (.sending, UUID().uuidString, nil)
         save()
         Task { await deliver(id, screen: screen) }
     }
 
     /// His Stop: the ask Life is on ends; the asks queued after it still run.
     public func stop() async {
-        guard let running = entries.first(where: { $0.phase == .sending }) else { return }
+        guard let running = pending.first(where: { $0.phase == .sending }) else { return }
         stopped.insert(running.id)
         _ = try? await api.askMainSession(.stop, answerKey: nil, onProgress: { _ in })
     }
 
     /// His reaction to an answer (one emoji; the same again takes it off the screen only, Life keeps its copy).
     public func react(_ id: UUID, with emoji: String) async {
-        guard let at = entries.firstIndex(where: { $0.id == id }), let number = entries[at].entry else { return }
-        entries[at].ownerReaction = emoji
+        guard let number = entries.first(where: { $0.id == id })?.entry else { return }
+        reacted[number] = emoji
+        update(id) { $0.ownerReaction = emoji }
         save()
         _ = try? await api.askMainSession(.react(entry: number, with: emoji), answerKey: nil, onProgress: { _ in })
     }
@@ -130,7 +211,7 @@ public final class LifeThread {
     }
 
     private func deliver(_ id: UUID, screen: MainSessionScreen) async {
-        guard let e = entries.first(where: { $0.id == id }), flying.insert(id).inserted else { return }
+        guard let e = pending.first(where: { $0.id == id }), flying.insert(id).inserted else { return }
         defer { flying.remove(id) }
         update(id) { $0.phase = .sending }
         live[id] = LiveAnswer()
@@ -150,7 +231,7 @@ public final class LifeThread {
         live[id] = nil
         let wasStopped = stopped.remove(id) != nil
         switch outcome {
-        case .success(.reply(let number, let text, let refs, let reaction)):
+        case .success(.reply(let number, let text, let refs, let reaction, _)):
             update(id) { e in
                 (e.phase, e.entry, e.answer, e.refs) = (.answered, number, text, refs)
                 e.lifeReaction = reaction ?? e.lifeReaction
@@ -190,12 +271,13 @@ public final class LifeThread {
     }
 
     private func update(_ id: UUID, _ change: (inout ThreadEntry) -> Void) {
-        if let at = entries.firstIndex(where: { $0.id == id }) { change(&entries[at]) }
+        if let at = pending.firstIndex(where: { $0.id == id }) { change(&pending[at]) }
     }
 
     private func save() {
-        entries = Array(entries.suffix(Self.kept))
-        if let data = try? JSONEncoder().encode(entries) {
+        pending = Array(pending.suffix(Self.kept))
+        wire = Array(wire.suffix(Self.kept))
+        if let data = try? JSONEncoder().encode(Kept(pending: pending, wire: wire)) {
             cache?.store(String(decoding: data, as: UTF8.self), key: Self.key)
         }
     }

@@ -1,0 +1,43 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "answer": "An answer.",
+      "answeredAt": "2026-11-18T10:00:00.000Z",
+      "at": "2026-11-18T10:00:00.000Z",
+      "error": null,
+      "follows": null,
+      "handed": [
+        {
+          "estimateMs": 300000,
+          "kind": "research",
+          "since": "2026-11-18T10:00:00.000Z",
+          "state": "under_way"
+        },
+        {
+          "estimateMs": 60000,
+          "kind": "reply",
+          "since": "2026-11-18T10:00:00.000Z",
+          "state": "settled"
+        }
+      ],
+      "id": 1,
+      "kind": "entry",
+      "reactions": [
+        {
+          "at": "2026-11-18T10:00:00.000Z",
+          "by": "life",
+          "with": "👀"
+        },
+        {
+          "at": "2026-11-18T10:00:00.000Z",
+          "by": "owner",
+          "with": "👍"
+        }
+      ],
+      "refs": [],
+      "words": "Find me a plumber"
+    }
+  ],
+  "version": "fixed"
+}

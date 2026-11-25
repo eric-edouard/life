@@ -13,7 +13,7 @@ const LifeRef = z.string().startsWith(LIFE).max(300);
 const Cell = z.union([z.string().trim().min(1).max(200), z.number()]);
 
 /** Each component's body, by kind, with the catalog version it came in. */
-const BLOCKS = {
+export const BLOCKS = {
   /** A paper as it was sent: its key lines as written, checked against `from`. */
   document: {
     body: z

@@ -1,0 +1,54 @@
+[
+  {
+    "kind": "thinking"
+  },
+  {
+    "kind": "step",
+    "verb": "Opening",
+    "what": "the matter"
+  },
+  {
+    "kind": "words",
+    "text": "Done. "
+  },
+  {
+    "block": {
+      "answers": ["Yes", "No"],
+      "recommended": "Yes"
+    },
+    "kind": "block",
+    "type": "question"
+  },
+  {
+    "kind": "reaction",
+    "with": "👀"
+  },
+  {
+    "answer": {
+      "acts": [
+        {
+          "kind": "done",
+          "matter": "mat_000000000001"
+        },
+        {
+          "agent": "Planner",
+          "kind": "agent",
+          "told": "Ask Kit about Friday"
+        },
+        {
+          "card": "dec_000000000001",
+          "kind": "card"
+        },
+        {
+          "kind": "fix"
+        }
+      ],
+      "entry": 1,
+      "kind": "reply",
+      "reaction": "👍",
+      "refs": ["life:dec_000000000001"],
+      "text": "Done."
+    },
+    "kind": "answer"
+  }
+]

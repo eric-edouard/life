@@ -1,0 +1,38 @@
+{
+  "asker": {
+    "name": "planner",
+    "told": "on_its_next_poll"
+  },
+  "changed": {
+    "added": {
+      "at": "2026-11-18T10:00:00.000Z",
+      "eventId": "evt_made_up"
+    },
+    "decision": "dec_000000000001",
+    "options": ["go"],
+    "state": "answered"
+  },
+  "done": [
+    {
+      "answerKey": "tap-add",
+      "at": "2026-11-18T10:00:00.000Z",
+      "id": "dec_000000000001",
+      "kind": "answered",
+      "options": ["go"],
+      "schemaVersion": 3,
+      "via": "connector"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "eventId": "evt_made_up",
+      "id": "dec_000000000001",
+      "kind": "added",
+      "schemaVersion": 3
+    }
+  ],
+  "doneSeen": null,
+  "kind": "decision",
+  "ref": "dec_000000000001",
+  "send": null,
+  "start": null
+}

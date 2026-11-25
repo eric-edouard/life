@@ -1,4 +1,11 @@
 import Foundation
+import Library
+
+/// His mark on how Life did (`MARKS`, `memory/decision-lines.ts`).
+public enum RatingMark: String, UnknownTolerant, Encodable, Sendable {
+    case bad, okay, good
+    case unknown
+}
 
 /// His answer to one check (`answer_check`'s arguments).
 public struct AnswerRequest: Encodable, Sendable, Equatable {
@@ -9,14 +16,19 @@ public struct AnswerRequest: Encodable, Sendable, Equatable {
     public var name: String?
     /// His Undo of an answer he gave (`answer_check`'s `undo`): no options.
     public var undo: Bool?
+    /// His mark on how Life did on an answered card ("How am I doing?"): one `rated` line, no options.
+    public var rate: RatingMark?
 
     public init(
         ref: String, options: [String], note: String? = nil, person: String? = nil, name: String? = nil,
-        undo: Bool? = nil
+        undo: Bool? = nil, rate: RatingMark? = nil
     ) {
         (self.ref, self.options, self.note) = (ref, options, note)
-        (self.person, self.name, self.undo) = (person, name, undo)
+        (self.person, self.name, self.undo, self.rate) = (person, name, undo, rate)
     }
+
+    /// His mark on how Life did on the answered card `ref`.
+    public static func rating(_ ref: String, _ mark: RatingMark) -> Self { Self(ref: ref, options: [], rate: mark) }
 
     /// His Later on an ask: Life picks until when.
     public static func later(_ ref: String) -> Self { Self(ref: ref, options: ["later"]) }
