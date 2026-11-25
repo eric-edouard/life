@@ -134,10 +134,10 @@ public protocol LifeAPI: Sendable {
     func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String
     /// His Remove (`isOn` false) or Undo (`isOn` true) of one, from the Life at `origin`.
     func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String
-    /// Ask Life: his `words` (none: he is on the screen, keep the session warm) and his screen's refs to Life's main
-    /// session. Its lines stream to `onProgress`; the call ends on its answer.
+    /// Ask Life (`ask_main_session`): his words, his Stop, his reaction or his presence. The lines of an ask stream to
+    /// `onProgress`; the call ends on its answer.
     func askMainSession(
-        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        _ request: MainSessionRequest, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
 }
 
@@ -299,15 +299,10 @@ public struct MCPLifeAPI: LifeAPI {
     }
 
     public func askMainSession(
-        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        _ request: MainSessionRequest, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
-        struct Ask: Encodable, Sendable {
-            let words: String?
-            let screen: MainSessionScreen?
-        }
         // Even his presence takes the stream's 15 s idle limit: a cold session opens in about 8.
-        return try await client.call(
-            "ask_main_session", Ask(words: words, screen: screen), answerKey: answerKey, onProgress: onProgress)
+        try await client.call("ask_main_session", request, answerKey: answerKey, onProgress: onProgress)
     }
 
     /// A versioned read's arguments; those left nil are not sent.

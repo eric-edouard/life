@@ -55,7 +55,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     var asked: @Sendable (@Sendable (Data) -> Void) async throws -> String = { _ in "{}" }
     let askedKeys = Mutex<[String?]>([])
     func askMainSession(
-        words: String?, screen: MainSessionScreen?, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
+        _ request: MainSessionRequest, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
         askedKeys.withLock { $0.append(answerKey) }
         return try await asked(onProgress)

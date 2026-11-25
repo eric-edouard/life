@@ -122,8 +122,8 @@ final class LifeStore {
     private let api: any LifeAPI
     private let cache: ReadCache
     let runner: LifeActions
-    /// Ask Life: his one conversation with Life's main session.
-    let askLife: AskLife
+    /// His one conversation with Life's main session.
+    let thread: LifeThread
     let now: @Sendable () -> Date
     private let setBadge: @MainActor (Int) -> Void
     /// The phone's network path, which the pendant's sync follows too.
@@ -155,7 +155,9 @@ final class LifeStore {
         parties = PartyBook(pictures: PictureCache(directory: pictures, api: api), generation: PairingGeneration())
         flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
-        askLife = AskLife(api: api)
+        thread = LifeThread(
+            api: api, cache: ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-thread")),
+            now: now)
         self.cache = cache
         self.now = now
         self.setBadge = setBadge
@@ -956,6 +958,7 @@ final class LifeStore {
         pairedOrigin = credentials.endpoint.origin
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
+        thread.startOver()
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
         (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
