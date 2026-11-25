@@ -41,15 +41,22 @@ export function handOutOf(i: {
   return i.matters.find((m) => handOutGateOf(m, i.facts) === null);
 }
 
-/** How long a handed-out agent has to ask its card, from its first turn's beginning. */
+/** How long a handed-out agent has to ask a card or set a wait, from its first turn's beginning. */
 export const CARD_WITHIN_MS = 2 * HOUR;
 
-/** The outcome of an assignment closed for asking no card in time. */
-export const NO_CARD_OUTCOME = `no card within ${CARD_WITHIN_MS / HOUR} hours`;
+/** The outcome of an assignment closed for neither asking nor waiting in time. */
+export const NO_CARD_OUTCOME = `no card and no wait within ${CARD_WITHIN_MS / HOUR} hours`;
 
-/** Whether an assignment the desk opened is over its time to ask: open, its own first turn began (`first_begun_at`), no card asked (`hasAsked`) and `CARD_WITHIN_MS` since. One he opened never is. */
+/**
+ * Whether an assignment the desk opened is over its time: open, its own first turn began (`first_begun_at`),
+ * `CARD_WITHIN_MS` since, no card asked (`hasAsked`) and no wait of its agent's own ahead (one that works, then waits,
+ * stays). One he opened never is.
+ */
 export const isCardOverdue = (
-  a: Pick<AssignmentRow, "closed_at" | "opened_by"> & {
+  a: Pick<
+    AssignmentRow,
+    "closed_at" | "opened_by" | "wait_is_default" | "wait_until"
+  > & {
     first_begun_at: string | null;
   },
   hasAsked: boolean,
@@ -59,4 +66,5 @@ export const isCardOverdue = (
   a.closed_at === null &&
   a.first_begun_at !== null &&
   !hasAsked &&
+  !(a.wait_is_default === 0 && Date.parse(a.wait_until ?? "") > now) &&
   now - Date.parse(a.first_begun_at) >= CARD_WITHIN_MS;

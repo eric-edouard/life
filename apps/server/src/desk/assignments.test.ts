@@ -258,13 +258,16 @@ test("a matter's card takes its matter as subject (stored as its newest step), r
     throw new Error("no assignment");
   }
   const card = (subject?: string) => ({
+    ask: "Decide it",
     context: "A made-up reason to ask.",
     deadline: ahead(DAY),
+    follow: [],
     options: [
       { id: "yes", label: "Yes" },
       { id: "no", label: "No" },
     ],
     question: "Test: order it?",
+    recommended: "yes",
     title: "a test",
     ...(subject ? { subject } : {}),
   });
@@ -326,13 +329,16 @@ test("after a turn the desk commits the agent's home and the assignment's folder
 // matters and cards; `own` is the agent's own assignment, `onA` its assignment on a made-up matter.
 
 const yesNo = (subject?: string) => ({
+  ask: "Decide it",
   context: "A made-up reason to ask.",
   deadline: ahead(DAY),
+  follow: [],
   options: [
     { id: "yes", label: "Yes" },
     { id: "no", label: "No" },
   ],
   question: "Test: order it?",
+  recommended: "yes",
   title: "a test",
   ...(subject ? { subject } : {}),
 });

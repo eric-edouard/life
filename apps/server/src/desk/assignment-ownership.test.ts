@@ -125,13 +125,16 @@ test("a card whose owner row never committed stays with the assignment that aske
   }
   await pastPlan(desk, s);
   const asked = await askDecision(desk, s, {
+    ask: "Decide it",
     context: "A made-up reason to ask.",
     deadline: iso(clock().getTime() + DAY),
+    follow: [],
     options: [
       { id: "yes", label: "Yes" },
       { id: "no", label: "No" },
     ],
     question: "Test: go on?",
+    recommended: "yes",
     title: "a test",
   });
   desk.db.run("delete from card where decision_id = ?", [asked.id]);
@@ -163,13 +166,16 @@ test("a fold onto an agent leaves its own older card on its own assignment", asy
       }
       await pastPlan(desk, own);
       const { id } = await askDecision(desk, own, {
+        ask: "Decide it",
         context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
+        follow: [],
         options: [
           { id: "yes", label: "Yes" },
           { id: "no", label: "No" },
         ],
         question: "Test: go on?",
+        recommended: "yes",
         title: "a test",
       });
       // Asked before the desk kept owners.
@@ -239,13 +245,16 @@ test("a fold shows its card as asked by the new holder, and the agent it emptied
       }
       await pastPlan(desk, onMatter);
       const { id } = await askDecision(desk, onMatter, {
+        ask: "Decide it",
         context: "A made-up reason to ask.",
         deadline: iso(clock().getTime() + DAY),
+        follow: [],
         options: [
           { id: "yes", label: "Yes" },
           { id: "no", label: "No" },
         ],
         question: "Test: call them?",
+        recommended: "yes",
         title: "a test",
       });
       await foldAssignments(desk, readPeopleOnce());
@@ -281,13 +290,16 @@ test("each open card is its own assignment's, so an agent holding two shows each
       await pastPlan(desk, other);
       const ask = (s: typeof own) =>
         askDecision(desk, s, {
+          ask: "Decide it",
           context: "A made-up reason to ask.",
           deadline: iso(clock().getTime() + DAY),
+          follow: [],
           options: [
             { id: "yes", label: "Yes" },
             { id: "no", label: "No" },
           ],
           question: "Test: go on?",
+          recommended: "yes",
           title: "a test",
         });
       const a = await ask(own);
@@ -349,13 +361,16 @@ const askOn = (
   subject: string
 ) =>
   askDecision(desk, s, {
+    ask: "Decide it",
     context: "A made-up reason to ask.",
     deadline: iso(clock().getTime() + DAY),
+    follow: [],
     options: [
       { id: "yes", label: "Yes" },
       { id: "no", label: "No" },
     ],
     question: "Test: go on?",
+    recommended: "yes",
     subject,
     title: "a test",
   });

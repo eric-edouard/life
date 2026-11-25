@@ -34,6 +34,13 @@ export const advance = (ms: number) =>
   setSystemTime(new Date(clock().getTime() + ms));
 export const ahead = (ms: number) => iso(clock().getTime() + ms);
 
+/** The fields every agent's card writes (`ask`, `follow`, `recommended`: its best option's id). */
+export const cardFields = (recommended: string) => ({
+  ask: "Decide it",
+  follow: [],
+  recommended,
+});
+
 /** A chat store whose messages are `list`, row by row, as `incoming` and `read` see it. */
 export const chatSource = (list: SourceEvent[]) =>
   ({
@@ -151,14 +158,17 @@ export async function pastPlan(desk: Desk, s: ReturnType<typeof on>) {
     steps.length ? [matterView(`mat_plan_${s.id}`, steps)] : [],
     () =>
       askDecision(desk, s, {
+        ask: "Decide it",
         context: "A made-up plan.",
         deadline: ahead(24 * HOUR),
+        follow: [],
         options: [
           { id: "start", label: "Start the plan" },
           { id: "decline", label: "Not this plan" },
         ],
         plan: [{ by: "agent", text: "Do the one step" }],
         question: "Start with this plan?",
+        recommended: "start",
         title: "a test plan",
       })
   );

@@ -44,6 +44,7 @@ const readChat = () =>
   });
 const card = (agent: string, over = {}) => ({
   agent,
+  ask: "Decide it",
   context: "A made-up reason to ask.",
   deadline: ahead(DAY),
   draft: {
@@ -51,11 +52,13 @@ const card = (agent: string, over = {}) => ({
     text: "See you at seven",
     to: "Climbing group",
   },
+  follow: [],
   options: [
     { id: "send", label: "Send it", outgoing: true },
     { id: "skip", label: "Skip" },
   ],
   question: "Send this to the group?",
+  recommended: "send",
   title: "Reply to the group",
   ...over,
 });

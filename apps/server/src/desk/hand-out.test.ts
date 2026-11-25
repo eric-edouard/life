@@ -130,16 +130,24 @@ test("hand-outs count from a given instant only", () => {
   ).toBe(1);
 });
 
-test("a card is overdue for an active handed-out agent whose first turn began 2 hours ago and that asked none", () => {
+test("a handed-out agent whose first turn began 2 hours ago is overdue when it neither asked a card nor waits", () => {
   const now = clock().getTime();
   const a = {
     closed_at: null as string | null,
     first_begun_at: new Date(now - CARD_WITHIN_MS).toISOString(),
     opened_by: "desk" as const,
+    wait_is_default: 0,
+    wait_until: new Date(now - CARD_WITHIN_MS).toISOString() as string | null,
   };
   expect(isCardOverdue(a, false, now)).toBe(true);
   expect(isCardOverdue(a, false, now - 1)).toBe(false);
   expect(isCardOverdue(a, true, now)).toBe(false);
+  // It works, then waits: its own wait ahead keeps it; the desk's default wait does not.
+  const ahead = new Date(now + HOUR).toISOString();
+  expect(isCardOverdue({ ...a, wait_until: ahead }, false, now)).toBe(false);
+  expect(
+    isCardOverdue({ ...a, wait_is_default: 1, wait_until: ahead }, false, now)
+  ).toBe(true);
   expect(isCardOverdue({ ...a, first_begun_at: null }, false, now)).toBe(false);
   expect(isCardOverdue({ ...a, opened_by: "owner" as const }, false, now)).toBe(
     false

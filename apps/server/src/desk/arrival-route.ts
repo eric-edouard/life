@@ -76,6 +76,18 @@ export function hasAnsweredOf(
   return events.some((e) => e.fromMe && e.at > after);
 }
 
+/** How long a wake on his own promise waits: he may still be doing it himself, with context an agent lacks (life#785). */
+export const OWN_PROMISE_WAIT = 3 * HOUR;
+
+/** Whether an arrival is his own commitment, its newest line his (`events` as `hasAnsweredOf` reads them), still within `OWN_PROMISE_WAIT` of its confirm at `now`: its wake waits for a later poll. */
+export const isOwnPromiseWaitingOf = (
+  events: Pick<SourceEvent, "fromMe" | "id">[],
+  f: Pick<ArrivalFacts, "at" | "id">,
+  now: Date
+) =>
+  events.find((e) => e.id === f.id)?.fromMe === true &&
+  now.getTime() < Date.parse(f.at) + OWN_PROMISE_WAIT;
+
 /**
  * What was written in each arrival's chat from an hour before its confirm (its lines were read minutes before it), or
  * nothing when a source can't be read now: the arrival then wakes as before.
@@ -107,7 +119,7 @@ export const arrivalNetsOf = (
 /**
  * Queues `arrival.confirmed` for the confirmed arrivals of the last 12 hours, each to one assignment
  * (`matterOrPersonalOf`: a matter's whose people wrote its lines, else the Personal agent's own, the desk registering
- * the Personal agent when none stands, `roleAssignmentOf`). An arrival whose message the desk already queued for any
+ * the Personal agent when none stands, `roleAssignmentOf`); one on his own promise waits `OWN_PROMISE_WAIT`. An arrival whose message the desk already queued for any
  * agent (its `message.received`, a `matter.related`, or this event on an earlier poll) is never queued again, so no
  * agent is woken twice and a restart, or a recipient that closed, routes nothing anew; one with nowhere to go now (the
  * Personal agent stopped, or none can be started) is tried again at the next poll.
@@ -164,7 +176,8 @@ export async function pollArrivals(
   const wrote = answersOf(unqueued, o.sources);
   const nets = await netsOf(desk, people);
   const routed = unqueued.flatMap((f, i) =>
-    hasAnsweredOf(wrote[i] ?? [], f)
+    hasAnsweredOf(wrote[i] ?? [], f) ||
+    isOwnPromiseWaitingOf(wrote[i] ?? [], f, now)
       ? []
       : [{ f, related: arrivalNetsOf(f, nets) }]
   );

@@ -52,8 +52,8 @@ export interface StandingAgent {
 }
 
 /**
- * The one test of which agent a matter goes to, by the project it shows under (`projectOf`, his `matter-project` first):
- * the oldest of `standing` (oldest first) on that project, else the Personal agent, else none. A project may have several
+ * The one test of which agent a matter goes to, by `project`, the project it shows under when that project has a repo
+ * (`agentForMatterOf`): the oldest of `standing` (oldest first) on that project, else the Personal agent, else none. A project may have several
  * agents (overlap is fine); the oldest takes its matters. Pure.
  */
 export const agentForOf =
