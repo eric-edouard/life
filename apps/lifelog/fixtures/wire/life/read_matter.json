@@ -287,8 +287,12 @@
         }
       ],
       "onSilence": "no",
+      "ask": null,
+      "changed": null,
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "edits": null,
+      "follow": null,
       "gathered": null,
       "needs": [],
       "notSent": null,
@@ -307,6 +311,7 @@
         }
       ],
       "plan": null,
+      "recommended": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",

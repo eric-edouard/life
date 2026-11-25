@@ -153,27 +153,6 @@ test("an agent working on it holds it; an agent waiting on him shows his move; a
   ]);
 });
 
-test("Not now hides it until its day, and a new step on the matter brings it back early", () => {
-  const notNow = [
-    {
-      at: "2026-11-15T09:00:00.000Z",
-      matter: MATTER.id,
-      steps: [OWN.ref, WAIT.ref],
-      until: "2026-11-18",
-    },
-  ];
-  expect(moves({ notNow, today: "2026-11-17" })).toEqual([]);
-  expect(moves({ notNow, today: "2026-11-18" })).toHaveLength(1);
-  const newer = { ...WAIT, ref: "obs_000000000083" };
-  expect(
-    moves({
-      matters: [{ ...MATTER, steps: [...MATTER.steps, newer] }],
-      notNow,
-      today: "2026-11-17",
-    })
-  ).toHaveLength(1);
-});
-
 test("its step due first is shown, due to the last instant of its own day; a date long past is no deadline; an appointment's place is a place need with its map links", () => {
   const due = {
     ...OWN,

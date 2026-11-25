@@ -2,7 +2,6 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readChangeStamp, writeJson } from "../../core/files";
-import { HOME } from "../../core/platform";
 import { setSettings } from "../../core/settings";
 import { withNetworkIdentity } from "../../memory/network-identity";
 import { PERSON_PICTURES, pictureFileOf } from "../../memory/party";
@@ -478,14 +477,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       },
     ]);
     expectWire("read_matters_project", withSituation);
-    const chips = JSON.parse(await read("read_projects"));
-    expectWire("read_projects", chips);
-    mkdirSync(join(HOME, "Work", "shop-site", ".git"), { recursive: true });
-    // The folders are under his home (a test's is temporary), and the version hashes them: both held fixed.
-    const headerText = await read("read_project", { project: "shop-fit-out" });
-    const headerVersion = JSON.parse(headerText).version;
-    const header = JSON.parse(headerText.replaceAll(HOME, "/Users/owner"));
-    expectWire("read_project", { ...header, version: "fixed" });
     // A phone that held the empty head hears the new situation.
     expect(
       JSON.parse(
@@ -516,23 +507,6 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         ids: [GRAN_PICTURE, ROBIN_PICTURE],
       })
     );
-    // The agent's turn ends with its assignment still open: the desk's stamp is the same, yet the header moves.
-    const gone = { ...agent, status: "waiting" as const };
-    spyOn(agents, "readRegisteredAgents").mockResolvedValue({
-      agents: [{ ...gone, matter: null }],
-      desk: "ok",
-      health: { verdict: "fine", why: [] },
-      helper: "running",
-      refused: [],
-    });
-    spyOn(agents, "readAgentsOnSteps").mockReturnValue([gone] as never);
-    const heldChips = await read("read_projects", { ifNot: chips.version });
-    expect(JSON.parse(heldChips).unchanged).toBe(true);
-    const heldHeader = await read("read_project", {
-      ifNot: headerVersion,
-      project: "shop-fit-out",
-    });
-    expect(JSON.parse(heldHeader).unchanged).toBeUndefined();
   } finally {
     setSettings({ payments: null });
     for (const spy of spies) {

@@ -16,7 +16,13 @@ import { ME } from "../records/truth";
 import type { Descriptor, Outgoing, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
 import { draftProblemOf, StoredDraft } from "./draft";
-import { chatTakesLinesOf, resolveDraft, sendDraft } from "./draft-send";
+import {
+  chatTakesLinesOf,
+  resolveDraft,
+  sendDraft,
+  unsendDraft,
+  unsendLineOf,
+} from "./draft-send";
 import { readPeople } from "./who";
 
 /** A chat that takes everything besides text. */
@@ -659,4 +665,43 @@ test("a subject is a chat's only when its source opens chats with one (a new iss
     draftProblemOf({ ...draft, from: "a@b.c" } as never, "chat", true)
   ).toBe("`from` and `cc` are for mail: a chat takes none");
   expect(draftProblemOf(draft as never, "chat")).toContain("are for mail");
+});
+
+test("Undo of a send: only a path that deletes, inside the window it says; a path that can't (iMessage, mail) offers none and nothing is tried", async () => {
+  const deleted: string[] = [];
+  const base = source("telegram", []);
+  const deleting = {
+    ...base,
+    send: {
+      ...base.send,
+      unsend: (_chat: string, id: string) => {
+        deleted.push(id);
+        return Promise.resolve();
+      },
+      unsendLine: (_chat: string, sentAt: string, now: Date) =>
+        now.getTime() - Date.parse(sentAt) < 60_000
+          ? "Deleted for both"
+          : undefined,
+    } as SendPath,
+  } as Descriptor;
+  const d = {
+    channel: "telegram",
+    chat: "!ana",
+    text: "hi",
+    to: "Ana",
+  } as StoredDraft;
+  const at = clock().toISOString();
+  expect(unsendLineOf(d, at, clock(), [deleting])).toBe("Deleted for both");
+  expect(unsendLineOf(d, at, clock(), [base])).toBeUndefined();
+  const old = new Date(clock().getTime() - 120_000).toISOString();
+  expect(unsendLineOf(d, old, clock(), [deleting])).toBeUndefined();
+  await expect(unsendDraft(d, "ev1", old, [deleting])).rejects.toThrow(
+    "not deleted"
+  );
+  await expect(unsendDraft(d, "ev1", at, [base])).rejects.toThrow(
+    "not deleted"
+  );
+  expect(deleted).toEqual([]);
+  await unsendDraft(d, "ev1", at, [deleting]);
+  expect(deleted).toEqual(["ev1"]);
 });

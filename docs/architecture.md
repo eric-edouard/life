@@ -281,7 +281,7 @@ app and the legacy portrait (`/me`) were removed on 8 Nov 2026; the server versi
 
 His own apps (the iPhone app first) read Life as a client of the connector, never through a second API: paired like any
 app (`bun life pair`, OAuth with PKCE), they call `/mcp`'s tools at the connector's origin and read the same answers the
-models read. The reads an app shows (`read_matters`, `read_projects`, `read_project`, `read_matter`, `read_inbox`, `read_registered_agents`) answer
+models read. The reads an app shows (`read_matters`, `read_matter`, `read_inbox`, `read_registered_agents`) answer
 in JSON, sent once as text; it acts through the same tools (`answer_check`, `change_registered_agent`,
 `correct_memory`, `change_todo_item`).
 

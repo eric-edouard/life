@@ -1,13 +1,20 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { DAY } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import type { CheckGroup } from "../core/names";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
-import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
+import {
+  answerCheck as answerWith,
+  type CheckAnswer,
+  LATER,
+  laterOf,
+  laterTimeOf,
+} from "./answer-check";
 import type { InboxCheck } from "./checks";
 import { DECISIONS } from "./decision-lines";
 import { decisionsNow, requestDecision } from "./decisions";
 import type { Check } from "./life-checks";
+import { laterUntilOf } from "./matters";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 import { samePersonRefOf } from "./same-person";
 import { voiceCardRefOf } from "./who";
@@ -598,7 +605,7 @@ test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start
   }
 });
 
-test("your move: Mark as done ends its step through host, Not now pins his word for 3 days, Hand to an agent only while offered", async () => {
+test("your move: Mark as done ends its step through host, Not now is his Later on its ref, Hand to an agent only while offered", async () => {
   const steps: [string, string] = ["obs_000000000081", "obs_000000000082"];
   const move = {
     ...check("move:matter_000000000081/obs_000000000081", "your move"),
@@ -640,14 +647,15 @@ test("your move: Mark as done ends its step through host, Not now pins his word 
     ).rejects.toThrow("his own answer_check");
     await answerCheck(move, { options: ["not-now"] });
     const [line] = said();
-    expect(line).toMatchObject({
-      kind: "your-move-not-now",
-      matter: "matter_000000000081",
-      steps,
-    });
-    expect(
-      (line as { until: string }).until > new Date().toISOString().slice(0, 10)
-    ).toBe(true);
+    expect(line).toMatchObject({ kind: "deferred", ref: move.ref });
+    expect(Date.parse((line as { until: string }).until)).toBeGreaterThan(
+      clock().getTime()
+    );
+    // Later holds the matter whole: its card about a newer step (or the migrated `move:<matter>`) stays held.
+    expect(laterUntilOf("move:matter_000000000081/obs_newer")).toBe(
+      (line as { until: string }).until
+    );
+    expect(laterUntilOf("move:matter_000000000082/obs_newer")).toBe(undefined);
     await answerCheck(move, { options: ["start"] });
     expect(started).toEqual(["The garden fence is painted"]);
     await expect(
@@ -730,4 +738,46 @@ test("a voice named him is assigned to lifelog's owner, and refused before lifel
     people.mockRestore();
     send.mockRestore();
   }
+});
+
+test("Later on any check is one deferred correction by its ref: it holds until its time, the latest for a ref wins, and it writes nothing else", async () => {
+  const { done } = await answerCheck(ending, { options: [LATER] });
+  const { until } = done[0] as { until: string };
+  expect(said()).toEqual([{ kind: "deferred", ref: ending.ref, until }]);
+  expect(laterUntilOf(ending.ref)).toBe(until);
+  expect(laterUntilOf(ending.ref, new Date(Date.parse(until) + 1))).toBe(
+    undefined
+  );
+  expect(laterUntilOf(guess.ref)).toBe(undefined);
+  await expect(
+    answerCheck(ending, { options: [LATER, "outdated"] })
+  ).rejects.toThrow("pick one");
+});
+
+test("Life's time for Later: tomorrow 9:00, sooner before a deadline, never sooner than 30 minutes; a later instruction's time of day wins", () => {
+  const now = new Date("2026-11-20T10:00:00.000Z");
+  const tomorrow = Date.parse(
+    laterOf({ deadline: null, matter: null }, now, undefined)
+  );
+  expect(tomorrow).toBeGreaterThan(now.getTime() + 12 * 3_600_000);
+  const deadline = "2026-11-20T18:00:00.000Z";
+  expect(laterOf({ deadline, matter: null }, now, undefined)).toBe(
+    "2026-11-20T15:00:00.000Z"
+  );
+  expect(
+    laterOf(
+      { deadline: "2026-11-20T11:00:00.000Z", matter: null },
+      now,
+      undefined
+    )
+  ).toBe("2026-11-20T10:30:00.000Z");
+  expect(laterTimeOf("this evening")).toBe("18:00");
+  expect(laterTimeOf("at 7pm")).toBe("19:00");
+  expect(laterTimeOf("after 21:30")).toBe("21:30");
+  expect(laterTimeOf("whenever")).toBe(undefined);
+  const evening = Date.parse(
+    laterOf({ deadline: null, matter: null }, now, "this evening")
+  );
+  expect(evening).toBeGreaterThan(now.getTime());
+  expect(evening - now.getTime()).toBeLessThan(DAY);
 });

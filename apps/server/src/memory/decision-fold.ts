@@ -1,11 +1,13 @@
 import type { z } from "zod";
 import { readAppended } from "../core/files";
 import {
+  type AnswerWithdrawn,
   type Asked,
   DECISIONS,
   DECISIONS_VERSION,
   type Decision,
   type DoneSeen,
+  type Ended,
   type Line,
   type SendFailed,
   Stored,
@@ -14,12 +16,17 @@ import {
 // A decision as stored, read: its lines folded in order into `Decision`s (the first answer, withdrawal and end
 // stand; a `not sent:` or `not_found` outcome voids the answer).
 
-/** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`: the card is open again, the answer kept in `voided`. */
+/** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`, or his Undo: the card is open again, the answer kept in `voided`. */
 export const voidedBy = (
   d: Omit<Decision, "state">,
-  l: SendFailed | DoneSeen
+  l: SendFailed | DoneSeen | AnswerWithdrawn
 ) => {
-  const outcome = l.kind === "done-seen" ? { doneSeen: l } : { notSent: l };
+  const outcomes = {
+    "answer-withdrawn": undefined,
+    "done-seen": { doneSeen: l as DoneSeen },
+    "send-failed": { notSent: l as SendFailed },
+  };
+  const outcome = outcomes[l.kind];
   return {
     ...d,
     ...outcome,
@@ -27,7 +34,14 @@ export const voidedBy = (
     send: undefined,
     voided: [
       ...(d.voided ?? []),
-      ...(d.answer ? [{ answer: d.answer, ...outcome }] : []),
+      ...(d.answer
+        ? [
+            {
+              answer: d.answer,
+              ...(outcome ?? { send: d.send, undone: l as AnswerWithdrawn }),
+            },
+          ]
+        : []),
     ],
   };
 };
@@ -42,11 +56,27 @@ function withDoneSeen(d: Omit<Decision, "state">, l: DoneSeen) {
     : d;
 }
 
+/** The lines kept whole on the decision, by their field. */
+const FIELD_OF = {
+  added: "added",
+  delivered: "delivered",
+  kept: "kept",
+  ran: "ran",
+  rated: "rated",
+  withdrawn: "withdrawn",
+} as const;
+const LATEST = new Set(["delivered", "rated"]);
+
 /** `d` with its line `l` read: the first answer, withdrawal and end stand; a `not sent:` outcome voids the answer. */
 function withLine(
   d: Omit<Decision, "state">,
   l: Exclude<z.infer<typeof Line>, Asked>
 ): Omit<Decision, "state"> {
+  const field = FIELD_OF[l.kind as keyof typeof FIELD_OF];
+  if (field) {
+    // The gate's verdict and his mark: the latest stands; any other: the first.
+    return LATEST.has(l.kind) || !d[field] ? { ...d, [field]: l } : d;
+  }
   switch (l.kind) {
     case "answered":
       // A `not_found` that voided an earlier answer is no outcome of this one.
@@ -59,22 +89,17 @@ function withLine(
           };
     case "done-seen":
       return withDoneSeen(d, l);
-    case "added":
-      return d.added ? d : { ...d, added: l };
-    case "ran":
-      return d.ran ? d : { ...d, ran: l };
-    case "withdrawn":
-      return d.withdrawn ? d : { ...d, withdrawn: l };
-    case "kept":
-      return d.kept ? d : { ...d, kept: l };
     case "send-failed":
       return l.error.startsWith("not sent:")
         ? voidedBy(d, l)
         : { ...d, send: l };
     case "sent":
       return { ...d, send: l };
+    case "answer-withdrawn":
+      return d.answer ? voidedBy(d, l) : d;
     default:
-      return d.end ? d : { ...d, end: l };
+      // Only `ended` is left: the lines kept by their field went above.
+      return d.end ? d : { ...d, end: l as Ended };
   }
 }
 

@@ -1,17 +1,19 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import {
   agentOf,
   currentAssignmentOf,
   openTurn,
   turnOf,
 } from "../host/desk-read";
+import { withdrawAnswer } from "../memory/decision-after-answer";
+import { answerDecision, requestDecision } from "../memory/decisions";
 import { register } from "./agent-actions";
 import { MAX_HANDED } from "./agent-wait";
 import { wakeDue } from "./desk-clock";
 import { openDesk } from "./desk-store";
 import { setup } from "./test-desk";
-import { endLostTurns, turnEnded, watch } from "./turn-ends";
+import { endLostTurns, stopWithdrawn, turnEnded, watch } from "./turn-ends";
 
 // A run's end and its start are bound to its own turn: a late one never touches the turn after it (decision 78's plan,
 // rule 4). Made up.
@@ -160,4 +162,31 @@ test("a reminded turn's tokens are both runs'", async () => {
       )
       .get(turn)?.tokens_out
   ).toBe(12);
+});
+
+test("stopWithdrawn: his Undo removes the answer's queued event, so the agent never hears it and his next answer queues anew", async () => {
+  const { desk } = setup();
+  const { id } = await requestDecision("desk", {
+    agent: "agt_0123456789ab",
+    context: "A made-up reason.",
+    deadline: new Date(Date.now() + DAY).toISOString(),
+    onSilence: null,
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Book it?",
+    title: "Book the table",
+  });
+  await answerDecision(id, ["yes"]);
+  desk.db.run(
+    "insert into event (assignment_id, event_id, name, payload, received_at) values ('asg_test', ?, 'decision.answered', '{}', ?)",
+    [`${id}.answered`, new Date().toISOString()]
+  );
+  expect(await stopWithdrawn(desk)).toEqual([]);
+  withdrawAnswer(id);
+  expect(await stopWithdrawn(desk)).toEqual([id]);
+  expect(desk.db.query("select count(*) as n from event").get()).toEqual({
+    n: 0,
+  });
 });

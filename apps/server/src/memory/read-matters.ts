@@ -174,7 +174,7 @@ const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
 /**
  * Whether a matter is in a scope: of an area and of a project when given, or in no project (`noProject`: the project it
- * shows under, `projectOf`, is none). The one rule of the matters list and of the chips' counts (`read_projects`).
+ * shows under, `projectOf`, is none). The one rule of the matters list.
  */
 export const isInScope = (
   truth: Pick<People["truth"], "projects">,

@@ -42,8 +42,9 @@ import {
 import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import { fixingOf, withComplaintFields } from "./complaint-checks";
+import { notSentOf } from "./decision-after-answer";
 import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
-import { decisionsNow, doneSeenByOf, isOnMatter, notSentOf } from "./decisions";
+import { decisionsNow, doneSeenByOf, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
 import {
@@ -101,10 +102,14 @@ import { dayNow } from "./zones";
 // new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
 // store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
 
-/** What a decision's card holds beyond every check's shape (`checks.ts`): its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its `ask` line, its `recommended` option, his suggested next asks (`follow`), a draft's quick `edits`, what a replacing card `changed`, its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({
+  ask: d.ask ?? null,
+  changed: d.changed ?? null,
   doneSeen: doneSeenShownOf(d.doneSeen, d.needs),
   doneSeenBy: doneSeenByOf(d),
+  edits: d.edits ?? null,
+  follow: d.follow ?? null,
   gathered: d.gathered ?? null,
   needs: needsShownOf(d.needs),
   notSent: notSentOf(d),
@@ -113,6 +118,7 @@ export const decisionCardOf = (d: Decision) => ({
     return { ...o, ...(role ? { role } : {}), takes: o.takes ?? null };
   }),
   plan: d.plan ?? null,
+  recommended: d.recommended ?? null,
   replaces: d.replaces ?? null,
 });
 
@@ -566,7 +572,6 @@ async function readChecks(
     matters,
     nameContexts,
     nameGroups,
-    notNow: records.notNow,
     paged,
     people,
     places: readPlaces(),
