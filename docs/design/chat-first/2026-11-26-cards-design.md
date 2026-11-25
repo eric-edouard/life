@@ -8,13 +8,33 @@ a card is data (which blocks, in which order, in which mode).
 Sources: `docs/research/2026-11-26-ask-coverage.md` (every kind the server sends), `memory/card-request.ts`,
 `memory/needs.ts`, `memory/checks.ts`, `memory/life-checks.ts`, `memory/draft.ts`.
 
+## One anatomy for every ask
+
+Every ask, top to bottom:
+
+1. **Its matter**: the title of the matter it belongs to, one muted line. An ask on no matter (a voice to name, the
+   same person, a Contacts card, at organization) puts its subject there instead, the person or the voice.
+2. **The goal**, only where it decides the answer (rule C, recommended): a new matter and his own step (your move).
+   Everywhere else the title is enough; he can ask for the rest.
+3. **The question**: the step, as the card's title (a draft "Reply to Jade", a payment "Pay Paul 240 €"; a new
+   matter "Start on this?").
+4. **The details**: what he needs in hand (the draft, the amount and account, the event…).
+5. **The answers**: one recommended, the rest as pills.
+
+The new matter card is this anatomy with "Start on this?" as its question. Against `docs/product.md`: what, why and
+what each answer does stay on the card (rule 6), the goal only where it changes his answer keeps it to what needs him
+(the principle), and no agent shows (rule 8). The variants page's first item, "How an ask shows its matter", puts the
+same three asks under the three rules: A title only with the goal on a tap, B title and goal always, C title only and
+the goal where it decides. Every other item and `shell.html`'s asks use C until he picks. Fix asks (something broken)
+keep their own subject in the title and take no header.
+
 ## The seven cards
 
 | Card | What it shows | Answers |
 |---|---|---|
 | Voice naming, with a guess | Who is this voice?, where it was heard and how much; each clip with a play button and its words; a hint that TV or radio can be named so | Yes, Nora (Life's guess) · Someone else… · Don't name |
 | Voice naming, no guess | The same, then the people it may be as rows, someone new last; someone new asks their name in the thread | (the rows) · TV or video · Don't name |
-| New matter | The matter as a title, where it came from; its goal and next step; one line on what Start does ("nothing goes without you") | Start · Edit goal · Not this |
+| New matter | Its matter's title and goal, then "Start on this?", its next step, and one line on what Start does ("nothing goes without you") | Start · Edit goal · Not this |
 | Is this done? | On its matter's page only, on the step it would close: the later words that seem to close it | Yes, done · Not yet |
 | Same person | The two side by side, each with where he sees them | Same person · Different |
 | Contacts card | The card's name and number, then the people it may be; a tap on one answers | (the rows) · Someone new |
