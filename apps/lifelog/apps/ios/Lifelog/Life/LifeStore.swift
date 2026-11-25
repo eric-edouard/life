@@ -20,18 +20,12 @@ final class LifeStore {
     private(set) var projectHead: [String: ReadState<ProjectHeader>] = [:]
     private(set) var scopedMatters: [String: ReadState<MatterList>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
-    /// What Life costs this month (Settings, Spending): read when the page opens, kept for a cold start.
-    private(set) var spending = ReadState<ModelSpending>()
-    /// An agent's session on pi, by the agent's id: read on each visit, never kept.
-    private(set) var agentSession: [String: ReadState<AgentSession>] = [:]
     /// The People tab: everyone Life knows, closest first; and one of them read in full, by ref.
     private(set) var people = ReadState<PeopleList>()
     private(set) var person: [String: ReadState<PersonNow>] = [:]
     /// A person's page's parts, by their ref: a page of their latest exchanges, a part of prose.
     private(set) var latest: [String: ReadState<LatestPage>] = [:]
     private(set) var prose: [String: ReadState<Prose>] = [:]
-    /// The pages of a matter's thread, by their ref (`<matter id>/thread`, then `…/before/<day>` paging back).
-    private(set) var thread: [String: ReadState<MatterThread>] = [:]
     /// The pages of someone's `reach` part, by their ref: every account, when `now` had no room for them all.
     private(set) var reach: [String: ReadState<ReachPage>] = [:]
     /// Every matter open with someone, by their ref: read on All once their `now` left some out.
@@ -296,15 +290,7 @@ final class LifeStore {
         }
     }
     func refreshAgents() async {
-        let before = agents.loadedAt
         await load({ self.agents.apply($0) }, key: Self.agentsKey) { try await $0.readRegisteredAgents() }
-        // Only a fresh read settles his moves, never the cached one a failed read leaves.
-        if agents.loadedAt != before { settleMoves() }
-    }
-
-    func refreshSpending() async {
-        if spending.phase == .idle { restore({ self.spending.apply($0) }, key: Self.spendingKey) }
-        await load({ self.spending.apply($0) }, key: Self.spendingKey) { try await $0.readSpending() }
     }
 
     func refreshPeople() async {
@@ -348,17 +334,6 @@ final class LifeStore {
     /// Their `latest` pages read so far, from the first, paging back, and what comes next.
     func latestChain(of subject: String) -> PageChain<LatestPage> {
         PageChain(from: subject + "/latest", states: latest) { $0.earlier(of: subject) }
-    }
-
-    func refreshThread(_ ref: String) async {
-        await load({ self.thread[ref, default: ReadState()].apply($0) }, key: ref, isKept: ref.hasSuffix("/thread")) {
-            try await $0.readPart(ref)
-        }
-    }
-
-    /// A matter's thread pages read so far, the newest first, and what comes next (older).
-    func threadChain(of id: String) -> PageChain<MatterThread> {
-        PageChain(from: id + "/thread", states: thread, next: \.earlier)
     }
 
     func refreshOpenWith(_ ref: String) async {
@@ -407,37 +382,14 @@ final class LifeStore {
         return state(of: .appointment(id))
     }
 
-    /// A page of Life's log (`read_log_lines`), for the Live logs page, which keeps it: never cached (an old log read
-    /// as live would lie). Nil when another pairing began meanwhile: it applies nothing.
-    func readLogLines(_ query: LogQuery) async -> Result<LogPage, MCPError>? {
-        guard let answer = await parties.generation.answer({ try await api.readLogLines(query) }) else { return nil }
-        do {
-            return .success(try LibraryStore.feedDecoder.decode(LogPage.self, from: Data(answer.get().utf8)))
-        } catch {
-            let error =
-                error is DecodingError ? .failed("Life's answer was not what this app reads.") : MCPError.of(error)
-            if error == .notPaired { pairedOrigin = nil }
-            return .failure(error)
-        }
-    }
-
     func refreshMatter(_ id: String) async {
         let key = "read_matter-\(id)"
         let update = { (event: ReadState<Matter>.Event) in self.matter[id, default: ReadState()].apply(event) }
         // Offline, a matter not read yet since launch still shows what was last read, as stale.
         if matter[id] == nil { restore(update, key: key) }
-        let before = matter[id]?.loadedAt
         await load(update, key: key) {
             try await $0.readMatter(id)
         }
-        if matter[id]?.loadedAt != before { settleMoves(matterRead: id) }
-    }
-
-    func refreshAgentSession(_ id: String) async {
-        let update = { (event: ReadState<AgentSession>.Event) in
-            self.agentSession[id, default: ReadState()].apply(event)
-        }
-        await load(update, key: "read_agent_session-\(id)", isKept: false) { try await $0.readAgentSession(id) }
     }
 
     func refreshProjects() async {
@@ -473,7 +425,6 @@ final class LifeStore {
     private static let agentsKey = "read_registered_agents"
     private static let projectsKey = "read_projects"
     private static let peopleKey = "read_people_and_organizations"
-    private static let spendingKey = "read_spending"
     private static let answeredKey = "answered_cards"
 
     /// His answer, confirmed: its card leaves every read asked before now, the badge with it, unless it keeps its card
@@ -1007,8 +958,6 @@ final class LifeStore {
         cache.clear()
         (inbox, matters, matter, agents) = (ReadState(), ReadState(), [:], ReadState())
         (projects, projectHead, scopedMatters) = (ReadState(), [:], [:])
-        spending = ReadState()
-        agentSession = [:]
         (people, person, latest, prose, reach, openWith) = (ReadState(), [:], [:], [:], [:], [:])
         (answered, pushed, moveReceipts, connection, lost) = (AnsweredCards(), nil, [:], LifeConnection(), nil)
         parties.startOver()

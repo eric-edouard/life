@@ -12,24 +12,9 @@ struct LifelogApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
 
-    @ViewBuilder private var root: some View {
-        #if DEBUG
-            if let size = DuoPose<AnyView>.requested {
-                DuoPose(
-                    size: size,
-                    content: AnyView(
-                        RootView().stores(of: appDelegate).environment(\.scenePhase, .active)))
-            } else {
-                RootView()
-            }
-        #else
-            RootView()
-        #endif
-    }
-
     var body: some Scene {
         WindowGroup {
-            root
+            RootView()
                 // A fallback cycle while in the foreground only; background sync follows the Pendant's events.
                 .task(id: scenePhase == .active) {
                     guard scenePhase == .active else { return }
@@ -64,9 +49,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     let appleHealth = AppleHealthReader()
     /// Life's reads (inbox, matters, agents) and its pairing: the phone is one more app of Life's connector.
     lazy var life: LifeStore = {
-        #if DEBUG
-            if LifeFixture.isRequested { return LifeFixture.store(path: path) }
-        #endif
         return LifeStore(path: path)
     }()
     /// Plays recorded audio and marks it quiet for the Pendant.
@@ -82,13 +64,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Shortcuts and the Recording control may launch the app just to run an intent; it reaches capture here.
         let capture = capture
         AppDependencyManager.shared.add(dependency: capture)
-        // A card answered from its notification goes through Life's store, like a tap on its screen.
-        capture.notifier.answer = { [weak self] check, request, paired in
-            let taken = Taken(check: check, request: request, asks: [], runtimeName: nil)
-            guard let life = self?.life else { return taken.result(.idle) }
-            await life.answer(request, keepsCardOpen: check.keepsOpen(after: request), for: paired)
-            return taken.result(life.state(of: taken.key))
-        }
         capture.notifier.card = { [weak self] pushId, kept, life in
             await self?.life.notifiedCard(pushId: pushId, kept: kept, life: life)
         }
@@ -103,9 +78,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     private static func libraryAtLaunch() -> LibraryStore? {
-        #if DEBUG
-            if FixtureLibrary.isRequested { return FixtureLibrary.open() }
-        #endif
         do {
             return try LibraryStore(
                 directory: URL.applicationSupportDirectory.appending(
@@ -139,7 +111,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         appEvent("app.launch", launch)
         startLocation()
         appleHealth.start()
-        // Back online, the pendant's run goes at once; Life's read screens read again themselves (`ReadScreen`).
+        // Back online, the pendant's run goes at once; Life's reads are made again when the app comes forward.
         Task { [path, sync] in await path.follow { sync.run() } }
         application.registerForRemoteNotifications()
         // Handlers must be registered before launch ends. `.main` delivers the task on the main actor.

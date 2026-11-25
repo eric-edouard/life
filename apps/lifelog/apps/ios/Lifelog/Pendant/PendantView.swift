@@ -86,17 +86,6 @@ struct PendantScreen: View {
             }
         }
         .accessibilityIdentifier("pendant.sheet")
-        #if DEBUG
-            // `-fixtureSheet replacePendant|pairPendant`: opens that sheet at once, to be photographed.
-            .task {
-                sheet =
-                    switch LifeFixture.sheet {
-                    case "replacePendant": .replace
-                    case "pairPendant": .pair
-                    default: nil
-                    }
-            }
-        #endif
     }
 
     // MARK: Status
