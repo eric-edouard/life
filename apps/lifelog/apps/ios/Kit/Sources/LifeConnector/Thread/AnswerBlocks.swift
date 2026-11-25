@@ -1,5 +1,7 @@
 import Foundation
 
+// Mirror of `apps/server/src/records/answer-blocks.ts` (catalog 1), the source of truth: change that file first, then this.
+
 /// One of Life's components in an answer: a fenced block, ```` ```life:<kind> ````, around its JSON
 /// (`records/answer-blocks.ts`, the one catalog). The server checks every block before the phone sees it; this reads the
 /// shapes it draws and drops any other: an unknown kind, a kind newer than `catalog`, bad JSON. Nothing in a block acts
@@ -38,6 +40,14 @@ public enum LifeBlock: Equatable, Sendable {
 
     /// The version of Life's blocks this phone draws, sent with every ask.
     public static let catalog = 1
+
+    /// A block as the server sent it: its kind and its JSON with keys sorted, so a fence and a `block` line compare equal.
+    public static func key(kind: String, json: Data) -> String? {
+        guard let body = try? JSONSerialization.jsonObject(with: json, options: .fragmentsAllowed),
+            let data = try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys, .fragmentsAllowed])
+        else { return nil }
+        return kind + ":" + String(decoding: data, as: UTF8.self)
+    }
 
     public init?(kind: String, json: Data) {
         guard let body = try? JSONSerialization.jsonObject(with: json, options: .fragmentsAllowed) else { return nil }
@@ -90,8 +100,9 @@ public enum AnswerPart: Equatable, Sendable {
     case block(LifeBlock)
 
     /// An answer's parts in order. A fence of any indent, with ``` or ~~~, whose first word is `life:<kind>`, is a block
-    /// (shown when it reads, dropped when it does not), never Markdown.
-    public static func parts(of text: String) -> [AnswerPart] {
+    /// (shown when it reads, dropped when it does not), never Markdown. With `sent`, only a block whose key the server
+    /// streamed is drawn: a fence the model wrote that the server never checked is dropped (nil: every one, for live text).
+    public static func parts(of text: String, sent: Set<String>? = nil) -> [AnswerPart] {
         var parts: [AnswerPart] = []
         var prose: [Substring] = []
         func flush() {
@@ -126,7 +137,10 @@ public enum AnswerPart: Equatable, Sendable {
                 body.append(unquoted(next))
             }
             flush()
-            if let block = LifeBlock(kind: kind, json: Data(body.joined(separator: "\n").utf8)) {
+            let json = Data(body.joined(separator: "\n").utf8)
+            if sent == nil || LifeBlock.key(kind: kind, json: json).map({ sent!.contains($0) }) == true,
+                let block = LifeBlock(kind: kind, json: json)
+            {
                 parts.append(.block(block))
             }
         }

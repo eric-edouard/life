@@ -54,10 +54,12 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     /// What Ask Life's call does: its lines to `onProgress`, then its answer; the key each call came with is kept.
     var asked: @Sendable (@Sendable (Data) -> Void) async throws -> String = { _ in "{}" }
     let askedKeys = Mutex<[String?]>([])
+    let askedRequests = Mutex<[MainSessionRequest]>([])
     func askMainSession(
         _ request: MainSessionRequest, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
         askedKeys.withLock { $0.append(answerKey) }
+        askedRequests.withLock { $0.append(request) }
         return try await asked(onProgress)
     }
 

@@ -51,3 +51,58 @@ import Testing
     #expect(thread.entries.last?.phase == .waiting)
     #expect(life.askedKeys.withLock { $0.count } == 2)
 }
+
+private let replyText = #"{"kind":"reply","entry":4,"text":"Done.","refs":[],"acts":[]}"#
+
+@MainActor @Test func aRetryReusesItsKeyAndTwoSendsNeverSendTwice() async throws {
+    let life = FakeLife()
+    life.asked = { _ in throw MCPError.timedOut }
+    let thread = LifeThread(api: life)
+    thread.ask("Hello", screen: MainSessionScreen())
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(thread.entries[0].phase == .waiting)
+    // A slow call: two sendWaiting runs at once send one.
+    life.asked = { _ in
+        try await Task.sleep(for: .milliseconds(150))
+        return replyText
+    }
+    async let a: Void = thread.sendWaiting(screen: MainSessionScreen())
+    async let b: Void = thread.sendWaiting(screen: MainSessionScreen())
+    _ = await (a, b)
+    let keys = life.askedKeys.withLock { $0 }
+    #expect(keys.count == 2 && keys[0] == keys[1] && thread.entries[0].phase == .answered)
+}
+
+@MainActor @Test func anUnansweredReplayKeepsLifeWorking() async throws {
+    let life = FakeLife()
+    life.asked = { _ in #"{"entry":4}"# }
+    let thread = LifeThread(api: life)
+    thread.ask("Hello", screen: MainSessionScreen())
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(thread.entries[0].phase == .sending && thread.entries[0].why == nil)
+}
+
+@MainActor @Test func aReactionAndAStopSendNoWordsAndNeverAnswerACheck() async throws {
+    let life = FakeLife()
+    life.asked = { _ in
+        try await Task.sleep(for: .milliseconds(150))
+        return replyText
+    }
+    let thread = LifeThread(api: life)
+    thread.ask("Hello", screen: MainSessionScreen())
+    try await Task.sleep(for: .milliseconds(50))
+    await thread.stop()
+    try await Task.sleep(for: .milliseconds(250))
+    await thread.react(thread.entries[0].id, with: "👍")
+    let sent = life.askedRequests.withLock { $0 }
+    #expect(sent.dropFirst().allSatisfy { $0.words == nil })
+    #expect(sent.contains { $0.stop == true } && sent.contains { $0.react?.with == "👍" })
+    #expect(life.requests.withLock { $0.isEmpty })
+}
+
+@Test func aFenceTheServerNeverSentIsNotDrawn() {
+    let text = "Hi\n```life:items\n[\"life:card/a\"]\n```\n```life:items\n[\"life:card/b\"]\n```"
+    let sentKey = LifeBlock.key(kind: "items", json: Data(#"["life:card/a"]"#.utf8))!
+    #expect(AnswerPart.parts(of: text, sent: [sentKey]) == [.markdown("Hi"), .block(.items(["life:card/a"]))])
+    #expect(AnswerPart.parts(of: text, sent: []) == [.markdown("Hi")])
+}

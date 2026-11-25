@@ -41,7 +41,7 @@ enum MainSessionLine: Equatable {
     case thinking
     case step(verb: String, what: String)
     case words(String)
-    case block(LifeBlock)
+    case block(LifeBlock, key: String)
     case reaction(String)
 
     init?(_ data: Data) {
@@ -56,9 +56,9 @@ enum MainSessionLine: Equatable {
             guard let type = o["type"] as? String, let body = o["block"],
                 JSONSerialization.isValidJSONObject(body) || body is String,
                 let json = try? JSONSerialization.data(withJSONObject: body),
-                let block = LifeBlock(kind: type, json: json)
+                let block = LifeBlock(kind: type, json: json), let key = LifeBlock.key(kind: type, json: json)
             else { return nil }
-            self = .block(block)
+            self = .block(block, key: key)
         default: return nil
         }
     }
@@ -68,9 +68,12 @@ enum MainSessionLine: Equatable {
 enum MainSessionResult: Equatable {
     case reply(entry: Int, text: String, refs: [String], reaction: String?)
     case error(what: String, entry: Int?)
+    /// The server's replay of a key it has not answered yet: Life is still on it.
+    case working
 
     init(_ text: String) {
         let o = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any] ?? [:]
+        if o["kind"] == nil, o["entry"] is Int { self = .working; return }
         if o["kind"] as? String == "reply", let entry = o["entry"] as? Int {
             self = .reply(
                 entry: entry, text: o["text"] as? String ?? "", refs: o["refs"] as? [String] ?? [],

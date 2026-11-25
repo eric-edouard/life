@@ -27,6 +27,8 @@ public struct ThreadEntry: Identifiable, Equatable, Sendable, Codable {
     /// Life's answer: Markdown, with its blocks fenced (`AnswerPart.parts`).
     public var answer: String?
     public var refs: [String] = []
+    /// Keys of the blocks the server streamed (`LifeBlock.key`): only these are drawn from the answer's fences.
+    public var checked: [String] = []
     /// Life's reaction to his words, and his to Life's answer.
     public var lifeReaction: String?
     public var ownerReaction: String?
@@ -55,6 +57,8 @@ public final class LifeThread {
     private let cache: ReadCache?
     private let now: @Sendable () -> Date
     private var stopped: Set<UUID> = []
+    /// Entries with a call under way: one call each, so a repeat never sends the same ask twice.
+    private var flying: Set<UUID> = []
     private static let key = "thread"
     private static let kept = 300
 
@@ -90,7 +94,9 @@ public final class LifeThread {
 
     /// His words that never reached Life, again, in order (the way back online).
     public func sendWaiting(screen: MainSessionScreen) async {
-        for e in entries where e.phase == .waiting { await deliver(e.id, screen: screen) }
+        for e in entries where e.phase == .waiting || (e.phase == .sending && !flying.contains(e.id)) {
+            await deliver(e.id, screen: screen)
+        }
     }
 
     /// A tap on his bubble when Life couldn't answer: the same words, as a new ask.
@@ -122,7 +128,8 @@ public final class LifeThread {
     }
 
     private func deliver(_ id: UUID, screen: MainSessionScreen) async {
-        guard let e = entries.first(where: { $0.id == id }) else { return }
+        guard let e = entries.first(where: { $0.id == id }), flying.insert(id).inserted else { return }
+        defer { flying.remove(id) }
         update(id) { $0.phase = .sending }
         live[id] = LiveAnswer()
         let (lines, feed) = AsyncStream.makeStream(of: Data.self)
@@ -146,6 +153,7 @@ public final class LifeThread {
                 (e.phase, e.entry, e.answer, e.refs) = (.answered, number, text, refs)
                 e.lifeReaction = reaction ?? e.lifeReaction
             }
+        case .success(.working): update(id) { $0.phase = .sending }
         case .success(.error(let what, let number)):
             update(id) { e in
                 (e.phase, e.why, e.entry) = (wasStopped ? .stopped : .failed, what, number)
@@ -172,7 +180,9 @@ public final class LifeThread {
                 l.parts.append(.markdown(text))
             }
             live[id] = l
-        case .block(let block): live[id]?.parts.append(.block(block))
+        case .block(let block, let key):
+            live[id]?.parts.append(.block(block))
+            update(id) { $0.checked.append(key) }
         case .reaction(let emoji): update(id) { $0.lifeReaction = emoji }
         }
     }

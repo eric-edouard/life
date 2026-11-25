@@ -68,7 +68,7 @@ private struct EntryView: View {
                     AnswerView(parts: live.parts, actions: actions)
                 }
             } else if let answer = entry.answer {
-                AnswerView(parts: AnswerPart.parts(of: answer), actions: actions)
+                AnswerView(parts: AnswerPart.parts(of: answer, sent: Set(entry.checked)), actions: actions)
                     .contextMenu {
                         ForEach(Self.reactions, id: \.self) { e in
                             Button(e) { Task { await thread.react(entry.id, with: e) } }
