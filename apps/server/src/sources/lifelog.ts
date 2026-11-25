@@ -127,6 +127,9 @@ export const LifelogStatus = z.object({
   phoneHeartbeat: z
     .object({
       backlog: z.object({ pages: z.number().nullish() }).nullish(),
+      focus: z.boolean().nullish(),
+      observedAt: z.string().nullish(),
+      onCall: z.boolean().nullish(),
       timeZone: z.string().nullish(),
     })
     .nullish(),

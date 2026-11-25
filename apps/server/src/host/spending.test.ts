@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { LOG_DIR } from "../core/log";
 import { dayStart } from "../memory/zones";
-import { apifySpendsOf, readSpendingDay, writeSpendingDays } from "./spending";
+import {
+  apifySpendsOf,
+  readSpendingDay,
+  spendingStopOf,
+  writeSpendingDays,
+} from "./spending";
 
 // Model spending's day files on made-up log days long past (the test state's own log folder).
 
@@ -140,4 +145,12 @@ test("an Apify run counts once its bill is whole; one running or just ended keep
     }),
   ]);
   expect(unsettled).toBe(2);
+});
+
+test("a piece of work stops at 2% of the month, three times that when important, or at what his budget instruction says", () => {
+  expect(spendingStopOf(undefined, false)).toBeUndefined();
+  expect(spendingStopOf(100, false)).toBe(2);
+  expect(spendingStopOf(100, true)).toBe(6);
+  expect(spendingStopOf(100, true, "never more than 1,5 on errands")).toBe(1.5);
+  expect(spendingStopOf(undefined, false, "up to 10 dollars")).toBe(10);
 });

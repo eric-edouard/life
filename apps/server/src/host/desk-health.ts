@@ -131,6 +131,7 @@ const REASONS: readonly [HandOutGate | null, string][] = [
   ["direction_due", "direction due"],
   ["dismissed", "dismissed"],
   ["held", "held by a stopped or ended agent"],
+  ["hands_off", "its project is hands-off: Life helps there only when asked"],
   ["not_his", "not one of his"],
   ["no_agent", "no agent takes it: no agent of its project, no Personal agent"],
   [null, "ready: waits for the hand-out's pace or his Start"],

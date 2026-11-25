@@ -47,6 +47,7 @@ import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
 import { decisionsNow, doneSeenByOf, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { withDraftConfirms } from "./draft-send";
+import { type Fix, fixesNow, type MonthBudget } from "./fix-checks";
 import {
   type CardHolders,
   type Check,
@@ -54,6 +55,7 @@ import {
   type CheckMatter,
   type HeldRead,
   LIFE_CHECKS,
+  preTickedOf,
 } from "./life-checks";
 import {
   directionDueOf,
@@ -147,6 +149,10 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           draft: d.draft ?? null,
           goal: null,
           group: "decision",
+          // The gate's reading of what is at stake orders it (`inboxOrderOf`): only high moves it.
+          ...(d.delivered?.readings?.importance === "high"
+            ? { importance: "high" as const }
+            : {}),
           isPlan: d.plan !== undefined,
           kind: "decision",
           likelyPeople: [],
@@ -198,6 +204,38 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           ).map((r) => ({ ...r, basis: link.later }))
         : [];
     }),
+  /** Each fix ask (`fixesOf`): what is broken and needs him, with only its own options. */
+  fix: (c) =>
+    (c.fixes ?? []).map((f) => ({
+      check: {
+        ...NO_SAID,
+        about: [],
+        asker: LIFE_ASKER,
+        at: null,
+        clips: [],
+        context: f.context,
+        deadline: null,
+        draft: null,
+        goal: null,
+        group: "fix",
+        kind: "fix",
+        likelyPeople: [],
+        links: [],
+        notSent: null,
+        onMatters: [],
+        onSilence: null,
+        options: LIFE_CHECKS.fix.options.filter((o) =>
+          (f.options as readonly string[]).includes(o.id)
+        ),
+        preTicked: preTickedOf({ group: "fix", kind: "fix" }),
+        question: f.question,
+        ref: f.ref,
+        ridesOn: { ...ridingOf([]), observations: 0, pages: 0 },
+        subject: null,
+        title: f.title,
+      },
+      day: c.today,
+    })),
   /** Each new matter offer (`newMatterOffersOf`). No deadline: it never outranks an agent's decision; on silence nothing starts and it leaves after its last day. */
   "new matter": (c) =>
     c.matters.flatMap((v) => {
@@ -440,9 +478,11 @@ const checksKeyOf = (
   held: HeldRead | null,
   voices: CheckInputs["voices"],
   decisions: readonly Decision[],
-  holders: CardHolders
+  holders: CardHolders,
+  fixes: readonly Fix[]
 ) =>
   JSON.stringify([
+    fixes.map((f) => f.ref),
     // His Contacts, which the at organization cards read (`readAtOrganizationPairs`).
     readChangeStamp([...CHECKS_READ, ...readContactStores()]),
     dayNow(),
@@ -452,7 +492,11 @@ const checksKeyOf = (
   ]);
 
 /** What waits on his word now, over what is stored today and `held` (`CheckInputs`; host's `openChecksNow` reads it from the desk), and its `key` (`checksKeyOf`): read-only, no model call. Read again only when the key changed, and always while a run holds the lock, then under a key never given twice (its list may change under the same files' stamp): every reader of the inbox shares one read per change, and never mutates the list. */
-export async function checksAndKeyNow(held: HeldRead | null) {
+export async function checksAndKeyNow(
+  held: HeldRead | null,
+  budget?: MonthBudget
+) {
+  const fixes = await fixesNow(budget, dayNow());
   const queue = await readNamingQueue();
   // Guesses that cannot be read leave the cards as lifelog suggests; the answer reads them again and refuses then.
   const guessed = await withVoiceGuesses(queue).catch((e) => {
@@ -467,13 +511,14 @@ export async function checksAndKeyNow(held: HeldRead | null) {
   const all = decisionsNow();
   const decisions = all.filter((d) => d.state === "open");
   const holders = held?.cardHolders?.(decisions) ?? {};
-  const key = checksKeyOf(held, voices, decisions, holders);
+  const key = checksKeyOf(held, voices, decisions, holders, fixes);
   if (isLocked() || last?.key !== key) {
     const list = readChecks(
       held,
       voices,
       decisions.map((d) => ({ ...d, ...holders[d.id] })),
-      all
+      all,
+      fixes
     );
     last = { key: isLocked() ? `${key} ${crypto.randomUUID()}` : key, list };
     list.catch(() => {
@@ -487,14 +532,15 @@ export async function checksAndKeyNow(held: HeldRead | null) {
 }
 
 /** What waits on his word now (`checksAndKeyNow`), without its key. */
-export const checksNow = async (held: HeldRead | null) =>
-  (await checksAndKeyNow(held)).checks;
+export const checksNow = async (held: HeldRead | null, budget?: MonthBudget) =>
+  (await checksAndKeyNow(held, budget)).checks;
 
 async function readChecks(
   held: HeldRead | null,
   voices: CheckInputs["voices"],
   decisions: CheckInputs["decisions"],
-  all: Decision[]
+  all: Decision[],
+  fixes: readonly Fix[]
 ): Promise<InboxCheck[]> {
   const people = await readPeople();
   const [records, unresolved, paged] = await Promise.all([
@@ -553,6 +599,7 @@ async function readChecks(
     dismissed: readDismissedMatterPins(),
     doubted,
     endings: records.linkEndings,
+    fixes,
     fixing: fixingOf(held?.complaints?.(all) ?? []),
     heldByAgents: held?.read() ?? null,
     isDirectionDue: directionDueOf(matters, records, dayNow()),

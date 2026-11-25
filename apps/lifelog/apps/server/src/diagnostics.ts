@@ -199,9 +199,19 @@ export const HeartbeatUpload = z
     droppedMessages: Count.optional().describe(
       "Pendant messages the phone dropped since launch: a malformed fragment or one that didn't decode."
     ),
+    focus: z
+      .boolean()
+      .optional()
+      .describe(
+        "Whether a Focus is on (sleep, driving and do not disturb show alike): what the owner is doing now, for when Life asks."
+      ),
     id: z.uuid(),
     incidents: z.array(z.enum(incidentKinds)).max(16),
     observedAt: Instant,
+    onCall: z
+      .boolean()
+      .optional()
+      .describe("Whether a phone call is connected now."),
     pendant: z.object({
       batteryPercent: z.int().optional(),
       charging: z.enum(["charging", "unverified"]).optional(),

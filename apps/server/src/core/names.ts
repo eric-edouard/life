@@ -34,6 +34,7 @@ export const CONNECTOR_WRITES = [
   "change_appointment",
   "change_directory_entry",
   "change_registered_agent",
+  "change_setting",
   "change_todo_item",
   "correct_memory",
   "delete_from_memory",
@@ -61,6 +62,7 @@ export const ROLE_ASKERS = [DESK_AGENT, OWNER_ASKER, LIFE_ASKER];
 
 /** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice, a guess that may be someone else going by its whole name (`same person`), a matter's step that is his (`your move`), someone of his directory who may be at an organization of it (`at organization`). */
 export const CheckGroup = z.enum([
+  "fix",
   "decision",
   "ending",
   "new matter",
@@ -73,18 +75,6 @@ export const CheckGroup = z.enum([
   "at organization",
 ]);
 export type CheckGroup = z.infer<typeof CheckGroup>;
-
-/** What his notification settings are kept by: a check's group, a decision with a draft apart (`notifyKindOf`, `host/card-push.ts`), and an appointment Life added to his calendar. */
-export const NotifyKind = z.enum([
-  ...CheckGroup.options,
-  "decision with a draft",
-  "calendar",
-]);
-export type NotifyKind = z.infer<typeof NotifyKind>;
-
-/** How a kind's new card reaches his phone: not at all, silently (Notification Center only), as a normal push, or time-sensitive (a card with a deadline, only within 3 hours of it). */
-export const NotifyLevel = z.enum(["off", "quiet", "normal", "urgent"]);
-export type NotifyLevel = z.infer<typeof NotifyLevel>;
 
 /** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his complaint through Ask Life), `main` (the main session: answers his words through Ask Life). */
 export const AgentRole = z.enum(["personal", "caretaker", "main"]);

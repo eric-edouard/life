@@ -1,4 +1,4 @@
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import {
   DECISIONS,
@@ -17,8 +17,11 @@ import {
  * one rule: a held or sent-back card is in none of his lists or counts (`decisionsNow`); a pending one stays open there
  * until the gate's tick reads it (no push skips it yet: the gate's bundle adds that, by this function).
  */
+/** How long an agent's card waits for the gate before it counts as delivered all the same. */
+const PENDING_FOR = 2 * MIN;
+
 export function deliveryOf(
-  d: Pick<Decision, "agent" | "ask" | "delivered">,
+  d: Pick<Decision, "agent" | "ask" | "at" | "delivered">,
   now = clock()
 ):
   | { silent?: true; state: "delivered" }
@@ -27,7 +30,10 @@ export function deliveryOf(
   | { state: "pending" } {
   const l = d.delivered;
   if (!l) {
-    return d.agent && d.ask ? { state: "pending" } : { state: "delivered" };
+    // Ungated past `PENDING_FOR` (the desk off, its tick failing): delivered, so no card waits forever unseen.
+    return d.agent && d.ask && now.getTime() - Date.parse(d.at) < PENDING_FOR
+      ? { state: "pending" }
+      : { state: "delivered" };
   }
   if (l.verdict === "hold" && l.until && Date.parse(l.until) > now.getTime()) {
     return { state: "held", until: l.until };

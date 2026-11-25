@@ -54,6 +54,8 @@ const s = services(config, db, {
 const { excerpts, health, mac, nudge, rolling, search, voices, worker } = s;
 const app = createApp(s);
 
+const CHECK_IN_MS = 15 * 60_000;
+
 // ponytail: in-process timer, assumes one replica; move to a cron service if scaled out.
 // The search sweep also indexes what reconcile completed, and the backlog at startup. The
 // credits are read at startup too, so a deploy knows at once whether uploads may go.
@@ -65,6 +67,7 @@ worker
 // What is due to summarize, for `GET /status`, before the first tick (it rolls if the Mac is there).
 rolling.drain();
 let snapshotAfter = 0;
+let checkInAfter = 0;
 setInterval(() => {
   worker
     .tick()
@@ -74,6 +77,11 @@ setInterval(() => {
   askForUploads(db, nudge).catch((error: unknown) =>
     reportError(db, "upload push", error)
   );
+  // Every 15 minutes: the Mac's check-in, which wakes the phone to answer with a heartbeat.
+  if (clock().getTime() >= checkInAfter) {
+    checkInAfter = clock().getTime() + CHECK_IN_MS;
+    nudge("check_in");
+  }
   // A thin phone's pages not labeled or cut yet (a pass after each stored batch does most).
   s.pages.poke();
   // Sources a regroup failed to cover, then the summaries due, if the Mac is there (they also

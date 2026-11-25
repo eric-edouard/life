@@ -324,7 +324,7 @@ test("an app need takes an https link only, and its line names the app", () => {
   ).toBe("In Grab");
 });
 
-test("your move comes after every agent's decision, by deadline then the longest waiting, whatever the matter's mark; the badge counts it when due within 3 days", () => {
+test("your move takes its place among every ask by deadline, then importance, then the longest waiting (no ranks by kind); the badge counts it when due within 3 days", () => {
   setSystemTime(new Date("2026-11-28T05:00:00.000Z"));
   const card = (
     ref: string,
@@ -360,13 +360,14 @@ test("your move comes after every agent's decision, by deadline then the longest
     // A name on the same important matter as a dated move: the move never rides ahead of the decision with it.
     card("name", "name", { important: true, matter: "matter_shared" }),
   ];
+  // The dated move first (its matter's name with it), then the next deadline, then the important one, then the longest waiting.
   expect(inboxOrderOf(list).map((c) => c.ref)).toEqual([
-    "name",
-    "decision",
     "move-due",
+    "name",
     "move-due-later",
-    "move-old",
     "move-new",
+    "move-old",
+    "decision",
     "guess",
   ]);
   expect(list.map((c) => urgencyOf(c))).toEqual([
