@@ -18,8 +18,13 @@ agents that act for him. This page says what it protects and what it does not.
   his word that those copies go too, nothing more.
 - His thread with Life (`read_thread`) keeps a second copy of his own words to Life, and Life's answers to them, on the
   Mac, in the desk's store (`desk.sqlite`, `thread_entry`), outside `memory/` so Life never reads its own answers back
-  as his life. A deletion hides an entry whose answer cites what he deleted, at read; the entry's words stay until the
-  entry itself is removed: its words and answer can be blanked in place, and that purge is life#1384, not built yet.
+  as his life. A deletion names every entry whose words or answer hold the deleted words, or whose refs cite what it
+  deletes or reaches (the preview lists them first): the thread hides it at once, and the desk blanks it in place on its
+  next tick (words, answer and screen emptied, the row and its time kept); an answer never writes back onto it. An
+  entry asked before this, citing what he deleted, is hidden at read. His instructions (`memory/instructions.jsonl`)
+  quoting the deleted words go the same way as the rest of memory: one `deleted` marker naming them, applied at read;
+  the file keeps their line, like his data repo's history and backups. What still holds the words: lifelog, the archive,
+  the apps' own stores, the backups and the git history (life#1384's other steps).
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.

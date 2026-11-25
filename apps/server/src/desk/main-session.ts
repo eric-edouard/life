@@ -52,6 +52,7 @@ import {
 } from "./role-agents";
 import { runnableAgentOf } from "./runtime-fallback";
 import { SessionLive, type Update } from "./runtimes/contract";
+import { blankDeletedThreadEntries } from "./thread-deletions";
 import {
   claimTurn,
   recordSession,
@@ -408,8 +409,10 @@ async function answerNow(
       return failed("Life gave no answer.");
     }
     const refs = [...new Set([...lifeRefsOf(text), ...heard.refs])];
+    // An entry his deletion named during the turn is blanked first, and takes no answer.
+    blankDeletedThreadEntries(db);
     db.run(
-      "update thread_entry set answer = ?, refs = ?, answered_at = ? where id = ?",
+      "update thread_entry set answer = ?, refs = ?, answered_at = ? where id = ? and deleted_at is null",
       [text, JSON.stringify(refs), clock().toISOString(), entry]
     );
     return {
@@ -700,7 +703,7 @@ export function askMainSession(
       // An ask that never reached the session stays open on its entry, so a retry under its key asks again.
       if (answered.kind === "error") {
         desk.db.run(
-          "update thread_entry set error = ?, answered_at = ? where id = ?",
+          "update thread_entry set error = ?, answered_at = ? where id = ? and deleted_at is null",
           [answered.what, isAsked ? clock().toISOString() : null, entry]
         );
       }

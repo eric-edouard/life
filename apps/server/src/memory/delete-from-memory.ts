@@ -13,11 +13,16 @@ import {
   type DeletionLayers,
   type Dependents,
   dependentsOf,
+  type HoldsDeleted,
+  isGone,
+  NO_DELETIONS,
+  refKeyOf,
   shownKeyOf,
 } from "./deletions";
 import { findMessage, findTurn } from "./find-refs";
 import { gather } from "./gather";
 import { reindex } from "./index-writer";
+import { instructionsHolding } from "./instructions";
 import { mattersNow, readMatters } from "./matters";
 import {
   HISTORIES,
@@ -54,10 +59,34 @@ export interface DeletionNamed {
   line: string;
 }
 
+/** A copy of his words a deletion blanks (a thread entry, an instruction line): its id and kind, never its words. */
+export interface DeletionCopy {
+  id: string;
+  kind: "instruction" | "thread entry";
+}
+
+/** The thread's finder, which memory cannot read (the desk's store): the entries `holds` names. Given by the host's door. */
+export type ThreadEntriesHolding = (holds: HoldsDeleted) => DeletionCopy[];
+
+/** `HoldsDeleted` for `words` (the deleted words) and `refs` (the deleted refs, a turn however it is spelled). Pure. */
+export function copyMatchOf(
+  words: readonly string[],
+  refs: readonly string[]
+): HoldsDeleted {
+  const gone = { ...NO_DELETIONS, refs: new Set(refs.map(refKeyOf)) };
+  return (texts, cited) =>
+    cited.some((r) => isGone(r, gone)) ||
+    texts.some(
+      (t) => t !== null && t !== "" && words.some((w) => locate(w, [t]))
+    );
+}
+
 /** What a deletion would do: the refs it names, the words it cuts, what it reaches, the days to read again and the digest of that set. */
 export interface DeletionPlan {
   /** The digest of the exact set: the second call's `confirm`, so nothing is written that he did not see. */
   confirm: string;
+  /** The copies of his words outside memory that hold them: named by the write's record; the thread entries listed, never digested. */
+  copies: DeletionCopy[];
   cuts: Cut[];
   days: string[];
   named: DeletionNamed[];
@@ -120,6 +149,7 @@ export const deletionProblemOf = (ask: DeletionRequest) =>
 
 /** The digest of a plan's exact set: its refs, its cuts' places and digests, and `withSources`. */
 export const deletionDigestOf = (p: {
+  copies?: readonly { id: string }[];
   cuts: readonly Cut[];
   named: readonly { id: string }[];
   withSources: boolean;
@@ -127,6 +157,7 @@ export const deletionDigestOf = (p: {
   digest(
     "sha256",
     JSON.stringify({
+      copies: (p.copies ?? []).map((c) => c.id).sort(),
       cuts: p.cuts.map((c) => [c.ref, c.from, c.to, c.digest]).sort(),
       refs: p.named.map((n) => n.id).sort(),
       withSources: p.withSources,
@@ -338,7 +369,8 @@ async function readShownDerivedOf(units: readonly Unit[]) {
 
 /** What a deletion would reach: its refs read, its cuts made, the stored layers holding them, the days to read again. */
 export async function planDeletion(
-  ask: DeletionRequest
+  ask: DeletionRequest,
+  threadEntriesHolding: ThreadEntriesHolding = () => []
 ): Promise<DeletionPlan> {
   const problem = deletionProblemOf(ask);
   if (problem) {
@@ -391,8 +423,39 @@ export async function planDeletion(
     units.filter((u) => first.units.includes(u.id))
   );
   const reaches = dependentsOf([...asked], { ...layers, shown });
+  // The copies of his words outside memory: the ones holding the words he deletes (a cut's, a message's or a turn's
+  // whole), or citing what goes or what it reaches.
+  const whole = await Promise.all(
+    named
+      .filter((n) => n.kind === "message" || n.kind === "turn")
+      .map((n) => textOf(n.id).catch(() => ""))
+  );
+  const holds = copyMatchOf(
+    [...ask.cuts.map((c) => c.quote), ...whole.filter((w) => w !== "")],
+    [
+      ...named.map((n) => n.id),
+      ...reaches.cards,
+      ...reaches.facts,
+      ...reaches.matters,
+      ...reaches.units,
+    ]
+  );
+  const copies: DeletionCopy[] = [
+    ...threadEntriesHolding(holds),
+    ...instructionsHolding(holds).map((id) => ({
+      id,
+      kind: "instruction" as const,
+    })),
+  ];
   return {
-    confirm: deletionDigestOf({ cuts, named, withSources: ask.withSources }),
+    // The thread entries stay out of the digest: an answer to the preview quoting the words is a new match at confirm.
+    confirm: deletionDigestOf({
+      copies: copies.filter((c) => c.kind === "instruction"),
+      cuts,
+      named,
+      withSources: ask.withSources,
+    }),
+    copies,
     cuts,
     days,
     named,
@@ -410,6 +473,7 @@ const previewOf = (plan: DeletionPlan) => ({
   askAgain:
     "nothing is deleted yet: repeat the same call with `confirm` to write it",
   confirm: plan.confirm,
+  copies: plan.copies,
   cuts: plan.cuts.map((c) => ({ from: c.from, ref: c.ref, to: c.to })),
   days: plan.days,
   reaches: plan.reaches,
@@ -443,13 +507,17 @@ async function readDaysAgain(days: readonly string[]) {
 }
 
 /**
- * His refs deleted: the preview, or, with its `confirm`, the one write: the record (refs, cuts' places and digests, the
- * units' hashes before it, `withSources`), the open cards it reaches withdrawn, then its days read again and the index
- * rebuilt. Anything but the preview's exact set is previewed again, never written.
+ * His refs deleted: the preview, or, with its `confirm`, the one write: the record (refs, the instruction lines holding
+ * the words, cuts' places and digests, the units' hashes before it, `withSources`), the open cards it reaches withdrawn,
+ * then its days read again and the index rebuilt. Anything but the preview's exact set is previewed again, never
+ * written. The thread entries it reaches (found by the host's `threadEntriesHolding`) go in the record too.
  */
-export async function deleteFromMemory(ask: unknown) {
+export async function deleteFromMemory(
+  ask: unknown,
+  threadEntriesHolding?: ThreadEntriesHolding
+) {
   const request = DeletionRequest.parse(ask);
-  const plan = await planDeletion(request);
+  const plan = await planDeletion(request, threadEntriesHolding);
   if (request.confirm !== plan.confirm) {
     return previewOf(plan);
   }
@@ -464,7 +532,9 @@ export async function deleteFromMemory(ask: unknown) {
     cuts: plan.cuts,
     kind: "deleted",
     oldHashes: plan.oldHashes,
-    refs: request.refs,
+    // An instruction line or a thread entry holding the words goes whole, applied at read (`instructionsFor`,
+    // `readThread`); the desk blanks the entry on its tick, and the instructions' file is never rewritten.
+    refs: [...request.refs, ...plan.copies.map((c) => c.id)],
     // His words could quote what he deleted: the record keeps their digest, never them.
     said: digest("sha256", request.said, 16),
     schemaVersion: 1,
