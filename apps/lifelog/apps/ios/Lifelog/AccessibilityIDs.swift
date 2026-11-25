@@ -4,7 +4,6 @@
 /// buttons, "Pair Life") are found by that label.
 enum AID {
     // Pairing sheet (`PairSheet`)
-    static let pairSheet = "pair.sheet"
     static let pairConfirm = "pair.confirm"
     static let pairDone = "pair.done"
     static let pairRetry = "pair.retry"

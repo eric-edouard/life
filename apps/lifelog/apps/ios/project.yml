@@ -31,6 +31,8 @@ targets:
   Lifelog:
     type: application
     platform: iOS
+    # The end-to-end flows run from this scheme (`bun run e2e:phone`), in Debug.
+    scheme: {testTargets: [LifelogE2E]}
     # Shared: the app group, snapshot copy and the control's intent, compiled into the widget extension too.
     sources: [Lifelog, Shared]
     dependencies:
@@ -335,14 +337,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).e2e
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1"
-schemes:
-  LifelogE2E:
-    build:
-      targets:
-        Lifelog: all
-        LifelogE2E: all
-    test:
-      config: Debug
-      targets: [LifelogE2E]

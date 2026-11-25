@@ -16,8 +16,8 @@
     /// scripted drops, unreachable steps, repeats of an answer served as Life's `answerWithResult` does).
     /// Nothing here is in a Release build.
     enum E2E {
-        private static let defaults = UserDefaults.standard
-        static let isOn = defaults.string(forKey: "e2eScenario") != nil
+        private nonisolated(unsafe) static let defaults = UserDefaults.standard
+        nonisolated static let isOn = defaults.string(forKey: "e2eScenario") != nil
         private static let dir = defaults.string(forKey: "e2eDir").map { URL(filePath: $0) }
 
         /// The stores' clock: fixed when `-e2eClock` gives an instant.
@@ -124,7 +124,16 @@
 
         override class func canInit(with request: URLRequest) -> Bool { request.url?.host()?.hasSuffix(".e2e.test") == true }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-        override func stopLoading() {}
+        override func stopLoading() { Self.note("stopped \(request.url?.path() ?? "")") }
+        static func note(_ text: String) {
+            guard let dir = state.withLock({ $0?.dir }), let data = try? JSONSerialization.data(withJSONObject: ["note": text]) else { return }
+            let file = dir.appending(path: "calls.jsonl")
+            if let handle = try? FileHandle(forWritingTo: file) {
+                handle.seekToEndOfFile()
+                handle.write(data + Data("\n".utf8))
+                try? handle.close()
+            }
+        }
 
         // MARK: Answering
 
@@ -287,7 +296,7 @@
                     guard var now = held else { return nil }
                     defer { held = now }
                     if let first = now.answered[ref] {
-                        return (first, false, [], false, "repeat", false)
+                        return (first, false, [], false, "repeat", true)
                     }
                     let scenario = now.scenario
                     guard let at = scenario.answers.indices.first(where: {
@@ -301,7 +310,7 @@
                         try? String(contentsOf: now.fixtures.appending(path: "wire/\($0)"), encoding: .utf8)
                     } ?? "{}"
                     if answer.error == nil, text.contains("\"state\": \"answered\"") { now.answered[ref] = text }
-                    return (text, answer.error != nil, lines, answer.drop == "before_result", answer.error != nil ? "refused" : answer.drop == nil ? "answered" : "dropped", answer.advance == true)
+                    return (text, answer.error != nil, lines, answer.drop == "before_result", answer.error != nil ? "refused" : answer.drop != nil ? "dropped" : answer.then?.contains("not_sent") == true ? "not_sent" : "answered", answer.advance == true)
                 }
                 log([
                     "tool": tool, "ref": ref, "options": options, "key": key ?? "",
@@ -323,12 +332,14 @@
                 let blocks = held.scenario.items.isEmpty ? "" : "\n\n```life:items\n" + (String(decoding: (try? JSONSerialization.data(withJSONObject: held.scenario.items)) ?? Data(), as: UTF8.self)) + "\n```"
                 let text = "It waits on you.\(blocks)"
                 let reply: [String: Any] = ["kind": "reply", "entry": 1, "text": text, "refs": held.scenario.items, "acts": []]
-                let line: [String: Any] = ["kind": "step", "verb": "Reading", "what": "your asks"]
-                return ended(String(decoding: (try? JSONSerialization.data(withJSONObject: reply)) ?? Data(), as: UTF8.self), lines: [line])
+                let lines: [[String: Any]] = [["kind": "step", "verb": "Reading", "what": "your asks"]]
+                    + (held.scenario.items.isEmpty ? [] : [["kind": "block", "type": "items", "block": held.scenario.items]])
+                return ended(String(decoding: (try? JSONSerialization.data(withJSONObject: reply)) ?? Data(), as: UTF8.self), lines: lines)
             default:
-                log(["tool": tool])
                 let path = steps.reversed().compactMap { $0.reads?[tool] }.first
-                return ended(path.map { fixture($0, in: held) } ?? "{}")
+                let text = path.map { fixture($0, in: held) } ?? "{}"
+                log(["tool": tool, "bytes": text.utf8.count])
+                return ended(text)
             }
         }
     }

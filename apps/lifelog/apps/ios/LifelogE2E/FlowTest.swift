@@ -2,8 +2,9 @@ import XCTest
 
 /// One flow: the app launched in the simulator against the fake Life inside it (`Lifelog/E2E`), a scenario file for its
 /// script, and `calls.jsonl` for what Life was asked. One class per flow, so Xcode spreads the flows over the simulators.
+@MainActor
 class FlowTest: XCTestCase {
-    let app = XCUIApplication()
+    var app: XCUIApplication!
     private var dir = URL(filePath: "/")
     private static let ios = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     static let ask = "dec_000000000001"
@@ -12,15 +13,16 @@ class FlowTest: XCTestCase {
         "lifelog://pair?life=https%3A%2F%2Flife-\(origin).e2e.test&code=\(code)"
     }
 
-    override func setUp() {
+    override func setUp() async throws {
         continueAfterFailure = false
+        app = XCUIApplication()
         executionTimeAllowance = 60
         dir = URL(filePath: "/tmp/lifelog-e2e/\(type(of: self))")
         try? FileManager.default.removeItem(at: dir)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }
 
-    override func tearDown() { app.terminate() }
+    override func tearDown() async throws { app.terminate() }
 
     /// Starts the app on `scenario` (a file of `scenarios/`). `paired`: the fake Life it starts paired to. `reset: false`
     /// is a relaunch: what the app kept stays.
@@ -54,7 +56,7 @@ class FlowTest: XCTestCase {
     func poll(_ what: String, within seconds: Double = 20, _ isTrue: () -> Bool) {
         let end = Date.now.addingTimeInterval(seconds)
         while !isTrue() {
-            if Date.now > end { return XCTFail("Waited \(seconds) s for: \(what)") }
+            if Date.now > end { return XCTFail("Waited \(seconds) s for: \(what)\n\(app.debugDescription.split(separator: "\n").filter { $0.contains("identifier") || $0.contains("Button") || $0.contains("StaticText") }.joined(separator: "\n"))") }
             Thread.sleep(forTimeInterval: 0.1)
         }
     }

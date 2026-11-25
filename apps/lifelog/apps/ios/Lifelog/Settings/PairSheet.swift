@@ -65,7 +65,6 @@ struct PairSheet: View {
         .background(Palette.sheet)
         .presentationBackground(Palette.sheet)
         .interactiveDismissDisabled(phase == .pairing)
-        .accessibilityIdentifier(AID.pairSheet)
     }
 
     private var title: String {

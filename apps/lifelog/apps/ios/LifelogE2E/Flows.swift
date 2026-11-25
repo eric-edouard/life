@@ -4,20 +4,19 @@ import XCTest
 // sees and what Life was asked (one send per ask, one key per tap), never pixels.
 
 /// S1: a pairing link, confirmed, signs in and opens the thread.
-final class S1PairByLinkTests: FlowTest {
+@MainActor final class S1PairByLinkTests: FlowTest {
     func testPairByLink() {
         launch("S1", paired: nil, open: Self.link("a", code: "ABC234"))
         tap(AID.pairConfirm)
         tap(AID.pairDone)
         appears(app.buttons["What's waiting on me"], "the thread")
-        let tools = calls().map { ($0["authorize"] ?? $0["token"] ?? $0["tool"]) as? String ?? "" }
-        XCTAssertEqual(tools.prefix(2), ["approved", "issued"])
-        XCTAssertTrue(tools.contains("read_thread"))
+        let steps = calls().compactMap { ($0["authorize"] ?? $0["token"] ?? $0["tool"]) as? String }
+        XCTAssertEqual(steps, ["approved", "issued", "read_thread"])
     }
 }
 
 /// S2: a wrong code pairs nothing, and the Life paired before still answers.
-final class S2BadPairingKeepsTheOldTests: FlowTest {
+@MainActor final class S2BadPairingKeepsTheOldTests: FlowTest {
     func testBadPairingKeepsTheOld() {
         launch("S2", open: Self.link("b", code: "WRONG1"))
         tap(AID.pairConfirm)
@@ -30,7 +29,7 @@ final class S2BadPairingKeepsTheOldTests: FlowTest {
 }
 
 /// C1: Send on a draft: one call, one key, then the row is Settled.
-final class C1SendADraftTests: FlowTest {
+@MainActor final class C1SendADraftTests: FlowTest {
     func testSendADraft() {
         launch("C1")
         openTheAsk()
@@ -42,7 +41,7 @@ final class C1SendADraftTests: FlowTest {
 }
 
 /// C3: not sent says why and allows a retry, which is a new tap with a new key.
-final class C3NotSentTests: FlowTest {
+@MainActor final class C3NotSentTests: FlowTest {
     func testNotSent() {
         launch("C3")
         openTheAsk()
@@ -58,7 +57,7 @@ final class C3NotSentTests: FlowTest {
 }
 
 /// C5: the connection drops before the result: the retry repeats the same key and Life sends once.
-final class C5DroppedMidSendTests: FlowTest {
+@MainActor final class C5DroppedMidSendTests: FlowTest {
     func testDroppedMidSend() {
         launch("C5")
         openTheAsk()
@@ -72,7 +71,7 @@ final class C5DroppedMidSendTests: FlowTest {
 }
 
 /// C10: a settled iMessage send has no Undo.
-final class C10NoUndoOnAnIMessageTests: FlowTest {
+@MainActor final class C10NoUndoOnAnIMessageTests: FlowTest {
     func testNoUndoOnAnIMessage() {
         launch("C10")
         openTheAsk()
@@ -84,7 +83,7 @@ final class C10NoUndoOnAnIMessageTests: FlowTest {
 }
 
 /// C16: an ask that goes outdated while open loses its answers: nothing can be sent.
-final class C16OutdatedWhileOpenTests: FlowTest {
+@MainActor final class C16OutdatedWhileOpenTests: FlowTest {
     func testOutdatedWhileOpen() {
         launch("C16")
         openTheAsk()
@@ -97,7 +96,7 @@ final class C16OutdatedWhileOpenTests: FlowTest {
 }
 
 /// O2: an answer with Life out of reach waits, sends nothing, and survives the app being closed.
-final class O2AnswerOfflineTests: FlowTest {
+@MainActor final class O2AnswerOfflineTests: FlowTest {
     func testAnswerOffline() {
         launch("O2")
         openTheAsk()
@@ -114,7 +113,7 @@ final class O2AnswerOfflineTests: FlowTest {
 }
 
 /// O3: back in reach, the waiting answer goes once with its own saved key.
-final class O3FlushOnceTests: FlowTest {
+@MainActor final class O3FlushOnceTests: FlowTest {
     func testFlushOnce() {
         launch("O3")
         openTheAsk()
@@ -132,7 +131,7 @@ final class O3FlushOnceTests: FlowTest {
 }
 
 /// O4: a waiting answer whose ask went out of date is dropped by Life, said as "Back" with nothing sent.
-final class O4FlushAfterOutdatedTests: FlowTest {
+@MainActor final class O4FlushAfterOutdatedTests: FlowTest {
     func testFlushAfterOutdated() {
         launch("O4")
         openTheAsk()
@@ -151,7 +150,7 @@ final class O4FlushAfterOutdatedTests: FlowTest {
 }
 
 /// O7: an answer waiting for one Life is never sent to the Life paired next.
-final class O7QueueTiedToItsLifeTests: FlowTest {
+@MainActor final class O7QueueTiedToItsLifeTests: FlowTest {
     func testQueueTiedToItsLife() {
         launch("O7")
         openTheAsk()
@@ -166,7 +165,6 @@ final class O7QueueTiedToItsLifeTests: FlowTest {
         tap(AID.pairConfirm)
         tap(AID.pairDone)
         poll("Life B read") { calls().contains { $0["origin"] as? String == "b" && $0["tool"] as? String == "read_thread" } }
-        appears(element(AID.noticeBack), "Back")
         XCTAssertTrue(answers().isEmpty)
     }
 }

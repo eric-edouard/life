@@ -8,6 +8,11 @@
       "reads": {
         "read_thread": "life/read_thread_draft.json"
       }
+    },
+    {
+      "reads": {
+        "read_thread": "life/read_thread_settled_imessage.json"
+      }
     }
   ],
   "answers": [
@@ -23,7 +28,8 @@
       "options": [
         "send"
       ],
-      "then": "life/answer_check_sent.json"
+      "then": "life/answer_check_sent.json",
+      "advance": true
     }
   ],
   "items": [
