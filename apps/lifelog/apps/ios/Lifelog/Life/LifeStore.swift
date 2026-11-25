@@ -352,6 +352,8 @@ final class LifeStore {
     /// `life`: the Life it was decided for, when his tap was not on the screen now (a notification's button); else the
     /// one paired at this tap.
     func answer(_ request: AnswerRequest, for life: PairedLife? = nil) async {
+        // A send in flight is never replaced or queued over: the old and the new would both go out.
+        guard !state(of: .answer(ref: request.ref)).isRunning else { return }
         if life == nil, isOutOfReach, let origin = pairedOrigin, !request.isUndo {
             queued.add(request, key: taps.key(for: request), origin: origin, at: now())
             return saveQueued()
