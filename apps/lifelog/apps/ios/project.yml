@@ -109,6 +109,8 @@ targets:
         UIBackgroundModes: [bluetooth-central, processing, audio, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [$(LIFELOG_BUNDLE_ID).processing]
         UILaunchScreen: {}
+        # Lets the aura's turning (and any animation) run at the ProMotion screen's 120 Hz, not 60.
+        CADisableMinimumFrameDurationOnPhone: true
         UIAppFonts: [Manrope.ttf]
         # Limited Photos access: don't offer to pick more photos on every launch.
         PHPhotoLibraryPreventAutomaticLimitedAccessAlert: true
