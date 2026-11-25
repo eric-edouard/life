@@ -75,3 +75,20 @@ struct Hairline: View {
         Rectangle().fill(color).frame(height: 0.5)
     }
 }
+
+extension View {
+    /// The soft wash behind an unfolded item or an ask: the page's cream at 5% fading to nothing from a point left of
+    /// centre, with no edge. It reaches past the view by a gutter each side and a step above and below, so the screen's
+    /// edges are covered and the fade has room (the prototype's `.inplace`).
+    func washed(_ isOn: Bool = true) -> some View {
+        background {
+            if isOn {
+                EllipticalGradient(
+                    colors: [Palette.wash, Palette.wash.opacity(0)], center: UnitPoint(x: 0.35, y: 0.4),
+                    startRadiusFraction: 0, endRadiusFraction: 0.65
+                )
+                .padding(.horizontal, -Metrics.threadGutter).padding(.vertical, -Metrics.Spacing.l).allowsHitTesting(false)
+            }
+        }
+    }
+}

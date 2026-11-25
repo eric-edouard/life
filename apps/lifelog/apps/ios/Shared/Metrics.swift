@@ -4,6 +4,8 @@ import SwiftUI
 enum Metrics {
     /// Side margin of every page.
     static let gutter: CGFloat = 20
+    /// Side margin of the thread and what bleeds out of it (a wash): the prototype's 16, one number for the page, the wash and the field.
+    static let threadGutter = Spacing.l
     static let cardPadding = Spacing.l
 
     /// The state dot beside a status word.
