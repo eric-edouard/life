@@ -285,7 +285,7 @@ outside the lock, schemaVersion 3, by `kind`:
   days after `at`, in UTC), `onSilence` (an option id, never an outgoing or `ends` one, or null), `contests` (Life's stamp:
   the open card of another asker that held the draft's chat when asked, which this one waits on, `memory/draft-contest.ts`),
   `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
-  `plan` and `gathered` (an assignment's plan card only: its plan steps, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; its options are then `start` and `decline`; cards before 21 Nov 2026 have none, which is true of them). A `draft` needs
+  `plan` and `gathered` (on any card, optional: the steps after his yes, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; plan cards before 25 Nov 2026 have options `start` and `decline`). `ask`, `recommended`, `follow` (every agent's card since 25 Nov 2026: its imperative line, the recommended option's id, up to three next asks in his voice), `edits` (a draft's quick changes), `changed` (what changed on a subject asked again unanswered), `instructions` (the ids of his instructions in force when asked); cards before them have none, which is true of them. A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
   `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
@@ -386,6 +386,14 @@ What he told Life in a chat, append-only, one synchronous line each outside the 
 the connector's `tell_life`): `{schemaVersion: 1, at, said, asked?}`. `said` is his words verbatim; `asked` is the question
 he answered, if any. Read back as the source `told-life`: his lines are marked, the question reads as the assistant's line,
 never his.
+
+## instructions.jsonl
+
+What he wants of Life, append-only, one synchronous line each outside the lock (`recordInstruction`, `memory/instructions.ts`):
+`{schemaVersion: 1, id: "ins_…", at, scope, text, said, effect?, until?, replaces?}`. `scope` is `all`, `person:<id>`,
+`project:<id>`, `matter:<id>` or `channel:<source or chat key>`; `effect` one of the closed list code enforces; `said` his
+words verbatim. A line is never rewritten: a correction is a new line that `replaces` an older one, and `until` ends one.
+Read only by `instructionsFor` (and `inForceOf`).
 
 ## corrections.jsonl
 

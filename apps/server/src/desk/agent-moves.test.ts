@@ -6,7 +6,6 @@ import { openReadOnly } from "../core/sqlite";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import { isOldShape } from "../host/desk-shape";
 import { stepTurnsOf } from "../host/desk-turn-reads";
-import { opensWithPlan } from "../host/inbox";
 import {
   assignmentOnMatter,
   MOVE_REASONS,
@@ -296,14 +295,17 @@ test("a moved matter stays with its new agent: the fold leaves it, and its new h
     const { assignment, desk, dir, end, old } = await holding();
     const s = on(desk, old);
     const card = await askDecision(desk, s, {
+      ask: "Decide it",
       context: "A made-up reason to ask.",
       deadline: iso(clock().getTime() + DAY),
+      follow: [],
       options: [
         { id: "start", label: "Start the plan" },
         { id: "decline", label: "Not this plan" },
       ],
       plan: [{ by: "agent", text: "Call the plumber" }],
       question: "Start with this plan?",
+      recommended: "start",
       title: "a test",
     });
     move(desk, { runtime: "other", steps: [STEP] });
@@ -504,13 +506,16 @@ test("after a move, a card seen done before it does not count as asked, and a de
       assignment,
     ]);
     const card = await askDecision(desk, on(desk, old), {
+      ask: "Decide it",
       context: "A made-up reason to ask.",
       deadline: iso(clock().getTime() + DAY),
+      follow: [],
       options: [
         { id: "yes", label: "Yes" },
         { id: "no", label: "No" },
       ],
       question: "Test: pay the plumber?",
+      recommended: "yes",
       title: "a test",
     });
     recordDoneSeen(card.id, { state: "seen" });
@@ -525,18 +530,20 @@ test("after a move, a card seen done before it does not count as asked, and a de
       throw new Error("no assignment");
     }
     expect(hasAsked(desk.db, moved)).toBe(false);
-    expect(opensWithPlan(desk.db, moved)).toBe(true);
-    // The door takes the new holder's plan card, its steps in `plan`.
+    // The new holder's card may present its plan, its steps in `plan`.
     const plan = await askDecision(desk, moved, {
-      context: "## Fix the boiler\n1. Call the plumber",
+      ask: "Approve the plan",
+      context: "## Fix the boiler",
       deadline: iso(clock().getTime() + DAY),
+      follow: [],
       onSilence: null,
       options: [
-        { id: "start", label: "Start the plan" },
-        { id: "decline", label: "Not this plan" },
+        { id: "go", label: "Go ahead" },
+        { id: "no", label: "Not now" },
       ],
       plan: [{ by: "agent", text: "Call the plumber" }],
-      question: "Start with this plan?",
+      question: "Go ahead with this plan?",
+      recommended: "go",
       title: "Fix the boiler",
     });
     expect(decisionsNow().find((d) => d.id === plan.id)?.plan).toBeDefined();

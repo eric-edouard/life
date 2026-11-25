@@ -96,8 +96,8 @@ export async function handOutNext(
 }
 
 /**
- * Closes each assignment the desk opened that asked no card within `CARD_WITHIN_MS` of its first turn's beginning
- * (`isCardOverdue`), by `closeAssignment`: its matter stays held until it has a newer step (`isHeldOf`), so no try of
+ * Closes each assignment the desk opened that neither asked a card nor waits `CARD_WITHIN_MS` after its first turn's
+ * beginning (`isCardOverdue`), by `closeAssignment`: its matter stays held until it has a newer step (`isHeldOf`), so no try of
  * its own is counted.
  */
 export async function endAgentsWithoutCard(desk: Desk) {

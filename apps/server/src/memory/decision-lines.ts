@@ -26,6 +26,8 @@ export const Asked = Ask.extend({
   /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
   draft: StoredDraft.optional(),
   id: DecisionId,
+  /** The ids of his instructions in force on it when asked (`instructionsFor`), the desk's; cards before it, or with none, have none. */
+  instructions: z.array(z.string().regex(/^ins_[0-9a-f]{12}$/)).optional(),
   kind: z.literal("asked"),
   /** The matter it was asked on, as the ask resolved it: the finder's pick (`prefer`) among the matters its `subject` step rides on; cards before it, or off a matter, have none. */
   matter: z.string().min(1).optional(),

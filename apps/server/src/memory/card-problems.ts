@@ -3,7 +3,9 @@ import { apifyToken } from "../apify/backend";
 import { DAY, HOUR } from "../core/clock";
 import { isOn } from "../core/outputs";
 import { isLifeActIcon } from "../records/answer-icon";
-import { type Ask, type Option, PLAN_OPTIONS } from "./card-request";
+import type { Ask, Option } from "./card-request";
+import type { Decision } from "./decision-lines";
+import { effectOf, type Instruction, instructionsFor } from "./instructions";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
 import { eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
 
@@ -51,22 +53,21 @@ export function pageHintOf(request: { needs?: unknown }, error: z.ZodError) {
   return page ? ` Read fetch("ask/${page}").` : "";
 }
 
-/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. `isPlan`: it must be a plan card, an assignment's first (the door's `asksPlanOf`). */
-export function cardProblemOf(
-  ask: z.infer<typeof Ask>,
-  now: Date,
-  isPlan = false
-) {
+/** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. */
+export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const ids = ask.options.map((o) => o.id);
   const ahead = Date.parse(ask.deadline) - now.getTime();
   const silence = ask.options.find((o) => o.id === ask.onSilence);
   return (
     (new Set(ids).size !== ids.length && "option ids repeat") ||
+    (ask.edits &&
+      !ask.draft &&
+      "`edits` go only with a `draft`: quick changes to its message") ||
     silenceProblemOf(ask, silence) ||
     lookProblemOf(ask, silence) ||
     addsProblemOf(ask, silence) ||
     runsProblemOf(ask, silence) ||
-    planProblemOf(ask, isPlan, silence) ||
+    planProblemOf(ask) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
       "a `draft` needs the one option that sends it marked `outgoing`") ||
@@ -132,7 +133,10 @@ const DROP_ICONS: readonly string[] = ["drop", "no"];
 /** What breaks the one rule of a card's answers (`fetch("ask/options")`): 2 or 3 options, the first at most five words, the others short enough to share a row, no label twice, none repeating his own words or controlling the agent, and no icon of Life's acts; false when nothing does. */
 function answersProblemOf(ask: z.infer<typeof Ask>) {
   const labels = ask.options.map((o) => o.label.trim().toLowerCase());
-  const [first, ...rest] = ask.options;
+  const first = ask.options.find(
+    (o) => o.id === (ask.recommended ?? ask.options[0]?.id)
+  );
+  const rest = ask.options.filter((o) => o !== first);
   return (
     (ask.options.length > 3 &&
       'at most 3 options: his own words, "Tell the agent…", are always the card\'s last answer (fetch("ask/options"))') ||
@@ -142,9 +146,9 @@ function answersProblemOf(ask: z.infer<typeof Ask>) {
     (ask.options.some((o) => AGENT_CONTROL.test(o.label.trim())) &&
       "no option controls the agent (stop, pause, restart): that is his agent sheet's, and a pick of it only says the word") ||
     ((first?.label.trim() ?? "").split(WHITESPACE).length > 5 &&
-      "the first option's `label` is at most five words") ||
+      "the recommended option's `label` is at most five words") ||
     (rest.some((o) => o.label.trim().length > SHARED_ROW_CHARS) &&
-      `an option after the first is at most ${SHARED_ROW_CHARS} characters: they share the row below it`) ||
+      `an option other than the recommended one is at most ${SHARED_ROW_CHARS} characters: they share the row below it`) ||
     (ask.options.some((o) => o.icon && isLifeActIcon(o.icon)) &&
       'the icons send, add_to_calendar, done and agent are Life\'s: it draws them on the options it acts on (fetch("ask/options"))') ||
     (ask.options.some(
@@ -257,9 +261,9 @@ function lookProblemOf(
   );
 }
 
-/** A plan card's option `id` as his app's role of it: `start` or `decline`; none for another id. */
+/** An old plan card's option `id` as his app's role of it, `start` or `decline` (plan cards asked before 25 Nov 2026 may still be open); none for another id. */
 export const planRoleOf = (id: string) =>
-  PLAN_OPTIONS.find((o) => o.id === id)?.id;
+  (["start", "decline"] as const).find((r) => r === id);
 
 /** A Markdown numbered-list line, outside quotes and code: a plan's step written as text. */
 const NUMBERED_LINE = /^ {0,3}\d{1,2}[.)]\s/;
@@ -272,41 +276,52 @@ const isNumberedListOf = (context: string) =>
     .split("\n")
     .filter((l) => NUMBERED_LINE.test(l)).length >= 2;
 
-/** A card that says its matter looks over: a done option closing the matter (`ends: "matter"`, not a drop), nothing sent. */
-const isLooksOverOf = (ask: z.infer<typeof Ask>) =>
-  !(ask.draft || ask.options.some((o) => o.outgoing)) &&
-  ask.options.some((o) => o.ends === "matter" && !o.icon);
+/** What breaks the rules of a card's plan (`fetch("ask/plan")`): steps go in `plan`, never as a numbered list in `context` (his word of 22 Nov 2026), and `gathered` goes with `plan`; false when nothing does. */
+const planProblemOf = (ask: z.infer<typeof Ask>) =>
+  (isNumberedListOf(ask.context) &&
+    'a numbered list in `context` is a plan as text: give its steps as `plan` and keep `context` to what you found, as bullets (fetch("ask/plan")); a list that is not steps goes as bullets') ||
+  (ask.gathered &&
+    !ask.plan &&
+    '`gathered` goes with `plan`, its steps (fetch("ask/plan"))');
 
-/** What breaks the plan card's rules (`fetch("ask/plan")`): a card that presents a plan gives it as `plan`, its steps, never as a numbered list in `context` (his word of 22 Nov 2026); the assignment's plan card always does (`isPlan`, 21 Nov 2026), unless its first card says the matter looks over (`isLooksOverOf`) (a plan of "close it" read as a riddle, 22 Nov 2026); `gathered` goes with `plan`; its two options, ids `start` then `decline` in the asker's words; false when nothing does. */
-function planProblemOf(
-  ask: z.infer<typeof Ask>,
-  isPlan: boolean,
-  silence?: z.infer<typeof Option>
-) {
-  const resend =
-    'give its steps as `plan`, with options `start` then `decline`, and keep `context` to what you found, as bullets (fetch("ask/plan"))';
-  if (isNumberedListOf(ask.context)) {
-    return `a numbered list in \`context\` is a plan as text: ${resend}; a list that is not steps goes as bullets`;
-  }
-  if (!ask.plan) {
-    return (
-      (isPlan &&
-        !isLooksOverOf(ask) &&
-        `an assignment's first card is its plan card: ${resend}; or, when nothing is left to do, the card that says it looks over, its done option marked \`ends: "matter"\``) ||
-      (ask.gathered &&
-        'a plan card with `gathered` gives `plan`, its steps (fetch("ask/plan"))')
-    );
-  }
+/** What breaks the rules of the fields every agent's card writes (`ask`, `recommended`, `follow`; the desk's door asks it); false when nothing does. */
+function askFieldsProblemOf(ask: {
+  ask?: string;
+  follow?: unknown;
+  options?: readonly { id: string }[];
+  recommended?: string;
+}) {
+  const missing = (["ask", "recommended", "follow"] as const).filter(
+    (k) => ask[k] === undefined
+  );
   return (
-    (ask.options.map((o) => o.id).join() !==
-      PLAN_OPTIONS.map((p) => p.id).join() &&
-      `a plan card's options are ids ${PLAN_OPTIONS.map((p) => p.id).join(" then ")}, in your words (fetch("ask/plan"))`) ||
-    (ask.options.some((o) => o.ends || o.looks || o.outgoing || o.takes) &&
-      'a plan card\'s options have no mark (fetch("ask/plan"))') ||
-    (silence?.id === "start" &&
-      "`onSilence` never takes `start`: on silence no plan starts") ||
-    (ask.doneSeenBy &&
-      "a plan card has no `doneSeenBy`: only his pick answers it")
+    (missing.length > 0 &&
+      `a card writes ${missing.map((k) => `\`${k}\``).join(", ")}: \`ask\` what he does in one short imperative line, \`recommended\` the id of the option you recommend, \`follow\` 0 to 3 next asks in his voice`) ||
+    (!ask.options?.some((o) => o.id === ask.recommended) &&
+      "`recommended` is one of the options' ids")
+  );
+}
+
+/**
+ * What refuses a card on the subject of an earlier card of the same asker that he never answered (it lapsed or was
+ * withdrawn), unless it says what `changed`: the same subject is never asked twice. `earlier`: the asker's own cards,
+ * `matter` the matter the new one rides on. False when nothing does.
+ */
+function repeatProblemOf(
+  ask: Pick<z.infer<typeof Ask>, "changed" | "subject">,
+  earlier: readonly Pick<Decision, "matter" | "state" | "subject">[],
+  matter?: string
+) {
+  const isSame = (d: Pick<Decision, "matter" | "subject">) =>
+    (ask.subject !== undefined &&
+      (d.subject === ask.subject || d.matter === ask.subject)) ||
+    (matter !== undefined && d.matter === matter);
+  return (
+    !ask.changed &&
+    earlier.some(
+      (d) => (d.state === "lapsed" || d.state === "withdrawn") && isSame(d)
+    ) &&
+    "you asked on this subject before and he never answered: ask again only with `changed`, what changed (a deadline, a condition, an option, the message, an edit)"
   );
 }
 
@@ -337,4 +352,42 @@ export function endsProblemOf(
     (openStepsOf(matter ?? { steps: [] }).length === 0 &&
       '`ends: "matter"` needs an open to-do, promise, wait or to-do item on the matter')
   );
+}
+
+/** What refuses a card's draft where his instructions in force (`inForce`, `instructionsFor`) say Life drafts no replies (`no-drafts` over `drafts`, `effectOf`); false when nothing does. */
+const draftsProblemOf = (
+  ask: Pick<z.infer<typeof Ask>, "draft">,
+  inForce: readonly Pick<Instruction, "effect" | "scope">[]
+) =>
+  ask.draft !== undefined &&
+  effectOf(inForce, "drafts", "no-drafts") === false &&
+  "he asked Life to draft no replies here: ask what you need without a `draft`, or leave the reply to him";
+
+/**
+ * What refuses an agent's card at the desk's door beyond `cardProblemOf`, and the ids of his instructions in force on it
+ * (`instructionsFor`: its matter, its agent's `project`, its draft's channel, chat and person), kept on its line: a field
+ * every agent's card writes missing, a draft he refused, a subject asked again unanswered without `changed` (`earlier`:
+ * the assignment's own cards).
+ */
+export function agentCardOf(
+  ask: Parameters<typeof askFieldsProblemOf>[0] &
+    Pick<z.infer<typeof Ask>, "changed" | "draft" | "subject">,
+  earlier: readonly Pick<Decision, "matter" | "state" | "subject">[],
+  on: { matter?: string; project?: string | null }
+) {
+  const inForce = instructionsFor({
+    channels: [ask.draft?.channel, ask.draft?.to].filter(
+      (c) => c !== undefined
+    ),
+    matter: on.matter,
+    people: ask.draft?.to.startsWith("person:") ? [ask.draft.to] : [],
+    projects: on.project ? [on.project] : [],
+  });
+  return {
+    instructions: inForce.map((i) => i.id),
+    problem:
+      askFieldsProblemOf(ask) ||
+      draftsProblemOf(ask, inForce) ||
+      repeatProblemOf(ask, earlier, on.matter),
+  };
 }

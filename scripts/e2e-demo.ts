@@ -45,7 +45,7 @@ interface Step {
   waitS?: number;
 }
 
-/** The new matter the demo holds, found to closed: Start, the plan card's Start the plan, the agent's work, Mark as done. */
+/** The new matter the demo holds, found to closed: Start, the agent's work (no plan card since 25 Nov 2026), Mark as done. */
 const FOUND_TO_CLOSED: Step[] = [
   // Nothing blocks yet, so the offer, which only improves, is the first ask.
   {
@@ -61,19 +61,7 @@ const FOUND_TO_CLOSED: Step[] = [
   },
   { name: "back to the inbox", tap: "Done", until: "Inbox" },
   { name: "the agent's first turn ends", turnsEnded: 1, waitS: 600 },
-  {
-    name: "its plan card: Start the plan, Not this plan",
-    refresh: true,
-    until: "Not this plan",
-  },
-  {
-    name: "Start the plan",
-    tap: "Start the plan",
-    until: "knows, and goes on, done",
-  },
-  { name: "back to the inbox after Start", tap: "Done", until: "Inbox" },
-  { name: "the agent works after Start", turnsEnded: 2, waitS: 900 },
-  { name: "what the agent asked next", refresh: true, until: "Inbox" },
+  { name: "what the agent asked, if anything", refresh: true, until: "Inbox" },
   {
     name: "the matters list",
     tap: "Matters",

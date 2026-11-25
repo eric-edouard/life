@@ -57,7 +57,8 @@ test("a Start on a matter sharing its step with another reaches its own project'
     name,
     notes: "",
     people: [],
-    repos: [],
+    // A project's agent takes its matters only while the project has a repo.
+    repos: [`${id}-app`],
     status: "active",
   });
   const readTruth = await import("../memory/read-truth");

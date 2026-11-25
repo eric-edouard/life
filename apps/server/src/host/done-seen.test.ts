@@ -353,13 +353,10 @@ test("a failed read is not found with its error; a look that never finished (a c
 });
 
 test("a card's parts are checked when asked, each refusal pointing at its page; what is not built yet says so", async () => {
-  // Regression (the plan card's wire): a card with `plan` is a plan card, its options `start` then `decline`; `gathered` needs `plan`.
-  await expect(
-    transfer({ plan: [{ by: "owner", text: "Pay" }] })
-  ).rejects.toThrow("a plan card's options are ids start then decline");
+  // A plan is an optional body of any card (no plan card since 25 Nov 2026); `gathered` needs `plan`.
   await expect(
     transfer({ gathered: { text: "From the quote" } })
-  ).rejects.toThrow("a plan card with `gathered` gives `plan`");
+  ).rejects.toThrow("`gathered` goes with `plan`");
   await expect(
     transfer({ options: [{ ...OPTIONS[0], takes: "file" }, OPTIONS[1]] })
   ).rejects.toThrow('`takes: "file"` (only `note`) is not built yet');
@@ -413,7 +410,7 @@ test("the card's rules are short and each part's are a fetch away", async () => 
   ).toContain('"currency":"THB"');
   expect(
     await openById("ask/plan", undefined, undefined, () => Promise.resolve(""))
-  ).toContain('{"id":"start","label":"Start the plan"}');
+  ).toContain("A plan never asks leave to read, research or draft");
   expect(
     await openById("ask/visit", undefined, undefined, () => Promise.resolve(""))
   ).toContain(

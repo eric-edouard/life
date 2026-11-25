@@ -390,7 +390,7 @@ function withdrawDecision(asker: string, request: object, now: Date) {
  * Records a decision `asker` (an agent's pairing, or `desk`) asks, or its withdrawal by that same asker, or its keep
  * (`keepDraft`). A draft's chat is resolved now (`readChat`), so his card names it and nothing is sent to a chat he
  * didn't see; into a chat another asker's open card holds, the card waits on it (`waits`). `held`, the desk's for an
- * assignment's card: its `claim`, `prefer` (its matter, taken on a tie) and `isPlan` (its plan card, `asksPlanOf`).
+ * assignment's card: its `claim`, `prefer` (its matter, taken on a tie) and the `instructions` in force on it.
  */
 export function requestDecision(
   asker: string,
@@ -411,7 +411,8 @@ export function requestDecision(
 
 interface Held {
   claim: Claim;
-  isPlan: boolean;
+  /** The ids of his instructions in force on the card (`instructionsFor`), kept on its `asked` line. */
+  instructions: string[];
   prefer?: string;
   /** The preview's digest the asker saw (`previewed`), or null for none: given, the card is asked only when it matches, else its preview is refused in its place (`CardPreview`). */
   seen?: string | null;
@@ -433,7 +434,7 @@ async function askCard(
   readChat: typeof resolveDraft,
   {
     claim = (_subject, _id, _replacing, write) => write({}),
-    isPlan = false,
+    instructions = [],
     prefer,
     seen,
   }: Partial<Held> = {}
@@ -449,7 +450,7 @@ async function askCard(
     );
   }
   const ask = parsed.data;
-  const problem = cardProblemOf(ask, now, isPlan);
+  const problem = cardProblemOf(ask, now);
   if (problem) {
     throw new Error(`Not done: ${problem}.`);
   }
@@ -498,6 +499,7 @@ async function askCard(
         ...given,
         ...stamps,
         ...(matter ? { matter: matter.id } : {}),
+        ...(instructions.length > 0 ? { instructions } : {}),
         ...(contests ? { contests } : {}),
         ...(draft ? { draft } : {}),
         ...(subject ? { subject } : {}),

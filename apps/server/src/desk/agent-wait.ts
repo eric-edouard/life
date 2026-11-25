@@ -13,6 +13,7 @@ import {
   DRAFT_KEPT,
 } from "../host/events";
 import { AgentWait } from "../records/registered-agent";
+import { MAIN_QUESTION } from "./agent-questions";
 
 // The wait contract's rules (docs: the desk spec, section 6), pure: rows and the time in, a decision out. The clock
 // (`desk-clock.ts`) and the agent's actions (`agent-actions.ts`) apply them.
@@ -86,7 +87,13 @@ export const BEGIN_WITHIN_MS = 5 * MIN;
 export const isBeginLate = (t: TurnRow, now: number) =>
   !(t.begun_at || t.ended_at) && now - at(t.started_at) > BEGIN_WITHIN_MS;
 
-const AT_ONCE = [...DECISION_EVENTS, DRAFT_CONTESTED, DRAFT_KEPT, ASK_SPOKEN];
+const AT_ONCE = [
+  ...DECISION_EVENTS,
+  DRAFT_CONTESTED,
+  DRAFT_KEPT,
+  ASK_SPOKEN,
+  MAIN_QUESTION,
+];
 
 /**
  * When an assignment's next turn is due and why, from its own turns and events, or null while its turn runs: a failed
@@ -111,7 +118,7 @@ export function nextWakeOf(
     };
   }
   // His answer to its decision, its lapse or its withdrawal, a card's contest (`draft.contested`, 10 minutes to act) and
-  // his spoken ask: each wakes the agent at once.
+  // his spoken ask, and the main session's question (its own cause): each wakes the agent at once.
   const answer = events.find((e) => AT_ONCE.includes(e.name));
   if (answer) {
     // Its retries spent (turns that never began drop nothing), his answer is tried again at the last retry's gap, never at once.
@@ -119,7 +126,10 @@ export function nextWakeOf(
       last?.ended_at && failures > RETRIES.length
         ? at(last.ended_at) + (RETRIES.at(-1) ?? 0)
         : 0;
-    return { at: Math.max(at(answer.received_at), spent), cause: "answer" };
+    return {
+      at: Math.max(at(answer.received_at), spent),
+      cause: answer.name === MAIN_QUESTION ? MAIN_QUESTION : "answer",
+    };
   }
   const deadline = { at: at(s.wait_until ?? s.opened_at), cause: "deadline" };
   const [first] = events;
