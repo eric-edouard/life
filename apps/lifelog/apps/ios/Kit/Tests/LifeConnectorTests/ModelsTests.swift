@@ -150,32 +150,6 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(MatterIcons.symbol("a_new_key") == nil)
     #expect(list.matters[2].important == nil)
 
-    let chips = try decoded(ProjectChips.self, wireText("life/read_projects.json"))
-    #expect(chips.all.needYou == 2)
-    // A done project is never lost: its chip after the parked ones.
-    #expect(chips.chips.map(\.kind) == [.project, .project])
-    #expect(chips.chips.last?.status == .done)
-    #expect(chips.chips.first?.status == .active)
-    #expect(chips.chips.first?.area == "home")
-    #expect(chips.underway == 1)
-    // An area and a project can share an id: the chips' identity tells them apart.
-    let sameText =
-        #"{"all":{"needYou":0,"open":0},"chips":[{"kind":"area","id":"home","name":"Home","#
-        + #""needYou":0,"matters":0},{"kind":"project","id":"home","#
-        + #""name":"Home","needYou":0,"matters":0}],"version":"v"}"#
-    let same = try decoded(ProjectChips.self, sameText)
-    #expect(Set(same.chips.map(\.identity)).count == 2)
-    let header = try decoded(ProjectHeader.self, wireText("life/read_project.json"))
-    #expect(header.project.goal?.rank == 1)
-    #expect(header.project.ask?.ref.hasPrefix("dec_") == true)
-    #expect(header.project.ask?.matter?.name == "Mend Gran's watch")
-    #expect(header.project.agents.map(\.status) == ["running"])
-    #expect(header.project.repos.map(\.folder) == ["/Users/owner/Work/shop-site", nil])
-    #expect(header.parties.map(\.name) == ["Robin"])
-
-    let said = "The shop is quoting the watch repair; the call to them is done."
-    #expect(header.project.situation.map(\.text) == [said])
-    #expect(header.project.situation.first?.cites == ["obs_000000000005"])
     // A project chip's list is `read_matters` of the project; its head, if Life sends one, is not read.
     let project = try decoded(MatterList.self, wireText("life/read_matters_project.json"))
     #expect(project.matters.map(\.id) == ["matter_aaaaaaaaaaaa"])

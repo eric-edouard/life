@@ -96,7 +96,6 @@ export interface CheckInputs {
   nameContexts: ReadonlyMap<string, NameContext>;
   /** The names Life cannot place, one group per name (`nameGroupsOf`), worked out once by the reader. */
   nameGroups: ReturnType<typeof nameGroupsOf<Line>>;
-  notNow?: YourMoveInputs["notNow"];
   paged: ReadonlySet<string>;
   people: Pick<
     People,

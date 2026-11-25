@@ -11,12 +11,15 @@ import {
   featureProblemOf,
   type RoomFeatures,
 } from "./matrix-content";
+import { deleteLineOf, redact } from "./matrix-redact";
 
 // The bridges' local Matrix homeserver (docs/use/bridges.md): each bridge's config and its provisioning API, which
 // says whether it is linked and connected, and the one Matrix send into a bridged chat (`matrixSend`). Reading the
 // bridges' messages is `sources/bridged.ts`.
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
+/** The bridge's own record of a message it bridged, by its Matrix event. */
+const MESSAGE_OF = "select 1 from message where mxid = ?";
 export const BRIDGES = join(MACHINE_DIR, "bridges");
 /** The homeserver's name: every user id on it ends `:life.local`. */
 export const SERVER = "life.local";
@@ -693,11 +696,7 @@ function ownEventOf(
         .get(chat, Number(stream))?.id
   );
   return event &&
-    withBridgeDb(
-      bridge,
-      (db) => db.query("select 1 from message where mxid = ?").get(event),
-      bridges
-    )
+    withBridgeDb(bridge, (db) => db.query(MESSAGE_OF).get(event), bridges)
     ? event
     : undefined;
 }
@@ -755,6 +754,10 @@ export function matrixSend(
       ? { target: target || undefined, users: users as string[] }
       : "a sender it can't mention is named";
   };
+  const featuresOf = (chat: string) => {
+    const room = roomsOf()(chat);
+    return room ? roomFeaturesOf(room, where().synapse) : undefined;
+  };
   return {
     block: async () =>
       isBridgeAdded(bridge)
@@ -793,13 +796,10 @@ export function matrixSend(
         : undefined;
     },
     refusal: (d) => {
-      const room = roomsOf()(d.chat);
       const named = namedBy(d, where(d));
       return Promise.resolve(
-        featureProblemOf(
-          d,
-          room ? roomFeaturesOf(room, where(d).synapse) : undefined
-        ) ?? (typeof named === "string" ? named : undefined)
+        featureProblemOf(d, featuresOf(d.chat)) ??
+          (typeof named === "string" ? named : undefined)
       );
     },
     send: async (d, txn, onHanded) => {
@@ -827,11 +827,14 @@ export function matrixSend(
       const event = await sendEvent(bridge, room, d, named, txn, w, onHanded);
       return d.reaction ? event : idOf(d.chat, event, w.bridges, w.synapse);
     },
-    takes: (chat) => {
-      const room = roomsOf()(chat);
-      return chatTakesOf(
-        room ? roomFeaturesOf(room, where().synapse) : undefined
-      );
+    takes: (chat) => chatTakesOf(featuresOf(chat)),
+    // Undo of a send (`unsendDraft`): a redaction, where the room's features allow a delete for everyone now.
+    unsend: (chat: string, id: string) => {
+      const w = where();
+      const event = () => eventOf(chat, id, w.bridges, w.synapse);
+      return redact(roomsOf()(chat), event(), w, () => !event());
     },
-  };
+    unsendLine: (chat: string, sentAt: string, now: Date) =>
+      deleteLineOf(featuresOf(chat), sentAt, now),
+  } as SendPath;
 }

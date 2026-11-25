@@ -134,6 +134,46 @@ export const DoneSeen = z
     state: z.enum(["seen", "not_found"]),
   })
   .strict();
+/**
+ * The gate's verdict on an agent's card (bundle E writes it): `deliver`, `hold` until `until`, or `send_back` to its
+ * agent; `silent`, a delivered card never pushed (a sensitive subject). Only those are read back (`deliveryOf`); the
+ * gate's `note`, `readings` and `rules` are a record for later learning and decide nothing. The latest line stands.
+ */
+export const Delivered = z
+  .object({
+    at: isoDateTime,
+    id: DecisionId,
+    kind: z.literal("delivered"),
+    note: z.string().min(1).max(500).optional(),
+    readings: z.looseObject({}).optional(),
+    rules: z.array(z.string().min(1)).optional(),
+    schemaVersion: z.literal(DECISIONS_VERSION),
+    silent: z.literal(true).optional(),
+    until: isoDateTime.optional(),
+    verdict: z.enum(["deliver", "hold", "send_back"]),
+  })
+  .strict();
+/** His Undo of his answer (`undoAnswer`, host): the answer is void and the card open again; `unsent`, the sent message Life deleted for everyone first. */
+export const AnswerWithdrawn = z
+  .object({
+    at: isoDateTime,
+    id: DecisionId,
+    kind: z.literal("answer-withdrawn"),
+    schemaVersion: z.literal(DECISIONS_VERSION),
+    unsent: z.string().min(1).optional(),
+  })
+  .strict();
+/** His mark on how Life did on a card ("How am I doing?"): the latest stands; silence and the cross write nothing. */
+export const MARKS = ["bad", "okay", "good"] as const;
+export const Rated = z
+  .object({
+    at: isoDateTime,
+    id: DecisionId,
+    kind: z.literal("rated"),
+    mark: z.enum(MARKS),
+    schemaVersion: z.literal(DECISIONS_VERSION),
+  })
+  .strict();
 export const Line = z.discriminatedUnion("kind", [
   Asked,
   Answered,
@@ -145,6 +185,9 @@ export const Line = z.discriminatedUnion("kind", [
   Added,
   Ran,
   DoneSeen,
+  Delivered,
+  AnswerWithdrawn,
+  Rated,
 ]);
 /** A line of an earlier version: skipped. */
 const Historical = z.object({ schemaVersion: z.literal([1, 2]) }).loose();
@@ -173,10 +216,14 @@ export type Ended = z.infer<typeof Ended>;
 export type Added = z.infer<typeof Added>;
 export type Ran = z.infer<typeof Ran>;
 export type DoneSeen = z.infer<typeof DoneSeen>;
+export type Delivered = z.infer<typeof Delivered>;
+export type AnswerWithdrawn = z.infer<typeof AnswerWithdrawn>;
 
 export type DecisionState =
   | "answered"
+  | "held"
   | "lapsed"
+  | "sent_back"
   | "open"
   | "seen"
   | "waiting"
@@ -185,6 +232,8 @@ export type Decision = Asked & {
   /** His answer's `adds` outcome (`added`). */
   added?: Added;
   answer?: Answered;
+  /** The gate's latest verdict (`deliveryOf` reads it); none before the gate, or for a card it never read. */
+  delivered?: Delivered;
   /** Life's newest look: the one his answer's look made, a `seen` that settled the card, or a `not_found` that voided his answer (the card is open again). */
   doneSeen?: DoneSeen;
   end?: Ended;
@@ -192,6 +241,8 @@ export type Decision = Asked & {
   kept?: z.infer<typeof Kept>;
   /** His answer's `runs` outcome (`ran`). */
   ran?: Ran;
+  /** His latest mark on it. */
+  rated?: z.infer<typeof Rated>;
   /** The newest `not sent:` outcome, which voided the answer in `voided` (the card is open again). */
   notSent?: SendFailed;
   /** The older card this one replaces, once asked after `CONTEST_WAIT` while that one is still open: his Send withdraws it. */
@@ -199,7 +250,15 @@ export type Decision = Asked & {
   send?: Send;
   state: DecisionState;
   /** Every answer a `not sent:` or `not_found` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
-  voided?: { answer: Answered; doneSeen?: DoneSeen; notSent?: SendFailed }[];
+  voided?: {
+    answer: Answered;
+    doneSeen?: DoneSeen;
+    notSent?: SendFailed;
+    /** What it had sent, which his Undo deleted. */
+    send?: Send;
+    /** His Undo that voided it. */
+    undone?: AnswerWithdrawn;
+  }[];
   withdrawn?: Withdrawn;
 };
 

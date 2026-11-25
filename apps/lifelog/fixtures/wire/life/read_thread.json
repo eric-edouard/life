@@ -1,0 +1,18 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "answer": "An answer.",
+      "answeredAt": "2026-11-18T10:00:00.000Z",
+      "at": "2026-11-18T10:00:00.000Z",
+      "error": null,
+      "handed": [],
+      "id": 2,
+      "kind": "entry",
+      "reactions": [],
+      "refs": ["obs_000000000002"],
+      "words": "When is the dentist?"
+    }
+  ],
+  "version": "fixed"
+}

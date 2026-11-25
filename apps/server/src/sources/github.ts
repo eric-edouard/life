@@ -39,6 +39,7 @@ const TAKES: ChatTakes = {
 };
 const ISSUE = /^([\w.-]+\/[\w.-]+)#(\d+)$/;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
+const COMMENT_ID = /^\d+$/;
 /** GitHub refused the request itself (`gh api`'s stderr): nothing was posted. */
 const REFUSED = /\(HTTP 4\d\d\)/;
 
@@ -372,7 +373,33 @@ export function githubSend({
       );
     },
     takes: () => TAKES,
-  };
+    // Undo of a send (`unsendDraft`): his comment deleted; a new issue stays (deleting one needs the repo's admin).
+    unsend: async (chat: string, id: string) => {
+      const repo = ISSUE.exec(chat)?.[1];
+      const comment = id.slice(id.lastIndexOf("/") + 1);
+      if (!(repo && COMMENT_ID.test(comment))) {
+        throw new Error("not deleted: no comment of his to delete");
+      }
+      const r = await gh(
+        run,
+        [
+          "api",
+          "--method",
+          "DELETE",
+          `repos/${repo}/issues/comments/${comment}`,
+        ],
+        undefined,
+        SEND_MS
+      );
+      if (r.code !== 0) {
+        throw new Error(`not deleted: gh: ${r.stderr.trim().slice(-200)}`);
+      }
+    },
+    unsendLine: (chat: string) =>
+      ISSUE.test(chat)
+        ? "GitHub removes the comment; anyone who got it by mail keeps that copy."
+        : undefined,
+  } as SendPath;
 }
 
 /** A GitHub activity a wait names, as `githubActivityReader` reads it: its facts, and `words` (its title and body), only tested by a wait's `text_matches`. */

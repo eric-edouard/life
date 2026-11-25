@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
@@ -177,11 +177,11 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 
 /** His pins as folded from his corrections (`readMatterPins`). */
 interface HisPins {
+  /** His Later on any check (`deferred`): its `until` by the check's ref, the latest for a ref. */
+  deferred: Map<string, string>;
   directions: DirectionPin[];
   icons: IconPin[];
   important: ImportantPin[];
-  /** His Not now on your move cards (`your-move-not-now`), each with its `until`. */
-  notNow: (ReturnType<typeof pinOf> & { until: string })[];
   projects: ProjectPin[];
   /** His Reopens (`matter-reopened`), for `reopenedAtOf`. */
   reopened: Correction[];
@@ -197,7 +197,7 @@ const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
 /**
  * What is pinned to matters' steps (`pinnedOf` finds each one's matter): the directions (`directionsOf`: Life's drafts,
  * then his `matter-direction`), his important marks (`matter-important`, on or off), his icons (`matter-icon`, a key
- * or null), his projects (`matter-project`) and his Not now on your move cards (`your-move-not-now`), each with when it was written;
+ * or null), his projects (`matter-project`), each with when it was written, and his Later on any check (`deferred`, by its ref);
  * a Life draft reading a matter over is dropped once he reopened one of its steps after it (`matter-reopened`). Both files are folded incrementally (`readAppended`): a read parses only
  * the lines appended since the last.
  */
@@ -216,10 +216,10 @@ export function readMatterPins() {
     CORRECTIONS,
     Correction,
     (last?: HisPins) => ({
+      deferred: new Map(last?.deferred),
       directions: [...(last?.directions ?? [])],
       icons: [...(last?.icons ?? [])],
       important: [...(last?.important ?? [])],
-      notNow: [...(last?.notNow ?? [])],
       projects: [...(last?.projects ?? [])],
       reopened: [...(last?.reopened ?? [])],
     }),
@@ -237,8 +237,8 @@ export function readMatterPins() {
         pins.icons.push({ ...pinOf(c), icon: c.icon });
       } else if (c.kind === "matter-project") {
         pins.projects.push({ ...pinOf(c), project: c.project });
-      } else if (c.kind === "your-move-not-now") {
-        pins.notNow.push({ ...pinOf(c), until: c.until });
+      } else if (c.kind === "deferred") {
+        pins.deferred.set(c.ref, c.until);
       } else if (c.kind === "matter-reopened") {
         pins.reopened.push(c);
       }
@@ -254,6 +254,12 @@ export function readMatterPins() {
       )
   );
   return { ...his, directions: [...standing, ...his.directions] };
+}
+
+/** Until when his Later holds check `ref` at `now` (its latest `deferred`), or undefined once it passed or when none does. */
+export function laterUntilOf(ref: string, now = clock()) {
+  const until = readMatterPins().deferred.get(ref);
+  return until && Date.parse(until) > now.getTime() ? until : undefined;
 }
 
 /**

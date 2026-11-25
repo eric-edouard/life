@@ -305,6 +305,13 @@ outside the lock, schemaVersion 3, by `kind`:
   closing failed (or found nothing open on a step not ended). It closed the step or matter by his word (`endByHisWord`: its to-do items ticked,
   its observations by an `outdated` correction); nothing left open counts as ended. With none 31 minutes after his
   answer, it never ended (worked out when read).
+- `delivered` (`recordDelivered`, the gate's): `id`, `at`, `verdict` (`deliver`, `hold` with `until`, `send_back`), `silent`
+  (a delivered card never pushed), and the record `note`, `readings`, `rules`, read by nothing that decides. The latest
+  stands; `deliveryOf` reads it: held until `until` or sent back, a card is in no list; an agent's card with `ask` and no
+  line is `pending` (open until the gate's tick); a card before the gate is delivered.
+- `answer-withdrawn` (`withdrawAnswer`, his Undo through `answer_check`): `id`, `at`, `unsent` (the sent message Life
+  deleted for everyone first). It voids his answer as `not sent:` does: the card is open again.
+- `rated` (`rateDecision`): `id`, `at`, `mark` (`bad`, `okay`, `good`), his "How am I doing?"; the latest stands.
 - `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, or `not_found`, with `error`
   when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
   answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
@@ -417,7 +424,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `matter` (its id, from 21 Nov 2026), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`, and optionally `context`: Markdown as a card's, its `life:` links checked when written, shown on `read_matter` only) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word; his next step with no `context` keeps the earlier step's while its `kind` and `waitsOn` stay the same (a reword), never across another kind or wait |
 | `new-matter-dismissed` | `steps` (all of a matter's step ids when he answered) | His Dismiss on a new matter check: the matter those steps find (`matterFinderOf`, so a re-group keeps it) is never offered again |
-| `your-move-not-now` | `matter`, `steps` (all of its step ids when he answered), `until` (a local day, exclusive) | His Not now on a your move card: that matter's card hides until `until`, or until the matter gets a step not in `steps` |
+| `deferred` | `ref` (any check's), `until` (an instant) | His Later on a check (`laterOf`: tomorrow 9:00, sooner before its deadline, or his `later` instruction's time of day); the latest for a ref wins (`laterUntilOf`). Replaced `your-move-not-now` on 25 Nov 2026 |
 | `matter-important` | `steps` (all of a matter's step ids when he marked it), `matter` (its id, from 21 Nov 2026), `important` (on or off) | His important mark on the matter those steps find (`importantIdsOf`; a re-group keeps it): the latest wins, read only while the matter is open; his token only, by the matter's id |
 | `matter-icon` | `steps` (all of a matter's step ids when he picked it), `matter` (its id), `icon` (a key of `MATTER_ICONS`, or null: Life picks again) | His icon for the matter those steps find (`chosenIconsOf`; a re-group keeps it): the latest wins; his token only, by the matter's id |
 | `matter-project` | `steps` (all of a matter's step ids when he said it), `matter` (its id), `project` (a project id of his directory) | His word of which project the matter those steps find is of (a re-group keeps it): the latest wins, and it is the matter's one project (`matterBookOf`), so the agent that takes it follows (`agentForOf`); his token only, by the matter's id |

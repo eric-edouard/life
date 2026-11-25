@@ -109,6 +109,16 @@ export function heldChatOf(
   return same.at(-1)?.id;
 }
 
+/** The cards a redraft (`changed: edit`) into `draft`'s chat takes the place of at once: every pending card there; none while a send runs there (it then contests as any card). */
+export function editReplacesOf(
+  list: Decision[],
+  draft: StoredDraft | undefined,
+  isSending: (d: Decision) => boolean
+) {
+  const same = list.filter((d) => isSameChat(d, { draft }));
+  return draft && !same.some(isSending) ? same.filter(isPending) : undefined;
+}
+
 /** The card `id`, waiting on an open card of `asker`'s, with that card (a keep's or a merge's); throws when there is none. */
 export function waitingOnOf(list: Decision[], id: string, asker: Asker) {
   const waiting = list.find((d) => d.id === id && d.state === "waiting");
@@ -125,13 +135,14 @@ export function waitingOnOf(list: Decision[], id: string, asker: Asker) {
   return { held, waiting };
 }
 
-/** The withdrawal of the holder's own card `merged.held` that a merge (card `id`) writes with it; none without a merge. */
+/** The withdrawals a new card `id` writes with it: the holder's own card `merged.held` a merge withdraws, or the cards a redraft takes the place of (`replacing`, `editReplacesOf`). */
 export const mergeWithdrawalsOf = (
   merged: { held: Decision; waiting: Decision } | undefined,
   id: string,
-  now: Date
-): Withdrawn[] =>
-  merged
+  now: Date,
+  replacing: readonly Decision[] = []
+): Withdrawn[] => [
+  ...(merged
     ? [
         withdrawnOf(
           merged.held.id,
@@ -139,7 +150,11 @@ export const mergeWithdrawalsOf = (
           `merged with ${merged.waiting.id} into ${id}`
         ),
       ]
-    : [];
+    : []),
+  ...replacing.map((x) =>
+    withdrawnOf(x.id, now, "he changed its draft", { replacedBy: id })
+  ),
+];
 
 /** What `request_decision` tells the asker of a card that waits on the held card `on`: until when, and why. */
 export const waitsOf = (

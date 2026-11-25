@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { SignJWT } from "jose";
@@ -32,15 +32,9 @@ import {
   verify,
 } from "./mcp-test-harness";
 import { NOT_HIS } from "./mcp-tool";
-import { expectWire } from "./wire-fixture";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
-const HIS_ONLY = [
-  "read_agent_session",
-  "read_log_lines",
-  "read_resource_samples",
-  "read_spending",
-];
+const HIS_ONLY = ["read_resource_samples", "read_spending"];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
@@ -120,14 +114,12 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "correct_memory",
     "delete_from_memory",
     "fetch",
-    "read_agent_session",
     "read_appointments",
     "read_area_page",
     "read_chats",
     "read_day",
     "read_inbox",
     "read_life_status",
-    "read_log_lines",
     "read_matter",
     "read_matters",
     "read_memory_changes",
@@ -138,11 +130,10 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_person_pictures",
     "read_places_visited",
     "read_processing_runs",
-    "read_project",
-    "read_projects",
     "read_registered_agents",
     "read_resource_samples",
     "read_spending",
+    "read_thread",
     "request_decision",
     "search",
     "tell_life",
@@ -158,7 +149,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
       )
       .sort()
   ).toEqual([
-    "answer_check(name,note,options,person,ref,value)",
+    "answer_check(name,note,options,person,ref,undo,value)",
     "ask_main_session(catalog,react,screen,stop,words)",
     "change_appointment(action,appointment)",
     "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
@@ -167,14 +158,12 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "delete_from_memory(about,confirm,cuts,refs,said,withSources)",
     "fetch(at,fromTurn,id,limit,until)",
-    "read_agent_session(id)",
     "read_appointments(appointment,pushId)",
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
     "read_life_status()",
-    "read_log_lines(after,cursor,limit,min_level,process)",
     "read_matter(id)",
     "read_matters(area,before,ifNot,noProject,person,project,state)",
     "read_memory_changes(about,cursor,limit,run,since,types)",
@@ -185,11 +174,10 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_person_pictures(ids)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
-    "read_project(ifNot,project)",
-    "read_projects(ifNot)",
     "read_registered_agents()",
     "read_resource_samples()",
     "read_spending(month)",
+    "read_thread(before,ifNot)",
     "request_decision(ask,changed,context,deadline,doneSeenBy,draft,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
@@ -296,73 +284,22 @@ test("a call logs who asked, its arguments' names, and what surfaced without its
   expect(JSON.stringify(told)).not.toContain("Lyon");
 });
 
-test("read_log_lines: his token reads the log newest first, both shapes, as his app shows them; an agent's is refused, as for read_resource_samples", async () => {
-  const call = async (
-    over: Record<string, unknown>,
-    args: object,
-    name = "read_log_lines"
-  ) =>
-    (await rpc(await token(over), "tools/call", { arguments: args, name })).json
+test("his token only: an agent's read of read_resource_samples or read_spending is refused", async () => {
+  const call = async (over: Record<string, unknown>, name: string) =>
+    (await rpc(await token(over), "tools/call", { arguments: {}, name })).json
       .result;
   for (const agent of await Promise.all(
-    HIS_ONLY.map((n) => call({}, { id: "agt_made" }, n))
+    HIS_ONLY.map((n) => call({ id: "agt_made" }, n))
   )) {
     expect(agent).toMatchObject({ isError: true });
     expect(agent.content[0].text).toContain("paired as an agent");
   }
   expect(
     JSON.parse(
-      (await call({ agent: undefined }, {}, "read_resource_samples")).content[0]
+      (await call({ agent: undefined }, "read_resource_samples")).content[0]
         .text
     )
   ).toMatchObject({ hour: [] });
-  // A made-up day after every other, so it is the newest: the phone's fixture. A line before LogTape, then one of it.
-  const day = join(LOG_DIR, "2099-01-01.jsonl");
-  writeFileSync(
-    day,
-    [
-      { at: "2099-01-01T08:00:00.000Z", kind: "desk.turn", phase: "begun" },
-      {
-        at: "2099-01-01T08:00:05.000Z",
-        error: true,
-        kind: "mcp.call",
-        refused: "not_done",
-        tool: "tell_life",
-      },
-      {
-        category: ["life", "model", "memory-extract.v2"],
-        error: "Error",
-        errorType: "Error",
-        id: "obs_0123456789ab",
-        kind: "model.run",
-        level: "error",
-        ms: 38_400,
-        msg: "model run failed: {errorType} in {ms}",
-        time: "2099-01-01T08:00:09.000Z",
-      },
-    ]
-      .map((l) => `${JSON.stringify(l)}\n`)
-      .join("")
-  );
-  try {
-    const his = JSON.parse(
-      (await call({ agent: undefined }, { limit: 2 })).content[0].text
-    );
-    expect(his.lines.map((l: { level: string }) => l.level)).toEqual([
-      "error",
-      "warn",
-    ]);
-    expectWire("read_log_lines", his, true);
-  } finally {
-    rmSync(day);
-  }
-  const warns = JSON.parse(
-    (await call({ agent: undefined }, { limit: 5, min_level: "warn" }))
-      .content[0].text
-  );
-  expect(warns.lines.every((l: { level: string }) => l.level !== "info")).toBe(
-    true
-  );
 });
 
 const logged = () =>

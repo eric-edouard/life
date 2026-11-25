@@ -16,6 +16,10 @@ agents that act for him. This page says what it protects and what it does not.
   read anywhere, but the words themselves stay where their sources hold them (the app's own store, the archive, lifelog)
   and in his data repo's git history and backups. Purging them needs code that does not exist yet: `withSources` records
   his word that those copies go too, nothing more.
+- His thread with Life (`read_thread`) keeps a second copy of his own words to Life, and Life's answers to them, on the
+  Mac, in the desk's store (`desk.sqlite`, `thread_entry`), outside `memory/` so Life never reads its own answers back
+  as his life. A deletion hides an entry whose answer cites what he deleted, at read; the entry's words stay until the
+  entry itself is removed: its words and answer can be blanked in place, and that purge is life#1384, not built yet.
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.
@@ -152,6 +156,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
   he listed in `githubRepos`; and a card's draft (a comment's text, or a new issue's title and text),
   once, on his answer to its outgoing option, into one of those repos (his yes of 19 Nov 2026). And, while an agent's wait names one (`github_activity`), requests for the events of the repos the open waits name (`owner/name`, or an owner's repos listed with `gh repo list`), read for a wake and never kept (his direction of 20 Nov 2026, life#774).
+- On his Undo of a sent card (his yes of 25 Nov 2026): a delete for everyone of that one message, a redaction through
+  its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's

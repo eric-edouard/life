@@ -9,6 +9,9 @@ import type { ChatTakes, Outgoing } from "./contract";
  */
 export interface RoomFeatures {
   allowed_reactions?: string[];
+  /** Whether a message may be deleted for everyone, and up to how old, in seconds (none: any age). */
+  delete?: number;
+  delete_max_age?: number;
   /** By the message type a file goes as (`msgtypeOf`). */
   file?: Record<
     string,

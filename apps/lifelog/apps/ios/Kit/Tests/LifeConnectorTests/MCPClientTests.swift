@@ -218,7 +218,6 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     _ = try await api.readMatters(project: "halden", ifNot: nil)
     _ = try await api.readMatters(person: "person:test-ana")
     _ = try await api.readMatters(area: "home", ifNot: "v2")
-    _ = try await api.readProject("halden", ifNot: nil)
     _ = try await api.setPicture(
         of: "person:test-bakery", kind: .organization, from: "none", said: "No picture for Test Bakery"
     ) { _ in }
@@ -227,14 +226,14 @@ func aMacOutOfReachIsUnreachable(code: URLError.Code) async throws {
     }
     #expect(
         calls.map(\.0) == [
-            "correct_memory", "change_directory_entry", "read_matters", "read_matters", "read_matters", "read_project",
+            "correct_memory", "change_directory_entry", "read_matters", "read_matters", "read_matters",
             "change_directory_entry",
         ])
     // His picture pick edits the entry by its id in his directory, never by the ref the phone holds.
-    #expect(calls[6].1["kind"] as? String == "organization")
-    #expect(calls[6].1["action"] as? String == "edit")
-    #expect(calls[6].1["id"] as? String == "test-bakery")
-    #expect(calls[6].1["pictureFrom"] as? String == "none")
+    #expect(calls[5].1["kind"] as? String == "organization")
+    #expect(calls[5].1["action"] as? String == "edit")
+    #expect(calls[5].1["id"] as? String == "test-bakery")
+    #expect(calls[5].1["pictureFrom"] as? String == "none")
     // An area chip's list: the area's matters in no project, by the one rule the chip's count used.
     #expect(calls[4].1["area"] as? String == "home")
     #expect(calls[4].1["noProject"] as? Bool == true)
