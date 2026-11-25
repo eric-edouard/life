@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clock, MIN } from "../core/clock";
+import { clock, DAY, MIN } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -9,7 +9,7 @@ import { directChats, type WithPeople } from "./closeness";
 import { exchangesOf } from "./exchanges";
 import { EXCHANGE_COUNTS } from "./memory-files";
 import { tables } from "./sources";
-import { localDate } from "./zones";
+import { localDate, time } from "./zones";
 
 // What code counts between him and a person over their one-to-one chats and mail threads (`directChats`), one row per
 // exchange (`exchangesOf`). The sources are the truth: the night counts every year again and rewrites one derived file
@@ -26,6 +26,8 @@ const ExchangeCounts = z
     gotDeleted: z.int(),
     /** Whether he wrote first (else they did). */
     heOpened: z.boolean(),
+    /** The local hour (0-23, where he was) of each of his answers, in `hisWaits`' order; a file counted before it has none. */
+    hisAnswerHours: z.array(z.int().min(0).max(23)).default([]),
     /** Minutes from their message to his answer, each time he answered inside it. */
     hisWaits: z.array(z.number()),
     sent: z.int(),
@@ -48,6 +50,7 @@ export function exchangeCountsOf(list: SourceEvent[]): ExchangeCounts[] {
       got: 0,
       gotDeleted: 0,
       heOpened: !!first.fromMe,
+      hisAnswerHours: [],
       hisWaits: [],
       sent: 0,
       sentDeleted: 0,
@@ -68,6 +71,9 @@ export function exchangeCountsOf(list: SourceEvent[]): ExchangeCounts[] {
         (e.fromMe ? row.hisWaits : row.theirWaits).push(
           (Date.parse(e.at) - Date.parse(last.at)) / MIN
         );
+        if (e.fromMe) {
+          row.hisAnswerHours.push(Number(time(e.at).slice(0, 2)));
+        }
       }
       last = e;
     }
@@ -183,3 +189,25 @@ export const lastExchangeAtOf =
       .map((r) => r.start)
       .toSorted()
       .at(-1);
+
+/** How long his usual answer takes, at least, for a chat to count as one he answers in batches; how many answers say so. */
+const BATCHED_AFTER_MIN = 120;
+const BATCHED_FROM = 5;
+const REPLY_HOUR_DAYS = 90;
+
+/**
+ * The local hour he answers a person at, when he answers them in batches: over their exchanges of the last 90 days, at
+ * least 5 answers and a median wait of 2 hours or more; then the median of his answers' hours. Else undefined. Pure.
+ * ponytail: a plain median of hours (answers either side of midnight pull it to midday); a circular mean if that shows.
+ */
+export function replyHourOf(rows: readonly ExchangeCounts[], now: Date) {
+  const since = new Date(now.getTime() - REPLY_HOUR_DAYS * DAY);
+  const recent = rows.filter((r) => Date.parse(r.start) >= since.getTime());
+  const hours = recent.flatMap((r) => r.hisAnswerHours);
+  const wait = median(recent.flatMap((r) => r.hisWaits));
+  return hours.length >= BATCHED_FROM &&
+    wait !== null &&
+    wait >= BATCHED_AFTER_MIN
+    ? (median(hours) ?? undefined)
+    : undefined;
+}

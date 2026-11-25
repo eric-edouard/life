@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { appendFileSync, rmSync } from "node:fs";
 import { DAY, HOUR } from "../core/clock";
-import { rateDecision, withdrawAnswer } from "./decision-after-answer";
+import {
+  rateDecision,
+  rateOffersOf,
+  withdrawAnswer,
+} from "./decision-after-answer";
 import { deliveryOf, recordDelivered } from "./decision-delivery";
 import { DECISIONS, DECISIONS_VERSION } from "./decision-lines";
 import { answerDecision, decisionsNow, requestDecision } from "./decisions";
@@ -91,7 +95,7 @@ test("his Undo voids his answer and opens the card; an answer whose act wrote ou
   await answerDecision(id, ["tue"], undefined, { now: NOW });
   withdrawAnswer(id, undefined, NOW);
   expect(stateOf(id)).toBe("open");
-  await answerDecision(id, ["wed"], undefined, { now: NOW });
+  await answerDecision(id, ["wed"], undefined, { now: NOW, via: "connector" });
   expect(decisionsNow(NOW).find((d) => d.id === id)?.answer?.options).toEqual([
     "wed",
   ]);
@@ -103,4 +107,24 @@ test("his Undo voids his answer and opens the card; an answer whose act wrote ou
   );
   expect(() => withdrawAnswer(id)).toThrow("already ended");
   expect(stateOf(id)).toBe("answered");
+});
+
+test("How am I doing? asks once a day, on the first card he answered in the app; a card not offered takes no mark", async () => {
+  const first = await card();
+  const second = await card();
+  const inSession = await card();
+  await answerDecision(inSession.id, ["tue"], undefined, { now: NOW });
+  await answerDecision(first.id, ["tue"], undefined, {
+    now: later(HOUR),
+    via: "connector",
+  });
+  await answerDecision(second.id, ["tue"], undefined, {
+    now: later(2 * HOUR),
+    via: "connector",
+  });
+  const offers = rateOffersOf(decisionsNow(NOW));
+  expect([...offers.keys()]).toEqual([first.id]);
+  expect(() => rateDecision(second.id, "bad")).toThrow("did not ask");
+  rateDecision(first.id, "okay", NOW);
+  expect(rateOffersOf(decisionsNow(NOW)).get(first.id)?.mark).toBe("okay");
 });

@@ -179,6 +179,8 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 interface HisPins {
   /** His Later on any check (`deferred`): its `until` by the check's ref, the latest for a ref. */
   deferred: Map<string, string>;
+  /** Of those, the ones whose latest line waits for his arrival home (`home`): when it was written, by the same key. */
+  deferredHome: Map<string, string>;
   directions: DirectionPin[];
   icons: IconPin[];
   important: ImportantPin[];
@@ -217,6 +219,7 @@ export function readMatterPins() {
     Correction,
     (last?: HisPins) => ({
       deferred: new Map(last?.deferred),
+      deferredHome: new Map(last?.deferredHome),
       directions: [...(last?.directions ?? [])],
       icons: [...(last?.icons ?? [])],
       important: [...(last?.important ?? [])],
@@ -239,6 +242,11 @@ export function readMatterPins() {
         pins.projects.push({ ...pinOf(c), project: c.project });
       } else if (c.kind === "deferred") {
         pins.deferred.set(laterKeyOf(c.ref), c.until);
+        if (c.home) {
+          pins.deferredHome.set(laterKeyOf(c.ref), c.at);
+        } else {
+          pins.deferredHome.delete(laterKeyOf(c.ref));
+        }
       } else if (c.kind === "matter-reopened") {
         pins.reopened.push(c);
       }
