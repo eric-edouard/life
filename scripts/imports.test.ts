@@ -173,6 +173,7 @@ test("forward and recordCorrection have only their known importers", () => {
     "apps/server/src/host/change-registered-agent.ts",
     "apps/server/src/host/correct-matter.ts",
     "apps/server/src/memory/answer-check.ts",
+    "apps/server/src/memory/arrival-home.ts",
     "apps/server/src/memory/delete-from-memory.ts",
   ]);
   expect(importers(["recordHisCorrection"], "correct-matter")).toEqual([
