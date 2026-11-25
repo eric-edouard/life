@@ -19,11 +19,11 @@ directory, the send guard, the desk's store), each named under its bundle; the r
 | | Bundle | Mode | Lines | Its files |
 |---|---|---|---|---|
 | S | The seam, landed first | fast | 60 | `turnRefusalOf` moves unchanged from `desk/desk-door.ts` to `desk/agent-actions.ts` |
-| A | Agents and asks | fast | 1,500 | `memory/card-request.ts`, `card-problems.ts`, `decision-lines.ts`, `decisions.ts` (the `asked` line only, `:509`), new `memory/instructions.ts`, `host/inbox.ts`, `memory/held-matters.ts`, `read-matters.ts`, `desk/first-turns.ts`, `role-agents.ts`, `arrival-route.ts`, `event-queue.ts`, `agent-actions.ts`, `hand-out*.ts`, `matter-net.ts` |
+| A | Agents and asks | fast | 1,500 | `memory/card-request.ts`, `card-problems.ts`, `decision-lines.ts`, `decisions.ts` (the `asked` line only, `:509`), new `memory/instructions.ts`, new `prompts/life-voice.md`, `host/inbox.ts`, `memory/held-matters.ts`, `read-matters.ts`, `desk/first-turns.ts`, `role-agents.ts`, `arrival-route.ts`, `event-queue.ts`, `agent-actions.ts`, `hand-out*.ts`, `matter-net.ts` |
 | B | The main session and its answers | fast | 1,500 | `desk/main-session.ts`, `desk-door.ts`, `desk-store.ts` and its store step, `records/main-session-wire.ts`, new `records/answer-blocks.ts`, `host/http/mcp-main-session.ts`, `host/desk-turn-reads.ts` |
 | C | The runtime, and the ground | fast | 800 | `desk/runtimes/*`, `desk/send-guard.ts`, `models/llm.ts`; the failing tests; `docs/plans/tests-owed.md` |
 | D | The Life thread and answering | fast | 1,500 | new `host/life-thread.ts`, `host/http/mcp.ts`, `mcp-projects.ts`, `wire-fixture.ts`, `host/answer-result.ts`, `memory/answer-check.ts`, `memory/decisions.ts`, `records/observation.ts`, `memory/your-move.ts`, `memory/matters.ts` (`:183-241`), `memory/checks.ts`, `check-context.ts`, `host/correct-matter.ts`, `memory/draft-send.ts`, `draft-contest.ts`, `sources/matrix*.ts`, `sources/github.ts`, `desk/turn-ends.ts`, `host/migrate.ts`, `SECURITY.md` |
-| E | Delivery | fast | 1,400 | new `desk/gate.ts`, new `prompts/desk-gate.v1.md`, new `memory/fix-checks.ts`, `desk/desk-clock.ts`, `host/card-push.ts`, `memory/check-urgency.ts`, `host/spending*.ts`, `core/settings.ts`, `scripts/imports.test.ts` (`MODEL_CALL_FILES`), `apps/lifelog/apps/server/src/apns.ts` |
+| E | Delivery | fast | 1,500 | new `desk/gate.ts`, new `host/owner-state.ts`, the heartbeat's route in `apps/lifelog/apps/server/`, new `prompts/desk-gate.v1.md`, new `memory/fix-checks.ts`, `desk/desk-clock.ts`, `host/card-push.ts`, `memory/check-urgency.ts`, `host/spending*.ts`, `core/settings.ts`, `scripts/imports.test.ts` (`MODEL_CALL_FILES`), `apps/lifelog/apps/server/src/apns.ts` |
 | P1 | The old phone screens go | ultrafast | −13,500 | the old folders of `Lifelog/`, Kit's old wire models and their tests, `scripts/design-system.test.ts` |
 | P2 | The app: the thread and answers | ultrafast | 3,000 | new `Lifelog/Thread/`, `Field/`, `Edge/`, Kit's thread and answer models |
 | P3 | The app: items, notifications, offline, profiles | ultrafast | 2,800 | new `Lifelog/Items/`, `Profile/`, the notification extensions, `IncidentNotifier`, `LifeConnection` |
@@ -45,7 +45,9 @@ The seams between bundles. Wave 1: after S, every rule on what an agent's turn m
 `desk/agent-actions.ts`, which is A's; `desk/desk-door.ts` is B's alone and calls it. A exports
 `recordInstruction`, `instructionsFor` and `askAssignment` (the agent's side of a question), which B's door calls.
 C adds `queue` and `cancel` to the runtime contract, which B calls. B owns the desk's store, so both store steps
-are B's.
+are B's. A exports `inForceOf` (Life's voice and the instructions that hold on every turn); its join, made by A
+after C has landed, is the line in the runtime that adds that block to every request (`pi-extension.ts`'s
+`context` hook, and the turn's prompt on the other runtimes).
 
 Wave 2: D owns `memory/decisions.ts` (every new line and writer: `delivered`, `rated`, `answer-withdrawn`, and
 `deliveryOf`), `memory/checks.ts` (the Later migration runs through it, `:569`) and `host/migrate.ts` (both stored
@@ -82,9 +84,10 @@ Each has its reasons in [`positions.md`](positions.md).
    the owner declared (what it is about, its people, chats, repos, deadlines) and Life's nightly reading of where
    it stands; every agent working on one of its matters reads both. No store of project knowledge that agents
    write.
-7. `truth/`: it holds what the owner declares to exist (people, organizations, chats, areas, projects, goals). It
-   is the owner's directory, and should be named `directory/`. The owner's dated statements (corrections,
-   instructions) are a different thing and stay as appended lines in `memory/`.
+7. `truth/`: it holds what the owner stated to exist (people, organizations, chats, areas, projects, goals);
+   Life's guesses about the same things are in `memory/`, and the owner should only ever see the two as one
+   list. The proposed name is `stated/` (question 21). The owner's dated statements (corrections, instructions)
+   are a different thing and stay as appended lines in `memory/`.
 8. Memory in git: right, and it stays. Nod is no model here: its memory is one 256 KiB document in Postgres.
 9. Quick or long work: the main session decides per ask, shown the measured time of each kind of work. Long work
    is a thread item "under way" with its estimate, and its result lands as a follow-up.
@@ -92,8 +95,18 @@ Each has its reasons in [`positions.md`](positions.md).
     the settings that live on the phone.
 11. Undo reaches sends where the platform allows it, read from the chat's own features, and says what the other
     side will see.
-12. Direct mode later; smart mode in v4. Answers are Markdown with Life's own components as fenced blocks. Nod:
-    19 items now, 11 later, 8 no.
+12. What the owner is doing now replaces fixed quiet hours: the gate is given the owner's state (asleep, on a
+    call, in a meeting, talking with someone, driving) from signals Life has, and iOS's own Focus does the rest.
+13. The spending stop is not a fixed sum: it follows the monthly amount and the matter's importance, and an
+    instruction can set it.
+14. A sensitive subject is its own effect, because code can do three things with it that a model's judgement
+    alone cannot guarantee.
+15. Reactions both ways are in v4: Life reacts to the owner's message where words would add nothing, and the
+    owner reacts to Life's lines instead of replying. A reaction is never the owner's word for an act.
+16. Life's voice lives in one file that every brief includes, and it, with the owner's style instructions, is
+    put before the model again on every request, so it cannot fade in a long session.
+17. Direct mode later; smart mode in v4. Answers are Markdown with Life's own components as fenced blocks. Nod:
+    21 items now, 10 later, 8 no.
 
 ## How the pieces work
 
@@ -102,16 +115,17 @@ Each has its reasons in [`positions.md`](positions.md).
 A card gains three fields its asker must write, refused when missing: `ask` (a short imperative line, "Pick a
 clinic for the scan"), `recommended` (the option drawn full width) and `follow` (up to three suggested next asks,
 in the owner's own voice). The `asked` line keeps the matter's id (#842) and the instructions the agent was given.
-A card that replaces another says what changed (`deadline`, `condition`, `option`, `message`); without it the same
-subject is never asked twice. `CARD_SELF_CHECK` gains "check you can't do it yourself first" (#784).
+A draft card may carry `edits`, up to three quick changes in a few words each ("More concise", "Warmer"), for the
+owner to tap. A card that replaces another says what changed (`deadline`, `condition`, `option`, `message`,
+`edit`); without it the same subject is never asked twice. `CARD_SELF_CHECK` gains "check you can't do it yourself first" (#784).
 
 The plan-card rule is removed (`opensWithPlan`, `planProblemOf`, `PLAN_OPTIONS`, the three first-turn texts). The
 door no longer refuses `finish` or `set_wait` before a card, so an agent woken on an arrival that turns out to
 need nothing ends without asking. `plan` stays as an optional body of any card: what happens after the yes. What
 bounds an agent that never asks: `isCardOverdue` (`desk/hand-out.ts:51-62`) today closes a desk-opened assignment
 with no card after two hours even when it set a wait, which would close an agent that works and then waits; A
-changes it to no card and no wait. A wait lasts seven days at most, and an assignment stops at 3 dollars
-(bundle E). This removal waits on question 19. If the answer is no, the rule stays with two exceptions: the
+changes it to no card and no wait. A wait lasts seven days at most, and an assignment stops at its spending
+stop (bundle E). This removal waits on question 19. If the answer is no, the rule stays with two exceptions: the
 one already approved (a reply's draft is its first card) and an arrival's assignment that may `finish` with no
 card; `isCardOverdue` changes either way.
 
@@ -134,10 +148,20 @@ channel or everything; the text; `until`; `replaces`; the owner's words as `said
 | `drafts`, `no-drafts` | whether Life drafts replies to this person | A |
 | `hands-off` | the hand-out skips this project's matters: Life helps there only when asked | A |
 | `intention` | a standing intention, with its assignment | A |
+| `style` | how Life talks to the owner ("never an emoji"): in force on every request; "never an emoji" is also stripped by code | A, C |
+| `sensitive` | a subject not to bring up: in force on every request; a card the gate reads as touching it never pushes and is sent back once; never in a suggested ask, an offer or "How am I doing?" | A, E |
+| `budget` | what a matter, a project or any task may spend before Life stops and asks | E |
 
 "How much Life does alone before asking" is not an effect: once plan cards go, everything that needs no send, no
 spend and no deletion is already done without asking, and those three stay fixed. Within a scope a refusal beats
-a grant, and a correction changes only what it addresses.
+a grant, and a correction changes only what it addresses. The first six effects are approved (questions 5 and
+23); `style`, `sensitive` and `budget` are question 26.
+
+Life's voice is one file, `prompts/life-voice.md`, included by the main session's brief and by the rules agents
+write cards under, so an ask reads in the same voice as an answer. It starts warm and plain, there for the owner
+and taking load off ("I'll take care of that", "I'm on it", "I'll let you know"), never quirky; its words are the
+owner's to settle (question 27). `inForceOf` returns that voice with every `style` and `sensitive` instruction,
+read fresh from the file each time.
 
 Who acts: a project's agent only when the project's context includes a repo, since code work needs that folder
 and its rules; every other matter goes to the Personal agent (`agentForOf`). Any agent working on a matter still
@@ -184,8 +208,16 @@ kind has taken (`estimateOf`: the median of that kind's last 20, from the hand-o
 that estimate; its result lands as a follow-up. How under-way work looks is the owner's next prototype; the wire
 gives the state, the kind, the estimate and since when, and fixes nothing about the look.
 
-The thread's entries are kept by the desk: one row per ask, with the owner's words, the answer and the refs it
-cites (store step `stepThread`); `stepTurnKind` adds the kind of handed work.
+Reactions go both ways. Life's answer may be, or begin with, a reaction on the owner's bubble: the eyes when work
+is handed on or a second message is queued (code puts that one, at once, with no model turn), a thumb when an act
+is done and words would add nothing. The owner's reaction to one of Life's lines travels through
+`ask_main_session` in place of words; it is recorded on the entry and starts no turn. It is never `said`: no act
+and no answer to an ask can rest on a reaction, and a send still needs the tap on the exact draft.
+
+The thread's entries are kept by the desk: one row per ask, with the owner's words, the answer, the refs it
+cites and the reactions (store step `stepThread`); `stepTurnKind` adds the kind of handed work. The words and the
+answer are columns that can be blanked while the row, its time and a deleted mark stay, so the purge of #1384 can
+empty an entry in place.
 
 Critical tests: a block with a wrong number is dropped; the two store steps; an act still refuses a `said` that is
 not in the owner's words when an agent's reply is in context.
@@ -198,7 +230,8 @@ only shell and MCP ones. From Nod ([`nod.md`](nod.md)): a large tool result kept
 reference; results wrapped as data; a dangling tool call closed as "interrupted, outcome unknown" before a
 session is resumed; compaction numbers from the model's window; background turns paused with a growing delay on a
 failing provider while the owner's asks still try; 30 seconds of silence is a retry; a turn stops after five
-failed calls of one tool.
+failed calls of one tool. The runtime also gains the place where a block is added to every request, after
+compaction and never part of it; A fills it with `inForceOf`.
 
 It records, per ask, the time to the first step, to the first words and to the whole answer, each tool call's
 time and size, and what the tool schemas cost; and per turn, its context. Nothing waits on those numbers. Deferred
@@ -251,9 +284,13 @@ confirms. iMessage and mail have no Undo: Messages.app cannot unsend from a scri
 Each network is tried on a real chat before its Undo is switched on. Undo on a send waits on question 20; if the
 answer is no, a send has none, as the spec says.
 
-Adjust: a quick redraft is the main session's own, asked as a replacement card that takes the open card's place
-at once (question 10; if no, it waits on the draft contest, up to 10 minutes); a long one is handed to the card's
-agent and shows under way.
+Adjust is the same ask, amended (the owner's yes of 25 Nov). A quick redraft is the main session's own, asked as
+a replacement card that takes the open card's place at once; a long one is handed to the card's agent and shows
+under way. It comes two ways, and the wire says which (`changed: edit`, and whether by words or by a tap). A typed
+or spoken change: the owner's bubble has pushed the draft up, so the old version collapses where it is and the
+new one shows below. A tapped quick edit, one of the card's `edits`: the draft stays the last thing on screen and
+the same element changes in place. A tapped edit's label is the owner's word for that redraft, as a question's
+tapped answer is. The look of both is the UI session's.
 
 A deletion reaches the thread in `host/life-thread.ts`, at read, since `memory/` cannot import the desk: an entry
 whose answer cites what was deleted is hidden. The thread also holds the owner's own words to Life, a second copy
@@ -285,6 +322,15 @@ the phone's notification extension reads the card from the connector and writes 
 of the owner's pass through Apple. Life's own checks wait in the list and do not push. The hand-out keeps its
 pace (`desk.handOut`), and `cardsWaiting` counts held cards too.
 
+The gate is given what the owner is doing now, from one read, `ownerStateNow`, not a fixed quiet-hours rule.
+Signals Life already has: the hour where the owner is, a calendar event under way, speech the pendant heard in
+the last minutes, whether the Life app is open, whether the owner has just arrived somewhere or is between
+places. Cheap to add, sent by the phone each time the Mac's 15-minute silent push wakes it: whether a Focus is
+on (sleep, driving and do-not-disturb all show as one), and whether a call is connected. With them the model
+reads "a good moment" and code keeps its limits. iOS already holds an ordinary notification during a Focus, so
+Life's part is to be honest about levels: time-sensitive only within three hours of a deadline. The phone's
+motion (driving without a Focus) needs another permission prompt and waits (question 28).
+
 Smart mode is three rules: an agent may draft a reply once the arrival reader confirms the message needs the
 owner; the gate holds the card until the owner's usual reply time for that person has passed; Life withdraws it
 when the owner answers in the chat. Drafts are for people who have a page unless an instruction says otherwise.
@@ -294,7 +340,13 @@ whose silence sends nothing.
 Fix asks are written by code from a fixed list (a bridge signed out, the budget about to be passed); the caretaker
 takes what is not on it. A failed health read is never a fix ask. The monthly amount is one setting: projected
 from billed spending, asked once before it is passed, then hand-outs and background work slow, and recording and
-answering never stop. Subscriptions do not count. The amount is changed through `change_setting` (question 22),
+answering never stop. Subscriptions do not count.
+
+The stop on one piece of work is not a fixed sum. It is 2% of the monthly amount, three times that for a matter
+the owner marked important or the gate reads as high, or what a `budget` instruction says; an owner who does not
+care sets a large amount once and never sees it. At the stop the agent ends its turn with what it has, and the
+ask is about the work, not the money: "Finding a clinic is taking longer than usual. Keep going?", with what was
+spent as its small line. It is one ask per piece of work, through the gate. The amount is changed through `change_setting` (question 22),
 whose writer is in `core/settings.ts`; until the answer, the `settings` block shows it and cannot change it.
 
 When the Mac itself stops, the phone's armed local notification says so three hours after the last contact
@@ -319,11 +371,13 @@ the phone-only debt issues (#984, #1001, #1084, #1105, #1109, #1126, #1087, #117
 of #1243, #820, #620, #1288), each checked against its text first.
 
 P2: the thread (bubbles, Markdown inking in, day separators, Show earlier), the field (typing, hold to talk,
-Stop), the edge, the two round buttons, the steps line, the components and question controls.
+Stop), the edge, the two round buttons, the steps line, the components and question controls, and reactions
+both ways.
 
 P3: thread items as rows that unfold, one shape for every ask, answering with its states on the button, Later,
 Undo, the under-way item as the owner's prototype settles it, the notification as the ask, the offline queue,
-the notices, and profiles with their code-only sections. Offline, the phone's own notice ("Your Mac isn't
+the notices, profiles with their code-only sections, and the heartbeat's two new fields (a Focus on, a call
+connected). Offline, the phone's own notice ("Your Mac isn't
 answering") unfolds to the settings that live on the phone: the pendant, pairing again, Face ID before Send,
 appearance. The spec says a notice has no body; this is the one that does.
 
@@ -333,7 +387,7 @@ No app tests; what they would be is in `tests-owed.md`.
 
 ### After v4 (Z)
 
-Codex leaves Life.app and is fetched on demand (#869). `truth/` becomes `directory/` (#1379) and the desk becomes
+Codex leaves Life.app and is fetched on demand (#869). `truth/` takes its new name (#1379, question 21) and the desk becomes
 the dispatcher (#655), each one mechanical PR with its migration and the owner's yes to its list, once the server
 bundles have landed: during them every bundle would conflict.
 
@@ -373,7 +427,7 @@ The build follows the spec, except where this plan changed the spec (the last th
 | Measure | How it is measured | Today | Target | Moved by |
 |---|---|---|---|---|
 | Time to first useful answer | Per ask: first step, first words, whole answer (recorded by C) | 15 to 36 s warm, over 60 s cold | First step within 1 s, first words within 3 s for half of asks and 6 s for nine in ten, a lookup whole within 10 s | B (no `answer` round trip, words streamed, the record read before any agent turn), C (effort, bounded results) |
-| Cost per completed task | Billed spends of an assignment's turns at its close; per ask, its turn's | Not reported per task | An ask under 1 cent for half of asks; a one-reply assignment under 5 cents for nine in ten; any assignment stopped at 3 dollars; the gate under 0.2 cent a card | A (no plan-card turn), C, E (the stop) |
+| Cost per completed task | Billed spends of an assignment's turns at its close; per ask, its turn's | Not reported per task | An ask under 1 cent for half of asks; a one-reply assignment under 5 cents for nine in ten; any assignment stopped at its share of the monthly amount; the gate under 0.2 cent a card | A (no plan-card turn), C, E (the stop) |
 | Task success rate | Share of asks answered with the recommended option, sent back by the gate, withdrawn; blocks dropped by the checks; the three marks | Not measured | Recommended option on 7 asks in 10; no wrong number shown; at most 5 pushes a day on half of days | A (the contract), B (the checks), E (the gate) |
 
 The numbers are read as bundles land; a bundle that misses its target gets a fix, not a phase.
@@ -387,11 +441,13 @@ The numbers are read as bundles land; a bundle that misses its target gets a fix
 | 1 | The gate as its own call | Yes, live from day one, on the agents' model |
 | 2 | "How am I doing?" | Yes: three marks and a cross to dismiss; their look is the owner's to design |
 | 3 | Direct mode later | Yes |
-| 4 | A reply needs no plan card; drafts for people with a page | Yes; and rethink plan cards (question 19) |
-| 6 | A project's agent only with a repo | Yes; reconciled above: a project is context, the repo is part of it |
+| 4 | A reply needs no plan card; drafts for people with a page | Yes |
+| 5 | Instructions in `memory/instructions.jsonl`, with its two invariant changes | Yes |
+| 6 | A project's agent only with a repo | Yes; a project is context, the repo is part of it |
 | 8 | Later with no menu | Yes |
-| 9 | Undo | Yes, and for sends where the platform allows (question 20) |
-| 11 | The thread kept by the desk; `show` goes | Yes; explained under bundle D |
+| 9 | Undo | Yes |
+| 10 | A redraft replaces the agent's card at once | Yes: the same ask, amended; a typed change and a tapped quick edit (bundle D) |
+| 11 | The thread kept by the desk; `show` goes | Yes |
 | 12 | Stored changes (`stepThread`, `deferred`, the `notifications` setting) | Yes |
 | 13 | "Where things stand" in "you", nightly | Yes |
 | 14 | The edge's exception in `docs/brand.md` | Yes |
@@ -399,44 +455,40 @@ The numbers are read as bundles land; a bundle that misses its target gets a fix
 | 16 | The main session's three door tools | Yes |
 | 17 | Three new decision lines | Yes |
 | 18 | Life's own checks stop pushing | Yes |
+| 19 | Remove the plan-card rule | Yes |
+| 20 | Life may delete a message it sent, on the owner's Undo, where the chat allows | Yes |
+| 22 | `change_setting` for the monthly amount | Yes |
+| 23 | The effects `batch`, `later`, `hands-off` | Yes |
+| 25 | `SECURITY.md` says the thread's copy plainly | Yes; true deletion is #1384, and the entries are built to be blanked in place |
 
 ### Still the owner's
 
-Two are needed before wave 1 starts (5 and 19), three before wave 2 (10, 20, 22). Each says what is built if the
-answer is no.
+Questions 26 and 27 touch wave 1; each says what is built meanwhile.
 
-5. Where the owner's instructions live, and a new writer of `memory/`. Recommended: `memory/instructions.jsonl`.
-   The reason, after stepping back on `truth/`: that folder holds what the owner declares to exist (a person, a
-   project); an instruction is a dated statement that ends and gets replaced, like a correction, and corrections
-   already live as appended lines in `memory/`. It changes two invariants: the file joins the append-only files
-   with `recordInstruction` as its one writer, and joins the lock's exceptions as one synchronous append. The
-   other answer puts the same lines in the directory folder; A builds either with one constant changed.
-7. One session per assignment for the Personal agent. Still open, on the context numbers C records: yes if a
-   Personal turn carries more than twice a project agent's. Nothing waits on it.
-10. A redraft the main session writes itself replaces the agent's open card at once. Recommended: yes. It is the
-    quick half of quick or long work; without it a quick redraft waits up to 10 minutes on the draft contest.
-    Needed before D.
-19. Remove the plan-card rule (the door's rule of 18 Nov in `AGENTS.md`). Recommended: yes. Work that needs no
-    send, no spend and no deletion needs no permission, and every step that does is already a card on the exact
-    thing. No: every piece of work the owner starts keeps opening with an ask before anything is done, and A
-    keeps the rule with its two exceptions. Needed before A.
-20. Life may delete a message it sent, on the owner's Undo, where the chat allows it. Recommended: yes. It adds
-    one act to the send invariant ("Life sends only a card's draft") and to `SECURITY.md`: a deletion of that one
-    message, on the owner's tap, never retried. No: a send has no Undo. Needed before D.
-21. `truth/` renamed `directory/`, after v4 (#1379). Recommended: yes to the name. It needs one exception to
-    "`truth/` is never migrated": the folder is moved once, its files untouched.
-22. A connector write for the settings the Mac holds (the monthly amount), `change_setting`, on the owner's token,
-    and the same through the main session's door on the owner's words. Recommended: yes. It adds to the two lists
-    questions 15 and 16 approved. It is built in E. No: the amount is set once at setup and shown, not changed.
-23. The instruction effects: `batch`, `later` and `hands-off` join `quiet`, `interrupt`, `drafts`, `no-drafts`
-    and `intention`; "how much Life does alone" is not built, for the reason under bundle A. Recommended: yes.
-24. After v4, not now: a project's one line of what it is about, read by the matters step to group matters. It is
-    a new version of the matters prompt, which regroups every matter and changes every matter's id. Recommended:
-    try it on a few weeks of a copy first, then decide.
-25. `SECURITY.md` gains a line: the Life thread keeps the owner's asks and Life's answers in the desk's store on
-    the Mac; a deletion hides the entries that cite what was deleted; the owner's own words to Life stay there
-    until that entry is removed, which v4 does not build. Recommended: yes, said plainly, with removing one entry
-    as later work.
+7. One session per assignment for the Personal agent. Open, on the context numbers C records: yes if a Personal
+   turn carries more than twice a project agent's. Nothing waits on it.
+21. The folder `truth/`, and whether the owner should ever see two lists of people. There are two today: the
+    people, organizations and projects the owner named or confirmed (the folder), and the ones Life guessed from
+    the sources (lines in `memory/`). Every reader merges them, with the owner's word winning. Recommended: the
+    owner never sees two lists. People is one list; whether someone was confirmed is Life's own bookkeeping, and
+    when a guess matters Life asks, as it does today. A "confirmed" mark on each row would show that bookkeeping
+    and is not recommended. The name is then only for those who build Life, and it should say which half the
+    folder is: `stated/`, beside the guesses that are already called inferred. This replaces the earlier proposal
+    of `directory/`, which names the merged list and would repeat the confusion. The rename (#1379) still needs
+    the one exception to "never migrated", and waits for the server bundles.
+24. After v4: a project's one line of what it is about, read by the matters step. A new version of the matters
+    prompt, which regroups every matter. Recommended: try it on a few weeks of a copy first.
+26. Three more effects: `style`, `sensitive` and `budget`. Recommended: yes. Each has code behind it (the table
+    under bundle A). Until the answer, A builds the six approved ones; these three are lines of the same list.
+27. Life's voice. Recommended: one file, `prompts/life-voice.md`, started warm and plain as described under
+    bundle A, and its words settled with the owner in one sitting. Until then A ships the file with today's
+    plain voice, so nothing waits.
+28. The phone tells the Mac whether a Focus is on and whether a call is connected. Recommended: yes to both; the
+    Focus needs one permission prompt, the call none. The phone's motion, for driving without a Focus, needs a
+    second prompt: recommended later.
+29. The owner's reaction to one of Life's lines travels through `ask_main_session` and is stored on the thread's
+    entry. Recommended: yes. It widens what that tool carries (the connector's list) and gives nothing authority:
+    a reaction is never the owner's word for an act.
 
 ## Debt plan
 
@@ -509,3 +561,12 @@ tick; A lists the `asked` line (`decisions.ts:509`); E lists its prompt file, `M
 count; the push is stated as `pushId` only; D deletes the four old connector tools with their fixtures; the
 thread's hiding is in `host/life-thread.ts` and its copy of the owner's words is stated in `SECURITY.md`
 (question 25). Shape: one bundle added, S (a 60-line move, wave 0); nothing else moved.
+
+Reworked again on the owner's second round of 25 Nov 2026. Answers recorded: 5, 10, 19, 20, 22, 23, 25. Added,
+inside the same bundles and waves: the owner's state now given to the gate in place of quiet hours (E, P3); a
+spending stop that follows the monthly amount and importance (E); the effects `style`, `sensitive` and `budget`
+(A, E); reactions both ways (B, P2); Life's voice in one file and an in-force block on every request (A, with its
+join in C's runtime); a typed and a tapped redraft with `edits` on a draft card (A, D); thread entries that can be
+blanked in place for #1384 (B). Question 21 is rewritten around one list of people and now proposes `stated/`.
+No bundle added or moved; A's in-force join into C's landed file is the one new seam. A fresh plan review has not
+been run on this round.

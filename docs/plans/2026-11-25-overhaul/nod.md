@@ -29,7 +29,7 @@ One file is GPL-3.0-or-later and must not be touched: `src/providers/local-speec
 |---|---|---|---|
 | A model gives readings, code decides delivery | `src/server/proactivity.ts` (the gate near 938-1021), `src/shared/proactivity.ts:41-63` | The gate: four readings in, a pure function decides deliver, hold or send back | E |
 | Reopen only on a real change | `proactivity.ts` (matter key, notified versions) | A replacing card names what changed; the same subject is never asked twice without it | A |
-| Hold at night, except when the deadline falls first | `src/server/preferences.ts:34-60`, `proactivity.ts` `due()` | The gate's hold with its deadline limit. The quiet hours are a product default, not a setting the owner fills in | E |
+| Hold at a bad moment, except when the deadline falls first | `src/server/preferences.ts:34-60`, `proactivity.ts` `due()` | The gate's hold with its deadline limit. Not Nod's quiet hours: the gate is given what the owner is doing now | E |
 | A failed read is never a change | `src/server/schedules.ts` (`schedule_record_observation`) | A failed health read is never a fix ask | E |
 | A refusal beats a grant; a correction narrows only what it addresses | `src/server/owner-instructions.ts:40` | The instruction reader's precedence | A |
 | Large tool results kept outside the context, with a preview and a reference (code) | `src/providers/pi/context-output.ts`, `context.ts` | In the pi extension, for shell and web results. Life's own reads already page (`PART_CHARS`, `nextReads`) | C |
@@ -43,9 +43,11 @@ One file is GPL-3.0-or-later and must not be touched: `src/providers/local-speec
 | Queue a message that arrives mid-turn, with its wrapper sentence | `src/runtime/prompt.ts` (`steeredInstruction`), `src/server/thread.ts` | Ask Life's queue through pi's `follow_up` | C |
 | Helpers lose the tools only the parent may use | `src/runtime/tools.ts` (`parentTools`) | Subagents already have no door; the list is checked and written down | A |
 | `finish` refused while the owner's update is unread | `src/server/tasks.ts` (`revision`, `applied_revision`) | The door's `finish` and `set_wait` | A |
-| A spend check per task, enforced in two strikes | `src/server/ledger.ts` (`checkIn`), `src/runtime/index.ts:282-300` | The 3-dollar stop on an assignment. Life's monthly amount stays soft; Nod's is a hard stop | E |
+| A spend check per task, enforced in two strikes | `src/server/ledger.ts` (`checkIn`), `src/runtime/index.ts:282-300` | The spending stop on a piece of work, a share of the monthly amount scaled by importance. Life's monthly amount stays soft; Nod's is a hard stop | E |
 | The working line's rules: short, present tense, no tool names, nothing for a greeting, never repeating the answer | `src/server/activity.ts:11-33`, `src/shared/task-ack.ts` | Life's steps are written by code from the tool and its arguments, under the same rules | B |
 | Suggested asks written as the owner's own request, hidden once sent, never on a sensitive subject | `src/server/schedule-ideas.ts:45-70` | The rules for a card's `follow` | A |
+| A reaction in place of a reply | `src/server/agent-reactions.ts` | Reactions both ways: Life's on the owner's bubble, the owner's on Life's lines | B |
+| What must hold on every turn is added to every request, outside compaction | `src/providers/pi/index.ts` (the `nod-owner-context` message, near 190-300) | Life's voice and the `style` and `sensitive` instructions, through `inForceOf` | A, C |
 
 Already Life's, so nothing to take: idempotent wakes (`unique (assignment_id, event_id)`, `desk/desk-store.ts:126`),
 a stranded turn never replayed (`endLostTurns`, "may have gone"), an approval bound to the exact content and used
@@ -74,15 +76,14 @@ git is in [`positions.md`](positions.md), "Memory in git".
 |---|---|---|
 | The trust check: a judge picks the owner's words that allow an action, code cuts the quote, unknown means ask, background work that is unsure does not run | `src/server/trust.ts`, `trust-basis.ts`, `trust-dimensions.ts`, `trust-review.ts` | It is the answer to what gets past the send guard and to other people's Lives. It deserves a security plan of its own, with measures, and must land before any second Life has agents. It never replaces the tap on the exact draft |
 | A gate on what the owner started | `src/server/owner-started.ts` | Same plan. Cheap (the wake's origin is known), and the first rule for powerful tools |
-| Learned procedures | `src/server/learned-skills.ts` (232 lines) | Useful once agents drive sites. The shape to keep: saved with placeholders, read as data, patched by exact passage, at most 40, never a permission, in the agent's own folder |
-| Browser and desktop control with a refusal list in code and a recheck of the window before each input | `src/server/computer-use.ts`, `src/providers/agent-browser/` | A plan of its own, behind the guard |
-| Credentials entered by code, matched to the page's origin, never in the model's context | `src/providers/agent-browser/vault-use.ts`, `src/providers/onepassword/` | With #981 |
+| Learned procedures (#1380) | `src/server/learned-skills.ts` (232 lines) | Useful once agents drive sites. The shape to keep: saved with placeholders, read as data, patched by exact passage, at most 40, never a permission, in the agent's own folder |
+| Browser and desktop control with a refusal list in code and a recheck of the window before each input (#1381) | `src/server/computer-use.ts`, `src/providers/agent-browser/` | A plan of its own, behind the guard |
+| Credentials entered by code, matched to the page's origin, never in the model's context | `src/providers/agent-browser/vault-use.ts`, `src/providers/onepassword/` | With #981, where it is noted |
 | Secret-bearing mail kept from the agent | `src/server/mail-check.ts` | Security plan |
-| Fall back to another model only before the first word | `src/providers/pi/fallback.ts` | Only once Life runs a second model |
-| A lighter model for auxiliary calls | `src/shared/models.ts:60-160` | Life's tiers already vary effort; a second model waits for a bench case |
+| Fall back to another model only before the first word (#1382) | `src/providers/pi/fallback.ts` | Only once Life runs a second model |
+| A lighter model for auxiliary calls (#1382) | `src/shared/models.ts:60-160` | Life's tiers already vary effort; a second model waits for a bench case |
 | Deferred tools | `src/providers/pi/index.ts` (near 760-900) | Only if the numbers bundle C records ask for it |
-| An emoji reaction in place of a reply | `src/server/agent-reactions.ts` | Additive UI after v4 |
-| Onboarding that ends on one real small task | `src/runtime/skills/nod/SKILL.md` | With onboarding |
+| Onboarding that ends on one real small task (#1383) | `src/runtime/skills/nod/SKILL.md` | With onboarding |
 
 ## No
 

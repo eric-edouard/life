@@ -64,7 +64,7 @@ today is a first ask that carries no decision, and a door that refuses `finish` 
 on an arrival that needs nothing cannot simply end. The verdict is to remove the rule, not to add exceptions to
 it. A plan's steps stay as an optional body of any card, for saying what happens after a yes. What replaces the
 rule as a bound is cheaper than an ask: the two-hour close on work that neither asked nor waits, the seven-day
-wait, the 3-dollar stop.
+wait, the spending stop.
 
 The "in between" message (a conversation that a short "thank you, see you tomorrow" would close): this is not a
 new kind of ask. Asking the owner to approve a thanks costs more attention than typing it. By default Life drafts
@@ -118,25 +118,30 @@ per piece of proactive work, the same structure by another name. Issue #713 (Lif
 agents and pace) is closed by doing instead of asking: the desk ends an idle agent, the gate and the pace are
 Life's insides, and the one part the owner should see, a source that stopped, is the fix ask.
 
-## What `truth/` is
+## What `truth/` is, and the two lists of people
 
-The owner finds the name misleading: only what happened is sure, and nothing in that folder is a record of what
-happened. That is correct, and the folder never claimed otherwise in the code, where its one writer is
-`changeDirectoryEntry` and its entries are "directory entries". It holds what the owner declares to exist and how
-it is named: people, organizations, chats, areas, projects, and in `me.md` who the owner is, the goals and what
-Life may keep. It is not a store of facts (those are observations, with their sources), and not a store of the
-owner's dated statements either: corrections, labels, what the owner told Life and fact-check answers are
-appended lines in `memory/`.
+The owner finds the name misleading, and believed people and organizations come from the sources, not only from
+the owner. Both are true, and that is the real finding: there are two lists. The folder holds what the owner
+named or confirmed (people, organizations, chats, areas, projects, and in `me.md` the goals). Life's guesses from
+the sources are lines in `memory/` (`people-inferred.jsonl`, the people the Contacts name). Every reader merges
+them into one directory, the owner's word winning. That the owner could not tell which was which is evidence that
+the split is hard to see, and the question is whether it should be seen at all.
 
-So the folder is the owner's directory, and `directory/` is its name; the code already says so everywhere but in
-the path. That also answers where instructions go. An instruction is not a declaration that something exists; it
-is a dated statement that ends and is replaced, the same kind of thing as a correction. It belongs with the
-appended lines, in `memory/instructions.jsonl`, read fresh by every process at its next read (settings are read
-once per process, so nothing changeable by voice can live there).
+It should not. From the owner's seat there are people; some Life is sure of and some it is not, and when being
+unsure matters Life asks (a guessed person, the same person twice). A "confirmed" mark on every row would put
+Life's bookkeeping on screen and invite the owner to audit it: a builder's view. So the owner sees one list,
+always. The split stays inside, where it does real work: only the owner's word can state who someone is, and a
+guess is used at once and corrected later.
 
-The rename (#1379) depends on three things: the owner's yes to the name; one exception to "`truth/` is never
-migrated", for moving the folder once with its files untouched; and the server bundles having landed, since it
-touches 113 places in 38 server files. Bundle Z; questions 5 and 21.
+The name is then for builders alone, and it should say which half the folder is. `truth/` claims too much.
+`directory/`, proposed in the first rework, is wrong for the reason the owner's confusion shows: the directory is
+the merged list. The halves are what was stated and what was inferred, and the code already calls the second
+"inferred". So: `stated/`. In one sentence: what the owner stated to exist, by hand or by a word or tap that
+Life wrote down; never what Life read from the sources, and never the owner's dated statements about how Life
+should behave or what was wrong, which are appended lines in `memory/` (corrections, instructions).
+
+The rename (#1379) depends on the owner's yes to the name, one exception to "`truth/` is never migrated" (the
+folder moved once, files untouched), and the server bundles having landed. Bundle Z; question 21.
 
 ## Memory in git
 
@@ -152,7 +157,7 @@ one committer (the lock gives that). None of those argues for another store; two
 purge that rewrites history, and a measure of how the repo grows with files rewritten every night. Git would be
 the wrong store for knowledge with several writers, which is one more reason not to build that.
 
-Verdict: git stays, for memory and the directory. No project knowledge in git or anywhere else. From Nod's memory
+Verdict: git stays, for the memory and for what the owner stated. No project knowledge in git or anywhere else. From Nod's memory
 only ideas Life already has: a quote checked against its source, only the owner's words making a stated fact.
 
 ## Quick or long work
@@ -164,8 +169,11 @@ main session sees those numbers in its packet, does in its own turn what fits a 
 Handed work is a thread item under way with its estimate; its result lands as a follow-up. The wire carries the
 state, the kind, the estimate and since when; the look is the owner's next prototype.
 
-This also answers Adjust. A quick redraft is the main session's own replacement card, which needs to take the
-open card's place at once (question 10); a long one goes to the card's agent and shows under way. Bundle B.
+This also answers Adjust, which the owner calls the same ask, amended. A quick redraft is the main session's own
+replacement card, taking the open card's place at once; a long one goes to the card's agent and shows under way.
+The owner's note on its look is right and the wire leaves room for it: a change asked in words has pushed the
+draft up the thread, so the old version collapses and the new shows below; a tapped quick edit (a draft card's
+`edits`) changes the same element in place. Bundles A, B and D.
 
 ## Personalizing behaviour
 
@@ -177,6 +185,74 @@ three stay fixed. An effect that changes nothing would be a dial for its own sak
 
 The rule for the list stays: an effect exists only when some code enforces it; everything else is text a model
 follows. Bundles A, D and E; question 23.
+
+## What the owner is doing now
+
+The first plan borrowed Nod's quiet hours. The owner's point is better: Life often knows more than the hour.
+Weighing what it knows, and what is cheap:
+
+| Signal | Has it today | Cost to use |
+|---|---|---|
+| The hour where the owner is | Yes (`zoneNow`) | None |
+| A calendar event under way | Yes (the calendar reads) | None |
+| Talking with someone | Yes: the pendant's speech in the last minutes | One read of lifelog |
+| In the Life app | Yes: the presence call | None |
+| Just arrived, or between places | Yes: the stays | None |
+| Asleep, driving, do-not-disturb | No | The phone reports that a Focus is on: one permission prompt |
+| On a call | Only once it has ended | The phone reports a connected call: no prompt |
+| Driving with no Focus on | No | The phone's motion: a second prompt |
+| Asleep, from sleep data | Only the night after | Not live; no use here |
+
+Two things keep this small. iOS already holds ordinary notifications during a Focus, so sleep and driving are
+handled if Life is honest about a push's level. And the phone cannot report continuously in the background, but
+the Mac's silent push every 15 minutes (built anyway for the unreachable notice) wakes it, and it answers with
+its state. The gate gets one line of state in its packet; code's limits do not change. It applies wherever Life
+chooses a moment: the gate, a setting's offer, "How am I doing?". Bundle E; question 28.
+
+## A spending stop that is the owner's
+
+A fixed 3 dollars was a builder's number. Some owners do not care and some are careful, and a bill worth 2,000
+deserves more effort than a table booking. The least-load shape adds no setting: the stop follows the one amount
+the owner already sets for the month (2% of it), tripled for what is important, and an instruction can set it
+where the owner wants to ("never more than a euro on errands"). The ask at the stop is about the work ("taking
+longer than usual, keep going?"), since that is the decision; the sum is there as a small line, because money
+matters and hiding it would be worse than showing it. Bundle E; the `budget` effect is question 26.
+
+## Sensitive subjects
+
+An effect of its own, not the model's judgement alone. A plain instruction ("don't bring up the lawsuit") would
+be followed most of the time, and the times it is not are the ones that cost trust. Code cannot recognise a
+subject, but it can do three things once the gate's model has: never push such a card, never put the subject in
+a suggested ask, an offer or "How am I doing?", and keep the instruction in front of every model on every
+request, whatever the scope at hand. It is different from deleting (the memory keeps it) and from `quiet` (which
+is about a person or project, and timing). Bundles A and E; question 26.
+
+## Reactions
+
+The owner expected them in v4, and they earn it: a reaction is the cheapest acknowledgement there is, and the
+plan's own async work needs one. The moments, found by going through the flows: the owner's second message while
+Life works (the eyes, by code, at once); work handed to an agent (the eyes, then the follow-up when it lands);
+an act done with nothing more to say (a thumb in place of "Done."); and from the owner, a reaction to a question
+or a result that needs no words. A reaction and words can come together.
+
+One line must hold: a reaction is not the owner's word. It closes a question or records how an answer landed; it
+never answers an ask, never stands as `said`, and a send still needs the tap on the exact draft. The owner's
+reactions are also the unasked form of "How am I doing?", and are recorded the same way. Bundles B and P2;
+question 29.
+
+## Life's voice, and style that does not fade
+
+Life has no decided voice today: the main session's brief says two short sentences, no emoji. The owner wants a
+warm one that is there and takes load off, not quirky, to be written together. Where it lives matters more than
+its first words: one file, `prompts/life-voice.md`, that the main session's brief and the agents' card rules both
+include, so an ask and an answer sound like one Life.
+
+The owner saw a large lab's agent drop a style instruction after a while. That is context rot: an instruction
+given once sinks under a long session and is lost at compaction. The fix is mechanical, and Nod's code shows it
+working: the voice and every `style` and `sensitive` instruction are read fresh from the file and put before the
+model again on every request, after compaction and outside it. Nothing relies on the session remembering. One
+style is also checkable, so code checks it: "never an emoji" strips them from what Life says. Bundles A and C;
+questions 26 and 27.
 
 ## Settings, and finding them
 
@@ -275,7 +351,7 @@ Its conclusion holds: keep pi; the gains are in Life's configuration and request
 | #869 pi built in, Codex on demand | Z |
 | #1150, #846, #766 flaky tests | Settled in C |
 | #1243 | Not a flaky test: phone leftovers, closed in P1 |
-| #655 the desk renamed, #1379 `truth/` renamed | Z, after the server bundles |
+| #655 the desk renamed, #1379 `truth/` renamed | Z, after the server bundles; the name is question 21 |
 | #1030 glossary names | C, in the glossary only |
 | #1274, #1271, #1377, #982, #981, #983, #748, #1016 | Later, not in v4 |
 
