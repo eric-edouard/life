@@ -74,7 +74,8 @@ struct ThreadView: View {
                     }
                     Color.clear.frame(height: 1).id("end")
                 }
-                .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
+                .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(
+                    .bottom, Metrics.Spacing.s)
             }
             .contentMargins(.top, topHeight, for: .scrollContent)
             .contentMargins(.bottom, fieldHeight, for: .scrollContent)
@@ -89,7 +90,9 @@ struct ThreadView: View {
             // The keyboard shrinks the thread from below: its bottom stays where it was.
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
-            .onScrollGeometryChange(for: Bool.self) { $0.visibleRect.maxY >= $0.contentSize.height - Metrics.listRow } action: {
+            .onScrollGeometryChange(for: Bool.self) {
+                $0.visibleRect.maxY >= $0.contentSize.height - Metrics.listRow
+            } action: {
                 isNearEnd = $1
             }
             // A drag that ends away from the end stops following; one that ends at it follows again. Growth never counts.
@@ -103,7 +106,9 @@ struct ThreadView: View {
             }
             // The keyboard or the field growing shrinks the view from below: at the end, it stays at the end.
             .onChange(of: fieldHeight) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
-            .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.height } action: { _, _ in
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.containerSize.height
+            } action: { _, _ in
                 if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
             }
             .onChange(of: life.focused) {

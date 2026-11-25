@@ -57,7 +57,9 @@ struct RootView: View {
             ZStack {
                 Palette.bg.ignoresSafeArea()
                 if life.isPaired {
-                    ThreadView(thread: thread, screen: screen, actions: actions, topHeight: topHeight, fieldHeight: fieldHeight)
+                    ThreadView(
+                        thread: thread, screen: screen, actions: actions, topHeight: topHeight, fieldHeight: fieldHeight
+                    )
                 } else {
                     Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(80)
                 }
@@ -67,7 +69,11 @@ struct RootView: View {
                     buttons
                     Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
                 }
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { topHeight = $0 }
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.height
+                } action: {
+                    topHeight = $0
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) { ProfileView(ref: $0.ref) }
@@ -80,7 +86,11 @@ struct RootView: View {
                 Task { await thread.stop() }
             }
             .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldHeight = $0 }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                fieldHeight = $0
+            }
         }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it.
         .overlay { EdgeView(state: edge) }
