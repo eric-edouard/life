@@ -1,0 +1,294 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings proposals</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+<style>
+:root{--page:#121316;--ink:#fff8ea;--soft:#b9b4aa;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="light"]){--page:#121316;--ink:#fff8ea;--soft:#b9b4aa}}
+:root[data-theme="dark"],:root[data-theme="light"]{--page:#121316;--ink:#fff8ea;--soft:#b9b4aa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:'Manrope',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+main{display:flex;flex-direction:column;align-items:center;gap:34px;padding:28px 16px 60px}
+.intro{max-width:1226px;width:100%;font-size:14.5px;line-height:1.55;color:var(--soft)}
+.intro h1{font-size:22px;color:var(--ink);margin:0 0 6px;font-weight:700}
+.intro b,.sec b{color:var(--ink)}
+.sec{max-width:1226px;width:100%;font-size:14.5px;line-height:1.5;color:var(--soft);border-top:1px solid rgba(255,248,234,.1);padding-top:22px}
+.sec h2{font-size:18px;color:var(--ink);margin:0 0 4px;font-weight:700}
+.row3{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;max-width:1260px}
+.col{display:flex;flex-direction:column;gap:12px;width:390px;max-width:100%}
+.cap{font-size:13.5px;color:var(--soft);line-height:1.5}
+.cap b{color:var(--ink);font-weight:650}
+.cap .warn{display:block;margin-top:6px;color:#f0b49f}
+.tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;color:#000;background:var(--ink);border-radius:10px;padding:1px 8px;margin-right:6px}
+
+.ph{--fg:#fff8ea;--muted:#8a867e;--flag:#f0896f;--tint:rgba(255,248,234,.08);--card:#111214;position:relative;width:390px;max-width:100%;height:844px;border-radius:54px;background:#000;overflow:hidden;font-size:16px;line-height:1.45;font-weight:450;color:var(--fg);box-shadow:inset 0 0 0 2.5px rgba(255,248,234,.22),0 0 18px rgba(255,248,234,.06)}
+.ph.lock{background:radial-gradient(120% 70% at 50% 0%,#2c2a35,#0b0b0f 70%)}
+.sb{position:absolute;top:16px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:15px;font-weight:650;z-index:4}
+.pills{position:absolute;top:58px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;z-index:4}
+.pill{min-width:40px;height:40px;padding:0 12px;border-radius:20px;background:rgba(26,27,32,.85);display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:16px;box-shadow:inset 0 0 0 .5px rgba(255,248,234,.1)}
+.pill i{width:9px;height:9px;border-radius:5px;background:var(--fg);box-shadow:0 0 10px rgba(255,248,234,.5)}
+.pill.flag{background:rgba(240,137,111,.18);color:var(--flag);box-shadow:inset 0 0 0 1px rgba(240,137,111,.5)}
+.pill svg{width:19px;height:19px}
+.ttl{font-size:17px;font-weight:700}
+.th{position:absolute;left:16px;right:16px;top:110px;bottom:100px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:12px;padding-bottom:8px}
+.th::-webkit-scrollbar{display:none}
+.th>.sp{margin-top:auto}
+.cmp{position:absolute;left:16px;right:16px;bottom:30px;height:52px;border-radius:26px;background:rgba(26,27,32,.85);box-shadow:inset 0 0 0 .5px rgba(255,248,234,.1);display:flex;align-items:center;padding:0 8px 0 18px;color:var(--muted);font-size:15.5px;z-index:4}
+.cmp .mic{margin-left:auto;width:36px;height:36px;border-radius:18px;background:var(--tint);display:flex;align-items:center;justify-content:center;color:var(--fg)}
+.cmp .mic svg{width:18px;height:18px}
+.bm{align-self:flex-end;max-width:286px;padding:10px 14px;border-radius:20px 20px 6px 20px;background:rgba(255,248,234,.11);font-size:15px}
+.md{font-size:15.5px;line-height:1.5}
+.md p{margin:0 0 10px}.md p:last-child{margin-bottom:0}
+.h4{margin:14px 0 4px;font-size:13px;font-weight:650;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:2px}
+.fr{display:flex;align-items:center;gap:12px;padding:8px 0}
+.disc{width:40px;height:40px;border-radius:20px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none;color:var(--fg)}
+.disc svg{width:19px;height:19px}
+.disc.sq{border-radius:11px}
+.tx{flex:1;min-width:0}.tx b{display:block;font-size:15.5px;font-weight:650;line-height:1.35}.tx small{display:block;font-size:13px;color:var(--muted);margin-top:1px}
+.ib{width:36px;height:36px;border-radius:18px;background:var(--tint);display:flex;align-items:center;justify-content:center;flex:none;color:var(--fg)}
+.ib svg{width:17px;height:17px}
+.lt{height:32px;padding:0 13px;border-radius:16px;background:var(--tint);color:#b9b4aa;font-size:13px;font-weight:600;display:flex;align-items:center;flex:none}
+.card{background:var(--card);border-radius:22px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.card.flagc{box-shadow:inset 0 0 0 1px rgba(240,137,111,.45);background:rgba(240,137,111,.07)}
+.card .who{display:flex;align-items:center;gap:10px}
+.card .who b{font-size:15px}
+.card .q{font-size:16px;font-weight:650;line-height:1.4}
+.card .why{font-size:14px;color:#b9b4aa;line-height:1.45}
+.act{height:46px;border-radius:23px;background:var(--fg);color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+.act svg{width:18px;height:18px}
+.act.soft{background:var(--tint);color:var(--fg)}
+.acts{display:flex;gap:8px}.acts>*{flex:1}
+.later{flex:none;padding:0 18px;height:46px;border-radius:23px;background:var(--tint);color:var(--fg);font-weight:650;display:flex;align-items:center}
+.opt{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:16px;background:#151619}
+.opt .rd{width:18px;height:18px;border-radius:9px;box-shadow:inset 0 0 0 1.6px var(--muted);flex:none;margin-top:2px}
+.opt.on{background:var(--fg);color:#000}
+.opt.on .rd{box-shadow:inset 0 0 0 5px #000}
+.opt.on small{color:#3a3833}
+.opt b{display:block;font-size:15.5px}.opt small{display:block;font-size:13.5px;color:#b9b4aa;line-height:1.4;margin-top:2px}
+.done{display:flex;align-items:center;gap:10px;font-size:14.5px;padding:10px 14px;border-radius:16px;background:var(--tint)}
+.done svg{width:17px;height:17px;flex:none}
+.done .ib{margin-left:auto;width:32px;height:32px}
+.seg2{display:flex;background:var(--tint);border-radius:16px;padding:3px;flex:none}
+.seg2 span{width:34px;height:28px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.seg2 span svg{width:16px;height:16px}
+.seg2 span.on{background:var(--fg);color:#000}
+.ck{width:24px;height:24px;border-radius:12px;box-shadow:inset 0 0 0 1.6px var(--muted);flex:none;display:flex;align-items:center;justify-content:center}
+.ck.on{background:var(--fg);box-shadow:none;color:#000}
+.ck svg{width:15px;height:15px}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;top:250px;border-radius:44px;background:#141519;box-shadow:0 -10px 40px rgba(0,0,0,.6),inset 0 0 0 .5px rgba(255,248,234,.1);padding:14px 20px 24px;display:flex;flex-direction:column;gap:12px;z-index:5}
+.grab{width:38px;height:5px;border-radius:3px;background:rgba(255,248,234,.25);align-self:center}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:5}
+.dim+.sheet{z-index:6}
+.clock{position:absolute;top:90px;left:0;right:0;text-align:center}
+.clock .d{font-size:17px;font-weight:600;color:#d8d2c6}
+.clock .t{font-size:84px;font-weight:300;letter-spacing:-2px;line-height:1.05}
+.nots{position:absolute;left:10px;right:10px;top:300px;display:flex;flex-direction:column;gap:8px}
+.nt{border-radius:22px;background:rgba(40,40,48,.72);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);padding:12px 14px;display:flex;gap:11px;align-items:flex-start}
+.nt .av{position:relative;flex:none}
+.nt .av .disc{width:38px;height:38px}
+.nt .badge{position:absolute;right:-4px;bottom:-4px;width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #2a2a31}
+.nt .badge svg{width:18px;height:18px}
+.nt .bd{flex:1;min-width:0;font-size:14px;line-height:1.35}
+.nt .bd .h{display:flex;justify-content:space-between;gap:8px}
+.nt .bd .h b{font-size:14.5px}
+.nt .bd .h span{color:#a9a49a;font-size:12.5px}
+.muted{color:var(--muted)}
+.flagt{color:var(--flag)}
+.bar{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,248,234,.6)}
+</style></head><body><main>
+
+<div class="intro"><h1>Settings, 9 ideas</h1>
+Three ideas for each of the three examples. Made-up people (Sam, Nora, Mum). Every screen follows the rule in <b>docs/product.md</b>: the conversation is the way to anything, and a screen holds only what needs you. The notes under the screens are mine; a pink line flags anything that looks like a builder's view rather than yours.</div>
+
+<!-- ============ A ============ -->
+<div class="sec"><h2>1 · How you want things</h2>Everything you've told Life about how to treat people and messages. You change it by talking. The question: where can you see it, and undo it?</div>
+<div class="row3">
+
+<!-- A1 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div><span class="ttl">Settings</span><span style="width:40px"></span></div>
+<div class="th">
+<div class="h4">What you told Life</div>
+<div class="list">
+<div class="fr"><div class="disc">S</div><div class="tx"><b>Life drafts replies to Sam after 3 hours</b><small>You said so on 18 Nov</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div></div>
+<div class="fr"><div class="disc">M</div><div class="tx"><b>Never draft for Mum</b><small>You said so on 12 Nov</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div></div>
+<div class="fr"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg></div><div class="tx"><b>Mail from the bank is urgent</b><small>You said so on 9 Nov</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div></div>
+<div class="fr"><div class="disc">G</div><div class="tx"><b>No notifications about the gym</b><small>You said so on 2 Nov</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div></div>
+</div>
+<div class="h4">What Life noticed (not told)</div>
+<div class="list">
+<div class="fr"><div class="disc">N</div><div class="tx"><b>You answer Nora within the hour</b><small>So Life drafts for her sooner</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></div></div>
+</div>
+</div>
+<div class="cmp">Tell Life how you want things<div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></div></div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">1A</span><b>One page, in your words.</b> Each line is something you said, with its date and an undo arrow. Below it, what Life only noticed, kept apart (as in the personalization research), with an ✕ to tell it it's wrong. The composer at the bottom is the only way to add one.<span class="warn">Risk: the list grows long. Keep only what changes behaviour; old lines that no longer apply leave on their own.</span></div></div>
+
+<!-- A2 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill">5</div><div class="pill"><i></i></div></div>
+<div class="th"><div class="sp"></div>
+<div class="bm">Stop drafting for Sam, I'll answer him myself</div>
+<div class="done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>Life won't draft for Sam</span><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div></div>
+<div class="md"><p>His card from this morning is gone too.</p></div>
+<div class="bm">What else have I told you about messages?</div>
+<div class="md"><p>Four things:</p></div>
+<div class="list">
+<div class="fr"><div class="disc">S</div><div class="tx"><b>Don't draft for Sam</b><small>Just now</small></div></div>
+<div class="fr"><div class="disc">M</div><div class="tx"><b>Never draft for Mum</b><small>12 Nov</small></div></div>
+<div class="fr"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg></div><div class="tx"><b>Bank mail is urgent</b><small>9 Nov</small></div></div>
+<div class="fr"><div class="disc">G</div><div class="tx"><b>Nothing about the gym</b><small>2 Nov</small></div></div>
+</div>
+</div>
+<div class="cmp">Ask Life<div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></div></div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">1B</span><b>No page at all: the thread is the setting.</b> Changing one gets a one-line confirmation with undo, and says what it changed right away (the card left). Asking "what have I told you" returns the list as an ordinary answer. The most chat-first option and the closest to the yardstick: it's what an assistant would do on WhatsApp.<span class="warn">Risk: you can't see your choices without thinking to ask. Pairs well with 1C.</span></div></div>
+
+<!-- A3 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="th" style="top:60px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0 6px"><div class="disc" style="width:84px;height:84px;border-radius:42px;font-size:32px">S</div><b style="font-size:22px">Sam</b><span class="muted" style="font-size:14px">Friend · Climbing on Saturdays</span></div>
+<div class="h4">Life with Sam</div>
+<div class="list">
+<div class="fr"><div class="disc sq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></div><div class="tx"><b>Drafts after 3 hours</b><small>If you haven't answered him</small></div><div class="seg2"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></span></div></div>
+<div class="fr"><div class="disc sq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div><div class="tx"><b>Tells you only when a draft is ready</b><small>WhatsApp notifies you of the rest</small></div></div>
+</div>
+<div class="h4">Latest</div>
+<div class="list">
+<div class="fr"><div class="disc sq" style="background:#1b3d2a;color:#4fdc8a">W</div><div class="tx"><b>“Still on for Saturday?”</b><small>3 h ago · draft ready</small></div><div class="lt">Later</div></div>
+</div>
+</div>
+<div class="cmp">Ask about Sam<div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></div></div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">1C</span><b>Choices sit where they apply.</b> Sam's choices are on Sam's profile, a matter's on that matter. You see them when you're already thinking about Sam, and one tap undoes them. Settings keeps only what applies to everything (the mode, below). Recommended as the main home, with 1B for changing by voice.<span class="warn">The ✓/✕ switch on the first line is the one control; I left the second line as text, since changing it means changing the mode.</span></div></div>
+</div>
+
+<!-- ============ B ============ -->
+<div class="sec"><h2>2 · Something broken comes first</h2>Notifications for Life are turned off, or the Mac can't be reached. Where do you learn it, and what fixes it in one tap?</div>
+<div class="row3">
+
+<!-- B1 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div><span class="ttl">Settings</span><span style="width:40px"></span></div>
+<div class="th">
+<div class="card flagc">
+<div class="q">Notifications are off for Life</div>
+<div class="why">You won't hear when a draft is ready, and Sam has waited 3 hours.</div>
+<div class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9.5 8H16v6.5"/></svg></div>
+</div>
+<div class="h4">Mode</div>
+<div class="fr"><div class="disc sq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12Z"/></svg></div><div class="tx"><b>Your apps notify you</b><small>Life steps in when you haven't answered</small></div></div>
+<div class="h4">Devices</div>
+<div class="list">
+<div class="fr"><div class="disc sq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div><div class="tx"><b>Mac</b><small>Running</small></div></div>
+<div class="fr"><div class="disc sq"><i style="width:9px;height:9px;border-radius:5px;background:#fff8ea;box-shadow:0 0 10px rgba(255,248,234,.5)"></i></div><div class="tx"><b>Pendant</b><small>Recording · 64%</small></div></div>
+</div>
+<div class="h4">Sending</div>
+<div class="fr"><div class="disc sq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 10v1M15 10v1M10 15c1.2.8 2.8.8 4 0"/></svg></div><div class="tx"><b>Face ID before Send</b><small>On</small></div></div>
+</div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">2A</span><b>At the top of Settings.</b> One plain line, the cost to you in your terms (Sam waited 3 hours), and one button (an arrow, no words) that opens iOS Settings at Life's notifications. With nothing broken, the card isn't there. Settings itself is short: mode, devices, sending.<span class="warn">Problem: you'd have to open Settings to see it. Fine as the home of the fix, not as the way you learn of it. Pair with 2B.</span></div></div>
+
+<!-- B2 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill flag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg></div><div class="pill"><i></i></div></div>
+<div class="th"><div class="sp"></div>
+<div class="bm">Where are we with the plumber?</div>
+<div class="md"><p>Marc confirmed Tuesday at 9.</p></div>
+</div>
+<div class="dim"></div>
+<div class="sheet">
+<div class="grab"></div>
+<div class="q" style="font-size:19px;font-weight:700;line-height:1.35;margin-top:4px">Life can't reach your Mac</div>
+<div class="why" style="font-size:15px;color:#b9b4aa">Since 14:10. New messages aren't being read, and nothing can be sent.</div>
+<div class="h4" style="margin-top:4px">You're away. It takes a minute:</div>
+<div class="list" style="font-size:15px">
+<div class="fr"><div class="disc" style="width:28px;height:28px;font-size:13px">1</div><div class="tx">Ask someone at home to check the Mac is on</div></div>
+<div class="fr"><div class="disc" style="width:28px;height:28px;font-size:13px">2</div><div class="tx">Meanwhile, turn WhatsApp's notifications back on</div></div>
+</div>
+<div style="margin-top:auto" class="acts"><div class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9.5 8H16v6.5"/></svg></div><div class="later">Later</div></div>
+</div>
+<div class="bar" style="z-index:7"></div></div>
+<div class="cap"><span class="tag">2B</span><b>The count pill turns into a flag.</b> Wherever you are in Life, the top-left pill (normally the number waiting on you) becomes the warning. Tapping it opens the fix as a sheet, with steps for where you are (home or away), as the WhatsApp relink already does in the shell. Recommended: you learn of it without looking for it.<span class="warn">The arrow button opens iOS Settings at WhatsApp. Needs: Life knows you're in direct mode, which it does.</span></div></div>
+
+<!-- B3 -->
+<div class="col"><div class="ph lock">
+<div class="sb"><span></span><span>●●● ▮</span></div>
+<div class="clock"><div class="d">Tuesday 24 November</div><div class="t">14:32</div></div>
+<div class="nots">
+<div class="nt"><div class="av"><div class="disc" style="background:#3a2a26;color:var(--flag)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg></div></div><div class="bd"><div class="h"><b>Life is down</b><span>now</span></div>Your Mac hasn't answered for 20 minutes. Turn your messaging apps' notifications back on until it's fixed.</div></div>
+<div class="nt" style="opacity:.75"><div class="av"><div class="disc sq" style="background:#2b2b33"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div></div><div class="bd"><div class="h"><b>Mail · Life</b><span>14:31</span></div>Life can't be reached. What to do →</div></div>
+</div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">2C</span><b>When Life itself is down, the phone tells you.</b> 2A and 2B need the Mac to say something is wrong. When the Mac is off, nothing on it can warn you. So the phone notices the Mac stopped answering and notifies you itself; the developer's server also mails you as a second path. This is the single point of failure in #1376 direct mode.<span class="warn">Needs building: the phone checking the Mac in the background (iOS limits how often), or a small outside check. The mail path means a service outside your Mac, which SECURITY.md would have to list.</span></div></div>
+</div>
+
+<!-- ============ C ============ -->
+<div class="sec"><h2>3 · Direct or smart mode (#1376)</h2>Direct: Life notifies you of every message and your apps stay silent. Smart: your apps notify you; Life steps in only when you haven't answered. How do you choose, and set it up?</div>
+<div class="row3">
+
+<!-- C1 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill">1</div><div class="pill"><i></i></div></div>
+<div class="th"><div class="sp"></div>
+<div class="card">
+<div class="who"><div class="disc" style="width:30px;height:30px;font-size:12px">L</div><b>Life</b><span class="muted" style="font-size:13px;margin-left:auto">Setup</span></div>
+<div class="q">Who should tell you about new messages?</div>
+<div class="opt on"><span class="rd"></span><div><b>Your apps, as today</b><small>Life drafts only when you haven't answered someone in your usual time</small></div></div>
+<div class="opt"><span class="rd"></span><div><b>Life only</b><small>You turn off your apps' notifications. Life tells you of each message and has drafts ready</small></div></div>
+<div class="act" style="margin-top:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+</div>
+<div class="md muted" style="font-size:13.5px">You can change this any time by telling Life.</div>
+</div>
+<div class="cmp">Ask Life<div class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></div></div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">3A</span><b>One card in the thread, once, at setup.</b> Two choices described by what happens to you, not named "direct" and "smart". Smart is the default: it changes nothing until Life has earned trust. Later, Life can offer the switch itself ("You let 6 of my drafts go as written this week. Want me to handle messages?").<span class="warn">The words "direct" and "smart" stay internal; you never see them.</span></div></div>
+
+<!-- C2 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div><span class="ttl">Who Life answers for</span><span style="width:40px"></span></div>
+<div class="th">
+<div class="md muted" style="font-size:14px">Life suggested these from how you write to each person. Tap to change.</div>
+<div class="h4">Life handles</div>
+<div class="list">
+<div class="fr"><div class="disc">S</div><div class="tx"><b>Sam</b><small>Plans, mostly · you answer in 3 h</small></div><div class="seg2"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span></div></div>
+<div class="fr"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4Z"/></svg></div><div class="tx"><b>Marc, plumber</b><small>Times and visits</small></div><div class="seg2"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span></div></div>
+<div class="fr"><div class="disc">N</div><div class="tx"><b>Nora</b><small>Work · you answer in 1 h</small></div><div class="seg2"><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span></div></div>
+</div>
+<div class="h4">You handle</div>
+<div class="list">
+<div class="fr"><div class="disc">M</div><div class="tx"><b>Mum</b><small>You said so</small></div><div class="seg2"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></span><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span></div></div>
+<div class="fr"><div class="disc">J</div><div class="tx"><b>Jade</b><small>Close family</small></div><div class="seg2"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg></span><span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span></div></div>
+</div>
+</div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">3B</span><b>No global mode: a choice per person, pre-filled.</b> Life sorts people itself (plans and logistics: Life drafts; close family: you), and you only fix what's wrong. One tap moves someone across. This is the same list as 1C, seen all at once.<span class="warn">Builder's-view risk: a full list of everyone you know is a chore. Show only the people who wrote in the last 2 weeks, and reach it from Settings, never from the thread's top.</span></div></div>
+
+<!-- C3 -->
+<div class="col"><div class="ph">
+<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="pills"><div class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div><span class="ttl">Life only</span><span style="width:40px"></span></div>
+<div class="th">
+<div class="md"><p><b>Turn off each app's notifications.</b> Life can't do it or check it for you; tick each one once done.</p></div>
+<div class="list">
+<div class="fr"><div class="disc sq" style="background:#1b3d2a;color:#4fdc8a;font-size:14px">W</div><div class="tx"><b>WhatsApp</b><small>Notifications off</small></div><div class="ck on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div></div>
+<div class="fr"><div class="disc sq" style="background:#163a1f;color:#5fe07a;font-size:14px">M</div><div class="tx"><b>Messages</b><small>Settings › Notifications › Messages</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9.5 8H16v6.5"/></svg></div><div class="ck"></div></div>
+<div class="fr"><div class="disc sq" style="background:#173a24;color:#3ad46a;font-size:14px">L</div><div class="tx"><b>LINE</b><small>Settings › Notifications › LINE</small></div><div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9.5 8H16v6.5"/></svg></div><div class="ck"></div></div>
+<div class="fr"><div class="disc sq" style="background:#1f2a3a;color:#7ab0f0;font-size:14px">S</div><div class="tx"><b>Signal</b><small>Life can't read it</small></div><div class="lt">Keep on</div></div>
+</div>
+<div class="h4">Then try it</div>
+<div class="nt" style="background:#1a1b20"><div class="av"><div class="disc">S</div><div class="badge" style="background:#1b3d2a;color:#4fdc8a;font-size:10px;font-weight:800">W</div></div><div class="bd"><div class="h"><b>Sam</b><span>WhatsApp · now</span></div>Test message: this is how Sam's messages will look.</div></div>
+</div>
+<div class="bar"></div></div>
+<div class="cap"><span class="tag">3C</span><b>Setting up "Life only": a checklist, app by app.</b> Each line opens iOS Settings at that app (where iOS allows; otherwise it shows the path). An app Life can't read stays on, said plainly. Ends with a test notification showing how a message will look: the sender's face large, the app named in the subtitle, since iOS always puts Life's own icon in the corner.<span class="warn">"Keep on" is a label, not a button, so it doesn't break the no-words rule. The small W badge on the test notification is drawn into the face picture, the trick to check on a real phone.</span></div></div>
+</div>
+
+<div class="sec"><h2>What I'd keep</h2><b>1C + 1B</b>: choices live on the person or matter, and you change them by talking. <b>2B + 2C</b>: the pill warns you inside Life, the phone warns you when Life is down; 2A only as the place the fix lives. <b>3A then 3C</b>: one card at setup, smart by default, and the checklist only if you pick "Life only". 3B as the same per-person choices of 1C, seen all at once, reached from Settings.</div>
+</main></body></html>
