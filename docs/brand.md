@@ -98,6 +98,36 @@ without the person answering slower or worse goes.
   start) shows its checks.
 - A state shows only when it is wrong or not known. Nothing says that all is well.
 
+## Components
+
+Each component, once. The app draws them in `apps/lifelog/apps/ios/Lifelog/DesignSystem/` (its Debug catalog shows
+every one); the design pages draw the same parts from one file, `docs/design/chat-first/prototypes/card-blocks.js`,
+and no page styles a face, a pill or a row of its own.
+
+- **A face** is a full circle: the person's picture, else their initial in `muted` on `tint` (36 by default, 40
+  leading a row). An organization's face is a rounded square, its radius a fifth of its size (`Face`).
+- **A round icon** leads a thread row or a notice: a 40 circle on `tint`, its symbol in `muted`.
+- **His bubble**: on the right, at most 300 wide, `tint`, radius 18 with its bottom-trailing corner 6; a reaction
+  sits on its bottom-left corner, outside the words, on a 24 `card` circle (`HisBubble`).
+- **Life's words** sit on the page, with no bubble.
+- **A thread row**: the round icon, the title (16, or 19 unfolded), one muted line when its state has one, its
+  state's mark at the end (a `flag` dot needs him, a clock is later, a green tick is settled, a still ring is under
+  way); unfolded it sits on a `wash` with no dividers (`ThreadItemRow`).
+- **A pill** is a capsule: filled `fg` with `on` text, quiet `tint`, or `ok` when done; 54 high for a screen's
+  answer, 48 for one of several stacked, 44 inside a card or a row; a label wraps to three lines (`PillStyle`).
+- **An ask's answers**: the recommended one filled and full width, the rest quiet two to a row, "Later" last
+  (`AnswerPills`). Quick edits: up to three muted chips under the draft.
+- **A round button** over the thread: one mark on `glass`, 44, no rim; a count rides on a `flag` capsule
+  (`RoundButton`).
+- **The settings block**: rows on a `card` fill, acting in place; a switch is a cream track with a black knob when
+  on, a `tint` track with a cream knob when off, never green; a value row shows its choices as pills, the chosen one
+  filled (`SettingsBlock`).
+- **A notice** is shaped as a row: a round icon, the title, one muted line; opened, it shows the settings block, never
+  a worded button (`NoticeBlock`).
+- **The field**: a 48 capsule with the microphone, no outline (`Field`, `DictationField`).
+- **A list row** on the page is at least 60 high, a `line` hairline above every row but the first, never wrapped in a
+  card (`groupedRow`).
+
 ## Motion
 
 Nothing jumps (owner, 19 Nov 2026). A state change, a new element and a shift of layout are animated. A thing that

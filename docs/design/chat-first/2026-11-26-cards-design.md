@@ -1,9 +1,9 @@
 # Ask cards with no design yet (26 Nov 2026)
 
 What each card shows, in its recommended variant, and what only the owner can decide. Each item is one use case, and its three variants
-show that same case in three designs; they are in `prototypes/2026-11-26-card-variants.html`, where he picks or mixes; `shell.html` plays the recommended
-ones (side panel, "Cards with no design until 26 Nov"). Both draw cards from one file, `prototypes/card-blocks.js`:
-a card is data (which blocks, in which order, in which mode).
+show that same case in three designs; they are in the design lab, `prototypes/design-lab.html`, where he picks or mixes;
+`shell.html` plays his pick, else the recommended one (the lab's Prototype mode). Both draw cards from one file,
+`prototypes/card-blocks.js`: a card is data (which blocks, in which order, in which mode).
 
 Sources: `docs/research/2026-11-26-ask-coverage.md` (every kind the server sends), `memory/card-request.ts`,
 `memory/needs.ts`, `memory/checks.ts`, `memory/life-checks.ts`, `memory/draft.ts`.
@@ -92,3 +92,40 @@ Each with the recommendation first.
 5. When Life can see the payment in his bank, show no "I paid it" at all and close the ask when it appears (seen
    done, C). Keep "I paid it" only where Life cannot see it.
 6. A Contacts card's row answers on one tap, with Undo on the row after, and no confirm step.
+
+## The design lab and its inventory (26 Nov 2026)
+
+One artifact, [Life design lab](https://claude.ai/artifact/CWn2a8uSCY22i3CMcpB1Cs) (`prototypes/design-lab.html`),
+replaces the card variants page and the answer components and Settings pages: one phone, one item at a time, A, B and
+C swiped sideways, his pick saved to the artifact's store. Squarish or wide screens (the open Duo, 669 x 951) put the
+phone left and the selectors right; narrow or tall ones (under 600 wide, or an aspect under 0.6) make the screen the
+phone. Items are data: `card-variants.js` (the cards), `lab-pages.js` (the design system, answers, Settings and his
+eleven answers), and the app v4 prototype's scenarios, read from `shell.html`'s own side panel.
+
+What app v4 (25 Nov, [artifact](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF), `shell.html` on main) held, and
+where it is now. Nothing was deleted from `shell.html`: every control below is still in it. What went missing was the
+way to reach them: in the card variants page's Prototype tab, the shell sat in a frame as tall as the screen, so on
+his phone its side panel (every scenario below) was out of sight below the phone.
+
+| App v4 side panel group | Its scenarios | In the lab |
+|---|---|---|
+| Long work, handed off | Ask for long work: a physio this week; 20 minutes later: the result lands; Ask how it's going; It reaches what it may spend | Thread item, and Prototype |
+| Redrafting a draft | Life brings a draft to Jade; Type a change; the quick-edit chips | Thread item, and Prototype |
+| Reactions | You say thanks; "Remind me to call Mum on Sunday"; You react to Life's line | Thread item, and Prototype |
+| How am I doing? | Life asks | Thread item, and Prototype |
+| Undo after a send | A WhatsApp reply: Undo after; An iMessage reply: no Undo | Thread item, and Prototype |
+| Settings, with no page | "Stop notifying me about newsletters"; "What can I change?"; Life offers a setting; Offline: the phone's own settings | Settings item, and Prototype |
+| Asks held while you're busy | You go into a meeting; The meeting ends; Morning, after you slept | Thread item, and Prototype |
+| The aura | Show my aura's knobs (colour, then speed, brightness, glow, colour and voice light per state, each in its band); Make it teal; Make it more red; Make it more active; Make idle crazier; Which colours can it be? (the ten-colour palette) | Aura item, and Prototype |
+| Ask Life (from v3) | The house, the beads order, the bead shop, Nora and me, the electricity bill, Hugo, the lawyer, which Ben, Text Ben, Jade's Saturday, Tomas | Answers item, and Prototype |
+| State | Idle, Listening, Working | Aura item, and Prototype |
+| Where you are | At home, by your Mac; Away | Thread item, and Prototype |
+| Something goes wrong | Offline, the Mac, WhatsApp signed out, the pendant, the budget at 90% | Thread item, and Prototype |
+| Outside Life | Jade writes again; You reply to Ben in WhatsApp | Thread item, and Prototype |
+| A notification | Answer it, or tap it to open | A banner over the phone in Prototype |
+| Taps in the phone | A face opens a profile; the count opens the asks; an ask's page; the boiler matter; the pendant | Pages items, and Prototype |
+
+The lab also holds the 29 card items (with the new "Focused lists swipe sideways"), the design system, the answer
+components with their three answers and JSON, the nine Settings proposals, and his eleven answers of 26 Nov as decided
+items. Every face is now a full circle (the parts drew a few at 56 with a 24 radius, and the Settings icons as rounded
+squares).

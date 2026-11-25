@@ -1,0 +1,216 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Life design lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap">
+<style>
+/* Layout: one phone, one item at a time. Squarish or wide: the phone on the left sized to the height, the selectors
+   and the item list in a column on the right. Narrow and tall (a phone): the screen is the device, a slim header on top,
+   the list as a sheet. Dark only, as the app (the owner's answer 11); colours are tokens.css's dark values. */
+:root{--bg:#000;--fg:#fff8ea;--muted:#8a867e;--tile:#111214;--card:#0b0c0e;--line:#1f2024;--tint:rgba(255,248,234,.1);--glass:rgba(255,248,234,.14);--ai:#9aa8ec;--ok:#30d158;--sans:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+button:focus-visible,textarea:focus-visible,label:focus-within{outline:2px solid var(--fg);outline-offset:2px}
+.lab{height:100%;display:grid;grid-template-columns:var(--pw,390px) minmax(0,420px);justify-content:center;grid-template-rows:auto 1fr;grid-template-areas:"stage head" "stage side";column-gap:28px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box;max-width:1280px;margin:0 auto}
+.stage{grid-area:stage;display:flex;align-items:center;justify-content:center;min-height:0;min-width:0}
+.head{grid-area:head;display:flex;flex-direction:column;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line);min-width:0}
+.side{grid-area:side;overflow-y:auto;min-height:0;padding-top:10px;scrollbar-width:thin}
+.r1,.r2{display:flex;align-items:center;gap:8px;min-width:0}
+.r1 .ttl{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.r1 b{font-size:19px;font-weight:650}
+.ib{width:36px;height:36px;border-radius:18px;background:var(--tint);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.chip:empty{display:none}.chip{font-size:11.5px;font-weight:650;border-radius:9px;padding:2px 8px;white-space:nowrap;background:var(--tint)}
+.chip.rec{background:var(--ai);color:#000}.chip.pk{background:var(--fg);color:#000}.chip.dc{background:var(--ok);color:#000}
+#isit{margin:0;color:var(--muted);font-size:13.5px}#isit b{color:var(--fg);font-weight:600}
+.dots{display:flex;gap:4px;flex:none}
+.dots button{width:30px;height:30px;border-radius:15px;background:var(--tint);font-weight:650;font-size:13.5px}
+.dots button[aria-current="true"]{background:var(--fg);color:#000}
+#vw{flex:1;min-width:0;font-size:13.5px;font-weight:600}
+#pick{flex:none;height:36px;padding:0 16px;border-radius:18px;background:var(--fg);color:#000;font-weight:650;font-size:14px}
+#pick.on{background:var(--ok)}#pick[disabled]{background:var(--tint);color:var(--muted);cursor:default}
+.tg{display:flex;flex-wrap:wrap;gap:4px}.tg:empty{display:none}
+.tg button{height:30px;padding:0 12px;border-radius:15px;background:var(--tile);font-size:13px;font-weight:600}
+.tg button[aria-pressed="true"]{background:var(--fg);color:#000}
+#more{display:flex;flex-direction:column;gap:8px}
+.parts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.parts label{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 8px;border-radius:15px;background:var(--tile);font-weight:600;color:var(--fg);cursor:pointer}
+.parts input{accent-color:var(--fg);margin:0}
+#note{width:100%;min-height:40px;box-sizing:border-box;background:var(--tile);color:var(--fg);border:0;border-radius:12px;padding:8px 12px;font:inherit;font-size:14px;resize:vertical}
+.vnote{font-size:13px;color:var(--muted)}.vnote:empty{display:none}.vnote .warn{display:block;color:#f0b49f;margin-top:4px}
+#save{font-size:12px;color:var(--muted)}#more.dec label,#more.dec #note,#more.dec #save{display:none}
+#morebtn{display:none}
+.mode{display:flex;gap:4px;padding:3px;border-radius:18px;background:var(--tile);margin-bottom:10px;width:max-content}
+.mode button{height:30px;padding:0 14px;border-radius:15px;font-size:13.5px;font-weight:650}
+.mode button[aria-pressed="true"]{background:var(--fg);color:#000}
+.grp{font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 2px}
+.li{display:flex;width:100%;align-items:center;gap:8px;text-align:left;padding:7px 8px;border-radius:12px;font-size:14px}
+.li span{flex:1;min-width:0}.li[aria-current="true"]{background:var(--tile)}.li .chip{font-size:11px}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+/* the device: a 390 x 844 screen, scaled to the stage (wide), or the whole screen (phone) */
+.dev{position:relative;border-radius:54px;background:#000;box-shadow:inset 0 0 0 2px #2a2b31,0 0 0 1px #000;overflow:hidden;flex:none}
+.scr{position:absolute;left:0;top:0;width:390px;height:844px;transform-origin:0 0}
+.track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.track::-webkit-scrollbar{display:none}
+.pg{flex:0 0 100%;height:100%;position:relative;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
+.pg>.sx,.pg>.ax,.scene{position:absolute;inset:0}
+.shell{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+/* a card's screen: the thread around it fades back, the card stands out */
+.vph{position:absolute;inset:0;font-family:var(--sans);color:var(--fg)}
+.vsb{position:absolute;top:16px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:14px;font-weight:650}
+.vpl{position:absolute;top:52px;left:16px;right:16px;display:flex;justify-content:space-between}
+.vpl i,.vback{width:38px;height:38px;border-radius:19px;background:rgba(40,41,48,.8);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700}
+.vpl i.pd::after{content:"";width:9px;height:9px;border-radius:5px;background:var(--fg)}.vback{font-size:24px;line-height:1}
+.vth{position:absolute;top:100px;bottom:92px;left:16px;right:16px;overflow-y:auto;scrollbar-width:none}
+.vth .cbf{min-height:100%;justify-content:flex-end;padding-bottom:6px}.vph.pgv .vth .cbf{justify-content:flex-start}
+.vfl{position:absolute;left:16px;right:16px;bottom:28px}.vctx{opacity:.55}
+.sheetbg{display:none}
+/* narrow and tall: the screen is the device */
+@media (max-width:599px),(max-aspect-ratio:3/5){
+ .lab{grid-template-columns:1fr;grid-template-rows:auto 1fr;grid-template-areas:"head" "stage";padding:0;column-gap:0}
+ .head{padding:8px max(12px,env(safe-area-inset-left,0px)) 8px max(12px,env(safe-area-inset-right,0px));gap:6px;border:0;background:var(--bg)}
+ .r1 b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.r1 .ttl{flex-wrap:nowrap;align-items:center}#vw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}.dots button{width:28px;height:28px}#isit{font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ #isit.open{display:block}
+ #more{display:none}.head.open #more{display:flex}
+ #morebtn{display:block;font-size:12.5px;color:var(--muted);text-decoration:underline;flex:none}
+ .stage{display:block;position:relative}
+ .dev{position:absolute!important;inset:0;width:auto!important;height:auto!important;border-radius:0;box-shadow:none}
+ .scr{width:100%!important;height:100%!important;transform:none!important}
+ .vsb,.sx .sb,.ax .sb{display:none}.vpl{top:8px}.vth{top:56px}.sx .pills,.ax .pills{top:8px}.sx .th,.ax .th{top:60px!important}
+ .side{position:fixed;inset:auto 0 0 0;max-height:78%;z-index:20;background:#0b0c0e;border-radius:22px 22px 0 0;padding:14px max(16px,env(safe-area-inset-left,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-right,0px));transform:translateY(105%);transition:transform .25s}
+ .side.open{transform:none}.sheetbg.open{display:block;position:fixed;inset:0;z-index:19;background:rgba(0,0,0,.5)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+<div class="lab">
+<header class="head" id="head">
+ <div class="r1"><button type="button" class="ib" id="listb" aria-label="All items">☰</button><div class="ttl"><b id="iname">Loading…</b><span class="chip" id="istat"></span></div><button type="button" class="ib" id="prev" aria-label="Previous item">‹</button><button type="button" class="ib" id="next" aria-label="Next item">›</button></div>
+ <p id="isit"></p>
+ <div class="r2"><div class="dots" id="dots" role="group" aria-label="Version"></div><span id="vw"></span><button type="button" id="morebtn">Mix, note</button><button type="button" id="pick"></button></div>
+ <div class="tg" id="views" role="group" aria-label="View"></div>
+ <div id="more"><div class="vnote" id="vnote"></div><div class="parts" id="parts"></div><label for="note" class="vnote">Note</label><textarea id="note" placeholder="Anything to change?"></textarea><div id="save">Saved on this device until Life’s store answers.</div></div>
+</header>
+<main class="stage" id="stage"><div class="dev" id="dev"><div class="scr" id="scr"><div class="track" id="track"></div></div></div></main>
+<nav class="side" id="side" aria-label="Items"><div class="mode" role="group" aria-label="Mode"><button type="button" data-mode="choose" aria-pressed="true">Choose</button><button type="button" data-mode="proto" aria-pressed="false">Prototype</button></div><div id="list"></div></nav>
+<div class="sheetbg" id="sheetbg"></div>
+</div>
+<script src="card-blocks.js" charset="utf-8"></script>
+<script src="card-variants.js" charset="utf-8"></script>
+<script src="lab-pages.js" charset="utf-8"></script>
+<script>
+(function(){
+var $=function(id){return document.getElementById(id);},esc=CB.esc,B=CB.B;
+var st=document.createElement('style');st.textContent=CB.css.base+CB.css.cards+LP.css;document.head.appendChild(st);
+var AREAS=[['system','Design system'],['thread','Thread'],['asks','Asks'],['details','Card details'],['answers','Answers'],['pages','Pages: profile, matter'],['settings','Settings'],['aura','Aura'],['decided','Decided: the look and words']];
+/* ---- every item as data: {id, area, n, d, rec, parts?, decided?, v:{A:{w, way?, note?, views:[[label, screen]]}}} ---- */
+var GA={'One rule for every ask':'asks','The seven cards':'asks','What a card shows so he can answer without leaving':'details','Answers and what follows them':'answers','Focused lists':'thread'},ga='asks';
+var CARDS=CV.ITEMS.map(function(it){if(it.g)ga=GA[it.g]||ga;var v={};Object.keys(it.v).forEach(function(k){var x=it.v[k],c=x.ctx||it.ctx;
+  v[k]={w:x.w,way:x.way||it.way||CV.W[c],views:CV.viewsOf(it,x).map(function(y){return [y[0],{blocks:y[1],ctx:CV.CTX[c]}];})};});
+ return {id:it.id,area:it.id==='matterpage'?'pages':ga,n:it.n,d:it.d,rec:it.rec,parts:it.parts,v:v};});
+/* the shell's pages, reached by taps inside its phone */
+var PAGES=[['page-ask','An ask’s page','He taps the count, then Ben’s ask: the page opens from the row.',['[data-act="waiting"]','[data-open="ben"]']],
+ ['page-profile','A profile','He taps the count, then Ben’s face: his profile opens; a row on it asks in the thread.',['[data-act="waiting"]','[data-person="ben"]']],
+ ['page-boiler','A matter that waits on someone else','Yesterday’s boiler row in the thread: he opens it.',['[data-open="boiler"]']],
+ ['page-pendant','The pendant','He taps the pendant’s dot, top right.',['[data-act="pendant"]']]
+].map(function(p){return {id:p[0],area:'pages',n:p[1],d:p[2]+' From the app v4 prototype.',rec:'A',v:{A:{w:'As in app v4',views:[[p[1],{scene:p[3]}]]}}};});
+/* the app v4 prototype's side panel, read from shell.html itself, so no scenario is left out */
+function panelOf(doc){var out=[],g=null,hint='';Array.prototype.forEach.call(doc.querySelector('.side').children,function(e){
+  if(e.classList.contains('lbl')){g={label:e.textContent,btns:[],help:''};out.push(g);}
+  else if(e.classList.contains('seg'))Array.prototype.forEach.call(e.querySelectorAll('button'),function(b){var a=Array.prototype.filter.call(b.attributes,function(x){return /^data-/.test(x.name);})[0];g.btns.push([b.textContent,a?'['+a.name+'="'+a.value+'"]':'#'+b.id]);});
+  else if(e.classList.contains('v4h')&&g)g.help=e.textContent;else if(e.classList.contains('hint'))hint=e.textContent;});return {groups:out,hint:hint};}
+function sceneItems(P){return P.groups.filter(function(g){return g.btns.length&&!/Cards from Choose/.test(g.label);}).map(function(g){
+  var a=/aura|^State/.test(g.label)?'aura':/Settings/.test(g.label)?'settings':/Ask Life/.test(g.label)?'answers':'thread';
+  return {id:'v4-'+g.label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),area:a,n:g.label.replace(/^app v4 · (.)/,function(_,c){return c.toUpperCase();}),d:(g.help||'Each view plays one scenario of the app v4 prototype.'),rec:'A',
+   v:{A:{w:'As in app v4 (25 Nov)',views:g.btns.map(function(b){return [b[0],{scene:[b[1]]}];})}}};});}
+var ITEMS=[],CH={},cur={i:0,k:'A',vi:0},mode='choose',SHELL='',P={groups:[],hint:''};
+/* ---- the screen ---- */
+function cardScreen(ctx,blocks,top){var pg=blocks[0]&&blocks[0][0]==='mpage';if(pg)ctx=null;
+ return '<div class="vph'+(pg||top?' pgv':'')+'"><div class="vsb"><span>9:41</span><span>●●● ▮</span></div><div class="vpl">'+(pg?'<button type="button" class="vback" aria-label="Back">‹</button>':'<i>3</i>')+'<i class="pd"></i></div><div class="vth"><div class="cbf">'+(ctx?'<div class="cbf vctx">'+CB.draw(ctx)+'</div>':'')+CB.draw(blocks)+'</div></div><div class="vfl">'+B.field(pg?'Ask about this':'Ask anything')+'</div></div>';}
+function screen(r){return r.blocks?cardScreen(r.ctx,r.blocks,r.top):r.sx?'<div class="sx">'+r.sx+'</div>':r.ax?'<div class="ax">'+r.ax+'</div>':'<div class="scene"></div>';}
+function bottom(){$('track').querySelectorAll('.vth').forEach(function(t){t.scrollTop=t.closest('.pgv')?0:t.scrollHeight;});}
+/* ---- the shell, one frame reused: a scene loads it fresh and taps its steps; prototype mode keeps it running ---- */
+var fr=document.createElement('iframe');fr.className='shell';fr.title='The app v4 prototype';
+var INJECT='<style>main{padding:0!important}.side{position:fixed;top:0;left:0;right:0;width:auto!important;max-height:none!important;padding:8px;z-index:99;background:none;pointer-events:none}.side>*:not(#nbox){display:none!important}#nbox{pointer-events:auto}#nbox:empty{display:none}</style>';
+function feed(){try{fr.contentWindow.postMessage({cvChoices:CH},'*');}catch(e){}}
+function shell(host,steps,done){host.appendChild(fr);fr.onload=function(){feed();var i=0;(function step(){if(i>=steps.length){if(done)done();return;}
+  var d=fr.contentDocument,el=d&&d.querySelector(steps[i++]);if(el)el.click();setTimeout(step,700);})();};
+ fr.srcdoc=SHELL.replace('</head>',INJECT+'</head>');}
+/* ---- one item on screen: its versions side by side in a snapping track ---- */
+function item(){return ITEMS[cur.i];}
+function letters(){return Object.keys(item().v);}
+function statusOf(it){var c=CH[it.id]||{};return it.decided?['Decided','dc']:c.pick?['Picked '+c.pick,'pk']:Object.keys(c.mix||{}).length?['Mix','']:['Recommended '+it.rec,'rec'];}
+function render(){var it=item(),L=letters(),tr=$('track');
+ tr.innerHTML=L.map(function(k){var vs=it.v[k].views;return '<section class="pg" data-k="'+k+'" aria-label="Version '+k+'">'+screen(vs[Math.min(cur.vi,vs.length-1)][1])+'</section>';}).join('');
+ var sc=tr.querySelector('.scene');if(sc)shell(sc,it.v[L[0]].views[Math.min(cur.vi,it.v[L[0]].views.length-1)][1].scene);
+ head();list();tr.scrollLeft=L.indexOf(cur.k)*tr.clientWidth;bottom();requestAnimationFrame(bottom);}
+function head(){var it=item(),L=letters(),v=it.v[cur.k],c=CH[it.id]||{},s=statusOf(it);
+ $('iname').textContent=it.n;$('istat').textContent=s[0];$('istat').className='chip '+s[1];
+ $('isit').innerHTML=(v.way?'<b>'+v.way+'</b> · ':'')+it.d+(it.decided?' <b>'+it.decided+'</b>':'');
+ $('dots').innerHTML=L.length>1?L.map(function(k){return '<button type="button" data-k="'+k+'" aria-current="'+(k===cur.k)+'" aria-label="Version '+k+(k===it.rec?', recommended':'')+'">'+k+'</button>';}).join(''):'';
+ $('vw').textContent=(L.length>1?cur.k+': ':'')+v.w;
+ var p=$('pick');p.disabled=!!it.decided;p.className=c.pick===cur.k?'on':'';p.textContent=it.decided?'Decided':c.pick===cur.k?'Picked':'Pick '+cur.k;p.setAttribute('aria-pressed',String(c.pick===cur.k));
+ var vs=v.views;$('views').innerHTML=vs.length>1?vs.map(function(x,i){return '<button type="button" data-v="'+i+'" aria-pressed="'+(i===Math.min(cur.vi,vs.length-1))+'">'+esc(x[0])+'</button>';}).join(''):'';
+ $('vnote').innerHTML=v.note||'';
+ $('parts').innerHTML=it.parts&&!it.decided?'Mix: take '+it.parts.map(function(pp,j){var id='m-'+j;return '<label for="'+id+'"><input type="checkbox" id="'+id+'" data-part="'+esc(pp)+'"'+((c.mix||{})[pp]===cur.k?' checked':'')+'>'+esc(pp)+' from '+cur.k+'</label>';}).join(''):'';
+ if(document.activeElement!==$('note'))$('note').value=c.note||'';$('more').classList.toggle('dec',!!it.decided);}
+function list(){var h='';if(mode==='proto'){P.groups.forEach(function(g){if(!g.btns.length)return;h+='<div class="grp">'+esc(g.label)+'</div>'+g.btns.map(function(b,j){return '<button type="button" class="li" data-sc="'+esc(b[1])+'"><span>'+esc(b[0])+'</span></button>';}).join('')+(g.help?'<p class="hint">'+esc(g.help)+'</p>':'');});
+  $('list').innerHTML='<button type="button" class="li" data-sc="restart"><span>Start over</span></button>'+h+'<p class="hint">'+esc(P.hint)+'</p>';return;}
+ AREAS.forEach(function(a){var its=ITEMS.filter(function(x){return x.area===a[0];});if(!its.length)return;h+='<div class="grp">'+a[1]+'</div>'+its.map(function(x){var s=statusOf(x);
+  return '<button type="button" class="li" data-i="'+ITEMS.indexOf(x)+'" aria-current="'+(x===item())+'"><span>'+esc(x.n)+'</span><span class="chip '+s[1]+'">'+s[0]+'</span></button>';}).join('');});
+ $('list').innerHTML=h;}
+function open(i,k){cur.i=(i+ITEMS.length)%ITEMS.length;var it=item();cur.k=k||(CH[it.id]&&CH[it.id].pick)||it.rec;if(!it.v[cur.k])cur.k=letters()[0];cur.vi=0;sheet(false);render();try{localStorage.setItem('life-lab-item',it.id);}catch(e){}}
+function goK(k,smooth){var L=letters(),i=L.indexOf(k);if(i<0)return;cur.k=k;cur.lock=smooth?k:null;$('track').scrollTo({left:i*$('track').clientWidth,behavior:smooth?'smooth':'auto'});head();}
+/* ---- prototype mode: the shell runs on, drawing each card as he chose it ---- */
+function setMode(m){mode=m;document.querySelectorAll('[data-mode]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===m));});
+ if(m==='proto'){$('track').innerHTML='<section class="pg"><div class="scene"></div></section>';shell($('track').querySelector('.scene'),[],function(){P=panelOf(fr.contentDocument);list();});
+  $('iname').textContent='Prototype';$('istat').textContent='';$('istat').className='chip';$('isit').textContent='The app v4 prototype, each card drawn as you chose it (the recommended one until you pick). Play its scenarios from the list.';
+  ['dots','views','parts','vnote'].forEach(function(x){$(x).innerHTML='';});$('vw').textContent='';$('pick').hidden=$('more').hidden=$('prev').hidden=$('next').hidden=$('morebtn').hidden=true;list();sheet(false);}
+ else{$('pick').hidden=$('more').hidden=$('prev').hidden=$('next').hidden=$('morebtn').hidden=false;render();}}
+/* ---- size: the phone fits the stage's height (wide), or is the screen (phone) ---- */
+var PHONE=matchMedia('(max-width:599px),(max-aspect-ratio:3/5)');
+function fit(){var d=$('dev'),s=$('scr');if(PHONE.matches){d.style.width=d.style.height='';s.style.transform='';}
+ else{var st=$('stage'),lab=st.parentNode,k=Math.min(st.clientHeight/844,(lab.clientWidth-32-28-260)/390,1.15);d.style.width=390*k+'px';document.documentElement.style.setProperty('--pw',390*k+'px');d.style.height=844*k+'px';s.style.transform='scale('+k+')';}
+ var L=letters&&ITEMS.length?letters():[];if(mode==='choose'&&L.length)$('track').scrollLeft=L.indexOf(cur.k)*$('track').clientWidth;}
+addEventListener('resize',fit);
+function sheet(on){$('side').classList.toggle('open',on);$('sheetbg').classList.toggle('open',on);}
+/* ---- his choices: one doc per item {pick, mix, note}; Life's store wins over this device's copy ---- */
+var col=null,LS='life-card-variants';
+try{CH=JSON.parse(localStorage.getItem(LS)||'{}')||{};}catch(e){CH={};}
+function get(id){return CH[id]||(CH[id]={pick:null,mix:{},note:''});}
+function save(id){try{localStorage.setItem(LS,JSON.stringify(CH));}catch(e){}feed();head();list();if(!col)return;var c=get(id);$('save').textContent='Saving…';
+ col.doc(id).set({pick:c.pick,mix:c.mix,note:c.note||'',at:new Date().toISOString()}).then(function(){$('save').textContent='Saved to Life’s store.';},function(){$('save').textContent='Couldn’t save to Life’s store; kept on this device. Try again in a moment.';});}
+/* ---- input ---- */
+$('track').addEventListener('scroll',function(){clearTimeout(fit.t);fit.t=setTimeout(function(){var x=$('track').scrollLeft/$('track').clientWidth;if(mode!=='choose'||Math.abs(x-Math.round(x))>.02)return;var L=letters(),k=L[Math.round(x)];if(cur.lock){if(k===cur.lock)cur.lock=null;return;}if(k&&k!==cur.k){cur.k=k;head();}},90);});
+['pointerdown','wheel','touchstart'].forEach(function(t){$('track').addEventListener(t,function(){cur.lock=null;},{passive:true});});
+/* a focused list: its dots and count follow the swipe; a face in a strip unfolds its card */
+$('track').addEventListener('scroll',function(e){var w=e.target;if(!w.classList||!w.classList.contains('cb-swp')||w.classList.contains('strip'))return;var cs=w.children,i=Math.round(w.scrollLeft/(cs[1]?cs[1].offsetLeft-cs[0].offsetLeft:1)),n=w.nextElementSibling;
+ if(n)n.querySelectorAll('i').forEach(function(d,j){d.classList.toggle('on',j===i);}),n.querySelector('span').textContent=(i+1)+' of '+cs.length;},true);
+$('track').addEventListener('click',function(e){var sf=e.target.closest('.cb-sf');if(sf){var st=sf.parentNode,i=Array.prototype.indexOf.call(st.children,sf),cards=[],x=st.nextElementSibling;while(x&&x.classList.contains('cb-swc')){cards.push(x);x=x.nextElementSibling;}
+ Array.prototype.forEach.call(st.children,function(c,j){c.classList.toggle('on',j===i);});cards.forEach(function(c,j){c.hidden=j!==i;});return;}});
+$('track').addEventListener('click',function(e){var fs=e.target.closest('.fsb,.fs');if(fs){if(fs.classList.contains('fs'))fs.remove();else{var d=document.createElement('div');d.className='fs';d.innerHTML='<div class="th-t">'+esc(fs.dataset.t)+'</div>';fs.closest('.ax').appendChild(d);}return;}var mt=e.target.closest('.cb-mh[data-mt]'),bk=e.target.closest('.vback'),pg=e.target.closest('.pg');
+ if(mt&&CV.MP[mt.dataset.mt]){pg._back=pg.innerHTML;pg.innerHTML=cardScreen(null,[['mpage',CV.MP[mt.dataset.mt],(CH.matterpage&&CH.matterpage.pick)||'A']]);return;}
+ if(bk&&pg._back){pg.innerHTML=pg._back;pg._back=null;bottom();}});
+$('dots').addEventListener('click',function(e){var b=e.target.closest('[data-k]');if(b)goK(b.dataset.k,true);});
+$('views').addEventListener('click',function(e){var b=e.target.closest('[data-v]');if(b){cur.vi=+b.dataset.v;render();}});
+$('prev').onclick=function(){open(cur.i-1);};$('next').onclick=function(){open(cur.i+1);};
+$('pick').onclick=function(){var it=item();if(it.decided)return;var c=get(it.id);c.pick=c.pick===cur.k?null:cur.k;c.mix={};save(it.id);};
+$('parts').addEventListener('change',function(e){var x=e.target.closest('[data-part]');if(!x)return;var c=get(item().id);if(x.checked)c.mix[x.dataset.part]=cur.k;else delete c.mix[x.dataset.part];c.pick=null;save(item().id);});
+$('note').addEventListener('input',function(){var id=item().id;get(id).note=$('note').value;clearTimeout(save.t);save.t=setTimeout(function(){save(id);},700);});
+$('listb').onclick=function(){sheet(!$('side').classList.contains('open'));};$('sheetbg').onclick=function(){sheet(false);};
+$('morebtn').onclick=function(){$('head').classList.toggle('open');$('isit').classList.toggle('open');};
+$('side').addEventListener('click',function(e){var m=e.target.closest('[data-mode]'),b=e.target.closest('.li');if(m){setMode(m.dataset.mode);return;}if(!b)return;
+ if(b.dataset.i)open(+b.dataset.i);else if(b.dataset.sc==='restart')setMode('proto');else{sheet(false);var el=fr.contentDocument&&fr.contentDocument.querySelector(b.dataset.sc);if(el)el.click();}});
+addEventListener('keydown',function(e){if(e.target.closest('textarea,input')||mode!=='choose')return;var L=letters(),i=L.indexOf(cur.k);
+ if(e.key==='ArrowRight'&&i<L.length-1)goK(L[i+1],true);else if(e.key==='ArrowLeft'&&i>0)goK(L[i-1],true);else if(e.key==='ArrowDown')open(cur.i+1);else if(e.key==='ArrowUp')open(cur.i-1);else return;e.preventDefault();});
+addEventListener('message',function(e){if(e.source===fr.contentWindow&&e.data==='ready')feed();});
+/* ---- start: read the shell, list every item, open the last one he looked at ---- */
+fetch('shell.html').then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(t){SHELL=t;return sceneItems(panelOf(new DOMParser().parseFromString(t,'text/html')));},function(){return [];}).then(function(sc){
+ ITEMS=[];AREAS.forEach(function(a){CARDS.concat(PAGES,LP.ITEMS,sc).forEach(function(x){if(x.area===a[0])ITEMS.push(x);});});
+ var last=null;try{last=localStorage.getItem('life-lab-item');}catch(e){}var i=ITEMS.map(function(x){return x.id;}).indexOf(last);fit();open(i<0?ITEMS.map(function(x){return x.id;}).indexOf('anatomy'):i);});
+if(window.claude&&claude.use)claude.use('db').then(function(d){if(!d)return;col=d.collection('choices');
+ var tm=setTimeout(function(){$('save').textContent='Life’s store is slow; your choices stay on this device meanwhile.';},10000);
+ col.onSnapshot(function(s){clearTimeout(tm);s.docs.forEach(function(doc){var x=doc.data()||{};CH[doc.id]={pick:x.pick||null,mix:x.mix||{},note:x.note||''};});$('save').textContent='Saved to Life’s store as you go.';if(ITEMS.length){head();list();}feed();},
+  function(){clearTimeout(tm);$('save').textContent='Couldn’t reach Life’s store; your choices stay on this device.';});});
+})();
+</script>

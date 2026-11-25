@@ -14,9 +14,10 @@ var CTX={
  lawyer:[['bm','Has the lawyer answered?'],['lead','Not yet. I’ll tell you when she does.'],['bm','What’s on today?'],['lead','Just the dentist at 16:00.']],
  physio:[['bm','Find me a physio who can see me this week']],
  none:null,
- mum:[['lead','Your passport renewal went through.']]
+ mum:[['lead','Your passport renewal went through.']],
+ five:[['bm','What’s waiting on me?']]
 };
-var W={none:'Asked earlier, <b>the answer came later</b>',waiting:'Asked <b>“What’s waiting on me?”</b>',push:'Tapped <b>the notification</b>',lunch:'Tapped <b>the notification</b> after lunch',ben:'Asked <b>“What did Ben say this week?”</b>',leak:'Opened <b>the leak matter</b> from its row',jade:'Life brought <b>a draft</b> to the thread',hedge:'Right after <b>a reply went</b>',lawyer:'Asked earlier, <b>the answer came later</b>',physio:'Asked for <b>long work</b>',mum:'Said <b>“Remind me to call Mum on Sunday”</b>'};
+var W={five:'Tapped <b>the count</b>, top left',none:'Asked earlier, <b>the answer came later</b>',waiting:'Asked <b>“What’s waiting on me?”</b>',push:'Tapped <b>the notification</b>',lunch:'Tapped <b>the notification</b> after lunch',ben:'Asked <b>“What did Ben say this week?”</b>',leak:'Opened <b>the leak matter</b> from its row',jade:'Life brought <b>a draft</b> to the thread',hedge:'Right after <b>a reply went</b>',lawyer:'Asked earlier, <b>the answer came later</b>',physio:'Asked for <b>long work</b>',mum:'Said <b>“Remind me to call Mum on Sunday”</b>'};
 /* shared content the variants reuse */
 var NORA='N/339',KIT='K/30',PAUL='P/200',JADE='J/160',MAX1='M/30',MAX2='M/200',LEA='L/280';
 var PAY_H=['hero',PAUL,'Pay Paul 240 €','For the leak · due Fri'],PAYA=['answers','I paid it',['Later']];
@@ -41,6 +42,11 @@ var REPLY='The lawyer answered: the contract is fine, and she sends the signed c
 var CLINIC_H=['hero','ic:pin','Pick a clinic for the tattoo','For you and Nora · Tue'];
 var SAM_H=['hero','ic:voice','Did Sam say 9 or 10?','From this morning’s call'];
 var CALL=['Then let’s say Saturday at nine, I bring the big ladder','0:06'];
+var WAIT=[{f:'B',s:'Ben · tonight',t:'Send Ben the call recap',a:'Send both',b:[['mhead','Fernway'],['hero','B','Send Ben the call recap','Ben · tonight'],['why','He was promised the transcript on today’s call.'],['answers','Send both',['Recap only']]]},
+ {f:'ic:pin',s:'Tattoo · Tue',t:'Pick a clinic for the tattoo',a:'Contact Dr. Ink',b:[['mhead','Tattoo removal'],CLINIC_H,['why','Dr. Ink, Riverside: about ฿1,000 per cm², 10 min by metro.'],['answers','Contact Dr. Ink',['Other clinic']]]},
+ {f:PAUL,s:'Paul · Fri',t:'Pay Paul 240 €',a:'I paid it',b:[['mhead','Kitchen leak'],PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA]},
+ {f:'ic:bank',s:'Bank · this week',t:'Call the bank',a:'Done',b:[['mhead','New bank card'],['hero','ic:bank','Call the bank','Confirm your new card · this week'],['answers','Done',['Later']]]},
+ {f:JADE,s:'Jade · today',t:'Reply to Jade',a:'Send to Jade',b:[['mhead','Saturday dinner with Jade'],JH,['chat','Jade',JCHAT,DRAFT],JA]}];
 
 /* every item: its parts (what can be mixed), its default way in and thread, and three variants (blocks before, and after his tap) */
 var MP={'Kitchen leak':{t:'Kitchen leak',g:'The leak fixed and paid for',status:'Paul fixed it on Thursday; his bill is the last thing left.',next:'Pay Paul 240 € by Friday',
@@ -134,6 +140,11 @@ var ITEMS=[
  A:{w:'Waveform and the words',b:[SAM_H,['clip',CALL[0],CALL[1],'wave',3],['answers','9:00',['10:00'],'row']]},
  B:{w:'A play pill, words left out',b:[SAM_H,['clip','',CALL[1],'pill',3],['answers','9:00',['10:00'],'row']]},
  C:{w:'The words, a small play',b:[SAM_H,['clip',CALL[0],CALL[1],'text'],['answers','9:00',['10:00'],'row']]}}},
+{g:'Focused lists',id:'swipe',n:'Focused lists swipe sideways',d:'He taps the count: his 5 waiting matters. A focused, short list uses the thread’s horizontal axis, so the thread doesn’t grow long and he never scrolls to reach its end; long or open-ended lists stay vertical. Open question: which lists qualify (a count under about 7, all of one kind).',parts:['Card size','The sign there is more','Voice naming'],ctx:'five',rec:'A',v:{
+ A:{w:'One full card a page, the next one peeking; dots and “1 of 5”',b:[['lead','Five things wait on you:'],['swipe',WAIT,'full']]},
+ B:{w:'Compact cards two up, a third peeking',b:[['lead','Five things wait on you:'],['swipe',WAIT.map(function(c){return {b:[['row',c.f,c.t,c.s],['answers',c.a]]};}),'two']]},
+ C:{w:'Faces and titles as a strip; the chosen one unfolds below. Voice naming uses it too',tabs:[['The 5 waiting',[['lead','Five things wait on you:'],['swipe',WAIT,'strip',0]]],
+  ['Voice naming, the same pattern',[VH,VC('wave'),['swipe',VPEOPLE.map(function(p){return {f:p[0],s:p[1].split(' ')[0]};}).concat([{f:'ic:plus',s:'Someone new'}]),'strip',-1],['answers',null,['TV or video','Don’t name']]]]]}}},
 {g:'Answers and what follows them',id:'adds',m:{t:'Maya’s school'},n:'Add to calendar',d:'His yes writes the event; the result says where it went.',parts:['Button','Result line'],ctx:'waiting',rec:'A',v:{
  A:{w:'Result as the row’s line, with Undo',b:[EV_H,['event',EV,'line'],['answers','Add to calendar',['No']]],a:[['row','ic:cal','Parents’ meeting','In your calendar · Thu 18:00 · <u>Undo</u>','ok']]},
  B:{w:'Result as the event itself, ticked',b:[EV_H,['event',EV,'box'],['answers','Add to calendar',['No']]],a:[['raw','<div class="box"><b><span class="okt">'+CB.I.check+'</span> In your calendar</b><div class="kv"><span>Thursday</span><b>18:00, Linden School</b></div></div>']]},
