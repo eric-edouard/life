@@ -4,6 +4,7 @@ import { log } from "../core/log";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import type { Desk } from "./desk-store";
 import { queue } from "./event-queue";
+import { checkedTextOf } from "./main-session-lines";
 
 // The main session's question to an agent about its matter (agents together, his yes of 25 Nov 2026): the agent's
 // side. One turn at once (`main_question`, woken like his answer), his words read at the door as data
@@ -113,9 +114,10 @@ export function readQuestion({ db }: Desk, s: { id: string }, id: string) {
 
 /**
  * `answer_question`: the agent's reply to question `id`, handed to the main session; or, once it stopped waiting, a
- * thread entry of the reply alone that follows his ask (none when the ask had no entry). The question is done.
+ * thread entry of the reply alone (its blocks checked, `checkedTextOf`) that follows his ask, while that entry stands
+ * (none for an ask with no entry, or one deleted or blanked). The question is done.
  */
-export function answerQuestion(
+export async function answerQuestion(
   { db }: Desk,
   s: { id: string },
   id: string,
@@ -128,10 +130,14 @@ export function answerQuestion(
     return { answered: id };
   }
   if (q.entry !== null) {
+    const checked = await checkedTextOf(db, text);
     const now = clock().toISOString();
+    if (!checked.text) {
+      return { answered: id, late: true };
+    }
     db.run(
-      "insert into thread_entry (asked_at, answer, answered_at, follows) values (?1, ?2, ?1, ?3)",
-      [now, text, q.entry]
+      "insert into thread_entry (asked_at, answer, refs, answered_at, follows) select ?1, ?2, ?3, ?1, id from thread_entry where id = ?4 and deleted_at is null",
+      [now, checked.text, JSON.stringify(checked.refs), q.entry]
     );
     log("desk.turn", { entry: q.entry, what: "question.late_reply" });
   }

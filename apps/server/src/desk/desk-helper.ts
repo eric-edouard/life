@@ -14,12 +14,12 @@ import type { Runtime } from "./runtimes/contract";
 import { piRuntime } from "./runtimes/pi-runtime";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
 import {
+  stepFollowsAndStops,
   stepMatterIds,
   stepMoves,
   stepRoleCheck,
   stepRoles,
   stepStore,
-  stepThreadFollows,
   stepTurnModel,
   stepTurnSearchCost,
 } from "./store-step";
@@ -84,8 +84,8 @@ export async function desk() {
       step: "turn search cost",
     });
     log("desk.store_step", {
-      done: stepThreadFollows(),
-      step: "thread follows",
+      done: stepFollowsAndStops(),
+      step: "follows and stops",
     });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });

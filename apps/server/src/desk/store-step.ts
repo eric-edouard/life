@@ -18,11 +18,11 @@ import { agentHomeOf } from "../host/desk-read";
 import {
   hasColumn,
   isBeforeAssignments,
+  isBeforeFollowsAndStops,
   isBeforeMatterIds,
   isBeforeMoves,
   isBeforeRoleCheck,
   isBeforeRoles,
-  isBeforeThreadFollows,
   isBeforeTurnModel,
   isBeforeTurnSearchCost,
 } from "../host/desk-shape";
@@ -41,7 +41,7 @@ import {
 // caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a
 // turn keeps the model it ran on (`turn.model`; older turns null). `stepMatterIds` (life#826): an assignment keeps the
 // matter he chose. `stepMoves`, of decision 78: a move's tables and `turn.move`. `stepRoleCheck`, of the main session: the
-// agents' role check goes, so a new role needs no step. `stepTurnSearchCost`, of spending: a turn keeps what its web searches cost, apart. `stepThreadFollows`, of v4.1: a thread entry keeps the ask a late reply follows. Only the desk helper runs them, at its
+// agents' role check goes, so a new role needs no step. `stepTurnSearchCost`, of spending: a turn keeps what its web searches cost, apart. `stepFollowsAndStops`, of v4.1: a thread entry keeps the ask a late reply follows, and a turn whether the spending stop ended it inside. Only the desk helper runs them, at its
 // start, in that order (any order ends in one shape); `openDesk` never migrates. Delete each once it has run on his store.
 
 /** The tables rebuilt: renamed aside, made again in the new shape (`SCHEMA`), filled, then dropped. */
@@ -285,16 +285,27 @@ export const stepTurnSearchCost = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
   );
 
 /**
- * Gives the store's thread entries the ask a late reply follows (`stepThreadFollows`, v4.1): `thread_entry.follows`
- * added, null on every older entry (none was a late reply: those were dropped).
+ * Gives the store's thread entries the ask a late reply follows and its turns whether the spending stop ended them
+ * inside (`stepFollowsAndStops`, v4.1): `thread_entry.follows` and `turn.stopped_spending` added, each only when
+ * missing, null on every older row (no late reply was kept; no turn was stopped inside).
  */
-export const stepThreadFollows = (path = DESK_STORE, state = LIFE_STATE_DIR) =>
+export const stepFollowsAndStops = (
+  path = DESK_STORE,
+  state = LIFE_STATE_DIR
+) =>
   stepOnce(
     path,
     state,
-    isBeforeThreadFollows,
-    "desk-before-thread-follows-",
-    (db) => db.run("alter table thread_entry add column follows integer")
+    isBeforeFollowsAndStops,
+    "desk-before-follows-and-stops-",
+    (db) => {
+      if (!hasColumn(db, "thread_entry", "follows")) {
+        db.run("alter table thread_entry add column follows integer");
+      }
+      if (!hasColumn(db, "turn", "stopped_spending")) {
+        db.run("alter table turn add column stopped_spending integer");
+      }
+    }
   );
 
 /**

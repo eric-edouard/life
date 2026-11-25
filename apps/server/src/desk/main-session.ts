@@ -83,6 +83,8 @@ export const MAIN_BRIEF = `You are Life's main session, his own assistant with f
 /** How long one ask's turn may run: past it, its run is cancelled, the entry ends with `COULD_NOT_FINISH` and the next ask runs. */
 const MAIN_TURN_LIMIT = 5 * MIN;
 const COULD_NOT_FINISH = "I couldn't finish that.";
+/** How long a cancelled run has to end before its session is stopped. */
+const STOP_WAIT = 30_000;
 
 /** How many asks are kept by his app's key: a retry of one replays its lines and ends as it does, never asks twice. */
 const ASKS_KEPT = 20;
@@ -256,17 +258,29 @@ async function answer(
   return await mine;
 }
 
-/** How run `run` ends: past `MAIN_TURN_LIMIT` it is cancelled (`Runtime.cancel`), so it ends, `COULD_NOT_FINISH`, and the queue moves on. */
-async function endWithinLimit(runtime: Runtime, run: Run & { ref: string }) {
-  const isOver = await Promise.race([
-    run.ended.then(() => false),
-    Bun.sleep(MAIN_TURN_LIMIT).then(() => true),
-  ]);
-  if (isOver) {
-    await runtime.cancel(run.ref).catch(() => undefined);
+/**
+ * How run `run` ends: past `limit` it is cancelled (`Runtime.cancel`), and when that does not end it within `stopWait`,
+ * its session is stopped (`Runtime.stop`); either way it ends `COULD_NOT_FINISH` and the queue moves on.
+ */
+export async function endWithinLimit(
+  runtime: Pick<Runtime, "cancel" | "stop">,
+  run: Run & { ref: string },
+  limit = MAIN_TURN_LIMIT,
+  stopWait = STOP_WAIT
+) {
+  const within = (ms: number) =>
+    Promise.race([run.ended, Bun.sleep(ms).then(() => null)]);
+  const end = await within(limit);
+  if (end) {
+    return end;
   }
-  const end = await run.ended;
-  return isOver ? { ...end, ok: false, why: COULD_NOT_FINISH } : end;
+  await runtime.cancel(run.ref).catch(() => undefined);
+  let cancelled = await within(stopWait);
+  if (!cancelled) {
+    await runtime.stop(run.ref).catch(() => undefined);
+    cancelled = await within(stopWait);
+  }
+  return { ...cancelled, ok: false, why: COULD_NOT_FINISH };
 }
 
 /** One ask's turn, run now. */

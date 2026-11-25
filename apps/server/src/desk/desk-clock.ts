@@ -677,7 +677,10 @@ interface SpendingStop {
   line: string;
 }
 
-/** What assignment `id`'s turns were billed, how many asked at its stop, and the last of those and of his answers. */
+/**
+ * What assignment `id`'s turns were billed, how many asked at its stop (a wake at it, or a turn it ended inside,
+ * `stopped_spending`), and the last of those and of his answers (one the stop ended inside answers nothing).
+ */
 const spentOf = (db: Desk["db"], id: string) =>
   db
     .query<
@@ -689,7 +692,7 @@ const spentOf = (db: Desk["db"], id: string) =>
       },
       [string, string]
     >(
-      "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1), 0) as stops, max(case when cause = ?1 then id end) as asked, max(case when cause = 'answer' then id end) as answered from turn where assignment_id = ?2"
+      "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1 or stopped_spending is not null), 0) as stops, max(case when cause = ?1 or stopped_spending is not null then id end) as asked, max(case when cause = 'answer' and stopped_spending is null then id end) as answered from turn where assignment_id = ?2"
     )
     .get(SPENDING_STOP, id);
 
@@ -742,7 +745,7 @@ async function spendingStopNow(
  * The spending stop inside agent `agent`'s running turn (pi's extension asks after each tool call: `/spending`), `usd`
  * what the turn was billed so far: the stop's line, which ends the turn (the extension then runs only the door's tools,
  * for its notes and its card), when its assignment reached its stop; null otherwise, and for the main session or no
- * turn. The turn then counts as asked at its stop (its cause becomes `spending_stop`), so only his answer wakes the work.
+ * turn. The turn keeps its cause and counts as asked at its stop (`stopped_spending`), so only his answer wakes the work.
  */
 export async function spendingStopInTurn(
   { db }: Desk,
@@ -758,7 +761,7 @@ export async function spendingStopInTurn(
   if (!stop || stop === "waits") {
     return null;
   }
-  db.run("update turn set cause = ? where id = ?", [SPENDING_STOP, t.id]);
+  db.run("update turn set stopped_spending = 1 where id = ?", [t.id]);
   log("desk.turn", { agent, turn: t.id, what: "spending_stop.in_turn" });
   return stop.line;
 }

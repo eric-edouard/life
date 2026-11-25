@@ -33,7 +33,12 @@ import { wakeDue } from "./desk-clock";
 import { doorFetch } from "./desk-door";
 import { openDesk } from "./desk-store";
 import { doorOf } from "./door-keys";
-import { askMainSession, keepMainSession, MAIN_BRIEF } from "./main-session";
+import {
+  askMainSession,
+  endWithinLimit,
+  keepMainSession,
+  MAIN_BRIEF,
+} from "./main-session";
 import { ownAssignmentOf } from "./role-agents";
 import { SessionLive } from "./runtimes/contract";
 import { readSpokenAsk, receiveSpokenAsks } from "./spoken-ask-intake";
@@ -711,4 +716,35 @@ test("Ask Life has everything (his rulings of 22 Nov 2026): his to-do list, an a
   expect(
     await callDoor(other, "tell_life", { said: "the test boiler is fixed" })
   ).toContain("the main session's alone");
+});
+
+test("a main session's run past its limit is cancelled; one that ignores the cancel has its session stopped; either ends \"I couldn't finish that.\"", async () => {
+  const calls: string[] = [];
+  const ended = Promise.withResolvers<{ ok: boolean }>();
+  const ignoresCancel = {
+    cancel: () => {
+      calls.push("cancel");
+      return Promise.resolve();
+    },
+    stop: () => {
+      calls.push("stop");
+      ended.resolve({ ok: false });
+      return Promise.resolve();
+    },
+  };
+  const run = {
+    begun: Promise.resolve(),
+    ended: ended.promise,
+    link: "fake://main",
+    ref: "s1",
+  };
+  expect(await endWithinLimit(ignoresCancel, run, 5, 5)).toEqual({
+    ok: false,
+    why: "I couldn't finish that.",
+  });
+  expect(calls).toEqual(["cancel", "stop"]);
+  const quick = { ...run, ended: Promise.resolve({ ok: true }) };
+  expect(await endWithinLimit(ignoresCancel, quick, 50, 5)).toEqual({
+    ok: true,
+  });
 });

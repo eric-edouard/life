@@ -279,10 +279,14 @@ const turnBilledOf = (entries: readonly SessionEntry[]) =>
       0
     );
 
+/** How many calls past the spending stop are refused before the turn is aborted. */
+const REFUSALS_AT_STOP = 5;
+
 /**
  * The spending stop inside a turn (the v4.1 plan): after each tool call, what the turn was billed goes to the door
  * (`POST /spending/<agent>`); once the desk answers a stop, every later call but the door's (its notes, its card, its
- * wait) is refused with the desk's line, so the turn ends there. A door that cannot answer stops nothing.
+ * wait) is refused with the desk's line, so the turn ends there; at the `REFUSALS_AT_STOP`th refusal the turn is
+ * aborted. A door that cannot answer stops nothing.
  * ponytail: the turn's spending tools (subagents, searches) are not counted here; the desk counts them at the turn's end.
  */
 function stopAtSpendingStop(
@@ -291,8 +295,10 @@ function stopAtSpendingStop(
 ) {
   const url = door.url.replace("/mcp/", "/spending/");
   let stop: string | undefined;
+  let refused = 0;
   pi.on("agent_start", () => {
     stop = undefined;
+    refused = 0;
   });
   pi.on("tool_result", async (_event, ctx) => {
     if (stop) {
@@ -313,11 +319,17 @@ function stopAtSpendingStop(
         : undefined;
     stop = answer?.stop ?? undefined;
   });
-  pi.on("tool_call", (event) =>
-    stop && !event.toolName.startsWith(DOOR_TOOL)
-      ? { block: true, reason: stop }
-      : undefined
-  );
+  pi.on("tool_call", (event, ctx) => {
+    if (!stop || event.toolName.startsWith(DOOR_TOOL)) {
+      return;
+    }
+    refused += 1;
+    // An agent that keeps calling past the stop is ended there.
+    if (refused >= REFUSALS_AT_STOP) {
+      ctx.abort();
+    }
+    return { block: true, reason: stop };
+  });
 }
 
 /** The extension on `config`: the default export's, and each subagent's (`pi-subagent.ts`) with no door or reads. */

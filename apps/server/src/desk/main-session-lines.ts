@@ -1,11 +1,17 @@
 import { readPeopleAndOrganizations } from "../host/matter-rows";
-import { refsProblemOf, type SharedReads } from "../memory/find-refs";
+import {
+  readsOnce,
+  refsProblemOf,
+  type SharedReads,
+} from "../memory/find-refs";
 import { openById } from "../memory/open-by-id";
-import { parseRef } from "../memory/refs";
+import { lifeRefsOf, parseRef } from "../memory/refs";
 import {
   type AnswerBlock,
   blockRefsOf,
   blockSourceOf,
+  blockSplitter,
+  parseBlock,
   valueProblemOf,
 } from "../records/answer-blocks";
 import type { Desk } from "./desk-store";
@@ -16,11 +22,35 @@ import type { Desk } from "./desk-store";
 /** The kinds a block's `items` may name: asks, matters and their steps. */
 const ITEM_KINDS = new Set(["card", "matter", "observation"]);
 
-/** Whether setting `key` was offered in an earlier answer: each is offered once, whatever he did with it. */
-const wasOffered = (db: Desk["db"], key: string) =>
-  db
-    .query("select 1 from thread_entry where instr(answer, ?) > 0 limit 1")
-    .get(`"offer":${JSON.stringify({ key }).slice(0, -1)}`) !== null;
+const SETTINGS_FENCE = /```life:settings\n(.*?)\n```/gs;
+/** The settings offered in the answers so far, per store: read once from them, then kept as each offer is drawn. */
+const offered = new WeakMap<Desk["db"], Set<string>>();
+function offeredOf(db: Desk["db"]) {
+  let keys = offered.get(db);
+  if (!keys) {
+    keys = new Set();
+    const answers = db
+      .query<{ answer: string }, []>(
+        "select answer from thread_entry where instr(answer, '```life:settings') > 0"
+      )
+      .all();
+    for (const { answer } of answers) {
+      for (const [, json = ""] of answer.matchAll(SETTINGS_FENCE)) {
+        try {
+          const key = (JSON.parse(json) as { offer?: { key?: unknown } }).offer
+            ?.key;
+          if (typeof key === "string") {
+            keys.add(key);
+          }
+        } catch {
+          // not a block Life drew
+        }
+      }
+    }
+    offered.set(db, keys);
+  }
+  return keys;
+}
 
 /**
  * Why block `b` can't be drawn: a setting offered before, a ref of the wrong kind or that opens nothing, or a written
@@ -33,8 +63,13 @@ export async function blockProblemOf(
 ) {
   const offer =
     b.kind === "settings" && (b.body as { offer?: { key: string } }).offer;
-  if (offer && wasOffered(db, offer.key)) {
-    return "offered";
+  // Each setting is offered once, whatever he did with it: a settings block has nothing else to check, so it is drawn.
+  if (offer) {
+    const keys = offeredOf(db);
+    if (keys.has(offer.key)) {
+      return "offered";
+    }
+    keys.add(offer.key);
   }
   const refs = blockRefsOf(b);
   const wrong = refs.find((r) => {
@@ -113,4 +148,38 @@ export function stepOf(title: string, args: Record<string, unknown> = {}) {
   const name = title.split("__").at(-1) ?? title;
   const [verb, what] = STEPS[name]?.(args) ?? ["Looking", "into it"];
   return { kind: "step" as const, verb, what };
+}
+
+/**
+ * Markdown `text` as his thread may show it (an agent's late reply): its words, and only its blocks that pass
+ * `blockProblemOf`, in order; with the refs it cites.
+ */
+export async function checkedTextOf(db: Desk["db"], text: string) {
+  const reads = readsOnce();
+  const parts: (string | Promise<string>)[] = [];
+  const refs: string[] = [];
+  const splitter = blockSplitter({
+    block: (f, isOpen) => {
+      const b = isOpen ? { error: "open" } : parseBlock(f);
+      parts.push(
+        "error" in b
+          ? ""
+          : blockProblemOf(db, b, reads).then((why) => {
+              if (why) {
+                return "";
+              }
+              refs.push(...blockRefsOf(b));
+              return `\`\`\`life:${b.kind}\n${JSON.stringify(b.body)}\n\`\`\`\n`;
+            })
+      );
+    },
+    words: (t) => parts.push(t),
+  });
+  splitter.push(text);
+  splitter.end();
+  const checked = (await Promise.all(parts)).join("").trim();
+  return {
+    refs: [...new Set([...lifeRefsOf(checked), ...refs])],
+    text: checked,
+  };
 }

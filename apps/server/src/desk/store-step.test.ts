@@ -29,12 +29,12 @@ import {
   SCHEMA,
 } from "./desk-store";
 import {
+  stepFollowsAndStops,
   stepMatterIds,
   stepMoves,
   stepRoleCheck,
   stepRoles,
   stepStore,
-  stepThreadFollows,
   stepTurnModel,
   stepTurnSearchCost,
 } from "./store-step";
@@ -59,7 +59,8 @@ const ROLES_BACKUP_FILE = /^desk-before-roles-.*\.sqlite$/;
 const MATTER_IDS_BACKUP_FILE = /^desk-before-matter-ids-.*\.sqlite$/;
 const ROLE_CHECK_BACKUP_FILE = /^desk-before-role-check-.*\.sqlite$/;
 const TURN_MODEL_BACKUP_FILE = /^desk-before-turn-model-.*\.sqlite$/;
-const THREAD_FOLLOWS_BACKUP_FILE = /^desk-before-thread-follows-.*\.sqlite$/;
+const FOLLOWS_AND_STOPS_BACKUP_FILE =
+  /^desk-before-follows-and-stops-.*\.sqlite$/;
 const TURN_SEARCH_COST_BACKUP_FILE =
   /^desk-before-turn-search-cost-.*\.sqlite$/;
 const WAIT = JSON.stringify([{ chat: "Test Ana" }]);
@@ -492,12 +493,15 @@ test("a store from before turn search costs is refused by openDesk; the step add
   after.close();
 });
 
-test("a store from before late replies is refused by openDesk; the step adds `thread_entry.follows` behind its own copy, once, older entries null; skipped on a checkout's app state", () => {
+test("a store from before late replies and in-turn stops is refused by openDesk; the step adds `thread_entry.follows` and `turn.stopped_spending` behind its own copy, once, older entries null; skipped on a checkout's app state", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-step-"));
   const path = join(dir, "desk.sqlite");
   const db = new Database(path);
   db.run(
-    SCHEMA.replace("deleted_at text,\n  follows integer", "deleted_at text")
+    SCHEMA.replace(
+      "deleted_at text,\n  follows integer",
+      "deleted_at text"
+    ).replace("search_usd real,\n  stopped_spending integer", "search_usd real")
   );
   db.run(
     "insert into thread_entry (asked_at, words) values (?, 'Where is the boiler?')",
@@ -505,16 +509,17 @@ test("a store from before late replies is refused by openDesk; the step adds `th
   );
   db.close();
   expect(() => openDesk(path)).toThrow(NOT_MIGRATED);
-  expect(stepThreadFollows(path, APP_FOLDERS.state)).toBe("skipped");
-  expect(stepThreadFollows(path, dir)).toBe("migrated");
-  expect(stepThreadFollows(path, dir)).toBe("in shape");
+  expect(stepFollowsAndStops(path, APP_FOLDERS.state)).toBe("skipped");
+  expect(stepFollowsAndStops(path, dir)).toBe("migrated");
+  expect(stepFollowsAndStops(path, dir)).toBe("in shape");
   expect(readdirSync(dir).filter((f) => f.startsWith("desk-before-"))).toEqual([
-    expect.stringMatching(THREAD_FOLLOWS_BACKUP_FILE),
+    expect.stringMatching(FOLLOWS_AND_STOPS_BACKUP_FILE),
   ]);
   const after = openDesk(path);
   expect(after.query("select words, follows from thread_entry").all()).toEqual([
     { follows: null, words: "Where is the boiler?" },
   ]);
+  expect(after.query("select stopped_spending from turn").all()).toEqual([]);
   after.close();
 });
 
@@ -529,7 +534,7 @@ test("the later steps, run in any order on a store from before all of them, end 
     )
     .replace(MOVE_TABLES, "")
     .replace(
-      "context_used integer,\n  model text,\n  move text,\n  cost_usd real,\n  search_usd real",
+      "context_used integer,\n  model text,\n  move text,\n  cost_usd real,\n  search_usd real,\n  stopped_spending integer",
       "context_used integer,\n  cost_usd real"
     )
     .replace("  matter_id text,\n", "")
@@ -540,7 +545,7 @@ test("the later steps, run in any order on a store from before all of them, end 
     stepMatterIds,
     stepMoves,
     stepTurnSearchCost,
-    stepThreadFollows,
+    stepFollowsAndStops,
   ];
   const shapeAfter = (order: typeof steps) => {
     const dir = mkdtempSync(join(tmpdir(), "life-step-"));
