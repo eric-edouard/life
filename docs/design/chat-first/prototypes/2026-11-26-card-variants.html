@@ -88,6 +88,14 @@ var RUN={what:'Physios within 3 km, with their prices',est:1.2,cap:3,cur:'$',mon
 var RUN_H=['hero','ic:search','Look up the physios near home?','For your shoulder'];
 var STEPS=[{text:'Ask Kit for the inspection date',by:'agent',when:'today, for your yes'},{text:'Be there for the inspection',by:'owner',when:'once Kit answers'},{text:'Remind Kit of the 14-day limit',by:'agent',when:'if nothing by 2 Dec'}];
 var DRAFT='Yes, Saturday works. Book for 8, I’ll be there.',DRAFT2='Yes, Saturday works, I can’t wait! Book for 8 and I’ll be there.';
+var VH=['hero','ic:voice','Who is this voice?','Heard at 2 lunches · 620 words'];
+function VC(m){return ['raw',CB.B.clip('Then let’s say Saturday at nine, I bring the big ladder','0:06',m,1)+CB.B.clip('No, the blue one, it’s cheaper','0:03',m,4)];}
+var VDONE=[['row','ic:voice','Nora','Named in 2 conversations','ok'],['lead','Done: those lines are Nora’s now.']];
+var VPEOPLE=[[NORA,'Nora','Your partner'],[LEA,'Lea Moreau','Fernway'],[MAX1,'Max Weber','Your landlord']];
+var VNEW=[['then','After “Someone new”'],['lead','Who is it? A name, and who they are to you if you like.'],['bm','Tom, Nora’s brother'],['row','T/120','Tom','Nora’s brother · named in 2 conversations','ok']];
+var MOVE_L=['lead','This one is yours, due tomorrow:'],MOVE_H=['hero','ic:car','Book the car’s service','Yours · due Fri'],MOVE_BOX=['box',[['Where','Garage Lemoine'],['Phone','+33 1 44 55 66 77',1]]];
+var JH=['hero',JADE,'Reply to Jade','Jade · today'],JA=['answers','Send to Jade',['Later']],JE=['Warmer','Shorter','In French'],JW='Make it warmer, and say I’ll bring wine';
+var DRAFT3='Yes, Saturday works, I’m looking forward to it! Book for 8, and I’ll bring the wine.';
 var JCHAT=[['Hey! Are we still on for dinner Saturday?','9:12'],['Should I book? 8 or 8:30?','9:40']];
 var REPLY='The lawyer answered: the contract is fine, and she sends the signed copy Monday.';
 var CLINIC_H=['hero','ic:pin','Pick a clinic for the tattoo','For you and Nora · Tue'];
@@ -96,12 +104,14 @@ var CALL=['Then let’s say Saturday at nine, I bring the big ladder','0:06'];
 
 /* every item: its parts (what can be mixed), its default way in and thread, and three variants (blocks before, and after his tap) */
 var ITEMS=[
-{g:'The seven cards',id:'voice',n:'Voice naming',d:'A voice Life heard but cannot name. He plays it, then says who it is, someone new included.',parts:['Clips','Who it may be','Answers'],ctx:'lunch',rec:'A',v:{
- A:{w:'Clips with their words; Life’s guess is the answer',b:[['hero','ic:voice','Who is this voice?','Heard at 2 lunches · 620 words'],['clip','Then let’s say Saturday at nine, I bring the big ladder','0:06','wave',1],['clip','No, the blue one, it’s cheaper','0:03','wave',4],['answers','Yes, Nora',['Someone else…','Don’t name']],['foot','TV or radio? Say “not a person” and I stop asking.']],
-  a:[['row','ic:voice','Nora','Named in 2 conversations','ok'],['lead','Done: those lines are Nora’s now.']]},
- B:{w:'Guess first, one short clip; faces only after No',b:[['hero',NORA,'Is this Nora?','Heard at lunch today'],['clip','','0:06','pill',2],['answers','Yes',['No'],'row']],
-  a:[['then','After No'],['why','Then who is it?'],['people',[[MAX1,'Max Weber',''],[LEA,'Lea Moreau',''],[JADE,'Jade','']],'grid'],['answers',null,['TV or video','Don’t name']]]},
- C:{w:'No guess: the words, then faces to tap',b:[['hero','ic:voice','Who said this?','At lunch today · 620 words'],['clip','Then let’s say Saturday at nine, I bring the big ladder','0:06','text'],['people',[[NORA,'Nora',''],[LEA,'Lea',''],[MAX1,'Max','']],'chips'],['answers',null,['TV or video','Don’t name']]]}}},
+{g:'The seven cards',id:'voice-guess',n:'Voice naming: Life has a guess',d:'A voice Life heard twice at lunch. It thinks it is Nora; he plays it and says yes, or who it is.',parts:['Clips','The guess','Answers'],ctx:'lunch',rec:'A',v:{
+ A:{w:'Clips with their words; the guess is the big answer',b:[VH,VC('wave'),['answers','Yes, Nora',['Someone else…','Don’t name']],['foot','TV or radio? Say “not a person” and I stop asking.']],a:VDONE},
+ B:{w:'Nora’s face as the question; short clips',b:[['hero',NORA,'Is this Nora?','Heard at 2 lunches · 620 words'],VC('pill'),['answers','Yes',['Someone else…'],'row'],['answers',null,['TV or video','Don’t name']]],a:VDONE},
+ C:{w:'The words to read; every answer in a list',b:[VH,VC('text'),['answers','Yes, it’s Nora',['Someone else…','TV or video','Don’t name'],'list']],a:VDONE}}},
+{id:'voice-new',n:'Voice naming: no guess, someone new',d:'Life has no guess; a few people it could be. It is someone new, so he names them.',parts:['Clips','Who it may be','Answers'],ctx:'lunch',rec:'A',v:{
+ A:{w:'Clips with their words, then people as rows',b:[VH,VC('wave'),['people',VPEOPLE,'rows','Who is it?'],['answers',null,['TV or video','Don’t name']]],a:VNEW},
+ B:{w:'Short clips, then faces in a grid',b:[VH,VC('pill'),['people',VPEOPLE,'grid'],['answers',null,['TV or video','Don’t name']]],a:VNEW},
+ C:{w:'The words to read, then name chips',b:[VH,VC('text'),['people',VPEOPLE,'chips'],['answers',null,['TV or video','Don’t name']]],a:VNEW}}},
 {id:'newmatter',n:'New matter: start, or not',d:'Life found something running in his life that it could move now. Start hands it to Life; nothing leaves without his yes.',parts:['What it shows','Evidence','Answers'],ctx:'waiting',rec:'A',v:{
  A:{w:'Goal and next step in a box; says what Start does',b:[['hero',KIT,'Get the deposit back from Kit','New · from Kit’s message, Tue'],['box',[['Goal','800 € back'],['Next','Ask Kit for the inspection date']]],['foot','Start: I write to Kit for your yes. Nothing goes without you.'],['answers','Start',['Edit goal','Not this']]],
   a:[['row',KIT,'Get the deposit back from Kit','Drafting the message to Kit','ring',.15]]},
@@ -125,12 +135,10 @@ var ITEMS=[
  A:{w:'The question with where it comes from',b:[['hero','ic:org','Is Lea at Fernway?','As designer · from her Contacts card'],['answers','Yes',['No'],'row']],a:[['row','ic:org','Fernway','Lea added as designer','ok']]},
  B:{w:'Fernway’s people, with Lea added',b:[['hero','ic:org','Add Lea to Fernway?','From her Contacts card'],['row','B','Ben Carter','Founder'],['row',LEA,'Lea Moreau','Designer · new'],['answers','Add her',['No']]]},
  C:{w:'A row with two marks',b:[['step','Lea Moreau, designer at Fernway','From her Contacts card','ask']]}}},
-{id:'yourmove',n:'Your move',d:'A step that is his own. Done, later, or dropped.',parts:['Step','Details','Answers'],ctx:'push',way:'Tapped <b>the notification</b> on Thursday',rec:'A',v:{
- A:{w:'The step with where; Mark as done first',b:[['lead','This one is yours, due tomorrow:'],['hero','ic:car','Book the car’s service','Yours · due Fri'],['box',[['Where','Garage Lemoine'],['Phone','+33 1 44 55 66 77',1]]],['answers','Mark as done',['Later','Drop']]],
-  a:[['lead','This one is yours, due tomorrow:'],['row','ic:car','Book the car’s service','Done','ok']]},
- B:{w:'Life offers to do it',b:[['lead','This one is yours, due tomorrow:'],['hero','ic:car','Book the car’s service','Yours · due Fri'],['why','I can call the garage and book Friday morning.'],['answers','Hand it to Life',['Mark as done','Later']]],
-  a:[['lead','This one is yours, due tomorrow:'],['row','ic:car','Book the car’s service','Calling the garage · about 10 min','ring',.2]]},
- C:{w:'A checklist row: tap the circle when done',b:[['lead','This one is yours, due tomorrow:'],['step','Book the car’s service','Due Fri · Garage Lemoine'],['answers',null,['Later','Drop']]]}}},
+{id:'yourmove',n:'Your move',d:'A step that is his own, which Life could also do. Done, hand it over, later, or drop.',parts:['Step','Details','Answers'],ctx:'push',way:'Tapped <b>the notification</b> on Thursday',rec:'A',v:{
+ A:{w:'The step with where; Mark as done first',b:[MOVE_L,MOVE_H,MOVE_BOX,['answers','Mark as done',['Hand it to Life','Later','Drop']]],a:[MOVE_L,['row','ic:car','Book the car’s service','Done','ok']]},
+ B:{w:'Life’s offer first; done second',b:[MOVE_L,MOVE_H,MOVE_BOX,['why','I can call the garage and book Friday morning.'],['answers','Hand it to Life',['Mark as done','Later','Drop']]],a:[MOVE_L,['row','ic:car','Book the car’s service','Calling the garage · about 10 min','ring',.2]]},
+ C:{w:'A checklist row: tap the circle when done',b:[MOVE_L,['step','Book the car’s service','Due Fri · Garage Lemoine · +33 1 44 55 66 77'],['answers',null,['Hand it to Life','Later','Drop']]],a:[MOVE_L,['step','Book the car’s service','Done','struck']]}}},
 {g:'What a card shows so he can answer without leaving',id:'payment',n:'A payment: amount and account',d:'What to pay, to whom, from where.',parts:['Amount','Account','Answers'],ctx:'waiting',rec:'A',v:{
  A:{w:'Big amount, the account as rows, bank link',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],['link','your bank'],PAYA]},
  B:{w:'Each field with its own copy button',b:[PAY_H,['copyrows',[['Amount','240,00 €']].concat(PAY_ROWS)],PAYA]},
@@ -183,10 +191,14 @@ var ITEMS=[
  A:{w:'A bar under the settled row',b:[['rate','bar']],a:[['raw','<div class="hd"><span class="q">Thanks</span></div>']]},
  B:{w:'Three small marks tucked under the row',b:[['rate','under']]},
  C:{w:'One question, two marks',b:[['rate','one']]}}},
-{id:'edit',n:'Changing a draft',d:'By tapping a quick edit, or by saying what to change.',parts:['Chips','Words','Old version'],ctx:'jade',rec:'A',v:{
- A:{w:'Chips under the draft; it changes in place',b:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT],['edits',['Warmer','Shorter','In French']],['answers','Send to Jade',['Later']]],a:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT2],['edits',['back','Shorter','In French']],['answers','Send to Jade',['Later']]]},
- B:{w:'Chips inside the draft; words in the field',b:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT+CB.B.edits(['Warmer','Shorter','In French'],'inside')],['answers','Send to Jade',['Later']]],a:[['row',JADE,'Reply to Jade','Earlier draft','old'],['bm','Warmer, and say I’ll bring wine'],['chat','Jade',[],'Yes, Saturday works, I’m looking forward to it! Book for 8, and I’ll bring the wine.'],['answers','Send to Jade',['Later']]]},
- C:{w:'Words only, no chips',b:[['hero',JADE,'Reply to Jade','Jade · today'],['chat','Jade',JCHAT,DRAFT],['answers','Send to Jade',['Later']]],a:[['row',JADE,'Reply to Jade','Earlier draft','old'],['bm','Make it warmer'],['chat','Jade',[],DRAFT2],['answers','Send to Jade',['Later']]]}}},
+{id:'edit-tap',n:'Changing a draft by a tap',d:'He taps Warmer on a quick-edit chip; the draft changes.',parts:['Chips','Where the change shows'],ctx:'jade',rec:'A',v:{
+ A:{w:'Chips under the draft; it changes in place, back arrow',b:[JH,['chat','Jade',JCHAT,DRAFT],['edits',JE],JA],a:[JH,['chat','Jade',JCHAT,DRAFT2],['edits',['back','Shorter','In French']],JA]},
+ B:{w:'Chips inside the draft bubble',b:[JH,['chat','Jade',JCHAT,DRAFT+CB.B.edits(JE,'inside')],JA],a:[JH,['chat','Jade',JCHAT,DRAFT2+CB.B.edits(['Shorter','In French'],'inside')],JA]},
+ C:{w:'Chips under the answers, with the field',b:[JH,['chat','Jade',JCHAT,DRAFT],JA,['edits',JE]],a:[JH,['chat','Jade',JCHAT,DRAFT2],JA,['edits',['back','Shorter','In French']]]}}},
+{id:'edit-words',n:'Changing a draft by words',d:'He types “Make it warmer, and say I’ll bring wine”; Life redrafts.',parts:['His words','The old draft','The new draft'],ctx:'jade',rec:'A',v:{
+ A:{w:'Old card folds to a row; a new card lands below',b:[JH,['chat','Jade',JCHAT,DRAFT],JA],a:[['row',JADE,'Reply to Jade','Earlier draft','old'],['bm',JW],['chat','Jade',[],DRAFT3],JA]},
+ B:{w:'Changed in place; his words as a line under it',b:[JH,['chat','Jade',JCHAT,DRAFT],JA],a:[['bm',JW],JH,['chat','Jade',JCHAT,DRAFT3],['foot','Changed: warmer, and you bring the wine.'],JA]},
+ C:{w:'New card with the changed words marked',b:[JH,['chat','Jade',JCHAT,DRAFT],JA],a:[['row',JADE,'Reply to Jade','Earlier draft','old'],['bm',JW],['chat','Jade',[],'Yes, Saturday works<mark>, I’m looking forward to it!</mark> Book for 8, <mark>and I’ll bring the wine.</mark>'],JA]}}},
 {id:'follows',n:'A late reply',d:'An answer that arrives after the thread moved on, tied to what he asked.',parts:['Tie to the ask','Reply'],ctx:'lawyer',rec:'A',v:{
  A:{w:'His ask quoted on top of the reply',b:[['follows','Has the lawyer answered?',REPLY]]},
  B:{w:'The reply lands under his old question, marked new',ctx:'none',b:[['bm','Has the lawyer answered?'],['lead','Not yet. I’ll tell you when she does.'],['follows','',REPLY+' <small class="cb-new">New</small>','thread'],['bm','What’s on today?'],['lead','Just the dentist at 16:00.']]},
