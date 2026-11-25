@@ -17,35 +17,20 @@ struct SettingsView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
     @Environment(LifeStore.self) private var life
-    @Environment(AppRouter.self) private var router
     @Environment(\.openURL) private var openURL
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceIDToSend = false
     @Bindable private var settings = Settings.shared
     @State private var page: Connection?
     @State private var isDiagnosticsOpen = false
-    @State private var isLiveLogsOpen = false
-    /// The problems (warn, error) Life logged in the last hour, as the Live logs row says them; nil until read.
-    @State private var problems: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             needsYou
             allows
-            agents
             sending
             pendant
             dictation
-            RowGroup(label: "Ask Life", surface: .sheet) {
-                NavigationLink {
-                    AskLifeSettingsPage()
-                } label: {
-                    Row(title: "Ask Life", icon: "waveform", detail: "Its look") {
-                        RowValue()
-                    }
-                }
-                .buttonStyle(.plain)
-            }
             RowGroup(label: "Appearance", surface: .sheet) {
                 SegmentedChoice(
                     choices: [Appearance.auto, .light, .dark],
@@ -64,26 +49,10 @@ struct SettingsView: View {
             Text("Settings").font(.screenName).foregroundStyle(Palette.fg)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .shellBar("")
         .tint(Palette.fg)
         .background(Palette.sheet)
         .navigationDestination(item: $page) { ConnectionPage(connection: $0) }
         .navigationDestination(isPresented: $isDiagnosticsOpen) { DiagnosticsView() }
-        .navigationDestination(isPresented: $isLiveLogsOpen) { LiveLogsPage { page = .life } }
-        .task(id: life.parties.generation.current) { problems = await problemsLastHour() }
-        #if DEBUG
-            .task {
-                switch LifeFixture.page {
-                case "life": page = .life
-                case "server": page = .server
-                case "diagnostics": isDiagnosticsOpen = true
-                case "logs": isLiveLogsOpen = true
-                case "spending": router.show(.spending)
-                case "apps": router.profilePath = [.apps]
-                default: break
-                }
-            }
-        #endif
     }
 
     // MARK: Needs you
@@ -239,22 +208,6 @@ struct SettingsView: View {
         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
     }
 
-    // MARK: Agents
-
-    /// His agents: the Agents page, in the Projects tab (the sheet closes).
-    private var agents: some View {
-        RowGroup(label: "Agents", surface: .sheet) {
-            Button {
-                router.show(.agents)
-            } label: {
-                let count = (life.agents.value?.agents ?? []).filter { !$0.isOver }.count
-                Row(title: "Your agents", icon: "cpu", detail: count == 0 ? nil : "\(count) at work") { RowValue() }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.agents")
-        }
-    }
-
     // MARK: Sending
 
     private var sending: some View {
@@ -353,16 +306,6 @@ struct SettingsView: View {
                 }
             }
             .accessibilityIdentifier("pendant.settings.lowStorage")
-            // The Limitless Pendant's light; an Omi has no command for it.
-            if CaptureStore.pairedKind != .omi {
-                NavigationLink {
-                    LightGuideView(isConnected: isConnected, set: capture.setLightBrightness)
-                } label: {
-                    Row(title: "Light guide", icon: "sun.max") { RowValue() }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("pendant.settings.lightGuide")
-            }
         }
     }
 
@@ -385,18 +328,6 @@ struct SettingsView: View {
 
     // MARK: Help
 
-    /// "2 problems" from one page of the log's problems; "100+" when the page is full of the last hour's. Nil when there
-    /// are none, or the read failed: the row never says none it does not know.
-    private func problemsLastHour() async -> String? {
-        let query = LogQuery(minLevel: .warn)
-        let hourAgo = Date().addingTimeInterval(-3600)
-        guard case .success(let page)? = await life.readLogLines(query) else { return nil }
-        let count = page.lines.count { !($0.at < hourAgo) }
-        if count == 0 { return nil }
-        if count == 1 { return "1 problem" }
-        return count == query.limit ? "\(count)+ problems" : "\(count) problems"
-    }
-
     private var help: some View {
         RowGroup(label: "Help", surface: .sheet) {
             Row(title: "Build", icon: "info.circle") {
@@ -405,35 +336,10 @@ struct SettingsView: View {
             Button {
                 isDiagnosticsOpen = true
             } label: {
-                // An agent or the desk not fine: its mark beside the row (Diagnostics lists each, with why).
-                Row(title: "Diagnostics", icon: "waveform.path.ecg") {
-                    if let mark = life.agents.value?.healthMark, mark.glyph != .ok {
-                        HStack(spacing: 8) {
-                            StateDot(color: Palette.flag)
-                            RowValue(text: "Agents: \(mark.word.lowercased())")
-                        }
-                    } else {
-                        RowValue()
-                    }
-                }
+                Row(title: "Diagnostics", icon: "waveform.path.ecg") { RowValue() }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pendant.settings.diagnostics")
-            Button {
-                isLiveLogsOpen = true
-            } label: {
-                // A problem in the last hour: a flag dot and how many.
-                Row(title: "Live logs", icon: "waveform.path") {
-                    if let problems {
-                        StateDot(color: Palette.flag)
-                        RowValue(text: problems)
-                    } else {
-                        RowValue()
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.liveLogs")
         }
     }
 }

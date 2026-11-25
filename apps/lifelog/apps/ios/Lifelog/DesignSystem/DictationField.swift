@@ -58,11 +58,6 @@ struct DictationField: View {
             .sensoryFeedback(.error, trigger: dictation.problem) { _, new in new != nil }
             .onAppear {
                 dictation.begin = DictationCapture.run(library: library, sync: sync)
-                #if DEBUG
-                    if DictationFixture.drive(dictation, start: start) { return }
-                    // A frame's made-up data asks the phone for nothing: no microphone sheet over the shot.
-                    if LifeFixture.isRequested { return }
-                #endif
                 if listens { start() }
             }
             .onDisappear { dictation.cancel() }
@@ -253,9 +248,6 @@ private struct DictationKeys: View {
             }
         }
         .onChange(of: press.isHolding) { _, holding in isHolding?.wrappedValue = holding }
-        #if DEBUG
-            .onAppear { if let seeded = DictationFixture.press(canSend: send != nil) { press = seeded } }
-        #endif
     }
 
     private var isRunning: Bool { dictation.phase == .starting || dictation.phase == .listening }

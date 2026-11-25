@@ -148,6 +148,12 @@ const OPENROUTER_MODELS: Record<Tier, string> = {
 };
 
 /**
+ * What a turn that answers him thinks at on the agents' one model (the main session's ask; the delivery gate's call):
+ * lower than a background turn's (`piRouteOf().effort`), so his answer comes fast (the v4 plan, bundle C).
+ */
+export const ASK_EFFORT = "low";
+
+/**
  * What the desk's pi agents run on (the owner's decisions of 22 Nov 2026, `docs/plans/pi-runtime.md`): the memory's
  * main-tier OpenRouter route, its model, its hosts and its effort, so agents and memory share one model on the same
  * hosts that keep nothing.

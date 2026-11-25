@@ -1,24 +1,24 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type {
   ContextEvent,
   ExtensionAPI,
   ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
 import { callDoor } from "../../../../claude-plugin/hooks/door";
+import { clock } from "../../core/clock";
 import type { WebSearchProviderName } from "../../core/names";
 import { searchableOf } from "../../web-search/backend";
-import {
-  SEND_FACTS_ENV,
-  SEND_GUARD_HOOK,
-  type SendFacts,
-  sendRefusalOf,
-} from "../send-guard";
+import { SEND_FACTS_ENV, type SendFacts, sendRefusalOf } from "../send-guard";
 import { type ClaudeHookGroup, runClaudeHooks } from "./claude-hooks";
 import { DOOR_KEY_ENV } from "./contract";
+import { DOOR_TOOL, pruneResults, resultOf } from "./pi-results";
 import { registerSubagent } from "./pi-subagent";
 import { registerWebFetch, registerWebSearch } from "./web-tools";
 
-// The extension every pi session of the desk loads (`pi -e`, `pi-runtime.ts`): inside the pi process, before each tool
-// call, Life's send guard (`send-guard.ts`), on the calls Claude's and Codex's hook reads (`SEND_GUARD_HOOK.matcher`);
+// The extension every pi session of the desk loads (`pi -e`, `pi-runtime.ts`): inside the pi process, before every tool
+// call, whatever its name, Life's send guard (`send-guard.ts`); after each, its result as the model reads it
+// (`pi-results.ts`: data wrapped, a long one kept in a file); on every request, what holds on every turn (`inForce`);
 // the agent's door as MCP server `desk`; and Life's model provider, `PI_PROVIDER`, whose models carry Life's routing
 // (`compat.openRouterRouting`), which pi puts on every request of the provider, compaction's included (the owner's
 // decision 3 of 22 Nov 2026, `docs/plans/pi-runtime.md`). For an agent of his own Life also his Claude hooks after the
@@ -39,6 +39,8 @@ export const PI_EXTENSION_ENV = {
   facts: SEND_FACTS_ENV,
   /** His Claude `PreToolUse` hooks (JSON), for his own Life (`claude-hooks.ts`). */
   hooks: "LIFE_PI_HOOKS",
+  /** The file holding what is in force on every request (`Agent.inForce`), rewritten by the runtime before each prompt. */
+  inForce: "LIFE_PI_IN_FORCE",
   key: "LIFE_PI_KEY",
   /** `1` for an agent of his own Life: his hooks and the web tools; a second Life's agent gets neither. */
   own: "LIFE_PI_OWN",
@@ -54,8 +56,8 @@ export const PI_EXTENSION_ENV = {
 /** The provider as the runtime gives it (`LIFE_PI_PROVIDER`): everything but its key. */
 export type PiProvider = Omit<ProviderConfig, "apiKey">;
 
-/** The calls the guard reads, as the hook's matcher names them. */
-const GUARDED = new RegExp(`^(${SEND_GUARD_HOOK.matcher})$`);
+/** The custom entry that records the tool schemas' size once per process (`desk.tool_schemas`, `pi-runtime.ts`). */
+export const TOOL_SCHEMAS = "life-tool-schemas";
 
 /** pi's shell tools, each read by the guard as Claude's `Bash` (both take `command`). */
 const SHELLS = ["bash", "powershell"];
@@ -73,11 +75,15 @@ export interface LifeDeskConfig {
   door?: { key: string; url: string };
   facts: SendFacts;
   hooks: ClaudeHookGroup[];
+  /** The file of what is in force on every request (`PI_EXTENSION_ENV.inForce`); none in a subagent. */
+  inForce?: string;
   /** An agent of his own Life: his hooks, `web_fetch`, the connector's reads and subagents. */
   isOwn: boolean;
   provider: PiProvider;
   /** The connector's reads (`life connector-reads`) as a stdio MCP server; none in a subagent. */
   reads?: { args: string[]; command: string; env: Record<string, string> };
+  /** Where long tool results are kept (`pi-results.ts`). */
+  results: string;
   /** The agent's rules, pinned as a system prompt section; none in a subagent. */
   rules?: string;
   /** The providers `web_search` asks, in order; none, no `web_search`. */
@@ -110,14 +116,17 @@ function configOfEnv(): LifeDeskConfig {
   const isOwn = process.env[env.own] === "1";
   const reads = taken(env.reads);
   const rules = process.env[env.rules];
+  const inForce = process.env[env.inForce];
   return {
     apiKey,
     door: { key: required(env.doorKey), url: required(env.doorUrl) },
     facts: JSON.parse(required(env.facts)),
     hooks: isOwn ? JSON.parse(process.env[env.hooks] ?? "[]") : [],
+    ...(inForce ? { inForce } : {}),
     isOwn,
     provider: JSON.parse(required(env.provider)),
     ...(isOwn && reads ? { reads: JSON.parse(reads) } : {}),
+    results: join(process.env.PI_CODING_AGENT_DIR ?? ".", "results"),
     ...(rules ? { rules } : {}),
     search: isOwn ? JSON.parse(process.env[env.search] ?? "[]") : [],
   };
@@ -128,9 +137,6 @@ const RULES_SECTION = "life-desk";
 
 /** An old tool answer kept whole up to this many characters: a note of it would not be much shorter. */
 const OLD_ANSWER_KEPT = 1000;
-
-/** The door's tools, whose answers (a card asked, a wait set) are the agent's own record and stay whole. */
-const DOOR_TOOL = "mcp__desk__";
 
 /**
  * What the model is sent of the session: each tool answer of an earlier wake (before the last prompt), but the door's,
@@ -168,6 +174,34 @@ export function contextOf(messages: ContextEvent["messages"]) {
   });
   return isChanged ? { messages: sent } : undefined;
 }
+
+/** The tag around what is in force on every request. */
+const IN_FORCE_TAG = "in-force";
+
+/** The file's text, none when empty or not there (no ask has set it yet). */
+const readInForce = (file: string) => {
+  try {
+    return readFileSync(file, "utf8").trim() || undefined;
+  } catch {
+    // not written yet: nothing in force
+  }
+};
+
+/**
+ * `messages` with what is in force after them, as one user message the request carries and the session never keeps:
+ * on every request, so it is never lost at compaction or sunk under a long session (the v4 plan, bundle C).
+ */
+export const withInForceOf = (
+  messages: ContextEvent["messages"],
+  inForce: string
+): ContextEvent["messages"] => [
+  ...messages,
+  {
+    content: `<${IN_FORCE_TAG}>\n${inForce}\n</${IN_FORCE_TAG}>`,
+    role: "user",
+    timestamp: 0,
+  },
+];
 
 /** The line between Life's record and pi's summary of the talk, in a compaction's summary. */
 const TALK_LINE = "What the session did, summarized:";
@@ -261,6 +295,7 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
       lifeDeskOf({
         ...config,
         door: undefined,
+        inForce: undefined,
         reads: undefined,
         rules: undefined,
       })
@@ -273,15 +308,39 @@ export const lifeDeskOf = (config: LifeDeskConfig) => (pi: ExtensionAPI) => {
       event.systemPromptOptions.sections[RULES_SECTION] = rules;
     });
   }
-  if (config.door) {
-    pi.on("context", (event) => contextOf(event.messages));
-    keepRecordOnCompaction(pi, config.door, config.apiKey);
+  const { door, inForce } = config;
+  pi.on("context", (event) => {
+    const sent = door ? contextOf(event.messages) : undefined;
+    const block = inForce && readInForce(inForce);
+    return block
+      ? { messages: withInForceOf(sent?.messages ?? event.messages, block) }
+      : sent;
+  });
+  if (door) {
+    keepRecordOnCompaction(pi, door, config.apiKey);
   }
-  pi.on("tool_call", async (event, ctx) => {
-    const call = guardedCallOf(event.toolName, event.input);
-    if (!GUARDED.test(call.tool_name)) {
+  pruneResults(config.results, clock().getTime());
+  pi.on("tool_result", (event) => resultOf(event, config.results));
+  let isSchemaSizeKept = false;
+  pi.on("before_agent_start", (event) => {
+    if (isSchemaSizeKept) {
       return;
     }
+    isSchemaSizeKept = true;
+    const selected = new Set(event.systemPromptOptions.selectedTools);
+    const tools = pi.getAllTools().filter((t) => selected.has(t.name));
+    pi.appendEntry(TOOL_SCHEMAS, {
+      chars: tools.reduce(
+        (n, t) =>
+          n + t.description.length + JSON.stringify(t.parameters).length,
+        0
+      ),
+      tools: tools.length,
+    });
+  });
+  // Every call, whatever its name: a tool that comes later (a search's, a server's) is guarded as it comes.
+  pi.on("tool_call", async (event, ctx) => {
+    const call = guardedCallOf(event.toolName, event.input);
     const why =
       sendRefusalOf(call, config.facts) ??
       (call.tool_name === "Bash"
