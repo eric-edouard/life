@@ -84,7 +84,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`isDeleted`; `oldHashes` never holds a chapter unit's, which is never read again). `deletionsNow` reads his corrections once
   per process; a send path reads the source raw, as he approved it (`draft-send.ts`).
   Its one door is `deleteFromMemory` (his token, the main session on his words, `bun life memory delete`), which previews the
-  exact set and writes only on its digest, then reads its days again. The words themselves stay where their sources hold them
+  exact set and writes only on its digest, then reads its days again. It also names the copies holding the words outside
+  `memory/`: his instructions quoting them (their ids, hidden at read by `instructionsFor`) and the Life thread's entries
+  (`thread:<id>`, listed in the preview but outside its digest, hidden at read by `readThread` and blanked in place by the
+  desk on its tick, `desk/thread-deletions.ts`; an answer never writes back onto one). The words themselves stay where their sources hold them
   (lifelog, the archive, the backups, the git history): purging them needs code that does not exist (SECURITY.md).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his fact-check answers and corrections cite them, and a re-read

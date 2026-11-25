@@ -33,7 +33,7 @@ export const NO_DELETIONS: Deletions = {
  * A ref as a deletion knows it: a turn by its recording and index alone (`job:turn`), never its instant, so the same turn
  * is found whatever `at` a reader or his card spelled it with.
  */
-const refKeyOf = (ref: string) => {
+export const refKeyOf = (ref: string) => {
   const t = parseTurnRef(ref);
   return t ? `${t.jobId}:${t.turnIndex}` : ref;
 };
@@ -271,3 +271,12 @@ export function dependentsOf(
     units: [...unitIds],
   };
 }
+
+/**
+ * Whether a copy of his words outside memory holds what a deletion removes: one of its `texts` holds the deleted words
+ * (by the quote check), or one of its `refs` is a deleted ref. Pure; made by `copyMatchOf`.
+ */
+export type HoldsDeleted = (
+  texts: readonly (string | null)[],
+  refs: readonly string[]
+) => boolean;

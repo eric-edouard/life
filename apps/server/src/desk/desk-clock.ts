@@ -103,6 +103,7 @@ import { standUp } from "./role-agents";
 import { blockOf, runnableAgentOf } from "./runtime-fallback";
 import { SessionLive } from "./runtimes/contract";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
+import { blankDeletedThreadEntries } from "./thread-deletions";
 import {
   endLostTurns,
   endUnbegunTurns,
@@ -822,6 +823,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   );
   await openIntentions(desk);
   await handOutNext(desk);
+  blankDeletedThreadEntries(desk.db);
   pollAnswers(desk);
   // His Undo of an answer stops what it started; then the gate reads each new card (a failure delivers nothing yet).
   await stopWithdrawn(desk);
