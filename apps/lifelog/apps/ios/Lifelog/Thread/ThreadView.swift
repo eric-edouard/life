@@ -36,6 +36,8 @@ struct ThreadView: View {
                 .padding(.horizontal, Metrics.Spacing.l)
             }
             .defaultScrollAnchor(.bottom)
+            // The keyboard shrinks the thread from below: its bottom stays where it was.
+            .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: thread.entries.count) { proxy.scrollTo("end", anchor: .bottom) }
             .onChange(of: thread.live) { proxy.scrollTo("end", anchor: .bottom) }

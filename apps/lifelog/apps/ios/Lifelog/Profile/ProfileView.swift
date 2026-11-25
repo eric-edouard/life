@@ -51,7 +51,7 @@ struct ProfileView: View {
             }
             .padding(Metrics.Spacing.l)
         }
-        .task { await life.refreshPerson(ref) }
+        .background(Palette.bg).task { await life.refreshPerson(ref) }
     }
 
     @ViewBuilder private func section(_ title: String, _ lines: [String]) -> some View {

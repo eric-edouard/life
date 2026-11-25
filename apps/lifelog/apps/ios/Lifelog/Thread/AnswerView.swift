@@ -7,8 +7,6 @@ import SwiftUI
 struct AnswerView: View {
     let parts: [AnswerPart]
     let actions: BlockActions
-    @Environment(LifeStore.self) private var life
-    @State private var opened: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -20,18 +18,6 @@ struct AnswerView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // A `life:` link: a person or organization opens their profile, an ask unfolds in its row; the rest is Life's own page.
-        .environment(
-            \.openURL,
-            OpenURLAction { url in
-                guard url.scheme == "life-open",
-                    let ref = url.absoluteString.dropFirst("life-open:".count).removingPercentEncoding
-                else { return .systemAction }
-                if life.ask(ref) != nil { life.focus(ref: ref) } else { opened = ref }
-                return .handled
-            }
-        )
-        .sheet(item: $opened) { LinkSheet(ref: $0).sheetStack() }
     }
 }
 
@@ -117,14 +103,14 @@ extension [Inline] {
 }
 
 /// What a `life:` link names: a person's profile, else Life's own text of it.
-private struct LinkSheet: View {
+struct LinkSheet: View {
     let ref: String
     @Environment(LifeStore.self) private var life
     @State private var read = ReadState<LifeLinkRead>()
 
     var body: some View {
         if ref.hasPrefix("person:") {
-            ProfileView(ref: ref)
+            ProfileView(ref: ref).sheetStack()
         } else {
             ScrollView {
                 switch read.value {
@@ -134,6 +120,7 @@ private struct LinkSheet: View {
                 }
             }
             .padding(Metrics.Spacing.l).task { await life.fetch(ref) { read.apply($0) } }
+            .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
         }
     }
 }

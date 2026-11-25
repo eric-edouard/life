@@ -6,9 +6,9 @@ struct AskField: View {
     @Binding var text: String
     let isWorking: Bool
     @Binding var isSpeaking: Bool
+    var isFocused: FocusState<Bool>.Binding
     let send: () -> Void
     let stop: () -> Void
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .trailing, spacing: Metrics.Spacing.s) {
@@ -19,7 +19,7 @@ struct AskField: View {
                 .buttonStyle(.glass).buttonBorderShape(.circle).accessibilityLabel("Stop").appears()
             }
             DictationField(
-                prompt: "Ask Life", text: $text, axis: .vertical, focused: $focused, send: send, isCard: true,
+                prompt: "Ask Life", text: $text, axis: .vertical, focused: isFocused, send: send, isCard: true,
                 listening: $isSpeaking
             )
             .font(.body15).foregroundStyle(Palette.fg)
