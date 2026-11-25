@@ -30,7 +30,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         extensionContext?.notificationActions = check.map(CardNotification.actions) ?? []
         draft.rootView = check.flatMap { DraftBlock(check: $0) }.map {
             AnyView(
-                $0.padding(16).environment(
+                $0.padding(Metrics.Spacing.l).environment(
                     \.openURL,
                     OpenURLAction { [weak self] url in
                         self?.openChat(url)

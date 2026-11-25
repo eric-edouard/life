@@ -52,7 +52,7 @@ struct PairSheet: View {
     @State private var runs: [Connection: Run] = [:]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
             if phase == .confirming { confirm } else { progress }
         }
         // The body changes only between asking and checking: pairing to done changes its lines in place.
@@ -60,7 +60,7 @@ struct PairSheet: View {
         .sheetScroll {
             SheetHeader(title: title, close: { dismiss() })
         } buttons: {
-            VStack(spacing: 10) { buttons }.faces(phase)
+            VStack(spacing: Metrics.Spacing.m) { buttons }.faces(phase)
         }
         .readingWidth()
         .background(Palette.sheet)
@@ -81,7 +81,7 @@ struct PairSheet: View {
     // MARK: Confirm
 
     private var confirm: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
             RowGroup(surface: .sheet) {
                 ForEach(offer.connections) { connection in
                     Row(title: connection.name) {

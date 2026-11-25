@@ -16,10 +16,10 @@ struct ProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
                 if let read {
                     VStack(spacing: Metrics.Spacing.s) {
-                        Face(party: read.row.party, size: 96)
+                        Face(party: read.row.party, size: Metrics.profileFace)
                         Text(read.row.party.name).font(.profileName).multilineTextAlignment(.center)
                         if let line = read.row.party.line {
                             Text(line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
@@ -30,23 +30,9 @@ struct ProfileView: View {
                     section("Details", read.details.map(\.text))
                     section("Now", read.situation.map(\.text))
                     section("Writes", read.communicationStyle.map(\.text))
-                    ForEach(read.reach) { reach in
-                        ForEach(reach.accounts) { account in
-                            if let url = URL(string: account.open.url) {
-                                Button {
-                                    openURL(url)
-                                } label: {
-                                    Text("\(reach.label) · \(account.title ?? account.handle)").frame(
-                                        maxWidth: .infinity, alignment: .leading
-                                    )
-                                    .frame(minHeight: Metrics.tapTarget)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
+                    reach(read.reach)
                 } else if isFailed {
-                    Text("Life didn't open it.").foregroundStyle(Palette.muted)
+                    NoticeBlock(title: "Life didn't open it.")
                 } else {
                     Spinner().frame(maxWidth: .infinity)
                 }
@@ -63,6 +49,25 @@ struct ProfileView: View {
                 ForEach(lines, id: \.self) { Text($0).lineSpacing(Metrics.Spacing.xs) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// How to reach them, one row per account, each opening its app.
+    @ViewBuilder private func reach(_ reach: [PersonNow.Reach]) -> some View {
+        let accounts = reach.flatMap { page in page.accounts.map { (page.label, $0) } }
+        if !accounts.isEmpty {
+            RowGroup(label: "Reach", surface: .page) {
+                ForEach(Array(accounts.enumerated()), id: \.offset) { _, entry in
+                    if let url = URL(string: entry.1.open.url) {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            Row(title: "\(entry.0) · \(entry.1.title ?? entry.1.handle)") { RowValue() }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 }

@@ -40,8 +40,8 @@ struct BlockView: View {
             }
             .buttonStyle(.plain)
         case .question(let q): QuestionBlock(answers: q.answers, recommended: q.recommended, say: actions.say)
-        case .settings:
-            Button("Settings", action: actions.openSettings).buttonStyle(.pill(.quiet, size: .compact))
+        case .settings(let keys, let offer):
+            LiveSettingsBlock(keys: keys, offer: offer, say: actions.say, openSettings: actions.openSettings)
         }
     }
 }

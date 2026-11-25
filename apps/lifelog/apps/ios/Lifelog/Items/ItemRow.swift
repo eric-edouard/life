@@ -12,6 +12,8 @@ struct ItemRow: View {
     @State private var isConfirmingUndo = false
     /// The answer he tapped last: the one that shows its spinner while Life works.
     @State private var tapped: String?
+    /// The option that takes a person, while his directory's picker is open.
+    @State private var pickingFor: String?
 
     private var key: LifeStore.ActionKey { .answer(ref: ask.ref) }
     private var action: ActionState<ActionProof> { life.state(of: key) }
@@ -37,6 +39,12 @@ struct ItemRow: View {
         ) {
             detail.transition(Motion.appears)
         }
+        .sheet(item: $pickingFor) { option in
+            PersonPicker { party in
+                Task { await life.answer(AnswerRequest(ref: ask.ref, options: [option], person: party.ref)) }
+            }
+            .padding(Metrics.Spacing.l).presentationDetents([.medium, .large])
+        }
         .onAppear { isOpen = life.focused == ask.ref }
         .onChange(of: life.focused) { if life.focused == ask.ref { isOpen = true } }
     }
@@ -58,7 +66,7 @@ struct ItemRow: View {
 
     /// The options of the card that are answers: a put-off ("Not now") is Later, which every ask offers.
     private func answers(of check: Check) -> [Check.Option] {
-        check.options.filter { $0.takes != .person && $0.icon != .later && $0.id != "not-now" }
+        check.options.filter { $0.icon != .later && $0.id != "not-now" }
     }
 
     private func card(_ check: Check) -> some View {
@@ -69,13 +77,16 @@ struct ItemRow: View {
             question: ask.question, check: check, answers: options.map(\.label),
             recommended: label(check.recommended), busy: action.isRunning ? tapped : nil,
             taking: taking ? $words : nil,
-            disabled: Set(options.filter { $0.takes != nil && words.isEmpty }.map(\.label)),
+            disabled: Set(
+                options.filter { ($0.takes == .note || $0.takes == .personOrName) && words.isEmpty }.map(\.label)),
             identify: { l in options.first { $0.label == l }.map { AID.askAnswer(ask.ref, $0.id) } },
             hasFailed: { if case .failed = action { true } else { false } }(),
             say: { l in
                 tapped = l
                 if l == "Later" {
                     Task { await life.later(ask.ref) }
+                } else if let option = options.first(where: { $0.label == l }), option.takes == .person {
+                    pickingFor = option.id
                 } else if let option = options.first(where: { $0.label == l }) {
                     Task {
                         await life.answer(

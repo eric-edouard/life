@@ -61,7 +61,8 @@ struct RootView: View {
                         thread: thread, screen: screen, actions: actions, topHeight: topHeight, fieldHeight: fieldHeight
                     )
                 } else {
-                    Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(80)
+                    Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(
+                        Metrics.Spacing.xxl)
                 }
             }
             .safeAreaInset(edge: .top) {
@@ -208,14 +209,15 @@ struct RootView: View {
             Button {
                 thread.ask("What's waiting on me?", screen: screen)
             } label: {
-                Text(life.waitingCount.map(String.init) ?? "·").font(.rowTitle).frame(width: 44, height: 44)
+                Text(life.waitingCount.map(String.init) ?? "·").font(.rowTitle).frame(
+                    width: Metrics.tapTarget, height: Metrics.tapTarget)
             }
             .accessibilityLabel("What's waiting on me")
             Spacer()
             Button {
                 sheet = .pendant
             } label: {
-                Image(systemName: "waveform").frame(width: 44, height: 44)
+                Image(systemName: "waveform").frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
             }
             .contextMenu { Button("Settings") { sheet = .settings } }
             .accessibilityLabel("Pendant")
