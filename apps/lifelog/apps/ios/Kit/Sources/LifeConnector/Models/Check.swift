@@ -3,7 +3,7 @@ import Library
 
 /// What a check is, for counting and for the card's look (`CheckGroup`, `core/names.ts`).
 public enum CheckGroup: String, UnknownTolerant, Sendable {
-    case decision, ending, name, voice
+    case decision, ending, name, voice, fix
     case contactsCard = "contacts card"
     case guessedPerson = "guessed person"
     case newMatter = "new matter"
@@ -403,7 +403,7 @@ extension Check {
         case .guessedPerson, .name, .voice, .contactsCard, .samePerson, .atOrganization:
             let name = networkIdentity?.shownName ?? askedName ?? contactsCard?.name ?? likelyPeople.first?.name
             return name.map { "Why \($0)?" } ?? "Why this person?"
-        case .decision, .unknown: return "Why it asks"
+        case .decision, .fix, .unknown: return "Why it asks"
         }
     }
 
