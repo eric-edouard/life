@@ -7,9 +7,9 @@ import SwiftUI
 struct LiveSettingsBlock: View {
     var keys: [String]?
     var offer: LifeBlock.Offer?
-    var say: (String) -> Void = { _ in }
+    /// Says the words to Life; whether it went.
+    var say: (String) -> Bool = { _ in false }
     var openSettings: () -> Void = {}
-    @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceID = false
     @State private var ticked: String?
     @State private var isOffered = false
 
@@ -26,9 +26,8 @@ struct LiveSettingsBlock: View {
             if let offer {
                 if !shown.isEmpty { Hairline() }
                 SettingSwitchRow(title: offer.label, isOn: isOffered, isTicked: ticked == offer.key) { _ in
-                    isOffered = true
-                    say(offer.label)
-                    tick(offer.key)
+                    isOffered = say(offer.label)
+                    if isOffered { tick(offer.key) }
                 }
             }
         }
@@ -37,20 +36,10 @@ struct LiveSettingsBlock: View {
     @ViewBuilder private func row(_ key: String) -> some View {
         switch key {
         case "faceid":
-            SettingSwitchRow(title: "Face ID before Send", isOn: asksFaceID, isTicked: ticked == key) {
-                asksFaceID = $0
-                tick(key)
-            }
+            FaceIDRow()
         default:
-            Button(action: openSettings) {
-                HStack {
-                    Text("Pair again with your Mac").font(.rowTitle)
-                    Spacer(minLength: 0)
-                    RowValue()
-                }
-                .frame(minHeight: Metrics.tapTarget + Metrics.Spacing.s).contentShape(.rect)
-            }
-            .buttonStyle(.plain)
+            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RowValue() } }
+                .buttonStyle(.plain)
         }
     }
 

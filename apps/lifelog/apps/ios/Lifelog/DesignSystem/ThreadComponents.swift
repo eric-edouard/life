@@ -297,6 +297,14 @@ struct RatingRow: View {
     }
 }
 
+/// An accessibility id only when there is one: an empty id would override the children's.
+private struct OptionalID: ViewModifier {
+    let id: String?
+    @ViewBuilder func body(content: Content) -> some View {
+        if let id { content.accessibilityIdentifier(id) } else { content }
+    }
+}
+
 /// A notice at the top of the thread, shaped as a row: a round icon, the title, one muted line. Opened it shows what
 /// to do about it in place (the settings block), never a button with a word (owner, 26 Nov 2026).
 struct NoticeBlock<Detail: View>: View {
@@ -324,7 +332,8 @@ struct NoticeBlock<Detail: View>: View {
                 }
                 .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
             }
-            .buttonStyle(.plain).accessibilityIdentifier(id ?? "")
+            .buttonStyle(.plain)
+            .modifier(OptionalID(id: id))
             if isOpen { detail }
         }
     }
