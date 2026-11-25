@@ -85,7 +85,11 @@ import {
 } from "./event-queue";
 import { firstTurnOf } from "./first-turns";
 import { gateCards } from "./gate";
-import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
+import {
+  endAgentsWithoutCard,
+  handOutNext,
+  openIntentions,
+} from "./hand-out-tick";
 import { MAIN_BRIEF } from "./main-session";
 import {
   endAgentsOnOverMatters,
@@ -99,6 +103,7 @@ import { standUp } from "./role-agents";
 import { blockOf, runnableAgentOf } from "./runtime-fallback";
 import { SessionLive } from "./runtimes/contract";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
+import { blankDeletedThreadEntries } from "./thread-deletions";
 import {
   endLostTurns,
   endUnbegunTurns,
@@ -672,7 +677,10 @@ interface SpendingStop {
   line: string;
 }
 
-/** What assignment `id`'s turns were billed, how many asked at its stop, and the last of those and of his answers. */
+/**
+ * What assignment `id`'s turns were billed, how many asked at its stop (a wake at it, or a turn it ended inside,
+ * `stopped_spending`), and the last of those and of his answers (one the stop ended inside answers nothing).
+ */
 const spentOf = (db: Desk["db"], id: string) =>
   db
     .query<
@@ -684,25 +692,27 @@ const spentOf = (db: Desk["db"], id: string) =>
       },
       [string, string]
     >(
-      "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1), 0) as stops, max(case when cause = ?1 then id end) as asked, max(case when cause = 'answer' then id end) as answered from turn where assignment_id = ?2"
+      "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1 or stopped_spending is not null), 0) as stops, max(case when cause = ?1 or stopped_spending is not null then id end) as asked, max(case when cause = 'answer' and stopped_spending is null then id end) as answered from turn where assignment_id = ?2"
     )
     .get(SPENDING_STOP, id);
 
 /**
  * Where assignment `s` stands against its spending stop (`spendingStopOf`), for a wake that is not his answer: `waits`
- * once it asked him at its stop and he has not answered; a stop to ask at when what its turns were billed reached the
- * stop again (each answer to a stop gives it one more); null otherwise. ponytail: read between turns, so a turn may
- * run past its stop by what one turn spends.
+ * once it asked him at its stop and he has not answered; a stop to ask at when what its turns were billed, and
+ * `turnUsd` (a running turn's so far, `spendingStopInTurn`), reached the stop again (each answer to a stop gives it one
+ * more); null otherwise.
  */
 async function spendingStopNow(
   db: Desk["db"],
   s: AssignmentRow,
-  monthly: number | undefined
+  monthly: number | undefined,
+  turnUsd = 0
 ): Promise<SpendingStop | "waits" | null> {
-  const r = spentOf(db, s.id);
-  if (!r) {
+  const spent = spentOf(db, s.id);
+  if (!spent) {
     return null;
   }
+  const r = { ...spent, usd: spent.usd + turnUsd };
   if (r.asked !== null && r.asked > (r.answered ?? 0)) {
     return "waits";
   }
@@ -729,6 +739,31 @@ async function spendingStopNow(
     : {
         line: `This work has been billed ${r.usd.toFixed(2)} dollars, past its spending stop of ${stop.toFixed(2)}. End this turn with what you have and ask one card about the work, not the money ("Finding a clinic is taking longer than usual. Keep going?"), with what was spent as its context's last line. Until it is answered, nothing wakes you but the answer.`,
       };
+}
+
+/**
+ * The spending stop inside agent `agent`'s running turn (pi's extension asks after each tool call: `/spending`), `usd`
+ * what the turn was billed so far: the stop's line, which ends the turn (the extension then runs only the door's tools,
+ * for its notes and its card), when its assignment reached its stop; null otherwise, and for the main session or no
+ * turn. The turn keeps its cause and counts as asked at its stop (`stopped_spending`), so only his answer wakes the work.
+ */
+export async function spendingStopInTurn(
+  { db }: Desk,
+  agent: string,
+  usd: number
+) {
+  const t = openTurn(db, agent);
+  const s = t && assignmentOf(db, t.assignment_id);
+  if (!(t && s) || agentOf(db, agent)?.role === "main") {
+    return null;
+  }
+  const stop = await spendingStopNow(db, s, monthBudgetOf()?.monthly, usd);
+  if (!stop || stop === "waits") {
+    return null;
+  }
+  db.run("update turn set stopped_spending = 1 where id = ?", [t.id]);
+  log("desk.turn", { agent, turn: t.id, what: "spending_stop.in_turn" });
+  return stop.line;
 }
 
 /**
@@ -774,7 +809,7 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, each move one step on (`advanceMoves`), his complaints for the caretaker and his spoken asks for their agent (before the hand-out may take the last place), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
+ * One tick of the clock: his word about his agents, each move one step on (`advanceMoves`), his complaints for the caretaker and his spoken asks for their agent (before the hand-out may take the last place), his intentions (`openIntentions`), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, what each runtime's block is, the messages, the calls that ended, the recordings, the
  * assignments whose matter is over for them, the fold (each matter to the agent that takes it), the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
@@ -789,7 +824,9 @@ export async function tick(desk: Desk, isPollDue = true) {
   await receiveSpokenAsks(desk, people).catch((error: unknown) =>
     log("desk.asks", { ...errorOf(error), ok: false })
   );
+  await openIntentions(desk);
   await handOutNext(desk);
+  blankDeletedThreadEntries(desk.db);
   pollAnswers(desk);
   // His Undo of an answer stops what it started; then the gate reads each new card (a failure delivers nothing yet).
   await stopWithdrawn(desk);

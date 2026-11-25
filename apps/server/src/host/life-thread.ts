@@ -1,9 +1,14 @@
 import type { Database } from "bun:sqlite";
 import { clock, DAY } from "../core/clock";
 import { readChangeStamp } from "../core/files";
+import { rateOffersOf } from "../memory/decision-after-answer";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
+import type {
+  DeletionCopy,
+  ThreadEntriesHolding,
+} from "../memory/delete-from-memory";
 import type { MatterView } from "../memory/matter-read";
 import {
   laterUntilOf,
@@ -20,9 +25,9 @@ import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
 // as they were delivered and answered (`decisions.jsonl`) and Life's own checks, merged by time, a few days a page. Never
-// a second copy: each item's state is worked out when read, by `itemStateOf` alone. An entry whose answer cites what he
-// deleted is hidden here, at read (memory cannot read the desk); the entry itself keeps a second copy of his words on
-// the Mac until it is removed (SECURITY.md).
+// a second copy: each item's state is worked out when read, by `itemStateOf` alone. An entry his deletion names
+// (`thread:<id>`) or whose answer cites what he deleted is hidden here, at read; the desk blanks the named ones in place
+// on its tick (`desk/thread-deletions.ts`), the only writer of its store.
 
 /** How many days of the thread a page holds. */
 const PAGE_DAYS = 3;
@@ -67,6 +72,7 @@ interface EntryRow {
   answered_at: string | null;
   asked_at: string;
   error: string | null;
+  follows: number | null;
   id: number;
   reactions: string;
   refs: string;
@@ -77,7 +83,7 @@ interface EntryRow {
 function entriesOf(db: Database, from: string, to: string) {
   const rows = db
     .query<EntryRow, [string, string]>(
-      "select id, asked_at, words, answer, error, refs, reactions, answered_at from thread_entry where asked_at >= ? and asked_at < ? and deleted_at is null order by asked_at"
+      "select id, asked_at, words, answer, error, refs, reactions, answered_at, follows from thread_entry where asked_at >= ? and asked_at < ? and deleted_at is null order by asked_at"
     )
     .all(from, to);
   const handed = db.query<
@@ -135,7 +141,10 @@ function matterStatuses() {
 }
 
 /** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
-const closedCardOf = (d: Decision) => ({
+const closedCardOf = (
+  d: Decision,
+  offers: ReturnType<typeof rateOffersOf>
+) => ({
   answer: d.answer
     ? {
         at: d.answer.at,
@@ -146,6 +155,8 @@ const closedCardOf = (d: Decision) => ({
   ask: d.ask ?? null,
   options: d.options.map(({ id, label }) => ({ id, label })),
   question: d.question,
+  /** "How am I doing?" on it (`rateOffersOf`): his mark so far, null when none; null when not asked. */
+  rate: offers.has(d.id) ? { mark: offers.get(d.id)?.mark ?? null } : null,
   sent: d.send?.kind === "sent" ? { at: d.send.at } : null,
   title: d.title,
   undo: undoOf(d),
@@ -172,6 +183,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const { entries, isOlder } =
     desk.state === "ok" ? desk.value : { entries: [], isOlder: false };
   const all = decisionsNow(now);
+  const offers = rateOffersOf(all);
   const cards = all.filter(
     (d) =>
       d.at >= from &&
@@ -191,12 +203,20 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const statuses = await matterStatuses();
   const items = [
     ...entries
-      .filter((e) => !(JSON.parse(e.refs) as string[]).some((r) => gone.has(r)))
+      .filter(
+        (e) =>
+          !(
+            gone.has(threadEntryRefOf(e.id)) ||
+            (JSON.parse(e.refs) as string[]).some((r) => gone.has(r))
+          )
+      )
       .map((e) => ({
         answer: e.answer,
         answeredAt: e.answered_at,
         at: e.asked_at,
         error: e.error,
+        // A late reply of an agent: the entry of his ask it follows (no words of his).
+        follows: e.follows,
         handed: e.handed,
         id: e.id,
         kind: "entry" as const,
@@ -209,7 +229,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
       const later = laterUntilOf(d.id, now);
       return {
         at: d.at,
-        card: check ?? closedCardOf(d),
+        card: check ?? closedCardOf(d, offers),
         kind: "ask" as const,
         later: later ?? null,
         ref: d.id,
@@ -250,3 +270,35 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     version,
   };
 }
+
+/** A thread entry's ref, as a deletion names it. */
+export const threadEntryRefOf = (id: number) => `thread:${id}`;
+
+/**
+ * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`): its preview's.
+ * Every entry is read: a deletion is rare and the thread small (ponytail: a scan; by day if it ever grows large).
+ */
+export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
+  const read = readDesk(
+    (db) =>
+      db
+        .query<
+          {
+            answer: string | null;
+            id: number;
+            refs: string;
+            words: string | null;
+          },
+          []
+        >(
+          "select id, words, answer, refs from thread_entry where deleted_at is null order by id"
+        )
+        .all(),
+    []
+  );
+  return (read.state === "ok" ? read.value : []).flatMap((e): DeletionCopy[] =>
+    holds([e.words, e.answer], JSON.parse(e.refs) as string[])
+      ? [{ id: threadEntryRefOf(e.id), kind: "thread entry" }]
+      : []
+  );
+};

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { ask as recordAsk } from "../host/asks";
-import { currentAssignmentOf } from "../host/desk-read";
+import { currentAssignmentOf, eventHeard } from "../host/desk-read";
 import { ASK_SPOKEN } from "../host/events";
 import { decisionsNow } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
@@ -279,5 +279,57 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     expect(text).toContain(
       'A wait can watch GitHub: `channels: ["github_activity"]` with `repo: "owner/name"`'
     );
+  }
+});
+
+test("the spending stop inside a turn: under it nothing; at it the line, the turn keeping its cause (his answer's stays woken) and counted as asked at its stop; a wrong key is refused", async () => {
+  const { setSettings } = await import("../core/settings");
+  setSettings({ budget: { monthlyUsd: 100 } });
+  try {
+    const id = register(desk, {
+      brief: "Test brief: a made-up bakery's order",
+      folder: dir,
+      runtime: "fake",
+    });
+    const s = on(desk, id).id;
+    // His answer to a card, queued, then the turn it woke.
+    desk.db.run(
+      "insert into event (assignment_id, event_id, name, payload, received_at) values (?, 'dec_000000000001.answered', 'decision.answered', '{}', ?)",
+      [s, clock().toISOString()]
+    );
+    desk.db.run(
+      "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, 'answer', ?)",
+      [id, s, clock().toISOString()]
+    );
+    const spent = (key: string, usd: number) =>
+      fetchDoor(
+        new Request(`http://127.0.0.1/spending/${id}`, {
+          body: JSON.stringify({ usd }),
+          headers: { authorization: `Bearer ${key}` },
+          method: "POST",
+        })
+      );
+    // 2% of the month's 100 dollars: a stop at 2.
+    expect(await (await spent(doorOf(id).key, 1.5)).json()).toEqual({
+      stop: null,
+    });
+    const { stop } = (await (await spent(doorOf(id).key, 2.5)).json()) as {
+      stop: string;
+    };
+    expect(stop).toContain("past its spending stop of 2.00");
+    expect(
+      desk.db
+        .query<{ cause: string; stopped_spending: number | null }, [string]>(
+          "select cause, stopped_spending from turn where agent_id = ?"
+        )
+        .all(id)
+    ).toEqual([{ cause: "answer", stopped_spending: 1 }]);
+    expect(eventHeard(desk.db, s, "dec_000000000001.answered")).toEqual({
+      by: id,
+      told: "woken",
+    });
+    expect((await spent("wrong", 9)).status).toBe(401);
+  } finally {
+    setSettings({ budget: null });
   }
 });

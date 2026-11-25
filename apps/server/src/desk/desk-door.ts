@@ -71,6 +71,7 @@ import {
 import { answerQuestion, readQuestion } from "./agent-questions";
 import { readApifyRun } from "./apify-reads";
 import { complaintWordsIn, readComplaint } from "./complaint-intake";
+import { spendingStopInTurn } from "./desk-clock";
 import type { Desk } from "./desk-store";
 import { doorOf, keyOf } from "./door-keys";
 import {
@@ -78,6 +79,7 @@ import {
   askLifeRefOf,
   askMainSession,
   assignmentRecordOf,
+  changedOn,
   hisWordsIn,
   keepAct,
   keepMainSession,
@@ -99,7 +101,7 @@ import { isCaretakerFix, turnRefusalOf } from "./turn-refusal";
 // already exists, and its reads of the desk (`MAIN_TOOLS`, `turn-refusal.ts`); everything else an agent does with its own tools.
 
 const BEARER = /^Bearer /;
-const DOOR_PATH = /^\/(mcp|guard)\/(agt_[0-9a-f]+)$/;
+const DOOR_PATH = /^\/(mcp|guard|spending)\/(agt_[0-9a-f]+)$/;
 const SESSION_PATH = /^\/session\/([\w-]{1,100})$/;
 const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
 
@@ -252,7 +254,10 @@ function doorServer(desk: Desk, id: string) {
         });
       }
       hisWordsOf(turn, said);
-      const asked = await requestDecision(OWNER_ASKER, ask);
+      const asked = await requestDecision(OWNER_ASKER, {
+        ...ask,
+        changed: changedOn(desk, turn?.id ?? -1, ask.changed),
+      });
       if (!(ask.withdraw || ask.keep)) {
         acted(turn, { card: asked.id, kind: "card" });
       }
@@ -293,7 +298,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "tell_agent",
-    "The main session only: his words (`said`, his own words of this ask, verbatim, never your summary) to one registered agent (`agent`, active), which works on them in a turn of its own (an `ask.spoken` event it reads with `read_spoken_ask`), `kind` the work it is (`redraft`, `reply`, `research`, `booking`, `lookup` or `other`: he sees it under way, with how long that kind takes), or `question`: his question about its work, its reply returned as data within a minute (else none: answer from `read_assignment`): on `to` when given (one of its open assignments, as `read_matter`'s agents give it: the matter he means, when it holds several), else its own assignment (the Personal agent's, a project's), else the one it works on now. The same words to the same place twice in one ask are told once. Returns where they went.",
+    "The main session only: his words (`said`, his own words of this ask, verbatim, never your summary) to one registered agent (`agent`, active), which works on them in a turn of its own (an `ask.spoken` event it reads with `read_spoken_ask`), `kind` the work it is (`redraft`, `reply`, `research`, `booking`, `lookup` or `other`: he sees it under way, with how long that kind takes), or `question`: his question about its work, its reply returned as data within a minute (else none: answer from `read_assignment`; its reply then follows in his thread): on `to` when given (one of its open assignments, as `read_matter`'s agents give it: the matter he means, when it holds several), else its own assignment (the Personal agent's, a project's), else the one it works on now. The same words to the same place twice in one ask are told once. Returns where they went.",
     z.object({
       agent: RegisteredAgentChange.shape.agent.unwrap(),
       kind: z.enum([...HANDED_KINDS, "question"]).optional(),
@@ -303,7 +308,7 @@ function doorServer(desk: Desk, id: string) {
     async ({ agent, kind, said, to }, _, turn) => {
       const words = hisWordsOf(turn, said);
       if (kind === "question") {
-        return await askAgent(desk, agent, words, to);
+        return await askAgent(desk, agent, words, turn?.id ?? -1, to);
       }
       const told = tellAgent(desk, agent, words, turn?.id ?? -1, to, kind);
       if (!("error" in told)) {
@@ -599,10 +604,19 @@ async function mainSessionFetch(
   });
 }
 
+/** `POST /spending/<agt_…>`: the spending stop's answer for agent `id`'s running turn, `{ usd }` billed so far. */
+async function spendingFetch(desk: Desk, id: string, req: Request) {
+  const { usd } = (await req.json()) as { usd?: unknown };
+  return typeof usd === "number" && usd >= 0
+    ? Response.json({ stop: await spendingStopInTurn(desk, id, usd) })
+    : text("not a spend", 400);
+}
+
 /**
  * The door's requests, each with that agent's key as a bearer (else 401, the same for an unknown agent and a wrong key):
  * `/mcp/<agt_…>`, its tools; `POST /guard/<agt_…>`, the send guard's answer for one tool call (`{ refusal }`, null when
- * it may run). And one without a key, for the Life plugin: `/session/<ref>`, the door of the agent whose session that
+ * it may run); `POST /spending/<agt_…>`, `{ usd }` its running turn was billed so far, the spending stop's answer
+ * (`{ stop }`, the line that ends the turn, null while under it: `spendingStopInTurn`). And one without a key, for the Life plugin: `/session/<ref>`, the door of the agent whose session that
  * is (`{ agent, key, url, matcher }`, the guard's tool matcher), else 404; by a loopback `Host` only, so no web page
  * reaches it. `MAIN_SESSION_PATH`, by the local key (`mainSessionFetch`). 404 for any other path.
  */
@@ -630,6 +644,9 @@ export function doorFetch(desk: Desk, readFacts = guardFacts) {
     const given = req.headers.get("authorization")?.replace(BEARER, "") ?? "";
     if (!(agentOf(desk.db, id) && same(given, keyOf(id)))) {
       return text("unauthorized", 401);
+    }
+    if (path === "spending") {
+      return await spendingFetch(desk, id, req);
     }
     if (path === "guard") {
       return Response.json({

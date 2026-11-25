@@ -9,6 +9,7 @@ import {
   readOwnerVoiceId,
   readVoiceNames,
 } from "../sources/lifelog-voices";
+import { HOME_LATER_FOR, isHomeLaterOf } from "./arrival-home";
 import {
   atOrganizationRefOf,
   readAtOrganizationPairs,
@@ -297,31 +298,39 @@ export function laterTimeOf(text: string) {
   return TIMES_OF_DAY.find(([re]) => re.test(text))?.[1];
 }
 
+/** His newest `later` instruction in force on check `c`, its words. */
+const laterInstructionOf = (c: Pick<Check, "matter">, now = clock()) =>
+  instructionsFor({ matter: c.matter?.id }, now)
+    .filter((i) => i.effect === "later")
+    .at(-1)?.text;
+
 /** Life's time for his Later before a deadline: 3 hours before it, never sooner than 30 minutes from now. */
 const BEFORE_DEADLINE_MS = 3 * 3_600_000;
 const SOONEST_MS = 30 * 60_000;
 
 /**
- * Until when his Later holds check `c` from `now`: the next time of day his newest `later` instruction on it names
- * (`laterTimeOf`), else tomorrow 9:00 where he is; sooner before its deadline. ponytail: "on arrival home" for a fix at
- * the Mac waits for the fix asks (bundle E) and a place in the `deferred` line.
+ * Until when his Later holds check `c` from `now`: 24 hours when his newest `later` instruction on it names home
+ * (`isHomeLaterOf`: his arrival home ends it sooner), else the next time of day it names (`laterTimeOf`), else tomorrow
+ * 9:00 where he is; sooner before its deadline.
  */
 export function laterOf(
   c: Pick<Check, "deadline" | "matter">,
   now = clock(),
-  instruction = instructionsFor({ matter: c.matter?.id }, now)
-    .filter((i) => i.effect === "later")
-    .at(-1)?.text
+  instruction = laterInstructionOf(c, now)
 ) {
   const today = dayNow(now);
   const time = instruction && laterTimeOf(instruction);
   const at = (day: string, hm: string) =>
     dayStart(day, undefined, hm).getTime();
-  const next = time
+  const nextAt = time
     ? [at(today, time), at(daysBefore(today, -1), time)].find(
         (t) => t > now.getTime()
       )
     : at(daysBefore(today, -1), "09:00");
+  const next =
+    instruction && isHomeLaterOf(instruction)
+      ? now.getTime() + HOME_LATER_FOR
+      : nextAt;
   const due = c.deadline
     ? Math.max(
         Date.parse(c.deadline) - BEFORE_DEADLINE_MS,
@@ -342,8 +351,20 @@ const monthEndOf = (now = clock()) => {
 };
 
 /** His Later on check `c`: one `deferred` correction by its ref, until Life's time (`laterOf`). */
-const deferOf = (c: Check, a: CheckAnswer) =>
-  correct([{ kind: "deferred", ref: c.ref, until: laterOf(c) }], a);
+const deferOf = (c: Check, a: CheckAnswer) => {
+  const instruction = laterInstructionOf(c);
+  return correct(
+    [
+      {
+        kind: "deferred",
+        ref: c.ref,
+        until: laterOf(c, clock(), instruction),
+        ...(instruction && isHomeLaterOf(instruction) ? { home: true } : {}),
+      },
+    ],
+    a
+  );
+};
 
 /** The open matter a your move card is on, as it reads now: the one it named (`matter`), else the one holding its step. */
 async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {

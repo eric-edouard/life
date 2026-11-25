@@ -1,24 +1,32 @@
 import { randomBytes } from "node:crypto";
 import { clock, MIN } from "../core/clock";
+import { log } from "../core/log";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import type { Desk } from "./desk-store";
 import { queue } from "./event-queue";
+import { checkedTextOf } from "./main-session-lines";
 
 // The main session's question to an agent about its matter (agents together, his yes of 25 Nov 2026): the agent's
 // side. One turn at once (`main_question`, woken like his answer), his words read at the door as data
 // (`readQuestion`), the reply handed back (`answerQuestion`); research stays in the agent's context. Its `finish` and
-// `set_wait` are refused while his words are unread (`turnRefusalOf`).
+// `set_wait` are refused while his words are unread (`turnRefusalOf`). A reply past `QUESTION_WAIT`, once the main
+// session answered from the record, lands in his thread as an entry that follows his ask (`follows`, v4.1); a question
+// stays answerable until a turn of its assignment that began after it ends.
 
 /** The event a question queues, and its turn's cause. */
 export const MAIN_QUESTION = "main_question";
 
-/** How long a question waits for its reply: the main session answers from the record past it, and the question goes. */
+/** How long the main session waits for a question's reply: past it, it answers from the record and the reply comes later. */
 export const QUESTION_WAIT = MIN;
 
 interface Question {
   assignment: string;
-  /** When it was asked (ms). */
-  at: number;
+  /** When it was asked. */
+  at: string;
+  /** His thread entry it was asked from, which a late reply follows. */
+  entry: number | null;
+  /** Whether the main session stopped waiting for it (`QUESTION_WAIT`): its reply then lands as an entry of its own. */
+  isLate: boolean;
   isRead: boolean;
   reply: PromiseWithResolvers<string>;
   words: string;
@@ -27,12 +35,15 @@ interface Question {
 // ponytail: held in the desk helper's memory, as the main session's wait is: a restart drops an unanswered question
 // (its turn then reads nothing); store them if questions must outlive a restart.
 const held = new WeakMap<Desk["db"], Map<string, Question>>();
-/** The questions still waiting for their reply: one past `QUESTION_WAIT` goes, so its agent is never held by it. */
+/** The questions still answerable: one goes once a turn of its assignment that began after it ended, so its agent is never held by it. */
 const questionsOf = (db: Desk["db"]) => {
   const q = held.get(db) ?? new Map<string, Question>();
   held.set(db, q);
+  const ended = db.query(
+    "select 1 from turn where assignment_id = ? and started_at >= ? and ended_at is not null limit 1"
+  );
   for (const [id, x] of q) {
-    if (clock().getTime() - x.at > QUESTION_WAIT) {
+    if (ended.get(x.assignment, x.at)) {
       q.delete(id);
     }
   }
@@ -40,12 +51,17 @@ const questionsOf = (db: Desk["db"]) => {
 };
 
 /**
- * Asks open assignment `assignment` his words `words` (the main session's, found in his ask): queues `main_question`,
- * which wakes its agent at once. Its id and the reply, which settles when the agent answers (`answerQuestion`) within
- * `QUESTION_WAIT`; past it the question goes and never settles. Refused for an assignment not open, or the main
- * session's own.
+ * Asks open assignment `assignment` his words `words` (the main session's, found in his ask of thread entry `entry`):
+ * queues `main_question`, which wakes its agent at once. Its id, the reply, which settles when the agent answers
+ * (`answerQuestion`) before `late` is called, and `late`: the main session stops waiting, so a reply after it is an
+ * entry of its own that follows `entry`. Refused for an assignment not open, or the main session's own.
  */
-export function askAssignment(desk: Desk, assignment: string, words: string) {
+export function askAssignment(
+  desk: Desk,
+  assignment: string,
+  words: string,
+  entry: number | null = null
+) {
   const s = assignmentOf(desk.db, assignment);
   const a = s && agentOf(desk.db, s.agent_id);
   if (
@@ -58,17 +74,26 @@ export function askAssignment(desk: Desk, assignment: string, words: string) {
   }
   const id = `q_${randomBytes(6).toString("hex")}`;
   const reply = Promise.withResolvers<string>();
-  questionsOf(desk.db).set(id, {
+  const q: Question = {
     assignment,
-    at: clock().getTime(),
+    at: clock().toISOString(),
+    entry,
+    isLate: false,
     isRead: false,
     reply,
     words,
-  });
+  };
+  questionsOf(desk.db).set(id, q);
   queue(desk.db, MAIN_QUESTION, [
     { assignment, eventId: id, payload: { question: id } },
   ]);
-  return { id, reply: reply.promise };
+  return {
+    id,
+    late: () => {
+      q.isLate = true;
+    },
+    reply: reply.promise,
+  };
 }
 
 /** Question `id` of assignment `s`, or why not. */
@@ -87,16 +112,36 @@ export function readQuestion({ db }: Desk, s: { id: string }, id: string) {
   return { words: q.words };
 }
 
-/** `answer_question`: the agent's reply to question `id`, handed to the main session; the question is done. */
-export function answerQuestion(
+/**
+ * `answer_question`: the agent's reply to question `id`, handed to the main session; or, once it stopped waiting, a
+ * thread entry of the reply alone (its blocks checked, `checkedTextOf`) that follows his ask, while that entry stands
+ * (none for an ask with no entry, or one deleted or blanked). The question is done.
+ */
+export async function answerQuestion(
   { db }: Desk,
   s: { id: string },
   id: string,
   text: string
 ) {
-  questionOf(db, s, id).reply.resolve(text);
+  const q = questionOf(db, s, id);
   questionsOf(db).delete(id);
-  return { answered: id };
+  if (!q.isLate) {
+    q.reply.resolve(text);
+    return { answered: id };
+  }
+  if (q.entry !== null) {
+    const checked = await checkedTextOf(db, text);
+    const now = clock().toISOString();
+    if (!checked.text) {
+      return { answered: id, late: true };
+    }
+    db.run(
+      "insert into thread_entry (asked_at, answer, refs, answered_at, follows) select ?1, ?2, ?3, ?1, id from thread_entry where id = ?4 and deleted_at is null",
+      [now, checked.text, JSON.stringify(checked.refs), q.entry]
+    );
+    log("desk.turn", { entry: q.entry, what: "question.late_reply" });
+  }
+  return { answered: id, late: true };
 }
 
 /** Whether assignment `s` holds a question whose words its agent has not read: it may not end its turn yet. */

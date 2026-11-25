@@ -2,9 +2,15 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
+import { appendJsonl } from "../core/files";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
+import { rateDecision } from "../memory/decision-after-answer";
+import { recordDelivered } from "../memory/decision-delivery";
 import { DECISIONS } from "../memory/decision-lines";
+import { answerDecision, requestDecision } from "../memory/decisions";
+import { CORRECTIONS } from "../memory/memory-files";
+import { Correction } from "../records/observation";
 import { expectWire } from "./http/wire-fixture";
 import { itemStateOf, readThread } from "./life-thread";
 
@@ -20,7 +26,7 @@ beforeEach(async () => {
   // Only the tables the thread reads, as the desk's store has them.
   db = new Database(DESK_STORE, { create: true, strict: true });
   db.run(
-    "create table thread_entry (id integer primary key, ask_key text unique, asked_at text not null, words text, screen text, turn_id integer, answer text, error text, refs text not null default '[]', reactions text not null default '[]', answered_at text, deleted_at text)"
+    "create table thread_entry (id integer primary key, ask_key text unique, asked_at text not null, words text, screen text, turn_id integer, answer text, error text, refs text not null default '[]', reactions text not null default '[]', answered_at text, deleted_at text, follows integer)"
   );
   db.run(
     "create table handed_work (entry_id integer, assignment_id text, kind text, handed_at text)"
@@ -119,5 +125,76 @@ test("an entry whose answer cites what he deleted is hidden; a blanked entry is 
   expectWire("read_thread", { ...page, version: "fixed" }, true);
   expect(await readThread({ ifNot: page.version })).toMatchObject({
     unchanged: true,
+  });
+});
+
+test("an agent's late reply is an entry of its own that follows his ask", async () => {
+  entry("How is the boiler going?", []);
+  db.run(
+    "insert into thread_entry (asked_at, answer, answered_at, follows) values (?1, 'The plumber comes Thursday.', ?1, 1)",
+    [new Date(Date.now() - 30_000).toISOString()]
+  );
+  const page = (await readThread()) as {
+    items: { follows?: number | null; words?: string | null }[];
+  };
+  expect(page.items.map((i) => [i.words, i.follows])).toEqual([
+    ["How is the boiler going?", null],
+    [null, 1],
+  ]);
+  expectWire("read_thread_late_reply", { ...page, version: "fixed" }, true);
+});
+
+test("an entry his deletion names is hidden at read, before the desk blanks it", async () => {
+  entry("Where is the spare key?", []);
+  appendJsonl(CORRECTIONS, Correction, [
+    {
+      at: new Date().toISOString(),
+      cuts: [],
+      kind: "deleted",
+      oldHashes: [],
+      refs: ["thread:1"],
+      said: "0123456789abcdef",
+      schemaVersion: 1,
+      shown: [],
+      withSources: false,
+    },
+  ]);
+  try {
+    const page = await readThread();
+    expect("items" in page && page.items).toEqual([]);
+  } finally {
+    rmSync(CORRECTIONS, { force: true });
+  }
+});
+
+test("How am I doing? shows on the first card he answered in the app that day, with his mark", async () => {
+  const now = new Date(Date.now() - 3_600_000);
+  const { id } = await requestDecision(
+    "desk",
+    {
+      agent: "agt_0123456789ab",
+      ask: "Pick a day for the plumber",
+      context: "A made-up reason to ask.",
+      deadline: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      follow: [],
+      onSilence: null,
+      options: [
+        { id: "tue", label: "Tuesday" },
+        { id: "wed", label: "Wednesday" },
+      ],
+      question: "Which day suits you?",
+      recommended: "tue",
+      title: "Book the plumber",
+    },
+    now
+  );
+  recordDelivered(id, { rules: ["good moment"], verdict: "deliver" }, now);
+  await answerDecision(id, ["tue"], undefined, { now, via: "connector" });
+  rateDecision(id, "good", now);
+  const page = (await readThread()) as {
+    items: { card: { rate?: unknown }; ref?: string }[];
+  };
+  expect(page.items.find((i) => i.ref === id)?.card.rate).toEqual({
+    mark: "good",
   });
 });

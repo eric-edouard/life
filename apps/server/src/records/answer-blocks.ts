@@ -66,10 +66,23 @@ const BLOCKS = {
       }),
     since: 1,
   },
-  /** Life's settings, drawn by the phone (`keys`: only those; none: all). */
+  /**
+   * Life's settings, drawn by the phone (`keys`: only those; none: all); `offer`, one setting offered at the moment it
+   * helps, drawn as a single switch: `key` the setting, `label` the question ("Keep Sam quiet until Monday?"), sent as
+   * his words on a tap. Each setting is offered once (`desk/main-session.ts`).
+   */
   settings: {
     body: z
-      .object({ keys: z.array(z.string().min(1).max(60)).max(20).optional() })
+      .object({
+        keys: z.array(z.string().min(1).max(60)).max(20).optional(),
+        offer: z
+          .object({
+            key: z.string().min(1).max(60),
+            label: z.string().trim().min(1).max(80),
+          })
+          .strict()
+          .optional(),
+      })
       .strict(),
     since: 1,
   },

@@ -4,6 +4,7 @@ import { localTime, time } from "../memory/zones";
 import { readCalendarEvents } from "../sources/google-calendar-events";
 import { lifelogStatus, newestTurn, whereAt } from "../sources/lifelog";
 import { lifelogMissing } from "../sources/lifelog-call";
+import { readDesk } from "./desk-read";
 
 // What he is doing now, in place of fixed quiet hours (the v4 plan, verdict 12): one line from the signals Life has,
 // for wherever Life chooses a moment (the gate first). Each signal read on its own; one that can't be read is left out,
@@ -15,6 +16,8 @@ const PHONE_FRESH = 20 * MIN;
 const TALKING_WITHIN = 5 * MIN;
 /** A stay that began this recently: he has just arrived. */
 const ARRIVED_WITHIN = 15 * MIN;
+/** His last ask of Life this recently: Life's app is open in his hand, so now is free. */
+const APP_OPEN_WITHIN = 2 * MIN;
 /** One signal waits this long at most: the gate has 10 seconds in all. */
 const SIGNAL_MS = 4000;
 
@@ -85,9 +88,26 @@ async function placeLine(now: Date) {
     : null;
 }
 
+/** When he last asked Life from his phone (the newest thread entry), if within `APP_OPEN_WITHIN` of `now`; the desk off or unread, none. */
+export function appOpenSinceOf(now = clock()) {
+  const read = readDesk(
+    (db) =>
+      db
+        .query<{ at: string | null }, []>(
+          "select max(asked_at) as at from thread_entry"
+        )
+        .get()?.at ?? null,
+    null
+  );
+  const at = read.state === "ok" ? read.value : null;
+  return at && now.getTime() - Date.parse(at) <= APP_OPEN_WITHIN
+    ? at
+    : undefined;
+}
+
 /**
- * What he is doing now, as one line for a model: the local time where he is, then each signal that holds (a calendar event, a
- * Focus, a call, talking, just arrived or between places). Never throws: a signal that fails is left out.
+ * What he is doing now, as one line for a model: the local time where he is, Life's app open (`appOpenSinceOf`: free),
+ * then each signal that holds (a calendar event, a Focus, a call, talking, just arrived or between places). Never throws: a signal that fails is left out.
  */
 export async function ownerStateNow(now = clock()) {
   const isVoice = !lifelogMissing();
@@ -100,5 +120,12 @@ export async function ownerStateNow(now = clock()) {
   const signals = read.flatMap((r) =>
     r.status === "fulfilled" && r.value ? [r.value].flat() : []
   );
-  return [`local time ${localTime(now.toISOString())}`, ...signals].join("; ");
+  const open = appOpenSinceOf(now);
+  return [
+    `local time ${localTime(now.toISOString())}`,
+    ...(open
+      ? [`has Life's app open (asked Life at ${time(open)}): free`]
+      : []),
+    ...signals,
+  ].join("; ");
 }

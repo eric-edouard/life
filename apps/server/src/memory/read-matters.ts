@@ -529,7 +529,7 @@ export const readMatterProjectIds = async (
 
 /**
  * What a packet reads of the matters, from one book: the matter `refs` find (`oneMatter`, `prefer` the matter it was given; none for an agent on its
- * project), the ids of its projects with the agent's own `project`, and each one's situation text (`readProjectSituationsNow`), in order.
+ * project), the ids of its projects with the agent's own `project`, and each one's situation text (`readProjectSituationsNow`), in order; and the book.
  */
 export async function readPacketMatter(
   refs: readonly string[],
@@ -546,6 +546,7 @@ export async function readPacketMatter(
     ]),
   ];
   return {
+    book,
     ids: projectIds,
     matter: isOnProject ? undefined : await oneMatter(refs, { book, prefer }),
     situations: readProjectSituationsNow(truth, projectIds, book),

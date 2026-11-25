@@ -84,7 +84,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`isDeleted`; `oldHashes` never holds a chapter unit's, which is never read again). `deletionsNow` reads his corrections once
   per process; a send path reads the source raw, as he approved it (`draft-send.ts`).
   Its one door is `deleteFromMemory` (his token, the main session on his words, `bun life memory delete`), which previews the
-  exact set and writes only on its digest, then reads its days again. The words themselves stay where their sources hold them
+  exact set and writes only on its digest, then reads its days again. It also names the copies holding the words outside
+  `memory/`: his instructions quoting them (their ids, hidden at read by `instructionsFor`) and the Life thread's entries
+  (`thread:<id>`, listed in the preview but outside its digest, hidden at read by `readThread` and blanked in place by the
+  desk on its tick, `desk/thread-deletions.ts`; an answer never writes back onto one). The words themselves stay where their sources hold them
   (lifelog, the archive, the backups, the git history): purging them needs code that does not exist (SECURITY.md).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his fact-check answers and corrections cite them, and a re-read
@@ -108,7 +111,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`isAppState`); `openDesk` never migrates and refuses a store of the old shape. A new table rewrites no row and needs no step: `SCHEMA` makes it when the store opens (`card` and `handed_step`, Agents PR 2, #749; `thread_entry` and `handed_work`, v4). Today `desk/store-step.ts`: `stepStore`
   (agents and matters, PR 1: assignments), then `stepRoles` (the Personal flag becomes `agent.role`, his yes of 20 Nov
   2026), then `stepTurnModel` (`turn.model`, what a turn ran on, for model spending; decision 83), then `stepMatterIds`
-  (`assignment.matter_id`, the matter he chose, life#826), then `stepMoves` (a move's tables and `turn.move`; Direction's OK of 20 Nov 2026 (desk state, not his memory; decision 78)), then `stepRoleCheck` (the agents' role check goes: a role is code's list, `AgentRole`, so the main session's needs no step of its own; Direction's brief of 21 Nov 2026 for Ask Life), then `stepTurnSearchCost` (`turn.search_usd`, what a turn's web searches cost, apart from its models; his yes of 22 Nov 2026 to Spending's separate rows), each with its own check and its own dated copy, each deleted once it has run on his store.
+  (`assignment.matter_id`, the matter he chose, life#826), then `stepMoves` (a move's tables and `turn.move`; Direction's OK of 20 Nov 2026 (desk state, not his memory; decision 78)), then `stepRoleCheck` (the agents' role check goes: a role is code's list, `AgentRole`, so the main session's needs no step of its own; Direction's brief of 21 Nov 2026 for Ask Life), then `stepTurnSearchCost` (`turn.search_usd`, what a turn's web searches cost, apart from its models; his yes of 22 Nov 2026 to Spending's separate rows), then `stepFollowsAndStops` (`thread_entry.follows`, the ask an agent's late reply follows, and `turn.stopped_spending`, a turn the spending stop ended inside; the v4.1 plan), each with its own check and its own dated copy, each deleted once it has run on his store.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `instructions.jsonl` (his instructions, one synchronous append: `recordInstruction`, his yes of 25 Nov 2026), `decisions.jsonl`'s lines (one synchronous append), `files.jsonl`'s lines (one synchronous append; one line per ref and prompt version), the arrival reader's and the voice naming on arrival's `read-replies/` lines (one synchronous append each), `appointment-events.jsonl` (the calendar sync's lines, each tick, and his Remove and Undo from the connector or the main session, all in one chain across processes: `inTurn`, `oneAtATimeAcross`), `complaints.jsonl` (one synchronous append per complaint: `recordComplaints`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive, the watcher and the desk each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`); the desk never takes the memory lock.
@@ -157,7 +160,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words or his complaint open one, never again after its last one never began until his next words or complaint (they
   take two of the desk's 50 active places); and on a confirmed arrival or his spoken ask no matter's agent takes, with no
   Personal agent active or stopped, the desk registers it (Direction's ruling of 21 Nov 2026, under his word that every
-  ask reaches an agent): one at most, never a second (`desk/role-agents.ts`, the one start of a standing role). A matter is never an agent of its own: it is an assignment of the agent that takes it (`agentForOf`: the
+  ask reaches an agent): one at most, never a second (`desk/role-agents.ts`, the one start of a standing role). An intention he gave through the main session (an `intention` instruction) opens one assignment on a standing agent, once, anchored on it, closed when it is replaced or its `until` passes; it starts no agent (`openIntentions`, `desk/hand-out-tick.ts`). A matter is never an agent of its own: it is an assignment of the agent that takes it (`agentForOf`: the
   oldest active agent of the project it shows under, his `matter-project` word first, else the Personal agent; several
   agents on one project is fine), given on his Start or by the hand-out, within his pace setting `desk.handOut`, on a
   running matter from the top of his ranking that involves someone he knows or holds a step he said himself
@@ -226,7 +229,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   no line (`hearVoiceNotes`: a line of `memory/files.jsonl`, Thai turns through Scribe once per note); that is Life
   reading what was said, not an act.
 - **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
-  on loopback only, one key per registered agent (with its guard's answer, `/guard`, and the Life plugin's lookup of
+  on loopback only, one key per registered agent (with its guard's answer, `/guard`, its spending stop's answer inside a pi turn, `/spending`, and the Life plugin's lookup of
   an agent's session, `/session`, by a loopback `Host` only; and `/main-session`, his Ask Life words from the connector, behind the local key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.

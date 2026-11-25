@@ -1,5 +1,6 @@
 import { MIN } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
+import { isRedraftOf } from "./card-request";
 import {
   DECISIONS_VERSION,
   type Decision,
@@ -110,16 +111,21 @@ export function heldChatOf(
 }
 
 /**
- * The cards a redraft (`changed: edit`) by `asker` into `draft`'s chat takes the place of at once: its asker's own pending
- * cards there (no agent withdraws another's card). None, so it is asked as any card, while a send runs there, another
- * asker's card is pending there, or it has none of its own there.
+ * The cards a redraft (`changed` says `edit:tap` or `edit:words`, `isRedraftOf`) by `asker` into `draft`'s chat takes
+ * the place of at once: its asker's own pending cards there (no agent withdraws another's card). None, so it is asked
+ * as any card, for a card that is no redraft, or while a send runs there, another asker's card is pending there, or it
+ * has none of its own there.
  */
 export function editReplacesOf(
   list: Decision[],
+  changed: readonly string[] | undefined,
   draft: StoredDraft | undefined,
   asker: Asker,
   isSending: (d: Decision) => boolean
 ) {
+  if (!isRedraftOf(changed)) {
+    return;
+  }
   const same = list.filter((d) => isSameChat(d, { draft }));
   const pending = same.filter(isPending);
   const own = pending.filter((d) => isSameAsker(d, asker));

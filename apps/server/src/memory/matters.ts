@@ -23,6 +23,7 @@ import {
   todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
 import { endingsRead } from "./endings";
+import { readHomeArrival } from "./home-arrival";
 import {
   episodeAt,
   type MatterStepNow,
@@ -179,12 +180,28 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 interface HisPins {
   /** His Later on any check (`deferred`): its `until` by the check's ref, the latest for a ref. */
   deferred: Map<string, string>;
+  /** Of those, the ones whose latest line waits for his arrival home (`home`): when it was written, by the same key. */
+  deferredHome: Map<string, string>;
   directions: DirectionPin[];
   icons: IconPin[];
   important: ImportantPin[];
   projects: ProjectPin[];
   /** His Reopens (`matter-reopened`), for `reopenedAtOf`. */
   reopened: Correction[];
+}
+
+/** His Later on a check, the latest for its key; one that waits for home is kept apart too (`deferredHome`). */
+function addDeferred(
+  pins: HisPins,
+  c: Extract<Correction, { kind: "deferred" }>
+) {
+  const key = laterKeyOf(c.ref);
+  pins.deferred.set(key, c.until);
+  if (c.home) {
+    pins.deferredHome.set(key, c.at);
+  } else {
+    pins.deferredHome.delete(key);
+  }
 }
 
 /** A correction's pin: when, its steps and the matter's id when it was written. */
@@ -217,6 +234,7 @@ export function readMatterPins() {
     Correction,
     (last?: HisPins) => ({
       deferred: new Map(last?.deferred),
+      deferredHome: new Map(last?.deferredHome),
       directions: [...(last?.directions ?? [])],
       icons: [...(last?.icons ?? [])],
       important: [...(last?.important ?? [])],
@@ -238,7 +256,7 @@ export function readMatterPins() {
       } else if (c.kind === "matter-project") {
         pins.projects.push({ ...pinOf(c), project: c.project });
       } else if (c.kind === "deferred") {
-        pins.deferred.set(laterKeyOf(c.ref), c.until);
+        addDeferred(pins, c);
       } else if (c.kind === "matter-reopened") {
         pins.reopened.push(c);
       }
@@ -260,10 +278,17 @@ export function readMatterPins() {
 const MOVE_STEP = /^(move:[^/]*)\/.*$/;
 const laterKeyOf = (ref: string) => ref.replace(MOVE_STEP, "$1");
 
-/** Until when his Later holds check `ref` at `now` (its latest `deferred`), or undefined once it passed or when none does. */
+/** Until when his Later holds check `ref` at `now` (its latest `deferred`), or undefined once it passed (or, waiting for home, he got there) or when none does. */
 export function laterUntilOf(ref: string, now = clock()) {
-  const until = readMatterPins().deferred.get(laterKeyOf(ref));
-  return until && Date.parse(until) > now.getTime() ? until : undefined;
+  const pins = readMatterPins();
+  const key = laterKeyOf(ref);
+  const until = pins.deferred.get(key);
+  if (!until || Date.parse(until) <= now.getTime()) {
+    return;
+  }
+  // A Later that waits for home ends at his first arrival home after it (`recordArrivalHome`).
+  const home = pins.deferredHome.get(key);
+  return home && (readHomeArrival() ?? "") > home ? undefined : until;
 }
 
 /**

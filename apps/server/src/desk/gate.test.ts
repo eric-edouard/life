@@ -7,6 +7,7 @@ import { HOUR, iso } from "../core/clock";
 import * as deskRead from "../host/desk-read";
 import { DECISIONS } from "../memory/decision-lines";
 import { decisionsNow, requestDecision } from "../memory/decisions";
+import { replyHourOf } from "../memory/exchange-counts";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as run from "../memory/run";
 import { openDesk } from "./desk-store";
@@ -118,6 +119,70 @@ test("never held past 12 hours (or the batch moment), nor into the 3 hours befor
   ).toMatchObject({ until: at(2) });
   expect(verdict({ goodMoment: false }, { deadline: at(2) })).toBe("deliver");
   expect(verdict({}, { effect: "quiet" })).toBe("hold");
+});
+
+test("a draft into a chat he answers in batches waits for his reply hour, within 12 hours; Life's app open is a free moment", () => {
+  const facts = { deadline: at(48), now, wasSentBack: false };
+  expect(
+    gateVerdictOf({
+      ...facts,
+      readings: fine,
+      replyAt: now.getTime() + 5 * HOUR,
+    })
+  ).toMatchObject({ rules: ["reply time"], until: at(5), verdict: "hold" });
+  expect(
+    gateVerdictOf({
+      ...facts,
+      readings: fine,
+      replyAt: now.getTime() + 14 * HOUR,
+    })
+  ).toMatchObject({ verdict: "deliver" });
+  expect(
+    gateVerdictOf({
+      ...facts,
+      deadline: at(6),
+      readings: fine,
+      replyAt: now.getTime() + 5 * HOUR,
+    })
+  ).toMatchObject({ until: at(3) });
+  expect(
+    gateVerdictOf({
+      ...facts,
+      readings: { ...fine, urgency: "high" },
+      replyAt: now.getTime() + 5 * HOUR,
+    }).verdict
+  ).toBe("deliver");
+  expect(
+    gateVerdictOf({
+      ...facts,
+      isAppOpen: true,
+      readings: { ...fine, goodMoment: false },
+    }).verdict
+  ).toBe("deliver");
+});
+
+test("his reply hour: a median of his answers' hours, only when he answers in batches", () => {
+  const row = (hour: number, wait: number) => ({
+    days: ["2026-11-20"],
+    got: 1,
+    gotDeleted: 0,
+    heOpened: false,
+    hisAnswerHours: [hour],
+    hisWaits: [wait],
+    sent: 1,
+    sentDeleted: 0,
+    start: at(-24),
+    theirWaits: [],
+  });
+  const batched = [20, 21, 21, 22, 21].map((h) => row(h, 300));
+  expect(replyHourOf(batched, now)).toBe(21);
+  expect(replyHourOf(batched.slice(0, 4), now)).toBeUndefined();
+  expect(
+    replyHourOf(
+      [20, 21, 21, 22, 21].map((h) => row(h, 10)),
+      now
+    )
+  ).toBeUndefined();
 });
 
 test("a batch instruction's next moment, in his zone", () => {

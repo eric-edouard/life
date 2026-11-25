@@ -53,6 +53,7 @@ import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 import { firstTurnOf } from "./first-turns";
 import { FIRST_TURN_WAIT } from "./hand-out";
+import { intentionLineOf, othersOnProjectsOf } from "./packet-records";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row
@@ -689,6 +690,10 @@ async function subjectLineOf(
   if (a.role === "caretaker") {
     return "Your subject: Life's data. Your work is his complaints, each a `complaint.received` event naming one (`read_complaint`); you hold no matter.";
   }
+  const intention = intentionLineOf(steps);
+  if (intention) {
+    return intention;
+  }
   return isOnProject && a.project
     ? await projectLinesOf(a.project)
     : `Your subject, the matter as read now (\`read_matter\` with ${matter?.id ?? steps[0] ?? "its step"} reads it again):\n${JSON.stringify(matter ?? `No matter holds ${steps.join(", ")} now.`)}`;
@@ -717,7 +722,7 @@ export async function readPacket(
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
   const truth = await loadTruth();
-  const { ids, matter, situations } = await readPacketMatter(
+  const { book, ids, matter, situations } = await readPacketMatter(
     steps,
     a.project,
     isOnProject,
@@ -733,9 +738,15 @@ export async function readPacket(
   const projects = ids.map((p, i) =>
     projectContextOf(truth, p, situations[i] ?? "")
   );
+  const others = othersOnProjectsOf(db, s, ids, book);
   return [
     await subjectLineOf(a, isOnProject, matter, steps),
     ...projects.flat(),
+    ...(others.length > 0
+      ? [
+          `The other work under the same project, read-only (never their sessions):\n${others.join("\n")}`,
+        ]
+      : []),
     ...(desk.runtimes[a.runtime]?.pinsRules ? [] : [rulesOf(a, isOwn)]),
     firstTurnOf(db, a, s).trim(),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
@@ -798,6 +809,10 @@ export async function matterRecordOf(
   turn: number
 ) {
   const anchors = anchorsOf(db, s.id);
+  const intention = intentionLineOf(anchors);
+  if (intention) {
+    return `${intention}\nYour notes on it:\n${clip(readNotes(s), RECORD_NOTES_CHARS) || "(none yet)"}`;
+  }
   const m = await oneMatter(anchors, { prefer: s.matter_id ?? undefined });
   const handed = handedSteps(db, s.id);
   const fresh = (m?.steps ?? []).filter((x) => !handed.has(x.ref));

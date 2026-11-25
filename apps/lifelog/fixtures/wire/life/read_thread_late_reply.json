@@ -1,0 +1,32 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "answer": "An answer.",
+      "answeredAt": "2026-11-18T10:00:00.000Z",
+      "at": "2026-11-18T10:00:00.000Z",
+      "error": null,
+      "follows": null,
+      "handed": [],
+      "id": 1,
+      "kind": "entry",
+      "reactions": [],
+      "refs": [],
+      "words": "How is the boiler going?"
+    },
+    {
+      "answer": "The plumber comes Thursday.",
+      "answeredAt": "2026-11-18T10:00:00.000Z",
+      "at": "2026-11-18T10:00:00.000Z",
+      "error": null,
+      "follows": 1,
+      "handed": [],
+      "id": 2,
+      "kind": "entry",
+      "reactions": [],
+      "refs": [],
+      "words": null
+    }
+  ],
+  "version": "fixed"
+}

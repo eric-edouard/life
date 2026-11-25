@@ -254,9 +254,7 @@ function contestOfAsk(
   const by = { agent: ask.agent, asker };
   const all = decisionsNow(now);
   // A redraft takes the place of the cards into its chat at once (his yes of 25 Nov 2026, question 10).
-  const replacing = ask.changed?.includes("edit")
-    ? editReplacesOf(all, draft, by, isSendingOf)
-    : undefined;
+  const replacing = editReplacesOf(all, ask.changed, draft, by, isSendingOf);
   if (replacing) {
     return { replacing };
   }

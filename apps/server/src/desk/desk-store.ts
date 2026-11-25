@@ -147,7 +147,8 @@ create table if not exists turn (
   model text,
   move text,
   cost_usd real,
-  search_usd real
+  search_usd real,
+  stopped_spending integer
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create index if not exists turn_by_assignment on turn (assignment_id, id);
@@ -198,7 +199,8 @@ create table if not exists thread_entry (
   refs text not null default '[]',
   reactions text not null default '[]',
   answered_at text,
-  deleted_at text
+  deleted_at text,
+  follows integer
 );
 create index if not exists thread_entry_by_asked on thread_entry (asked_at);
 create table if not exists handed_work (
