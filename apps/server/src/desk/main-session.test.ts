@@ -158,6 +158,23 @@ test("an ask while one runs waits its turn, Life's eyes on it at once; a retry u
   expect(await first).toEqual(reply("Yes. Done."));
   expect(await retry).toEqual(reply("Yes. Done."));
   expect(replayed).toEqual(lines);
+  // After a restart (a new handle on the store: nothing kept in memory), the key gets its stored answer, never asked
+  // again; other words under it are refused.
+  const restarted = { ...t.desk, db: openDesk(t.desk.db.filename) };
+  expect(
+    await askMainSession(
+      restarted,
+      { key: "k1", words: "One" },
+      () => undefined
+    )
+  ).toEqual(reply("Yes. Done."));
+  expect(
+    await askMainSession(
+      restarted,
+      { key: "k1", words: "Uno" },
+      () => undefined
+    )
+  ).toEqual({ kind: "error", what: "Not done: this key asked other words." });
   // The second runs once the first ended, on the same session.
   for (let i = 0; i < 20 && t.fake.said.length < 2; i += 1) {
     // biome-ignore lint/performance/noAwaitInLoops: a poll
@@ -240,6 +257,11 @@ test("the door: his words by the local key stream NDJSON lines then the answer; 
       })
     );
   expect((await post({ words: "Hi" }, "wrong")).status).toBe(401);
+  // Words go alone: never with a reaction or a Stop.
+  expect((await post({ stop: true, words: "Hi" })).status).toBe(400);
+  expect(
+    (await post({ react: { entry: 1, with: "👍" }, words: "Hi" })).status
+  ).toBe(400);
   const res = await post({ words: "Hi" });
   await Bun.sleep(5);
   const ref = t.fake.said[0]?.ref ?? "";

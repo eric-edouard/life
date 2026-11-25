@@ -544,21 +544,61 @@ function hearAnswer(
   };
 }
 
-/** His ask as a thread entry, by its key when it has one (a retry of an ask that never ran is the same entry): its id. */
-function openEntry(db: Desk["db"], ask: MainSessionAsk) {
-  const at = clock().toISOString();
-  return Number(
-    db
-      .query<{ id: number }, [string | null, string, string, string | null]>(
-        "insert into thread_entry (ask_key, asked_at, words, screen) values (?, ?, ?, ?) on conflict (ask_key) do update set words = excluded.words, screen = excluded.screen, answer = null, error = null returning id"
-      )
-      .get(
+/** His ask as a new thread entry: its id. */
+const openEntry = (db: Desk["db"], ask: MainSessionAsk) =>
+  Number(
+    db.run(
+      "insert into thread_entry (ask_key, asked_at, words, screen) values (?, ?, ?, ?)",
+      [
         ask.key ?? null,
-        at,
+        clock().toISOString(),
         ask.words ?? "",
-        ask.screen ? JSON.stringify(ask.screen) : null
-      )?.id
+        ask.screen ? JSON.stringify(ask.screen) : null,
+      ]
+    ).lastInsertRowid
   );
+
+interface StoredEntry {
+  answer: string | null;
+  answered_at: string | null;
+  error: string | null;
+  id: number;
+  refs: string;
+  words: string | null;
+}
+
+/**
+ * An ask stored under key `key` before this process knew it (a retry after a restart): its answer as stored, or why
+ * not (other words); a stored ask that never ended runs again on its entry. Never rewrites what was answered.
+ */
+function storedAnswerOf(
+  db: Desk["db"],
+  key: string,
+  words: string | undefined
+): MainSessionAnswer | { entry: number } | undefined {
+  const e = db
+    .query<StoredEntry, [string]>(
+      "select id, words, answer, error, refs, answered_at from thread_entry where ask_key = ?"
+    )
+    .get(key);
+  if (!e) {
+    return;
+  }
+  if (e.words !== (words ?? "")) {
+    return { kind: "error", what: "Not done: this key asked other words." };
+  }
+  if (!e.answered_at) {
+    return { entry: e.id };
+  }
+  return e.answer === null
+    ? { entry: e.id, kind: "error", what: e.error ?? "Life gave no answer." }
+    : {
+        acts: [],
+        entry: e.id,
+        kind: "reply",
+        refs: JSON.parse(e.refs) as string[],
+        text: e.answer,
+      };
 }
 
 /** Puts reaction `r` by `by` on entry `entry`'s words (Life's) or answer (his), once each. Whether it was put. */
@@ -640,8 +680,12 @@ export function askMainSession(
     }
   };
   const { key } = ask;
+  const stored = key ? storedAnswerOf(desk.db, key, ask.words) : undefined;
+  if (stored && "kind" in stored) {
+    return Promise.resolve(stored);
+  }
   let isAsked = false;
-  const entry = openEntry(desk.db, ask);
+  const entry = stored?.entry ?? openEntry(desk.db, ask);
   const end = answer(desk, ask, entry, say, () => {
     isAsked = true;
   })
@@ -653,10 +697,11 @@ export function askMainSession(
       })
     )
     .then((answered) => {
+      // An ask that never reached the session stays open on its entry, so a retry under its key asks again.
       if (answered.kind === "error") {
         desk.db.run(
           "update thread_entry set error = ?, answered_at = ? where id = ?",
-          [answered.what, clock().toISOString(), entry]
+          [answered.what, isAsked ? clock().toISOString() : null, entry]
         );
       }
       if (key && !isAsked) {

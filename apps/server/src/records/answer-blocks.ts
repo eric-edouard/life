@@ -139,26 +139,26 @@ export function blockRefsOf(b: AnswerBlock): string[] {
   return from ? [from] : [];
 }
 
-/** Text as compared: no accents, case or extra spaces. */
-const plain = (s: string) =>
+/** The edges of a word that are not part of it: punctuation and signs around it ("(4,820).", "#12", "฿4,820"). */
+const EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
+/** A number as written: digits, comma-grouped by thousands or not, with decimals. */
+const NUMBER = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
+const COMMAS = /,/g;
+const SPACES = /\s+/;
+
+/** A text's words as compared: no accents or case, each without the punctuation around it. */
+const wordsOf = (s: string) =>
   s
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+    .split(SPACES)
+    .map((w) => w.replace(EDGES, ""))
+    .filter(Boolean);
 
-const NUMBER = /\d(?:[\d,\s]*\d)?(?:\.\d+)?/g;
-const GROUPING = /[,\s]+/g;
-
-/** Every number written in `text`, a digit group's commas and spaces read as thousands ("4,820" is 4820), or apart. */
-const numbersIn = (text: string) =>
-  new Set(
-    (text.match(NUMBER) ?? []).flatMap((n) => [
-      Number(n.replace(GROUPING, "")),
-      ...n.split(GROUPING).map(Number),
-    ])
-  );
+/** The number a word writes ("4,820" is 4820), if it is one whole. */
+const numberOf = (word: string) =>
+  NUMBER.test(word) ? Number(word.replace(COMMAS, "")) : undefined;
 
 /**
  * Why a block's written values are not all in `source`, the text of its `from` (none when they are): each number must be
@@ -169,10 +169,17 @@ export function valueProblemOf(
   { body, kind }: AnswerBlock,
   source: string
 ): string | undefined {
-  const numbers = numbersIn(source);
-  const text = plain(source);
-  const missing = (v: string | number) =>
-    typeof v === "number" ? !numbers.has(v) : !text.includes(plain(v));
+  const words = wordsOf(source);
+  const numbers = new Set(words.flatMap((w) => numberOf(w) ?? []));
+  const text = ` ${words.join(" ")} `;
+  // A number, written as one or as a cell's whole text, must be one the source writes whole; any other text must be
+  // in the source as whole words, in order.
+  const missing = (v: string | number) => {
+    const n = typeof v === "number" ? v : numberOf(wordsOf(v).join(" "));
+    return n === undefined
+      ? !text.includes(` ${wordsOf(String(v)).join(" ")} `)
+      : !numbers.has(n);
+  };
   if (kind === "table") {
     const t = body as z.infer<(typeof BLOCKS)["table"]["body"]>;
     const bad = t.rows.flat().find(missing);
@@ -199,8 +206,12 @@ export function valueProblemOf(
   }
 }
 
-const OPEN = /^```life:([a-z]+)\s*$/;
-const CLOSE = /^```\s*$/;
+/** A fence opening a `life:` block: up to 3 spaces, three or more backticks or tildes, then `life:<kind>` and anything after. */
+const OPEN = /^ {0,3}(`{3,}|~{3,})\s*life:(\S*)/;
+/** A line that may still become a fence's opening: empty, up to 3 spaces, or fence characters after them. */
+const MAY_OPEN = /^ {0,3}(?:[`~]|$)/;
+/** A `life:` fence's marker anywhere in a line: never shown as words. */
+const LIFE_FENCE = /(`{3,}|~{3,})\s*life:/;
 
 /**
  * Splits a stream of Markdown into its words and its fenced blocks as they come: `words` hears the text outside a
@@ -213,10 +224,16 @@ export function blockSplitter(on: {
 }) {
   let line = "";
   let isLineStart = true;
-  let fence: { body: string[]; kind: string } | null = null;
+  let fence: { body: string[]; close: RegExp; kind: string } | null = null;
+  /** A line of words, unless it holds a `life:` fence's marker (a block never passes unchecked). */
+  const words = (text: string) => {
+    if (!LIFE_FENCE.test(text)) {
+      on.words(text);
+    }
+  };
   const take = (whole: string) => {
     if (fence) {
-      if (CLOSE.test(whole)) {
+      if (fence.close.test(whole)) {
         on.block({ json: fence.body.join("\n"), kind: fence.kind });
         fence = null;
       } else {
@@ -226,9 +243,12 @@ export function blockSplitter(on: {
     }
     const open = OPEN.exec(whole);
     if (open) {
-      fence = { body: [], kind: open[1] as string };
+      const [, marks = "```", kind = ""] = open;
+      // Closed by the same character, at least as many, alone on its line.
+      const close = new RegExp(`^ {0,3}\\${marks[0]}{${marks.length},}\\s*$`);
+      fence = { body: [], close, kind };
     } else {
-      on.words(`${whole}\n`);
+      words(`${whole}\n`);
     }
   };
   return {
@@ -236,7 +256,7 @@ export function blockSplitter(on: {
       if (fence) {
         on.block({ json: fence.body.join("\n"), kind: fence.kind }, true);
       } else if (line) {
-        on.words(line);
+        words(line);
       }
       line = "";
       fence = null;
@@ -249,17 +269,15 @@ export function blockSplitter(on: {
         if (fence || isLineStart) {
           take(line + part);
         } else {
-          on.words(`${part}\n`);
+          words(`${part}\n`);
         }
         line = "";
         isLineStart = true;
       }
-      if (fence || (isLineStart && (line + rest).startsWith("`"))) {
+      if (fence || (isLineStart && MAY_OPEN.test(line + rest))) {
         line += rest;
-      } else if (isLineStart && line + rest === "") {
-        // nothing yet on this line
       } else {
-        on.words(line + rest);
+        words(line + rest);
         line = "";
         isLineStart = false;
       }

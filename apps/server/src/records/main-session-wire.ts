@@ -19,11 +19,11 @@ export type MainSessionScreen = z.infer<typeof MainSessionScreen>;
 const Reaction = z.string().min(1).max(16);
 
 /**
- * His ask: his words, his screen, the catalog version his phone draws, and the key that makes a retry ask once. Or, with
+ * His ask (`MainSessionAskFields`, its fields; `MainSessionAsk`, checked whole): his words, his screen, the catalog version his phone draws, and the key that makes a retry ask once. Or, with
  * no words: `stop` (the running ask cancelled), `react` (his reaction to one of Life's entries: kept on it, never his
  * word for an act, and it starts no turn), or nothing (he is on the screen: the session is kept warm).
  */
-export const MainSessionAsk = z
+export const MainSessionAskFields = z
   .object({
     catalog: z.number().int().min(1).optional(),
     key: z.string().min(1).max(200).optional(),
@@ -36,6 +36,12 @@ export const MainSessionAsk = z
     words: z.string().trim().min(1).max(8000).optional(),
   })
   .strict();
+export const MainSessionAsk = MainSessionAskFields.refine(
+  (a) => !((a.words && (a.react || a.stop)) || (a.react && a.stop)),
+  {
+    message: "`words`, `react` and `stop` go one at a time",
+  }
+);
 export type MainSessionAsk = z.infer<typeof MainSessionAsk>;
 
 /**

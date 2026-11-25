@@ -3,7 +3,8 @@ import { errorOf } from "../../core/log-line";
 import { off } from "../../core/outputs";
 import {
   type MainSessionAnswer,
-  MainSessionAsk,
+  type MainSessionAsk,
+  MainSessionAskFields,
   type MainSessionLine,
 } from "../../records/main-session-wire";
 import { DOOR_PORT, MAIN_SESSION_PATH } from "./http";
@@ -77,7 +78,7 @@ export function mainSessionTool(server: McpServer, notHis: string) {
     server,
     "ask_main_session",
     "His app's token only: Ask Life. His `words` (as he sent them, verbatim) to Life's main session, with `screen`, the refs on his screen (`tab`, `open`: the ref open, `visible`: up to 20 refs in view; never text), and `catalog`, the version of Life's blocks his phone draws. An ask while one runs waits its turn. Its progress notifications stream what it does as it goes, each a JSON line: `thinking`; `step` (`verb`, `what`: what it does now); `words` (`text`, a chunk of its Markdown); `block` (`type`, `block`: one of Life's components, once checked: `items`, `pictures`, `table`, `document`, `phrase`, `place`, `question`, `settings`); `reaction` (`with`: Life's reaction to his words). A `step` after words starts the words and blocks again. Returns its answer (JSON): `reply` (`entry`, its thread entry; `text`, its Markdown with its checked blocks fenced as ```life:<type>; `refs`, the `life:` refs it cites; `acts`, what it did, in order: `done`, `agent`, `card`, `fix`; `reaction`) or `error` (`what`; his words stay his to send again). Without `words`: `stop` true stops the running ask; `react` (`entry`, `with`) puts his reaction on one of Life's entries (never his word for an act, and it starts no turn); neither is his presence on the screen, which keeps the session open (`{done, why}`). The tap's `life/answerKey` makes a retry ask once. It acts on his words when he asks (his agents, his cards, a matter done, a correction, a complaint to the caretaker); it never sends: anything outward is a card he taps.",
-    MainSessionAsk.omit({ key: true }),
+    MainSessionAskFields.omit({ key: true }),
     async (ask, agent, call) => {
       if (agent) {
         throw new Error(notHis);
