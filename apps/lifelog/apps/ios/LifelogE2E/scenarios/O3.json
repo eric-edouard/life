@@ -1,0 +1,33 @@
+{
+  "name": "Flush once",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    },
+    {
+      "up": []
+    },
+    {
+      "up": [
+        "a"
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "send"
+      ],
+      "then": "life/answer_check_sent.json"
+    }
+  ],
+  "items": [
+    "dec_000000000001"
+  ]
+}

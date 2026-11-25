@@ -1,0 +1,20 @@
+{
+  "name": "Answer offline",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    },
+    {
+      "up": []
+    }
+  ],
+  "answers": [],
+  "items": [
+    "dec_000000000001"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "answer": null,
+        "ask": null,
+        "options": [
+          {
+            "id": "send",
+            "label": "Send it"
+          },
+          {
+            "id": "wait",
+            "label": "Wait"
+          }
+        ],
+        "question": "Send Kit the message?",
+        "rate": null,
+        "sent": null,
+        "title": "Ask Kit",
+        "undo": null,
+        "withdrawn": {
+          "replacedBy": null,
+          "why": "Kit wrote since"
+        }
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000001",
+      "state": "outdated"
+    }
+  ],
+  "version": "fixed"
+}

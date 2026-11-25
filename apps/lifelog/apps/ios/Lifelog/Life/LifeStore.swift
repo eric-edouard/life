@@ -170,6 +170,9 @@ final class LifeStore {
         deliveredBefore asked: Date = .distantFuture, sparingResults: Bool = false,
         where isGone: @Sendable (String) -> Bool
     ) async {
+        #if DEBUG
+            if E2E.isOn { return }  // the simulator's notification center may never answer
+        #endif
         let center = UNUserNotificationCenter.current()
         let gone = await center.deliveredNotifications().filter {
             let info = $0.request.content.userInfo
