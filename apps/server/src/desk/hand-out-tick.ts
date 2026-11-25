@@ -14,6 +14,7 @@ import { monthBudgetOf } from "../host/spending";
 import { deliveryOf } from "../memory/decision-delivery";
 import { decisionsNow } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
+import { intentionsNow } from "../memory/instructions";
 import {
   agentForMatterOf,
   type HandOutFacts,
@@ -52,6 +53,52 @@ const readCardsShown = async () =>
   decisionsNow().filter(
     (d) => d.asker === DESK_AGENT && deliveryOf(d).state === "held"
   ).length;
+
+/** Each assignment ever anchored on a standing intention (an instruction's id), and whether it is open. */
+const intentionAssignmentsOf = (db: Desk["db"]) =>
+  db
+    .query<{ closed_at: string | null; id: string; step: string }, []>(
+      "select s.id, s.closed_at, n.step from anchor n join assignment s on s.id = n.assignment_id where n.step like 'ins\\_%' escape '\\'"
+    )
+    .all();
+
+/**
+ * His standing intentions (`intention` instructions in force): each opens one assignment, once, anchored on it, on the
+ * agent `agentForOf` names (a project's scope: its agent when it has a repo; else the Personal agent), his words its
+ * own; one whose intention ended (replaced, past `until`) is closed. Not paced: they are his words, not Life's pick.
+ * Never opened again once closed: an assignment is never retried.
+ */
+export async function openIntentions(desk: Desk) {
+  const { db } = desk;
+  const live = intentionsNow();
+  const held = intentionAssignmentsOf(db);
+  const liveIds = new Set(live.map((i) => i.id));
+  for (const s of held) {
+    if (s.closed_at === null && !liveIds.has(s.step)) {
+      // biome-ignore lint/performance/noAwaitInLoops: one close at a time
+      await closeAssignment(desk, s.id, "its intention ended");
+    }
+  }
+  const asked = new Set(held.map((s) => s.step));
+  const due = live.filter((i) => !asked.has(i.id));
+  const standing = due.length > 0 ? standingAgents(db) : [];
+  if (standing.length === 0) {
+    return;
+  }
+  const agentFor = agentForMatterOf(standing, await loadTruth());
+  for (const i of due) {
+    const project = i.scope.startsWith("project:") ? i.scope.slice(8) : null;
+    const agent = agentFor({ projects: project ? [project] : [] });
+    if (agent) {
+      const assignment = openAssignment(desk, agent, {
+        openedBy: "owner",
+        said: i.said,
+        steps: [i.id],
+      });
+      log("desk.intention", { agent, assignment, intention: i.id });
+    }
+  }
+}
 
 /** Gives the top matter that qualifies to the agent that takes it, when his settings allow and his pace has room: an assignment the desk opened. Returns its id. */
 export async function handOutNext(

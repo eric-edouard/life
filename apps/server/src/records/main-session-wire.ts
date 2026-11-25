@@ -19,7 +19,7 @@ export type MainSessionScreen = z.infer<typeof MainSessionScreen>;
 const Reaction = z.string().min(1).max(16);
 
 /**
- * His ask (`MainSessionAskFields`, its fields; `MainSessionAsk`, checked whole): his words, his screen, the catalog version his phone draws, and the key that makes a retry ask once. Or, with
+ * His ask (`MainSessionAskFields`, its fields; `MainSessionAsk`, checked whole): his words, his screen, the catalog version his phone draws, and the key that makes a retry ask once; `tap`: his words are what he tapped (a quick edit's label, a question's answer, an offer), so a redraft on them is `edit:tap`. Or, with
  * no words: `stop` (the running ask cancelled), `react` (his reaction to one of Life's entries: kept on it, never his
  * word for an act, and it starts no turn), or nothing (he is on the screen: the session is kept warm).
  */
@@ -33,6 +33,7 @@ export const MainSessionAskFields = z
       .optional(),
     screen: MainSessionScreen.optional(),
     stop: z.literal(true).optional(),
+    tap: z.literal(true).optional(),
     words: z.string().trim().min(1).max(8000).optional(),
   })
   .strict();

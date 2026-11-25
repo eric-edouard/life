@@ -27,6 +27,7 @@ type LogKind =
   | "desk.fold"
   | "desk.gate"
   | "desk.hand_out"
+  | "desk.intention"
   | "desk.move"
   | "desk.net"
   | "desk.queued"

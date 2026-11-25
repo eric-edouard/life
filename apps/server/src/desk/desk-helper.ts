@@ -14,6 +14,7 @@ import type { Runtime } from "./runtimes/contract";
 import { piRuntime } from "./runtimes/pi-runtime";
 import { runtimeRowsOf } from "./runtimes/runtime-rows";
 import {
+  stepFollowsAndStops,
   stepMatterIds,
   stepMoves,
   stepRoleCheck,
@@ -81,6 +82,10 @@ export async function desk() {
     log("desk.store_step", {
       done: stepTurnSearchCost(),
       step: "turn search cost",
+    });
+    log("desk.store_step", {
+      done: stepFollowsAndStops(),
+      step: "follows and stops",
     });
   } catch (error) {
     log("desk.store_step", { ...errorOf(error), ok: false });

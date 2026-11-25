@@ -212,14 +212,70 @@ test("the main session's question wakes its agent at once; its turn ends only on
   expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
   answerQuestion(desk, s, asked.id, "Waiting on his quote, due Thursday.");
   expect(await asked.reply).toBe("Waiting on his quote, due Thursday.");
-  // Unanswered past its minute, a question goes: its agent is never held by it.
+  // Unanswered, a question goes once a turn of its assignment that began after it ends: its agent is never held by it.
   const late = askAssignment(desk, s.id, "And the boiler?");
   if ("error" in late) {
     throw new Error(late.error);
   }
   setSystemTime(new Date(Date.now() + QUESTION_WAIT + 1000));
+  expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toContain(
+    "read it"
+  );
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at, ended_at) values (?1, ?2, 'main_question', ?3, ?3)",
+    [agent, s.id, new Date().toISOString()]
+  );
   expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
   expect(() => readQuestion(desk, s, late.id)).toThrow("is no question");
+  // A reply after the main session stopped waiting lands as an entry of its own that follows his ask.
+  setSystemTime(new Date(Date.now() + 1000));
+  const roof = askAssignment(desk, s.id, "And the roof?", 7);
+  if ("error" in roof) {
+    throw new Error(roof.error);
+  }
+  roof.late();
+  expect(await answerQuestion(desk, s, roof.id, "Fixed on Monday.")).toEqual({
+    answered: roof.id,
+    late: true,
+  });
+  expect(
+    desk.db.query("select words, answer, follows from thread_entry").all()
+  ).toEqual([]);
+  // ... and only while the entry of his ask stands.
+  desk.db.run(
+    "insert into thread_entry (id, asked_at, words) values (7, ?, 'And the roof?')",
+    [new Date().toISOString()]
+  );
+  const again = askAssignment(desk, s.id, "And the roof now?", 7);
+  if ("error" in again) {
+    throw new Error(again.error);
+  }
+  again.late();
+  // A block that fails its checks is dropped, as in any answer.
+  await answerQuestion(
+    desk,
+    s,
+    again.id,
+    'Fixed on Monday.\n```life:items\n["life:nope"]\n```'
+  );
+  // An entry his deletion blanked takes no reply.
+  desk.db.run(
+    "insert into thread_entry (id, asked_at, deleted_at) values (20, ?1, ?1)",
+    [new Date().toISOString()]
+  );
+  const blanked = askAssignment(desk, s.id, "And the gate?", 20);
+  if ("error" in blanked) {
+    throw new Error(blanked.error);
+  }
+  blanked.late();
+  await answerQuestion(desk, s, blanked.id, "Painted.");
+  expect(
+    desk.db
+      .query(
+        "select answer, follows from thread_entry where follows is not null"
+      )
+      .all()
+  ).toEqual([{ answer: "Fixed on Monday.", follows: 7 }]);
   expect(
     desk.db.query("select name from event where assignment_id = ?").all(s.id)
   ).toContainEqual({ name: "main_question" });

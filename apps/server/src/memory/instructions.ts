@@ -112,6 +112,10 @@ function liveOf(now: Date) {
   return all.filter((i) => isLiveOf(i, replaced, now) && !isGone(i.id, d));
 }
 
+/** His standing intentions in force now, oldest first: each opens one assignment (`openIntentions`, the desk's hand-out tick). */
+export const intentionsNow = (now = clock()) =>
+  liveOf(now).filter((i) => i.effect === "intention");
+
 /** The ids of the instructions in force whose words (`said`, `text`) hold what a deletion removes: the door's preview. */
 export const instructionsHolding = (holds: HoldsDeleted, now = clock()) =>
   liveOf(now).flatMap((i) => (holds([i.said, i.text], []) ? [i.id] : []));
