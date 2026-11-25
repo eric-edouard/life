@@ -476,6 +476,63 @@ export async function sendDraft(
   }
 }
 
+/**
+ * A send path that can delete a message it sent, for everyone (a bridged room whose features allow it, a GitHub
+ * comment): `unsendLine`, what the other side will see, or none when the chat doesn't allow it now (too old, or never);
+ * `unsend`, the deletion, once its network confirms it; throws why not. iMessage and mail have none: Messages.app
+ * can't unsend from a script, and mail can't be recalled.
+ */
+interface Unsending {
+  unsend: (chat: string, id: string) => Promise<void>;
+  unsendLine: (chat: string, sentAt: string, now: Date) => string | undefined;
+}
+
+/** The send path of `draft`'s channel, when it can delete what it sent. */
+const unsendingOf = (draft: StoredDraft, sources: Descriptor[]) => {
+  const path = sources.find((x) => x.name === draft.channel)?.send as
+    | (SendPath & Partial<Unsending>)
+    | undefined;
+  return path?.unsend && path.unsendLine
+    ? (path as SendPath & Unsending)
+    : undefined;
+};
+
+/** What the other side will see when his Undo deletes the message `eventId`, sent at `sentAt`, now; none when its chat allows no delete now. */
+export function unsendLineOf(
+  draft: StoredDraft,
+  sentAt: string,
+  now = clock(),
+  sources = enabledSources()
+) {
+  return draft.chat
+    ? unsendingOf(draft, sources)?.unsendLine(draft.chat, sentAt, now)
+    : undefined;
+}
+
+/** Deletes the message `eventId` his answer sent with `draft`, for everyone, once its chat allows it now (`unsendLineOf`); resolves once its network confirmed. Throws `not deleted: …`. */
+export async function unsendDraft(
+  draft: StoredDraft,
+  eventId: string,
+  sentAt: string,
+  sources = enabledSources()
+) {
+  const path = unsendingOf(draft, sources);
+  if (!(draft.chat && path?.unsendLine(draft.chat, sentAt, clock()))) {
+    throw new Error("not deleted: this chat allows no delete now");
+  }
+  await path.unsend(draft.chat, eventId).catch((e: Error) => {
+    throw e.message.startsWith("not deleted:")
+      ? e
+      : new Error(`not deleted: ${e.message}`);
+  });
+  log("draft.send", {
+    channel: draft.channel,
+    id: eventId,
+    ok: true,
+    outcome: "deleted",
+  });
+}
+
 /** How long sending this card's draft may take, at most (its send path's own waits), 0 for a source that doesn't send. */
 export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
   return (

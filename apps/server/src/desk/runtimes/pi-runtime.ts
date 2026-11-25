@@ -16,7 +16,6 @@ import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { SECRETS, writeSecret } from "../../core/secret";
 import { settings } from "../../core/settings";
-import { piSessionFileOf } from "../../host/agent-session-read";
 import {
   readOpenSessionRecords,
   TERMINAL_ENTRYPOINT,
@@ -39,6 +38,16 @@ import {
   type SessionState,
 } from "./runtime-rows";
 import { LAUNCH_WITHIN_MS, sessionRuntime } from "./session-runtime";
+
+/** The session file of `ref` under `sessions`, if pi wrote one (`<time>_<ref>.jsonl`). */
+const piSessionFileOf = (sessions: string, ref: string) => {
+  try {
+    const name = new Bun.Glob(`*_${ref}.jsonl`).scanSync(sessions).next().value;
+    return name ? join(sessions, name) : undefined;
+  } catch {
+    // no sessions folder yet
+  }
+};
 
 // The pi runtime (the owner's decisions of 22 Nov 2026, `docs/plans/pi-runtime.md`): the pinned pi
 // (`@earendil-works/pi-coding-agent`), run by the helper as bun, in its RPC mode (JSONL on stdio), one process per

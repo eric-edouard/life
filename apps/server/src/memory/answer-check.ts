@@ -1,4 +1,4 @@
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { oneAtATime } from "../core/lock";
 import type { CheckGroup } from "../core/names";
 import { PersonRef } from "../records/fields";
@@ -19,6 +19,7 @@ import {
   type LookForDone,
 } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
+import { instructionsFor } from "./instructions";
 import type { Check, LIFE_CHECKS } from "./life-checks";
 import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { readMatterBook } from "./matters";
@@ -27,7 +28,7 @@ import { OWNER } from "./read-truth";
 import { samePersonPairOf } from "./same-person";
 import { type GuessedQueueItem, withVoiceGuesses } from "./voice-guesses";
 import { type People, readPeople, voiceCardRefOf, voiceIdOf } from "./who";
-import { dayNow } from "./zones";
+import { dayNow, dayStart } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
@@ -268,8 +269,72 @@ async function atOrganizationNow(c: Pick<Check, "ref">) {
   return found;
 }
 
-/** How long his "Not now" hides a your move card: it is back on the third day after. */
-export const NOT_NOW_DAYS = 3;
+/** His Later, an answer every check takes (Later with no menu: his yes of 25 Nov 2026); a your move card's `not-now` is it too. */
+export const LATER = "later";
+
+/** The times of day a `later` instruction may name in words, as HH:MM. */
+const TIMES_OF_DAY: readonly [RegExp, string][] = [
+  [/\bmorning\b/i, "09:00"],
+  [/\b(?:noon|lunch)\b/i, "12:00"],
+  [/\bafternoon\b/i, "14:00"],
+  [/\bevening\b/i, "18:00"],
+  [/\b(?:tonight|night)\b/i, "20:00"],
+];
+const CLOCK_TIME = /\b(\d{1,2})(?::(\d\d))?\s*(am|pm)\b|\b(\d{1,2}):(\d\d)\b/i;
+
+/** The time of day a `later` instruction's words name ("this evening", "at 7pm", "19:30"), as HH:MM; none when they name none. Pure. */
+export function laterTimeOf(text: string) {
+  const m = CLOCK_TIME.exec(text);
+  if (m) {
+    const h = Number(m[1] ?? m[4]) % 12;
+    const hour = m[3]
+      ? h + (m[3].toLowerCase() === "pm" ? 12 : 0)
+      : Number(m[4]);
+    const minute = m[2] ?? m[5] ?? "00";
+    return hour < 24 ? `${String(hour).padStart(2, "0")}:${minute}` : undefined;
+  }
+  return TIMES_OF_DAY.find(([re]) => re.test(text))?.[1];
+}
+
+/** Life's time for his Later before a deadline: 3 hours before it, never sooner than 30 minutes from now. */
+const BEFORE_DEADLINE_MS = 3 * 3_600_000;
+const SOONEST_MS = 30 * 60_000;
+
+/**
+ * Until when his Later holds check `c` from `now`: the next time of day his newest `later` instruction on it names
+ * (`laterTimeOf`), else tomorrow 9:00 where he is; sooner before its deadline. ponytail: "on arrival home" for a fix at
+ * the Mac waits for the fix asks (bundle E) and a place in the `deferred` line.
+ */
+export function laterOf(
+  c: Pick<Check, "deadline" | "matter">,
+  now = clock(),
+  instruction = instructionsFor({ matter: c.matter?.id }, now)
+    .filter((i) => i.effect === "later")
+    .at(-1)?.text
+) {
+  const today = dayNow(now);
+  const time = instruction && laterTimeOf(instruction);
+  const at = (day: string, hm: string) =>
+    dayStart(day, undefined, hm).getTime();
+  const next = time
+    ? [at(today, time), at(daysBefore(today, -1), time)].find(
+        (t) => t > now.getTime()
+      )
+    : at(daysBefore(today, -1), "09:00");
+  const due = c.deadline
+    ? Math.max(
+        Date.parse(c.deadline) - BEFORE_DEADLINE_MS,
+        now.getTime() + SOONEST_MS
+      )
+    : Number.POSITIVE_INFINITY;
+  return new Date(
+    Math.min(next ?? now.getTime() + SOONEST_MS, due)
+  ).toISOString();
+}
+
+/** His Later on check `c`: one `deferred` correction by its ref, until Life's time (`laterOf`). */
+const deferOf = (c: Check, a: CheckAnswer) =>
+  correct([{ kind: "deferred", ref: c.ref, until: laterOf(c) }], a);
 
 /** The open matter a your move card is on, as it reads now: the one it named (`matter`), else the one holding its step. */
 async function yourMoveMatterOf(c: Pick<Check, "matter" | "ref" | "subject">) {
@@ -483,20 +548,7 @@ const WRITERS: {
   "your move": {
     done: (_c, _a, x) => endYourMoveOf(x),
     drop: (_c, _a, x) => endYourMoveOf(x),
-    "not-now": async (c, a) => {
-      const v = await yourMoveMatterOf(c);
-      return correct(
-        [
-          {
-            kind: "your-move-not-now",
-            matter: v.id,
-            steps: v.steps.map((s) => s.ref),
-            until: daysBefore(dayNow(), -NOT_NOW_DAYS),
-          },
-        ],
-        a
-      );
-    },
+    "not-now": deferOf,
     start: async (c, a, x) => {
       if (!(x.startAgent && c.options.some((o) => o.id === "start"))) {
         throw new Error(
@@ -540,6 +592,18 @@ export async function answerCheck(
   } = {}
 ) {
   const { ref } = check;
+  if (a.options.length === 1 && a.options[0] === LATER) {
+    const done = await deferOf(check, a);
+    onStep?.("recorded");
+    return {
+      answer: a,
+      check,
+      done,
+      item: undefined,
+      recordedAs: undefined,
+      ref,
+    };
+  }
   if (check.group === "decision") {
     return {
       answer: a,

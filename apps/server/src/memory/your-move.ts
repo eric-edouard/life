@@ -13,7 +13,6 @@ import {
   isRunning,
   type MatterStepNow,
   type MatterView,
-  matterFinderOf,
   nextStepNow,
 } from "./matter-read";
 import { needsShownOf } from "./needs";
@@ -22,8 +21,8 @@ import type { People } from "./who";
 import { dayStart } from "./zones";
 
 // "Your move" (his yes of 21 Nov 2026): a matter's open step that is his stays in his inbox, dormant or stuck, until he
-// does it, hands it to an agent or says Not now. A check of Life's like the others (`checks.ts`), worked out when read; only his Not now is
-// stored (`your-move-not-now`).
+// does it or hands it to an agent; his Later on it is any check's (`deferred`). A check of Life's like the others
+// (`checks.ts`), worked out when read.
 
 /** The steps he owes that a card asks: a task of his (`to_do`), a promise; never a wait on someone, nor a to-do item (his list holds it while it is open there; Life reads it ticked or removed). */
 const OWED_BY_HIM: MatterStepNow["kind"][] = ["promise", "to_do"];
@@ -172,12 +171,6 @@ export interface YourMoveInputs {
     openSteps?: Step[];
     steps: Pick<MatterStepNow, "at" | "day" | "ref">[];
   })[];
-  /** His Not now pins (`readMatterPins`' `notNow`). */
-  notNow?: readonly {
-    matter?: string;
-    steps: readonly string[];
-    until: string;
-  }[];
   /** The places of appointments by the observation they were read from (`readPlaces`). */
   places?: ReadonlyMap<string, string>;
   today: string;
@@ -210,18 +203,6 @@ export function yourMovesOf(c: YourMoveInputs) {
     })
   );
 }
-
-/** Whether his Not now hides a matter's card on `today`: a pin that finds it (`matterFinderOf`, its matter id first), not past its `until`, and no step of it outside the pin's. */
-const isNotNowOf = (c: YourMoveInputs) => {
-  const find = matterFinderOf(c.matters);
-  return (v: YourMoveInputs["matters"][number]) =>
-    (c.notNow ?? []).some(
-      (p) =>
-        c.today < p.until &&
-        find(p.steps, p.matter)?.id === v.id &&
-        v.steps.every((s) => p.steps.includes(s.ref))
-    );
-};
 
 /** The last instant of the local day his step is due (`dueOf`), as a deadline; none when it has no due day. */
 const deadlineOf = (due?: string) =>
@@ -267,11 +248,10 @@ export function yourMoveChecksOf(
   offered: ReadonlyMap<string, unknown>
 ) {
   const moves = yourMovesOf(c);
-  const isNotNow = isNotNowOf(c);
   const dismissed = dismissedIdsOf(c.matters, c.dismissed);
   return c.matters.flatMap((v) => {
     const move = moves.get(v.id);
-    if (!move || offered.has(v.id) || isNotNow(v)) {
+    if (!move || offered.has(v.id)) {
       return [];
     }
     const { due, held, review, since, step } = move;
