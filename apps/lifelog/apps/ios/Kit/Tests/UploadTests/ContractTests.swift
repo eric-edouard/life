@@ -139,12 +139,13 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(
         try quoted("memory/decision-lines.ts", /state: z\.enum\(\[([^\]]*)\]/).union(["looking"])
             == client(Check.DoneSeen.State.self))
-    // Ask Life's wire: every kind of line and of answer the session sends is one the phone draws or says it can't.
+    // Ask Life's wire: the kinds the session sends; the phone reads `MainSessionLine` and `MainSessionResult`, and drops any other.
     let wire = try source("records/main-session-wire.ts")
     let sent = Set(wire.matches(of: /kind: "([a-z]+)"/).map { String($0.output.1) })
     #expect(
         sent == [
-            "reply", "question", "error", "done", "agent", "card", "fix", "thinking", "working", "words", "answer",
+            "reply", "thinking", "words", "reaction", "block", "answer", "error", "step", "done", "card", "fix",
+            "agent",
         ])
     #expect(try quoted("memory/matter-read.ts", /const STATUSES = \[([^\]]*)\]/) == client(MatterStatus.self))
     #expect(

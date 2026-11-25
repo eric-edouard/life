@@ -27,6 +27,8 @@ struct DictationField: View {
     /// Ask Life's card (`ask-strip-2026-11-22.md`, "Live dictation on nav v3"): the words on top, up to 5 lines, then one
     /// row, cancel, the sound meter, stop and Send. Cancel hands what was said to `cancelled`, for its Undo.
     var isCard = false
+    /// Whether a run is under way, for the edge's lights.
+    var listening: Binding<Bool>?
     var cancelled: ((String) -> Void)?
 
     @Environment(\.library) private var library
@@ -61,6 +63,7 @@ struct DictationField: View {
                 if listens { start() }
             }
             .onDisappear { dictation.cancel() }
+            .onChange(of: dictation.phase) { _, phase in listening?.wrappedValue = phase != .rest }
             .onChange(of: dictation.landed) { _, landed in
                 if let landed { land(landed) }
             }
