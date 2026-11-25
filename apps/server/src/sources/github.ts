@@ -399,7 +399,7 @@ export function githubSend({
       ISSUE.test(chat)
         ? "GitHub removes the comment; anyone who got it by mail keeps that copy."
         : undefined,
-  } as SendPath;
+  };
 }
 
 /** A GitHub activity a wait names, as `githubActivityReader` reads it: its facts, and `words` (its title and body), only tested by a wait's `text_matches`. */

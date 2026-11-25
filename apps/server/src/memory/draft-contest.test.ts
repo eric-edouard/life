@@ -238,3 +238,25 @@ test("no merge happens while the held card's send runs", async () => {
   });
   expect(String(refused)).toContain("no card waiting on one of yours");
 });
+
+test("a redraft replaces only its own asker's card at once; never another's, so with another asker's card in the chat it is refused as any card", async () => {
+  const held = await ask(HOLDER);
+  const other = await ask(ASKER, later(MIN), { changed: ["edit"] });
+  expect(of(held.id, later(2 * MIN))?.state).toBe("open");
+  expect(of(other.id, later(2 * MIN))).toMatchObject({
+    contests: held.id,
+    state: "waiting",
+  });
+  await expect(
+    ask(HOLDER, later(3 * MIN), { changed: ["edit"] })
+  ).rejects.toThrow(`${other.id} already waits to ask`);
+  expect(of(held.id, later(4 * MIN))?.state).toBe("open");
+  await requestDecision(
+    "desk",
+    { agent: ASKER, why: "made up", withdraw: other.id },
+    later(5 * MIN)
+  );
+  const redraft = await ask(HOLDER, later(6 * MIN), { changed: ["edit"] });
+  expect(of(held.id, later(7 * MIN))).toMatchObject({ state: "withdrawn" });
+  expect(of(redraft.id, later(7 * MIN))?.state).toBe("open");
+});

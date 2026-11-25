@@ -476,24 +476,11 @@ export async function sendDraft(
   }
 }
 
-/**
- * A send path that can delete a message it sent, for everyone (a bridged room whose features allow it, a GitHub
- * comment): `unsendLine`, what the other side will see, or none when the chat doesn't allow it now (too old, or never);
- * `unsend`, the deletion, once its network confirms it; throws why not. iMessage and mail have none: Messages.app
- * can't unsend from a script, and mail can't be recalled.
- */
-interface Unsending {
-  unsend: (chat: string, id: string) => Promise<void>;
-  unsendLine: (chat: string, sentAt: string, now: Date) => string | undefined;
-}
-
-/** The send path of `draft`'s channel, when it can delete what it sent. */
+/** The send path of `draft`'s channel, when it can delete what it sent (`SendPath.unsend`). */
 const unsendingOf = (draft: StoredDraft, sources: Descriptor[]) => {
-  const path = sources.find((x) => x.name === draft.channel)?.send as
-    | (SendPath & Partial<Unsending>)
-    | undefined;
+  const path = sources.find((x) => x.name === draft.channel)?.send;
   return path?.unsend && path.unsendLine
-    ? (path as SendPath & Unsending)
+    ? { unsend: path.unsend, unsendLine: path.unsendLine }
     : undefined;
 };
 

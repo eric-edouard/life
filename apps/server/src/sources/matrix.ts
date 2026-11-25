@@ -836,5 +836,5 @@ export function matrixSend(
     },
     unsendLine: (chat: string, sentAt: string, now: Date) =>
       deleteLineOf(featuresOf(chat), sentAt, now),
-  } as SendPath;
+  };
 }

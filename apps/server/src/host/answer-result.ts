@@ -603,7 +603,17 @@ const isTakenOf = (d: Decision) => {
  * the other side will see), while the asker's turn has not taken it.
  */
 export function undoOf(d: Decision, now = clock()) {
-  if (d.state !== "answered" || d.end || d.added || d.ran || d.doneSeen) {
+  const act = actDueOf(d);
+  // An act still running (its outcome line not in yet) holds the card: an Undo now would let it send or end twice.
+  const isRunning = act !== undefined && !actOutcomeOf(d, act);
+  if (
+    d.state !== "answered" ||
+    isRunning ||
+    d.end ||
+    d.added ||
+    d.ran ||
+    d.doneSeen
+  ) {
     return null;
   }
   if (d.send) {
@@ -622,7 +632,19 @@ export function undoOf(d: Decision, now = clock()) {
  * with what was done, once the asker's turn took it or the answer did something outside Life; the desk's tick stops a
  * turn queued on it (`stopWithdrawn`).
  */
-export async function undoAnswer(ref: string) {
+export function undoAnswer(ref: string) {
+  // One answer or Undo on a card at a time, with the answers (`running`).
+  if (running.has(ref)) {
+    return Promise.reject(
+      new Error(`Not done: another answer to ${ref} is being recorded.`)
+    );
+  }
+  const result = undo(ref).finally(() => running.delete(ref));
+  running.set(ref, { call: { report: () => undefined }, result, said: "undo" });
+  return result;
+}
+
+async function undo(ref: string) {
   const d = decisionsNow().find((x) => x.id === ref);
   if (!d?.answer) {
     throw new Error(`Not done: ${ref} has no answer of his to undo.`);
@@ -631,7 +653,7 @@ export async function undoAnswer(ref: string) {
     throw new Error(
       d.send
         ? "Not done: the message went, and its chat doesn't let Life delete it now."
-        : "Not done: its agent already acted on your answer."
+        : "Not done: what your answer started is under way, or its agent already acted on it."
     );
   }
   let unsent: string | undefined;

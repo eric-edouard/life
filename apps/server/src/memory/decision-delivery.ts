@@ -15,7 +15,7 @@ import {
  * carry `ask`, not gated yet), `held` until `until`, `sent_back` to its agent (the gate's `note`, for its door), else
  * `delivered`, `silent` when it must never push. A card asked before the gate, his own or Life's counts as delivered. The
  * one rule: a held or sent-back card is in none of his lists or counts (`decisionsNow`); a pending one stays open there
- * until the gate's tick reads it, so the push and the gate skip it by this function.
+ * until the gate's tick reads it (no push skips it yet: the gate's bundle adds that, by this function).
  */
 export function deliveryOf(
   d: Pick<Decision, "agent" | "ask" | "delivered">,
