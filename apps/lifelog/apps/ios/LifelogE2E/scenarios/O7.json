@@ -1,0 +1,27 @@
+{
+  "name": "Queue tied to its Life",
+  "origins": {
+    "a": "ABC234",
+    "b": "XYZ789"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    },
+    {
+      "up": []
+    },
+    {
+      "up": [
+        "a",
+        "b"
+      ]
+    }
+  ],
+  "answers": [],
+  "items": [
+    "dec_000000000001"
+  ]
+}

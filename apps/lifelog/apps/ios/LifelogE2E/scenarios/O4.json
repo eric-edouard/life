@@ -1,0 +1,33 @@
+{
+  "name": "Flush refused",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    },
+    {
+      "up": []
+    },
+    {
+      "up": [
+        "a"
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "send"
+      ],
+      "error": "this ask is no longer open"
+    }
+  ],
+  "items": [
+    "dec_000000000001"
+  ]
+}

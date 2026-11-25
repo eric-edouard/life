@@ -31,6 +31,8 @@ targets:
   Lifelog:
     type: application
     platform: iOS
+    # The end-to-end flows run from this scheme (`bun run e2e:phone`), in Debug.
+    scheme: {testTargets: [LifelogE2E]}
     # Shared: the app group, snapshot copy and the control's intent, compiled into the widget extension too.
     sources: [Lifelog, Shared]
     dependencies:
@@ -324,3 +326,19 @@ targets:
       path: Watch/Widgets/Widgets.entitlements
       properties:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+  # The end-to-end flows (`LifelogE2E/`): the app launched in the simulator against a fake Life inside it
+  # (`Lifelog/E2E`), run by `bun run e2e:phone`. Finds elements by `Lifelog/AccessibilityIDs.swift`.
+  LifelogE2E:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - LifelogE2E
+      - Lifelog/AccessibilityIDs.swift
+    dependencies:
+      - target: Lifelog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).e2e
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"

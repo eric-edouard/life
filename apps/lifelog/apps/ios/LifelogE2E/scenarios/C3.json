@@ -1,0 +1,38 @@
+{
+  "name": "Not sent",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json"
+      }
+    },
+    {
+      "reads": {
+        "read_thread": "life/read_thread_settled_imessage.json"
+      }
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "send"
+      ],
+      "then": "life/answer_check_not_sent.json"
+    },
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "send"
+      ],
+      "then": "life/answer_check_sent.json",
+      "advance": true
+    }
+  ],
+  "items": [
+    "dec_000000000001"
+  ]
+}

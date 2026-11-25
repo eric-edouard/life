@@ -1,0 +1,65 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": "A made-up reason to ask.",
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": {
+          "channel": "whatsapp",
+          "text": "Can you come Friday?",
+          "to": "Kit Moreau",
+          "chat": "155@s.whatsapp.net"
+        },
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "send",
+            "label": "Send it",
+            "outgoing": true,
+            "takes": null
+          },
+          {
+            "id": "wait",
+            "label": "Wait",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "send",
+        "replaces": null,
+        "pushId": "push-dec_000000000001",
+        "question": "Send Kit the message?",
+        "ref": "dec_000000000001",
+        "title": "Ask Kit",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000001",
+      "state": "needs_you"
+    }
+  ],
+  "version": "fixed"
+}

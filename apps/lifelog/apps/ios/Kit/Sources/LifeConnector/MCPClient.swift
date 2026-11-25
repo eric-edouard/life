@@ -19,10 +19,18 @@ public struct MCPClient: Sendable {
         http = LifeHTTP(session: urlSession ?? Self.makeURLSession())
     }
 
+    #if DEBUG
+        /// The end-to-end tests' fake Life (`Lifelog/E2E`): a `URLProtocol` set before any session is made. Debug only.
+        public nonisolated(unsafe) static var protocolsOfTests: [AnyClass] = []
+    #endif
+
     /// With no path to the Mac a call fails at once, never waits for one.
     static func makeURLSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.waitsForConnectivity = false
+        #if DEBUG
+            configuration.protocolClasses = protocolsOfTests + (configuration.protocolClasses ?? [])
+        #endif
         return URLSession(configuration: configuration)
     }
 
