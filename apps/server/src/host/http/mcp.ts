@@ -17,8 +17,6 @@ import {
 import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { byAsked, checksOnMatterOf } from "../../memory/checks";
-import { rateDecision } from "../../memory/decision-after-answer";
-import { MARKS } from "../../memory/decision-lines";
 import { requestDecision } from "../../memory/decisions";
 import { readLifeIcons } from "../../memory/matter-icons";
 import { openById } from "../../memory/open-by-id";
@@ -47,7 +45,7 @@ import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { PUSH_ID } from "../../sources/lifelog-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
-import { answerWithResult, undoAnswer } from "../answer-result";
+import { AFTER_ANSWER, afterAnswer, answerWithResult } from "../answer-result";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
@@ -586,32 +584,16 @@ export function buildServer(readsOnly = false, logsArguments = false) {
         .max(200)
         .optional()
         .describe("person:<id>, or a name Life knows"),
-      rate: z
-        .enum(MARKS)
-        .optional()
-        .describe(
-          "His mark on how Life did on this answered card (its `rate` in `read_thread`)"
-        ),
       ref: z.string().describe("The check's `ref`"),
-      undo: z
-        .literal(true)
-        .optional()
-        .describe("Undo his answer to this card (its `undo` in `read_thread`)"),
+      ...AFTER_ANSWER,
       value: z.looseObject({ kind: z.string() }).optional(),
     }),
     ({ rate, ref, undo, value, ...a }, agent, call) => {
       if (agent) {
         throw new Error(NOT_HIS);
       }
-      if (undo) {
-        return undoAnswer(ref);
-      }
-      if (rate) {
-        return Promise.resolve({
-          done: [rateDecision(ref, rate)],
-          kind: "decision",
-          ref,
-        });
+      if (undo || rate) {
+        return afterAnswer(ref, rate);
       }
       // Declared once with the asks contract, so a typed answer (a person, a channel switch) never changes the arguments.
       if (value) {

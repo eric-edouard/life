@@ -107,16 +107,7 @@ export function gateVerdictOf(f: GateFacts): GateVerdict {
   }
   const now = f.now.getTime();
   const latest = Date.parse(f.deadline) - DEADLINE_MARGIN;
-  const wanted = [
-    ...(f.batchAt === undefined ? [] : [{ at: f.batchAt, rule: "batch" }]),
-    ...(f.effect === "quiet" ? [{ at: now + MAX_HOLD, rule: "quiet" }] : []),
-    ...(f.replyAt !== undefined && f.replyAt - now <= MAX_HOLD
-      ? [{ at: f.replyAt, rule: "reply time" }]
-      : []),
-    ...((r.goodMoment && r.canActNow) || f.isAppOpen
-      ? []
-      : [{ at: now + HOLD_FOR[r.urgency], rule: "not now" }]),
-  ];
+  const wanted = holdsWantedOf(f, r);
   if (wanted.length === 0) {
     return { rules: ["good moment"], verdict: "deliver" };
   }
@@ -127,6 +118,21 @@ export function gateVerdictOf(f: GateFacts): GateVerdict {
   return until <= now
     ? { rules: [...rules, "deadline near"], verdict: "deliver" }
     : { rules, until: iso(until), verdict: "hold" };
+}
+
+/** The holds a card's facts ask for, each to when (none: a good moment). */
+function holdsWantedOf(f: GateFacts, r: GateReadings) {
+  const now = f.now.getTime();
+  return [
+    ...(f.batchAt === undefined ? [] : [{ at: f.batchAt, rule: "batch" }]),
+    ...(f.effect === "quiet" ? [{ at: now + MAX_HOLD, rule: "quiet" }] : []),
+    ...(f.replyAt !== undefined && f.replyAt - now <= MAX_HOLD
+      ? [{ at: f.replyAt, rule: "reply time" }]
+      : []),
+    ...((r.goodMoment && r.canActNow) || f.isAppOpen
+      ? []
+      : [{ at: now + HOLD_FOR[r.urgency], rule: "not now" }]),
+  ];
 }
 
 const HM = /\b([01]?\d|2[0-3])[:h]([0-5]\d)\b/g;

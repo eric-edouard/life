@@ -11,8 +11,9 @@ import { dayNow, dayStart } from "./zones";
 // His Later "when I'm home" (v4.1, bundle H): a `later` instruction naming home holds a check 24 hours (`laterOf`), and
 // his next arrival home ends it sooner: Life appends one `deferred` line until now, the latest for a ref winning.
 
+const HOME = /\bhome\b/i;
 /** Whether a `later` instruction's words name home ("when I'm home", "back home"). Pure. */
-export const isHomeLaterOf = (text: string) => /\bhome\b/i.test(text);
+export const isHomeLaterOf = (text: string) => HOME.test(text);
 
 /** How long a Later that waits for home holds at most. */
 export const HOME_LATER_FOR = DAY;

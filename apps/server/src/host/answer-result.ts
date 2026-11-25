@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { LIFE_ASKER, OWNER_ASKER } from "../core/names";
 import {
@@ -9,8 +10,16 @@ import {
 } from "../memory/answer-check";
 import { atOrganizationPairOf } from "../memory/at-organization";
 import { ADD_LIMIT_MS, RUN_LIMIT_MS } from "../memory/decision-add";
-import { notSentOf, withdrawAnswer } from "../memory/decision-after-answer";
-import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
+import {
+  notSentOf,
+  rateDecision,
+  withdrawAnswer,
+} from "../memory/decision-after-answer";
+import {
+  type Decision,
+  doneSeenShownOf,
+  MARKS,
+} from "../memory/decision-lines";
 import {
   actDueOf,
   actOf,
@@ -625,6 +634,30 @@ export function undoOf(d: Decision, now = clock()) {
   }
   return isTakenOf(d) ? null : { line: null };
 }
+
+/** `answer_check`'s arguments on a card he answered: his Undo, or his mark ("How am I doing?", `rateOffersOf`). */
+export const AFTER_ANSWER = {
+  rate: z
+    .enum(MARKS)
+    .optional()
+    .describe(
+      "His mark on how Life did on this answered card (its `rate` in `read_thread`)"
+    ),
+  undo: z
+    .literal(true)
+    .optional()
+    .describe("Undo his answer to this card (its `undo` in `read_thread`)"),
+};
+
+/** His mark on card `ref` (one `rated` line, nothing else changes), else his Undo of his answer (`undoAnswer`). */
+export const afterAnswer = (ref: string, rate?: (typeof MARKS)[number]) =>
+  rate
+    ? Promise.resolve({
+        done: [rateDecision(ref, rate)],
+        kind: "decision",
+        ref,
+      })
+    : undoAnswer(ref);
 
 /**
  * His Undo of his answer to card `ref` (`answer_check` with `undo`): a sent draft deleted for everyone first, where its

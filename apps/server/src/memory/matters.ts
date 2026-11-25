@@ -189,6 +189,20 @@ interface HisPins {
   reopened: Correction[];
 }
 
+/** His Later on a check, the latest for its key; one that waits for home is kept apart too (`deferredHome`). */
+function addDeferred(
+  pins: HisPins,
+  c: Extract<Correction, { kind: "deferred" }>
+) {
+  const key = laterKeyOf(c.ref);
+  pins.deferred.set(key, c.until);
+  if (c.home) {
+    pins.deferredHome.set(key, c.at);
+  } else {
+    pins.deferredHome.delete(key);
+  }
+}
+
 /** A correction's pin: when, its steps and the matter's id when it was written. */
 const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
   at: c.at,
@@ -241,12 +255,7 @@ export function readMatterPins() {
       } else if (c.kind === "matter-project") {
         pins.projects.push({ ...pinOf(c), project: c.project });
       } else if (c.kind === "deferred") {
-        pins.deferred.set(laterKeyOf(c.ref), c.until);
-        if (c.home) {
-          pins.deferredHome.set(laterKeyOf(c.ref), c.at);
-        } else {
-          pins.deferredHome.delete(laterKeyOf(c.ref));
-        }
+        addDeferred(pins, c);
       } else if (c.kind === "matter-reopened") {
         pins.reopened.push(c);
       }
