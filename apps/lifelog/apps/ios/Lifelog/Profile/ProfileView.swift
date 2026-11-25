@@ -16,14 +16,16 @@ struct ProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.l) {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 if let read {
                     VStack(spacing: Metrics.Spacing.s) {
                         Face(party: read.row.party, size: 96)
-                        Text(read.row.party.name).font(.profileName)
-                        if let line = read.row.party.line { Text(line).foregroundStyle(Palette.muted) }
+                        Text(read.row.party.name).font(.profileName).multilineTextAlignment(.center)
+                        if let line = read.row.party.line {
+                            Text(line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity).padding(.top, Metrics.Spacing.xl)
                     section("Open", read.open.map(\.name))
                     section("Details", read.details.map(\.text))
                     section("Now", read.situation.map(\.text))
@@ -49,17 +51,18 @@ struct ProfileView: View {
                     Spinner().frame(maxWidth: .infinity)
                 }
             }
-            .padding(Metrics.Spacing.l)
+            .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
         }
         .background(Palette.bg).task { await life.refreshPerson(ref) }
     }
 
     @ViewBuilder private func section(_ title: String, _ lines: [String]) -> some View {
         if !lines.isEmpty {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                Text(title).font(.heading).foregroundStyle(Palette.muted)
-                ForEach(lines, id: \.self) { Text($0) }
+            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
+                Text(title).font(.heading).foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
+                ForEach(lines, id: \.self) { Text($0).lineSpacing(Metrics.Spacing.xs) }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
