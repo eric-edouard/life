@@ -57,13 +57,23 @@ interface Orderable extends Rankable {
   /** An agent's card the gate read as high stakes. */
   importance?: "high";
   matter: { id: string; important?: boolean } | null;
+  /** A your move card's matter's place in his ranking (`rankedMattersOf`); none: after every ranked one. */
+  matterRank?: number;
   ref: string;
   ridesOn: { matterIds: string[] };
 }
 
+/** Two your move cards: by their matters' place in his ranking (regression cases stack-2 and stack-3: his ranking beats a deadline and age); any other pair ties. */
+const byMatterRank = (a: Orderable, b: Orderable) =>
+  isMove(a) && isMove(b)
+    ? (a.matterRank ?? Number.MAX_SAFE_INTEGER) -
+      (b.matterRank ?? Number.MAX_SAFE_INTEGER)
+    : 0;
+
 const before = (a: Orderable, b: Orderable) =>
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
   Number(b.group === "fix") - Number(a.group === "fix") ||
+  byMatterRank(a, b) ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   Number(!isImportant(a)) - Number(!isImportant(b)) ||
@@ -78,7 +88,8 @@ const matterKeyOf = (c: Orderable) => {
 
 /**
  * His inbox's order, the one rule (the v4 plan, bundle E: no ranks by kind): what is broken first, then by deadline,
- * soonest first, then what is important (`isImportant`), then the longest waiting; the asks the caretaker is fixing
+ * soonest first, then what is important (`isImportant`), then the longest waiting (two your move cards: his ranking of
+ * their matters first, `byMatterRank`); the asks the caretaker is fixing
  * last. Then a matter's asks follow its first one; an ask with no matter keeps its place.
  */
 export const inboxOrderOf = <C extends Orderable>(list: C[]): C[] => {

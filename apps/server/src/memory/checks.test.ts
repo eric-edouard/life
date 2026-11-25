@@ -115,7 +115,7 @@ test("his word, this-is or same-person to the guess, removes the check; a not-th
   expect(checks([merged])).toEqual([]);
 });
 
-test("the order: open matters, then lines, then pages, then the newest", () => {
+test("the order of Life's own guesses, with no ranks by kind: the longest waiting first, whatever rides on them", () => {
   const a = about("person:inf_a");
   const b = about("person:inf_b");
   const c = [about("person:inf_c"), about("person:inf_c")];
@@ -144,10 +144,10 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
   ).map((x) => x.ref);
   expect(order).toEqual([
     "person:inf_a",
+    "person:inf_b",
     "person:inf_c",
     "person:inf_d",
     "person:inf_e",
-    "person:inf_b",
   ]);
 });
 

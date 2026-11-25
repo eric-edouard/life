@@ -336,9 +336,9 @@ export function laterOf(
 /** The first instant of next month where he is: a fix ask he kept is asked again then, if still due. */
 const monthEndOf = (now = clock()) => {
   const [y = 0, m = 0] = dayNow(now).split("-").map(Number);
-  return dayStart(
-    new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10)
-  ).toISOString();
+  const next =
+    m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  return dayStart(next).toISOString();
 };
 
 /** His Later on check `c`: one `deferred` correction by its ref, until Life's time (`laterOf`). */
