@@ -4,7 +4,7 @@ import SwiftUI
 /// What a block may do: only his words and the phone's own screens, never an act of its own.
 struct BlockActions {
     /// An answer he taps in a question goes as his words.
-    var say: (String) -> Void = { _ in }
+    var say: (String) -> Bool = { _ in false }
     var openSettings: () -> Void = {}
 }
 
@@ -39,7 +39,8 @@ struct BlockView: View {
                 PlaceBlock(name: place.name, address: place.address)
             }
             .buttonStyle(.plain)
-        case .question(let q): QuestionBlock(answers: q.answers, recommended: q.recommended, say: actions.say)
+        case .question(let q):
+            QuestionBlock(answers: q.answers, recommended: q.recommended, say: { _ = actions.say($0) })
         case .settings(let keys, let offer):
             LiveSettingsBlock(keys: keys, offer: offer, say: actions.say, openSettings: actions.openSettings)
         }

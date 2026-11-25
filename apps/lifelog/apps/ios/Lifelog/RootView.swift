@@ -194,7 +194,10 @@ struct RootView: View {
     }
 
     private var actions: BlockActions {
-        BlockActions(say: { thread.ask($0, screen: screen) }, openSettings: { sheet = .settings })
+        BlockActions(
+            say: {
+                thread.ask($0, screen: screen); return true
+            }, openSettings: { sheet = .settings })
     }
 
     private func send() {
