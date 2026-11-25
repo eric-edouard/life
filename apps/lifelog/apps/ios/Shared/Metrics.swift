@@ -18,6 +18,8 @@ enum Metrics {
     /// A round icon disc leading a thread row; a reaction's corner mark; a still pie (small, and in a line); a colour swatch.
     static let disc: CGFloat = 40
     static let reactionMark: CGFloat = 24
+    /// The disc that opens an ask on its own.
+    static let askDisc: CGFloat = 48
     static let pie: CGFloat = 18
     static let pieSmall: CGFloat = 12
     static let swatch: CGFloat = 32
@@ -36,6 +38,8 @@ enum Metrics {
         static let faded = 0.4
         static let dim = 0.5
         static let earlier = 0.6
+        /// A draft's fill before it is sent, and the open-the-app link's.
+        static let wash = 0.14
     }
 
     /// The Pendant sheet's tiles: a stat tile's height, the light's square, the storage ring.

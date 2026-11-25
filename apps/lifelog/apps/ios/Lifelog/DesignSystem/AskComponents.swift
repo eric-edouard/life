@@ -12,6 +12,10 @@ struct AnswerPills: View {
     var recommended: String?
     var hasLater = true
     var busy: String?
+    /// The answers that cannot be tapped yet (one that takes his words, before he wrote them).
+    var disabled: Set<String> = []
+    /// The id of an answer's button, for the end-to-end tests.
+    var identify: (String) -> String? = { _ in nil }
     var say: (String) -> Void = { _ in }
 
     var body: some View {
@@ -29,7 +33,8 @@ struct AnswerPills: View {
 
     private func pill(_ answer: String, _ kind: PillStyle.Kind) -> some View {
         Button(answer) { say(answer) }
-            .buttonStyle(.pill(kind, size: .row, isBusy: answer == busy))
+            .buttonStyle(.pill(kind, size: .row, isBusy: answer == busy)).identified(identify(answer))
+            .disabled(disabled.contains(answer))
             .opacity(busy == nil || answer == busy ? 1 : Metrics.Opacity.dim)
     }
 }
@@ -63,30 +68,51 @@ struct EditChips: View {
     }
 }
 
-/// An ask unfolded: a header (its question, why in one line), the draft as its chat (`DraftBlock`) with its quick edits,
-/// and the answers, on a `wash` with no edge. A spending stop carries one small line of amounts under the why. Inside a
-/// thread item (`isInItem`) it has no wash and no side padding of its own: the item's is the page's.
+/// An ask: a header (its question, why in one line), the draft as its chat (`DraftBlock`) with its quick edits, and
+/// the answers, on a `wash` with no edge. On its own it opens with the item's header, a disc, the question and its line,
+/// as the prototype's ask page does. A spending stop carries one small line of amounts under the why. Inside a thread
+/// item (`isInItem`) it has no wash and no side padding of its own, and no header: the item's is the page's.
 struct AskCard: View {
     let question: String
     var why: String?
+    var icon = "bubble.left"
     var check: Check?
     var edits: [String] = []
     var amounts: String?
     let answers: [String]
     var recommended: String?
     var busy: String?
+    /// The words an answer takes (a note, a name): a field over the answers while it is set.
+    var taking: Binding<String>?
+    var disabled: Set<String> = []
+    var identify: (String) -> String? = { _ in nil }
+    /// A draft he has tried to send that did not go: its chat says "Not sent".
+    var hasFailed = false
+    var say: (String) -> Void = { _ in }
     var isInItem = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            Text(question).font(.header)
+            if isInItem {
+                Text(question).font(.header)
+            } else {
+                HStack(spacing: Metrics.Spacing.m) {
+                    Image(systemName: icon).font(.header).foregroundStyle(Palette.muted)
+                        .frame(width: Metrics.askDisc, height: Metrics.askDisc).background(Palette.tint, in: .circle)
+                        .accessibilityHidden(true)
+                    Text(question).font(.header).multilineTextAlignment(.leading)
+                }
+            }
             if let why { Text(why).font(.line).foregroundStyle(Palette.muted) }
             if let amounts { Text(amounts).font(.meta).foregroundStyle(Palette.faint) }
-            if let check, let draft = DraftBlock(check: check, isBoxed: false) {
+            if let check, let draft = DraftBlock(check: check, hasFailed: hasFailed, isBoxed: false) {
                 draft
                 if !edits.isEmpty { EditChips(edits: edits) }
             }
-            AnswerPills(answers: answers, recommended: recommended, busy: busy)
+            if let taking { Field(prompt: "Your words", text: taking) }
+            AnswerPills(
+                answers: answers, recommended: recommended, busy: busy, disabled: disabled, identify: identify, say: say
+            )
         }
         .padding(.vertical, isInItem ? 0 : Metrics.Spacing.l).padding(.horizontal, isInItem ? 0 : Metrics.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading).washed(!isInItem)

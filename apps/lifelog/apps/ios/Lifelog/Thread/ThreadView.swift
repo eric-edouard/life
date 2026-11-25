@@ -132,22 +132,21 @@ private struct EntryView: View {
     let thread: LifeThread
     let screen: MainSessionScreen
     let actions: BlockActions
-    private static let reactions = ["👍", "❤️", "😂", "🙏"]
-    /// His bubble's widest: the design's, grown with the text size so a large type still wraps in a bubble.
-    @ScaledMetric private var bubbleWidth = Metrics.bubbleWidth
+    private static let reactions = Reaction.rating.map(\.rawValue)
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            bubble
+            HisBubble(
+                words: entry.words,
+                state: entry.phase == .waiting ? .waiting : entry.phase == .failed ? .failed : .sent,
+                reaction: entry.lifeReaction.flatMap(Reaction.init(rawValue:)),
+                retry: { thread.askAgain(entry.id, screen: screen) })
             if let live {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if let step = live.step {
-                        HStack(spacing: Metrics.Spacing.s) {
-                            Spinner(size: .small).foregroundStyle(Palette.ai)
-                            Text("\(step.verb) \(step.what)").font(.line).foregroundStyle(Palette.muted)
-                        }
+                        StepsLine(verb: step.verb, what: step.what)
                     } else if live.parts.isEmpty {
-                        Spinner(size: .small).foregroundStyle(Palette.ai)
+                        StepsLine()
                     }
                     AnswerView(parts: live.parts, actions: actions)
                 }
@@ -158,10 +157,7 @@ private struct EntryView: View {
                             Button(e) { Task { await thread.react(entry.id, with: e) } }
                         }
                     }
-                if let mine = entry.ownerReaction {
-                    Text(mine).font(.line).padding(.horizontal, Metrics.Spacing.s).background(
-                        Palette.tint, in: .capsule)
-                }
+                if let mine = entry.ownerReaction.flatMap(Reaction.init(rawValue:)) { ReactionMark(reaction: mine) }
             } else if entry.phase == .failed {
                 Text("I couldn't answer that.").foregroundStyle(Palette.muted)
             } else if entry.phase == .stopped {
@@ -169,28 +165,5 @@ private struct EntryView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var bubble: some View {
-        Button {
-            thread.askAgain(entry.id, screen: screen)
-        } label: {
-            HStack(spacing: Metrics.Spacing.xs) {
-                if entry.phase == .waiting {
-                    Image(systemName: "clock").font(.line).accessibilityLabel("Goes when you're back")
-                }
-                Text(entry.words)
-                if let emoji = entry.lifeReaction { Text(emoji).font(.line) }
-            }
-            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s).foregroundStyle(Palette.fg)
-            .background(
-                Palette.tint,
-                in: UnevenRoundedRectangle(
-                    topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
-                    bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
-            )
-        }
-        .buttonStyle(.plain).disabled(entry.phase != .failed)
-        .frame(maxWidth: bubbleWidth, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
     }
 }

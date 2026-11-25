@@ -12,14 +12,19 @@ struct DraftBlock: View {
     let draft: Check.Draft
     /// Where the send stands: the ticks spring in and the shadow fades as its steps pass.
     var delivery = DraftDelivery.notSent
+    /// A send he tried that went nowhere: only then does the chat say "Not sent". A draft still waiting for his answer
+    /// says nothing under it.
+    var hasFailed = false
     /// On paper of its own (the notification); in an ask it sits on the thing's `tile` with no box.
     var isBoxed = true
 
     @Environment(\.calendar) private var calendar
 
-    init?(check: Check, delivery: DraftDelivery = .notSent, isBoxed: Bool = true) {
+    init?(check: Check, delivery: DraftDelivery = .notSent, hasFailed: Bool = false, isBoxed: Bool = true) {
         guard let draft = check.draft else { return nil }
-        (self.check, self.draft, self.delivery, self.isBoxed) = (check, draft, delivery, isBoxed)
+        (self.check, self.draft, self.delivery, self.hasFailed, self.isBoxed) = (
+            check, draft, delivery, hasFailed, isBoxed
+        )
     }
 
     private var look: ChatLook { ChatLook.of(draft.channel) }
@@ -54,7 +59,6 @@ struct DraftBlock: View {
                 .overlay(alignment: .bottomTrailing) {
                     Text(reaction).font(.line).padding(.horizontal, 7).padding(.vertical, 1)
                         .background(look.sent, in: .capsule)
-                        .modifier(Drafted(isSent: isSent))
                         .offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
                 }
                 .padding(.bottom, Metrics.Spacing.m)
@@ -124,13 +128,17 @@ struct DraftBlock: View {
         }
     }
 
-    /// A drafted bubble: the platform's full sent colour on a shadow until it is sent.
-    private func drafted(_ content: some View) -> some View {
+    /// A drafted bubble: an outline in the platform's accent, dashed, over a wash of it, until it is sent; then solid.
+    @ViewBuilder private func drafted(_ content: some View) -> some View {
+        let shape = bubble(isMine: true)
         content.font(.line).foregroundStyle(look.text)
             .padding(.horizontal, 11).padding(.vertical, 7)
-            .background(look.sent, in: bubble(isMine: true))
-            .modifier(Drafted(isSent: isSent))
+            .background(isSent ? look.sent : AnyShapeStyle(look.bar.opacity(Metrics.Opacity.wash)), in: shape)
+            .overlay { if !isSent { shape.strokeBorder(look.bar, style: Self.dashed) } }
+            .animation(Motion.undrafted, value: isSent)
     }
+
+    private static let dashed = StrokeStyle(lineWidth: 1.5, dash: [5, 3])
 
     private func bubble(isMine: Bool) -> UnevenRoundedRectangle {
         let (r, t) = (look.radius, look.tail)
@@ -175,7 +183,11 @@ struct DraftBlock: View {
         }
         .foregroundStyle(Palette.fg).padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.glass, in: .rect(cornerRadius: Metrics.Radius.control))
-        .modifier(Drafted(isSent: isSent))
+        .overlay {
+            if !isSent {
+                RoundedRectangle(cornerRadius: Metrics.Radius.control).strokeBorder(Palette.line, style: Self.dashed)
+            }
+        }
         status(isMine: true)
     }
 
@@ -194,7 +206,11 @@ struct DraftBlock: View {
 
     /// Where the ticks will be: "Not sent" and a clock; once handed, one tick; once in the chat, two; a call that never
     /// gave its answer, "May have gone".
-    private func status(isMine: Bool) -> some View {
+    @ViewBuilder private func status(isMine: Bool) -> some View {
+        if delivery != .notSent || hasFailed { statusLine(isMine: isMine) }
+    }
+
+    private func statusLine(isMine: Bool) -> some View {
         HStack(spacing: 5) {
             switch delivery {
             case .notSent: Image(systemName: "clock")
@@ -256,8 +272,9 @@ private struct ChatHead: View {
                     Text("\(people) people").font(.line).foregroundStyle(Palette.muted)
                 }
                 if url != nil {
-                    Image(systemName: "arrow.up.right").font(.heading).foregroundStyle(Palette.fg)
-                        .frame(width: 32, height: 32).background(Palette.tint, in: .circle)
+                    Text("Open \(network) \(Image(systemName: "arrow.up.right"))").font(.heading)
+                        .foregroundStyle(look.bar).padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+                        .background(look.bar.opacity(Metrics.Opacity.wash), in: .capsule)
                 }
             }
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
@@ -275,17 +292,6 @@ private struct ChatHead: View {
             check.isRecipientGuessed
             ? "~ " + (check.networkIdentity?.shownName ?? draft.to) : check.head?.name ?? draft.to
         return look.namesNetwork ? "\(name) · \(network)" : name
-    }
-}
-
-/// A drafted part's mark: a soft shadow, gone once it is sent (no outline: nothing here is drawn with one).
-private struct Drafted: ViewModifier {
-    let isSent: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .shadow(color: .black.opacity(isSent ? 0 : 0.28), radius: 6, y: 2)
-            .animation(Motion.undrafted, value: isSent)
     }
 }
 

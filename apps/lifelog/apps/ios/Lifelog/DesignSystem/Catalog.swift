@@ -174,14 +174,14 @@ import SwiftUI
                 section("How am I doing?") { RatingRow() }
                 section("Sent line: Undo, confirm, undoing, deleted") {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                        SentLine(to: "Lena", phase: .sent(undoUntil: "Fri"))
+                        SentLine(to: "Lena", phase: .sent(canUndo: true, until: "Fri"))
                         SentLine(
                             to: "Lena",
                             phase: .confirming(
                                 "Lena will see “This message was deleted”, and may already have read it."))
                         SentLine(to: "Lena", phase: .undoing)
                         SentLine(to: "Lena", phase: .undone)
-                        SentLine(to: "Lena", phase: .sent(undoUntil: nil))
+                        SentLine(to: "Lena", phase: .sent(canUndo: false))
                     }
                 }
                 section("Held asks") { HeldSeparator(text: "While you were in your meeting · 14:00 to 15:00") }
@@ -239,7 +239,8 @@ import SwiftUI
                             answers: ["Yes", "No"], recommended: "Yes")
                         AskCard(
                             question: "Keep looking for a physio?", why: "Two places are still booked up.",
-                            amounts: "About 1 € more · 1 € so far", answers: ["Keep looking", "Stop here"])
+                            amounts: "About 1 € more · 1 € so far", answers: ["Keep looking", "Stop here"],
+                            recommended: "Keep looking")
                         AskCard(
                             question: "Reply to Lena?", answers: ["Send", "Edit"], recommended: "Send", busy: "Send")
                     }
@@ -249,14 +250,14 @@ import SwiftUI
                     VStack(spacing: Metrics.Spacing.m) {
                         AskCard(
                             question: "Reply to Lena?", check: Self.draft("whatsapp"),
-                            edits: ["Warmer", "Shorter", "In French"], answers: ["Send", "Not now"], recommended: "Send"
+                            edits: ["Warmer", "Shorter", "In French"], answers: ["Send"], recommended: "Send"
                         )
                         AskCard(
-                            question: "Reply to Lena?", check: Self.draft("imessage"), answers: ["Send", "Not now"],
+                            question: "Reply to Lena?", check: Self.draft("imessage"), answers: ["Send"],
                             recommended: "Send")
                         AskCard(
                             question: "Send this to Helene?", check: Self.draft("mail", isMail: true),
-                            answers: ["Send", "Not now"], recommended: "Send")
+                            answers: ["Send"], recommended: "Send")
                         if let sent = DraftBlock(check: Self.draft("whatsapp"), delivery: .sent, isBoxed: false) {
                             sent.padding(.horizontal, Metrics.Spacing.l)
                         }
@@ -268,22 +269,9 @@ import SwiftUI
                     OfferBlock(question: "Stop telling you about newsletters?")
                 }
                 section("Answer blocks: document, phrase, place") {
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                        Text("Invoice 214").font(.rowTitle)
-                        Text("Physio, 3 sessions").font(.line).foregroundStyle(Palette.muted)
-                        Text("180 €").font(.rowTitle)
-                    }
-                    .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                        Text("Où est la gare ?").font(.quote)
-                        Text("Where is the station?").font(.line).foregroundStyle(Palette.muted)
-                    }
-                    .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
-                        Text("Café Lune").font(.rowTitle)
-                        Text("12 Rue Neuve, Lille").font(.line).foregroundStyle(Palette.muted)
-                    }
-                    .padding(Metrics.Spacing.l).frame(maxWidth: .infinity, alignment: .leading).card()
+                    DocumentBlock(title: "Invoice 214", lines: ["Physio, 3 sessions"], total: "180 €")
+                    PhraseBlock(text: "Où est la gare ?", mine: "Where is the station?")
+                    PlaceBlock(name: "Café Lune", address: "12 Rue Neuve, Lille")
                 }
             }
         }

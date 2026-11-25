@@ -40,8 +40,7 @@ const CAPS: Record<string, Record<string, number>> = {
   "Pendant/IncidentCards.swift": { padding: 1 },
   "RootView.swift": { height: 2, padding: 1, width: 2 },
   "Settings/ConnectionPage.swift": { padding: 3 },
-  "Thread/AnswerView.swift": { width: 1 },
-  "Thread/ThreadView.swift": { capsule: 1, height: 1 },
+  "Thread/ThreadView.swift": { height: 1 },
 };
 
 // The system's own files draw with names too: a motion is a `Motion` value, a padding a `Spacing` step. Each file's

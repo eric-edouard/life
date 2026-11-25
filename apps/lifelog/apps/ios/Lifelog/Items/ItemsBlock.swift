@@ -7,7 +7,7 @@ struct ItemsBlock: View {
     @Environment(LifeStore.self) private var life
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: Metrics.Spacing.xs) {
             ForEach(refs, id: \.self) { ref in
                 if let ask = life.ask(ref) { ItemRow(ask: ask) }
             }

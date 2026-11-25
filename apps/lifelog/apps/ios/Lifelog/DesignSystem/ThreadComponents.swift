@@ -23,6 +23,26 @@ struct ReactionMark: View {
     }
 }
 
+/// What Life is doing for his ask, one line: a spinner, then "Looking at your calendar". Without a step, the spinner alone.
+struct StepsLine: View {
+    var verb: String?
+    var what = ""
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            Spinner(size: .small).foregroundStyle(Palette.ai)
+            if let verb { Text("\(verb) \(what)").font(.line).foregroundStyle(Palette.muted) }
+        }
+    }
+}
+
+extension View {
+    /// An accessibility id for the end-to-end tests, when there is one. Never on a container: it overrides its children's.
+    @ViewBuilder func identified(_ id: String?) -> some View {
+        if let id { accessibilityIdentifier(id) } else { self }
+    }
+}
+
 /// His words, a bubble on the right with Life's mark on it. `waiting` goes when he is back, `failed` is tapped to ask
 /// again. A reaction sits on the bubble's bottom-left corner, outside the words.
 struct HisBubble: View {
@@ -30,25 +50,34 @@ struct HisBubble: View {
     let words: String
     var state = State.sent
     var reaction: Reaction?
+    /// A failed bubble is tapped to ask again.
+    var retry: () -> Void = {}
+    /// The widest bubble and the corner mark grow with the text size, so a large type still wraps and the mark keeps room.
+    @ScaledMetric private var width = Metrics.bubbleWidth
+    @ScaledMetric private var mark = Metrics.reactionMark
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.xs) {
-            if state == .waiting {
-                Image(systemName: "clock").font(.line).accessibilityLabel("Goes when you're back")
+        Button(action: retry) {
+            HStack(spacing: Metrics.Spacing.xs) {
+                if state == .waiting {
+                    Image(systemName: "clock").font(.line).accessibilityLabel("Goes when you're back")
+                }
+                Text(words)
             }
-            Text(words)
+            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s)
+            .foregroundStyle(Palette.fg)
+            .background(
+                Palette.tint,
+                in: UnevenRoundedRectangle(
+                    topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
+                    bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
+            )
         }
-        .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s).foregroundStyle(Palette.fg)
-        .background(
-            Palette.tint,
-            in: UnevenRoundedRectangle(
-                topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
-                bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
-        )
+        .buttonStyle(.plain).disabled(state != .failed)
         .overlay(alignment: .bottomLeading) {
             if let reaction {
-                ReactionMark(reaction: reaction).frame(width: Metrics.reactionMark, height: Metrics.reactionMark)
-                    .background(Palette.card, in: .circle).offset(x: -Metrics.Spacing.s, y: Metrics.Spacing.m)
+                ReactionMark(reaction: reaction).frame(width: mark, height: mark)
+                    .background(Palette.card, in: .circle).offset(x: -Metrics.Spacing.s, y: mark / 2)
             } else if state == .failed {
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Palette.flag).offset(
                     x: -Metrics.Spacing.s, y: Metrics.Spacing.s
@@ -56,8 +85,9 @@ struct HisBubble: View {
                 .accessibilityLabel("Not sent. Tap to try again")
             }
         }
-        .padding(.bottom, reaction == nil ? 0 : Metrics.Spacing.m)
-        .frame(maxWidth: Metrics.bubbleWidth, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
+        // Half the mark hangs below the bubble: the rows under it start past it.
+        .padding(.bottom, reaction == nil ? 0 : mark / 2 + Metrics.Spacing.xs)
+        .frame(maxWidth: width, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -124,6 +154,8 @@ struct ThreadItemRow<Detail: View>: View {
     let state: ItemState
     var icon = "circle.dashed"
     var isOpen = false
+    /// The ask's ref, when the row is a live ask: the end-to-end tests find its controls by it (`AID`).
+    var ref: String?
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
 
@@ -143,7 +175,7 @@ struct ThreadItemRow<Detail: View>: View {
                 }
                 .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain).identified(ref.map(AID.askRow))
             if isOpen { detail }
         }
         .opacity(state == .outdated ? Metrics.Opacity.faded : 1)
@@ -171,10 +203,13 @@ struct ThreadItemRow<Detail: View>: View {
         case .later: Image(systemName: "clock").foregroundStyle(Palette.muted).accessibilityLabel("Later")
         case .waitingOnSomeone:
             Image(systemName: "hourglass").foregroundStyle(Palette.muted).accessibilityLabel("Waiting on someone")
-        case .settled, .undone: Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
+        case .settled, .undone:
+            Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
+                .identified(ref.map(AID.askSettled))
         case .queued:
             Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel(
-                "Goes when Life is back")
+                "Goes when Life is back"
+            ).identified(ref.map(AID.askQueued))
         case .stopped: Image(systemName: "stop.circle").foregroundStyle(Palette.muted).accessibilityLabel("Stopped")
         case .underWay, .outdated: EmptyView()
         }
@@ -193,26 +228,30 @@ struct HeldSeparator: View {
 
 /// A send's line and its Undo: WhatsApp's "Sent to Lena", then what the other side will see before he confirms.
 struct SentLine: View {
-    enum Phase: Equatable { case sent(undoUntil: String?), confirming(String), undoing, undone }
-    let to: String
+    enum Phase: Equatable { case sent(canUndo: Bool, until: String? = nil), confirming(String), undoing, undone }
+    /// Who it went to; nil when the thread does not say.
+    var to: String?
     let phase: Phase
     var undo: () -> Void = {}
     var keep: () -> Void = {}
+    /// The Undo's id for the end-to-end tests (`AID.askUndo`).
+    var undoID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             switch phase {
-            case .sent(let until):
+            case .sent(let canUndo, let until):
                 HStack(spacing: Metrics.Spacing.xs) {
-                    Text("Sent to \(to)").font(.line).foregroundStyle(Palette.muted)
-                    if let until {
-                        Button("Undo until \(until)", action: undo).font(.lineStrong).foregroundStyle(Palette.fg)
+                    Text(to.map { "Sent to \($0)" } ?? "Sent").font(.line).foregroundStyle(Palette.muted)
+                    if canUndo {
+                        Button(until.map { "Undo until \($0)" } ?? "Undo", action: undo).font(.lineStrong)
+                            .foregroundStyle(Palette.fg).identified(undoID)
                     }
                 }
             case .confirming(let warning):
                 Text(warning).font(.line).foregroundStyle(Palette.muted)
                 HStack(spacing: Metrics.Spacing.s) {
-                    Button("Delete", action: undo).buttonStyle(.pill(.filled, size: .compact))
+                    Button("Delete", action: undo).buttonStyle(.pill(.filled, size: .compact)).identified(undoID)
                     Button("Keep", action: keep).buttonStyle(.pill(.quiet, size: .compact))
                 }
             case .undoing:
