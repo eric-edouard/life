@@ -57,7 +57,7 @@ const Instruction = InstructionRequest.extend({
   id: z.string().regex(/^ins_[0-9a-f]{12}$/),
   schemaVersion: z.literal(1),
 }).strict();
-export type Instruction = z.infer<typeof Instruction>;
+type Instruction = z.infer<typeof Instruction>;
 
 /** Appends his instruction `r`, stamped now; its line. */
 export function recordInstruction(r: z.input<typeof InstructionRequest>) {
