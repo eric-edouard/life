@@ -21,6 +21,7 @@ import {
   type RunApifyByHisWord,
   ranNeverEndedOf,
 } from "./decision-add";
+import { deliveryOf } from "./decision-delivery";
 import { readAll, voidedBy } from "./decision-fold";
 import {
   Added,
@@ -44,6 +45,7 @@ import {
 import { isSendable } from "./draft";
 import {
   contestOf,
+  editReplacesOf,
   heldChatOf,
   isPending,
   isSameChat,
@@ -57,23 +59,19 @@ import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { amountOf, apifyRunOf, eventOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
-// draft he approves when there is one, 2 or 3 options (the recommended one first; older lines hold up to 4), its context folded, a deadline.
-// Append-only, one synchronous line each, outside the lock like a correction: `asked` (`requestDecision`), his
-// `answered` (the first wins; his own words alone are his "something else"), the asker's `withdrawn` (or Life's, when he
-// answered in a draft's chat himself: `withdrawDraftsAnsweredInChat`), and, when his
-// answer was a draft's outgoing option alone, the send's outcome (`sent` or `send-failed`, `draft-send.ts`), and when it
-// was an `ends` option alone, the end's outcome (`ended`: his word that the step or matter is done, `endByHisWord`), and an `adds` option alone, the calendar write's (`added`, `addEventByHisWord`, written once, never retried), and a `runs` option alone, the Apify run's start (`ran`, `runApifyByHisWord`, the same way). A send
-// that ended `not sent:` (nothing went) voids its answer: the card is open again and his next answer is the next first
-// (his yes of 18 Nov 2026); `may have gone:` stays answered. A card Life sees done itself (`doneSeenBy`: a payment) gets
-// Life's outcome line `done-seen` (`recordDoneSeen`), never his answer: on his pick of its `looks` option alone, `seen` or
-// `not_found` (which voids the answer as `not sent:` does), and from the watcher's look while it is open, `seen` alone,
-// which settles the card with no answer of his (`seen`). A card whose draft goes into a chat another asker's open card
-// holds waits on it (`contests`, Life's stamp; his yes of 21 Nov 2026): the holder yields (withdraws its own), merges
-// (`merges`: one card for both) or keeps (`kept`, with its why); silent `CONTEST_WAIT`, the waiting card is asked with
-// `replaces`, and his Send withdraws the older card (`replacedBy`). Where each
-// stands is worked out when read (`decisionsNow`); the open ones are checks (`checks.ts`), so he sees them in the one
-// list. The file also holds earlier versions' lines: the old decisions page's (schemaVersion 1, before 2 Nov 2026) and
-// the cards before titles (schemaVersion 2, none in his data on 18 Nov 2026): kept, never read.
+// draft he approves when there is one, 2 or 3 options (the recommended one first; older lines hold up to 4), its
+// context folded, a deadline. Append-only, one synchronous line each, outside the lock like a correction: `asked`
+// (`requestDecision`), his `answered` (the first wins; his own words alone are his "something else"), the asker's
+// `withdrawn` (or Life's: he answered in a draft's chat himself, `withdrawDraftsAnsweredInChat`; a redraft took its
+// place), and the outcome of an answer's act: `sent` or `send-failed` (a draft's outgoing option alone, `draft-send.ts`),
+// `ended` (`ends`, `endByHisWord`), `added` (`adds`) and `ran` (`runs`), each written once. A send that ended `not sent:`
+// voids its answer and the card is open again (his yes of 18 Nov 2026); `may have gone:` stays answered; his Undo
+// (`answer-withdrawn`) voids it too. Life's own look for a step done is `done-seen` (`recordDoneSeen`): `not_found`
+// voids his `looks` answer, `seen` settles the card. The gate's `delivered` (`deliveryOf`) keeps a held card out of
+// every list. A draft into a chat another asker's open card holds waits on it (`contests`; his yes of 21 Nov 2026): the
+// holder yields, merges (`merges`) or keeps (`kept`); silent `CONTEST_WAIT`, it is asked with `replaces`, and his Send
+// withdraws the older card (`replacedBy`). Where each stands is worked out when read (`decisionsNow`); the open ones are
+// checks (`checks.ts`). Lines of schemaVersion 1 and 2 (before 18 Nov 2026) are kept, never read.
 
 const PROJECT_OR_AREA = /^(?:project|area):/;
 
@@ -86,6 +84,10 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
   }
   if (d.withdrawn) {
     return "withdrawn";
+  }
+  const delivery = deliveryOf(d, now).state;
+  if (delivery === "held" || delivery === "sent_back") {
+    return delivery;
   }
   return Date.parse(d.deadline) <= now.getTime() ? "lapsed" : "open";
 };
@@ -244,13 +246,20 @@ export function decisionsNow(now = clock()): Decision[] {
 
 /** A new card's contest: the card its merge settles with the asker's own held card, and the card it waits on. */
 function contestOfAsk(
-  ask: Pick<Decision, "agent" | "merges">,
+  ask: Pick<Decision, "agent" | "changed" | "merges">,
   asker: string,
   draft: Decision["draft"],
   now: Date
 ) {
   const by = { agent: ask.agent, asker };
   const all = decisionsNow(now);
+  // A redraft takes the place of the cards into its chat at once (his yes of 25 Nov 2026, question 10).
+  const replacing = ask.changed?.includes("edit")
+    ? editReplacesOf(all, draft, by, isSendingOf)
+    : undefined;
+  if (replacing) {
+    return { replacing };
+  }
   const merged = ask.merges ? waitingOnOf(all, ask.merges, by) : undefined;
   const merging = merged ? [merged.held.id, merged.waiting.id] : [];
   return {
@@ -489,12 +498,12 @@ async function askCard(
   if (digest && digest !== seen) {
     throw new CardPreview(cardPreviewOf(ask, draft, digest), digest);
   }
-  const { contests, merged } = contestOfAsk(ask, asker, draft, now);
+  const { contests, merged, replacing } = contestOfAsk(ask, asker, draft, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
   const { draft: _given, ...given } = ask; // The draft is stored as Life resolved it.
   const write = (stamps: Pick<Asked, "assignment">) =>
     appendJsonl(DECISIONS, Line, [
-      ...mergeWithdrawalsOf(merged, id, now), // A merge's withdrawal, in the same append as its card.
+      ...mergeWithdrawalsOf(merged, id, now, replacing), // In the same append as its card.
       {
         ...given,
         ...stamps,
@@ -513,19 +522,21 @@ async function askCard(
       },
     ]);
   claim(subject, id, merged?.held.id, write);
-  logAsked(ask, asker, id, !!draft, merged);
+  logAsked(ask, asker, id, !!draft, [
+    ...(merged ? [merged.held, merged.waiting] : (replacing ?? [])),
+  ]);
   return { id, ...waitsOf(contests, draft, now) };
 }
 
-/** A card's `decision.asked` line, after the `decision.withdrawn` lines of both cards a merge withdraws. */
+/** A card's `decision.asked` line, after the `decision.withdrawn` lines of the cards a merge or a redraft withdraws. */
 function logAsked(
   ask: z.infer<typeof Ask>,
   asker: string,
   id: string,
   hasDraft: boolean,
-  merged?: { held: Decision; waiting: Decision }
+  withdrawn: { id: string }[]
 ) {
-  logWithdrawn("merge", merged ? [merged.held, merged.waiting] : []);
+  logWithdrawn("merge", withdrawn);
   const options = ask.options.length;
   log("decision.asked", {
     agent: ask.agent,
@@ -778,17 +789,6 @@ export async function answerDecision(
   appendJsonl(DECISIONS, z.union([Sent, SendFailed]), [sent]);
   return [line, sent];
 }
-
-/** What his last answer's failed send left, for the app: when, why, and whether another tap could work (not when the card's deadline passed before it ended); null when nothing is left. */
-export const notSentOf = (d: Decision, n = d.notSent) =>
-  n
-    ? {
-        at: n.at,
-        canRetry: n.canRetry !== false && n.at < d.deadline,
-        reason: n.error,
-        wrote: n.wrote ?? null,
-      }
-    : null;
 
 /**
  * When a decision settled, as its asker hears it: its act's outcome when his answer sent its draft or ended its step

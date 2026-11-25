@@ -216,8 +216,8 @@ export type Cut = z.infer<typeof Cut>;
  * before it is lifted (`outdatedBy`), a link whose evidence came before it ends nothing (`readMatterRecords`), and a
  * Life draft reading the matter over before it is dropped (`readMatterPins`); a later `outdated` closes them again.
  * These five keep the matter's id beside its steps (`PINNED`): between matters holding the same steps,
- * the one he picked. `your-move-not-now` is his "Not now" on a your move card, pinned by its matter and steps: that card
- * hides until `until` (a local day, exclusive), or until the matter gets a step not in `steps`. `not-at-organization` is
+ * the one he picked. `deferred` is his Later on any check, by its `ref`: until `until` (an instant Life picked, or a
+ * `later` instruction's), the latest for a ref wins (replaced `your-move-not-now` on 25 Nov 2026). `not-at-organization` is
  * his No on an at organization card: `person` is not at `organization`, and that pair is never asked again (life#874).
  * `deleted` is his word that something goes from his memory: `refs` (units, facts, episodes, messages, turns, files, matters,
  * cards) whose line is gone, and `cuts` (words inside a line, by their places and a digest, never the words themselves).
@@ -313,9 +313,9 @@ export const Correction = z
     z
       .object({
         ...Correcting,
-        kind: z.literal("your-move-not-now"),
-        until: isoDate,
-        ...PINNED,
+        kind: z.literal("deferred"),
+        ref: z.string().min(1),
+        until: isoDateTime,
       })
       .strict(),
     z

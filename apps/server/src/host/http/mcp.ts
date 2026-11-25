@@ -5,7 +5,6 @@ import { z } from "zod";
 import { hasAddOn } from "../../core/add-ons";
 import { clock } from "../../core/clock";
 import { log } from "../../core/log";
-import { LOG_LEVELS } from "../../core/log-line";
 import { OWNER_ASKER } from "../../core/names";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
@@ -26,7 +25,7 @@ import {
   oneMatter,
 } from "../../memory/read-matters";
 import { offersOf } from "../../memory/read-person-page";
-import { readLogLines, readResourceSamples, runs } from "../../memory/run-log";
+import { readResourceSamples, runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { isToldLife } from "../../memory/sources";
 import { recordToldLife, TellLife } from "../../memory/told-life";
@@ -41,8 +40,7 @@ import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { PUSH_ID } from "../../sources/lifelog-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
-import { readAgentSession } from "../agent-session-read";
-import { answerWithResult } from "../answer-result";
+import { answerWithResult, undoAnswer } from "../answer-result";
 import {
   changeDirectoryEntry,
   DirectoryEntryChange,
@@ -72,6 +70,7 @@ import {
   pollEvents,
 } from "../events";
 import { openChecksNow, readInbox, unchangedOf } from "../inbox";
+import { readThread } from "../life-thread";
 import {
   matterRowsNowOf,
   readMatterRowsNow,
@@ -92,7 +91,6 @@ import { appointmentTools } from "./mcp-appointments";
 import { deleteFromMemoryTool } from "./mcp-deletions";
 import { mainSessionTool } from "./mcp-main-session";
 import { personPicturesTool } from "./mcp-people";
-import { projectTools } from "./mcp-projects";
 import { spendingTool } from "./mcp-spending";
 import {
   ARGUMENT_LOGGERS,
@@ -319,41 +317,6 @@ export function buildServer(readsOnly = false, logsArguments = false) {
     spendingTool(server, NOT_HIS);
     deleteFromMemoryTool(server, NOT_HIS);
     mainSessionTool(server, NOT_HIS);
-    // An agent's session on pi, read-only in his app; never on the tokenless reads-only server.
-    tool(
-      server,
-      "read_agent_session",
-      "His token only. For his app, not for questions about his life: the current session of one of his agents on pi (`id`, as `read_registered_agents` gives it), read-only (JSON): `lines`, oldest first, its newest 200, each `at`, `kind` (`asked`: what Life sent it, its brief or a wake; `said`: its words; `tool`: a tool it called, `tool` its name and `text` its arguments; `result`: that tool's answer, `isError` when it failed; `summary`: its session compacted), and `text`, cut at 2,000 characters; its thinking left out. No lines before its first turn. Fails for an agent on Claude Code or Codex: its session opens in its program (`link`).",
-      z.object({ id: z.string().min(1) }),
-      ({ id }, agent) => {
-        if (agent) {
-          throw new Error(NOT_HIS);
-        }
-        return readAgentSession(id);
-      }
-    );
-    // His app's live log; never on the tokenless reads-only server.
-    tool(
-      server,
-      "read_log_lines",
-      'His token only. For his app\'s live log, not for questions about his life: Life\'s event log, newest first (JSON): `lines`, each `at`, `level` (`info`, `warn`, `error`), `category` (the part of Life, then what it is about: `["desk","turn"]`; its first word one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command), `message` (one line, at most 160 characters, ids masked) and `parts` (the message as text and values, for display); never arguments, bodies or words. `cursor`: pass it back for older lines, until it is null; a page may hold fewer than `limit` when the days it read had fewer. `head` (a read with no cursor): the log\'s end as read; pass it back as `after` to read only the lines written since.',
-      z.object({
-        after: z
-          .string()
-          .optional()
-          .describe("A head: only the lines written after it"),
-        cursor: z.string().optional(),
-        limit: z.int().min(1).max(100).optional().describe("Default 50"),
-        min_level: z.enum(LOG_LEVELS).optional().describe("Default info"),
-        process: z.string().optional().describe("A category's first word"),
-      }),
-      ({ after, cursor, limit, min_level: minLevel, process }, agent) => {
-        if (agent) {
-          throw new Error(NOT_HIS);
-        }
-        return readLogLines({ after, cursor, limit, minLevel, process });
-      }
-    );
     tool(
       server,
       "read_resource_samples",
@@ -428,7 +391,23 @@ export function buildServer(readsOnly = false, logsArguments = false) {
     }
   );
   appointmentTools(server);
-  projectTools(server);
+  tool(
+    server,
+    "read_thread",
+    "His thread with Life, a page of 3 days, oldest first (JSON): `items`, each `kind` `entry` (his ask to Life: `id`, `at`, `words`, Life's `answer` (Markdown with Life's blocks) or `error`, `refs` it cites, `reactions`, `answeredAt`, and `handed`, work handed on: `kind`, `since`, `estimateMs`, `state`) or `ask` (a card or Life's own check: `ref`, `at`, `state`, `later` (until when his Later holds it, else null) and `card`: an open one as `read_inbox` gives it; a closed one its `title`, `ask`, `question`, `options`, his `answer`, `sent`, `withdrawn` (`why`, `replacedBy`: the card that took its place) and `undo` (null: none; `line`, what the other side will see when it deletes a sent message, else null)). `state`: `needs_you`, `later`, `under_way`, `waiting_on_someone`, `settled` or `outdated`. A held card is no item yet; an entry citing what he deleted is not shown. `earlier`: pass it as `before` for the page before (null: none). `version`: pass it back as `ifNot` to get only `{version, unchanged: true}` while nothing changed.",
+    z.object({
+      before: isoDateTime
+        .optional()
+        .describe("An instant: the page ending there"),
+      ifNot: IfNot,
+    }),
+    ({ before, ifNot }, agent) => {
+      if (agent) {
+        throw new Error(NOT_HIS);
+      }
+      return readThread({ before, ifNot });
+    }
+  );
   tool(
     server,
     "read_area_page",
@@ -584,7 +563,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "answer_check",
-    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). His pick of an option marked `ends` alone is his word that the card\'s step, or its whole matter, is done: Life closes it (its to-do items ticked, its facts outdated). His pick of an option marked `looks` alone is his word that he did the card\'s step: Life looks for it done now (a payment in his accounts): seen, the card ends (`doneSeen`, with `paid`: the card\'s amount, `value` and `currency`, and `seenAt`, when Life saw it); not found, it is open again for a later check. An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A `same person`: `same-person` makes the two one, `not-this-person` keeps them apart (never asked again). An `at organization`: `yes` adds the person to the organization in his directory with the role the question shows, `not-at-organization` ("No") is never asked again. A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `media` ("TV or video") is a voice from a screen, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` is still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter. A your move: `done` ("Mark as done") closes its step (`subject`) by his word, `start` ("Hand over", only while the card offers it) starts an agent on its matter as a new matter\'s Start does, `not-now` hides it 3 days, or until the matter gets a new step, `drop` ("Drop") is his word that its step won\'t be done and is no longer wanted: it closes the step as `done` does, recorded as dropped, its to-do items removed from his list rather than ticked.',
+    'Record the owner\'s answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life\'s own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter\'s `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`, or a name Life knows), for a voice `person` or `name` (a new person\'s name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft\'s one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). His pick of an option marked `ends` alone is his word that the card\'s step, or its whole matter, is done: Life closes it (its to-do items ticked, its facts outdated). His pick of an option marked `looks` alone is his word that he did the card\'s step: Life looks for it done now (a payment in his accounts): seen, the card ends (`doneSeen`, with `paid`: the card\'s amount, `value` and `currency`, and `seenAt`, when Life saw it); not found, it is open again for a later check. An ending ("Is this done?"): `outdated` ("Yes, done") closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life\'s guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A `same person`: `same-person` makes the two one, `not-this-person` keeps them apart (never asked again). An `at organization`: `yes` adds the person to the organization in his directory with the role the question shows, `not-at-organization` ("No") is never asked again. A voice: `is-them` ("Yes", to "Is this X?") names every turn of it as the guessed person, `this-is` ("Someone else…") names every turn of it in lifelog, `media` ("TV or video") is a voice from a screen, `not-relevant` ("Don\'t name") is not worth naming; `not-anyone-i-know` is still accepted, no longer offered. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter. A your move: `done` ("Mark as done") closes its step (`subject`) by his word, `start` ("Hand over", only while the card offers it) starts an agent on its matter as a new matter\'s Start does, `not-now` is his Later, `drop` ("Drop") is his word that its step won\'t be done and is no longer wanted: it closes the step as `done` does, recorded as dropped, its to-do items removed from his list rather than ticked. Any check: `later` (alone) is his Later: Life picks until when (tomorrow 9:00, sooner before its deadline, or the time his `later` instruction names; `changed.until`), and it shows as `later` in `read_thread` until then. `undo` on a card he answered: his answer withdrawn and the card open again, while its agent has not taken it and it did nothing outside Life; a sent message is first deleted for everyone where its chat allows it now (never iMessage or mail), `changed.deleted` once its network confirmed.',
     z.object({
       name: z
         .string()
@@ -601,11 +580,18 @@ export function buildServer(readsOnly = false, logsArguments = false) {
         .optional()
         .describe("person:<id>, or a name Life knows"),
       ref: z.string().describe("The check's `ref`"),
+      undo: z
+        .literal(true)
+        .optional()
+        .describe("Undo his answer to this card (its `undo` in `read_thread`)"),
       value: z.looseObject({ kind: z.string() }).optional(),
     }),
-    ({ ref, value, ...a }, agent, call) => {
+    ({ ref, undo, value, ...a }, agent, call) => {
       if (agent) {
         throw new Error(NOT_HIS);
+      }
+      if (undo) {
+        return undoAnswer(ref);
       }
       // Declared once with the asks contract, so a typed answer (a person, a channel switch) never changes the arguments.
       if (value) {

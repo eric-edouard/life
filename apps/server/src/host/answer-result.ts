@@ -3,11 +3,13 @@ import { LIFE_ASKER, OWNER_ASKER } from "../core/names";
 import {
   answerCheck,
   type CheckAnswer,
+  LATER,
   type StartAgent,
   yourMoveClosingOf,
 } from "../memory/answer-check";
 import { atOrganizationPairOf } from "../memory/at-organization";
 import { ADD_LIMIT_MS, RUN_LIMIT_MS } from "../memory/decision-add";
+import { notSentOf, withdrawAnswer } from "../memory/decision-after-answer";
 import { type Decision, doneSeenShownOf } from "../memory/decision-lines";
 import {
   actDueOf,
@@ -16,9 +18,13 @@ import {
   decisionsNow,
   type EndByHisWord,
   LOOK_LIMIT_MS,
-  notSentOf,
 } from "../memory/decisions";
-import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
+import {
+  sendLimitMs,
+  sendStepsOf,
+  unsendDraft,
+  unsendLineOf,
+} from "../memory/draft-send";
 import type { Check } from "../memory/life-checks";
 import {
   isAwaitingHisWord,
@@ -221,6 +227,12 @@ const VOICE_ANSWER: Record<string, string> = {
 
 /** What each kind of check changed, from the check and his answer. */
 function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
+  if (a.options[0] === LATER || a.options[0] === "not-now") {
+    return {
+      answer: LATER,
+      until: (done[0] as { until?: string } | undefined)?.until,
+    };
+  }
   if (c.group === "ending") {
     return {
       ending: a.options[0] === "outdated" ? "done" : "reopened",
@@ -236,13 +248,7 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
     };
   }
   if (c.group === "your move") {
-    const until = (done[0] as { until?: string } | undefined)?.until;
-    return {
-      answer: a.options[0],
-      matter: c.matter,
-      step: c.subject,
-      ...(a.options[0] === "not-now" ? { until } : {}),
-    };
+    return { answer: a.options[0], matter: c.matter, step: c.subject };
   }
   if (c.group === "at organization") {
     return { answer: a.options[0], ...atOrganizationPairOf(c.ref) };
@@ -402,6 +408,10 @@ async function decisionActOf(
   };
 }
 
+/** Whether an answer to `c` is the decision's own (its proof is the decision's), not his Later on it. */
+const isDecisionAct = (c: Check, a: CheckAnswer) =>
+  c.group === "decision" && a.options[0] !== LATER;
+
 /** What an answer says, to tell a repeat of it from another answer. */
 const saidOf = (a: CheckAnswer) =>
   JSON.stringify([a.options, a.note || null, a.person ?? null, a.name ?? null]);
@@ -513,7 +523,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     run: runApifyByHisWord,
     startAgent,
   });
-  if (check.group === "decision") {
+  if (isDecisionAct(check, asRead)) {
     return decisionResult(ref, answerKey);
   }
   const result = {
@@ -571,4 +581,91 @@ export function answerWithResult(ref: string, a: CheckAnswer, call: ToolCall) {
   const result = answer(ref, a, call).finally(() => running.delete(ref));
   running.set(ref, { call, result, said });
   return result;
+}
+
+/** Whether the asker's turn took his answer to `d` (its `decision.answered` handed to a turn): then Undo can't stop it. */
+const isTakenOf = (d: Decision) => {
+  const r = readDesk(
+    (db) =>
+      db
+        .query<{ n: number }, [string]>(
+          "select count(*) as n from event where event_id = ? and handed > 0"
+        )
+        .get(`${d.id}.answered`)?.n ?? 0,
+    0
+  );
+  return r.state === "ok" && r.value > 0;
+};
+
+/**
+ * What his Undo of his answer to `d` would do now, or null when there is none: an answered card whose answer did nothing
+ * outside Life yet (no end, event, run or look), or whose send its chat lets Life delete for everyone now (`line`, what
+ * the other side will see), while the asker's turn has not taken it.
+ */
+export function undoOf(d: Decision, now = clock()) {
+  const act = actDueOf(d);
+  // An act still running (its outcome line not in yet) holds the card: an Undo now would let it send or end twice.
+  const isRunning = act !== undefined && !actOutcomeOf(d, act);
+  if (
+    d.state !== "answered" ||
+    isRunning ||
+    d.end ||
+    d.added ||
+    d.ran ||
+    d.doneSeen
+  ) {
+    return null;
+  }
+  if (d.send) {
+    const line =
+      d.send.kind === "sent" && d.draft
+        ? unsendLineOf(d.draft, d.send.at, now)
+        : undefined;
+    return line && !isTakenOf(d) ? { line } : null;
+  }
+  return isTakenOf(d) ? null : { line: null };
+}
+
+/**
+ * His Undo of his answer to card `ref` (`answer_check` with `undo`): a sent draft deleted for everyone first, where its
+ * chat allows it (reported only once its network confirmed), then the answer withdrawn and the card open again. Refused,
+ * with what was done, once the asker's turn took it or the answer did something outside Life; the desk's tick stops a
+ * turn queued on it (`stopWithdrawn`).
+ */
+export function undoAnswer(ref: string) {
+  // One answer or Undo on a card at a time, with the answers (`running`).
+  if (running.has(ref)) {
+    return Promise.reject(
+      new Error(`Not done: another answer to ${ref} is being recorded.`)
+    );
+  }
+  const result = undo(ref).finally(() => running.delete(ref));
+  running.set(ref, { call: { report: () => undefined }, result, said: "undo" });
+  return result;
+}
+
+async function undo(ref: string) {
+  const d = decisionsNow().find((x) => x.id === ref);
+  if (!d?.answer) {
+    throw new Error(`Not done: ${ref} has no answer of his to undo.`);
+  }
+  if (!undoOf(d)) {
+    throw new Error(
+      d.send
+        ? "Not done: the message went, and its chat doesn't let Life delete it now."
+        : "Not done: what your answer started is under way, or its agent already acted on it."
+    );
+  }
+  let unsent: string | undefined;
+  if (d.send?.kind === "sent" && d.draft) {
+    await unsendDraft(d.draft, d.send.eventId, d.send.at);
+    unsent = d.send.eventId;
+  }
+  const line = withdrawAnswer(ref, unsent);
+  return {
+    changed: { decision: ref, deleted: Boolean(unsent), state: "open" },
+    done: [line],
+    kind: "decision",
+    ref,
+  };
 }

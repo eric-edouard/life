@@ -74,31 +74,6 @@ processing run writes nothing itself: open its `children`.
  "input":{"days":1,"prompt":"memory-extract.v2"},"result":{"calls":1,"failed":0,"read":3,"cached":0,"added":7},"errors":[]}
 ```
 
-## log lines
-
-`read_log_lines`, his token only (an agent's is refused; the question cases' tokenless server has none): the event
-log's lines, newest first, `{lines, cursor, head, observedAt}`, for his app's live log. Each line is worked out when read
-from the stored one (`shownLineOf`, `core/log-line.ts`), never its other fields (arguments, bodies, error words):
-
-| Field | What |
-|---|---|
-| `id` | its place in the log, so unique: passed as `cursor`, it reads the lines before it (the phone keeps reading older lines after it dropped its oldest) |
-| `at` | when it was written (UTC) |
-| `level` | `info`, `warn` (a refused call) or `error` (a run error, an `error`, `ok: false`) |
-| `category` | the part of Life, then what it is about (`["desk","turn"]`, `["mcp","read_day"]`): LogTape's category without `life`. Its first word is one of desk, mcp, model, source, decision, draft, card, memory, watch, archive, or a crashed command |
-| `message` | one line, at most 160 characters, ids masked, for copy and search |
-| `parts` | the message as `{text}` and `{value}` pieces, from LogTape's template and the line's fields: a value is formatted on the Mac (`38 s`, `3`, a masked id, a kind) |
-
-A line written before LogTape (21 Nov 2026: `at`, `kind`, no level) is read too, never migrated: its category from
-its kind and step, its message its kind, step and why as a class (a refusal's, an outcome, `failed`), as one text part.
-
-`limit` 1-100 (default 50), `min_level` (`info`, `warn`, `error`), `process` (a category's first word). The cursor is a
-day's file and a byte in it, so lines appended meanwhile never shift it; a page reads at most 2 days, so it may be
-short with a cursor still set; null when nothing older is left. With no cursor, the first page is the newest lines,
-newest first, and `head` is the log's end as read (a torn last line waits until whole). Passed back as `after`, a poll
-reads only the lines written since, in one call when nothing came, however far back its filter last matched. The log's own reads that went through (`mcp.call` of `read_log_lines`, info) are left out, or the
-phone's live log, polling, would show its own polling.
-
 ## resource samples
 
 `read_resource_samples`, his token only (an agent's is refused; the tokenless server has none): what loads his Mac,

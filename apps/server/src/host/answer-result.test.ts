@@ -6,9 +6,10 @@ import { DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import type { InboxCheck } from "../memory/checks";
+import { notSentOf } from "../memory/decision-after-answer";
 import type { Decision } from "../memory/decision-lines";
 import { DECISIONS } from "../memory/decision-lines";
-import { decisionsNow, notSentOf, requestDecision } from "../memory/decisions";
+import { decisionsNow, requestDecision } from "../memory/decisions";
 import type { Check } from "../memory/life-checks";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { voiceCardRefOf } from "../memory/who";
@@ -762,7 +763,7 @@ test("your move: Mark as done closes only its step, never a sibling; Drop closes
     { id: "matter_000000000007", open: true, steps: [mine, sibling] },
   ]);
   try {
-    const nn = "your-move-not-now";
+    const nn = "deferred";
     await call(move.ref, ["done"], "tap-done").result;
     await call(drop.ref, ["drop"], "tap-drop").result;
     await call(move.ref, ["not-now"], "tap-1").result;

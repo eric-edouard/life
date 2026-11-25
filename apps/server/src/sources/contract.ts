@@ -85,6 +85,10 @@ export interface SendPath {
   ) => Promise<string>;
   /** What a chat takes besides text: the one source of `refusal`'s reply, reaction, mention and file rules, and what `read_chats` tells an agent. */
   takes: (chat: string) => ChatTakes;
+  /** His Undo of a send (`unsendDraft`): deletes message `id` for everyone, resolving once its network confirms; throws why not. With `unsendLine`; none where nothing can be unsent (iMessage, mail). */
+  unsend?: (chat: string, id: string) => Promise<void>;
+  /** What the other side will see once `unsend` deletes a message sent at `sentAt`; none when the chat allows no delete now (too old, or never). */
+  unsendLine?: (chat: string, sentAt: string, now: Date) => string | undefined;
 }
 
 /** A message as its store first wrote it (`incoming`): its row there, its id as `read` gives it and its time. */

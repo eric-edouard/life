@@ -66,8 +66,12 @@
         }
       ],
       "onSilence": "no",
+      "ask": null,
+      "changed": null,
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "edits": null,
+      "follow": null,
       "gathered": null,
       "needs": [],
       "notSent": null,
@@ -86,6 +90,7 @@
         }
       ],
       "plan": null,
+      "recommended": null,
       "replaces": null,
       "question": "Send Kit the signed quote?",
       "ref": "dec_000000000001",
@@ -231,11 +236,15 @@
       "links": [],
       "onMatters": [],
       "onSilence": null,
+      "ask": null,
+      "changed": null,
       "doneSeen": {
         "line": "Not in your accounts yet",
         "state": "not_found"
       },
       "doneSeenBy": "payment",
+      "edits": null,
+      "follow": null,
       "gathered": null,
       "needs": [
         {
@@ -292,6 +301,7 @@
         }
       ],
       "plan": null,
+      "recommended": null,
       "replaces": null,
       "question": "Pay the dive course deposit?",
       "ref": "dec_000000000002",
@@ -331,8 +341,12 @@
       "links": [],
       "onMatters": [],
       "onSilence": null,
+      "ask": null,
+      "changed": null,
       "doneSeen": null,
       "doneSeenBy": "tap",
+      "edits": null,
+      "follow": null,
       "gathered": {
         "text": "From Kit's quote and two others"
       },
@@ -370,6 +384,7 @@
           "when": "once Kit answers, by Thu"
         }
       ],
+      "recommended": null,
       "replaces": null,
       "question": "Start with this plan?",
       "ref": "dec_000000000003",
@@ -1019,5 +1034,5 @@
   },
   "deadlinesToday": 0,
   "total": 11,
-  "version": "f593bfaa71994848"
+  "version": "f76a9e4674b1122b"
 }

@@ -18,6 +18,7 @@ import {
 } from "../host/desk-read";
 import { ASK_SPOKEN } from "../host/events";
 import { MOVE_NOTES } from "../host/move-read";
+import { decisionsNow } from "../memory/decisions";
 import { inForceOf } from "../memory/instructions";
 import type { TurnOutcome } from "../records/registered-agent";
 import { notifyPhone } from "../sources/lifelog-push";
@@ -446,4 +447,36 @@ export async function endUnbegunTurns(desk: Desk) {
     });
     await stopOpenRun(desk, a.id, t);
   });
+}
+
+/**
+ * What his Undo took back (an `answer-withdrawn` line, `undoAnswer`), stopped: each card still undone whose
+ * `decision.answered` the desk queued and no turn ended on yet has that event removed (so a later answer of his queues
+ * anew), and a turn launched on it that has not begun is stopped. Run by the desk's tick. Returns the cards it reached.
+ */
+export async function stopWithdrawn(desk: Desk, at = clock()) {
+  const undone = decisionsNow(at).filter(
+    (d) => !d.answer && d.voided?.at(-1)?.undone
+  );
+  const reached: string[] = [];
+  for (const d of undone) {
+    const rows = desk.db
+      .query<{ assignment_id: string }, [string]>(
+        "delete from event where event_id = ? and consumed_at is null and dropped_at is null returning assignment_id"
+      )
+      .all(`${d.id}.answered`);
+    for (const { assignment_id: id } of rows) {
+      const s = assignmentOf(desk.db, id);
+      const t = s && openTurn(desk.db, s.agent_id);
+      if (t && t.assignment_id === id && !t.begun_at) {
+        // biome-ignore lint/performance/noAwaitInLoops: one stop at a time, few cards
+        await stopOpenRun(desk, s.agent_id, t);
+      }
+    }
+    if (rows.length > 0) {
+      reached.push(d.id);
+      log("decision.withdrawn", { by: "undo", id: d.id });
+    }
+  }
+  return reached;
 }

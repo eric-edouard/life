@@ -10,12 +10,6 @@ import {
   logFileOf,
   recentEvents,
 } from "../core/log";
-import {
-  LOG_LEVELS,
-  type LogLevel,
-  type ShownLine,
-  shownLineOf,
-} from "../core/log-line";
 import type { Quota } from "../models/llm";
 import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
 import { isPromptVersion } from "../models/prompt-parts";
@@ -487,112 +481,6 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
 }
 
 const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
-
-// --- log lines -----------------------------------------------------------------------------------------------------
-
-/** The day files one `read_log_lines` call reads at most: the rest is the next page's. */
-const LOG_DAYS_PER_READ = 2;
-/** A place in the log: a day's file and a byte in it (null: the file's end). A page's cursor, a line's id, a head. */
-const LogCursor = z.tuple([z.string(), z.int().nonnegative().nullable()]);
-
-export interface LogLinesQuery {
-  /** A `head` from an earlier page: only the lines written after it. */
-  after?: string;
-  cursor?: string;
-  limit?: number;
-  minLevel?: LogLevel;
-  process?: string;
-}
-
-/** One stored line as `q` shows it, or undefined: filtered out, or not a line (a bad line never stops a reader). */
-function shownOf(raw: string, q: LogLinesQuery) {
-  let shown: ShownLine | undefined;
-  try {
-    shown = shownLineOf(JSON.parse(raw));
-  } catch {
-    return;
-  }
-  const isShown =
-    shown &&
-    !isOwnRead(shown) &&
-    LOG_LEVELS.indexOf(shown.level) >=
-      LOG_LEVELS.indexOf(q.minLevel ?? "info") &&
-    (!q.process || shown.category[0] === q.process);
-  return isShown ? shown : undefined;
-}
-
-/** A read of the log that went through: left out, or his app's live log would show its own polling. */
-const isOwnRead = (l: ShownLine) =>
-  l.level === "info" &&
-  l.category[0] === "mcp" &&
-  l.category[1] === "read_log_lines";
-
-/**
- * The event log's lines as his app is shown them (`shownLineOf`), each with its `id` (its place in the log: passed as
- * a cursor, it reads the lines before it), newest first, never the log's own reads, at least `minLevel` and of `process`
- * (a category's first word) when given, and only those written after `after` when given. Reads at most
- * `LOG_DAYS_PER_READ` day files per page: a page may be short, and its `cursor` (a place in the log, so lines appended
- * meanwhile never shift it) goes on; null when no older line is left. A read from the top also gives `head`, the log's
- * end as read: passed back as `after`, a poll reads only what came since, whatever the filter matched.
- */
-export async function readLogLines(q: LogLinesQuery = {}, dir = LOG_DIR) {
-  const limit = q.limit ?? PAGE;
-  const from = decode(q.cursor, LogCursor, null);
-  const after = decode(q.after, LogCursor, null);
-  const days = (await logDays(dir)).filter(
-    (n) => (!from || n <= from[0]) && (!after || n >= after[0])
-  );
-  const [top] = days;
-  const head: z.infer<typeof LogCursor> | null =
-    from || !top ? null : [top, newestEnd(join(dir, top))];
-  const start = from ?? head;
-  const lines: (ShownLine & { id: string })[] = [];
-  for (const name of days.slice(0, LOG_DAYS_PER_READ)) {
-    const stop = name === start?.[0] ? start[1] : null;
-    for (const { end, raw } of linesFromEnd(join(dir, name), stop)) {
-      // Its place in the log: the cursor of the lines before it, so unique.
-      const at = end - Buffer.byteLength(raw) - 1;
-      if (isBefore(after, name, at)) {
-        return logPage(lines, null, head);
-      }
-      if (lines.length === limit) {
-        return logPage(lines, [name, end], head);
-      }
-      const shown = shownOf(raw, q);
-      if (shown) {
-        lines.push({ id: encode([name, at]), ...shown });
-      }
-    }
-  }
-  const older = days[LOG_DAYS_PER_READ];
-  return logPage(lines, older ? [older, null] : null, head);
-}
-
-/** Whether a line starting at byte `at` of day file `name` is before `place` (only its own day's lines can be). */
-const isBefore = (
-  place: z.infer<typeof LogCursor> | null,
-  name: string,
-  at: number
-) => place !== null && name === place[0] && at < (place[1] ?? 0);
-
-/** The byte after a day file's newest whole line: where its next line starts (a torn one is not read yet). */
-function newestEnd(path: string) {
-  for (const { end } of linesFromEnd(path)) {
-    return end;
-  }
-  return 0;
-}
-
-const logPage = (
-  lines: (ShownLine & { id: string })[],
-  next: z.infer<typeof LogCursor> | null,
-  head: z.infer<typeof LogCursor> | null
-) => ({
-  cursor: next && encode(next),
-  head: head && encode(head),
-  lines,
-  observedAt: clock().toISOString(),
-});
 
 const BLOCK = 64 * 1024;
 const NEWLINE = 10;
