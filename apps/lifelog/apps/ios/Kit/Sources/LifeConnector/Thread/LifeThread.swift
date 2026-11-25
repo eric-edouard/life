@@ -60,9 +60,13 @@ public final class LifeThread {
 
     public init(api: any LifeAPI, cache: ReadCache? = nil, now: @escaping @Sendable () -> Date = { Date() }) {
         (self.api, self.cache, self.now) = (api, cache, now)
-        let saved = cache?.load(Self.key).flatMap { try? JSONDecoder().decode([ThreadEntry].self, from: Data($0.text.utf8)) }
+        let saved = cache?.load(Self.key).flatMap {
+            try? JSONDecoder().decode([ThreadEntry].self, from: Data($0.text.utf8))
+        }
         // A call under way when the app closed is gone: its words go again under their key, so Life asks once.
-        entries = (saved ?? []).map { var e = $0; if e.phase == .sending { e.phase = .waiting }; return e }
+        entries = (saved ?? []).map {
+            var e = $0; if e.phase == .sending { e.phase = .waiting }; return e
+        }
     }
 
     /// Another Life: nothing of the last one's conversation stays.
@@ -162,7 +166,9 @@ public final class LifeThread {
         case .step(let verb, let what): live[id] = LiveAnswer(step: .init(verb: verb, what: what))
         case .words(let text):
             guard var l = live[id] else { return }
-            if case .markdown(let before)? = l.parts.last { l.parts[l.parts.count - 1] = .markdown(before + text) } else {
+            if case .markdown(let before)? = l.parts.last {
+                l.parts[l.parts.count - 1] = .markdown(before + text)
+            } else {
                 l.parts.append(.markdown(text))
             }
             live[id] = l
@@ -177,6 +183,8 @@ public final class LifeThread {
 
     private func save() {
         entries = Array(entries.suffix(Self.kept))
-        if let data = try? JSONEncoder().encode(entries) { cache?.store(String(decoding: data, as: UTF8.self), key: Self.key) }
+        if let data = try? JSONEncoder().encode(entries) {
+            cache?.store(String(decoding: data, as: UTF8.self), key: Self.key)
+        }
     }
 }

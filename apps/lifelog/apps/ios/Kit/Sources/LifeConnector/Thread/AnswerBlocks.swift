@@ -10,7 +10,8 @@ public enum LifeBlock: Equatable, Sendable {
         public let lines: [String]
         public let total: String?
     }
-    public struct Phrase: Equatable, Sendable {
+    public struct Phrase: Equatable, Sendable, Identifiable {
+        public var id: String { text }
         public let lang, mine, text: String
         public let to: String?
     }
@@ -58,13 +59,16 @@ public enum LifeBlock: Equatable, Sendable {
             self = .question(Question(answers: answers, recommended: string("recommended")))
         case "table":
             guard let columns = strings(o["columns"]), let rows = o["rows"] as? [[Any]] else { return nil }
-            self = .table(Table(columns: columns, rows: rows.map { $0.map(Self.cell) }, total: (o["total"]).map(Self.cell)))
+            self = .table(
+                Table(columns: columns, rows: rows.map { $0.map(Self.cell) }, total: (o["total"]).map(Self.cell)))
         case "document":
             guard let from = string("from"), let kind = string("kind"), let title = string("title"),
                 let lines = o["lines"] as? [Any]
             else { return nil }
             self = .document(
-                Document(from: from, kind: kind, title: title, lines: lines.map(Self.cell), total: o["total"].map(Self.cell)))
+                Document(
+                    from: from, kind: kind, title: title, lines: lines.map(Self.cell), total: o["total"].map(Self.cell))
+            )
         default: return nil
         }
         if case .items(let refs) = self, refs.isEmpty { return nil }
@@ -96,8 +100,16 @@ public enum AnswerPart: Equatable, Sendable {
             prose = []
         }
         var lines = text.split(separator: "\n", omittingEmptySubsequences: false)[...]
+        // A fence inside a blockquote is a fence too: its quote marks are not part of it.
+        func unquoted(_ line: Substring) -> Substring {
+            var t = line
+            while t.drop(while: { $0 == " " }).first == ">" {
+                t = t.drop { $0 == " " }.dropFirst().drop { $0 == " " }
+            }
+            return t
+        }
         while let line = lines.popFirst() {
-            let t = line.drop { $0 == " " || $0 == "\t" }
+            let t = unquoted(line).drop { $0 == " " || $0 == "\t" }
             guard let fence = t.first, fence == "`" || fence == "~" else { prose.append(line); continue }
             let ticks = t.prefix { $0 == fence }
             let info = t.dropFirst(ticks.count).trimmingCharacters(in: .whitespaces)
@@ -105,14 +117,18 @@ public enum AnswerPart: Equatable, Sendable {
             let kind = String(info.dropFirst(5).prefix { !$0.isWhitespace })
             var body: [Substring] = []
             while let next = lines.popFirst() {
-                let n = next.drop { $0 == " " || $0 == "\t" }
-                if n.prefix(while: { $0 == fence }).count >= ticks.count, n.drop(while: { $0 == fence }).allSatisfy(\.isWhitespace) {
+                let n = unquoted(next).drop { $0 == " " || $0 == "\t" }
+                if n.prefix(while: { $0 == fence }).count >= ticks.count,
+                    n.drop(while: { $0 == fence }).allSatisfy(\.isWhitespace)
+                {
                     break
                 }
-                body.append(next)
+                body.append(unquoted(next))
             }
             flush()
-            if let block = LifeBlock(kind: kind, json: Data(body.joined(separator: "\n").utf8)) { parts.append(.block(block)) }
+            if let block = LifeBlock(kind: kind, json: Data(body.joined(separator: "\n").utf8)) {
+                parts.append(.block(block))
+            }
         }
         flush()
         return parts

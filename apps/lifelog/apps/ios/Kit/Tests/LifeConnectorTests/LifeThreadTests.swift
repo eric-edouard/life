@@ -25,7 +25,8 @@ import Testing
     #expect(
         parts == [
             .markdown("You owe two."), .block(.items(["life:card/a", "life:card/b"])),
-            .block(.table(.init(columns: ["Who", "€"], rows: [["Tomas", "240"], ["Nora", "12.5"]], total: "252.5"))),
+            .block(
+                .table(.init(columns: ["Who", "€"], rows: [["Tomas", "240"], ["Nora", "12.5"]], total: "252.5"))),
             .markdown("Done."),
         ])
 }

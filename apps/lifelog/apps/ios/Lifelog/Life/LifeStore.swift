@@ -156,7 +156,8 @@ final class LifeStore {
         flights = ReadFlights(generation: parties.generation)
         runner = LifeActions(api: api, now: now)
         thread = LifeThread(
-            api: api, cache: ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-thread")),
+            api: api,
+            cache: ReadCache(directory: URL.applicationSupportDirectory.appending(path: "lifelog/life-thread")),
             now: now)
         self.cache = cache
         self.now = now
@@ -946,6 +947,8 @@ final class LifeStore {
     }
     /// The asks that block him, less those he answered: the tab's badge and the app's.
     var badge: Int { inbox.value?.without(answersNewer(than: inbox.loadedAt)).badge ?? 0 }
+    /// What waits on him, for the round button: nil until a read.
+    var waitingCount: Int? { inbox.value == nil ? nil : badge }
 
     // MARK: Pairing
 
