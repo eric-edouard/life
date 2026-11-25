@@ -16,9 +16,9 @@ h1{font-size:26px;font-weight:700;letter-spacing:-.015em;margin:0 0 6px}
 .sumr span{flex:1;min-width:0}.sumr b{font-weight:650;white-space:nowrap}.sumr b.none{color:var(--muted);font-weight:500}.sumr small{display:block;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .save{font-size:12.5px;color:var(--muted);margin-top:10px}
 .grp{font-size:13px;font-weight:650;color:var(--muted);margin:44px 0 0}
-section{padding-top:22px;border-top:1px solid var(--line);margin-top:14px;scroll-margin-top:12px}
-section h3{font-size:19px;font-weight:650;margin:0}
-section>p{color:var(--muted);margin:2px 0 16px;max-width:76ch}
+#items>section{padding-top:22px;border-top:1px solid var(--line);margin-top:14px;scroll-margin-top:12px}
+#items>section h3{font-size:19px;font-weight:650;margin:0}
+#items>section>p{color:var(--muted);margin:2px 0 16px;max-width:76ch}
 .vars{display:grid;grid-template-columns:repeat(3,max-content);grid-template-rows:repeat(5,auto);justify-content:space-between;gap:18px}
 .var{width:calc(390px * var(--k,1));display:grid;grid-row:span 5;grid-template-rows:subgrid;row-gap:8px}
 @media (max-width:700px){.vars{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:max-content;justify-content:start;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.var{scroll-snap-align:center}}
@@ -38,7 +38,7 @@ section>p{color:var(--muted);margin:2px 0 16px;max-width:76ch}
 .vpl i.pd::after{content:"";width:9px;height:9px;border-radius:5px;background:var(--fg)}
 .vth{position:absolute;top:98px;bottom:92px;left:16px;right:16px;overflow-y:auto;scrollbar-width:none}
 .vth .cbf{min-height:100%;justify-content:flex-end;padding-bottom:6px}
-.vfl{position:absolute;left:16px;right:16px;bottom:26px}
+.vph.pg .vth .cbf{justify-content:flex-start}.vback{font:inherit;width:38px;height:38px;border:0;border-radius:19px;background:rgba(40,41,48,.8);color:var(--fg);font-size:24px;line-height:1;cursor:pointer}.vfl{position:absolute;left:16px;right:16px;bottom:26px}
 .vctx{opacity:.55}
 .ctl{display:flex;flex-direction:column;gap:8px}
 .pick{font:inherit;font-weight:650;font-size:14.5px;height:44px;border:0;border-radius:22px;background:var(--tint);color:var(--fg);cursor:pointer}
@@ -104,15 +104,27 @@ var SAM_H=['hero','ic:voice','Did Sam say 9 or 10?','From this morning’s call'
 var CALL=['Then let’s say Saturday at nine, I bring the big ladder','0:06'];
 
 /* every item: its parts (what can be mixed), its default way in and thread, and three variants (blocks before, and after his tap) */
+var MP={'Kitchen leak':{t:'Kitchen leak',g:'The leak fixed and paid for',status:'Paul fixed it on Thursday; his bill is the last thing left.',next:'Pay Paul 240 € by Friday',
+  asks:[[PAUL,'Pay Paul 240 €','Paul · due Fri']],people:[[PAUL,'Paul'],[NORA,'Nora']],ending:['Send Paul the photos of the leak','Got the photos, thanks! Coming Thursday','Paul · Wed',PAUL],
+  thread:[['Mon','out','We have a leak under the sink, can you come?'],['Mon','in','Send me photos please'],['Tue','step','You: send Paul the photos'],['Wed','in','Got the photos, thanks! Coming Thursday'],['Thu','done','Paul came and fixed it'],['Thu','in','Invoice attached, 240 €. Thanks!']]},
+ 'Saturday dinner with Jade':{t:'Saturday dinner with Jade',g:'A table for two, Saturday at 8',status:'Jade asked whether to book; your reply waits.',next:'Reply to Jade',asks:[[JADE,'Reply to Jade','Jade · today']],people:[[JADE,'Jade']],
+  thread:[['9:12','in','Hey! Are we still on for dinner Saturday?'],['9:40','in','Should I book? 8 or 8:30?']]},
+ 'Deposit back from Kit':{t:'Deposit back from Kit',g:'800 € back after the inspection',status:'Kit said it comes back after the inspection; no date yet.',next:'Ask Kit for the inspection date',asks:[[KIT,'Start on this?','New · Tue']],people:[[KIT,'Kit']],
+  thread:[['Tue','in','The deposit comes back after the inspection, I’ll tell you when']]}};
 var ANAT=[['A draft',{t:'Saturday dinner with Jade',g:'A table for two, Saturday at 8'},[JH,['chat','Jade',JCHAT,DRAFT],JA]],
  ['A payment',{t:'Kitchen leak',g:'The leak fixed and paid for'},[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA]],
  ['A new matter',{t:'Deposit back from Kit',g:'800 € back after the inspection',dec:1},NM_Q.concat([NM_BOX,NM_FOOT,NM_A])]];
+var ASK_LEAK=withMatter({m:{t:'Kitchen leak',g:'The leak fixed and paid for'}},[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA],'tap');
 function anat(mode){return ANAT.map(function(x){return [x[0],withMatter({m:x[1]},x[2],mode==='C'?null:mode)];});}
 var ITEMS=[
 {g:'One rule for every ask',id:'anatomy',n:'How an ask shows its matter',d:'Every ask: which matter it belongs to, its goal where it helps, the question, the details, the answers. The same three asks under each rule; switch between them above the phone.',parts:['Header','Goal'],ctx:'waiting',rec:'C',v:{
  A:{w:'The matter’s title as one line; its goal opens on a tap',tabs:anat('tap')},
  B:{w:'Title and goal on every ask',tabs:anat('goal')},
  C:{w:'Title only; the goal only where it decides the answer',tabs:anat('C')}}},
+{id:'matterpage',n:'Matter page',d:'A tap on an ask’s matter title pushes its page, like a profile. The field stays and asks about this matter; Back returns to the thread.',parts:['Header','Needs you','People','Thread'],ctx:'waiting',way:'Tapped <b>“Kitchen leak”</b> on Paul’s ask · Back returns to it',rec:'A',v:{
+ A:{w:'Like a profile: sections, the ending check first',tabs:[['The ask',ASK_LEAK],['Its page',[['mpage',MP['Kitchen leak'],'A']]]]},
+ B:{w:'Its thread first, as a chat; what needs him at the end',tabs:[['The ask',ASK_LEAK],['Its page',[['mpage',MP['Kitchen leak'],'B']]]]},
+ C:{w:'A short summary; only the last few lines of its thread',tabs:[['The ask',ASK_LEAK],['Its page',[['mpage',MP['Kitchen leak'],'C']]]]}}},
 {g:'The seven cards',id:'voice-guess',m:{t:'A voice at lunch',f:'ic:voice'},n:'Voice naming: Life has a guess',d:'A voice Life heard twice at lunch. It thinks it is Nora; he plays it and says yes, or who it is.',parts:['Clips','The guess','Answers'],ctx:'lunch',rec:'A',v:{
  A:{w:'Clips with their words; the guess is the big answer',b:[VH,VC('wave'),['answers','Yes, Nora',['Someone else…','Don’t name']],['foot','TV or radio? Say “not a person” and I stop asking.']],a:VDONE},
  B:{w:'Nora’s face as the question; short clips',b:[['hero',NORA,'Is this Nora?','Heard at 2 lunches · 620 words'],VC('pill'),['answers','Yes',['Someone else…'],'row'],['answers',null,['TV or video','Don’t name']]],a:VDONE},
@@ -221,7 +233,8 @@ var ITEMS=[
  C:{w:'The mark with one word',b:[['bm','Remind me to call Mum on Sunday','👍','words'],['lead','Sunday at 10:00.']]}}}
 ];
 /* blocks that read as context in the thread fade back, so the card stands out */
-function phone(ctx,blocks,count){return '<div class="vph"><div class="vsb"><span>9:41</span><span>●●● ▮</span></div><div class="vpl"><i>'+count+'</i><i class="pd"></i></div><div class="vth"><div class="cbf">'+(ctx?'<div class="cbf vctx">'+CB.draw(ctx)+'</div>':'')+CB.draw(blocks)+'</div></div><div class="vfl">'+B.field('Ask anything')+'</div></div>';}
+function phone(ctx,blocks,count){var pg=blocks[0]&&blocks[0][0]==='mpage';if(pg)ctx=null;
+ return '<div class="vph'+(pg?' pg':'')+'"><div class="vsb"><span>9:41</span><span>●●● ▮</span></div><div class="vpl">'+(pg?'<button type="button" class="vback" aria-label="Back">‹</button>':'<i>'+count+'</i>')+'<i class="pd"></i></div><div class="vth"><div class="cbf">'+(ctx?'<div class="cbf vctx">'+CB.draw(ctx)+'</div>':'')+CB.draw(blocks)+'</div></div><div class="vfl">'+B.field(pg?'Ask about this':'Ask anything')+'</div></div>';}
 var CH={};
 /* the anatomy (2026-11-26-cards-design.md): the matter's title, its goal where it decides the answer, then the question.
    Until he picks, every ask uses the recommended rule, C. The header goes before the card's first block of its own. */
@@ -236,7 +249,7 @@ function varHTML(it,k){var v=it.v[k],ctx=CTX[v.ctx||it.ctx],vs=viewsOf(it,v);
 var root=document.getElementById('items'),h='';
 ITEMS.forEach(function(it){if(it.g)h+='<h2 class="grp">'+it.g+'</h2>';h+='<section id="'+it.id+'"><h3>'+it.n+'</h3><p>'+it.d+'</p><div class="vars">'+['A','B','C'].map(function(k){return varHTML(it,k);}).join('')+'</div><div class="note"><label for="n-'+it.id+'">Note</label><textarea id="n-'+it.id+'" data-note="'+it.id+'" placeholder="Anything to change?"></textarea></div></section>';});
 root.innerHTML=h;
-function bottom(){root.querySelectorAll('.vth').forEach(function(t){t.scrollTop=t.scrollHeight;});}
+function bottom(){root.querySelectorAll('.vth').forEach(function(t){t.scrollTop=t.closest('.pg')?0:t.scrollHeight;});}
 /* one scale for every phone: the phone and its caption fit the screen's height; three fit across (on a narrow screen, one fits its width) */
 function fit(){var row=root.querySelector('.vars'),w=row?row.clientWidth:innerWidth,narrow=innerWidth<=700,cap=root.querySelector('.vh').offsetHeight+root.querySelector('.way').offsetHeight+root.querySelector('.tgw').offsetHeight+64;
  var k=Math.min(1,(innerHeight-cap)/760,narrow?(w-8)/390:(w-36)/3/390);document.documentElement.style.setProperty('--k',Math.max(.4,k).toFixed(3));}
@@ -257,7 +270,10 @@ try{CH=JSON.parse(localStorage.getItem(LS)||'{}')||{};}catch(e){CH={};}
 paint();
 function save(id){local();if(!col)return;var c=get(id);document.getElementById('save').textContent='Saving…';
  col.doc(id).set({pick:c.pick,mix:c.mix,note:c.note||'',at:new Date().toISOString()}).then(function(){document.getElementById('save').textContent='Saved.';},function(){document.getElementById('save').textContent='Couldn’t save to Life’s store; kept on this device. Try again in a moment.';});}
-root.addEventListener('click',function(e){var t=e.target.closest('[data-pick],[data-tg]');if(!t)return;var v=t.closest('.var'),id=v.dataset.i,k=v.dataset.k,c=get(id);
+root.addEventListener('click',function(e){var mt=e.target.closest('.cb-mh[data-mt]'),bk=e.target.closest('.vback'),ph=e.target.closest('.ph');
+ if(mt&&MP[mt.dataset.mt]){ph._back=ph.innerHTML;ph.innerHTML=phone(null,[['mpage',MP[mt.dataset.mt],'A']]);bottom();return;}
+ if(bk&&ph._back){ph.innerHTML=ph._back;ph._back=null;bottom();return;}
+ var t=e.target.closest('[data-pick],[data-tg]');if(!t)return;var v=t.closest('.var'),id=v.dataset.i,k=v.dataset.k,c=get(id);
  if(t.matches('[data-tg]')){var it=ITEMS.filter(function(x){return x.id===id;})[0],vv=it.v[k],n=+t.dataset.tg,a=n>0&&!vv.tabs;v.querySelectorAll('[data-tg]').forEach(function(b){b.setAttribute('aria-pressed',String(b===t));});
   v.querySelector('.ph').innerHTML=phone(CTX[vv.ctx||it.ctx],viewsOf(it,vv)[n][1],a?2:3);bottom();return;}
  c.pick=c.pick===k?null:k;c.mix={};paint();save(id);});

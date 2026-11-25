@@ -28,6 +28,8 @@ same three asks under the three rules: A title only with the goal on a tap, B ti
 the goal where it decides. Every other item and `shell.html`'s asks use C until he picks. Fix asks (something broken)
 keep their own subject in the title and take no header.
 
+Any subject opens its page: a person, a matter. The field follows; Back returns to the thread. The matter page (item "Matter page") holds its title, goal, where it stands, its next step, the asks still open, the people as faces, its thread (`readMatterThread`) and its ending check.
+
 ## The seven cards
 
 | Card | What it shows | Answers |
