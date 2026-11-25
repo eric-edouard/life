@@ -325,3 +325,65 @@ private func repairedDuringTheCall() -> (actions: LifeActions, a: URL, reachedB:
         return
     }
 }
+
+@Test func aQueueHoldsOneAnswerPerAskInOrderAndAReplacementTakesItsPlace() {
+    var queue = QueuedAnswers()
+    queue.add(AnswerRequest(ref: "a", options: ["send"]), key: "k1", origin: lifeA, at: at)
+    queue.add(AnswerRequest(ref: "b", options: ["send"]), key: "k2", origin: lifeA, at: at)
+    queue.add(AnswerRequest(ref: "a", options: ["later"]), key: "k3", origin: lifeA, at: at)
+    #expect(queue.entries.map(\.request.ref) == ["b", "a"])
+    #expect(queue.entries.map(\.key) == ["k2", "k3"])
+    #expect(queue.entries.last?.request.options == ["later"])
+    queue.remove("b")
+    #expect(queue.holds("a") && !queue.holds("b"))
+}
+
+@Test func aQueueReplayedAfterACrashSendsEachAnswerOnceWithItsOwnKey() async throws {
+    var queue = QueuedAnswers()
+    queue.add(AnswerRequest(ref: "a", options: ["send"]), key: "k1", origin: lifeA, at: at)
+    queue.add(AnswerRequest(ref: "b", options: ["done"]), key: "k2", origin: lifeA, at: at)
+    // Kept on disk and read back, as a crash leaves it.
+    var kept = try JSONDecoder().decode(QueuedAnswers.self, from: JSONEncoder().encode(queue))
+    let life = FakeLife()
+    life.answers = [{ _ in "{}" }, { _ in "{}" }]
+    let actions = LifeActions(api: life, now: { at })
+    for entry in kept.entries {
+        _ = await run { await actions.answer(entry.request, key: entry.key, at: entry.origin, emit: $0) }
+        kept.remove(entry.request.ref)
+    }
+    #expect(life.keys.withLock { $0 } == ["k1", "k2"])
+    #expect(kept.entries.isEmpty)
+}
+
+@Test func undoIsAnAnswerWithNoOptionsAndSaysWhatItDoesOnlyWhenLifeGivesALine() throws {
+    let undo = AnswerRequest.undoing("dec_1")
+    #expect(undo.isUndo && undo.options.isEmpty && undo.ref == "dec_1")
+    let sent = try JSONSerialization.jsonObject(with: JSONEncoder().encode(undo)) as? [String: Any]
+    #expect(sent?["undo"] as? Bool == true)
+    func ask(_ undo: String) throws -> ThreadAsk {
+        try JSONDecoder().decode(
+            ThreadAsk.self,
+            from: Data(
+                #"{"ref":"dec_1","state":"settled","card":{"title":"T","question":"Q","undo":\#(undo)}}"#.utf8))
+    }
+    #expect(try ask(#"{"line":"It will be deleted"}"#).undoLine == "It will be deleted")
+    #expect(try ask("null").undoLine == nil)
+}
+
+@Test func theThreadReadKeepsItsAsksAndItsVersionAndSkipsWhatItDoesNotKnow() throws {
+    let fixture = try ThreadRead.parsed(wireText("life/read_thread.json"))
+    #expect(fixture.version != nil && fixture.asks.isEmpty)
+    let page = try ThreadRead.parsed(
+        #"""
+        {"earlier":"2026-11-20","version":"v1","items":[
+         {"kind":"entry","id":"e1","at":"2026-11-21T10:00:00Z","words":"hi"},
+         {"kind":"ask","ref":"dec_1","at":"2026-11-21T10:00:00Z","state":"later","later":"2026-11-22T10:00:00Z",
+          "card":{"title":"T","question":"Q","undo":null}},
+         {"kind":"ask","ref":"dec_2","state":"from_the_future","card":{"title":"U"}},
+         {"kind":"future"}]}
+        """#)
+    #expect(page.asks.map(\.ref) == ["dec_1", "dec_2"])
+    #expect(page.asks[0].state == .later && page.asks[0].later != nil && !page.asks[0].isAnswerable)
+    #expect(page.asks[1].state == .unknown)
+    #expect(page.earlier == "2026-11-20" && page.version == "v1")
+}
