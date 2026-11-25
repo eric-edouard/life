@@ -13,7 +13,11 @@ struct Notices: View {
         VStack(spacing: Metrics.Spacing.s) {
             if life.isOutOfReach {
                 NoticeBlock(
-                    title: title, symbol: life.isOffline ? "wifi.slash" : "desktopcomputer",
+                    title: title,
+                    message: life.isOffline
+                        ? "Nothing is lost; it goes when you're back online"
+                        : "Nothing is lost; it goes when your Mac is back",
+                    symbol: life.isOffline ? "wifi.slash" : "desktopcomputer",
                     isOpen: isOpen, toggle: { withAnimation(Motion.standard) { isOpen.toggle() } },
                     id: AID.noticeOutOfReach
                 ) {
@@ -37,6 +41,6 @@ struct Notices: View {
     private var title: String {
         let what = life.isOffline ? "You're offline" : "Your Mac isn't answering"
         guard let since = life.lostSince ?? seenAt else { return what }
-        return "\(what) · since \(since.formatted(.dateTime.hour().minute()))"
+        return "\(what) · since \(since.clock)"
     }
 }

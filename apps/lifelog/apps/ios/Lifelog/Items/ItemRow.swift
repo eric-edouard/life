@@ -53,11 +53,19 @@ struct ItemRow: View {
             ? "today"
             : calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: life.now()) ?? date)
                 ? "tomorrow" : date.formatted(.dateTime.weekday(.abbreviated))
-        return withTime ? "\(day) \(date.formatted(.dateTime.hour().minute()))" : day
+        return withTime ? "\(day) \(date.clock)" : day
     }
 
-    /// Its face is the chat's when it is a message, open or sent; it keeps it once settled.
-    private var icon: String { ask.check?.draft != nil || ask.closed?.sent != nil ? "bubble.left" : "circle.dashed" }
+    /// Its face: the chat's when it is a message, a person's when the answer is a person; it keeps it once settled or
+    /// out of date, when the wire no longer carries the draft.
+    @State private var kept: String?
+    private var icon: String {
+        if let check = ask.check {
+            if check.draft != nil { return "bubble.left" }
+            if check.options.contains(where: { $0.takes == .person }) { return "person" }
+        }
+        return ask.closed?.sent != nil ? "bubble.left" : kept ?? "circle.dashed"
+    }
 
     var body: some View {
         ThreadItemRow(
@@ -73,6 +81,11 @@ struct ItemRow: View {
             .padding(Metrics.Spacing.l).presentationDetents([.medium, .large])
         }
         .onAppear { isOpen = life.focused == ask.ref }
+        .onChange(
+            of: ask.check?.draft != nil || ask.check?.options.contains { $0.takes == .person } == true, initial: true
+        ) {
+            if ask.check != nil, icon != "circle.dashed" { kept = icon }
+        }
         .onChange(of: life.focused) { if life.focused == ask.ref { isOpen = true } }
         // Answered or out of date, it folds back to its row and its line.
         .onChange(of: ask.state) { if [.settled, .outdated].contains(ask.state) { isOpen = false } }
@@ -162,4 +175,9 @@ struct ItemRow: View {
 
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+extension Date {
+    /// The 24-hour clock, as the design writes times ("17:00").
+    var clock: String { formatted(Date.FormatStyle(locale: Locale(identifier: "en_GB")).hour().minute()) }
 }

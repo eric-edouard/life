@@ -34,7 +34,9 @@ struct StatTile<Visual: View>: View {
 
     var body: some View {
         let words = VStack(alignment: .leading, spacing: 0) {
+            // Beside the ring a long figure ("Unknown") shrinks to its line; at the largest sizes the tile stacks.
             Text(figure).font(.profileName).foregroundStyle(figureColor)
+                .lineLimit(size.isAccessibilitySize ? nil : 1).minimumScaleFactor(size.isAccessibilitySize ? 1 : 0.6)
             if let caption { Text(caption).font(.line).foregroundStyle(Palette.muted) }
         }
         .fixedSize(horizontal: false, vertical: true)

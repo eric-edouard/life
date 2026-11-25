@@ -70,6 +70,8 @@ struct RootView: View {
                     buttons
                     Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
                 }
+                // The notice, opened, grows to its words: nothing in it is squeezed into a height it was not given.
+                .fixedSize(horizontal: false, vertical: true).frame(maxHeight: .infinity, alignment: .top)
                 .onGeometryChange(for: CGFloat.self) {
                     $0.size.height
                 } action: {
