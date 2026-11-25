@@ -23,6 +23,7 @@ import {
   todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
 import { endingsRead } from "./endings";
+import { readHomeArrival } from "./home-arrival";
 import {
   episodeAt,
   type MatterStepNow,
@@ -46,7 +47,6 @@ import {
   MATTERS,
   OBSERVATIONS,
   readBy,
-  readHomeArrival,
   readLedger,
   readUnitsFor,
   SUPERSESSIONS,

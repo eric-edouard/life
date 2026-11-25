@@ -1,13 +1,14 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { clock, HOUR, iso } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelogCall from "../sources/lifelog-call";
 import { isHomeLaterOf, recordArrivalHome } from "./arrival-home";
+import { HOME_ARRIVAL } from "./home-arrival";
 import { laterUntilOf } from "./matters";
-import { CORRECTIONS, HOME_ARRIVAL, recordCorrection } from "./memory-files";
+import { CORRECTIONS, recordCorrection } from "./memory-files";
 
 // Made-up places throughout.
 const home = { latitude: 48.85, longitude: 2.35 };
@@ -44,14 +45,7 @@ test("a Later that waits for home ends when read once he arrived home, not elsew
     until: iso(later(24).getTime()),
   });
   const lines = () =>
-    readAppended(
-      CORRECTIONS,
-      Correction,
-      () => [] as unknown[],
-      (a, r) => {
-        a.push(r);
-      }
-    ).length;
+    readFileSync(CORRECTIONS, "utf8").trim().split("\n").length;
   seen.mockResolvedValue([stay(cafe, iso(later(1).getTime()))]);
   await recordArrivalHome(later(2));
   expect(laterUntilOf("dec_home", later(2))).toBeDefined();

@@ -652,9 +652,9 @@ export const AFTER_ANSWER = {
 /** His mark on card `ref` (one `rated` line, nothing else changes), or his Undo of his answer (`undoAnswer`); never both at once. */
 export function afterAnswer(
   ref: string,
-  { rate, undo }: { rate?: (typeof MARKS)[number]; undo?: true }
+  { rate, undo: isUndo }: { rate?: (typeof MARKS)[number]; undo?: true }
 ) {
-  if (rate && undo) {
+  if (rate && isUndo) {
     return Promise.reject(
       new Error("Not done: `undo` and `rate` are two answers; send one.")
     );

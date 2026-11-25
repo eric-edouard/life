@@ -5,8 +5,8 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { visits, whereAt } from "../sources/lifelog";
 import { lifelogMissing } from "../sources/lifelog-call";
+import { HOME_ARRIVAL, readHomeArrival } from "./home-arrival";
 import { readMatterPins } from "./matters";
-import { HOME_ARRIVAL, readHomeArrival } from "./memory-files";
 import { dayNow, dayStart } from "./zones";
 
 // His Later "when I'm home" (v4.1, bundle H): a `later` instruction naming home holds a check 24 hours (`laterOf`), and
@@ -43,10 +43,15 @@ async function homeOf(now: Date) {
  */
 export async function recordArrivalHome(now: Date) {
   const pins = readMatterPins();
-  const since = [...pins.deferredHome]
-    .filter(([ref]) => Date.parse(pins.deferred.get(ref) ?? "") > now.getTime())
+  const arrived = readHomeArrival() ?? "";
+  // Only the ones still waiting: in force, and written after his last arrival home.
+  const [since] = [...pins.deferredHome]
+    .filter(
+      ([ref, at]) =>
+        at > arrived && Date.parse(pins.deferred.get(ref) ?? "") > now.getTime()
+    )
     .map(([, at]) => at)
-    .toSorted()[0];
+    .toSorted();
   if (!since || lifelogMissing()) {
     return;
   }
@@ -59,7 +64,7 @@ export async function recordArrivalHome(now: Date) {
           .toSorted()
           .at(-1)
       : undefined;
-    if (last && last > (readHomeArrival() ?? "")) {
+    if (last && last > arrived) {
       writeJson(HOME_ARRIVAL, { at: last });
     }
   } catch (e) {
