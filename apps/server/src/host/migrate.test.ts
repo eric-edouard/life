@@ -70,7 +70,7 @@ test("the corrections step: a Not now becomes Later on its card's ref, line for 
   const moved = Correction.parse(JSON.parse(lines[1] ?? ""));
   expect(moved).toMatchObject({
     kind: "deferred",
-    ref: "move:matter_000000000007/obs_000000000003",
+    ref: "move:matter_000000000007",
   });
   expect(Date.parse((moved as { until: string }).until)).toBe(
     dayStart("2026-11-18").getTime()

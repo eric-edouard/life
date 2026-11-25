@@ -95,3 +95,32 @@ test("Undo of a sent draft: refused where the chat allows no delete, nothing tri
   await expect(undoAnswer(id)).rejects.toThrow("doesn't let Life delete");
   expect(read(id).state).toBe("answered");
 });
+
+test("Undo while the send his answer started is under way: refused with nothing written, so it can never send twice", async () => {
+  const { id } = await card();
+  let deliver = (_: string) => undefined as unknown;
+  const handed = new Promise<string>((r) => {
+    deliver = r as never;
+  });
+  let started = () => undefined as unknown;
+  const delivering = new Promise((r) => {
+    started = r as never;
+  });
+  const sending = answerDecision(id, ["send"], undefined, {
+    deliver: () => {
+      started();
+      return handed;
+    },
+    via: "connector",
+  });
+  await delivering;
+  expect(read(id).state).toBe("answered");
+  expect(read(id).send).toBeUndefined();
+  const before = readFileSync(DECISIONS, "utf8");
+  expect(undoOf(read(id))).toBeNull();
+  await expect(undoAnswer(id)).rejects.toThrow("under way");
+  expect(readFileSync(DECISIONS, "utf8")).toBe(before);
+  deliver("whatsapp:155/1");
+  await sending;
+  expect(read(id).send?.kind).toBe("sent");
+});

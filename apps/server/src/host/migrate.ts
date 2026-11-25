@@ -71,14 +71,19 @@ const OLD_KIND = '"your-move-not-now"';
 
 /**
  * One corrections line as it reads now: his Not now on a your move card (`matter`, `steps`, `until` a local day) becomes
- * his Later on that card's ref (`move:<matter>/<step>`, its newest step) until the start of that day where he is. Any
+ * his Later on that matter (`move:<matter>`, held whole as Not now was: `laterUntilOf`) until the start of that day where he is. Any
  * other line comes back byte for byte. Pure but for his zone.
  */
 export function correctionLineOf(line: string) {
   if (!line.includes(OLD_KIND)) {
     return line;
   }
-  const { matter, steps, until, ...rest } = JSON.parse(line) as {
+  const {
+    matter,
+    steps: _steps,
+    until,
+    ...rest
+  } = JSON.parse(line) as {
     matter?: string;
     steps: string[];
     until: string;
@@ -86,7 +91,7 @@ export function correctionLineOf(line: string) {
   return JSON.stringify({
     ...rest,
     kind: "deferred",
-    ref: `move:${matter ?? ""}/${steps.at(-1) ?? ""}`,
+    ref: `move:${matter ?? ""}`,
     until: dayStart(until).toISOString(),
   });
 }

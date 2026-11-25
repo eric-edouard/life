@@ -651,6 +651,11 @@ test("your move: Mark as done ends its step through host, Not now is his Later o
     expect(Date.parse((line as { until: string }).until)).toBeGreaterThan(
       clock().getTime()
     );
+    // Later holds the matter whole: its card about a newer step (or the migrated `move:<matter>`) stays held.
+    expect(laterUntilOf("move:matter_000000000081/obs_newer")).toBe(
+      (line as { until: string }).until
+    );
+    expect(laterUntilOf("move:matter_000000000082/obs_newer")).toBe(undefined);
     await answerCheck(move, { options: ["start"] });
     expect(started).toEqual(["The garden fence is painted"]);
     await expect(

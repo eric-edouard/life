@@ -10,6 +10,7 @@ import {
   type MARKS,
   Rated,
 } from "./decision-lines";
+import { actDueOf, actOutcomeOf } from "./decisions";
 
 // His lines on a card after his answer: his Undo of it (`answer-withdrawn`, `withdrawAnswer`) and his mark on how Life
 // did ("How am I doing?", `rated`). Append-only, one synchronous line each, like the answer.
@@ -44,6 +45,12 @@ export function withdrawAnswer(id: string, unsent?: string, now = clock()) {
   const d = readAll().get(id);
   if (!d?.answer) {
     throw new Error(`Not done: ${id} has no answer to undo.`);
+  }
+  const act = actDueOf(d);
+  if (act && !actOutcomeOf(d, act)) {
+    throw new Error(
+      `Not done: the ${act} his answer started is still running.`
+    );
   }
   const done = d.end ?? d.added ?? d.ran ?? d.doneSeen;
   if (done) {

@@ -109,14 +109,26 @@ export function heldChatOf(
   return same.at(-1)?.id;
 }
 
-/** The cards a redraft (`changed: edit`) into `draft`'s chat takes the place of at once: every pending card there; none while a send runs there (it then contests as any card). */
+/**
+ * The cards a redraft (`changed: edit`) by `asker` into `draft`'s chat takes the place of at once: its asker's own pending
+ * cards there (no agent withdraws another's card). None, so it is asked as any card, while a send runs there, another
+ * asker's card is pending there, or it has none of its own there.
+ */
 export function editReplacesOf(
   list: Decision[],
   draft: StoredDraft | undefined,
+  asker: Asker,
   isSending: (d: Decision) => boolean
 ) {
   const same = list.filter((d) => isSameChat(d, { draft }));
-  return draft && !same.some(isSending) ? same.filter(isPending) : undefined;
+  const pending = same.filter(isPending);
+  const own = pending.filter((d) => isSameAsker(d, asker));
+  return draft &&
+    own.length > 0 &&
+    own.length === pending.length &&
+    !same.some(isSending)
+    ? own
+    : undefined;
 }
 
 /** The card `id`, waiting on an open card of `asker`'s, with that card (a keep's or a merge's); throws when there is none. */

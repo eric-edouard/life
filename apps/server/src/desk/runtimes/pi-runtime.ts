@@ -378,7 +378,7 @@ export function piRowOf(
           await openInTerminal(launch, place.dir);
         }
       : undefined,
-    // pi has no app to open: Life's app shows its session, read-only (`read_agent_session`, the owner's decision 2 of 22 Nov 2026).
+    // pi has no app to open: its session stays in pi's own file on the Mac.
     link: () => "",
     async readSessionState(ref): Promise<SessionState> {
       // A pi on this session that the desk does not drive (his terminal, an orphaned run): never a second one beside it.

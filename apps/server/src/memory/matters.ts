@@ -238,7 +238,7 @@ export function readMatterPins() {
       } else if (c.kind === "matter-project") {
         pins.projects.push({ ...pinOf(c), project: c.project });
       } else if (c.kind === "deferred") {
-        pins.deferred.set(c.ref, c.until);
+        pins.deferred.set(laterKeyOf(c.ref), c.until);
       } else if (c.kind === "matter-reopened") {
         pins.reopened.push(c);
       }
@@ -256,9 +256,13 @@ export function readMatterPins() {
   return { ...his, directions: [...standing, ...his.directions] };
 }
 
+/** What his Later holds: a check's ref, but a your move card's matter whole (`move:<matter>/<step>` → `move:<matter>`). */
+const MOVE_STEP = /^(move:[^/]*)\/.*$/;
+const laterKeyOf = (ref: string) => ref.replace(MOVE_STEP, "$1");
+
 /** Until when his Later holds check `ref` at `now` (its latest `deferred`), or undefined once it passed or when none does. */
 export function laterUntilOf(ref: string, now = clock()) {
-  const until = readMatterPins().deferred.get(ref);
+  const until = readMatterPins().deferred.get(laterKeyOf(ref));
   return until && Date.parse(until) > now.getTime() ? until : undefined;
 }
 
