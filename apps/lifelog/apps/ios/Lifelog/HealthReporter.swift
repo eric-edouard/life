@@ -173,13 +173,13 @@ final class HealthReporter {
         }
         let phone = Heartbeat.Phone(
             batteryLevel: device.batteryLevel < 0 ? nil : Double(device.batteryLevel), charging: charging,
-            freeBytes: phoneFreeBytes, lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            focusOn: INFocusStatusCenter.default.authorizationStatus == .authorized
-                ? INFocusStatusCenter.default.focusStatus.isFocused : nil,
-            onCall: !CXCallObserver().calls.filter { !$0.hasEnded }.isEmpty)
+            freeBytes: phoneFreeBytes, lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled)
         let heartbeat = Heartbeat(
             reason: reason, at: .now, build: Self.build, status: status, connectionSince: connectionSince,
-            lastContact: lastContact, phone: phone, wakeLog: wakeLog)
+            lastContact: lastContact, phone: phone, wakeLog: wakeLog,
+            focus: INFocusStatusCenter.default.authorizationStatus == .authorized
+                ? INFocusStatusCenter.default.focusStatus.isFocused : nil,
+            onCall: !CXCallObserver().calls.filter { !$0.hasEnded }.isEmpty)
         let outbox = Self.outbox
         Task { @concurrent in
             try? await outbox.enqueue(heartbeat, path: "health/heartbeat", urgent: reason != .periodic)

@@ -73,16 +73,8 @@ public struct Heartbeat: Codable, Sendable, Equatable {
         public var charging: Bool?
         public var freeBytes: Int64?
         public var lowPowerMode: Bool
-        /// A Focus is on, and a call is connected: so Life holds what can wait (nil: not asked, or not allowed).
-        public var focusOn: Bool?
-        public var onCall: Bool?
 
-        public init(
-            batteryLevel: Double?, charging: Bool?, freeBytes: Int64?, lowPowerMode: Bool, focusOn: Bool? = nil,
-            onCall: Bool? = nil
-        ) {
-            self.focusOn = focusOn
-            self.onCall = onCall
+        public init(batteryLevel: Double?, charging: Bool?, freeBytes: Int64?, lowPowerMode: Bool) {
             self.batteryLevel = batteryLevel
             self.charging = charging
             self.freeBytes = freeBytes
@@ -115,11 +107,17 @@ public struct Heartbeat: Codable, Sendable, Equatable {
     var droppedMessages: Int
     /// The phone's zone, "Europe/Berlin": the server shows the owner's days and times in it.
     var timeZone: String
+    /// A Focus is on, and a phone call is connected, so Life holds what can wait (nil: not allowed to know).
+    var focus: Bool?
+    var onCall: Bool?
 
     public init(
         id: UUID = UUID(), reason: Reason, at now: Date, build: BuildInfo, status: CaptureStatus, connectionSince: Date,
-        lastContact: Date?, phone: Phone, wakeLog: WakeLog, timeZone: TimeZone = .current
+        lastContact: Date?, phone: Phone, wakeLog: WakeLog, timeZone: TimeZone = .current, focus: Bool? = nil,
+        onCall: Bool? = nil
     ) {
+        self.focus = focus
+        self.onCall = onCall
         self.id = id
         self.timeZone = timeZone.identifier
         self.reason = reason
