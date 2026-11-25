@@ -38,7 +38,10 @@ const CAPS: Record<string, Record<string, number>> = {
   "DiagnosticsView.swift": { padding: 2 },
   "Edge/EdgeView.swift": { opacity: 3 },
   "Field/AskField.swift": { font: 1, height: 1, radius: 1, width: 1 },
+  "Pendant/IncidentCards.swift": { padding: 1 },
   "RootView.swift": { height: 2, padding: 1, width: 2 },
+  "Settings/ConnectionPage.swift": { padding: 3 },
+  "Settings/SettingsView.swift": { padding: 1 },
   "Thread/AnswerView.swift": { width: 1 },
   "Thread/ThreadView.swift": {
     capsule: 1,
@@ -47,9 +50,6 @@ const CAPS: Record<string, Record<string, number>> = {
     padding: 2,
     width: 1,
   },
-  "Pendant/IncidentCards.swift": { padding: 1 },
-  "Settings/ConnectionPage.swift": { padding: 3 },
-  "Settings/SettingsView.swift": { padding: 1 },
 };
 
 const countsOf = (text: string) =>
