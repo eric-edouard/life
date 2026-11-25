@@ -52,6 +52,7 @@ import { eventLineOf, waitOf } from "./agent-wait";
 import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 import { firstTurnOf } from "./first-turns";
+import { FIRST_TURN_WAIT } from "./hand-out";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row
@@ -148,8 +149,8 @@ export function openAssignment(
   // One write: an assignment is never open without its anchors.
   db.transaction(() => {
     db.run(
-      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path, matter_id) values (?1, ?2, ?3, ?4, ?5, ?3, 'first turn', ?6, ?7)",
-      [id, agent, now, openedBy, said, notesPathOf(id), matter]
+      "insert into assignment (id, agent_id, opened_at, opened_by, said, wait_until, wait_reason, notes_path, matter_id) values (?1, ?2, ?3, ?4, ?5, ?3, ?8, ?6, ?7)",
+      [id, agent, now, openedBy, said, notesPathOf(id), matter, FIRST_TURN_WAIT]
     );
     for (const step of a.steps ?? []) {
       db.run(

@@ -498,7 +498,9 @@ export async function readHandOutMatters(
       .map((i) => i.scope)
   );
   const offIds = ids(
-    ranked.filter((v) => handsOff.has(`project:${shown(v)?.id}`))
+    ranked.filter(
+      (v) => handsOff.has("all") || handsOff.has(`project:${shown(v)?.id}`)
+    )
   );
   return {
     facts: {

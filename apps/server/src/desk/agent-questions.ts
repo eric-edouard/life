@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { clock, MIN } from "../core/clock";
 import { agentOf, assignmentOf } from "../host/desk-read";
 import type { Desk } from "./desk-store";
 import { queue } from "./event-queue";
@@ -11,8 +12,13 @@ import { queue } from "./event-queue";
 /** The event a question queues, and its turn's cause. */
 export const MAIN_QUESTION = "main_question";
 
+/** How long a question waits for its reply: the main session answers from the record past it, and the question goes. */
+export const QUESTION_WAIT = MIN;
+
 interface Question {
   assignment: string;
+  /** When it was asked (ms). */
+  at: number;
   isRead: boolean;
   reply: PromiseWithResolvers<string>;
   words: string;
@@ -21,16 +27,22 @@ interface Question {
 // ponytail: held in the desk helper's memory, as the main session's wait is: a restart drops an unanswered question
 // (its turn then reads nothing); store them if questions must outlive a restart.
 const held = new WeakMap<Desk["db"], Map<string, Question>>();
+/** The questions still waiting for their reply: one past `QUESTION_WAIT` goes, so its agent is never held by it. */
 const questionsOf = (db: Desk["db"]) => {
   const q = held.get(db) ?? new Map<string, Question>();
   held.set(db, q);
+  for (const [id, x] of q) {
+    if (clock().getTime() - x.at > QUESTION_WAIT) {
+      q.delete(id);
+    }
+  }
   return q;
 };
 
 /**
  * Asks open assignment `assignment` his words `words` (the main session's, found in his ask): queues `main_question`,
- * which wakes its agent at once. Its id and the reply, which settles when the agent answers (`answerQuestion`); the
- * caller waits as long as it likes, and a late reply still settles. Refused for an assignment not open, or the main
+ * which wakes its agent at once. Its id and the reply, which settles when the agent answers (`answerQuestion`) within
+ * `QUESTION_WAIT`; past it the question goes and never settles. Refused for an assignment not open, or the main
  * session's own.
  */
 export function askAssignment(desk: Desk, assignment: string, words: string) {
@@ -46,7 +58,13 @@ export function askAssignment(desk: Desk, assignment: string, words: string) {
   }
   const id = `q_${randomBytes(6).toString("hex")}`;
   const reply = Promise.withResolvers<string>();
-  questionsOf(desk.db).set(id, { assignment, isRead: false, reply, words });
+  questionsOf(desk.db).set(id, {
+    assignment,
+    at: clock().getTime(),
+    isRead: false,
+    reply,
+    words,
+  });
   queue(desk.db, MAIN_QUESTION, [
     { assignment, eventId: id, payload: { question: id } },
   ]);

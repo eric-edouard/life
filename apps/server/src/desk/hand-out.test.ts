@@ -6,6 +6,7 @@ import { dismissedIdsOf } from "../memory/read-matters";
 import { register } from "./agent-actions";
 import {
   CARD_WITHIN_MS,
+  FIRST_TURN_WAIT,
   handOutOf,
   isCardOverdue,
   paceRefusalOf,
@@ -136,17 +137,18 @@ test("a handed-out agent whose first turn began 2 hours ago is overdue when it n
     closed_at: null as string | null,
     first_begun_at: new Date(now - CARD_WITHIN_MS).toISOString(),
     opened_by: "desk" as const,
-    wait_is_default: 0,
-    wait_until: new Date(now - CARD_WITHIN_MS).toISOString() as string | null,
+    wait_is_default: 1,
+    wait_reason: "default wait" as string | null,
   };
   expect(isCardOverdue(a, false, now)).toBe(true);
   expect(isCardOverdue(a, false, now - 1)).toBe(false);
   expect(isCardOverdue(a, true, now)).toBe(false);
-  // It works, then waits: its own wait ahead keeps it; the desk's default wait does not.
-  const ahead = new Date(now + HOUR).toISOString();
-  expect(isCardOverdue({ ...a, wait_until: ahead }, false, now)).toBe(false);
+  // It works, then waits: its own wait keeps it, even once run out (its next turn is due); the desk's default does not.
+  const own = { ...a, wait_is_default: 0, wait_reason: "his quote" };
+  expect(isCardOverdue(own, false, now)).toBe(false);
+  // The wait it opened with is not its own.
   expect(
-    isCardOverdue({ ...a, wait_is_default: 1, wait_until: ahead }, false, now)
+    isCardOverdue({ ...own, wait_reason: FIRST_TURN_WAIT }, false, now)
   ).toBe(true);
   expect(isCardOverdue({ ...a, first_begun_at: null }, false, now)).toBe(false);
   expect(isCardOverdue({ ...a, opened_by: "owner" as const }, false, now)).toBe(

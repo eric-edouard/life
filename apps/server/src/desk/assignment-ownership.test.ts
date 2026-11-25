@@ -20,7 +20,7 @@ import {
 import { start } from "./agent-changes";
 import { readPeopleOnce, wakeDue } from "./desk-clock";
 import { foldAssignments } from "./matter-net";
-import { advance, pastPlan, setup, toDo, withBook } from "./test-desk";
+import { advance, pastFirstCard, setup, toDo, withBook } from "./test-desk";
 
 // The debt verdict on PR 3 (#810, 21 Nov 2026): an agent and its assignments are not one thing. Each test is one of its
 // findings, made up.
@@ -123,7 +123,7 @@ test("a card whose owner row never committed stays with the assignment that aske
   if (!s) {
     throw new Error("no second assignment");
   }
-  await pastPlan(desk, s);
+  await pastFirstCard(desk, s);
   const asked = await askDecision(desk, s, {
     ask: "Decide it",
     context: "A made-up reason to ask.",
@@ -164,7 +164,7 @@ test("a fold onto an agent leaves its own older card on its own assignment", asy
       if (!own) {
         throw new Error("no own assignment");
       }
-      await pastPlan(desk, own);
+      await pastFirstCard(desk, own);
       const { id } = await askDecision(desk, own, {
         ask: "Decide it",
         context: "A made-up reason to ask.",
@@ -243,7 +243,7 @@ test("a fold shows its card as asked by the new holder, and the agent it emptied
       if (!onMatter) {
         throw new Error("no matter assignment");
       }
-      await pastPlan(desk, onMatter);
+      await pastFirstCard(desk, onMatter);
       const { id } = await askDecision(desk, onMatter, {
         ask: "Decide it",
         context: "A made-up reason to ask.",
@@ -286,8 +286,8 @@ test("each open card is its own assignment's, so an agent holding two shows each
       if (!(own && other)) {
         throw new Error("no assignments");
       }
-      await pastPlan(desk, own);
-      await pastPlan(desk, other);
+      await pastFirstCard(desk, own);
+      await pastFirstCard(desk, other);
       const ask = (s: typeof own) =>
         askDecision(desk, s, {
           ask: "Decide it",
@@ -408,7 +408,7 @@ test("a card goes on any matter its agent holds, filed under the assignment hold
         throw new Error("no assignments");
       }
       // Its own assignment gets a card below; onB, the desk's, holds no plan card.
-      await pastPlan(desk, own);
+      await pastFirstCard(desk, own);
       const ownerOf = (id: string) =>
         cardOwnersOf(desk.db, [{ agent: personal, id }])[id]?.assignment;
       // Woken on A, asks on B's matter: filed under B.

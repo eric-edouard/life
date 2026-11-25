@@ -7,7 +7,12 @@ import { decisionCardOf } from "../memory/checks";
 import { decisionsNow, requestDecision } from "../memory/decisions";
 import { INSTRUCTIONS, recordInstruction } from "../memory/instructions";
 import { askDecision, finish, openAssignment, register } from "./agent-actions";
-import { answerQuestion, askAssignment, readQuestion } from "./agent-questions";
+import {
+  answerQuestion,
+  askAssignment,
+  QUESTION_WAIT,
+  readQuestion,
+} from "./agent-questions";
 import { ahead, matterView, on, setup, withMatters } from "./test-desk";
 import { turnRefusalOf } from "./turn-refusal";
 
@@ -207,6 +212,14 @@ test("the main session's question wakes its agent at once; its turn ends only on
   expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
   answerQuestion(desk, s, asked.id, "Waiting on his quote, due Thursday.");
   expect(await asked.reply).toBe("Waiting on his quote, due Thursday.");
+  // Unanswered past its minute, a question goes: its agent is never held by it.
+  const late = askAssignment(desk, s.id, "And the boiler?");
+  if ("error" in late) {
+    throw new Error(late.error);
+  }
+  setSystemTime(new Date(Date.now() + QUESTION_WAIT + 1000));
+  expect(turnRefusalOf(desk, "finish", "main_question", null, s)).toBeNull();
+  expect(() => readQuestion(desk, s, late.id)).toThrow("is no question");
   expect(
     desk.db.query("select name from event where assignment_id = ?").all(s.id)
   ).toContainEqual({ name: "main_question" });

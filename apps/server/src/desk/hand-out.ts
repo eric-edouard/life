@@ -41,6 +41,9 @@ export function handOutOf(i: {
   return i.matters.find((m) => handOutGateOf(m, i.facts) === null);
 }
 
+/** The wait a new assignment opens with (`openAssignment`): due at once, never its agent's own. */
+export const FIRST_TURN_WAIT = "first turn";
+
 /** How long a handed-out agent has to ask a card or set a wait, from its first turn's beginning. */
 export const CARD_WITHIN_MS = 2 * HOUR;
 
@@ -49,13 +52,13 @@ export const NO_CARD_OUTCOME = `no card and no wait within ${CARD_WITHIN_MS / HO
 
 /**
  * Whether an assignment the desk opened is over its time: open, its own first turn began (`first_begun_at`),
- * `CARD_WITHIN_MS` since, no card asked (`hasAsked`) and no wait of its agent's own ahead (one that works, then waits,
- * stays). One he opened never is.
+ * `CARD_WITHIN_MS` since, no card asked (`hasAsked`) and no wait of its agent's own, even one run out (one that works,
+ * then waits, stays: a turn that ends with neither leaves the desk's default wait). One he opened never is.
  */
 export const isCardOverdue = (
   a: Pick<
     AssignmentRow,
-    "closed_at" | "opened_by" | "wait_is_default" | "wait_until"
+    "closed_at" | "opened_by" | "wait_is_default" | "wait_reason"
   > & {
     first_begun_at: string | null;
   },
@@ -66,5 +69,5 @@ export const isCardOverdue = (
   a.closed_at === null &&
   a.first_begun_at !== null &&
   !hasAsked &&
-  !(a.wait_is_default === 0 && Date.parse(a.wait_until ?? "") > now) &&
+  !(a.wait_is_default === 0 && a.wait_reason !== FIRST_TURN_WAIT) &&
   now - Date.parse(a.first_begun_at) >= CARD_WITHIN_MS;

@@ -146,8 +146,8 @@ export function on(desk: Desk, id: string) {
 export const asgOf = (desk: Desk, id: string) =>
   currentAssignmentOf(desk.db, id)?.id ?? "";
 
-/** Assignment `s` past its plan: its first card, a valid plan card, asked and answered `start`, so a test's own first card is a later one; returns its id. Call it outside `withMatters`: the card rides on a made-up matter holding the assignment's anchors. */
-export async function pastPlan(desk: Desk, s: ReturnType<typeof on>) {
+/** Assignment `s` past a first card, asked and answered yes, so a test's own card is a later one; returns its id. Call it outside `withMatters`: the card rides on a made-up matter holding the assignment's anchors. */
+export async function pastFirstCard(desk: Desk, s: ReturnType<typeof on>) {
   const steps = desk.db
     .query<{ step: string }, [string]>(
       "select step from anchor where assignment_id = ?"
@@ -155,24 +155,21 @@ export async function pastPlan(desk: Desk, s: ReturnType<typeof on>) {
     .all(s.id)
     .map((a) => a.step);
   const { id } = await withMatters(
-    steps.length ? [matterView(`mat_plan_${s.id}`, steps)] : [],
+    steps.length ? [matterView(`mat_first_${s.id}`, steps)] : [],
     () =>
       askDecision(desk, s, {
-        ask: "Decide it",
-        context: "A made-up plan.",
+        ...cardFields("yes"),
+        context: "A made-up first card.",
         deadline: ahead(24 * HOUR),
-        follow: [],
         options: [
-          { id: "start", label: "Start the plan" },
-          { id: "decline", label: "Not this plan" },
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
         ],
-        plan: [{ by: "agent", text: "Do the one step" }],
-        question: "Start with this plan?",
-        recommended: "start",
-        title: "a test plan",
+        question: "Go ahead?",
+        title: "a test card",
       })
   );
-  await answerDecision(id, ["start"]);
+  await answerDecision(id, ["yes"]);
   return id;
 }
 

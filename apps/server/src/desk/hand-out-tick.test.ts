@@ -43,7 +43,7 @@ import {
   cardFields as fields,
   matterView,
   on,
-  pastPlan,
+  pastFirstCard,
   setup,
   toDo,
   withBook,
@@ -467,8 +467,8 @@ test("a card on a step another agent holds stays with its asker: its slot, and h
         runtime: "claude",
         steps: [theirs],
       });
-      await pastPlan(desk, on(desk, asker));
-      await pastPlan(desk, on(desk, holder));
+      await pastFirstCard(desk, on(desk, asker));
+      await pastFirstCard(desk, on(desk, holder));
       pollAnswers(desk);
       const card = (agent: string, title: string) =>
         askDecision(desk, on(desk, agent), {
@@ -539,7 +539,7 @@ test("a project agent's `ends: step` card answered Done wakes it and never ends 
         project: "test-bakery",
         runtime: "claude",
       });
-      await pastPlan(desk, on(desk, agent));
+      await pastFirstCard(desk, on(desk, agent));
       pollAnswers(desk);
       const { id } = await askDecision(desk, on(desk, agent), {
         ...fields("done"),
@@ -591,7 +591,7 @@ test("a matter agent with a wait, an open card and notes is folded: the agent th
         steps: [step],
       });
       const s = on(desk, old);
-      await pastPlan(desk, s);
+      await pastFirstCard(desk, s);
       pollAnswers(desk);
       const { id: card } = await askDecision(desk, s, {
         ...fields("yes"),
