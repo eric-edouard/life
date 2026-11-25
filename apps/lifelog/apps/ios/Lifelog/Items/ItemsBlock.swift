@@ -15,11 +15,11 @@ struct ItemsBlock: View {
     }
 }
 
-/// Life's `pictures` block: the people and organizations its refs name, as faces that open their profile.
+/// Life's `pictures` block: the people and organizations its refs name, as faces that open their profile (`RootView.open`, as a `life:` link does).
 struct PicturesBlock: View {
     let refs: [String]
     @Environment(LifeStore.self) private var life
-    @State private var opened: String?
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -27,7 +27,7 @@ struct PicturesBlock: View {
                 ForEach(refs, id: \.self) { ref in
                     if let party = life.parties.byRef[ref] {
                         Button {
-                            opened = ref
+                            if let url = URL.lifeOpen(ref) { openURL(url) }
                         } label: {
                             VStack(spacing: Metrics.Spacing.xs) {
                                 Face(party: party, size: 56)
@@ -40,7 +40,6 @@ struct PicturesBlock: View {
                 }
             }
         }
-        .sheet(item: $opened) { ref in ProfileView(ref: ref).sheetStack() }
     }
 }
 

@@ -18,6 +18,8 @@ struct RootView: View {
     @State private var text = ""
     @State private var isSpeaking = false
     @FocusState private var isAsking: Bool
+    /// A pairing is being checked (`PairSheet`): another pairing link waits for it.
+    @State private var isPairing = false
 
     private enum Sheet: Identifiable {
         case pendant, settings, link(String)
@@ -37,8 +39,8 @@ struct RootView: View {
     private struct Profile: Hashable { let ref: String }
 
     private var thread: LifeThread { life.thread }
-    /// What he sees now, as refs only: the thread is the one screen.
-    private let screen = MainSessionScreen(tab: "thread")
+    /// What he sees now, as refs only: the thread, or the profile pushed over it.
+    private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref, tab: "thread") }
     private var edge: EdgeState {
         life.isOutOfReach ? .still : thread.isWorking ? .working : isSpeaking ? .speaking : .rest
     }
@@ -59,25 +61,26 @@ struct RootView: View {
                     Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                AskField(
-                    text: $text, isWorking: thread.isWorking, isSpeaking: $isSpeaking, isFocused: $isAsking, send: send
-                ) {
-                    Task { await thread.stop() }
-                }
-                .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
-            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) { ProfileView(ref: $0.ref) }
+        }
+        // The field is on every screen, a pushed profile too: it asks with that screen's refs.
+        .safeAreaInset(edge: .bottom) {
+            AskField(
+                text: $text, isWorking: thread.isWorking, isSpeaking: $isSpeaking, isFocused: $isAsking, send: send
+            ) {
+                Task { await thread.stop() }
+            }
+            .padding(.horizontal, Metrics.Spacing.l).padding(.bottom, Metrics.Spacing.s)
         }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it.
         .overlay { EdgeView(state: edge) }
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .pendant: PendantView().sheetStack()
-            case .settings: SettingsPage().sheetStack()
+            case .settings: SettingsPage().toolbar { CloseItem { self.sheet = nil } }.sheetStack()
             case .link(let ref): LinkSheet(ref: ref)
-            case .pair(let offer): PairSheet(offer: offer).sheetStack()
+            case .pair(let offer): PairSheet(offer: offer, isPairing: $isPairing).sheetStack()
             }
         }
         .environment(\.windowSizeClass, sizeClass)
@@ -106,16 +109,16 @@ struct RootView: View {
         }
         .onChange(of: life.isOutOfReach) { if !life.isOutOfReach { Task { await life.flushQueued() } } }
         // `lifelog://pair?...` (from the Camera or pasted in Settings) is asked here, never applied alone;
-        // `lifelog://open?ref=...` opens a `life:` ref.
+        // `lifelog://open?ref=...` opens a `life:` ref (`LinkAction`).
         .onOpenURL { url in
-            if let offer = PairOffer(link: url) {
-                sheet = .pair(offer)
-            } else if url.host == "open",
-                let ref = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: {
-                    $0.name == "ref"
-                })?.value
-            {
-                open(ref)
+            switch LinkAction(url: url, isPairLink: PairOffer(link: url) != nil, isPairing: isPairing) {
+            case .pair:
+                guard let offer = PairOffer(link: url) else { return }
+                // Over an open sheet: it goes first, the pairing is presented on the next turn.
+                sheet = nil
+                Task { sheet = .pair(offer) }
+            case .open(let ref): open(ref)
+            case .ignore: break
             }
         }
         // A `life:` link in Life's words (`life-open:`, made by `[Inline].attributed`) opens here, wherever it is tapped.
@@ -158,6 +161,7 @@ struct RootView: View {
     }
 
     private func send() {
+        life.clearFocus()
         thread.ask(text, screen: screen)
         text = ""
     }

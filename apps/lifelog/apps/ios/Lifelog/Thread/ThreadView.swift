@@ -9,6 +9,7 @@ struct ThreadView: View {
     var isPaired = true
     @State private var showsEarlier = false
     @Environment(\.calendar) private var calendar
+    @Environment(LifeStore.self) private var life
 
     private var shown: [ThreadEntry] {
         let from = calendar.date(byAdding: .day, value: -3, to: thread.entries.last?.at ?? .now) ?? .distantPast
@@ -31,6 +32,9 @@ struct ThreadView: View {
                         EntryView(
                             entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
                     }
+                    // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
+                    // unfolded with its answers.
+                    if let ask = life.focused.flatMap(life.ask) { ItemRow(ask: ask).id(ask.ref) }
                     Color.clear.frame(height: 1).id("end")
                 }
                 .padding(.horizontal, Metrics.Spacing.l)
@@ -40,6 +44,7 @@ struct ThreadView: View {
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: thread.entries.count) { proxy.scrollTo("end", anchor: .bottom) }
+            .onChange(of: life.focused) { proxy.scrollTo("end", anchor: .bottom) }
             .onChange(of: thread.live) { proxy.scrollTo("end", anchor: .bottom) }
         }
     }

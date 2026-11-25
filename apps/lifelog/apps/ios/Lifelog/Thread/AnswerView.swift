@@ -79,6 +79,13 @@ private struct ListView: View {
     }
 }
 
+extension URL {
+    /// A `life:` ref as a link `RootView` opens (`life-open:`), the one way to open a profile, an ask or a page.
+    static func lifeOpen(_ ref: String) -> URL? {
+        URL(string: "life-open:" + (ref.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ref))
+    }
+}
+
 extension [Inline] {
     /// The runs as one styled text. A web or system link opens; a `life:` name is bold and opens (`life-open:`, handled by `AnswerView`).
     var attributed: AttributedString {
@@ -93,8 +100,7 @@ extension [Inline] {
             case .web(let url), .system(let url): piece.link = url
             case .life(let ref, _):
                 piece.inlinePresentationIntent = .stronglyEmphasized
-                piece.link = URL(
-                    string: "life-open:" + (ref.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ref))
+                piece.link = .lifeOpen(ref)
             case nil: break
             }
             text += piece
@@ -102,25 +108,22 @@ extension [Inline] {
     }
 }
 
-/// What a `life:` link names: a person's profile, else Life's own text of it.
+/// What a `life:` link names that is neither a person nor an ask: Life's own text of it, a sheet (the one exception to
+/// "nothing of Life's opens a screen", beside a picture or a phrase).
 struct LinkSheet: View {
     let ref: String
     @Environment(LifeStore.self) private var life
     @State private var read = ReadState<LifeLinkRead>()
 
     var body: some View {
-        if ref.hasPrefix("person:") {
-            ProfileView(ref: ref).sheetStack()
-        } else {
-            ScrollView {
-                switch read.value {
-                case .person(let name, let line)?: Text([name, line].compactMap { $0 }.joined(separator: "\n"))
-                case .text(let text)?: MarkdownView(text: text)
-                case nil: Spinner().frame(maxWidth: .infinity)
-                }
+        ScrollView {
+            switch read.value {
+            case .person(let name, let line)?: Text([name, line].compactMap { $0 }.joined(separator: "\n"))
+            case .text(let text)?: MarkdownView(text: text)
+            case nil: Spinner().frame(maxWidth: .infinity)
             }
-            .padding(Metrics.Spacing.l).task { await life.fetch(ref) { read.apply($0) } }
-            .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
         }
+        .padding(Metrics.Spacing.l).task { await life.fetch(ref) { read.apply($0) } }
+        .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
     }
 }
