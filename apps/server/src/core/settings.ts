@@ -5,8 +5,6 @@ import { writeWhole } from "./files";
 import {
   AgentRole,
   Engine,
-  NotifyKind,
-  NotifyLevel,
   RuntimeName,
   SourceName,
   WebSearchProviderName,
@@ -132,11 +130,6 @@ export const Settings = z
      * (`models/prompt-parts.ts`). Quotes stay as said; topic tags stay English. Absent: English, as before the key.
      */
     memoryLanguage: z.string().min(1).default("English"),
-    /**
-     * How each kind of new card reaches his phone (`pushNewCards`, `host/card-push.ts`): off, quiet, normal or urgent.
-     * The one key whose missing parts are not off: a kind left out takes Life's default (`NOTIFY_DEFAULTS`).
-     */
-    notifications: z.partialRecord(NotifyKind, NotifyLevel).default({}),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })
@@ -247,6 +240,17 @@ export function setSettings(
   );
   writeSettings(SETTINGS, next);
   read = next;
+}
+
+/** What his word may change through `change_setting` (question 22): the monthly amount, in billed dollars. */
+export const SettingChange = z
+  .object({ monthlyUsd: z.number().positive().max(100_000) })
+  .strict();
+
+/** His `change_setting`: writes the monthly amount; the settings as they now stand. */
+export function changeSetting({ monthlyUsd }: z.infer<typeof SettingChange>) {
+  setSettings({ budget: { monthlyUsd } });
+  return { budget: settings().budget };
 }
 
 /** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */

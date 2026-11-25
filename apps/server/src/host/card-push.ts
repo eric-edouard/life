@@ -4,9 +4,9 @@ import { clock, daysBefore, HOUR } from "../core/clock";
 import { readJson, readLineCount, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import type { NotifyKind, NotifyLevel } from "../core/names";
 import { blockingCountOf } from "../memory/check-urgency";
 import type { InboxCheck } from "../memory/checks";
+import { deliveryOf } from "../memory/decision-delivery";
 import { DECISIONS } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
 import type { StoredDraft } from "../memory/draft";
@@ -35,21 +35,6 @@ import { inboxChecksNow } from "./inbox";
 export const SEEN = join(WATCH, "seen-cards.json");
 /** A card not open for this many days is forgotten, so one that returns is new again. */
 const FORGET_DAYS = 30;
-/** Life's level for a kind he left out of `notifications`: full push, an agent's decision urgent, an appointment added quiet. */
-export const NOTIFY_DEFAULTS: Record<NotifyKind, NotifyLevel> = {
-  "at organization": "normal",
-  calendar: "quiet",
-  "contacts card": "normal",
-  decision: "urgent",
-  "decision with a draft": "urgent",
-  ending: "normal",
-  "guessed person": "normal",
-  name: "normal",
-  "new matter": "normal",
-  "same person": "normal",
-  voice: "normal",
-  "your move": "normal",
-};
 /** How near its deadline a card's push is time-sensitive (iOS lets one through a Focus): the only time it is. */
 const URGENT_WITHIN = 3 * HOUR;
 
@@ -77,19 +62,22 @@ const subjectIdOf = (c: Open) => {
 const isSeen = (c: Open, seen: Seen["seen"]) =>
   c.pushId in seen || subjectIdOf(c) in seen;
 
-/** The push's level for a card at `setting`: urgent is time-sensitive with no deadline or within 3 hours of it. */
-export const levelOf = (
-  setting: Exclude<NotifyLevel, "off">,
-  deadline: string | null,
-  now: Date
-): PushLevel => {
-  if (setting === "quiet") {
-    return "passive";
-  }
-  const due =
-    deadline === null || Date.parse(deadline) - now.getTime() <= URGENT_WITHIN;
-  return setting === "urgent" && due ? "time-sensitive" : "active";
-};
+/** The open cards the gate has not read yet (`pending`), and those it delivered never to push (`silent`, a sensitive subject). */
+function gateStatesOf(now: Date) {
+  const states = decisionsNow(now)
+    .filter((d) => d.state === "open")
+    .map((d) => [d.id, deliveryOf(d, now)] as const);
+  return {
+    pending: new Set(
+      states.flatMap(([id, x]) => (x.state === "pending" ? [id] : []))
+    ),
+    silent: new Set(
+      states.flatMap(([id, x]) =>
+        x.state === "delivered" && x.silent ? [id] : []
+      )
+    ),
+  };
+}
 
 /** His instructions in force on a card: its matter's, its draft's chat's and channel's, and everything's. */
 export const cardInstructionsOf = (c: {
@@ -131,6 +119,7 @@ export function pushLevelOf(
  * is removed.
  */
 async function pushNew(open: Open[], total?: number, now = clock()) {
+  const { silent } = gateStatesOf(now);
   const today = dayNow(now);
   const before = readJson<Seen>(SEEN);
   if (!(before || total !== undefined)) {
@@ -166,7 +155,7 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
     await notifyPhone({ removed: removed.slice(0, REMOVED_MAX) });
   }
   const pushes: Push[] = open.flatMap((c) =>
-    c.group !== "decision" || isSeen(c, before.seen)
+    c.group !== "decision" || isSeen(c, before.seen) || silent.has(c.ref)
       ? []
       : [
           {
@@ -204,7 +193,9 @@ async function pushInOrder(pushes: Push[], badge: number) {
 
 /** Pushes what is new in his inbox; the badge counts what blocks him (`blockingCountOf`). */
 export async function pushNewCards(now = clock()) {
-  const open = await inboxChecksNow();
+  // A card the gate has not read yet is neither seen nor counted: it pushes once delivered.
+  const { pending } = gateStatesOf(now);
+  const open = (await inboxChecksNow()).filter((c) => !pending.has(c.ref));
   await pushNew(open, blockingCountOf(open), now);
 }
 
@@ -212,7 +203,7 @@ export async function pushNewCards(now = clock()) {
 const pushNewDecisions = () =>
   pushNew(
     decisionsNow()
-      .filter((d) => d.state === "open")
+      .filter((d) => d.state === "open" && deliveryOf(d).state !== "pending")
       .map((d) => ({
         deadline: d.deadline,
         draft: d.draft,

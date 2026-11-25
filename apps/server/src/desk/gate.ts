@@ -2,10 +2,22 @@ import { z } from "zod";
 import { clock, daysBefore, HOUR, iso } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { cardInstructionsOf } from "../host/card-push";
+import { assignmentOfCard, lastTurns } from "../host/desk-read";
 import { ownerStateNow } from "../host/owner-state";
-import type { Instruction } from "../memory/instructions";
+import { deliveryOf, recordDelivered } from "../memory/decision-delivery";
+import type { Decision } from "../memory/decision-lines";
+import { decisionsNow } from "../memory/decisions";
+import { draftWords } from "../memory/draft";
+import type { instructionsFor } from "../memory/instructions";
 import { begin, readsOf } from "../memory/run";
 import { dayNow, dayStart, zoneNow } from "../memory/zones";
+import { MAIN_QUESTION } from "./agent-questions";
+import type { Desk } from "./desk-store";
+import { queue } from "./event-queue";
+import { MAIN_ASK } from "./main-session";
+
+type Instruction = ReturnType<typeof instructionsFor>[number];
 
 // The gate on every agent's card (the v4 plan, verdict 1, bundle E): one model call with no tools, on the agents' own
 // model, reads the card as he would see it with what he is doing now (`ownerStateNow`) and returns four readings;
@@ -26,7 +38,7 @@ export const GateReadings = z.object({
   canActNow: z.boolean(),
   goodMoment: z.boolean(),
   importance: Level,
-  sendBack: z.string().min(1).max(600).nullable().default(null),
+  sendBack: z.string().min(1).max(500).nullable().default(null),
   sensitive: z.boolean().default(false),
   urgency: Level,
 });
@@ -36,7 +48,7 @@ export type GateReadings = z.infer<typeof GateReadings>;
 export type GateVerdict = { rules: string[] } & (
   | { silent?: true; verdict: "deliver" }
   | { until: string; verdict: "hold" }
-  | { note: string; verdict: "send-back" }
+  | { note: string; verdict: "send_back" }
 );
 
 /** What the verdict rests on beside the readings: the card's deadline and his instructions' effects on it. */
@@ -70,7 +82,7 @@ export function gateVerdictOf(f: GateFacts): GateVerdict {
       ? "This touches a subject he asked never to be brought up: leave it out, or don't ask."
       : null);
   if (note && !f.wasSentBack) {
-    return { note, rules: ["sent back once"], verdict: "send-back" };
+    return { note, rules: ["sent back once"], verdict: "send_back" };
   }
   if (r.sensitive) {
     return { rules: ["sensitive: no push"], silent: true, verdict: "deliver" };
@@ -193,5 +205,90 @@ export async function readGate(
   } catch (e) {
     log("run.error", { ...errorOf(e), card: card.id, step: "desk.gate" });
     return null;
+  }
+}
+
+/** The event a card sent back wakes its agent with: the card's id only; the agent reads the gate's note at its door. */
+export const SENT_BACK = "decision.sent_back";
+/** The turns whose cards follow what he just did (his answer, his question, his ask): never gated. */
+const FOLLOW_UP_CAUSES = new Set(["answer", MAIN_QUESTION, MAIN_ASK]);
+
+/** Whether card `d` was asked in a turn that follows what he just did (its assignment's turn running when it was asked). */
+function isFollowUpOf(db: Desk["db"], d: Decision) {
+  const assignment = assignmentOfCard(db, d);
+  const turn =
+    assignment &&
+    lastTurns(db, assignment, 20).find(
+      (t) => t.started_at <= d.at && (!t.ended_at || t.ended_at >= d.at)
+    );
+  return Boolean(turn && FOLLOW_UP_CAUSES.has(turn.cause));
+}
+
+/** The card as his phone shows it. */
+const gateCardOf = (d: Decision): GateCard => ({
+  ask: d.ask,
+  context: d.context,
+  deadline: d.deadline,
+  ...(d.draft
+    ? { draft: { text: draftWords(d.draft).join("\n"), to: d.draft.to } }
+    : {}),
+  id: d.id,
+  options: d.options,
+  question: d.question,
+  recommended: d.recommended,
+  title: d.title,
+});
+
+/**
+ * The gate's step of the desk's tick: each agent's card not gated yet (`deliveryOf` pending) gets its verdict, one
+ * `delivered` line (`recordDelivered`); a follow-up to what he just did is delivered unread. A card sent back wakes its
+ * agent (`SENT_BACK`, facts only). A hold ends by itself at its time (`deliveryOf`). One card at a time.
+ */
+export async function gateCards(desk: Desk, now = clock()) {
+  const all = decisionsNow(now);
+  const pending = all.filter(
+    (d) => d.state === "open" && deliveryOf(d, now).state === "pending"
+  );
+  const waiting = all.filter(
+    (d) => d.state === "open" && deliveryOf(d, now).state === "delivered"
+  ).length;
+  for (const d of pending) {
+    if (isFollowUpOf(desk.db, d)) {
+      recordDelivered(d.id, { rules: ["follow-up"], verdict: "deliver" }, now);
+      continue;
+    }
+    const instructions = cardInstructionsOf({
+      draft: d.draft,
+      matter: d.matter,
+    });
+    // biome-ignore lint/performance/noAwaitInLoops: one call a card, in order
+    const readings = await readGate(gateCardOf(d), instructions, waiting);
+    const assignment = assignmentOfCard(desk.db, d);
+    const wasSentBack = all.some(
+      (o) =>
+        o.id !== d.id &&
+        o.subject === d.subject &&
+        assignmentOfCard(desk.db, o) === assignment &&
+        deliveryOf(o, now).state === "sent_back"
+    );
+    const v = gateVerdictOf({
+      deadline: d.deadline,
+      now: clock(),
+      readings,
+      wasSentBack,
+      ...effectsOf(instructions, now),
+    });
+    const { verdict: _, ...line } = v;
+    recordDelivered(
+      d.id,
+      { ...line, ...(readings ? { readings } : {}), verdict: v.verdict },
+      clock()
+    );
+    log("desk.gate", { card: d.id, rules: v.rules, verdict: v.verdict });
+    if (v.verdict === "send_back" && assignment) {
+      queue(desk.db, SENT_BACK, [
+        { assignment, eventId: `${d.id}.${SENT_BACK}`, payload: { id: d.id } },
+      ]);
+    }
   }
 }

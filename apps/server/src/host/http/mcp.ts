@@ -8,7 +8,12 @@ import { log } from "../../core/log";
 import { OWNER_ASKER } from "../../core/names";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
-import { connector, settings } from "../../core/settings";
+import {
+  changeSetting,
+  connector,
+  SettingChange,
+  settings,
+} from "../../core/settings";
 import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { byAsked, checksOnMatterOf } from "../../memory/checks";
@@ -634,6 +639,19 @@ export function buildServer(readsOnly = false, logsArguments = false) {
       REVERSIBLE
     );
   }
+  tool(
+    server,
+    "change_setting",
+    "His app's token only, on his word: the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count). Past it, background work slows; one piece of work stops and asks at 2% of it. Returns the setting as it now stands.",
+    SettingChange,
+    (a, agent) => {
+      if (agent) {
+        throw new Error(NOT_HIS);
+      }
+      return Promise.resolve(changeSetting(a));
+    },
+    REVERSIBLE
+  );
   // Payments, only while they are on (`payments()`): off, the connector offers no such tool.
   if (payments()) {
     tool(

@@ -14,6 +14,7 @@ import {
   heldStampOf,
   readDesk,
 } from "./desk-read";
+import { monthBudgetOf } from "./spending";
 
 // The open checks as every reader sees them (the connector, the app's answers, pushes, the nightly report, the status, the CLI):
 // `checksNow` over what registered agents hold, read from the desk's store, which memory cannot read: a cheap stamp for
@@ -75,14 +76,15 @@ function readHeld(): HeldRead | null {
 }
 
 /** Every open check now (`checksNow`), of every kind: his inbox, in its order (`inboxOrderOf`). The status's `left` counts them; the badge, what blocks (`blockingCountOf`). */
-export const openChecksNow = () => checksNow(readHeld());
+export const openChecksNow = () => checksNow(readHeld(), monthBudgetOf());
 
 /** His inbox now: the open checks it shows (`isInboxCheck`: an ending check shows on its matter's page only). The badge, pushes, the status's `left`, the nightly and his phone's inbox read it. */
 export const inboxChecksNow = async () =>
   (await openChecksNow()).filter(isInboxCheck);
 
 /** Every open check now with the key it was read from (`checksAndKeyNow`): for the connector's versioned reads. */
-export const openChecksAndKeyNow = () => checksAndKeyNow(readHeld());
+export const openChecksAndKeyNow = () =>
+  checksAndKeyNow(readHeld(), monthBudgetOf());
 
 /** The open check `ref`; throws when none is open. */
 export async function openCheckOf(ref: string) {

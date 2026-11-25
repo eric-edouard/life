@@ -36,11 +36,11 @@ test("a failed call lets the card through; a good moment delivers", () => {
 });
 
 test("a send-back only once per piece of work; a sensitive card is sent back once, then delivered with no push", () => {
-  expect(verdict({ sendBack: "Do the search yourself." })).toBe("send-back");
+  expect(verdict({ sendBack: "Do the search yourself." })).toBe("send_back");
   expect(verdict({ sendBack: "Do it yourself." }, { wasSentBack: true })).toBe(
     "deliver"
   );
-  expect(verdict({ sensitive: true })).toBe("send-back");
+  expect(verdict({ sensitive: true })).toBe("send_back");
   expect(
     gateVerdictOf({
       deadline: at(48),

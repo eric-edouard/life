@@ -5,6 +5,7 @@ import type { AtOrganization } from "./at-organization";
 import type { Quote } from "./check-quotes";
 import type { NameContext, nameGroupsOf } from "./check-sentences";
 import type { Decision } from "./decision-lines";
+import type { Fix } from "./fix-checks";
 import type { AgentHold } from "./held-matters";
 import {
   type BeingFixed,
@@ -59,6 +60,8 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** The fix asks now (`fixesNow`), code's fixed list. */
+  fixes?: readonly Fix[];
   /** His complaints at work with the caretaker, by the cause each names (`causeOf`): that card shows it being fixed. */
   fixing?: ReadonlyMap<string, BeingFixed>;
   /** Every registered agent's anchors as facts (host's `heldByAgents`), for the hold rule (`isHeldOf`); null while the desk is off or unreadable: then no new matter is offered. */

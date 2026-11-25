@@ -3,6 +3,7 @@ import { rmSync } from "node:fs";
 import { clock, DAY } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as checks from "../memory/checks";
+import { recordDelivered } from "../memory/decision-delivery";
 import { DECISIONS } from "../memory/decision-lines";
 import { requestDecision } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -10,7 +11,6 @@ import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog-push";
 import {
-  levelOf,
   pushLevelOf,
   pushNewCards,
   pushNewCardsIfChanged,
@@ -123,18 +123,6 @@ test("a delivered card's push: time-sensitive within 3 hours of its deadline, el
   expect(pushLevelOf(at(5), ["quiet", "interrupt"], now)).toBe("passive");
   expect(pushLevelOf(at(5), ["interrupt"], now)).toBe("time-sensitive");
   expect(pushLevelOf({ deadline: null }, [], now)).toBe("active");
-});
-
-test("a level: quiet is passive; urgent is time-sensitive with no deadline or within 3 hours, else active", () => {
-  const now = clock();
-  const at = (hours: number) =>
-    new Date(now.getTime() + hours * 3_600_000).toISOString();
-  expect(levelOf("quiet", null, now)).toBe("passive");
-  expect(levelOf("normal", at(1), now)).toBe("active");
-  expect(levelOf("urgent", null, now)).toBe("time-sensitive");
-  expect(levelOf("urgent", at(3), now)).toBe("time-sensitive");
-  expect(levelOf("urgent", at(3.01), now)).toBe("active");
-  expect(levelOf("urgent", at(-1), now)).toBe("time-sensitive");
 });
 
 test("a card that left the inbox (answered, withdrawn, lapsed) is a badge-only push and its removal; nothing changed is none", async () => {
@@ -273,4 +261,40 @@ test("a new decision pushes on the seconds' look, once", async () => {
   pushNewDecisionsAtOnce();
   await Bun.sleep(0);
   expect(push).toHaveBeenCalledTimes(1);
+});
+
+test("an agent's card pushes once the gate delivered it, never before, and never when delivered silent", async () => {
+  open = cards(1);
+  await pushNewCards();
+  const asked = (n: number) =>
+    requestDecision("desk", {
+      agent: "agt_1",
+      ask: `Pay invoice ${n}`,
+      context: "A made-up reason to ask.",
+      deadline: later(2).toISOString(),
+      follow: [],
+      options: [
+        { id: "yes", label: "Pay it" },
+        { id: "no", label: "Wait" },
+      ],
+      question: `Pay invoice ${n}?`,
+      recommended: "yes",
+      title: "It is due.",
+    });
+  const [a, b] = [await asked(1), await asked(2)];
+  const shown = (id: string) =>
+    ({
+      ...card(9),
+      pushId: lifelog.pushIdOf(id),
+      ref: id,
+    }) as checks.InboxCheck;
+  open = [...cards(1), shown(a.id), shown(b.id)];
+  await pushNewCards();
+  expect(push).not.toHaveBeenCalled();
+  recordDelivered(a.id, { verdict: "deliver" });
+  recordDelivered(b.id, { silent: true, verdict: "deliver" });
+  await pushNewCards();
+  expect(push.mock.calls.map(([p]) => p.pushId)).toEqual([
+    lifelog.pushIdOf(a.id),
+  ]);
 });

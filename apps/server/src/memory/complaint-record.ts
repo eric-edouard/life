@@ -33,6 +33,8 @@ const STAGES: Record<CheckGroup, { prompt: string | null; stage: string }> = {
   // An agent's card takes no complaint; a row of one would be a bug's.
   decision: { prompt: null, stage: "unknown" },
   ending: { prompt: LINKS_PROMPT, stage: "links" },
+  // Written by code from a fixed list (`fix-checks.ts`), no model.
+  fix: { prompt: null, stage: "fixes" },
   // Its prompt is the guess's own (`guessPromptOf`), never the episodes prompt now.
   "guessed person": { prompt: null, stage: "episodes" },
   name: { prompt: null, stage: "names" },

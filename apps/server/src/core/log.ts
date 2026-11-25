@@ -25,6 +25,7 @@ type LogKind =
   | "desk.change"
   | "desk.complaints"
   | "desk.fold"
+  | "desk.gate"
   | "desk.hand_out"
   | "desk.move"
   | "desk.net"

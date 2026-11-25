@@ -3,8 +3,10 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  changeSetting,
   hasEngineSet,
   readSettings,
+  SettingChange,
   Settings,
   setSettings,
   settings,
@@ -16,7 +18,6 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
     agentReportSenders: [],
     engine: "claude",
     memoryLanguage: "English",
-    notifications: {},
     sources: [],
   });
   writeFileSync(path, '{"engine": "co');
@@ -74,18 +75,6 @@ test("the renamed settings parse, and the old names are refused", () => {
   }
 });
 
-test("his notification settings name only known kinds and levels", () => {
-  expect(Settings.safeParse({ notifications: { voice: "off" } }).success).toBe(
-    true
-  );
-  expect(Settings.safeParse({ notifications: { calls: "off" } }).success).toBe(
-    false
-  );
-  expect(Settings.safeParse({ notifications: { voice: "loud" } }).success).toBe(
-    false
-  );
-});
-
 test("the desk's hand-out is off when absent and strict when set", () => {
   const handOut = (h: object) => Settings.safeParse({ desk: { handOut: h } });
   expect(Settings.safeParse({ desk: {} }).data?.desk?.handOut).toBeUndefined();
@@ -102,4 +91,22 @@ test("an engine is set only when the file names one, never by its default", () =
   expect(hasEngineSet(join(dir, "a.json"))).toBe(false);
   writeFileSync(join(dir, "b.json"), '{"engine": "claude"}');
   expect(hasEngineSet(join(dir, "b.json"))).toBe(true);
+});
+
+test("his change_setting writes the monthly amount and keeps every other part; nothing else, and no amount of zero, is taken", () => {
+  const before = readSettings();
+  try {
+    expect(changeSetting({ monthlyUsd: 40 })).toEqual({
+      budget: { monthlyUsd: 40 },
+    });
+    const { budget, ...rest } = readSettings();
+    expect(budget).toEqual({ monthlyUsd: 40 });
+    expect(rest).toEqual(before);
+  } finally {
+    setSettings({ budget: null });
+  }
+  expect(SettingChange.safeParse({ monthlyUsd: 0 }).success).toBe(false);
+  expect(
+    SettingChange.safeParse({ engine: "codex", monthlyUsd: 5 }).success
+  ).toBe(false);
 });

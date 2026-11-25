@@ -84,6 +84,7 @@ import {
   type WakeWhy,
 } from "./event-queue";
 import { firstTurnOf } from "./first-turns";
+import { gateCards } from "./gate";
 import { endAgentsWithoutCard, handOutNext } from "./hand-out-tick";
 import { MAIN_BRIEF } from "./main-session";
 import {
@@ -103,6 +104,7 @@ import {
   endUnbegunTurns,
   recordSession,
   sessionAgentOf,
+  stopWithdrawn,
   turnEnded,
   watch,
 } from "./turn-ends";
@@ -789,8 +791,13 @@ export async function tick(desk: Desk, isPollDue = true) {
   );
   await handOutNext(desk);
   pollAnswers(desk);
+  // His Undo of an answer stops what it started; then the gate reads each new card (a failure delivers nothing yet).
+  await stopWithdrawn(desk);
   await endUnbegunTurns(desk);
   await wakeDue(desk);
+  await gateCards(desk).catch((error: unknown) =>
+    log("desk.gate", { ...errorOf(error), ok: false })
+  );
   if (isPollDue) {
     await writeRuntimeBlocks(desk);
     // A message a wait wants gets its `message.received` before any arrival falls back to another agent.

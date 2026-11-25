@@ -16,12 +16,13 @@ interface Rankable {
 }
 
 /**
- * What blocks (the badge): an agent's decision, and what Life cannot answer at
+ * What blocks (the badge): something broken that needs him (`fix`), an agent's decision, and what Life cannot answer at
  * all (a voice nobody has named, a name with no person, an ambiguous Contacts card); then his own step (`your move`), only
  * when due within `DUE_SOON_DAYS` (the cognitive-load rule of 22 Nov 2026). Never one the caretaker is at work on
  * (`beingFixed`). Everything else (Life's guesses in use, an offer) improves.
  */
 const BLOCKING = new Set<CheckGroup>([
+  "fix",
   "decision",
   "voice",
   "name",
@@ -53,8 +54,8 @@ const isImportant = (c: Orderable) =>
 interface Orderable extends Rankable {
   /** When it was asked (a decision's `at`), a your move card's step's day, else its newest evidence. */
   day: string;
-  /** An agent's card: the gate's reading of what is at stake. */
-  importance?: "low" | "normal" | "high";
+  /** An agent's card the gate read as high stakes. */
+  importance?: "high";
   matter: { id: string; important?: boolean } | null;
   ref: string;
   ridesOn: { matterIds: string[] };
@@ -62,6 +63,7 @@ interface Orderable extends Rankable {
 
 const before = (a: Orderable, b: Orderable) =>
   Number(Boolean(a.beingFixed)) - Number(Boolean(b.beingFixed)) ||
+  Number(b.group === "fix") - Number(a.group === "fix") ||
   Number(b.deadline !== null) - Number(a.deadline !== null) ||
   (a.deadline ?? "").localeCompare(b.deadline ?? "") ||
   Number(!isImportant(a)) - Number(!isImportant(b)) ||
@@ -75,7 +77,7 @@ const matterKeyOf = (c: Orderable) => {
 };
 
 /**
- * His inbox's order, the one rule (the v4 plan, bundle E: no ranks by kind): by deadline,
+ * His inbox's order, the one rule (the v4 plan, bundle E: no ranks by kind): what is broken first, then by deadline,
  * soonest first, then what is important (`isImportant`), then the longest waiting; the asks the caretaker is fixing
  * last. Then a matter's asks follow its first one; an ask with no matter keeps its place.
  */
