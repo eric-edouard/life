@@ -1,6 +1,21 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { HOUR, iso } from "../core/clock";
-import { type GateReadings, gateVerdictOf, nextBatchAtOf } from "./gate";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as deskRead from "../host/desk-read";
+import { DECISIONS } from "../memory/decision-lines";
+import { decisionsNow, requestDecision } from "../memory/decisions";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as run from "../memory/run";
+import { openDesk } from "./desk-store";
+import {
+  type GateReadings,
+  gateCards,
+  gateVerdictOf,
+  nextBatchAtOf,
+} from "./gate";
 
 const now = new Date("2026-11-25T12:00:00.000Z");
 const at = (hours: number) => iso(now.getTime() + hours * HOUR);
@@ -112,4 +127,59 @@ test("a batch instruction's next moment, in his zone", () => {
     Date.parse("2026-11-26T02:00:00.000Z")
   );
   expect(nextBatchAtOf("whenever", now, zone)).toBeUndefined();
+});
+
+test("his quiet beats the model's urgency: held, unless the deadline is within 3 hours", () => {
+  const urgent = { ...fine, urgency: "high" as const };
+  expect(verdict(urgent, { effect: "quiet" })).toBe("hold");
+  expect(verdict(urgent, { deadline: at(2), effect: "quiet" })).toBe("deliver");
+  expect(verdict(urgent)).toBe("deliver");
+});
+
+afterEach(() => rmSync(DECISIONS, { force: true }));
+
+test("a failing gate never keeps a card from him: a failed call delivers it, and so does a card whose gating throws", async () => {
+  const desk = {
+    db: openDesk(join(mkdtempSync(join(tmpdir(), "life-gate-")), "d.sqlite")),
+    runtimes: {},
+  };
+  const ask = (n: number) =>
+    requestDecision("desk", {
+      agent: "agt_0123456789ab",
+      ask: `Pick a day ${n}`,
+      context: "A made-up reason to ask.",
+      deadline: at(48),
+      follow: [],
+      options: [
+        { id: "tue", label: "Tuesday" },
+        { id: "wed", label: "Wednesday" },
+      ],
+      question: `Which day suits you, ${n}?`,
+      recommended: "tue",
+      title: "Book the plumber",
+    });
+  const [a, b] = [await ask(1), await ask(2)];
+  const failing = spyOn(run, "begin").mockRejectedValue(new Error("down"));
+  // The first card's assignment can't be read: its gating throws.
+  const card = spyOn(deskRead, "assignmentOfCard").mockImplementation(((
+    _db: unknown,
+    d: { id: string }
+  ) => (d.id === a.id ? "asg_broken" : undefined)) as never);
+  const turns = spyOn(deskRead, "lastTurns").mockImplementation(() => {
+    throw new Error("a broken store");
+  });
+  try {
+    await gateCards(desk);
+  } finally {
+    failing.mockRestore();
+    card.mockRestore();
+    turns.mockRestore();
+  }
+  const lines = decisionsNow().filter((d) => d.id === a.id || d.id === b.id);
+  expect(
+    lines.map((d) => [d.id, d.delivered?.verdict, d.delivered?.rules])
+  ).toEqual([
+    [a.id, "deliver", ["gate failed"]],
+    [b.id, "deliver", ["failed open"]],
+  ]);
 });

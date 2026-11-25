@@ -1,7 +1,7 @@
 import { clock, daysBefore } from "../core/clock";
 import { oneAtATime } from "../core/lock";
 import type { CheckGroup } from "../core/names";
-import { changeSetting, settings } from "../core/settings";
+import { changeSetting, readMonthlyUsd } from "../core/settings";
 import { PersonRef } from "../records/fields";
 import {
   answerNamingQueue,
@@ -430,7 +430,7 @@ const WRITERS: {
       correct([{ kind: "deferred", ref: c.ref, until: monthEndOf() }], a),
     later: deferOf,
     raise: () => {
-      const monthly = settings().budget?.monthlyUsd;
+      const monthly = readMonthlyUsd();
       if (monthly === undefined) {
         throw new Error("Not done: no monthly amount is set.");
       }

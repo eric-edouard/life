@@ -5,7 +5,7 @@ import { isThere, readJson, writeJson } from "../core/files";
 import { type LogEvent, log, logDays, logEvents } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
-import { settings } from "../core/settings";
+import { readMonthlyUsd, settings } from "../core/settings";
 import { decisionsNow } from "../memory/decisions";
 import { assembleRuns } from "../memory/run-log";
 import {
@@ -248,7 +248,7 @@ const closedDaysOfMonth = (today: string) => {
  * its closed days (the night's day files) and that pace projected to the month's end. None without an amount.
  */
 export function monthBudgetOf(today = dayNow()) {
-  const monthly = settings().budget?.monthlyUsd;
+  const monthly = readMonthlyUsd();
   if (monthly === undefined) {
     return;
   }

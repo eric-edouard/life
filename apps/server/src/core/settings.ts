@@ -242,6 +242,9 @@ export function setSettings(
   read = next;
 }
 
+/** His monthly amount as the file holds it now, read afresh: his `change_setting` reaches the desk without a restart. */
+export const readMonthlyUsd = () => readSettings().budget?.monthlyUsd;
+
 /** What his word may change through `change_setting` (question 22): the monthly amount, in billed dollars. */
 export const SettingChange = z
   .object({ monthlyUsd: z.number().positive().max(100_000) })

@@ -30,8 +30,8 @@ const GATE_WITHIN_MS = 10_000;
 /** The longest hold, and how near its deadline a card is never held. */
 const MAX_HOLD = 12 * HOUR;
 const DEADLINE_MARGIN = 3 * HOUR;
-/** How long a card is held for a better moment, by its urgency (high never waits). */
-const HOLD_FOR = { low: MAX_HOLD, normal: 3 * HOUR } as const;
+/** How long a card is held for a better moment, by its urgency (high waits only under his `quiet`). */
+const HOLD_FOR = { high: 3 * HOUR, low: MAX_HOLD, normal: 3 * HOUR } as const;
 
 const Level = z.enum(["low", "normal", "high"]);
 export const GateReadings = z.object({
@@ -87,7 +87,11 @@ export function gateVerdictOf(f: GateFacts): GateVerdict {
   if (r.sensitive) {
     return { rules: ["sensitive: no push"], silent: true, verdict: "deliver" };
   }
-  if (f.effect === "interrupt" || r.urgency === "high") {
+  // His `quiet` beats the model's urgency: only a near deadline (below) lets such a card through.
+  if (
+    f.effect === "interrupt" ||
+    (r.urgency === "high" && f.effect !== "quiet")
+  ) {
     return {
       rules: [f.effect === "interrupt" ? "interrupt" : "urgent"],
       verdict: "deliver",
@@ -163,13 +167,10 @@ export async function readGate(
   instructions: readonly Instruction[],
   waiting: number
 ): Promise<GateReadings | null> {
+  let step: Awaited<ReturnType<typeof begin>> | undefined;
   try {
-    const step = await begin(
-      "desk-gate",
-      "deep",
-      { card: card.id },
-      "openrouter"
-    );
+    step = await begin("desk-gate", "deep", { card: card.id }, "openrouter");
+    const run = step;
     const input = {
       card: {
         ask: card.ask,
@@ -190,8 +191,8 @@ export async function readGate(
       waiting,
     };
     const reply = await Promise.race([
-      step.ask({
-        dir: step.dir,
+      run.ask({
+        dir: run.dir,
         input,
         prompt: GATE_PROMPT,
         reads: readsOf([{ source: "memory", unit: card.id }]),
@@ -200,13 +201,18 @@ export async function readGate(
         throw new Error("the gate took over 10 seconds");
       }),
     ]);
-    step.end({});
+    step.end({ ok: 1 });
     return GateReadings.parse(reply);
   } catch (e) {
     log("run.error", { ...errorOf(e), card: card.id, step: "desk.gate" });
+    // Its run is closed too (a late call still logs its own `model.run` line when it ends).
+    step?.end({ ok: 0 });
     return null;
   }
 }
+
+/** How many cards the gate reads in one tick, so a backlog never holds the desk's tick past its hang guard. */
+const PER_TICK = 10;
 
 /** The event a card sent back wakes its agent with: the card's id only; the agent reads the gate's note at its door. */
 export const SENT_BACK = "decision.sent_back";
@@ -252,43 +258,61 @@ export async function gateCards(desk: Desk, now = clock()) {
   const waiting = all.filter(
     (d) => d.state === "open" && deliveryOf(d, now).state === "delivered"
   ).length;
-  for (const d of pending) {
-    if (isFollowUpOf(desk.db, d)) {
-      recordDelivered(d.id, { rules: ["follow-up"], verdict: "deliver" }, now);
-      continue;
+  // At most `PER_TICK` a tick: the rest wait for the next one (past `PENDING_FOR` they count as delivered).
+  for (const d of pending.slice(0, PER_TICK)) {
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: one call a card, in order
+      await gateCard(desk, d, all, waiting, now);
+    } catch (error) {
+      // One card that fails never holds the others, nor itself: it goes through.
+      log("desk.gate", { ...errorOf(error), card: d.id, ok: false });
+      recordDelivered(d.id, { rules: ["gate failed"], verdict: "deliver" });
     }
-    const instructions = cardInstructionsOf({
-      draft: d.draft,
-      matter: d.matter,
-    });
-    // biome-ignore lint/performance/noAwaitInLoops: one call a card, in order
-    const readings = await readGate(gateCardOf(d), instructions, waiting);
-    const assignment = assignmentOfCard(desk.db, d);
-    const wasSentBack = all.some(
-      (o) =>
-        o.id !== d.id &&
-        o.subject === d.subject &&
-        assignmentOfCard(desk.db, o) === assignment &&
-        deliveryOf(o, now).state === "sent_back"
-    );
-    const v = gateVerdictOf({
-      deadline: d.deadline,
-      now: clock(),
-      readings,
-      wasSentBack,
-      ...effectsOf(instructions, now),
-    });
-    const { verdict: _, ...line } = v;
-    recordDelivered(
-      d.id,
-      { ...line, ...(readings ? { readings } : {}), verdict: v.verdict },
-      clock()
-    );
-    log("desk.gate", { card: d.id, rules: v.rules, verdict: v.verdict });
-    if (v.verdict === "send_back" && assignment) {
-      queue(desk.db, SENT_BACK, [
-        { assignment, eventId: `${d.id}.${SENT_BACK}`, payload: { id: d.id } },
-      ]);
-    }
+  }
+}
+
+/** The gate on one pending card `d`: its verdict, one `delivered` line, and a send-back's wake. */
+async function gateCard(
+  desk: Desk,
+  d: Decision,
+  all: readonly Decision[],
+  waiting: number,
+  now: Date
+) {
+  if (isFollowUpOf(desk.db, d)) {
+    recordDelivered(d.id, { rules: ["follow-up"], verdict: "deliver" }, now);
+    return;
+  }
+  const instructions = cardInstructionsOf({
+    draft: d.draft,
+    matter: d.matter,
+  });
+  const readings = await readGate(gateCardOf(d), instructions, waiting);
+  const assignment = assignmentOfCard(desk.db, d);
+  const wasSentBack = all.some(
+    (o) =>
+      o.id !== d.id &&
+      o.subject === d.subject &&
+      assignmentOfCard(desk.db, o) === assignment &&
+      deliveryOf(o, now).state === "sent_back"
+  );
+  const v = gateVerdictOf({
+    deadline: d.deadline,
+    now: clock(),
+    readings,
+    wasSentBack,
+    ...effectsOf(instructions, now),
+  });
+  const { verdict: _, ...line } = v;
+  recordDelivered(
+    d.id,
+    { ...line, ...(readings ? { readings } : {}), verdict: v.verdict },
+    clock()
+  );
+  log("desk.gate", { card: d.id, rules: v.rules, verdict: v.verdict });
+  if (v.verdict === "send_back" && assignment) {
+    queue(desk.db, SENT_BACK, [
+      { assignment, eventId: `${d.id}.${SENT_BACK}`, payload: { id: d.id } },
+    ]);
   }
 }
