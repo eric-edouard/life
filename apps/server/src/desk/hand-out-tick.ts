@@ -10,6 +10,7 @@ import {
   standingAgents,
 } from "../host/desk-read";
 import { openChecksNow } from "../host/inbox";
+import { monthBudgetOf } from "../host/spending";
 import { decisionsNow } from "../memory/decisions";
 import { isHeldOf } from "../memory/held-matters";
 import {
@@ -55,7 +56,8 @@ export async function handOutNext(
 ) {
   const { db } = desk;
   const pace = settings().desk?.handOut;
-  if (!pace) {
+  // Past the month's amount, Life starts no new work by itself (`monthBudgetOf`).
+  if (!pace || monthBudgetOf()?.isPassed) {
     return;
   }
   const last = readCursor(db, CURSOR);
