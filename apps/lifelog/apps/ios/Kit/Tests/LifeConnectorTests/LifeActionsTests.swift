@@ -9,28 +9,16 @@ let lifeA = testURL("https://life-a.example.test")
 /// A Life whose answers a test scripts; progress messages are given as the real stream gives them.
 final class FakeLife: LifeAPI, @unchecked Sendable {
     var answers: [@Sendable (@Sendable (Data) -> Void) throws -> String] = []
-    var changes: [@Sendable (@Sendable (Data) -> Void) throws -> String] = []
-    var matter = "{}"
-    var corrections = 0
     let keys = Mutex<[String]>([])
     let requests = Mutex<[AnswerRequest]>([])
-    let starts = Mutex<[AgentRequest]>([])
     /// The ids each `read_person_pictures` asked; while `picturesDown`, it fails.
     let pictureCalls = Mutex<[[String]]>([])
     let picturesDown = Mutex(false)
     /// Awaited before each `read_person_pictures` answers: a test holds a call there.
     var picturesHeld: @Sendable () async -> Void = {}
 
-    func readInbox(ifNot: String?) async throws -> String { "{}" }
     func readInbox(pushId: String, at origin: URL?) async throws -> String { "{}" }
-    func readMatters(ifNot: String?) async throws -> String { "{}" }
-    func readMatters(project: String, ifNot: String?) async throws -> String { "{}" }
-    func readMatters(area: String, ifNot: String?) async throws -> String { "{}" }
-    func readProjects(ifNot: String?) async throws -> String { "{}" }
-    func readProject(_ id: String, ifNot: String?) async throws -> String { "{}" }
-    func readMatters(person: String) async throws -> String { "{}" }
-    func readMatter(_ id: String) async throws -> String { matter }
-    func readRegisteredAgents() async throws -> String { "{}" }
+    func readThread(before: String?, ifNot: String?) async throws -> String { "{}" }
     /// What `fetch` answers: a test holds it, or fails it.
     var fetched: @Sendable () async throws -> String = { "" }
     func fetch(_ ref: String) async throws -> String { try await fetched() }
@@ -39,9 +27,6 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         await picturesHeld()
         if picturesDown.withLock({ $0 }) { throw MCPError.unreachable }
         return try wireText("life/read_person_pictures.json")
-    }
-    func readPeopleAndOrganizations() async throws -> String {
-        try wireText("life/read_people_and_organizations.json")
     }
     func readPart(_ ref: String) async throws -> String { try wireText("life/read_people_and_organizations_now.json") }
     func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String {
@@ -70,34 +55,6 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
         requests.withLock { $0.append(answer) }
         return try answers.removeFirst()(onProgress)
     }
-    func changeAgent(_ change: AgentRequest, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
-        starts.withLock { $0.append(change) }
-        return try changes.removeFirst()(onProgress)
-    }
-    func setMatterDirection(
-        matter: String, goal: String?, nextStep: NextStepRequest?, onProgress: @escaping @Sendable (Data) -> Void
-    ) async throws -> String {
-        "Done: memory."
-    }
-    func setMatterIcon(matter: String, icon: String?, onProgress: @escaping @Sendable (Data) -> Void) async throws
-        -> String
-    {
-        "Done: memory."
-    }
-    func markDone(matter: String, note: String, onProgress: @escaping @Sendable (Data) -> Void) async throws -> String {
-        onProgress(Data(#"{"plan":["todo_items_ticked","recorded"],"limitSeconds":65}"#.utf8))
-        return "Done: memory."
-    }
-    func setImportant(matter: String, _ important: Bool, onProgress: @escaping @Sendable (Data) -> Void)
-        async throws -> String
-    { "Done: memory." }
-    func setProjectStatus(
-        _ project: String, _ status: ProjectStatus, said: String, onProgress: @escaping @Sendable (Data) -> Void
-    ) async throws -> String { "{}" }
-    func setPicture(
-        of ref: String, kind: Party.Kind, from source: String, said: String,
-        onProgress: @escaping @Sendable (Data) -> Void
-    ) async throws -> String { "{}" }
 }
 
 private let at = Date(timeIntervalSince1970: 1_800_000_000)
@@ -237,26 +194,6 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
     #expect(life.keys.withLock { $0 } == ["tap-5", "tap-5"])
 }
 
-@Test func anEditWithAPlanAndALimitIsLatePastItAndNeverFailed() async {
-    let life = FakeLife()
-    let state = await run { emit in
-        await LifeActions(api: life, now: { at }).record(emit: emit) { onProgress in
-            try await life.markDone(matter: "m", note: "n", onProgress: onProgress)
-        }
-    }
-    guard case .succeeded(.recorded, let steps) = state else {
-        Issue.record("\(state)")
-        return
-    }
-    #expect(steps.map(\.id) == ["todo_items_ticked", "recorded"])
-    // The default limit is 10 seconds before Life's own plan; running past it is late, not failed.
-    var running = ActionState<ActionProof>.idle
-    running.apply(.started)
-    running.apply(.planned(["recorded"], limitSeconds: 10, at: at))
-    #expect(running.isLate(at: at.addingTimeInterval(11)))
-    #expect(running.isRunning)
-}
-
 @Test func aMacThatStaysUnreachableFailsAsTheSameTapToTryAgain() async {
     let life = FakeLife()
     life.answers = Array(repeating: { _ in throw MCPError.unreachable }, count: 3)
@@ -288,164 +225,6 @@ private let request = AnswerRequest(ref: "dec_000000000001", options: ["send"])
 }
 
 // MARK: Agents
-
-private func start(_ life: FakeLife) async -> ActionState<ActionProof> {
-    await run {
-        await LifeActions(api: life, now: { at }).startAgent(
-            matter: "matter_aaaaaaaaaaaa", goal: "Get it mended", runtime: nil, model: nil, emit: $0)
-    }
-}
-
-/// One call: Life saves the goal he saw (`goal_saved`), then the desk's stages, all in Life's own plan.
-@Test func aStartSavesTheGoalThenShowsTheDesksStages() async throws {
-    let life = FakeLife()
-    let started = try wireText("life/change_registered_agent_started.json")
-    life.changes = [
-        { report in
-            report(progress(#"{"plan":["goal_saved","desk_accepted","session_open","turn_begun"],"limitSeconds":20}"#))
-            report(progress(#"{"step":"goal_saved","at":"2026-11-18T10:00:02.000Z"}"#))
-            report(progress(#"{"step":"desk_accepted","at":"2026-11-18T10:00:03.000Z"}"#))
-            return started
-        }
-    ]
-    let state = await start(life)
-    guard case .succeeded(.agent(let result), let steps) = state else {
-        Issue.record("\(state)")
-        return
-    }
-    #expect(result.state == .started)
-    #expect(result.stages?[1].link == "fake://agt_000000000001-1")
-    #expect(steps.map(\.id) == ["goal_saved", "desk_accepted", "session_open", "turn_begun"])
-    #expect(steps.first?.passedAt != nil)
-    #expect(
-        life.starts.withLock { $0 }
-            == [AgentRequest(action: .start, step: "matter_aaaaaaaaaaaa", said: "Get it mended")])
-}
-
-@Test func aStartThatDidNotStartFailsAtItsStageAndMayBeTriedAgain() async throws {
-    let life = FakeLife()
-    let text = try wireText("life/change_registered_agent_not_started.json")
-    life.changes = [{ _ in text }]
-    let state = await start(life)
-    guard case .failed(let failure, _) = state else {
-        Issue.record("\(state)")
-        return
-    }
-    #expect(failure.step == "desk_accepted")
-    #expect(failure.reason.contains("does not answer"))
-    #expect(failure.retry == .allowed)
-}
-
-@Test func aStartLifeDidNotConfirmIsDecidedByTheMatter() async throws {
-    let unconfirmed = #"{"action":"start","state":"unconfirmed","agent":null,"stages":[],"nothingRunning":false}"#
-    let life = FakeLife()
-    life.changes = [{ _ in unconfirmed }]
-    life.matter = try wireText("life/read_matter.json")
-    guard case .succeeded(.agent(let found), _) = await start(life) else {
-        Issue.record("no agent found")
-        return
-    }
-    #expect(found.agent == "agt_000000000001")
-
-    // The connection dropped as well, and the matter shows no agent: it may have started, so never start blind again.
-    let dropped = FakeLife()
-    dropped.changes = [{ _ in throw MCPError.streamDropped }]
-    var bare = try #require(
-        try JSONSerialization.jsonObject(with: Data(wireText("life/read_matter.json").utf8)) as? [String: Any])
-    bare["agent"] = nil
-    bare["agents"] = [Any]()
-    dropped.matter = String(decoding: try JSONSerialization.data(withJSONObject: bare), as: UTF8.self)
-    let unseen = await start(dropped)
-    guard case .failed(let failure, _) = unseen else {
-        Issue.record("\(unseen)")
-        return
-    }
-    #expect(failure.retry == .no)
-    #expect(failure.mayHaveHappened)
-}
-
-/// A matter whose last start ended (not started, or finished) holds no proof of a new one: only an agent that has not
-/// ended, the one the desk named when it named one, is.
-@Test func anEndedAgentIsNoProofOfAStart() async throws {
-    var matter = try #require(
-        try JSONSerialization.jsonObject(with: Data(wireText("life/read_matter.json").utf8)) as? [String: Any])
-    var agent = try #require((matter["agents"] as? [[String: Any]])?.first)
-    agent["status"] = "ended"
-    agent["notStarted"] = "claude does not answer"
-    matter["agent"] = nil
-    matter["agents"] = [agent]
-    let ended = String(decoding: try JSONSerialization.data(withJSONObject: matter), as: UTF8.self)
-    let life = FakeLife()
-    life.changes = [{ _ in throw MCPError.streamDropped }]
-    life.matter = ended
-    guard case .failed(let failure, _) = await start(life) else {
-        Issue.record("an ended agent proved the start")
-        return
-    }
-    #expect(failure.mayHaveHappened)
-
-    // Unconfirmed, naming a new agent: the running one that is not it proves nothing either.
-    let named = FakeLife()
-    named.changes = [{ _ in #"{"action":"start","state":"unconfirmed","agent":"agt_new","stages":[]}"# }]
-    named.matter = try wireText("life/read_matter.json")
-    guard case .failed = await start(named) else {
-        Issue.record("another agent proved the start")
-        return
-    }
-}
-
-@Test func stoppingAnAgentIsDoneOrNotConfirmed() async {
-    let life = FakeLife()
-    life.changes = [
-        { _ in #"{"action":"stop","agent":"agt_1","state":"done"}"# },
-        { _ in #"{"action":"stop","agent":"agt_1","state":"unconfirmed"}"# },
-    ]
-    let stop = AgentRequest(action: .stop, agent: "agt_1", said: "Stop it")
-    let done = await run { await LifeActions(api: life).changeAgent(stop, emit: $0) }
-    guard case .succeeded(.agent(let result), _) = done else {
-        Issue.record("\(done)")
-        return
-    }
-    #expect(result.state == .done)
-    let late = await run { await LifeActions(api: life).changeAgent(stop, emit: $0) }
-    guard case .failed(let failure, _) = late else {
-        Issue.record("\(late)")
-        return
-    }
-    #expect(failure.mayHaveHappened)
-}
-
-@Test func aMoveIsAskedAtOnceWithItsIdAndADroppedOneMayHaveGone() async {
-    let life = FakeLife()
-    life.changes = [
-        { _ in #"{"action":"hand_over","agent":null,"move":"ask_1","state":"asked"}"# },
-        { _ in throw MCPError.streamDropped },
-        { _ in throw MCPError.unreachable },
-        { _ in throw MCPError.offline },
-    ]
-    let move = AgentRequest(action: .handOver, step: "matter_1", runtime: "codex", said: "Move it to Codex.")
-    let asked = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
-    guard case .succeeded(.agent(let result), _) = asked else {
-        Issue.record("\(asked)")
-        return
-    }
-    #expect(result.move == "ask_1")
-    // Each call is a new ask: one whose answer dropped is never sent again blind.
-    let dropped = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
-    guard case .failed(let failure, _) = dropped else {
-        Issue.record("\(dropped)")
-        return
-    }
-    #expect(failure.mayHaveHappened && !failure.canTryAgain)
-    // A connection lost before Life's headers may have reached it too; only offline is sure it did not.
-    let lost = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
-    let offline = await run { await LifeActions(api: life).changeAgent(move, emit: $0) }
-    guard case .failed(let unreachable, _) = lost, case .failed(let notSent, _) = offline else {
-        Issue.record("\(lost) \(offline)")
-        return
-    }
-    #expect(unreachable.mayHaveHappened && notSent.canTryAgain)
-}
 
 @Test func anEditIsOneStep() async {
     let life = FakeLife()

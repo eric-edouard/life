@@ -4,8 +4,7 @@ import Library
 /// What an action proves when it succeeds.
 public enum ActionProof: Sendable, Equatable {
     case answered(AnswerResult)
-    case agent(AgentChangeResult)
-    /// A change recorded (a goal, a next step, a matter done, a to-do item).
+    /// A change recorded (an appointment removed or restored).
     case recorded
 }
 
@@ -63,10 +62,6 @@ public struct LifeActions: Sendable {
                 guard let result = decode(AnswerResult.self, text) else {
                     return emit(.failed(Self.unreadable))
                 }
-                // A new matter's Start that did not start is a start's failure, never a success.
-                if let start = result.start, start.state != .started {
-                    return emit(await ending(of: start, matter: request.ref))
-                }
                 return emit(Self.ending(of: result))
             } catch MCPError.unreachable {
                 dropped = ActionFailure(.unreachable)
@@ -107,80 +102,7 @@ public struct LifeActions: Sendable {
         }
     }
 
-    // MARK: Agents
-
-    /// An agent started on a matter with `goal`, the goal he saw, as its brief: Life saves it as his goal itself
-    /// (`goal_saved`), then reports the desk's stages. When Life does not confirm, the matter is read: an agent on it
-    /// that has not ended is the proof, none is a start that may have happened.
-    public func startAgent(matter: String, goal: String, runtime: String?, model: String?, emit: @escaping Emit) async {
-        emit(.started)
-        let request = AgentRequest(action: .start, step: matter, runtime: runtime, model: model, said: goal)
-        do {
-            let text = try await api.changeAgent(request, onProgress: progress(emit))
-            guard let result = decode(AgentChangeResult.self, text) else { return emit(.failed(Self.unreadable)) }
-            return emit(await ending(of: result, matter: matter))
-        } catch MCPError.refused(let why) {
-            return emit(.failed(ActionFailure(reason: why, retry: .no)))
-        } catch {}
-        emit(await resolved(matter: matter, agent: nil))
-    }
-
-    /// How a start ended, as the desk said: started, not started (at its stage), else read from its matter.
-    private func ending(of start: AgentChangeResult, matter: String) async -> ActionState<ActionProof>.Event {
-        switch start.state {
-        case .started: return .succeeded(.agent(start))
-        case .notStarted:
-            let why = start.failed
-            return .failed(
-                ActionFailure(
-                    step: why?.stage, reason: why?.reason ?? "The agent did not start.",
-                    // An agent already holds the matter: starting again would only be refused again.
-                    retry: start.nothingRunning == false ? .no : .allowed))
-        default: return await resolved(matter: matter, agent: start.agent)
-        }
-    }
-
-    /// A start Life did not confirm, read from its matter: the agent the desk named, else any on it, that has not ended.
-    private func resolved(matter id: String, agent named: String?) async -> ActionState<ActionProof>.Event {
-        if let text = try? await api.readMatter(id), let matter = decode(Matter.self, text),
-            let agent = matter.agents.first(where: { !$0.isOver && (named == nil || $0.id == named) })
-        {
-            return .succeeded(.agent(AgentChangeResult(action: "start", state: .started, agent: agent.id)))
-        }
-        return .failed(
-            ActionFailure(
-                reason: "Life did not confirm that the agent started, and none shows on this matter.", retry: .no,
-                mayHaveHappened: true))
-    }
-
-    /// Stop, resume, change the model of an agent, or move (`hand_over`: answered `asked` at once, its phase then read).
-    public func changeAgent(_ request: AgentRequest, emit: @escaping Emit) async {
-        emit(.started)
-        do {
-            let text = try await api.changeAgent(request, onProgress: progress(emit))
-            guard let result = decode(AgentChangeResult.self, text) else { return emit(.failed(Self.unreadable)) }
-            emit(
-                result.state == .done || result.state == .asked
-                    ? .succeeded(.agent(result))
-                    : .failed(
-                        ActionFailure(
-                            reason: "The desk did not confirm it in time.", retry: .allowed, mayHaveHappened: true)))
-        } catch {
-            let error = MCPError.of(error)
-            var failure = ActionFailure(error)
-            // A move's ask may have reached Life before the connection went (only offline is sure it did not): a second
-            // would be refused as under way.
-            let mayHaveReached = failure.retry == .allowed && error != .offline
-            failure.mayHaveHappened = failure.mayHaveHappened || (request.action == .handOver && mayHaveReached)
-            emit(.failed(failure))
-        }
-    }
-
-    // MARK: His edits
-
-    /// One recorded change (his goal, next step, a matter done, a to-do item): no plan of the phone's, only the 10
-    /// seconds Life is first assumed to need; Life's plan and limit come first in its first message, and `recorded`
-    /// is added when an older server sends no plan.
+    /// One recorded change: no plan of the phone's, only the 10 seconds Life is first assumed to need.
     public func record(
         emit: @escaping Emit, _ change: @Sendable (@escaping @Sendable (Data) -> Void) async throws -> String
     ) async {

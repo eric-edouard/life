@@ -309,6 +309,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let misread: Misread?
     /// His complaint about this card that the caretaker is at work on: it no longer blocks.
     public let beingFixed: BeingFixed?
+    /// The ask this card belongs to (`read_thread`'s `ask`), and the option Life suggests (its id).
+    public let ask: String?
+    public let recommended: String?
+    /// A redraft: the older card this one took the place of, and what changed (`changed`).
+    public let replacedBy: String?
 
     /// What a card of Life's rests on (`causeOf`, `memory/complaint-checks.ts`).
     public struct Misread: Decodable, Sendable, Equatable {

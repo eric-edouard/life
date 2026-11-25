@@ -137,7 +137,7 @@ struct PairSheet: View {
         let cards = run.cards.map { ", \($0) \($0 == 1 ? "card" : "cards")" } ?? ""
         let words =
             connection == .life
-            ? ["The link is valid", "The Mac accepts this phone", "The inbox reads" + cards]
+            ? ["The link is valid", "The Mac accepts this phone", "Your thread reads" + cards]
             : ["The link is valid", "The server accepts this phone"]
         return CheckLine.lines(
             connection.id, words, passed: run.passed, failedAt: run.failedAt, isRunning: phase == .pairing)
@@ -191,7 +191,7 @@ struct PairSheet: View {
 
     /// Paired, but the inbox is the first proof: if it did not read, its line fails with why.
     private func checkInbox() {
-        if let total = life.inbox.value?.total, life.outcome == .works {
+        if let total = life.items.value?.waiting, life.outcome == .works {
             runs[.life]?.cards = total
         } else {
             runs[.life]?.failedAt = 2
