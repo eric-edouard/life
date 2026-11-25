@@ -55,3 +55,63 @@ the prototype's app v4 scenarios at phone size (390 × 844, Chromium).
   speaks, Life blue only when working (`app-aura-0`, `app-aura-you-speak`, `app-aura-working`).
 - Nothing else moves by itself: the only motion seen is the edge, the busy spinners and the aura, all listed or
   covered by findings 5 and 17.
+
+## Second pass (26 Nov)
+
+Worktree head `135af84a5`, rebuilt and shot fresh on the iPhone 18 Pro simulator (iOS 27.2). Screens are
+`screens-ds-review/pass2-<page>-<offset>.png`.
+
+**Verdict: passes.** No must-fix left. 7 should, 4 nits.
+
+### First-pass items
+
+| # | Status | Seen in |
+|---|---|---|
+| 1 Answers truncate | fixed: the recommended one full width, the rest two to a row, nothing cut | `pass2-asks-0` |
+| 2 No Mac edge blue | fixed: cream, fainter than idle | `pass2-aura-0-nomac` |
+| 3 Notice "Settings" button | fixed: its switch in place, no worded button | `pass2-thread-700` |
+| 4 Green switch | fixed: cream track, black knob | `pass2-settings-0`, `pass2-thread-700` |
+| 5 Ring reads as a spinner | fixed: a muted still pie before the estimate | `pass2-blocks-0`, `pass2-items-0` |
+| 6 Busy looks disabled | fixed: Send stays filled with its spinner, the rest dim | `pass2-asks-0` |
+| 7 Ask in a card | partly: on a wash now, but see S1, S2 | `pass2-asks-0` |
+| 8 Draft a plain box | partly: chat strip, last message, bubble in the app's colours; see S3, S4 | `pass2-asks-700` |
+| 9 Chips left, cream | fixed | `pass2-asks-700` |
+| 10 Unfolded item a card | partly: no corners, ask on the item's left line; see S1 | `pass2-items-0` |
+| 11 Hairlines, no disc | fixed | `pass2-items-0` |
+| 12 Large flag dot | fixed (about 7 pt) | `pass2-items-0` |
+| 13 Outdated struck | fixed: faded | `pass2-items-0` |
+| 14 Inline reaction | fixed: corner mark | `pass2-thread-0` |
+| 15 Rating row bare | fixed: on the card pill | `pass2-thread-0` |
+| 16 Deleted line green | fixed: green tick, muted words | `pass2-thread-700` |
+| 17 Blue spinner | fixed: text colour | `pass2-blocks-0`, `pass2-thread-700` |
+| 18 Held rules | fixed | `pass2-thread-700` |
+| 19 Notice shape | fixed: disc, row title, line | `pass2-thread-700` |
+| 20 Round button rim | fixed: no rim, about 44 pt | `pass2-blocks-0` |
+| 21 Appearance | fixed: gone | `pass2-settings-0` |
+| 22 Settings sizes | not changed (still a nit, N1) | `pass2-settings-0` |
+| 23 Swatches scroll | fixed: two rows, chosen name under | `pass2-aura-0` |
+| 24 System picker | fixed: brand pill | `pass2-aura-0` |
+| 25 `on` invisible | fixed: on a cream chip | `pass2-values-0` |
+| 26 Colour 👍 in title | fixed | `pass2-thread-0` |
+| 27 Prompt, offset | partly: no Focus prompt now; the start offset is still not clamped (S7) | `pass2-items-700`, `pass2-blocks-700` |
+
+### Should
+
+| # | Page | What differs | Fix, in plain words | Screen |
+|---|---|---|---|---|
+| S1 | asks, items | The wash is a flat rectangle with a hard edge, and stops about 4 pt short of each screen edge, so it reads as a card. Prototype `.inplace`: a radial wash (cream 6% fading to 0) with no edge, bleeding to the screen edges | Draw the wash as the prototype's radial fade, edge to edge | `pass2-asks-0`, `pass2-items-0` |
+| S2 | asks | An ask on its own has no header: the prototype's ask (`.pg.ask .hero`) opens with a 48 pt disc, a 19 pt title and its line (project · when) | Give the ask card the item header: disc, title, line | `pass2-asks-0` |
+| S3 | asks | The draft strip has no "Open WhatsApp ↗" link, and the unsent draft is a solid bubble. Prototype: the link at the strip's end, the draft as a dashed outline in the app's tint until sent (`proto-draft`) | Add the app's open link; draw an unsent draft dashed, solid only once sent | `pass2-asks-700` |
+| S4 | asks | "Not sent" with a clock under a draft that waits for his answer: "not sent" is his bubble's failure word, so a draft he has not answered reads as a failed send | No status under an unanswered draft (the prototype has none); keep "Not sent" for the failure | `pass2-asks-700`, `pass2-asks-1400` |
+| S5 | asks | Drafts offer "Not now" and "Later": two ways to put it off. Prototype: Send and Later only; answer 8 says everything that is not an answer is Later | Drop "Not now" from the samples (and from any draft ask) | `pass2-asks-700` |
+| S6 | asks | The spending stop sample has no recommended answer, so it shows no filled pill and Later full width. Prototype: "Keep looking" filled, "Later" and "Stop here" under it (`proto-budget`) | Set the sample's recommended answer so the catalog shows the decided state | `pass2-asks-0` |
+| S7 | items, blocks | A start offset past the page's end shows a blank screen (`-catalog items 700`, `blocks 700`) | Clamp the start offset to the content's height | `pass2-items-700`, `pass2-blocks-700` |
+
+### Nits
+
+| # | Page | What | Screen |
+|---|---|---|---|
+| N1 | settings | Row titles 16 pt and value pills 44 pt, against the prototype's 15/600 and 38 pt (first pass 22); hairlines between rows where the prototype groups by section headings | `pass2-settings-0` |
+| N2 | items | The unfolded item says its subject twice: "Reply to Sara about Sunday", then "Reply to Sara?"; the prototype's header is the ask's question | `pass2-items-0` |
+| N3 | asks | The ask's "why" is in `muted` at line size; the prototype's body is 15 pt cream | `pass2-asks-0` |
+| N4 | all | The first launch after an install shows a white screen for several seconds before the dark page | (first shot of `values`, not kept) |
