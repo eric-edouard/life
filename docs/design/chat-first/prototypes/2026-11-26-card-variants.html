@@ -19,18 +19,19 @@ h1{font-size:26px;font-weight:700;letter-spacing:-.015em;margin:0 0 6px}
 section{padding-top:22px;border-top:1px solid var(--line);margin-top:14px;scroll-margin-top:12px}
 section h3{font-size:19px;font-weight:650;margin:0}
 section>p{color:var(--muted);margin:2px 0 16px;max-width:76ch}
-.vars{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:26px 18px;justify-items:center}
-.var{width:390px;max-width:100%;display:flex;flex-direction:column;gap:10px}
+.vars{display:grid;grid-template-columns:repeat(3,max-content);grid-template-rows:repeat(5,auto);justify-content:space-between;gap:18px}
+.var{width:calc(390px * var(--k,1));display:grid;grid-row:span 5;grid-template-rows:subgrid;row-gap:8px}
+@media (max-width:700px){.vars{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:max-content;justify-content:start;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}.var{scroll-snap-align:center}}
 .vh{display:flex;align-items:center;gap:10px}
 .vk{width:30px;height:30px;border-radius:15px;background:var(--tint);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
 .var.picked .vk{background:var(--fg);color:#000}
 .vh .what{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.3}
 .rec{font-size:11.5px;font-weight:650;color:#000;background:var(--ai);border-radius:9px;padding:2px 8px;white-space:nowrap}
 .way{font-size:13px;color:var(--muted)}.way b{color:var(--fg);font-weight:600}
-.tgw{min-height:36px}.tg{display:flex;gap:4px;padding:3px;border-radius:18px;background:var(--tile);align-self:flex-start}
+.tgw{min-height:36px}.tg{display:flex;width:max-content;gap:4px;padding:3px;border-radius:18px;background:var(--tile);align-self:flex-start}
 .tg button{font:inherit;font-size:13px;font-weight:650;border:0;height:30px;padding:0 12px;border-radius:15px;background:none;color:var(--fg);cursor:pointer}
 .tg button[aria-pressed="true"]{background:var(--fg);color:#000}
-.vph{position:relative;width:390px;height:760px;border-radius:48px;background:#000;box-shadow:inset 0 0 0 1.5px #2a2b31;overflow:hidden;font-family:var(--sans)}
+.vph{zoom:var(--k,1);position:relative;width:390px;height:760px;border-radius:48px;background:#000;box-shadow:inset 0 0 0 1.5px #2a2b31;overflow:hidden;font-family:var(--sans)}
 .vsb{position:absolute;top:14px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:14px;font-weight:650}
 .vpl{position:absolute;top:50px;left:16px;right:16px;display:flex;justify-content:space-between}
 .vpl i{width:38px;height:38px;border-radius:19px;background:rgba(40,41,48,.8);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700}
@@ -49,7 +50,6 @@ section>p{color:var(--muted);margin:2px 0 16px;max-width:76ch}
 .note label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
 .note textarea{width:100%;min-height:48px;box-sizing:border-box;background:var(--tile);color:var(--fg);border:0;border-radius:12px;padding:10px 12px;font:inherit;font-size:14.5px;resize:vertical}
 button:focus-visible,textarea:focus-visible,.parts label:focus-within{outline:2px solid var(--fg);outline-offset:2px}
-@media (max-width:430px){.vph,.var{width:100%}.vph{zoom:.92}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <div class="page">
@@ -212,6 +212,10 @@ var root=document.getElementById('items'),h='';
 ITEMS.forEach(function(it){if(it.g)h+='<h2 class="grp">'+it.g+'</h2>';h+='<section id="'+it.id+'"><h3>'+it.n+'</h3><p>'+it.d+'</p><div class="vars">'+['A','B','C'].map(function(k){return varHTML(it,k);}).join('')+'</div><div class="note"><label for="n-'+it.id+'">Note</label><textarea id="n-'+it.id+'" data-note="'+it.id+'" placeholder="Anything to change?"></textarea></div></section>';});
 root.innerHTML=h;
 function bottom(){root.querySelectorAll('.vth').forEach(function(t){t.scrollTop=t.scrollHeight;});}
+/* one scale for every phone: the phone and its caption fit the screen's height; three fit across (on a narrow screen, one fits its width) */
+function fit(){var row=root.querySelector('.vars'),w=row?row.clientWidth:innerWidth,narrow=innerWidth<=700,cap=root.querySelector('.vh').offsetHeight+root.querySelector('.way').offsetHeight+root.querySelector('.tgw').offsetHeight+64;
+ var k=Math.min(1,(innerHeight-cap)/760,narrow?(w-8)/390:(w-36)/3/390);document.documentElement.style.setProperty('--k',Math.max(.4,k).toFixed(3));}
+fit();addEventListener('resize',fit);
 bottom();
 /* his choices: one doc per item {pick, mix, note}; mix maps each part to the variant it comes from */
 function get(id){return CH[id]||(CH[id]={pick:null,mix:{},note:''});}
