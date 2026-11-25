@@ -66,6 +66,8 @@ enum Metrics {
         static let block: CGFloat = 18
         /// A sheet, a panel, the floating player.
         static let sheet: CGFloat = 22
+        /// The aura's ring, the corner of the screen (an iPhone's, near enough).
+        static let screen: CGFloat = 55
     }
 
     /// Space between and inside elements, on a 4-point grid.
