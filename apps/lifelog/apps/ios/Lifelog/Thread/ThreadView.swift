@@ -22,7 +22,9 @@ struct ThreadView: View {
             parts.contains { if case .block(.items(let refs)) = $0 { refs.contains(ref) } else { false } }
         }
         return shown.first { entry in
-            holds(thread.live[entry.id]?.parts ?? entry.answer.map { AnswerPart.parts(of: $0, sent: Set(entry.checked)) } ?? [])
+            holds(
+                thread.live[entry.id]?.parts ?? entry.answer.map { AnswerPart.parts(of: $0, sent: Set(entry.checked)) }
+                    ?? [])
         }?.id
     }
 
@@ -59,7 +61,11 @@ struct ThreadView: View {
             .onChange(of: life.focused) {
                 guard let ref = life.focused else { return }
                 // On screen already: scroll to its row (it unfolds itself); else it was brought to the bottom.
-                if let id = row(of: ref) { proxy.scrollTo(id, anchor: .center) } else { proxy.scrollTo("end", anchor: .bottom) }
+                if let id = row(of: ref) {
+                    proxy.scrollTo(id, anchor: .center)
+                } else {
+                    proxy.scrollTo("end", anchor: .bottom)
+                }
             }
             .onChange(of: thread.live) { proxy.scrollTo("end", anchor: .bottom) }
         }
