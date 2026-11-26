@@ -110,6 +110,8 @@
         /// Seconds between the lines of that answer, which then comes as it is written: a step, its words a few at a time,
         /// then its block (for watching motion).
         var pace: Double?
+        /// `sign_in_to_network`'s replies, a `wire/` fixture holding them in order: each call takes the next.
+        var signIn: String?
     }
 
     nonisolated final class FakeLife: URLProtocol, @unchecked Sendable {
@@ -130,6 +132,8 @@
             var used: Set<Int> = []
             /// An answered ask's first result: a repeat of the same answer gets it, under any key.
             var answered: [String: String] = [:]
+            /// How many sign-in replies were given.
+            var signedIn = 0
         }
         static let state = Mutex<Held?>(nil)
 
@@ -377,6 +381,25 @@
                     return Self.stream(reply.lines.map { Self.progress(token, $0) }, then: .networkConnectionLost)
                 }
                 return ended(reply.text, isError: reply.isError, lines: reply.lines)
+            case "sign_in_to_network":
+                // His answers are never logged: their names only.
+                log(["tool": tool, "arguments": arguments.keys.sorted(), "type": arguments["type"] as? String ?? ""])
+                let replies =
+                    held.scenario.signIn.flatMap {
+                        try? JSONSerialization.jsonObject(with: Data(fixture($0, in: held).utf8)) as? [Any]
+                    } ?? []
+                let at = Self.state.withLock { now -> Int in
+                    defer { now?.signedIn += 1 }
+                    return now?.signedIn ?? 0
+                }
+                guard at < replies.count, let data = try? JSONSerialization.data(withJSONObject: replies[at]) else {
+                    return ended("Not done: LINE didn't accept that. Try again.", isError: true)
+                }
+                // A held wait answers after a while, with its progress pings.
+                let isWait = arguments["type"] as? String == "display_and_wait"
+                return ended(
+                    String(decoding: data, as: UTF8.self), lines: isWait ? [["step": "waiting"]] : [],
+                    pace: isWait ? 4 : nil)
             case "ask_main_session":
                 guard let words = arguments["words"] as? String else {
                     return ended(#"{"kind":"reply","entry":0,"text":"","refs":[],"acts":[]}"#)

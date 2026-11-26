@@ -39,6 +39,8 @@ final class LifeStore {
     private(set) var focused: String?
     /// The ask unfolded in the thread now: what the field's words are about (`MainSessionScreen.open`).
     var opened: String?
+    /// The sign-in a fix card's tap asked for (`Check.Option.signsIn`): `RootView` opens its sheet and clears it.
+    var signingIn: SignInAsk?
 
     struct Catchup: Equatable {
         let sent: Int
@@ -388,6 +390,13 @@ final class LifeStore {
     /// `life`: the Life it was decided for, when his tap was not on the screen now (a notification's button); else the
     /// one paired at this tap.
     func answer(_ request: AnswerRequest, for life: PairedLife? = nil) async {
+        // A sign-in option is never an answer (`answer_check` refuses it): it opens the network's sign-in sheet.
+        if let check = ask(request.ref)?.check,
+            let network = check.options.first(where: { request.options.contains($0.id) })?.signsIn
+        {
+            signingIn = SignInAsk(network: network, title: check.title)
+            return
+        }
         // A send in flight is never replaced or queued over: the old and the new would both go out.
         guard !state(of: .answer(ref: request.ref)).isRunning else { return }
         if life == nil, isOutOfReach, let origin = pairedOrigin, !request.isUndo {
@@ -404,6 +413,11 @@ final class LifeStore {
             try? await Task.sleep(for: .seconds(1))
         }
         await refreshItems()
+    }
+
+    /// One sign-in to `network`, step by step, on the Life paired now.
+    func signIn(_ network: String) -> NetworkSignIn {
+        NetworkSignIn(network: network) { [api] in try await api.signInToNetwork($0) }
     }
 
     /// His Later on an ask: Life picks until when.

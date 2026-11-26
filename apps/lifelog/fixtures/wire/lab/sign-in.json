@@ -1,0 +1,62 @@
+{
+  "earlier": null,
+  "version": "fixed",
+  "items": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": "LINE signed Life out, so its messages stop reaching Life until you sign in again.",
+        "deadline": null,
+        "draft": null,
+        "group": "fix",
+        "isPlan": false,
+        "kind": "fix",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": null,
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "sign-in",
+            "label": "Sign in",
+            "takes": null,
+            "icon": "link",
+            "signsIn": "line"
+          },
+          {
+            "id": "later",
+            "label": "Later",
+            "takes": null,
+            "icon": "later"
+          }
+        ],
+        "plan": null,
+        "recommended": "sign-in",
+        "replaces": null,
+        "pushId": "push-fix-line",
+        "question": "Sign in to LINE again?",
+        "ref": "fix:signed-out/line",
+        "title": "LINE is signed out",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "fix:signed-out/line",
+      "state": "needs_you"
+    }
+  ]
+}

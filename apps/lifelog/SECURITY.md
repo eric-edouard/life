@@ -28,7 +28,10 @@ with the device token only when its Apple Health source is enabled.
 ## Where secrets live
 
 - **The iPhone:** its device token in the Keychain, this device only (`AfterFirstUnlockThisDeviceOnly`); the server's
-  address in the app's defaults.
+  address in the app's defaults. Signing a messaging network back in (`NetworkSignInSheet`), the app opens the network's
+  sign-in page in a web view with no stored data (a non-persistent `WKWebsiteDataStore`, gone with the sheet); the
+  cookies, passwords and codes it reads or he types stay in memory, go once to Life's `sign_in_to_network`, and are
+  never written to disk, the Keychain or a log (a credential field is never dictated).
 - **The Mac:** `~/Library/Application Support/lifelog-quiet/secrets.json` (mode 0600 in a 0700 folder) holds the
   tokens Lifelog Host mints, the ElevenLabs key, the tunnel token, the backup password and the helper's
   Claude sign-in; Codex's sign-in is in the helper's own Codex home beside it. `~/Library/Application Support/lifelog/server.env` (mode 0600; Host refuses to start the server
