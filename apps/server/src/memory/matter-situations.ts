@@ -2,7 +2,7 @@ import { removeAllBut } from "../core/files";
 import { newestWithin } from "../core/lists";
 import type { Situation } from "../records/situation";
 import { shownKeyOf } from "./deletions";
-import { NIGHT_CHARS, NO_EVIDENCE, shownOf } from "./matter-directions";
+import { matterShownOf, NIGHT_CHARS, NO_EVIDENCE } from "./matter-directions";
 import { readEvidence } from "./matter-evidence";
 import { laterShownOf, type MatterView } from "./matter-read";
 import {
@@ -26,7 +26,7 @@ import { dayNow } from "./zones";
 
 // `bun life memory matter-situations`: the matter situation step (docs/glossary.md: matter situation), run at night after
 // the matter directions. For each matter of two steps or more whose steps, open steps, goal or later records changed,
-// one call reads them as the direction call is shown them (`shownOf`) with the units and payments found near its words
+// one call reads them as the direction call is shown them (`matterShownOf`) with the units and payments found near its words
 // (`readEvidence`), and writes the page he sees when opening the matter, as Markdown parts to him, each citing what it
 // rests on (`situation-parts.ts`). A matter of one step gets no call: its step is its page. The digest holds refs and
 // words only, never a name, a status, the evidence (a search's) or the clock, so a matter with nothing new costs no call.
@@ -40,11 +40,11 @@ const idOfEvery = (ref: string) => ({ id: ref });
 /** A matter's call input and its digest: what it was shown, less its name, people, call-local id, the clock and who said a later record. */
 export const matterSituationInputOf = (
   v: MatterView,
-  later: Parameters<typeof shownOf>[4],
+  later: Parameters<typeof matterShownOf>[4],
   today: string,
   nameOf: (ref: string) => string
 ) => {
-  const { id: _id, ...input } = shownOf(
+  const { id: _id, ...input } = matterShownOf(
     v,
     v.id,
     today,

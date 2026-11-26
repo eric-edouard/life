@@ -100,7 +100,7 @@ const isGroundedContext = (
  * A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now.
  * `idOf` gives a step its id: an observation's to link, by default; the matter situation's call cites every step's.
  */
-export const shownOf = (
+export const matterShownOf = (
   v: MatterView,
   id: string,
   today: string,
@@ -171,7 +171,7 @@ export async function matterDirections(
 ) {
   const due = (await dueDirectionsOf(people, today, records)).map((d, i) => ({
     ...d,
-    shown: shownOf(d.v, `m${i + 1}`, today, people.nameOf, d.later),
+    shown: matterShownOf(d.v, `m${i + 1}`, today, people.nameOf, d.later),
   }));
   if (due.length === 0) {
     return { drafted: 0, due: 0, failed: 0 };
