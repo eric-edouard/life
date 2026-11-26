@@ -87,7 +87,7 @@ struct ThreadView: View {
                         }
                         if let origin = row.origin {
                             LateReplyView(late: entry, origin: origin, actions: actions) {
-                                withAnimation(Motion.standard) { proxy.scrollTo(origin.id, anchor: .top) }
+                                Motion.animate { proxy.scrollTo(origin.id, anchor: .top) }
                             }
                             .appears(Motion.arrives)
                         } else {

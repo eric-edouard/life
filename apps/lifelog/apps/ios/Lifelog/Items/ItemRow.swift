@@ -92,7 +92,7 @@ struct ItemRow: View {
             title: isOnTheirMatter && !ask.question.isEmpty ? ask.question : ask.title, state: state, icon: icon,
             line: line, isOpen: isOpen, ref: ask.ref,
             toggle: {
-                withAnimation(Motion.standard) { isOpen.toggle() }
+                Motion.animate { isOpen.toggle() }
                 if isOpen { life.opened = ask.ref } else if life.opened == ask.ref { life.opened = nil }
             }
         ) {
@@ -110,10 +110,10 @@ struct ItemRow: View {
         ) {
             if ask.check != nil, icon != "circle.dashed" { kept = icon }
         }
-        .onChange(of: life.focused) { if life.focused == ask.ref { withAnimation(Motion.standard) { isOpen = true } } }
+        .onChange(of: life.focused) { if life.focused == ask.ref { Motion.animate { isOpen = true } } }
         // Answered or out of date, it folds back to its row and its line.
         .onChange(of: ask.state) {
-            if [.settled, .outdated].contains(ask.state) { withAnimation(Motion.standard) { isOpen = false } }
+            if [.settled, .outdated].contains(ask.state) { Motion.animate { isOpen = false } }
         }
     }
 

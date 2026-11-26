@@ -18,7 +18,7 @@ struct Notices: View {
                         ? "Nothing is lost; it goes when you're back online"
                         : "Nothing is lost; it goes when your Mac is back",
                     symbol: life.isOffline ? "wifi.slash" : "desktopcomputer",
-                    isOpen: isOpen, toggle: { withAnimation(Motion.standard) { isOpen.toggle() } },
+                    isOpen: isOpen, toggle: { Motion.animate { isOpen.toggle() } },
                     id: AID.noticeOutOfReach
                 ) {
                     LiveSettingsBlock(keys: ["faceid", "pair"], openSettings: openSettings)

@@ -63,6 +63,13 @@ enum Motion {
     static let undrafted = Animation.easeOut(duration: 0.2)
 }
 
+extension Motion {
+    /// `withAnimation` that changes at once under Reduce Motion: the one way to animate a state change from code.
+    static func animate(_ animation: Animation = standard, _ change: () -> Void) {
+        if UIAccessibility.isReduceMotionEnabled { change() } else { withAnimation(animation, change) }
+    }
+}
+
 extension View {
     /// `animation(_:value:)` that becomes an instant change under Reduce Motion.
     func motion(_ animation: Animation?, value: some Equatable) -> some View {
