@@ -310,6 +310,13 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// A voice: in how many conversations it was heard; nil from a Life that predates it.
     public let conversations: Int?
     public let likelyPeople: [Party]
+    /// A voice: the people the voice naming guessed, each with Life's reason in a few words (`why`, nil when none was
+    /// recorded); nil from a Life that predates it.
+    public let voiceGuesses: [VoiceGuess]?
+    public struct VoiceGuess: Decodable, Sendable, Equatable {
+        public let person: Party
+        public let why: String?
+    }
     public let links: [String]
     /// What its "Open in" opens: a registered agent's card, the session of the agent holding it now; any other ask, its
     /// first link; nil when none, or from a Life that predates it.
