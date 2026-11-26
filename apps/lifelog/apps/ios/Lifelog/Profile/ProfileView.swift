@@ -39,6 +39,7 @@ struct ProfileView: View {
                 }
             }
             .padding(.horizontal, Metrics.gutter).padding(.vertical, Metrics.Spacing.l)
+            .motion(Motion.standard, value: read != nil)
         }
         .background(Palette.bg).task { await life.refreshPerson(ref) }
     }

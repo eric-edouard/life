@@ -44,6 +44,7 @@ struct RootView: View {
     @State private var topHeight: CGFloat = 0
 
     private struct Profile: Hashable { let ref: String }
+    @Namespace private var profileZoom
 
     private var thread: LifeThread { life.thread }
     /// What he sees now, as refs only: the thread, or the profile pushed over it.
@@ -80,7 +81,9 @@ struct RootView: View {
                 .frame(maxHeight: .infinity, alignment: .top)
             }
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: Profile.self) { ProfileView(ref: $0.ref) }
+            .navigationDestination(for: Profile.self) {
+                ProfileView(ref: $0.ref).zooms(from: $0.ref, in: profileZoom)
+            }
         }
         // The field is on every screen, a pushed profile too: it asks with that screen's refs.
         .safeAreaInset(edge: .bottom) {
@@ -114,7 +117,7 @@ struct RootView: View {
             case .pair(let offer): PairSheet(offer: offer, isPairing: $isPairing).sheetStack()
             }
         }
-        .environment(\.windowSizeClass, sizeClass)
+        .environment(\.windowSizeClass, sizeClass).environment(\.profileZoom, profileZoom)
         .preferredColorScheme(.dark)
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }

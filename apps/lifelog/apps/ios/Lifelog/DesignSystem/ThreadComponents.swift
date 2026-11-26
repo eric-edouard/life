@@ -65,13 +65,19 @@ struct StepsLine: View {
         HStack(spacing: Metrics.Spacing.s) {
             if let verb {
                 Spinner(size: .small).foregroundStyle(Palette.muted)
-                Text("\(verb) \(Text(what).foregroundStyle(Palette.fg).fontWeight(.semibold))").font(.line)
-                    .foregroundStyle(Palette.muted)
+                // The verb is muted and its object bright; the shimmer sweeps the verb.
+                HStack(spacing: Metrics.Spacing.xs) {
+                    ShimmerText(text: Text(verb))
+                    Text(what).foregroundStyle(Palette.fg).fontWeight(.semibold).contentTransition(.opacity)
+                }
+                .font(.line)
             } else {
                 ThinkingMark()
-                Text("Thinking…").font(.line).foregroundStyle(Palette.muted)
+                ShimmerText(text: Text("Thinking…")).font(.line)
             }
         }
+        .faces(verb ?? "")
+        .motion(Motion.standard, value: what)
     }
 }
 
@@ -170,12 +176,21 @@ struct StillRing: View {
 
 /// Where an item of the thread stands, as its row draws it. Held asks are not rows: they arrive under a
 /// `HeldSeparator`.
-enum ItemState: Equatable {
+enum ItemState: Hashable {
     case needsYou, later, waitingOnSomeone, settled, outdated, queued, stopped
     /// Handed off: the pie's fill and the estimate ("About 20 min", then "About 10 min left").
     case underWay(progress: Double, estimate: String?)
     /// A send he undid: the outcome, in his words' place ("Deleted for both of you").
     case undone(String)
+
+    /// Which state it is, whatever it carries: a change of kind is what the row shows (a progress tick is not).
+    var kind: String {
+        switch self {
+        case .underWay: "underWay"
+        case .undone: "undone"
+        default: "\(self)"
+        }
+    }
 }
 
 /// One item of the thread as a bare row that unfolds: its round icon, the title, a line under it when the state has
@@ -214,6 +229,8 @@ struct ThreadItemRow<Detail: View>: View {
         }
         .opacity(state == .outdated ? Metrics.Opacity.faded : 1)
         .padding(.vertical, isOpen ? Metrics.Spacing.m : 0).washed(isOpen)
+        .motion(Motion.standard, value: state.kind).motion(Motion.standard, value: line)
+        .washes(on: state.kind)
     }
 
     @ViewBuilder private var lineView: some View {
@@ -225,7 +242,7 @@ struct ThreadItemRow<Detail: View>: View {
             }
         case .undone(let outcome): Text(outcome).font(.line).foregroundStyle(Palette.muted)
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
-        default: if let line { Self.coral(line).font(.line).foregroundStyle(Palette.muted) }
+        default: if let line { Self.coral(line).font(.line).foregroundStyle(Palette.muted).contentTransition(.opacity) }
         }
     }
 
@@ -239,6 +256,10 @@ struct ThreadItemRow<Detail: View>: View {
     }
 
     @ViewBuilder private var mark: some View {
+        markFace.id(state.kind).transition(Motion.fade)
+    }
+
+    @ViewBuilder private var markFace: some View {
         switch state {
         case .needsYou:
             Circle().fill(Palette.flag).frame(width: Metrics.flagDot, height: Metrics.flagDot).accessibilityLabel(
@@ -271,7 +292,7 @@ struct HeldSeparator: View {
 
 /// A send's line and its Undo: WhatsApp's "Sent to Lena", then what the other side will see before he confirms.
 struct SentLine: View {
-    enum Phase: Equatable { case sent(canUndo: Bool, until: String? = nil), confirming(String), undoing, undone }
+    enum Phase: Hashable { case sent(canUndo: Bool, until: String? = nil), confirming(String), undoing, undone }
     /// Who it went to; nil when the thread does not say.
     var to: String?
     let phase: Phase
@@ -309,6 +330,7 @@ struct SentLine: View {
                 }
             }
         }
+        .faces(phase)
     }
 }
 
@@ -326,6 +348,7 @@ struct RatingRow: View {
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
             Text(picked == nil ? question : "Thanks").font(.line).foregroundStyle(Palette.muted)
+                .contentTransition(.opacity)
             Spacer(minLength: 0)
             ForEach(Reaction.rating, id: \.self) { mark in
                 Button {

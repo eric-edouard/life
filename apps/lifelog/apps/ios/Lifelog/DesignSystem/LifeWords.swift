@@ -16,8 +16,8 @@ struct MarkdownView: View {
 
     @ViewBuilder private func draw(_ block: ContextBlock) -> some View {
         switch block {
-        case .heading(let level, let runs): Text(runs.attributed).font(level == 2 ? .rowTitle : .header)
-        case .paragraph(let runs): Text(runs.attributed)
+        case .heading(let level, let runs): InkText(text: runs.attributed).font(level == 2 ? .rowTitle : .header)
+        case .paragraph(let runs): InkText(text: runs.attributed)
         case .list(let items): ListView(items: items)
         case .quote(let runs, let source):
             VStack(alignment: .leading, spacing: 2) {
@@ -53,7 +53,7 @@ private struct ListView: View {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.s) {
                     Text(item.marker).foregroundStyle(Palette.muted)
                     VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-                        Text(item.text.attributed)
+                        InkText(text: item.text.attributed)
                         if !item.items.isEmpty { ListView(items: item.items) }
                     }
                 }
