@@ -64,11 +64,10 @@ import XCTest
     func testSlowAnswer() {
         launch("M1")
         askLife("Where are we regarding the house?")
-        // The prototype's state: his question sent, Life still at work on it.
-        shoot("slow-answer")
         appears(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch,
             "the answer's last words", within: 30)
+        shoot("slow-answer")
     }
 }
 
