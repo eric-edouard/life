@@ -85,12 +85,11 @@ export async function blockProblemOf(
       : new Set<string>();
   const refs = all.filter((r) => !asks.has(r));
   const wrong = refs.find((r) => {
+    if (b.kind === "items") {
+      return isOther(r);
+    }
     const ref = parseRef(r);
-    return (
-      "error" in ref ||
-      (b.kind === "items" && isOther(r)) ||
-      (b.kind === "pictures" && ref.kind !== "file")
-    );
+    return "error" in ref || (b.kind === "pictures" && ref.kind !== "file");
   });
   if (wrong) {
     return "refs";
