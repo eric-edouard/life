@@ -257,9 +257,15 @@ test("his word stops, resumes, re-points, renames and changes the model of an ag
   // A spoken ask (no change yet) and a stale one are refused, not applied late.
   expect((await applied(null))?.error).toStartWith("only a change");
   expect(
-    (await applied({ action: "stop", agent }, 11 * MIN))?.error
+    (await applied({ action: "resume", agent }, 11 * MIN))?.error
   ).toStartWith("asked over 10 minutes");
   expect(agentOf(desk.db, agent)?.status).toBe("active");
+  // A stop is safe and idempotent: it applies whatever its age (asked while the desk was off).
+  expect(
+    (await applied({ action: "stop", agent }, 30 * MIN))?.error
+  ).toBeNull();
+  expect(agentOf(desk.db, agent)?.status).toBe("stopped");
+  desk.db.run("update agent set status = 'active' where id = ?", [agent]);
 
   // Applied once: reading again starts nothing new.
   const count = () =>

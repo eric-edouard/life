@@ -41,7 +41,7 @@ import { startBlockOf } from "./runtime-fallback";
 // checked before the ask was written; the desk's own (which agent, its status, the runtime, the folder) are checked here.
 
 const CURSOR = "asks";
-/** An ask older than this when first read is refused, not applied late (the desk was off or stopped meanwhile). */
+/** An ask older than this when first read is refused, not applied late (the desk was off or stopped meanwhile); a stop applies at any age. */
 const STALE_AFTER = 10 * MIN;
 
 /** What a change reads before its transaction: a start's taker, a move's facts, and a continue on his Mac done (`continueOnMac`). */
@@ -368,7 +368,10 @@ function applyAsk(
         : "only a change from `change_registered_agent` is applied",
     };
   }
-  if (clock().getTime() - Date.parse(ask.at) > STALE_AFTER) {
+  if (
+    parsed.data.action !== "stop" &&
+    clock().getTime() - Date.parse(ask.at) > STALE_AFTER
+  ) {
     return {
       agent: parsed.data.agent,
       error: "asked over 10 minutes before the desk read it",
