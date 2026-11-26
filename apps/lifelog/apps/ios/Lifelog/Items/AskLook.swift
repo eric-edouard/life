@@ -21,6 +21,7 @@ struct AskLook {
             if has("is-them"), let guess = check.likelyPeople.first { return "Is this \(guess.name)?" }
             return check.question.isEmpty ? fallback : check.question
         case .samePerson: return "Same person?"
+        case .guessedPerson: return check.question.isEmpty ? fallback : check.question
         case .contactsCard, .atOrganization, .ending:
             return check.question.isEmpty ? fallback : check.question
         case .newMatter:
@@ -32,17 +33,26 @@ struct AskLook {
     /// Who the ask is about, when its answer is a person: the guess leads. A payment shows only the payee an account
     /// names (`Check.namedPayee`), never a guess.
     var face: ItemFace? {
+        if let network = check.signInNetwork { return .network(network) }
+        if check.group == .guessedPerson {
+            return (check.networkIdentity?.party ?? check.likelyPeople.first).map { .party($0) }
+        }
         if [.voice, .contactsCard, .atOrganization, .samePerson].contains(check.group) {
             return check.likelyPeople.first.map { .party($0) }
         }
         return check.namedPayee.map { .party($0) }
     }
 
-    /// What the row says under its title, when the person has one ("Your landlord").
+    /// Who the row is about, under its title (the prototype's `sub`): the person's own line ("Your landlord"), what a
+    /// broken network means for him, his own step, else the chat or matter it comes through.
     var line: String? {
         if check.group == .samePerson { return check.question.nilIfEmpty }
-        guard [.contactsCard, .atOrganization].contains(check.group) else { return nil }
-        return check.likelyPeople.first?.line
+        if [.contactsCard, .atOrganization].contains(check.group) { return check.likelyPeople.first?.line }
+        if check.signInNetwork != nil {
+            return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
+        }
+        if check.group == .yourMove { return "Your move" }
+        return check.rowWho()
     }
 
     /// An answer in the words of the lab: plain, never "agent".
