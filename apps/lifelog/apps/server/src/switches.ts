@@ -29,7 +29,7 @@ export interface Switches {
 
 const DEFAULTS: Switches = {
   ai: false,
-  dictationHeard: "mac",
+  dictationHeard: "instant",
   engine: "claude",
   openAppAfterMinutes: 15,
   transcriber: "scribe",
