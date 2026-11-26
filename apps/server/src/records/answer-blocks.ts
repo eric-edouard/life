@@ -9,7 +9,13 @@ import { z } from "zod";
 const CATALOG = 1;
 
 const LIFE = "life:";
-const LifeRef = z.string().startsWith(LIFE).max(300);
+/** A ref written `life:<ref>`; one written bare, as `read_inbox` gives an ask's `ref`, is taken as the same ref. */
+const LifeRef = z
+  .string()
+  .trim()
+  .min(1)
+  .max(300)
+  .transform((r) => (r.startsWith(LIFE) ? r : `${LIFE}${r}`));
 const Cell = z.union([z.string().trim().min(1).max(200), z.number()]);
 
 /** Each component's body, by kind, with the catalog version it came in. */

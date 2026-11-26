@@ -160,6 +160,10 @@ public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParti
     public func ask(_ ref: String) -> ThreadAsk? { asks.first { $0.ref == ref } }
     /// How many wait on him: the round button's count.
     public var waiting: Int { asks.filter(\.isAnswerable).count }
+    /// What is broken and needs him, no one at work on it yet (the open `fix` asks, Life's order): drawn where he looks.
+    public var broken: [ThreadAsk] {
+        asks.filter { $0.isAnswerable && $0.check?.group == .fix && $0.check?.beingFixed == nil }
+    }
 }
 
 /// His answers taken while Life was out of reach, kept to go in order when it is back: each with the key of its tap and
