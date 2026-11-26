@@ -153,3 +153,18 @@ work; 5 the three colour exceptions; 6 monotone emoji in Life's interface; 7 "I"
 button; 8 words only on an ask's and a question's answers, a confirm's two choices and a draft's quick-edit chips;
 9 an instruction he just gave shows as its switch, "What can I change?" lists only settings; 10 the spec and glossary
 updated in one pass; 11 dark only for now.
+
+## Ask rows: titles and the leading mark (proposal, 26 Nov 2026)
+
+Drawn in the prototype under "Real-length ask titles". From the owner's phone: titles ran to two or three lines, rows
+were tight, and rows had no icons.
+
+- **Titles, both rules.** The writer keeps a title to one line: 30 characters at most, a verb and its object ("Pay the
+  builder's last bill"). The row still allows two lines, clamped with an ellipsis, never three. Today his own steps
+  carry the matter's whole sentence; shorter titles need the matter directions' wording, a prompt change (ask first).
+- **Spacing.** A two-line row gets 10 px above and below and 6 px between rows; the mark lines up with the title's
+  first line; the line under it stays one line; Later is centred on the row.
+- **The leading mark.** The approved design says "their face or mark", never a tick (a tick means settled). In order:
+  who it is with (their picture, else their initial); else the matter's icon (`MatterRow.icon` from `iconNow`, his
+  choice first); else a mark by kind (a card for a payment, a phone for a call, a calendar, Life's logo for a fix).
+- Drop "Your move" from the line under the title: the row already says it.
