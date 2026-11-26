@@ -45,16 +45,20 @@ struct ThreadView: View {
             .sorted { ($0.element.entry.at, $0.offset) < ($1.element.entry.at, $1.offset) }.map(\.element)
     }
 
+    /// Whether `entry`'s answer shows the ask `ref` as a row.
+    private func holds(_ entry: ThreadEntry, _ ref: String) -> Bool {
+        (thread.live[entry.id]?.parts ?? entry.answer.map { AnswerPart.parts(of: $0, sent: Set(entry.checked)) } ?? [])
+            .contains { if case .block(.items(let refs)) = $0 { refs.contains(ref) } else { false } }
+    }
+
     /// The entry whose answer already shows the ask `ref` as a row.
-    private func row(of ref: String) -> UUID? {
-        func holds(_ parts: [AnswerPart]) -> Bool {
-            parts.contains { if case .block(.items(let refs)) = $0 { refs.contains(ref) } else { false } }
-        }
-        return shown.first { entry in
-            holds(
-                thread.live[entry.id]?.parts ?? entry.answer.map { AnswerPart.parts(of: $0, sent: Set(entry.checked)) }
-                    ?? [])
-        }?.id
+    private func row(of ref: String) -> UUID? { shown.first { holds($0, ref) }?.id }
+
+    /// What is broken and needs him, at the newest end where the thread opens (docs/product.md: it comes first and
+    /// stays on screen), unless the newest answer shows it already.
+    private var brokenBelow: [ThreadAsk] {
+        let newest = rows.last?.entry
+        return (life.items.value?.broken ?? []).filter { ask in newest.map { !holds($0, ask.ref) } ?? true }
     }
 
     /// Today and yesterday by name, else the weekday and date.
@@ -102,9 +106,13 @@ struct ThreadView: View {
                             .appears(Motion.arrives)
                         }
                     }
+                    let broken = brokenBelow
+                    ForEach(broken) { ItemRow(ask: $0).id($0.ref) }
                     // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
                     // unfolded with its answers.
-                    if let ask = life.focused.flatMap(life.ask), row(of: ask.ref) == nil {
+                    if let ask = life.focused.flatMap(life.ask), row(of: ask.ref) == nil,
+                        !broken.contains(where: { $0.ref == ask.ref })
+                    {
                         ItemRow(ask: ask).id(ask.ref)
                     }
                     Color.clear.frame(height: 1).id("end")
