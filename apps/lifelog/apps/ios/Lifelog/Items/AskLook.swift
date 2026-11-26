@@ -58,8 +58,11 @@ struct AskLook {
         if check.signInNetwork != nil {
             return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
         }
-        // A draft's network is its chat head's: the row names only who it goes to.
-        if let draft = check.draft { return check.networkIdentity?.shownName ?? draft.to }
+        // A draft's network is its chat head's: the row names only who it goes to, a guessed one with a "~".
+        if let draft = check.draft {
+            let name = check.networkIdentity?.shownName ?? draft.to
+            return check.isRecipientGuessed ? "~ " + name : name
+        }
         return check.rowWho()
     }
 

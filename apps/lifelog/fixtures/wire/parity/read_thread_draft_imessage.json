@@ -193,9 +193,7 @@
           "party": {
             "kind": "person",
             "name": "Nora",
-            "ref": "person:nora",
-            "line": "A friend",
-            "picture": null
+            "ref": "person:nora"
           }
         }
       },

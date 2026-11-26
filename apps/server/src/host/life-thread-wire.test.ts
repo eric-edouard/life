@@ -7,6 +7,7 @@ import { decisionCardOf } from "../memory/checks";
 import { recordDelivered } from "../memory/decision-delivery";
 import { DECISIONS, Withdrawn, withdrawnOf } from "../memory/decision-lines";
 import { requestDecision } from "../memory/decisions";
+import { withNetworkIdentity } from "../memory/network-identity";
 import { answerWithResult } from "./answer-result";
 import { expectWire } from "./http/wire-fixture";
 import { readThread } from "./life-thread";
@@ -39,6 +40,13 @@ const card = async (channel: string, title: string) => {
       Promise.resolve({
         ...draft,
         chat: "155@s.whatsapp.net",
+        recent: [
+          {
+            at: new Date(Date.now() - 7_200_000).toISOString(),
+            sender: KIT,
+            text: "Are you around this week?",
+          },
+        ],
         to: "Kit Moreau",
       })
   );
@@ -49,6 +57,18 @@ const card = async (channel: string, title: string) => {
   );
   return id;
 };
+
+const KIT = {
+  kind: "person" as const,
+  name: "Kit Moreau",
+  ref: "person:inf_kit",
+};
+/** Who the cards' chats resolve to, as the inbox's `withNetworkIdentities` reads them. */
+const PEOPLE = {
+  nameOf: () => "Sam",
+  partyOf: () => KIT,
+  resolve: () => KIT.ref,
+} as never;
 
 /** The ids of the cards the inbox holds open now. */
 let open: string[] = [];
@@ -67,9 +87,9 @@ beforeEach(async () => {
         const { decisionsNow } = await import("../memory/decisions");
         return decisionsNow()
           .filter((d) => open.includes(d.id))
-          .map(
-            (d) =>
-              ({
+          .map((d) =>
+            withNetworkIdentity(
+              {
                 about: [],
                 agent: null,
                 asker: d.asker,
@@ -86,12 +106,16 @@ beforeEach(async () => {
                 onMatters: [],
                 onSilence: d.onSilence,
                 ...decisionCardOf(d),
+                confirm: [],
                 pushId: `push-${d.id}`,
                 question: d.question,
                 ref: d.id,
                 title: d.title,
                 urgency: "blocks",
-              }) as never
+              } as never,
+              new Map(),
+              PEOPLE
+            )
           );
       }
     ),

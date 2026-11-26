@@ -202,9 +202,7 @@
           "party": {
             "kind": "person",
             "name": "Jade",
-            "ref": "person:jade",
-            "line": "A friend",
-            "picture": null
+            "ref": "person:jade"
           }
         }
       },
