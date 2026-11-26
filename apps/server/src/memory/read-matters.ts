@@ -276,7 +276,7 @@ export async function rankedMatters<R extends { book: MatterView[] }>(
 
 /**
  * The matters in a state (`rankedMatters`: running when not given), of one `person`, `project` or `area` when given: each
- * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one an open assignment anchors on the matter) Throws when a person, project or area named goes by no name known.
+ * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one an open assignment anchors on the matter). Throws when a person, project or area named goes by no name known.
  * Of one project, its page's head too (`project`): its name, status as stored and the first of his goals naming it; a
  * matter is parked by the project its row shows under (`projectOf`), not by this one.
  */

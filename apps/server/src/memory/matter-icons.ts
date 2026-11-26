@@ -155,7 +155,7 @@ export async function pickMatterIcons(
   return step.end({ picked });
 }
 
-/** The matter book and picks as last seen with nothing left to ask: a tick with the same reads nothing. */
+/** The matter book and picks as last seen with nothing left to ask today: a tick with the same reads nothing. */
 let seenAllPicked: string | undefined;
 
 /**
@@ -178,10 +178,12 @@ export async function pickIconsOnArrival(people: People) {
     seenAllPicked = key;
     return;
   }
-  if (
-    (await readCallsToday([PROMPT])) >= ICON_CALLS_A_DAY ||
-    !(await isOnline())
-  ) {
+  if ((await readCallsToday([PROMPT])) >= ICON_CALLS_A_DAY) {
+    // Nothing more today: the key holds the day, so tomorrow's first tick asks again.
+    seenAllPicked = key;
+    return;
+  }
+  if (!(await isOnline())) {
     return;
   }
   await pickMatterIcons(open, 1);
