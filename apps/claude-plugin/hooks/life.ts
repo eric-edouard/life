@@ -45,6 +45,10 @@ const isDown = (s: Seen): s is { down: string } => s !== null && "down" in s;
 const isDoor = (s: Seen): s is Door => s !== null && "key" in s;
 const isRetried = (s: Seen) => s !== null && !isDoor(s);
 
+/** Whether the desk started this run: its guard's environment is set. */
+const isDeskRunOf = async ($: EngineInterface) =>
+  (await $.env.get("LIFE_SEND_GUARD")) !== undefined;
+
 const fetchOf =
   ($: EngineInterface): Fetch =>
   (url, init) =>
@@ -56,7 +60,7 @@ const fetchOf =
  */
 async function lookUp($: EngineInterface, id: string): Promise<Seen> {
   const known = `agent-session:${id}`;
-  const isDeskRun = (await $.env.get("LIFE_SEND_GUARD")) !== undefined;
+  const isDeskRun = await isDeskRunOf($);
   try {
     const door = await lookUpSession(fetchOf($), id);
     if (door) {
@@ -125,12 +129,9 @@ export const register: Register = (on) => {
     const r = await next(e);
     await seenOf($);
     // Never awaited and never failing: a sidebar problem must not hold or break a session's start.
-    $.env
-      .get("LIFE_SEND_GUARD")
-      .then((guard) =>
-        guard === undefined
-          ? fileAgentSessions((s, t, a) => $.mcp.call(s, t, a))
-          : undefined
+    isDeskRunOf($)
+      .then((isDesk) =>
+        isDesk ? undefined : fileAgentSessions((s, t, a) => $.mcp.call(s, t, a))
       )
       .catch(() => undefined);
     return r;

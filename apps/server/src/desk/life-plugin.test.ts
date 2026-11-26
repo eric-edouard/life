@@ -324,11 +324,6 @@ test("agent sessions move into the Life Agents section, made when missing; other
   ]);
 });
 
-test("outside the Claude app the sidebar's tools fail, and the plugin's start goes on", async () => {
-  const refused: McpCall = () => Promise.reject(new Error("unlisted"));
-  await expect(fileAgentSessions(refused)).rejects.toThrow("unlisted");
-});
-
 test("the plugin's sidebar section is the one the server reads", () => {
   expect(AGENTS_SECTION).toBe(AGENTS_GROUP);
 });

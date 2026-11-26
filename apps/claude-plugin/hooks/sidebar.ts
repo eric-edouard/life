@@ -65,6 +65,7 @@ export async function fileAgentSessions(call: McpCall) {
     return;
   }
   if (!id) {
+    // ponytail: sessions starting at once may each make the section; the first one listed wins, a lock if it shows up.
     await call("ccd_sidebar", "create_section", { name: AGENTS_SECTION });
     id = sectionIdOf(await listSections());
     if (!id) {
