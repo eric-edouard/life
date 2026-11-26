@@ -271,9 +271,13 @@ private struct ChatHead: View {
                     Text("\(people) people").font(.line).foregroundStyle(Palette.muted)
                 }
                 if url != nil {
-                    Text("Open \(network) \(Image(systemName: "arrow.up.right"))").font(.heading)
-                        .foregroundStyle(look.bar).padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
-                        .background(look.bar.opacity(Metrics.Opacity.wash), in: .capsule)
+                    HStack(spacing: Metrics.Spacing.xs) {
+                        Text("Open \(network)")
+                        Glyph(.open, size: 14)
+                    }
+                    .font(.heading)
+                    .foregroundStyle(look.bar).padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+                    .background(look.bar.opacity(Metrics.Opacity.wash), in: .capsule)
                 }
             }
             .frame(minHeight: Metrics.tapTarget).contentShape(.rect)

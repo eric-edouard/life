@@ -69,15 +69,16 @@ struct ThreadView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if shown.count < thread.entries.count {
-                        Button("Show earlier") {
+                        Button {
                             // What was at the top stays where it is: the older entries grow above it.
                             let top = shown.first?.id
                             showsEarlier = true
                             seenRows = 0
                             if let top { Task { proxy.scrollTo(top, anchor: .top) } }
+                        } label: {
+                            TintPill(title: "Show earlier")
                         }
-                        .font(.heading).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
-                        .frame(minHeight: Metrics.tapTarget)
+                        .buttonStyle(.plain).frame(maxWidth: .infinity).frame(minHeight: Metrics.tapTarget)
                     }
                     let all = rows
                     ForEach(Array(all.enumerated()), id: \.element.id) { i, row in
@@ -159,6 +160,14 @@ struct ThreadView: View {
             } action: { _, _ in
                 if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) }
             }
+            // An ask he opens is brought fully into view above the field, once it has unfolded.
+            .onChange(of: life.opened) {
+                guard let ref = life.opened else { return }
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    Motion.animate { proxy.scrollTo(ref, anchor: .bottom) }
+                }
+            }
             .onChange(of: life.focused) {
                 guard let ref = life.focused else { return }
                 // On screen already: scroll to its row (it unfolds itself); else it was brought to the bottom.
@@ -181,6 +190,7 @@ private struct EntryView: View {
     let actions: BlockActions
     private static let reactions = Reaction.rating.map(\.rawValue)
     @Environment(LifeStore.self) private var life
+    @State private var showsReactions = false
 
     /// The handed work still running: its pie fills with the time it has taken against its kind's median.
     private var underWay: [ThreadWireEntry.Handed] { (entry.handed ?? []).filter { $0.state == .underWay } }
@@ -194,12 +204,12 @@ private struct EntryView: View {
         return (progress, progress < 0.1 ? "About \(minutes) min" : "About \(minutes) min left")
     }
 
-    private func icon(of work: ThreadWireEntry.Handed) -> String {
+    private func icon(of work: ThreadWireEntry.Handed) -> Glyph.Mark {
         switch work.kind {
-        case .booking: "calendar"
-        case .lookup, .research: "magnifyingglass"
-        case .reply, .redraft: "bubble.left"
-        case .other, .unknown: "circle.dashed"
+        case .booking: .calendar
+        case .lookup, .research: .pin
+        case .reply, .redraft: .bubble
+        case .other, .unknown: .doc
         }
     }
 
@@ -228,11 +238,16 @@ private struct EntryView: View {
                 .motion(Motion.standard, value: live.step?.verb ?? (live.parts.isEmpty ? "thinking" : ""))
             } else if let answer = entry.answer {
                 AnswerView(parts: AnswerPart.parts(of: answer, sent: Set(entry.checked)), actions: actions)
-                    .contextMenu {
-                        ForEach(Self.reactions, id: \.self) { e in
-                            Button(e) { Task { await thread.react(entry.id, with: e) } }
-                        }
+                    // A hold of 450 ms or a double tap: the three marks in a glass bar (the prototype's).
+                    .onLongPressGesture(minimumDuration: 0.45) { Motion.animate { showsReactions = true } }
+                    .onTapGesture(count: 2) { Motion.animate { showsReactions = true } }
+                if showsReactions {
+                    ReactionBar(reactions: Self.reactions) { e in
+                        Motion.animate { showsReactions = false }
+                        Task { await thread.react(entry.id, with: e) }
                     }
+                    .transition(Motion.appears)
+                }
                 if let mine = entry.ownerReaction.flatMap(Reaction.init(rawValue:)) { ReactionMark(reaction: mine) }
                 ForEach(underWay, id: \.since) { work in
                     let (progress, estimate) = line(of: work)
@@ -242,7 +257,7 @@ private struct EntryView: View {
                     ) { EmptyView() }
                 }
             } else if entry.phase == .failed {
-                Text("I couldn't answer that.").foregroundStyle(Palette.muted)
+                Text(entry.failure).foregroundStyle(Palette.muted)
             } else if entry.phase == .stopped {
                 Text("Stopped").font(.line).foregroundStyle(Palette.muted)
             }

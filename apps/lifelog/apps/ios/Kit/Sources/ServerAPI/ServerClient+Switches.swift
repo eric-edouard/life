@@ -22,7 +22,7 @@ extension ServerClient {
 
         public init(
             transcription: Bool, ai: Bool, engine: Engine = .claude, openAppAfterMinutes: Int,
-            dictationHeard: DictationHeard = .mac
+            dictationHeard: DictationHeard = .instant
         ) {
             self.transcription = transcription
             self.ai = ai

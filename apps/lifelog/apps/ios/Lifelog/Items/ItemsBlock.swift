@@ -38,7 +38,10 @@ struct ItemsBlock: View {
             }
         } else {
             VStack(spacing: Metrics.Spacing.xs) {
-                ForEach(asks) { ItemRow(ask: $0, isOnTheirMatter: isOnTheirMatter) }
+                // A single ask in an answer arrives unfolded.
+                ForEach(asks) {
+                    ItemRow(ask: $0, isOnTheirMatter: isOnTheirMatter, startsOpen: asks.count == 1 && $0.isAnswerable)
+                }
             }
         }
     }

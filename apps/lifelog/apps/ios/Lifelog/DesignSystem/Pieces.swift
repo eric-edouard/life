@@ -102,8 +102,11 @@ struct TextLink: View {
 
     /// The link's look, for a system link that navigates itself (`NavigationLink`).
     static func label(_ title: String, to goes: Goes) -> some View {
-        Text("\(title) \(Image(systemName: goes == .page ? "chevron.right" : "arrow.up.right"))")
-            .font(.heading).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
+        HStack(spacing: Metrics.Spacing.xs) {
+            Text(title)
+            if goes == .page { Image(systemName: "chevron.right") } else { Glyph(.open, size: 14) }
+        }
+        .font(.heading).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
     }
 }
 
@@ -843,5 +846,38 @@ extension View {
     /// column): it fills a narrow container and stops growing in a wide one.
     func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
+    }
+}
+
+/// A quiet pill on the thread ("Show earlier"): muted words on the tint, 32 high.
+struct TintPill: View {
+    let title: String
+
+    var body: some View {
+        Text(title).font(.heading).foregroundStyle(Palette.muted)
+            .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+            .background(Palette.tint, in: .capsule)
+    }
+}
+
+/// The reactions to an entry in a glass bar (the prototype's), each mark 40 square.
+struct ReactionBar: View {
+    let reactions: [String]
+    let pick: (String) -> Void
+
+    var body: some View {
+        GlassEffectContainer {
+            HStack(spacing: 0) {
+                ForEach(reactions, id: \.self) { e in
+                    Button {
+                        pick(e)
+                    } label: {
+                        Text(e).font(.heading).saturation(0).frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain).accessibilityLabel(e)
+                }
+            }
+            .padding(.horizontal, Metrics.Spacing.xs).glassEffect(.regular, in: .capsule)
+        }
     }
 }

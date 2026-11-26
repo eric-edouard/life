@@ -105,7 +105,7 @@
         var answers: [Answer] = []
         /// What his round button's ask brings back: an answer holding an `items` block of these asks.
         var items: [String] = []
-        /// The answer's words before its block (`life:` links to open a page from); "It waits on you." by default.
+        /// The answer's words before its block (`life:` links to open a page from); by default a line that counts the asks ("Five things wait on you:").
         var text: String?
         /// Seconds between the lines of that answer, which then comes as it is written: a step, its words a few at a time,
         /// then its block (for watching motion).
@@ -113,6 +113,16 @@
     }
 
     nonisolated final class FakeLife: URLProtocol, @unchecked Sendable {
+        /// Life's lead line over its asks: it counts them (the lab's "Five things wait on you:").
+        static func lead(counting count: Int) -> String {
+            guard count > 1 else { return "It waits on you." }
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .spellOut
+            formatter.locale = Locale(identifier: "en")
+            let number = formatter.string(from: NSNumber(value: count)) ?? "\(count)"
+            return "\(number.prefix(1).uppercased() + number.dropFirst()) things wait on you:"
+        }
+
         struct Held {
             let scenario: E2EScenario
             let fixtures: URL
@@ -379,11 +389,12 @@
                         + (String(
                             decoding: (try? JSONSerialization.data(withJSONObject: held.scenario.items)) ?? Data(),
                             as: UTF8.self)) + "\n```"
-                let text = (held.scenario.text ?? "It waits on you.") + blocks
+                let lead = held.scenario.text ?? Self.lead(counting: held.scenario.items.count)
+                let text = lead + blocks
                 let reply: [String: Any] = [
                     "kind": "reply", "entry": 1, "text": text, "refs": held.scenario.items, "acts": [],
                 ]
-                let spokenWords = (held.scenario.text ?? "It waits on you.").split(separator: " ").map(String.init)
+                let spokenWords = lead.split(separator: " ").map(String.init)
                 let spoken: [[String: Any]] =
                     held.scenario.pace == nil
                     ? []

@@ -30,6 +30,8 @@ struct DictationField: View {
     /// Whether a run is under way, for the edge's lights.
     var listening: Binding<Bool>?
     var cancelled: ((String) -> Void)?
+    /// Ask Life's card while Life works: the field is off and its keys are one Stop.
+    var stop: (() -> Void)?
 
     @Environment(\.library) private var library
     @Environment(SyncStore.self) private var sync
@@ -42,7 +44,6 @@ struct DictationField: View {
     /// The text and caret when the run started: the keyboard goes away while he speaks, and the words land there
     /// (at the end when the text changed since).
     @State private var caret: (text: String, selection: TextSelection?)?
-    @State private var isHolding = false
     private let live = LiveWords.shared
 
     var body: some View {
@@ -109,25 +110,21 @@ struct DictationField: View {
                 // The cross belongs to listening: the idle field is one capsule (the prototype's `idleField`).
                 if dictation.phase != .rest {
                     Button(action: cancel) {
-                        Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                            .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
+                        Glyph(.close, size: 16).foregroundStyle(Palette.muted)
                             .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
                     }
                     .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
                 }
                 Group {
-                    if dictation.phase == .rest {
-                        Color.clear
-                    } else if isHolding {
-                        Text("Slide up to send").font(.line).foregroundStyle(Palette.muted)
-                    } else {
-                        DictationStream(dictation: dictation)
-                    }
+                    if dictation.phase == .rest { Color.clear } else { DictationStream(dictation: dictation) }
                 }
                 .frame(maxWidth: .infinity)
-                DictationKeys(
-                    dictation: dictation, hasWords: hasWords, send: send, start: start, isCard: true,
-                    isHolding: $isHolding)
+                if let stop {
+                    StopKey(stop: stop)
+                } else {
+                    DictationKeys(
+                        dictation: dictation, hasWords: hasWords, send: send, start: start, isCard: true)
+                }
             }
             .frame(height: 56)
         }
@@ -140,7 +137,7 @@ struct DictationField: View {
             let (head, tail) = DictatedText.parts(in: text, at: keptCaret)
             LiveWordsText(head: head, words: live.words, tail: tail).lineLimit(5).truncationMode(.head)
         } else if text.isEmpty {
-            Text(dictation.phase == .writing ? "Writing…" : "Listening…").foregroundStyle(Palette.muted)
+            EmptyView()
         } else {
             Text(text).lineLimit(5).truncationMode(.head)
         }
@@ -161,7 +158,7 @@ struct DictationField: View {
 
     @ViewBuilder private var field: some View {
         let field = TextField(prompt, text: $text, selection: $selection, axis: axis).tint(Palette.fg)
-            .accessibilityLabel(label ?? prompt)
+            .accessibilityLabel(label ?? prompt).disabled(stop != nil)
         if let focused { field.focused(focused) } else { field }
     }
 
@@ -227,17 +224,14 @@ private struct DictationKeys: View {
     let send: (() -> Void)?
     let start: () -> Void
     var isCard = false
-    /// The press's hold, for the card's "Slide up to send" in the meter's place.
-    var isHolding: Binding<Bool>?
 
     @State private var press: DictationPress
 
     init(
-        dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void, isCard: Bool = false,
-        isHolding: Binding<Bool>? = nil
+        dictation: Dictation, hasWords: Bool, send: (() -> Void)?, start: @escaping () -> Void, isCard: Bool = false
     ) {
         (self.dictation, self.hasWords, self.send, self.start) = (dictation, hasWords, send, start)
-        (self.isCard, self.isHolding) = (isCard, isHolding)
+        self.isCard = isCard
         _press = State(initialValue: DictationPress(canSend: send != nil))
     }
 
@@ -253,7 +247,6 @@ private struct DictationKeys: View {
                 }
             }
         }
-        .onChange(of: press.isHolding) { _, holding in isHolding?.wrappedValue = holding }
     }
 
     private var isRunning: Bool { dictation.phase == .starting || dictation.phase == .listening }
@@ -274,8 +267,7 @@ private struct SendKey: View {
                 if dictation.isSending {
                     Spinner(size: .small).foregroundStyle(Palette.on)
                 } else {
-                    Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isOn ? Palette.on : Palette.muted)
+                    Glyph(.send).foregroundStyle(isOn ? Palette.on : Palette.muted)
                 }
             }
             .frame(width: 36, height: 36)
@@ -289,6 +281,20 @@ private struct SendKey: View {
     }
 
     private var isOn: Bool { isLit || dictation.isSending }
+}
+
+/// Stop, while Life works: one solid `fg` disc with a square in it, in the place of the keys.
+private struct StopKey: View {
+    let stop: () -> Void
+
+    var body: some View {
+        Button(action: stop) {
+            Glyph(.stop, size: 14).foregroundStyle(Palette.on).frame(width: 36, height: 36)
+                .glassEffect(.regular.tint(Palette.fg).interactive(), in: .circle)
+                .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+        }
+        .buttonStyle(.plain).accessibilityLabel("Stop")
+    }
 }
 
 /// The microphone: a 36 disc of clear glass (`.interactive()`, the system's press). At rest the microphone (slashed and
@@ -358,24 +364,23 @@ private struct DictationMic: View {
 
     private var glass: Glass {
         if press.isArmed || flight != nil { return .regular.tint(Palette.fg).interactive() }
-        return isRunning ? .regular.tint(Palette.ai).interactive() : .regular.interactive()
+        return isRunning ? .regular.tint(Palette.fg).interactive() : .regular.interactive()
     }
 
     @ViewBuilder private var glyph: some View {
         if press.isArmed || flight != nil {
-            Image(systemName: "arrow.up").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.on)
+            Glyph(.send).foregroundStyle(Palette.on)
         } else {
             switch dictation.phase {
             case .writing where !dictation.isSending: Spinner(size: .small).foregroundStyle(Palette.fg)
             case .starting, .listening:
                 if isCard {
-                    Image(systemName: "stop.fill").font(.system(size: 14)).foregroundStyle(Palette.on)
+                    Glyph(.stop, size: 14).foregroundStyle(Palette.on)
                 } else {
                     VoiceMark(level: dictation.levels.last ?? 0)
                 }
             case .rest, .writing:
-                Image(systemName: dictation.isRefused ? "mic.slash" : "mic").font(.system(size: 17))
-                    .foregroundStyle(dictation.isRefused || dictation.isSending ? Palette.muted : Palette.fg)
+                Glyph(.mic).foregroundStyle(dictation.isRefused || dictation.isSending ? Palette.muted : Palette.fg)
             }
         }
     }
@@ -449,8 +454,7 @@ private struct ListeningLine: View {
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
             Button(action: dictation.cancel) {
-                Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                    .frame(width: 28, height: 28).background(Palette.tint, in: .circle)
+                Glyph(.close, size: 16).foregroundStyle(Palette.muted)
                     .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
             }
             .buttonStyle(.plain)

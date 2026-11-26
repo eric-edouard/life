@@ -36,6 +36,14 @@ public struct ThreadEntry: Identifiable, Equatable, Sendable, Codable {
     /// His words were a tap on a quick edit (a draft's chip): `edit:tap`, not `edit:words`.
     public var tap: Bool?
     public var why: String?
+    /// Why it failed, in plain words: the server's own line names settings and ports, so the ones it is known to send
+    /// are said as he would.
+    public var failure: String {
+        guard let why, !why.isEmpty else { return "I couldn't answer that." }
+        if why.hasPrefix("Desk is off") { return "Life's agents are off, so nothing can answer yet." }
+        if why.hasPrefix("Life's desk") { return "Life's agents did not answer. Try again in a moment." }
+        return why
+    }
     /// The entry of his ask this one is a late reply to (an agent's), from Life's record.
     public var follows: Int?
     /// Work handed on from it, and every reaction on it, from Life's record.

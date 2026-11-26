@@ -210,6 +210,7 @@ targets:
     sources:
       - NotificationContent
       - Lifelog/DesignSystem/DraftBlock.swift
+      - Lifelog/DesignSystem/Glyphs.swift
       - Lifelog/DesignSystem/Motion.swift
       - Lifelog/DesignSystem/Typography.swift
       - Lifelog/DesignSystem/NetworkMark.swift

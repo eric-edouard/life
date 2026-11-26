@@ -103,36 +103,38 @@ struct HisBubble: View {
 
     var body: some View {
         Button(action: retry) {
-            HStack(spacing: Metrics.Spacing.xs) {
-                if state == .waiting {
-                    Image(systemName: "clock").font(.line).accessibilityLabel("Goes when you're back")
-                }
-                Text(words)
-            }
-            .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s)
-            .foregroundStyle(Palette.fg)
-            .background(
-                Palette.tint,
-                in: UnevenRoundedRectangle(
-                    topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
-                    bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
-            )
+            Text(words)
+                .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s)
+                .foregroundStyle(Palette.fg)
+                .background(
+                    Palette.tint,
+                    in: UnevenRoundedRectangle(
+                        topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
+                        bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
+                )
         }
         .buttonStyle(.plain).disabled(state != .failed)
         .overlay(alignment: .bottomLeading) {
             if let reaction {
                 ReactionMark(reaction: reaction).frame(width: mark, height: mark)
                     .background(Palette.card, in: .circle).offset(x: -Metrics.Spacing.s, y: mark / 2)
-            } else if state == .failed {
-                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Palette.flag).offset(
-                    x: -Metrics.Spacing.s, y: Metrics.Spacing.s
-                )
-                .accessibilityLabel("Not sent. Tap to try again")
             }
         }
+        .accessibilityHint(state == .failed ? "Not sent. Tap to try again" : "")
         // Half the mark hangs below the bubble: the rows under it start past it.
         .padding(.bottom, reaction == nil ? 0 : mark / 2 + Metrics.Spacing.xs)
         .frame(maxWidth: width, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.bottom, state == .waiting ? Metrics.Spacing.l : 0)
+        .overlay(alignment: .bottomTrailing) {
+            // Under the bubble, as the prototype's `.q`: a clock and when it goes.
+            if state == .waiting {
+                HStack(spacing: Metrics.Spacing.xs) {
+                    Glyph(.clock, size: 13)
+                    Text("when you're back")
+                }
+                .font(.meta).foregroundStyle(Palette.muted)
+            }
+        }
     }
 }
 
@@ -207,7 +209,7 @@ enum ItemFace: Equatable {
 struct ThreadItemRow<Detail: View>: View {
     let title: String
     let state: ItemState
-    var icon = "circle.dashed"
+    var icon = Glyph.Mark.doc
     /// A person's face, when someone asks; the `icon` mark otherwise.
     var face: ItemFace?
     /// What the row says under its title: "Jade · today", "Later · 9:00", why it went out of date.
@@ -215,6 +217,8 @@ struct ThreadItemRow<Detail: View>: View {
     var isOpen = false
     /// The ask's ref, when the row is a live ask: the end-to-end tests find its controls by it (`AID`).
     var ref: String?
+    /// Puts a task off without opening it; nil on a row that has no such tap.
+    var later: (() -> Void)?
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
     /// The disc grows with the text size, so a mark or an initial stays inside it.
@@ -223,26 +227,40 @@ struct ThreadItemRow<Detail: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-            Button(action: toggle) {
-                HStack(spacing: Metrics.Spacing.m) {
-                    faceView
-                    VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
-                        Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
-                        lineView
+            HStack(spacing: Metrics.Spacing.s) {
+                Button(action: toggle) {
+                    HStack(spacing: Metrics.Spacing.m) {
+                        faceView
+                        VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
+                            Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
+                            lineView
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        // A long title wraps before the fold button, never under it.
+                        .padding(.trailing, isOpen ? Metrics.tapTarget : 0)
+                        Spacer(minLength: 0)
                     }
-                    .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    mark
+                    .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
                 }
-                .frame(minHeight: Metrics.tapTarget).contentShape(.rect)
+                .buttonStyle(.plain).identified(ref.map(AID.askRow))
+                .accessibilityValue(state == .stopped ? "Stopped" : "")
+                if state == .queued, let ref {
+                    Color.clear.frame(width: 1, height: 1).accessibilityLabel("Goes when Life is back")
+                        .accessibilityIdentifier(AID.askQueued(ref))
+                }
+                // A task's row puts it off in one tap, 32 high (the prototype's `.lt`).
+                if let later, !isOpen {
+                    Button("Later", action: later).font(.heading).foregroundStyle(Palette.muted)
+                        .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+                        .background(Palette.tint, in: .capsule).buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain).identified(ref.map(AID.askRow))
             if isOpen { detail }
         }
         .overlay(alignment: .topTrailing) {
             if isOpen {
                 Button(action: toggle) {
-                    Image(systemName: "chevron.up").font(.lineStrong).foregroundStyle(Palette.muted)
+                    Glyph(.fold, size: 16).foregroundStyle(Palette.muted)
                         .frame(width: Metrics.tapTarget * 0.7, height: Metrics.tapTarget * 0.7)
                         .background(Palette.tint, in: .circle)
                 }
@@ -263,7 +281,7 @@ struct ThreadItemRow<Detail: View>: View {
             case .party(let party): Face(party: party, size: size)
             case .initial(let letter):
                 Text(letter.uppercased()).font(isOpen ? .header : .rowTitle).foregroundStyle(Palette.muted)
-            case nil: Image(systemName: icon).font(isOpen ? .header : .rowTitle).foregroundStyle(Palette.muted)
+            case nil: Glyph(icon, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             }
         }
         .frame(width: size, height: size).background(Palette.tint, in: .circle).accessibilityHidden(true)
@@ -278,7 +296,7 @@ struct ThreadItemRow<Detail: View>: View {
             }
         case .undone(let outcome):
             HStack(spacing: Metrics.Spacing.xs) {
-                Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)
+                Glyph(.tick, size: 13).foregroundStyle(Palette.ok)
                 Text(outcome).font(.line).foregroundStyle(Palette.muted)
             }
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
@@ -289,7 +307,7 @@ struct ThreadItemRow<Detail: View>: View {
             }
         case .settled:
             HStack(spacing: Metrics.Spacing.xs) {
-                Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)
+                Glyph(.tick, size: 13).foregroundStyle(Palette.ok)
                     .accessibilityLabel("Settled").identified(ref.map(AID.askSettled))
                 if let line { Text(line).font(.line).foregroundStyle(Palette.muted) }
             }
@@ -305,21 +323,6 @@ struct ThreadItemRow<Detail: View>: View {
             return Text("\(all)\(i > 0 ? Text(" · ") : Text(verbatim: ""))\(piece)")
         }
     }
-
-    @ViewBuilder private var mark: some View {
-        markFace.id(state.kind).transition(Motion.fade)
-    }
-
-    @ViewBuilder private var markFace: some View {
-        switch state {
-        case .queued:
-            Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel(
-                "Goes when Life is back"
-            ).identified(ref.map(AID.askQueued))
-        case .stopped: Image(systemName: "stop.circle").foregroundStyle(Palette.muted).accessibilityLabel("Stopped")
-        default: EmptyView()
-        }
-    }
 }
 
 /// One quiet line over asks that were held (a meeting, a Focus, Sleep): "While you were in your meeting". Words only.
@@ -327,7 +330,7 @@ struct HeldSeparator: View {
     let text: String
 
     var body: some View {
-        Text(text).font(.meta).foregroundStyle(Palette.faint).multilineTextAlignment(.center).frame(
+        Text(text).font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center).frame(
             maxWidth: .infinity)
     }
 }
@@ -348,6 +351,7 @@ struct SentLine: View {
             switch phase {
             case .sent(let canUndo, let until):
                 HStack(spacing: Metrics.Spacing.xs) {
+                    Glyph(.tick, size: 13).foregroundStyle(Palette.ok)
                     Text(to.map { "Sent to \($0)" } ?? "Sent").font(.line).foregroundStyle(Palette.muted)
                     if canUndo {
                         Button(until.map { "Undo until \($0)" } ?? "Undo", action: undo).font(.lineStrong)
@@ -357,8 +361,9 @@ struct SentLine: View {
             case .confirming(let warning):
                 Text(warning).font(.line).foregroundStyle(Palette.muted)
                 HStack(spacing: Metrics.Spacing.s) {
-                    Button("Delete", action: undo).buttonStyle(.pill(.filled, size: .compact)).identified(undoID)
-                    Button("Keep", action: keep).buttonStyle(.pill(.quiet, size: .compact))
+                    Button("Delete for both", action: undo).buttonStyle(.pill(.filled, size: .compact)).identified(
+                        undoID)
+                    Button("Keep it", action: keep).buttonStyle(.pill(.quiet, size: .compact))
                 }
             case .undoing:
                 HStack(spacing: Metrics.Spacing.s) {
@@ -367,7 +372,7 @@ struct SentLine: View {
                 }
             case .undone:
                 HStack(spacing: Metrics.Spacing.xs) {
-                    Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)
+                    Glyph(.tick, size: 13).foregroundStyle(Palette.ok)
                     Text("Deleted for both of you").font(.line).foregroundStyle(Palette.muted)
                 }
             }
@@ -404,7 +409,7 @@ struct RatingRow: View {
             }
             if picked == nil {
                 Button(action: close) {
-                    Image(systemName: "xmark").font(.line).foregroundStyle(Palette.faint).frame(
+                    Glyph(.close, size: 14).foregroundStyle(Palette.faint).frame(
                         width: Metrics.ratingMark, height: Metrics.tapTarget)
                 }
                 .accessibilityLabel("Close")
@@ -429,7 +434,9 @@ private struct OptionalID: ViewModifier {
 struct NoticeBlock<Detail: View>: View {
     let title: String
     var message: String?
-    var symbol = "exclamationmark.circle"
+    /// The trouble is over: a green tick leads its line (the notice settles where it stood).
+    var isSettled = false
+    var mark: Glyph.Mark?
     var isOpen = false
     var toggle: () -> Void = {}
     /// The tests' handle (`AID`), on the tap itself.
@@ -442,12 +449,20 @@ struct NoticeBlock<Detail: View>: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             Button(action: toggle) {
                 HStack(spacing: Metrics.Spacing.m) {
-                    Image(systemName: symbol).font(.rowTitle).foregroundStyle(Palette.muted)
-                        .frame(width: disc, height: disc).background(Palette.tint, in: .circle)
-                        .accessibilityHidden(true)
+                    Group {
+                        if let mark { Glyph(mark, size: 20) } else { Image(systemName: "exclamationmark.circle") }
+                    }
+                    .font(.rowTitle).foregroundStyle(Palette.muted)
+                    .frame(width: disc, height: disc).background(Palette.tint, in: .circle)
+                    .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
                         Text(title).font(.rowTitle).multilineTextAlignment(.leading)
-                        if let message { Text(message).font(.line).foregroundStyle(Palette.muted) }
+                        if let message {
+                            HStack(spacing: Metrics.Spacing.xs) {
+                                if isSettled { Glyph(.tick, size: 13).foregroundStyle(Palette.ok) }
+                                Text(message).font(.line).foregroundStyle(Palette.muted)
+                            }
+                        }
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -462,30 +477,7 @@ struct NoticeBlock<Detail: View>: View {
 }
 
 extension NoticeBlock where Detail == EmptyView {
-    init(title: String, message: String? = nil, symbol: String = "exclamationmark.circle") {
-        self.init(title: title, message: message, symbol: symbol, detail: { EmptyView() })
-    }
-}
-
-/// A round control over the thread: one mark on Life's `glass` fill, no rim.
-struct RoundButton: View {
-    let symbol: String
-    let label: String
-    var badge: Int?
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.bodyStrong).frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
-                .background(Palette.glass, in: .circle)
-        }
-        .buttonStyle(.plain).accessibilityLabel(label)
-        .overlay(alignment: .topTrailing) {
-            if let badge {
-                Text("\(badge)").font(.metaStrong).foregroundStyle(Palette.on).padding(.horizontal, Metrics.Spacing.xs)
-                    .frame(minWidth: Metrics.pie)
-                    .background(Palette.flag, in: .capsule).accessibilityHidden(true)
-            }
-        }
+    init(title: String, message: String? = nil, isSettled: Bool = false, mark: Glyph.Mark? = nil) {
+        self.init(title: title, message: message, isSettled: isSettled, mark: mark) { EmptyView() }
     }
 }

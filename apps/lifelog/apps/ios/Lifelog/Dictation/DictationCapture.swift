@@ -75,7 +75,7 @@ final class DictationCapture {
             try Task.checkCancellation()
             guard ContinuousClock.now < opened + cap else { throw Failure.tooLate }
             capture.lease = try AudioSessionOwner.shared.take(.recording) { [weak capture] in capture?.stopOnItsOwn() }
-            capture.isInstant = sync?.switches?.dictationHeard == .instant
+            capture.isInstant = sync?.switches?.dictationHeard != .mac
             if capture.isInstant {
                 capture.mic.onSamples = { LiveWords.shared.feed($0) }
                 LiveWords.shared.begin { try await ServerClient.production.liveWordsToken() }

@@ -92,7 +92,7 @@ struct NeedRows: View {
                         .buttonStyle(.plain).accessibilityLabel(label)
                     case .open(let url, let label)?:
                         Link(destination: url) {
-                            Image(systemName: "arrow.up.right").font(.line).foregroundStyle(Palette.muted)
+                            Glyph(.open, size: 16).foregroundStyle(Palette.muted)
                                 .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
                         }
                         .accessibilityLabel(label)
@@ -116,6 +116,22 @@ struct NeedRows: View {
         case .link: "link"
         case .note: "text.alignleft"
         }
+    }
+}
+
+/// The amount to pay, large (the original prototype's payment box).
+struct AmountBox: View {
+    let text: String
+
+    var body: some View {
+        // "240 EUR": the number large, its currency small beside it.
+        let parts = text.split(separator: " ", maxSplits: 1).map(String.init)
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.Spacing.xs) {
+            Text(parts.first ?? text).font(.profileName)
+            if parts.count > 1 { Text(parts[1]).font(.line).foregroundStyle(Palette.muted) }
+        }
+        .padding(Metrics.Spacing.l).frame(maxWidth: .infinity)
+        .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.block))
     }
 }
 
@@ -170,7 +186,11 @@ struct EventBox: View {
         let reminders =
             rows.first { $0.text.hasPrefix("Reminders: ") }
             .map { $0.text.dropFirst("Reminders: ".count).components(separatedBy: ", ") } ?? []
-        let rest = rows.filter { !$0.text.hasPrefix("Reminders: ") }
+        // Every fact once: a line another line already says (the place in the time line) is not drawn again, and the
+        // title carries no raw date.
+        let lines = rows.filter { !$0.text.hasPrefix("Reminders: ") }
+        let rest = lines.enumerated().filter { i, row in !lines[..<i].contains { $0.text.contains(row.text) } }
+            .map { i, row in i == 0 ? NeedRow(glyph: row.glyph, text: row.text.withoutRawDate) : row }
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             ForEach(Array(rest.enumerated()), id: \.offset) { index, row in
                 Text(row.text).font(index == 0 ? .rowTitle : .line).foregroundStyle(

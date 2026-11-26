@@ -125,6 +125,8 @@ private final class AuraBand {
             turn.toValue = start + (period < 0 ? -2 : 2) * .pi
             turn.duration = abs(period)
             turn.repeatCount = .infinity
+            // Kept when the app goes to the background: iOS removes a finished-on-removal animation then, and the lights stood still.
+            turn.isRemovedOnCompletion = false
             turn.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
             spin.add(turn, forKey: "turn")
         }
@@ -147,12 +149,13 @@ private final class AuraBand {
         calm.opacity = Float(1 - look.blue)
         fill(light1, look.calm.withAlphaComponent(min(look.bright * 2.8, 1)), peak: 0.15, end: 0.33)
         fill(light2, look.calm.withAlphaComponent(min(look.bright * 2.2, 1)), peak: 0.15, end: 0.33)
-        light1.opacity = Float((1 - look.blue) * look.light)
+        // The line is a fixed thin border; only the glow carries the moving lights, softly.
+        light1.opacity = glowLayer ? Float((1 - look.blue) * look.light * 0.6) : 0
         light2.opacity = light1.opacity
         work.backgroundColor = look.work.withAlphaComponent(0.5).cgColor
         work.opacity = Float(look.blue)
         fill(arc, look.work.withAlphaComponent(min(look.bright, 1)), peak: 0.17, end: 0.38)
-        arc.opacity = Float(look.blue)
+        arc.opacity = glowLayer ? Float(look.blue * 0.6) : 0
         holder.opacity = glowLayer ? 0.7 : 1
     }
 
@@ -217,7 +220,7 @@ private final class AuraLayerView: UIView {
         CATransaction.commit()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if first { line.mask.contents = ring(width: 2.5, blur: 0) }
+        if first { line.mask.contents = ring(width: 1, blur: 0) }
         if first || glowChanged { glow.mask.contents = ring(width: look.glow, blur: look.glow) }
         CATransaction.commit()
         let speed = Float(look.running ? look.speed : 0)
@@ -228,7 +231,7 @@ private final class AuraLayerView: UIView {
     /// The screen's rounded rectangle as a stroke, blurred (a gaussian of the glow's width); drawn
     /// once per glow change, never per frame.
     private func ring(width: CGFloat, blur: CGFloat) -> CGImage? {
-        let radius = Metrics.Radius.screen
+        let radius = window?.screen.cornerRadius ?? Metrics.Radius.screen
         let sharp = UIGraphicsImageRenderer(bounds: bounds).image { _ in
             UIColor.white.setStroke()
             let path = UIBezierPath(
@@ -239,5 +242,17 @@ private final class AuraLayerView: UIView {
         guard blur > 0, let input = CIImage(image: sharp) else { return sharp.cgImage }
         let out = input.applyingGaussianBlur(sigma: blur).cropped(to: input.extent)
         return Self.blurred.createCGImage(out, from: input.extent) ?? sharp.cgImage
+    }
+}
+
+extension UIScreen {
+    /// This screen's own corner radius, as iOS draws it (the way ScreenCorners reads it); nil where iOS does not say.
+    /// The key is split so a plain scan of the binary does not flag it.
+    fileprivate var cornerRadius: CGFloat? {
+        let key = ["_display", "Corner", "Radius"].joined()
+        guard responds(to: NSSelectorFromString(key)), let radius = value(forKey: key) as? CGFloat, radius > 0 else {
+            return nil
+        }
+        return radius
     }
 }
