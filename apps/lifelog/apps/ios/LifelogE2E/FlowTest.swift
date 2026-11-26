@@ -168,11 +168,11 @@ class FlowTest: XCTestCase {
             return true  // recorded on the board, never a failed flow
         }
         let window = app.windows.firstMatch.frame
-        let shot: [String: Any] = [
+        let written: [String: Any] = [
             "nodes": nodes, "audit": audit,
             "window": ["x": window.minX, "y": window.minY, "width": window.width, "height": window.height],
         ]
-        try? JSONSerialization.data(withJSONObject: shot).write(to: out.appending(path: "\(row).json"))
+        try? JSONSerialization.data(withJSONObject: written).write(to: out.appending(path: "\(row).json"))
     }
 
     /// Every call the app made to a fake Life, in order.

@@ -325,14 +325,14 @@ const signatureOf = (r: BoardRow) =>
     r.a11y?.length,
   ]);
 
-/** Green: a pair the app reached, every column it has passing (a review of 8 or more, his word never "not right"). */
+/** Green: a pair the app reached in a flow that passed, every column it has passing (a review of 8 or more, his word never "not right"). */
 export const greenOf = (r: Omit<BoardRow, "changed" | "green" | "pair">) =>
   r.status === "filled" &&
   r.a11y !== null &&
   r.a11y.length === 0 &&
   r.review !== null &&
   r.review.score >= LOOKS_PASS &&
-  r.works !== false &&
+  r.works === true &&
   (!r.taps || (r.taps.app !== null && r.taps.app <= r.taps.proto)) &&
   r.owner?.verdict !== "not right";
 
@@ -413,7 +413,8 @@ export function withReviews(
       return r;
     }
     const next = { ...r, review: { ...review, of: r.pair } };
-    return { ...next, changed: true, green: greenOf(next) };
+    const isNew = r.review?.score !== review.score;
+    return { ...next, changed: r.changed || isNew, green: greenOf(next) };
   });
 }
 

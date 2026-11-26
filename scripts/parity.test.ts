@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { greenOf } from "./parity";
 
 // Each parity fixture (the prototype's own made-up data) keeps the shape of the fixture it was copied from:
 // every key path it holds exists in that source, so the app's decoders see no new field.
@@ -69,3 +70,25 @@ for (const [name, sources] of Object.entries(SOURCE)) {
     );
   });
 }
+
+test("a row is green only when every column passes", () => {
+  const row = {
+    a11y: [],
+    gaps: [],
+    id: "draft",
+    owner: null,
+    review: { note: "", of: "p", score: 8 },
+    status: "filled" as const,
+    taps: { app: 1, proto: 1 },
+    title: "A draft",
+    works: true,
+  };
+  expect(greenOf(row)).toBe(true);
+  expect(greenOf({ ...row, review: { ...row.review, score: 7 } })).toBe(false);
+  expect(greenOf({ ...row, works: null })).toBe(false);
+  expect(greenOf({ ...row, taps: { app: 2, proto: 1 } })).toBe(false);
+  expect(greenOf({ ...row, a11y: ["contrast"] })).toBe(false);
+  expect(greenOf({ ...row, owner: { verdict: "not right" as const } })).toBe(
+    false
+  );
+});
