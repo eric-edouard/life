@@ -5,6 +5,7 @@ import { agentOf, assignmentOf } from "../host/desk-read";
 import type { Desk } from "./desk-store";
 import { queue } from "./event-queue";
 import { checkedTextOf } from "./main-session-lines";
+import { blankDeletedThreadEntries } from "./thread-deletions";
 
 // The main session's question to an agent about its matter (agents together, his yes of 25 Nov 2026): the agent's
 // side. One turn at once (`main_question`, woken like his answer), his words read at the door as data
@@ -47,6 +48,8 @@ const waitersOf = (db: Desk["db"]) => {
  * not count.
  */
 function questionRowOf(db: Desk["db"], id: string) {
+  // His deletion of the entry it was asked from takes it at once, not at the next tick.
+  blankDeletedThreadEntries(db);
   dropExpired(db);
   return db
     .query<QuestionRow, [string]>("select * from main_question where id = ?")
@@ -146,10 +149,11 @@ export async function answerQuestion(
     return { answered: id };
   }
   const checked = q.entry === null ? null : await checkedTextOf(db, text);
-  // The reply's entry and the question's end in one write: a restart between them never loses the reply.
+  // The reply's entry and the question's end in one write: a restart between them never loses the reply, and of two
+  // replies to one question only the first is written.
   db.transaction(() => {
-    done();
-    if (checked?.text) {
+    blankDeletedThreadEntries(db);
+    if (done().changes > 0 && checked?.text) {
       db.run(
         "insert into thread_entry (asked_at, answer, refs, answered_at, follows) select ?1, ?2, ?3, ?1, id from thread_entry where id = ?4 and deleted_at is null",
         [

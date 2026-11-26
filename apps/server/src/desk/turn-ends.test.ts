@@ -228,7 +228,7 @@ test("at the helper's start, the turns a restart cut are closed and their wake i
   // Not closed as not started, nothing dropped or consumed, and due again at once by its own cause.
   expect(assignmentOf(restarted.db, unbegun.s)?.closed_at).toBeNull();
   expect(queuedEvents(restarted.db, begun.s)).toMatchObject([
-    { event_id: "evt_test", handed: 0 },
+    { event_id: "evt_test", handed: 1 },
   ]);
   const s = assignmentOf(restarted.db, begun.s);
   if (!s) {

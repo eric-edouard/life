@@ -597,8 +597,10 @@ async function launch(
   const isOwn = anchorsOf(db, s.id).length === 0;
   const since =
     isOwn && cause === "deadline"
-      ? (lastTurns(db, s.id).find((t) => t.id < turn && t.ended_at)?.ended_at ??
-        undefined)
+      ? (lastTurns(db, s.id).find(
+          // A turn cut by a restart swept nothing: the sweep starts at the turn before it.
+          (t) => t.id < turn && t.ended_at && t.outcome !== "cut"
+        )?.ended_at ?? undefined)
       : undefined;
   try {
     if (!runtime) {

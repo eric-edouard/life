@@ -229,14 +229,8 @@ function close(
     tokensOut: usage?.tokensOut,
     turn: t.id,
   });
+  // A cut keeps what it was handed for the next turn; its begin counted a try, as any begun turn's does.
   if (outcome === "cut") {
-    // Its begin counted a try for what it was handed (`markBegun`): a cut is no try, so it is given back.
-    if (t.begun_at) {
-      db.run(
-        "update event set handed = handed - 1 where assignment_id = ? and received_at <= ? and handed > 0 and consumed_at is null and dropped_at is null",
-        [t.assignment_id, t.started_at]
-      );
-    }
     return true;
   }
   db.run(
@@ -444,7 +438,7 @@ export async function endLostTurns(desk: Desk) {
 /**
  * At the desk helper's start, before its first tick, when it watches and runs nothing: closes every open turn with no
  * outcome (begun or not, whatever its agent's status) as `cut`. It ran under a helper that was stopped, so no run of this
- * process will end it. Not a failure: no retry backoff, nothing dropped, its assignment not closed; the wake it held is
+ * process will end it. Not a failure: no retry backoff, nothing consumed or dropped, its assignment not closed; the wake it held is
  * due again by its own cause (`nextWakeOf`). A CLI of the old helper still exiting holds its session, so the next wake's
  * send is refused (`SessionLive`) and waits: nothing runs twice. A turn with an outcome (a wait set, a reminder held) is
  * `endLostTurns`'s.
@@ -455,7 +449,7 @@ export function endTurnsCutByRestart(desk: Desk) {
       "select * from turn where ended_at is null and outcome is null"
     )
     .all()) {
-    close(desk, t, "cut", undefined);
+    desk.db.transaction(() => close(desk, t, "cut", undefined))();
   }
 }
 
