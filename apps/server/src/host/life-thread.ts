@@ -21,6 +21,7 @@ import { dayNow } from "../memory/zones";
 import { undoOf } from "./answer-result";
 import { readDesk } from "./desk-read";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";
+import { isInboxCheck } from "../memory/check-urgency";
 import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
@@ -193,7 +194,10 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
       deliveryOf(d, now).state === "delivered" &&
       !gone.has(d.id)
   );
-  const open = new Map((await openChecksNow()).map((c) => [c.ref, c]));
+  // An ending check shows on its matter's page, never in the thread or its count (`isInboxCheck`).
+  const open = new Map(
+    (await openChecksNow()).filter(isInboxCheck).map((c) => [c.ref, c])
+  );
   const running = readDesk(
     (db) =>
       runningOf(
@@ -260,7 +264,10 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
               state: itemStateOf({ isOpen: true, later, running: false }),
             };
           })),
-  ].toSorted((a, b) => a.at.localeCompare(b.at));
+  ].toSorted(
+    // What is broken and needs him comes before anything else (docs/product.md): open fix checks lead the page.
+    (a, b) => Number(isFix(b)) - Number(isFix(a)) || a.at.localeCompare(b.at)
+  );
   const version = versionOf(JSON.stringify(items));
   if (o.ifNot === version) {
     return unchangedOf(version);
@@ -272,6 +279,8 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     version,
   };
 }
+
+const isFix = (x: { card?: { group?: string } }) => x.card?.group === "fix";
 
 /** A thread entry's ref, as a deletion names it. */
 export const threadEntryRefOf = (id: number) => `thread:${id}`;

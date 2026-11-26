@@ -282,6 +282,10 @@ export function blockSplitter(on: {
   };
   return {
     end() {
+      if (fence && line) {
+        // The reply's last line, a closing fence with no newline after it, is still pending.
+        take(line);
+      }
       if (fence) {
         on.block({ json: fence.body.join("\n"), kind: fence.kind }, true);
       } else if (line) {
