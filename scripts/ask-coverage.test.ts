@@ -64,13 +64,13 @@ const drawnAs: Record<string, RegExp> = {
   "main-session line: step": /\bStepsLine\(\s*verb:/,
   "main-session line: thinking": /\bStepsLine\(\)/,
   "main-session line: words": /\bAnswerView\(/,
+  "option flag: icon": /\$0\.icon\b/,
+  "option flag: id": /\boption\.id\b/,
+  "option flag: label": /\boption\.label\b/,
   // His three marks, drawn by the rating row; the mapping from its marks is `RatingMark.of`.
   "rating mark: bad": /\bRatingMark\.of\b/,
   "rating mark: good": /\bRatingMark\.of\b/,
   "rating mark: okay": /\bRatingMark\.of\b/,
-  "option flag: icon": /\$0\.icon\b/,
-  "option flag: id": /\boption\.id\b/,
-  "option flag: label": /\boption\.label\b/,
 };
 
 const lists: Record<string, readonly string[]> = {
