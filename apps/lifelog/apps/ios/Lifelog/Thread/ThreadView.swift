@@ -24,6 +24,22 @@ struct ThreadView: View {
         return showsEarlier ? thread.entries : thread.entries.filter { $0.at >= from }
     }
 
+    /// An entry of the thread, or an agent's late reply (with the entry it answers) landing where it arrived: at the
+    /// bottom once it comes, led by a line that links back.
+    private struct Row: Identifiable {
+        let entry: ThreadEntry
+        var origin: ThreadEntry?
+        var id: UUID { entry.id }
+    }
+
+    private var rows: [Row] {
+        let late = shown.flatMap { origin in
+            (origin.entry.map { thread.lateReplies(to: $0) } ?? []).map { Row(entry: $0, origin: origin) }
+        }
+        return (shown.map { Row(entry: $0) } + late).enumerated()
+            .sorted { ($0.element.entry.at, $0.offset) < ($1.element.entry.at, $1.offset) }.map(\.element)
+    }
+
     /// The entry whose answer already shows the ask `ref` as a row.
     private func row(of ref: String) -> UUID? {
         func holds(_ parts: [AnswerPart]) -> Bool {
@@ -57,15 +73,24 @@ struct ThreadView: View {
                         .font(.heading).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
                         .frame(minHeight: Metrics.tapTarget)
                     }
-                    ForEach(Array(shown.enumerated()), id: \.element.id) { i, entry in
-                        if i == 0 || !calendar.isDate(shown[i - 1].at, inSameDayAs: entry.at) {
+                    let all = rows
+                    ForEach(Array(all.enumerated()), id: \.element.id) { i, row in
+                        let entry = row.entry
+                        if i == 0 || !calendar.isDate(all[i - 1].entry.at, inSameDayAs: entry.at) {
                             Text(dayName(entry.at))
                                 .font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity).padding(.top, i == 0 ? 0 : Metrics.Spacing.s)
                                 .accessibilityAddTraits(.isHeader)
                         }
-                        EntryView(
-                            entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
+                        if let origin = row.origin {
+                            LateReplyView(late: entry, origin: origin, actions: actions) {
+                                withAnimation(Motion.standard) { proxy.scrollTo(origin.id, anchor: .top) }
+                            }
+                        } else {
+                            EntryView(
+                                entry: entry, live: thread.live[entry.id], thread: thread, screen: screen,
+                                actions: actions)
+                        }
                     }
                     // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
                     // unfolded with its answers.
@@ -79,7 +104,9 @@ struct ThreadView: View {
                     .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs)
             }
             .contentMargins(.top, topHeight, for: .scrollContent)
-            .contentMargins(.bottom, fieldHeight, for: .scrollContent)
+            // A short thread rests just above the field: a safe-area padding, which the bottom anchor respects
+            // (content margins are ignored for content shorter than the view).
+            .safeAreaPadding(.bottom, fieldHeight)
             .mask(alignment: .top) {
                 VStack(spacing: 0) {
                     LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
@@ -134,14 +161,39 @@ private struct EntryView: View {
     let screen: MainSessionScreen
     let actions: BlockActions
     private static let reactions = Reaction.rating.map(\.rawValue)
+    @Environment(LifeStore.self) private var life
+
+    /// The handed work still running: its pie fills with the time it has taken against its kind's median.
+    private var underWay: [ThreadWireEntry.Handed] { (entry.handed ?? []).filter { $0.state == .underWay } }
+
+    private func line(of work: ThreadWireEntry.Handed) -> (Double, String?) {
+        guard let ms = work.estimateMs, let since = work.since else { return (0, nil) }
+        let left = Double(ms) / 1000 - life.now().timeIntervalSince(since)
+        let minutes = Int((max(left, Metrics.handedLeastSeconds) / 60).rounded(.up))
+        let progress = min(max(1 - left / (Double(ms) / 1000), 0), Metrics.handedPieMost)
+        // Before the first milestone it has only just begun: "About 20 min", then "About 10 min left".
+        return (progress, progress < 0.1 ? "About \(minutes) min" : "About \(minutes) min left")
+    }
+
+    private func icon(of work: ThreadWireEntry.Handed) -> String {
+        switch work.kind {
+        case .booking: "calendar"
+        case .lookup, .research: "magnifyingglass"
+        case .reply, .redraft: "bubble.left"
+        case .other, .unknown: "circle.dashed"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            HisBubble(
-                words: entry.words,
-                state: entry.phase == .waiting ? .waiting : entry.phase == .failed ? .failed : .sent,
-                reaction: entry.lifeReaction.flatMap(Reaction.init(rawValue:)),
-                retry: { thread.askAgain(entry.id, screen: screen) })
+            // A tapped quick edit changes its draft in place: no bubble of its own.
+            if entry.tap != true {
+                HisBubble(
+                    words: entry.words,
+                    state: entry.phase == .waiting ? .waiting : entry.phase == .failed ? .failed : .sent,
+                    reaction: entry.lifeReaction.flatMap(Reaction.init(rawValue:)),
+                    retry: { thread.askAgain(entry.id, screen: screen) })
+            }
             if let live {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if let step = live.step {
@@ -159,10 +211,39 @@ private struct EntryView: View {
                         }
                     }
                 if let mine = entry.ownerReaction.flatMap(Reaction.init(rawValue:)) { ReactionMark(reaction: mine) }
+                ForEach(underWay, id: \.since) { work in
+                    let (progress, estimate) = line(of: work)
+                    ThreadItemRow(
+                        title: entry.words, state: .underWay(progress: progress, estimate: estimate),
+                        icon: icon(of: work), toggle: {}
+                    ) { EmptyView() }
+                }
             } else if entry.phase == .failed {
                 Text("I couldn't answer that.").foregroundStyle(Palette.muted)
             } else if entry.phase == .stopped {
                 Text("Stopped").font(.line).foregroundStyle(Palette.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// An agent's late reply: a line that says what it answers and takes him back to it, then the reply.
+private struct LateReplyView: View {
+    let late: ThreadEntry
+    let origin: ThreadEntry
+    let actions: BlockActions
+    let goBack: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            Button(action: goBack) {
+                Text("About “\(origin.words)”:").font(.line).foregroundStyle(Palette.muted).lineLimit(2)
+                    .multilineTextAlignment(.leading).underline()
+            }
+            .buttonStyle(.plain)
+            if let text = late.answer {
+                AnswerView(parts: AnswerPart.parts(of: text, sent: Set(late.checked)), actions: actions)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -37,6 +37,8 @@ final class LifeStore {
     private(set) var caughtUp: Catchup?
     /// The ask a tapped notification names: the thread unfolds it (`focused`), then lets it go (`clearFocus`).
     private(set) var focused: String?
+    /// The ask unfolded in the thread now: what the field's words are about (`MainSessionScreen.open`).
+    var opened: String?
 
     struct Catchup: Equatable {
         let sent: Int

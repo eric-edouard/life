@@ -95,6 +95,21 @@ import XCTest
     }
 }
 
+/// C20: "How am I doing?" sits under the settled ask; his mark is one answer, and the row stays, saying "Thanks".
+@MainActor final class C20RateTheAnswerTests: FlowTest {
+    func testRateTheAnswer() {
+        launch("C20")
+        appears(app.buttons["What's waiting on me"], "the thread")
+        app.buttons["What's waiting on me"].tap()
+        appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
+        tap(AID.askRate(Self.ask, "good"))
+        poll("the mark reached Life") { !answers().isEmpty }
+        XCTAssertEqual(answers().count, 1)
+        XCTAssertEqual(answers()[0]["rate"] as? String, "good")
+        appears(app.staticTexts["Thanks"], "Thanks")
+    }
+}
+
 /// C12: an answer that takes a person sends the person he picked.
 @MainActor final class C12PersonAsTheAnswerTests: FlowTest {
     func testPersonAsTheAnswer() {

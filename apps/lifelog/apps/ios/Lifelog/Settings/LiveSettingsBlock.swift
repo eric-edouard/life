@@ -20,11 +20,9 @@ struct LiveSettingsBlock: View {
     var body: some View {
         SettingsBlock {
             ForEach(Array(shown.enumerated()), id: \.element) { index, key in
-                if index > 0 { Hairline() }
                 row(key)
             }
             if let offer {
-                if !shown.isEmpty { Hairline() }
                 SettingSwitchRow(title: offer.label, isOn: isOffered, isTicked: ticked == offer.key) { _ in
                     isOffered = say(offer.label)
                     if isOffered { tick(offer.key) }

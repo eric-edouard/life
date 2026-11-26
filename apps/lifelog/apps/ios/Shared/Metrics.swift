@@ -24,6 +24,9 @@ enum Metrics {
     static let askDisc: CGFloat = 48
     static let pie: CGFloat = 18
     static let pieSmall: CGFloat = 12
+    /// Handed work's pie never reads full while it runs, and the time left never reads under a minute.
+    static let handedPieMost = 0.9
+    static let handedLeastSeconds: TimeInterval = 60
     static let swatch: CGFloat = 32
     /// A small mark (the needs-you dot); a rating's tap mark.
     static let flagDot: CGFloat = 7

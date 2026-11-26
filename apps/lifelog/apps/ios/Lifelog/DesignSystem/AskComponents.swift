@@ -69,12 +69,63 @@ struct QuestionBlock: View {
 /// A draft's quick edits (the card's `edits`): up to three chips under the draft, at its trailing edge, muted.
 struct EditChips: View {
     let edits: [String]
+    /// The chip just tapped: it shows a spinner while Life changes the draft.
+    var busy: String?
     var pick: (String) -> Void = { _ in }
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            Spacer(minLength: 0)
-            ForEach(edits.prefix(3), id: \.self) { edit in QuietChip(edit, isMuted: true) { pick(edit) } }
+        // A chip is never broken: at large text sizes whole chips wrap to the next line.
+        RightFlow(spacing: Metrics.Spacing.s) {
+            ForEach(edits.prefix(3), id: \.self) { edit in
+                QuietChip(edit, isMuted: true, isBusy: edit == busy) { pick(edit) }.fixedSize()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+
+/// Views in lines that wrap whole, each line flush right.
+private struct RightFlow: Layout {
+    var spacing: CGFloat
+
+    private func lines(_ subviews: Subviews, width: CGFloat) -> [[Int]] {
+        var lines: [[Int]] = [[]]
+        var x: CGFloat = 0
+        for (i, view) in subviews.enumerated() {
+            let w = view.sizeThatFits(.unspecified).width
+            if x > 0, x + w > width { lines.append([]); x = 0 }
+            lines[lines.count - 1].append(i)
+            x += w + spacing
+        }
+        return lines
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        let rows = lines(subviews, width: width)
+        var heights: [CGFloat] = []
+        var widest: CGFloat = 0
+        for row in rows {
+            let sizes = row.map { subviews[$0].sizeThatFits(.unspecified) }
+            heights.append(sizes.map(\.height).max() ?? 0)
+            let total: CGFloat = sizes.map(\.width).reduce(0, +)
+            widest = max(widest, total + spacing * CGFloat(max(row.count - 1, 0)))
+        }
+        let gaps: CGFloat = spacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(
+            width: proposal.width ?? widest, height: heights.reduce(0, +) + gaps)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in lines(subviews, width: bounds.width) {
+            let sizes = row.map { subviews[$0].sizeThatFits(.unspecified) }
+            var x = bounds.maxX - sizes.map(\.width).reduce(0, +) - spacing * CGFloat(max(row.count - 1, 0))
+            for (i, size) in zip(row, sizes) {
+                subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += (sizes.map(\.height).max() ?? 0) + spacing
         }
     }
 }
@@ -89,6 +140,8 @@ struct AskCard: View {
     var icon = "bubble.left"
     var check: Check?
     var edits: [String] = []
+    /// The quick edit tapped last, while Life changes the draft.
+    var editing: String?
     var amounts: String?
     let answers: [String]
     var recommended: String?
@@ -98,6 +151,8 @@ struct AskCard: View {
     var disabled: Set<String> = []
     var identify: (String) -> String? = { _ in nil }
     var say: (String) -> Void = { _ in }
+    /// A tap on one of the draft's quick edits.
+    var edit: (String) -> Void = { _ in }
     var isInItem = false
 
     var body: some View {
@@ -116,7 +171,7 @@ struct AskCard: View {
             if let amounts { Text(amounts).font(.meta).foregroundStyle(Palette.faint) }
             if let check, let draft = DraftBlock(check: check, isBoxed: false) {
                 draft
-                if !edits.isEmpty { EditChips(edits: edits) }
+                if !edits.isEmpty { EditChips(edits: edits, busy: editing, pick: edit) }
             }
             if let taking { Field(prompt: "Your words", text: taking) }
             AnswerPills(

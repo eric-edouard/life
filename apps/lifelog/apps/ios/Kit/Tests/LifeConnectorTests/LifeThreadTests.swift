@@ -167,3 +167,40 @@ extension JSONDecoder {
     #expect(thread.entries.count == 1 && thread.entries[0].phase == .answered)
     #expect(life.askedKeys.withLock { $0.count } == 1)
 }
+
+@MainActor @Test func aTapOnAQuickEditIsAskedAsATap() async throws {
+    let life = FakeLife()
+    life.asked = { _ in replyText }
+    let thread = LifeThread(api: life)
+    thread.ask("Warmer", screen: MainSessionScreen(open: "dec_1", tab: "thread"), tap: true)
+    thread.ask("Make it shorter", screen: MainSessionScreen(open: "dec_1", tab: "thread"))
+    #expect(thread.entries.map(\.tap) == [true, nil])
+    #expect(MainSessionRequest.ask("Warmer", screen: MainSessionScreen(), tap: true).tap == true)
+}
+
+/// A redraft's two answers on the wire (`MainSessionAsk`): a tapped chip carries `tap: true`, his typed change does not,
+/// and both name the open ask in `screen.open`, so the server's `edit:tap` and `edit:words` tell them apart.
+@Test func aRedraftsTapAndWordsEncodeAsTheWireExpects() throws {
+    let screen = MainSessionScreen(open: "dec_1", tab: "thread")
+    func wire(_ request: MainSessionRequest) throws -> [String: Any] {
+        try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+    }
+    let tapped = try wire(.ask("Warmer", screen: screen, tap: true))
+    let typed = try wire(.ask("Make it shorter", screen: screen))
+    #expect(tapped["tap"] as? Bool == true && tapped["words"] as? String == "Warmer")
+    #expect(typed["tap"] == nil && typed["words"] as? String == "Make it shorter")
+    #expect((tapped["screen"] as? [String: Any])?["open"] as? String == "dec_1")
+    #expect((typed["screen"] as? [String: Any])?["open"] as? String == "dec_1")
+}
+
+/// A rating answer (`answer_check`) carries `rate` with the mark's wire word and no option, for each of the app's three
+/// marks (`RatingMark.of`: 👎 bad, 👍 okay, 🤩 good).
+@Test func aRatingAnswerEncodesItsMarkOnTheWire() throws {
+    for (mark, word) in [(RatingMark.bad, "bad"), (.okay, "okay"), (.good, "good")] {
+        let body = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(AnswerRequest.rating("dec_1", mark)))
+                as? [String: Any])
+        #expect(body["rate"] as? String == word && body["ref"] as? String == "dec_1")
+        #expect((body["options"] as? [String])?.isEmpty ?? true)
+    }
+}

@@ -47,7 +47,7 @@ struct RootView: View {
 
     private var thread: LifeThread { life.thread }
     /// What he sees now, as refs only: the thread, or the profile pushed over it.
-    private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref, tab: "thread") }
+    private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref ?? life.opened, tab: "thread") }
     private var edge: EdgeState {
         life.isOutOfReach ? .still : thread.isWorking ? .working : isSpeaking ? .speaking : .rest
     }
@@ -71,12 +71,13 @@ struct RootView: View {
                     Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
                 }
                 // The notice, opened, grows to its words: nothing in it is squeezed into a height it was not given.
-                .fixedSize(horizontal: false, vertical: true).frame(maxHeight: .infinity, alignment: .top)
+                .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) {
                     $0.size.height
                 } action: {
                     topHeight = $0
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) { ProfileView(ref: $0.ref) }
