@@ -30,21 +30,45 @@ afterEach(() => {
 
 let n = 0;
 /** His tap, as his app's `change_registered_agent` records it; the desk applies it; what it did. */
-async function tapped(desk: ReturnType<typeof setup>["desk"], agent: string) {
+async function tapped(
+  desk: ReturnType<typeof setup>["desk"],
+  agent: string,
+  action: "continue_on_mac" | "stop" | "resume" = "continue_on_mac",
+  ago = 0
+) {
   n += 1;
   const line = ask(
-    requested(`continue-test-${n}`, "Continue on your Mac"),
+    requested(
+      `continue-test-${n}`,
+      "Continue on your Mac",
+      new Date(clock().getTime() - ago).toISOString()
+    ),
     {
       agent: DESK_AGENT,
-      agentChange: { action: "continue_on_mac", agent },
+      agentChange: { action, agent },
       confidence: "high",
     },
     "connector",
-    "asked in a chat"
+    "asked in a chat",
+    clock().getTime() - ago
   );
   await applyAgentChanges(desk);
   return agentChangeOf(desk.db, line.id);
 }
+
+test("a stop asked 30 minutes before the desk read it still applies; another ask that old is refused", async () => {
+  const { desk } = setup();
+  const id = register(desk, {
+    brief: "Test brief: follow up with Ana",
+    folder: "/tmp",
+    runtime: "fake",
+  });
+  expect((await tapped(desk, id, "resume", 30 * MIN))?.error).toStartWith(
+    "asked over 10 minutes"
+  );
+  expect((await tapped(desk, id, "stop", 30 * MIN))?.error).toBeNull();
+  expect(agentOf(desk.db, id)?.status).toBe("stopped");
+});
 
 test("refused while its turn runs: nothing opens", async () => {
   const { desk, fake } = setup();
