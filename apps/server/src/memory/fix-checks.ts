@@ -48,7 +48,7 @@ const signInFixOf = (n: SignIn): Fix =>
         options: ["sign-in", "later"],
         question: `Sign in to ${n.label} again?`,
         ref: `fix:signed-out/${n.name}`,
-        title: `${n.label} is signed out`,
+        title: `Sign ${n.label} back in`,
       }
     : {
         context: `Life reads and sends your ${n.label} messages once you sign in.`,

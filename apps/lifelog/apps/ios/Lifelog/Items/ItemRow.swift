@@ -8,7 +8,7 @@ struct ItemRow: View {
     let ask: ThreadAsk
     /// On its matter's page: the row's title is its question (the page's title is the matter's name).
     var isOnTheirMatter = false
-    /// Drawn as a full card (a page of a sideways list), not a row that folds.
+    /// Arrives unfolded: a single ask in an answer.
     var startsOpen = false
     @Environment(LifeStore.self) private var life
     @State private var isOpen = false
@@ -73,8 +73,8 @@ struct ItemRow: View {
         if isQueued { return "Goes when you're back" }
         return switch ask.state {
         case .needsYou, .unknown:
-            [look?.line ?? ask.check?.draft?.to, (ask.check?.deadline ?? ask.at).map { when($0) }].compactMap(\.self)
-                .joined(separator: " · ").nilIfEmpty
+            // Who, then when it is due: a Life check's `at` is only when the thread read it, never a day to show.
+            [look?.line, ask.check?.deadline.map { when($0) }].compactMap(\.self).joined(separator: " · ").nilIfEmpty
         case .later: ask.later.map { "Later · \(when($0, withTime: true))" } ?? "Later"
         case .waitingOnSomeone: waitingLine
         case .settled: ask.closed?.sent == nil ? "Done" : keptTo.map { "Sent to \($0)" } ?? "Sent"
@@ -91,12 +91,7 @@ struct ItemRow: View {
     }
 
     private func when(_ date: Date, withTime: Bool = false) -> String {
-        let calendar = Calendar.current
-        let day =
-            calendar.isDate(date, inSameDayAs: life.now())
-            ? "today"
-            : calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: life.now()) ?? date)
-                ? "tomorrow" : date.formatted(.dateTime.weekday(.abbreviated))
+        let day = DeadlineWords.day(date, now: life.now())
         return withTime ? "\(day) \(date.clock)" : day
     }
 
@@ -112,7 +107,8 @@ struct ItemRow: View {
     private var icon: Glyph.Mark {
         if let check = ask.check {
             if check.draft != nil { return .bubble }
-            if check.options.contains(where: { $0.takes == .person }) { return .person }
+            if check.group == .yourMove { return .tick }
+            if check.options.contains(where: { $0.takes == .person || $0.takes == .personOrName }) { return .person }
             if check.needs?.contains(where: { $0.kind == .event }) == true { return .calendar }
             if check.needs?.contains(where: { $0.kind == .apify }) == true { return .search }
             if check.needs?.contains(where: { $0.kind == .link }) == true { return .pin }
@@ -147,7 +143,7 @@ struct ItemRow: View {
             state: state, icon: icon,
             face: face,
             line: line, isOpen: isOpen, ref: ask.ref,
-            later: state == .needsYou && ask.check?.draft == nil && ask.isAnswerable
+            later: state == .needsYou && ask.check?.isTask == true && ask.isAnswerable
                 ? { Task { await life.later(ask.ref) } } : nil,
             toggle: {
                 Motion.animate { isOpen.toggle() }
@@ -226,9 +222,11 @@ struct ItemRow: View {
         let taking = options.contains { $0.takes == .note || $0.takes == .personOrName }
         // A Contacts card asks "Is this them?": its Yes is Life's guess, one tap, beside "Someone else".
         let guess = check.group == .contactsCard ? check.likelyPeople.first : nil
-        let recommended = guess != nil ? "Yes" : options.first { $0.id == check.recommended }.map(shown)
+        // The one wide answer (the prototype's `.prim`): the agent's pick, else the first of two or more, Life's guess.
+        let pick = check.recommended ?? (options.count > 1 ? options.first?.id : nil)
+        let recommended = guess != nil ? "Yes" : options.first { $0.id == pick }.map(shown)
         return AskCard(
-            question: ask.question, check: check,
+            question: ask.question, why: why(check), check: check,
             edits: (check.edits ?? []).filter { !usedEdits.contains($0) || ($0 == editing && life.thread.isWorking) },
             editing: life.thread.isWorking ? editing : nil, answers: (guess != nil ? ["Yes"] : []) + options.map(shown),
             recommended: recommended,
@@ -268,6 +266,12 @@ struct ItemRow: View {
                 tapped = request.options.first
                 Task { await life.answer(request) }
             })
+    }
+
+    /// Why it asks (Markdown), after the step itself on his own move, whose title is its matter.
+    private func why(_ check: Check) -> String? {
+        [check.group == .yourMove ? check.question.nilIfEmpty : nil, check.context].compactMap(\.self)
+            .joined(separator: "\n\n").nilIfEmpty
     }
 
     /// "How am I doing?" under an answered ask: his mark is one answer, then the row goes.
