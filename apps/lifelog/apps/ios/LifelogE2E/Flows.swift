@@ -95,6 +95,22 @@ import XCTest
     }
 }
 
+/// C20: his mark on "How am I doing?" is one answer carrying the mark, and the row goes.
+@MainActor final class C20RateTheAnswerTests: FlowTest {
+    func testRateTheAnswer() {
+        launch("C20")
+        openTheAsk()
+        // The unfolded row ends under the field: he scrolls it up.
+        appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
+        app.swipeUp()
+        tap(AID.askRate(Self.ask, "good"))
+        poll("the mark reached Life") { !answers().isEmpty }
+        XCTAssertEqual(answers().count, 1)
+        XCTAssertEqual(answers()[0]["rate"] as? String, "good")
+        vanishes(element(AID.askRate(Self.ask, "good")), "the rating row")
+    }
+}
+
 /// C12: an answer that takes a person sends the person he picked.
 @MainActor final class C12PersonAsTheAnswerTests: FlowTest {
     func testPersonAsTheAnswer() {

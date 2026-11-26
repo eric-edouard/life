@@ -98,6 +98,8 @@ struct AskCard: View {
     var disabled: Set<String> = []
     var identify: (String) -> String? = { _ in nil }
     var say: (String) -> Void = { _ in }
+    /// A tap on one of the draft's quick edits.
+    var edit: (String) -> Void = { _ in }
     var isInItem = false
 
     var body: some View {
@@ -116,7 +118,7 @@ struct AskCard: View {
             if let amounts { Text(amounts).font(.meta).foregroundStyle(Palette.faint) }
             if let check, let draft = DraftBlock(check: check, isBoxed: false) {
                 draft
-                if !edits.isEmpty { EditChips(edits: edits) }
+                if !edits.isEmpty { EditChips(edits: edits, pick: edit) }
             }
             if let taking { Field(prompt: "Your words", text: taking) }
             AnswerPills(

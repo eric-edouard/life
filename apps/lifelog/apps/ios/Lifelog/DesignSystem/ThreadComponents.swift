@@ -137,6 +137,19 @@ private nonisolated struct Pie: Shape {
     }
 }
 
+/// Work handed on from his ask: the still pie and how long is left, "About 5 min left" (the prototype's `pie`).
+struct HandedLine: View {
+    let progress: Double
+    let estimate: String?
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s) {
+            StillRing(progress: progress, size: Metrics.pieSmall)
+            Text(estimate ?? "Under way").font(.line).foregroundStyle(Palette.muted)
+        }
+    }
+}
+
 /// Where an item of the thread stands, as its row draws it. Held asks are not rows: they arrive under a
 /// `HeldSeparator`.
 enum ItemState: Equatable {
@@ -277,6 +290,8 @@ struct RatingRow: View {
     var question = "How am I doing?"
     var pick: (Reaction) -> Void = { _ in }
     var close: () -> Void = {}
+    /// A mark's id for the end-to-end tests.
+    var identify: (Reaction) -> String? = { _ in nil }
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
@@ -288,7 +303,7 @@ struct RatingRow: View {
                 } label: {
                     ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
                 }
-                .accessibilityLabel(mark.rawValue)
+                .accessibilityLabel(mark.rawValue).identified(identify(mark))
             }
             Button(action: close) {
                 Image(systemName: "xmark").font(.line).foregroundStyle(Palette.faint).frame(

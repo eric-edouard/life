@@ -33,6 +33,8 @@ public struct ThreadEntry: Identifiable, Equatable, Sendable, Codable {
     /// Life's reaction to his words, and his to Life's answer.
     public var lifeReaction: String?
     public var ownerReaction: String?
+    /// His words were a tap on a quick edit (a draft's chip): `edit:tap`, not `edit:words`.
+    public var tap: Bool?
     public var why: String?
     /// The entry of his ask this one is a late reply to (an agent's), from Life's record.
     public var follows: Int?
@@ -166,10 +168,11 @@ public final class LifeThread {
 
     /// His words, sent at once with what is on his screen. The call runs on; the entry shows its state.
     /// Whether the words were taken: none, when they are empty.
-    @discardableResult public func ask(_ text: String, screen: MainSessionScreen) -> Bool {
+    @discardableResult public func ask(_ text: String, screen: MainSessionScreen, tap: Bool = false) -> Bool {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return false }
-        let entry = ThreadEntry(id: UUID(), at: now(), words: text, key: UUID().uuidString, phase: .sending)
+        var entry = ThreadEntry(id: UUID(), at: now(), words: text, key: UUID().uuidString, phase: .sending)
+        entry.tap = tap ? true : nil
         pending.append(entry)
         save()
         Task { await deliver(entry.id, screen: screen) }
@@ -236,7 +239,7 @@ public final class LifeThread {
         let outcome: Result<MainSessionResult, Error>
         do {
             let text = try await api.askMainSession(
-                .ask(e.words, screen: screen), answerKey: e.key, onProgress: { feed.yield($0) })
+                .ask(e.words, screen: screen, tap: e.tap == true), answerKey: e.key, onProgress: { feed.yield($0) })
             outcome = .success(MainSessionResult(text))
         } catch {
             outcome = .failure(error)

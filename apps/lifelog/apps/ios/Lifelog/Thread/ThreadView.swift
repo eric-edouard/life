@@ -134,6 +134,17 @@ private struct EntryView: View {
     let screen: MainSessionScreen
     let actions: BlockActions
     private static let reactions = Reaction.rating.map(\.rawValue)
+    @Environment(LifeStore.self) private var life
+
+    /// The handed work still running: its pie fills with the time it has taken against its kind's median.
+    private var underWay: [ThreadWireEntry.Handed] { (entry.handed ?? []).filter { $0.state == .underWay } }
+
+    private func line(of work: ThreadWireEntry.Handed) -> (Double, String?) {
+        guard let ms = work.estimateMs, let since = work.since else { return (0, nil) }
+        let left = Double(ms) / 1000 - life.now().timeIntervalSince(since)
+        let minutes = Int((max(left, 60) / 60).rounded(.up))
+        return (min(max(1 - left / (Double(ms) / 1000), 0), 0.9), "About \(minutes) min left")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -159,6 +170,16 @@ private struct EntryView: View {
                         }
                     }
                 if let mine = entry.ownerReaction.flatMap(Reaction.init(rawValue:)) { ReactionMark(reaction: mine) }
+                ForEach(underWay, id: \.since) { work in
+                    let (progress, estimate) = line(of: work)
+                    HandedLine(progress: progress, estimate: estimate)
+                }
+                // An agent's late reply, under the ask it answers.
+                ForEach(entry.entry.map { thread.lateReplies(to: $0) } ?? []) { late in
+                    if let text = late.answer {
+                        AnswerView(parts: AnswerPart.parts(of: text, sent: Set(late.checked)), actions: actions)
+                    }
+                }
             } else if entry.phase == .failed {
                 Text("I couldn't answer that.").foregroundStyle(Palette.muted)
             } else if entry.phase == .stopped {

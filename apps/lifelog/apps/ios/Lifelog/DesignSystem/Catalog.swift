@@ -171,7 +171,16 @@ import SwiftUI
                         ForEach(Reaction.allCases, id: \.self) { ReactionMark(reaction: $0).font(.header) }
                     }
                 }
-                section("How am I doing?") { RatingRow() }
+                section("How am I doing? Marks: bad, okay, good (one \"rated\" line); a tap on one closes the row") {
+                    RatingRow()
+                }
+                section("Work handed on: the pie and the time left; Life at work: a step, or thinking") {
+                    VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                        HandedLine(progress: 0.4, estimate: "About 10 min left")
+                        StepsLine(verb: "Looking at", what: "your calendar")
+                        StepsLine()
+                    }
+                }
                 section("Sent line: Undo, confirm, undoing, deleted") {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         SentLine(to: "Lena", phase: .sent(canUndo: true, until: "Fri"))
@@ -274,8 +283,12 @@ import SwiftUI
                     QuestionBlock(answers: ["Sunday", "Saturday", "Neither"], recommended: "Sunday")
                     OfferBlock(question: "Stop telling you about newsletters?")
                 }
-                section("Answer blocks: document, phrase, place") {
+                section(#"A draft's quick edits: a tap ("edit:tap"), or his words ("edit:words")"#) {
+                    EditChips(edits: ["Warmer", "Shorter", "In French"])
+                }
+                section("Answer blocks: document, table, phrase, place") {
                     DocumentBlock(title: "Invoice 214", lines: ["Physio, 3 sessions"], total: "180 €")
+                    TableBlock(columns: ["Bags", "Seed"], rows: [["#420", "3"], ["#455", "4"]], total: "7")
                     PhraseBlock(text: "Où est la gare ?", mine: "Where is the station?")
                     PlaceBlock(name: "Café Lune", address: "12 Rue Neuve, Lille")
                 }

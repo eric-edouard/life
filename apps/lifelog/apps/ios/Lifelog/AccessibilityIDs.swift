@@ -20,4 +20,5 @@ enum AID {
     static func askSettled(_ ref: String) -> String { "ask.settled.\(ref)" }
     static func askFailure(_ ref: String) -> String { "ask.failure.\(ref)" }
     static func askUndo(_ ref: String) -> String { "ask.undo.\(ref)" }
+    static func askRate(_ ref: String, _ mark: String) -> String { "ask.rate.\(ref).\(mark)" }
 }

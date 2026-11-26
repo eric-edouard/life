@@ -47,7 +47,7 @@ struct RootView: View {
 
     private var thread: LifeThread { life.thread }
     /// What he sees now, as refs only: the thread, or the profile pushed over it.
-    private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref, tab: "thread") }
+    private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref ?? life.opened, tab: "thread") }
     private var edge: EdgeState {
         life.isOutOfReach ? .still : thread.isWorking ? .working : isSpeaking ? .speaking : .rest
     }

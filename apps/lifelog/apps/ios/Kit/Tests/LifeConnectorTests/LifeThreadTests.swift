@@ -167,3 +167,13 @@ extension JSONDecoder {
     #expect(thread.entries.count == 1 && thread.entries[0].phase == .answered)
     #expect(life.askedKeys.withLock { $0.count } == 1)
 }
+
+@MainActor @Test func aTapOnAQuickEditIsAskedAsATap() async throws {
+    let life = FakeLife()
+    life.asked = { _ in replyText }
+    let thread = LifeThread(api: life)
+    thread.ask("Warmer", screen: MainSessionScreen(open: "dec_1", tab: "thread"), tap: true)
+    thread.ask("Make it shorter", screen: MainSessionScreen(open: "dec_1", tab: "thread"))
+    #expect(thread.entries.map(\.tap) == [true, nil])
+    #expect(MainSessionRequest.ask("Warmer", screen: MainSessionScreen(), tap: true).tap == true)
+}
