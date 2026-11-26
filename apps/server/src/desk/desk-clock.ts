@@ -9,6 +9,7 @@ import { exec } from "../core/proc";
 import {
   type AgentRow,
   type AssignmentRow,
+  agentInRole,
   agentOf,
   anchorsOf,
   assignmentOf,
@@ -457,6 +458,14 @@ async function takeBackIfLeft(a: AgentRow) {
   }
 }
 
+/** `takeBackIfLeft` for the main session, which has no due wake: his app never holds Ask Life past `LEFT_AFTER_MS` quiet. */
+async function takeBackMainIfLeft(desk: Desk) {
+  const main = agentInRole(desk.db, "main");
+  if (main?.status === "active") {
+    await takeBackIfLeft(main);
+  }
+}
+
 /**
  * Starts a turn of `a` on its assignment `s`, or leaves a session running a turn of his alone (false: the wake comes
  * after it). The turn is written before the runtime is called, so the turn's end, however soon, finds it; its queued
@@ -820,6 +829,8 @@ export async function tick(desk: Desk, isPollDue = true) {
   await advanceMoves(desk);
   standUp(desk, "main", MAIN_BRIEF);
   standUp(desk, "caretaker", CARETAKER_BRIEF);
+  // Ask Life may come at any moment: the main session is taken back from his Mac whenever he left it, no wake needed.
+  await takeBackMainIfLeft(desk);
   await receiveComplaints(desk);
   const people = readPeopleOnce();
   // A failure here never holds his answers or the turns due.

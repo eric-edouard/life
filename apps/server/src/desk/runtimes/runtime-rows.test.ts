@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOME } from "../../core/platform";
+import { HOME, WINDOWS } from "../../core/platform";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../door-keys";
 import { SEND_GUARD_HOOK } from "../send-guard";
@@ -347,10 +347,10 @@ test("his own Life's agents run the send guard before each shell and MCP call, C
   }
 });
 
-test("no row hands a session to his Claude app on a turn: the app kept a process on every session it opened, holding its wakes (22 Nov 2026)", () => {
+test("only his own Life's Claude row lists its sessions in his Claude app (his ask of 26 Nov 2026); a second Life's never does", () => {
   for (const isOwn of [true, false]) {
-    for (const row of Object.values(runtimeRowsOf(isOwn))) {
-      expect("handOff" in row).toBe(false);
-    }
+    const rows = runtimeRowsOf(isOwn);
+    expect(Boolean(rows.claude.listInApp)).toBe(isOwn && !WINDOWS);
+    expect(rows.codex.listInApp).toBeUndefined();
   }
 });

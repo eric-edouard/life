@@ -13,8 +13,12 @@ import {
 
 // The Life plugin: in a registered agent's session that the desk did not start (he opened it in the Claude app), it
 // gives the session its door (the door's own tools, relayed), adds the agent's packet to each turn he typed, and runs
-// the desk's send guard before every tool call, refusing them all but the file tools when the guard fails. In any other session
-// every hook passes the event on untouched. It never starts a turn, sets a wait or decides: the desk does.
+// the desk's send guard before every tool call, refusing them all but the file tools when the guard fails. And it runs
+// with no permission asks, as the desk runs it (its no-ask mode): his Claude app imports a session in bypass as accept
+// edits, so the plugin turns each `ask` into `allow` (`tool.check`), only while the desk names the session an agent's;
+// a deny and an organization's ceiling stand, and the guard still answers every call (his words of 26 Nov 2026: "it
+// should be fully transparent regarding the permissions mode"). In any other session every hook passes the event on
+// untouched. It never starts a turn, sets a wait or decides: the desk does.
 
 /**
  * A session's answer: its agent's door; none (no agent's); `down` (an agent's whose desk can't be asked now: the
@@ -133,6 +137,21 @@ export const register: Register = (on) => {
     const packet = await callDoor(fetchOf($), s, "read_packet", {});
     return next({ ...e, context: [...(e.context ?? []), packet.text] });
     // A context hook: on any failure his prompt goes on without the packet.
+  }).catch((_$, e, next) => next(e));
+
+  on("tool.check", async ($, e, next) => {
+    const verdict = (await next(e)) as { decision: string };
+    if (verdict.decision !== "ask" || e.ceiling) {
+      return verdict;
+    }
+    const { s } = await seenOf($);
+    return isDoor(s)
+      ? {
+          decision: "allow",
+          reason: "Life: an agent's session runs with no asks",
+        }
+      : verdict;
+    // A failed lookup leaves the verdict beneath: it asks.
   }).catch((_$, e, next) => next(e));
 
   on("tool.call", async ($, e, next) => {

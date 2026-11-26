@@ -27,7 +27,7 @@ export async function continueOnMac(
     return { error: `${a.id} is ${a.status}` };
   }
   if (a.role === "main") {
-    // Ask Life talks to it on its own (`talk`), which no take-back frees.
+    // Ask Life is its door: it sits in his app's sidebar (`listInApp`), and his hold there is taken back once he left it.
     return { error: "the main session stays in Ask Life" };
   }
   const runtime = desk.runtimes[a.runtime];

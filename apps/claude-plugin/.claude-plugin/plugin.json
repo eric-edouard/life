@@ -1,6 +1,6 @@
 {
   "name": "life",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Life on this Mac: its connector, and in a registered agent's session you open by hand, the agent's door, packet and send guard.",
   "userConfig": {
     "connector_url": {
