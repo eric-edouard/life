@@ -226,3 +226,23 @@ test("How am I doing? shows on the first card he answered in the app that day, w
     mark: "good",
   });
 });
+
+const check = (ref: string, group: string, at: string | null) =>
+  ({ about: [], at, group, ref, urgency: "blocks" }) as never;
+
+test("an open fix check leads the first page, before 100 older asks; ending checks are no ask at all", async () => {
+  const checks = [
+    ...Array.from({ length: 100 }, (_, i) =>
+      check(`name:p${i}`, "name", "2026-11-20T10:00:00.000Z")
+    ),
+    check("fix:signed-out/line", "fix", null),
+    ...["a", "b", "c"].map((m) => check(`ending:${m}`, "ending", null)),
+  ];
+  spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue(checks);
+  const { items } = (await readThread()) as {
+    items: { ref?: string; state: string }[];
+  };
+  expect(items[0]?.ref).toBe("fix:signed-out/line");
+  expect(items.some((i) => i.ref?.startsWith("ending:"))).toBe(false);
+  expect(items.filter((i) => i.state === "needs_you")).toHaveLength(101);
+});

@@ -88,3 +88,14 @@ test("every `life:` fence is a block, never words: indented (its space a chunk o
     words: "```js\nx\n```\n",
   });
 });
+
+test("a reply that ends on its closing fence, with no newline, is one closed block", () => {
+  const got: { closed: boolean; kind: string }[] = [];
+  const s = blockSplitter({
+    block: (b, miss) => got.push({ closed: !miss, kind: b.kind }),
+    words: () => undefined,
+  });
+  s.push('```life:question\n{"a":1}\n```');
+  s.end();
+  expect(got).toEqual([{ closed: true, kind: "question" }]);
+});

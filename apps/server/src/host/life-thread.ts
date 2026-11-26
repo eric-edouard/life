@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock, DAY } from "../core/clock";
 import { readChangeStamp } from "../core/files";
+import { isInboxCheck } from "../memory/check-urgency";
 import { rateOffersOf } from "../memory/decision-after-answer";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
@@ -193,7 +194,10 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
       deliveryOf(d, now).state === "delivered" &&
       !gone.has(d.id)
   );
-  const open = new Map((await openChecksNow()).map((c) => [c.ref, c]));
+  // An ending check shows on its matter's page, never in the thread or its count (`isInboxCheck`).
+  const open = new Map(
+    (await openChecksNow()).filter(isInboxCheck).map((c) => [c.ref, c])
+  );
   const running = readDesk(
     (db) =>
       runningOf(
@@ -260,7 +264,10 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
               state: itemStateOf({ isOpen: true, later, running: false }),
             };
           })),
-  ].toSorted((a, b) => a.at.localeCompare(b.at));
+  ].toSorted(
+    // What is broken and needs him comes before anything else (docs/product.md): open fix checks lead the page.
+    (a, b) => Number(isFix(b)) - Number(isFix(a)) || a.at.localeCompare(b.at)
+  );
   const version = versionOf(JSON.stringify(items));
   if (o.ifNot === version) {
     return unchangedOf(version);
@@ -272,6 +279,15 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     version,
   };
 }
+
+/** An open fix check no one is on yet (the inbox puts one the caretaker is at work on last, `before`). */
+const isFix = (x: object) => {
+  const c =
+    "card" in x ? (x.card as { beingFixed?: unknown; group?: string }) : {};
+  return (
+    "group" in c && c.group === "fix" && !("beingFixed" in c && c.beingFixed)
+  );
+};
 
 /** A thread entry's ref, as a deletion names it. */
 export const threadEntryRefOf = (id: number) => `thread:${id}`;
