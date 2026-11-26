@@ -23,6 +23,7 @@ import {
   stepTurnModel,
   stepTurnSearchCost,
 } from "./store-step";
+import { endTurnsCutByRestart } from "./turn-ends";
 
 // The desk's helper, `life desk`: its own process (Life.app's supervisor keeps it while `desk` is set), its own lock in
 // `MACHINE_DIR`, its own store and its door; never the memory lock. Off, it returns before any of them.
@@ -93,6 +94,7 @@ export async function desk() {
     await new Promise(() => setInterval(() => undefined, HOUR));
   }
   const d: Desk = { db: openDesk(), runtimes: RUNTIMES };
+  endTurnsCutByRestart(d);
   openDoor(d);
   let since = performance.now();
   setInterval(() => {

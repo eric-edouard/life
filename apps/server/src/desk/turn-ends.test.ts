@@ -2,18 +2,27 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY } from "../core/clock";
 import {
   agentOf,
+  assignmentOf,
   currentAssignmentOf,
+  lastTurns,
   openTurn,
+  queuedEvents,
   turnOf,
 } from "../host/desk-read";
 import { withdrawAnswer } from "../memory/decision-after-answer";
 import { answerDecision, requestDecision } from "../memory/decisions";
 import { register } from "./agent-actions";
-import { MAX_HANDED } from "./agent-wait";
+import { MAX_HANDED, nextWakeOf } from "./agent-wait";
 import { wakeDue } from "./desk-clock";
 import { openDesk } from "./desk-store";
 import { setup } from "./test-desk";
-import { endLostTurns, stopWithdrawn, turnEnded, watch } from "./turn-ends";
+import {
+  endLostTurns,
+  endTurnsCutByRestart,
+  stopWithdrawn,
+  turnEnded,
+  watch,
+} from "./turn-ends";
 
 // A run's end and its start are bound to its own turn: a late one never touches the turn after it (decision 78's plan,
 // rule 4). Made up.
@@ -189,4 +198,49 @@ test("stopWithdrawn: his Undo removes the answer's queued event, so the agent ne
   expect(desk.db.query("select count(*) as n from event").get()).toEqual({
     n: 0,
   });
+});
+
+// Regression (26 Nov 2026): a desk helper killed mid-turn left its turns open, and a stopped agent's assignment never
+// woke again (`nextWakeOf` is null while a turn is open).
+test("at the helper's start, the turns a restart cut are closed and their wake is due again", async () => {
+  const { desk, path } = setup();
+  const begun = withTurn(desk);
+  const unbegun = withTurn(desk);
+  const waited = withTurn(desk);
+  desk.db.run(
+    "insert into event (assignment_id, event_id, name, payload, received_at, handed) values (?, 'evt_test', 'decision.answered', '{}', ?, 1)",
+    [begun.s, clock().toISOString()]
+  );
+  const cut = begun.open();
+  desk.db.run("update turn set begun_at = started_at where id = ?", [cut]);
+  desk.db.run("update agent set status = 'stopped' where id = ?", [
+    begun.agent,
+  ]);
+  const notBegun = unbegun.open();
+  const set = waited.open();
+  desk.db.run("update turn set outcome = 'waited' where id = ?", [set]);
+  const restarted = { ...desk, db: openDesk(path) };
+  endTurnsCutByRestart(restarted);
+  for (const id of [cut, notBegun]) {
+    expect(turnOf(restarted.db, id)?.outcome).toBe("cut");
+    expect(turnOf(restarted.db, id)?.ended_at).not.toBeNull();
+  }
+  // Not closed as not started, nothing dropped or consumed, and due again at once by its own cause.
+  expect(assignmentOf(restarted.db, unbegun.s)?.closed_at).toBeNull();
+  expect(queuedEvents(restarted.db, begun.s)).toMatchObject([
+    { event_id: "evt_test", handed: 0 },
+  ]);
+  const s = assignmentOf(restarted.db, begun.s);
+  if (!s) {
+    throw new Error("Test: no assignment");
+  }
+  expect(
+    nextWakeOf(
+      s,
+      lastTurns(restarted.db, begun.s),
+      queuedEvents(restarted.db, begun.s)
+    )
+  ).toMatchObject({ at: clock().getTime(), cause: "answer" });
+  // A turn that set its outcome is endLostTurns's, untouched here.
+  expect(turnOf(restarted.db, set)?.ended_at).toBeNull();
 });
