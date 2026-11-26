@@ -64,9 +64,24 @@ import XCTest
     func testSlowAnswer() {
         launch("M1")
         askLife("Where are we regarding the house?")
+        // The prototype's state: his question sent, Life still at work on it.
+        shoot("slow-answer")
         appears(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch,
             "the answer's last words", within: 30)
-        shoot("slow-answer")
+    }
+}
+
+/// V1: the voices row opened on a voice Life suggests someone for: the moment, Life's reason, its answers.
+@MainActor final class V1VoiceGuessTests: FlowTest {
+    func testVoiceGuess() {
+        launch("A1")
+        let more = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", " more")).firstMatch
+        appears(more, "the rest of the rows")
+        more.tap()
+        taps += 1
+        unfold(element(AID.askRow("voices")), until: element(AID.voicesAnswer("is-them")))
+        appears(app.staticTexts["You called Nora at 14:20, and this voice is on that call."], "Life's reason")
+        shoot("voice-guess")
     }
 }

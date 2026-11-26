@@ -136,6 +136,13 @@ export const ROWS: Row[] = [
     taps: 0,
     title: "Where are we regarding the house? (an answer as it is written)",
   },
+  {
+    flow: "V1VoiceGuessTests",
+    id: "voice-guess",
+    proto: ['[data-v4="vguess"]'],
+    taps: 2,
+    title: "A voice: Life suggests someone",
+  },
 ];
 
 interface Review {
