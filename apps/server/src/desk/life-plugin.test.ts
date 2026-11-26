@@ -275,10 +275,9 @@ function fakeSidebar(sections: { id: string; kind: string; name: string }[]) {
     { group: null, sessionId: "s3", title: "Fix the login page" },
   ];
   const calls: [string, Record<string, unknown> | undefined][] = [];
-  const text = (v: unknown) => ({
-    content: [{ text: JSON.stringify(v), type: "text" }],
-  });
-  const call: McpCall = async (_server, tool, args) => {
+  const text = (v: unknown) =>
+    Promise.resolve({ content: [{ text: JSON.stringify(v), type: "text" }] });
+  const call: McpCall = (_server, tool, args) => {
     calls.push([tool, args]);
     if (tool === "list_sections") {
       return text(sections);
