@@ -44,7 +44,7 @@ struct ItemRow: View {
         if isQueued { return "Goes when you're back" }
         return switch ask.state {
         case .needsYou, .unknown:
-            [ask.check?.draft?.to, (ask.check?.deadline ?? ask.at).map { when($0) }].compactMap(\.self)
+            [look?.line ?? ask.check?.draft?.to, (ask.check?.deadline ?? ask.at).map { when($0) }].compactMap(\.self)
                 .joined(separator: " · ").nilIfEmpty
         case .later: ask.later.map { "Later · \(when($0, withTime: true))" } ?? "Later"
         case .waitingOnSomeone: "Waiting for a reply"
@@ -69,8 +69,9 @@ struct ItemRow: View {
     @State private var kept: String?
     @State private var keptTo: String?
     /// Who it is for, as their initial; the mark only when there is no one to show.
+    private var look: AskLook? { ask.check.map(AskLook.init) }
     private var face: ItemFace? {
-        (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
+        look?.face ?? (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
     }
     private var icon: String {
         if let check = ask.check {
@@ -102,7 +103,9 @@ struct ItemRow: View {
 
     private var row: some View {
         ThreadItemRow(
-            title: isOnTheirMatter && !ask.question.isEmpty ? ask.question : ask.title, state: state, icon: icon,
+            title: isOnTheirMatter && !ask.question.isEmpty
+                ? ask.question : look?.title(fallback: ask.title) ?? ask.title,
+            state: state, icon: icon,
             face: face,
             line: line, isOpen: isOpen, ref: ask.ref,
             toggle: {
@@ -167,14 +170,15 @@ struct ItemRow: View {
 
     /// The options of the card that are answers: a put-off ("Not now") is Later, which every ask offers.
     private func answers(of check: Check) -> [Check.Option] {
-        check.options.filter { $0.icon != .later && $0.id != "not-now" }
+        check.options.filter { $0.icon != .later && $0.id != "not-now" && AskLook(check: check).shows($0) }
     }
 
     private func card(_ check: Check) -> some View {
         let options = answers(of: check)
         let isFailed = { if case .failed = action { true } else { false } }()
         // What each answer's button says: the one that failed says "Not sent", and tapping it tries again.
-        let shown = { (option: Check.Option) in isFailed && option.id == tapped ? "Not sent" : option.label }
+        let look = AskLook(check: check)
+        let shown = { (option: Check.Option) in isFailed && option.id == tapped ? "Not sent" : look.label(option) }
         let byLabel = Dictionary(options.map { (shown($0), $0) }, uniquingKeysWith: { first, _ in first })
         let taking = options.contains { $0.takes == .note || $0.takes == .personOrName }
         let recommended = options.first { $0.id == check.recommended }.map(shown)
@@ -210,7 +214,12 @@ struct ItemRow: View {
                 editing = label
                 usedEdits.insert(label)
                 _ = life.thread.ask(label, screen: MainSessionScreen(open: ask.ref, tab: "thread"), tap: true)
-            }, isInItem: true)
+            }, isInItem: true, look: look,
+            pick: { party in
+                guard let request = check.answer(naming: .person(party.ref)) else { return }
+                tapped = request.options.first
+                Task { await life.answer(request) }
+            })
     }
 
     /// "How am I doing?" under an answered ask: his mark is one answer, then the row goes.

@@ -1,0 +1,1092 @@
+{
+ "earlier": null,
+ "items": [
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [
+     {
+      "at": "2026-11-18T10:00:00.000Z",
+      "until": "2026-11-18T10:00:00.000Z",
+      "text": "Then let's say Saturday at nine, I bring the big ladder",
+      "audio": {
+       "jobId": "11111111-2222-3333-4444-555555555555",
+       "start": 0,
+       "end": 4
+      },
+      "words": [
+       [
+        0,
+        300
+       ],
+       [
+        330,
+        560
+       ],
+       [
+        600,
+        800
+       ],
+       [
+        830,
+        1100
+       ],
+       [
+        1150,
+        1400
+       ],
+       [
+        1450,
+        1700
+       ],
+       [
+        1750,
+        1900
+       ],
+       [
+        1950,
+        2300
+       ],
+       [
+        2350,
+        2600
+       ],
+       [
+        2650,
+        3000
+       ]
+      ]
+     }
+    ],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "voice",
+    "isPlan": false,
+    "kind": "voice",
+    "likelyPeople": [
+     {
+      "ref": "person:nora",
+      "name": "Nora",
+      "kind": "person",
+      "line": "Your partner",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "is-them",
+      "label": "Yes",
+      "takes": null,
+      "icon": "done"
+     },
+     {
+      "id": "this-is",
+      "label": "Someone else…",
+      "takes": "person",
+      "icon": "person"
+     },
+     {
+      "id": "media",
+      "label": "TV or video",
+      "takes": null
+     },
+     {
+      "id": "not-relevant",
+      "label": "Don't name",
+      "takes": null,
+      "icon": "hide"
+     }
+    ],
+    "plan": null,
+    "recommended": "is-them",
+    "replaces": null,
+    "pushId": "push-dec_000000000011",
+    "question": "Who is this?",
+    "ref": "dec_000000000011",
+    "title": "Name a voice",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000011",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [
+     {
+      "at": "2026-11-18T10:00:00.000Z",
+      "until": "2026-11-18T10:00:00.000Z",
+      "text": "No, the blue one, it's cheaper",
+      "audio": {
+       "jobId": "11111111-2222-3333-4444-555555555555",
+       "start": 0,
+       "end": 4
+      },
+      "words": null
+     }
+    ],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "voice",
+    "isPlan": false,
+    "kind": "voice",
+    "likelyPeople": [
+     {
+      "ref": "person:nora",
+      "name": "Nora",
+      "kind": "person",
+      "line": "Your partner",
+      "picture": null
+     },
+     {
+      "ref": "person:lea",
+      "name": "Lea Moreau",
+      "kind": "person",
+      "line": "Designer",
+      "picture": null
+     },
+     {
+      "ref": "person:max",
+      "name": "Max Weber",
+      "kind": "person",
+      "line": "Your landlord",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "this-is",
+      "label": "Someone else…",
+      "takes": "person",
+      "icon": "person"
+     },
+     {
+      "id": "media",
+      "label": "TV or video",
+      "takes": null
+     },
+     {
+      "id": "not-relevant",
+      "label": "Don't name",
+      "takes": null,
+      "icon": "hide"
+     }
+    ],
+    "plan": null,
+    "recommended": null,
+    "replaces": null,
+    "pushId": "push-dec_000000000012",
+    "question": "Who is this?",
+    "ref": "dec_000000000012",
+    "title": "Name a voice",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000012",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "new matter",
+    "isPlan": false,
+    "kind": "new matter",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "start",
+      "label": "Start an agent",
+      "takes": null,
+      "icon": "agent"
+     },
+     {
+      "id": "edit-goal",
+      "label": "Edit goal",
+      "takes": "note"
+     },
+     {
+      "id": "dismiss",
+      "label": "No agent",
+      "takes": null,
+      "icon": "no"
+     }
+    ],
+    "plan": null,
+    "recommended": "start",
+    "replaces": null,
+    "pushId": "push-dec_000000000013",
+    "question": "Start an agent on this?",
+    "ref": "dec_000000000013",
+    "title": "Life found a new matter: Deposit back from Kit",
+    "urgency": "blocks",
+    "goal": "Kit says your 800 € deposit comes back after the inspection. I follow it up until the money is back."
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000013",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "ending",
+    "isPlan": false,
+    "kind": "ending",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "outdated",
+      "label": "Yes, done",
+      "takes": null,
+      "icon": "done"
+     },
+     {
+      "id": "false",
+      "label": "Not yet",
+      "takes": null,
+      "icon": "later"
+     }
+    ],
+    "plan": null,
+    "recommended": "outdated",
+    "replaces": null,
+    "pushId": "push-dec_000000000014",
+    "question": "Is this done?",
+    "ref": "dec_000000000014",
+    "title": "Close what is done",
+    "urgency": "blocks",
+    "said": {
+     "at": "2026-11-17",
+     "by": "Eric",
+     "channel": null,
+     "text": "sending Paul the photos of the leak",
+     "to": null
+    },
+    "since": {
+     "at": "2026-11-18",
+     "by": "Paul",
+     "channel": "whatsapp",
+     "text": "Got the photos, thanks! Coming Thursday",
+     "to": null
+    }
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000014",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "same person",
+    "isPlan": false,
+    "kind": "same person",
+    "likelyPeople": [
+     {
+      "ref": "person:ben",
+      "name": "Ben Carter",
+      "kind": "person",
+      "line": "Founder",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "same-person",
+      "label": "Same person",
+      "takes": null,
+      "icon": "link"
+     },
+     {
+      "id": "not-this-person",
+      "label": "Different",
+      "takes": null,
+      "icon": "people"
+     }
+    ],
+    "plan": null,
+    "recommended": "same-person",
+    "replaces": null,
+    "pushId": "push-dec_000000000015",
+    "question": "One Ben Carter, or two? +33 6 12 40 77 81 on WhatsApp, ben@fernway.co in mail",
+    "ref": "dec_000000000015",
+    "title": "Join one person",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000015",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "contacts card",
+    "isPlan": false,
+    "kind": "contacts card",
+    "likelyPeople": [
+     {
+      "ref": "person:max",
+      "name": "Max Weber",
+      "kind": "person",
+      "line": "Your landlord",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "same-person",
+      "label": "Someone else…",
+      "takes": "person or name",
+      "icon": "person"
+     }
+    ],
+    "plan": null,
+    "recommended": null,
+    "replaces": null,
+    "pushId": "push-dec_000000000016",
+    "question": "Is this Max Weber?",
+    "ref": "dec_000000000016",
+    "title": "Place a Contacts card",
+    "urgency": "blocks",
+    "contactsCard": {
+     "name": "Max W.",
+     "handles": [
+      "+33 6 44 12 90 03"
+     ]
+    }
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000016",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "life",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "at organization",
+    "isPlan": false,
+    "kind": "at organization",
+    "likelyPeople": [
+     {
+      "ref": "person:lea",
+      "name": "Lea Moreau",
+      "kind": "person",
+      "line": "Designer",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "yes",
+      "label": "Yes",
+      "takes": null,
+      "icon": "done"
+     },
+     {
+      "id": "not-at-organization",
+      "label": "No",
+      "takes": null,
+      "icon": "no"
+     }
+    ],
+    "plan": null,
+    "recommended": "yes",
+    "replaces": null,
+    "pushId": "push-dec_000000000017",
+    "question": "Is Lea at Fernway, as designer?",
+    "ref": "dec_000000000017",
+    "title": "Link someone to an organization",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000017",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [
+     {
+      "ref": "person:mali",
+      "name": "Mali",
+      "kind": "person",
+      "line": "Cleaner",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [
+     {
+      "kind": "account",
+      "bank": "Kasikornbank",
+      "number": "012-3-45678-9",
+      "holder": "Mali Wong",
+      "scheme": "promptpay",
+      "line": "Kasikornbank 012-3-45678-9, Mali Wong"
+     },
+     {
+      "kind": "amount",
+      "value": 4500,
+      "currency": "THB",
+      "line": "4,500 THB"
+     },
+     {
+      "kind": "qr",
+      "payload": "00020101021129370016A00000067701011101130066812345678530376454074500.005802TH6304ABCD",
+      "source": "Mali's message",
+      "line": "QR code from Mali's message"
+     }
+    ],
+    "notSent": null,
+    "options": [
+     {
+      "id": "paid",
+      "label": "I paid it",
+      "takes": null,
+      "looks": true
+     },
+     {
+      "id": "later",
+      "label": "Later",
+      "takes": null,
+      "icon": "later"
+     }
+    ],
+    "plan": null,
+    "recommended": "paid",
+    "replaces": null,
+    "pushId": "push-dec_000000000018",
+    "question": "Pay Mali 4,500 THB",
+    "ref": "dec_000000000018",
+    "title": "Pay Mali",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000018",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [
+     {
+      "kind": "link",
+      "url": "https://www.doctolib.fr/pharmacie/centre",
+      "vendor": "Pharmacie du Centre",
+      "line": "Pharmacie du Centre: doctolib.fr"
+     }
+    ],
+    "notSent": null,
+    "options": [
+     {
+      "id": "book",
+      "label": "Book Pharmacie du Centre",
+      "takes": null,
+      "outgoing": true
+     },
+     {
+      "id": "other",
+      "label": "Pharmacie de la Gare",
+      "takes": null
+     }
+    ],
+    "plan": null,
+    "recommended": "book",
+    "replaces": null,
+    "pushId": "push-dec_000000000019",
+    "question": "Book Pharmacie du Centre, Thursday 10:00?",
+    "ref": "dec_000000000019",
+    "title": "Book your flu jab",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000019",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [
+     {
+      "kind": "event",
+      "title": "Parents' meeting",
+      "start": "2026-11-19T18:00:00+01:00",
+      "end": "2026-11-19T19:00:00+01:00",
+      "place": "Linden School, room 4",
+      "reminders": [
+       60,
+       30
+      ],
+      "line": "Parents' meeting, 2026-11-19 18:00"
+     }
+    ],
+    "notSent": null,
+    "options": [
+     {
+      "id": "add",
+      "label": "Add to calendar",
+      "takes": null,
+      "adds": true
+     },
+     {
+      "id": "no",
+      "label": "No",
+      "takes": null
+     }
+    ],
+    "plan": null,
+    "recommended": "add",
+    "replaces": null,
+    "pushId": "push-dec_000000000020",
+    "question": "Add the parents' meeting?",
+    "ref": "dec_000000000020",
+    "title": "Add the parents' meeting",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000020",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [
+     {
+      "kind": "apify",
+      "actor": "made/up-actor",
+      "estimateUsd": 1.2,
+      "maxUsd": 3,
+      "what": "Physios within 3 km, with their prices",
+      "input": {
+       "query": "physio"
+      },
+      "line": "Physios within 3 km, with their prices: about $1.20, never more than $3."
+     }
+    ],
+    "notSent": null,
+    "options": [
+     {
+      "id": "run",
+      "label": "Look them up",
+      "takes": null,
+      "runs": true
+     },
+     {
+      "id": "no",
+      "label": "No",
+      "takes": null
+     }
+    ],
+    "plan": null,
+    "recommended": "run",
+    "replaces": null,
+    "pushId": "push-dec_000000000021",
+    "question": "Look up the physios near home?",
+    "ref": "dec_000000000021",
+    "title": "Look up physios",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000021",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": true,
+    "kind": "decision",
+    "likelyPeople": [
+     {
+      "ref": "person:kit",
+      "name": "Kit Moreau",
+      "kind": "person",
+      "line": "Your landlord",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "start",
+      "label": "Go ahead",
+      "takes": null,
+      "role": "start"
+     },
+     {
+      "id": "no",
+      "label": "No",
+      "takes": null,
+      "role": "decline"
+     }
+    ],
+    "plan": [
+     {
+      "text": "Ask Kit for the inspection date",
+      "by": "agent",
+      "when": "today",
+      "channel": null
+     },
+     {
+      "text": "Be there for the inspection",
+      "by": "owner",
+      "when": "once Kit answers",
+      "channel": null
+     },
+     {
+      "text": "Remind Kit of the 14-day limit",
+      "by": "agent",
+      "when": "2 Dec, if he is silent",
+      "channel": null
+     }
+    ],
+    "recommended": "start",
+    "replaces": null,
+    "pushId": "push-dec_000000000022",
+    "question": "Get your deposit back from Kit?",
+    "ref": "dec_000000000022",
+    "title": "Get your deposit back",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000022",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [
+     {
+      "ref": "person:paul",
+      "name": "Paul",
+      "kind": "person",
+      "line": "Plumber",
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "payment",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [
+     {
+      "kind": "account",
+      "bank": "Plomberie Garnier",
+      "number": "FR76 3000 6000 0112 3456 7890 189",
+      "holder": "Plomberie Garnier",
+      "scheme": "iban",
+      "line": "IBAN FR76 3000 6000 0112 3456 7890 189"
+     },
+     {
+      "kind": "amount",
+      "value": 240,
+      "currency": "EUR",
+      "line": "240 EUR"
+     }
+    ],
+    "notSent": null,
+    "options": [
+     {
+      "id": "paid",
+      "label": "I paid it",
+      "takes": null,
+      "looks": true
+     }
+    ],
+    "plan": null,
+    "recommended": "paid",
+    "replaces": null,
+    "pushId": "push-dec_000000000023",
+    "question": "Pay Paul 240 €?",
+    "ref": "dec_000000000023",
+    "title": "Pay Paul 240 €",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000023",
+   "state": "needs_you"
+  },
+  {
+   "at": "2026-11-18T10:00:00.000Z",
+   "card": {
+    "about": [],
+    "agent": null,
+    "asker": "planner",
+    "at": "2026-11-18T10:00:00.000Z",
+    "clips": [
+     {
+      "at": "2026-11-18T10:00:00.000Z",
+      "until": "2026-11-18T10:00:00.000Z",
+      "text": "Then let's say Saturday at nine, I bring the big ladder",
+      "audio": {
+       "jobId": "11111111-2222-3333-4444-666666666666",
+       "start": 0,
+       "end": 4
+      },
+      "words": [
+       [
+        0,
+        300
+       ],
+       [
+        330,
+        560
+       ],
+       [
+        600,
+        800
+       ],
+       [
+        830,
+        1100
+       ],
+       [
+        1150,
+        1400
+       ],
+       [
+        1450,
+        1700
+       ],
+       [
+        1750,
+        1900
+       ],
+       [
+        1950,
+        2300
+       ],
+       [
+        2350,
+        2600
+       ],
+       [
+        2650,
+        3000
+       ]
+      ]
+     }
+    ],
+    "context": null,
+    "deadline": "2026-11-18T10:00:00.000Z",
+    "draft": null,
+    "group": "decision",
+    "isPlan": false,
+    "kind": "decision",
+    "likelyPeople": [
+     {
+      "ref": "person:sam",
+      "name": "Sam",
+      "kind": "person",
+      "line": null,
+      "picture": null
+     }
+    ],
+    "links": [],
+    "onMatters": [],
+    "onSilence": "wait",
+    "ask": null,
+    "changed": null,
+    "doneSeen": null,
+    "doneSeenBy": "tap",
+    "edits": null,
+    "follow": [],
+    "gathered": null,
+    "needs": [],
+    "notSent": null,
+    "options": [
+     {
+      "id": "yes",
+      "label": "Yes, nine",
+      "takes": null
+     },
+     {
+      "id": "no",
+      "label": "No, ten",
+      "takes": null
+     }
+    ],
+    "plan": null,
+    "recommended": "yes",
+    "replaces": null,
+    "pushId": "push-dec_000000000024",
+    "question": "Did Sam say nine?",
+    "ref": "dec_000000000024",
+    "title": "Did Sam say 9 or 10?",
+    "urgency": "blocks"
+   },
+   "kind": "ask",
+   "later": null,
+   "ref": "dec_000000000024",
+   "state": "needs_you"
+  }
+ ],
+ "version": "fixed"
+}
