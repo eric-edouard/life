@@ -152,3 +152,37 @@ test("the hourly check reads the last one back and records each", async () => {
     .all();
   expect(checks).toHaveLength(2);
 });
+
+test("a turn is held by any live conversation around it, nested ones included, its end excluded", () => {
+  // An hour's conversation holding a turn at 15 minutes, with a minute's conversation inside it before that turn.
+  seedConversation(
+    env.db,
+    [{ end: 905, speakerId: "speaker_0", start: 900, text: "Later on." }],
+    { at: start, ms: 3_600_000 }
+  );
+  env.db
+    .insert(conversations)
+    .values({
+      captureEndedAt: new Date(start + 120_000),
+      captureStartedAt: new Date(start + 60_000),
+      id: randomUUID(),
+    })
+    .run();
+  // A turn at its conversation's first instant is held; one at its last (exclusive) is not.
+  seedConversation(
+    env.db,
+    [
+      { end: 1, speakerId: "speaker_0", start: 0, text: "Hello." },
+      { end: 6, speakerId: "speaker_1", start: 5, text: "Bye." },
+    ],
+    { at: start + 7_200_000 }
+  );
+  env.db.run(
+    sql`update conversations set capture_ended_at = ${start + 7_205_000} where capture_started_at = ${start + 7_200_000}`
+  );
+  expect(archiveHealth(env.db)).toEqual({
+    ...clean,
+    overlaps: 1,
+    strayTurns: 1,
+  });
+});
