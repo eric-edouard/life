@@ -18,7 +18,6 @@ import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { byAsked, checksOnMatterOf } from "../../memory/checks";
 import { requestDecision } from "../../memory/decisions";
-import { readLifeIcons } from "../../memory/matter-icons";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
@@ -381,7 +380,6 @@ export function buildServer(readsOnly = false, logsArguments = false) {
     async ({ id }) => {
       const matter = await oneMatter([id], {
         agentsOf: readAgentsOnSteps,
-        readIcons: readLifeIcons,
         spendingOf: readMatterSpending,
       });
       if (!matter) {

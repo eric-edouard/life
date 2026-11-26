@@ -10,7 +10,7 @@ import {
 } from "./held-matters";
 import { instructionsFor } from "./instructions";
 import { matterEndOf } from "./matter-end";
-import { iconNow } from "./matter-icons";
+import { iconNow, readLifeIcons } from "./matter-icons";
 import {
   directionDueOf,
   isRunning,
@@ -63,7 +63,7 @@ export interface MatterRow {
   /** When it ended, closed only (`matterEndOf`). */
   endedAt?: string;
   goal?: { by: "life" | "owner"; text: string };
-  /** Its icon (`iconNow`): his pick, else Life's; left out with neither, or when the reader asked for no Life picks. */
+  /** Its icon (`iconNow`): his pick, else Life's; left out with neither. */
   icon?: { by: "life" | "owner"; key: MatterIconKey };
   id: string;
   /** Marked important by his word (`MatterView.important`); left out when not. */
@@ -101,16 +101,10 @@ const some = <T>(list: T[]) => (list.length > 0 ? list : undefined);
 const nameIn = (list: { id: string; name: string }[], id: string) =>
   list.find((x) => x.id === id)?.name ?? id;
 
-/** Life's icon picks for some matters, by id (`readLifeIcons`): the connector's reads pass it, the desk's summaries don't. */
-type LifeIconsReader = (
-  views: readonly MatterView[]
-) => Promise<ReadonlyMap<string, MatterIconKey>>;
-
 function rowOf(
   v: MatterView,
   { partyOf, truth }: Pick<People, "partyOf" | "truth">,
-  decisions: ReturnType<typeof openDecisions>,
-  lifeIcons: ReadonlyMap<string, MatterIconKey> = new Map()
+  decisions: ReturnType<typeof openDecisions>
 ): MatterRow {
   const project = projectOf(truth)(v);
   const next = nextStepNow(v, decisions);
@@ -128,7 +122,7 @@ function rowOf(
       .at(0),
     endedAt: end?.at,
     goal: v.goal && { by: v.goal.by, text: v.goal.text },
-    icon: iconNow(v, lifeIcons),
+    icon: iconNow(v, readLifeIcons()),
     id: v.id,
     important: v.important || undefined,
     lastStepAt: v.steps.at(-1)?.at,
@@ -282,20 +276,18 @@ export async function rankedMatters<R extends { book: MatterView[] }>(
 
 /**
  * The matters in a state (`rankedMatters`: running when not given), of one `person`, `project` or `area` when given: each
- * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one an open assignment anchors on the matter) and, given `readIcons`, Life's icon picks for the ranked list. Throws when a person, project or area named goes by no name known.
+ * as `MatterRow`, with `agentOf`'s registered agent on it (from host: the one an open assignment anchors on the matter). Throws when a person, project or area named goes by no name known.
  * Of one project, its page's head too (`project`): its name, status as stored and the first of his goals naming it; a
  * matter is parked by the project its row shows under (`projectOf`), not by this one.
  */
 export async function openMatters(
   q: Parameters<typeof rankedMatters>[0],
-  agentOf: (steps: string[]) => string | undefined = () => undefined,
-  readIcons?: LifeIconsReader
+  agentOf: (steps: string[]) => string | undefined = () => undefined
 ) {
   const { book, decisions, nextBefore, people, project, ranked } =
     await rankedMatters(q, async (p, t) => ({
       book: await readMatterBook(p, t),
     }));
-  const lifeIcons = await readIcons?.(ranked);
   const { truth } = people;
   const head = truth.projects.find((x) => x.id === project);
   return {
@@ -313,7 +305,7 @@ export async function openMatters(
       },
     }),
     matters: ranked.map((v) => ({
-      ...rowOf(v, people, decisions, lifeIcons),
+      ...rowOf(v, people, decisions),
       agent: agentOf(refsOf(v)),
     })),
     ...(nextBefore && { nextBefore }),
@@ -560,7 +552,7 @@ export async function readPacketMatter(
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group; `prefer`, the matter it was given, settles a tie): its `MatterRow`, its steps in time order (each
- * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his); given `readIcons`, Life's icon pick.
+ * with its day, words, quote, who it was with as a party and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host), then the communication styles of its people he knows (`communicationStylesOf`: a draft to them follows his).
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A, S = undefined>(
@@ -569,14 +561,12 @@ export async function oneMatter<A, S = undefined>(
     agentsOf = () => [],
     book,
     prefer,
-    readIcons,
     spendingOf,
   }: {
     agentsOf?: (steps: string[], people: People) => A[];
     /** The book when the caller read it already. */
     book?: readonly MatterView[];
     prefer?: string;
-    readIcons?: LifeIconsReader;
     // What the matter spent, by the book's own finder (host's desk reads; memory reads no desk).
     spendingOf?: (
       find: ReturnType<typeof matterFinderOf<MatterView>>,
@@ -591,7 +581,7 @@ export async function oneMatter<A, S = undefined>(
   if (!v) {
     return;
   }
-  const row = rowOf(v, people, openDecisions(), await readIcons?.([v]));
+  const row = rowOf(v, people, openDecisions());
   // The next step's context (his or Life's), on one matter's read only (never in the list); none on a wait for his decision.
   const context =
     row.nextStep?.kind === "wait_decision" ? undefined : v.nextStep?.context;
