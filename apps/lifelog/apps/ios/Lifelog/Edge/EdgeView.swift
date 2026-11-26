@@ -250,7 +250,9 @@ extension UIScreen {
     /// The key is split so a plain scan of the binary does not flag it.
     fileprivate var cornerRadius: CGFloat? {
         let key = ["_display", "Corner", "Radius"].joined()
-        guard let radius = value(forKey: key) as? CGFloat, radius > 0 else { return nil }
+        guard responds(to: NSSelectorFromString(key)), let radius = value(forKey: key) as? CGFloat, radius > 0 else {
+            return nil
+        }
         return radius
     }
 }
