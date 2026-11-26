@@ -43,10 +43,8 @@ struct RootView: View {
 
     /// The field, as tall as it is now: the thread keeps its last row clear of it.
     @State private var fieldHeight: CGFloat = 0
-    /// The two round buttons and the notices over the thread: it starts below them.
+    /// The two round buttons over the thread: it starts below them.
     @State private var topHeight: CGFloat = 0
-    @State private var noticeHeight: CGFloat = 0
-    @State private var screenHeight: CGFloat = 800
 
     private struct Profile: Hashable { let ref: String }
     @Namespace private var profileZoom
@@ -76,32 +74,11 @@ struct RootView: View {
             // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
             // left under it, and the thread then starts in the wrong place.
             .overlay(alignment: .top) {
-                VStack(spacing: Metrics.Spacing.s) {
-                    buttons
-                    // The notice, opened, grows to its words up to half of the screen, then scrolls: the buttons above it
-                    // always stay in view, at the largest text size too.
-                    ScrollView {
-                        Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
-                            .onGeometryChange(for: CGFloat.self) {
-                                $0.size.height
-                            } action: {
-                                noticeHeight = $0
-                            }
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .frame(height: min(noticeHeight, screenHeight * 0.5))
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .onGeometryChange(for: CGFloat.self) {
+                buttons.onGeometryChange(for: CGFloat.self) {
                     $0.size.height
                 } action: {
                     topHeight = $0
                 }
-            }
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.height
-            } action: {
-                screenHeight = $0
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) {
@@ -254,7 +231,7 @@ struct RootView: View {
         if case .recording = capture.status.recording { true } else { false }
     }
 
-    private var isCountShown: Bool { life.isOutOfReach || (life.waitingCount ?? 0) > 0 }
+    private var isCountShown: Bool { (life.waitingCount ?? 0) > 0 }
 
     /// The two round buttons: what waits on him (its count; tap lists them in the thread, no call), and the pendant (long press: Settings).
     private var buttons: some View {
@@ -262,21 +239,14 @@ struct RootView: View {
             Button {
                 thread.showWaiting(life.waitingRefs ?? [])
             } label: {
-                // Something broken turns the count into a coral mark: he learns of it where he is (the lab's Settings 2, B).
-                Group {
-                    if life.isOutOfReach {
-                        Image(systemName: "exclamationmark").font(.rowTitle).foregroundStyle(Palette.flag)
-                    } else {
-                        Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle).monospacedDigit()
-                    }
-                }
-                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+                // Life out of reach changes nothing here: the notice in the thread says it (the prototype's `.sys`).
+                Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle).monospacedDigit()
+                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
             }
             // Nothing waits: the button is gone, its place kept (the prototype's `visibility:hidden`).
             .opacity(isCountShown ? 1 : 0).disabled(!isCountShown)
             .accessibilityHidden(!isCountShown)
-            .accessibilityLabel(
-                life.isOutOfReach ? "Life can't be reached" : "\(life.waitingCount ?? 0) waiting on you")
+            .accessibilityLabel("\(life.waitingCount ?? 0) waiting on you")
             Spacer()
             Button {
                 sheet = .pendant
