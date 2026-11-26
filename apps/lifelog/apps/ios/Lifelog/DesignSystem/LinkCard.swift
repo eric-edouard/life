@@ -1,4 +1,5 @@
 import SwiftUI
+import LifeConnector
 
 /// A link looks like where it goes (owner, 26 Nov 2026: link B v2): the site's mark in its colour, its plain name, the
 /// key fact large and what is there under it, so he knows where the tap lands before he taps. A site Life does not know
