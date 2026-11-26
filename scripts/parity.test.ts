@@ -12,6 +12,14 @@ const SOURCE: Record<string, string[]> = {
   "read_people_and_organizations.json": [
     "life/read_people_and_organizations.json",
   ],
+  "read_thread_draft_imessage.json": [
+    "life/read_thread_draft.json",
+    "lab/opening.json",
+  ],
+  "read_thread_draft_whatsapp.json": [
+    "life/read_thread_draft.json",
+    "lab/opening.json",
+  ],
   "read_thread_draft.json": ["life/read_thread_draft.json", "lab/opening.json"],
   "read_thread_outdated.json": [
     "life/read_thread_outdated.json",

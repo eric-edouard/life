@@ -6,11 +6,29 @@
   "steps": [
     {
       "reads": {
+        "read_thread": "parity/read_thread_draft_imessage.json"
+      }
+    },
+    {
+      "reads": {
         "read_thread": "parity/read_thread_settled_imessage.json"
       }
     }
   ],
-  "answers": [],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "send"
+      ],
+      "progress": [
+        "Checking the chat",
+        "Sending"
+      ],
+      "then": "life/answer_check_sent.json",
+      "advance": true
+    }
+  ],
   "items": [
     "dec_000000000001"
   ]
