@@ -523,6 +523,25 @@ test("a store from before late replies and in-turn stops is refused by openDesk;
   after.close();
 });
 
+test("a store from before the thread (no `thread_entry`) is stepped too: `turn.stopped_spending` added, the thread made when it opens", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-step-"));
+  const path = join(dir, "desk.sqlite");
+  const db = new Database(path);
+  db.run(
+    SCHEMA.replace(
+      "search_usd real,\n  stopped_spending integer",
+      "search_usd real"
+    )
+  );
+  db.run("drop table thread_entry");
+  db.close();
+  expect(stepFollowsAndStops(path, dir)).toBe("migrated");
+  const after = openDesk(path);
+  expect(after.query("select follows from thread_entry").all()).toEqual([]);
+  expect(after.query("select stopped_spending from turn").all()).toEqual([]);
+  after.close();
+});
+
 test("the later steps, run in any order on a store from before all of them, end in one shape", () => {
   const beforeAll = SCHEMA.replace(
     "role text,",
