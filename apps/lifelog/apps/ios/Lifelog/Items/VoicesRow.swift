@@ -74,48 +74,63 @@ struct VoicesRow: View {
         .font(.line)
     }
 
+    /// One moment in a tinted box: the clip, then its length and, with more clips, "Another moment".
     private func moment(_ check: Check) -> some View {
-        let shown = check.clips[clip % check.clips.count]
+        let shown = check.clips[clip % check.clips.count].trimmed()
         return VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
-            ReadAlong(clip: shown.trimmed()).id("\(check.ref)-\(clip)")
-            if check.clips.count > 1 {
-                Button("Another moment") { clip += 1 }.font(.line).foregroundStyle(Palette.fg)
-                    .padding(.leading, Metrics.tapTarget + Metrics.Spacing.m).identified(AID.voicesAnother)
+            ReadAlong(clip: shown).id("\(check.ref)-\(clip)")
+            HStack(spacing: 0) {
+                if let length = shown.lengthText { Text(length) }
+                if check.clips.count > 1 {
+                    if shown.lengthText != nil { Text(" · ") }
+                    Button("Another moment") { clip += 1 }.fontWeight(.semibold).foregroundStyle(Palette.fg)
+                        .identified(AID.voicesAnother)
+                }
             }
+            .font(.line).foregroundStyle(Palette.muted).padding(.leading, Metrics.tapTarget + Metrics.Spacing.m)
         }
+        .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.tint, in: .rect(cornerRadius: 18))
     }
 
     // MARK: Answers
 
     private func answers(_ check: Check) -> some View {
         let guess = check.options.contains { $0.id == "is-them" } ? check.likelyPeople.first : nil
-        return HStack(spacing: Metrics.Spacing.s) {
+        return VStack(spacing: Metrics.Spacing.s) {
             if let guess {
                 let name = guess.isOwner ? "me" : String(guess.name.split(separator: " ").first ?? "")
-                pill("It’s \(name)", .filled, id: "is-them") {
+                pill("It’s \(name)", .filled, id: "is-them", isFull: true) {
                     let option = check.options.first { $0.id == "is-them" }
                     Task { await life.answerVoice(check, option.flatMap(check.answer), who: guess.name) }
                 }
-                pill("Someone else", .quiet, id: "else") { startNaming(check) }
             } else {
-                pill("Say who it is", .filled, id: "else") { startNaming(check) }
+                pill("Say who it is", .filled, id: "else", isFull: true) { startNaming(check) }
             }
-            pill("Not a person", .quiet, id: "media") {
-                Task { await life.answerVoice(check, check.answerMedia, who: nil) }
+            HStack(spacing: Metrics.Spacing.s) {
+                if guess != nil { pill("Someone else", .quiet, id: "else") { startNaming(check) } }
+                pill("Not a person", .quiet, id: "media") {
+                    Task { await life.answerVoice(check, check.answerMedia, who: nil) }
+                }
+                pill("Later", .quiet, id: "later") { Task { await life.later(check.ref) } }
             }
-            pill("Later", .quiet, id: "later") { Task { await life.later(check.ref) } }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     /// A pill sized to its words, so the four answers stay on one line.
-    private func pill(_ title: String, _ kind: PillStyle.Kind, id: String, action: @escaping () -> Void) -> some View {
+    private func pill(
+        _ title: String, _ kind: PillStyle.Kind, id: String, isFull: Bool = false, action: @escaping () -> Void
+    ) -> some View {
         let isFilled = kind == .filled
         return Button(action: action) {
             Text(title).font(.heading).lineLimit(1).foregroundStyle(isFilled ? Palette.on : Palette.fg)
-                .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 44)
+                .padding(.horizontal, Metrics.Spacing.m).frame(
+                    maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
+                )
                 .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
         }
-        .buttonStyle(.plain).fixedSize(horizontal: true, vertical: false).identified(AID.voicesAnswer(id))
+        .buttonStyle(.plain).fixedSize(horizontal: !isFull, vertical: false).identified(AID.voicesAnswer(id))
     }
 
     private func startNaming(_ check: Check) {
@@ -142,13 +157,13 @@ struct VoicesRow: View {
                 person(typed, id: "new", face: Image(systemName: "plus").font(.bodyStrong), note: "new person") {
                     Task {
                         await life.answerVoice(
-                            check, AnswerRequest(ref: check.ref, options: ["this-is"], name: typed), who: typed)
+                            check, check.answer(naming: .name(typed)), who: typed)
                     }
                 }
             }
             HStack(spacing: Metrics.Spacing.s) {
-                pill("Back", .quiet, id: "back") { life.naming = nil }
-                pill("Leave unnamed", .quiet, id: "unnamed") {
+                pill("Back", .quiet, id: "back", isFull: true) { life.naming = nil }
+                pill("Leave unnamed", .quiet, id: "unnamed", isFull: true) {
                     Task { await life.answerVoice(check, check.answerDontName, who: nil) }
                 }
             }
@@ -160,8 +175,8 @@ struct VoicesRow: View {
     ) -> some View {
         Button(action: pick) {
             HStack(spacing: Metrics.Spacing.m) {
-                face.frame(width: 36, height: 36).background(Palette.tint, in: .circle)
-                Text(name).font(.bodyStrong).lineLimit(1)
+                face.frame(width: 36, height: 36).background(Palette.fg.opacity(Metrics.Opacity.wash), in: .circle)
+                Text(name).font(.bodyStrong).fontWeight(.semibold).lineLimit(1)
                 Spacer(minLength: 0)
                 if let note { Text(note).font(.line).foregroundStyle(Palette.muted) }
             }

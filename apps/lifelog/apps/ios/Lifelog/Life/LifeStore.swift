@@ -455,7 +455,7 @@ final class LifeStore {
         if let party = namingMatches.first(where: { $0.name.localizedCaseInsensitiveCompare(typed) == .orderedSame }) {
             await answerVoice(check, check.answer(naming: .person(party.ref)), who: party.name)
         } else {
-            await answerVoice(check, AnswerRequest(ref: ref, options: ["this-is"], name: typed), who: typed)
+            await answerVoice(check, check.answer(naming: .name(typed)), who: typed)
         }
     }
 

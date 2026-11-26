@@ -329,7 +329,7 @@ test("a card carries its matters' icons for the row's face; a matter with none s
     },
     looks
   );
-  expect(card).toEqual({
+  expect(card as unknown).toEqual({
     matter: { icon: "water", id: "matter_leak", name: "Fix the leak" },
     onMatters: [{ id: "matter_vague", name: "Flat" }],
     ref: "dec_1",
