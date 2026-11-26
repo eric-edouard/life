@@ -1,0 +1,34 @@
+{
+  "name": "Lab: runs",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "lab/runs.json"
+      }
+    },
+    {
+      "reads": {
+        "read_thread": "lab/runs_settled.json"
+      }
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000002",
+      "options": [
+        "go"
+      ],
+      "progress": [
+        "Working"
+      ],
+      "then": "life/answer_check_ran.json",
+      "advance": true
+    }
+  ],
+  "items": [
+    "dec_000000000002"
+  ]
+}

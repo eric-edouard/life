@@ -8,6 +8,8 @@ struct ItemRow: View {
     let ask: ThreadAsk
     /// On its matter's page: the row's title is its question (the page's title is the matter's name).
     var isOnTheirMatter = false
+    /// Drawn as a full card (a page of a sideways list), not a row that folds.
+    var startsOpen = false
     @Environment(LifeStore.self) private var life
     @State private var isOpen = false
     @State private var words = ""
@@ -27,7 +29,33 @@ struct ItemRow: View {
     private var action: ActionState<ActionProof> { life.state(of: key) }
     private var isQueued: Bool { life.isQueued(ask.ref) }
 
+    /// The card as it was open: its needs (the event, the run) are gone from the wire once it settles.
+    @State private var keptCheck: Check?
+
+    /// What his last answer made happen, drawn on the row in place (the lab's picks): the event in his calendar, the
+    /// run under way, Life looking for his payment. Only from the proof of the tap he just made.
+    private var outcome: (state: ItemState, line: String)? {
+        let option = keptCheck?.options.first { $0.id == tapped }
+        if action.isRunning, option?.looks == true { return (.looking, "Looking in your bank…") }
+        guard case .succeeded(.answered(let result), _) = action else { return nil }
+        let need = { (kind: Check.Need.Kind) in keptCheck?.needs?.first { $0.kind == kind }?.line }
+        if result.changed?.added?.error == nil, result.changed?.added != nil {
+            return (.settled, ["In your calendar", need(.event)].compactMap(\.self).joined(separator: " · "))
+        }
+        if result.changed?.ran?.error == nil, result.changed?.ran != nil {
+            let words = need(.apify).map { "Running · \($0)" } ?? "Running"
+            return (.underWay(progress: 0.1, estimate: words), words)
+        }
+        switch result.doneSeen?.state {
+        case .looking: return (.looking, result.doneSeen?.line ?? "Looking…")
+        case .seen: return (.settled, result.doneSeen?.line ?? "Seen")
+        case .notFound: return (.waitingOnSomeone, result.doneSeen?.line ?? "Not seen yet. I look again")
+        default: return nil
+        }
+    }
+
     private var state: ItemState {
+        if let outcome { return outcome.state }
         if isQueued { return .queued }
         return switch ask.state {
         case .needsYou, .unknown: .needsYou
@@ -41,6 +69,7 @@ struct ItemRow: View {
 
     /// What the row says under its title, from what the wire carries.
     private var line: String? {
+        if let outcome { return outcome.line }
         if isQueued { return "Goes when you're back" }
         return switch ask.state {
         case .needsYou, .unknown:
@@ -121,7 +150,7 @@ struct ItemRow: View {
             }
             .padding(Metrics.Spacing.l).presentationDetents([.medium, .large])
         }
-        .onAppear { isOpen = life.focused == ask.ref }
+        .onAppear { isOpen = startsOpen || life.focused == ask.ref }
         .onChange(of: hasRating, initial: true) {
             guard hasRating else { return }
             let defaults = UserDefaults.standard
@@ -131,6 +160,7 @@ struct ItemRow: View {
         .onChange(
             of: ask.check?.draft != nil || ask.check?.options.contains { $0.takes == .person } == true, initial: true
         ) {
+            if let check = ask.check { keptCheck = check }
             if ask.check != nil, icon != "circle.dashed" { kept = icon }
             if let to = ask.check?.draft?.to { keptTo = to }
         }

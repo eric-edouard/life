@@ -1,0 +1,34 @@
+{
+  "name": "Lab: looks",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "lab/looks.json"
+      }
+    },
+    {
+      "reads": {
+        "read_thread": "lab/looks_settled.json"
+      }
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000003",
+      "options": [
+        "paid"
+      ],
+      "progress": [
+        "Working"
+      ],
+      "then": "life/answer_check_done_seen.json",
+      "advance": true
+    }
+  ],
+  "items": [
+    "dec_000000000003"
+  ]
+}
