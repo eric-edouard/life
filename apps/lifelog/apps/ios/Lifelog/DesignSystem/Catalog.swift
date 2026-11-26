@@ -176,7 +176,11 @@ import SwiftUI
                 }
                 section("Work handed on: the pie and the time left; Life at work: a step, or thinking") {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                        HandedLine(progress: 0.4, estimate: "About 10 min left")
+                        ThreadItemRow(
+                            title: "Find a physio for this week",
+                            state: .underWay(progress: 0.4, estimate: "About 10 min left"), icon: "magnifyingglass",
+                            undo: {}, toggle: {}
+                        ) { EmptyView() }
                         StepsLine(verb: "Looking at", what: "your calendar")
                         StepsLine()
                     }
@@ -225,7 +229,7 @@ import SwiftUI
                 ("Tell Lena I'm late", "bubble.left", .undone("Deleted for both of you"), nil),
                 ("Old plan for Friday", "calendar", .outdated, "Sara wrote since"),
                 ("Send the invoice", "envelope", .queued, "Goes when you're back"),
-                ("Look for a flat", "building.2", .stopped, nil),
+                ("Look for a flat", "magnifyingglass", .stopped, nil),
             ]
             return section("Thread item: every state; the first one unfolded") {
                 VStack(spacing: Metrics.Spacing.xs) {
@@ -321,9 +325,7 @@ import SwiftUI
                 section("Settings block: switches, value pills, a tick after a change") {
                     SettingsBlock {
                         SettingSwitchRow(title: "Face ID before Send", isOn: true)
-                        Hairline()
                         SettingSwitchRow(title: "Newsletters", isOn: false, isTicked: true)
-                        Hairline()
                         SettingValueRow(
                             title: "Monthly spend", choices: ["10 €", "25 €", "50 €"], selection: "25 €", isTicked: true
                         )

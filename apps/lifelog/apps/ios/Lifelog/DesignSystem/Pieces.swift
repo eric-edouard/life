@@ -193,7 +193,6 @@ extension View {
                 lit.fill(Palette.glass).padding(.horizontal, -Metrics.Spacing.xs * 2).padding(.vertical, 2)
                     .opacity(isChosen || isPressed ? 1 : 0)
             }
-            .overlay(alignment: .top) { if index > 0 { Hairline() } }
             .padding(.horizontal, Metrics.gutter)
             .motion(Motion.standard, value: isChosen)
             .motion(Motion.standard, value: isPressed)
@@ -709,12 +708,7 @@ struct RowGroup<Content: View>: View {
                     }
                     VStack(spacing: 0) {
                         ForEach(rows) { row in
-                            row.appears().overlay(alignment: .top) {
-                                if row.id != rows.first?.id {
-                                    Hairline(color: surface == .page ? Palette.line : Palette.tint).padding(
-                                        .leading, 16)
-                                }
-                            }
+                            row.appears()
                         }
                     }
                     .foregroundStyle(Palette.fg)

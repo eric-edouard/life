@@ -66,16 +66,6 @@ extension View {
     }
 }
 
-/// The half-point rule between rows.
-struct Hairline: View {
-    /// `line` on the page; `tint` inside a filled group, where `line` cannot be seen.
-    var color = Palette.line
-
-    var body: some View {
-        Rectangle().fill(color).frame(height: 0.5)
-    }
-}
-
 extension View {
     /// The soft wash behind an unfolded item or an ask: the page's cream at 5% fading to nothing from a point left of
     /// centre, reaching nothing at the top and left edges, so it has none. It reaches past the view by a gutter each side and a step above and below, so the screen's

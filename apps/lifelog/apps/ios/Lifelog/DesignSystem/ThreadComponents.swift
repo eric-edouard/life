@@ -36,15 +36,41 @@ struct ReactionMark: View {
     }
 }
 
-/// What Life is doing for his ask, one line: a spinner, then "Looking at your calendar". Without a step, the spinner alone.
+/// Life's thinking mark: three dots that rise in turn (still under Reduce Motion).
+struct ThinkingMark: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric private var dot = 4.0
+
+    var body: some View {
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: dot * 0.8) {
+                ForEach(0..<3, id: \.self) { i in
+                    Circle().fill(Palette.muted).frame(width: dot, height: dot)
+                        .opacity(reduceMotion ? 0.7 : 0.35 + 0.65 * max(0, sin(t * 4 - Double(i) * 0.9)))
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// What Life is doing for his ask, one line: "Looking at your calendar" (the verb muted, its object bright, a muted
+/// spinner), or the thinking mark and "Thinking…".
 struct StepsLine: View {
     var verb: String?
     var what = ""
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            Spinner(size: .small).foregroundStyle(Palette.ai)
-            if let verb { Text("\(verb) \(what)").font(.line).foregroundStyle(Palette.muted) }
+            if let verb {
+                Spinner(size: .small).foregroundStyle(Palette.muted)
+                Text("\(verb) \(Text(what).foregroundStyle(Palette.fg).fontWeight(.semibold))").font(.line)
+                    .foregroundStyle(Palette.muted)
+            } else {
+                ThinkingMark()
+                Text("Thinking…").font(.line).foregroundStyle(Palette.muted)
+            }
         }
     }
 }
@@ -117,49 +143,28 @@ struct EarlierDraftRow: View {
     }
 }
 
-/// A long task's mark: a still pie in `muted` that fills at each milestone. It never turns, so it never reads as a
-/// spinner (owner, 26 Nov 2026).
+/// A long task's mark: a still ring in `muted` that fills at each milestone (docs/brand.md). It never turns, so it never
+/// reads as a spinner (owner, 26 Nov 2026).
 struct StillRing: View {
     /// 0 to 1.
     let progress: Double
-    var size = Metrics.pie
+    @ScaledMetric private var size = Metrics.pieSmall
+
+    init(progress: Double, size: CGFloat = Metrics.pieSmall) {
+        self.progress = progress
+        _size = ScaledMetric(wrappedValue: size)
+    }
 
     var body: some View {
         ZStack {
-            Circle().fill(Palette.glass)
-            Pie(fraction: max(progress, 0.06)).fill(Palette.muted)
+            Circle().stroke(Palette.muted.opacity(0.28), lineWidth: size * 0.16)
+            Circle().trim(from: 0, to: max(progress, 0.06)).stroke(
+                Palette.muted, style: StrokeStyle(lineWidth: size * 0.16, lineCap: .round)
+            )
+            .rotationEffect(.degrees(-90))
         }
-        .frame(width: size, height: size).accessibilityLabel("Under way").accessibilityValue(
+        .padding(size * 0.08).frame(width: size, height: size).accessibilityLabel("Under way").accessibilityValue(
             Text(progress, format: .percent.precision(.fractionLength(0))))
-    }
-}
-
-/// A filled slice from 12 o'clock, clockwise.
-private nonisolated struct Pie: Shape {
-    let fraction: Double
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let centre = CGPoint(x: rect.midX, y: rect.midY)
-        path.move(to: centre)
-        path.addArc(
-            center: centre, radius: rect.width / 2, startAngle: .degrees(-90),
-            endAngle: .degrees(-90 + 360 * min(fraction, 1)), clockwise: false)
-        path.closeSubpath()
-        return path
-    }
-}
-
-/// Work handed on from his ask: the still pie and how long is left, "About 5 min left" (the prototype's `pie`).
-struct HandedLine: View {
-    let progress: Double
-    let estimate: String?
-
-    var body: some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            StillRing(progress: progress, size: Metrics.pieSmall)
-            Text(estimate ?? "Under way").font(.line).foregroundStyle(Palette.muted)
-        }
     }
 }
 
@@ -184,6 +189,8 @@ struct ThreadItemRow<Detail: View>: View {
     var isOpen = false
     /// The ask's ref, when the row is a live ask: the end-to-end tests find its controls by it (`AID`).
     var ref: String?
+    /// Handed work's Undo, after its time left.
+    var undo: (() -> Void)?
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
 
@@ -217,10 +224,20 @@ struct ThreadItemRow<Detail: View>: View {
             HStack(spacing: Metrics.Spacing.s) {
                 StillRing(progress: progress, size: Metrics.pieSmall)
                 Text(estimate ?? "Under way").font(.line).foregroundStyle(Palette.muted)
+                if let undo { Button("Undo", action: undo).font(.lineStrong).foregroundStyle(Palette.fg) }
             }
         case .undone(let outcome): Text(outcome).font(.line).foregroundStyle(Palette.muted)
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
-        default: if let line { Text(line).font(.line).foregroundStyle(Palette.muted) }
+        default: if let line { Self.coral(line).font(.line).foregroundStyle(Palette.muted) }
+        }
+    }
+
+    /// "Jade · today": the day is coral when it is today or tonight (owner, 26 Nov 2026).
+    private static func coral(_ line: String) -> Text {
+        line.components(separatedBy: " · ").enumerated().reduce(Text(verbatim: "")) { all, part in
+            let (i, word) = part
+            let piece = ["today", "tonight"].contains(word) ? Text(word).foregroundStyle(Palette.flag) : Text(word)
+            return Text("\(all)\(i > 0 ? Text(" · ") : Text(verbatim: ""))\(piece)")
         }
     }
 
@@ -298,9 +315,12 @@ struct SentLine: View {
     }
 }
 
-/// "How am I doing?": one quiet pill under an answered ask. A tap keeps the mark and the row fades; nothing follows.
+/// "How am I doing?": one quiet pill under a settled ask, its own row. A tap keeps the picked mark, says "Thanks" and
+/// dims the row; the cross takes it away.
 struct RatingRow: View {
     var question = "How am I doing?"
+    /// The mark he gave: the others and the cross go, the row says "Thanks" and dims.
+    var picked: Reaction?
     var pick: (Reaction) -> Void = { _ in }
     var close: () -> Void = {}
     /// A mark's id for the end-to-end tests.
@@ -308,7 +328,7 @@ struct RatingRow: View {
 
     var body: some View {
         HStack(spacing: Metrics.Spacing.s) {
-            Text(question).font(.line).foregroundStyle(Palette.muted)
+            Text(picked == nil ? question : "Thanks").font(.line).foregroundStyle(Palette.muted)
             Spacer(minLength: 0)
             ForEach(Reaction.rating, id: \.self) { mark in
                 Button {
@@ -317,14 +337,20 @@ struct RatingRow: View {
                     ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
                 }
                 .accessibilityLabel(mark.rawValue).identified(identify(mark))
+                .scaleEffect(picked == mark ? 1.1 : 1).opacity(picked == nil || picked == mark ? 1 : 0)
+                .disabled(picked != nil)
             }
-            Button(action: close) {
-                Image(systemName: "xmark").font(.line).foregroundStyle(Palette.faint).frame(
-                    width: Metrics.ratingMark, height: Metrics.tapTarget)
+            if picked == nil {
+                Button(action: close) {
+                    Image(systemName: "xmark").font(.line).foregroundStyle(Palette.faint).frame(
+                        width: Metrics.ratingMark, height: Metrics.tapTarget)
+                }
+                .accessibilityLabel("Close")
             }
-            .accessibilityLabel("Close")
         }
         .buttonStyle(.plain).padding(.horizontal, Metrics.Spacing.l).background(Palette.card, in: .capsule)
+        .opacity(picked == nil ? 1 : Metrics.Opacity.faded)
+        .motion(Motion.standard, value: picked)
     }
 }
 

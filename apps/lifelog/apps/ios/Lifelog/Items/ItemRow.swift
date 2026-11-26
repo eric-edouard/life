@@ -14,8 +14,12 @@ struct ItemRow: View {
     @State private var tapped: String?
     /// The option that takes a person, while his directory's picker is open.
     @State private var pickingFor: String?
-    /// His "How am I doing?" was answered or closed here: the row goes.
-    @State private var isRated = false
+    /// His "How am I doing?": the mark he gave (the row says "Thanks" and dims), or the cross (the row goes).
+    @State private var rated: Reaction?
+    @State private var isRatingClosed = false
+    /// The quick edits he tapped: each goes once tapped, and the tapped one spins while Life changes the draft.
+    @State private var usedEdits: Set<String> = []
+    @State private var editing: String?
 
     private var key: LifeStore.ActionKey { .answer(ref: ask.ref) }
     private var action: ActionState<ActionProof> { life.state(of: key) }
@@ -70,11 +74,22 @@ struct ItemRow: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            row
+            if hasRating { rating }
+        }
+    }
+
+    private var hasRating: Bool {
+        !isRatingClosed && (rated != nil || (ask.closed?.rate != nil && ask.closed?.rate?.mark == nil))
+    }
+
+    private var row: some View {
         ThreadItemRow(
             title: ask.title, state: state, icon: icon, line: line, isOpen: isOpen, ref: ask.ref,
             toggle: {
                 withAnimation(Motion.standard) { isOpen.toggle() }
-                life.opened = isOpen ? ask.ref : nil
+                if isOpen { life.opened = ask.ref } else if life.opened == ask.ref { life.opened = nil }
             }
         ) {
             detail.transition(Motion.appears)
@@ -110,7 +125,6 @@ struct ItemRow: View {
                 Text(why).font(.line).foregroundStyle(Palette.muted).accessibilityIdentifier(AID.askFailure(ask.ref))
             }
             if ask.undoLine != nil { undo }
-            if ask.closed?.rate?.mark == nil, ask.closed?.rate != nil, !isRated { rating }
         }
     }
 
@@ -136,7 +150,9 @@ struct ItemRow: View {
         let taking = options.contains { $0.takes == .note || $0.takes == .personOrName }
         let recommended = options.first { $0.id == check.recommended }.map(shown)
         return AskCard(
-            question: ask.question, check: check, edits: check.edits ?? [], answers: options.map(shown),
+            question: ask.question, check: check,
+            edits: (check.edits ?? []).filter { !usedEdits.contains($0) || ($0 == editing && life.thread.isWorking) },
+            editing: life.thread.isWorking ? editing : nil, answers: options.map(shown),
             recommended: recommended,
             busy: action.isRunning ? tapped.flatMap { id in options.first { $0.id == id }.map(shown) } : nil,
             taking: taking ? $words : nil,
@@ -162,6 +178,8 @@ struct ItemRow: View {
                 }
             },
             edit: { label in
+                editing = label
+                usedEdits.insert(label)
                 _ = life.thread.ask(label, screen: MainSessionScreen(open: ask.ref, tab: "thread"), tap: true)
             }, isInItem: true)
     }
@@ -169,14 +187,15 @@ struct ItemRow: View {
     /// "How am I doing?" under an answered ask: his mark is one answer, then the row goes.
     private var rating: some View {
         RatingRow(
+            picked: rated,
             pick: { reaction in
                 Task {
                     await life.answer(.rating(ask.ref, RatingMark.of(reaction)))
                     // The row goes only once Life took the mark (or holds it for when it is back); a failure stays
                     // under the ask (`askFailure`) with the row, and a tap on a mark tries again.
-                    if case .succeeded = action { isRated = true } else if isQueued { isRated = true }
+                    if case .succeeded = action { rated = reaction } else if isQueued { rated = reaction }
                 }
-            }, close: { isRated = true },
+            }, close: { isRatingClosed = true },
             identify: { AID.askRate(ask.ref, RatingMark.of($0).rawValue) })
     }
 

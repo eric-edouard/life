@@ -142,12 +142,32 @@ struct TableBlock: View {
     var total: String?
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: Metrics.Spacing.l, verticalSpacing: Metrics.Spacing.xs) {
-            GridRow { ForEach(columns, id: \.self) { Text($0).font(.heading).foregroundStyle(Palette.muted) } }
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                GridRow { ForEach(Array(row.enumerated()), id: \.offset) { _, cell in Text(cell) } }
+        // Full width: the label column left, the numbers right-aligned, no rules (spacing only).
+        Grid(alignment: .trailing, horizontalSpacing: Metrics.Spacing.l, verticalSpacing: Metrics.Spacing.s) {
+            GridRow {
+                ForEach(Array(columns.enumerated()), id: \.offset) { i, name in
+                    Text(name).font(.heading).foregroundStyle(Palette.muted)
+                        .gridColumnAlignment(i == 0 ? .leading : .trailing)
+                        .frame(maxWidth: i == 0 ? .infinity : nil, alignment: i == 0 ? .leading : .trailing)
+                }
             }
-            if let total { GridRow { Text(total).font(.rowTitle).gridCellColumns(columns.count) } }
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                GridRow {
+                    ForEach(Array(row.enumerated()), id: \.offset) { i, cell in
+                        Text(cell).monospacedDigit().frame(
+                            maxWidth: i == 0 ? .infinity : nil, alignment: i == 0 ? .leading : .trailing)
+                    }
+                }
+            }
+            if let total {
+                GridRow {
+                    Text("Total").font(.rowTitle).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(total).font(.rowTitle).monospacedDigit().gridCellColumns(max(columns.count - 1, 1))
+                        .gridColumnAlignment(.trailing)
+                }
+                .padding(.top, Metrics.Spacing.xs)
+            }
         }
+        .frame(maxWidth: .infinity)
     }
 }
