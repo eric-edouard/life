@@ -238,11 +238,11 @@ struct RootView: View {
 
     private var isCountShown: Bool { life.isOutOfReach || (life.waitingCount ?? 0) > 0 }
 
-    /// The two round buttons: what waits on him (its count; tap asks Life), and the pendant (long press: Settings).
+    /// The two round buttons: what waits on him (its count; tap lists them in the thread, no call), and the pendant (long press: Settings).
     private var buttons: some View {
         HStack {
             Button {
-                thread.ask("What's waiting on me?", screen: screen)
+                thread.showWaiting(life.waitingRefs ?? [])
             } label: {
                 // Something broken turns the count into a coral mark: he learns of it where he is (the lab's Settings 2, B).
                 Group {
