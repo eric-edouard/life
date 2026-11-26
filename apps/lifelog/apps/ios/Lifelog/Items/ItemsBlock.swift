@@ -22,6 +22,7 @@ struct PicturesBlock: View {
     let refs: [String]
     @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
+    @Environment(\.profileZoom) private var zoom
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -32,7 +33,7 @@ struct PicturesBlock: View {
                             if let url = URL.lifeOpen(ref) { openURL(url) }
                         } label: {
                             VStack(spacing: Metrics.Spacing.xs) {
-                                Face(party: party, size: 56)
+                                Face(party: party, size: 56).zoomSource(ref, in: zoom)
                                 Text(party.name).font(.line).foregroundStyle(Palette.muted).lineLimit(1)
                             }
                             .frame(minWidth: Metrics.tapTarget)

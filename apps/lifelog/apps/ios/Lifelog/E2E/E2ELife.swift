@@ -105,6 +105,9 @@
         var items: [String] = []
         /// The answer's words before its block (`life:` links to open a page from); "It waits on you." by default.
         var text: String?
+        /// Seconds between the lines of that answer, which then comes as it is written: a step, its words a few at a time,
+        /// then its block (for watching motion).
+        var pace: Double?
     }
 
     nonisolated final class FakeLife: URLProtocol, @unchecked Sendable {
@@ -150,6 +153,7 @@
             var headers = ["content-type": "application/json"]
             var chunks: [Data] = []
             var failure: URLError.Code?
+            var pace: Double?
         }
 
         private static func json(_ object: Any, status: Int = 200) -> Reply {
@@ -166,7 +170,10 @@
                     url: url, statusCode: reply.status, httpVersion: "HTTP/1.1", headerFields: reply.headers)
             else { return }
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            for chunk in reply.chunks { client?.urlProtocol(self, didLoad: chunk) }
+            for chunk in reply.chunks {
+                if let pace = reply.pace { Thread.sleep(forTimeInterval: pace) }
+                client?.urlProtocol(self, didLoad: chunk)
+            }
             if let failure = reply.failure {
                 client?.urlProtocol(self, didFailWithError: URLError(failure))
             } else {
@@ -285,10 +292,11 @@
             return String(decoding: (try? JSONSerialization.data(withJSONObject: object)) ?? Data(), as: UTF8.self)
         }
 
-        private static func stream(_ events: [String], then failure: URLError.Code? = nil) -> Reply {
+        private static func stream(_ events: [String], then failure: URLError.Code? = nil, pace: Double? = nil) -> Reply
+        {
             Reply(
                 headers: ["content-type": "text/event-stream"],
-                chunks: events.map { Data("data: \($0)\n\n".utf8) }, failure: failure)
+                chunks: events.map { Data("data: \($0)\n\n".utf8) }, failure: failure, pace: pace)
         }
 
         /// One `tools/call`.
@@ -301,9 +309,10 @@
             let meta = params["_meta"] as? [String: Any] ?? [:]
             let token = meta["progressToken"] as? String
             let key = meta["life/answerKey"] as? String
-            func ended(_ text: String, isError: Bool = false, lines: [Any] = []) -> Reply {
+            func ended(_ text: String, isError: Bool = false, lines: [Any] = [], pace: Double? = nil) -> Reply {
                 guard let token else { return Reply(chunks: [Data(Self.message(text, isError: isError).utf8)]) }
-                return Self.stream(lines.map { Self.progress(token, $0) } + [Self.message(text, isError: isError)])
+                return Self.stream(
+                    lines.map { Self.progress(token, $0) } + [Self.message(text, isError: isError)], pace: pace)
             }
             switch tool {
             case "answer_check":
@@ -372,13 +381,23 @@
                 let reply: [String: Any] = [
                     "kind": "reply", "entry": 1, "text": text, "refs": held.scenario.items, "acts": [],
                 ]
+                let spokenWords = (held.scenario.text ?? "It waits on you.").split(separator: " ").map(String.init)
+                let spoken: [[String: Any]] =
+                    held.scenario.pace == nil
+                    ? []
+                    : stride(from: 0, to: spokenWords.count, by: 4).map {
+                        [
+                            "kind": "words",
+                            "text": spokenWords[$0..<min($0 + 4, spokenWords.count)].joined(separator: " ") + " ",
+                        ]
+                    }
                 let lines: [[String: Any]] =
-                    [["kind": "step", "verb": "Reading", "what": "your asks"]]
+                    [["kind": "step", "verb": "Reading", "what": "your asks"]] + spoken
                     + (held.scenario.items.isEmpty
                         ? [] : [["kind": "block", "type": "items", "block": held.scenario.items]])
                 return ended(
                     String(decoding: (try? JSONSerialization.data(withJSONObject: reply)) ?? Data(), as: UTF8.self),
-                    lines: lines)
+                    lines: lines, pace: held.scenario.pace)
             default:
                 let path = steps.reversed().compactMap { $0.reads?[tool] }.first
                 let text = path.map { fixture($0, in: held) } ?? "{}"

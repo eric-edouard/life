@@ -28,6 +28,21 @@ enum Motion {
     /// A cross-fade (`standard`), carrying its own animation: what every transition becomes under Reduce Motion, where
     /// `motion(_:value:)` gives none, and the way a read's faces change.
     static let fade = AnyTransition.opacity.animation(standard)
+    /// Something landing in the thread (a row, one of Life's blocks): rises 8 pt from blur, as the prototype's `rise`;
+    /// leaves with `leave`. A cross-fade under Reduce Motion (`appears`).
+    static let arrives = AnyTransition.modifier(
+        active: Blurred(amount: 1), identity: Blurred(amount: 0)
+    ).animation(rise)
+    /// Life's words inking in: a word's fade, blur and 3 pt rise take `inkWord`, and `inkRate` apart they follow each
+    /// other; `inkOverlap` words are on their way at once.
+    static let inkWord: TimeInterval = 0.38
+    static let inkRate: TimeInterval = 0.045
+    static let inkOverlap = 8.0
+    /// A row's wash on a change of state: it lights and fades, so the eye finds what changed.
+    static let wash = Animation.easeOut(duration: 1.4)
+    static let washLevel = 0.1
+    /// One sweep of the thinking line's shimmer.
+    static let shimmer: TimeInterval = 2
     /// A new line of the live log sliding in from the top.
     static let logLine = Animation.spring(duration: 0.25)
     /// The transcript scrolling to follow the spoken passage.
@@ -48,16 +63,23 @@ enum Motion {
     static let undrafted = Animation.easeOut(duration: 0.2)
 }
 
+extension Motion {
+    /// `withAnimation` that changes at once under Reduce Motion: the one way to animate a state change from code.
+    static func animate(_ animation: Animation = standard, _ change: () -> Void) {
+        if UIAccessibility.isReduceMotionEnabled { change() } else { withAnimation(animation, change) }
+    }
+}
+
 extension View {
     /// `animation(_:value:)` that becomes an instant change under Reduce Motion.
-    func motion(_ animation: Animation, value: some Equatable) -> some View {
+    func motion(_ animation: Animation?, value: some Equatable) -> some View {
         modifier(ReduceMotionAnimation(animation: animation, value: value))
     }
 }
 
 private struct ReduceMotionAnimation<Value: Equatable>: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let animation: Animation
+    let animation: Animation?
     let value: Value
 
     func body(content: Content) -> some View {
@@ -100,4 +122,132 @@ extension View {
     @ViewBuilder func zooms(from id: some Hashable, in namespace: Namespace.ID?) -> some View {
         if let namespace { navigationTransition(.zoom(sourceID: id, in: namespace)) } else { self }
     }
+}
+
+/// What a thing arriving looks like at its start: faded, blurred and 8 pt below its place (`amount` 1), or as it is (0).
+private struct Blurred: ViewModifier {
+    let amount: Double
+
+    func body(content: Content) -> some View {
+        content.opacity(1 - amount).offset(y: amount * 8)
+    }
+}
+
+extension EnvironmentValues {
+    /// The namespace profiles zoom out of (a face on a `pictures` block is their source); set once by the root.
+    @Entry var profileZoom: Namespace.ID?
+
+    /// Whether the words under it ink in as they come (Life's live answer): off for words that were already there.
+    @Entry var inksWords = false
+}
+
+/// Life's words: while they come (`inksWords`) each word arrives from blur, one after another, in the order they are read;
+/// words already shown never ink again. Plain text under Reduce Motion or when the words were there already.
+struct InkText: View {
+    let text: AttributedString
+    @Environment(\.inksWords) private var inks
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// How many words are inked in so far (animated), and the count the animation is heading to.
+    @State private var revealed = 0.0
+    @State private var target = 0.0
+
+    private var words: [Int] {
+        var n = -1
+        var wasSpace = true
+        return text.characters.map { c in
+            if c.isWhitespace { wasSpace = true } else if wasSpace { n += 1; wasSpace = false }
+            return max(n, 0)
+        }
+    }
+
+    var body: some View {
+        let words = words
+        let count = Double((words.last ?? 0) + 1)
+        Text(text).textRenderer(
+            InkRenderer(revealed: inks && !reduceMotion ? revealed : .greatestFiniteMagnitude, words: words)
+        )
+        .onChange(of: count, initial: true) {
+            guard inks, !reduceMotion else { return }
+            let goal = count + Motion.inkOverlap
+            withAnimation(.linear(duration: max(goal - target, 1) * Motion.inkRate)) { revealed = goal }
+            target = goal
+        }
+    }
+}
+
+private struct InkRenderer: TextRenderer {
+    var revealed: Double
+    let words: [Int]
+    var animatableData: Double {
+        get { revealed }
+        set { revealed = newValue }
+    }
+
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        var i = 0
+        for line in layout {
+            for run in line {
+                for slice in run {
+                    let word = Double(words[min(i, max(words.count - 1, 0))])
+                    i += 1
+                    let shown = min(max((revealed - word) / Motion.inkOverlap, 0), 1)
+                    var c = context
+                    c.opacity = shown
+                    if shown < 1 {
+                        c.translateBy(x: 0, y: (1 - shown) * 3)
+                        c.addFilter(.blur(radius: (1 - shown) * 6))
+                    }
+                    c.draw(slice)
+                }
+            }
+        }
+    }
+}
+
+/// The thinking line's words: muted, with a bright sweep across them every `shimmer` seconds (still under Reduce Motion).
+struct ShimmerText: View {
+    let text: Text
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        text.foregroundStyle(Palette.muted).overlay {
+            if !reduceMotion {
+                TimelineView(.animation) { context in
+                    let t =
+                        context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: Motion.shimmer)
+                        / Motion.shimmer
+                    let at = -0.3 + 1.6 * t
+                    text.foregroundStyle(Palette.fg).mask {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: at - 0.25), .init(color: .black, location: at),
+                                .init(color: .clear, location: at + 0.25),
+                            ], startPoint: .leading, endPoint: .trailing)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A row's wash: when `value` changes the row lights faintly and fades (`wash`), never on its first showing.
+private struct Washes<Value: Equatable>: ViewModifier {
+    let value: Value
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var level = 0.0
+
+    func body(content: Content) -> some View {
+        content
+            .background(Palette.fg.opacity(level), in: .rect(cornerRadius: Metrics.Radius.block))
+            .onChange(of: value) {
+                guard !reduceMotion else { return }
+                level = Motion.washLevel
+                withAnimation(Motion.wash) { level = 0 }
+            }
+    }
+}
+
+extension View {
+    /// Lights this view's place for a moment when `value` changes: how an item shows that its state changed.
+    func washes(on value: some Equatable) -> some View { modifier(Washes(value: value)) }
 }

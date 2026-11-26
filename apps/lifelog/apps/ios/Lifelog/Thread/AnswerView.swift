@@ -7,16 +7,19 @@ import SwiftUI
 struct AnswerView: View {
     let parts: [AnswerPart]
     let actions: BlockActions
+    /// Life is still writing it: its words ink in and its blocks arrive from blur.
+    var isLive = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
                 switch part {
                 case .markdown(let text): MarkdownView(text: text)
-                case .block(let block): BlockView(block: block, actions: actions)
+                case .block(let block): BlockView(block: block, actions: actions).appears(Motion.arrives)
                 }
             }
         }
+        .environment(\.inksWords, isLive).motion(isLive ? Motion.rise : nil, value: parts.count)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

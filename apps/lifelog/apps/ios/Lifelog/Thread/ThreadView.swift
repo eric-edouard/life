@@ -16,6 +16,8 @@ struct ThreadView: View {
     /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
     @State private var followsEnd = true
     @State private var isNearEnd = true
+    /// The rows he has seen: what comes after the first showing arrives with motion, the first showing does not.
+    @State private var seenRows = 0
     @Environment(\.calendar) private var calendar
     @Environment(LifeStore.self) private var life
 
@@ -68,6 +70,7 @@ struct ThreadView: View {
                             // What was at the top stays where it is: the older entries grow above it.
                             let top = shown.first?.id
                             showsEarlier = true
+                            seenRows = 0
                             if let top { Task { proxy.scrollTo(top, anchor: .top) } }
                         }
                         .font(.heading).foregroundStyle(Palette.muted).frame(maxWidth: .infinity)
@@ -84,12 +87,15 @@ struct ThreadView: View {
                         }
                         if let origin = row.origin {
                             LateReplyView(late: entry, origin: origin, actions: actions) {
-                                withAnimation(Motion.standard) { proxy.scrollTo(origin.id, anchor: .top) }
+                                Motion.animate { proxy.scrollTo(origin.id, anchor: .top) }
                             }
+                            .appears(Motion.arrives)
                         } else {
                             EntryView(
                                 entry: entry, live: thread.live[entry.id], thread: thread, screen: screen,
-                                actions: actions)
+                                actions: actions
+                            )
+                            .appears(Motion.arrives)
                         }
                     }
                     // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
@@ -99,6 +105,8 @@ struct ThreadView: View {
                     }
                     Color.clear.frame(height: 1).id("end")
                 }
+                .motion(seenRows == 0 ? nil : Motion.rise, value: rows.map(\.id))
+                .onChange(of: rows.count, initial: true) { seenRows = rows.count }
                 .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(
                     // The prototype leaves 52 pt between the last answer and the field.
                     .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs)
@@ -197,12 +205,13 @@ private struct EntryView: View {
             if let live {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     if let step = live.step {
-                        StepsLine(verb: step.verb, what: step.what)
+                        StepsLine(verb: step.verb, what: step.what).appears(Motion.fade)
                     } else if live.parts.isEmpty {
-                        StepsLine()
+                        StepsLine().appears(Motion.fade)
                     }
-                    AnswerView(parts: live.parts, actions: actions)
+                    AnswerView(parts: live.parts, actions: actions, isLive: true)
                 }
+                .motion(Motion.standard, value: live.step?.verb ?? (live.parts.isEmpty ? "thinking" : ""))
             } else if let answer = entry.answer {
                 AnswerView(parts: AnswerPart.parts(of: answer, sent: Set(entry.checked)), actions: actions)
                     .contextMenu {

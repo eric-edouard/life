@@ -78,8 +78,9 @@ struct ItemRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             row
-            if hasRating { rating }
+            if hasRating { rating.appears() }
         }
+        .motion(Motion.standard, value: hasRating)
     }
 
     private var hasRating: Bool {
@@ -91,7 +92,7 @@ struct ItemRow: View {
             title: isOnTheirMatter && !ask.question.isEmpty ? ask.question : ask.title, state: state, icon: icon,
             line: line, isOpen: isOpen, ref: ask.ref,
             toggle: {
-                withAnimation(Motion.standard) { isOpen.toggle() }
+                Motion.animate { isOpen.toggle() }
                 if isOpen { life.opened = ask.ref } else if life.opened == ask.ref { life.opened = nil }
             }
         ) {
@@ -109,9 +110,11 @@ struct ItemRow: View {
         ) {
             if ask.check != nil, icon != "circle.dashed" { kept = icon }
         }
-        .onChange(of: life.focused) { if life.focused == ask.ref { isOpen = true } }
+        .onChange(of: life.focused) { if life.focused == ask.ref { Motion.animate { isOpen = true } } }
         // Answered or out of date, it folds back to its row and its line.
-        .onChange(of: ask.state) { if [.settled, .outdated].contains(ask.state) { isOpen = false } }
+        .onChange(of: ask.state) {
+            if [.settled, .outdated].contains(ask.state) { Motion.animate { isOpen = false } }
+        }
     }
 
     private var detail: some View {
@@ -127,8 +130,10 @@ struct ItemRow: View {
             if case .failed(let failure, _) = action, let why = reason(of: failure) {
                 Text(why).font(.line).foregroundStyle(Palette.muted).accessibilityIdentifier(AID.askFailure(ask.ref))
             }
-            if ask.undoLine != nil { undo }
+            if ask.undoLine != nil { undo.appears(Motion.fade) }
         }
+        .motion(Motion.standard, value: ask.undoLine != nil)
+        .motion(Motion.standard, value: action.isRunning)
     }
 
     private var question: some View { Text(ask.question).font(.line).foregroundStyle(Palette.muted) }
