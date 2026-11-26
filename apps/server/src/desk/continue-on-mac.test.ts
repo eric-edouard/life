@@ -7,7 +7,7 @@ import { DESK_AGENT } from "../core/names";
 import { agentsNow } from "../host/agents-now";
 import { ask } from "../host/asks";
 import { requested } from "../host/change-todo-item";
-import { agentChangeOf, agentOf } from "../host/desk-read";
+import { agentChangeOf, agentInRole, agentOf } from "../host/desk-read";
 import {
   TERMINAL_ENTRYPOINT,
   TERMINAL_SESSIONS,
@@ -15,7 +15,7 @@ import {
 import { register } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { BUSY } from "./continue-on-mac";
-import { wakeDue } from "./desk-clock";
+import { tick, wakeDue } from "./desk-clock";
 import { advance, setup } from "./test-desk";
 
 // His tap "Continue on your Mac" (22 Nov 2026): refused while a turn runs; while open there the desk holds its wakes;
@@ -196,4 +196,25 @@ test("he left it on his Mac: quiet 10 minutes, Life takes it back for a due wake
   if (s) {
     s.running = false;
   }
+});
+
+test("the main session, sitting in his Claude app's sidebar: his app's hold is taken back once he left it, with no wake due (26 Nov 2026)", async () => {
+  const { desk } = setup();
+  await tick(desk, false);
+  const main = agentInRole(desk.db, "main");
+  expect(main?.status).toBe("active");
+  desk.db.run("update agent set session = 'sess-main-test' where id = ?", [
+    main?.id ?? "",
+  ]);
+  const busy = holder("sess-main-test", 9 * MIN);
+  await tick(desk, false);
+  expect(busy.exitCode).toBeNull();
+  busy.kill();
+  await busy.exited;
+  rmSync(join(TERMINAL_SESSIONS, `${busy.pid}.json`), { force: true });
+
+  const left = holder("sess-main-test", 11 * MIN);
+  await tick(desk, false);
+  expect(await left.exited).not.toBe(0);
+  rmSync(join(TERMINAL_SESSIONS, `${left.pid}.json`), { force: true });
 });

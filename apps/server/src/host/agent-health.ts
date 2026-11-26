@@ -97,7 +97,7 @@ export function agentHealthOf(f: HealthFacts, now: number): Health {
       .filter((x) => x !== "last turn failed" || f.failedInARow < FAILED_BROKEN)
       .flatMap(amberWords)
   );
-  // Listed only once he continued it there ("Continue on your Mac"): unlisted is no fault.
+  // Each fresh session is listed once (`listInApp`); one made before that, or a failed import, is no fault.
   if (f.app?.listed && !f.app.inGroup) {
     attention.push("Not in the Life Agents group of your Claude app.");
   }

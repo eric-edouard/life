@@ -191,7 +191,15 @@ function engineOf(
   const call = (tool: string, input: object = {}) =>
     // biome-ignore lint/style/noNonNullAssertion: registered above
     hooks.get("tool.call")!($, { tool, ...input }, next);
-  return { $, call, kept, registered };
+  /** `tool.check` on `tool` over the engine's own verdict `decision` (and an organization's `ceiling`, if any). */
+  const check = (tool: string, decision: string, ceiling?: string) =>
+    // biome-ignore lint/style/noNonNullAssertion: registered above
+    hooks.get("tool.check")!(
+      $,
+      { ceiling, input: {}, tool },
+      Object.assign(async () => ({ decision }), { called: false })
+    );
+  return { $, call, check, kept, registered };
 }
 
 test("the plugin's module: a known session with Life down denies every call but the file tools, which the guard never refuses", async () => {
@@ -231,4 +239,24 @@ test("the plugin's module: a session the desk started (LIFE_SEND_GUARD set) pass
       command: "gog gmail send --to a@example.test",
     })
   ).toHaveProperty("deny");
+});
+
+test("the plugin's module: an agent's session he opened in his app asks nothing, as the desk runs it; a deny, an organization's ceiling, Life down and any other session keep their verdict (26 Nov 2026)", async () => {
+  agentWithSession("sess-plugin-5");
+  const own = engineOf("sess-plugin-5");
+  expect(
+    await own.check("mcp__plugin_life_life__read_life_status", "ask")
+  ).toMatchObject({
+    decision: "allow",
+  });
+  expect(await own.check("Bash", "deny")).toEqual({ decision: "deny" });
+  expect(await own.check("mcp__x__tool", "ask", "ask")).toEqual({
+    decision: "ask",
+  });
+  expect(await engineOf("sess-not-an-agent").check("Bash", "ask")).toEqual({
+    decision: "ask",
+  });
+  const down = engineOf("sess-plugin-5-down", { down: true });
+  down.kept.set("agent-session:sess-plugin-5-down", "Bash");
+  expect(await down.check("Bash", "ask")).toEqual({ decision: "ask" });
 });

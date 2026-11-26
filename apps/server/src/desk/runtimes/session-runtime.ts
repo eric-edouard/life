@@ -49,6 +49,8 @@ export const openingOf = (): Opening => {
 /** A session kept open across prompts (`talk`, `keep`), reserved in `kept` and `live` before it opens (`ready`). */
 interface Kept {
   active: Active;
+  /** Its agent, while its session is new: listed in his app (`listInApp`) once Life's process lets it go. ponytail: in memory, so a restart before that close drops this one listing. */
+  agentToList?: Agent;
   c?: Connection;
   id: string;
   isPrompting: boolean;
@@ -119,10 +121,10 @@ export function spawnFor(
   return { child, close, exited, stopping };
 }
 
-/** What the one runtime reads of a runtime's row: whether it can run, a session's state when no run of the desk holds it, its link, its open on his Mac. */
+/** What the one runtime reads of a runtime's row: whether it can run, a session's state when no run of the desk holds it, its link, its open on his Mac, its listing in his app. */
 export type SessionRow = Pick<
   Row,
-  "block" | "continueOnMac" | "link" | "readSessionState"
+  "block" | "continueOnMac" | "link" | "listInApp" | "readSessionState"
 >;
 
 /**
@@ -239,6 +241,10 @@ export function sessionRuntime(
     }
     await k.c.stop();
     await k.c.close();
+    // A new session is listed in his app once no process of Life's runs it, once (a resumed one is listed already).
+    if (k.agentToList) {
+      await row.listInApp?.(k.agentToList, k.c.ref);
+    }
   };
 
   /** Closes kept session `k` once it has had no prompt for `keepWarm`. */
@@ -270,6 +276,8 @@ export function sessionRuntime(
       throw new SessionLive(`session ${ref} is running`);
     }
     const made = {
+      // Only a session this call makes is new; one resumed was listed when it was.
+      agentToList: ref === null ? a : undefined,
       id: a.id,
       isPrompting: false,
       opening: openingOf(),
@@ -335,7 +343,16 @@ export function sessionRuntime(
     },
     async start(a, brief) {
       const { begun, ended, ref } = await launch(a, brief);
-      return { begun, ended, link: row.link(ref), ref };
+      return {
+        begun,
+        // Listed in his app once Life's process closed it, before the turn ends, so no next turn opens beside the import.
+        ended: ended.then(async (end) => {
+          await row.listInApp?.(a, ref);
+          return end;
+        }),
+        link: row.link(ref),
+        ref,
+      };
     },
     state: (ref) =>
       live.has(ref) ? Promise.resolve("running") : row.readSessionState(ref),

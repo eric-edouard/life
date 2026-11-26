@@ -138,6 +138,28 @@ test("start: the door goes in as an HTTP MCP server with its header, the model a
   ]);
 });
 
+test("a fresh session is listed in his app once, after its adapter is gone and before its turn ends; a resumed one never (his ask of 26 Nov 2026)", async () => {
+  const dir = made();
+  const listed: { gone: boolean; ref: string }[] = [];
+  const rt = acpRuntime(
+    rowFor(dir, () => Promise.resolve("idle"), {
+      listInApp: (_a, ref) => {
+        listed.push({
+          gone: logOf(dir).every((l) => isGone(Number(l.pid))),
+          ref,
+        });
+        return Promise.resolve();
+      },
+    })
+  );
+  const first = await rt.start(agentIn(), "[answer]");
+  expect(listed).toEqual([]);
+  await first.ended;
+  expect(listed).toEqual([{ gone: true, ref: first.ref }]);
+  await (await rt.send(agentIn(), first.ref, "[answer]")).ended;
+  expect(listed).toHaveLength(1);
+});
+
 test("send: resume, then model and effort again, then the prompt", async () => {
   const dir = made();
   const rt = acpRuntime(rowFor(dir));
@@ -359,10 +381,16 @@ test("an adapter that refuses the mode: the turn still ends ok, and its asks are
   ).toEqual(["yes", "yes", "yes"]);
 });
 
-test("talk: one process kept across prompts, its updates heard as they come, closed idle with nothing opened in his app; keep resumes it; stop closes it", async () => {
+test("talk: one process kept across prompts, its updates heard as they come, a new session listed in his app only once closed idle; keep resumes it, listed again never; stop closes it", async () => {
   const dir = made();
+  const listed: string[] = [];
   const rt = acpRuntime(
-    rowFor(dir, () => Promise.resolve("idle")),
+    rowFor(dir, () => Promise.resolve("idle"), {
+      listInApp: (_a, ref) => {
+        listed.push(ref);
+        return Promise.resolve();
+      },
+    }),
     LAUNCH_WITHIN_MS,
     300
   );
@@ -386,10 +414,13 @@ test("talk: one process kept across prompts, its updates heard as they come, clo
     "prompt",
   ]);
   expect(new Set(logOf(dir).map((l) => l.pid)).size).toBe(1);
+  expect(listed).toEqual([]);
   const pid = logOf(dir)[0]?.pid ?? 0;
   await until(() => isGone(pid));
   expect(isGone(pid)).toBe(true);
   expect(await rt.state(first.ref)).toBe("idle");
+  await until(() => listed.length > 0);
+  expect(listed).toEqual([first.ref]);
   await rt.keep(agentIn(), first.ref);
   expect(kindsOf(dir).at(-1)).toBe("config");
   expect(logOf(dir).filter((l) => l.resume)).toHaveLength(1);
@@ -397,6 +428,7 @@ test("talk: one process kept across prompts, its updates heard as they come, clo
   await rt.stop(first.ref);
   expect(isGone(kept)).toBe(true);
   expect(await rt.state(first.ref)).toBe("idle");
+  expect(listed).toEqual([first.ref]);
 });
 
 test("talk and keep racing open one process; a stopped kept session's old timer never drops the next one mid-answer; a ref switch while answering is refused", async () => {

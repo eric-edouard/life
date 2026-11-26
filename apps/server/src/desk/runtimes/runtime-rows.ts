@@ -48,6 +48,8 @@ export interface Row {
   header: (key: string) => string;
   /** A link that opens session `ref` in his app. */
   link: (ref: string) => string;
+  /** Lists a fresh session in his app, once, after Life's process lets it go (`sessionRuntime`); never throws. None: his app lists none. */
+  listInApp?: (a: Agent, ref: string) => Promise<void>;
   /** The session's `_meta` for `session/new` and `session/resume`, for agent `a`. */
   meta?: (a: Agent) => Record<string, unknown>;
   /** The runtime's no-ask mode, set after every `session/new` and `session/resume` (`session/set_config_option`, id `mode`); none: the session's own. */
@@ -239,20 +241,41 @@ const transcriptOf = (ref: string) => {
 /** Keys Life holds behind his yes (his word of 22 Nov 2026): an agent reaches their service only through a card he answered. */
 export const GATED_KEYS = [APIFY_KEY_ENV];
 
+/** Opens his Claude app (`desk.claudeApp`) on session `ref` by its own import of a CLI session (`claude://resume`), in front or not: `open`'s exit code. */
+const openInClaudeApp = async (ref: string, isInFront: boolean) =>
+  (
+    await exec([
+      "open",
+      ...(isInFront ? [] : ["-g"]),
+      "-a",
+      settings().desk?.claudeApp ?? "/Applications/Claude.app",
+      `claude://resume?session=${ref}`,
+    ])
+  ).code;
+
 /**
- * Opens his Claude app (`desk.claudeApp`) in front on session `ref` (`continue_on_mac`): its own import of a CLI session
- * (`claude://resume`). The app then keeps a process on it, which holds the desk's wakes (`isSessionOpen`); the only way
- * a session reaches his app (never on a turn: the 22 Nov incident).
+ * `continue_on_mac`: his Claude app in front on session `ref`. Typing there makes the app keep a process on it, which holds
+ * the desk's wakes (`isSessionOpen`) until he leaves it (`takeBackIfLeft`).
  */
 async function continueInClaudeApp(_: Agent, ref: string) {
-  const r = await exec([
-    "open",
-    "-a",
-    settings().desk?.claudeApp ?? "/Applications/Claude.app",
-    `claude://resume?session=${ref}`,
-  ]);
-  if (r.code !== 0) {
+  if ((await openInClaudeApp(ref, true)) !== 0) {
     throw new Error("No answer from your Mac");
+  }
+}
+
+/**
+ * Lists session `ref` in his Claude app's sidebar, in the background (his ask of 26 Nov 2026: "I still want all of the
+ * agents to appear in the sidebar"), once its transcript exists. The import starts no process (checked live, 26 Nov
+ * 2026); only his typing there does, which the desk's session-open rule and take-back handle (the 22 Nov freeze held
+ * wakes with no take-back yet). Never throws: a failure is logged.
+ */
+async function listInClaudeApp(a: Agent, ref: string) {
+  if (!transcriptOf(ref)) {
+    return;
+  }
+  const code = await openInClaudeApp(ref, false);
+  if (code !== 0) {
+    log("desk.runtime", { agent: a.id, code, ok: false, what: "list" });
   }
 }
 
@@ -279,6 +302,7 @@ const claudeRow = (isOwn: boolean): Row => ({
   continueOnMac: isOwn && !WINDOWS ? continueInClaudeApp : undefined,
   header: () => `Bearer \${${DOOR_KEY_ENV}}`,
   link: (ref) => `claude://claude.ai/epitaxy/local_${ref}`,
+  listInApp: isOwn && !WINDOWS ? listInClaudeApp : undefined,
   // Every session of an agent, the fresh ones too, carries its title as its name in his app's list (`--name`).
   meta: (a) => ({
     claudeCode: {
