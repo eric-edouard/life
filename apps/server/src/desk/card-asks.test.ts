@@ -13,7 +13,9 @@ import {
   QUESTION_WAIT,
   readQuestion,
 } from "./agent-questions";
+import { openDesk } from "./desk-store";
 import { ahead, matterView, on, setup, withMatters } from "./test-desk";
+import { endTurnsCutByRestart } from "./turn-ends";
 import { turnRefusalOf } from "./turn-refusal";
 
 // An agent's cards (bundle A of v4): no plan card; every card writes `ask`, `recommended` and `follow`; a plan is an
@@ -279,6 +281,46 @@ test("the main session's question wakes its agent at once; its turn ends only on
   expect(
     desk.db.query("select name from event where assignment_id = ?").all(s.id)
   ).toContainEqual({ name: "main_question" });
+  setSystemTime();
+});
+
+// Regression (26 Nov 2026): the question was held in the helper's memory, so a restart dropped it and its woken agent
+// read nothing.
+test("the main session's question outlives a restart of the desk; its reply then follows his ask", async () => {
+  const { desk, path } = setup();
+  const agent = register(desk, { brief: "Test brief", runtime: "fake" });
+  const s = on(desk, agent);
+  desk.db.run(
+    "insert into thread_entry (id, asked_at, words) values (7, ?, 'And the roof?')",
+    [new Date().toISOString()]
+  );
+  const asked = askAssignment(desk, s.id, "And the roof?", 7);
+  if ("error" in asked) {
+    throw new Error(asked.error);
+  }
+  // Its turn began, then the helper was stopped under it.
+  desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at, begun_at) values (?1, ?2, 'main_question', ?3, ?3)",
+    [agent, s.id, new Date().toISOString()]
+  );
+  const restarted = { ...desk, db: openDesk(path) };
+  endTurnsCutByRestart(restarted);
+  expect(
+    turnRefusalOf(restarted, "finish", "main_question", null, s)
+  ).toContain("read it");
+  expect(readQuestion(restarted, s, asked.id)).toEqual({
+    words: "And the roof?",
+  });
+  expect(
+    await answerQuestion(restarted, s, asked.id, "Fixed on Monday.")
+  ).toEqual({ answered: asked.id, late: true });
+  expect(
+    restarted.db
+      .query(
+        "select answer, follows from thread_entry where follows is not null"
+      )
+      .all()
+  ).toEqual([{ answer: "Fixed on Monday.", follows: 7 }]);
   setSystemTime();
 });
 

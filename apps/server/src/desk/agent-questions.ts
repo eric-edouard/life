@@ -5,13 +5,14 @@ import { agentOf, assignmentOf } from "../host/desk-read";
 import type { Desk } from "./desk-store";
 import { queue } from "./event-queue";
 import { checkedTextOf } from "./main-session-lines";
+import { blankDeletedThreadEntries } from "./thread-deletions";
 
 // The main session's question to an agent about its matter (agents together, his yes of 25 Nov 2026): the agent's
 // side. One turn at once (`main_question`, woken like his answer), his words read at the door as data
 // (`readQuestion`), the reply handed back (`answerQuestion`); research stays in the agent's context. Its `finish` and
 // `set_wait` are refused while his words are unread (`turnRefusalOf`). A reply past `QUESTION_WAIT`, once the main
 // session answered from the record, lands in his thread as an entry that follows his ask (`follows`, v4.1); a question
-// stays answerable until a turn of its assignment that began after it ends.
+// stays answerable until a turn of its assignment that began after it ends, in the store across a restart of the helper.
 
 /** The event a question queues, and its turn's cause. */
 export const MAIN_QUESTION = "main_question";
@@ -19,36 +20,51 @@ export const MAIN_QUESTION = "main_question";
 /** How long the main session waits for a question's reply: past it, it answers from the record and the reply comes later. */
 export const QUESTION_WAIT = MIN;
 
-interface Question {
-  assignment: string;
-  /** When it was asked. */
-  at: string;
+interface QuestionRow {
+  asked_at: string;
+  assignment_id: string;
   /** His thread entry it was asked from, which a late reply follows. */
   entry: number | null;
-  /** Whether the main session stopped waiting for it (`QUESTION_WAIT`): its reply then lands as an entry of its own. */
-  isLate: boolean;
-  isRead: boolean;
-  reply: PromiseWithResolvers<string>;
+  read_at: string | null;
   words: string;
 }
 
-// ponytail: held in the desk helper's memory, as the main session's wait is: a restart drops an unanswered question
-// (its turn then reads nothing); store them if questions must outlive a restart.
-const held = new WeakMap<Desk["db"], Map<string, Question>>();
-/** The questions still answerable: one goes once a turn of its assignment that began after it ended, so its agent is never held by it. */
-const questionsOf = (db: Desk["db"]) => {
-  const q = held.get(db) ?? new Map<string, Question>();
-  held.set(db, q);
-  const ended = db.query(
-    "select 1 from turn where assignment_id = ? and started_at >= ? and ended_at is not null limit 1"
-  );
-  for (const [id, x] of q) {
-    if (ended.get(x.assignment, x.at)) {
-      q.delete(id);
-    }
-  }
-  return q;
+/** The main session's wait for a reply: this process's only, so a reply after a restart is a late one. */
+interface Waiter {
+  /** Whether the main session stopped waiting for it (`QUESTION_WAIT`): its reply then lands as an entry of its own. */
+  isLate: boolean;
+  reply: PromiseWithResolvers<string>;
+}
+const held = new WeakMap<Desk["db"], Map<string, Waiter>>();
+const waitersOf = (db: Desk["db"]) => {
+  const w = held.get(db) ?? new Map<string, Waiter>();
+  held.set(db, w);
+  return w;
 };
+
+/**
+ * Question `id`, while answerable: kept in the store, so it outlives a restart of the desk helper. One goes once a turn
+ * of its assignment that began after it ended, so its agent is never held by it; a turn cut by a restart (`cut`) does
+ * not count.
+ */
+function questionRowOf(db: Desk["db"], id: string) {
+  // His deletion of the entry it was asked from takes it at once, not at the next tick.
+  blankDeletedThreadEntries(db);
+  dropExpired(db);
+  return db
+    .query<QuestionRow, [string]>("select * from main_question where id = ?")
+    .get(id);
+}
+function dropExpired(db: Desk["db"]) {
+  const gone = db
+    .query<{ id: string }, []>(
+      "delete from main_question where exists (select 1 from turn t where t.assignment_id = main_question.assignment_id and t.started_at >= main_question.asked_at and t.ended_at is not null and t.outcome is not 'cut') returning id"
+    )
+    .all();
+  for (const { id } of gone) {
+    waitersOf(db).delete(id);
+  }
+}
 
 /**
  * Asks open assignment `assignment` his words `words` (the main session's, found in his ask of thread entry `entry`):
@@ -73,33 +89,30 @@ export function askAssignment(
     };
   }
   const id = `q_${randomBytes(6).toString("hex")}`;
-  const reply = Promise.withResolvers<string>();
-  const q: Question = {
-    assignment,
-    at: clock().toISOString(),
-    entry,
-    isLate: false,
-    isRead: false,
-    reply,
-    words,
-  };
-  questionsOf(desk.db).set(id, q);
-  queue(desk.db, MAIN_QUESTION, [
-    { assignment, eventId: id, payload: { question: id } },
-  ]);
+  const w: Waiter = { isLate: false, reply: Promise.withResolvers<string>() };
+  waitersOf(desk.db).set(id, w);
+  desk.db.transaction(() => {
+    desk.db.run(
+      "insert into main_question (id, assignment_id, asked_at, entry, words) values (?, ?, ?, ?, ?)",
+      [id, assignment, clock().toISOString(), entry, words]
+    );
+    queue(desk.db, MAIN_QUESTION, [
+      { assignment, eventId: id, payload: { question: id } },
+    ]);
+  })();
   return {
     id,
     late: () => {
-      q.isLate = true;
+      w.isLate = true;
     },
-    reply: reply.promise,
+    reply: w.reply.promise,
   };
 }
 
 /** Question `id` of assignment `s`, or why not. */
 function questionOf(db: Desk["db"], s: { id: string }, id: string) {
-  const q = questionsOf(db).get(id);
-  if (q?.assignment !== s.id) {
+  const q = questionRowOf(db, id);
+  if (q?.assignment_id !== s.id) {
     throw new Error(`Not done: ${id} is no question to ${s.id}.`);
   }
   return q;
@@ -108,7 +121,10 @@ function questionOf(db: Desk["db"], s: { id: string }, id: string) {
 /** `read_question`: his words of question `id` to assignment `s`, as data; read, its turn may then end. */
 export function readQuestion({ db }: Desk, s: { id: string }, id: string) {
   const q = questionOf(db, s, id);
-  q.isRead = true;
+  db.run(
+    "update main_question set read_at = coalesce(read_at, ?) where id = ?",
+    [clock().toISOString(), id]
+  );
   return { words: q.words };
 }
 
@@ -124,26 +140,46 @@ export async function answerQuestion(
   text: string
 ) {
   const q = questionOf(db, s, id);
-  questionsOf(db).delete(id);
-  if (!q.isLate) {
-    q.reply.resolve(text);
+  const done = () => db.run("delete from main_question where id = ?", [id]);
+  const w = waitersOf(db).get(id);
+  waitersOf(db).delete(id);
+  if (w && !w.isLate) {
+    done();
+    w.reply.resolve(text);
     return { answered: id };
   }
-  if (q.entry !== null) {
-    const checked = await checkedTextOf(db, text);
-    const now = clock().toISOString();
-    if (!checked.text) {
-      return { answered: id, late: true };
+  const checked = q.entry === null ? null : await checkedTextOf(db, text);
+  // The reply's entry and the question's end in one write: a restart between them never loses the reply, and of two
+  // replies to one question only the first is written.
+  const isWritten = db.transaction(() => {
+    blankDeletedThreadEntries(db);
+    if (!(done().changes > 0 && checked?.text)) {
+      return false;
     }
-    db.run(
-      "insert into thread_entry (asked_at, answer, refs, answered_at, follows) select ?1, ?2, ?3, ?1, id from thread_entry where id = ?4 and deleted_at is null",
-      [now, checked.text, JSON.stringify(checked.refs), q.entry]
+    return (
+      db.run(
+        "insert into thread_entry (asked_at, answer, refs, answered_at, follows) select ?1, ?2, ?3, ?1, id from thread_entry where id = ?4 and deleted_at is null",
+        [
+          clock().toISOString(),
+          checked.text,
+          JSON.stringify(checked.refs),
+          q.entry,
+        ]
+      ).changes > 0
     );
+  })();
+  if (isWritten) {
     log("desk.turn", { entry: q.entry, what: "question.late_reply" });
   }
   return { answered: id, late: true };
 }
 
 /** Whether assignment `s` holds a question whose words its agent has not read: it may not end its turn yet. */
-export const hasUnreadQuestion = (db: Desk["db"], s: { id: string }) =>
-  [...questionsOf(db).values()].some((q) => q.assignment === s.id && !q.isRead);
+export function hasUnreadQuestion(db: Desk["db"], s: { id: string }) {
+  dropExpired(db);
+  return !!db
+    .query(
+      "select 1 from main_question where assignment_id = ? and read_at is null"
+    )
+    .get(s.id);
+}

@@ -202,7 +202,8 @@ export function watch(desk: Desk, turn: number, run: Run) {
 
 /**
  * Ends a turn, once (a turn already ended is left as it is): its handed events consumed when it waited or finished,
- * else handed again later, and dropped once handed to `MAX_HANDED` turns that began.
+ * kept as they are when it was cut (`endTurnsCutByRestart`), else handed again later, and dropped once handed to
+ * `MAX_HANDED` turns that began.
  */
 function close(
   desk: Desk,
@@ -216,7 +217,7 @@ function close(
     "update turn set ended_at = ?, outcome = ? where id = ? and ended_at is null",
     [now(), outcome, t.id]
   ).changes;
-  keepHanded(db, t, ended > 0 && outcome !== "failed");
+  keepHanded(db, t, ended > 0 && outcome !== "failed" && outcome !== "cut");
   if (ended === 0 || outcome === "notes") {
     return ended > 0;
   }
@@ -228,6 +229,10 @@ function close(
     tokensOut: usage?.tokensOut,
     turn: t.id,
   });
+  // A cut keeps what it was handed for the next turn; its begin counted a try, as any begun turn's does.
+  if (outcome === "cut") {
+    return true;
+  }
   db.run(
     outcome === "waited" || outcome === "finished"
       ? "update event set consumed_at = ? where assignment_id = ? and handed > 0 and consumed_at is null and dropped_at is null"
@@ -394,9 +399,9 @@ const eachOpenTurn = (
   );
 
 /**
- * Ends the desk turns this process does not watch and whose runtime runs nothing now (started before the helper or the
- * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; one whose reminder waits for his
- * app's hold (`isReminded`) is reminded. One still running (a session of his, or a killed turn's CLI not yet exited) is
+ * Ends the desk turns this process does not watch and whose runtime runs nothing now (one with no outcome left open
+ * before the helper stopped is `endTurnsCutByRestart`'s, at its start): by its outcome when it set a wait or finished,
+ * else failed and retried; one whose reminder waits for his app's hold (`isReminded`) is reminded. One still running (a session of his, or a killed turn's CLI not yet exited) is
  * left to the begin limit; a runtime that can't say now is looked at again at the next poll. A reminder that waits on an
  * agent stopped or ended since is dropped: its turn ends by its outcome (a wait or `finish` his app's session gave it,
  * else the default wait).
@@ -428,6 +433,24 @@ export async function endLostTurns(desk: Desk) {
       }
     }
   });
+}
+
+/**
+ * At the desk helper's start, before its first tick, when it watches and runs nothing: closes every open turn with no
+ * outcome (begun or not, whatever its agent's status) as `cut`. It ran under a helper that was stopped, so no run of this
+ * process will end it. Not a failure: no retry backoff, nothing consumed or dropped, its assignment not closed; the wake it held is
+ * due again by its own cause (`nextWakeOf`). A CLI of the old helper still exiting holds its session, so the next wake's
+ * send is refused (`SessionLive`) and waits: nothing runs twice. A turn with an outcome (a wait set, a reminder held) is
+ * `endLostTurns`'s.
+ */
+export function endTurnsCutByRestart(desk: Desk) {
+  for (const t of desk.db
+    .query<TurnRow, []>(
+      "select * from turn where ended_at is null and outcome is null"
+    )
+    .all()) {
+    desk.db.transaction(() => close(desk, t, "cut", undefined))();
+  }
 }
 
 /**

@@ -182,6 +182,14 @@ create table if not exists card (
   decision_id text primary key,
   assignment_id text not null
 );
+create table if not exists main_question (
+  id text primary key,
+  assignment_id text not null,
+  asked_at text not null,
+  entry integer,
+  words text not null,
+  read_at text
+);
 create table if not exists handed_step (
   assignment_id text not null,
   step text not null,

@@ -17,8 +17,13 @@ export function blankDeletedThreadEntries(db: Database) {
   const blank = db.prepare(
     "update thread_entry set words = '', answer = '', screen = null, deleted_at = ? where id = ? and deleted_at is null"
   );
+  // A question the main session asked from it (`main_question`) holds his words too: it goes.
+  const question = db.prepare("delete from main_question where entry = ?");
   const at = clock().toISOString();
   return db.transaction(() =>
-    ids.reduce((n, id) => n + blank.run(at, id).changes, 0)
+    ids.reduce((n, id) => {
+      question.run(id);
+      return n + blank.run(at, id).changes;
+    }, 0)
   )();
 }
