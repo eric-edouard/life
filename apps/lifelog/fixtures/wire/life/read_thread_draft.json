@@ -61,5 +61,7 @@
       "state": "needs_you"
     }
   ],
+  "openingAsks": ["dec_000000000001"],
+  "owner": "Test",
   "version": "fixed"
 }

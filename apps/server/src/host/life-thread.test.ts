@@ -102,6 +102,29 @@ test("a thread item's one state: open needs him unless his Later holds it; answe
   ).toBe("outdated");
 });
 
+test("the opening screen: what he is called, and the open asks that block him, fixes aside, in the inbox's order", async () => {
+  const check = (ref: string, group: string, urgency: string) =>
+    ({ at: null, group, ref, urgency }) as never;
+  spies.push(
+    spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue([
+      check("fix:signed-out/line", "fix", "blocks"),
+      check("dec_b", "decision", "blocks"),
+      check("move:a", "your move", "improves"),
+      check("dec_a", "decision", "blocks"),
+    ]),
+    spyOn(
+      await import("../models/prompt-parts"),
+      "readOwnerName"
+    ).mockReturnValue("Kit")
+  );
+  expect(await readThread()).toMatchObject({
+    openingAsks: ["dec_b", "dec_a"],
+    owner: "Kit",
+  });
+  const older = await readThread({ before: new Date().toISOString() });
+  expect(older).not.toHaveProperty("openingAsks");
+});
+
 test("an entry whose answer cites what he deleted is hidden; a blanked entry is gone; the rest show, oldest first", async () => {
   entry("What did Kit say?", ["obs_000000000001"]);
   entry("When is the dentist?", ["obs_000000000002"]);
@@ -225,6 +248,36 @@ test("How am I doing? shows on the first card he answered in the app that day, w
   expect(page.items.find((i) => i.ref === id)?.card.rate).toEqual({
     mark: "good",
   });
+});
+
+test("a card still open shows on the first page however old, and is one of the opening asks", async () => {
+  const asked = new Date(Date.now() - 10 * 86_400_000);
+  const { id } = await requestDecision(
+    "desk",
+    {
+      context: "A made-up reason to ask.",
+      deadline: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      follow: [],
+      onSilence: null,
+      options: [
+        { id: "yes", label: "Yes" },
+        { id: "no", label: "No" },
+      ],
+      question: "Order the cake?",
+      title: "Order the cake",
+    },
+    asked
+  );
+  recordDelivered(id, { rules: ["good moment"], verdict: "deliver" }, asked);
+  spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue([
+    { at: asked.toISOString(), group: "decision", ref: id, urgency: "blocks" },
+  ] as never);
+  const first = (await readThread()) as {
+    items: { ref?: string }[];
+    openingAsks: string[];
+  };
+  expect(first.items.map((i) => i.ref)).toContain(id);
+  expect(first.openingAsks).toEqual([id]);
 });
 
 const check = (ref: string, group: string, at: string | null) =>

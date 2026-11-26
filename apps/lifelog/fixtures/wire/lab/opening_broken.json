@@ -1,0 +1,565 @@
+{
+  "earlier": null,
+  "version": "opening-2",
+  "owner": "Sam",
+  "openingAsks": [
+    "dec_000000000023",
+    "dec_000000000019",
+    "dec_000000000034",
+    "dec_000000000030",
+    "dec_000000000035"
+  ],
+  "items": [
+    {
+      "at": "2026-11-26T02:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "LINE signed Life out, so its messages stop reaching Life until you sign in again on your Mac.",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "fix",
+        "kind": "fix",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "later",
+            "id": "later",
+            "label": "Later",
+            "takes": null
+          }
+        ],
+        "preTicked": null,
+        "question": "Sign in to LINE again?",
+        "ref": "fix:signed-out/line",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Sign LINE back in",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-fix-signed-out-line",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "fix:signed-out/line",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T02:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Messenger signed Life out, so its messages stop reaching Life until you sign in again on your Mac.",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "fix",
+        "kind": "fix",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "later",
+            "id": "later",
+            "label": "Later",
+            "takes": null
+          }
+        ],
+        "preTicked": null,
+        "question": "Sign in to Messenger again?",
+        "ref": "fix:signed-out/messenger",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Sign Messenger back in",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-fix-signed-out-messenger",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "fix:signed-out/messenger",
+      "state": "needs_you"
+    },
+    {
+      "answer": "Two photos of the bathroom tiles and a quote: 1,240 € for the whole floor.",
+      "answeredAt": "2026-11-24T09:12:00.000Z",
+      "at": "2026-11-24T09:12:00.000Z",
+      "error": null,
+      "follows": null,
+      "handed": [],
+      "id": 101,
+      "kind": "entry",
+      "reactions": [],
+      "refs": [],
+      "words": "What did Ana send about the tiles?"
+    },
+    {
+      "answer": "Paul came on Tuesday. One thing is left, and it is his: he sends the invoice this week.",
+      "answeredAt": "2026-11-25T18:40:00.000Z",
+      "at": "2026-11-25T18:40:00.000Z",
+      "error": null,
+      "follows": null,
+      "handed": [],
+      "id": 102,
+      "kind": "entry",
+      "reactions": [],
+      "refs": [],
+      "words": "Where are we with the boiler?"
+    },
+    {
+      "answer": "Thursday at 10:30, at the clinic on Rue Haute.",
+      "answeredAt": "2026-11-26T06:55:00.000Z",
+      "at": "2026-11-26T06:55:00.000Z",
+      "error": null,
+      "follows": null,
+      "handed": [],
+      "id": 103,
+      "kind": "entry",
+      "reactions": [],
+      "refs": [],
+      "words": "When is the dentist?"
+    },
+    {
+      "at": "2026-11-26T03:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-27T09:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [
+          {
+            "ref": "person:paul",
+            "name": "Paul Garnier",
+            "kind": "person",
+            "line": "The plumber",
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "payment",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "account",
+            "bank": "Plomberie Garnier",
+            "number": "FR76 3000 6000 0112 3456 7890 189",
+            "holder": "Paul Garnier",
+            "scheme": "iban",
+            "line": "IBAN FR76 3000 6000 0112 3456 7890 189"
+          },
+          {
+            "kind": "amount",
+            "value": 240,
+            "currency": "EUR",
+            "line": "240 EUR"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "paid",
+            "label": "I paid it",
+            "takes": null,
+            "looks": true
+          }
+        ],
+        "plan": null,
+        "recommended": "paid",
+        "replaces": null,
+        "pushId": "push-dec_000000000023",
+        "question": "Pay Paul 240 €?",
+        "ref": "dec_000000000023",
+        "title": "Pay Paul 240 €",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000023",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T04:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-27T17:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://www.doctolib.fr/pharmacie/centre",
+            "vendor": "Pharmacie du Centre",
+            "line": "Pharmacie du Centre: doctolib.fr"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Book Pharmacie du Centre",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Pharmacie de la Gare",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000019",
+        "question": "Book Pharmacie du Centre, Thursday 10:00?",
+        "ref": "dec_000000000019",
+        "title": "Book your flu jab",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000019",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T05:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-28T12:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://www.instagram.com/p/x",
+            "vendor": "lumen.gallery",
+            "line": "lumen.gallery"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000034",
+        "question": "Reply to Kit?",
+        "ref": "dec_000000000034",
+        "title": "Reply to Kit",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000034",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T06:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-28T18:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://maps.app.goo.gl/x1",
+            "vendor": "Rue des Lilas 14",
+            "line": "Rue des Lilas 14"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000030",
+        "question": "Lunch with Nora?",
+        "ref": "dec_000000000030",
+        "title": "Lunch with Nora",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000030",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T07:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-29T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://fernway-bakery.fr/order",
+            "vendor": "Lemon tart for 8",
+            "line": "Lemon tart for 8"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000035",
+        "question": "Order the cake?",
+        "ref": "dec_000000000035",
+        "title": "Order the cake",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000035",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T02:00:00.000Z",
+      "card": {
+        "about": ["the tile fitter"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as the tile fitter, tiler on the beach house bathroom (70% sure).\n\n> The sink goes in on Thursday\n\n*whatsapp, 17 Sep*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this the tile fitter?",
+        "ref": "person:inf_tile-fitter-3f1a",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": {
+          "chat": "c-person:inf_tile-fitter-3f1a",
+          "handle": "+66 80 000 0001",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": null,
+          "shownName": "+66 80 000 0001",
+          "party": {
+            "kind": "person",
+            "line": "tiler on the beach house bathroom",
+            "name": "the tile fitter",
+            "ref": "person:inf_tile-fitter-3f1a"
+          }
+        },
+        "contactsCard": null,
+        "pushId": "push-person-inf_tile-fitter-3f1a",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_tile-fitter-3f1a",
+      "state": "needs_you"
+    }
+  ]
+}

@@ -15,5 +15,7 @@
       "words": "When is the dentist?"
     }
   ],
+  "openingAsks": [],
+  "owner": "Test",
   "version": "fixed"
 }
