@@ -180,7 +180,16 @@ class FlowTest: XCTestCase {
         shot = row
         let out = Self.parity
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
-        try? app.screenshot().pngRepresentation.write(to: out.appending(path: "\(row).png"))
+        // SwiftUI's motion runs in the tests too: the picture waits until two in a row match (3 s at most), so a row
+        // fading out never overlaps the one replacing it.
+        var picture = app.screenshot().pngRepresentation
+        for _ in 0..<10 {
+            Thread.sleep(forTimeInterval: 0.3)
+            let next = app.screenshot().pngRepresentation
+            if next == picture { break }
+            picture = next
+        }
+        try? picture.write(to: out.appending(path: "\(row).png"))
         var nodes: [[String: Any]] = []
         func walk(_ node: XCUIElementSnapshot) {
             let f = node.frame

@@ -102,7 +102,7 @@ export const ROWS: Row[] = [
     title: "Text Ben I'm running late (which person)",
   },
   {
-    flow: "O2AnswerOfflineTests",
+    flow: "O2OfflineNoticeTests",
     id: "offline",
     proto: ['[data-k="offline"]'],
     taps: 0,
