@@ -1,0 +1,25 @@
+{
+  "name": "Motion: an answer arriving as it is written",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_settled_undo.json"
+      }
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [],
+      "then": "life/answer_check_rated.json"
+    }
+  ],
+  "items": [
+    "dec_000000000001"
+  ],
+  "pace": 1.2,
+  "text": "Two things wait on you today. Jade asked about Friday, and the bank needs the form signed before the end of the week. Nothing else is urgent, so you can leave the rest until tomorrow morning."
+}

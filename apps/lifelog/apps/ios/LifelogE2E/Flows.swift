@@ -102,6 +102,8 @@ import XCTest
         appears(app.buttons["What's waiting on me"], "the thread")
         app.buttons["What's waiting on me"].tap()
         appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
+        // The thread fills the screen under the buttons: a thread squeezed to the bottom hid every earlier row.
+        XCTAssertLessThan(app.scrollViews.firstMatch.frame.minY, app.frame.height / 4)
         tap(AID.askRate(Self.ask, "good"))
         poll("the mark reached Life") { !answers().isEmpty }
         XCTAssertEqual(answers().count, 1)

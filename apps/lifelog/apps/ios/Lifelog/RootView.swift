@@ -66,7 +66,9 @@ struct RootView: View {
                         Metrics.Spacing.xxl)
                 }
             }
-            .safeAreaInset(edge: .top) {
+            // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
+            // left under it, and its top fade then covers the wrong strip.
+            .overlay(alignment: .top) {
                 VStack(spacing: Metrics.Spacing.s) {
                     buttons
                     Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
@@ -78,7 +80,6 @@ struct RootView: View {
                 } action: {
                     topHeight = $0
                 }
-                .frame(maxHeight: .infinity, alignment: .top)
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) {
