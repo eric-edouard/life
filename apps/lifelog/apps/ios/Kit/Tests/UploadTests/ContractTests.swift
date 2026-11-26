@@ -134,6 +134,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     let kinds = Set(needs.matches(of: /kind: z\.literal\("([a-z]+)"\)/).map { String($0.output.1) })
     #expect(kinds == client(Check.Need.Kind.self))
     #expect(try quoted("memory/needs.ts", /scheme: z\s*\.enum\(\[([^\]]*)\]/) == client(Check.Need.Scheme.self))
+    #expect(
+        try quoted("host/network-sign-in.ts", /type: z\s*\.enum\(\[([^\]]*)\]/) == client(SignInStep.Kind.self))
     #expect(try quoted("memory/life-checks.ts", /doneSeenBy\?: ([^;]*);/) == client(Check.DoneSeenBy.self))
     // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
     #expect(

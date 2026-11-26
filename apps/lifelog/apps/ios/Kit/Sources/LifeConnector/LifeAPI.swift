@@ -73,6 +73,9 @@ public protocol LifeAPI: Sendable {
     func askMainSession(
         _ request: MainSessionRequest, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String
+    /// His sign-in to a messaging network (`sign_in_to_network`): one bridge login step per call. Its progress pings
+    /// keep a held wait open; the answers in `request` are sent once and logged nowhere.
+    func signInToNetwork(_ request: SignInRequest) async throws -> String
 }
 
 /// How `read_appointments` names one: by its push's id, or its own.
@@ -144,5 +147,9 @@ public struct MCPLifeAPI: LifeAPI {
     ) async throws -> String {
         // Even his presence takes the stream's 15 s idle limit: a cold session opens in about 8.
         try await client.call("ask_main_session", request, answerKey: answerKey, onProgress: onProgress)
+    }
+
+    public func signInToNetwork(_ request: SignInRequest) async throws -> String {
+        try await client.call("sign_in_to_network", request, onProgress: { _ in })
     }
 }

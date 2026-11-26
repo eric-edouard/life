@@ -129,9 +129,10 @@ public struct CardNotification: Sendable, Equatable {
 
     /// Needs nothing more than the tap, and acts on nothing outward.
     /// A tap that is his word a step is done waits for Undo in the app, and a hand-over to an agent hands the goal only
-    /// the card shows: never a notification's button.
+    /// the card shows: never a notification's button. Nor a sign-in, which opens its sheet in the app.
     public static func isOneTap(_ option: Check.Option, of check: Check) -> Bool {
-        option.takes == nil && option.outgoing != true && option.ends == nil && !check.isHandOver(option)
+        option.takes == nil && option.outgoing != true && option.ends == nil && option.signsIn == nil
+            && !check.isHandOver(option)
     }
 
     /// Sends the card's draft, shown whole above it; never on a card that asks who its recipient is (`confirm`).
