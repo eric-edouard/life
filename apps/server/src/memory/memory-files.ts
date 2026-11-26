@@ -70,7 +70,7 @@ export const pagePath = (ref: string) =>
   ref.startsWith("person:")
     ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
     : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
-/** Where things stand with him and each person close to him (`memory/situations.ts`), one file per person. */
+/** Where things stand with him, each person with a page and each organization of his directory (`memory/situations.ts`), one file each. */
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);

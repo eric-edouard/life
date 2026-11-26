@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { z } from "zod";
+import { hasAddOn } from "../core/add-ons";
 import { readJson } from "../core/files";
 import { newestWithin, packed } from "../core/lists";
 import { log } from "../core/log";
@@ -180,6 +181,10 @@ function hiddenUntilRedone(ref: string, history: History) {
       : null;
   return { ...history, months, story };
 }
+
+/** Their story's text, for the situation call to read (shown, never in its digest); none while the add-on is off. */
+export const storyTextOf = (ref: string) =>
+  hasAddOn("histories") ? readHistory(ref).story?.text : undefined;
 
 /**
  * Someone's history: an empty one when there is no file; a file in a shape this code does not know (a month written by

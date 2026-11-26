@@ -1,10 +1,12 @@
+import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../core/clock";
-import { filesIn } from "../core/files";
+import { filesIn, readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import type { Cut } from "../records/observation";
+import { Situation } from "../records/situation";
 import type { Unit } from "../records/unit";
 import { openTodoItemKeysOf } from "../todo-list/todo-items-from-ledger";
 import { decisionsNow, withdrawDeletedCards } from "./decisions";
@@ -41,6 +43,7 @@ import { readFiles } from "./message-files";
 import { locate } from "./quote-check";
 import { deletionRefusalOf, lifeRefsOf, parseRef } from "./refs";
 import { search } from "./search";
+import { MATTER_SITUATIONS, PROJECT_SITUATIONS } from "./situation-parts";
 import { publishUnits } from "./unit-writer";
 import { clip, isFrozen } from "./units";
 import { readPeople } from "./who";
@@ -367,6 +370,35 @@ async function readShownDerivedOf(units: readonly Unit[]) {
     .map(([id, held]) => ({ id, units: held }));
 }
 
+/**
+ * The project and matter situations, each with every ref its call was shown, cited or not (`Situation.shown`: ids only,
+ * never its words): one is reached when a deletion reaches any of them, their fact or their unit; a matter's also when its
+ * matter is named.
+ */
+export const readShownSituations = async () => {
+  const of = async (
+    dir: string,
+    key: (id: string) => string,
+    also: (id: string) => string[]
+  ) =>
+    (await filesIn(dir, ".json")).flatMap((f) => {
+      const id = f.slice(0, -".json".length);
+      const stored = Situation.safeParse(readJson(join(dir, f)));
+      return stored.success
+        ? [
+            {
+              id: key(id),
+              units: [...also(id), ...stored.data.shown],
+            },
+          ]
+        : [];
+    });
+  return [
+    ...(await of(PROJECT_SITUATIONS, shownKeyOf.projectSituation, () => [])),
+    ...(await of(MATTER_SITUATIONS, shownKeyOf.matterSituation, (id) => [id])),
+  ];
+};
+
 /** What a deletion would reach: its refs read, its cuts made, the stored layers holding them, the days to read again. */
 export async function planDeletion(
   ask: DeletionRequest,
@@ -422,7 +454,10 @@ export async function planDeletion(
   const shown = await readShownDerivedOf(
     units.filter((u) => first.units.includes(u.id))
   );
-  const reaches = dependentsOf([...asked], { ...layers, shown });
+  const reaches = dependentsOf([...asked], {
+    ...layers,
+    shown: [...shown, ...(await readShownSituations())],
+  });
   // The copies of his words outside memory: the ones holding the words he deletes (a cut's, a message's or a turn's
   // whole), or citing what goes or what it reaches.
   const whole = await Promise.all(

@@ -6,7 +6,7 @@ import * as voices from "../sources/lifelog-voices";
 import { checksAndKeyNow } from "./checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lock from "./memory-lock";
-import { projectSituationPath } from "./project-situation-read";
+import { projectSituationPath } from "./situation-parts";
 
 // The checks' key versions the connector's reads: the same files, the same key; while a run holds the lock the list is
 // read again on every call (a unit may change a card under the same files' stamp), so its key is never given twice.

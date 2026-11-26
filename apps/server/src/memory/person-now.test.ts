@@ -145,7 +145,7 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
       },
     ],
     row: row("person:me"),
-    situation: [{ cites: ["ep_000000000001"], text: "Busy with the move." }],
+    situation: [{ cites: ["ep_000000000001"], markdown: "On the move." }],
     today: "2026-03-10",
   });
   expect(JSON.stringify(now).length).toBeLessThanOrEqual(PART_CHARS);
@@ -751,23 +751,23 @@ test("his own situation is checked against the episodes the index holds, by the 
   writeJson(situationPath(OWNER), {
     built: "2026-11-05T00:00:00.000Z",
     inputs: "0123456789abcdef",
-    lines: [
-      { cites: ["ep_00000000000e"], text: "He moved flats." },
-      { cites: ["ep_00000000000f"], text: "An episode since gone." },
+    madeBy: { ...madeBy, prompt: promptNameOf("memory-situation.v4") },
+    parts: [
+      { cites: ["ep_00000000000e"], markdown: "You moved flats." },
+      { cites: ["ep_00000000000f"], markdown: "An episode since gone." },
     ],
-    madeBy: { ...madeBy, prompt: promptNameOf("memory-situation.v3") },
-    page: OWNER,
-    schemaVersion: 1,
+    schemaVersion: 2,
+    shown: [],
+    subject: OWNER,
   });
   try {
     writeFileSync(file, line);
     await reindex();
     // Unreadable now: reading any episode file would throw.
     writeFileSync(file, "not an episode\n");
-    const now = (await person("Test Owner")) as {
-      situation: { text: string }[];
-    };
-    expect(now.situation.map((l) => l.text)).toEqual(["He moved flats."]);
+    const now = JSON.stringify(await person("Test Owner"));
+    expect(now).toContain("You moved flats.");
+    expect(now).not.toContain("since gone");
   } finally {
     rmSync(EPISODES, { force: true, recursive: true });
     rmSync(situationPath(OWNER), { force: true });

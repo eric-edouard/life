@@ -1,8 +1,9 @@
 import LifeConnector
 import SwiftUI
 
-/// Someone's profile: their face, what they are to him, what is open with them, and how to reach them. One level deep:
-/// nothing here opens another profile. Sections come from Life's read; a section with nothing is left out.
+/// Someone's profile: their face and what they are to him; his open asks about them and their open matters, drawn live;
+/// Life's reading of them (their situation, as the night wrote it); their details and how to reach them. One level deep:
+/// nothing here opens another profile. What Life's read lacks is left out.
 struct ProfileView: View {
     let ref: String
     @Environment(LifeStore.self) private var life
@@ -26,10 +27,10 @@ struct ProfileView: View {
                         }
                     }
                     .frame(maxWidth: .infinity).padding(.top, Metrics.Spacing.xl)
-                    section("Open", read.open.map(\.name))
-                    section("Details", read.details.map(\.text))
-                    section("Now", read.situation.map(\.text))
-                    section("Writes", read.communicationStyle.map(\.text))
+                    ItemsBlock(refs: read.asks)
+                    matters(read.openShown(isAll: false, all: nil))
+                    SituationView(parts: read.situation)
+                    details(read.details)
                     reach(read.reach)
                 } else if isFailed {
                     NoticeBlock(title: "Life didn't open it.")
@@ -42,11 +43,27 @@ struct ProfileView: View {
         .background(Palette.bg).task { await life.refreshPerson(ref) }
     }
 
-    @ViewBuilder private func section(_ title: String, _ lines: [String]) -> some View {
-        if !lines.isEmpty {
-            VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
-                Text(title).font(.heading).foregroundStyle(Palette.muted).accessibilityAddTraits(.isHeader)
-                ForEach(lines, id: \.self) { Text($0).lineSpacing(Metrics.Spacing.xs) }
+    /// Their running matters, each opening its page.
+    @ViewBuilder private func matters(_ open: [MatterRow]) -> some View {
+        RowGroup {
+            ForEach(Array(open.enumerated()), id: \.element.id) { index, matter in
+                Button {
+                    if let url = URL.lifeOpen(matter.id) { openURL(url) }
+                } label: {
+                    Row(title: matter.name, detail: matter.needsYou == true ? "Needs you" : nil, isInList: true)
+                }
+                .buttonStyle(.groupedRow(at: index, of: open.count))
+            }
+        }
+    }
+
+    /// Their birthday, home, work, family and handles, as his directory and Contacts give them.
+    @ViewBuilder private func details(_ details: [PersonNow.Detail]) -> some View {
+        if !details.isEmpty {
+            VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
+                ForEach(Array(details.enumerated()), id: \.offset) { _, detail in
+                    Text(detail.text).font(.line).foregroundStyle(Palette.muted)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

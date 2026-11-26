@@ -430,7 +430,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `matter-project` | `steps` (all of a matter's step ids when he said it), `matter` (its id), `project` (a project id of his directory) | His word of which project the matter those steps find is of (a re-group keeps it): the latest wins, and it is the matter's one project (`matterBookOf`), so the agent that takes it follows (`agentForOf`); his token only, by the matter's id |
 | `matter-reopened` | `steps` (all of a matter's step ids when he reopened it), `matter` (its id), `note` (his words) | His Reopen of a closed matter (his word only, `correctMatter`, which also unticks its ticked to-do items): every `outdated` on those steps written before it is lifted (`outdatedBy`), a link whose evidence came before it ends nothing, and a Life draft reading the matter over before it is dropped (`readMatterPins`); a later `outdated` closes them again |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
-| `deleted` | `refs: [unit_…, obs_…, ep_…, msg:<source>\|<id>, a turn's ref, file:<ref>, a matter, a card]`, `cuts: [{ref, from, to, digest}]`, `oldHashes: [hash]`, `shown: [<read key>]`, `withSources`, `said` (a digest of his words, never them: they could quote what he deleted; at most 300 characters) | His word that they go from his memory (`memory/deletions.ts`): a ref's line is gone whole and a cut's places are blanked when the digest is the words at them (`deletedWordsOf`), so nothing of the words is stored; `oldHashes` are the hashes of the units it changed, whose facts are gone, never replaced; `shown` are the derived reads (`persona:<ref>`, `history:<ref>:<month>`, `situation:<ref>`) it was shown, hidden until redone; `withSources`: his word covers the apps' copies too (the raw text stays there until code can purge it). Written by `deleteFromMemory` only, on the preview's `confirm` |
+| `deleted` | `refs: [unit_…, obs_…, ep_…, msg:<source>\|<id>, a turn's ref, file:<ref>, a matter, a card]`, `cuts: [{ref, from, to, digest}]`, `oldHashes: [hash]`, `shown: [<read key>]`, `withSources`, `said` (a digest of his words, never them: they could quote what he deleted; at most 300 characters) | His word that they go from his memory (`memory/deletions.ts`): a ref's line is gone whole and a cut's places are blanked when the digest is the words at them (`deletedWordsOf`), so nothing of the words is stored; `oldHashes` are the hashes of the units it changed, whose facts are gone, never replaced; `shown` are the derived reads (`persona:<ref>`, `history:<ref>:<month>`, `situation:<ref>`, `project-situation:<project>`, `matter-situation:<matter>`) it was shown, hidden until redone; `withSources`: his word covers the apps' copies too (the raw text stays there until code can purge it). Written by `deleteFromMemory` only, on the preview's `confirm` |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
 
@@ -492,15 +492,37 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 ## situations/<id>.json
 
-Where things stand now with the owner (`me`) or someone with a page who has an episode in the last 30 days, written by `situations.ts` each
-night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and `cites`, `ep_` ids of the episodes it
-rests on), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown: the episodes of importance 2 or more with them in the 30 days ending at their newest, a digest of the page and, while the `personas` add-on is on, the persona's readings; never the date), `built`, `madeBy`,
-`schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
-no page. A reader drops a line whose episode is no longer live, and the whole situation when `madeBy.prompt` is not the variant now. His correction is a line on the page.
+The situation (docs/glossary.md) of the owner (`me`), someone with a page or an organization of his directory, written by
+`situations.ts` each night when its inputs changed, one call per subject with an episode: `subject` (`person:<id>`),
+`parts` (each `markdown`, written to him as "you", and `cites`: the `ep_` ids of the episodes, the page's ref or the
+story's `<ref>/story` it rests on), `shown` (every ref the call was shown, cited or not: a deletion reaching one hides it), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown:
+the episodes of importance 2 or more with them in the 30 days ending at their newest, a digest of the page and, while the
+`personas` add-on is on, the persona's readings; never the story, another summary, and never the date), `built`,
+`madeBy`, `schemaVersion` (2; a file of 1 reads as absent until its night). Rewritten whole, never from its own last
+version; kept however old their newest episode; removed when the person has no page any more or the organization left
+his directory. A reader drops a part whose episode is no longer live, and the whole situation when `madeBy.prompt` is
+not the variant now or a deletion it was shown is newer (`situation:<ref>`). His correction is a line on the page.
 
 ## project-situations/<project>.json
 
-Where a project underway stands now, written by `project-situations.ts` each night when its inputs changed: `project` (its directory id), `lines` (each `text` and `cites`, the refs of the matter steps it rests on), `inputs` (a hash of the prompt's variant name and what was shown: the directory entry's deadlines, name, status and notes, and each running matter's name, goal, next step, open steps and newest 12 steps; never the date and never a matter's status, which follows the clock), `built`, `madeBy`, `schemaVersion`. Kept apart from `situations/`, whose files are all people's. Rewritten whole, never from its own last version; removed when the project is no longer underway or shows no running matter. A reader drops a line whose step no matter of the project holds any more, and the whole situation when `madeBy.prompt` is not the variant now.
+Where a project underway stands now, written by `project-situations.ts` each night when its inputs changed, in the
+situation's shape: `subject` (its directory id), `parts` (`cites`: the refs of the matter steps it rests on), `inputs` (a
+hash of the prompt's variant name and what was shown: the directory entry's deadlines, name, status and notes, and each
+running matter's name, goal, next step, open steps and newest 12 steps; never the date and never a matter's status,
+which follows the clock), `built`, `madeBy`, `schemaVersion` (2). Kept apart from `situations/`, whose files are all
+people's. Rewritten whole, never from its own last version; removed when the project is no longer underway or shows no
+running matter. A reader drops a part whose step no matter of the project holds any more, and the whole situation when
+`madeBy.prompt` is not the variant now or a deletion reached a step it was shown (`project-situation:<project>`).
+
+## matter-situations/<matter>.json
+
+A matter's situation, written by `matter-situations.ts` each night after the directions for a matter of two steps or
+more whose inputs changed, those with none yet first, then the newest, within the night's 120,000 characters, in the situation's shape: `subject`
+(the matter id), `parts` (`cites`: its steps, open steps, later records and the units and payments found near its
+words), `shown` (every one of those the call was shown, cited or not), `inputs` (a hash of the prompt's variant name and its goal, newest 12 steps, open steps and later records by
+ids and words; never its name, people, status, the evidence or the date), `built`, `madeBy`, `schemaVersion` (2).
+Rewritten whole; removed when the matter leaves the book or has one step. A reader shows it whole while `madeBy.prompt`
+is the variant now and no deletion reached the matter or anything it was shown (`matter-situation:<matter>`).
 
 ## personas/<id>.json
 

@@ -129,39 +129,42 @@ test("search: an observation hit names the unit it comes from and who is in it",
 test("a search opens with his situation when it names no one, then others' lines on the episodes it shows", async () => {
   const [ep, other] = ["ep_00000000000a", "ep_00000000000b"];
   const ANA = "person:test-ana";
-  const write = (page: string, lines: { cites: string[]; text: string }[]) =>
-    writeJson(situationPath(page), {
+  const write = (
+    subject: string,
+    parts: { cites: string[]; markdown: string }[]
+  ) =>
+    writeJson(situationPath(subject), {
       built: "2026-11-05T00:00:00.000Z",
       inputs: "0123456789abcdef",
-      lines,
       madeBy: {
         engine: "claude",
         model: "m",
-        prompt: promptNameOf("memory-situation.v3"),
+        prompt: promptNameOf("memory-situation.v4"),
         run: "r",
       },
-      page,
-      schemaVersion: 1,
+      parts,
+      schemaVersion: 2,
+      shown: [],
+      subject,
     });
   write(OWNER, [
-    { cites: [ep], text: "He argues with his father about the house." },
+    { cites: [ep], markdown: "He argues with his father about the house." },
   ]);
   write(ANA, [
-    { cites: [ep], text: "Ana helps with the house." },
-    { cites: [other], text: "Ana moved flats." },
+    { cites: [ep], markdown: "Ana helps with the house." },
+    { cites: [other], markdown: "Ana moved flats." },
   ]);
   const live = [ep, other].map((id) => ({ id, people: [{ ref: ANA }] }));
-  const header =
-    "(where things stand, read each night from the 30 days up to their newest episode):";
+  const header = `(Life's reading, written to Test as "you"):`;
   try {
     await expect(
       readSituationsOf("what bothers me lately", live, new Set([ep]), true)
     ).resolves.toEqual([
       `Test's situation ${header}`,
-      `- He argues with his father about the house. [${ep}]`,
+      `He argues with his father about the house. [${ep}]`,
       "",
       `Situation with Test Ana, on the episodes below ${header}`,
-      `- Ana helps with the house. [${ep}]`,
+      `Ana helps with the house. [${ep}]`,
       "",
     ]);
     // A search into given days is not about now: his own shows only where it cites what was found, like anyone's.
@@ -169,7 +172,7 @@ test("a search opens with his situation when it names no one, then others' lines
       readSituationsOf("what bothers me lately", live, new Set([other]), false)
     ).resolves.toEqual([
       `Situation with Test Ana, on the episodes below ${header}`,
-      `- Ana moved flats. [${other}]`,
+      `Ana moved flats. [${other}]`,
       "",
     ]);
     // A person named shows whole; his own then shows only where it cites what was found.
@@ -177,11 +180,11 @@ test("a search opens with his situation when it names no one, then others' lines
       readSituationsOf("how is test ana", live, new Set([ep]), true)
     ).resolves.toEqual([
       `Situation with Test Ana ${header}`,
-      `- Ana helps with the house. [${ep}]`,
-      `- Ana moved flats. [${other}]`,
+      `Ana helps with the house. [${ep}]`,
+      `Ana moved flats. [${other}]`,
       "",
       `Test's situation, on the episodes below ${header}`,
-      `- He argues with his father about the house. [${ep}]`,
+      `He argues with his father about the house. [${ep}]`,
       "",
     ]);
   } finally {

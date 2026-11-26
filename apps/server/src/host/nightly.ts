@@ -36,6 +36,7 @@ import { gather } from "../memory/gather";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
 import { matterDirections } from "../memory/matter-directions";
+import { matterSituations } from "../memory/matter-situations";
 import {
   matters,
   readMatterBook,
@@ -93,7 +94,7 @@ import {
   type Window,
 } from "../memory/zones";
 import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
-import { histories, readHistoryWork } from "../personal/histories";
+import { histories, readHistoryWork, storyTextOf } from "../personal/histories";
 import { personaReadingsOf, personas } from "../personal/personas";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
@@ -575,6 +576,11 @@ export async function runNight(
     await matterDirections(people, { records }).catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "memory.matter-directions" })
     );
+    // Where each matter stands, the page he opens: redone only for a matter whose steps or records changed.
+    steps.at = "matter situations";
+    await matterSituations(people, { records }).catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "memory.matter-situations" })
+    );
     // Where each project underway stands, read from its matters as they now read; redone only when what it was shown changed.
     steps.at = "project situations";
     await projectSituations(people, records).catch((e: Error) =>
@@ -602,7 +608,7 @@ export async function runNight(
     );
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
     steps.at = "situations";
-    await situations(personaReadingsOf);
+    await situations({ personaOf: personaReadingsOf, storyOf: storyTextOf });
     steps.at = "appointments";
     // Only while his calendar takes them: nothing else reads the file.
     if (isOn("appointmentsCalendar")) {

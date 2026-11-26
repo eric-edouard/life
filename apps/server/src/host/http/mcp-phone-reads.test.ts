@@ -6,10 +6,13 @@ import { setSettings } from "../../core/settings";
 import { withNetworkIdentity } from "../../memory/network-identity";
 import { PERSON_PICTURES, pictureFileOf } from "../../memory/party";
 import {
+  MATTER_SITUATION_PROMPT,
+  matterSituationPath,
+  PROJECT_SITUATION_PROMPT,
   PROJECT_SITUATIONS,
   projectSituationPath,
   promptNameNow,
-} from "../../memory/project-situation-read";
+} from "../../memory/situation-parts";
 import type { WakeLine } from "../registered-agents";
 import {
   GRAN_PICTURE,
@@ -451,21 +454,22 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     writeJson(projectSituationPath("shop-fit-out"), {
       built: "2026-10-14T00:00:00.000Z",
       inputs: "0123456789abcdef",
-      lines: [
-        {
-          cites: ["obs_000000000005"],
-          text: "The shop is quoting the watch repair; the call to them is done.",
-        },
-        { cites: ["obs_gonegonegone"], text: "A step no matter holds." },
-      ],
       madeBy: {
         engine: "claude",
         model: "m",
-        prompt: promptNameNow(),
+        prompt: promptNameNow(PROJECT_SITUATION_PROMPT),
         run: "r",
       },
-      project: "shop-fit-out",
-      schemaVersion: 1,
+      parts: [
+        {
+          cites: ["obs_000000000005"],
+          markdown: "The shop is quoting the watch repair; you made the call.",
+        },
+        { cites: ["obs_gonegonegone"], markdown: "A step no matter holds." },
+      ],
+      schemaVersion: 2,
+      shown: [],
+      subject: "shop-fit-out",
     });
     const withSituation = await read("read_matters", {
       project: "shop-fit-out",
@@ -473,7 +477,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
     expect(JSON.parse(withSituation).project.situation).toEqual([
       {
         cites: ["obs_000000000005"],
-        text: "The shop is quoting the watch repair; the call to them is done.",
+        markdown: "The shop is quoting the watch repair; you made the call.",
       },
     ]);
     expectWire("read_matters_project", withSituation);
@@ -487,10 +491,36 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
       ).unchanged
     ).toBeUndefined();
     rmSync(projectSituationPath("shop-fit-out"), { force: true });
+    // A matter's page: its situation, Life's reading written to him, made by the prompt variant in force.
+    writeJson(matterSituationPath("matter_aaaaaaaaaaaa"), {
+      built: "2026-10-14T00:00:00.000Z",
+      inputs: "0123456789abcdef",
+      madeBy: {
+        engine: "claude",
+        model: "m",
+        prompt: promptNameNow(MATTER_SITUATION_PROMPT),
+        run: "r",
+      },
+      parts: [
+        {
+          cites: ["obs_000000000005"],
+          markdown: "Getting the watch repaired at the shop.",
+        },
+        {
+          cites: ["obs_000000000005"],
+          markdown:
+            "- 12 Oct: you called the shop\n- 13 Oct: they sent a quote",
+        },
+      ],
+      schemaVersion: 2,
+      shown: [],
+      subject: "matter_aaaaaaaaaaaa",
+    });
     expectWire(
       "read_matter",
       await read("read_matter", { id: "matter_aaaaaaaaaaaa" })
     );
+    rmSync(matterSituationPath("matter_aaaaaaaaaaaa"), { force: true });
     expectWire(
       "read_matter_found",
       await read("read_matter", { id: "matter_cccccccccccc" })

@@ -103,6 +103,8 @@
         var answers: [Answer] = []
         /// What his round button's ask brings back: an answer holding an `items` block of these asks.
         var items: [String] = []
+        /// The answer's words before its block (`life:` links to open a page from); "It waits on you." by default.
+        var text: String?
     }
 
     nonisolated final class FakeLife: URLProtocol, @unchecked Sendable {
@@ -366,7 +368,7 @@
                         + (String(
                             decoding: (try? JSONSerialization.data(withJSONObject: held.scenario.items)) ?? Data(),
                             as: UTF8.self)) + "\n```"
-                let text = "It waits on you.\(blocks)"
+                let text = (held.scenario.text ?? "It waits on you.") + blocks
                 let reply: [String: Any] = [
                     "kind": "reply", "entry": 1, "text": text, "refs": held.scenario.items, "acts": [],
                 ]

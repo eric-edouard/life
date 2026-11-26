@@ -6,6 +6,8 @@ import SwiftUI
 /// its question; a send he may undo is a `SentLine`.
 struct ItemRow: View {
     let ask: ThreadAsk
+    /// On its matter's page: the row's title is its question (the page's title is the matter's name).
+    var isOnTheirMatter = false
     @Environment(LifeStore.self) private var life
     @State private var isOpen = false
     @State private var words = ""
@@ -86,7 +88,8 @@ struct ItemRow: View {
 
     private var row: some View {
         ThreadItemRow(
-            title: ask.title, state: state, icon: icon, line: line, isOpen: isOpen, ref: ask.ref,
+            title: isOnTheirMatter && !ask.question.isEmpty ? ask.question : ask.title, state: state, icon: icon,
+            line: line, isOpen: isOpen, ref: ask.ref,
             toggle: {
                 withAnimation(Motion.standard) { isOpen.toggle() }
                 if isOpen { life.opened = ask.ref } else if life.opened == ask.ref { life.opened = nil }

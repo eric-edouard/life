@@ -25,7 +25,10 @@ private func row(_ name: String, _ level: String?, kind: String = "person", need
     #expect(list.people.map(\.party.kind) == [.person, .organization])
     let now = try decoded(PersonNow.self, wireText("life/read_people_and_organizations_now.json"))
     #expect(now.row.party.ref == "person:test-ana")
-    #expect(now.row.needsYou == false)
+    // An ask about her waits on him: its ref, for the thread's live row, and Life's reading of her, as written.
+    #expect(now.row.needsYou == true)
+    #expect(now.asks == ["dec_000000000001"])
+    #expect(now.situation.map(\.cites.count) == [2, 2])
     #expect(now.parties.map(\.ref) == ["person:test-ana"])
 }
 
@@ -289,4 +292,12 @@ private func latestPage(_ texts: [String], from day: Int, before: String?) -> St
     let whole = try decoded(
         PersonNow.self, #"{"ref":"person:a","name":"A","kind":"organization","domains":["a.example"]}"#)
     #expect(whole.membersLeftOut == 0 && whole.domainsLeftOut == 0 && !whole.isOpenCut)
+}
+
+@Test func aMattersPageCarriesLifesReadingAsOneMarkdownText() throws {
+    let matter = try decoded(Matter.self, wireText("life/read_matter.json"))
+    #expect(
+        SituationPart.markdown(of: matter.situation).hasPrefix("Getting the watch repaired at the shop.\n\n- 12 Oct"))
+    // A matter the night has not read yet has none.
+    #expect(try decoded(Matter.self, wireText("life/read_matter_found.json")).situation.isEmpty)
 }

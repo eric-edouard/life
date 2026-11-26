@@ -215,3 +215,32 @@ import XCTest
         XCTAssertFalse(answers().contains { $0["origin"] as? String == "b" })
     }
 }
+
+/// P1: a person's link opens their page, the ask about them live above Life's reading of them; a matter's link opens its
+/// page, its ask by its question (never the matter's name again) above Life's reading of it. One read each, no model.
+@MainActor final class P1PersonAndMatterPagesTests: FlowTest {
+    func testPersonAndMatterPages() {
+        launch("P1")
+        let ask = app.buttons["What's waiting on me"]
+        appears(ask, "the thread")
+        ask.tap()
+        let ana = app.links["Test Ana"]
+        appears(ana, "the link to her")
+        ana.tap()
+        appears(text("you have known her since 2019"), "Life's reading of her")
+        appears(element(AID.askRow(Self.ask)), "the ask about her")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let watch = app.links["the watch"]
+        appears(watch, "the link to the matter")
+        watch.tap()
+        appears(text("Getting the watch repaired"), "Life's reading of the matter")
+        appears(text("Send Kit the message?"), "its ask, by its question")
+        let tools = calls().compactMap { $0["tool"] as? String }
+        XCTAssertEqual(tools.filter { $0 == "read_matter" }.count, 1)
+        XCTAssertEqual(tools.filter { $0 == "ask_main_session" }.count, 1)
+    }
+
+    private func text(_ words: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch
+    }
+}

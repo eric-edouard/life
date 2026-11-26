@@ -180,10 +180,8 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         public let source: String
     }
 
-    /// One line of their situation, or of how each writes to the other.
-    public struct Line: Decodable, Sendable, Equatable {
-        public let text: String
-    }
+    /// A check as the profile needs it: its ref, the thread's read draws the rest.
+    private struct Ref: Decodable { let ref: String }
 
     /// Someone at an organization, his word in its entry: their party, role, and the year or day they left.
     public struct Member: Decodable, Sendable, Equatable, Identifiable {
@@ -217,8 +215,10 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public let knows: [Known]
     /// The running matters with them, most pressing first.
     public let open: [MatterRow]
-    public let situation: [Line]
-    public let communicationStyle: [Line]
+    /// Life's reading of who they are to him and where things stand (their situation), drawn as written.
+    public let situation: [SituationPart]
+    /// His open asks about them on no matter, by ref: drawn live from the thread's read (`checks`).
+    public let asks: [String]
     public let more: [String: Int]
     /// The `reach` part's ref when `now` had no room for every account (`reach/<offset>` pages them all).
     public let moreReach: String?
@@ -229,7 +229,7 @@ public struct PersonNow: Decodable, Sendable, Equatable {
     public let pictures: [PictureChoice]
 
     private enum Key: String, CodingKey {
-        case reach, details, knows, open, situation, communicationStyle, more, moreReach, domains, pictures
+        case reach, details, knows, open, situation, checks, more, moreReach, domains, pictures
         case members = "people"
     }
 
@@ -238,7 +238,8 @@ public struct PersonNow: Decodable, Sendable, Equatable {
         let container = try decoder.container(keyedBy: Key.self)
         func list<T: Decodable>(_ key: Key) throws -> [T] { try container.decodeIfPresent([T].self, forKey: key) ?? [] }
         (reach, details, knows, open) = (try list(.reach), try list(.details), try list(.knows), try list(.open))
-        (situation, communicationStyle) = (try list(.situation), try list(.communicationStyle))
+        situation = try list(.situation)
+        asks = (try list(.checks) as [Ref]).map(\.ref)
         more = try container.decodeIfPresent([String: Int].self, forKey: .more) ?? [:]
         moreReach = try container.decodeIfPresent(String.self, forKey: .moreReach)
         (members, domains, pictures) = (try list(.members), try list(.domains), try list(.pictures))

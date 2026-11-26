@@ -161,6 +161,31 @@ test("what a deletion reaches: a message its unit, the unit its facts, the facts
   });
 });
 
+test("a matter's or a project's situation is reached by a fact it cites, its unit, or the matter named; never by another's", () => {
+  const shown = [
+    {
+      id: shownKeyOf.matterSituation("matter_1"),
+      units: ["matter_1", "obs_1"],
+    },
+    { id: shownKeyOf.projectSituation("harbor"), units: ["obs_2"] },
+    {
+      id: shownKeyOf.matterSituation("matter_9"),
+      units: ["matter_9", "obs_9"],
+    },
+  ];
+  const observations = [
+    { id: "obs_1", source: "m1", unit: "unit_1" },
+    { id: "obs_2", source: "m2", unit: "unit_2" },
+  ];
+  const units = [{ id: "unit_2", refs: ["m2"] }];
+  expect(
+    dependentsOf(["m2"], layers({ observations, shown, units })).shown
+  ).toEqual(["project-situation:harbor"]);
+  expect(
+    dependentsOf(["obs_1", "matter_9"], layers({ observations, shown })).shown
+  ).toEqual(["matter-situation:matter_1", "matter-situation:matter_9"]);
+});
+
 test("a to-do item's key among the refs is his list's to remove", () => {
   expect(dependentsOf(["entry_0123456789ab"], layers()).todoItems).toEqual([
     "entry_0123456789ab",

@@ -63,10 +63,10 @@
     "situation": [
       {
         "cites": ["obs_000000000005"],
-        "text": "The shop is quoting the watch repair; the call to them is done."
+        "markdown": "The shop is quoting the watch repair; you made the call."
       }
     ],
     "status": "active"
   },
-  "version": "2cd126c9defaff81"
+  "version": "cb993047a680452d"
 }

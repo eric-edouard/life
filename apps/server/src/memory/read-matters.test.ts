@@ -168,6 +168,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       ...row,
       agents: [],
       communicationStyles: [],
+      situation: [],
       steps: [steps[0], { ...steps[1], with: party("person:partner") }],
     });
     // A step's id opens the matter holding it; anchors find it by the first that still names a step.

@@ -205,6 +205,11 @@ final class LifeStore {
         }
     }
 
+    /// A matter's page (`read_matter`): read when its link opens, kept by the sheet.
+    func readMatter(_ id: String, _ update: @escaping (ReadState<Matter>.Event) -> Void) async {
+        await load(update, key: "read_matter-\(id)", isKept: false) { try await $0.readMatter(id) }
+    }
+
     /// His directory, read when the person picker opens.
     func refreshPeople() async {
         await load({ self.people.apply($0) }, key: "people", isKept: false) { try await $0.readPeople() }

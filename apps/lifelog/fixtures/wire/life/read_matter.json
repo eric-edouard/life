@@ -180,6 +180,16 @@
       ]
     }
   ],
+  "situation": [
+    {
+      "cites": ["obs_000000000005"],
+      "markdown": "Getting the watch repaired at the shop."
+    },
+    {
+      "cites": ["obs_000000000005"],
+      "markdown": "- 12 Oct: you called the shop\n- 13 Oct: they sent a quote"
+    }
+  ],
   "communicationStyles": [],
   "spending": {
     "equivalent": {
