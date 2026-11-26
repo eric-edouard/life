@@ -178,6 +178,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   connector (`read_appointments`).
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
+- To a messaging network, through its bridge, on his sign-in from his app (`sign_in_to_network`): the cookies, password
+  and codes he gives there, once, from his phone over his tailnet to the bridge on loopback; Life stores none and logs
+  none; the bridge keeps its session as when he links on the Mac (his yes of 26 Nov 2026).
 
 ## Known risks
 
@@ -192,6 +195,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - The phone's notification extension reads the app's tokens (Life's and lifelog's: one Keychain group), to read a card
   for its notification (`NotificationService`). A draft sent from a notification, on the phone or the Watch, rests on
   that device being unlocked, and on Face ID at that tap only when his setting asks for it (`NotificationContent`).
+- The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
+  signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
+  signed-out network in to another account.
 - Full Disk Access makes Life a high-value target on the Mac.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).

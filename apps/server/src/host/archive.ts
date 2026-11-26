@@ -5,7 +5,7 @@ import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { LIFE_CODE_DIR } from "../core/paths";
-import { codeAt, exec } from "../core/proc";
+import { exec, readRunning } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -239,14 +239,14 @@ export async function archiveCommand(args: string[]): Promise<number> {
     );
     return 0;
   }
-  const running = codeAt(LIFE_CODE_DIR);
+  const running = readRunning(LIFE_CODE_DIR);
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
   const failing = new Set(
     openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys()
   );
   await copyAll(failing);
-  while (codeAt(LIFE_CODE_DIR) === running) {
+  while (readRunning(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
     }
@@ -255,6 +255,6 @@ export async function archiveCommand(args: string[]): Promise<number> {
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
     copyAll(failing);
   }
-  console.log(`${clock().toISOString()} new code: restarting`);
+  console.log(`${clock().toISOString()} new code or sources: restarting`);
   return 0;
 }

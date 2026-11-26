@@ -32,8 +32,8 @@ function metaCallOf(text: string): CallNotice | undefined {
 
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
- * what he calls it, the bridge's repository and command to build, how its notices say a call (`callOf`), the config keys he must fill in himself (`appKeys`), and whether its
- * app is what Life reads (`readByItsApp`: WhatsApp's). The one list.
+ * what he calls it, the bridge's repository and command to build, how its notices say a call (`callOf`), the config keys he must fill in himself (`appKeys`), the bridge's login flow he signs in with, from his phone or the CLI
+ * (`loginFlow`, required: `networks.test.ts`), and whether its app is what Life reads (`readByItsApp`: WhatsApp's). The one list.
  */
 export const NETWORKS = [
   {
@@ -49,6 +49,7 @@ export const NETWORKS = [
     },
     cmd: "cmd/matrix-line",
     label: "LINE",
+    loginFlow: "dev.highest.matrix.line.email_login",
     name: "line",
     repo: "beeper/line",
   },
@@ -56,6 +57,7 @@ export const NETWORKS = [
     callOf: metaCallOf,
     cmd: "cmd/mautrix-instagram",
     label: "Instagram",
+    loginFlow: "instagram",
     name: "instagram",
     repo: "mautrix/meta",
   },
@@ -64,6 +66,7 @@ export const NETWORKS = [
     callOf: metaCallOf,
     cmd: "cmd/mautrix-meta",
     label: "Messenger",
+    loginFlow: "facebook",
     name: "messenger",
     repo: "mautrix/meta",
   },
@@ -81,24 +84,30 @@ export const NETWORKS = [
         : undefined,
     cmd: "cmd/mautrix-telegram",
     label: "Telegram",
+    loginFlow: "phone",
     name: "telegram",
     repo: "mautrix/telegram",
   },
   {
     cmd: "cmd/mautrix-linkedin",
     label: "LinkedIn",
+    loginFlow: "cookies",
     name: "linkedin",
     repo: "mautrix/linkedin",
   },
   {
     cmd: "cmd/mautrix-whatsapp",
     label: "WhatsApp",
+    loginFlow: "phone",
     name: "whatsapp",
     // Its reading stays the Mac app's source (`sources/whatsapp.ts`); the bridge is how Life sends and opens chats.
     readByItsApp: true,
     repo: "mautrix/whatsapp",
   },
-] as const;
+] as const satisfies readonly ({ loginFlow: string } & Record<
+  string,
+  unknown
+>)[];
 // The literal entries keep their names typed; a network with no calls has no `callOf`.
 export type Network = (typeof NETWORKS)[number] & {
   appKeys?: {

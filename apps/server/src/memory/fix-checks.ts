@@ -1,13 +1,11 @@
 import { clock, MIN } from "../core/clock";
-import { isBridgeAdded, readLogins } from "../sources/matrix";
+import { isBridgeAdded, readLogins, signInOf } from "../sources/matrix";
 import { NETWORKS } from "../sources/networks";
 
 // The fix asks (the v4 plan, bundle E): what is broken and needs him, written by code from a fixed list, never by a
-// model: a network's bridge signed out, and the month's amount about to be passed. The caretaker takes what is not on
+// model: a network's bridge signed out or never linked, and the month's amount about to be passed. The caretaker takes what is not on
 // the list. A health read that fails is never a fix ask: only what the bridge itself says, or what was spent.
 
-/** A login state the bridge won't leave by itself: he must sign in again. */
-const SIGNED_OUT = ["BAD_CREDENTIALS", "LOGGED_OUT"];
 /** The bridges are asked at most this often: the inbox is read every minute. */
 const BRIDGES_EVERY = 5 * MIN;
 
@@ -19,10 +17,21 @@ export interface MonthBudget {
   spent: number;
 }
 
-/** One fix ask: its ref (stable while the cause lasts), its words and which of the fix's options it offers. */
+/** A network he must sign in: its bridge signed him out, or was added and never linked (`signInOf`). */
+export interface SignIn {
+  label: string;
+  name: string;
+  state: "never-linked" | "signed-out";
+}
+
+/**
+ * One fix ask: its ref (stable while the cause lasts), its words, which of the fix's options it offers, and the network
+ * its sign-in option signs in (his app opens the sign-in sheet on it: `sign_in_to_network`).
+ */
 export interface Fix {
   context: string;
-  options: readonly ("keep" | "later" | "raise")[];
+  network?: string;
+  options: readonly ("keep" | "later" | "raise" | "sign-in")[];
   question: string;
   ref: string;
   title: string;
@@ -30,23 +39,37 @@ export interface Fix {
 
 const dollars = (n: number) => `$${n.toFixed(n < 10 ? 2 : 0)}`;
 
+/** A network's sign-in ask: signed out, or never linked since its bridge was added. */
+const signInFixOf = (n: SignIn): Fix =>
+  n.state === "signed-out"
+    ? {
+        context: `${n.label} signed Life out, so its messages stop reaching Life until you sign in again.`,
+        network: n.name,
+        options: ["sign-in", "later"],
+        question: `Sign in to ${n.label} again?`,
+        ref: `fix:signed-out/${n.name}`,
+        title: `${n.label} is signed out`,
+      }
+    : {
+        context: `Life reads and sends your ${n.label} messages once you sign in.`,
+        network: n.name,
+        options: ["sign-in", "later"],
+        question: `Connect ${n.label}?`,
+        ref: `fix:not-linked/${n.name}`,
+        title: `Connect ${n.label}`,
+      };
+
 /**
- * The fix asks, the one list (pure): each network whose bridge is signed out, and the month's amount when its pace
+ * The fix asks, the one list (pure): each network he must sign in, and the month's amount when its pace
  * would pass it before the month ends and it is not passed yet (asked once: his answer is a Later to the next month).
  */
 export function fixesOf(
-  signedOut: readonly { label: string; name: string }[],
+  signIns: readonly SignIn[],
   budget: MonthBudget | undefined,
   month: string
 ): Fix[] {
   return [
-    ...signedOut.map((n) => ({
-      context: `${n.label} signed Life out, so its messages stop reaching Life until you sign in again on your Mac.`,
-      options: ["later"] as const,
-      question: `Sign in to ${n.label} again?`,
-      ref: `fix:signed-out/${n.name}`,
-      title: `${n.label} is signed out`,
-    })),
+    ...signIns.map(signInFixOf),
     ...(budget && !budget.isPassed && budget.projected > budget.monthly
       ? [
           {
@@ -61,35 +84,32 @@ export function fixesOf(
   ];
 }
 
-let bridges: { at: number; signedOut: { label: string; name: string }[] } = {
-  at: 0,
-  signedOut: [],
+let bridges: { at: number; signIns: SignIn[] } = { at: 0, signIns: [] };
+
+/** Reads the bridges again at the next ask: he just linked one (`afterLinked`), so its card leaves at once. */
+export const forgetBridgeReads = () => {
+  bridges = { at: 0, signIns: [] };
 };
 
-/** The networks whose bridge says he is signed out, read at most every 5 minutes; a bridge that can't be read is none. */
-async function readSignedOut() {
+/** The networks he must sign in, read at most every 5 minutes; a bridge that can't be read is none. */
+async function readSignIns() {
   const now = clock().getTime();
   if (now - bridges.at < BRIDGES_EVERY) {
-    return bridges.signedOut;
+    return bridges.signIns;
   }
   const read = await Promise.all(
     NETWORKS.filter((n) => isBridgeAdded(n.name)).map(async (n) => {
-      const logins = await readLogins(n.name).catch(() => []);
-      return logins.some((l) =>
-        SIGNED_OUT.includes(
-          (l as { state?: { state_event?: string } }).state?.state_event ?? ""
-        )
-      )
-        ? [{ label: n.label, name: n.name }]
-        : [];
+      const logins = await readLogins(n.name).catch(() => undefined);
+      const state = logins && signInOf(logins);
+      return state ? [{ label: n.label, name: n.name, state }] : [];
     })
   );
-  bridges = { at: now, signedOut: read.flat() };
-  return bridges.signedOut;
+  bridges = { at: now, signIns: read.flat() };
+  return bridges.signIns;
 }
 
 /** The fix asks now (`fixesOf`), with the month's spending host read (`budget`). */
 export const fixesNow = async (
   budget: MonthBudget | undefined,
   today: string
-) => fixesOf(await readSignedOut(), budget, today.slice(0, 7));
+) => fixesOf(await readSignIns(), budget, today.slice(0, 7));

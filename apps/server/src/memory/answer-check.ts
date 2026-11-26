@@ -445,7 +445,8 @@ const WRITERS: {
       await recordFactCheckAnswer(c.ref, "outdated", a.note),
     ],
   },
-  // A fix ask: Raise doubles the monthly amount (his `change_setting`); Keep holds it until the month's end; Later, Life's time.
+  // A fix ask: Raise doubles the monthly amount (his `change_setting`); Keep holds it until the month's end; Later, Life's
+  // time; Sign in is his app's sheet (`sign_in_to_network`), never an answer.
   fix: {
     keep: (c, a) =>
       correct([{ kind: "deferred", ref: c.ref, until: monthEndOf() }], a),
@@ -457,6 +458,11 @@ const WRITERS: {
       }
       changeSetting({ monthlyUsd: monthly * 2 });
       return Promise.resolve([]);
+    },
+    "sign-in": () => {
+      throw new Error(
+        "Not done: signing in goes through his app's sign-in sheet (`sign_in_to_network`)."
+      );
     },
   },
   "guessed person": {
