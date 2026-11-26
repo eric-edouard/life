@@ -94,8 +94,11 @@ class FlowTest: XCTestCase {
         taps += 2
         // The keyboard stays up after Send; a person swipes the thread down to read it (the thread dismisses it).
         // A drag from the thread down past the keyboard's top: a short swipe never reached it.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).press(
-            forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)))
+        for _ in 0..<3 where app.keyboards.firstMatch.exists {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).press(
+                forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)))
+            Thread.sleep(forTimeInterval: 1)
+        }
         vanishes(app.keyboards.firstMatch, "the keyboard put away")
     }
 
@@ -130,6 +133,32 @@ class FlowTest: XCTestCase {
                 isFirst = false
             }
         }
+    }
+
+    /// The waiting list's draft: unfolded, shot at the draft, then sent and settled.
+    func sendTheListedDraft(shooting row: String) {
+        openWaiting()
+        // The ask is in the opening and, listed, at the bottom: the listed one unfolds.
+        let rows = app.buttons.matching(identifier: AID.askRow(Self.ask))
+        appears(rows.firstMatch, "the ask in the list")
+        let listed = rows.count > 1 ? rows.element(boundBy: 1) : rows.firstMatch
+        let send = element(AID.askAnswer(Self.ask, "send"))
+        // The unfolded ask's end sits under the field: the thread is read upward to it; a fold on the way unfolds again.
+        func reach() {
+            for _ in 0..<4 where !send.exists || !send.isHittable {
+                if !send.exists { unfold(listed, until: send) }
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.7)).press(
+                    forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.3)))
+                Thread.sleep(forTimeInterval: 1)
+            }
+        }
+        reach()
+        XCTAssertTrue(send.exists, "Send")
+        shoot(row)
+        reach()
+        send.tap()
+        taps += 1
+        appears(element(AID.askSettled(Self.ask)), "Settled")
     }
 
     func tap(_ id: String) {
