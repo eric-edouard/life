@@ -1,0 +1,26 @@
+{
+  "name": "The waiting list, shaped like the owner's",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_waiting.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": [
+    "fix:signed-out/line",
+    "fix:signed-out/messenger",
+    "person:inf_tile-fitter-3f1a",
+    "person:inf_kip",
+    "person:inf_madame-vexil",
+    "person:inf_ana",
+    "person:inf_site-lawyer",
+    "person:inf_pet-agent",
+    "move:matter_000000000001/obs_000000000001",
+    "move:matter_000000000002/obs_000000000002"
+  ]
+}

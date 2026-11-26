@@ -1,0 +1,45 @@
+[
+  {
+    "status": "step",
+    "step": {
+      "fields": [
+        {
+          "id": "email",
+          "name": "Email",
+          "type": "email"
+        },
+        {
+          "id": "password",
+          "name": "Password",
+          "type": "password"
+        }
+      ],
+      "instructions": "Sign in with your LINE email.",
+      "loginId": "L1",
+      "stepId": "s1",
+      "type": "user_input"
+    }
+  },
+  {
+    "status": "step",
+    "step": {
+      "display": {
+        "data": "482913",
+        "type": "code"
+      },
+      "instructions": "Enter this PIN in LINE.",
+      "loginId": "L1",
+      "stepId": "s2",
+      "type": "display_and_wait"
+    }
+  },
+  {
+    "loginId": "L1",
+    "status": "waiting",
+    "stepId": "s2"
+  },
+  {
+    "network": "line",
+    "status": "done"
+  }
+]

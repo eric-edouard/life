@@ -7,41 +7,14 @@ struct ItemsBlock: View {
     let refs: [String]
     var isOnTheirMatter = false
     @Environment(LifeStore.self) private var life
-    @State private var page: String?
 
-    /// A short list of his asks (2 to 7) goes sideways, one full card a page with the next peeking and dots (the lab's
-    /// A, owner 26 Nov 2026); a longer one, or one on a matter's page, stays a vertical list.
-    private static let sideways = 2...7
-
+    /// The prototype's `.fc` list: one row per ask, top to bottom (`rowHTML`); a single ask in an answer arrives unfolded.
     var body: some View {
         let asks = refs.compactMap { life.ask($0) }
-        if Self.sideways.contains(asks.count), !isOnTheirMatter {
-            VStack(spacing: Metrics.Spacing.m) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: Metrics.Spacing.m) {
-                        ForEach(asks) { ask in
-                            ItemRow(ask: ask, startsOpen: true)
-                                .containerRelativeFrame(.horizontal) { width, _ in width - Metrics.Spacing.xl }
-                                .id(ask.ref)
-                        }
-                    }
-                    .scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.viewAligned).scrollPosition(id: $page).scrollClipDisabled()
-                HStack(spacing: Metrics.Spacing.s) {
-                    ForEach(asks) { ask in
-                        Circle().fill(ask.ref == (page ?? asks.first?.ref) ? Palette.fg : Palette.faint)
-                            .frame(width: Metrics.Spacing.s, height: Metrics.Spacing.s)
-                    }
-                }
-                .accessibilityHidden(true)
-            }
-        } else {
-            VStack(spacing: Metrics.Spacing.xs) {
-                // A single ask in an answer arrives unfolded.
-                ForEach(asks) {
-                    ItemRow(ask: $0, isOnTheirMatter: isOnTheirMatter, startsOpen: asks.count == 1 && $0.isAnswerable)
-                }
+        // The prototype's rows sit 7 pt above and below with 2 between (`.fc .fr`): about 12 from row to row.
+        VStack(spacing: Metrics.Spacing.m) {
+            ForEach(asks) {
+                ItemRow(ask: $0, isOnTheirMatter: isOnTheirMatter, startsOpen: asks.count == 1 && $0.isAnswerable)
             }
         }
     }

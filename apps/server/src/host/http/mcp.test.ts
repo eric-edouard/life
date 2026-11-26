@@ -137,6 +137,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_thread",
     "request_decision",
     "search",
+    "sign_in_to_network",
     "tell_life",
   ]);
   // The arguments' names are pinned too: a part of a read goes through `fetch`'s `id`, never a new argument.
@@ -182,6 +183,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_thread(before,ifNot)",
     "request_decision(ask,changed,context,deadline,doneSeenBy,draft,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
     "search(from,query,to)",
+    "sign_in_to_network(answers,loginId,network,stepId,type)",
     "tell_life(asked,said)",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
@@ -211,6 +213,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
         "answer_check",
         "change_registered_agent",
         "delete_from_memory",
+        "sign_in_to_network",
       ].includes(name),
       openWorldHint: false,
       readOnlyHint: false,

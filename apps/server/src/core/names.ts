@@ -39,6 +39,7 @@ export const CONNECTOR_WRITES = [
   "correct_memory",
   "delete_from_memory",
   "request_decision",
+  "sign_in_to_network",
   "tell_life",
 ];
 

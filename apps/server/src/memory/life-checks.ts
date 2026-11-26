@@ -31,6 +31,8 @@ export interface CheckOption {
   outgoing?: true;
   /** On a plan card's two options: `start` the plan, or `decline` it (the option role). */
   role?: "decline" | "start";
+  /** On a fix ask's sign-in: the network his app signs in (`sign_in_to_network`), never through `answer_check`. */
+  signsIn?: string;
   takes: "note" | "person" | "person or name" | null;
 }
 
@@ -78,6 +80,7 @@ export const LIFE_CHECKS = {
   fix: {
     context: null,
     options: [
+      { icon: "link", id: "sign-in", label: "Sign in", takes: null },
       { icon: "done", id: "raise", label: "Raise it", takes: null },
       { icon: "no", id: "keep", label: "Keep it", takes: null },
       { icon: "later", id: "later", label: "Later", takes: null },

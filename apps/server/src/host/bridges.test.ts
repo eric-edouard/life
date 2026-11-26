@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { untilAnswers } from "../core/proc";
 import { pendingKeysOf } from "./app-keys";
-import { RUN_BRIDGES, withKeys } from "./bridges";
+import { RUN_BRIDGES, withCatchUp, withKeys } from "./bridges";
 
 // A made-up program: says it started, and that it was stopped on TERM.
 const program = (name: string) =>
@@ -62,4 +62,21 @@ test("a key still the example's is pending; one he set is not; writing keys keep
     network: { api_hash: "abcdef0123", api_id: 123_456, device: "d" },
   });
   expect(example.network.api_id).toBe(1);
+});
+
+test("catch-up on in a bridge's config: what came in while it was out is bridged, the rest kept", () => {
+  expect(
+    withCatchUp({
+      backfill: { enabled: false, max_initial_messages: 50, threads: {} },
+      bridge: { permissions: {} },
+    })
+  ).toEqual({
+    backfill: {
+      enabled: true,
+      max_catchup_messages: 500,
+      max_initial_messages: 50,
+      threads: {},
+    },
+    bridge: { permissions: {} },
+  });
 });

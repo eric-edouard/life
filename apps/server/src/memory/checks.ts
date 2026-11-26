@@ -224,9 +224,11 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         notSent: null,
         onMatters: [],
         onSilence: null,
-        options: LIFE_CHECKS.fix.options.filter((o) =>
-          (f.options as readonly string[]).includes(o.id)
-        ),
+        options: LIFE_CHECKS.fix.options
+          .filter((o) => (f.options as readonly string[]).includes(o.id))
+          .map((o) =>
+            o.id === "sign-in" && f.network ? { ...o, signsIn: f.network } : o
+          ),
         preTicked: preTickedOf({ group: "fix", kind: "fix" }),
         question: f.question,
         ref: f.ref,

@@ -4,7 +4,8 @@ import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
 import { writeSecret } from "../core/secret";
 import { keepRunning } from "../core/service";
-import { setSettings, settings } from "../core/settings";
+import { readSettings, setSettings, settings } from "../core/settings";
+import { forgetBridgeReads } from "../memory/fix-checks";
 import {
   BRIDGES,
   type CookieStep,
@@ -13,8 +14,6 @@ import {
   hasStates,
   isBridgeAdded,
   type LoginStep,
-  linkBridge,
-  loginFlows,
   OWNER,
   pastedValues,
   readBlock,
@@ -22,6 +21,8 @@ import {
   readOwnerAccount,
   readYaml,
   SERVER,
+  startLogin,
+  submitLoginStep,
   unlinkBridge,
 } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
@@ -29,8 +30,8 @@ import { configPath, needsAppKeys, pendingAppKeys } from "./app-keys";
 import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
-// `bun life bridge [status]|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
-// bridge. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
+// `bun life bridge [status]|add|link|remove [network]` (docs/use/bridges.md): the one way to set up and remove a bridge;
+// linked by it or by his app's sign-in (`host/network-sign-in.ts`), both through the network's `loginFlow`. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
 // bridge run in one job the Mac keeps running (`core/service.ts`, `RUN_BRIDGES`), outside Life.app: the homeserver holds
 // deleted messages until the archive copies them, so it keeps running when Life is closed.
 
@@ -65,6 +66,17 @@ export function withKeys(config: unknown, values: Record<string, unknown>) {
 const isAdded = (n: Network) => isBridgeAdded(n.name);
 
 /**
+ * A bridge's config with catch-up on: what came in while it was signed out or stopped is bridged once it is back (up to
+ * 500 messages a chat). A chat first seen keeps the bridge's own initial count (50): a chat begun while signed out
+ * would lose its messages at 0, and LINE's move from Beeper counts on them (docs/use/bridges.md).
+ */
+export const withCatchUp = (config: unknown) =>
+  withKeys(config, {
+    "backfill.enabled": true,
+    "backfill.max_catchup_messages": 500,
+  });
+
+/**
  * The one job's program: the homeserver and every added bridge (a folder holding its config, run as `./bridge`), each
  * started again 10 s after it stops; on TERM each is stopped and waited for, so the homeserver shuts down cleanly. A
  * bridge's folder names it to the resource sample (`LIFE_BRIDGE`, inherited). A bridge's stdout repeats its own capped log (logs/bridge.log, every level): only its stderr reaches the job's log, which nothing caps.
@@ -93,7 +105,8 @@ async function restartBridges() {
 }
 
 /**
- * The daily heal, when the homeserver is set up: the one job restarted, then each added bridge answering with its
+ * The daily heal, when the homeserver is set up: each added bridge's config given catch-up (`withCatchUp`), the one job
+ * restarted, then each added bridge answering with its
  * logins' states (`hasStates`). A restart makes each bridge check its login
  * anew, so one that hung while saying CONNECTED (LINE, 5 Nov 2026) is running again or shows why not on the status
  * snapshot.
@@ -101,6 +114,13 @@ async function restartBridges() {
 export async function healBridges() {
   if (WINDOWS || !existsSync(HOMESERVER_YAML)) {
     return;
+  }
+  for (const n of NETWORKS.filter(isAdded)) {
+    const config = readYaml(configPath(n));
+    const caughtUp = withCatchUp(config);
+    if (!Bun.deepEquals(config, caughtUp)) {
+      writeYaml(configPath(n), caughtUp);
+    }
   }
   await restartBridges();
   await Promise.all(
@@ -250,7 +270,7 @@ async function newestTag(n: Network) {
   return tag;
 }
 
-/** Its config, the first time: this homeserver, SQLite, him as its admin. */
+/** Its config, the first time: this homeserver, SQLite, him as its admin, catch-up on. */
 async function writeConfig(n: Network, bin: string, dir: string) {
   const config = configPath(n);
   await execOk([bin, "-c", config, "-e"], { cwd: dir });
@@ -258,21 +278,24 @@ async function writeConfig(n: Network, bin: string, dir: string) {
     Record<string, Record<string, unknown>>
   >;
   const appservice = c.appservice ?? {};
-  writeYaml(config, {
-    ...c,
-    appservice: {
-      ...appservice,
-      address: `http://127.0.0.1:${appservice.port}`,
-      public_address: undefined,
-    },
-    bridge: { ...c.bridge, permissions: { [OWNER]: "admin" } },
-    database: {
-      ...c.database,
-      type: "sqlite3-fk-wal",
-      uri: `file:${n.name}.db?_txlock=immediate`,
-    },
-    homeserver: { ...c.homeserver, address: HOMESERVER_URL, domain: SERVER },
-  });
+  writeYaml(
+    config,
+    withCatchUp({
+      ...c,
+      appservice: {
+        ...appservice,
+        address: `http://127.0.0.1:${appservice.port}`,
+        public_address: undefined,
+      },
+      bridge: { ...c.bridge, permissions: { [OWNER]: "admin" } },
+      database: {
+        ...c.database,
+        type: "sqlite3-fk-wal",
+        uri: `file:${n.name}.db?_txlock=immediate`,
+      },
+      homeserver: { ...c.homeserver, address: HOMESERVER_URL, domain: SERVER },
+    })
+  );
   await execOk(
     [bin, "-g", "-c", config, "-r", join(dir, "registration.yaml")],
     { cwd: dir }
@@ -406,7 +429,43 @@ async function signIn(step: CookieStep) {
   );
 }
 
-/** Links a network: its first way to log in unless `flow` names another; then its source on. */
+/**
+ * What one step sends back, asked in the terminal: its fields (a password hidden); a cookie step's values all at once
+ * (`signIn`), then one by one for a required one that didn't come. None for a step he only looks at.
+ */
+async function answersOf(step: LoginStep) {
+  if (step.type !== "cookies") {
+    return Object.fromEntries(
+      (step.user_input?.fields ?? []).map((f) => [
+        f.id,
+        ask(f.name ?? f.id, f.type === "password"),
+      ])
+    );
+  }
+  const found = await signIn(step.cookies ?? {});
+  for (const f of (step.cookies?.fields ?? []).filter(
+    (x) => x.required && !found.has(x.id)
+  )) {
+    found.set(f.id, ask(f.id, true));
+  }
+  return Object.fromEntries(found);
+}
+
+/**
+ * After he linked a network (here, or by his app's sign-in): the fix asks read the bridges again, and its source is on.
+ * Whether it turned the source on: the archive starts again on the change (`readRunning`).
+ */
+export function afterLinked(n: Network) {
+  forgetBridgeReads();
+  const { sources } = readSettings();
+  if (n.readByItsApp || sources.includes(n.name)) {
+    return false;
+  }
+  setSettings({ sources: [...sources, n.name] });
+  return true;
+}
+
+/** Links a network by its `loginFlow`, or the flow `flow` names; then `afterLinked`. */
 async function link(n: Network, flow?: string) {
   const pending = await pendingAppKeys(n);
   if (pending.length > 0) {
@@ -425,24 +484,16 @@ async function link(n: Network, flow?: string) {
     await restartBridges();
     await untilAnswers(() => readLogins(n.name), `the ${n.label} bridge`);
   }
-  const flows = await loginFlows(n.name);
-  const chosen = flows.find((f) => f.id === flow) ?? flows[0];
-  if (!chosen) {
-    throw new Error(`${n.label}: the bridge offers no way to log in`);
+  const chosen = flow ?? n.loginFlow;
+  console.log(`Linking ${n.label} (${chosen})…`);
+  let step = await startLogin(n.name, chosen);
+  while (step.type !== "complete") {
+    show(step);
+    // biome-ignore lint/performance/noAwaitInLoops: each step follows the last
+    step = await submitLoginStep(n.name, step, await answersOf(step));
   }
-  console.log(
-    `Linking ${n.label}: ${chosen.description} (others: ${flows.map((f) => f.id).join(", ")})`
-  );
-  await linkBridge(n.name, chosen.id, {
-    cookies: signIn,
-    show,
-    value: (f) => ask(f.name, f.hidden),
-  });
-  if (!(n.readByItsApp || settings().sources.includes(n.name))) {
-    setSettings({ sources: [...settings().sources, n.name] });
-    console.log(
-      `${n.label} is on: Life copies it once it restarts (menu bar → Restart).`
-    );
+  if (afterLinked(n)) {
+    console.log(`${n.label} is on: Life copies it from now on.`);
   }
   console.log(`${n.label} linked.`);
 }

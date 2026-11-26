@@ -12,7 +12,7 @@ struct Face: View {
             if let id = party.picture?.id, let data = pictures.shown[id], let image = UIImage(data: data) {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Text(String(party.name.prefix(1))).font(.rowTitle).foregroundStyle(Palette.muted)
+                Text(party.name.prefix(1).uppercased()).font(.rowTitle).foregroundStyle(Palette.muted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.tint)
             }
         }

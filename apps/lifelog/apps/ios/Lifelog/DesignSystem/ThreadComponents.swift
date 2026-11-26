@@ -201,6 +201,8 @@ enum ItemState: Hashable {
 enum ItemFace: Equatable {
     case party(Party)
     case initial(String)
+    /// A network's own mark (`NetworkMark`): a fix of a network that signed Life out.
+    case network(String)
 }
 
 /// One item of the thread as a bare row that unfolds: its round face, the title, a line under it that says how it
@@ -281,6 +283,7 @@ struct ThreadItemRow<Detail: View>: View {
             case .party(let party): Face(party: party, size: size)
             case .initial(let letter):
                 Text(letter.uppercased()).font(isOpen ? .header : .rowTitle).foregroundStyle(Palette.muted)
+            case .network(let network): NetworkMark(network: network, size: isOpen ? 24 : 22)
             case nil: Glyph(icon, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             }
         }
