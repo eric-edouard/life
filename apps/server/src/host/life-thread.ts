@@ -146,7 +146,10 @@ function matterLooks() {
     const looks = readPeople()
       .then((people) => readMatterBook(people, dayNow()))
       .then(async (b) => {
-        const lifeIcons = await readLifeIcons(b);
+        // Icons never cost the thread: none when the embedder fails.
+        const lifeIcons = await readLifeIcons(b).catch(
+          () => new Map() as Awaited<ReturnType<typeof readLifeIcons>>
+        );
         return new Map(
           b.map((m) => [
             m.id,
@@ -332,7 +335,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   };
 }
 
-/** What he is called, for the greeting: the first word only ("Hi Eric"), while prompts keep his whole `called`; null when his directory can't be read (a new install), and the phone says "Hi". */
+/** What he is called, for the greeting: the first word only, while prompts keep his whole `called`; null when his directory can't be read (a new install), and the phone says "Hi". */
 const ownerNameOf = () => {
   try {
     return firstNameOf(readOwnerName());

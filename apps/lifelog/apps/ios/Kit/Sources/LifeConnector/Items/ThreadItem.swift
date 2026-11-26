@@ -167,7 +167,7 @@ public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParti
     /// The asks that block him, what is broken first: the round button's count and the app's badge (his ask of 26 Nov
     /// 2026: the badge counts only what blocks, never every open ask).
     public var blocking: [ThreadAsk] {
-        asks.filter { $0.isAnswerable && ($0.check?.group == .fix || openingAsks.contains($0.ref)) }
+        broken + asks.filter { $0.isAnswerable && openingAsks.contains($0.ref) }
     }
     /// The voices he can name now: they fold into one row of the opening screen's rest (`OpeningScreen.voices`).
     public var voices: [ThreadAsk] { asks.filter { $0.isAnswerable && $0.check?.group == .voice } }
