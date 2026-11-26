@@ -66,6 +66,8 @@ public protocol LifeAPI: Sendable {
     func readAppointment(_ key: AppointmentKey, at origin: URL?) async throws -> String
     /// His Remove (`isOn` false) or Undo (`isOn` true) of one, from the Life at `origin`.
     func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String
+    /// His halo settings saved (`change_setting` with `aura`): the settings as they now stand.
+    func changeSetting(aura: AuraSetting) async throws -> String
     /// Ask Life (`ask_main_session`): his words, his Stop, his reaction or his presence. The lines of an ask stream to
     /// `onProgress`; the call ends on its answer.
     func askMainSession(
@@ -131,6 +133,10 @@ public struct MCPLifeAPI: LifeAPI {
     public func changeAppointment(_ appointment: String, isOn: Bool, at origin: URL?) async throws -> String {
         try await client.call(
             "change_appointment", ["action": isOn ? "restore" : "remove", "appointment": appointment], at: origin)
+    }
+
+    public func changeSetting(aura: AuraSetting) async throws -> String {
+        try await client.call("change_setting", ["aura": aura])
     }
 
     public func askMainSession(

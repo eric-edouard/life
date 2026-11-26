@@ -639,7 +639,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "change_setting",
-    "His app's token only, on his word: the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count). Past it, background work slows; one piece of work stops and asks at 2% of it. Returns the setting as it now stands.",
+    "His app's token only, on his word: the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count; past it, background work slows; one piece of work stops and asks at 2% of it), or the edge's look as his halo settings save it (`aura`, every value whole). Returns the settings as they now stand.",
     SettingChange,
     (a, agent) => {
       if (agent) {

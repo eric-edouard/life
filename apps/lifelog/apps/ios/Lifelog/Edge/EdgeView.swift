@@ -1,66 +1,45 @@
+import LifeConnector
 import SwiftUI
 
 /// What the edge shows: at rest two soft lights turn over a faint ring; while he speaks they run faster; while Life
 /// works the ring swells blue (`ai`); with no Mac to answer it stands still.
 enum EdgeState { case rest, speaking, working, still }
 
-/// The aura: the edge's colour and, for each state, how far each knob sits in its band (0 is the band's low end, 1 its
-/// high). Life's main session changes it only through this setting, clamped by `AuraBands`.
-struct AuraSetting: Equatable {
-    /// An index into `choices`: Life blue (the default), cream, then the eight of `Palette.auraColours`.
-    var colour = 0
-    var knobs: [EdgeState: [AuraKnob: Double]] = AuraSetting.standard
-
-    /// Today's look: cream at rest and when he speaks, blue when Life works.
-    static let standard: [EdgeState: [AuraKnob: Double]] = [
-        .rest: [.speed: 0.75, .brightness: 1, .glow: 0.5, .colour: 0],
-        .speaking: [.speed: 0.25, .brightness: 0.5, .glow: 0.5, .colour: 0, .voiceLight: 0.5],
-        .working: [.speed: 1, .brightness: 0.8, .glow: 0.5, .colour: 1],
-    ]
-
-    /// The aura's ten colours, as the settings offer them.
+extension AuraSetting {
+    /// The aura's ten colours, as the halo settings offer them.
     static let choices: [(name: String, color: Color)] =
         [("Life blue", Palette.ai), ("cream", Palette.fg)] + Palette.auraColours
 
-    var tint: Color { Self.choices[colour].color }
+    var tint: Color { Self.choices[min(max(colour, 0), Self.choices.count - 1)].color }
 
-    /// A knob's value in its band's units; the idle colour never rises above You speak's.
-    func value(_ knob: AuraKnob, in state: EdgeState) -> Double {
-        let state = state == .still ? .rest : state
-        guard let band = AuraBands.table[state]?[knob] else { return 0 }
-        var at = knobs[state]?[knob] ?? 0
-        if state == .rest, knob == .colour {
-            let speaks = AuraBands.table[.speaking]?[.colour].map {
-                $0.lo + ($0.hi - $0.lo) * (knobs[.speaking]?[.colour] ?? 0)
+    /// The edge's values in `state`.
+    subscript(state: EdgeState) -> State {
+        get {
+            switch state {
+            case .rest: states.rest
+            case .speaking: states.speaking
+            case .working: states.working
+            case .still: states.still
             }
-            return min(band.lo + (band.hi - band.lo) * at, speaks ?? 1)
         }
-        at = min(max(at, 0), 1)
-        return band.lo + (band.hi - band.lo) * at
+        set {
+            switch state {
+            case .rest: states.rest = newValue
+            case .speaking: states.speaking = newValue
+            case .working: states.working = newValue
+            case .still: states.still = newValue
+            }
+        }
     }
 }
 
-enum AuraKnob: CaseIterable { case speed, brightness, glow, colour, voiceLight }
-
-/// Each knob's band for each state, in one table (the design system page's "Knobs and bands"): idle's speed,
-/// brightness and colour stay below the other states', so idle never looks like work.
-enum AuraBands {
-    static let table: [EdgeState: [AuraKnob: (lo: Double, hi: Double)]] = [
-        .rest: [.speed: (0.4, 1.2), .brightness: (0.10, 0.35), .glow: (6, 13), .colour: (0, 0.30)],
-        .speaking: [
-            .speed: (1.5, 2.8), .brightness: (0.40, 0.60), .glow: (12, 20), .colour: (0, 0.50),
-            .voiceLight: (0.5, 1),
-        ],
-        .working: [.speed: (0.8, 2), .brightness: (0.65, 1), .glow: (16, 28), .colour: (0.70, 1)],
-    ]
-}
-
-/// The edge: a ring round the screen on every screen. It glides between states over about a second.
+/// The edge: a ring round the screen on every screen. It glides between states over about a second. Every value it
+/// draws is the aura's (`AuraSetting`, his halo settings).
 /// brand.md's motion and colour exceptions (26 Nov 2026) name it as their home. The app draws nothing per frame: the
 /// lights are conic gradients the render server spins, under a ring mask drawn once (the glow's blurred once per change).
 struct EdgeView: View {
     let state: EdgeState
-    var aura = AuraSetting()
+    var aura = AuraSetting.standard
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -69,28 +48,23 @@ struct EdgeView: View {
             .allowsHitTesting(false).ignoresSafeArea().accessibilityHidden(true)
     }
 
-    /// Cream moved toward the aura's colour by the state's colour knob.
-    private func ink(_ state: EdgeState) -> UIColor {
-        UIColor(Palette.fg.mix(with: aura.tint, by: aura.value(.colour, in: state)))
-    }
+    /// Cream moved toward the aura's colour by the state's colour.
+    private func ink(_ state: EdgeState) -> UIColor { UIColor(Palette.fg.mix(with: aura.tint, by: aura[state].colour)) }
 
     private var look: AuraLook {
-        // No Mac: cream only, fainter than idle; blue belongs to Working alone.
+        // The calm ring keeps idle's colour while Life works; the working ring and arc take Working's.
         AuraLook(
-            calm: ink(state == .working ? .rest : state), work: ink(.working),
-            bright: aura.value(.brightness, in: state) * (state == .still ? Metrics.Opacity.dim : 1),
-            glow: aura.value(.glow, in: state), speed: state == .still ? 0 : aura.value(.speed, in: state),
-            blue: state == .working ? 1 : 0, light: state == .speaking ? 1 : state == .working ? 0 : 0.9,
-            pool: state == .speaking ? 0.35 * aura.value(.voiceLight, in: .speaking) : 0,
-            poolColour: ink(.speaking), running: !reduceMotion && scenePhase == .active)
+            aura: aura, now: aura[state], calm: ink(state == .working ? .rest : state), work: ink(.working),
+            pool: ink(state), blue: state == .working ? 1 : 0, running: !reduceMotion && scenePhase == .active)
     }
 }
 
-/// Everything the layers need, worked out by `EdgeView`.
+/// Everything the layers need, worked out by `EdgeView`: the aura, its values in the state shown, and the inks.
 struct AuraLook: Equatable {
-    var calm, work: UIColor
-    var bright, glow, speed, blue, light, pool: Double
-    var poolColour: UIColor
+    var aura: AuraSetting
+    var now: AuraSetting.State
+    var calm, work, pool: UIColor
+    var blue: Double
     var running: Bool
 }
 
@@ -107,56 +81,67 @@ private final class AuraBand {
     let light1 = CAGradientLayer(), light2 = CAGradientLayer(), arc = CAGradientLayer()
     var spins: [CAGradientLayer] { [light1, light2, arc] }
     private var spinSpeed: Float?
+    private var turns: [AuraSetting.Light] = []
 
     init(bounds: CGRect) {
         holder.frame = bounds
-        // Turns per second at speed 1: the lights' and the arc's old periods, 18 s, 27 s (backwards) and 5 s.
-        for (spin, from, period) in [(light1, 0.0, 18.0), (light2, 120, -27), (arc, 240, 5)] {
+        for spin in spins {
             let side = hypot(bounds.width, bounds.height)
             spin.type = .conic
             spin.bounds = CGRect(x: 0, y: 0, width: side, height: side)
             spin.position = CGPoint(x: bounds.midX, y: bounds.midY)
             spin.startPoint = CGPoint(x: 0.5, y: 0.5)
             spin.endPoint = CGPoint(x: 0.5, y: 0)
-            // The gradient starts at 12 o'clock, SwiftUI's angle at 3.
-            let start = (from + 90) * .pi / 180
-            let turn = CABasicAnimation(keyPath: "transform.rotation.z")
-            turn.fromValue = start
-            turn.toValue = start + (period < 0 ? -2 : 2) * .pi
-            turn.duration = abs(period)
-            turn.repeatCount = .infinity
-            // Kept when the app goes to the background: iOS removes a finished-on-removal animation then, and the lights stood still.
-            turn.isRemovedOnCompletion = false
-            turn.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
-            spin.add(turn, forKey: "turn")
         }
         for layer in [calm, light1, light2, work, arc] { holder.addSublayer(layer) }
         calm.frame = bounds
         work.frame = bounds
     }
 
+    /// Each spin's turn, its period and way from the aura; a turn changed starts again from its own angle.
+    private func turn(_ lights: [AuraSetting.Light]) {
+        guard lights != turns else { return }
+        turns = lights
+        for ((spin, from), light) in zip([(light1, 0.0), (light2, 120), (arc, 240)], lights) {
+            // The gradient starts at 12 o'clock, SwiftUI's angle at 3.
+            let start = (from + 90) * .pi / 180
+            let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+            turn.fromValue = start
+            turn.toValue = start + (light.clockwise ? 2 : -2) * .pi
+            turn.duration = light.seconds
+            turn.repeatCount = .infinity
+            // Kept when the app goes to the background: iOS removes a finished-on-removal animation then, and the lights stood still.
+            turn.isRemovedOnCompletion = false
+            turn.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
+            spin.add(turn, forKey: "turn")
+        }
+    }
+
     /// The gradient: clear, the colour at `peak`, clear at `end`, clear again.
-    private func fill(_ spin: CAGradientLayer, _ colour: UIColor, peak: NSNumber, end: NSNumber) {
+    private func fill(_ spin: CAGradientLayer, _ colour: UIColor, _ light: AuraSetting.Light) {
         spin.colors = [
             colour.withAlphaComponent(0), colour, colour.withAlphaComponent(0), colour.withAlphaComponent(0),
         ]
         .map(\.cgColor)
-        spin.locations = [0, peak, end, 1]
+        spin.locations = [0, light.peak, light.end, 1].map { NSNumber(value: $0) }
     }
 
     func apply(_ look: AuraLook, glowLayer: Bool) {
-        calm.backgroundColor = look.calm.withAlphaComponent(0.4 * look.bright).cgColor
+        let (aura, bright) = (look.aura, look.now.brightness)
+        let (first, second) = (aura.lights[0], aura.lights[1])
+        turn([first, second, aura.arc])
+        calm.backgroundColor = look.calm.withAlphaComponent(aura.rings.calm * bright).cgColor
         calm.opacity = Float(1 - look.blue)
-        fill(light1, look.calm.withAlphaComponent(min(look.bright * 2.8, 1)), peak: 0.15, end: 0.33)
-        fill(light2, look.calm.withAlphaComponent(min(look.bright * 2.2, 1)), peak: 0.15, end: 0.33)
-        // The line is a fixed thin border; only the glow carries the moving lights, softly.
-        light1.opacity = glowLayer ? Float((1 - look.blue) * look.light * 0.6) : 0
-        light2.opacity = light1.opacity
-        work.backgroundColor = look.work.withAlphaComponent(0.5).cgColor
+        fill(light1, look.calm.withAlphaComponent(min(bright * first.gain, 1)), first)
+        fill(light2, look.calm.withAlphaComponent(min(bright * second.gain, 1)), second)
+        // The line is a thin border; only the glow carries the moving lights, softly.
+        light1.opacity = glowLayer ? Float((1 - look.blue) * look.now.lights * first.opacity) : 0
+        light2.opacity = glowLayer ? Float((1 - look.blue) * look.now.lights * second.opacity) : 0
+        work.backgroundColor = look.work.withAlphaComponent(aura.rings.work).cgColor
         work.opacity = Float(look.blue)
-        fill(arc, look.work.withAlphaComponent(min(look.bright, 1)), peak: 0.17, end: 0.38)
-        arc.opacity = glowLayer ? Float(look.blue * 0.6) : 0
-        holder.opacity = glowLayer ? 0.7 : 1
+        fill(arc, look.work.withAlphaComponent(min(bright * aura.arc.gain, 1)), aura.arc)
+        arc.opacity = glowLayer ? Float(look.blue * aura.arc.opacity) : 0
+        holder.opacity = Float(glowLayer ? aura.glowOpacity : aura.line.opacity)
     }
 
     /// A step in speed, not a ramp; each light keeps its angle (re-anchored at now), and speed 0 holds it.
@@ -196,17 +181,19 @@ private final class AuraLayerView: UIView {
         pool.type = .radial
         pool.frame = bounds
         pool.startPoint = CGPoint(x: 0.5, y: 1)
-        pool.endPoint = CGPoint(x: 0.5 + 220 / bounds.width, y: 1 + 220 / bounds.height)
         pool.locations = [0, 1]
         layer.addSublayer(pool)
         CATransaction.commit()
-        if let look { apply(look, first: true) }
+        if let look {
+            self.look = nil
+            apply(look, first: true)
+        }
     }
 
     func apply(_ look: AuraLook) { apply(look, first: self.look == nil) }
 
     private func apply(_ look: AuraLook, first: Bool) {
-        let glowChanged = look.glow != self.look?.glow
+        let before = self.look
         self.look = look
         guard let (line, glow) = bands.first.map({ ($0, bands[1]) }) else { return }
         CATransaction.begin()
@@ -215,21 +202,25 @@ private final class AuraLayerView: UIView {
         CATransaction.setDisableActions(first)
         line.band.apply(look, glowLayer: false)
         glow.band.apply(look, glowLayer: true)
-        pool.colors = [look.poolColour.withAlphaComponent(look.pool), look.poolColour.withAlphaComponent(0)]
-            .map(\.cgColor)
+        pool.colors = [look.pool.withAlphaComponent(look.now.pool), look.pool.withAlphaComponent(0)].map(\.cgColor)
         CATransaction.commit()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if first { line.mask.contents = ring(width: 1, blur: 0) }
-        if first || glowChanged { glow.mask.contents = ring(width: look.glow, blur: look.glow) }
+        let radius = look.aura.poolRadius
+        pool.endPoint = CGPoint(x: 0.5 + radius / bounds.width, y: 1 + radius / bounds.height)
+        // The masks are drawn again only when their width or blur changed: never per frame.
+        let width = look.aura.line.width
+        if width != before?.aura.line.width { line.mask.contents = width > 0 ? ring(width: width, blur: 0) : nil }
+        if look.now.glow != before?.now.glow || look.now.blur != before?.now.blur {
+            glow.mask.contents = ring(width: look.now.glow, blur: look.now.blur)
+        }
         CATransaction.commit()
-        let speed = Float(look.running ? look.speed : 0)
+        let speed = Float(look.running ? look.now.speed : 0)
         line.band.spin(at: speed)
         glow.band.spin(at: speed)
     }
 
-    /// The screen's rounded rectangle as a stroke, blurred (a gaussian of the glow's width); drawn
-    /// once per glow change, never per frame.
+    /// The screen's rounded rectangle as a stroke of `width`, blurred (a gaussian of `blur`).
     private func ring(width: CGFloat, blur: CGFloat) -> CGImage? {
         let radius = window?.screen.cornerRadius ?? Metrics.Radius.screen
         let sharp = UIGraphicsImageRenderer(bounds: bounds).image { _ in

@@ -411,7 +411,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | rated | A reply he rated with the thumbs (`RatingRow`): kept as a label, never an action. | |
 | edits | The quick changes a draft ask offers as chips (shorter, warmer, other words; `EditChips`): each is one tap, and the draft stays his to send. | |
 | spending stop | The line a notice shows when Life stopped itself at the owner's spending limit; one button lifts it. | |
-| aura | The coloured light along the phone's edge that says what Life is doing (`EdgeView`, `AuraSetting`): ten colours and five knobs (speed, brightness, glow, colour, voice light), each state's range in one table (`AuraBands`). The pendant's own ring is separate. | |
+| aura | The coloured light along the phone's edge that says what Life is doing (`EdgeView`, `AuraSetting`): ten colours, and per state (idle, you speak, working, no Mac) its speed, brightness, glow, blur, colour, lights and pool, with the border, the three turning lights and the rings; his halo settings (the `settings` block's `aura` key) tune every value and save them as the `aura` setting (`change_setting`). The pendant's own ring is separate. | |
 
 ## Folders
 

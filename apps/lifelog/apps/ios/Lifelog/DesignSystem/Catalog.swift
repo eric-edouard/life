@@ -7,7 +7,7 @@ import SwiftUI
     /// are built from what is shown here, and a component not here is not in the design system.
     struct CatalogView: View {
         @State private var state = CatalogView.launchState
-        @State private var colour = 0
+        @State private var aura = AuraSetting.standard
         @State private var opened: Set<Int> = [0]
         @State private var position: ScrollPosition
         private let page: String
@@ -29,14 +29,14 @@ import SwiftUI
                         if show("items") { items }
                         if show("asks") { asks }
                         if show("settings") { settings }
-                        if show("aura") { aura }
+                        if show("aura") { auraPage }
                     }
                     .padding(.horizontal, Metrics.Spacing.l).padding(.vertical, Metrics.Spacing.xl)
                     // A standard iPhone's width, so the catalog reads the same on the Duo's wider screen.
                     .frame(maxWidth: Metrics.phoneWidth).frame(maxWidth: .infinity)
                 }
                 .scrollPosition($position)
-                if show("aura") { EdgeView(state: state, aura: AuraSetting(colour: colour)) }
+                if show("aura") { EdgeView(state: state, aura: aura) }
             }
             .foregroundStyle(Palette.fg).font(.body15).preferredColorScheme(.dark)
         }
@@ -44,8 +44,8 @@ import SwiftUI
         /// `-auraState still` starts the aura page on that state, for screenshots.
         private static var launchState: EdgeState {
             let named = CommandLine.arguments.drop { $0 != "-auraState" }.dropFirst().first
-            return stateNames.first { $0.value.lowercased().replacingOccurrences(of: " ", with: "") == named }?.key
-                ?? .rest
+            let names = AuraKnobs.stateNames
+            return names.first { $0.value.lowercased().replacingOccurrences(of: " ", with: "") == named }?.key ?? .rest
         }
 
         private static let sample: CGFloat = 64
@@ -329,41 +329,8 @@ import SwiftUI
 
         // MARK: Aura
 
-        private var aura: some View {
-            section("The aura: pick a state and a colour; the edge shows it") {
-                SegmentedChoice(
-                    choices: [EdgeState.rest, .speaking, .working, .still],
-                    selection: Binding(get: { state }, set: { state = $0 ?? state }),
-                    title: { Self.stateNames[$0] ?? "" })
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: Metrics.tapTarget), spacing: Metrics.Spacing.s)],
-                    spacing: Metrics.Spacing.s
-                ) {
-                    ForEach(Array(AuraSetting.choices.enumerated()), id: \.offset) {
-                        swatchButton($0.offset, $0.element.color)
-                    }
-                }
-                Text(AuraSetting.choices[colour].name).font(.line).foregroundStyle(Palette.muted)
-            }
-        }
-
-        private static let stateNames: [EdgeState: String] = [
-            .rest: "Idle", .speaking: "You speak", .working: "Working", .still: "No Mac",
-        ]
-
-        private func swatchButton(_ index: Int, _ color: Color) -> some View {
-            Button {
-                colour = index
-            } label: {
-                Circle().fill(color).frame(width: Metrics.swatch, height: Metrics.swatch)
-                    .overlay {
-                        if colour == index {
-                            Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.on)
-                        }
-                    }
-                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
-            }
-            .buttonStyle(.plain)
+        private var auraPage: some View {
+            section("The aura: the halo settings; the edge shows them") { AuraKnobs(aura: $aura, state: $state) }
         }
     }
 
