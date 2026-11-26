@@ -94,7 +94,7 @@ test("a reply that ends on its closing fence, with no newline, is one closed blo
   const s = blockSplitter({
     block: (b, miss) => got.push({ closed: !miss, kind: b.kind }),
     words: () => undefined,
-  } as never);
+  });
   s.push('```life:question\n{"a":1}\n```');
   s.end();
   expect(got).toEqual([{ closed: true, kind: "question" }]);

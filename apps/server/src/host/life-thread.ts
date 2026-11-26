@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock, DAY } from "../core/clock";
 import { readChangeStamp } from "../core/files";
+import { isInboxCheck } from "../memory/check-urgency";
 import { rateOffersOf } from "../memory/decision-after-answer";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
@@ -21,7 +22,6 @@ import { dayNow } from "../memory/zones";
 import { undoOf } from "./answer-result";
 import { readDesk } from "./desk-read";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";
-import { isInboxCheck } from "../memory/check-urgency";
 import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
@@ -280,7 +280,8 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   };
 }
 
-const isFix = (x: { card?: { group?: string } }) => x.card?.group === "fix";
+const isFix = (x: object) =>
+  "card" in x && (x.card as { group?: string }).group === "fix";
 
 /** A thread entry's ref, as a deletion names it. */
 export const threadEntryRefOf = (id: number) => `thread:${id}`;
