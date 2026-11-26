@@ -178,6 +178,8 @@ struct StillRing: View {
 /// `HeldSeparator`.
 enum ItemState: Hashable {
     case needsYou, later, waitingOnSomeone, settled, outdated, queued, stopped
+    /// Life is looking for the step done (his "I paid it"): a spinner and its line, until it says.
+    case looking
     /// Handed off: the pie's fill and the estimate ("About 20 min", then "About 10 min left").
     case underWay(progress: Double, estimate: String?)
     /// A send he undid: the outcome, in his words' place ("Deleted for both of you").
@@ -280,6 +282,11 @@ struct ThreadItemRow<Detail: View>: View {
                 Text(outcome).font(.line).foregroundStyle(Palette.muted)
             }
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
+        case .looking:
+            HStack(spacing: Metrics.Spacing.s) {
+                Spinner(size: .small).foregroundStyle(Palette.muted)
+                Text(line ?? "Looking…").font(.line).foregroundStyle(Palette.muted)
+            }
         case .settled:
             HStack(spacing: Metrics.Spacing.xs) {
                 Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)

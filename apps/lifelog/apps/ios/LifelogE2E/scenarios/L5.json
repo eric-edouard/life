@@ -1,0 +1,18 @@
+{
+  "name": "Lab: Life not answering",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread.json"
+      }
+    },
+    {
+      "up": []
+    }
+  ],
+  "answers": [],
+  "items": []
+}

@@ -64,9 +64,15 @@ const drawnAs: Record<string, RegExp> = {
   "main-session line: step": /\bStepsLine\(\s*verb:/,
   "main-session line: thinking": /\bStepsLine\(\)/,
   "main-session line: words": /\bAnswerView\(/,
+  // The outcome rows of a calendar add, a paid run and a look for it done (`ItemRow.outcome`).
+  "need kind: apify": /\.kind == \.apify|\.apify\)/,
+  "need kind: event": /\.event\)/,
+  "option flag: adds": /changed\?\.added/,
   "option flag: icon": /\$0\.icon\b/,
   "option flag: id": /\boption\.id\b/,
   "option flag: label": /\boption\.label\b/,
+  "option flag: looks": /\.looks == true/,
+  "option flag: runs": /changed\?\.ran/,
   // His three marks, drawn by the rating row; the mapping from its marks is `RatingMark.of`.
   "rating mark: bad": /\bRatingMark\.of\b/,
   "rating mark: good": /\bRatingMark\.of\b/,

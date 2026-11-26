@@ -1,0 +1,70 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": "A made-up reason to ask.",
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "event",
+            "start": "2026-12-03T18:00:00+07:00",
+            "end": "2026-12-03T19:00:00+07:00",
+            "title": "Parents' meeting",
+            "reminders": [60, 30],
+            "place": "Linden School, room 4",
+            "line": "Thu 18:00, Linden School, room 4"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "go",
+            "label": "Add to calendar",
+            "takes": null,
+            "adds": true
+          },
+          {
+            "id": "no",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "go",
+        "replaces": null,
+        "pushId": "push-dec_000000000001",
+        "question": "Add it to your calendar?",
+        "ref": "dec_000000000001",
+        "title": "Add the parents' meeting?",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000001",
+      "state": "needs_you"
+    }
+  ],
+  "version": "fixed"
+}

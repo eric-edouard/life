@@ -67,18 +67,6 @@
       "issue": 1411
     },
     {
-      "kind": "need kind: apify",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: event",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
       "kind": "need kind: link",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
@@ -91,31 +79,13 @@
       "issue": 1411
     },
     {
-      "kind": "option flag: adds",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
       "kind": "option flag: ends",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
-      "kind": "option flag: looks",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
       "kind": "option flag: outgoing",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "option flag: runs",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411

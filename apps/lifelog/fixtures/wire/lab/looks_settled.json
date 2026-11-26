@@ -1,0 +1,28 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "answer": {
+          "at": "2026-11-18T10:00:00.000Z",
+          "note": null,
+          "options": ["paid"]
+        },
+        "ask": null,
+        "options": [],
+        "question": "Have you paid Paul?",
+        "rate": null,
+        "sent": null,
+        "title": "Pay Paul 240 \u20ac",
+        "undo": null,
+        "withdrawn": null
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000003",
+      "state": "settled"
+    }
+  ],
+  "version": "fixed"
+}
