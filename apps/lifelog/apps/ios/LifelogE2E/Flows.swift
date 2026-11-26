@@ -9,7 +9,7 @@ import XCTest
         launch("S1", paired: nil, open: Self.link("a", code: "ABC234"))
         tap(AID.pairConfirm)
         tap(AID.pairDone)
-        appears(app.buttons["What's waiting on me"], "the thread")
+        appears(field, "the thread")
         let steps = calls().compactMap { ($0["authorize"] ?? $0["token"] ?? $0["tool"]) as? String }
         XCTAssertEqual(steps, ["approved", "issued", "read_thread"])
     }
@@ -99,8 +99,7 @@ import XCTest
 @MainActor final class C20RateTheAnswerTests: FlowTest {
     func testRateTheAnswer() {
         launch("C20")
-        appears(app.buttons["What's waiting on me"], "the thread")
-        app.buttons["What's waiting on me"].tap()
+        askLife()
         appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
         // The thread fills the screen under the buttons: a thread squeezed to the bottom hid every earlier row.
         XCTAssertLessThan(app.scrollViews.firstMatch.frame.minY, app.frame.height / 4)
@@ -223,9 +222,7 @@ import XCTest
 @MainActor final class P1PersonAndMatterPagesTests: FlowTest {
     func testPersonAndMatterPages() {
         launch("P1")
-        let ask = app.buttons["What's waiting on me"]
-        appears(ask, "the thread")
-        ask.tap()
+        askLife()
         let ana = app.links["Test Ana"]
         appears(ana, "the link to her")
         ana.tap()

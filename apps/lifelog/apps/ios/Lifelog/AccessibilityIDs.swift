@@ -1,7 +1,7 @@
 /// The accessibility identifiers the end-to-end tests find elements by (`LifelogE2E`, which compiles this file too).
 /// Screens use these constants and never write an identifier of their own; a screen that is redrawn keeps them.
-/// Elements with a fixed label and no id of their own (the thread's round "What's waiting on me" and "Pendant"
-/// buttons, "Pair Life") are found by that label.
+/// Elements with a fixed label and no id of their own (the field "Ask Life or hold to talk", its "Send", the "Pendant"
+/// button, "Pair Life") are found by that label.
 enum AID {
     // Pairing sheet (`PairSheet`)
     static let pairConfirm = "pair.confirm"
