@@ -192,3 +192,15 @@ extension JSONDecoder {
     #expect((tapped["screen"] as? [String: Any])?["open"] as? String == "dec_1")
     #expect((typed["screen"] as? [String: Any])?["open"] as? String == "dec_1")
 }
+
+/// A rating answer (`answer_check`) carries `rate` with the mark's wire word and no option, for each of the app's three
+/// marks (`RatingMark.of`: 👎 bad, 👍 okay, 🤩 good).
+@Test func aRatingAnswerEncodesItsMarkOnTheWire() throws {
+    for (mark, word) in [(RatingMark.bad, "bad"), (.okay, "okay"), (.good, "good")] {
+        let body = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(AnswerRequest.rating("dec_1", mark)))
+                as? [String: Any])
+        #expect(body["rate"] as? String == word && body["ref"] as? String == "dec_1")
+        #expect((body["options"] as? [String])?.isEmpty ?? true)
+    }
+}
