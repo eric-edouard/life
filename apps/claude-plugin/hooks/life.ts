@@ -10,6 +10,7 @@ import {
   isHisTurn,
   lookUpSession,
 } from "./door";
+import { fileAgentSessions } from "./sidebar";
 
 // The Life plugin: in a registered agent's session that the desk did not start (he opened it in the Claude app), it
 // gives the session its door (the door's own tools, relayed), adds the agent's packet to each turn he typed, and runs
@@ -18,7 +19,8 @@ import {
 // edits, so the plugin turns each `ask` into `allow` (`tool.check`), only while the desk names the session an agent's;
 // a deny and an organization's ceiling stand, and the guard still answers every call (his words of 26 Nov 2026: "it
 // should be fully transparent regarding the permissions mode"). In any other session every hook passes the event on
-// untouched. It never starts a turn, sets a wait or decides: the desk does.
+// untouched. It never starts a turn, sets a wait or decides: the desk does. At each start of a session he runs (not
+// one the desk runs), it files the agents' sessions in his Claude app's sidebar (`sidebar.ts`), in the background.
 
 /**
  * A session's answer: its agent's door; none (no agent's); `down` (an agent's whose desk can't be asked now: the
@@ -43,6 +45,10 @@ const isDown = (s: Seen): s is { down: string } => s !== null && "down" in s;
 const isDoor = (s: Seen): s is Door => s !== null && "key" in s;
 const isRetried = (s: Seen) => s !== null && !isDoor(s);
 
+/** Whether the desk started this run: its guard's environment is set. */
+const isDeskRunOf = async ($: EngineInterface) =>
+  (await $.env.get("LIFE_SEND_GUARD")) !== undefined;
+
 const fetchOf =
   ($: EngineInterface): Fetch =>
   (url, init) =>
@@ -54,7 +60,7 @@ const fetchOf =
  */
 async function lookUp($: EngineInterface, id: string): Promise<Seen> {
   const known = `agent-session:${id}`;
-  const isDeskRun = (await $.env.get("LIFE_SEND_GUARD")) !== undefined;
+  const isDeskRun = await isDeskRunOf($);
   try {
     const door = await lookUpSession(fetchOf($), id);
     if (door) {
@@ -122,6 +128,12 @@ export const register: Register = (on) => {
   on("session.start", async ($, e, next) => {
     const r = await next(e);
     await seenOf($);
+    // Never awaited and never failing: a sidebar problem must not hold or break a session's start.
+    isDeskRunOf($)
+      .then((isDesk) =>
+        isDesk ? undefined : fileAgentSessions((s, t, a) => $.mcp.call(s, t, a))
+      )
+      .catch(() => undefined);
     return r;
   });
 

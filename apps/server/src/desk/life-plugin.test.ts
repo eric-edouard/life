@@ -13,7 +13,13 @@ import {
   lookUpSession,
 } from "../../../claude-plugin/hooks/door";
 import { register as registerPlugin } from "../../../claude-plugin/hooks/life";
+import {
+  AGENTS_SECTION,
+  fileAgentSessions,
+  type McpCall,
+} from "../../../claude-plugin/hooks/sidebar";
 import { clock, HOUR, iso } from "../core/clock";
+import { AGENTS_GROUP } from "../host/claude-app-listing";
 import { DOOR_PORT } from "../host/http/http";
 import { openAssignment, register } from "./agent-actions";
 import { doorFetch } from "./desk-door";
@@ -259,4 +265,65 @@ test("the plugin's module: an agent's session he opened in his app asks nothing,
   const down = engineOf("sess-plugin-5-down", { down: true });
   down.kept.set("agent-session:sess-plugin-5-down", "Bash");
   expect(await down.check("Bash", "ask")).toEqual({ decision: "ask" });
+});
+
+/** A made-up Claude app sidebar: its sections and sessions, answering the tools as the app does, recording each call. */
+function fakeSidebar(sections: { id: string; kind: string; name: string }[]) {
+  const sessions = [
+    { group: null, sessionId: "s1", title: "Agent: Bakery orders" },
+    { group: { id: "cg-agents" }, sessionId: "s2", title: "Agent: Personal" },
+    { group: null, sessionId: "s3", title: "Fix the login page" },
+  ];
+  const calls: [string, Record<string, unknown> | undefined][] = [];
+  const text = (v: unknown) =>
+    Promise.resolve({ content: [{ text: JSON.stringify(v), type: "text" }] });
+  const call: McpCall = (_server, tool, args) => {
+    calls.push([tool, args]);
+    if (tool === "list_sections") {
+      return text(sections);
+    }
+    if (tool === "list_sessions") {
+      return text(sessions);
+    }
+    if (tool === "get_session") {
+      return text({ group: null, sessionId: "s0", title: "Agent: Ask Life" });
+    }
+    if (tool === "create_section") {
+      sections.push({ id: "cg-new", kind: "manual", name: String(args?.name) });
+      return text({ id: "cg-new" });
+    }
+    return text({ ok: true });
+  };
+  return { call, calls };
+}
+
+test("agent sessions move into the Life Agents section, made when missing; others stay", async () => {
+  const missing = fakeSidebar([{ id: "sessions", kind: "sessions", name: "" }]);
+  await fileAgentSessions(missing.call);
+  expect(
+    missing.calls.filter(
+      ([t]) =>
+        t !== "list_sections" && t !== "list_sessions" && t !== "get_session"
+    )
+  ).toEqual([
+    ["create_section", { name: AGENTS_SECTION }],
+    [
+      "move_sessions",
+      { section_id: "cg-new", session_ids: ["s1", "s2", "self"] },
+    ],
+  ]);
+
+  const there = fakeSidebar([
+    { id: "cg-agents", kind: "manual", name: AGENTS_SECTION },
+  ]);
+  await fileAgentSessions(there.call);
+  expect(there.calls.filter(([t]) => t === "create_section")).toEqual([]);
+  expect(there.calls.at(-1)).toEqual([
+    "move_sessions",
+    { section_id: "cg-agents", session_ids: ["s1", "self"] },
+  ]);
+});
+
+test("the plugin's sidebar section is the one the server reads", () => {
+  expect(AGENTS_SECTION).toBe(AGENTS_GROUP);
 });
