@@ -82,6 +82,7 @@ button:focus-visible,textarea:focus-visible,label:focus-within{outline:2px solid
  .side.open{transform:none}.sheetbg.open{display:block;position:fixed;inset:0;z-index:19;background:rgba(0,0,0,.5)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+#orig{position:fixed;inset:0;z-index:50;background:#000;display:none}#orig.on{display:block}#orig iframe{width:100%;height:100%;border:0}#orig .x{position:absolute;top:10px;right:10px;z-index:2;height:34px;padding:0 14px;border-radius:17px;background:var(--tile);color:var(--fg);font-weight:650}
 </style>
 <div class="lab">
 <header class="head" id="head">
@@ -92,7 +93,7 @@ button:focus-visible,textarea:focus-visible,label:focus-within{outline:2px solid
  <div id="more"><div class="vnote" id="vnote"></div><div class="parts" id="parts"></div><label for="note" class="vnote">Note</label><textarea id="note" placeholder="Anything to change?"></textarea><div id="save">Saved on this device until Life’s store answers.</div></div>
 </header>
 <main class="stage" id="stage"><div class="dev" id="dev"><div class="scr" id="scr"><div class="track" id="track"></div></div></div></main>
-<nav class="side" id="side" aria-label="Items"><div class="mode" role="group" aria-label="Mode"><button type="button" data-mode="choose" aria-pressed="true">Choose</button><button type="button" data-mode="proto" aria-pressed="false">Prototype</button></div><div id="list"></div></nav>
+<div id="orig"><button type="button" class="x" onclick="this.parentNode.classList.remove('on')">Back to the lab</button></div><nav class="side" id="side" aria-label="Items"><div class="mode" role="group" aria-label="Mode"><button type="button" data-mode="choose" aria-pressed="true">Choose</button><button type="button" data-mode="proto" aria-pressed="false">Prototype</button><button type="button" data-orig aria-pressed="false">Original</button></div><div id="list"></div></nav>
 <div class="sheetbg" id="sheetbg"></div>
 </div>
 <script src="card-blocks.js" charset="utf-8"></script>
@@ -199,7 +200,7 @@ $('parts').addEventListener('change',function(e){var x=e.target.closest('[data-p
 $('note').addEventListener('input',function(){var id=item().id;get(id).note=$('note').value;clearTimeout(save.t);save.t=setTimeout(function(){save(id);},700);});
 $('listb').onclick=function(){sheet(!$('side').classList.contains('open'));};$('sheetbg').onclick=function(){sheet(false);};
 $('morebtn').onclick=function(){$('head').classList.toggle('open');$('isit').classList.toggle('open');};
-$('side').addEventListener('click',function(e){var m=e.target.closest('[data-mode]'),b=e.target.closest('.li');if(m){setMode(m.dataset.mode);return;}if(!b)return;
+$('side').addEventListener('click',function(e){if(e.target.closest('[data-orig]')){var o=$('orig');if(!o.querySelector('iframe')){var f=document.createElement('iframe');f.title='The app v4 prototype as published on 25 Nov';f.src='app-v4-original.html';o.appendChild(f);}o.classList.add('on');return;}var m=e.target.closest('[data-mode]'),b=e.target.closest('.li');if(m){setMode(m.dataset.mode);return;}if(!b)return;
  if(b.dataset.i)open(+b.dataset.i);else if(b.dataset.sc==='restart')setMode('proto');else{sheet(false);var el=fr.contentDocument&&fr.contentDocument.querySelector(b.dataset.sc);if(el)el.click();}});
 addEventListener('keydown',function(e){if(e.target.closest('textarea,input')||mode!=='choose')return;var L=letters(),i=L.indexOf(cur.k);
  if(e.key==='ArrowRight'&&i<L.length-1)goK(L[i+1],true);else if(e.key==='ArrowLeft'&&i>0)goK(L[i-1],true);else if(e.key==='ArrowDown')open(cur.i+1);else if(e.key==='ArrowUp')open(cur.i-1);else return;e.preventDefault();});
