@@ -299,7 +299,11 @@ export const stepFollowsAndStops = (
     isBeforeFollowsAndStops,
     "desk-before-follows-and-stops-",
     (db) => {
-      if (!hasColumn(db, "thread_entry", "follows")) {
+      // A store from before the thread has no `thread_entry`: `SCHEMA` makes it whole when the store opens.
+      if (
+        hasColumn(db, "thread_entry", "id") &&
+        !hasColumn(db, "thread_entry", "follows")
+      ) {
         db.run("alter table thread_entry add column follows integer");
       }
       if (!hasColumn(db, "turn", "stopped_spending")) {
