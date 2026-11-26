@@ -107,7 +107,8 @@ struct ThreadView: View {
                         }
                     }
                     let broken = brokenBelow
-                    ForEach(broken) { ItemRow(ask: $0).id($0.ref) }
+                    // Unfolded, as the prototype lands a fix (`landPending`: an expanded ask at the newest end).
+                    ForEach(broken) { ItemRow(ask: $0, startsOpen: true).id($0.ref) }
                     // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
                     // unfolded with its answers.
                     if let ask = life.focused.flatMap(life.ask), row(of: ask.ref) == nil,
