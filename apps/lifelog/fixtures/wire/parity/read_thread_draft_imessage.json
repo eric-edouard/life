@@ -125,7 +125,18 @@
           "channel": "imessage",
           "text": "Yes, back by 7:30.",
           "to": "Nora",
-          "chat": "nora@example.com"
+          "chat": "nora@example.com",
+          "recent": [
+            {
+              "at": "2026-11-18T18:12:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Nora",
+                "ref": "person:nora"
+              },
+              "text": "Are you home for dinner?"
+            }
+          ]
         },
         "group": "decision",
         "isPlan": false,
@@ -171,7 +182,22 @@
         "question": "Send Nora the message?",
         "ref": "dec_000000000001",
         "title": "Reply to Nora",
-        "urgency": "blocks"
+        "urgency": "blocks",
+        "networkIdentity": {
+          "chat": "nora@example.com",
+          "handle": "nora@example.com",
+          "network": "iMessage",
+          "newest": null,
+          "openUrl": "sms:nora@example.com",
+          "shownName": "Nora",
+          "party": {
+            "kind": "person",
+            "name": "Nora",
+            "ref": "person:nora",
+            "line": "A friend",
+            "picture": null
+          }
+        }
       },
       "kind": "ask",
       "later": null,

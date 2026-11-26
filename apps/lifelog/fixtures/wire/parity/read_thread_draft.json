@@ -125,7 +125,27 @@
           "channel": "whatsapp",
           "text": "Yes, Saturday works. Book for 8, I’ll be there.",
           "to": "Jade",
-          "chat": "155@s.whatsapp.net"
+          "chat": "155@s.whatsapp.net",
+          "recent": [
+            {
+              "at": "2026-11-18T09:12:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Jade",
+                "ref": "person:jade"
+              },
+              "text": "Hey! Are we still on for dinner Saturday?"
+            },
+            {
+              "at": "2026-11-18T09:40:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Jade",
+                "ref": "person:jade"
+              },
+              "text": "Should I book? 8 or 8:30?"
+            }
+          ]
         },
         "group": "decision",
         "isPlan": false,
@@ -146,7 +166,11 @@
         "changed": null,
         "doneSeen": null,
         "doneSeenBy": "tap",
-        "edits": null,
+        "edits": [
+          "Warmer",
+          "Shorter",
+          "In French"
+        ],
         "follow": [],
         "gathered": null,
         "needs": [],
@@ -171,7 +195,22 @@
         "question": "Send Jade the message?",
         "ref": "dec_000000000001",
         "title": "Reply to Jade",
-        "urgency": "blocks"
+        "urgency": "blocks",
+        "networkIdentity": {
+          "chat": "155@s.whatsapp.net",
+          "handle": "+155",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": "https://wa.me/155",
+          "shownName": "Jade",
+          "party": {
+            "kind": "person",
+            "name": "Jade",
+            "ref": "person:jade",
+            "line": "A friend",
+            "picture": null
+          }
+        }
       },
       "kind": "ask",
       "later": null,

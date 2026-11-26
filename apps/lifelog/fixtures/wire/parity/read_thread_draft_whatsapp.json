@@ -125,7 +125,18 @@
           "channel": "whatsapp",
           "text": "Sure, sending them tonight!",
           "to": "Lena",
-          "chat": "156@s.whatsapp.net"
+          "chat": "156@s.whatsapp.net",
+          "recent": [
+            {
+              "at": "2026-11-18T10:05:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Lena",
+                "ref": "person:lena"
+              },
+              "text": "Can you send me the photos from Sunday?"
+            }
+          ]
         },
         "group": "decision",
         "isPlan": false,
@@ -171,7 +182,22 @@
         "question": "Send Lena the message?",
         "ref": "dec_000000000001",
         "title": "Reply to Lena",
-        "urgency": "blocks"
+        "urgency": "blocks",
+        "networkIdentity": {
+          "chat": "156@s.whatsapp.net",
+          "handle": "+156",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": "https://wa.me/156",
+          "shownName": "Lena",
+          "party": {
+            "kind": "person",
+            "name": "Lena",
+            "ref": "person:lena",
+            "line": "A friend",
+            "picture": null
+          }
+        }
       },
       "kind": "ask",
       "later": null,

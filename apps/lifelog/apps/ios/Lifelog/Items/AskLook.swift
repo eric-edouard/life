@@ -33,8 +33,8 @@ struct AskLook {
     }
 
     /// Who the ask is about, when its answer is a person: the guess leads, but never on a voice card, whose question is
-    /// who it is (a guessed face before his answer reads as settled). A payment shows only the payee an account
-    /// names (`Check.namedPayee`), never a guess.
+    /// who it is (a guessed face before his answer reads as settled). A draft shows who it goes to; a payment only the
+    /// payee an account names (`Check.namedPayee`), never a guess.
     var face: ItemFace? {
         if let network = check.signInNetwork { return .network(network) }
         if check.group == .guessedPerson {
@@ -42,6 +42,10 @@ struct AskLook {
         }
         if [.contactsCard, .atOrganization, .samePerson].contains(check.group) {
             return check.likelyPeople.first.map { .party($0) }
+        }
+        // A draft's chat as Life resolved it: who it goes to, never a guessed recipient.
+        if check.draft != nil, !check.isRecipientGuessed {
+            return (check.networkIdentity?.party ?? check.likelyPeople.first).map { .party($0) }
         }
         return check.namedPayee.map { .party($0) }
     }
@@ -54,6 +58,8 @@ struct AskLook {
         if check.signInNetwork != nil {
             return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
         }
+        // A draft's network is its chat head's: the row names only who it goes to.
+        if let draft = check.draft { return check.networkIdentity?.shownName ?? draft.to }
         return check.rowWho()
     }
 
