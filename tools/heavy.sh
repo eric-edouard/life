@@ -4,6 +4,7 @@
 # It starts under 1-minute load 60. One slot plus the land, light and release lanes: his cap of 21 Nov (a saturated Mac
 # times tests out and reruns them).
 # HEAVY_LANE=land: the landing push of the branch holding the landing lock; its own lane, no load wait, one at a time.
+# HEAVY_LANE=release: an owner-facing build (Life.app, the phone install); it starts at once and queued jobs wait for it.
 # HEAVY_LANE=light: a job under a minute (one test file, one tsc): its own lane, no load wait, one at a time.
 # The locks are shared by every session's builders.
 D=${LIFE_TOOLS_STATE:-/private/tmp/life-tools}
@@ -27,6 +28,8 @@ else
       # Crash guard (his ask, 21 Nov): no new heavy job while memory is short or swap is large; treat it as full load.
       memf=$(memory_pressure | awk -F': ' '/free percentage/{print int($2)}'); swapm=$(sysctl -n vm.swapusage | awk '{print int($6)}')
       { [ "${memf:-100}" -lt 10 ] || [ "${swapm:-0}" -gt 20000 ]; } && load=999
+      # An owner-facing build (release lane) running goes first: no queued job starts a slot until it ends.
+      [ -d "$D/check.lock.release" ] && load=999
       [ "$load" -lt 60 ] && mkdir "$D/check.lock" 2>/dev/null && L="$D/check.lock"
       # second slot while the Mac is idle enough (velocity tick, 21 Nov evening)
       [ -z "$L" ] && [ "$load" -lt 30 ] && mkdir "$D/check.lock.2" 2>/dev/null && L="$D/check.lock.2"
