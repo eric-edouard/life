@@ -1,0 +1,34 @@
+{
+  "name": "Lab: adds",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "lab/adds.json"
+      }
+    },
+    {
+      "reads": {
+        "read_thread": "lab/adds_settled.json"
+      }
+    }
+  ],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "go"
+      ],
+      "progress": [
+        "Working"
+      ],
+      "then": "life/answer_check_added.json",
+      "advance": true
+    }
+  ],
+  "items": [
+    "dec_000000000001"
+  ]
+}

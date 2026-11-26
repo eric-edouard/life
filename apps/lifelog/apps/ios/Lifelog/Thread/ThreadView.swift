@@ -251,7 +251,7 @@ private struct EntryView: View {
     }
 }
 
-/// An agent's late reply: a line that says what it answers and takes him back to it, then the reply.
+/// An agent's late reply: his ask as a quiet line (it takes him back to it), then the reply.
 private struct LateReplyView: View {
     let late: ThreadEntry
     let origin: ThreadEntry
@@ -261,8 +261,9 @@ private struct LateReplyView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             Button(action: goBack) {
-                Text("About “\(origin.words)”:").font(.line).foregroundStyle(Palette.muted).lineLimit(2)
-                    .multilineTextAlignment(.leading).underline()
+                // His ask, as a quiet line above the reply: no bar, no label (the lab's A); a tap goes back to it.
+                Text(origin.words).font(.line).foregroundStyle(Palette.muted).lineLimit(2)
+                    .multilineTextAlignment(.leading)
             }
             .buttonStyle(.plain)
             if let text = late.answer {

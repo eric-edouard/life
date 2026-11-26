@@ -35,5 +35,8 @@ struct PendantActions {
         try await capture.resolve(capture.openIncidents.filter { ids.contains($0.id) }, keeping: resolution)
     }
 
+    /// His Pause switch: the pendant stops recording, or goes on.
+    func setPaused(_ paused: Bool) async { paused ? await capture.pause() : await capture.resume() }
+
     func refresh() async { await capture.syncNow() }
 }

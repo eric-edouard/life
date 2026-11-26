@@ -2,307 +2,382 @@
   "notYetDrawn": [
     {
       "kind": "check group: fix",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: ending",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: new matter",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: guessed person",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: contacts card",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: voice",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: same person",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: your move",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "check group: at organization",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: account",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: amount",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: apify",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: event",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: link",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: qr",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "option flag: adds",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "option flag: ends",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "option flag: looks",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "option flag: outgoing",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "option flag: runs",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "option flag: takes",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "draft field: cc",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "draft field: mentions",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "draft field: onMessage",
-      "lacks": ["fixture", "decode", "view"],
+      "lacks": [
+        "fixture",
+        "decode",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; the Kit does not name it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "answer block: pictures",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "the prototype shows photos with captions; the wire's pictures block names files (life:file) the phone draws as faces: awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "rating mark: bad",
-      "lacks": ["fixture"],
+      "lacks": [
+        "fixture"
+      ],
       "reason": "no server test writes a fixture with it yet",
       "issue": 1411
     },
     {
       "kind": "rating mark: okay",
-      "lacks": ["fixture"],
+      "lacks": [
+        "fixture"
+      ],
       "reason": "no server test writes a fixture with it yet",
       "issue": 1411
     },
     {
       "kind": "decision line: asked",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; no view shows it: awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: answered",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: withdrawn",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: kept",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: send-failed",
-      "lacks": ["decode", "view"],
+      "lacks": [
+        "decode",
+        "view"
+      ],
       "reason": "the Kit does not name it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: ended",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: added",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: ran",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: done-seen",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: delivered",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: answer-withdrawn",
-      "lacks": ["fixture", "decode", "view"],
+      "lacks": [
+        "fixture",
+        "decode",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; the Kit does not name it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "main-session act: agent",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "main-session act: fix",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "card change: deadline",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "card change: condition",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "card change: option",
-      "lacks": ["fixture", "view"],
+      "lacks": [
+        "fixture",
+        "view"
+      ],
       "reason": "no server test writes a fixture with it yet; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "decision line: rated",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "Life's rated line is an agent-side record: the phone sends the mark but no view shows the line; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "draft field: from",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "the mail's from address is decoded but no view shows it; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "main-session act: card",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "decoded and dropped: the reply's acts are not drawn; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "main-session act: done",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "decoded and dropped: the reply's acts are not drawn; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "main-session line: answer",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "the Kit reads the streamed words and blocks, not an answer line; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: app",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "the card's needs are decoded but no view draws them since the per-kind bodies were removed; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: place",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "the card's needs are decoded but no view draws them since the per-kind bodies were removed; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
       "kind": "need kind: text",
-      "lacks": ["view"],
+      "lacks": [
+        "view"
+      ],
       "reason": "the card's needs are decoded but no view draws them since the per-kind bodies were removed; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     }

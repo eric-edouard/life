@@ -236,10 +236,17 @@ struct RootView: View {
             Button {
                 thread.ask("What's waiting on me?", screen: screen)
             } label: {
-                Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle).frame(
-                    width: Metrics.tapTarget, height: Metrics.tapTarget)
+                // Something broken turns the count into a coral mark: he learns of it where he is (the lab's Settings 2, B).
+                Group {
+                    if life.isOutOfReach {
+                        Image(systemName: "exclamationmark").font(.rowTitle).foregroundStyle(Palette.flag)
+                    } else {
+                        Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle)
+                    }
+                }
+                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
             }
-            .accessibilityLabel("What's waiting on me")
+            .accessibilityLabel(life.isOutOfReach ? "Life can't be reached" : "What's waiting on me")
             Spacer()
             Button {
                 sheet = .pendant
