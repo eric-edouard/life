@@ -131,13 +131,6 @@ import SwiftUI
                         QuietChip("In French", isBusy: true) {}
                     }
                 }
-                section("Round buttons") {
-                    HStack(spacing: Metrics.Spacing.m) {
-                        RoundButton(symbol: "tray", label: "What waits on you", badge: 3) {}
-                        RoundButton(symbol: "waveform.badge.mic", label: "Pendant") {}
-                        RoundButton(symbol: "stop.fill", label: "Stop") {}
-                    }
-                }
                 section("Block surface, wash, still pie") {
                     HStack(spacing: Metrics.Spacing.l) {
                         Text("A block").padding().card()
@@ -178,7 +171,7 @@ import SwiftUI
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                         ThreadItemRow(
                             title: "Find a physio for this week",
-                            state: .underWay(progress: 0.4, estimate: "About 10 min left"), icon: "magnifyingglass",
+                            state: .underWay(progress: 0.4, estimate: "About 10 min left"), icon: .search,
                             toggle: {}
                         ) { EmptyView() }
                         StepsLine(verb: "Looking at", what: "your calendar")
@@ -200,9 +193,9 @@ import SwiftUI
                 section("Held asks") { HeldSeparator(text: "While you were in your meeting · 14:00 to 15:00") }
                 section("Notice: closed, open with its settings, back") {
                     VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                        NoticeBlock(title: "Your Mac isn't answering · since 10:42", symbol: "desktopcomputer")
+                        NoticeBlock(title: "Your Mac isn't answering · since 10:42", mark: .mac)
                         NoticeBlock(
-                            title: "You're offline · since 15:40", symbol: "wifi.slash", isOpen: true
+                            title: "You're offline · since 15:40", mark: .offline, isOpen: true
                         ) {
                             SettingsBlock {
                                 SettingSwitchRow(title: "Tell me when it is back", isOn: true)
@@ -217,19 +210,19 @@ import SwiftUI
         // MARK: Items
 
         private var items: some View {
-            let states: [(String, String, ItemState, String?)] = [
-                ("Reply to Sara about Sunday", "bubble.left", .needsYou, "Sara · today"),
-                ("Renew the passport", "doc", .later, "Later · tomorrow 9:00"),
+            let states: [(String, Glyph.Mark, ItemState, String?)] = [
+                ("Reply to Sara about Sunday", .bubble, .needsYou, "Sara · today"),
+                ("Renew the passport", .doc, .later, "Later · tomorrow 9:00"),
                 (
-                    "Find a physio near home", "figure.walk", .underWay(progress: 0.4, estimate: "About 10 min left"),
+                    "Find a physio near home", .search, .underWay(progress: 0.4, estimate: "About 10 min left"),
                     nil
                 ),
-                ("Waiting for the landlord", "house", .waitingOnSomeone, "Waiting for a reply · Thu"),
-                ("Book the dentist", "calendar", .settled, "Done"),
-                ("Tell Lena I'm late", "bubble.left", .undone("Deleted for both of you"), nil),
-                ("Old plan for Friday", "calendar", .outdated, "Sara wrote since"),
-                ("Send the invoice", "envelope", .queued, "Goes when you're back"),
-                ("Look for a flat", "magnifyingglass", .stopped, nil),
+                ("Waiting for the landlord", .pin, .waitingOnSomeone, "Waiting on the landlord · Thu"),
+                ("Book the dentist", .calendar, .settled, "Done"),
+                ("Tell Lena I'm late", .bubble, .undone("Deleted for both of you"), nil),
+                ("Old plan for Friday", .calendar, .outdated, "Sara wrote since"),
+                ("Send the invoice", .bubble, .queued, "Goes when you're back"),
+                ("Look for a flat", .search, .stopped, nil),
             ]
             return section("Thread item: every state; the first one unfolded") {
                 VStack(spacing: Metrics.Spacing.xs) {

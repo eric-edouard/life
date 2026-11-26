@@ -31,6 +31,15 @@ import Testing
         ])
 }
 
+@Test func aFailedAskSaysItsReasonInPlainWords() {
+    var entry = ThreadEntry(id: UUID(), at: Date(), words: "Hi", key: "", phase: .failed)
+    #expect(entry.failure == "I couldn't answer that.")
+    entry.why = "Desk is off (settings: desk)"
+    #expect(entry.failure == "Life's agents are off, so nothing can answer yet.")
+    entry.why = "The Mac is asleep."
+    #expect(entry.failure == "The Mac is asleep.")
+}
+
 @MainActor @Test func anAskGetsItsAnswerAndAnOfflineOneWaits() async throws {
     let life = FakeLife()
     life.asked = { progress in

@@ -71,7 +71,8 @@ struct ReadAlong: View {
         let text = clip.text
         if let timed = clip.words, let ranges = timed.ranges(in: text), !ranges.isEmpty {
             let spoken = timed.spokenIndex(at: Int64((playback.position - (clip.audio?.start ?? 0)) * 1000))
-            let isLit = { (index: Int) in !isCurrent || (spoken.map { index <= $0 } ?? false) }
+            // Dim until played, then lit as each word is said (voice is read, not drawn).
+            let isLit = { (index: Int) in isCurrent && (spoken.map { index <= $0 } ?? false) }
             FlowLayout {
                 ForEach(Array(ranges.enumerated()), id: \.offset) { index, range in
                     Text((text as NSString).substring(with: range) + (index < ranges.count - 1 ? " " : ""))

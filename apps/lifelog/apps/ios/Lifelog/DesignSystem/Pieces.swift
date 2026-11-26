@@ -102,8 +102,11 @@ struct TextLink: View {
 
     /// The link's look, for a system link that navigates itself (`NavigationLink`).
     static func label(_ title: String, to goes: Goes) -> some View {
-        Text("\(title) \(Image(systemName: goes == .page ? "chevron.right" : "arrow.up.right"))")
-            .font(.heading).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
+        HStack(spacing: Metrics.Spacing.xs) {
+            Text(title)
+            if goes == .page { Image(systemName: "chevron.right") } else { Glyph(.open, size: 14) }
+        }
+        .font(.heading).foregroundStyle(Palette.fg).frame(minHeight: Metrics.tapTarget)
     }
 }
 

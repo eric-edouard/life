@@ -11,6 +11,8 @@ struct AnswerPills: View {
     let answers: [String]
     var recommended: String?
     var hasLater = true
+    /// A yes/no question: every answer in one row, the likelier one filled and on the right.
+    var isOneRow = false
     var busy: String?
     /// The answers that cannot be tapped yet (one that takes his words, before he wrote them).
     var disabled: Set<String> = []
@@ -24,8 +26,17 @@ struct AnswerPills: View {
         // At the largest sizes each answer gets the full width: a word is never broken to fit two.
         let per = size.isAccessibilitySize ? 1 : 2
         VStack(spacing: Metrics.Spacing.s) {
-            if let recommended, answers.contains(recommended) { pill(recommended, .filled) }
-            ForEach(Array(stride(from: 0, to: rest.count, by: per)), id: \.self) { i in
+            if isOneRow, !size.isAccessibilitySize {
+                HStack(spacing: Metrics.Spacing.s) {
+                    ForEach(rest, id: \.self) { pill($0, .quiet) }
+                    if let recommended, answers.contains(recommended) { pill(recommended, .filled) }
+                }
+            } else if let recommended, answers.contains(recommended) {
+                pill(recommended, .filled)
+            }
+            ForEach(
+                Array(stride(from: 0, to: isOneRow && !size.isAccessibilitySize ? 0 : rest.count, by: per)), id: \.self
+            ) { i in
                 HStack(spacing: Metrics.Spacing.s) {
                     ForEach(rest[i..<min(i + per, rest.count)], id: \.self) { pill($0, .quiet) }
                 }
@@ -66,7 +77,8 @@ struct QuestionBlock: View {
     }
 }
 
-/// A draft's quick edits (the card's `edits`): up to three chips under the draft, at its trailing edge, muted.
+/// A draft's quick edits (the card's `edits`): up to three chips under the draft, at its trailing edge, muted. A tapped
+/// edit's chip goes (`ItemRow`); the round back arrow that would undo it needs the server (the lab's #1429).
 struct EditChips: View {
     let edits: [String]
     /// The chip just tapped: it shows a spinner while Life changes the draft.
@@ -137,7 +149,7 @@ private struct RightFlow: Layout {
 struct AskCard: View {
     let question: String
     var why: String?
-    var icon = "bubble.left"
+    var icon = Glyph.Mark.bubble
     var check: Check?
     var edits: [String] = []
     /// The quick edit tapped last, while Life changes the draft.
@@ -163,7 +175,7 @@ struct AskCard: View {
             // Inside an item the row's own header is the title: its question is not said again.
             if !isInItem {
                 HStack(spacing: Metrics.Spacing.m) {
-                    Image(systemName: icon).font(.header).foregroundStyle(Palette.muted)
+                    Glyph(icon, size: 22).foregroundStyle(Palette.muted)
                         .frame(width: Metrics.askDisc, height: Metrics.askDisc).background(Palette.tint, in: .circle)
                         .accessibilityHidden(true)
                     Text(question).font(.header).multilineTextAlignment(.leading)
@@ -178,7 +190,8 @@ struct AskCard: View {
             if let look { look.body(pick: pick) }
             if let taking { Field(prompt: "Your words", text: taking) }
             AnswerPills(
-                answers: answers, recommended: recommended, busy: busy, disabled: disabled, identify: identify, say: say
+                answers: answers, recommended: recommended, isOneRow: look?.isYesNo == true, busy: busy,
+                disabled: disabled, identify: identify, say: say
             )
         }
         .padding(.vertical, isInItem ? 0 : Metrics.Spacing.l).padding(.horizontal, isInItem ? 0 : Metrics.Spacing.l)
@@ -207,8 +220,7 @@ struct SettingSwitchRow: View {
             Text(title).font(.rowTitle)
             Spacer(minLength: 0)
             if isTicked {
-                Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok).accessibilityLabel(
-                    "Changed")
+                Glyph(.tick, size: 13).foregroundStyle(Palette.ok).accessibilityLabel("Changed")
             }
             RowSwitch(title: title, isOn: isOn, set: set)
         }
@@ -229,7 +241,7 @@ struct SettingValueRow: View {
             HStack {
                 Text(title).font(.rowTitle)
                 Spacer(minLength: 0)
-                if isTicked { Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok) }
+                if isTicked { Glyph(.tick, size: 13).foregroundStyle(Palette.ok) }
             }
             HStack(spacing: Metrics.Spacing.s) {
                 ForEach(choices, id: \.self) { choice in

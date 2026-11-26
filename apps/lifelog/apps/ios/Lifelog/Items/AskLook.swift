@@ -8,6 +8,10 @@ struct AskLook {
     let check: Check
 
     private func has(_ id: String) -> Bool { check.options.contains { $0.id == id } }
+    /// A yes/no question to him (a guessed person, a done step, a new matter): its answers share one row.
+    var isYesNo: Bool {
+        [.voice, .samePerson, .contactsCard, .atOrganization, .ending, .newMatter].contains(check.group)
+    }
     var isLookedFor: Bool { check.isPaymentLookedFor && check.doneSeen?.state != .notFound }
 
     /// The row's title: the question a card of Life's puts, as a person's own sentence.
@@ -16,11 +20,12 @@ struct AskLook {
         case .voice:
             if has("is-them"), let guess = check.likelyPeople.first { return "Is this \(guess.name)?" }
             return check.question.isEmpty ? fallback : check.question
-        case .contactsCard, .atOrganization, .samePerson, .ending:
+        case .samePerson: return "Same person?"
+        case .contactsCard, .atOrganization, .ending:
             return check.question.isEmpty ? fallback : check.question
         case .newMatter:
             return fallback.components(separatedBy: ": ").dropFirst().joined(separator: ": ").nilIfEmpty ?? fallback
-        default: return fallback
+        default: return fallback.withoutRawDate
         }
     }
 
@@ -35,6 +40,7 @@ struct AskLook {
 
     /// What the row says under its title, when the person has one ("Your landlord").
     var line: String? {
+        if check.group == .samePerson { return check.question.nilIfEmpty }
         guard [.contactsCard, .atOrganization].contains(check.group) else { return nil }
         return check.likelyPeople.first?.line
     }
@@ -58,6 +64,10 @@ struct AskLook {
     func shows(_ option: Check.Option) -> Bool {
         if check.group == .newMatter, option.id == "edit-goal" { return false }
         if option.looks == true, isLookedFor { return false }
+        // One quiet answer to a card: Later. A second put-off ("Not now", "Not yet") is never drawn.
+        if ["Not now", "Not yet"].contains(option.label) { return false }
+        // Its Yes is Life's guess, drawn by the card; only "Someone else" stays beside it.
+        if check.group == .contactsCard, option.takes != .person { return false }
         return true
     }
 
@@ -98,11 +108,6 @@ struct AskBody: View {
                     markdown: "\(since.by.map { "\($0) wrote " } ?? "")“\(since.text)”"
                         + (check.said.map { ". Is **\($0.text)** done?" } ?? ""))
             }
-        case .contactsCard:
-            if let card = check.contactsCard {
-                AskQuote(text: card.name, source: card.handles.joined(separator: " · ").nilIfEmpty)
-            }
-            if !check.likelyPeople.isEmpty { PersonChips(people: Array(check.likelyPeople.prefix(4)), pick: pick) }
         default: EmptyView()
         }
     }
@@ -115,7 +120,11 @@ struct AskBody: View {
         } else if let needs = check.needs, !needs.isEmpty {
             ForEach(Array(specials.enumerated()), id: \.offset) { _, need in special(need) }
             let rows = needs.filter { ![.link, .event, .apify].contains($0.kind) }.flatMap(\.rows)
-            if !rows.isEmpty { NeedRows(rows: rows) }
+            ForEach(Array(rows.filter { $0.glyph == .amount }.enumerated()), id: \.offset) { _, row in
+                AmountBox(text: row.text)
+            }
+            let others = rows.filter { $0.glyph != .amount }
+            if !others.isEmpty { NeedRows(rows: others) }
         }
         if let foot { AskFoot(text: foot) }
     }
@@ -149,6 +158,10 @@ struct AskBody: View {
     }
 }
 
-private extension String {
+extension String {
+    /// A title without the date as the server wrote it ("Parents' meeting, 2026-11-19 18:00"): the slot says when.
+    var withoutRawDate: String {
+        replacingOccurrences(of: #",?\s*\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2})?"#, with: "", options: .regularExpression)
+    }
     var nilIfEmpty: String? { isEmpty ? nil : self }
 }

@@ -153,3 +153,20 @@ Approved, not mismatches: pendant sheet as a page (lab D); count becomes a coral
 | Profile matter rows | none | present | NO (extra) | drop |
 | Notification | "L" mark, title, draft, two actions | IncidentNotifier (partly read) | to confirm | none |
 | Edge states | rest, listen, work, still | EdgeView states | yes | none |
+
+## Status (builder, branch pendant-dot)
+
+Fixed: every row marked NO in the tables above, the 4 "to confirm" items checked (count weight, field radius and bubble numbers already matched, nothing changed), the drawn glyphs in `DesignSystem/Glyphs.swift`, and the thread's failure line now shows the error's own reason (`ThreadEntry.failure`).
+
+Not fixed, and why:
+- Pendant a11y, pendant long press: the pendant button is off-limits.
+- Profile overview: approved deviation (generated overview).
+- Login, pendant and budget fix asks: not in the app, server fix-card kinds.
+- Down pill, "left for now", "You did X": need server data.
+- Edit-chip back arrow: needs the server (#1429).
+- `xmv` dot: not done.
+- Kept extras that are functional: "Charge it soon.", "Pair Life", "Your words". Offer defaults unchanged.
+
+## Lab build review, 11 "Must fix" (app side)
+
+1 to 9 and 11 fixed in the app (11: the E2E fixture; the real lead line comes from the main session's model). 10: words dim then light up where word timings exist; per-word timings wait on server #1433.

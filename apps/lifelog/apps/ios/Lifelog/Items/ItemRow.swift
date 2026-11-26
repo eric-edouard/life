@@ -76,11 +76,18 @@ struct ItemRow: View {
             [look?.line ?? ask.check?.draft?.to, (ask.check?.deadline ?? ask.at).map { when($0) }].compactMap(\.self)
                 .joined(separator: " · ").nilIfEmpty
         case .later: ask.later.map { "Later · \(when($0, withTime: true))" } ?? "Later"
-        case .waitingOnSomeone: "Waiting for a reply"
+        case .waitingOnSomeone: waitingLine
         case .settled: ask.closed?.sent == nil ? "Done" : keptTo.map { "Sent to \($0)" } ?? "Sent"
         case .outdated: ask.closed?.withdrawn?.why ?? "Out of date"
         case .underWay: nil
         }
+    }
+
+    /// "Waiting on Paul's quote · Thu": who it waits on and since when, else the plain line.
+    private var waitingLine: String {
+        let on = look?.face.flatMap { face in if case .party(let party) = face { party.name } else { nil } }
+        let day = ask.at.map { when($0) }
+        return [on.map { "Waiting on \($0)" } ?? "Waiting for a reply", day].compactMap(\.self).joined(separator: " · ")
     }
 
     private func when(_ date: Date, withTime: Bool = false) -> String {
@@ -95,19 +102,22 @@ struct ItemRow: View {
 
     /// Its face: the chat's when it is a message, a person's when the answer is a person; it keeps it once settled or
     /// out of date, when the wire no longer carries the draft.
-    @State private var kept: String?
+    @State private var kept: Glyph.Mark?
     @State private var keptTo: String?
     /// Who it is for, as their initial; the mark only when there is no one to show.
     private var look: AskLook? { ask.check.map(AskLook.init) }
     private var face: ItemFace? {
         look?.face ?? (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
     }
-    private var icon: String {
+    private var icon: Glyph.Mark {
         if let check = ask.check {
-            if check.draft != nil { return "bubble.left" }
-            if check.options.contains(where: { $0.takes == .person }) { return "person" }
+            if check.draft != nil { return .bubble }
+            if check.options.contains(where: { $0.takes == .person }) { return .person }
+            if check.needs?.contains(where: { $0.kind == .event }) == true { return .calendar }
+            if check.needs?.contains(where: { $0.kind == .apify }) == true { return .search }
+            if check.needs?.contains(where: { $0.kind == .link }) == true { return .pin }
         }
-        return ask.closed?.sent != nil ? "bubble.left" : kept ?? "circle.dashed"
+        return ask.closed?.sent != nil ? .bubble : kept ?? .doc
     }
 
     var body: some View {
@@ -137,6 +147,8 @@ struct ItemRow: View {
             state: state, icon: icon,
             face: face,
             line: line, isOpen: isOpen, ref: ask.ref,
+            later: state == .needsYou && ask.check?.draft == nil && ask.isAnswerable
+                ? { Task { await life.later(ask.ref) } } : nil,
             toggle: {
                 Motion.animate { isOpen.toggle() }
                 if isOpen { life.opened = ask.ref } else if life.opened == ask.ref { life.opened = nil }
@@ -161,9 +173,10 @@ struct ItemRow: View {
             of: ask.check?.draft != nil || ask.check?.options.contains { $0.takes == .person } == true, initial: true
         ) {
             if let check = ask.check { keptCheck = check }
-            if ask.check != nil, icon != "circle.dashed" { kept = icon }
+            if ask.check != nil, icon != .doc { kept = icon }
             if let to = ask.check?.draft?.to { keptTo = to }
         }
+        .id(ask.ref)
         .onChange(of: life.focused) { if life.focused == ask.ref { Motion.animate { isOpen = true } } }
         // Answered or out of date, it folds back to its row and its line.
         .onChange(of: ask.state) {
@@ -211,11 +224,13 @@ struct ItemRow: View {
         let shown = { (option: Check.Option) in isFailed && option.id == tapped ? "Not sent" : look.label(option) }
         let byLabel = Dictionary(options.map { (shown($0), $0) }, uniquingKeysWith: { first, _ in first })
         let taking = options.contains { $0.takes == .note || $0.takes == .personOrName }
-        let recommended = options.first { $0.id == check.recommended }.map(shown)
+        // A Contacts card asks "Is this them?": its Yes is Life's guess, one tap, beside "Someone else".
+        let guess = check.group == .contactsCard ? check.likelyPeople.first : nil
+        let recommended = guess != nil ? "Yes" : options.first { $0.id == check.recommended }.map(shown)
         return AskCard(
             question: ask.question, check: check,
             edits: (check.edits ?? []).filter { !usedEdits.contains($0) || ($0 == editing && life.thread.isWorking) },
-            editing: life.thread.isWorking ? editing : nil, answers: options.map(shown),
+            editing: life.thread.isWorking ? editing : nil, answers: (guess != nil ? ["Yes"] : []) + options.map(shown),
             recommended: recommended,
             busy: action.isRunning ? tapped.flatMap { id in options.first { $0.id == id }.map(shown) } : nil,
             taking: taking ? $words : nil,
@@ -226,6 +241,9 @@ struct ItemRow: View {
                 if l == "Later" {
                     tapped = nil
                     Task { await life.later(ask.ref) }
+                } else if l == "Yes", let guess, let request = check.answer(naming: .person(guess.ref)) {
+                    tapped = request.options.first
+                    Task { await life.answer(request) }
                 } else if let option = byLabel[l] {
                     tapped = option.id
                     if option.takes == .person {
@@ -282,10 +300,6 @@ struct ItemRow: View {
             },
             keep: { isConfirmingUndo = false }, undoID: AID.askUndo(ask.ref))
     }
-}
-
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 extension Date {

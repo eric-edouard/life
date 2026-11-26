@@ -234,6 +234,8 @@ struct RootView: View {
         if case .recording = capture.status.recording { true } else { false }
     }
 
+    private var isCountShown: Bool { life.isOutOfReach || (life.waitingCount ?? 0) > 0 }
+
     /// The two round buttons: what waits on him (its count; tap asks Life), and the pendant (long press: Settings).
     private var buttons: some View {
         HStack {
@@ -245,12 +247,16 @@ struct RootView: View {
                     if life.isOutOfReach {
                         Image(systemName: "exclamationmark").font(.rowTitle).foregroundStyle(Palette.flag)
                     } else {
-                        Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle)
+                        Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle).monospacedDigit()
                     }
                 }
                 .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
             }
-            .accessibilityLabel(life.isOutOfReach ? "Life can't be reached" : "What's waiting on me")
+            // Nothing waits: the button is gone, its place kept (the prototype's `visibility:hidden`).
+            .opacity(isCountShown ? 1 : 0).disabled(!isCountShown)
+            .accessibilityHidden(!isCountShown)
+            .accessibilityLabel(
+                life.isOutOfReach ? "Life can't be reached" : "\(life.waitingCount ?? 0) waiting on you")
             Spacer()
             Button {
                 sheet = .pendant

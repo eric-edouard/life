@@ -110,8 +110,8 @@ struct PendantScreen: View {
             if reading.lowBattery != nil { Text("Charge it soon.").font(.bodyStrong).foregroundStyle(Palette.flag) }
             if reading.conditions.isEmpty, reading.state == .recording || reading.pausedAt != nil {
                 SettingsBlock {
-                    SettingSwitchRow(title: "Pause", isOn: reading.pausedAt != nil) { pause in
-                        Task { await actions.setPaused(pause) }
+                    SettingSwitchRow(title: "Pendant records", isOn: reading.pausedAt == nil) { records in
+                        Task { await actions.setPaused(!records) }
                     }
                 }
                 .padding(.top, Metrics.Spacing.s)

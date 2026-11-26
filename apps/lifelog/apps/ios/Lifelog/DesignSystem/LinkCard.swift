@@ -111,7 +111,7 @@ struct LinkCard: View {
                     if let line { Text(line).font(.line).foregroundStyle(Palette.muted) }
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "arrow.up.right").font(.lineStrong).foregroundStyle(Palette.muted)
+                Glyph(.open, size: 16).foregroundStyle(Palette.muted)
                     .accessibilityHidden(true)
             }
             .padding(Metrics.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)

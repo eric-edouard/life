@@ -170,7 +170,7 @@ import XCTest
         appears(element(AID.askQueued(Self.ask)), "the answer waiting")
         step(2)
         appears(element(AID.noticeBack), "Back")
-        XCTAssertEqual(element(AID.noticeBack).label, "Back · 1 sent")
+        XCTAssertEqual(element(AID.noticeBack).label, "Back online · 1 sent")
         XCTAssertEqual(answers().count, 1)
         XCTAssertFalse((answers()[0]["key"] as? String ?? "").isEmpty)
     }
@@ -188,7 +188,7 @@ import XCTest
         appears(element(AID.askQueued(Self.ask)), "the answer waiting")
         step(2)
         appears(element(AID.noticeBack), "Back")
-        XCTAssertEqual(element(AID.noticeBack).label, "Back")
+        XCTAssertEqual(element(AID.noticeBack).label, "Back · caught up")
         XCTAssertEqual(answers().count, 1)
         XCTAssertTrue(sends().isEmpty)
         vanishes(element(AID.askQueued(Self.ask)), "the dropped answer gone")
