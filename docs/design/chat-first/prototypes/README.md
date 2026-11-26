@@ -8,8 +8,11 @@ order in them is made up: the live artifacts use the owner's real questions, the
 | File | What it is | Its live artifact (private to the owner) |
 |---|---|---|
 | `shell.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications, and since 25 Nov (v4) long work handed off, redrafts, reactions, "How am I doing?", Undo after a send, settings in the thread, held asks and the spending stop. The side panel drives it. | [app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF); before v4: [Life shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) |
-| `answer-components.html` | The answer components side by side (text, items, pictures, table, phrase, document, place) | [Answer components](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R) |
-| `settings-board.html` | Settings: 9 proposals, not decided (below) | [Settings proposals](https://claude.ai/artifact/WajtHgFc6Z1PLE2izdBjzo) |
+| `design-lab.html` | The design lab: one phone, one item at a time; A, B and C swiped sideways; pick, mix and a note per item, saved to the artifact's store; Prototype mode plays `shell.html` with his picks. Holds every card item, the design system, the answer components, the Settings proposals, the aura and his decided answers | [Life design lab](https://claude.ai/artifact/CWn2a8uSCY22i3CMcpB1Cs) |
+| `card-blocks.js` | The one set of parts (the design system) the lab and the shell draw from: a card is data, never hand-written markup | (no artifact of its own) |
+| `COMPONENTS.md` | The parts' hierarchy (tokens, atoms, molecules, the ask) and each one's Swift counterpart: the lab and Swift share these names | (no artifact of its own) |
+| `card-variants.js` | Every card item and its variants, as data | (no artifact of its own) |
+| `lab-pages.js` | The design system's views, the answer components (from the old `answer-components.html`), the nine Settings proposals (from the old `settings-board.html`) and his eleven answers, as data | (no artifact of its own) |
 
 ## Read first
 
@@ -34,7 +37,7 @@ order in them is made up: the live artifacts use the owner's real questions, the
 - The shell is one file: CSS first, then a script with the asks (`ASKS`), the questions he tries (`TRY`), the failures
   (`SYSD`) and the profiles (`PEOPLE`). Its side panel lists every scenario.
 
-## Settings: open (proposals of 24 Nov 2026)
+## Settings: open (proposals of 24 Nov 2026, in the lab)
 
 Three ideas for each of: how he wants things (1A one page of his choices, 1B no page, the thread is the setting, 1C each
 choice on its person or matter); something broken first (2A a card atop Settings, 2B the count pill becomes a warning
