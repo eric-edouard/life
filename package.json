@@ -26,7 +26,7 @@
     "events": "bun apps/lifelog/scripts/events.ts",
     "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/lifelog/apps/ios apps/lifelog/apps/mac-quiet",
     "host:app": "bun apps/lifelog/scripts/host-app.ts",
-    "install:phone": "bun apps/lifelog/scripts/install-phone.ts",
+    "install:phone": "HEAVY_LANE=release tools/heavy.sh bun apps/lifelog/scripts/install-phone.ts",
     "ios:project": "cd apps/lifelog/apps/ios && xcodegen generate --quiet",
     "life": "bun apps/server/src/desk/life-entry.ts",
     "prepare": "git config core.hooksPath .githooks",
