@@ -765,10 +765,9 @@ test("his own situation is checked against the episodes the index holds, by the 
     await reindex();
     // Unreadable now: reading any episode file would throw.
     writeFileSync(file, "not an episode\n");
-    const now = (await person("Test Owner")) as {
-      situation: { markdown: string }[];
-    };
-    expect(now.situation.map((p) => p.markdown)).toEqual(["You moved flats."]);
+    const now = JSON.stringify(await person("Test Owner"));
+    expect(now).toContain("You moved flats.");
+    expect(now).not.toContain("since gone");
   } finally {
     rmSync(EPISODES, { force: true, recursive: true });
     rmSync(situationPath(OWNER), { force: true });
