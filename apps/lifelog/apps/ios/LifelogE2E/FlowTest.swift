@@ -143,12 +143,16 @@ class FlowTest: XCTestCase {
         appears(rows.firstMatch, "the ask in the list")
         let listed = rows.count > 1 ? rows.element(boundBy: 1) : rows.firstMatch
         let send = element(AID.askAnswer(Self.ask, "send"))
-        // The unfolded ask's end sits under the field: the thread is read upward to it; a fold on the way unfolds again.
+        // Send, the unfolded ask's end, is brought to the lower half, above the field, so the whole ask is in view:
+        // the thread is read a short way at a time toward it; a fold on the way unfolds again.
+        let half = app.frame.midY
         func reach() {
-            for _ in 0..<4 where !send.exists || !send.isHittable {
+            for _ in 0..<6 where !send.exists || !send.isHittable || send.frame.midY < half {
                 if !send.exists { unfold(listed, until: send) }
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.7)).press(
-                    forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.3)))
+                let isAbove = send.exists && send.frame.midY < half
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: isAbove ? 0.4 : 0.7)).press(
+                    forDuration: 0.1,
+                    thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: isAbove ? 0.6 : 0.5)))
                 Thread.sleep(forTimeInterval: 1)
             }
         }

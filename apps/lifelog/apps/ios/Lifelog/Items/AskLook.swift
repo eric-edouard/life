@@ -33,8 +33,8 @@ struct AskLook {
     }
 
     /// Who the ask is about, when its answer is a person: the guess leads, but never on a voice card, whose question is
-    /// who it is (a guessed face before his answer reads as settled). A payment shows only the payee an account
-    /// names (`Check.namedPayee`), never a guess.
+    /// who it is (a guessed face before his answer reads as settled). A draft shows who it goes to; a payment only the
+    /// payee an account names (`Check.namedPayee`), never a guess.
     var face: ItemFace? {
         if let network = check.signInNetwork { return .network(network) }
         if check.group == .guessedPerson {
@@ -42,6 +42,10 @@ struct AskLook {
         }
         if [.contactsCard, .atOrganization, .samePerson].contains(check.group) {
             return check.likelyPeople.first.map { .party($0) }
+        }
+        // A draft's chat as Life resolved it: who it goes to, never a guessed recipient.
+        if check.draft != nil {
+            return check.isRecipientGuessed ? nil : check.networkIdentity?.party.map { .party($0) }
         }
         return forWhom.map { .party($0) }
     }
@@ -71,10 +75,15 @@ struct AskLook {
         if check.signInNetwork != nil {
             return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
         }
+        // A draft's network is its chat head's: the row names only who it goes to, a guessed one with a "~".
+        if let draft = check.draft {
+            let name = check.networkIdentity?.shownName ?? draft.to
+            return check.isRecipientGuessed ? "~ " + name : name
+        }
         // His own step, under its matter's name.
         if check.group == .yourMove, check.question != check.title, let step = check.question.nilIfEmpty { return step }
         // Who it is for, unless it goes into a chat, which names them.
-        if check.draft == nil, check.networkIdentity == nil,
+        if check.networkIdentity == nil,
             let who = forHimAndOthers ?? forWhom.map({ isPayment ? $0.line ?? $0.name : $0.name })
         {
             return who

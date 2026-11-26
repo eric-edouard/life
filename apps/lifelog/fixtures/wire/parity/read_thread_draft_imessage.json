@@ -12,8 +12,8 @@
   "items": [
     {
       "answer": "Two photos of the bathroom tiles and a quote: 1,240 € for the whole floor.",
-      "answeredAt": "2026-11-16T09:12:00.000Z",
-      "at": "2026-11-16T09:12:00.000Z",
+      "answeredAt": "2026-11-24T09:12:00.000Z",
+      "at": "2026-11-24T09:12:00.000Z",
       "error": null,
       "follows": null,
       "handed": [],
@@ -25,8 +25,8 @@
     },
     {
       "answer": "Paul came on Tuesday. One thing is left, and it is his: he sends the invoice this week.",
-      "answeredAt": "2026-11-17T18:40:00.000Z",
-      "at": "2026-11-17T18:40:00.000Z",
+      "answeredAt": "2026-11-25T18:40:00.000Z",
+      "at": "2026-11-25T18:40:00.000Z",
       "error": null,
       "follows": null,
       "handed": [],
@@ -38,8 +38,8 @@
     },
     {
       "answer": "Thursday at 10:30, at the clinic on Rue Haute.",
-      "answeredAt": "2026-11-18T06:55:00.000Z",
-      "at": "2026-11-18T06:55:00.000Z",
+      "answeredAt": "2026-11-26T06:55:00.000Z",
+      "at": "2026-11-26T06:55:00.000Z",
       "error": null,
       "follows": null,
       "handed": [],
@@ -125,7 +125,18 @@
           "channel": "imessage",
           "text": "Yes, back by 7:30.",
           "to": "Nora",
-          "chat": "nora@example.com"
+          "chat": "nora@example.com",
+          "recent": [
+            {
+              "at": "2026-11-18T18:12:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Nora",
+                "ref": "person:nora"
+              },
+              "text": "Are you home for dinner?"
+            }
+          ]
         },
         "group": "decision",
         "isPlan": false,
@@ -171,7 +182,20 @@
         "question": "Send Nora the message?",
         "ref": "dec_000000000001",
         "title": "Reply to Nora",
-        "urgency": "blocks"
+        "urgency": "blocks",
+        "networkIdentity": {
+          "chat": "nora@example.com",
+          "handle": "nora@example.com",
+          "network": "iMessage",
+          "newest": null,
+          "openUrl": "sms:nora@example.com",
+          "shownName": "Nora",
+          "party": {
+            "kind": "person",
+            "name": "Nora",
+            "ref": "person:nora"
+          }
+        }
       },
       "kind": "ask",
       "later": null,

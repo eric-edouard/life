@@ -5,11 +5,13 @@ import SwiftUI
 // block. Words go only on an ask's and a question's answers, a confirm's two choices and a draft's chips; every other
 // control is a mark, or "Later".
 
-/// An ask's answers: the recommended one filled and full width, the rest two to a row, "Later" first. An answer is
-/// never cut off: a long one wraps. While one is busy, it keeps its fill and its spinner and the others dim.
+/// An ask's answers: the recommended one filled and full width, the rest two to a row, "Later" first and once. An
+/// answer is never cut off: a long one wraps. While one is busy, it keeps its fill and its spinner and the others dim.
 struct AnswerPills: View {
     let answers: [String]
     var recommended: String?
+    /// The answer that sends a draft: its words, then the send arrow.
+    var sends: String?
     var hasLater = true
     /// A yes/no question: every answer in one row, the likelier one filled and on the right.
     var isOneRow = false
@@ -22,7 +24,7 @@ struct AnswerPills: View {
     @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
-        let rest = (hasLater ? ["Later"] : []) + answers.filter { $0 != recommended }
+        let rest = (hasLater ? ["Later"] : []) + answers.filter { $0 != recommended && !(hasLater && $0 == "Later") }
         // At the largest sizes each answer gets the full width: a word is never broken to fit two.
         let per = size.isAccessibilitySize ? 1 : 2
         VStack(spacing: Metrics.Spacing.s) {
@@ -47,10 +49,18 @@ struct AnswerPills: View {
 
     private func pill(_ answer: String, _ kind: PillStyle.Kind) -> some View {
         // A pill's words stay on one line, never broken across two.
-        Button(answer) { say(answer) }.lineLimit(1)
-            .buttonStyle(.pill(kind, size: .row, isBusy: answer == busy)).identified(identify(answer))
-            .disabled(disabled.contains(answer))
-            .opacity(busy == nil || answer == busy ? 1 : Metrics.Opacity.dim)
+        Button {
+            say(answer)
+        } label: {
+            HStack(spacing: Metrics.Spacing.s) {
+                Text(answer)
+                if answer == sends { Glyph(.send, size: 14).accessibilityHidden(true) }
+            }
+        }
+        .lineLimit(1)
+        .buttonStyle(.pill(kind, size: .row, isBusy: answer == busy)).identified(identify(answer))
+        .disabled(disabled.contains(answer))
+        .opacity(busy == nil || answer == busy ? 1 : Metrics.Opacity.dim)
     }
 }
 
@@ -202,7 +212,9 @@ struct AskCard: View {
                 }
             }
             AnswerPills(
-                answers: answers, recommended: recommended, isOneRow: look?.isYesNo == true, busy: busy,
+                answers: answers, recommended: recommended,
+                sends: check?.options.first { $0.outgoing == true }.map { look?.label($0) ?? $0.label },
+                isOneRow: look?.isYesNo == true, busy: busy,
                 disabled: disabled, identify: identify, say: say
             )
         }

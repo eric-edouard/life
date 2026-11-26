@@ -272,7 +272,7 @@ private struct ChatHead: View {
                 }
                 if url != nil {
                     HStack(spacing: Metrics.Spacing.xs) {
-                        Text("Open \(network)")
+                        Text("Open \(look.app ?? network)")
                         Glyph(.open, size: 14)
                     }
                     .font(.heading)
@@ -291,10 +291,8 @@ private struct ChatHead: View {
         if draft.isMail {
             return [network, draft.quoted?.subject ?? draft.subject].compactMap(\.self).joined(separator: " · ")
         }
-        let name =
-            check.isRecipientGuessed
+        return check.isRecipientGuessed
             ? "~ " + (check.networkIdentity?.shownName ?? draft.to) : check.head?.name ?? draft.to
-        return look.namesNetwork ? "\(name) · \(network)" : name
     }
 }
 
@@ -314,8 +312,8 @@ struct ChatLook {
     var tail: CGFloat
     /// A file then its words as a second bubble, as it will really arrive (Messages.app).
     var isCaptionApart = false
-    /// The head names the network ("iMessage"), where its bubble alone doesn't.
-    var namesNetwork = false
+    /// The app its chat opens in, when it is not named as the network ("Messages" for iMessage).
+    var app: String?
 
     /// A group's sender colours, in the order they first wrote.
     static let senders = [
@@ -334,7 +332,7 @@ struct ChatLook {
             solid(
                 Palette.token(dark: 0x0b84ff, light: 0x0b84ff), shade: (0.18, 0.14),
                 bar: Palette.token(dark: 0xcfe6ff, light: 0xe6f2ff), radius: 18, tail: 6, isCaptionApart: true,
-                namesNetwork: true)
+                app: "Messages")
         case "line":
             solid(
                 Palette.token(dark: 0x06c755, light: 0x06c755), shade: (0.16, 0.12),
@@ -369,12 +367,12 @@ struct ChatLook {
     private static func solid(
         _ sent: Color, text: Color = .white, shade tint: (dark: Double, light: Double), bar: Color,
         mention: Color = .white, radius: CGFloat, tail: CGFloat, hasQuoteBar: Bool = false,
-        isCaptionApart: Bool = false, namesNetwork: Bool = false
+        isCaptionApart: Bool = false, app: String? = nil
     ) -> ChatLook {
         ChatLook(
             sent: AnyShapeStyle(sent), text: text, quoteTint: shade(tint.dark, tint.light), bar: bar,
             hasQuoteBar: hasQuoteBar, mention: mention, radius: radius, tail: tail,
-            isCaptionApart: isCaptionApart, namesNetwork: namesNetwork)
+            isCaptionApart: isCaptionApart, app: app)
     }
 
     /// Black at a strength for dark and one for light: a quote's inset on the bubble.

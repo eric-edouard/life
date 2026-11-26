@@ -15,7 +15,18 @@
           "channel": "whatsapp",
           "text": "Can you come Friday?",
           "to": "Kit Moreau",
-          "chat": "155@s.whatsapp.net"
+          "chat": "155@s.whatsapp.net",
+          "recent": [
+            {
+              "at": "2026-11-18T10:00:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Kit Moreau",
+                "ref": "person:inf_kit"
+              },
+              "text": "Are you around this week?"
+            }
+          ]
         },
         "group": "decision",
         "isPlan": false,
@@ -53,7 +64,25 @@
         "question": "Send Kit the message?",
         "ref": "dec_000000000001",
         "title": "Ask Kit",
-        "urgency": "blocks"
+        "urgency": "blocks",
+        "confirm": [],
+        "head": {
+          "name": "Kit Moreau",
+          "network": "WhatsApp"
+        },
+        "networkIdentity": {
+          "chat": "155@s.whatsapp.net",
+          "handle": "+155",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": null,
+          "shownName": "Kit Moreau",
+          "party": {
+            "kind": "person",
+            "name": "Kit Moreau",
+            "ref": "person:inf_kit"
+          }
+        }
       },
       "kind": "ask",
       "later": null,
