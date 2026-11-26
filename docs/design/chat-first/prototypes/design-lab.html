@@ -118,6 +118,7 @@ button:focus-visible,textarea:focus-visible,summary:focus-visible,label:focus-wi
 <script src="v2-3.js" charset="utf-8"></script>
 <script src="v2-4.js" charset="utf-8"></script>
 <script src="v2-5.js" charset="utf-8"></script>
+<script src="v3-pages.js" charset="utf-8"></script>
 
 <script>
 (function(){
@@ -149,7 +150,7 @@ function sceneItems(P){return P.groups.filter(function(g){return g.btns.length&&
    v:{A:{w:'As in app v4 (25 Nov)',views:g.btns.map(function(b){return [b[0],{scene:[b[1]]}];})}}};});}
 var ITEMS=[],CH={},cur={i:0,k:'A',vi:0},mode='choose',SHELL='',P={groups:[],hint:''};
 /* ---- the screen ---- */
-function cardScreen(ctx,blocks,top){var pg=blocks[0]&&blocks[0][0]==='mpage';if(pg)ctx=null;
+function cardScreen(ctx,blocks,top){var pg=blocks[0]&&blocks[0][0]==='mpage'||top==='page';if(pg)ctx=null;
  return '<div class="vph'+(pg||top?' pgv':'')+'"><div class="vsb"><span>9:41</span><span>●●● ▮</span></div><div class="vpl">'+(pg?'<button type="button" class="vback" aria-label="Back">‹</button>':'<i>3</i>')+'<i class="pd"></i></div><div class="vth"><div class="cbf">'+(ctx?'<div class="cbf vctx">'+CB.draw(ctx)+'</div>':'')+CB.draw(blocks)+'</div></div><div class="vfl">'+B.field(pg?'Ask about this':'Ask anything')+'</div></div>';}
 function screen(r){return r.blocks?cardScreen(r.ctx,r.blocks,r.top):r.sx?'<div class="sx">'+r.sx+'</div>':r.ax?'<div class="ax">'+r.ax+'</div>':'<div class="scene"></div>';}
 function bottom(){$('track').querySelectorAll('.vth').forEach(function(t){t.scrollTop=t.closest('.pgv')?0:t.scrollHeight;});}
@@ -233,7 +234,7 @@ addEventListener('keydown',function(e){if(e.key==='Escape'){sheet(false);return;
 addEventListener('message',function(e){if(e.source===fr.contentWindow&&e.data==='ready')feed();});
 /* ---- start: read the shell, list every item, open the last one he looked at ---- */
 fetch('shell.html').then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(t){SHELL=t;return sceneItems(panelOf(new DOMParser().parseFromString(t,'text/html')));},function(){return [];}).then(function(sc){
- ITEMS=[];AREAS.forEach(function(a){CARDS.concat(PAGES,LP.ITEMS.map(withV2),sc).forEach(function(x){if(x.area===a[0])ITEMS.push(x);});});
+ ITEMS=[];AREAS.forEach(function(a){CARDS.concat(PAGES,LP.ITEMS.map(withV2),window.EXTRA_ITEMS||[],sc).forEach(function(x){if(x.area===a[0])ITEMS.push(x);});});
  var last=null;try{last=localStorage.getItem('life-lab-item');}catch(e){}var i=ITEMS.map(function(x){return x.id;}).indexOf(last);fit();open(i<0?ITEMS.map(function(x){return x.id;}).indexOf('anatomy'):i);});
 if(window.claude&&claude.use)claude.use('db').then(function(d){if(!d)return;col=d.collection('choices');
  var tm=setTimeout(function(){$('save').textContent='Life’s store is slow; your choices stay on this device meanwhile.';},10000);
