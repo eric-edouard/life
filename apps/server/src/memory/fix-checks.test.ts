@@ -22,6 +22,8 @@ test("the fix list: a bridge to sign in (signed out, or never linked), and the m
       network: "line",
       options: ["sign-in", "later"],
       ref: "fix:signed-out/line",
+      // The prototype's words for a signed-out network (`wafix`).
+      title: "Sign LINE back in",
     },
     {
       network: "telegram",
