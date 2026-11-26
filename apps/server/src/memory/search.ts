@@ -25,7 +25,8 @@ import {
 } from "./index-rows";
 import { deletionsNow, episodesWhere, readIndex } from "./memory-files";
 import { directoryPartiesOf, OWNER } from "./read-truth";
-import { readSituationNow, situated, situationBlock } from "./situations";
+import { situationBlock } from "./situation-parts";
+import { readSituationNow, situated } from "./situations";
 import { listening } from "./sources";
 import { holdsName } from "./units";
 import { embedQuery, readNearest } from "./vectors";
@@ -321,7 +322,7 @@ export async function search(words: string, o: DayRange = {}) {
 /**
  * The situations a search opens with, so its hits are read knowing where things stand: whole, those of the people
  * `words` name (him aside), else his own when the search is about now (`isNow`: no days bound it); then, from every
- * other situation, the lines citing an episode the search shows (`shown`). `episodes`: those there are.
+ * other situation, the parts citing an episode the search shows (`shown`). `episodes`: those there are.
  */
 export async function readSituationsOf(
   words: string,
@@ -352,8 +353,8 @@ export async function readSituationsOf(
       .flatMap((ref) =>
         situationBlock(
           `${title(ref)}, on the episodes below`,
-          readSituationNow(ref, episodes, refOf).filter((l) =>
-            l.cites.some((id) => shown.has(id))
+          readSituationNow(ref, episodes, refOf).filter((p) =>
+            p.cites.some((id) => shown.has(id))
           )
         )
       ),

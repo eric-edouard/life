@@ -2,7 +2,7 @@ import { newestDays, within } from "../core/lists";
 import { redact } from "../core/redact";
 import type { CommunicationStyleLine } from "../records/communication-style";
 import { ClosenessLevel } from "../records/observation";
-import type { SituationLine } from "../records/situation";
+import type { SituationPart } from "../records/situation";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import type { InboxCheck } from "./checks";
@@ -205,7 +205,7 @@ export interface NowInputs {
   pictures: PictureIndex[string];
   reach: Reach[];
   row: PersonRow;
-  situation: SituationLine[];
+  situation: SituationPart[];
   today: string;
 }
 

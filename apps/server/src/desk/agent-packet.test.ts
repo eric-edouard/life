@@ -11,7 +11,7 @@ import {
   messageMatchableOf,
   messagePayloadOf,
 } from "../host/events";
-import { projectSituationPath } from "../memory/project-situation-read";
+import { projectSituationPath } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";
@@ -153,21 +153,26 @@ test("an agent on a project's matter, and the project's agent, get the project's
       writeJson(projectSituationPath("test-bakery"), {
         built: "2026-11-10T00:00:00.000Z",
         inputs: "0123456789abcdef",
-        lines: [
-          { cites: ["obs_mine"], text: "The oven quote went out on 10 Nov." },
-          { cites: ["obs_gone"], text: "A step since re-grouped away." },
-        ],
         madeBy: {
           engine: "claude",
           model: "m",
-          prompt: promptNameOf("memory-project-situation.v1"),
+          prompt: promptNameOf("memory-project-situation.v2"),
           run: "r",
         },
-        project: "test-bakery",
-        schemaVersion: 1,
+        parts: [
+          {
+            cites: ["obs_mine"],
+            markdown: "You sent the oven quote on 10 Nov.",
+          },
+          { cites: ["obs_gone"], markdown: "A step since re-grouped away." },
+        ],
+        schemaVersion: 2,
+        subject: "test-bakery",
       });
       const standing = await onMatter("obs_mine");
-      expect(standing).toContain("- The oven quote went out on 10 Nov.");
+      expect(standing).toContain(
+        "You sent the oven quote on 10 Nov. [obs_mine]"
+      );
       expect(standing).not.toContain("re-grouped away");
       rmSync(projectSituationPath("test-bakery"), { force: true });
       // The project's agent gets the same line.

@@ -71,17 +71,24 @@ flowchart LR
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
-- **Situations** (`situations.ts`): where things stand now with him and everyone with a page who has an episode in the last 30 days (`pagedNow`
-  and `isRecent`: a client or a builder as much as a friend), read nightly by one call from the page, the persona (to say
-  when the newest days repeat a known pattern or break it; only while the `personas` add-on is on) and the last 30
-  days' episodes, each line citing episodes. The prompt (`memory-situation.v3`) is practical for anyone; how they get
-  along, together or not, feelings and sex, and his own mood, love life and health are its parts for the `relationships`
-  and `aboutMe` add-ons (prompt parts). Rebuilt whole when its inputs change (episodes, page digest, persona text while
-  on, the prompt's variant name), so a new page or a toggled add-on refreshes it the next night,
-  never from its own last version, so it stays a projection; older days fade into the page's sections and History,
-  and git keeps every version. A reader shows a line only while its episodes are live and the situation was made by the variant the add-ons choose now (a toggle hides it at once), the situation first; a search also shows,
-  from the situations it doesn't show whole, the lines citing an episode it found.
-- **Project situations** (`project-situations.ts`, after the matter directions): the situation for a project underway that shows a running matter today (the clock's eligibility), one call per project from its directory entry and the open matters under it, dormant ones too (goal, next step as it reads now, newest 30 open steps and 12 steps, so a large matter still fits), each line citing steps (`memory-project-situation.v1`). Rebuilt whole when the evidence's digest changes, never from its last version and never on the clock: the digest holds refs, never a name or a status, so a matter going dormant or a rename rebuilds nothing. The night reads the matter records once for the directions and this step (a night with nothing changed reads no history again), at most 30,000 characters a project, and no call when the digest is unchanged: nothing grows with the years. Shown at the head of `read_matters` of that project and in the packet of an agent whose matter or project it is, as data. An area gets none.
+- **Situations** (`situation-parts.ts`, the one place for their rules): the page he sees when opening someone, a project
+  or a matter, written by the night's model as Markdown parts to him ("you"), the shape its own (a sentence, a list, a
+  dated list), each part citing what it rests on; asks, the next step, a status, reach and details are code's, drawn live
+  beside it, so the reading never goes wrong when a matter moves. Checked when written (`partsOf`: every cite and
+  `life:` link among what the call was shown, every quote found word for word, no heading, fenced block, image or web
+  address; a reply with none kept fails and the last reading stays), read through `situationPartsNow` (the prompt's
+  variant in force, hidden until redone after a deletion it was shown). A tap reads the stored file; it never runs a
+  model (docs/plans/2026-11-26-generated-overviews.md).
+  - **A person's** (`situations.ts`, `memory-situation.v4`): him, everyone with a page and each organization of his
+    directory, one call for each with an episode, reading the page, the story and the persona (while the `histories` and
+    `personas` add-ons are on; the story, another summary, outside the digest) and the 30 days' episodes ending at their
+    newest, so someone not seen for months keeps a page that says when they last met. Its practical text is for anyone;
+    how they get along and his own mood, love life and health are its `relationships` and `aboutMe` parts. Rebuilt whole
+    when its inputs change (episodes, page digest, persona text while on, the prompt's variant name), never from its own
+    last version. A reader shows a part only while its episodes are live; a search also shows, from the situations it
+    doesn't show whole, the parts citing an episode it found.
+  - **A project's** (`project-situations.ts`, after the matter directions, `memory-project-situation.v2`): for a project underway that shows a running matter today (the clock's eligibility), one call per project from its directory entry and the open matters under it, dormant ones too (goal, next step as it reads now, newest 30 open steps and 12 steps, so a large matter still fits), each part citing steps. Rebuilt whole when the evidence's digest changes, never on the clock: the digest holds refs, never a name or a status. At most 30,000 characters a project, and no call when the digest is unchanged. Shown at the head of `read_matters` of that project and in the packet of an agent whose matter or project it is, as data. An area gets none.
+  - **A matter's** (`matter-situations.ts`, right after the directions, `memory-matter-situation.v1`): for a matter of two steps or more, one call from what its direction call is shown (`shownOf`: goal, newest 12 steps, open steps, later records) and the units and payments found near its words; the digest holds ids and words only. The night reads the matter records once for the directions, this step and the project situations; at most 120,000 characters of matters a night, the newest first, about $0.0006 a matter: nothing grows with the years. Shown in `read_matter`'s `situation`.
 - **Communication styles** (`memory/communication-styles.ts`, `memory/communication-styles/`, core, no add-on; shown in the person read's `now`; his request of 16 Nov 2026: drafts in his voice for everyone with a page): one call per person with a page reads their newest 120 1:1 chat messages and 30 mails, both ways (the night's `readWithPeople`; Life's own output and the agent's reports left out, so drafts never learn from drafts), and writes how he writes to them and how they write to him, each point quoted from that writer's own chat messages and checked. Rebuilt whole per person at most weekly, when those messages changed; at most 200 calls a night, the newest first. Describes the writing, never the person.
 - **Personas** (`personal/personas.ts`): a gist first (his request of 9 Nov 2026), then what each person with a page is like, what they want and can give (and what goes each
   way between them and him), what keeps happening between them (both sides, his part named), for an agent who reads them before he meets, calls or

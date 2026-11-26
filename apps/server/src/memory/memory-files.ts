@@ -70,10 +70,18 @@ export const pagePath = (ref: string) =>
   ref.startsWith("person:")
     ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
     : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
-/** Where things stand with him and each person close to him (`memory/situations.ts`), one file per person. */
+/** Where things stand with him, each person with a page and each organization of his directory (`memory/situations.ts`), one file each. */
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);
+/** Where each project underway stands (`memory/project-situations.ts`), one file per project, apart from the people's. */
+export const PROJECT_SITUATIONS = join(MEMORY, "project-situations");
+export const projectSituationPath = (project: string) =>
+  join(PROJECT_SITUATIONS, `${project}.json`);
+/** Where each matter stands (`memory/matter-situations.ts`), one file per matter. */
+export const MATTER_SITUATIONS = join(MEMORY, "matter-situations");
+export const matterSituationPath = (matter: string) =>
+  join(MATTER_SITUATIONS, `${matter}.json`);
 /** What each person with a page is like, wants and can give, and what keeps happening between them and him (`personal/personas.ts`), one file per person. */
 export const PERSONAS = join(MEMORY, "personas");
 export const personaPath = (ref: string) =>

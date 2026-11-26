@@ -74,6 +74,7 @@ import {
   CLOSENESS,
   deletionsNow,
   PAGES,
+  PROJECT_SITUATIONS,
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
@@ -84,7 +85,6 @@ import { isLocked } from "./memory-lock";
 import { needsShownOf } from "./needs";
 import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
-import { PROJECT_SITUATIONS } from "./project-situation-read";
 import { isOneOfHis, isParkedMatterOf } from "./read-matters";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { lifeLinksOf } from "./refs";

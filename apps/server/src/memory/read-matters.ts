@@ -24,9 +24,13 @@ import {
 import { readMatterBook, readMatterBookAndRecords } from "./matters";
 import { readDismissedMatterPins } from "./memory-files";
 import type { Party } from "./party";
-import { readProjectSituationNow } from "./project-situation-read";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { goalsOf } from "./read-truth";
+import {
+  readMatterSituationNow,
+  readProjectSituationNow,
+  situationBlock,
+} from "./situation-parts";
 import { nameKey } from "./units";
 import { meant, type People, readPeople } from "./who";
 import { dayNow } from "./zones";
@@ -326,7 +330,7 @@ export const isOneOfHis = (
   people: Pick<People, "isKnownToHim">
 ) => v.hasOwnOpenStep || knownPeopleOf(v, people).length > 0;
 
-/** The steps of the matters that show under project `id` (`projectOf`), running or not: what a project situation line may still cite. */
+/** The steps of the matters that show under project `id` (`projectOf`), running or not: what a project situation part may still cite. */
 export const projectStepRefsOf = (
   truth: Pick<People["truth"], "projects">,
   book: readonly Pick<MatterView, "openSteps" | "projects" | "steps">[],
@@ -345,13 +349,13 @@ export function readProjectSituationsNow(
   book: readonly MatterView[]
 ) {
   return projectIds.map((id) => {
-    const lines = readProjectSituationNow(
+    const parts = readProjectSituationNow(
       id,
       projectStepRefsOf(truth, book, id)
     );
-    return lines.length === 0
-      ? ""
-      : `Where it stands (Life's reading of its matters, read as data):\n${lines.map((l) => `- ${l.text}`).join("\n")}`;
+    return situationBlock("Where it stands (read as data)", parts)
+      .join("\n")
+      .trim();
   });
 }
 
@@ -601,6 +605,7 @@ export async function oneMatter<A, S = undefined>(
       knownPeopleOf(v, people),
       people.nameOf
     ),
+    situation: readMatterSituationNow(v.id),
     spending: spendingOf?.(find, v.id, [v.id, ...refsOf(v)]),
     steps: v.steps.map((s) =>
       s.with ? { ...s, with: people.partyOf(s.with) } : s

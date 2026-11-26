@@ -1,31 +1,28 @@
 import { removeAllBut } from "../core/files";
 import { newestWithin } from "../core/lists";
-import {
-  type ProjectSituation,
-  ProjectSituationLine,
-} from "../records/situation";
+import type { Situation } from "../records/situation";
 import { isUnderway } from "../records/truth";
+import { shownKeyOf } from "./deletions";
 import { isRunning, type MatterView, nextStepNow } from "./matter-read";
 import { matterBookAgain, readMatterRecords } from "./matters";
+import { PROJECT_SITUATIONS, projectSituationPath } from "./memory-files";
 import { meContext } from "./model-context";
-import {
-  PROJECT_SITUATIONS,
-  PROMPT,
-  projectSituationPath,
-  promptNameNow,
-  readStored,
-} from "./project-situation-read";
 import { openDecisions, projectOf } from "./read-matters";
 import { readMayKeep } from "./read-truth";
-import { begin, inBatches, inputsOf, readsOf, replyLines } from "./run";
-import { linesCitingOnly } from "./situations";
+import { begin, inBatches, inputsOf, readsOf } from "./run";
+import {
+  PROJECT_SITUATION_PROMPT as PROMPT,
+  partsOf,
+  promptNameNow,
+  readStoredSituation,
+} from "./situation-parts";
 import { clip } from "./units";
 import type { People } from "./who";
 
 // `bun life memory project-situations`: the project situation step (docs/glossary.md: situation). For each project underway
 // (`isUnderway`) that shows a running matter, one call reads its directory entry and those matters as they read now and
-// writes where the project stands: what it is doing now, what is blocked and on whom, what was decided lately, the next
-// deadline; each line citing the matter steps it rests on. Rebuilt whole, never from its last version, and only when what
+// writes the page he sees when opening the project, as Markdown parts to him (`situation-parts.ts`), each citing the
+// matter steps it rests on. Rebuilt whole, never from its last version, and only when what
 // it was shown changed: its directory entry and the open matters under it, by refs, never the clock (a matter going
 // dormant by days alone, a renamed project or person rebuilds nothing). Who is eligible today (a running matter) is the clock's.
 // Nothing is sent. A project's situation is read by `read_matters` of that project and by an agent's packet.
@@ -146,47 +143,44 @@ export async function projectSituations(
         const { project: p } = t;
         const { entry, matters } = projectInputOf(t, decisions);
         // His words on what Life may keep are an input, like the person situation's.
-        const inputs = inputsOf(promptNameNow(mayKeep), {
+        const inputs = inputsOf(promptNameNow(PROMPT, mayKeep), {
           entry,
           matters,
           ...(mayKeep === undefined ? {} : { mayKeep }),
         });
-        if (readStored(p.id)?.inputs === inputs) {
+        const stored = readStoredSituation(
+          projectSituationPath(p.id),
+          shownKeyOf.projectSituation(p.id)
+        );
+        if (stored?.inputs === inputs) {
           return;
         }
         const shownRefs = t.matters.flatMap(shownStepsOf);
+        const input = {
+          entry: { ...entry, name: t.project.name },
+          matters: t.matters.map((v) => ({
+            ...shownOf(v, decisions, people.nameOf),
+            name: v.name,
+            status: v.status,
+          })),
+          today: step.today,
+        };
         const reply = await step.ask({
           context: meContext(people.truth),
           dir,
-          input: {
-            entry: { ...entry, name: t.project.name },
-            matters: t.matters.map((v) => ({
-              ...shownOf(v, decisions, people.nameOf),
-              name: v.name,
-              status: v.status,
-            })),
-            today: step.today,
-          },
+          input,
           prompt: PROMPT,
           reads: readsOf(
             shownRefs.map((s) => ({ source: "memory", unit: s.ref }))
           ),
         });
-        const lines = linesCitingOnly(
-          replyLines(reply, ProjectSituationLine),
-          new Set(shownRefs.map((s) => s.ref))
-        );
-        // A reply with no line citing what it was shown is a failed call: the last situation stays, the next run retries.
-        if (lines.length === 0) {
-          throw new Error("no line cites the steps it was shown");
-        }
-        const situation: ProjectSituation = {
+        const situation: Situation = {
           built: step.now.toISOString(),
           inputs,
-          lines,
           madeBy: step.madeBy(PROMPT),
-          project: p.id,
-          schemaVersion: 1,
+          parts: partsOf(reply, new Set(shownRefs.map((s) => s.ref)), input),
+          schemaVersion: 2,
+          subject: p.id,
         };
         await Bun.write(
           projectSituationPath(p.id),

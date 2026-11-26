@@ -22,6 +22,7 @@ import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
 import { dueDirectionsOf, matterDirections } from "../memory/matter-directions";
+import { matterSituations } from "../memory/matter-situations";
 import {
   callsOf,
   matterLines,
@@ -62,7 +63,7 @@ import {
   lastDays,
   type Window,
 } from "../memory/zones";
-import { histories, readHistoryWork } from "../personal/histories";
+import { histories, readHistoryWork, storyTextOf } from "../personal/histories";
 import { personaReadingsOf, personas } from "../personal/personas";
 import { recordHisCorrection } from "./correct-matter";
 import { deleteFromMemoryAndTodoItems } from "./deletion-door";
@@ -404,6 +405,7 @@ const HANDLERS: Record<string, Handler> = {
           failed: 0,
         };
   }),
+  "matter-situations": step(async () => matterSituations(await readPeople())),
   /**
    * `matters [list] [--force] [--since YYYY-MM-DD]`: what the matters step would place in the night's days (calls,
    * episodes, to-do items), with no model; `--force` places it, as the night does;
@@ -506,7 +508,9 @@ const HANDLERS: Record<string, Handler> = {
     ),
   search: (values, rest) =>
     printed(rest.length > 0 ? search(words(rest), values) : null),
-  situations: step(() => situations(personaReadingsOf)),
+  situations: step(() =>
+    situations({ personaOf: personaReadingsOf, storyOf: storyTextOf })
+  ),
   /** `source-use [--days 7] [--json]`: what each source costs a day (items, units, readers, reads per unit, tokens, dollars). */
   "source-use": (v) => {
     const days = count(v.days) ?? 7;

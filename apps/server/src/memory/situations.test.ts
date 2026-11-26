@@ -10,11 +10,9 @@ import type { Episode } from "../records/episode";
 import { situationPath } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { inputsOf } from "./run";
+import { situationBlock } from "./situation-parts";
 import {
-  isRecent,
   readSituationNow,
-  shownLines,
-  situationBlock,
   situationEpisodesOf,
   situationInputOf,
   targetsOf,
@@ -29,71 +27,57 @@ const B = "ep_bbbbbbbbbbbb";
 
 afterEach(() => rm(situationPath(REF), { force: true }));
 
-test("a reply keeps only lines citing episodes it was shown", () => {
-  const reply = {
-    lines: [
-      { cites: [A], text: "Ana and the owner broke up before 3 Mar." },
-      { cites: [A, B], text: "Cites one episode it was not shown." },
-      { cites: [], text: "Cites nothing." },
-      { text: "No cites at all." },
-    ],
-  };
-  expect(shownLines(reply, new Set([A]))).toEqual([
-    { cites: [A], text: "Ana and the owner broke up before 3 Mar." },
-  ]);
-  expect(shownLines("not json", new Set([A]))).toEqual([]);
-});
-
-test("a reader shows only lines whose episodes are still live", () => {
+test("a reader shows only parts whose episodes are still live; the page and the story always stand", () => {
   writeJson(situationPath(REF), {
     built: "2026-11-05T00:00:00.000Z",
     inputs: "0123456789abcdef",
-    lines: [
-      { cites: [A], text: "Ana stays at his flat since 20 Mar." },
-      { cites: [B], text: "An episode since re-read away." },
-    ],
     madeBy: {
       engine: "claude",
       model: "m",
-      prompt: promptNameOf("memory-situation.v3"),
+      prompt: promptNameOf("memory-situation.v4"),
       run: "r",
     },
-    page: REF,
-    schemaVersion: 1,
+    parts: [
+      { cites: [A], markdown: "Ana stays at your flat since 20 Mar." },
+      { cites: [B], markdown: "An episode since re-read away." },
+      { cites: [REF, `${REF}/story`], markdown: "Friends since 2019." },
+    ],
+    schemaVersion: 2,
+    subject: REF,
   });
   const withAna = { id: A, people: [{ ref: REF }] };
   const same = (r: string) => r;
   expect(
     situationBlock("Situation", readSituationNow(REF, [withAna], same))
   ).toEqual([
-    "Situation (where things stand, read each night from the 30 days up to their newest episode):",
-    `- Ana stays at his flat since 20 Mar. [${A}]`,
+    'Situation (Life\'s reading, written to Test as "you"):',
+    `Ana stays at your flat since 20 Mar. [${A}]`,
+    `Friends since 2019. [${REF}, ${REF}/story]`,
     "",
   ]);
-  expect(situationBlock("Situation", readSituationNow(REF, [], same))).toEqual(
-    []
-  );
-  // An episode still standing but no longer with her: her line on it goes.
-  expect(readSituationNow(REF, [{ id: A, people: [] }], same)).toEqual([]);
+  // An episode still standing but no longer with her: her part on it goes.
+  expect(
+    readSituationNow(REF, [{ id: A, people: [] }], same).map((p) => p.markdown)
+  ).toEqual(["Friends since 2019."]);
 });
 
 test("his own situation may cite any standing episode: his episodes leave him out of their people", () => {
   writeJson(situationPath(OWNER), {
     built: "2026-11-05T00:00:00.000Z",
     inputs: "0123456789abcdef",
-    lines: [{ cites: [A], text: "He moves flats in March." }],
     madeBy: {
       engine: "claude",
       model: "m",
-      prompt: promptNameOf("memory-situation.v3"),
+      prompt: promptNameOf("memory-situation.v4"),
       run: "r",
     },
-    page: OWNER,
-    schemaVersion: 1,
+    parts: [{ cites: [A], markdown: "He moves flats in March." }],
+    schemaVersion: 2,
+    subject: OWNER,
   });
   expect(
     readSituationNow(OWNER, [{ id: A, people: [] }], (r) => r).map(
-      (l) => l.text
+      (p) => p.markdown
     )
   ).toEqual(["He moves flats in March."]);
 });
@@ -132,10 +116,7 @@ test("a situation's digest is its subject's weighty episodes ending at their new
   expect(
     situationEpisodesOf(all, (m) => m.people[0]?.ref === ana).map((m) => m.day)
   ).toEqual(["2026-10-20", "2026-10-25"]);
-  // Today moving 40 days: the same episodes, so the same digest; only who has a situation looks at the date.
-  const eps = situationEpisodesOf(all, (m) => m.people[0]?.ref === ana);
-  expect(isRecent(eps, "2026-11-14")).toBe(true);
-  expect(isRecent(eps, "2026-12-25")).toBe(false);
+  // Today moving changes nothing: the digest never holds the clock.
   // A low-importance episode of hers, or an episode of someone else, changes nothing.
   expect(digest([...all, ep(5, "2026-11-01", ana, 1)])).toBe(before);
   expect(digest([...all, ep(6, "2026-11-12", "person:bo")])).toBe(before);
@@ -143,17 +124,28 @@ test("a situation's digest is its subject's weighty episodes ending at their new
   expect(digest([...all, ep(7, "2026-11-12", ana)])).not.toBe(before);
 });
 
-test("everyone with a page and a recent episode gets a situation, whoever is close; a page with none gets none", () => {
+test("everyone with a page or an organization keeps a situation, however old their newest episode; one with none gets no call", () => {
   const all = [
     ep(1, "2026-11-10", "person:client"),
     ep(2, "2026-08-01", "person:old"),
   ];
-  const ids = (paged: string[]) =>
-    targetsOf(paged, all, (r) => r, "2026-11-14").map((t) => t.ref);
   // He has one too, once, however many times the pages name him.
-  expect(
-    ids(["person:client", "person:old", "person:nobody", "person:me"])
-  ).toEqual(["person:me", "person:client"]);
+  const { kept, targets } = targetsOf(
+    ["person:client", "person:old", "person:nobody", "person:me"],
+    all,
+    (r) => r
+  );
+  expect(kept).toEqual([
+    "person:me",
+    "person:client",
+    "person:old",
+    "person:nobody",
+  ]);
+  expect(targets.map((t) => t.ref)).toEqual([
+    "person:me",
+    "person:client",
+    "person:old",
+  ]);
 });
 
 test("the digest follows the page and, only while given, the persona; the persona's backing is no part of it", () => {
@@ -185,14 +177,16 @@ test("a situation is shown only while it was made by the variant the add-ons cho
     writeJson(situationPath(REF), {
       built: "2026-11-05T00:00:00.000Z",
       inputs: "0123456789abcdef",
-      lines: [{ cites: [A], text: "The builder owes a quote since 3 Nov." }],
       madeBy: { engine: "claude", model: "m", prompt, run: "r" },
-      page: REF,
-      schemaVersion: 1,
+      parts: [
+        { cites: [A], markdown: "The builder owes a quote since 3 Nov." },
+      ],
+      schemaVersion: 2,
+      subject: REF,
     });
   try {
     setSettings({ personal: { aboutMe: {}, personas: {}, relationships: {} } });
-    stored("memory-situation.v3");
+    stored("memory-situation.v4");
     expect(
       readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
     ).toHaveLength(1);
@@ -201,9 +195,9 @@ test("a situation is shown only while it was made by the variant the add-ons cho
     expect(
       readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
     ).toEqual([]);
-    stored(promptNameOf("memory-situation.v3"));
-    expect(promptNameOf("memory-situation.v3")).toBe(
-      "memory-situation.v3-without-aboutMe-personas-relationships"
+    stored(promptNameOf("memory-situation.v4"));
+    expect(promptNameOf("memory-situation.v4")).toBe(
+      "memory-situation.v4-without-aboutMe-personas-relationships"
     );
     expect(
       readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
@@ -216,12 +210,12 @@ test("a situation is shown only while it was made by the variant the add-ons cho
 test("with every part on the situation prompt is its file bar the markers; with relationships off no relationship text is shown", () => {
   const was = settings().personal;
   const file = readFileSync(
-    join(LIFE_CODE_DIR, "prompts", "memory-situation.v3.md"),
+    join(LIFE_CODE_DIR, "prompts", "memory-situation.v4.md"),
     "utf8"
   );
   try {
     setSettings({ personal: { aboutMe: {}, personas: {}, relationships: {} } });
-    const all = promptText("memory-situation.v3");
+    const all = promptText("memory-situation.v4");
     expect(all).toEndWith(
       file
         .replace(MAY_KEEP_PART, "")
@@ -230,11 +224,11 @@ test("with every part on the situation prompt is its file bar the markers; with 
         .replaceAll("{{language}}", "English")
     );
     setSettings({ personal: { aboutMe: {}, personas: {} } });
-    const without = promptText("memory-situation.v3");
+    const without = promptText("memory-situation.v4");
     expect(without).not.toMatch(RELATIONSHIP_WORDS);
-    expect(without).toContain("what is open between them");
-    expect(promptNameOf("memory-situation.v3")).toBe(
-      "memory-situation.v3-without-relationships"
+    expect(without).toContain("Where things stand now");
+    expect(promptNameOf("memory-situation.v4")).toBe(
+      "memory-situation.v4-without-relationships"
     );
   } finally {
     setSettings({ personal: was ?? null });
@@ -248,15 +242,15 @@ test("a reader shows the situation made under the variant now: with his words on
     writeJson(situationPath(REF), {
       built: "2026-11-05T00:00:00.000Z",
       inputs: "0123456789abcdef",
-      lines: [{ cites: [A], text: "Ana stays at his flat since 20 Mar." }],
       madeBy: {
         engine: "claude",
         model: "m",
-        prompt: promptNameOf("memory-situation.v3", mayKeep ? [MAY_KEEP] : []),
+        prompt: promptNameOf("memory-situation.v4", mayKeep ? [MAY_KEEP] : []),
         run: "r",
       },
-      page: REF,
-      schemaVersion: 1,
+      parts: [{ cites: [A], markdown: "Ana stays at his flat since 20 Mar." }],
+      schemaVersion: 2,
+      subject: REF,
     });
     return readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)
       .length;

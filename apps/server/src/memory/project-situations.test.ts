@@ -2,22 +2,18 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { writeJson } from "../core/files";
 import { promptNameOf } from "../models/prompt-parts";
-import { ProjectSituationLine } from "../records/situation";
 import { type MatterView, nextStepNow } from "./matter-read";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
-import {
-  projectSituationPath,
-  readProjectSituationNow,
-} from "./project-situation-read";
+import { projectSituationPath } from "./memory-files";
 import {
   projectInputOf,
   projectSituations,
   projectTargetsOf,
 } from "./project-situations";
 import { projectStepRefsOf } from "./read-matters";
-import { inputsOf, replyLines } from "./run";
-import { linesCitingOnly } from "./situations";
+import { inputsOf } from "./run";
+import { readProjectSituationNow } from "./situation-parts";
 import type { People } from "./who";
 
 const ID = "test-harbor";
@@ -56,24 +52,24 @@ const project = (status: string, notes = "") => ({
 const people = (...projects: ReturnType<typeof project>[]) =>
   ({ nameOf: (r: string) => r, truth: { projects } }) as unknown as People;
 
-const store = (prompt = promptNameOf("memory-project-situation.v1")) =>
+const store = (prompt = promptNameOf("memory-project-situation.v2")) =>
   writeJson(projectSituationPath(ID), {
     built: "2026-11-10T00:00:00.000Z",
     inputs: "0123456789abcdef",
-    lines: [
-      { cites: [S1], text: "The quote went out on 10 Nov." },
-      { cites: [S2], text: "A step since re-grouped away." },
-    ],
     madeBy: { engine: "claude", model: "m", prompt, run: "r" },
-    project: ID,
-    schemaVersion: 1,
+    parts: [
+      { cites: [S1], markdown: "You sent the quote on 10 Nov." },
+      { cites: [S2], markdown: "A step since re-grouped away." },
+    ],
+    schemaVersion: 2,
+    subject: ID,
   });
 
-test("a reader shows only lines whose steps a matter of the project still holds", () => {
+test("a reader shows only parts whose steps a matter of the project still holds", () => {
   store();
-  expect(readProjectSituationNow(ID, new Set([S1])).map((l) => l.text)).toEqual(
-    ["The quote went out on 10 Nov."]
-  );
+  expect(
+    readProjectSituationNow(ID, new Set([S1])).map((p) => p.markdown)
+  ).toEqual(["You sent the quote on 10 Nov."]);
   expect(readProjectSituationNow(ID, new Set())).toEqual([]);
 });
 
@@ -233,7 +229,7 @@ test("a night with nothing changed reads no history: the records come from the n
   const bookOf = spyOn(matters, "matterBookAgain").mockReturnValue([book]);
   const records = spyOn(matters, "readMatterRecords");
   const ask = spyOn(models, "askOnce").mockResolvedValue({
-    lines: [{ cites: [S1], text: "The quote went out." }],
+    parts: [{ cites: [S1], markdown: "You sent the quote." }],
   } as never);
   const p = {
     nameOf: (r: string) => r,
@@ -254,19 +250,4 @@ test("a night with nothing changed reads no history: the records come from the n
     records.mockRestore();
     ask.mockRestore();
   }
-});
-
-test("a reply keeps only lines citing steps the call was shown", () => {
-  const reply = {
-    lines: [
-      { cites: [S1], text: "Kept." },
-      { cites: [S1, S2], text: "Cites one not shown." },
-      { cites: [], text: "Cites nothing." },
-    ],
-  };
-  expect(
-    linesCitingOnly(replyLines(reply, ProjectSituationLine), new Set([S1])).map(
-      (l) => l.text
-    )
-  ).toEqual(["Kept."]);
 });

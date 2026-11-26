@@ -77,6 +77,22 @@ test("no prompt names the owner by a pronoun or as the owner: {{owner}} is his n
   }
 });
 
+/** The readings written for his own screen (AGENTS.md: they address him as "you"); every other stored line keeps his name. */
+const TO_HIM = [
+  "memory-matter-situation.v1",
+  "memory-project-situation.v2",
+  "memory-situation.v4",
+];
+const SAYS_YOU =
+  /saying "you" and "your" for \{\{owner\}\},\s+never\s+\{\{owner\}\}'s name/;
+
+test('only the readings for his own screen are written to him as "you", their prompts still naming him {{owner}}', () => {
+  const prompts = readdirSync(join(LIFE_CODE_DIR, "prompts"))
+    .map((f) => f.replace(MD, ""))
+    .filter((p) => SAYS_YOU.test(file(p)));
+  expect(prompts.toSorted()).toEqual(TO_HIM);
+});
+
 test("{{language}} is the language his memory is written in", () => {
   const was = settings().memoryLanguage;
   try {
@@ -176,8 +192,8 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
 });
 
 test("the situation prompt has the mayKeep sentence only when it is given", () => {
-  expect(promptText("memory-situation.v3")).not.toContain("must not keep");
-  expect(promptText("memory-situation.v3", [MAY_KEEP])).toContain(
+  expect(promptText("memory-situation.v4")).not.toContain("must not keep");
+  expect(promptText("memory-situation.v4", [MAY_KEEP])).toContain(
     "must not keep"
   );
 });

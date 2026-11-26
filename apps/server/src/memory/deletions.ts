@@ -152,10 +152,12 @@ export const deletedEventsOf = (
           },
         ];
   });
-/** The key a derived read is known by in a deletion's `shown`: a persona, a history's month or story, a situation. */
+/** The key a derived read is known by in a deletion's `shown`: a persona, a history's month or story, a situation (a person's, a project's, a matter's). */
 export const shownKeyOf = {
   history: (ref: string, month: string) => `history:${ref}:${month}`,
+  matterSituation: (matter: string) => `matter-situation:${matter}`,
   persona: (ref: string) => `persona:${ref}`,
+  projectSituation: (project: string) => `project-situation:${project}`,
   situation: (ref: string) => `situation:${ref}`,
 };
 
@@ -201,7 +203,7 @@ export interface DeletionLayers {
   matters: { id: string; steps: string[] }[];
   /** The facts, with the line they cite and their unit. */
   observations: { id: string; source: string; unit: string }[];
-  /** The derived reads shown units: a persona, a history's month, a situation, and the units each was shown. */
+  /** The derived reads shown units: a persona, a history's month, a situation, and the units (or, for a project's or a matter's situation, the refs it cites) each was shown. */
   shown: { id: string; units: string[] }[];
   /** The to-do items' ledger keys. */
   todoItems: string[];
@@ -265,7 +267,7 @@ export function dependentsOf(
     facts: facts.map((o) => o.id),
     matters: matters.map((m) => m.id),
     shown: layers.shown
-      .filter((s) => s.units.some((u) => asked.has(u) || unitIds.has(u)))
+      .filter((s) => s.units.some((u) => steps.has(u) || unitIds.has(u)))
       .map((s) => s.id),
     todoItems: layers.todoItems.filter((t) => removed.has(t)),
     units: [...unitIds],

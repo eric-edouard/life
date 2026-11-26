@@ -38,7 +38,7 @@ import { dayNow } from "./zones";
 
 const PROMPT = "memory-matter-directions.v5";
 /** The most characters of matters a night is shown, those with no direction first, then the newest (before their evidence, about 2k more each); and one call. */
-const NIGHT_CHARS = 120_000;
+export const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
 /** How many of a matter's newest steps a call sees, and how long each one's words. */
 const SHOWN_STEPS = 12;
@@ -61,7 +61,7 @@ export async function dueDirectionsOf(
   );
 }
 
-const NO_EVIDENCE: Evidence = { payments: [], units: [] };
+export const NO_EVIDENCE: Evidence = { payments: [], units: [] };
 
 /** A step's `id` for the next step's context to link (`life:`), when it is an observation's. */
 const linkOf = (ref: string) =>
@@ -96,8 +96,11 @@ const isGroundedContext = (
   );
 };
 
-/** A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now. */
-const shownOf = (
+/**
+ * A matter as a call is shown it: a call-local id, its name, people, projects, newest steps, what is open, its goal now.
+ * `idOf` gives a step its id: an observation's to link, by default; the matter situation's call cites every step's.
+ */
+export const shownOf = (
   v: MatterView,
   id: string,
   today: string,
@@ -105,7 +108,8 @@ const shownOf = (
   later: readonly Pick<
     Observation,
     "date" | "id" | "speaker" | "text" | "type"
-  >[]
+  >[],
+  idOf: (ref: string) => { id?: string } = linkOf
 ) => ({
   id,
   name: v.name,
@@ -125,7 +129,7 @@ const shownOf = (
     text: clip(o.text, SHOWN_CHARS),
   })),
   open: v.openSteps.map((s) => ({
-    ...linkOf(s.ref),
+    ...idOf(s.ref),
     ...(s.when ? { due: s.when } : {}),
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
@@ -133,7 +137,7 @@ const shownOf = (
   people: matterPeopleOf(v).map(nameOf),
   projects: v.projects,
   steps: v.steps.slice(-SHOWN_STEPS).map((s) => ({
-    ...linkOf(s.ref),
+    ...idOf(s.ref),
     day: s.day,
     kind: s.kind,
     text: clip(s.text, SHOWN_CHARS),
