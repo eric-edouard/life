@@ -164,8 +164,11 @@ public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParti
 
     public var parties: [Party] { asks.flatMap { $0.check?.parties ?? [] } }
     public func ask(_ ref: String) -> ThreadAsk? { asks.first { $0.ref == ref } }
-    /// How many wait on him: the round button's count.
-    public var waiting: Int { asks.filter(\.isAnswerable).count }
+    /// The asks that block him, what is broken first: the round button's count and the app's badge (his ask of 26 Nov
+    /// 2026: the badge counts only what blocks, never every open ask).
+    public var blocking: [ThreadAsk] {
+        asks.filter { $0.isAnswerable && ($0.check?.group == .fix || openingAsks.contains($0.ref)) }
+    }
     /// What is broken and needs him, no one at work on it yet (the open `fix` asks, Life's order): drawn where he looks.
     public var broken: [ThreadAsk] {
         asks.filter { $0.isAnswerable && $0.check?.group == .fix && $0.check?.beingFixed == nil }

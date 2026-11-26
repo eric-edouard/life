@@ -8,9 +8,11 @@ struct AskLook {
     let check: Check
 
     private func has(_ id: String) -> Bool { check.options.contains { $0.id == id } }
-    /// A yes/no question to him (a guessed person, a done step, a new matter): its answers share one row.
+    /// A yes/no question to him (a guessed person, a done step, a new matter): its answers share one row. A voice card
+    /// only while it offers its Yes: else its four answers would be squeezed into one row.
     var isYesNo: Bool {
-        [.voice, .samePerson, .contactsCard, .atOrganization, .ending, .newMatter].contains(check.group)
+        if check.group == .voice { return has("is-them") }
+        return [.samePerson, .contactsCard, .atOrganization, .ending, .newMatter].contains(check.group)
     }
     var isLookedFor: Bool { check.isPaymentLookedFor && check.doneSeen?.state != .notFound }
 
@@ -30,14 +32,15 @@ struct AskLook {
         }
     }
 
-    /// Who the ask is about, when its answer is a person: the guess leads. A payment shows only the payee an account
+    /// Who the ask is about, when its answer is a person: the guess leads, but never on a voice card, whose question is
+    /// who it is (a guessed face before his answer reads as settled). A payment shows only the payee an account
     /// names (`Check.namedPayee`), never a guess.
     var face: ItemFace? {
         if let network = check.signInNetwork { return .network(network) }
         if check.group == .guessedPerson {
             return (check.networkIdentity?.party ?? check.likelyPeople.first).map { .party($0) }
         }
-        if [.voice, .contactsCard, .atOrganization, .samePerson].contains(check.group) {
+        if [.contactsCard, .atOrganization, .samePerson].contains(check.group) {
             return check.likelyPeople.first.map { .party($0) }
         }
         return check.namedPayee.map { .party($0) }
@@ -107,8 +110,10 @@ struct AskBody: View {
     @ViewBuilder private var groupPart: some View {
         switch check.group {
         case .voice:
-            if !check.options.contains(where: { $0.id == "is-them" }), !check.likelyPeople.isEmpty {
-                PersonChips(people: Array(check.likelyPeople.filter { !$0.isOwner }.prefix(6)), pick: pick)
+            // The guesses (drawn by the card's Yes when it has one), and always him: "It's me".
+            if check.options.contains(where: { $0.id == "this-is" }) {
+                let guesses: [Party] = look.isYesNo ? [] : Array(check.likelyPeople.filter { !$0.isOwner }.prefix(6))
+                PersonChips(people: guesses + [.owner], pick: pick)
             }
         case .newMatter:
             if let goal = check.goal { AskSentence(markdown: goal) }

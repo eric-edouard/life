@@ -203,6 +203,8 @@ enum ItemFace: Equatable {
     case initial(String)
     /// A network's own mark (`NetworkMark`): a fix of a network that signed Life out.
     case network(String)
+    /// The matter's icon (an SF Symbol), when no one is behind the ask.
+    case symbol(String)
 }
 
 /// One item of the thread as a bare row that unfolds: its round face, the title, a line under it that says how it
@@ -234,7 +236,9 @@ struct ThreadItemRow<Detail: View>: View {
                     HStack(spacing: Metrics.Spacing.m) {
                         faceView
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
+                            // Two lines at most on the row, ending "…" (the prototype's `rows2`); whole once open.
                             Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
+                                .lineLimit(isOpen ? nil : 2)
                             lineView
                         }
                         .fixedSize(horizontal: false, vertical: true)
@@ -284,6 +288,8 @@ struct ThreadItemRow<Detail: View>: View {
             case .initial(let letter):
                 Text(letter.uppercased()).font(isOpen ? .header : .rowTitle).foregroundStyle(Palette.muted)
             case .network(let network): NetworkMark(network: network, size: isOpen ? 24 : 22)
+            case .symbol(let name):
+                Image(systemName: name).font(.system(size: isOpen ? 19 : 17)).foregroundStyle(Palette.muted)
             case nil: Glyph(icon, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             }
         }

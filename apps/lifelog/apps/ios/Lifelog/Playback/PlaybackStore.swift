@@ -16,8 +16,12 @@ final class PlaybackStore {
 
     /// Which recording plays (the caller's id), so one lights at a time; `nil` once stopped.
     private(set) var playingID: String?
-    /// Where the player is in the file, in seconds, about 10 times a second while it plays; the split stays when paused.
+    /// Where the player is in the file, in seconds, about 30 times a second while it plays; the split stays when paused.
     private(set) var position: Double = 0
+
+    /// Where what he hears is: the player's time less the route's output latency (a Bluetooth route plays a few tenths
+    /// of a second behind the player's clock), so words lit along the audio light as they are heard.
+    var heardPosition: Double { max(position - AVAudioSession.sharedInstance().outputLatency, seekStart) }
 
     /// Where a seek begins: the player reports its time before the seek lands, and the position never shows less.
     @ObservationIgnored private var seekStart: Double = 0
@@ -51,7 +55,7 @@ final class PlaybackStore {
         }
         observeRoute()
         observers.append(
-            player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) {
+            player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) {
                 [weak self] time in
                 MainActor.assumeIsolated {
                     if let self, time.isNumeric { self.position = max(time.seconds, self.seekStart) }
@@ -81,7 +85,11 @@ final class PlaybackStore {
         playingID = id
         position = start
         seekStart = start
-        if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
+        // An exact seek: a word tapped plays from that word, and the words light from where the audio really starts.
+        if start > 0 {
+            player.seek(
+                to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        }
         player.play()
         spanEnd = length.map { start + $0 }
         onEnded = onEnd

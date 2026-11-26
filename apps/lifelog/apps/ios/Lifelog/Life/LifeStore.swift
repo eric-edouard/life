@@ -323,12 +323,12 @@ final class LifeStore {
     /// Whether his answer to `ref` waits for Life to be back.
     func isQueued(_ ref: String) -> Bool { queued.holds(ref) }
 
-    /// How many asks wait on him, less those he answered meanwhile: the round button's count and the app's badge.
+    /// How many asks block him, less those he answered meanwhile: the round button's count and the app's badge.
     var waitingCount: Int? { waitingRefs.map(\.count) }
 
     /// Those asks' refs, in Life's order.
     var waitingRefs: [String]? {
-        items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.map(\.ref) }
+        items.value.map { read in read.blocking.filter { !queued.holds($0.ref) }.map(\.ref) }
     }
 
     /// A tapped notification: its ask is unfolded in the thread, once the asks are read again.

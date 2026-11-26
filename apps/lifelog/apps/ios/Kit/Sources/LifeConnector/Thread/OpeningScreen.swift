@@ -2,7 +2,7 @@ import Foundation
 
 /// The opening screen (the app v4 prototype, his yes of 26 Nov 2026). At launch, or back after `cleanAfter` or more in the
 /// background, the thread opens clean: his greeting, what is broken (never capped), then at most `cap` asks that block
-/// him (Life's `openingAsks`, in his inbox's order) and a pill for the rest; his unread count stays the full total. What came
+/// him (Life's `openingAsks`, in his inbox's order) and a pill for the rest; his badge counts those and what is broken (`ThreadRead.blocking`). What came
 /// before is one Show earlier away, a day at a time, and an earlier opening's greeting stays only as its time. Back
 /// sooner, nothing changes. Held for the launch only, never stored.
 public struct OpeningScreen: Equatable, Sendable {

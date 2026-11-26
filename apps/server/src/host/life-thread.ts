@@ -10,6 +10,7 @@ import type {
   DeletionCopy,
   ThreadEntriesHolding,
 } from "../memory/delete-from-memory";
+import { iconNow, iconWorkEnded, readLifeIcons } from "../memory/matter-icons";
 import type { MatterView } from "../memory/matter-read";
 import {
   laterUntilOf,
@@ -20,6 +21,7 @@ import { deletionsNow } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { readOwnerName } from "../models/prompt-parts";
+import { firstNameOf } from "../records/truth";
 import { undoOf } from "./answer-result";
 import { readDesk } from "./desk-read";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";
@@ -126,23 +128,60 @@ const runningOf = (db: Database, ids: readonly string[]) =>
     )
   );
 
-/** Each matter's status, read again only when what the book reads changed or his day did. */
-let book:
-  | { key: string; statuses: Promise<Map<string, MatterView["status"]>> }
-  | undefined;
-function matterStatuses() {
-  const key = JSON.stringify([readChangeStamp(MATTER_BOOK_READS), dayNow()]);
+interface MatterLook {
+  /** Its icon's key (`iconNow`: his pick, else Life's), the ask row's face when no one is behind the card. */
+  icon?: string;
+  status: MatterView["status"];
+}
+
+/** Each matter's status and icon, read again only when what the book reads changed, his day did or an icon pick landed (`iconWorkEnded`). */
+let book: { key: string; looks: Promise<Map<string, MatterLook>> } | undefined;
+function matterLooks() {
+  const key = JSON.stringify([
+    readChangeStamp(MATTER_BOOK_READS),
+    dayNow(),
+    iconWorkEnded(),
+  ]);
   if (book?.key !== key) {
-    const statuses = readPeople()
+    const looks = readPeople()
       .then((people) => readMatterBook(people, dayNow()))
-      .then((b) => new Map(b.map((m) => [m.id, m.status])));
-    book = { key, statuses };
-    statuses.catch(() => {
+      .then(async (b) => {
+        const lifeIcons = await readLifeIcons(b);
+        return new Map(
+          b.map((m) => [
+            m.id,
+            { icon: iconNow(m, lifeIcons)?.key, status: m.status },
+          ])
+        );
+      });
+    book = { key, looks };
+    looks.catch(() => {
       book = undefined;
     });
   }
-  return book.statuses;
+  return book.looks;
 }
+
+/** An open check with its matters' icons (`MatterLook`), for the row's face. Pure. */
+export const withMatterIcons = <
+  C extends {
+    matter: { id: string } | null;
+    onMatters: readonly { id: string }[];
+  },
+>(
+  c: C,
+  looks: ReadonlyMap<string, MatterLook>
+) => {
+  const iconOf = <M extends { id: string }>(m: M) => {
+    const icon = looks.get(m.id)?.icon;
+    return icon ? { ...m, icon } : m;
+  };
+  return {
+    ...c,
+    matter: c.matter && iconOf(c.matter),
+    onMatters: c.onMatters.map(iconOf),
+  };
+};
 
 /** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
 const closedCardOf = (
@@ -210,7 +249,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
       ),
     new Set<string>()
   );
-  const statuses = await matterStatuses();
+  const looks = await matterLooks();
   const items = [
     ...entries
       .filter(
@@ -239,7 +278,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
       const later = laterUntilOf(d.id, now);
       return {
         at: d.at,
-        card: check ?? closedCardOf(d, offers),
+        card: check ? withMatterIcons(check, looks) : closedCardOf(d, offers),
         kind: "ask" as const,
         later: later ?? null,
         ref: d.id,
@@ -247,7 +286,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
           decision: d,
           isOpen: Boolean(check),
           later,
-          matterStatus: d.matter ? statuses.get(d.matter) : undefined,
+          matterStatus: d.matter ? looks.get(d.matter)?.status : undefined,
           running: running.state === "ok" && running.value.has(d.id),
         }),
       };
@@ -261,7 +300,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
             const later = laterUntilOf(c.ref, now);
             return {
               at: c.at ?? to,
-              card: c,
+              card: withMatterIcons(c, looks),
               kind: "ask" as const,
               later: later ?? null,
               ref: c.ref,
@@ -293,10 +332,10 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   };
 }
 
-/** What he is called, for the greeting; null when his directory can't be read (a new install), and the phone says "Hi". */
+/** What he is called, for the greeting: the first word only ("Hi Eric"), while prompts keep his whole `called`; null when his directory can't be read (a new install), and the phone says "Hi". */
 const ownerNameOf = () => {
   try {
-    return readOwnerName();
+    return firstNameOf(readOwnerName());
   } catch {
     return null;
   }

@@ -105,6 +105,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let name: String
         /// His mark on the matter: its pill carries a small flag.
         public let important: Bool?
+        /// Its icon's key (his pick, else Life's), sent by `read_thread`: the ask row's face when no one is behind it.
+        public let icon: String?
+
+        /// The SF Symbol of its icon; nil with none, or a key this app lacks.
+        public var symbol: String? { icon.flatMap(MatterIcons.symbol) }
     }
 
     /// A `life:` link in `context`: exactly the ref `fetch` opens, and what it names, for its glyph.

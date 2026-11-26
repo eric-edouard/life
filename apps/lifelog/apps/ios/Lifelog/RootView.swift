@@ -74,7 +74,7 @@ struct RootView: View {
                 }
             }
             // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
-            // left under it, and its top fade then covers the wrong strip.
+            // left under it, and the thread then starts in the wrong place.
             .overlay(alignment: .top) {
                 VStack(spacing: Metrics.Spacing.s) {
                     buttons

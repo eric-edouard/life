@@ -12,7 +12,7 @@ import { answerDecision, requestDecision } from "../memory/decisions";
 import { CORRECTIONS } from "../memory/memory-files";
 import { Correction } from "../records/observation";
 import { expectWire } from "./http/wire-fixture";
-import { itemStateOf, readThread } from "./life-thread";
+import { itemStateOf, readThread, withMatterIcons } from "./life-thread";
 
 // Made-up asks, answers and cards throughout.
 
@@ -104,7 +104,7 @@ test("a thread item's one state: open needs him unless his Later holds it; answe
 
 test("the opening screen: what he is called, and the open asks that block him, fixes aside, in the inbox's order", async () => {
   const check = (ref: string, group: string, urgency: string) =>
-    ({ at: null, group, ref, urgency }) as never;
+    ({ at: null, group, matter: null, onMatters: [], ref, urgency }) as never;
   spies.push(
     spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue([
       check("fix:signed-out/line", "fix", "blocks"),
@@ -115,8 +115,9 @@ test("the opening screen: what he is called, and the open asks that block him, f
     spyOn(
       await import("../models/prompt-parts"),
       "readOwnerName"
-    ).mockReturnValue("Kit")
+    ).mockReturnValue("Kit Moreau")
   );
+  // The greeting takes the first word of what he is called.
   expect(await readThread()).toMatchObject({
     openingAsks: ["dec_b", "dec_a"],
     owner: "Kit",
@@ -270,7 +271,14 @@ test("a card still open shows on the first page however old, and is one of the o
   );
   recordDelivered(id, { rules: ["good moment"], verdict: "deliver" }, asked);
   spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue([
-    { at: asked.toISOString(), group: "decision", ref: id, urgency: "blocks" },
+    {
+      at: asked.toISOString(),
+      group: "decision",
+      matter: null,
+      onMatters: [],
+      ref: id,
+      urgency: "blocks",
+    },
   ] as never);
   const first = (await readThread()) as {
     items: { ref?: string }[];
@@ -281,7 +289,15 @@ test("a card still open shows on the first page however old, and is one of the o
 });
 
 const check = (ref: string, group: string, at: string | null) =>
-  ({ about: [], at, group, ref, urgency: "blocks" }) as never;
+  ({
+    about: [],
+    at,
+    group,
+    matter: null,
+    onMatters: [],
+    ref,
+    urgency: "blocks",
+  }) as never;
 
 test("an open fix check leads the first page, before 100 older asks; ending checks are no ask at all", async () => {
   const checks = [
@@ -298,4 +314,27 @@ test("an open fix check leads the first page, before 100 older asks; ending chec
   expect(items[0]?.ref).toBe("fix:signed-out/line");
   expect(items.some((i) => i.ref?.startsWith("ending:"))).toBe(false);
   expect(items.filter((i) => i.state === "needs_you")).toHaveLength(101);
+});
+
+test("a card carries its matters' icons for the row's face; a matter with none stays as it was", () => {
+  const looks = new Map([
+    ["matter_leak", { icon: "water", status: "moving" as const }],
+    ["matter_vague", { status: "moving" as const }],
+  ]);
+  const card = withMatterIcons(
+    {
+      matter: { id: "matter_leak", name: "Fix the leak" },
+      onMatters: [{ id: "matter_vague", name: "Flat" }],
+      ref: "dec_1",
+    },
+    looks
+  );
+  expect(card).toEqual({
+    matter: { icon: "water", id: "matter_leak", name: "Fix the leak" },
+    onMatters: [{ id: "matter_vague", name: "Flat" }],
+    ref: "dec_1",
+  });
+  expect(withMatterIcons({ matter: null, onMatters: [] }, looks).matter).toBe(
+    null
+  );
 });
