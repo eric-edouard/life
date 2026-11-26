@@ -70,7 +70,7 @@ private func check(
 }
 
 private let options =
-    #""options":[{"id":"send","label":"Send","outgoing":true},{"id":"later","label":"Not yet"},{"id":"who","label":"Someone else…","takes":"person"}]"#
+    #""options":[{"id":"send","label":"Send","outgoing":true},{"id":"later","label":"Not yet"},{"id":"who","label":"Someone else…","takes":"person"},{"id":"sign-in","label":"Sign in","signsIn":"line"}]"#
 
 @Test func aCardWithoutADraftOffersOnlyItsOneTapAnswers() throws {
     let check = try #require(
@@ -87,6 +87,11 @@ private let options =
             == nil)
     #expect(
         CardNotification.answer("option:who", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)
+            == nil)
+    // A sign-in opens its sheet in the app, never a notification's answer.
+    #expect(
+        CardNotification.answer(
+            "option:sign-in", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)
             == nil)
     #expect(
         CardNotification.answer("option:gone", typed: nil, to: check, in: CardNotification.category, asksFaceID: false)

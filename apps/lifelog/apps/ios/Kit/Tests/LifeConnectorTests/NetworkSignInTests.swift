@@ -132,3 +132,17 @@ private final class Script: Sendable {
     #expect(flow.phase == .done)
     #expect(script.requests.withLock { $0.count } == 3)
 }
+
+@MainActor @Test func aClosedSheetAsksNothingMore() async throws {
+    let replies = try wireReplies()
+    let script = Script([.success(replies[1]), .success(replies[2]), .success(replies[3])])
+    let held = Mutex<NetworkSignIn?>(nil)
+    let flow = NetworkSignIn(network: "line") { request in
+        // He closes the sheet while the first wait is held.
+        if script.requests.withLock({ $0.count }) == 1, let flow = held.withLock({ $0 }) { await flow.stop() }
+        return try script.call(request)
+    }
+    held.withLock { $0 = flow }
+    await flow.start()
+    #expect(script.requests.withLock { $0.count } == 2)
+}

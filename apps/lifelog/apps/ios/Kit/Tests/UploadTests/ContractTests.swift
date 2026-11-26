@@ -136,6 +136,8 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(try quoted("memory/needs.ts", /scheme: z\s*\.enum\(\[([^\]]*)\]/) == client(Check.Need.Scheme.self))
     #expect(
         try quoted("host/network-sign-in.ts", /type: z\s*\.enum\(\[([^\]]*)\]/) == client(SignInStep.Kind.self))
+    // The refusal the phone reads as done (`NetworkSignIn.ending`) is the server's sentence.
+    #expect(try source("host/network-sign-in.ts").contains(NetworkSignIn.needsNoSignIn))
     #expect(try quoted("memory/life-checks.ts", /doneSeenBy\?: ([^;]*);/) == client(Check.DoneSeenBy.self))
     // Life's stored outcome; `looking` is the phone's while `answer_check` runs (its live step).
     #expect(

@@ -1,5 +1,6 @@
 import LifeConnector
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 /// A fix card's sign-in (`Check.Option.signsIn`): the network, and the card's title the sheet keeps as its own.
@@ -29,7 +30,7 @@ struct NetworkSignInSheet: View {
                 // The network's own page fills the sheet: it scrolls itself.
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     instructions(step).padding(.horizontal, Metrics.gutter)
-                    SignInWebView(step: cookies) { answers in Task { await flow?.submit(answers) } }
+                    SignInWebView(step: cookies) { answers in go { await $0.submit(answers) } }
                 }
                 .sheetBars(head: head)
             } else {
@@ -38,12 +39,13 @@ struct NetworkSignInSheet: View {
         }
         .motion(Motion.standard, value: phase)
         .presentationBackground(Palette.sheet)
-        .task {
-            let started = life.signIn(ask.network)
-            flow = started
-            await started.start()
+        .onAppear {
+            flow = life.signIn(ask.network)
+            go { await $0.start() }
         }
-        .onChange(of: scenePhase) { _, now in Task { await flow?.setAway(now != .active) } }
+        // Closed, no held wait goes on asking.
+        .onDisappear { flow?.stop() }
+        .onChange(of: scenePhase) { _, now in go { await $0.setAway(now != .active) } }
         .onChange(of: phase == .done) { _, isDone in
             guard isDone else { return }
             Task {
@@ -52,6 +54,11 @@ struct NetworkSignInSheet: View {
                 dismiss()
             }
         }
+    }
+
+    private func go(_ step: @escaping (NetworkSignIn) async -> Void) {
+        guard let flow else { return }
+        Task { await step(flow) }
     }
 
     private func head() -> some View { SheetHeader(title: ask.title) { dismiss() } }
@@ -91,7 +98,7 @@ struct NetworkSignInSheet: View {
             Button("Continue") {
                 let answers = values
                 values = [:]
-                Task { await flow?.submit(answers) }
+                go { await $0.submit(answers) }
             }
             .buttonStyle(.pill(.filled)).disabled(!isFilled)
         case .sending:
@@ -101,19 +108,12 @@ struct NetworkSignInSheet: View {
         case .done:
             Button("Signed back in") {}.buttonStyle(.pill(.done))
         case .failed:
-            Button("Try again") { Task { await flow?.start() } }.buttonStyle(.pill(.filled))
+            Button("Try again") { go { await $0.start() } }.buttonStyle(.pill(.filled))
         }
     }
 
     @ViewBuilder private func instructions(_ step: SignInStep) -> some View {
-        if let words = step.instructions {
-            Text(
-                (try? AttributedString(
-                    markdown: words, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
-                    ?? AttributedString(words)
-            )
-            .font(.body15).foregroundStyle(Palette.fg)
-        }
+        if let words = step.instructions { AskSentence(markdown: words) }
     }
 
     /// A code to type in the network's app, big, with Copy; a QR; or emoji.
@@ -127,7 +127,12 @@ struct NetworkSignInSheet: View {
                         .foregroundStyle(Palette.fg)
                 }
                 if display.type == .code {
-                    QuietChip("Copy", symbol: "doc.on.doc") { UIPasteboard.general.string = data }
+                    QuietChip("Copy", symbol: "doc.on.doc") {
+                        // This phone only, for a few minutes: never to his other devices.
+                        UIPasteboard.general.setItems(
+                            [[UTType.plainText.identifier: data]],
+                            options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(300)])
+                    }
                 }
             }
             .padding(Metrics.Spacing.l).frame(maxWidth: .infinity)

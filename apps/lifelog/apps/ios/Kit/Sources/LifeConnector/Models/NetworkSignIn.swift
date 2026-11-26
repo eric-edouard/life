@@ -25,6 +25,8 @@ public struct SignInRequest: Encodable, Sendable, Equatable {
 
 /// One bridge login step as the phone draws it (`stepOf`).
 public struct SignInStep: Decodable, Sendable, Equatable {
+    /// Life's own enum (mirrored in `ContractTests`). The source and display kinds below are the bridge's
+    /// (mautrix bridgev2's login steps), passed through untouched: no server code to mirror them against.
     public enum Kind: String, UnknownTolerant, Sendable {
         case userInput = "user_input"
         case cookies
@@ -214,6 +216,7 @@ public final class NetworkSignIn {
     private var isAway = false
     private var leftDuringCall = false
     private var isCalling = false
+    private var isStopped = false
 
     public init(network: String, call: @escaping @Sendable (SignInRequest) async throws -> String) {
         self.network = network
@@ -233,6 +236,9 @@ public final class NetworkSignIn {
         await run(.answering(step, of: network, with: answers))
     }
 
+    /// The sheet closed: a call under way ends as it ends, and nothing is asked after it.
+    public func stop() { isStopped = true }
+
     /// The app left the screen, or came back: back on a code, the wait is asked again.
     public func setAway(_ away: Bool) async {
         isAway = away
@@ -245,12 +251,13 @@ public final class NetworkSignIn {
         isCalling = true
         defer { isCalling = false }
         var request = first
-        while true {
+        while !isStopped {
             leftDuringCall = isAway
             let reply: SignInReply
             do {
                 reply = try SignInReply.parsed(try await call(request))
             } catch {
+                if isStopped { return }
                 // A wait cut while he was in the other app is asked again once he's back.
                 if case .waiting = phase, leftDuringCall || isAway {
                     if isAway { return }
@@ -259,6 +266,7 @@ public final class NetworkSignIn {
                 phase = Self.ending(error)
                 return
             }
+            if isStopped { return }
             switch reply {
             case .done:
                 phase = .done
@@ -283,12 +291,15 @@ public final class NetworkSignIn {
         }
     }
 
+    /// The end of Life's refusal for a network already signed in (`gate`, `host/network-sign-in.ts`): done.
+    public nonisolated static let needsNoSignIn = "doesn't need signing in now."
+
     /// Life's refusal in plain words ("Not done: " dropped); one saying it needs no sign-in is done.
     static func ending(_ error: any Error) -> Phase {
         switch MCPError.of(error) {
         case .refused(let why):
             let words = why.hasPrefix("Not done: ") ? String(why.dropFirst("Not done: ".count)) : why
-            return words.hasSuffix("doesn't need signing in now.") ? .done : .failed(words)
+            return words.hasSuffix(needsNoSignIn) ? .done : .failed(words)
         case .unreachable, .timedOut, .streamDropped: return .failed("Life can't reach your Mac right now.")
         case let other: return .failed(other.reason)
         }
