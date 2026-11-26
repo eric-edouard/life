@@ -20,6 +20,9 @@ The design data (`apps/lifelog/fixtures/design/`, one JSON file per connector re
   are in `LifelogE2E/`, each with its scenario in `LifelogE2E/scenarios/`; the app's fake Life is `Lifelog/E2E/` (Debug
   only). Screens are found by the ids in `Lifelog/AccessibilityIDs.swift`: keep them when a screen changes, and never put
   an id on a container (it overrides its children's).
+- **A UI change reruns its parity rows** (`bun run parity <row …>`, `scripts/parity.ts`): each prototype state beside the
+  app in a flow test over the prototype's made-up data, published as his board (claude.ai artifact `Sj1P6mVpviohcbWEjREvfZ`;
+  his "not right" notes are its `verdicts` collection). It is done only when its rows are green.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
   DEBUG-only that leaks out of `#if DEBUG` breaks the install:
   `xcodebuild -project apps/lifelog/apps/ios/Lifelog.xcodeproj -scheme Lifelog -configuration Release -destination 'generic/platform=iOS Simulator' build`.

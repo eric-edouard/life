@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -323,6 +324,17 @@ const signatureOf = (r: BoardRow) =>
     r.a11y?.length,
   ]);
 
+/** Green: a pair the app reached, every column it has passing (a review of 8 or more, his word never "not right"). */
+export const greenOf = (r: Omit<BoardRow, "changed" | "green" | "pair">) =>
+  r.status === "filled" &&
+  r.a11y !== null &&
+  r.a11y.length === 0 &&
+  r.review !== null &&
+  r.review.score >= LOOKS_PASS &&
+  r.works !== false &&
+  (!r.taps || (r.taps.app !== null && r.taps.app <= r.taps.proto)) &&
+  r.owner?.verdict !== "not right";
+
 export function boardRowOf(
   row: Row,
   gaps: string[],
@@ -332,25 +344,76 @@ export function boardRowOf(
   owner: Verdict | null
 ): Omit<BoardRow, "changed" | "pair"> {
   const taps = row.taps ? { app: shot?.taps ?? null, proto: row.taps } : null;
-  const columns = [
-    review !== null && review.score >= LOOKS_PASS,
-    works !== false,
-    !taps || (taps.app !== null && taps.app <= taps.proto),
-    !shot || shot.a11y.length === 0,
-    owner?.verdict !== "not right",
-  ];
-  return {
+  const fields = {
     a11y: shot?.a11y ?? null,
     gaps,
-    green: shot !== null && columns.every(Boolean),
     id: row.id,
     owner,
     review,
-    status: "filled",
+    status: "filled" as const,
     taps,
     title: row.title,
     works,
   };
+  return { ...fields, green: greenOf(fields) };
+}
+
+/** A row the app reaches, from its flow's shot in `SHOTS`: the pair, its gaps, the flow's result, his word. */
+function filledRowOf(
+  row: Row,
+  design: DesignElement[],
+  was: BoardRow | undefined,
+  passed: boolean | undefined,
+  owner: Verdict | null
+): BoardRow {
+  const shot = read<{
+    audit: string[];
+    nodes: ScreenNode[];
+    window: NonNullable<ScreenNode["rect"]>;
+  }>(join(SHOTS, `${row.id}.json`));
+  const app = join(SHOTS, `${row.id}.png`);
+  if (shot && existsSync(app)) {
+    copyFileSync(app, join(OUT, `${row.id}.app.png`));
+  }
+  const pair = pairOf(shot?.nodes);
+  const tapsFile = join(SHOTS, `${row.id}.taps`);
+  const taps = existsSync(tapsFile)
+    ? Number(readFileSync(tapsFile, "utf8"))
+    : null;
+  const gaps = shot
+    ? gapsOf(
+        design,
+        shot.nodes,
+        shot.window,
+        placementOf(FRAME, [shot.window.width, shot.window.height], "fit")
+      )
+    : ["no app shot: the flow never reached the state"];
+  // A review holds while the pair it saw shows the same.
+  const review = was?.review && was.pair === pair ? was.review : null;
+  const next = boardRowOf(
+    row,
+    gaps,
+    shot ? { a11y: shot.audit, taps } : null,
+    passed ?? (shot ? null : false),
+    review,
+    owner
+  );
+  return { ...next, changed: false, pair };
+}
+
+/** The reviewer's scores (`{row: {score, note}}`), on the pairs the board holds now: the rows they turn green or red. */
+export function withReviews(
+  rows: BoardRow[],
+  reviews: Record<string, { note: string; score: number }>
+) {
+  return rows.map((r) => {
+    const review = reviews[r.id];
+    if (!(review && r.pair)) {
+      return r;
+    }
+    const next = { ...r, review: { ...review, of: r.pair } };
+    return { ...next, changed: true, green: greenOf(next) };
+  });
 }
 
 if (import.meta.main) {
@@ -363,106 +426,93 @@ if (import.meta.main) {
   const verdicts =
     read<Record<string, Verdict>>(flag("--verdicts") ?? "") ?? {};
   const boardUrl = flag("--digest");
+  const reviewsFile = flag("--reviews");
   const ids = args.filter((a) => !a.startsWith("--"));
   const rows = ids.length ? ROWS.filter((r) => ids.includes(r.id)) : ROWS;
   mkdirSync(OUT, { recursive: true });
 
-  const { design, titles } = await shootPrototype(rows);
-  if (!noApp) {
-    // The flows, in the heavy lane: one simulator job on the Mac at a time.
-    Bun.spawnSync(["rm", "-rf", SHOTS]);
-    Bun.spawnSync(
-      [
-        join(REPO, "tools/heavy.sh"),
-        "bun",
-        join(REPO, "scripts/e2e-phone.ts"),
-        ...rows.map((r) => r.flow),
-      ],
-      {
-        stderr: "inherit",
-        stdout: "inherit",
-      }
-    );
-  }
-  const results = flowResults();
-  const before =
-    read<{ rows: BoardRow[] }>(join(OUT, "board.json"))?.rows ?? [];
-  const beforeOf = new Map(before.map((r) => [r.id, r]));
-  const board: BoardRow[] = [];
-  const used = new Set(ROWS.flatMap((r) => r.proto));
-  const notBuilt = titles.filter((t) => t.selector && !used.has(t.selector));
-  const add = (full: BoardRow) => {
-    const was = beforeOf.get(full.id);
-    full.changed = !was || signatureOf(was) !== signatureOf(full);
-    board.push(full);
-  };
-  for (const row of ROWS) {
-    const was = beforeOf.get(row.id);
-    if (!rows.includes(row)) {
-      // Not run this time: as the board had it, his newest word on it kept.
-      if (was) {
-        board.push({
-          ...was,
-          changed: false,
-          owner: verdicts[row.id] ?? was.owner,
-        });
-      }
-      continue;
+  async function run() {
+    const { design, titles } = await shootPrototype(rows);
+    if (!noApp) {
+      // The flows, in the heavy lane: one simulator job on the Mac at a time.
+      Bun.spawnSync(["rm", "-rf", SHOTS]);
+      Bun.spawnSync(
+        [
+          join(REPO, "tools/heavy.sh"),
+          "bun",
+          join(REPO, "scripts/e2e-phone.ts"),
+          ...rows.map((r) => r.flow),
+        ],
+        {
+          stderr: "inherit",
+          stdout: "inherit",
+        }
+      );
     }
-    const shot = read<{
-      audit: string[];
-      nodes: ScreenNode[];
-      window: NonNullable<ScreenNode["rect"]>;
-    }>(join(SHOTS, `${row.id}.json`));
-    const app = join(SHOTS, `${row.id}.png`);
-    if (shot && existsSync(app)) {
-      copyFileSync(app, join(OUT, `${row.id}.app.png`));
-    }
-    const pair = pairOf(shot?.nodes);
-    const tapsFile = join(SHOTS, `${row.id}.taps`);
-    const gaps = shot
-      ? gapsOf(
+    const results = flowResults();
+    const before = stored?.rows ?? [];
+    const beforeOf = new Map(before.map((r) => [r.id, r]));
+    const board: BoardRow[] = [];
+    const used = new Set(ROWS.flatMap((r) => r.proto));
+    const notBuilt = titles.filter((t) => t.selector && !used.has(t.selector));
+    const add = (full: BoardRow) => {
+      const was = beforeOf.get(full.id);
+      full.changed = !was || signatureOf(was) !== signatureOf(full);
+      board.push(full);
+    };
+    for (const row of ROWS) {
+      const was = beforeOf.get(row.id);
+      if (!rows.includes(row)) {
+        // Not run this time: as the board had it, his newest word on it kept.
+        if (was) {
+          board.push({
+            ...was,
+            changed: false,
+            owner: verdicts[row.id] ?? was.owner,
+          });
+        }
+        continue;
+      }
+      add(
+        filledRowOf(
+          row,
           design.get(row.id) ?? [],
-          shot.nodes,
-          shot.window,
-          placementOf(FRAME, [shot.window.width, shot.window.height], "fit")
+          was,
+          results.get(row.flow),
+          verdicts[row.id] ?? was?.owner ?? null
         )
-      : ["no app shot: the flow never reached the state"];
-    // A review holds while the pair it saw shows the same.
-    const review = was?.review && was.pair === pair ? was.review : null;
-    const next = boardRowOf(
-      row,
-      gaps,
-      shot
-        ? {
-            a11y: shot.audit,
-            taps: existsSync(tapsFile)
-              ? Number(readFileSync(tapsFile, "utf8"))
-              : null,
-          }
-        : null,
-      results.get(row.flow) ?? (shot ? null : false),
-      review,
-      verdicts[row.id] ?? was?.owner ?? null
-    );
-    add({ ...next, changed: false, pair });
+      );
+    }
+    for (const { selector, title } of notBuilt) {
+      const id = selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
+      add({
+        a11y: null,
+        changed: false,
+        gaps: [],
+        green: false,
+        id,
+        owner: null,
+        pair: null,
+        review: null,
+        status: "not built",
+        taps: null,
+        title,
+        works: null,
+      });
+    }
+    return { board, was: before.filter((r) => r.green).length };
   }
-  for (const { selector, title } of notBuilt) {
-    const id = selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
-    add({
-      a11y: null,
-      changed: false,
-      gaps: [],
-      green: false,
-      id,
-      owner: null,
-      pair: null,
-      review: null,
-      status: "not built",
-      taps: null,
-      title,
-      works: null,
-    });
+  const stored = read<{ rows: BoardRow[]; was: number }>(
+    join(OUT, "board.json")
+  );
+  let board: BoardRow[];
+  let was: number;
+  if (reviewsFile) {
+    // The run's second half: its rows as written, the reviewer's scores on them.
+    board = withReviews(stored?.rows ?? [], read(reviewsFile) ?? {});
+    was = stored?.was ?? 0;
+  } else {
+    ({ board, was } = await run());
   }
   // The board artifact's pictures: small JPEGs beside board.json (sips, the Mac's own), the PNGs kept for the mail.
   for (const r of board.filter((b) => b.status === "filled")) {
@@ -488,7 +538,6 @@ if (import.meta.main) {
   }
   const filled = board.filter((r) => r.status === "filled");
   const green = board.filter((r) => r.green).length;
-  const was = before.filter((r) => r.green).length;
   writeFileSync(
     join(OUT, "board.json"),
     `${JSON.stringify({ at: new Date().toISOString(), green, rows: board, total: board.length, was }, null, 2)}\n`
@@ -499,6 +548,7 @@ if (import.meta.main) {
 
   // The evening mail's parts, only when a row changed: the count, each changed row's pair inline, a link to answer it.
   const changed = board.filter((r) => r.changed && r.status === "filled");
+  rmSync(join(OUT, "digest"), { force: true, recursive: true }); // a day with nothing changed sends nothing
   if (boardUrl && changed.length) {
     const dir = join(OUT, "digest");
     mkdirSync(dir, { recursive: true });
