@@ -36,6 +36,8 @@
             let fixtures = URL(filePath: defaults.string(forKey: "e2eFixtures") ?? "")
             FakeLife.state.withLock { $0 = FakeLife.Held(scenario: scenario, fixtures: fixtures, dir: dir) }
             MCPClient.protocolsOfTests = [FakeLife.self]
+            // The lab's voice clips play a quiet tone (the fixtures' job), so read-along runs with no server.
+            ClipAudio.writeTone(job: "11111111-2222-3333-4444-555555555555", seconds: 5)
             if defaults.bool(forKey: "e2eReset") {
                 LifeToken().clear()
                 let support = URL.applicationSupportDirectory.appending(path: "lifelog")

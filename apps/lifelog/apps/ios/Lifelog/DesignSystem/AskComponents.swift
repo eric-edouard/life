@@ -154,6 +154,9 @@ struct AskCard: View {
     /// A tap on one of the draft's quick edits.
     var edit: (String) -> Void = { _ in }
     var isInItem = false
+    /// A card of Life's own by kind (`AskLook`): its words to read along, its people, its needs.
+    var look: AskLook?
+    var pick: (Party) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
@@ -172,6 +175,7 @@ struct AskCard: View {
                 draft
                 if !edits.isEmpty { EditChips(edits: edits, busy: editing, pick: edit) }
             }
+            if let look { look.body(pick: pick) }
             if let taking { Field(prompt: "Your words", text: taking) }
             AnswerPills(
                 answers: answers, recommended: recommended, busy: busy, disabled: disabled, identify: identify, say: say

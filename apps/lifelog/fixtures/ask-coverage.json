@@ -7,73 +7,13 @@
       "issue": 1411
     },
     {
-      "kind": "check group: ending",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "check group: new matter",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
       "kind": "check group: guessed person",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     },
     {
-      "kind": "check group: contacts card",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "check group: voice",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "check group: same person",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
       "kind": "check group: your move",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "check group: at organization",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: account",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: amount",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: link",
-      "lacks": ["view"],
-      "reason": "awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: qr",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
@@ -256,24 +196,6 @@
       "kind": "main-session line: answer",
       "lacks": ["view"],
       "reason": "the Kit reads the streamed words and blocks, not an answer line; awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: app",
-      "lacks": ["view"],
-      "reason": "the card's needs are decoded but no view draws them since the per-kind bodies were removed; awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: place",
-      "lacks": ["view"],
-      "reason": "the card's needs are decoded but no view draws them since the per-kind bodies were removed; awaiting the owner's design approval (design lab, PR #1410)",
-      "issue": 1411
-    },
-    {
-      "kind": "need kind: text",
-      "lacks": ["view"],
-      "reason": "the card's needs are decoded but no view draws them since the per-kind bodies were removed; awaiting the owner's design approval (design lab, PR #1410)",
       "issue": 1411
     }
   ]
