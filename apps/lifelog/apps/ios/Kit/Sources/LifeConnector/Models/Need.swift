@@ -112,8 +112,8 @@ extension Check {
                         ]
                     } ?? []
             case .link:
-                // A web page only: another app's scheme would open that app under a host that warns of nothing.
-                if let url, ["https", "http"].contains(url.scheme?.lowercased()), let host = url.host() {
+                // A secure web page only: another app's scheme would open that app under a host that warns of nothing, and plain http can be read or changed on the way.
+                if let url, url.scheme?.lowercased() == "https", let host = url.host() {
                     rows = [
                         NeedRow(
                             glyph: .link, text: vendor ?? line, detail: host, action: .open(url, label: "Open \(host)"))

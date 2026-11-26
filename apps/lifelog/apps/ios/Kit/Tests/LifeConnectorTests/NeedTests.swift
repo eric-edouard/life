@@ -138,3 +138,50 @@ private func need(_ json: String) throws -> Check.Need {
             "Dive course, 2026-12-01 08:00", "Blue Reef", "Reminders: 1 h before, 1 day before, 30 min before",
         ])
 }
+
+@Test(arguments: [
+    ("https://www.paypal.com/request/x", "paypal.com", true),
+    ("https://paypal.com", "paypal.com", true),
+    ("https://evil.example/?u=paypal.com", "paypal.com", false),
+    ("https://evil.example/paypal.com/pay", "paypal.com", false),
+    ("https://paypal.com.evil.io/x", "paypal.com", false),
+    ("https://notpaypal.com/x", "paypal.com", false),
+    ("https://fernway-bakery.fr/order", "paypal.com", false),
+    ("https://www.google.com/maps/place/x", "google.com/maps", true),
+    ("https://www.google.com/mapsfoo", "google.com/maps", false),
+    ("https://www.google.com/search?q=maps", "google.com/maps", false),
+    ("https://evil.example/google.com/maps/x", "google.com/maps", false),
+    ("paypal.com", "paypal.com", false),
+    ("tel:+33600000000", "paypal.com", false),
+    ("mailto:a@paypal.com", "paypal.com", false),
+])
+func aLinkIsAKindOnlyByItsOwnHost(link: String, entry: String, expected: Bool) throws {
+    let url = try #require(URL(string: link))
+    #expect(LinkHost.matches(url, entry: entry) == expected)
+}
+
+@Test func aLinkRowOpensOnlyHttps() throws {
+    let secure = try need(#"{"kind":"link","line":"Pay","url":"https://pay.example.test/1"}"#).rows
+    #expect(secure.first?.action != nil)
+    for url in ["http://pay.example.test/1", "tel:+33600000000", "mailto:a@example.test", "shopapp://x/1"] {
+        let rows = try need(#"{"kind":"link","line":"Pay","url":"\#(url)"}"#).rows
+        #expect(rows.allSatisfy { $0.action == nil })
+    }
+}
+
+@Test func aPaymentShowsOnlyThePayeeItsAccountNames() throws {
+    func check(holder: String) throws -> Check {
+        let party = #"{"ref":"person:paul","name":"Paul Garnier","kind":"person","line":null,"picture":null}"#
+        let need = #"{"kind":"account","line":"x","number":"FR76 3000","holder":"\#(holder)"}"#
+        let json = """
+            {"ref":"c1","group":"decision","title":"t","question":"q","asker":"Codex","urgency":"blocks",
+             "options":[],"clips":[],"likelyPeople":[\(party)],"links":[],"needs":[\(need)],
+             "deadline":"2026-11-19T18:00:00Z"}
+            """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(Check.self, from: Data(json.utf8))
+    }
+    #expect(try check(holder: "Paul Garnier").namedPayee?.ref == "person:paul")
+    #expect(try check(holder: "Plomberie Garnier").namedPayee == nil)
+}

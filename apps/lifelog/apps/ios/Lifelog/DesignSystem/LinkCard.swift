@@ -18,19 +18,21 @@ struct LinkCard: View {
         let background: UInt32
         let foreground: UInt32
         let letter: String
-        /// The drawn mark in LinkMarks.xcassets, or an SF Symbol for a call or a mail; none: the letter on its colour.
+        /// The drawn mark in LinkMarks.xcassets, none: the letter on its colour.
         var mark: String? = nil
-        var symbol: String? = nil
     }
 
     private static let kinds: [Kind] = [
         Kind(
-            hosts: ["maps.app.goo.gl", "maps.google.", "google.com/maps", "goo.gl/maps"], name: "Google Maps",
+            hosts: ["maps.app.goo.gl", "maps.google.com", "maps.google.fr", "google.com/maps", "goo.gl/maps"],
+            name: "Google Maps",
             background: 0x34A853, foreground: 0xFFFFFF, letter: "G", mark: "link.googlemaps"),
         Kind(
             hosts: ["maps.apple.com"], name: "Apple Maps", background: 0xFFFFFF, foreground: 0x0A84FF, letter: "A",
             mark: "link.applemaps"),
-        Kind(hosts: ["doctolib."], name: "Doctolib", background: 0x107ACA, foreground: 0xFFFFFF, letter: "d"),
+        Kind(
+            hosts: ["doctolib.fr", "doctolib.de", "doctolib.it", "doctolib.com"], name: "Doctolib",
+            background: 0x107ACA, foreground: 0xFFFFFF, letter: "d"),
         Kind(hosts: ["calendly.com"], name: "Calendly", background: 0x006BFF, foreground: 0xFFFFFF, letter: "C"),
         Kind(hosts: ["planity.com"], name: "Planity", background: 0x000000, foreground: 0xFFFFFF, letter: "P"),
         Kind(
@@ -45,7 +47,9 @@ struct LinkCard: View {
         Kind(
             hosts: ["tmn.app.link", "truemoney.com"], name: "TrueMoney", background: 0xFF6A13, foreground: 0xFFFFFF,
             letter: "T"),
-        Kind(hosts: ["dhl."], name: "DHL", background: 0xFFCC00, foreground: 0xD40511, letter: "DHL"),
+        Kind(
+            hosts: ["dhl.com", "dhl.de", "dhl.fr"], name: "DHL", background: 0xFFCC00, foreground: 0xD40511,
+            letter: "DHL"),
         Kind(hosts: ["fedex.com"], name: "FedEx", background: 0x4D148C, foreground: 0xFFFFFF, letter: "F"),
         Kind(
             hosts: ["meet.google.com"], name: "Google Meet", background: 0x00AC47, foreground: 0xFFFFFF, letter: "M",
@@ -56,7 +60,8 @@ struct LinkCard: View {
         Kind(
             hosts: ["drive.google.com", "docs.google.com"], name: "Google Drive", background: 0xFFBA00,
             foreground: 0x0066DA, letter: "D", mark: "link.drive"),
-        Kind(hosts: ["airbnb."], name: "Airbnb", background: 0xFF385C, foreground: 0xFFFFFF, letter: "a"),
+        Kind(
+            hosts: ["airbnb.com", "airbnb.fr"], name: "Airbnb", background: 0xFF385C, foreground: 0xFFFFFF, letter: "a"),
         Kind(hosts: ["booking.com"], name: "Booking.com", background: 0x003580, foreground: 0xFFFFFF, letter: "B"),
         Kind(
             hosts: ["instagram.com", "ig.me"], name: "Instagram", background: 0xD62976, foreground: 0xFFFFFF,
@@ -69,29 +74,22 @@ struct LinkCard: View {
             foreground: 0xFFFFFF, letter: "A"),
         Kind(
             hosts: ["ride.bolt.eu", "bolt.eu"], name: "Bolt", background: 0x34D186, foreground: 0xFFFFFF, letter: "B"),
-        Kind(hosts: ["tel:"], name: "Call", background: 0x2A2B31, foreground: 0xFFF8EA, letter: "", symbol: "phone"),
-        Kind(
-            hosts: ["mailto:"], name: "Mail", background: 0x2A2B31, foreground: 0xFFF8EA, letter: "", symbol: "envelope"
-        ),
         Kind(hosts: ["grab.com"], name: "Grab", background: 0x00B14F, foreground: 0xFFFFFF, letter: "G"),
     ]
 
     private var kind: Kind {
-        let text = url.absoluteString.lowercased()
-        if let known = Self.kinds.first(where: { $0.hosts.contains { text.contains($0) } }) { return known }
-        let host = (url.host() ?? text).replacingOccurrences(of: "www.", with: "")
+        if let known = Self.kinds.first(where: { $0.hosts.contains { LinkHost.matches(url, entry: $0) } }) {
+            return known
+        }
+        let host = (url.host() ?? "link").replacingOccurrences(of: "www.", with: "")
         return Kind(
             hosts: [], name: host, background: 0x2A2B31, foreground: 0xFFF8EA, letter: host.prefix(1).uppercased())
     }
 
-    /// The site's mark in its colour: its drawing, a symbol, or its letter on a rounded square (a host with no kind).
+    /// The site's mark in its colour: its drawing, or its letter on a rounded square (a host with no kind).
     @ViewBuilder private func mark(of kind: Kind) -> some View {
         if let mark = kind.mark {
             Image(mark).resizable().scaledToFit()
-        } else if let symbol = kind.symbol {
-            Image(systemName: symbol).font(.bodyBold).foregroundStyle(Color(hex: kind.foreground))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(hex: kind.background), in: .rect(cornerRadius: Metrics.disc / 4))
         } else {
             Text(kind.letter).font(.bodyBold).lineLimit(1).minimumScaleFactor(0.5).foregroundStyle(
                 Color(hex: kind.foreground)

@@ -24,12 +24,13 @@ struct AskLook {
         }
     }
 
-    /// Who the ask is about, when its answer is a person: the guess leads.
+    /// Who the ask is about, when its answer is a person: the guess leads. A payment shows only the payee an account
+    /// names (`Check.namedPayee`), never a guess.
     var face: ItemFace? {
-        let isAboutThem = [.voice, .contactsCard, .atOrganization, .samePerson].contains(check.group)
-        let isPayment = check.draft == nil && check.needs?.contains { $0.kind == .amount } == true
-        guard isAboutThem || isPayment else { return nil }
-        return check.likelyPeople.first.map { .party($0) }
+        if [.voice, .contactsCard, .atOrganization, .samePerson].contains(check.group) {
+            return check.likelyPeople.first.map { .party($0) }
+        }
+        return check.namedPayee.map { .party($0) }
     }
 
     /// What the row says under its title, when the person has one ("Your landlord").
