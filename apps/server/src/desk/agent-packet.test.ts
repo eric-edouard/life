@@ -167,6 +167,7 @@ test("an agent on a project's matter, and the project's agent, get the project's
           { cites: ["obs_gone"], markdown: "A step since re-grouped away." },
         ],
         schemaVersion: 2,
+        shown: [],
         subject: "test-bakery",
       });
       const standing = await onMatter("obs_mine");

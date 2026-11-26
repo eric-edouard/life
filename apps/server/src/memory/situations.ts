@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { hasAddOn } from "../core/add-ons";
-import { removeAllBut } from "../core/files";
+import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { endingAtNewest } from "../core/lists";
 import type { Episode } from "../records/episode";
@@ -13,10 +13,12 @@ import {
   pagedNow,
   personallyClose,
 } from "./closeness";
-import { shownKeyOf } from "./deletions";
+import { isHiddenUntilRedone, shownKeyOf } from "./deletions";
 import {
   daysOf,
+  deletionsNow,
   episodesNow,
+  historyPath,
   pagePath,
   readEpisodes,
   SITUATIONS,
@@ -70,7 +72,7 @@ export const readSituationNow = (
   ];
   const live = new Set([
     ref,
-    `${ref}/story`,
+    ...(hasStoryNow(ref) ? [`${ref}/story`] : []),
     ...(typeof episodes === "function" ? episodes(cited) : episodes)
       .filter(
         (m) => ref === OWNER || m.people.some((p) => refOf(p.ref) === ref)
@@ -82,6 +84,25 @@ export const readSituationNow = (
     shownKeyOf.situation(ref),
     SITUATION_PROMPT,
     live
+  );
+};
+
+/**
+ * Whether their story stands now: written, and not shown words he deleted since (the history's own rule, read here from
+ * its file: `personal/` is the host's). A part citing a story gone goes with it.
+ */
+const hasStoryNow = (ref: string) => {
+  const story = readJson<{ story?: { built: string; through: string } | null }>(
+    historyPath(ref)
+  )?.story;
+  return (
+    story !== null &&
+    story !== undefined &&
+    !isHiddenUntilRedone(
+      shownKeyOf.history(ref, `story:${story.through}`),
+      story.built,
+      deletionsNow()
+    )
   );
 };
 
@@ -269,6 +290,7 @@ export async function situations({ personaOf, storyOf }: SituationReadings) {
           madeBy: step.madeBy(SITUATION_PROMPT),
           parts: partsOf(reply, shown, input),
           schemaVersion: 2,
+          shown: [...shown],
           subject: t.ref,
         };
         await Bun.write(

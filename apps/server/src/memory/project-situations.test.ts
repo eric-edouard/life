@@ -64,6 +64,7 @@ const store = (prompt = promptNameOf("memory-project-situation.v2")) =>
       { cites: [S2], markdown: "A step since re-grouped away." },
     ],
     schemaVersion: 2,
+    shown: [],
     subject: ID,
   });
 

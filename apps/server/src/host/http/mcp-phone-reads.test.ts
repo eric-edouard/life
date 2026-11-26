@@ -468,6 +468,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         { cites: ["obs_gonegonegone"], markdown: "A step no matter holds." },
       ],
       schemaVersion: 2,
+      shown: [],
       subject: "shop-fit-out",
     });
     const withSituation = await read("read_matters", {
@@ -512,6 +513,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
         },
       ],
       schemaVersion: 2,
+      shown: [],
       subject: "matter_aaaaaaaaaaaa",
     });
     expectWire(

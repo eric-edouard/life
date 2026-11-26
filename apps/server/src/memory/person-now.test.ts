@@ -757,6 +757,7 @@ test("his own situation is checked against the episodes the index holds, by the 
       { cites: ["ep_00000000000f"], markdown: "An episode since gone." },
     ],
     schemaVersion: 2,
+    shown: [],
     subject: OWNER,
   });
   try {

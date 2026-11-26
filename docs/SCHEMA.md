@@ -495,7 +495,7 @@ line the owner deletes is recorded as `not-important` for its observations on th
 The situation (docs/glossary.md) of the owner (`me`), someone with a page or an organization of his directory, written by
 `situations.ts` each night when its inputs changed, one call per subject with an episode: `subject` (`person:<id>`),
 `parts` (each `markdown`, written to him as "you", and `cites`: the `ep_` ids of the episodes, the page's ref or the
-story's `<ref>/story` it rests on), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown:
+story's `<ref>/story` it rests on), `shown` (every ref the call was shown, cited or not: a deletion reaching one hides it), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown:
 the episodes of importance 2 or more with them in the 30 days ending at their newest, a digest of the page and, while the
 `personas` add-on is on, the persona's readings; never the story, another summary, and never the date), `built`,
 `madeBy`, `schemaVersion` (2; a file of 1 reads as absent until its night). Rewritten whole, never from its own last
@@ -512,17 +512,17 @@ running matter's name, goal, next step, open steps and newest 12 steps; never th
 which follows the clock), `built`, `madeBy`, `schemaVersion` (2). Kept apart from `situations/`, whose files are all
 people's. Rewritten whole, never from its own last version; removed when the project is no longer underway or shows no
 running matter. A reader drops a part whose step no matter of the project holds any more, and the whole situation when
-`madeBy.prompt` is not the variant now or a deletion reached what it cites (`project-situation:<project>`).
+`madeBy.prompt` is not the variant now or a deletion reached a step it was shown (`project-situation:<project>`).
 
 ## matter-situations/<matter>.json
 
 A matter's situation, written by `matter-situations.ts` each night after the directions for a matter of two steps or
-more whose inputs changed, the newest first within the night's 120,000 characters, in the situation's shape: `subject`
+more whose inputs changed, those with none yet first, then the newest, within the night's 120,000 characters, in the situation's shape: `subject`
 (the matter id), `parts` (`cites`: its steps, open steps, later records and the units and payments found near its
-words), `inputs` (a hash of the prompt's variant name and its goal, newest 12 steps, open steps and later records by
+words), `shown` (every one of those the call was shown, cited or not), `inputs` (a hash of the prompt's variant name and its goal, newest 12 steps, open steps and later records by
 ids and words; never its name, people, status, the evidence or the date), `built`, `madeBy`, `schemaVersion` (2).
 Rewritten whole; removed when the matter leaves the book or has one step. A reader shows it whole while `madeBy.prompt`
-is the variant now and no deletion reached the matter or what it cites (`matter-situation:<matter>`).
+is the variant now and no deletion reached the matter or anything it was shown (`matter-situation:<matter>`).
 
 ## personas/<id>.json
 

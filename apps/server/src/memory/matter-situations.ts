@@ -30,7 +30,7 @@ import { dayNow } from "./zones";
 // (`readEvidence`), and writes the page he sees when opening the matter, as Markdown parts to him, each citing what it
 // rests on (`situation-parts.ts`). A matter of one step gets no call: its step is its page. The digest holds refs and
 // words only, never a name, a status, the evidence (a search's) or the clock, so a matter with nothing new costs no call.
-// The newest within the night's size (`NIGHT_CHARS`), like the directions. Nothing is sent.
+// Those with no reading yet first, then the newest, within the night's size (`NIGHT_CHARS`), like the directions. Nothing is sent.
 
 /** The matters that have a page of their own: two steps or more. */
 const isPaged = (v: MatterView) => v.steps.length >= 2;
@@ -97,12 +97,14 @@ export async function matterSituations(
       ...digested,
       ...(mayKeep === undefined ? {} : { mayKeep }),
     });
-    return readStored(v.id)?.inputs === inputs
+    const stored = readStored(v.id);
+    return stored?.inputs === inputs
       ? []
-      : [{ input, inputs, later, v }];
+      : [{ hasReading: stored !== null, input, inputs, later, v }];
   });
   const chosen = newestWithin(due, NIGHT_CHARS, {
-    at: (m) => m.v.steps.at(-1)?.at ?? "",
+    // A matter with no reading yet sorts before any read one ("~" is after every digit), like the directions; then the newest.
+    at: (m) => `${m.hasReading ? "" : "~"}${m.v.steps.at(-1)?.at ?? ""}`,
     size: (m) => JSON.stringify(m.input).length,
   });
   const evidence = await readEvidence(chosen, today);
@@ -112,13 +114,17 @@ export async function matterSituations(
     step.attempt(
       async () => {
         const found = evidence.get(m.v.id) ?? NO_EVIDENCE;
-        const shown = m.input;
-        const input = { matter: { ...shown, ...found } };
+        const input = { matter: { ...m.input, ...found } };
         const ids = [
-          ...shown.steps.map((s) => s.id),
-          ...shown.open.map((s) => s.id),
-          ...shown.later.map((o) => o.id),
+          ...m.input.steps.map((s) => s.id),
+          ...m.input.open.map((s) => s.id),
+          ...m.input.later.map((o) => o.id),
         ].filter((id): id is string => id !== undefined);
+        const shown = [
+          ...ids,
+          ...found.units.map((u) => u.id),
+          ...found.payments.map((p) => p.id),
+        ];
         const reply = await step.ask({
           context: meContext(people.truth),
           dir,
@@ -133,16 +139,9 @@ export async function matterSituations(
           built: step.now.toISOString(),
           inputs: m.inputs,
           madeBy: step.madeBy(PROMPT),
-          parts: partsOf(
-            reply,
-            new Set([
-              ...ids,
-              ...found.units.map((u) => u.id),
-              ...found.payments.map((p) => p.id),
-            ]),
-            input
-          ),
+          parts: partsOf(reply, new Set(shown), input),
           schemaVersion: 2,
+          shown,
           subject: m.v.id,
         };
         await Bun.write(

@@ -371,11 +371,11 @@ async function readShownDerivedOf(units: readonly Unit[]) {
 }
 
 /**
- * The project and matter situations, each with the refs it cites (ids only, never its words): a part rests only on what
- * it cites (`partsOf`), so one is shown deleted words when it cites them, their fact or their unit; a matter's also when
- * its matter is named.
+ * The project and matter situations, each with every ref its call was shown, cited or not (`Situation.shown`: ids only,
+ * never its words): one is reached when a deletion reaches any of them, their fact or their unit; a matter's also when its
+ * matter is named.
  */
-const readCitingSituations = async () => {
+export const readShownSituations = async () => {
   const of = async (
     dir: string,
     key: (id: string) => string,
@@ -388,10 +388,7 @@ const readCitingSituations = async () => {
         ? [
             {
               id: key(id),
-              units: [
-                ...also(id),
-                ...stored.data.parts.flatMap((p) => p.cites),
-              ],
+              units: [...also(id), ...stored.data.shown],
             },
           ]
         : [];
@@ -459,7 +456,7 @@ export async function planDeletion(
   );
   const reaches = dependentsOf([...asked], {
     ...layers,
-    shown: [...shown, ...(await readCitingSituations())],
+    shown: [...shown, ...(await readShownSituations())],
   });
   // The copies of his words outside memory: the ones holding the words he deletes (a cut's, a message's or a turn's
   // whole), or citing what goes or what it reaches.

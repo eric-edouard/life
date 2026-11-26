@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { writeJson } from "../core/files";
@@ -7,7 +7,7 @@ import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
 import { MAY_KEEP, promptNameOf, promptText } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
-import { situationPath } from "./memory-files";
+import { historyPath, situationPath } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { inputsOf } from "./run";
 import { situationBlock } from "./situation-parts";
@@ -25,7 +25,10 @@ const REF = "person:test-ana";
 const A = "ep_aaaaaaaaaaaa";
 const B = "ep_bbbbbbbbbbbb";
 
-afterEach(() => rm(situationPath(REF), { force: true }));
+afterEach(async () => {
+  await rm(situationPath(REF), { force: true });
+  await rm(historyPath(REF), { force: true });
+});
 
 test("a reader shows only parts whose episodes are still live; the page and the story always stand", () => {
   writeJson(situationPath(REF), {
@@ -43,7 +46,18 @@ test("a reader shows only parts whose episodes are still live; the page and the 
       { cites: [REF, `${REF}/story`], markdown: "Friends since 2019." },
     ],
     schemaVersion: 2,
+    shown: [],
     subject: REF,
+  });
+  writeJson(historyPath(REF), {
+    months: [],
+    schemaVersion: 1,
+    story: {
+      built: "2026-11-01T00:00:00.000Z",
+      inputs: "x",
+      text: "Met in 2019.",
+      through: "2025",
+    },
   });
   const withAna = { id: A, people: [{ ref: REF }] };
   const same = (r: string) => r;
@@ -59,6 +73,9 @@ test("a reader shows only parts whose episodes are still live; the page and the 
   expect(
     readSituationNow(REF, [{ id: A, people: [] }], same).map((p) => p.markdown)
   ).toEqual(["Friends since 2019."]);
+  // Her story gone: the part citing it goes too.
+  rmSync(historyPath(REF), { force: true });
+  expect(readSituationNow(REF, [], same)).toEqual([]);
 });
 
 test("his own situation may cite any standing episode: his episodes leave him out of their people", () => {
@@ -73,6 +90,7 @@ test("his own situation may cite any standing episode: his episodes leave him ou
     },
     parts: [{ cites: [A], markdown: "He moves flats in March." }],
     schemaVersion: 2,
+    shown: [],
     subject: OWNER,
   });
   expect(
@@ -182,6 +200,7 @@ test("a situation is shown only while it was made by the variant the add-ons cho
         { cites: [A], markdown: "The builder owes a quote since 3 Nov." },
       ],
       schemaVersion: 2,
+      shown: [],
       subject: REF,
     });
   try {
@@ -250,6 +269,7 @@ test("a reader shows the situation made under the variant now: with his words on
       },
       parts: [{ cites: [A], markdown: "Ana stays at his flat since 20 Mar." }],
       schemaVersion: 2,
+      shown: [],
       subject: REF,
     });
     return readSituationNow(REF, [{ id: A, people: [{ ref: REF }] }], (r) => r)

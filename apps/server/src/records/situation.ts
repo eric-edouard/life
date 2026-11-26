@@ -27,6 +27,8 @@ export const Situation = z
     madeBy: MadeBy,
     parts: z.array(SituationPart).min(1),
     schemaVersion: z.literal(2),
+    /** Every ref the call was shown (its episodes, steps, records, units, payments, page, story), cited or not: what a deletion reaching any of them hides it for. */
+    shown: z.array(z.string()),
     subject: z.string().min(1),
   })
   .strict();

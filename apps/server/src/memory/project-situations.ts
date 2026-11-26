@@ -157,6 +157,7 @@ export async function projectSituations(
           return;
         }
         const shownRefs = t.matters.flatMap(shownStepsOf);
+        const shown = [...new Set(shownRefs.map((s) => s.ref))];
         const input = {
           entry: { ...entry, name: t.project.name },
           matters: t.matters.map((v) => ({
@@ -179,8 +180,9 @@ export async function projectSituations(
           built: step.now.toISOString(),
           inputs,
           madeBy: step.madeBy(PROMPT),
-          parts: partsOf(reply, new Set(shownRefs.map((s) => s.ref)), input),
+          parts: partsOf(reply, new Set(shown), input),
           schemaVersion: 2,
+          shown,
           subject: p.id,
         };
         await Bun.write(

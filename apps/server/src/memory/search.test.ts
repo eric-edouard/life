@@ -144,6 +144,7 @@ test("a search opens with his situation when it names no one, then others' lines
       },
       parts,
       schemaVersion: 2,
+      shown: [],
       subject,
     });
   write(OWNER, [

@@ -21,6 +21,7 @@ test("a reply keeps only parts resting on what the call was shown, and nothing a
     part("Cites one it was not shown.", [A, B]),
     part("Links one it was not shown: [here](life:ep_bbbbbbbbbbbb)."),
     part('Sam said "we should sell the flat in spring".'),
+    part("Sam said ‘we should sell the flat in spring’."),
     part("## A heading"),
     part("```life:question\n{}\n```"),
     part("See https://example.com for more."),

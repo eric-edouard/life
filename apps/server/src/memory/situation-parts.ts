@@ -104,8 +104,12 @@ const stringsOf = (x: unknown): string[] => {
   return x && typeof x === "object" ? Object.values(x).flatMap(stringsOf) : [];
 };
 
-/** Words given as someone's: a `>` quote's line, or 12 characters or more in quotation marks. */
-const QUOTED = /[“"«]([^”"»\n]{12,})[”"»]/g;
+/**
+ * Words given as someone's: a `>` quote's line, or 12 characters or more in double, guillemet or curly single quotation
+ * marks. Its limit, on purpose: a shorter quotation (a word or two, often a name or a term) and straight single quotes
+ * (the apostrophe of "you're" reads the same) are not checked; the prompts allow found words only.
+ */
+const QUOTED = /[“"«‘]([^”"»’\n]{12,})[”"»’]/g;
 const quotesOf = (markdown: string) => [
   ...markdown
     .split("\n")
