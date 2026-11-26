@@ -218,6 +218,8 @@ export interface Check {
     /** Its words as lifelog times them (`TimedWords`): [start, end, length] each, in ms from the clip's start and UTF-16 units of `text` with the spacing before it, for lighting them while it plays. */
     words: number[][];
   }[];
+  /** A voice's: in how many conversations lifelog heard it ("Heard Tue at 14:20 · 3 times"); absent on every other kind. */
+  conversations?: number;
   /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
   confirm: Check[];
   /** A Contacts card's own name and handles, from the one `ContactNow`; null for every other kind. Never a network identity (a card has no chat). */

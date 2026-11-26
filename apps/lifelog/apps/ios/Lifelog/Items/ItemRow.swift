@@ -109,7 +109,9 @@ struct ItemRow: View {
     private var icon: Glyph.Mark {
         if let check = ask.check {
             if check.draft != nil { return .bubble }
-            if check.group == .voice { return .mic }
+            if check.group == .voice { return .wave }
+            if check.group == .fix { return .life }
+            if check.payCode != nil || check.needs?.contains(where: { $0.kind == .amount }) == true { return .card }
             if check.options.contains(where: { $0.takes == .person || $0.takes == .personOrName }) { return .person }
             if check.needs?.contains(where: { $0.kind == .event }) == true { return .calendar }
             if check.needs?.contains(where: { $0.kind == .apify }) == true { return .search }

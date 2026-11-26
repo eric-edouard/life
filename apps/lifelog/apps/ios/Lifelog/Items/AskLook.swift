@@ -54,7 +54,6 @@ struct AskLook {
         if check.signInNetwork != nil {
             return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
         }
-        if check.group == .yourMove { return "Your move" }
         return check.rowWho()
     }
 

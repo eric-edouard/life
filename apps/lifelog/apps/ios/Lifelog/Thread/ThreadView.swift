@@ -88,7 +88,8 @@ struct ThreadView: View {
 
     @ViewBuilder private func rowBlock(_ refs: [String]) -> some View {
         if !refs.isEmpty {
-            VStack(spacing: Metrics.Spacing.xs) {
+            // 6 pt between rows, each with its own 10 above and below (the prototype's `rows2`).
+            VStack(spacing: 6) {
                 ForEach(asks(refs)) { ItemRow(ask: $0).id($0.ref).appears(Motion.arrives) }
             }
         }

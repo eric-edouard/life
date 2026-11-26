@@ -233,13 +233,15 @@ struct ThreadItemRow<Detail: View>: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             HStack(spacing: Metrics.Spacing.s) {
                 Button(action: toggle) {
-                    HStack(spacing: Metrics.Spacing.m) {
+                    // The face lines up with the title's first line (the prototype's `rows2`).
+                    HStack(alignment: .top, spacing: Metrics.Spacing.m) {
                         faceView
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
                             // Two lines at most on the row, ending "…" (the prototype's `rows2`); whole once open.
                             Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
                                 .lineLimit(isOpen ? nil : 2)
-                            lineView
+                            // The line under it stays one line, ending "…".
+                            lineView.lineLimit(1)
                         }
                         .fixedSize(horizontal: false, vertical: true)
                         // A long title wraps before the fold button, never under it.
@@ -274,7 +276,8 @@ struct ThreadItemRow<Detail: View>: View {
             }
         }
         .opacity(state == .outdated ? Metrics.Opacity.faded : 1)
-        .padding(.vertical, isOpen ? Metrics.Spacing.m : 0).washed(isOpen)
+        // 10 pt above and below a row, so a two-line title has room (the prototype's `rows2`).
+        .padding(.vertical, isOpen ? Metrics.Spacing.m : 10).washed(isOpen)
         .motion(Motion.standard, value: state.kind).motion(Motion.standard, value: line)
         .washes(on: state.kind)
     }
