@@ -5,11 +5,13 @@ import {
   type NewSessionRequest,
   ndJsonStream,
   type PromptResponse,
+  RequestError,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
 import { log } from "../../core/log";
 import { errorOf, fromModel } from "../../core/log-line";
 import type { Run, RunEnd, Runtime, Update, Usage } from "./contract";
+import { providerPause } from "./provider-pause";
 import type { Row } from "./runtime-rows";
 import {
   LAUNCH_WITHIN_MS,
@@ -46,12 +48,17 @@ const whyOf = (error: unknown) => {
 
 /**
  * A prompt's reply as its run's end, with the context its usage updates showed (`heard`), and what a failed one logs: a
- * stop the agent gave is a code word, logged as is; a thrown error is the runtime's, logged by its type only.
+ * stop the agent gave is a code word, logged as is; a thrown error is the runtime's, logged by its type only. `isAnswered`:
+ * the adapter answered the prompt with an error (its provider's, like a spend limit), not a connection that closed.
  */
 async function endOf(
   reply: Promise<PromptResponse>,
   heard: { first: number | null; last: number | null }
-): Promise<{ end: RunEnd; logged: Record<string, unknown> }> {
+): Promise<{
+  end: RunEnd;
+  isAnswered?: boolean;
+  logged: Record<string, unknown>;
+}> {
   try {
     const r = await reply;
     // What the adapter sent before its reply may still be on its way to the handlers.
@@ -75,6 +82,7 @@ async function endOf(
   } catch (error) {
     return {
       end: { ok: false, why: whyOf(error) },
+      isAnswered: error instanceof RequestError,
       logged: errorOf(fromModel(error)),
     };
   }
@@ -107,11 +115,15 @@ function updateOf(
 
 /**
  * Spawns the adapter in `a.folder` and makes or resumes the session, its model, effort and mode set: all within
- * `launchWithin`, else the adapter is killed and the open fails.
+ * `launchWithin`, else the adapter is killed and the open fails. Each prompt's end is told to the provider's `pause`.
  */
 const openOf =
-  (row: Row, launchWithin: number): Open =>
-  async (a, resume, opening) => {
+  (
+    row: Row,
+    launchWithin: number,
+    pause: ReturnType<typeof providerPause>
+  ): Open =>
+  async (a, resume, opening, isAsk) => {
     const { command, env } = await row.spawn(a);
     const {
       child,
@@ -290,7 +302,12 @@ const openOf =
       });
       reply.catch(() => undefined);
       ended = (async (): Promise<RunEnd> => {
-        const { end, logged } = await endOf(reply, heard);
+        const { end, isAnswered, logged } = await endOf(reply, heard);
+        // A good run lifts the pause; a background turn the adapter answered with an error grows it (his own ask's
+        // never does); a closed connection (a stop, a crash) says nothing.
+        if (end.ok || (isAnswered && !isAsk)) {
+          pause.heard(!end.ok);
+        }
         if (current === heard) {
           current = undefined;
         }
@@ -317,9 +334,18 @@ const openOf =
     return { close, exited, prompt, ref, stop };
   };
 
-/** A row's runtime over ACP: the one runtime (`sessionRuntime`) with ACP's connection. */
+/**
+ * A row's runtime over ACP: the one runtime (`sessionRuntime`) with ACP's connection, its background turns paused while
+ * its provider fails (`provider-pause.ts`, one pause for every agent of the row, as pi's).
+ */
 export const acpRuntime = (
   row: Row,
   launchWithin = LAUNCH_WITHIN_MS,
   keepWarm?: number
-): Runtime => sessionRuntime(row, openOf(row, launchWithin), keepWarm);
+): Runtime => {
+  const pause = providerPause();
+  return {
+    ...sessionRuntime(row, openOf(row, launchWithin, pause), keepWarm),
+    paused: pause.block,
+  };
+};
