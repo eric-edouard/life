@@ -29,6 +29,7 @@
     "install:phone": "HEAVY_LANE=release tools/heavy.sh bun apps/lifelog/scripts/install-phone.ts",
     "ios:project": "cd apps/lifelog/apps/ios && xcodegen generate --quiet",
     "life": "bun apps/server/src/desk/life-entry.ts",
+    "parity": "bun scripts/parity.ts",
     "prepare": "git config core.hooksPath .githooks",
     "switches": "bun apps/lifelog/scripts/switches.ts",
     "symbolicate": "bun apps/lifelog/scripts/symbolicate.ts"

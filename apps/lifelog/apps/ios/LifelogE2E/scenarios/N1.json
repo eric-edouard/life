@@ -6,11 +6,11 @@
   "steps": [
     {
       "reads": {
-        "read_thread": "lab/sign-in.json"
+        "read_thread": "parity/sign-in.json"
       }
     }
   ],
   "answers": [],
-  "items": ["fix:signed-out/line"],
+  "items": ["fix:signed-out/whatsapp"],
   "signIn": "lab/sign-in-steps.json"
 }

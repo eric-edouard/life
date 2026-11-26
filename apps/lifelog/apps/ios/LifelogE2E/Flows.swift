@@ -9,7 +9,7 @@ import XCTest
         launch("S1", paired: nil, open: Self.link("a", code: "ABC234"))
         tap(AID.pairConfirm)
         tap(AID.pairDone)
-        appears(app.buttons["What's waiting on me"], "the thread")
+        appears(field, "the thread")
         let steps = calls().compactMap { ($0["authorize"] ?? $0["token"] ?? $0["tool"]) as? String }
         XCTAssertEqual(steps, ["approved", "issued", "read_thread"])
     }
@@ -33,8 +33,27 @@ import XCTest
 @MainActor final class C1SendADraftTests: FlowTest {
     func testSendADraft() {
         launch("C1")
-        openTheAsk()
-        tap(AID.askAnswer(Self.ask, "send"))
+        openWaiting()
+        // The ask is in the opening and, listed, at the bottom: the listed one unfolds.
+        let rows = app.buttons.matching(identifier: AID.askRow(Self.ask))
+        appears(rows.firstMatch, "the ask in the list")
+        let listed = rows.count > 1 ? rows.element(boundBy: 1) : rows.firstMatch
+        let send = element(AID.askAnswer(Self.ask, "send"))
+        // The unfolded ask's end sits under the field: the thread is read upward to it; a fold on the way unfolds again.
+        func reach() {
+            for _ in 0..<4 where !send.exists || !send.isHittable {
+                if !send.exists { unfold(listed, until: send) }
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.7)).press(
+                    forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.3)))
+                Thread.sleep(forTimeInterval: 1)
+            }
+        }
+        reach()
+        XCTAssertTrue(send.exists, "Send to Jade")
+        shoot("draft")
+        reach()
+        send.tap()
+        taps += 1
         appears(element(AID.askSettled(Self.ask)), "Settled")
         XCTAssertEqual(answers().count, 1)
         XCTAssertFalse((answers()[0]["key"] as? String ?? "").isEmpty)
@@ -77,7 +96,8 @@ import XCTest
         launch("C10")
         openTheAsk()
         appears(element(AID.askSettled(Self.ask)), "Settled")
-        appears(app.staticTexts["Send Kit the message?"], "the unfolded ask")
+        appears(app.staticTexts["Send Nora the message?"], "the unfolded ask")
+        shoot("imessage-no-undo")
         XCTAssertFalse(element(AID.askUndo(Self.ask)).exists)
         XCTAssertTrue(answers().isEmpty)
     }
@@ -88,8 +108,16 @@ import XCTest
     func testUndoThenDelete() {
         launch("C11")
         openTheAsk()
-        tap(AID.askUndo(Self.ask))
-        tap(AID.askUndo(Self.ask))
+        unfold(element(AID.askRow(Self.ask)), until: element(AID.askUndo(Self.ask)))
+        shoot("undo-whatsapp")
+        // The thread redraws the row after each tap and it folds: each try unfolds it, asks, and confirms if it can.
+        for _ in 0..<4 where undos().isEmpty {
+            unfold(element(AID.askRow(Self.ask)), until: element(AID.askUndo(Self.ask)))
+            element(AID.askUndo(Self.ask)).tap()
+            let confirm = app.buttons["Delete for both"]
+            if confirm.waitForExistence(timeout: 2) { confirm.tap() }
+        }
+        taps += 2
         poll("the undo reached Life") { !undos().isEmpty }
         XCTAssertEqual(undos().count, 1)
     }
@@ -99,9 +127,9 @@ import XCTest
 @MainActor final class C20RateTheAnswerTests: FlowTest {
     func testRateTheAnswer() {
         launch("C20")
-        appears(app.buttons["What's waiting on me"], "the thread")
-        app.buttons["What's waiting on me"].tap()
+        askLife()
         appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
+        shoot("rate")
         // The thread fills the screen under the buttons: a thread squeezed to the bottom hid every earlier row.
         XCTAssertLessThan(app.scrollViews.firstMatch.frame.minY, app.frame.height / 4)
         tap(AID.askRate(Self.ask, "good"))
@@ -116,14 +144,18 @@ import XCTest
 @MainActor final class C12PersonAsTheAnswerTests: FlowTest {
     func testPersonAsTheAnswer() {
         launch("C12")
-        openTheAsk()
+        askLife("Text Ben that I’m running late")
+        let row = element(AID.askRow(Self.ask))
+        appears(row, "the ask in the thread")
+        unfold(row, until: element(AID.askAnswer(Self.ask, "who")))
         tap(AID.askAnswer(Self.ask, "who"))
-        let ana = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Test Ana")).firstMatch
-        appears(ana, "the people")
-        ana.tap()
+        let ben = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ben Martin")).firstMatch
+        appears(ben, "the people")
+        shoot("which-person")
+        ben.tap()
         poll("the answer reached Life") { !answers().isEmpty }
         XCTAssertEqual(answers().count, 1)
-        XCTAssertEqual(answers()[0]["person"] as? String, "person:test-ana")
+        XCTAssertEqual(answers()[0]["person"] as? String, "person:ben-martin")
         XCTAssertEqual(answers()[0]["options"] as? [String], ["who"])
     }
 }
@@ -136,6 +168,7 @@ import XCTest
         appears(element(AID.askAnswer(Self.ask, "send")), "Send")
         step(1)
         vanishes(element(AID.askAnswer(Self.ask, "send")), "Send gone once the ask is outdated")
+        shoot("outdated")
         XCTAssertTrue(answers().isEmpty)
     }
 }
@@ -148,6 +181,7 @@ import XCTest
         appears(element(AID.askAnswer(Self.ask, "send")), "Send")
         step(1)
         appears(element(AID.noticeOutOfReach), "Your Mac isn't answering")
+        shoot("offline")
         tap(AID.askAnswer(Self.ask, "send"))
         appears(element(AID.askQueued(Self.ask)), "the answer waiting")
         app.terminate()
@@ -223,9 +257,7 @@ import XCTest
 @MainActor final class P1PersonAndMatterPagesTests: FlowTest {
     func testPersonAndMatterPages() {
         launch("P1")
-        let ask = app.buttons["What's waiting on me"]
-        appears(ask, "the thread")
-        ask.tap()
+        askLife()
         let ana = app.links["Test Ana"]
         appears(ana, "the link to her")
         ana.tap()

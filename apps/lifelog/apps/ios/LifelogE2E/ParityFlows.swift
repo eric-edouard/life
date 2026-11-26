@@ -1,0 +1,72 @@
+import XCTest
+
+// The flows that reach a state of the approved prototype over its own made-up data (`fixtures/wire/parity/`), for the
+// parity board (`bun run parity`): each shoots its row. The other parity rows are shot inside their flows of `Flows.swift`.
+
+/// OP1, clean: the opening screen after five minutes away: Hi Sam, three asks and "2 more".
+@MainActor final class OP1OpeningCleanTests: FlowTest {
+    func testOpeningClean() {
+        launch("OP1")
+        appears(field, "the thread")
+        appears(
+            app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "waiting on you")).firstMatch, "the count")
+        shoot("open-clean")
+    }
+}
+
+/// OP1, broken: the same opening, LINE and Messenger signed Life out, their two fixes above the asks.
+@MainActor final class OP1OpeningBrokenTests: FlowTest {
+    func testOpeningBroken() {
+        launch("OP1")
+        appears(field, "the thread")
+        step(1)
+        appears(app.staticTexts["Sign LINE back in"], "the fix for LINE")
+        appears(app.staticTexts["Sign Messenger back in"], "the fix for Messenger")
+        shoot("open-broken")
+    }
+}
+
+/// W1: the round count's tap lists what waits on him in the thread, with no call to Life.
+@MainActor final class W1WaitingListTests: FlowTest {
+    func testWaitingList() {
+        launch("W1")
+        appears(field, "the thread")
+        openWaiting()
+        appears(app.staticTexts["Call the bank"], "the last of what waits")
+        shoot("waiting")
+        XCTAssertFalse(calls().contains { $0["tool"] as? String == "ask_main_session" })
+    }
+}
+
+/// L5: Life stops answering: the thread stays, one notice says why, and nothing is lost.
+@MainActor final class L5MacOutOfReachTests: FlowTest {
+    func testMacOutOfReach() {
+        launch("L5")
+        appears(field, "the thread")
+        step(1)
+        appears(element(AID.noticeOutOfReach), "Your Mac isn't answering")
+        shoot("mac-out")
+    }
+}
+
+/// N1: WhatsApp signed Life out: the opening puts its fix row first, to sign back in.
+@MainActor final class N1SignBackInTests: FlowTest {
+    func testSignBackIn() {
+        launch("N1")
+        appears(field, "the thread")
+        appears(app.staticTexts["Sign WhatsApp back in"], "the signed-out row")
+        shoot("signed-out")
+    }
+}
+
+/// M1: an answer arrives as it is written, its words a few at a time.
+@MainActor final class M1SlowAnswerTests: FlowTest {
+    func testSlowAnswer() {
+        launch("M1")
+        askLife("Where are we regarding the house?")
+        appears(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch,
+            "the answer's last words", within: 30)
+        shoot("slow-answer")
+    }
+}

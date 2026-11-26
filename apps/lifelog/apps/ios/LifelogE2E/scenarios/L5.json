@@ -6,7 +6,7 @@
   "steps": [
     {
       "reads": {
-        "read_thread": "life/read_thread.json"
+        "read_thread": "parity/opening.json"
       }
     },
     {
