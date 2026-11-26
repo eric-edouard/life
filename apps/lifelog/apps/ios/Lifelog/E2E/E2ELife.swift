@@ -84,6 +84,8 @@
     struct E2EScenario: Decodable, Sendable {
         struct Step: Decodable, Sendable {
             var up: [String]?
+            /// With `up`: the origins that don't answer fail as the phone having no internet, not as the Mac not answering.
+            var offline: Bool?
             var reads: [String: String]?
         }
         struct Answer: Decodable, Sendable {
@@ -244,7 +246,8 @@
             }
             guard isUp else {
                 log(["unreachable": url.path()])
-                return Reply(failure: .cannotConnectToHost)
+                let isOffline = steps.last(where: { $0.up != nil })?.offline ?? false
+                return Reply(failure: isOffline ? .notConnectedToInternet : .cannotConnectToHost)
             }
             let origin = "https://\(host)"
             switch url.path() {
