@@ -280,8 +280,14 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   };
 }
 
-const isFix = (x: object) =>
-  "card" in x && (x.card as { group?: string }).group === "fix";
+/** An open fix check no one is on yet (the inbox puts one the caretaker is at work on last, `before`). */
+const isFix = (x: object) => {
+  const c =
+    "card" in x ? (x.card as { beingFixed?: unknown; group?: string }) : {};
+  return (
+    "group" in c && c.group === "fix" && !("beingFixed" in c && c.beingFixed)
+  );
+};
 
 /** A thread entry's ref, as a deletion names it. */
 export const threadEntryRefOf = (id: number) => `thread:${id}`;
