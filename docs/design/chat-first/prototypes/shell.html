@@ -444,6 +444,16 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .fc .fr.leaving{transition:opacity .25s ease,height .3s ease,padding .3s ease,margin .3s ease;overflow:hidden}
 body{margin:0}main{padding-block:20px!important;flex-direction:row!important;align-items:center!important;justify-content:center;gap:40px!important;min-height:100vh;box-sizing:border-box}.side{display:flex;flex-direction:column;gap:10px;width:300px;flex:none;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}.side .seg{flex-direction:column;align-items:stretch;border-radius:20px}.side .seg button{text-align:left;border-radius:16px}.side .hint{text-align:left;max-width:none;margin-top:8px}.lbl{font-size:12px;font-weight:650;color:var(--muted);margin-top:6px}.fitbox{flex:none;position:relative}.fitbox .ph{transform-origin:0 0}@media (max-width:820px){main{flex-direction:column!important}.side{width:min(390px,100%)}}@media (max-width:500px){.fitbox{width:auto!important;height:auto!important}.fitbox .ph{transform:none!important}main{padding:0} .ph{width:100vw;height:100dvh;--r:0px} .hint{padding:0 16px}}
 /* ---- app v4 ---- */
+/* the opening screen: the greeting, then broken things, then at most 3 asks */
+.hi{align-self:flex-start;font-size:26px;font-weight:650;letter-spacing:-.015em;line-height:1.2;margin:6px 0 2px}
+.disc.app{background:none!important}.disc.app svg{width:44px;height:44px}.hero .disc.app svg,.inplace .hero .disc.app svg{width:48px;height:48px}
+.cs-in{opacity:0;animation:rise .35s ease-out forwards}
+.cs-drop{animation:csdrop .35s ease-out}
+@keyframes csdrop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.appaway{position:absolute;inset:0;z-index:9;background:#000;opacity:0;transition:opacity .3s ease;pointer-events:none}
+.appaway.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.cs-in{opacity:1;animation:none}.cs-drop{animation:none}}
+
 /* reactions: a small round mark on a bubble's corner, emoji in monotone so it adds no colour */
 .bm,.bt{position:relative}
 .has-rx{margin-bottom:10px}
@@ -549,7 +559,7 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 <div class="cmp gl" id="cmp"></div>
 <div class="edge s-rest" aria-hidden="true"><div class="gw"><i class="base"></i><i class="ai"></i><i class="t1"></i><i class="t2"></i><i class="up"></i><i class="down"></i><i class="arc"></i><i class="pool"></i></div><div class="cr"><i class="base"></i><i class="ai"></i><i class="t1"></i><i class="t2"></i><i class="up"></i><i class="down"></i><i class="arc"></i><i class="pool"></i></div></div>
 </div></div>
-<aside class="side"><div class="lbl">app v4 · long work, handed off</div><div class="seg v4b"><button type="button" data-v4="async">Ask for long work: a physio this week</button><button type="button" data-v4="asyncdone">20 minutes later: the result lands</button><button type="button" data-v4="peek">Ask how it’s going</button><button type="button" data-v4="budget">It reaches what it may spend</button></div>
+<aside class="side"><div class="lbl">Opening the app (26 Nov)</div><div class="seg v4b"><button type="button" data-v4="openlong">Come back after 5 minutes: a clean screen</button><button type="button" data-v4="openshort">Come back sooner: as you left it</button><button type="button" data-v4="broken" aria-pressed="false">LINE and Messenger sign Life out</button></div><p class="v4h">On the clean screen: tap a broken row to fix it in place, “2 more” for the rest, Show earlier for the last sitting.</p><div class="lbl">app v4 · long work, handed off</div><div class="seg v4b"><button type="button" data-v4="async">Ask for long work: a physio this week</button><button type="button" data-v4="asyncdone">20 minutes later: the result lands</button><button type="button" data-v4="peek">Ask how it’s going</button><button type="button" data-v4="budget">It reaches what it may spend</button></div>
 <div class="lbl">Redrafting a draft</div><div class="seg v4b"><button type="button" data-v4="draft">Life brings a draft to Jade</button><button type="button" data-v4="redraft">Type a change: “Make it warmer, and say I’ll bring wine”</button></div><p class="v4h">Or tap Warmer, Shorter or In French under the draft: it changes in place.</p>
 <div class="lbl">Reactions</div><div class="seg v4b"><button type="button" data-v4="thanks">You say thanks</button><button type="button" data-v4="remind">“Remind me to call Mum on Sunday”</button><button type="button" data-v4="hold">You react to Life’s line</button></div><p class="v4h">Hold (or double-tap) any line of Life’s to react to it.</p>
 <div class="lbl">How am I doing? (once a day at most)</div><div class="seg v4b"><button type="button" data-v4="rate">Life asks</button></div>
@@ -626,7 +636,7 @@ var ASKS=['ben','jade','clinic','plumber','bank'];
 
 function clear(){timers.forEach(clearTimeout);timers=[];}
 function esc(t){return t.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
-function disc(id){return '<span class="disc"'+(M[id].person?' data-person="'+M[id].person+'"':'')+'>'+M[id].who+'</span>';}
+function disc(id){return '<span class="disc'+(M[id].app?' app':'')+'"'+(M[id].person?' data-person="'+M[id].person+'"':'')+'>'+M[id].who+'</span>';}
 function stateOf(id){var m=M[id];return m.outdated?'outdated':m.queued?'queued':m.busy?'underway':m.done?'settled':m.later?'later':m.state==='waiting'?'waiting':'needs';}
 function undoBtn(id){var m=M[id],b=' · <button type="button" data-undo="'+id+'">Undo</button>'+(m.undoTill?' '+m.undoTill:'');if(m.kind==='message')return m.undoable&&!m.unsent&&m.done?b:'';return m.noUndo||whyNotUndone(id)?'':b;}
 function lineHTML(id){var m=M[id],st=stateOf(id);
@@ -1541,6 +1551,63 @@ ph.addEventListener('input',function(e){var t=e.target.closest('[data-auk]');if(
   t.closest('.kn').querySelector('.knh span').textContent=KN[k].f(AURA.k[s][k]);applyAura();if(state==='rest'&&edgeS!==s)setEdge(s);});
 ph.addEventListener('change',function(e){if(e.target.closest('[data-auk]'))auraRefresh();});
 applyAura();
+/* ---- the opening screen (owner, 26 Nov 2026). Back after 5 minutes or more in the background, the app opens clean:
+   the greeting, then what is broken (never capped, each a fix row that opens in place), then at most 3 asks that block
+   him and a pill for the rest. The count stays the full total. The past is one "Show earlier" away, a sitting at a
+   time; an older greeting is kept only as its time. Back sooner, nothing changes. ---- */
+var LINEM='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#06C755"/><path fill="#fff" d="M12 6c-4 0-7.2 2.6-7.2 5.8 0 2.9 2.5 5.3 6 5.7.2 0 .5.2.6.4v.9c0 .3-.2.9.8.5s4.5-2.6 6.1-4.5c1.1-1.2 1.6-2.3 1.6-3C19.2 8.6 16 6 12 6Z"/></svg>';
+var MSGRM='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#0b0c0e"/><g transform="translate(2.4 2.4) scale(.8)">'+MSGR.replace(/^<svg[^>]*>|<\/svg>$/g,'')+'</g></svg>';
+Object.assign(M,{
+ linefix:{kind:'fix',app:1,ask:'Sign LINE back in',t:'Sign LINE back in',who:LINEM,sub:'New messages aren’t coming in',when:'since 11:02',
+  home:{why:'You’re home, next to your Mac. It takes a minute.',steps:['On your phone, open LINE, then Settings, then Devices','Tap Log in with a code','Scan the code on your Mac’s screen'],act:'Done, it’s linked',doing:'Checking…',ok:'Linked',defer:'Later'},
+  away:{why:'Signing in needs your Mac, and you’re away from it.',steps:[],act:'Remind me when I’m home',remind:'when you’re home',defer:'Later'},
+  ended:'Signed back in',sugg:['Why did it sign out?','What did I miss on LINE?','Can I do it from my phone?'],after:['What did I miss on LINE?','What else is waiting?']},
+ msgrfix:{kind:'fix',app:1,ask:'Sign Messenger back in',t:'Sign Messenger back in',who:MSGRM,sub:'Can’t read or send there',when:'since Tue',
+  home:{why:'You’re home, next to your Mac. It takes a minute.',steps:['On your Mac, Life shows a Messenger sign-in','Sign in with your Facebook account','Approve it on your phone if Facebook asks'],act:'Done, I’m signed in',doing:'Checking…',ok:'Signed in',defer:'Later'},
+  away:{why:'Signing in needs your Mac, and you’re away from it.',steps:[],act:'Remind me when I’m home',remind:'when you’re home',defer:'Later'},
+  ended:'Signed back in',sugg:['Why did it sign out?','What did I miss on Messenger?'],after:['What did I miss on Messenger?','What else is waiting?']}
+});
+var OPEN_CAP=3,OWNER_FIRST='Sam',HIST=[],CLOCK=[14,2],CLEAN=null;
+function hm(){return CLOCK[0]+':'+(CLOCK[1]<10?'0':'')+CLOCK[1];}
+function tick(min){CLOCK[1]+=min;while(CLOCK[1]>=60){CLOCK[1]-=60;CLOCK[0]++;}}
+function isBroken(id){return M[id].kind==='fix'&&stateOf(id)==='needs';}
+function riseRows(ids,start){return ids.map(function(id,i){return rowHTML(id).replace('<div class="fr','<div style="animation-delay:'+(start+60*i)+'ms" class="cs-in fr');}).join('');}
+/* the app goes to the background and comes back: the screen goes dark a moment, as an app switch does */
+function awayAndBack(then){var o=document.createElement('div');o.className='appaway';ph.appendChild(o);
+  requestAnimationFrame(function(){o.classList.add('on');});
+  setTimeout(function(){then();o.classList.remove('on');setTimeout(function(){o.remove();},320);},reduceMotion?50:900);}
+function cleanScreen(redraw){clear();closeRx&&closeRx();
+  /* the sitting he leaves becomes history; a greeting in it stays only as its time */
+  var kept=document.createDocumentFragment();if(!redraw)[].slice.call(thread.childNodes).forEach(function(n){if(n.classList&&(n.classList.contains('sp')||n.classList.contains('histb')))return;
+    if(n.classList&&n.classList.contains('hi')){var s=document.createElement('div');s.className='sep';s.textContent=n.dataset.at;kept.appendChild(s);return;}kept.appendChild(n);});
+  if(kept.childNodes.length&&!redraw)HIST.unshift(kept);
+  var fixes=ASKS.filter(isBroken),waits=ASKS.filter(function(id){return !isBroken(id)&&stateOf(id)==='needs';}),top=waits.slice(0,OPEN_CAP),rest=waits.slice(OPEN_CAP);
+  var oldHi=thread.querySelector('.hi'),at=redraw&&oldHi?oldHi.dataset.at:hm();var hi='<div class="hi" data-at="'+at+'">'+('Hi '+OWNER_FIRST).split(' ').map(function(w,i){return '<span class="w on" style="animation-delay:'+(150+i*180)+'ms">'+w+'</span>';}).join(' ')+'</div>';
+  var h='<div class="sp"></div>'+(HIST.length?'<button type="button" class="more histb cs-in" style="animation-delay:1000ms">Show earlier</button>':'')+hi;
+  if(fixes.length)h+='<div class="bt wide"><div class="fc">'+riseRows(fixes,700)+'</div></div>';
+  if(top.length)h+='<div class="bt wide"><div class="fc">'+riseRows(top,700+60*fixes.length)+'</div></div>';
+  if(rest.length)h+='<button type="button" class="more cs-in" data-more="'+rest.join(',')+'" style="animation-delay:1000ms">'+rest.length+' more</button>';
+  thread.innerHTML=h;thread.scrollTop=0;focus='thread';xLive=null;CLEAN=true;setCount();rest_();}
+var rest_=rest;
+function comeBack(long){tick(long?18:3);awayAndBack(function(){if(long)cleanScreen();});}
+function showMoreRows(btn){var ids=btn.dataset.more.split(','),fc=btn.previousElementSibling&&btn.previousElementSibling.querySelector('.fc');if(!fc)return;
+  fc.insertAdjacentHTML('beforeend',riseRows(ids,0));btn.remove();}
+function showHistory(btn){var chunk=HIST.shift();if(!chunk)return;var hi=thread.querySelector('.hi');
+  var at=document.createElement('div');at.className='sep';at.textContent=hi?hi.dataset.at:hm();
+  var nodes=[].slice.call(chunk.childNodes);nodes.forEach(function(n){if(n.classList)n.classList.add('cs-drop');btn.parentNode.insertBefore(n,btn);});
+  btn.parentNode.insertBefore(at,btn);
+  if(HIST.length){var nb=document.createElement('button');nb.type='button';nb.className='more histb';nb.textContent='Show earlier';thread.insertBefore(nb,nodes[0]||at);}
+  btn.remove();var y=(hi||at).offsetTop-thread.clientHeight+200;thread.scrollTo({top:Math.max(0,y),behavior:reduceMotion?'auto':'smooth'});}
+/* LINE and Messenger sign Life out: the fixes rank first and count; they show on the next opening (and at once if the
+   clean screen is what he is looking at). Fixed on their own, they settle where they are. */
+function setBroken(btn){var on=btn.getAttribute('aria-pressed')!=='true';btn.setAttribute('aria-pressed',String(on));
+  ['msgrfix','linefix'].forEach(function(id){var m=M[id];
+    if(on){m.done=false;m.outdated=null;m.later=null;m.busy=null;m.queued=false;if(ASKS.indexOf(id)<0)ASKS.unshift(id);}
+    else if(stateOf(id)==='needs'){m.outdated='Fixed on its own';finish(id);refreshLive(id);}});
+  setCount();if(on&&CLEAN&&thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm'))cleanScreen(true);}
+ph.addEventListener('click',function(e){var t=e.target.closest('[data-more],.histb');if(!t)return;e.stopImmediatePropagation();
+  if(t.dataset.more)showMoreRows(t);else showHistory(t);},true);
+Object.assign(V4,{openlong:function(){comeBack(true);},openshort:function(){comeBack(false);},broken:function(b){setBroken(b);}});
 window.__v4={M:M,SET:SET,V4:V4,AURA:AURA};
 
 var goal=GOALS.rest, cur={spd:1,bo:.14,tide:.9,blue:0,pool:0,blur:20,col:0}, a1=0,a2=120,a3=240,ph2=0,pulse=0,last=performance.now();
