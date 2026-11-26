@@ -32,10 +32,7 @@
             "start": "2026-12-03T18:00:00+07:00",
             "end": "2026-12-03T19:00:00+07:00",
             "title": "Parents' meeting",
-            "reminders": [
-              60,
-              30
-            ],
+            "reminders": [60, 30],
             "place": "Linden School, room 4",
             "line": "Thu 18:00, Linden School, room 4"
           }
