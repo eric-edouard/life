@@ -247,6 +247,14 @@ final class LifeStore {
         return state(of: .appointment(id))
     }
 
+    /// His halo settings saved: the aura Life kept, as it answered.
+    func saveAura(_ aura: AuraSetting) async throws -> AuraSetting {
+        guard let kept = AuraSetting.saved(in: try await api.changeSetting(aura: aura)) else {
+            throw MCPError.failed("Life did not keep it.")
+        }
+        return kept
+    }
+
     /// The read `key`, one pass at a time (`ReadFlights`): its value applies as of when its pass began, and is kept for a
     /// cold start unless `isKept` is false. A read of the Life paired before this one applies nothing, not even its
     /// failure (`PairingGeneration`).
@@ -314,8 +322,11 @@ final class LifeStore {
     func isQueued(_ ref: String) -> Bool { queued.holds(ref) }
 
     /// How many asks wait on him, less those he answered meanwhile: the round button's count and the app's badge.
-    var waitingCount: Int? {
-        items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.count }
+    var waitingCount: Int? { waitingRefs.map(\.count) }
+
+    /// Those asks' refs, in Life's order.
+    var waitingRefs: [String]? {
+        items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.map(\.ref) }
     }
 
     /// A tapped notification: its ask is unfolded in the thread, once the asks are read again.

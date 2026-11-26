@@ -51,6 +51,8 @@ struct RootView: View {
     private var thread: LifeThread { life.thread }
     /// What he sees now, as refs only: the thread, or the profile pushed over it.
     private var screen: MainSessionScreen { MainSessionScreen(open: profiles.last?.ref ?? life.opened, tab: "thread") }
+    /// The edge's look, and the state the halo settings show while open.
+    private let aura = AuraPreview.shared
     private var edge: EdgeState {
         life.isOutOfReach ? .still : thread.isWorking ? .working : isSpeaking ? .speaking : .rest
     }
@@ -118,7 +120,7 @@ struct RootView: View {
             }
         }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it.
-        .overlay { EdgeView(state: edge) }
+        .overlay { EdgeView(state: aura.state ?? edge, aura: aura.shown) }
         .sheet(
             item: $sheet,
             onDismiss: {
@@ -236,11 +238,11 @@ struct RootView: View {
 
     private var isCountShown: Bool { life.isOutOfReach || (life.waitingCount ?? 0) > 0 }
 
-    /// The two round buttons: what waits on him (its count; tap asks Life), and the pendant (long press: Settings).
+    /// The two round buttons: what waits on him (its count; tap lists them in the thread, no call), and the pendant (long press: Settings).
     private var buttons: some View {
         HStack {
             Button {
-                thread.ask("What's waiting on me?", screen: screen)
+                thread.showWaiting(life.waitingRefs ?? [])
             } label: {
                 // Something broken turns the count into a coral mark: he learns of it where he is (the lab's Settings 2, B).
                 Group {

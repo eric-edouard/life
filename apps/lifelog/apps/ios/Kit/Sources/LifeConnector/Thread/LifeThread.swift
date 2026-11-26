@@ -187,6 +187,18 @@ public final class LifeThread {
         return true
     }
 
+    /// The round button's tap: his question and its answer at once, from the asks the phone holds (`refs`, in Life's
+    /// order), with no call to Life. Typing the same words still goes to Life (`ask`).
+    public func showWaiting(_ refs: [String]) {
+        let list = (try? JSONEncoder().encode(refs)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        var entry = ThreadEntry(
+            id: UUID(), at: now(), words: "What's waiting on me?", key: UUID().uuidString, phase: .answered)
+        entry.answer = refs.isEmpty ? "Nothing waits on you." : "```life:items\n\(list)\n```"
+        entry.checked = AnswerPart.blockKeys(of: entry.answer ?? "")
+        pending.append(entry)
+        save()
+    }
+
     /// His words that never reached Life, again, in order (the way back online).
     public func sendWaiting(screen: MainSessionScreen) async {
         for e in pending where e.phase == .waiting || (e.phase == .sending && !flying.contains(e.id)) {

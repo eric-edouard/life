@@ -213,3 +213,25 @@ extension JSONDecoder {
         #expect((body["options"] as? [String])?.isEmpty ?? true)
     }
 }
+
+@MainActor @Test func theCountsTapListsTheAsksAtOnceWithoutAskingLife() {
+    let life = FakeLife()
+    let thread = LifeThread(api: life, cache: nil)
+    thread.showWaiting(["life:card/a", "life:card/b"])
+    let first = thread.entries.last
+    #expect(first?.words == "What's waiting on me?" && first?.phase == .answered)
+    #expect(
+        AnswerPart.parts(of: first?.answer ?? "", sent: Set(first?.checked ?? []))
+            == [.block(.items(["life:card/a", "life:card/b"]))])
+    thread.showWaiting([])
+    #expect(thread.entries.last?.answer == "Nothing waits on you.")
+}
+
+@Test func theHaloSettingsAreTheSettingsBlocksAuraKeyAndTheirSaveReadsBack() throws {
+    #expect(
+        LifeBlock(kind: "settings", json: Data(#"{"keys":["aura"]}"#.utf8)) == .settings(keys: ["aura"], offer: nil))
+    // What `change_setting` answers is the aura as sent, every key the server's `Aura` names.
+    let sent = try JSONEncoder().encode(["aura": AuraSetting.standard])
+    #expect(AuraSetting.saved(in: String(decoding: sent, as: UTF8.self)) == .standard)
+    #expect(AuraSetting.saved(in: #"{"budget":{"monthlyUsd":5}}"#) == nil)
+}
