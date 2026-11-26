@@ -6,11 +6,29 @@
   "steps": [
     {
       "reads": {
+        "read_thread": "parity/read_thread_draft_whatsapp.json"
+      }
+    },
+    {
+      "reads": {
         "read_thread": "parity/read_thread_undo_whatsapp.json"
       }
     }
   ],
-  "answers": [],
+  "answers": [
+    {
+      "ref": "dec_000000000001",
+      "options": [
+        "send"
+      ],
+      "progress": [
+        "Checking the chat",
+        "Sending"
+      ],
+      "then": "life/answer_check_sent.json",
+      "advance": true
+    }
+  ],
   "items": [
     "dec_000000000001"
   ]
