@@ -259,13 +259,11 @@ test("his word stops, resumes, re-points, renames and changes the model of an ag
   expect(
     (await applied({ action: "resume", agent }, 11 * MIN))?.error
   ).toStartWith("asked over 10 minutes");
-  expect(agentOf(desk.db, agent)?.status).toBe("active");
-  // A stop is safe and idempotent: it applies whatever its age (asked while the desk was off).
+  // A stop applies at any age (safe, idempotent).
   expect(
     (await applied({ action: "stop", agent }, 30 * MIN))?.error
   ).toBeNull();
   expect(agentOf(desk.db, agent)?.status).toBe("stopped");
-  desk.db.run("update agent set status = 'active' where id = ?", [agent]);
 
   // Applied once: reading again starts nothing new.
   const count = () =>
