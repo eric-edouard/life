@@ -147,7 +147,11 @@ struct AskBody: View {
                     markdown: "\(since.by.map { "\($0) wrote " } ?? "")“\(since.text)”"
                         + (check.said.map { ". Is **\($0.text)** done?" } ?? ""))
             }
-        default: EmptyView()
+        default:
+            // An answer that takes a person: the people it may be, as cards in the thread.
+            if check.options.contains(where: { $0.takes == .person }) {
+                PersonCards(people: Array(check.likelyPeople.prefix(3)), pick: pick)
+            }
         }
     }
 

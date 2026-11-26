@@ -124,9 +124,9 @@ import XCTest
         askLife("Text Ben that I’m running late")
         let row = element(AID.askRow(Self.ask))
         appears(row, "the ask in the thread")
-        unfold(row, until: element(AID.askAnswer(Self.ask, "who")))
-        tap(AID.askAnswer(Self.ask, "who"))
+        // The two Bens are cards in the thread: one tap answers.
         let ben = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ben Martin")).firstMatch
+        unfold(row, until: ben)
         appears(ben, "the people")
         shoot("which-person")
         ben.tap()
