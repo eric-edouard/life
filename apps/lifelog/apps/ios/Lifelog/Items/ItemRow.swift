@@ -16,8 +16,6 @@ struct ItemRow: View {
     @State private var isConfirmingUndo = false
     /// The answer he tapped last: the one that shows its spinner while Life works, and "Not sent" if it failed.
     @State private var tapped: String?
-    /// The option that takes a person, while his directory's picker is open.
-    @State private var pickingFor: String?
     /// His "How am I doing?": the mark he gave (the row says "Thanks" and dims), or the cross (the row goes).
     @State private var rated: Reaction?
     @State private var isRatingClosed = false
@@ -156,12 +154,6 @@ struct ItemRow: View {
         ) {
             detail.transition(Motion.appears)
         }
-        .sheet(item: $pickingFor) { option in
-            PersonPicker { party in
-                Task { await life.answer(AnswerRequest(ref: ask.ref, options: [option], person: party.ref)) }
-            }
-            .padding(Metrics.Spacing.l).presentationDetents([.medium, .large])
-        }
         .onAppear { isOpen = startsOpen || life.focused == ask.ref }
         .onChange(of: hasRating, initial: true) {
             guard hasRating else { return }
@@ -211,9 +203,12 @@ struct ItemRow: View {
         return failure.reason.lowercased().hasPrefix("not sent") ? "It did not go. Nothing was sent." : failure.reason
     }
 
-    /// The options of the card that are answers: a put-off ("Not now") is Later, which every ask offers.
+    /// The options of the card that are answers: a put-off ("Not now") is Later, which every ask offers; one that takes
+    /// a person is answered by the people's cards (`AskBody`).
     private func answers(of check: Check) -> [Check.Option] {
-        check.options.filter { $0.icon != .later && $0.id != "not-now" && AskLook(check: check).shows($0) }
+        check.options.filter {
+            $0.icon != .later && $0.id != "not-now" && $0.takes != .person && AskLook(check: check).shows($0)
+        }
     }
 
     private func card(_ check: Check) -> some View {
@@ -238,15 +233,11 @@ struct ItemRow: View {
                 Task { await life.answer(request) }
             } else if let option = byLabel[l] {
                 tapped = option.id
-                if option.takes == .person {
-                    pickingFor = option.id
-                } else {
-                    Task {
-                        await life.answer(
-                            AnswerRequest(
-                                ref: ask.ref, options: [option.id], note: option.takes == .note ? words : nil,
-                                name: option.takes == .personOrName ? words : nil))
-                    }
+                Task {
+                    await life.answer(
+                        AnswerRequest(
+                            ref: ask.ref, options: [option.id], note: option.takes == .note ? words : nil,
+                            name: option.takes == .personOrName ? words : nil))
                 }
             }
         }

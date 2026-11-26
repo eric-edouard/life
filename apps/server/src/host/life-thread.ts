@@ -10,7 +10,11 @@ import type {
   DeletionCopy,
   ThreadEntriesHolding,
 } from "../memory/delete-from-memory";
-import { iconNow, iconWorkEnded, readLifeIcons } from "../memory/matter-icons";
+import {
+  iconNow,
+  MATTER_ICON_PICKS,
+  readLifeIcons,
+} from "../memory/matter-icons";
 import type { MatterView } from "../memory/matter-read";
 import {
   laterUntilOf,
@@ -134,24 +138,21 @@ interface MatterLook {
   status: MatterView["status"];
 }
 
-/** Each matter's status and its icon's key (`iconNow`); icons never cost the thread: none when the embedder fails. */
+/** Each matter's status and its icon's key (`iconNow`). */
 async function readMatterLooks() {
   const b = await readMatterBook(await readPeople(), dayNow());
-  const lifeIcons = await readLifeIcons(b).catch(
-    () => new Map() as Awaited<ReturnType<typeof readLifeIcons>>
-  );
+  const picks = readLifeIcons();
   return new Map<string, MatterLook>(
-    b.map((m) => [m.id, { icon: iconNow(m, lifeIcons)?.key, status: m.status }])
+    b.map((m) => [m.id, { icon: iconNow(m, picks)?.key, status: m.status }])
   );
 }
 
-/** Each matter's status and icon, read again only when what the book reads changed, his day did or an icon pick landed (`iconWorkEnded`). */
+/** Each matter's status and icon, read again only when what the book reads changed, his day did or an icon pick landed. */
 let book: { key: string; looks: Promise<Map<string, MatterLook>> } | undefined;
 function matterLooks() {
   const key = JSON.stringify([
-    readChangeStamp(MATTER_BOOK_READS),
+    readChangeStamp([...MATTER_BOOK_READS, MATTER_ICON_PICKS]),
     dayNow(),
-    iconWorkEnded(),
   ]);
   if (book?.key !== key) {
     const looks = readMatterLooks();

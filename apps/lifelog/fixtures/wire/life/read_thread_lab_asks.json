@@ -93,7 +93,19 @@
         "question": "Who is this?",
         "ref": "dec_000000000011",
         "title": "Name a voice",
-        "urgency": "blocks"
+        "urgency": "blocks",
+        "voiceGuesses": [
+          {
+            "person": {
+              "ref": "person:nora",
+              "name": "Nora",
+              "kind": "person",
+              "line": "Your partner",
+              "picture": null
+            },
+            "why": "You called Nora at 14:20, and this voice is on that call."
+          }
+        ]
       },
       "kind": "ask",
       "later": null,
@@ -257,7 +269,7 @@
         "options": [
           {
             "id": "this-is",
-            "label": "Someone else\u2026",
+            "label": "Someone else…",
             "takes": "person",
             "icon": "person"
           },

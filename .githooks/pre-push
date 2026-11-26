@@ -4,6 +4,14 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # (tests on temp repos included) at this repo: git.test.ts's `git init` once set core.bare=true. The check gets a plain
 # shell's environment.
 unset $(git rev-parse --local-env-vars)
+# The check is a heavy job: a plain push waits for a slot (tools/heavy.sh, load hit ~250 with pushes beside it, 26 Nov);
+# one already inside heavy.sh (HEAVY_HELD) runs it at once. A landing push (its branch holds land.ts's landing lock)
+# takes the land lane, which runs the Swift builds.
+if [ -z "${HEAVY_HELD:-}" ]; then
+  # ponytail: matches the lock by branch name across repos; a same-named branch landing elsewhere also gets the land lane.
+  grep -qsxF "$(git branch --show-current)" "${TMPDIR:-/tmp}"/work-on-code-land-*/branch && export HEAVY_LANE=land
+  exec tools/heavy.sh sh .githooks/pre-push "$@"
+fi
 if ! bun run check --unless-passed; then
   echo "Push blocked: bun run check failed."
   exit 1

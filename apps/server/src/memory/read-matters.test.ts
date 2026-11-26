@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import type { Embedder } from "../core/embedder";
 import { INFERRED_PREFIX } from "../records/observation";
-import { readLifeIcons } from "./matter-icons";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as icons from "./matter-icons";
 import {
   dismissedIdsOf,
   type HandOutFacts,
@@ -198,36 +198,25 @@ test("read_matters lists the open matters, of one project when asked; read_matte
         )
       ).matters[0]?.agent
     ).toBe("agt_000000000001");
-    // Icons, on a project's read too: his pick survives an embedder that is down; Life's shows once it answers.
+    // Icons, on a project's read too: his pick wins over Life's stored one; Life's shows for the other.
     book.mockResolvedValue([
       { ...errand, ownerIcon: "tools" },
       { ...other, projects: ["shop-fit-out"] },
     ] as never);
-    const iconsWith = async (embedder: Embedder) =>
-      (
-        await openMatters({ project: "shop-fit-out" }, undefined, (vs) =>
-          readLifeIcons(vs, embedder, 1000)
-        )
-      ).matters.map((m) => m.icon);
+    const picks = spyOn(icons, "readLifeIcons").mockReturnValue(
+      new Map([
+        [icons.iconInputsOf(errand as never), "gift"],
+        [icons.iconInputsOf(other as never), "home"],
+      ])
+    );
     const his = { by: "owner", key: "tools" } as const;
     expect(
-      await iconsWith({
-        embed: () => Promise.reject(new Error("the embedder is down")),
-        model: "down",
-      })
-    ).toEqual([his, undefined]);
-    const up: Embedder = {
-      embed: (texts) => Promise.resolve(texts.map(() => [1, 0])),
-      model: "up",
-    };
-    expect(await iconsWith(up)).toEqual([his, { by: "life", key: "home" }]);
-    expect(
-      (
-        await oneMatter(["matter_aaaaaaaaaaaa"], {
-          readIcons: (vs) => readLifeIcons(vs, up),
-        })
-      )?.icon
-    ).toEqual(his);
+      (await openMatters({ project: "shop-fit-out" })).matters.map(
+        (m) => m.icon
+      )
+    ).toEqual([his, { by: "life", key: "home" }]);
+    expect((await oneMatter(["matter_aaaaaaaaaaaa"]))?.icon).toEqual(his);
+    picks.mockRestore();
   } finally {
     people.mockRestore();
     book.mockRestore();

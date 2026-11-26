@@ -57,6 +57,7 @@ import {
   LIFE_CHECKS,
   preTickedOf,
 } from "./life-checks";
+import { MATTER_ICON_PICKS } from "./matter-icons";
 import {
   directionDueOf,
   isAwaitingHisWord,
@@ -469,6 +470,7 @@ const CHECKS_READ = [
   APPOINTMENTS,
   CLOSENESS,
   DECISIONS,
+  MATTER_ICON_PICKS,
   PAGES,
   PERSON_PICTURES_INDEX,
   PROJECT_SITUATIONS,
