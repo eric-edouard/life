@@ -202,7 +202,7 @@ test("stopWithdrawn: his Undo removes the answer's queued event, so the agent ne
 
 // Regression (26 Nov 2026): a desk helper killed mid-turn left its turns open, and a stopped agent's assignment never
 // woke again (`nextWakeOf` is null while a turn is open).
-test("at the helper's start, the turns a restart cut are closed and their wake is due again", async () => {
+test("at the helper's start, the turns a restart cut are closed and their wake is due again", () => {
   const { desk, path } = setup();
   const begun = withTurn(desk);
   const unbegun = withTurn(desk);
