@@ -13,6 +13,13 @@ declare module "claude-code" {
         }
       ) => Promise<{ status: number; text: string }>;
     };
+    mcp: {
+      call: (
+        server: string,
+        tool: string,
+        args?: Record<string, unknown>
+      ) => Promise<{ content?: readonly unknown[]; isError?: boolean }>;
+    };
     plugin: { name: string };
     session: { id: () => Promise<string> };
     store: {
