@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { MIN } from "../core/clock";
 import { MACHINE_DIR } from "../core/platform";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
@@ -299,13 +300,31 @@ interface Login {
 /** Why a bridge with these logins isn't working: never linked, or a login in a state it won't leave by itself. */
 export function blockOf(bridge: string, logins: Login[]) {
   if (logins.length === 0) {
-    return `${bridge} bridge not linked: bun life bridge link ${bridge}`;
+    return `${bridge} bridge not linked: sign in from the card on your phone`;
   }
   const down = logins.find(
     (l) => !PASSING.includes(l.state?.state_event ?? "")
   );
   return down
     ? `${bridge} bridge ${down.state?.state_event ?? "unknown"}${down.state?.message ? `: ${down.state.message}` : ""}`
+    : undefined;
+}
+
+/** A login state the bridge won't leave by itself: he must sign in again. */
+const SIGNED_OUT = ["BAD_CREDENTIALS", "LOGGED_OUT"];
+
+/**
+ * Whether he must sign the bridge in (the one rule, for the fix asks and `sign_in_to_network`): a login signed out, or
+ * none ever; none while every login works or is coming back by itself.
+ */
+export function signInOf(
+  logins: Login[]
+): "never-linked" | "signed-out" | undefined {
+  if (logins.length === 0) {
+    return "never-linked";
+  }
+  return logins.some((l) => SIGNED_OUT.includes(l.state?.state_event ?? ""))
+    ? "signed-out"
     : undefined;
 }
 
@@ -365,17 +384,6 @@ export interface LoginStep {
       type?: string;
     }[];
   };
-}
-
-/**
- * What a login asks of him: to look at something (a QR code, a code), a site's cookies (all at once), and one value (a
- * field, a cookie that didn't come with the rest).
- */
-export interface LoginAsk {
-  /** A cookie step's values by field, as he gives them: a browser he signs in to, or a request he pastes. */
-  cookies: (step: CookieStep) => Promise<Map<string, string>>;
-  show: (step: LoginStep) => void;
-  value: (field: { hidden: boolean; id: string; name: string }) => string;
 }
 
 export type CookieStep = NonNullable<LoginStep["cookies"]>;
@@ -463,66 +471,35 @@ export function cookieValues(
   );
 }
 
-/** The ways a bridge offers to link it (QR, email and password, cookies). */
-export const loginFlows = async (bridge: string) =>
-  ((await provision(bridge, "login/flows")).flows ?? []) as {
-    description: string;
-    id: string;
-    name: string;
-  }[];
+/** A login step's call to the bridge may wait minutes: a display-and-wait step blocks until he did it in the other app. */
+const loginCall = (body: unknown) => ({
+  body: JSON.stringify(body),
+  method: "POST",
+  signal: AbortSignal.timeout(10 * MIN),
+});
 
-/** What a step asks him to give: its fields, a password hidden; none for one he looks at. */
-function fieldsOf(step: LoginStep) {
-  if (step.type === "user_input") {
-    return (step.user_input?.fields ?? []).map((f) => ({
-      hidden: f.type === "password",
-      id: f.id,
-      name: f.name ?? f.id,
-    }));
-  }
-  return [];
-}
+/** Starts a login on the bridge by `flow` (its network's `loginFlow`): its first step. */
+export const startLogin = async (bridge: string, flow: string) =>
+  (await provision(
+    bridge,
+    `login/start/${encodeURIComponent(flow)}`,
+    loginCall({})
+  )) as unknown as LoginStep;
 
 /**
- * What one step sends back: his answers to its fields, or its cookies, all at once first (`ask.cookies`), then one by
- * one for a required one that didn't come (an optional one is left out).
+ * Sends one step's answers (its fields' or cookies' values by id; none for a display-and-wait step, which returns once
+ * he did what it shows); the bridge's next step, or `complete`. Throws what the bridge refused.
  */
-async function answersOf(step: LoginStep, ask: LoginAsk) {
-  if (step.type !== "cookies") {
-    return Object.fromEntries(fieldsOf(step).map((f) => [f.id, ask.value(f)]));
-  }
-  const found = await ask.cookies(step.cookies ?? {});
-  for (const f of (step.cookies?.fields ?? []).filter(
-    (x) => x.required && !found.has(x.id)
-  )) {
-    found.set(f.id, ask.value({ hidden: true, id: f.id, name: f.id }));
-  }
-  return Object.fromEntries(found);
-}
-
-/**
- * Links the bridge to his account by `flow`, step by step through `ask`, until it is linked; throws what the bridge
- * refused. A step that waits on him (a QR scan) may take minutes.
- */
-export async function linkBridge(bridge: string, flow: string, ask: LoginAsk) {
-  const long = { signal: AbortSignal.timeout(10 * 60_000) };
-  let step = (await provision(bridge, `login/start/${flow}`, {
-    ...long,
-    body: "{}",
-    method: "POST",
-  })) as unknown as LoginStep;
-  while (step.type !== "complete") {
-    ask.show(step);
-    // biome-ignore lint/performance/noAwaitInLoops: each step follows the last
-    const body = await answersOf(step, ask);
-    step = (await provision(
-      bridge,
-      `login/step/${step.login_id}/${step.step_id}/${step.type}`,
-      { ...long, body: JSON.stringify(body), method: "POST" }
-    )) as unknown as LoginStep;
-  }
-  return step.complete?.user_login_id;
-}
+export const submitLoginStep = async (
+  bridge: string,
+  step: Pick<LoginStep, "login_id" | "step_id" | "type">,
+  answers: Record<string, string>
+) =>
+  (await provision(
+    bridge,
+    `login/step/${[step.login_id, step.step_id, step.type].map(encodeURIComponent).join("/")}`,
+    loginCall(answers)
+  )) as unknown as LoginStep;
 
 /** Logs every login of his on the bridge out. */
 export async function unlinkBridge(bridge: string) {
@@ -536,7 +513,7 @@ export async function unlinkBridge(bridge: string) {
 }
 
 /** A refusal before the homeserver stored anything: a 4xx. A 5xx may come after it stored the event. */
-const REFUSED = /^4\d\d /;
+export const REFUSED = /^4\d\d /;
 
 /** Where a send reaches, and how long it waits: only a test changes it (a send with a file waits 60 s, else 20 s). */
 interface SendAt {

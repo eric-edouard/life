@@ -9,13 +9,15 @@ import {
   cookieValues,
   ghostOf,
   hasStates,
-  linkBridge,
   matrixSend,
   pastedValues,
   readBlock,
   readHomeserverRooms,
   roomFeaturesOf,
   roomPeopleOf,
+  signInOf,
+  startLogin,
+  submitLoginStep,
 } from "./matrix";
 
 test("a bridge that isn't set up or running is a reason it is blocked, never a throw", async () => {
@@ -40,6 +42,17 @@ test("a bridge is blocked only when never linked or in a state it won't leave by
       },
     ])
   ).toBe("whatsapp bridge BAD_CREDENTIALS: logged out on the phone");
+});
+
+test("he must sign a bridge in when a login is signed out or none was ever made, never while it works or comes back", () => {
+  expect(signInOf([])).toBe("never-linked");
+  expect(signInOf([{ state: { state_event: "LOGGED_OUT" } }])).toBe(
+    "signed-out"
+  );
+  expect(signInOf([{ state: { state_event: "CONNECTED" } }])).toBeUndefined();
+  expect(
+    signInOf([{ state: { state_event: "TRANSIENT_DISCONNECT" } }])
+  ).toBeUndefined();
 });
 
 test("a login goes step by step: his answers to each field, a code shown, until it's linked", async () => {
@@ -82,14 +95,15 @@ test("a login goes step by step: his answers to each field, a code shown, until 
     join(dir, "config.yaml"),
     `appservice:\n  port: ${server.port}\nprovisioning:\n  shared_secret: s3cret\n`
   );
-  const shown: string[] = [];
   try {
-    const id = await linkBridge("testnet", "password", {
-      cookies: () => Promise.resolve(new Map()),
-      show: (s) => shown.push(s.display_and_wait?.data ?? s.type),
-      value: (f) => (f.hidden ? `secret-${f.id}` : `given-${f.id}`),
+    const first = await startLogin("testnet", "password");
+    const shown = await submitLoginStep("testnet", first, {
+      email: "given-email",
+      password: "secret-password",
     });
-    expect(id).toBe("u1");
+    expect(shown.display_and_wait?.data).toBe("123-456");
+    const done = await submitLoginStep("testnet", shown, {});
+    expect(done.complete?.user_login_id).toBe("u1");
   } finally {
     server.stop();
   }
@@ -102,7 +116,6 @@ test("a login goes step by step: his answers to each field, a code shown, until 
     email: "given-email",
     password: "secret-password",
   });
-  expect(shown).toEqual(["user_input", "123-456"]);
 });
 
 test("one pasted request fills every cookie: from its Cookie header, -b, or a header source; JSON works too", () => {

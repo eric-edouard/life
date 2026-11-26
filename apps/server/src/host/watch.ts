@@ -6,7 +6,7 @@ import { errorOf } from "../core/log-line";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { isOwnLife } from "../core/platform";
-import { codeAt } from "../core/proc";
+import { readRunning } from "../core/proc";
 import { rotateProcessLogs } from "../core/service";
 import { settings } from "../core/settings";
 import {
@@ -475,7 +475,7 @@ function sayActions() {
 
 export async function watch(): Promise<number> {
   // The code it runs, read before it may wait for another install: new code meanwhile restarts it on taking over.
-  const running = codeAt(LIFE_CODE_DIR);
+  const running = readRunning(LIFE_CODE_DIR);
   await hold("watch");
   const started = clock();
   try {
@@ -519,8 +519,8 @@ async function listen(running: string, started: Date): Promise<number> {
   let owed: Date | null = new Date(0);
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
-  // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
-  while (codeAt(LIFE_CODE_DIR) === running) {
+  // A commit changed apps/server/src/ or prompts/, or his sources changed: exit, the app starts it again (old code lost a request on 15 Oct by reading a renamed prompt).
+  while (readRunning(LIFE_CODE_DIR) === running) {
     let result: { cursor: string } | { error: string };
     let failure: ReturnType<typeof errorOf> | undefined;
     try {
@@ -584,7 +584,7 @@ async function listen(running: string, started: Date): Promise<number> {
       await Bun.sleep(RETRY_MS);
     }
   }
-  console.log(`${clock().toISOString()} new code: restarting`);
+  console.log(`${clock().toISOString()} new code or sources: restarting`);
   return 0;
 }
 
@@ -593,7 +593,7 @@ async function quiet(running: string) {
   console.log(
     `${clock().toISOString()} watcher: no voice source, not listening`
   );
-  while (codeAt(LIFE_CODE_DIR) === running) {
+  while (readRunning(LIFE_CODE_DIR) === running) {
     // biome-ignore lint/performance/noAwaitInLoops: waits for new code
     await Bun.sleep(RETRY_MS);
   }

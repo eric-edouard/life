@@ -92,7 +92,7 @@ async function bridgePart(n: Network): Promise<Part | undefined> {
       kind: "bridge",
       ok: true,
       text: isBridgeAdded(n.name)
-        ? `read from Beeper until linked: bun life bridge link ${n.name}`
+        ? "read from Beeper until you sign in from your phone"
         : "read from Beeper",
     };
   }

@@ -175,7 +175,7 @@ test("lifelog down, the to-do minute still runs (1 Nov: 20 h of failed polls ran
   const server = lifelogServer({});
   const spies = [
     // The code it runs at start, then twice unchanged (two failed polls), then new: it exits.
-    spyOn(proc, "codeAt")
+    spyOn(proc, "readRunning")
       .mockReturnValue("new")
       .mockReturnValueOnce("same")
       .mockReturnValueOnce("same")
