@@ -166,11 +166,7 @@
         "changed": null,
         "doneSeen": null,
         "doneSeenBy": "tap",
-        "edits": [
-          "Warmer",
-          "Shorter",
-          "In French"
-        ],
+        "edits": ["Warmer", "Shorter", "In French"],
         "follow": [],
         "gathered": null,
         "needs": [],
