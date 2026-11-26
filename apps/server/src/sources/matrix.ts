@@ -513,7 +513,7 @@ export async function unlinkBridge(bridge: string) {
 }
 
 /** A refusal before the homeserver stored anything: a 4xx. A 5xx may come after it stored the event. */
-const REFUSED = /^4\d\d /;
+export const REFUSED = /^4\d\d /;
 
 /** Where a send reaches, and how long it waits: only a test changes it (a send with a file waits 60 s, else 20 s). */
 interface SendAt {

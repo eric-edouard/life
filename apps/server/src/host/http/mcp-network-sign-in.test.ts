@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { clock } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
 import { readSettings, setSettings } from "../../core/settings";
@@ -32,7 +33,9 @@ const bridge = Bun.serve({
     );
     seen.push({ body: await req.text(), path });
     if (path === "whoami") {
-      return Response.json({ logins: [{ state: { state_event: state } }] });
+      return Response.json({
+        logins: state ? [{ state: { state_event: state } }] : [],
+      });
     }
     if (path.startsWith("login/start/")) {
       return Response.json({
@@ -77,7 +80,7 @@ const bridge = Bun.serve({
 const dir = join(BRIDGES, "line");
 const config = join(dir, "config.yaml");
 const kept = existsSync(config) ? readFileSync(config, "utf8") : undefined;
-const sources = readSettings().sources;
+const { sources } = readSettings();
 const hold = { ...HOLD };
 
 beforeAll(() => {
@@ -123,8 +126,30 @@ test("a network whose login works is never signed in again: no account swapped",
   state = "CONNECTED";
   const r = await call({ network: "line" });
   state = "LOGGED_OUT";
-  expect(r.content[0]?.text).toBe("Not done: LINE is signed in already.");
+  expect(r.content[0]?.text).toBe(
+    "Not done: LINE doesn't need signing in now."
+  );
   expect(seen.some((s) => s.path.startsWith("login/"))).toBe(false);
+});
+
+test("an id the bridge never gave (a path's `..`, a slash) is refused before any call", async () => {
+  const before = seen.length;
+  const refused = await Promise.all(
+    ["..", "a/b"].map((loginId) =>
+      call({ loginId, network: "line", stepId: "s1", type: "user_input" })
+    )
+  );
+  for (const r of refused) {
+    expect(r.content[0]?.text).toStartWith("Invalid arguments");
+  }
+  expect(seen.length).toBe(before);
+});
+
+test("a bridge added and never linked may start", async () => {
+  state = "";
+  const r = json(await call({ network: "line" }));
+  state = "LOGGED_OUT";
+  expect(r.status).toBe("step");
 });
 
 test("a refused step says so in his words, never with what he typed, and logs nothing of it", async () => {
@@ -199,6 +224,10 @@ test("signed out: its loginFlow starts, each step trimmed for the phone, the PIN
   expect(readSettings().sources).toContain("line");
   const done = json(await call(step));
   expect(done).toEqual({ network: "line", status: "done" });
+  // Back after the wait was dropped, the network linked meanwhile: done, never "didn't accept that".
+  state = "CONNECTED";
+  expect(json(await call(step))).toEqual({ network: "line", status: "done" });
+  state = "LOGGED_OUT";
   // What PR 2's sheet decodes (Kit's tests read the same file).
   expectWire("sign_in_to_network", [
     first,
@@ -210,7 +239,7 @@ test("signed out: its loginFlow starts, each step trimmed for the phone, the PIN
 
 test("the log keeps the calls' argument names, never his answers", () => {
   const lines = linesOf(
-    join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
+    join(LOG_DIR, `${clock().toISOString().slice(0, 10)}.jsonl`)
   ).filter((l) => l.includes("sign_in_to_network"));
   expect(lines.length).toBeGreaterThan(0);
   for (const l of lines) {

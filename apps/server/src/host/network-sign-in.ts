@@ -3,6 +3,7 @@ import { clock, MIN } from "../core/clock";
 import {
   isBridgeAdded,
   type LoginStep,
+  REFUSED,
   readLogins,
   signInOf,
   startLogin,
@@ -93,7 +94,7 @@ function refusalOf(e: unknown, n: Network) {
   if (name === "TimeoutError") {
     return new Error("Not done: that took too long. Try again.");
   }
-  if (/^4\d\d /.test(message)) {
+  if (REFUSED.test(message)) {
     return new Error(`Not done: ${n.label} didn't accept that. Try again.`);
   }
   return new Error(
@@ -110,7 +111,7 @@ async function gate(n: Network) {
     throw refusalOf(e, n);
   });
   if (!signInOf(logins)) {
-    throw new Error(`Not done: ${n.label} is signed in already.`);
+    throw new Error(`Not done: ${n.label} doesn't need signing in now.`);
   }
 }
 
@@ -148,6 +149,13 @@ async function heldWait(
   }
   const key = `${n.name}/${step.login_id}`;
   let w = waits.get(key);
+  // Back after the wait was dropped: linked meanwhile (its step answered while he was away) is done.
+  const logins = w
+    ? undefined
+    : await readLogins(n.name).catch(() => undefined);
+  if (logins && !signInOf(logins)) {
+    return answerOf(n, { ...step, type: "complete" });
+  }
   if (w?.stepId !== step.step_id) {
     const next = linkedOf(
       n,

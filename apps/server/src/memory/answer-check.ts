@@ -461,7 +461,7 @@ const WRITERS: {
     },
     "sign-in": () => {
       throw new Error(
-        "Not done: signing in goes through his app's sign-in sheet (`sign_in_to_network`)."
+        "Not done: sign in from the sheet this card opens in Life's app."
       );
     },
   },
