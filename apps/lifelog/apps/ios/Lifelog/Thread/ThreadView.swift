@@ -76,9 +76,7 @@ struct ThreadView: View {
                             seenRows = 0
                             if let top { Task { proxy.scrollTo(top, anchor: .top) } }
                         } label: {
-                            Text("Show earlier").font(.heading).foregroundStyle(Palette.muted)
-                                .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
-                                .background(Palette.tint, in: .capsule)
+                            TintPill(title: "Show earlier")
                         }
                         .buttonStyle(.plain).frame(maxWidth: .infinity).frame(minHeight: Metrics.tapTarget)
                     }
@@ -244,19 +242,9 @@ private struct EntryView: View {
                     .onLongPressGesture(minimumDuration: 0.45) { Motion.animate { showsReactions = true } }
                     .onTapGesture(count: 2) { Motion.animate { showsReactions = true } }
                 if showsReactions {
-                    GlassEffectContainer {
-                        HStack(spacing: 0) {
-                            ForEach(Self.reactions, id: \.self) { e in
-                                Button {
-                                    Motion.animate { showsReactions = false }
-                                    Task { await thread.react(entry.id, with: e) }
-                                } label: {
-                                    Text(e).font(.heading).saturation(0).frame(width: 40, height: 40)
-                                }
-                                .buttonStyle(.plain).accessibilityLabel(e)
-                            }
-                        }
-                        .padding(.horizontal, Metrics.Spacing.xs).glassEffect(.regular, in: .capsule)
+                    ReactionBar(reactions: Self.reactions) { e in
+                        Motion.animate { showsReactions = false }
+                        Task { await thread.react(entry.id, with: e) }
                     }
                     .transition(Motion.appears)
                 }

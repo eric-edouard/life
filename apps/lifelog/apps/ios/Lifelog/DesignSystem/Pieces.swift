@@ -848,3 +848,36 @@ extension View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
     }
 }
+
+/// A quiet pill on the thread ("Show earlier"): muted words on the tint, 32 high.
+struct TintPill: View {
+    let title: String
+
+    var body: some View {
+        Text(title).font(.heading).foregroundStyle(Palette.muted)
+            .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
+            .background(Palette.tint, in: .capsule)
+    }
+}
+
+/// The reactions to an entry in a glass bar (the prototype's), each mark 40 square.
+struct ReactionBar: View {
+    let reactions: [String]
+    let pick: (String) -> Void
+
+    var body: some View {
+        GlassEffectContainer {
+            HStack(spacing: 0) {
+                ForEach(reactions, id: \.self) { e in
+                    Button {
+                        pick(e)
+                    } label: {
+                        Text(e).font(.heading).saturation(0).frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain).accessibilityLabel(e)
+                }
+            }
+            .padding(.horizontal, Metrics.Spacing.xs).glassEffect(.regular, in: .capsule)
+        }
+    }
+}

@@ -35,7 +35,6 @@ const RULES: Record<string, RegExp> = {
 };
 
 const CAPS: Record<string, Record<string, number>> = {
-  "Field/AskField.swift": { font: 1, height: 1, width: 1 },
   "Thread/ThreadView.swift": { height: 1 },
 };
 
