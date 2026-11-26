@@ -36,6 +36,7 @@ import { gather } from "../memory/gather";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
 import { matterDirections } from "../memory/matter-directions";
+import { pickMatterIcons } from "../memory/matter-icons";
 import { matterSituations } from "../memory/matter-situations";
 import {
   matters,
@@ -576,6 +577,13 @@ export async function runNight(
     await matterDirections(people, { records }).catch((e: Error) =>
       log("run.error", { ...errorOf(e), step: "memory.matter-directions" })
     );
+    // Each matter's icon, picked once per name and goal (the goals just drafted). A failure is logged and never stops the night.
+    steps.at = "matter icons";
+    await readMatterBook(people, dayNow())
+      .then((book) => pickMatterIcons(book.filter((v) => v.open)))
+      .catch((e: Error) =>
+        log("run.error", { ...errorOf(e), step: "memory.matter-icons" })
+      );
     // Where each matter stands, the page he opens: redone only for a matter whose steps or records changed.
     steps.at = "matter situations";
     await matterSituations(people, { records }).catch((e: Error) =>

@@ -21,7 +21,7 @@ import { listening } from "./sources";
 // embeds it all again (`embedNew`). Written outside the memory lock: it holds nothing of memory's.
 
 const HOST_EMBEDDER = embedderAt(EMBEDDER_URL);
-/** The embedder, Lifelog Host's, one for the process (what is kept per embedder, `readLifeIcons`, is shared): none when Life reads no voice source (no Host), and search ranks by words alone. */
+/** The embedder, Lifelog Host's, one for the process: none when Life reads no voice source (no Host), and search ranks by words alone. */
 export const embedderNow = (): Embedder | null =>
   listening() ? HOST_EMBEDDER : null;
 
