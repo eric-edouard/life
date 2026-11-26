@@ -45,7 +45,7 @@ export function fixesOf(
       options: ["later"] as const,
       question: `Sign in to ${n.label} again?`,
       ref: `fix:signed-out/${n.name}`,
-      title: `${n.label} is signed out`,
+      title: `Sign ${n.label} back in`,
     })),
     ...(budget && !budget.isPassed && budget.projected > budget.monthly
       ? [
