@@ -18,7 +18,7 @@ struct ItemsBlock: View {
         if Self.sideways.contains(asks.count), !isOnTheirMatter {
             VStack(spacing: Metrics.Spacing.m) {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(alignment: .top, spacing: Metrics.Spacing.m) {
+                    HStack(alignment: .top, spacing: Metrics.Spacing.m) {
                         ForEach(asks) { ask in
                             ItemRow(ask: ask, startsOpen: true)
                                 .containerRelativeFrame(.horizontal) { width, _ in width - Metrics.Spacing.xl }
