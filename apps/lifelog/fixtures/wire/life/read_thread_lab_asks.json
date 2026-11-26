@@ -19,16 +19,17 @@
               "end": 4
             },
             "words": [
-              [0, 300],
-              [330, 560],
-              [600, 800],
-              [830, 1100],
-              [1150, 1400],
-              [1450, 1700],
-              [1750, 1900],
-              [1950, 2300],
-              [2350, 2600],
-              [2650, 3000]
+              [0, 280, 4],
+              [330, 610, 6],
+              [660, 940, 4],
+              [990, 1270, 9],
+              [1320, 1600, 3],
+              [1650, 1930, 6],
+              [1980, 2260, 2],
+              [2310, 2590, 6],
+              [2640, 2920, 4],
+              [2970, 3250, 4],
+              [3300, 3580, 7]
             ]
           }
         ],
@@ -115,7 +116,14 @@
               "start": 0,
               "end": 4
             },
-            "words": null
+            "words": [
+              [0, 280, 3],
+              [330, 610, 4],
+              [660, 940, 5],
+              [990, 1270, 5],
+              [1320, 1600, 5],
+              [1650, 1930, 8]
+            ]
           }
         ],
         "context": null,
@@ -526,9 +534,9 @@
         "likelyPeople": [
           {
             "ref": "person:mali",
-            "name": "Mali",
+            "name": "Mali Wong",
             "kind": "person",
-            "line": "Cleaner",
+            "line": "Your neighbour",
             "picture": null
           }
         ],
@@ -883,9 +891,9 @@
         "likelyPeople": [
           {
             "ref": "person:paul",
-            "name": "Paul",
+            "name": "Paul Garnier",
             "kind": "person",
-            "line": "Plumber",
+            "line": "The plumber",
             "picture": null
           }
         ],
@@ -951,21 +959,22 @@
             "until": "2026-11-18T10:00:00.000Z",
             "text": "Then let's say Saturday at nine, I bring the big ladder",
             "audio": {
-              "jobId": "11111111-2222-3333-4444-666666666666",
+              "jobId": "11111111-2222-3333-4444-555555555555",
               "start": 0,
               "end": 4
             },
             "words": [
-              [0, 300],
-              [330, 560],
-              [600, 800],
-              [830, 1100],
-              [1150, 1400],
-              [1450, 1700],
-              [1750, 1900],
-              [1950, 2300],
-              [2350, 2600],
-              [2650, 3000]
+              [0, 280, 4],
+              [330, 610, 6],
+              [660, 940, 4],
+              [990, 1270, 9],
+              [1320, 1600, 3],
+              [1650, 1930, 6],
+              [1980, 2260, 2],
+              [2310, 2590, 6],
+              [2640, 2920, 4],
+              [2970, 3250, 4],
+              [3300, 3580, 7]
             ]
           }
         ],
@@ -1020,6 +1029,372 @@
       "kind": "ask",
       "later": null,
       "ref": "dec_000000000024",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://maps.app.goo.gl/x1",
+            "vendor": "Rue des Lilas 14",
+            "line": "Rue des Lilas 14"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000030",
+        "question": "Lunch with Nora?",
+        "ref": "dec_000000000030",
+        "title": "Lunch with Nora",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000030",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://www.paypal.com/request/x",
+            "vendor": "Payment request",
+            "line": "Payment request"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000031",
+        "question": "Pay Sam back?",
+        "ref": "dec_000000000031",
+        "title": "Pay Sam back",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000031",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://www.dhl.com/track?x",
+            "vendor": "Out for delivery",
+            "line": "Out for delivery"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000032",
+        "question": "Be home for the parcel?",
+        "ref": "dec_000000000032",
+        "title": "Be home for the parcel",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000032",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://meet.google.com/abc-defg-hij",
+            "vendor": "30 minutes",
+            "line": "30 minutes"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000033",
+        "question": "Call with Ben?",
+        "ref": "dec_000000000033",
+        "title": "Call with Ben",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000033",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://www.instagram.com/p/x",
+            "vendor": "lumen.gallery",
+            "line": "lumen.gallery"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000034",
+        "question": "Reply to Kit?",
+        "ref": "dec_000000000034",
+        "title": "Reply to Kit",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000034",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [
+          {
+            "kind": "link",
+            "url": "https://fernway-bakery.fr/order",
+            "vendor": "Lemon tart for 8",
+            "line": "Lemon tart for 8"
+          }
+        ],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000035",
+        "question": "Order the cake?",
+        "ref": "dec_000000000035",
+        "title": "Order the cake",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000035",
       "state": "needs_you"
     }
   ],

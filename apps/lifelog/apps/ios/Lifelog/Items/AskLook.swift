@@ -26,7 +26,9 @@ struct AskLook {
 
     /// Who the ask is about, when its answer is a person: the guess leads.
     var face: ItemFace? {
-        guard [.voice, .contactsCard, .atOrganization, .samePerson].contains(check.group) else { return nil }
+        let isAboutThem = [.voice, .contactsCard, .atOrganization, .samePerson].contains(check.group)
+        let isPayment = check.draft == nil && check.needs?.contains { $0.kind == .amount } == true
+        guard isAboutThem || isPayment else { return nil }
         return check.likelyPeople.first.map { .party($0) }
     }
 
