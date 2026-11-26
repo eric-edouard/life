@@ -6,8 +6,8 @@
   "steps": [
     {
       "reads": {
-        "read_thread": "life/read_thread_person.json",
-        "read_people_and_organizations": "life/read_people_and_organizations.json"
+        "read_thread": "parity/read_thread_person.json",
+        "read_people_and_organizations": "parity/read_people_and_organizations.json"
       }
     }
   ],

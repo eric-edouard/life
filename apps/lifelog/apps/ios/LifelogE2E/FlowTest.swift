@@ -90,7 +90,9 @@ class FlowTest: XCTestCase {
         send.tap()
         taps += 2
         // The keyboard stays up after Send; a person swipes the thread down to read it (the thread dismisses it).
-        app.scrollViews.firstMatch.swipeDown()
+        // A drag from the thread down past the keyboard's top: a short swipe never reached it.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).press(
+            forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)))
         vanishes(app.keyboards.firstMatch, "the keyboard put away")
     }
 
@@ -109,6 +111,22 @@ class FlowTest: XCTestCase {
         appears(row, "the ask in the thread")
         row.tap()
         taps += 1
+    }
+
+    /// Taps `row` until `shown` is there and stays: a row the thread redraws while its answer lands folds again.
+    /// One tap counts.
+    func unfold(_ row: XCUIElement, until shown: XCUIElement) {
+        var isFirst = true
+        for _ in 0..<6 {
+            if shown.waitForExistence(timeout: 2) {
+                Thread.sleep(forTimeInterval: 1.5)
+                if shown.exists { return }
+            } else {
+                row.tap()
+                if isFirst { taps += 1 }
+                isFirst = false
+            }
+        }
     }
 
     func tap(_ id: String) {
