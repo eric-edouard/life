@@ -67,7 +67,7 @@ export const BLOCKS = {
     since: 1,
   },
   /**
-   * Life's settings, drawn by the phone (`keys`: only those; none: all); `offer`, one setting offered at the moment it
+   * Life's settings, drawn by the phone (`keys`: only those; none: all but `aura`, the halo settings, drawn only when named); `offer`, one setting offered at the moment it
    * helps, drawn as a single switch: `key` the setting, `label` the question ("Keep Sam quiet until Monday?"), sent as
    * his words on a tap. Each setting is offered once (`desk/main-session.ts`).
    */

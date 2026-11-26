@@ -416,11 +416,11 @@ function doorServer(desk: Desk, id: string) {
   }
   door(
     "change_setting",
-    "The main session only, on his words (`said`, his own words of this ask, verbatim): the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count). Past it, background work slows; one piece of work stops and asks at 2% of it. Returns the setting as it now stands.",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count; past it, background work slows; one piece of work stops and asks at 2% of it), or the edge's look (`aura`, every value whole, as his halo settings save it). Returns the settings as they now stand.",
     SettingChange.extend({ said: z.string().min(1).max(2000) }),
-    ({ monthlyUsd, said }, _, turn) => {
+    ({ said, ...change }, _, turn) => {
       hisWordsOf(turn, said);
-      const now = changeSetting({ monthlyUsd });
+      const now = changeSetting(change);
       acted(turn, { kind: "done" });
       return now;
     }

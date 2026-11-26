@@ -2,8 +2,8 @@ import LifeConnector
 import SwiftUI
 
 /// Life's settings block (`LifeBlock.settings`): the phone's own settings that act in place, a switch with its tick for
-/// a second. Only real settings are listed (a key this phone doesn't have is left out); an `offer` is one more switch,
-/// off, whose tap says the question's words to Life, and which shows on once said.
+/// a second. Only real settings are listed (a key this phone doesn't have is left out); `aura`, the halo settings, only
+/// when named. An `offer` is one more switch, off, whose tap says the question's words to Life, and which shows on once said.
 struct LiveSettingsBlock: View {
     var keys: [String]?
     var offer: LifeBlock.Offer?
@@ -15,7 +15,7 @@ struct LiveSettingsBlock: View {
 
     private static let known = ["faceid", "pair"]
 
-    private var shown: [String] { (keys ?? Self.known).filter(Self.known.contains) }
+    private var shown: [String] { keys?.filter((Self.known + ["aura"]).contains) ?? Self.known }
 
     var body: some View {
         SettingsBlock {
@@ -35,6 +35,8 @@ struct LiveSettingsBlock: View {
         switch key {
         case "faceid":
             FaceIDRow()
+        case "aura":
+            AuraBlock()
         default:
             Button(action: openSettings) { Row(title: "Pair again with your Mac") { RowValue() } }
                 .buttonStyle(.plain)
