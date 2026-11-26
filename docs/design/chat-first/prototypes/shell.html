@@ -1607,6 +1607,8 @@ function setBroken(btn){var on=btn.getAttribute('aria-pressed')!=='true';btn.set
   setCount();if(on&&CLEAN&&thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm'))cleanScreen(true);}
 ph.addEventListener('click',function(e){var t=e.target.closest('[data-more],.histb');if(!t)return;e.stopImmediatePropagation();
   if(t.dataset.more)showMoreRows(t);else showHistory(t);},true);
+/* the artifact opens the way the app does after a while away: on the clean screen, the last sitting behind Show earlier */
+tick(18);cleanScreen();
 Object.assign(V4,{openlong:function(){comeBack(true);},openshort:function(){comeBack(false);},broken:function(b){setBroken(b);}});
 window.__v4={M:M,SET:SET,V4:V4,AURA:AURA};
 
