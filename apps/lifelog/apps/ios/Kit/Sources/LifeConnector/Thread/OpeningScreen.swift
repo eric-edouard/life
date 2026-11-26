@@ -8,6 +8,8 @@ import Foundation
 public struct OpeningScreen: Equatable, Sendable {
     public static let cleanAfter: TimeInterval = 5 * 60
     public static let cap = 3
+    /// The one row every voice to name folds into (never a real ask's ref): last of the rest, a voice never blocks.
+    public static let voices = "voices"
 
     /// When the screen last opened clean: the greeting's time. Nil until the first opening.
     public private(set) var at: Date?
@@ -45,6 +47,7 @@ public struct OpeningScreen: Equatable, Sendable {
         guard hasRows else {
             let asks = read.openingAsks.filter { read.ask($0)?.isAnswerable == true }
             (broken, top, more) = (fixes, Array(asks.prefix(Self.cap)), Array(asks.dropFirst(Self.cap)))
+            if !read.voices.isEmpty { more.append(Self.voices) }
             hasRows = true
             return
         }

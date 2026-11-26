@@ -60,9 +60,6 @@ struct ThreadView: View {
     /// The entry whose answer already shows the ask `ref` as a row.
     private func row(of ref: String) -> UUID? { shown.first { holds($0, ref) }?.id }
 
-    /// The opening's rows, live: each ask as Life last read it.
-    private func asks(_ refs: [String]) -> [ThreadAsk] { refs.compactMap(life.ask) }
-
     /// The greeting, then what is broken (never capped), the asks that block him and the pill for the rest. Fix rows
     /// open in place (docs/product.md: what is broken comes first).
     @ViewBuilder private var openingRows: some View {
@@ -90,7 +87,14 @@ struct ThreadView: View {
         if !refs.isEmpty {
             // 6 pt between rows, each with its own 10 above and below (the prototype's `rows2`).
             VStack(spacing: 6) {
-                ForEach(asks(refs)) { ItemRow(ask: $0).id($0.ref).appears(Motion.arrives) }
+                // Each ask as Life last read it; every voice to name is the one row at the end of the rest.
+                ForEach(refs, id: \.self) { ref in
+                    if ref == OpeningScreen.voices {
+                        VoicesRow().id(ref).appears(Motion.arrives)
+                    } else if let ask = life.ask(ref) {
+                        ItemRow(ask: ask).id(ref).appears(Motion.arrives)
+                    }
+                }
             }
         }
     }

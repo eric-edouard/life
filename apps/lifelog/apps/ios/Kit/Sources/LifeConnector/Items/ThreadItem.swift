@@ -169,6 +169,8 @@ public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParti
     public var blocking: [ThreadAsk] {
         asks.filter { $0.isAnswerable && ($0.check?.group == .fix || openingAsks.contains($0.ref)) }
     }
+    /// The voices he can name now: they fold into one row of the opening screen's rest (`OpeningScreen.voices`).
+    public var voices: [ThreadAsk] { asks.filter { $0.isAnswerable && $0.check?.group == .voice } }
     /// What is broken and needs him, no one at work on it yet (the open `fix` asks, Life's order): drawn where he looks.
     public var broken: [ThreadAsk] {
         asks.filter { $0.isAnswerable && $0.check?.group == .fix && $0.check?.beingFixed == nil }
