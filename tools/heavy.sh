@@ -12,9 +12,12 @@ Q="$D/queue"; mkdir -p "$Q"
 # Swift and Xcode compile on every core, so they are never light, even with a test filter.
 case "${HEAVY_LANE:-} $*" in "light swift "*|light*"swift test"*|light*"swift build"*|light*xcodebuild*) HEAVY_LANE="" ;; esac
 L=""
+# Take a lock folder; one whose holder died (killed, crashed) is taken over. Every lock holds its holder's pid.
+take() { local p; p=$(cat "$1/pid" 2>/dev/null); [ -n "$p" ] && ! kill -0 "$p" 2>/dev/null && rm -rf "$1"
+  mkdir "$1" 2>/dev/null && echo $$ >"$1/pid"; }
 if [ -n "${HEAVY_LANE:-}" ]; then
-  until mkdir "$D/check.lock.${HEAVY_LANE}" 2>/dev/null; do sleep 5; done
-  L="$D/check.lock.${HEAVY_LANE}"; echo $$ >"$L/pid"
+  until take "$D/check.lock.${HEAVY_LANE}"; do sleep 5; done
+  L="$D/check.lock.${HEAVY_LANE}"
 else
   me="$Q/$(date +%s).$$"; : >"$me"
   trap 'rm -f "$me"' EXIT
@@ -30,15 +33,15 @@ else
       { [ "${memf:-100}" -lt 10 ] || [ "${swapm:-0}" -gt 20000 ]; } && load=999
       # An owner-facing build (release lane) running goes first: no queued job starts a slot until it ends.
       kill -0 "$(cat "$D/check.lock.release/pid" 2>/dev/null)" 2>/dev/null && load=999
-      [ "$load" -lt 60 ] && mkdir "$D/check.lock" 2>/dev/null && L="$D/check.lock"
+      [ "$load" -lt 60 ] && take "$D/check.lock" && L="$D/check.lock"
       # second slot while the Mac is idle enough (velocity tick, 21 Nov evening)
-      [ -z "$L" ] && [ "$load" -lt 30 ] && mkdir "$D/check.lock.2" 2>/dev/null && L="$D/check.lock.2"
+      [ -z "$L" ] && [ "$load" -lt 30 ] && take "$D/check.lock.2" && L="$D/check.lock.2"
     fi
     [ -n "$L" ] || sleep 10
   done
   rm -f "$me"
 fi
-trap 'rmdir "$L"' EXIT
+trap 'rm -rf "$L"' EXIT
 # Xcode's compile cache is keyed by content, so it is shared safely (his "do build cache now", 21 Nov). Never a shared
 # .build folder: a reused test build reads another worktree's files through #filePath. HEAVY_NO_CACHE=1 skips it.
 [ -n "${HEAVY_NO_CACHE:-}" ] || export XCODE_XCCONFIG_FILE="$(cd "$(dirname "$0")" && pwd)/compile-cache.xcconfig"
