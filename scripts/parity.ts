@@ -251,7 +251,7 @@ async function shootPrototype(rows: Row[]) {
       deviceScaleFactor: 2,
       viewport: { height: 960, width: 1400 },
     });
-    await page.goto(`file://${PROTO}`);
+    await page.goto(`file://${PROTO}`, { timeout: 180_000 }); // a loaded Mac (a build) slows a cold page
     await page.waitForTimeout(800);
     return page;
   };
@@ -276,7 +276,15 @@ async function shootPrototype(rows: Row[]) {
   const panel = await open();
   const [titles, shots] = await Promise.all([
     panelOf(panel),
-    Promise.all(rows.map(shot)),
+    // Four pages at a time: a dozen at once time out while the Mac builds.
+    (async () => {
+      const out: Awaited<ReturnType<typeof shot>>[] = [];
+      for (let i = 0; i < rows.length; i += 4) {
+        // biome-ignore lint/performance/noAwaitInLoops: one batch of pages after another
+        out.push(...(await Promise.all(rows.slice(i, i + 4).map(shot))));
+      }
+      return out;
+    })(),
   ]);
   await browser.close();
   return { design: new Map(shots), titles };
