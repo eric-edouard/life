@@ -34,8 +34,8 @@ button:focus-visible,textarea:focus-visible,summary:focus-visible,label:focus-wi
 #sitmore{font-size:13px;font-weight:600;color:var(--muted);flex:none}#sitmore:hover{color:var(--fg)}
 .ver{display:flex;flex-direction:column;gap:16px}
 .r2{display:flex;align-items:center;gap:8px;min-width:0}
-.dots{display:flex;gap:8px;flex:1}
-.dots button{position:relative;width:40px;height:40px;border-radius:20px;background:var(--tint);font-weight:650}
+.dots{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.dots button{position:relative;min-width:40px;padding:0 10px;white-space:nowrap;height:40px;border-radius:20px;background:var(--tint);font-weight:650}
 .dots button[aria-current="true"]{background:var(--fg);color:#000}
 .dots button.rec::after{content:"";position:absolute;left:50%;bottom:-8px;width:4px;height:4px;margin-left:-2px;border-radius:2px;background:var(--ai)}
 #vw{margin:0;font-weight:600}
@@ -113,6 +113,12 @@ button:focus-visible,textarea:focus-visible,summary:focus-visible,label:focus-wi
 <script src="card-blocks.js" charset="utf-8"></script>
 <script src="card-variants.js" charset="utf-8"></script>
 <script src="lab-pages.js" charset="utf-8"></script>
+<script src="v2-1.js" charset="utf-8"></script>
+<script src="v2-2.js" charset="utf-8"></script>
+<script src="v2-3.js" charset="utf-8"></script>
+<script src="v2-4.js" charset="utf-8"></script>
+<script src="v2-5.js" charset="utf-8"></script>
+
 <script>
 (function(){
 var $=function(id){return document.getElementById(id);},esc=CB.esc,B=CB.B;
@@ -120,8 +126,11 @@ var st=document.createElement('style');st.textContent=CB.css.base+CB.css.cards+L
 var AREAS=[['system','Design system'],['thread','Thread'],['asks','Asks'],['details','Card details'],['answers','Answers'],['pages','Pages: profile, matter'],['settings','Settings'],['aura','Aura'],['decided','Decided: the look and words']];
 /* ---- every item as data: {id, area, n, d, rec, parts?, decided?, v:{A:{w, way?, note?, views:[[label, screen]]}}} ---- */
 var GA={'One rule for every ask':'asks','The seven cards':'asks','What a card shows so he can answer without leaving':'details','Answers and what follows them':'answers','Focused lists':'thread'},ga='asks';
-var CARDS=CV.ITEMS.map(function(it){if(it.g)ga=GA[it.g]||ga;var v={};Object.keys(it.v).forEach(function(k){var x=it.v[k],c=x.ctx||it.ctx;
-  v[k]={w:x.w,way:x.way||it.way||CV.W[c],views:CV.viewsOf(it,x).map(function(y){return [y[0],{blocks:y[1],ctx:CV.CTX[c]}];})};});
+/* a v2 (window.V2, files v2-*.js: the guidelines' rework of a variant) follows its variant: A, A v2, B, B v2 */
+var V2=window.V2||{};function lab(k){return k.length>1?k[0]+' v2':k;}
+function withV2(x){var m=V2[x.id];if(!m)return x;var v={};Object.keys(x.v).forEach(function(k){v[k]=x.v[k];if(m[k])v[k+'2']=m[k];});x.v=v;return x;}
+var CARDS=CV.ITEMS.map(function(it){if(it.g)ga=GA[it.g]||ga;var v={},m=V2[it.id]||{};Object.keys(it.v).forEach(function(k){[[k,it.v[k]],[k+'2',m[k]]].forEach(function(q){var x=q[1];if(!x)return;var c=x.ctx||it.ctx;
+  v[q[0]]={w:x.w,way:x.way||it.way||CV.W[c],views:CV.viewsOf(it,x).map(function(y){return [y[0],{blocks:y[1],ctx:CV.CTX[c]}];})};});});
  return {id:it.id,area:it.id==='matterpage'?'pages':ga,n:it.n,d:it.d,rec:it.rec,parts:it.parts,v:v};});
 /* the shell's pages, reached by taps inside its phone */
 var PAGES=[['page-ask','An ask’s page','He taps the count, then Ben’s ask: the page opens from the row.',['[data-act="waiting"]','[data-open="ben"]']],
@@ -156,18 +165,18 @@ function item(){return ITEMS[cur.i];}
 function letters(){return Object.keys(item().v);}
 function statusOf(it){var c=CH[it.id]||{};return it.decided?'decided':c.pick?'picked '+c.pick:Object.keys(c.mix||{}).length?'mixed':'';}
 function render(){var it=item(),L=letters(),tr=$('track');
- tr.innerHTML=L.map(function(k){var vs=it.v[k].views;return '<section class="pg" data-k="'+k+'" aria-label="Version '+k+'">'+screen(vs[Math.min(cur.vi,vs.length-1)][1])+'</section>';}).join('');
+ tr.innerHTML=L.map(function(k){var vs=it.v[k].views;return '<section class="pg" data-k="'+k+'" aria-label="Version '+lab(k)+'">'+screen(vs[Math.min(cur.vi,vs.length-1)][1])+'</section>';}).join('');
  var sc=tr.querySelector('.scene');if(sc)shell(sc,it.v[L[0]].views[Math.min(cur.vi,it.v[L[0]].views.length-1)][1].scene);
  head();list();tr.scrollLeft=L.indexOf(cur.k)*tr.clientWidth;bottom();requestAnimationFrame(bottom);}
 function head(){var it=item(),L=letters(),v=it.v[cur.k],c=CH[it.id]||{},s=statusOf(it);
- $('iname').textContent=it.n;$('istat').textContent=s||(L.length>1?'recommended '+it.rec:'');
+ $('iname').textContent=it.n;$('istat').textContent=s||(L.length>1?'recommended '+lab(it.rec):'');
  $('isit').innerHTML=(v.way?'<b>'+v.way+'</b> · ':'')+it.d+(it.decided?' <b>'+it.decided+'</b>':'');$('isit').classList.remove('open');
- $('dots').innerHTML=L.length>1?L.map(function(k){return '<button type="button" data-k="'+k+'"'+(k===it.rec?' class="rec"':'')+' aria-current="'+(k===cur.k)+'" aria-label="Version '+k+(k===it.rec?', recommended':'')+'">'+k+'</button>';}).join(''):'';
+ $('dots').innerHTML=L.length>1?L.map(function(k){return '<button type="button" data-k="'+k+'"'+(k===it.rec?' class="rec"':'')+' aria-current="'+(k===cur.k)+'" aria-label="Version '+lab(k)+(k===it.rec?', recommended':'')+'">'+lab(k)+'</button>';}).join(''):'';
  $('vw').textContent=v.w;
- var p=$('pick');p.disabled=!!it.decided;p.className=c.pick===cur.k?'on':'';p.textContent=it.decided?'Decided':c.pick===cur.k?'Picked':'Pick '+cur.k;p.setAttribute('aria-pressed',String(c.pick===cur.k));
+ var p=$('pick');p.disabled=!!it.decided;p.className=c.pick===cur.k?'on':'';p.textContent=it.decided?'Decided':c.pick===cur.k?'Picked':'Pick '+lab(cur.k);p.setAttribute('aria-pressed',String(c.pick===cur.k));
  var vs=v.views;$('views').innerHTML=vs.length>1?vs.map(function(x,i){return '<button type="button" data-v="'+i+'" aria-pressed="'+(i===Math.min(cur.vi,vs.length-1))+'">'+esc(x[0])+'</button>';}).join(''):'';
  $('vnote').innerHTML=v.note||'';
- $('parts').innerHTML=it.parts&&!it.decided?'Mix: take '+it.parts.map(function(pp,j){var id='m-'+j;return '<label for="'+id+'"><input type="checkbox" id="'+id+'" data-part="'+esc(pp)+'"'+((c.mix||{})[pp]===cur.k?' checked':'')+'>'+esc(pp)+' from '+cur.k+'</label>';}).join(''):'';
+ $('parts').innerHTML=it.parts&&!it.decided?'Mix: take '+it.parts.map(function(pp,j){var id='m-'+j;return '<label for="'+id+'"><input type="checkbox" id="'+id+'" data-part="'+esc(pp)+'"'+((c.mix||{})[pp]===cur.k?' checked':'')+'>'+esc(pp)+' from '+lab(cur.k)+'</label>';}).join(''):'';
  if(document.activeElement!==$('note'))$('note').value=c.note||'';$('more').classList.toggle('dec',!!it.decided);
  $('refine').hidden=!!it.decided&&vs.length<2&&!v.note;sitMore();}
 function sitMore(){var x=$('isit');$('sitmore').hidden=x.classList.contains('open')||x.scrollWidth<=x.clientWidth+1;}
@@ -224,7 +233,7 @@ addEventListener('keydown',function(e){if(e.key==='Escape'){sheet(false);return;
 addEventListener('message',function(e){if(e.source===fr.contentWindow&&e.data==='ready')feed();});
 /* ---- start: read the shell, list every item, open the last one he looked at ---- */
 fetch('shell.html').then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(t){SHELL=t;return sceneItems(panelOf(new DOMParser().parseFromString(t,'text/html')));},function(){return [];}).then(function(sc){
- ITEMS=[];AREAS.forEach(function(a){CARDS.concat(PAGES,LP.ITEMS,sc).forEach(function(x){if(x.area===a[0])ITEMS.push(x);});});
+ ITEMS=[];AREAS.forEach(function(a){CARDS.concat(PAGES,LP.ITEMS.map(withV2),sc).forEach(function(x){if(x.area===a[0])ITEMS.push(x);});});
  var last=null;try{last=localStorage.getItem('life-lab-item');}catch(e){}var i=ITEMS.map(function(x){return x.id;}).indexOf(last);fit();open(i<0?ITEMS.map(function(x){return x.id;}).indexOf('anatomy'):i);});
 if(window.claude&&claude.use)claude.use('db').then(function(d){if(!d)return;col=d.collection('choices');
  var tm=setTimeout(function(){$('save').textContent='Life’s store is slow; your choices stay on this device meanwhile.';},10000);

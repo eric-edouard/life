@@ -190,6 +190,7 @@ function viewsOf(it,v){return v.tabs||[['Before',withMatter(it,v.b)]].concat(v.a
 /* the variant to draw for an item: his pick; else the first variant he ticked a part of (mixing parts needs the
    designer); else the recommended one. decided is false until he picked one whole. */
 function chosen(CH,id){var it=ITEMS.filter(function(x){return x.id===id;})[0],c=CH&&CH[id]||{},m=Object.keys(c.mix||{});
+ var V=window.V2&&window.V2[id];if(V)Object.keys(V).forEach(function(k){it.v[k+'2']=it.v[k+'2']||V[k];});
  return c.pick?{it:it,k:c.pick,decided:true}:{it:it,k:m.length?c.mix[m[0]]:it.rec,decided:false,mixed:m.length>0};}
 window.CV={CTX:CTX,W:W,ITEMS:ITEMS,MP:MP,withMatter:withMatter,viewsOf:viewsOf,chosen:chosen};
 })();
