@@ -19,7 +19,10 @@ import {
 } from "./card-push";
 
 const later = (days: number) => new Date(clock().getTime() + days * DAY);
-const card = (n: number, kind: "decision" | "voice" | "person" = "decision") =>
+const card = (
+  n: number,
+  kind: "decision" | "voice" | "person" | "name" = "decision"
+) =>
   ({
     deadline: kind === "decision" ? later(2).toISOString() : null,
     draft: null,
@@ -31,7 +34,7 @@ const card = (n: number, kind: "decision" | "voice" | "person" = "decision") =>
     subject: null,
     title: "It is due.",
   }) as checks.InboxCheck;
-const cards = (n: number, kind?: "decision" | "voice" | "person") =>
+const cards = (n: number, kind?: "decision" | "voice" | "person" | "name") =>
   Array.from({ length: n }, (_, i) => card(i + 1, kind));
 const alone = (n: number) => ({
   body: "1 new card",
@@ -83,7 +86,13 @@ test("every new decision pushes alone, with its id", async () => {
 test("Life's own checks push nothing: a new one moves only the badge", async () => {
   open = cards(2);
   await pushNewCards();
-  open = [...cards(2), ...cards(10, "person").slice(2), card(11, "voice")];
+  // A name with no person blocks; a voice to name never does (his yes of 26 Nov 2026): neither pushes.
+  open = [
+    ...cards(2),
+    ...cards(10, "person").slice(2),
+    card(11, "name"),
+    card(12, "voice"),
+  ];
   await pushNewCards();
   expect(push.mock.calls).toEqual([[{ badge: 3 }]]);
 });

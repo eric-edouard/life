@@ -74,7 +74,7 @@ struct RootView: View {
                 }
             }
             // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
-            // left under it, and its top fade then covers the wrong strip.
+            // left under it, and the thread then starts in the wrong place.
             .overlay(alignment: .top) {
                 VStack(spacing: Metrics.Spacing.s) {
                     buttons
@@ -122,6 +122,9 @@ struct RootView: View {
                 fieldHeight = $0
             }
         }
+        // A voice being named takes the field's words; the field opens for them.
+        .onChange(of: text) { if life.naming != nil { life.namingWords = text } }
+        .onChange(of: life.naming) { if life.naming != nil { isAsking = true } else { text = "" } }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it.
         .overlay { EdgeView(state: aura.state ?? edge, aura: aura.shown) }
         .sheet(
@@ -236,6 +239,12 @@ struct RootView: View {
     }
 
     private func send() {
+        // While a voice is named, the field's words are its name, not a question for Life.
+        if life.naming != nil {
+            Task { await life.nameTyped() }
+            text = ""
+            return
+        }
         life.clearFocus()
         thread.ask(text, screen: screen)
         text = ""

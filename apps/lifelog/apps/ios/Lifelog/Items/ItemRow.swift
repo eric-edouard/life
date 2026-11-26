@@ -99,15 +99,19 @@ struct ItemRow: View {
     /// out of date, when the wire no longer carries the draft.
     @State private var kept: Glyph.Mark?
     @State private var keptTo: String?
-    /// Who it is for, as their initial; the mark only when there is no one to show.
+    /// Its face (the prototype's "their face or mark"): who it is for, their picture or initial; else its matter's icon;
+    /// else a mark by kind (`icon`).
     private var look: AskLook? { ask.check.map(AskLook.init) }
     private var face: ItemFace? {
         look?.face ?? (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
+            ?? (ask.check?.matter ?? ask.check?.onMatters?.first)?.symbol.map { .symbol($0) }
     }
     private var icon: Glyph.Mark {
         if let check = ask.check {
             if check.draft != nil { return .bubble }
-            if check.group == .yourMove { return .tick }
+            if check.group == .voice { return .wave }
+            if check.group == .fix { return .life }
+            if check.payCode != nil || check.needs?.contains(where: { $0.kind == .amount }) == true { return .card }
             if check.options.contains(where: { $0.takes == .person || $0.takes == .personOrName }) { return .person }
             if check.needs?.contains(where: { $0.kind == .event }) == true { return .calendar }
             if check.needs?.contains(where: { $0.kind == .apify }) == true { return .search }
@@ -219,43 +223,46 @@ struct ItemRow: View {
         let look = AskLook(check: check)
         let shown = { (option: Check.Option) in isFailed && option.id == tapped ? "Not sent" : look.label(option) }
         let byLabel = Dictionary(options.map { (shown($0), $0) }, uniquingKeysWith: { first, _ in first })
-        let taking = options.contains { $0.takes == .note || $0.takes == .personOrName }
+        let wordsOption = options.first { $0.takes == .note || $0.takes == .personOrName }
         // A Contacts card asks "Is this them?": its Yes is Life's guess, one tap, beside "Someone else".
         let guess = check.group == .contactsCard ? check.likelyPeople.first : nil
         // The one wide answer (the prototype's `.prim`): the agent's pick, else the first of two or more, Life's guess.
         let pick = check.recommended ?? (options.count > 1 ? options.first?.id : nil)
         let recommended = guess != nil ? "Yes" : options.first { $0.id == pick }.map(shown)
+        let say = { (l: String) in
+            if l == "Later" {
+                tapped = nil
+                Task { await life.later(ask.ref) }
+            } else if l == "Yes", let guess, let request = check.answer(naming: .person(guess.ref)) {
+                tapped = request.options.first
+                Task { await life.answer(request) }
+            } else if let option = byLabel[l] {
+                tapped = option.id
+                if option.takes == .person {
+                    pickingFor = option.id
+                } else {
+                    Task {
+                        await life.answer(
+                            AnswerRequest(
+                                ref: ask.ref, options: [option.id], note: option.takes == .note ? words : nil,
+                                name: option.takes == .personOrName ? words : nil))
+                    }
+                }
+            }
+        }
+        // His typed words (a name, a note) go by the answer that takes them: on Return, or its Save.
+        let submit = wordsOption.map { option in { if !words.isEmpty { say(shown(option)) } } }
         return AskCard(
             question: ask.question, why: why(check), check: check,
             edits: (check.edits ?? []).filter { !usedEdits.contains($0) || ($0 == editing && life.thread.isWorking) },
             editing: life.thread.isWorking ? editing : nil, answers: (guess != nil ? ["Yes"] : []) + options.map(shown),
             recommended: recommended,
             busy: action.isRunning ? tapped.flatMap { id in options.first { $0.id == id }.map(shown) } : nil,
-            taking: taking ? $words : nil,
+            taking: wordsOption != nil ? $words : nil,
             disabled: Set(
                 options.filter { ($0.takes == .note || $0.takes == .personOrName) && words.isEmpty }.map(shown)),
             identify: { l in byLabel[l].map { AID.askAnswer(ask.ref, $0.id) } },
-            say: { l in
-                if l == "Later" {
-                    tapped = nil
-                    Task { await life.later(ask.ref) }
-                } else if l == "Yes", let guess, let request = check.answer(naming: .person(guess.ref)) {
-                    tapped = request.options.first
-                    Task { await life.answer(request) }
-                } else if let option = byLabel[l] {
-                    tapped = option.id
-                    if option.takes == .person {
-                        pickingFor = option.id
-                    } else {
-                        Task {
-                            await life.answer(
-                                AnswerRequest(
-                                    ref: ask.ref, options: [option.id], note: option.takes == .note ? words : nil,
-                                    name: option.takes == .personOrName ? words : nil))
-                        }
-                    }
-                }
-            },
+            say: say, submit: submit,
             edit: { label in
                 editing = label
                 usedEdits.insert(label)

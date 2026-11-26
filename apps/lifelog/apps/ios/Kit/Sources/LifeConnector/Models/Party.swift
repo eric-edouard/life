@@ -26,7 +26,10 @@ public struct Party: Decodable, Sendable, Equatable {
     }
 
     /// The owner himself, as every read names him (`OWNER`, `memory/read-truth.ts`).
-    public var isOwner: Bool { ref == "person:me" }
+    public var isOwner: Bool { ref == Self.owner.ref }
+
+    /// Him, as an answer naming him ("It's me" on a voice card): his ref is all Life reads.
+    public static let owner = Party(ref: "person:me", name: "Me", kind: .person, line: nil, picture: nil)
 }
 
 /// A read that names parties: the phone keeps each by its ref (`LifeStore.parties`) and fetches their pictures.

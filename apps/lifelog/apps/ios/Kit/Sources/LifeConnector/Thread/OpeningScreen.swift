@@ -2,12 +2,14 @@ import Foundation
 
 /// The opening screen (the app v4 prototype, his yes of 26 Nov 2026). At launch, or back after `cleanAfter` or more in the
 /// background, the thread opens clean: his greeting, what is broken (never capped), then at most `cap` asks that block
-/// him (Life's `openingAsks`, in his inbox's order) and a pill for the rest; his unread count stays the full total. What came
+/// him (Life's `openingAsks`, in his inbox's order) and a pill for the rest; his badge counts those and what is broken (`ThreadRead.blocking`). What came
 /// before is one Show earlier away, a day at a time, and an earlier opening's greeting stays only as its time. Back
 /// sooner, nothing changes. Held for the launch only, never stored.
 public struct OpeningScreen: Equatable, Sendable {
     public static let cleanAfter: TimeInterval = 5 * 60
     public static let cap = 3
+    /// The one row every voice to name folds into (never a real ask's ref): last of the rest, a voice never blocks.
+    public static let voices = "voices"
 
     /// When the screen last opened clean: the greeting's time. Nil until the first opening.
     public private(set) var at: Date?
@@ -45,6 +47,7 @@ public struct OpeningScreen: Equatable, Sendable {
         guard hasRows else {
             let asks = read.openingAsks.filter { read.ask($0)?.isAnswerable == true }
             (broken, top, more) = (fixes, Array(asks.prefix(Self.cap)), Array(asks.dropFirst(Self.cap)))
+            if !read.voices.isEmpty { more.append(Self.voices) }
             hasRows = true
             return
         }

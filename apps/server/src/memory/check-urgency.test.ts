@@ -10,7 +10,7 @@ import { checksOnMatterOf } from "./checks";
 const check = (group: string, subject: string | null = null) =>
   ({ deadline: null, group, subject }) as never;
 
-test("what blocks: a decision, an unnamed voice, a name and a card (these block); a your move card only when due soon; the rest improves", () => {
+test("what blocks: a decision, a name and a card (these block); a your move card only when due soon; a voice and the rest improve", () => {
   const list = [
     check("decision"),
     check("voice"),
@@ -25,7 +25,7 @@ test("what blocks: a decision, an unnamed voice, a name and a card (these block)
   ];
   expect(list.map(urgencyOf)).toEqual([
     "blocks",
-    "blocks",
+    "improves",
     "blocks",
     "blocks",
     "improves",
@@ -35,7 +35,7 @@ test("what blocks: a decision, an unnamed voice, a name and a card (these block)
     "improves",
     "improves",
   ]);
-  expect(blockingCountOf(list)).toBe(4);
+  expect(blockingCountOf(list)).toBe(3);
 });
 
 // The cognitive-load rule of 22 Nov 2026: the badge counts a your move card only when it is due within 3 days. The cut

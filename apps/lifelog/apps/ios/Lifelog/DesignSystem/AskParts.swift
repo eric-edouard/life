@@ -54,7 +54,7 @@ struct PersonChips: View {
                 } label: {
                     HStack(spacing: Metrics.Spacing.s) {
                         Face(party: party, size: 24)
-                        Text(party.name).font(.lineStrong)
+                        Text(party.isOwner ? "It’s me" : party.name).font(.lineStrong).lineLimit(1)
                     }
                     .padding(.vertical, Metrics.Spacing.xs).padding(.leading, Metrics.Spacing.xs)
                     .padding(.trailing, Metrics.Spacing.m)

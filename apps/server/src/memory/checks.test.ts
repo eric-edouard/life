@@ -379,14 +379,8 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   expect(byRef("voice:v2")?.context).toContain(
     "> See you Friday\n\n*a recorded conversation,"
   );
-  // Lifelog ranks likely people for every voice: only its suggestion makes a guess in use.
-  const guesses = cards.filter((c) => urgencyOf(c) === "improves");
-  expect(guesses.map((c) => c.ref.split("~")[0])).toEqual([
-    dana,
-    "voice:v4",
-    "voice:v5",
-    "voice:v7",
-  ]);
+  // A voice to name never blocks (his yes of 26 Nov 2026 to "Voices to name"), a guess in use or not.
+  expect(cards.every((c) => urgencyOf(c) === "improves")).toBe(true);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
   // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; a guess in use lifelog
   // calls likely, "Yes"; the others unticked.

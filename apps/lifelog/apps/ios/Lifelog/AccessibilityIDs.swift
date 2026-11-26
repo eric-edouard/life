@@ -20,5 +20,11 @@ enum AID {
     static func askSettled(_ ref: String) -> String { "ask.settled.\(ref)" }
     static func askFailure(_ ref: String) -> String { "ask.failure.\(ref)" }
     static func askUndo(_ ref: String) -> String { "ask.undo.\(ref)" }
+    // The folded voices row and its card (`VoicesRow`)
+    static let voicesRow = "voices.row"
+    static func voicesAnswer(_ id: String) -> String { "voices.answer.\(id)" }
+    static let voicesAnother = "voices.another"
+    static let voicesUndo = "voices.undo"
+    static func voicesPerson(_ ref: String) -> String { "voices.person.\(ref)" }
     static func askRate(_ ref: String, _ mark: String) -> String { "ask.rate.\(ref).\(mark)" }
 }

@@ -81,6 +81,25 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         /// Its words as lifelog times them (contract `TimedWords`), lit while it plays through `words.spokenIndex(at:)` and `words.ranges(in:)`.
         public let words: [[Int64]]?
 
+        /// The clip cut to about `limit` UTF-16 characters of whole words, playing only to the last kept word's end; it
+        /// stays whole without word timings or when it already fits.
+        public func trimmed(to limit: Int = 90) -> Clip {
+            guard text.utf16.count > limit else { return self }
+            guard let words, let ranges = words.ranges(in: text), !ranges.isEmpty else {
+                let cut =
+                    text.prefix(limit).lastIndex(of: " ").map { String(text[..<$0]) } ?? String(text.prefix(limit))
+                return Clip(at: at, until: until, text: cut, audio: audio, words: nil)
+            }
+            let kept = max(1, ranges.prefix { $0.location + $0.length <= limit }.count)
+            let end = ranges[kept - 1].location + ranges[kept - 1].length
+            let shorter = audio.map {
+                Audio(jobId: $0.jobId, start: $0.start, end: $0.start + Double(words[kept - 1][1]) / 1000)
+            }
+            return Clip(
+                at: at, until: until, text: (text as NSString).substring(to: end), audio: shorter,
+                words: words.prefix(kept).map { $0 })
+        }
+
         /// How long it plays, "0:08": from its recording's span; nil when the clip holds no audio.
         public var lengthText: String? {
             audio.map { audio in
@@ -105,6 +124,11 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         public let name: String
         /// His mark on the matter: its pill carries a small flag.
         public let important: Bool?
+        /// Its icon's key (his pick, else Life's), sent by `read_thread`: the ask row's face when no one is behind it.
+        public let icon: String?
+
+        /// The SF Symbol of its icon; nil with none, or a key this app lacks.
+        public var symbol: String? { icon.flatMap(MatterIcons.symbol) }
     }
 
     /// A `life:` link in `context`: exactly the ref `fetch` opens, and what it names, for its glyph.
@@ -283,6 +307,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// Life that predates it.
     public let preTicked: String?
     public let clips: [Clip]
+    /// A voice: in how many conversations it was heard; nil from a Life that predates it.
+    public let conversations: Int?
     public let likelyPeople: [Party]
     public let links: [String]
     /// What its "Open in" opens: a registered agent's card, the session of the agent holding it now; any other ask, its

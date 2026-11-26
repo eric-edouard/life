@@ -79,3 +79,10 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     #expect(beforeAny && counts == [1, 2, 4, 5])
     #expect(o.earlierDay(of: dates, calendar: calendar) == nil)
 }
+
+@Test func voicesFoldIntoOneRowAtTheEndOfTheRest() throws {
+    var o = OpeningScreen()
+    o.came(at: t0)
+    o.take(try read([("d1", "decision"), ("v1", "voice"), ("v2", "voice")], opening: ["d1"]))
+    #expect(o.top == ["d1"] && o.more == [OpeningScreen.voices])
+}
