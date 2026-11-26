@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { clock } from "@life/server/src/core/clock";
 import { chromium, type Page } from "playwright";
 import {
   type DesignElement,
@@ -540,7 +541,7 @@ if (import.meta.main) {
   const green = board.filter((r) => r.green).length;
   writeFileSync(
     join(OUT, "board.json"),
-    `${JSON.stringify({ at: new Date().toISOString(), green, rows: board, total: board.length, was }, null, 2)}\n`
+    `${JSON.stringify({ at: clock().toISOString(), green, rows: board, total: board.length, was }, null, 2)}\n`
   );
   console.log(
     `${green} of ${board.length} green (was ${was}); ${filled.length} filled; ${board.filter((r) => r.changed).length} changed`
@@ -574,8 +575,8 @@ ${rowsHtml}</div>`
       join(dir, "attachments.txt"),
       `${changed
         .flatMap((r) => [
-          `${join(OUT, `${r.id}.proto.png`)};cid=${r.id}-proto;filename=${r.id}-proto.png`,
-          `${join(OUT, `${r.id}.app.png`)};cid=${r.id}-app;filename=${r.id}-app.png`,
+          `${join(OUT, `${r.id}.proto.jpg`)};cid=${r.id}-proto;filename=${r.id}-proto.jpg`,
+          `${join(OUT, `${r.id}.app.jpg`)};cid=${r.id}-app;filename=${r.id}-app.jpg`,
         ])
         .filter((spec) => existsSync(spec.split(";")[0] as string))
         .join("\n")}\n`
