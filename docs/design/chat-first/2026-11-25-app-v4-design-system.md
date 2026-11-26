@@ -175,12 +175,13 @@ Drawn in the prototype under "Voices to name". Not in the approved designs befor
 opened twelve rows all titled "Who is this?", and the card showed long transcripts, a guessed person's photo, four
 names none of which matched, a second text field with no way to submit, and answers that wrapped.
 
-- **In the list.** Voices fold into one row, "Name 4 voices", led by a voice mark, never a face. It ranks after the
+- **In the list.** Voices fold into one row, "Name 4 voices", led by an empty face (a head with no one in it), never a guessed face and never voice bars, which only move while someone speaks (brand.md, Voice). It ranks after the
   asks that block him (a voice improves, it never blocks), so it lives in "N more", and its Later puts all of them off.
-- **The card, one voice at a time.** A voice mark until he answers, never a guessed photo. "Who is this voice?",
-  "Heard Tue at 14:20 · 3 times". One moment of that voice, two lines at most, with a play button; its words light up
-  as they play; "Another moment" if he needs more. After an answer, the next voice unfolds in place, with one line
-  "Clara Hart: named in 3 conversations · Undo".
+- **The card, one voice at a time.** The empty face until he answers, never a guessed photo. "Who is this?" (brand.md
+  Wording), "Heard Tue at 14:20". One moment of that voice, two lines at most, its words dim with a play button; each
+  word turns cream as it is spoken (his rule of 26 Nov: voice is read, not drawn, no waveform, no duration);
+  "Another moment" if he needs more. No counts of words, times or conversations. After an answer, the next voice
+  unfolds in place, with one line "Clara Hart: named · Undo".
 - **The suggestion first.** At most one person: the one `voiceSuggestionOf` already allows. It is him too ("It's me").
   It shows as the main answer, with Life's reason in one line under the moment. No list of other guesses. With no
   suggestion, the main answer is "Say who it is".
@@ -189,3 +190,25 @@ names none of which matched, a second text field with no way to submit, and answ
   row, or Send, names them. "Back" and "Leave unnamed" sit under the rows.
 - **Answers on one line.** The main answer, then "Someone else", "Not a person" (TV, radio, a video) and "Later",
   sized to their words. The card scrolls so its answers sit above the Ask Life field, never under it.
+
+## A list of matters: rows or tiles (proposal, 27 Nov 2026)
+
+The owner asked to compare the approved rows with the lab's tiles (one card per page, the next peeking, dots and
+"1 of N"), with the same made-up asks at 3, 8 and 20. They are drawn in the prototype under "A list of matters: rows or
+tiles", and exported to [`screens-list-vs-tiles-2026-11-27/`](screens-list-vs-tiles-2026-11-27/).
+
+| | Rows (approved) | Tiles (lab) |
+|---|---|---|
+| In view on one screen | 8 to 10 | 1, and a sliver of the next |
+| Comparing to choose what's first | at a glance | one at a time, remembered |
+| Thumb | one vertical scroll, the thread's own axis | a sideways swipe inside a vertical thread; the left edge is also iOS's back gesture |
+| Answers | on the one he unfolds | on every card at once, against "answers only on an unfolded item" |
+| Rules it meets | no cards, several items as rows (spec) | breaks "no cards" and "no '1 of N'" (brand) |
+| At 20 | the question scrolls away (fixed by a cap of 8, then "12 more") | 20 dots, 19 cards out of sight |
+| What it does better | | a run of one kind, answered one tap each, without unfolding |
+
+Verdict: a list of matters or asks is always rows. Tiles never show matters. They are allowed only for a run of at most
+5 asks of one kind, each answered with one tap, when comparing them isn't the job. The voices to name already get this
+by stepping one card at a time in place, with no sideways track. Code decides the rule, not the agent per answer, so a
+list never changes shape between two answers. No setting either: it would be a toggle just in case. A list in an
+answer shows its first 8 rows, then "N more", as the opening screen does with 3.
