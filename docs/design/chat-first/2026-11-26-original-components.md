@@ -31,6 +31,7 @@ Rules he set on 26 Nov, which win over anything below:
   at lunch" line, the same icon in two places. Each element has one purpose, or it goes.
 - **No numbers he doesn't need.** No word counts, durations or "heard at 2 lunches": what matters is that Life grouped
   right and guessed right, so he just says yes.
+- **Where the original prototype already draws something, the original wins**: no variants for it.
 - **An ask does not show its matter**, for now (no matter header, no matter line on an ask).
 - **The recommended answer is on the right**, in cream, where the thumb is.
 - **A message's source looks like its app:** the app's mark in its brand colour and its link ("Open WhatsApp"), one
