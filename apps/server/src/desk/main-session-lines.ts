@@ -1,3 +1,4 @@
+import { openChecksNow } from "../host/inbox";
 import { readPeopleAndOrganizations } from "../host/matter-rows";
 import {
   readsOnce,
@@ -19,7 +20,7 @@ import type { Desk } from "./desk-store";
 // What a main session's turn shows his phone beside its words (`main-session.ts`): a step for each tool call, written by
 // code from the tool and its arguments, and each block once it passed its checks.
 
-/** The kinds a block's `items` may name: asks, matters and their steps. */
+/** The kinds a block's `items` may name besides his inbox's asks: cards, matters and their steps. */
 const ITEM_KINDS = new Set(["card", "matter", "observation"]);
 
 const SETTINGS_FENCE = /```life:settings\n(.*?)\n```/gs;
@@ -71,14 +72,24 @@ export async function blockProblemOf(
     }
     keys.add(offer.key);
   }
-  const refs = blockRefsOf(b);
-  const wrong = refs.find((r) => {
+  const all = blockRefsOf(b);
+  // An `items` ref may be any ask his inbox holds (a fix, a your move, a voice…), by the ref `read_inbox` gives it and
+  // his phone draws it by: open now, so nothing more to find. Read only when a ref is of no other item kind.
+  const isOther = (r: string) => {
     const ref = parseRef(r);
-    return (
-      "error" in ref ||
-      (b.kind === "items" && !ITEM_KINDS.has(ref.kind)) ||
-      (b.kind === "pictures" && ref.kind !== "file")
-    );
+    return "error" in ref || !ITEM_KINDS.has(ref.kind);
+  };
+  const asks =
+    b.kind === "items" && all.some(isOther)
+      ? new Set((await openChecksNow()).map((c) => c.ref))
+      : new Set<string>();
+  const refs = all.filter((r) => !asks.has(r));
+  const wrong = refs.find((r) => {
+    if (b.kind === "items") {
+      return isOther(r);
+    }
+    const ref = parseRef(r);
+    return "error" in ref || (b.kind === "pictures" && ref.kind !== "file");
   });
   if (wrong) {
     return "refs";

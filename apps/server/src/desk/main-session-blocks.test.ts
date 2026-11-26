@@ -2,6 +2,8 @@ import { afterAll, beforeEach, expect, spyOn, test } from "bun:test";
 import { setSettings } from "../core/settings";
 import { agentInRole } from "../host/desk-read";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as inbox from "../host/inbox";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as findRefs from "../memory/find-refs";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "../memory/matters";
@@ -142,6 +144,27 @@ test("“I paid the lawyer” closes the matter's open steps with his words; “
     });
   } finally {
     book.mockRestore();
+  }
+});
+
+// Owner-reported (26 Nov 2026): "what's waiting on me?" lost its items, a fix ask's ref being no card, matter or step.
+test("an items block citing an open ask by its inbox ref is drawn; one citing an ask not open is dropped", async () => {
+  const open = spyOn(inbox, "openChecksNow").mockResolvedValue([
+    { ref: "fix:signed-out/line" },
+  ] as Awaited<ReturnType<typeof inbox.openChecksNow>>);
+  try {
+    const { answer } = await asked("What's waiting on me?", (r) =>
+      t.fake.hear(r, {
+        kind: "words",
+        text: `One thing.\n${fenced("items", ["life:fix:signed-out/line"])}${fenced("items", ["life:fix:signed-out/telegram"])}`,
+      })
+    );
+    expect(answer).toMatchObject({
+      refs: ["fix:signed-out/line"],
+      text: `One thing.\n${fenced("items", ["life:fix:signed-out/line"])}`.trim(),
+    });
+  } finally {
+    open.mockRestore();
   }
 });
 
