@@ -10,7 +10,7 @@ var PAY=[['hero',PAUL,'Pay Paul 240 €','For the leak · due Fri'],['box',PAY_R
 var DRAFTASK=[JH,['chat','Jade',JCHAT,DRAFT],JA];
 var NMH=['hero',KIT,'Start on this?','Kit · Tue'];
 var NM_A=['answers','Start',['Later','Not this']];
-var UNDO=' · <span style="color:var(--fg);font-weight:650">Undo</span>';
+var UNDO=CB.undo();
 var KITQ=['quote','The deposit comes back after the inspection, I’ll tell you when','Kit · WhatsApp, Tue',KIT];
 
 /* anatomy: the matter's title as a quiet line above each ask (no chevron: a chevron promises another screen) */
@@ -46,37 +46,43 @@ V.matterpage={
  C:{w:'Summary and what needs him only; the people go (he can ask), the thread is its last three lines',tabs:[['The ask',ASK],['Its page',[['mpage',mp({thread:LAST,people:[]}),'C']]]]}
 };
 
-/* voice cards */
-var VH=['hero','ic:voice','Who is this voice?','Lunch · heard twice'];
-var VDONE=[['row','ic:voice','Nora','Named in 2 conversations','ok'],['lead','Done: those lines are Nora’s now.']];
+/* voice cards: the words read along; the question as plain as it can be */
+var CLIPS=['readalong',['Then let’s say Saturday at nine, I bring the big ladder','No, the blue one, it’s cheaper']];
+var VDONE=[['row',NORA,'Nora','Those lines are hers now','ok']];
 var VPEOPLE=[[NORA,'Nora','Your partner'],[LEA,'Lea Moreau','Fernway'],[MAX1,'Max Weber','Your landlord']];
-var VNEW=[['then','After “Someone new”'],['lead','Who is it? A name, and who they are to you if you like.'],['bm','Tom, Nora’s brother'],['row','T/120','Tom','Nora’s brother · named in 2 conversations','ok']];
-function clips(m){var b=CB.B;return ['raw',b.clip('Then let’s say Saturday at nine, I bring the big ladder','0:06',m,1)+b.clip('No, the blue one, it’s cheaper','0:03',m,4)];}
+var VNEW=[['bm','Tom, Nora’s brother'],['row','T/120','Tom','Nora’s brother','ok']];
+function two(b,a){return {tabs:[['Before',b],['After the tap',a]]};}
+function mix(w,o){o.w=w;return o;}
 V['voice-guess']={
- A:{w:'The foot is gone; one why line; Later first, Don’t name lives under “Someone else…”',b:[VH,['why','It sounds like Nora, the same voice at both lunches.'],clips('wave'),['answers','Yes, Nora',['Later','Someone else…','TV or video']]],a:VDONE},
- B:{w:'One group of answers instead of two; no word count; Later added',b:[['hero',NORA,'Is this Nora?','Lunch · heard twice'],clips('pill'),['answers','Yes',['Later','Someone else…'],'row']],a:VDONE},
- C:{w:'Still the words to read, but a single list: Yes, then Later first among the rest',b:[VH,clips('text'),['answers','Yes, it’s Nora',['Later','Someone else…','TV or video'],'list']],a:VDONE}
+ A:mix('One question with Nora’s face, the words to read, Yes on the right',two([['hero',NORA,'Is this Nora?',''],CLIPS,['answers','Yes, that’s her',['Later','Someone else…'],'row']],VDONE)),
+ B:mix('Just the question in Life’s words, then the words to read',two([['bt','This sounds like <b>Nora</b>. Is it?'],CLIPS,['answers','Yes',['Later','Someone else…'],'row']],VDONE)),
+ C:mix('Nora as a row he can tap, one wide Yes under the words',two([CLIPS,['row',NORA,'Nora','Your partner'],['answers','Yes, that’s her',['Later','Someone else…']]],VDONE))
 };
 V['voice-new']={
- A:{w:'Later first, no word count; the three ways out sit under the list as quiet pills',b:[VH,clips('wave'),['people',VPEOPLE,'rows','Who is it?'],['answers',null,['Later','TV or video','Don’t name']]],a:VNEW},
- B:{w:'Faces in a grid, no word count, Later added so he is never trapped',b:[VH,clips('pill'),['people',VPEOPLE,'grid'],['answers',null,['Later','TV or video','Don’t name']]],a:VNEW},
- C:{w:'Name chips under the words; Later first, one line of why instead of nothing',b:[VH,['why','Two lunches, no one I can place.'],clips('text'),['people',VPEOPLE,'chips'],['answers',null,['Later','TV or video','Don’t name']]],a:VNEW}
+ A:mix('One question, the words to read, names as chips',two([['bt','<b>Who is this?</b>'],CLIPS,['people',VPEOPLE,'chips'],['answers',null,['Later','Not a person']]],VNEW)),
+ B:mix('The words to read, then faces side by side',two([CLIPS,['people',VPEOPLE,'grid'],['answers',null,['Later','Not a person']]],VNEW)),
+ C:mix('Only the words and who it may be; no title, the line above already asks',two([CLIPS,['people',VPEOPLE,'rows'],['answers',null,['Later']]],VNEW))
 };
 
-/* new matter */
+/* new matter: what it is and what is asked, in the title */
+var NMDONE=[['row',KIT,'Deposit back from Kit','Writing to Kit','ring',.15]];
 V.newmatter={
- A:{w:'One box says what Start does, no foot repeating it; Later first, “Edit goal” goes (he can say it)',b:[NMH,['box',[['Then','Life writes to Kit for the inspection date, for your yes']]],NM_A],a:[['row',KIT,'Deposit back from Kit','Drafting the message to Kit','ring',.15]]},
- B:{w:'One sentence says it all; Start, Later and No side by side, the closing line goes',b:[NMH,['why','I can ask Kit for the date now and follow it until your 800 € is back.'],['answers','Start',['Later','No'],'row']],a:[['row',KIT,'Deposit back from Kit','Drafting the message to Kit','ring',.15]]},
- C:{w:'Kit’s own words as the why, one wide Start and Later; what Start leads to in one line',b:[NMH,KITQ,['foot','Life then drafts one message to Kit, for your yes.'],NM_A],a:[['row',KIT,'Deposit back from Kit','Drafting the message to Kit','ring',.15]]}
+ A:mix('The title says it: get the deposit back from Kit; one line of what Life does',two([['hero',KIT,'Get your 800 € back from Kit?','Kit · Tue'],['why','I’ll ask Kit for the inspection date, and follow it until the money is back.'],['answers','Yes, handle it',['Later','No'],'row']],NMDONE)),
+ B:mix('Kit’s own words as the reason, then the question under them',two([['quote','The deposit comes back after the inspection, I’ll tell you when','Kit · WhatsApp, Tue',KIT],['bt','Want me to get your <b>800 €</b> back from Kit?'],['answers','Yes, go ahead',['Later','No'],'row']],NMDONE)),
+ C:mix('Plain sentences only: what Kit said and what Life offers',two([['bt','Kit says your <b>800 € deposit</b> comes back after the inspection. Shall I follow it up for you?'],['answers','Yes, follow it up',['Later','No'],'row']],NMDONE))
 };
 
-/* ending check */
+/* ending check: the matter’s name is already above (the page); then why Life thinks it is done, then the question */
+var ENDONE=[['step','Send Paul the photos of the leak','Done · Wed'+UNDO,'struck'],['step','Let Paul in on Thursday','Yours · Thu']];
 V.ending={
- A:{w:'Same card, but the question is stated once and the settled step shows its Undo',b:[['step','Send Paul the photos of the leak','Yours · since Mon'],['quote','Got the photos, thanks! Coming Thursday','Paul · Wed',PAUL],['why','Is this done?'],['answers','Yes, done',['Not yet'],'row']],
-  a:[['step','Send Paul the photos of the leak','Done · Wed'+UNDO,'struck'],['step','Let Paul in on Thursday','Yours · Thu']]},
- B:{w:'The question is written above the step, so the two round marks have a meaning; the settled step has its Undo',b:[['why','Paul’s message seems to show this done. Is it?'],['step','Send Paul the photos of the leak','Paul: “Got the photos, thanks” · Wed','ask'],['step','Let Paul in on Thursday','Yours · Thu']],
-  a:[['step','Send Paul the photos of the leak','Done · Wed'+UNDO,'struck'],['step','Let Paul in on Thursday','Yours · Thu']]},
- C:{w:'Life’s reading is blue and says why; reopening is a quiet pill with its own word, Undo-like',b:[['step','Send Paul the photos of the leak','<span style="color:var(--ai)">Looks done</span>: Paul got them · Wed','struck'],['answers',null,['Not done yet']],['step','Let Paul in on Thursday','Yours · Thu']],
-  a:[['step','Send Paul the photos of the leak','Reopened · Yours · since Mon'],['step','Let Paul in on Thursday','Yours · Thu']]}
+ A:mix('Plain words: why it looks done, Paul’s message, then the question',two([['bt','Paul wrote back, so I think <b>sending him the photos</b> is done.'],['quote','Got the photos, thanks! Coming Thursday','Paul · Wed',PAUL],['answers','Yes, it’s done',['Not yet'],'row']],ENDONE)),
+ B:mix('One sentence only, with Paul’s words inside it; no card',two([['bt','Paul wrote “Got the photos, thanks!” on Wednesday. Is <b>sending him the photos</b> done?'],['answers','Yes, it’s done',['Not yet'],'row']],ENDONE)),
+ C:mix('The step shown as done in Life’s blue, with the reason; Yes confirms it',two([['why','Life thinks this is done:'],['step','Send Paul the photos of the leak',CB.ai('Paul got them')+' · Wed','struck'],['answers','Yes, it’s done',['Not yet'],'row']],ENDONE))
 };
 })();
+
+/* the fresh-eyes reviewer's best (26 Nov), recommended in the lab */
+window.V2['voice-guess'].rec='A2';
+window.V2['voice-new'].rec='A2';
+window.V2['newmatter'].rec='C2';
+window.V2['ending'].rec='B2';

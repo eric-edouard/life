@@ -131,7 +131,7 @@ var V2=window.V2||{};function lab(k){return k.length>1?k[0]+' v2':k;}
 function withV2(x){var m=V2[x.id];if(!m)return x;var v={};Object.keys(x.v).forEach(function(k){v[k]=x.v[k];if(m[k])v[k+'2']=m[k];});x.v=v;return x;}
 var CARDS=CV.ITEMS.map(function(it){if(it.g)ga=GA[it.g]||ga;var v={},m=V2[it.id]||{};Object.keys(it.v).forEach(function(k){[[k,it.v[k]],[k+'2',m[k]]].forEach(function(q){var x=q[1];if(!x)return;var c=x.ctx||it.ctx;
   v[q[0]]={w:x.w,way:x.way||it.way||CV.W[c],views:CV.viewsOf(it,x).map(function(y){return [y[0],{blocks:y[1],ctx:CV.CTX[c]}];})};});});
- return {id:it.id,area:it.id==='matterpage'?'pages':ga,n:it.n,d:it.d,rec:it.rec,parts:it.parts,v:v};});
+ return {id:it.id,area:it.id==='matterpage'?'pages':ga,n:it.n,d:it.d,rec:(V2[it.id]&&V2[it.id].rec)||it.rec,parts:it.parts,v:v};});
 /* the shell's pages, reached by taps inside its phone */
 var PAGES=[['page-ask','An ask’s page','He taps the count, then Ben’s ask: the page opens from the row.',['[data-act="waiting"]','[data-open="ben"]']],
  ['page-profile','A profile','He taps the count, then Ben’s face: his profile opens; a row on it asks in the thread.',['[data-act="waiting"]','[data-person="ben"]']],

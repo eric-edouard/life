@@ -14,8 +14,6 @@ var JCHAT = [['Hey! Are we still on for dinner Saturday?', '9:12'], ['Should I b
 var DRAFT = 'Yes, Saturday works. Book for 8, I’ll be there.';
 var DRAFT2 = 'Yes, Saturday works<mark>, I can’t wait!</mark> Book for 8 and I’ll be there.';
 var JE = ['Warmer', 'Shorter', 'In French'];
-var BACK = '<button type="button" class="qe ic" aria-label="Back to the last version">' + CB.I.back + '</button>';
-var NOTE = '<span style="font-size:13px;color:var(--muted);margin-left:6px">Thanks</span>';
 
 /* swipe: the five waiting asks; Later is each card's first quiet pill, the bank shows its initial, no counts in words */
 var W5 = [
@@ -24,24 +22,23 @@ var W5 = [
  { f: PAUL, s: 'Paul · Fri', t: 'Pay Paul 240 €', b: [['mhead', 'Kitchen leak'], PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA] },
  { f: 'N', s: 'Bank · this week', t: 'Call the bank', b: [['mhead', 'New bank card'], ['hero', 'N', 'Call the bank', 'Confirm your new card · this week'], ['answers', 'Done', ['Later']]] },
  { f: JADE, s: 'Jade · today', t: 'Reply to Jade', b: [['mhead', 'Saturday dinner with Jade'], JH, ['chat', 'Jade', JCHAT, DRAFT], JA] }];
-function noCount(h) { return h.replace('<span>1 of 5</span>', '').replace('<div class="cb-swn"><span>5 · swipe for more</span></div>', ''); }
 var VH = ['hero', 'ic:voice', 'Who is this voice?', 'Heard at lunch, twice'];
-var VC = ['raw', B.clip('Then let’s say Saturday at nine, I bring the big ladder', '0:06', 'wave', 1) + B.clip('No, the blue one, it’s cheaper', '0:03', 'wave', 4)];
+var VC = ['readalong', ['Then let’s say Saturday at nine, I bring the big ladder', 'No, the blue one, it’s cheaper']];
 var VP = [{ f: NORA, s: 'Nora' }, { f: LEA, s: 'Lea' }, { f: MAX1, s: 'Max' }, { f: 'ic:plus', s: 'Someone new' }];
 
 V.swipe = {
- A: { w: 'Dots only, the “1 of 5” words gone; Later first on every card; the bank shows its initial, not a building', b: [['lead', 'Five things wait on you:'], ['raw', noCount(B.swipe(W5, 'full'))]] },
- B: { w: 'Every compact card keeps its one cream answer and gains Later; no count in words', b: [['lead', 'Five things wait on you:'], ['raw', noCount(B.swipe(W5.map(function (c) { return { b: [['row', c.f, c.t, c.s], ['answers', c.b[c.b.length - 1][1], ['Later']]] }; }), 'two'))]] },
- C: { w: 'Strip without “swipe for more” (it runs off the edge); Life’s guess is preselected and named, one cream answer', tabs: [['The 5 waiting', [['lead', 'Five things wait on you:'], ['raw', noCount(B.swipe(W5, 'strip', 0))]]],
-  ['Voice naming, the same pattern', [VH, VC, ['lead', 'I think it’s Nora.'], ['raw', noCount(B.swipe(VP, 'strip', 0))], ['answers', 'It’s Nora', ['Later', 'TV or video', 'Don’t name']]]]] }
+ A: { w: 'Dots only, the “1 of 5” words gone; Later first on every card; the bank shows its initial, not a building', b: [['lead', 'Five things wait on you:'], ['swipe', W5, 'full']] },
+ B: { w: 'Every compact card keeps its one cream answer and gains Later; no count in words', b: [['lead', 'Five things wait on you:'], ['swipe', W5.map(function (c) { return { b: [['row', c.f, c.t, c.s], ['answers', c.b[c.b.length - 1][1], ['Later']]] }; }), 'two']] },
+ C: { w: 'Strip without “swipe for more” (it runs off the edge); Life’s guess is preselected and named, one cream answer', tabs: [['The 5 waiting', [['lead', 'Five things wait on you:'], ['swipe', W5, 'strip', 0]]],
+  ['Voice naming, the same pattern', [VH, VC, ['lead', 'I think it’s Nora.'], ['swipe', VP, 'strip', 0], ['answers', 'It’s Nora', ['Later', 'TV or video', 'Don’t name']]]]] }
 };
 
 /* adds: the tap shows doing, then done, on the row itself; Undo stays on the line */
 var ADD_DOING = ['row', 'ic:cal', 'Parents’ meeting', 'Adding to your calendar…', 'spin'];
 V.adds = {
- A: { w: 'Doing then done on the row; says what the yes leads to; Later is the quiet pill', b: [EV_H, ['event', EV, 'line'], EV_FOOT, ['answers', 'Add it', ['Later']]], a: [ADD_DOING, ['then', 'A moment later'], ['row', 'ic:cal', 'Parents’ meeting', 'In your calendar · Thu 18:00 · <u>Undo</u>', 'ok']] },
- B: { w: 'It folds to its row, ticked with Undo, and his Thursday shows the new slot; the box is no longer a second copy of the row', b: [EV_H, ['event', EV, 'box'], EV_FOOT, ['answers', 'Add it', ['Later']]], a: [ADD_DOING, ['then', 'A moment later'], ['row', 'ic:cal', 'Parents’ meeting', 'In your calendar · <u>Undo</u>', 'ok'], ['event', EV, 'day']] },
- C: { w: 'The row carries the result and Undo; Life’s sentence says only what is new (the reminders)', b: [EV_H, ['event', EV, 'line'], EV_FOOT, ['answers', 'Add it', ['Later']]], a: [ADD_DOING, ['then', 'A moment later'], ['row', 'ic:cal', 'Parents’ meeting', 'In your calendar · Thu 18:00 · <u>Undo</u>', 'ok'], ['lead', 'I’ll remind you an hour before, and again at 17:30.']] }
+ A: { w: 'Doing then done on the row; says what the yes leads to; Later is the quiet pill', b: [EV_H, ['event', EV, 'line'], EV_FOOT, ['answers', 'Add it', ['Later']]], a: [ADD_DOING, ['then', 'A moment later'], ['row', 'ic:cal', 'Parents’ meeting', 'In your calendar · Thu 18:00' + CB.undo(), 'ok']] },
+ B: { w: 'It folds to its row, ticked with Undo, and his Thursday shows the new slot; the box is no longer a second copy of the row', b: [EV_H, ['event', EV, 'box'], EV_FOOT, ['answers', 'Add it', ['Later']]], a: [ADD_DOING, ['then', 'A moment later'], ['row', 'ic:cal', 'Parents’ meeting', 'In your calendar' + CB.undo(), 'ok'], ['event', EV, 'day']] },
+ C: { w: 'The row carries the result and Undo; Life’s sentence says only what is new (the reminders)', b: [EV_H, ['event', EV, 'line'], EV_FOOT, ['answers', 'Add it', ['Later']]], a: [ADD_DOING, ['then', 'A moment later'], ['row', 'ic:cal', 'Parents’ meeting', 'In your calendar · Thu 18:00' + CB.undo(), 'ok'], ['lead', 'I’ll remind you an hour before, and again at 17:30.']] }
 };
 
 /* runs: the answer names the act, shows doing, never a bare "No" */
@@ -55,23 +52,22 @@ V.runs = {
 
 /* looks: every state is a line of the row, in place, with Undo */
 V.looks = {
- A: { w: 'Looking, then waiting; the line says until when and carries Undo; nothing is called “not found”', b: [PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA], a: [['row', PAUL, 'Pay Paul 240 €', 'Looking in your bank…', 'spin'], ['then', 'A minute later'], ['row', PAUL, 'Pay Paul 240 €', 'Not in your bank yet · I look until Fri · <u>Undo</u>', '']] },
- B: { w: 'Shows the save, then “Marked paid” with when Life checks, and Undo; the tick is no longer a proof it was seen', b: [PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA], a: [['row', PAUL, 'Pay Paul 240 €', 'Marking it paid…', 'spin'], ['then', 'A moment later'], ['row', PAUL, 'Pay Paul 240 €', 'Marked paid · I check your bank tonight · <u>Undo</u>', 'ok']] },
- C: { w: 'The row says where it stands and Undo; Life’s sentence only adds why it can take time', b: [PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA], a: [['row', PAUL, 'Pay Paul 240 €', 'Looking in your bank · until Fri · <u>Undo</u>', 'spin'], ['lead', 'It isn’t there yet. A transfer can take a day, so I’ll keep looking.']] }
+ A: { w: 'Looking, then waiting; the line says until when and carries Undo; nothing is called “not found”', b: [PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA], a: [['row', PAUL, 'Pay Paul 240 €', 'Looking in your bank…', 'spin'], ['then', 'A minute later'], ['row', PAUL, 'Pay Paul 240 €', 'Not in your bank yet · I look until Fri' + CB.undo(), '']] },
+ B: { w: 'Shows the save, then “Marked paid” with when Life checks, and Undo; the tick is no longer a proof it was seen', b: [PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA], a: [['row', PAUL, 'Pay Paul 240 €', 'Marking it paid…', 'spin'], ['then', 'A moment later'], ['row', PAUL, 'Pay Paul 240 €', 'Marked paid · I check your bank tonight' + CB.undo(), 'ok']] },
+ C: { w: 'The row says where it stands and Undo; Life’s sentence only adds why it can take time', b: [PAY_H, ['box', PAY_ROWS, '240,00 €'], PAYA], a: [['row', PAUL, 'Pay Paul 240 €', 'Looking in your bank · until Fri' + CB.undo(), 'spin'], ['lead', 'It isn’t there yet. A transfer can take a day, so I’ll keep looking.']] }
 };
 
 /* rate: a tap keeps its mark, the rest fade, “Thanks”; nothing follows, even after a thumb down */
-function thanks(mark, cls) { return ['raw', cls === 'hd' ? '<div class="hd"><span class="q">Thanks</span><button type="button" class="m" aria-label="Your mark"><span class="cb-em">' + mark + '</span></button></div>' : '<div class="cb-rateu"><button type="button" aria-label="Your mark"><span class="cb-em">' + mark + '</span></button>' + NOTE + '</div>']; }
 V.rate = {
- A: { w: 'The tap keeps its mark and the line turns to “Thanks”; the cross and the other marks leave', b: [['rate', 'bar']], a: [thanks('👍', 'hd')] },
- B: { w: 'Same marks, small; after a tap the mark stays with “Thanks”, so the tap shows its result', b: [['rate', 'under']], a: [thanks('👍', 'u')] },
- C: { w: 'Two marks keep their question; the tap shows “Thanks” with the mark, and nothing follows a thumb down', b: [['rate', 'one']], a: [thanks('👍', 'hd')] }
+ A: { w: 'The tap keeps its mark and the line turns to “Thanks”; the cross and the other marks leave', b: [['rate', 'bar']], a: [['rate', 'bar', '👍']] },
+ B: { w: 'Same marks, small; after a tap the mark stays with “Thanks”, so the tap shows its result', b: [['rate', 'under']], a: [['rate', 'under', '👍']] },
+ C: { w: 'Two marks keep their question; the tap shows “Thanks” with the mark, and nothing follows a thumb down', b: [['rate', 'one']], a: [['rate', 'one', '👍']] }
 };
 
 /* edit-tap: chips under or in the draft, and the way back after a change; his own words answer too */
 V['edit-tap'] = {
  A: { w: 'Changed words are marked where they changed; the back arrow undoes the tap', b: [JH, ['chat', 'Jade', JCHAT, DRAFT], ['edits', JE], JA], a: [JH, ['chat', 'Jade', JCHAT, DRAFT2], ['edits', ['back', 'Shorter', 'In French']], JA] },
- B: { w: 'Chips stay inside the draft’s outline, right-aligned, and gain the back arrow after a change', b: [JH, ['chat', 'Jade', JCHAT, DRAFT + B.edits(JE, 'inside')], JA], a: [JH, ['chat', 'Jade', JCHAT, DRAFT2 + B.edits(['Shorter', 'In French'], 'inside').replace('<div class="cb-edin">', '<div class="cb-edin">' + BACK)], JA] },
+ B: { w: 'Chips stay inside the draft’s outline, right-aligned, and gain the back arrow after a change', b: [JH, ['chat', 'Jade', JCHAT, DRAFT + B.edits(JE, 'inside')], JA], a: [JH, ['chat', 'Jade', JCHAT, DRAFT2 + B.edits(['back', 'Shorter', 'In French'], 'inside')], JA] },
  C: { w: 'Chips sit under the answers by his thumb, with the field so his own words answer too, and the back arrow after a change', b: [JH, ['chat', 'Jade', JCHAT, DRAFT], JA, ['edits', JE], ['field', 'Or tell me what to change']], a: [JH, ['chat', 'Jade', JCHAT, DRAFT2], JA, ['edits', ['back', 'Shorter', 'In French']], ['field', 'Or tell me what to change']] }
 };
 })();

@@ -130,7 +130,7 @@ var ITEMS=[
  C:{w:'Only the first step; how many after',b:[['hero',KIT,'Get the deposit back','After your yes'],['plan',STEPS,'next','From the lease and Kit’s messages'],['answers','Go ahead',['Not now']]]}}},
 {id:'context',m:{t:'Tattoo removal'},n:'Context, with links',d:'Why Life asks, with links to Life’s own things and a quote.',parts:['Text','Quote','Links'],ctx:'waiting',rec:'A',v:{
  A:{w:'Short paragraph, links in it, the quote under',b:[CLINIC_H,['md','**Dr. Ink** is 10 min by metro and does both. Nora asked for [her scars too](life:obs).\n> Can they do both of us the same day?\n*Nora · WhatsApp, Mon*'],['answers','Contact Dr. Ink',['Later']]]},
- B:{w:'One line; the rest behind a chip',b:[CLINIC_H,['why','Dr. Ink does both, 10 min by metro.'],['raw','<a class="cb-srcchip" href="#" onclick="return false">Why this one</a>'],['answers','Contact Dr. Ink',['Later']]]},
+ B:{w:'One line; the rest behind a chip',b:[CLINIC_H,['why','Dr. Ink does both, 10 min by metro.'],['raw','<button type="button" class="cb-mini">Why this one</button>'],['answers','Contact Dr. Ink',['Later']]]},
  C:{w:'Bullets, then the quote',b:[CLINIC_H,['md','- Tattoos and scars\n- 10 min by metro\n- About ฿1,000 per cm²\n> Can they do both of us the same day?\n*[Nora](life:person) · WhatsApp, Mon*'],['answers','Contact Dr. Ink',['Later']]]}}},
 {id:'doneseen',m:{t:'Kitchen leak'},n:'Life sees it done',d:'Life watches his bank for the payment, so he need not tell it.',parts:['Before','While looking','When seen'],ctx:'waiting',rec:'C',v:{
  A:{w:'A status line: looking, then seen',b:[PAY_H,['box',PAY_ROWS,'240,00 €'],PAYA],a:[['row',PAUL,'Pay Paul 240 €','Looking in your bank…','spin'],['then','Wed 14:02'],['row',PAUL,'Pay Paul 240 €','Seen in your bank · Wed 14:02','ok']]},
@@ -186,11 +186,12 @@ var ITEMS=[
    Until he picks, every ask uses the recommended rule, C. The header goes before the card's first block of its own. */
 function withMatter(it,b,mode){var m=it.m;if(!m)return b;var i=0;while(i<b.length&&['lead','bm','then','matter'].indexOf(b[i][0])>=0)i++;
  return b.slice(0,i).concat([['mhead',m.t,m.g,mode||(m.dec?'goal':'title'),m.f]],b.slice(i));}
-function viewsOf(it,v){return v.tabs||[['Before',withMatter(it,v.b)]].concat(v.a?[['After the tap',v.a]]:[]);}
+/* an ask shows no matter header (his decision of 26 Nov); only the anatomy item still draws one, to compare */
+function viewsOf(it,v){return v.tabs||[['Before',v.b]].concat(v.a?[['After the tap',v.a]]:[]);}
 /* the variant to draw for an item: his pick; else the first variant he ticked a part of (mixing parts needs the
    designer); else the recommended one. decided is false until he picked one whole. */
 function chosen(CH,id){var it=ITEMS.filter(function(x){return x.id===id;})[0],c=CH&&CH[id]||{},m=Object.keys(c.mix||{});
- var V=window.V2&&window.V2[id];if(V)Object.keys(V).forEach(function(k){it.v[k+'2']=it.v[k+'2']||V[k];});
+ var V=window.V2&&window.V2[id];if(V)Object.keys(it.v).forEach(function(k){if(V[k])it.v[k+'2']=it.v[k+'2']||V[k];});
  return c.pick?{it:it,k:c.pick,decided:true}:{it:it,k:m.length?c.mix[m[0]]:it.rec,decided:false,mixed:m.length>0};}
 window.CV={CTX:CTX,W:W,ITEMS:ITEMS,MP:MP,withMatter:withMatter,viewsOf:viewsOf,chosen:chosen};
 })();
