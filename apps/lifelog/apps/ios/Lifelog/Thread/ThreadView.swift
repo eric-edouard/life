@@ -213,7 +213,11 @@ private struct EntryView: View {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     // The steps line blurs away where the words ink in.
                     if live.parts.isEmpty {
-                        StepsLine(verb: live.step?.verb, what: live.step?.what ?? "").appears(Motion.arrives)
+                        if let step = live.step {
+                            StepsLine(verb: step.verb, what: step.what).appears(Motion.arrives)
+                        } else {
+                            StepsLine().appears(Motion.arrives)
+                        }
                     }
                     AnswerView(parts: live.parts, actions: actions, isLive: true)
                 }
