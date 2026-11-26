@@ -488,6 +488,7 @@ ruling of 29 Oct).
   (`host/desk-shape.ts`), `prompts/`.
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
+- **Done means ran live** (his yes of 26 Nov 2026): a change to what he sees (the iPhone app, Ask Life's answers, cards) is done only after it ran on his real Life: the real ask through the main session, no `block.miss` in the log, its blocks drawn, and an app screenshot compared element by element with `docs/design/chat-first/prototypes/shell.html`; the PR says what was checked and links the screenshots.
 - A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.
 - A PR adding a night step or a reader says what it reads per night at 10 years of data.
 - **Prove a change cheaply.** A change to the system (code, a prompt, a step) that would re-process data is proved
