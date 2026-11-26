@@ -1,25 +1,23 @@
 import SwiftUI
 
-/// The notice at the top of the thread: "Your Mac isn't answering" while Life cannot be reached (it unfolds to the
-/// phone's own settings, as a settings block), then, once, "Back" with how many of his answers went when it was.
+/// The notice at the end of the thread (the prototype's `.sys`): "You're offline" or "Your Mac isn't answering" while Life
+/// cannot be reached, with the phone's own settings under it, then, once, "Back" with how many of his answers went.
+/// No tap and not in the count.
 struct Notices: View {
     @Environment(LifeStore.self) private var life
     let openSettings: () -> Void
-    @State private var isOpen = false
     /// When this phone first found Life out of reach, for a path that is gone (a read says it itself otherwise).
     @State private var seenAt: Date?
     /// What the notice said while it stood, so it settles in place with the same title and mark.
     @State private var was: (title: String, mark: Glyph.Mark)?
 
     var body: some View {
-        VStack(spacing: Metrics.Spacing.s) {
+        VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             if life.isOutOfReach {
                 let title = life.isOffline ? "You're offline" : "Your Mac isn't answering"
                 let mark: Glyph.Mark = life.isOffline ? .offline : .mac
                 NoticeBlock(
-                    title: title, message: line, mark: mark,
-                    isOpen: isOpen, toggle: { Motion.animate { isOpen.toggle() } },
-                    id: AID.noticeOutOfReach
+                    title: title, message: line, mark: mark, isOpen: true, id: AID.noticeOutOfReach
                 ) {
                     LiveSettingsBlock(
                         keys: life.isOffline ? ["faceid"] : ["faceid", "pair"], openSettings: openSettings)

@@ -47,4 +47,6 @@ trap 'rm -rf "$L"' EXIT
 [ -n "${HEAVY_NO_CACHE:-}" ] || export XCODE_XCCONFIG_FILE="$(cd "$(dirname "$0")" && pwd)/compile-cache.xcconfig"
 # Swift builds run once per branch, on its landing push (his yes of 21 Nov); every other push skips them.
 [ "${HEAVY_LANE:-}" = land ] || export LIFE_CHECK_SWIFT=at-landing
+# A push inside this slot (`tools/heavy.sh git push`, a landing) runs its pre-push check here, never queued again.
+export HEAVY_HELD=1
 nice -n 10 "$@"   # builds never starve his live Life (dictation took 10 s under load, 21 Nov)

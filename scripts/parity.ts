@@ -93,7 +93,7 @@ export const ROWS: Row[] = [
     flow: "C10NoUndoOnAnIMessageTests",
     id: "imessage-no-undo",
     proto: ['[data-v4="im"]'],
-    taps: 0,
+    taps: 1,
     title: "An iMessage reply: no Undo",
   },
   {
@@ -104,7 +104,7 @@ export const ROWS: Row[] = [
     title: "Text Ben I'm running late (which person)",
   },
   {
-    flow: "O2AnswerOfflineTests",
+    flow: "O2OfflineNoticeTests",
     id: "offline",
     proto: ['[data-k="offline"]'],
     taps: 0,
