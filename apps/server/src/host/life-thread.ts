@@ -134,6 +134,17 @@ interface MatterLook {
   status: MatterView["status"];
 }
 
+/** Each matter's status and its icon's key (`iconNow`); icons never cost the thread: none when the embedder fails. */
+async function readMatterLooks() {
+  const b = await readMatterBook(await readPeople(), dayNow());
+  const lifeIcons = await readLifeIcons(b).catch(
+    () => new Map() as Awaited<ReturnType<typeof readLifeIcons>>
+  );
+  return new Map<string, MatterLook>(
+    b.map((m) => [m.id, { icon: iconNow(m, lifeIcons)?.key, status: m.status }])
+  );
+}
+
 /** Each matter's status and icon, read again only when what the book reads changed, his day did or an icon pick landed (`iconWorkEnded`). */
 let book: { key: string; looks: Promise<Map<string, MatterLook>> } | undefined;
 function matterLooks() {
@@ -143,20 +154,7 @@ function matterLooks() {
     iconWorkEnded(),
   ]);
   if (book?.key !== key) {
-    const looks = readPeople()
-      .then((people) => readMatterBook(people, dayNow()))
-      .then(async (b) => {
-        // Icons never cost the thread: none when the embedder fails.
-        const lifeIcons = await readLifeIcons(b).catch(
-          () => new Map() as Awaited<ReturnType<typeof readLifeIcons>>
-        );
-        return new Map(
-          b.map((m) => [
-            m.id,
-            { icon: iconNow(m, lifeIcons)?.key, status: m.status },
-          ])
-        );
-      });
+    const looks = readMatterLooks();
     book = { key, looks };
     looks.catch(() => {
       book = undefined;
