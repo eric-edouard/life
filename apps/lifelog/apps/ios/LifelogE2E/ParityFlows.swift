@@ -38,6 +38,17 @@ import XCTest
     }
 }
 
+/// O2: the phone goes offline at the opening: the thread stays, one notice says what waits.
+@MainActor final class O2OfflineNoticeTests: FlowTest {
+    func testOfflineNotice() {
+        launch("O2")
+        appears(field, "the thread")
+        step(1)
+        poll("You're offline") { element(AID.noticeOutOfReach).label.hasPrefix("You're offline") }
+        shoot("offline")
+    }
+}
+
 /// L5: Life stops answering: the thread stays, one notice says why, and nothing is lost.
 @MainActor final class L5MacOutOfReachTests: FlowTest {
     func testMacOutOfReach() {
@@ -68,5 +79,19 @@ import XCTest
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch,
             "the answer's last words", within: 30)
         shoot("slow-answer")
+    }
+}
+
+/// V1: the voices row opened on a voice Life suggests someone for: the moment, Life's reason, its answers.
+@MainActor final class V1VoiceGuessTests: FlowTest {
+    func testVoiceGuess() {
+        launch("A1")
+        let more = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", " more")).firstMatch
+        appears(more, "the rest of the rows")
+        more.tap()
+        taps += 1
+        unfold(element(AID.askRow("voices")), until: element(AID.voicesAnswer("is-them")))
+        appears(app.staticTexts["You called Nora at 14:20, and this voice is on that call."], "Life's reason")
+        shoot("voice-guess")
     }
 }

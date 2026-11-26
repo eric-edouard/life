@@ -367,6 +367,15 @@ drafted when it has none, or once it has a step, or a step's ending, newer than 
 steps (`matterFinderOf`); his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
 its steps) is worked out when read (`nextStepNow`), never stored.
 
+## matter-icons.jsonl
+
+Life's picks of the matters' icons (`memory/matter-icons.ts`, its only writer, `pickMatterIcons`: the night after the
+directions, and the watcher for open matters with none), one line per matter text, append-only: `inputs` (the 16-hex
+`iconInputsOf`: the matter's name and goal, the keys' lines shown and the prompt version, never the words), `icon` (a
+key of `MATTER_ICONS`, or null when none fits), `at`, `madeBy`, `schemaVersion`. The newest line for an `inputs` wins
+(`readLifeIcons`); a new name or goal, line or prompt version is a new `inputs`, asked once, the older lines kept,
+unread. His `matter-icon` correction wins over it (`iconNow`).
+
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/read-replies.ts`), one line per call,

@@ -33,28 +33,7 @@ import XCTest
 @MainActor final class C1SendADraftTests: FlowTest {
     func testSendADraft() {
         launch("C1")
-        openWaiting()
-        // The ask is in the opening and, listed, at the bottom: the listed one unfolds.
-        let rows = app.buttons.matching(identifier: AID.askRow(Self.ask))
-        appears(rows.firstMatch, "the ask in the list")
-        let listed = rows.count > 1 ? rows.element(boundBy: 1) : rows.firstMatch
-        let send = element(AID.askAnswer(Self.ask, "send"))
-        // The unfolded ask's end sits under the field: the thread is read upward to it; a fold on the way unfolds again.
-        func reach() {
-            for _ in 0..<4 where !send.exists || !send.isHittable {
-                if !send.exists { unfold(listed, until: send) }
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.7)).press(
-                    forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.3)))
-                Thread.sleep(forTimeInterval: 1)
-            }
-        }
-        reach()
-        XCTAssertTrue(send.exists, "Send to Jade")
-        shoot("draft")
-        reach()
-        send.tap()
-        taps += 1
-        appears(element(AID.askSettled(Self.ask)), "Settled")
+        sendTheListedDraft(shooting: "draft")
         XCTAssertEqual(answers().count, 1)
         XCTAssertFalse((answers()[0]["key"] as? String ?? "").isEmpty)
     }
@@ -94,12 +73,11 @@ import XCTest
 @MainActor final class C10NoUndoOnAnIMessageTests: FlowTest {
     func testNoUndoOnAnIMessage() {
         launch("C10")
-        openTheAsk()
-        appears(element(AID.askSettled(Self.ask)), "Settled")
+        sendTheListedDraft(shooting: "imessage-no-undo")
+        unfold(element(AID.askRow(Self.ask)), until: app.staticTexts["Send Nora the message?"])
         appears(app.staticTexts["Send Nora the message?"], "the unfolded ask")
-        shoot("imessage-no-undo")
         XCTAssertFalse(element(AID.askUndo(Self.ask)).exists)
-        XCTAssertTrue(answers().isEmpty)
+        XCTAssertEqual(answers().count, 1)
     }
 }
 
@@ -107,9 +85,8 @@ import XCTest
 @MainActor final class C11UndoThenDeleteTests: FlowTest {
     func testUndoThenDelete() {
         launch("C11")
-        openTheAsk()
+        sendTheListedDraft(shooting: "undo-whatsapp")
         unfold(element(AID.askRow(Self.ask)), until: element(AID.askUndo(Self.ask)))
-        shoot("undo-whatsapp")
         // The thread redraws the row after each tap and it folds: each try unfolds it, asks, and confirms if it can.
         for _ in 0..<4 where undos().isEmpty {
             unfold(element(AID.askRow(Self.ask)), until: element(AID.askUndo(Self.ask)))
@@ -180,8 +157,7 @@ import XCTest
         openTheAsk()
         appears(element(AID.askAnswer(Self.ask, "send")), "Send")
         step(1)
-        appears(element(AID.noticeOutOfReach), "Your Mac isn't answering")
-        shoot("offline")
+        appears(element(AID.noticeOutOfReach), "You're offline")
         tap(AID.askAnswer(Self.ask, "send"))
         appears(element(AID.askQueued(Self.ask)), "the answer waiting")
         app.terminate()

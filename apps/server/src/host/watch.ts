@@ -23,6 +23,7 @@ import {
   reindex,
   reindexUnits,
 } from "../memory/index-writer";
+import { pickIconsOnArrival } from "../memory/matter-icons";
 import { LEDGER, readLedger } from "../memory/memory-files";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { describeFilesOnArrival } from "../memory/message-files";
@@ -56,8 +57,8 @@ import { sampleResources } from "./resource-sample";
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
 // or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
 // builds today's units from every other source the same way (`gather`); its model calls describe today's new files
-// (`describeFilesOnArrival`), read what arrived (`readArrivals`) and name the voices of a conversation under way or just
-// closed (`nameVoicesOnArrival`), never awaited by the tick. Health is in
+// (`describeFilesOnArrival`), read what arrived (`readArrivals`), name the voices of a conversation under way or just
+// closed (`nameVoicesOnArrival`) and pick the icons of open matters with none (`pickIconsOnArrival`), never awaited by the tick. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Life": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
@@ -360,6 +361,7 @@ async function syncToday() {
     const voice = voiceOnce(people.truth);
     startArrivalReader(evidence, people, voice);
     startVoiceNaming(people, voice);
+    startIconPicks(people);
   } finally {
     syncing = false;
   }
@@ -455,6 +457,22 @@ function startVoiceNaming(
     )
     .finally(() => {
       naming = false;
+    });
+}
+
+let pickingIcons = false;
+/** Starts the day's icon picks (`pickIconsOnArrival`), un-awaited, one pass at a time. A failure is logged and stops nothing; the night picks what it missed. */
+function startIconPicks(people: Awaited<ReturnType<typeof readPeople>>) {
+  if (pickingIcons) {
+    return;
+  }
+  pickingIcons = true;
+  pickIconsOnArrival(people)
+    .catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "watch.matter-icons" })
+    )
+    .finally(() => {
+      pickingIcons = false;
     });
 }
 

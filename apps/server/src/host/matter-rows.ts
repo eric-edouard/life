@@ -1,7 +1,6 @@
 import { blockingCountOf } from "../memory/check-urgency";
 import { checksOnMatterOf } from "../memory/checks";
 import type { Check } from "../memory/life-checks";
-import { iconWorkEnded, readLifeIcons } from "../memory/matter-icons";
 import { needsYouOf, openMatters } from "../memory/read-matters";
 import { readPerson } from "../personal/person-parts";
 import { openChecksAndKeyNow, versionOf } from "./inbox";
@@ -35,11 +34,7 @@ async function readRows(
   agentOf: Parameters<typeof openMatters>[1],
   open: Parameters<typeof matterRowsNowOf>[1]
 ) {
-  const { matters, nextBefore, project } = await openMatters(
-    q,
-    agentOf,
-    readLifeIcons
-  );
+  const { matters, nextBefore, project } = await openMatters(q, agentOf);
   const answer = {
     matters: matterRowsNowOf(matters, open),
     nextBefore,
@@ -48,17 +43,16 @@ async function readRows(
   return { ...answer, version: versionOf(JSON.stringify(answer)) };
 }
 
-/** The rows read for `keptFor` (the checks' key and the icon work ended: either moving drops them all), by the query and the agents. */
+/** The rows read for `keptFor` (the checks' key: its moving drops them all), by the query and the agents. */
 let kept:
   | { keptFor: string; rows: Map<string, ReturnType<typeof readRows>> }
   | undefined;
 
 /**
  * The matters as rows now (`openMatters`: running, or open or closed as asked, of one person, project or area when given), over his open checks read
- * once; each with Life's icon (`readLifeIcons`, never waited on) and `agentOf`'s agent: `read_matters` and a person's
+ * once; each with its icon (`iconNow`) and `agentOf`'s agent: `read_matters` and a person's
  * read alike. Of one project, its page's head too (`project`). Read again only when its key changed: the checks' key
- * (`checksAndKeyNow`: it covers the matter book's files and his day), the query, the agents' stamp and the icon work
- * ended (`iconWorkEnded`: a pick landed, or one failed and is tried again). `version` is the answer's own digest
+ * (`checksAndKeyNow`: it covers the matter book's files and his day), the query, and the agents' stamp. `version` is the answer's own digest
  * (`versionOf`): two processes giving the same version give the same rows.
  */
 export const readMatterRowsNow = async (
@@ -71,7 +65,7 @@ async function readRowsAndChecksNow(
   agentOf?: NonNullable<Parameters<typeof openMatters>[1]> & { stamp: string }
 ) {
   const { checks: open, key } = await openChecksAndKeyNow();
-  const keptFor = JSON.stringify([key, iconWorkEnded()]);
+  const keptFor = key;
   const rest = JSON.stringify([q, agentOf?.stamp ?? null]);
   if (kept?.keptFor !== keptFor) {
     kept = { keptFor, rows: new Map() };

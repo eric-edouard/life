@@ -179,6 +179,8 @@ struct ThreadView: View {
                     {
                         ItemRow(ask: ask).id(ask.ref)
                     }
+                    // Life out of reach: one notice at the end, where he reads (the prototype's `.sys`).
+                    Notices(openSettings: actions.openSettings)
                     Color.clear.frame(height: 1).id("end")
                 }
                 .motion(seenRows == 0 ? nil : Motion.rise, value: rows.map(\.id))

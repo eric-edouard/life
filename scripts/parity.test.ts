@@ -9,6 +9,14 @@ const WIRE = join(import.meta.dir, "../apps/lifelog/fixtures/wire");
 const SOURCE: Record<string, string[]> = {
   "opening_broken.json": ["lab/opening_broken.json"],
   "opening.json": ["lab/opening.json"],
+  "read_thread_draft_imessage.json": [
+    "life/read_thread_draft.json",
+    "lab/opening.json",
+  ],
+  "read_thread_draft_whatsapp.json": [
+    "life/read_thread_draft.json",
+    "lab/opening.json",
+  ],
   "read_thread_draft.json": ["life/read_thread_draft.json", "lab/opening.json"],
   "read_thread_outdated.json": [
     "life/read_thread_outdated.json",

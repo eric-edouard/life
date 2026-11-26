@@ -43,7 +43,24 @@ struct AskLook {
         if [.contactsCard, .atOrganization, .samePerson].contains(check.group) {
             return check.likelyPeople.first.map { .party($0) }
         }
-        return check.namedPayee.map { .party($0) }
+        return forWhom.map { .party($0) }
+    }
+
+    private var isPayment: Bool { check.needs?.contains { [.amount, .account].contains($0.kind) } == true }
+    /// Who an ask of his agents is for (the prototype's face): a payment's payee its account names, never a guess
+    /// beside an amount; else the one person it is about, when he is not one of them.
+    private var forWhom: Party? {
+        if isPayment { return check.namedPayee }
+        guard [.decision, .yourMove].contains(check.group), check.likelyPeople.count == 1 else { return nil }
+        return check.likelyPeople.first { !$0.isOwner }
+    }
+    /// "For you and Nora": an ask about him and others shows its mark, and who it is for under its title.
+    private var forHimAndOthers: String? {
+        guard [.decision, .yourMove].contains(check.group), check.likelyPeople.contains(where: \.isOwner) else {
+            return nil
+        }
+        let others = check.likelyPeople.filter { !$0.isOwner }.map { String($0.name.split(separator: " ").first ?? "") }
+        return others.isEmpty ? nil : "For you and " + others.formatted(.list(type: .and))
     }
 
     /// Who the row is about, under its title (the prototype's `sub`): the person's own line ("Your landlord"), what a
@@ -53,6 +70,14 @@ struct AskLook {
         if [.contactsCard, .atOrganization].contains(check.group) { return check.likelyPeople.first?.line }
         if check.signInNetwork != nil {
             return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
+        }
+        // His own step, under its matter's name.
+        if check.group == .yourMove, check.question != check.title, let step = check.question.nilIfEmpty { return step }
+        // Who it is for, unless it goes into a chat, which names them.
+        if check.draft == nil, check.networkIdentity == nil,
+            let who = forHimAndOthers ?? forWhom.map({ isPayment ? $0.line ?? $0.name : $0.name })
+        {
+            return who
         }
         return check.rowWho()
     }

@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { isoDateTime, MadeBy } from "./fields";
 
 // A matter's icon (docs/glossary.md: matter icon): one key of this fixed set, saying what is being done. Each key's line
-// is what Life's pick compares a matter's text with (`memory/matter-icons.ts`); the phone maps a key to its symbol
-// (`MatterIcons.swift`, checked against this list). A key is stored in his corrections (`matter-icon`), so removing or
-// renaming one is a rename with its migration (AGENTS.md, "A rename or a new field backfills"); a line may change
-// freely: nothing stores a pick.
+// is what Life's pick is shown beside a matter's text (`memory/matter-icons.ts`); the phone maps a key to its symbol
+// (`MatterIcons.swift`, checked against this list). A key is stored in his corrections (`matter-icon`) and in Life's
+// picks, so removing or renaming one is a rename with its migration (AGENTS.md, "A rename or a new field backfills"); a
+// line may change freely: Life's picks are asked again (their key holds the lines).
 
-/** Each key and the line Life's pick is made from, in the grid's order (an array: the formatter sorts object keys). */
+/** Each key and the line Life's pick is shown, in the grid's order (an array: the formatter sorts object keys). */
 export const MATTER_ICONS = [
   ["home", "a home in general: the house or flat, moving in, household chores"],
   [
@@ -214,3 +215,15 @@ export const MATTER_ICONS = [
 /** A key of `MATTER_ICONS`. */
 export const MatterIconKey = z.enum(MATTER_ICONS.map(([key]) => key));
 export type MatterIconKey = z.infer<typeof MatterIconKey>;
+
+/** One line of memory/matter-icons.jsonl: Life's pick for one matter text (`iconInputsOf`), null when none fits. */
+export const MatterIconPick = z
+  .object({
+    at: isoDateTime,
+    icon: MatterIconKey.nullable(),
+    inputs: z.string(),
+    madeBy: MadeBy,
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+export type MatterIconPick = z.infer<typeof MatterIconPick>;

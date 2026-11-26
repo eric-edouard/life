@@ -53,6 +53,14 @@ struct VoicesRow: View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             if let last = life.namedVoice, last.ref != check.ref { lastLine(last) }
             if !check.clips.isEmpty { moment(check) }
+            // Why Life suggests who it suggests, under the moment, while he has not turned to someone else.
+            if !isNaming,
+                let why = suggestion(check).flatMap({ guess in
+                    check.voiceGuesses?.first { $0.person.ref == guess.ref }?.why
+                })
+            {
+                Text(why).font(.line).foregroundStyle(Palette.muted)
+            }
             if isNaming { naming(check) } else { answers(check) }
         }
         .opacity(isRunning ? Metrics.Opacity.dim : 1).allowsHitTesting(!isRunning)
@@ -96,7 +104,7 @@ struct VoicesRow: View {
     // MARK: Answers
 
     private func answers(_ check: Check) -> some View {
-        let guess = check.options.contains { $0.id == "is-them" } ? check.likelyPeople.first : nil
+        let guess = suggestion(check)
         return VStack(spacing: Metrics.Spacing.s) {
             if let guess {
                 let name = guess.isOwner ? "me" : String(guess.name.split(separator: " ").first ?? "")
@@ -116,6 +124,11 @@ struct VoicesRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Life's one suggestion: the person its Yes names.
+    private func suggestion(_ check: Check) -> Party? {
+        check.options.contains { $0.id == "is-them" } ? check.likelyPeople.first : nil
     }
 
     /// A pill sized to its words, so the four answers stay on one line.
