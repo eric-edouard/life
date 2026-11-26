@@ -77,7 +77,7 @@ struct ReadAlong: View {
                     Text((text as NSString).substring(with: range) + (index < ranges.count - 1 ? " " : ""))
                         .font(.body15).lineLimit(1)
                         .foregroundStyle(isLit(index) ? Palette.fg : Palette.muted)
-                        .motion(.easeOut(duration: 0.12), value: isLit(index))
+                        .motion(Motion.standard, value: isLit(index))
                         .contentShape(.rect)
                         .onTapGesture { if job != nil { begin(at: Double(timed[index][0]) / 1000) } }
                 }
