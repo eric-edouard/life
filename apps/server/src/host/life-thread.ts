@@ -18,6 +18,7 @@ import {
 } from "../memory/matters";
 import { deletionsNow } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
+import { readOwnerName } from "../models/prompt-parts";
 import { dayNow } from "../memory/zones";
 import { undoOf } from "./answer-result";
 import { readDesk } from "./desk-read";
@@ -172,7 +173,9 @@ const closedCardOf = (
  * `read_thread`: the thread's page of `PAGE_DAYS` days ending at `before` (none: now), oldest first: his entries (but
  * one whose answer cites what he deleted) and the cards delivered in it, each with its state (`itemStateOf`); the
  * first page also holds Life's own open checks that were never asked at an instant. `earlier`: pass it as `before` for
- * the page before, null when there is none. With `ifNot` its version, only `unchangedOf` it.
+ * the page before, null when there is none. The first page also says what his phone's opening screen shows (his yes of
+ * 26 Nov 2026): `owner`, what he is called (its greeting), and `opening`, the refs of the open asks that block him,
+ * fixes aside, in his inbox's order (`inboxOrderOf`, `urgencyOf`). With `ifNot` its version, only `unchangedOf` it.
  */
 export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const now = clock();
@@ -268,7 +271,15 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     // What is broken and needs him comes before anything else (docs/product.md): open fix checks lead the page.
     (a, b) => Number(isFix(b)) - Number(isFix(a)) || a.at.localeCompare(b.at)
   );
-  const version = versionOf(JSON.stringify(items));
+  const opening = o.before
+    ? undefined
+    : {
+        opening: [...open.values()]
+          .filter((c) => c.urgency === "blocks" && c.group !== "fix")
+          .map((c) => c.ref),
+        owner: ownerNameOf(),
+      };
+  const version = versionOf(JSON.stringify({ items, opening }));
   if (o.ifNot === version) {
     return unchangedOf(version);
   }
@@ -276,9 +287,19 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   return {
     earlier: isOlder || isOlderCard ? from : null,
     items,
+    ...opening,
     version,
   };
 }
+
+/** What he is called, for the greeting; null when his directory can't be read (a new install), and the phone says "Hi". */
+const ownerNameOf = () => {
+  try {
+    return readOwnerName();
+  } catch {
+    return null;
+  }
+};
 
 /** An open fix check no one is on yet (the inbox puts one the caretaker is at work on last, `before`). */
 const isFix = (x: object) => {

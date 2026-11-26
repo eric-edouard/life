@@ -1,0 +1,20 @@
+{
+  "name": "The opening screen: three asks and a pill, then LINE and Messenger sign Life out",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "lab/opening.json"
+      }
+    },
+    {
+      "reads": {
+        "read_thread": "lab/opening_broken.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": []
+}

@@ -39,5 +39,7 @@
       "words": "Find me a plumber"
     }
   ],
+  "opening": [],
+  "owner": "Test",
   "version": "fixed"
 }

@@ -1,7 +1,9 @@
 import LifeConnector
 import SwiftUI
 
-/// The one endless conversation: opens at its bottom, day separators, Show earlier for what is older than three days.
+/// The one endless conversation, opening clean (`Opening`, the app v4 prototype): his greeting, what is broken, at most
+/// three asks that block him and a pill for the rest, then what he asks this sitting; Show earlier brings the thread back
+/// a day at a time, with day separators, an earlier greeting kept only as its time.
 struct ThreadView: View {
     let thread: LifeThread
     let screen: MainSessionScreen
@@ -12,7 +14,9 @@ struct ThreadView: View {
     /// The field that covers the thread's bottom: the last row rests above it. Kept as a margin on purpose: the
     /// safe-area inset alone left the last row under the field (the flow tests failed without it).
     var fieldHeight: CGFloat = 0
-    @State private var showsEarlier = false
+    @State private var opening = Opening()
+    /// The rest of the opening's asks, shown on the pill's tap.
+    @State private var showsMore = false
     /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
     @State private var followsEnd = true
     @State private var isNearEnd = true
@@ -22,12 +26,10 @@ struct ThreadView: View {
     /// The rows he has seen: what comes after the first showing arrives with motion, the first showing does not.
     @State private var seenRows = 0
     @Environment(\.calendar) private var calendar
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(LifeStore.self) private var life
 
-    private var shown: [ThreadEntry] {
-        let from = calendar.date(byAdding: .day, value: -3, to: thread.entries.last?.at ?? .now) ?? .distantPast
-        return showsEarlier ? thread.entries : thread.entries.filter { $0.at >= from }
-    }
+    private var shown: [ThreadEntry] { thread.entries.filter { opening.isShown($0.at) } }
 
     /// An entry of the thread, or an agent's late reply (with the entry it answers) landing where it arrived: at the
     /// bottom once it comes, led by a line that links back.
@@ -38,8 +40,10 @@ struct ThreadView: View {
     }
 
     private var rows: [Row] {
-        let late = shown.flatMap { origin in
-            (origin.entry.map { thread.lateReplies(to: $0) } ?? []).map { Row(entry: $0, origin: origin) }
+        // A late reply shows by when it came, its ask shown or not.
+        let late = thread.entries.flatMap { origin in
+            (origin.entry.map { thread.lateReplies(to: $0) } ?? []).filter { opening.isShown($0.at) }
+                .map { Row(entry: $0, origin: origin) }
         }
         return (shown.map { Row(entry: $0) } + late).enumerated()
             .sorted { ($0.element.entry.at, $0.offset) < ($1.element.entry.at, $1.offset) }.map(\.element)
@@ -54,11 +58,59 @@ struct ThreadView: View {
     /// The entry whose answer already shows the ask `ref` as a row.
     private func row(of ref: String) -> UUID? { shown.first { holds($0, ref) }?.id }
 
-    /// What is broken and needs him, at the newest end where the thread opens (docs/product.md: it comes first and
-    /// stays on screen), unless the newest answer shows it already.
-    private var brokenBelow: [ThreadAsk] {
-        let newest = rows.last?.entry
-        return (life.items.value?.broken ?? []).filter { ask in newest.map { !holds($0, ask.ref) } ?? true }
+    /// The opening's rows, live: each ask as Life last read it.
+    private func asks(_ refs: [String]) -> [ThreadAsk] { refs.compactMap(life.ask) }
+
+    /// The greeting, then what is broken (never capped), the asks that block him and the pill for the rest. Fix rows
+    /// open in place (docs/product.md: what is broken comes first).
+    @ViewBuilder private var openingRows: some View {
+        let words = life.items.value?.owner.map { "Hi \($0)" } ?? "Hi"
+        InkText(text: AttributedString(words)).font(.profileName).foregroundStyle(Palette.fg)
+            // Inks in again at each opening (its own id); found by the scroll as the greeting.
+            .environment(\.inksWords, true).id(opening.at).id(Self.greeting)
+            .padding(.top, Metrics.Spacing.xs).accessibilityAddTraits(.isHeader)
+        ForEach(asks(opening.broken)) { ItemRow(ask: $0).id($0.ref).appears(Motion.arrives) }
+        ForEach(asks(opening.top + (showsMore ? opening.more : []))) {
+            ItemRow(ask: $0).id($0.ref).appears(Motion.arrives)
+        }
+        if !showsMore, !opening.more.isEmpty {
+            Button {
+                Motion.animate { showsMore = true }
+            } label: {
+                TintPill(title: "\(opening.more.count) more")
+            }
+            .buttonStyle(.plain).frame(maxWidth: .infinity).frame(minHeight: Metrics.tapTarget)
+        }
+    }
+
+    private static let greeting = "greeting"
+
+    /// A quiet line: a day, or an earlier greeting's time.
+    private func mark(_ words: String) -> some View {
+        Text(words).font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity).accessibilityAddTraits(.isHeader)
+    }
+
+    /// A row of the thread, after its day's name when it starts a day (`previous`: the row before it, if any).
+    @ViewBuilder private func rowView(_ row: Row, after previous: Date?, proxy: ScrollViewProxy) -> some View {
+        let entry = row.entry
+        if previous.map({ !calendar.isDate($0, inSameDayAs: entry.at) }) ?? true {
+            mark(dayName(entry.at)).padding(.top, previous == nil ? 0 : Metrics.Spacing.s)
+        }
+        if let origin = row.origin {
+            LateReplyView(late: entry, origin: origin, actions: actions) {
+                Motion.animate { proxy.scrollTo(origin.id, anchor: .top) }
+            }
+            .appears(Motion.arrives)
+        } else {
+            EntryView(entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
+                .appears(Motion.arrives)
+        }
+    }
+
+    /// Earlier openings' greetings between `after` and `upTo`, kept only as their time.
+    private func greetings(after: Date?, upTo: Date) -> [Date] {
+        opening.earlier.filter { d in opening.isShown(d) && (after.map { d > $0 } ?? true) && d < upTo }
     }
 
     /// Today and yesterday by name, else the weekday and date.
@@ -72,11 +124,12 @@ struct ThreadView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    if shown.count < thread.entries.count {
+                    let dates = thread.entries.map(\.at)
+                    if opening.earlierDay(of: dates, calendar: calendar) != nil {
                         Button {
-                            // What was at the top stays where it is: the older entries grow above it.
-                            let top = shown.first?.id
-                            showsEarlier = true
+                            // What was at the top stays where it is: the day before grows above it.
+                            let top = rows.first?.id
+                            opening.showEarlier(of: dates, calendar: calendar)
                             seenRows = 0
                             if let top { Task { proxy.scrollTo(top, anchor: .top) } }
                         } label: {
@@ -85,34 +138,25 @@ struct ThreadView: View {
                         .buttonStyle(.plain).frame(maxWidth: .infinity).frame(minHeight: Metrics.tapTarget)
                     }
                     let all = rows
-                    ForEach(Array(all.enumerated()), id: \.element.id) { i, row in
-                        let entry = row.entry
-                        if i == 0 || !calendar.isDate(all[i - 1].entry.at, inSameDayAs: entry.at) {
-                            Text(dayName(entry.at))
-                                .font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity).padding(.top, i == 0 ? 0 : Metrics.Spacing.s)
-                                .accessibilityAddTraits(.isHeader)
-                        }
-                        if let origin = row.origin {
-                            LateReplyView(late: entry, origin: origin, actions: actions) {
-                                Motion.animate { proxy.scrollTo(origin.id, anchor: .top) }
-                            }
-                            .appears(Motion.arrives)
-                        } else {
-                            EntryView(
-                                entry: entry, live: thread.live[entry.id], thread: thread, screen: screen,
-                                actions: actions
-                            )
-                            .appears(Motion.arrives)
-                        }
+                    let at = opening.at ?? .distantPast
+                    let history = all.filter { $0.entry.at < at }
+                    ForEach(Array(history.enumerated()), id: \.element.id) { i, row in
+                        let previous = i == 0 ? nil : history[i - 1].entry.at
+                        ForEach(greetings(after: previous, upTo: row.entry.at), id: \.self) { mark($0.clock) }
+                        rowView(row, after: previous, proxy: proxy)
                     }
-                    let broken = brokenBelow
-                    // Unfolded, as the prototype lands a fix (`landPending`: an expanded ask at the newest end).
-                    ForEach(broken) { ItemRow(ask: $0, startsOpen: true).id($0.ref) }
+                    if opening.at != nil {
+                        ForEach(greetings(after: history.last?.entry.at, upTo: at), id: \.self) { mark($0.clock) }
+                        openingRows
+                    }
+                    let sitting = all.filter { !($0.entry.at < at) }
+                    ForEach(Array(sitting.enumerated()), id: \.element.id) { i, row in
+                        rowView(row, after: i == 0 ? opening.at : sitting[i - 1].entry.at, proxy: proxy)
+                    }
                     // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
                     // unfolded with its answers.
                     if let ask = life.focused.flatMap(life.ask), row(of: ask.ref) == nil,
-                        !broken.contains(where: { $0.ref == ask.ref })
+                        !(opening.broken + opening.top + (showsMore ? opening.more : [])).contains(ask.ref)
                     {
                         ItemRow(ask: ask).id(ask.ref)
                     }
@@ -169,6 +213,16 @@ struct ThreadView: View {
             } action: { _, _ in
                 if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) }
             }
+            // At launch, or back after five minutes away, the screen opens clean; back sooner, nothing changes.
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                if phase == .background { opening.left(at: life.now()) }
+                guard phase == .active, opening.came(at: life.now()) else { return }
+                showsMore = false
+                if let read = life.items.value { opening.take(read) }
+                seenRows = 0
+                Task { proxy.scrollTo(Self.greeting, anchor: .top) }
+            }
+            .onChange(of: life.items.value) { if let read = life.items.value { opening.take(read) } }
             // An ask he opens is brought fully into view above the field, once it has unfolded.
             .onChange(of: life.opened) {
                 guard let ref = life.opened else { return }

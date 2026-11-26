@@ -134,14 +134,20 @@ public struct ThreadRead: Decodable, Sendable, Equatable, ParsedRead, NamesParti
     public let entries: [ThreadWireEntry]
     public let earlier: String?
     public let version: String?
+    /// What he is called, for the opening screen's greeting; nil from an older Life or when his directory can't be read.
+    public let owner: String?
+    /// The refs of the open asks that block him, fixes aside, in his inbox's order: the opening screen's rows.
+    public let opening: [String]
 
-    private enum CodingKeys: String, CodingKey { case items, earlier, version }
+    private enum CodingKeys: String, CodingKey { case items, earlier, version, owner, opening }
     private struct Kind: Decodable { let kind: String }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         earlier = try c.decodeIfPresent(String.self, forKey: .earlier)
         version = try c.decodeIfPresent(String.self, forKey: .version)
+        owner = try? c.decodeIfPresent(String.self, forKey: .owner)
+        opening = (try? c.decodeIfPresent([String].self, forKey: .opening)) ?? []
         var items = try c.nestedUnkeyedContainer(forKey: .items)
         var asks: [ThreadAsk] = []
         var entries: [ThreadWireEntry] = []

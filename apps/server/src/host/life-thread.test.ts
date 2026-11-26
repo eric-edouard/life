@@ -102,6 +102,29 @@ test("a thread item's one state: open needs him unless his Later holds it; answe
   ).toBe("outdated");
 });
 
+test("the opening screen: what he is called, and the open asks that block him, fixes aside, in the inbox's order", async () => {
+  const check = (ref: string, group: string, urgency: string) =>
+    ({ at: null, group, ref, urgency }) as never;
+  spies.push(
+    spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue([
+      check("fix:signed-out/line", "fix", "blocks"),
+      check("dec_b", "decision", "blocks"),
+      check("move:a", "your move", "improves"),
+      check("dec_a", "decision", "blocks"),
+    ]),
+    spyOn(
+      await import("../models/prompt-parts"),
+      "readOwnerName"
+    ).mockReturnValue("Kit")
+  );
+  expect(await readThread()).toMatchObject({
+    opening: ["dec_b", "dec_a"],
+    owner: "Kit",
+  });
+  const older = await readThread({ before: new Date().toISOString() });
+  expect(older).not.toHaveProperty("opening");
+});
+
 test("an entry whose answer cites what he deleted is hidden; a blanked entry is gone; the rest show, oldest first", async () => {
   entry("What did Kit say?", ["obs_000000000001"]);
   entry("When is the dentist?", ["obs_000000000002"]);

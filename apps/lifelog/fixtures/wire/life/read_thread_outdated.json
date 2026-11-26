@@ -32,5 +32,7 @@
       "state": "outdated"
     }
   ],
+  "opening": [],
+  "owner": "Test",
   "version": "fixed"
 }
