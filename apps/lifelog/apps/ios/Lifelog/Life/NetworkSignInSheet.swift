@@ -27,8 +27,7 @@ struct NetworkSignInSheet: View {
     var body: some View {
         Group {
             if case .step(let step) = phase, let cookies = step.cookies {
-                // The network's own page fills the sheet: it scrolls itself. No words above it: the bridge's
-                // instructions for a cookie step are for pasting cookies by hand, which the page does for him.
+                // The network's own page fills the sheet: it scrolls itself.
                 SignInWebView(step: cookies) { answers in go { await $0.submit(answers) } }
                     .sheetBars(head: head)
             } else {
@@ -111,7 +110,8 @@ struct NetworkSignInSheet: View {
     }
 
     @ViewBuilder private func instructions(_ step: SignInStep) -> some View {
-        if let words = step.instructions { AskSentence(markdown: words) }
+        // A cookie step's words tell him to paste cookies by hand, which the page does for him: never shown.
+        if step.cookies == nil, let words = step.instructions { AskSentence(markdown: words) }
     }
 
     /// A code to type in the network's app, big, with Copy; a QR; or emoji.
