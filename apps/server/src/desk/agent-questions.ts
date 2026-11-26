@@ -151,9 +151,12 @@ export async function answerQuestion(
   const checked = q.entry === null ? null : await checkedTextOf(db, text);
   // The reply's entry and the question's end in one write: a restart between them never loses the reply, and of two
   // replies to one question only the first is written.
-  db.transaction(() => {
+  const isWritten = db.transaction(() => {
     blankDeletedThreadEntries(db);
-    if (done().changes > 0 && checked?.text) {
+    if (!(done().changes > 0 && checked?.text)) {
+      return false;
+    }
+    return (
       db.run(
         "insert into thread_entry (asked_at, answer, refs, answered_at, follows) select ?1, ?2, ?3, ?1, id from thread_entry where id = ?4 and deleted_at is null",
         [
@@ -162,10 +165,10 @@ export async function answerQuestion(
           JSON.stringify(checked.refs),
           q.entry,
         ]
-      );
-    }
+      ).changes > 0
+    );
   })();
-  if (checked?.text) {
+  if (isWritten) {
     log("desk.turn", { entry: q.entry, what: "question.late_reply" });
   }
   return { answered: id, late: true };
