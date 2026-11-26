@@ -213,3 +213,16 @@ extension JSONDecoder {
         #expect((body["options"] as? [String])?.isEmpty ?? true)
     }
 }
+
+@MainActor @Test func theCountsTapListsTheAsksAtOnceWithoutAskingLife() {
+    let life = FakeLife()
+    let thread = LifeThread(api: life, cache: nil)
+    thread.showWaiting(["life:card/a", "life:card/b"])
+    let first = thread.entries.last
+    #expect(first?.words == "What's waiting on me?" && first?.phase == .answered)
+    #expect(
+        AnswerPart.parts(of: first?.answer ?? "", sent: Set(first?.checked ?? []))
+            == [.block(.items(["life:card/a", "life:card/b"]))])
+    thread.showWaiting([])
+    #expect(thread.entries.last?.answer == "Nothing waits on you.")
+}
