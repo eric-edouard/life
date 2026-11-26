@@ -68,6 +68,7 @@ export const voiceChecksOf = (
         at: null,
         clips,
         context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
+        conversations: item.conversations,
         deadline: null,
         draft: null,
         goal: null,

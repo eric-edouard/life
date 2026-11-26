@@ -39,6 +39,18 @@ final class LifeStore {
     private(set) var focused: String?
     /// The ask unfolded in the thread now: what the field's words are about (`MainSessionScreen.open`).
     var opened: String?
+    /// The voice ask being named (the Ask Life field is where he types or says the name), and the words typed so far.
+    var naming: String?
+    var namingWords = ""
+    /// The voice he named last: the line above the next one ("Clara Hart: named in 3 conversations · Undo").
+    private(set) var namedVoice: NamedVoice?
+
+    struct NamedVoice: Equatable {
+        let ref: String
+        let who: String
+        let conversations: Int?
+    }
+
     /// The sign-in a fix card's tap asked for (`Check.Option.signsIn`): `RootView` opens its sheet and clears it.
     var signingIn: SignInAsk?
 
@@ -323,12 +335,12 @@ final class LifeStore {
     /// Whether his answer to `ref` waits for Life to be back.
     func isQueued(_ ref: String) -> Bool { queued.holds(ref) }
 
-    /// How many asks wait on him, less those he answered meanwhile: the round button's count and the app's badge.
+    /// How many asks block him, less those he answered meanwhile: the round button's count and the app's badge.
     var waitingCount: Int? { waitingRefs.map(\.count) }
 
     /// Those asks' refs, in Life's order.
     var waitingRefs: [String]? {
-        items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.map(\.ref) }
+        items.value.map { read in read.blocking.filter { !queued.holds($0.ref) }.map(\.ref) }
     }
 
     /// A tapped notification: its ask is unfolded in the thread, once the asks are read again.
@@ -418,6 +430,33 @@ final class LifeStore {
     /// One sign-in to `network`, step by step, on the Life paired now.
     func signIn(_ network: String) -> NetworkSignIn {
         NetworkSignIn(network: network) { [api] in try await api.signInToNetwork($0) }
+    }
+
+    /// His answer to a voice ask: who it is (`who`, for the line above the next one) or no one (`who` nil).
+    func answerVoice(_ check: Check, _ request: AnswerRequest?, who: String?) async {
+        guard let request else { return }
+        naming = nil
+        namingWords = ""
+        if let who { namedVoice = NamedVoice(ref: check.ref, who: who, conversations: check.conversations) }
+        await answer(request)
+    }
+
+    /// His people whose name holds the words typed in the field while a voice is named, at most three.
+    var namingMatches: [Party] {
+        guard !namingWords.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        let rows = people.value?.sections(kind: .people, query: namingWords).flatMap(\.rows) ?? []
+        return rows.prefix(3).map(\.party)
+    }
+
+    /// The field's Send while a voice is named: the one person who matches exactly, else a new person by that name.
+    func nameTyped() async {
+        let typed = namingWords.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let ref = naming, let check = ask(ref)?.check, !typed.isEmpty else { return }
+        if let party = namingMatches.first(where: { $0.name.localizedCaseInsensitiveCompare(typed) == .orderedSame }) {
+            await answerVoice(check, check.answer(naming: .person(party.ref)), who: party.name)
+        } else {
+            await answerVoice(check, check.answer(naming: .name(typed)), who: typed)
+        }
     }
 
     /// His Later on an ask: Life picks until when.

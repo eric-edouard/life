@@ -955,6 +955,7 @@
         }
       ],
       "context": "Heard in conversations: who it is goes to every turn of this voice. Heard in 2 conversations, 40 words.\n\n> It's the shop, about the watch.\n\n*a recorded conversation, 14 Oct*",
+      "conversations": 2,
       "deadline": null,
       "draft": null,
       "goal": null,
@@ -1017,10 +1018,10 @@
       "networkIdentity": null,
       "contactsCard": null,
       "pushId": "0ec1de1a26d04e58",
-      "urgency": "blocks"
+      "urgency": "improves"
     }
   ],
-  "blocking": 6,
+  "blocking": 5,
   "counts": {
     "decision": 3,
     "your move": 1,
@@ -1034,5 +1035,5 @@
   },
   "deadlinesToday": 0,
   "total": 11,
-  "version": "86524a8f5809976c"
+  "version": "829ae0c79439ba17"
 }

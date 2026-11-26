@@ -10,7 +10,7 @@
         "at": "2026-11-18T10:00:00.000Z",
         "clips": [
           {
-            "at": "2026-11-18T10:00:00.000Z",
+            "at": "2026-11-21T14:20:00.000Z",
             "until": "2026-11-18T10:00:00.000Z",
             "text": "Then let's say Saturday at nine, I bring the big ladder",
             "audio": {
@@ -34,6 +34,7 @@
           }
         ],
         "context": null,
+        "conversations": 3,
         "deadline": "2026-11-18T10:00:00.000Z",
         "draft": null,
         "group": "voice",
@@ -108,7 +109,7 @@
         "at": "2026-11-18T10:00:00.000Z",
         "clips": [
           {
-            "at": "2026-11-18T10:00:00.000Z",
+            "at": "2026-11-21T14:20:00.000Z",
             "until": "2026-11-18T10:00:00.000Z",
             "text": "No, the blue one, it's cheaper",
             "audio": {
@@ -127,6 +128,7 @@
           }
         ],
         "context": null,
+        "conversations": 3,
         "deadline": "2026-11-18T10:00:00.000Z",
         "draft": null,
         "group": "voice",
@@ -198,6 +200,92 @@
       "kind": "ask",
       "later": null,
       "ref": "dec_000000000012",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [
+          {
+            "at": "2026-11-21T19:40:00.000Z",
+            "until": "2026-11-18T10:00:00.000Z",
+            "text": "Two coffees and the tart for the table by the window, please",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 4
+            },
+            "words": [
+              [0, 280, 3],
+              [330, 610, 8],
+              [660, 940, 4],
+              [990, 1270, 4],
+              [1320, 1600, 5],
+              [1650, 1930, 4],
+              [1980, 2260, 4],
+              [2310, 2590, 6],
+              [2640, 2920, 3],
+              [2970, 3250, 4],
+              [3300, 3580, 8],
+              [3630, 3910, 7]
+            ]
+          }
+        ],
+        "context": null,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "voice",
+        "isPlan": false,
+        "kind": "voice",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "this-is",
+            "label": "Someone else\u2026",
+            "takes": "person",
+            "icon": "person"
+          },
+          {
+            "id": "media",
+            "label": "TV or video",
+            "takes": null
+          },
+          {
+            "id": "not-relevant",
+            "label": "Don't name",
+            "takes": null,
+            "icon": "hide"
+          }
+        ],
+        "plan": null,
+        "recommended": null,
+        "replaces": null,
+        "pushId": "push-dec_000000000036",
+        "question": "Who is this?",
+        "ref": "dec_000000000036",
+        "title": "Name a voice",
+        "urgency": "blocks",
+        "conversations": 1
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000036",
       "state": "needs_you"
     },
     {

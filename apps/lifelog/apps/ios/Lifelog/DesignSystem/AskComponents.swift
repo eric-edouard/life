@@ -46,7 +46,8 @@ struct AnswerPills: View {
     }
 
     private func pill(_ answer: String, _ kind: PillStyle.Kind) -> some View {
-        Button(answer) { say(answer) }
+        // A pill's words stay on one line, never broken across two.
+        Button(answer) { say(answer) }.lineLimit(1)
             .buttonStyle(.pill(kind, size: .row, isBusy: answer == busy)).identified(identify(answer))
             .disabled(disabled.contains(answer))
             .opacity(busy == nil || answer == busy ? 1 : Metrics.Opacity.dim)
@@ -163,6 +164,8 @@ struct AskCard: View {
     var disabled: Set<String> = []
     var identify: (String) -> String? = { _ in nil }
     var say: (String) -> Void = { _ in }
+    /// Sends the words of `taking` by the answer that takes them: Return in the field, or its Save.
+    var submit: (() -> Void)?
     /// A tap on one of the draft's quick edits.
     var edit: (String) -> Void = { _ in }
     var isInItem = false
@@ -189,7 +192,15 @@ struct AskCard: View {
                 if !edits.isEmpty { EditChips(edits: edits, busy: editing, pick: edit) }
             }
             if let look { look.body(pick: pick) }
-            if let taking { Field(prompt: "Your words", text: taking) }
+            if let taking {
+                HStack(spacing: Metrics.Spacing.s) {
+                    Field(prompt: "Your words", text: taking).onSubmit { submit?() }.submitLabel(.done)
+                    if let submit {
+                        Button("Save", action: submit).buttonStyle(.pill(.filled, size: .compact))
+                            .disabled(taking.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                }
+            }
             AnswerPills(
                 answers: answers, recommended: recommended, isOneRow: look?.isYesNo == true, busy: busy,
                 disabled: disabled, identify: identify, say: say

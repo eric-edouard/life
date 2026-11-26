@@ -11,20 +11,17 @@ interface Rankable {
   /** Its deadline: a your move card blocks only when it is due within `DUE_SOON_DAYS`. */
   deadline: string | null;
   group: CheckGroup;
-  /** A voice's: the person lifelog suggests; null: none. `likelyPeople` ranks every profile, so it says nothing. */
-  subject: string | null;
 }
 
 /**
  * What blocks (the badge): something broken that needs him (`fix`), an agent's decision, and what Life cannot answer at
- * all (a voice nobody has named, a name with no person, an ambiguous Contacts card); then his own step (`your move`), only
- * when due within `DUE_SOON_DAYS` (the cognitive-load rule of 22 Nov 2026). Never one the caretaker is at work on
- * (`beingFixed`). Everything else (Life's guesses in use, an offer) improves.
+ * all (a name with no person, an ambiguous Contacts card); then his own step (`your move`), only when due within
+ * `DUE_SOON_DAYS` (the cognitive-load rule of 22 Nov 2026). Never one the caretaker is at work on (`beingFixed`).
+ * Everything else (a voice to name, his yes of 26 Nov 2026 to "Voices to name"; Life's guesses in use, an offer) improves.
  */
 const BLOCKING = new Set<CheckGroup>([
   "fix",
   "decision",
-  "voice",
   "name",
   "contacts card",
   "your move",
@@ -36,7 +33,6 @@ const isMove = (c: Pick<Rankable, "group">) => c.group === "your move";
 
 export const urgencyOf = (c: Rankable): Urgency =>
   BLOCKING.has(c.group) &&
-  !(c.group === "voice" && c.subject !== null) &&
   !c.beingFixed &&
   (!isMove(c) ||
     (c.deadline !== null &&

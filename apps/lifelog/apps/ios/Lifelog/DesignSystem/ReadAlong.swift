@@ -70,7 +70,7 @@ struct ReadAlong: View {
     @ViewBuilder private var words: some View {
         let text = clip.text
         if let timed = clip.words, let ranges = timed.ranges(in: text), !ranges.isEmpty {
-            let spoken = timed.spokenIndex(at: Int64((playback.position - (clip.audio?.start ?? 0)) * 1000))
+            let spoken = timed.spokenIndex(at: Int64((playback.heardPosition - (clip.audio?.start ?? 0)) * 1000))
             // Dim until played, then lit as each word is said (voice is read, not drawn).
             let isLit = { (index: Int) in isCurrent && (spoken.map { index <= $0 } ?? false) }
             FlowLayout {

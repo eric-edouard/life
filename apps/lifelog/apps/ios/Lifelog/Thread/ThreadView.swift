@@ -25,6 +25,8 @@ struct ThreadView: View {
     @State private var isScrollable = false
     /// The rows he has seen: what comes after the first showing arrives with motion, the first showing does not.
     @State private var seenRows = 0
+    /// When he opened the ask `life.opened`: while it still grows (its words, its answers), it is kept above the field.
+    @State private var openedAt: Date?
     @Environment(\.calendar) private var calendar
     @Environment(\.scenePhase) private var scenePhase
     @Environment(LifeStore.self) private var life
@@ -58,9 +60,6 @@ struct ThreadView: View {
     /// The entry whose answer already shows the ask `ref` as a row.
     private func row(of ref: String) -> UUID? { shown.first { holds($0, ref) }?.id }
 
-    /// The opening's rows, live: each ask as Life last read it.
-    private func asks(_ refs: [String]) -> [ThreadAsk] { refs.compactMap(life.ask) }
-
     /// The greeting, then what is broken (never capped), the asks that block him and the pill for the rest. Fix rows
     /// open in place (docs/product.md: what is broken comes first).
     @ViewBuilder private var openingRows: some View {
@@ -86,8 +85,16 @@ struct ThreadView: View {
 
     @ViewBuilder private func rowBlock(_ refs: [String]) -> some View {
         if !refs.isEmpty {
-            VStack(spacing: Metrics.Spacing.xs) {
-                ForEach(asks(refs)) { ItemRow(ask: $0).id($0.ref).appears(Motion.arrives) }
+            // 6 pt between rows, each with its own 10 above and below (the prototype's `rows2`).
+            VStack(spacing: 6) {
+                // Each ask as Life last read it; every voice to name is the one row at the end of the rest.
+                ForEach(refs, id: \.self) { ref in
+                    if ref == OpeningScreen.voices {
+                        VoicesRow().id(ref).appears(Motion.arrives)
+                    } else if let ask = life.ask(ref) {
+                        ItemRow(ask: ask).id(ref).appears(Motion.arrives)
+                    }
+                }
             }
         }
     }
@@ -180,17 +187,13 @@ struct ThreadView: View {
                     // The prototype leaves 52 pt between the last answer and the field.
                     .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs)
             }
-            .contentMargins(.top, topHeight, for: .scrollContent)
             // A short thread rests just above the field: a safe-area padding, which the bottom anchor respects
             // (content margins are ignored for content shorter than the view).
             .safeAreaPadding(.bottom, fieldHeight)
-            .mask(alignment: .top) {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                        .frame(height: topHeight)
-                    Rectangle()
-                }
-            }
+            // The thread starts below the top bar and is cut there: nothing shows under the count or the buttons (the
+            // prototype's `.thread`, `top` under the bar, `overflow: hidden`).
+            .clipped()
+            .padding(.top, topHeight)
             .defaultScrollAnchor(.bottom)
             // The keyboard shrinks the thread from below: its bottom stays where it was.
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
@@ -237,11 +240,21 @@ struct ThreadView: View {
             .onChange(of: life.items.value) { if let read = life.items.value { opening.take(read) } }
             // An ask he opens is brought fully into view above the field, once it has unfolded.
             .onChange(of: life.opened) {
+                openedAt = life.opened == nil ? nil : life.now()
                 guard let ref = life.opened else { return }
                 Task {
                     try? await Task.sleep(for: .milliseconds(400))
                     Motion.animate { proxy.scrollTo(ref, anchor: .bottom) }
                 }
+            }
+            // A card still growing after that (its clips, its people, an answer's words) is brought up again, so its
+            // answers never stay under the field.
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentSize.height
+            } action: { old, new in
+                guard new > old, let ref = life.opened, let openedAt, life.now().timeIntervalSince(openedAt) < 3
+                else { return }
+                proxy.scrollTo(ref, anchor: .bottom)
             }
             .onChange(of: life.focused) {
                 guard let ref = life.focused else { return }

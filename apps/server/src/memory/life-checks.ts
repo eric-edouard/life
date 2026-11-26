@@ -224,6 +224,8 @@ export interface Check {
   contactsCard?: { handles: string[]; name: string } | null;
   /** Why it asks, what was tried, what it rests on: folded on his card, in Markdown. An agent's words, or Life's own for its guesses, with the words a guess rests on quoted (`checksOf`). */
   context: string | null;
+  /** A voice's: in how many conversations lifelog heard it ("Heard Tue at 14:20 · 3 times"); absent on every other kind. */
+  conversations?: number;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
   /** Life's outcome on a decision whose step it looks for (`doneSeenBy`): while the card is open, only a look that found nothing (`not_found`) with Life's words; absent on every other kind or when it never looked. */

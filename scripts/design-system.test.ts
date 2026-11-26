@@ -35,6 +35,13 @@ const RULES: Record<string, RegExp> = {
 };
 
 const CAPS: Record<string, Record<string, number>> = {
+  "Items/VoicesRow.swift": {
+    capsule: 2,
+    height: 2,
+    padding: 4,
+    radius: 1,
+    width: 1,
+  },
   "Thread/ThreadView.swift": { height: 1 },
 };
 
