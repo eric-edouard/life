@@ -189,8 +189,6 @@ struct ThreadItemRow<Detail: View>: View {
     var isOpen = false
     /// The ask's ref, when the row is a live ask: the end-to-end tests find its controls by it (`AID`).
     var ref: String?
-    /// Handed work's Undo, after its time left.
-    var undo: (() -> Void)?
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
 
@@ -224,7 +222,6 @@ struct ThreadItemRow<Detail: View>: View {
             HStack(spacing: Metrics.Spacing.s) {
                 StillRing(progress: progress, size: Metrics.pieSmall)
                 Text(estimate ?? "Under way").font(.line).foregroundStyle(Palette.muted)
-                if let undo { Button("Undo", action: undo).font(.lineStrong).foregroundStyle(Palette.fg) }
             }
         case .undone(let outcome): Text(outcome).font(.line).foregroundStyle(Palette.muted)
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)

@@ -16,9 +16,6 @@ struct ThreadView: View {
     /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
     @State private var followsEnd = true
     @State private var isNearEnd = true
-    /// The scroll view's visible height: a short thread rests at its bottom, above the field (a scroll view ignores its
-    /// content margins for content shorter than itself).
-    @State private var viewport: CGFloat = 0
     @Environment(\.calendar) private var calendar
     @Environment(LifeStore.self) private var life
 
@@ -102,18 +99,14 @@ struct ThreadView: View {
                     }
                     Color.clear.frame(height: 1).id("end")
                 }
-                .frame(minHeight: max(viewport - topHeight - fieldHeight, 0), alignment: .bottom)
                 .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(
                     // The prototype leaves 52 pt between the last answer and the field.
                     .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs)
             }
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.height
-            } action: {
-                viewport = $0
-            }
             .contentMargins(.top, topHeight, for: .scrollContent)
-            .contentMargins(.bottom, fieldHeight, for: .scrollContent)
+            // A short thread rests just above the field: a safe-area padding, which the bottom anchor respects
+            // (content margins are ignored for content shorter than the view).
+            .safeAreaPadding(.bottom, fieldHeight)
             .mask(alignment: .top) {
                 VStack(spacing: 0) {
                     LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
@@ -222,8 +215,7 @@ private struct EntryView: View {
                     let (progress, estimate) = line(of: work)
                     ThreadItemRow(
                         title: entry.words, state: .underWay(progress: progress, estimate: estimate),
-                        icon: icon(of: work),
-                        undo: { thread.ask("Stop: \(entry.words)", screen: screen) }, toggle: {}
+                        icon: icon(of: work), toggle: {}
                     ) { EmptyView() }
                 }
             } else if entry.phase == .failed {

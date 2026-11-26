@@ -179,7 +179,7 @@ import SwiftUI
                         ThreadItemRow(
                             title: "Find a physio for this week",
                             state: .underWay(progress: 0.4, estimate: "About 10 min left"), icon: "magnifyingglass",
-                            undo: {}, toggle: {}
+                            toggle: {}
                         ) { EmptyView() }
                         StepsLine(verb: "Looking at", what: "your calendar")
                         StepsLine()
