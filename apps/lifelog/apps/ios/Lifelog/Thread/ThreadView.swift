@@ -142,8 +142,8 @@ private struct EntryView: View {
     private func line(of work: ThreadWireEntry.Handed) -> (Double, String?) {
         guard let ms = work.estimateMs, let since = work.since else { return (0, nil) }
         let left = Double(ms) / 1000 - life.now().timeIntervalSince(since)
-        let minutes = Int((max(left, 60) / 60).rounded(.up))
-        return (min(max(1 - left / (Double(ms) / 1000), 0), 0.9), "About \(minutes) min left")
+        let minutes = Int((max(left, Metrics.handedLeastSeconds) / 60).rounded(.up))
+        return (min(max(1 - left / (Double(ms) / 1000), 0), Metrics.handedPieMost), "About \(minutes) min left")
     }
 
     var body: some View {

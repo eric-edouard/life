@@ -177,3 +177,18 @@ extension JSONDecoder {
     #expect(thread.entries.map(\.tap) == [true, nil])
     #expect(MainSessionRequest.ask("Warmer", screen: MainSessionScreen(), tap: true).tap == true)
 }
+
+/// A redraft's two answers on the wire (`MainSessionAsk`): a tapped chip carries `tap: true`, his typed change does not,
+/// and both name the open ask in `screen.open`, so the server's `edit:tap` and `edit:words` tell them apart.
+@Test func aRedraftsTapAndWordsEncodeAsTheWireExpects() throws {
+    let screen = MainSessionScreen(open: "dec_1", tab: "thread")
+    func wire(_ request: MainSessionRequest) throws -> [String: Any] {
+        try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+    }
+    let tapped = try wire(.ask("Warmer", screen: screen, tap: true))
+    let typed = try wire(.ask("Make it shorter", screen: screen))
+    #expect(tapped["tap"] as? Bool == true && tapped["words"] as? String == "Warmer")
+    #expect(typed["tap"] == nil && typed["words"] as? String == "Make it shorter")
+    #expect((tapped["screen"] as? [String: Any])?["open"] as? String == "dec_1")
+    #expect((typed["screen"] as? [String: Any])?["open"] as? String == "dec_1")
+}

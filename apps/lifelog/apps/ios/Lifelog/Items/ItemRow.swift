@@ -169,12 +169,15 @@ struct ItemRow: View {
     /// "How am I doing?" under an answered ask: his mark is one answer, then the row goes.
     private var rating: some View {
         RatingRow(
-            pick: { mark in
-                isRated = true
-                let sent: RatingMark = mark == .down ? .bad : mark == .up ? .okay : .good
-                Task { await life.answer(.rating(ask.ref, sent)) }
+            pick: { reaction in
+                Task {
+                    await life.answer(.rating(ask.ref, RatingMark.of(reaction)))
+                    // The row goes only once Life took the mark (or holds it for when it is back); a failure stays
+                    // under the ask (`askFailure`) with the row, and a tap on a mark tries again.
+                    if case .succeeded = action { isRated = true } else if isQueued { isRated = true }
+                }
             }, close: { isRated = true },
-            identify: { AID.askRate(ask.ref, $0 == .down ? "bad" : $0 == .up ? "okay" : "good") })
+            identify: { AID.askRate(ask.ref, RatingMark.of($0).rawValue) })
     }
 
     /// His Undo: first what the other side will see, when Life says there is something to see, then the deletion.

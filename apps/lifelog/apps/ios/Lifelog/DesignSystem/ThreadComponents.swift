@@ -1,3 +1,4 @@
+import LifeConnector
 import SwiftUI
 
 // The thread's components (docs/design/chat-first/2026-11-25-app-v4-design-system.md): what the screens are built
@@ -13,6 +14,18 @@ enum Reaction: String, CaseIterable {
 
     /// The three he gives: the rating's and a reaction's.
     static let rating: [Reaction] = [.down, .up, .delighted]
+}
+
+extension RatingMark {
+    /// The wire's mark for each of the rating's three: 👎 is bad, 👍 is okay, 🤩 is good (delighted). The one mapping.
+    static func of(_ reaction: Reaction) -> RatingMark {
+        switch reaction {
+        case .down: .bad
+        case .up: .okay
+        case .delighted: .good
+        case .handedOn: .unknown
+        }
+    }
 }
 
 struct ReactionMark: View {
