@@ -1,6 +1,7 @@
 // The archive's invariants (docs/sync.md), in `GET /status`, checked every hour (index.ts) and by
 // `bun run --cwd apps/server check:archive`. Each count should be 0:
-// - strayTurns: turns that start in no live conversation;
+// - strayTurns: turns that start in no live conversation (one ordered pass: a turn is held while the
+//   latest end among the live conversations started at or before it is after its start);
 // - overlaps: pairs of live conversations whose ranges overlap, so a turn would show in both;
 // - deadPassages: search passages of a conversation that isn't live;
 // - strandedNames: the owner's speaker names on a job no live conversation holds;
@@ -10,7 +11,7 @@
 
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
-import { events, holdsTurn } from "@lifelog/db/schema";
+import { events } from "@lifelog/db/schema";
 import { desc, eq, type SQL, sql } from "drizzle-orm";
 import { emailOwner } from "./alert";
 import type { Config } from "./config";
@@ -38,8 +39,11 @@ export function archiveHealth(db: Db) {
   }>(sql`
     with live as (select * from conversations where retired_at is null)
     select
-      (select count(*) from turns t
-        where not exists (select 1 from live c where ${holdsTurn()})) as "strayTurns",
+      (select count(*) from (
+        select kind, at, max(ends) over (order by at, kind rows unbounded preceding) as held_until
+        from (select 0 as kind, capture_started_at as at, capture_ended_at as ends from live
+          union all select 1, start_at, null from turns))
+        where kind = 1 and (held_until is null or held_until <= at)) as "strayTurns",
       (select count(*) from live x join live y on x.id < y.id
         and x.capture_started_at < y.capture_ended_at and y.capture_started_at < x.capture_ended_at)
         as overlaps,
