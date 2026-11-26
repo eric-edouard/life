@@ -562,7 +562,7 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .vplay{width:36px;height:36px;border-radius:18px;background:var(--tint);color:var(--fg);display:flex;align-items:center;justify-content:center;flex:none;border:0;cursor:pointer}
 .vplay svg{width:16px;height:16px}
 .vtx{font-size:15px;line-height:1.45;color:var(--fg)}
-.vtx.playing>span{color:var(--muted)}.vtx.playing>span.lit{color:var(--fg)}
+.vtx>span{color:var(--muted)}.vtx>span.lit{color:var(--fg)}
 .vtx>span{transition:color .15s ease}
 .vtx small{display:block;margin-top:6px;font-size:12.5px;color:var(--muted)}
 .vtx small button{color:var(--fg);font-weight:600;background:none;border:0;padding:0;font-size:12.5px;cursor:pointer}
@@ -574,6 +574,14 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .vrow .vf{width:36px;height:36px;border-radius:18px;background:#2b2c33;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
 .vrow.okd{color:#30d158}
 .vtwo .sec{flex:1 1 auto;white-space:nowrap;padding:0 14px!important}
+/* rows or tiles (comparison): the lab's tiles, in the prototype's colours */
+.ltw{display:flex;align-items:stretch;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;margin:10px -16px 0;padding:0 16px;scroll-padding:0 16px}
+.ltw::-webkit-scrollbar{display:none}
+.ltc{flex:0 0 86%;scroll-snap-align:start;background:#111214;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box}
+.ltt{display:flex;gap:12px;align-items:center}.ltt .tx{display:flex;flex-direction:column;min-width:0}.ltt b{font-size:16px;font-weight:650}.ltt small{font-size:13.5px;color:var(--muted)}
+.ltc .why{margin:0!important}.ltc .answers{margin-top:auto}
+.ltn{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.ltn i{width:6px;height:6px;border-radius:50%;background:var(--tint)}.ltn i.on{background:var(--fg)}.ltn span{margin-left:6px}
 </style>
 <main>
 <div class="fitbox" id="fitbox"><div class="ph" id="ph">
@@ -583,7 +591,8 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 <div class="cmp gl" id="cmp"></div>
 <div class="edge s-rest" aria-hidden="true"><div class="gw"><i class="base"></i><i class="ai"></i><i class="t1"></i><i class="t2"></i><i class="up"></i><i class="down"></i><i class="arc"></i><i class="pool"></i></div><div class="cr"><i class="base"></i><i class="ai"></i><i class="t1"></i><i class="t2"></i><i class="up"></i><i class="down"></i><i class="arc"></i><i class="pool"></i></div></div>
 </div></div>
-<aside class="side"><div class="lbl">Voices to name (proposal)</div><div class="seg v4b"><button type="button" data-v4="vlist">“N more”: voices fold into one row</button><button type="button" data-v4="vguess">A voice: Life suggests someone</button><button type="button" data-v4="vme">A voice: it may be you</button><button type="button" data-v4="vnone">A voice: no guess</button><button type="button" data-v4="vtyped">A wrong guess: he names Clara</button></div><p class="v4h">Play the moment: its words light up as they play. Someone else: type the name in the Ask Life field, then tap the row or Send.</p>
+<aside class="side"><div class="lbl">A list of matters: rows or tiles (comparison)</div><div class="seg v4b"><button type="button" data-v4="ltlist3">Rows, 3 items</button><button type="button" data-v4="lttiles3">Tiles, 3 items</button><button type="button" data-v4="ltlist8">Rows, 8 items</button><button type="button" data-v4="lttiles8">Tiles, 8 items</button><button type="button" data-v4="ltlist20">Rows, 20 items</button><button type="button" data-v4="lttiles20">Tiles, 20 items</button><button type="button" data-v4="ltcap20">Proposal: rows, 20 items, the first 8 then “12 more”</button></div><p class="v4h">The same asks as approved rows (tap one to unfold it) or as the lab’s tiles (swipe sideways). Only the rows are approved.</p>
+<div class="lbl">Voices to name (proposal)</div><div class="seg v4b"><button type="button" data-v4="vlist">“N more”: voices fold into one row</button><button type="button" data-v4="vguess">A voice: Life suggests someone</button><button type="button" data-v4="vme">A voice: it may be you</button><button type="button" data-v4="vnone">A voice: no guess</button><button type="button" data-v4="vtyped">A wrong guess: he names Clara</button></div><p class="v4h">Play the moment: its words light up as they play. Someone else: type the name in the Ask Life field, then tap the row or Send.</p>
 <div class="lbl">Real-length ask titles (proposal)</div><div class="seg v4b"><button type="button" data-v4="rowstoday" aria-pressed="false">As drawn today: one line assumed</button><button type="button" data-v4="rowstwo" aria-pressed="false">Proposal: two lines allowed, more room</button><button type="button" data-v4="rowsone" aria-pressed="false">Proposal: written to one line</button></div><p class="v4h">Each opening row leads with who it is with (Orrin Builders), else the matter’s icon (the house), else a mark by kind (a card): never a tick.</p>
 <div class="lbl">Opening the app (26 Nov)</div><div class="seg v4b"><button type="button" data-v4="openlong">Come back after 5 minutes: a clean screen</button><button type="button" data-v4="openshort">Come back sooner: as you left it</button><button type="button" data-v4="broken" aria-pressed="false">LINE and Messenger sign Life out</button></div><p class="v4h">On the clean screen: tap a broken row to fix it in place, “2 more” for the rest, Show earlier for the last sitting.</p><div class="lbl">app v4 · long work, handed off</div><div class="seg v4b"><button type="button" data-v4="async">Ask for long work: a physio this week</button><button type="button" data-v4="asyncdone">20 minutes later: the result lands</button><button type="button" data-v4="peek">Ask how it’s going</button><button type="button" data-v4="budget">It reaches what it may spend</button></div>
 <div class="lbl">Redrafting a draft</div><div class="seg v4b"><button type="button" data-v4="draft">Life brings a draft to Jade</button><button type="button" data-v4="redraft">Type a change: “Make it warmer, and say I’ll bring wine”</button></div><p class="v4h">Or tap Warmer, Shorter or In French under the draft: it changes in place.</p>
@@ -1663,7 +1672,8 @@ Object.assign(V4,{rowstoday:function(b){rowsDemo('today',b);},rowstwo:function(b
    suggestion first (a person of his, or him), and answers on one line. Someone else: he types or says the name in
    the Ask Life field, the only field; his people matching it show as rows on the card, and one tap or Send names
    them. The card scrolls so its answers sit above the field, never under it. ---- */
-var WAVEI='<svg viewBox="0 0 24 24" '+S+'><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>';
+/* a voice nobody named: a face with no one in it (the voice bars only move while someone speaks, brand.md) */
+var WAVEI='<svg viewBox="0 0 24 24" '+S+'><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>';
 var PLAYI='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
 var PAUSEI='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5.5" width="3.5" height="13" rx="1"/><rect x="13.5" y="5.5" width="3.5" height="13" rx="1"/></svg>';
 var VPEOPLE=[{n:'Clara Hart',f:'C'},{n:'Claire Li',f:'C'},{n:'Clement Sato',f:'C'},{n:'Mira Moreau',f:'M'},{n:'Theo Weller',f:'T'},{n:'Ben Martin',f:'B'}];
@@ -1678,13 +1688,13 @@ var VQ=[
   clips:[{len:'0:08',t:'We should all go back to that place by the lake before it closes for winter.'}]}];
 var VS={i:0,clip:0,mode:'',typed:'',playing:null,done:[]};
 function vLeft(){return VQ.length-VS.i;}
-Object.assign(M,{voices:{ask:'',t:'',who:WAVEI,sub:'Voices from your conversations',when:'',kind:'voice',task:1,act:'',defer:'Later',
+Object.assign(M,{voices:{ask:'',t:'',who:WAVEI,sub:'From your conversations',when:'',kind:'voice',task:1,act:'',defer:'Later',
   ended:'Every voice named',sugg:['Who did I talk to on Tuesday?','Why does Life ask this?','Skip the voices for now'],after:['What else is waiting?']}});
 function vTitle(){var n=vLeft();M.voices.ask=M.voices.t=n>1?'Name '+n+' voices':'Name one voice';}
 vTitle();
 function vClipHTML(){var v=VQ[VS.i],c=v.clips[VS.clip%v.clips.length];
   return '<div class="vclip"><button type="button" class="vplay" data-vplay aria-label="Play this moment">'+PLAYI+'</button><div class="vtx">'+
-    c.t.split(' ').map(function(w){return '<span>'+esc(w)+'</span>';}).join(' ')+'<small>'+c.len+(v.clips.length>1?' · <button type="button" data-vclip>Another moment</button>':'')+'</small></div></div>';}
+    c.t.split(' ').map(function(w){return '<span>'+esc(w)+'</span>';}).join(' ')+(v.clips.length>1?'<small><button type="button" data-vclip>Another moment</button></small>':'')+'</div></div>';}
 function vMatches(){var q=VS.typed.trim().toLowerCase();if(!q)return [];return VPEOPLE.filter(function(p){return p.n.toLowerCase().split(' ').some(function(w){return w.indexOf(q)===0;})||p.n.toLowerCase().indexOf(q)===0;}).slice(0,3);}
 function vElseHTML(){var ms=vMatches(),q=VS.typed.trim(),h='<div class="vask">Who is it? Type or say their name below.</div>';
   ms.forEach(function(p){h+='<button type="button" class="vrow" data-vname="'+p.n+'"><span class="vf">'+p.f+'</span>'+p.n+'</button>';});
@@ -1697,7 +1707,7 @@ function vBar(){var v=VQ[VS.i],g=v.guess;
 var _pageHTML=pageHTML,_barHTML=barHTML;
 pageHTML=function(id){if(M[id].kind!=='voice'||M[id].done)return _pageHTML(id);var v=VQ[VS.i],g=v.guess,last=VS.done[VS.done.length-1];
   return (last&&!last.undone?'<div class="vlast">'+esc(last.line)+' · <button type="button" data-vundo>Undo</button></div>':'')+
-    '<div class="hero"><span class="disc">'+WAVEI+'</span><div><div class="htitle">Who is this voice?</div><div class="hline">Heard '+v.heard+(v.conv>1?' · '+v.conv+' times':'')+'</div></div></div>'+
+    '<div class="hero"><span class="disc">'+WAVEI+'</span><div><div class="htitle">Who is this?</div><div class="hline">Heard '+v.heard+'</div></div></div>'+
     vClipHTML()+(g&&VS.mode!=='else'?'<div class="why vwhy">'+esc(g.why)+'</div>':'');};
 barHTML=function(id,inline){if(M[id].kind!=='voice'||M[id].done)return _barHTML(id,inline);return vBar();};
 function vRedraw(){var e=thread.querySelector('.pg.expanded[data-m="voices"]');if(!e)return;var ip=e.classList.contains('inplace');
@@ -1722,16 +1732,16 @@ ph.addEventListener('click',function(e){var t=e.target.closest('[data-vplay],[da
   var v=VQ[VS.i];
   if(t.matches('[data-vplay]'))vPlay(t);
   else if(t.matches('[data-vclip]')){vStop();VS.clip++;vRedraw();}
-  else if(t.matches('[data-vyes]'))vNamed(v.guess.me?'You: named in '+v.conv+' conversations':v.guess.n+': named in '+v.conv+' conversations',t);
+  else if(t.matches('[data-vyes]'))vNamed(v.guess.me?'You: named':v.guess.n+': named',t);
   else if(t.matches('[data-velse]'))vElse();
   else if(t.matches('[data-vback]')){VS.mode='';vField('');vRedraw();}
   else if(t.matches('[data-vno]'))vNamed(VS.mode==='else'?'Left unnamed':'Not a person: kept out of your memory',t);
   else if(t.matches('[data-vlater]')){vStop();laterPage('voices',t);}
-  else if(t.matches('[data-vname]'))vNamed(t.dataset.vname+(t.dataset.vnew?', a new person':'')+': named in '+v.conv+' conversations',t);
+  else if(t.matches('[data-vname]'))vNamed(t.dataset.vname+(t.dataset.vnew?', a new person':'')+': named',t);
   else if(t.matches('[data-vundo]')){VS.done.pop();VS.i--;VS.mode='';vTitle();vRedraw();}},true);
 /* Send in the field while naming: the name he typed or said answers the card (one match, or a new person) */
 var _v4Route=v4Route;v4Route=function(text){if(VS.mode==='else'&&thread.querySelector('.pg.expanded[data-m="voices"]')){var q=text.trim();VS.typed=q;var ms=vMatches(),ex=ms.filter(function(p){return p.n.toLowerCase()===q.toLowerCase();})[0]||(ms.length===1?ms[0]:null);
-  vNamed(ex?ex.n+': named in '+VQ[VS.i].conv+' conversations':q+', a new person: named in '+VQ[VS.i].conv+' conversations',null);return true;}return _v4Route(text);};
+  vNamed(ex?ex.n+': named':q+', a new person: named',null);return true;}return _v4Route(text);};
 function voiceDemo(start,opts){vStop();VS.i=start;VS.clip=0;VS.mode='';VS.typed='';VS.done=[];M.voices.done=false;M.voices.later=null;vTitle();
   ASKS=ASKS.filter(function(x){return x!=='voices';});ASKS.push('voices');
   if(opts&&opts.list){cleanScreen(CLEAN&&!!thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm'));var mb=thread.querySelector('[data-more]');if(mb)showMoreRows(mb);setTimeout(function(){thread.scrollTo({top:thread.scrollHeight,behavior:'smooth'});},200);return;}
@@ -1739,6 +1749,44 @@ function voiceDemo(start,opts){vStop();VS.i=start;VS.clip=0;VS.mode='';VS.typed=
   setTimeout(function(){var r=thread.querySelector('.fr[data-open="voices"]');if(r)openAsk('voices',r);if(opts&&opts.typed)setTimeout(function(){vElse();var f=document.getElementById('fld');f.value=opts.typed;f.dispatchEvent(new Event('input',{bubbles:true}));},UNFOLD_MS+500);},300);}
 Object.assign(V4,{vlist:function(){voiceDemo(0,{list:1});},vguess:function(){voiceDemo(0);},vme:function(){voiceDemo(1);},vnone:function(){voiceDemo(2);},vtyped:function(){voiceDemo(3,{typed:'Clara'});}});
 ASKS.push('voices');cleanScreen(true);
+/* ---- a list of matters: rows or tiles (comparison, 27 Nov 2026). The same 3, 8 or 20 made-up asks, as the approved
+   rows (bare, collapsed, each unfolds in place) or as the lab's tiles (one full card a page, the next peeking, dots
+   and "1 of N"). Only the rows are approved; the tiles are drawn to compare. ---- */
+var LTD=[['B','Send Ben the call recap','Ben','tonight','He was promised the transcript on today’s call.','Send it',0],
+ ['J','Reply to Jade','Jade','today','She asks about dinner on Saturday.','Answer',0],
+ ['P','Pay Paul 240 €','Paul, for the leak','Fri','His invoice came on Monday.','I paid it',1],
+ [CARDI,'Update the hosting card','Hosting · payment failed','today','The card ending 4821 expired.','Done',1],
+ [HOUSEI,'Second opinion on the notice','The house','Thu','The 30-day notice runs out next week.','Done',1],
+ ['N','Confirm Nora’s tattoo clinic','Nora','Tue','Two clinics answered; one is free Tuesday.','Confirm',0],
+ ['O','Pay the builder’s last bill','Orrin Builders','Mon','The final invoice, less the deduction.','I paid it',1],
+ ['L','Thank Lena for the photos','Lena','this week','She sent the flat photos for the letter.','Send it',0],
+ ['M','Book Mira’s birthday dinner','Mira','Sat','You said you’d book somewhere by the lake.','Book it',0],
+ ['T','Answer Theo about the rail','Theo','today','He asks where the rail ends.','Answer',0],
+ ['R','Sign the lease renewal','Rue Haute flat','Dec 1','The agency needs it back by Monday.','Signed',1],
+ ['D','Move the dentist cleaning','Bright Dental','Fri','They offered Friday at 9:00.','Accept',0],
+ ['G','Renew the gym pass','City Gym','Dec 3','It ends on 3 December.','Renewed',1],
+ ['A','Send Anna the invoice','Anna','tomorrow','She asked for it by Friday.','Send it',0],
+ ['V','Choose a vet for Pixel','Pixel','next week','Two vets near home have Saturday slots.','Choose',0],
+ ['C','Call Clara back','Clara','today','She called twice this morning.','Done',1],
+ ['K','Pick up the keys','Agency','Wed','They’re ready from Wednesday noon.','Done',1],
+ ['S','Approve Sam’s timesheet','Northwind','Fri','14 hours for the week of 17 Nov.','Approve',0],
+ ['E','Check the electricity bill','City Power','Dec 9','It’s 18% higher than October’s.','Looks right',0],
+ ['H','Answer Hugo on the hub','Hugo','today','He waits on which way the hub reaches Claude.','Answer',0]];
+LTD.forEach(function(x,i){M['lt'+i]={lt:1,ask:x[1],t:x[1],who:x[0],sub:x[2],when:x[3],why:x[4],act:x[5],task:x[6],kind:'lt',icon:CHECK,doing:'',ok:'Done',ended:'Done'};});
+var _b3=bodyHTML;bodyHTML=function(id){var m=M[id];if(m.lt)return '<div class="why">'+m.why+'</div>';return _b3(id);};
+function tileHTML(id){var m=M[id];return '<div class="ltc"><div class="ltt">'+disc(id)+'<span class="tx"><b>'+m.ask+'</b><small>'+lineHTML(id)+'</small></span></div><div class="why">'+m.why+'</div>'+
+  '<div class="answers"><button type="button" class="prim">'+m.act+'</button><div class="two"><button type="button" class="sec lt">Later</button></div></div></div>';}
+function listVsTiles(mode,n,btn){document.querySelectorAll('[data-v4^="lt"]').forEach(function(b){b.setAttribute('aria-pressed',String(b===btn));});
+  clear();thread.innerHTML='';var ids=LTD.slice(0,n).map(function(_,i){return 'lt'+i;});
+  add('bm','What’s waiting on me?');var lead=n+' things wait on you:';
+  if(mode==='list'||mode==='capped'){var top=mode==='capped'?ids.slice(0,LIST_CAP):ids,rest=ids.slice(top.length);add('bt wide',lead+'<div class="fc">'+top.map(rowHTML).join('')+'</div>');
+    if(rest.length){var mb=document.createElement('button');mb.type='button';mb.className='more cs-in';mb.dataset.more=rest.join(',');mb.textContent=rest.length+' more';thread.appendChild(mb);}}
+  else{var d=add('bt wide',lead+'<div class="ltw">'+ids.map(tileHTML).join('')+'</div><div class="ltn">'+ids.map(function(_,i){return '<i'+(i?'':' class="on"')+'></i>';}).join('')+'<span>1 of '+n+'</span></div>');
+    var w=d.querySelector('.ltw');w.addEventListener('scroll',function(){var cs=w.children,i=Math.round(w.scrollLeft/(cs[1]?cs[1].offsetLeft-cs[0].offsetLeft:1));
+      d.querySelectorAll('.ltn i').forEach(function(x,j){x.classList.toggle('on',j===i);});d.querySelector('.ltn span').textContent=(i+1)+' of '+n;});}}
+/* proposal: a list in an answer shows its first 8 rows, then "N more", as the opening screen does with 3 */
+var LIST_CAP=8;V4.ltcap20=function(b){listVsTiles('capped',20,b);};
+[3,8,20].forEach(function(n){V4['ltlist'+n]=function(b){listVsTiles('list',n,b);};V4['lttiles'+n]=function(b){listVsTiles('tiles',n,b);};});
 window.__v4={M:M,SET:SET,V4:V4,AURA:AURA};
 
 var goal=GOALS.rest, cur={spd:1,bo:.14,tide:.9,blue:0,pool:0,blur:20,col:0}, a1=0,a2=120,a3=240,ph2=0,pulse=0,last=performance.now();
