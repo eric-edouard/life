@@ -1,0 +1,16 @@
+{
+  "name": "Lab: sign LINE back in from the phone (a form, the network's page, a code)",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "lab/sign-in.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": ["fix:signed-out/line"],
+  "signIn": "lab/sign-in-steps.json"
+}

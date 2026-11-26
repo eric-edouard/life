@@ -45,6 +45,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
         /// His pick of it alone is his word that he did the step: Life looks for it done (`looks`, "I've paid").
         public let looks: Bool?
         public let takes: Takes?
+        /// A fix card's sign-in: the network whose sign-in sheet his tap opens, never an answer (`sign_in_to_network`).
+        public let signsIn: String?
         /// His pick of it, alone and with no words, is his word that the card's step or matter is done: Life writes an
         /// `outdated` correction no code unsays, so the phone holds it for Undo wherever the card is shown.
         public let ends: Ends?

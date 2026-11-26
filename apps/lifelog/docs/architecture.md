@@ -120,7 +120,9 @@ are written by Life's server tests (`fixtures/wire/life/`). His actions (answer,
 Everyone a read names is a `Party`, kept by ref in `LifeStore.parties` (a `PartyBook`: the newest read of each wins,
 and a read begun before a new pairing changes nothing), whose pictures `PictureCache` fetches in batches; every screen draws a person or an organization with `DesignSystem/PartyPieces.swift` (`PartyDisc` and the
 row, pick and chip built on it), never initials of its own; a draft's chat strip names its senders and marks its
-network the chat's way (`DesignSystem/DraftBlock.swift`).
+network the chat's way (`DesignSystem/DraftBlock.swift`). A fix card's sign-in sets `LifeStore.signingIn`, which
+`RootView` opens as `NetworkSignInSheet`; its `NetworkSignIn` (Kit) holds the one sign-in's step for the sheet's life,
+nothing kept after it.
 
 **Databases.** `source.sqlite` is the audio itself and gates ACK: losing a row there loses recordings.
 `library.sqlite` is what the owner sees and edits. `timeline.sqlite` is the scanned timeline, and `upload.sqlite` how far uploads went: one cursor;

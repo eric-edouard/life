@@ -1,0 +1,71 @@
+[
+  {
+    "status": "step",
+    "step": {
+      "loginId": "L1",
+      "stepId": "s1",
+      "type": "user_input",
+      "instructions": "Sign in with your LINE email.",
+      "fields": [
+        {
+          "id": "email",
+          "name": "Email",
+          "type": "email"
+        },
+        {
+          "id": "password",
+          "name": "Password",
+          "type": "password"
+        }
+      ]
+    }
+  },
+  {
+    "status": "step",
+    "step": {
+      "loginId": "L1",
+      "stepId": "s3",
+      "type": "cookies",
+      "instructions": "Sign in on the page below.",
+      "cookies": {
+        "url": "https://example.com/",
+        "waitForUrlPattern": "^https://example\\.com/",
+        "extractJs": "new Promise(r => r({ title: document.title }))",
+        "fields": [
+          {
+            "id": "title",
+            "required": true,
+            "sources": [
+              {
+                "type": "special",
+                "name": "title"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "status": "step",
+    "step": {
+      "loginId": "L1",
+      "stepId": "s2",
+      "type": "display_and_wait",
+      "instructions": "Enter this PIN in LINE.",
+      "display": {
+        "type": "code",
+        "data": "482913"
+      }
+    }
+  },
+  {
+    "loginId": "L1",
+    "status": "waiting",
+    "stepId": "s2"
+  },
+  {
+    "status": "done",
+    "network": "line"
+  }
+]

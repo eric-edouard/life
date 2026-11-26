@@ -159,7 +159,7 @@ struct PayCodeBox: View {
     }
 }
 
-private struct QRImage: View {
+struct QRImage: View {
     let text: String
 
     var body: some View {

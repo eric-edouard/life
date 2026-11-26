@@ -25,6 +25,8 @@ struct RootView: View {
 
     private enum Sheet: Identifiable {
         case pendant, settings, link(String)
+        /// A network's sign-in, from a fix card's tap.
+        case signIn(SignInAsk)
         /// A pairing link the owner is asked to confirm: the lifelog server, Life, or both.
         case pair(PairOffer)
 
@@ -33,6 +35,7 @@ struct RootView: View {
             case .pendant: "pendant"
             case .settings: "settings"
             case .link(let ref): "link:" + ref
+            case .signIn(let ask): "sign-in:" + ask.network
             case .pair(let offer): "pair:\(offer.id)"
             }
         }
@@ -134,6 +137,7 @@ struct RootView: View {
             case .pendant: PendantView().sheetStack()
             case .settings: SettingsPage().toolbar { CloseItem { self.sheet = nil } }.sheetStack()
             case .link(let ref): LinkSheet(ref: ref)
+            case .signIn(let ask): NetworkSignInSheet(ask: ask)
             case .pair(let offer): PairSheet(offer: offer, isPairing: $isPairing).sheetStack()
             }
         }
@@ -164,6 +168,11 @@ struct RootView: View {
         // The ask he was sent to is let go once it is answered or settled.
         .onChange(of: life.focused.flatMap(life.ask)?.state) { old, new in
             if old != nil, let new, [.underWay, .settled, .outdated].contains(new) { life.clearFocus() }
+        }
+        .onChange(of: life.signingIn) {
+            guard let ask = life.signingIn else { return }
+            life.signingIn = nil
+            sheet = .signIn(ask)
         }
         .onChange(of: life.isOutOfReach) { if !life.isOutOfReach { Task { await life.flushQueued() } } }
         // `lifelog://pair?...` (from the Camera or pasted in Settings) is asked here, never applied alone;

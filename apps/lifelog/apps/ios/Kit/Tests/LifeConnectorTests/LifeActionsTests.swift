@@ -43,6 +43,7 @@ final class FakeLife: LifeAPI, @unchecked Sendable {
     let askedKeys = Mutex<[String?]>([])
     let askedRequests = Mutex<[MainSessionRequest]>([])
     func changeSetting(aura: AuraSetting) async throws -> String { "{}" }
+    func signInToNetwork(_ request: SignInRequest) async throws -> String { "{}" }
     func askMainSession(
         _ request: MainSessionRequest, answerKey: String?, onProgress: @escaping @Sendable (Data) -> Void
     ) async throws -> String {
