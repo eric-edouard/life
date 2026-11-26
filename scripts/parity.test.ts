@@ -26,7 +26,6 @@ const SOURCE: Record<string, string[]> = {
   ],
   "read_thread_settled_imessage.json": [
     "life/read_thread_settled_imessage.json",
-    ,
     "lab/opening.json",
   ],
   "read_thread_settled.json": [
