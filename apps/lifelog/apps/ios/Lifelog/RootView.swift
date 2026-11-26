@@ -73,7 +73,7 @@ struct RootView: View {
             .overlay(alignment: .top) {
                 VStack(spacing: Metrics.Spacing.s) {
                     buttons
-                    // The notice, opened, grows to its words up to 60% of the screen, then scrolls: the buttons above it
+                    // The notice, opened, grows to its words up to half of the screen, then scrolls: the buttons above it
                     // always stay in view, at the largest text size too.
                     ScrollView {
                         Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)

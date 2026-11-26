@@ -149,7 +149,11 @@ struct ThreadView: View {
                 $0.contentSize.height > $0.containerSize.height
             } action: { _, new in
                 isScrollable = new
+                // A short thread overflowing for the first time follows the end.
+                if new, followsEnd { proxy.scrollTo("end", anchor: .bottom) }
             }
+            // A growing answer follows the end, once there is something to scroll.
+            .onChange(of: thread.live) { if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) } }
             .onScrollGeometryChange(for: CGFloat.self) {
                 $0.containerSize.height
             } action: { _, _ in
