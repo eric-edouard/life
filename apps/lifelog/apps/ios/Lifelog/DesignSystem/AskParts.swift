@@ -66,6 +66,34 @@ struct PersonChips: View {
     }
 }
 
+/// The people an answer may be, side by side (the prototype's `.xfaces`): a face, the name, their line; a tap answers.
+struct PersonCards: View {
+    let people: [Party]
+    var pick: (Party) -> Void = { _ in }
+
+    var body: some View {
+        HStack(spacing: Metrics.Spacing.s + 2) {
+            ForEach(people, id: \.ref) { party in
+                Button {
+                    pick(party)
+                } label: {
+                    VStack(spacing: Metrics.Spacing.xs + 2) {
+                        Face(party: party)
+                        Text(party.name).font(.bodyBold).lineLimit(1)
+                        if let line = party.line {
+                            Text(line).font(.meta).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Metrics.Spacing.m).padding(.horizontal, Metrics.Spacing.xs + 2)
+                    .background(Palette.tile, in: .rect(cornerRadius: Metrics.Radius.block))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
 /// A box of rows: a glyph, a fact, a copy or open mark when it has one.
 struct NeedRows: View {
     let rows: [NeedRow]

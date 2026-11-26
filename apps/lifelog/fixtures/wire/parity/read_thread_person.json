@@ -375,7 +375,22 @@
         "group": "decision",
         "isPlan": false,
         "kind": "decision",
-        "likelyPeople": [],
+        "likelyPeople": [
+          {
+            "ref": "person:ben-martin",
+            "name": "Ben Martin",
+            "kind": "person",
+            "line": "Northwind, WhatsApp",
+            "picture": null
+          },
+          {
+            "ref": "person:ben-gym",
+            "name": "Ben from the gym",
+            "kind": "person",
+            "line": "LINE, last week",
+            "picture": null
+          }
+        ],
         "links": [],
         "onMatters": [],
         "onSilence": "wait",

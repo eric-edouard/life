@@ -6,8 +6,7 @@
   "steps": [
     {
       "reads": {
-        "read_thread": "parity/read_thread_person.json",
-        "read_people_and_organizations": "parity/read_people_and_organizations.json"
+        "read_thread": "parity/read_thread_person.json"
       }
     }
   ],
