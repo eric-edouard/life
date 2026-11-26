@@ -168,3 +168,24 @@ were tight, and rows had no icons.
   who it is with (their picture, else their initial); else the matter's icon (`MatterRow.icon` from `iconNow`, his
   choice first); else a mark by kind (a card for a payment, a phone for a call, a calendar, Life's logo for a fix).
 - Drop "Your move" from the line under the title: the row already says it.
+
+## Voices to name (proposal, 26 Nov 2026)
+
+Drawn in the prototype under "Voices to name". Not in the approved designs before this. On his phone: "12 more"
+opened twelve rows all titled "Who is this?", and the card showed long transcripts, a guessed person's photo, four
+names none of which matched, a second text field with no way to submit, and answers that wrapped.
+
+- **In the list.** Voices fold into one row, "Name 4 voices", led by a voice mark, never a face. It ranks after the
+  asks that block him (a voice improves, it never blocks), so it lives in "N more", and its Later puts all of them off.
+- **The card, one voice at a time.** A voice mark until he answers, never a guessed photo. "Who is this voice?",
+  "Heard Tue at 14:20 · 3 times". One moment of that voice, two lines at most, with a play button; its words light up
+  as they play; "Another moment" if he needs more. After an answer, the next voice unfolds in place, with one line
+  "Clara Hart: named in 3 conversations · Undo".
+- **The suggestion first.** At most one person: the one `voiceSuggestionOf` already allows. It is him too ("It's me").
+  It shows as the main answer, with Life's reason in one line under the moment. No list of other guesses. With no
+  suggestion, the main answer is "Say who it is".
+- **Someone else.** The only field is Ask Life's. "Someone else" puts the card in naming mode: he types or says the
+  name there. His people matching it show as rows on the card ("Clara Hart"), plus "Clara, new person". A tap on a
+  row, or Send, names them. "Back" and "Leave unnamed" sit under the rows.
+- **Answers on one line.** The main answer, then "Someone else", "Not a person" (TV, radio, a video) and "Later",
+  sized to their words. The card scrolls so its answers sit above the Ask Life field, never under it.
