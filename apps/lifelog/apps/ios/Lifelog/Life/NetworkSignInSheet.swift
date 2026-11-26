@@ -27,12 +27,10 @@ struct NetworkSignInSheet: View {
     var body: some View {
         Group {
             if case .step(let step) = phase, let cookies = step.cookies {
-                // The network's own page fills the sheet: it scrolls itself.
-                VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    instructions(step).padding(.horizontal, Metrics.gutter)
-                    SignInWebView(step: cookies) { answers in go { await $0.submit(answers) } }
-                }
-                .sheetBars(head: head)
+                // The network's own page fills the sheet: it scrolls itself. No words above it: the bridge's
+                // instructions for a cookie step are for pasting cookies by hand, which the page does for him.
+                SignInWebView(step: cookies) { answers in go { await $0.submit(answers) } }
+                    .sheetBars(head: head)
             } else {
                 content.sheetScroll(head: head) { button }
             }
