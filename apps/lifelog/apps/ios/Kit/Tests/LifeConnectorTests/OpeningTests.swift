@@ -35,8 +35,10 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     var o = Opening()
     o.came(at: t0)
     let page = try read(
-        [("fix:a", "fix"), ("fix:b", "fix"), ("d1", "decision"), ("d2", "decision"), ("d3", "decision"),
-         ("d4", "decision"), ("d5", "decision"), ("d6", "decision")],
+        [
+            ("fix:a", "fix"), ("fix:b", "fix"), ("d1", "decision"), ("d2", "decision"), ("d3", "decision"),
+            ("d4", "decision"), ("d5", "decision"), ("d6", "decision"),
+        ],
         opening: ["d5", "d1", "d6", "d2", "d3", "d4"], state: { $0 == "d6" ? "later" : "needs_you" })
     #expect(page.owner == "Kit")
     o.take(page)

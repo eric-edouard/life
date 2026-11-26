@@ -18,8 +18,8 @@ import {
 } from "../memory/matters";
 import { deletionsNow } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
-import { readOwnerName } from "../models/prompt-parts";
 import { dayNow } from "../memory/zones";
+import { readOwnerName } from "../models/prompt-parts";
 import { undoOf } from "./answer-result";
 import { readDesk } from "./desk-read";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";

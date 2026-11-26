@@ -82,7 +82,8 @@ without the person answering slower or worse goes.
 - Life does not talk about itself: no "Life thinks", no label naming it. A name shows only when someone else asks
   (an agent).
 - The interface says "you": never the person's own name. Life may say "I" in its sentences ("I'm on it"); a button
-  never does (owner, 26 Nov 2026).
+  never does (owner, 26 Nov 2026). One exception, his ruling of 26 Nov 2026: the opening screen's greeting, "Hi" and
+  the first name Life holds for him (`read_thread`'s `owner`).
 - A button is the answer, in three words at most, and one word has one meaning everywhere ("Yes", "No", "Someone
   else…", "Skip", "Undo"). Words go only on an ask's and a question's answers, a confirm's two choices and a draft's
   quick-edit chips (Warmer, Shorter, In French); everything else is a mark, or "Later".

@@ -69,10 +69,9 @@ struct ThreadView: View {
             // Inks in again at each opening (its own id); found by the scroll as the greeting.
             .environment(\.inksWords, true).id(opening.at).id(Self.greeting)
             .padding(.top, Metrics.Spacing.xs).accessibilityAddTraits(.isHeader)
-        ForEach(asks(opening.broken)) { ItemRow(ask: $0).id($0.ref).appears(Motion.arrives) }
-        ForEach(asks(opening.top + (showsMore ? opening.more : []))) {
-            ItemRow(ask: $0).id($0.ref).appears(Motion.arrives)
-        }
+        // Two blocks of rows, as an answer's `items` block lists them: what is broken, then the asks.
+        rowBlock(opening.broken)
+        rowBlock(opening.top + (showsMore ? opening.more : []))
         if !showsMore, !opening.more.isEmpty {
             Button {
                 Motion.animate { showsMore = true }
@@ -84,6 +83,14 @@ struct ThreadView: View {
     }
 
     private static let greeting = "greeting"
+
+    @ViewBuilder private func rowBlock(_ refs: [String]) -> some View {
+        if !refs.isEmpty {
+            VStack(spacing: Metrics.Spacing.xs) {
+                ForEach(asks(refs)) { ItemRow(ask: $0).id($0.ref).appears(Motion.arrives) }
+            }
+        }
+    }
 
     /// A quiet line: a day, or an earlier greeting's time.
     private func mark(_ words: String) -> some View {
@@ -147,6 +154,11 @@ struct ThreadView: View {
                     }
                     if opening.at != nil {
                         ForEach(greetings(after: history.last?.entry.at, upTo: at), id: \.self) { mark($0.clock) }
+                        // Under what Show earlier brought back, this sitting starts at its day and time.
+                        if let last = history.last?.entry.at {
+                            if !calendar.isDate(last, inSameDayAs: at) { mark(dayName(at)) }
+                            mark(at.clock)
+                        }
                         openingRows
                     }
                     let sitting = all.filter { !($0.entry.at < at) }
