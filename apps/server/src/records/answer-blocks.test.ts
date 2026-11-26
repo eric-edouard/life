@@ -109,3 +109,18 @@ test("the halo settings are the settings block's `aura` key, drawn on a phone of
     error: "shape",
   });
 });
+
+test("an items block of bare refs, as read_inbox gives them, is drawn as life: refs (the 26 Nov block.miss shape)", () => {
+  const json = '["fix:signed-out/line","fix:signed-out/messenger"]';
+  expect(parseBlock({ json, kind: "items" })).toEqual({
+    body: ["life:fix:signed-out/line", "life:fix:signed-out/messenger"],
+    kind: "items",
+  });
+  expect(parseBlock({ json: '["life:dec_1"]', kind: "items" })).toEqual({
+    body: ["life:dec_1"],
+    kind: "items",
+  });
+  expect(parseBlock({ json: '[""]', kind: "items" })).toEqual({
+    error: "shape",
+  });
+});
