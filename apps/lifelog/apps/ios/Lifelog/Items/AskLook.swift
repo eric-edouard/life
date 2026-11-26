@@ -45,8 +45,7 @@ struct AskLook {
         }
         // A draft's chat as Life resolved it: who it goes to, never a guessed recipient.
         if check.draft != nil {
-            return check.isRecipientGuessed
-                ? nil : (check.networkIdentity?.party ?? check.likelyPeople.first).map { .party($0) }
+            return check.isRecipientGuessed ? nil : check.networkIdentity?.party.map { .party($0) }
         }
         return forWhom.map { .party($0) }
     }
