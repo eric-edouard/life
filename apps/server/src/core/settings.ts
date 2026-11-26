@@ -18,6 +18,73 @@ import { HOME } from "./platform";
 
 export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
+/** A turning light of the edge: how strong, how fast and which way it turns, and where its bright part peaks and ends (0–1 of a turn). */
+const AuraLight = z
+  .object({
+    clockwise: z.boolean(),
+    end: z.number().min(0.02).max(1),
+    /** How much brighter than the state's brightness its bright part is. */
+    gain: z.number().min(0).max(5),
+    opacity: z.number().min(0).max(1),
+    peak: z.number().min(0.01).max(0.99),
+    /** One turn at speed 1. */
+    seconds: z.number().min(1).max(120),
+  })
+  .strict()
+  .refine((l) => l.peak < l.end, { message: "`peak` comes before `end`" });
+
+/** The edge in one state: how fast its lights turn, how bright it is, its glow's width and blur, how far cream moves toward the colour, how much of the lights and of the pool show. */
+const AuraState = z
+  .object({
+    blur: z.number().min(0).max(40),
+    brightness: z.number().min(0).max(1),
+    colour: z.number().min(0).max(1),
+    glow: z.number().min(0).max(40),
+    lights: z.number().min(0).max(1),
+    pool: z.number().min(0).max(1),
+    speed: z.number().min(0).max(4),
+  })
+  .strict();
+
+/**
+ * The edge's look as he tuned it (the halo settings, his ask of 26 Nov 2026): every value the phone's edge uses
+ * (`EdgeView.swift`, whose `AuraSetting.standard` is the look when absent). Kept so a developer can make it the
+ * default. Its ranges only keep the phone safe (no blur or width it cannot draw, no turn faster than a second).
+ */
+export const Aura = z
+  .object({
+    arc: AuraLight,
+    /** One of the aura's ten colours, by its place (`AuraSetting.choices`). */
+    colour: z.number().int().min(0).max(9),
+    glowOpacity: z.number().min(0).max(1),
+    lights: z.tuple([AuraLight, AuraLight]),
+    /** The fine border; width 0 is none. */
+    line: z
+      .object({
+        opacity: z.number().min(0).max(1),
+        width: z.number().min(0).max(4),
+      })
+      .strict(),
+    /** The pool of light by the field: its radius in points. */
+    poolRadius: z.number().min(40).max(600),
+    /** The still rings' strength: the calm one, and the working one. */
+    rings: z
+      .object({
+        calm: z.number().min(0).max(1),
+        work: z.number().min(0).max(1),
+      })
+      .strict(),
+    states: z
+      .object({
+        rest: AuraState,
+        speaking: AuraState,
+        still: AuraState,
+        working: AuraState,
+      })
+      .strict(),
+  })
+  .strict();
+
 export const Settings = z
   .object({
     /** Who mails him his agents' reports: the night judges them; the arrival reader skips them, message by message. */
@@ -27,6 +94,8 @@ export const Settings = z
       .object({ account: z.string(), calendar: z.string() })
       .strict()
       .optional(),
+    /** The edge's look he saved from the halo settings (`change_setting`); absent, the phone's default. */
+    aura: Aura.optional(),
     /** The model runner for imports and historical model backfills; absent means off. */
     backfillEngine: Engine.optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
@@ -245,15 +314,27 @@ export function setSettings(
 /** His monthly amount as the file holds it now, read afresh: his `change_setting` reaches the desk without a restart. */
 export const readMonthlyUsd = () => readSettings().budget?.monthlyUsd;
 
-/** What his word may change through `change_setting` (question 22): the monthly amount, in billed dollars. */
+/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, and the edge's look (`Aura`). */
 export const SettingChange = z
-  .object({ monthlyUsd: z.number().positive().max(100_000) })
+  .object({
+    aura: Aura.optional(),
+    monthlyUsd: z.number().positive().max(100_000).optional(),
+  })
   .strict();
 
-/** His `change_setting`: writes the monthly amount; the settings as they now stand. */
-export function changeSetting({ monthlyUsd }: z.infer<typeof SettingChange>) {
-  setSettings({ budget: { monthlyUsd } });
-  return { budget: settings().budget };
+/** His `change_setting`: writes what it names; the settings it changes as they now stand. */
+export function changeSetting({
+  aura,
+  monthlyUsd,
+}: z.infer<typeof SettingChange>) {
+  if (aura === undefined && monthlyUsd === undefined) {
+    throw new Error("Not done: name `monthlyUsd` or `aura`.");
+  }
+  setSettings({
+    ...(aura && { aura }),
+    ...(monthlyUsd !== undefined && { budget: { monthlyUsd } }),
+  });
+  return { aura: settings().aura, budget: settings().budget };
 }
 
 /** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */

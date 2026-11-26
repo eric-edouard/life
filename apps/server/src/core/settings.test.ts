@@ -96,8 +96,8 @@ test("an engine is set only when the file names one, never by its default", () =
 test("his change_setting writes the monthly amount and keeps every other part; nothing else, and no amount of zero, is taken", () => {
   const before = readSettings();
   try {
-    expect(changeSetting({ monthlyUsd: 40 })).toEqual({
-      budget: { monthlyUsd: 40 },
+    expect(changeSetting({ monthlyUsd: 40 }).budget).toEqual({
+      monthlyUsd: 40,
     });
     const { budget, ...rest } = readSettings();
     expect(budget).toEqual({ monthlyUsd: 40 });
@@ -109,4 +109,60 @@ test("his change_setting writes the monthly amount and keeps every other part; n
   expect(
     SettingChange.safeParse({ engine: "codex", monthlyUsd: 5 }).success
   ).toBe(false);
+});
+
+/** Today's edge, as the phone's `AuraSetting.standard` holds it. */
+const light = (seconds: number, gain: number, clockwise = true) => ({
+  clockwise,
+  end: 0.33,
+  gain,
+  opacity: 0.6,
+  peak: 0.15,
+  seconds,
+});
+const state = (speed: number, brightness: number, glow: number) => ({
+  blur: glow,
+  brightness,
+  colour: 0,
+  glow,
+  lights: 0.9,
+  pool: 0,
+  speed,
+});
+const AURA: NonNullable<Settings["aura"]> = {
+  arc: { ...light(5, 1), end: 0.38, peak: 0.17 },
+  colour: 0,
+  glowOpacity: 0.7,
+  lights: [light(18, 2.8), light(27, 2.2, false)],
+  line: { opacity: 1, width: 1 },
+  poolRadius: 220,
+  rings: { calm: 0.4, work: 0.5 },
+  states: {
+    rest: state(1, 0.35, 9.5),
+    speaking: { ...state(1.825, 0.5, 16), lights: 1, pool: 0.2625 },
+    still: state(0, 0.175, 9.5),
+    working: { ...state(2, 0.93, 22), colour: 1, lights: 0 },
+  },
+};
+
+test("his halo settings are saved whole beside his amount; a value past its safe range, a light that ends before it peaks, an unknown knob or an empty change is refused", () => {
+  const before = readSettings();
+  try {
+    expect(changeSetting({ aura: AURA }).aura).toEqual(AURA);
+    // A change of the amount keeps the aura.
+    expect(changeSetting({ monthlyUsd: 40 }).aura).toEqual(AURA);
+    const { aura, budget, ...rest } = readSettings();
+    expect(aura).toEqual(AURA);
+    expect(rest).toEqual(before);
+  } finally {
+    setSettings({ aura: null, budget: null });
+  }
+  const refused = (aura: unknown) =>
+    expect(SettingChange.safeParse({ aura }).success).toBe(false);
+  refused({ ...AURA, line: { opacity: 1, width: 9 } });
+  refused({ ...AURA, arc: { ...AURA.arc, peak: 0.5 } });
+  refused({ ...AURA, colour: 10 });
+  refused({ ...AURA, wobble: 1 });
+  refused({ ...AURA, states: { ...AURA.states, still: undefined } });
+  expect(() => changeSetting({})).toThrow("Not done");
 });

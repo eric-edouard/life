@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type AnswerBlock,
   blockSplitter,
+  parseBlock,
   valueProblemOf,
 } from "./answer-blocks";
 
@@ -98,4 +99,13 @@ test("a reply that ends on its closing fence, with no newline, is one closed blo
   s.push('```life:question\n{"a":1}\n```');
   s.end();
   expect(got).toEqual([{ closed: true, kind: "question" }]);
+});
+
+test("the halo settings are the settings block's `aura` key, drawn on a phone of catalog 1; an unknown field is not", () => {
+  expect(
+    parseBlock({ json: '{"keys":["aura"]}', kind: "settings" }, 1)
+  ).toEqual({ body: { keys: ["aura"] }, kind: "settings" });
+  expect(parseBlock({ json: '{"aura":{}}', kind: "settings" }, 1)).toEqual({
+    error: "shape",
+  });
 });
