@@ -7,7 +7,7 @@ import { join } from "node:path";
 // waited 27 minutes on the lock a finished Life.app build left behind).
 const run = (state: string) =>
   Bun.spawnSync(["bash", "tools/heavy.sh", "true"], {
-    env: { ...process.env, LIFE_TOOLS_STATE: state, HEAVY_LANE: "release" },
+    env: { ...process.env, HEAVY_LANE: "release", LIFE_TOOLS_STATE: state },
     timeout: 15_000,
   }).exitCode;
 
