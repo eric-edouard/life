@@ -1,0 +1,773 @@
+{
+  "earlier": null,
+  "items": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "LINE signed Life out, so its messages stop reaching Life until you sign in again on your Mac.",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "fix",
+        "kind": "fix",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "later",
+            "id": "later",
+            "label": "Later",
+            "takes": null
+          }
+        ],
+        "preTicked": null,
+        "question": "Sign in to LINE again?",
+        "ref": "fix:signed-out/line",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Sign LINE back in",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-fix-signed-out-line",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "fix:signed-out/line",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Messenger signed Life out, so its messages stop reaching Life until you sign in again on your Mac.",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "fix",
+        "kind": "fix",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "later",
+            "id": "later",
+            "label": "Later",
+            "takes": null
+          }
+        ],
+        "preTicked": null,
+        "question": "Sign in to Messenger again?",
+        "ref": "fix:signed-out/messenger",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Sign Messenger back in",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-fix-signed-out-messenger",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "fix:signed-out/messenger",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": ["the tile fitter"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as the tile fitter, tiler on the beach house bathroom (70% sure).\n\n> The sink goes in on Thursday\n\n*whatsapp, 17 Sep*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this the tile fitter?",
+        "ref": "person:inf_tile-fitter-3f1a",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": {
+          "chat": "c-person:inf_tile-fitter-3f1a",
+          "handle": "+66 80 000 0001",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": null,
+          "shownName": "+66 80 000 0001",
+          "party": {
+            "kind": "person",
+            "line": "tiler on the beach house bathroom",
+            "name": "the tile fitter",
+            "ref": "person:inf_tile-fitter-3f1a"
+          }
+        },
+        "contactsCard": null,
+        "pushId": "push-person-inf_tile-fitter-3f1a",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_tile-fitter-3f1a",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": ["Kip"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as Kip, probable video editor (70% sure).\n\n> I will sync with Kip too\n\n*whatsapp, 21 Sep*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this Kip?",
+        "ref": "person:inf_kip",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": {
+          "chat": "c-person:inf_kip",
+          "handle": "kip.edits",
+          "network": "Instagram",
+          "newest": null,
+          "openUrl": null,
+          "shownName": "kip.edits",
+          "party": {
+            "kind": "person",
+            "line": "probable video editor",
+            "name": "Kip",
+            "ref": "person:inf_kip"
+          }
+        },
+        "contactsCard": null,
+        "pushId": "push-person-inf_kip",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_kip",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": ["Madame Vexil"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as Madame Vexil, probable notary for the share transfer (70% sure).\n\n> je vous transmets le montage\n\n*mail, 3 Oct*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [
+          {
+            "id": "matter_000000000003",
+            "name": "Email the notary about the share transfer"
+          }
+        ],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this Madame Vexil?",
+        "ref": "person:inf_madame-vexil",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-person-inf_madame-vexil",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_madame-vexil",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": ["Ana"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as Ana, probable building manager (70% sure).\n\n> Ok I will tell the owner one more time\n\n*line, 6 Oct*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this Ana?",
+        "ref": "person:inf_ana",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-ana",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_ana",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": ["the site lawyer"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as the site lawyer, construction-law adviser on the builder dispute (70% sure).\n\n> Ok I will tell the owner one more time\n\n*line, 6 Oct*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this the site lawyer?",
+        "ref": "person:inf_site-lawyer",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": {
+          "chat": "c-site-lawyer",
+          "handle": "the site lawyer",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": null,
+          "shownName": "+66 80 000 0002",
+          "party": {
+            "kind": "person",
+            "line": "construction-law adviser on the builder dispute",
+            "name": "the site lawyer",
+            "ref": "person:inf_site-lawyer"
+          }
+        },
+        "contactsCard": null,
+        "pushId": "push-site-lawyer",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_site-lawyer",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": ["the pet export agent"],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Life read their messages as the pet export agent, pet export agent at the airport (70% sure).\n\n> Ok I will tell the owner one more time\n\n*line, 6 Oct*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "guessed person",
+        "kind": "person",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "icon": "done",
+            "id": "this-is",
+            "label": "Yes",
+            "takes": null
+          },
+          {
+            "icon": "person",
+            "id": "same-person",
+            "label": "Someone else…",
+            "takes": "person or name"
+          },
+          {
+            "icon": "no",
+            "id": "not-this-person",
+            "label": "No",
+            "takes": null
+          }
+        ],
+        "preTicked": "this-is",
+        "question": "Is this the pet export agent?",
+        "ref": "person:inf_pet-agent",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": null,
+        "since": null,
+        "subject": null,
+        "title": "Know who someone is",
+        "matter": null,
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": {
+          "chat": "c-pet-agent",
+          "handle": "the pet export agent",
+          "network": "LINE",
+          "newest": null,
+          "openUrl": null,
+          "shownName": "The pet export agent",
+          "party": {
+            "kind": "person",
+            "line": "pet export agent at the airport",
+            "name": "the pet export agent",
+            "ref": "person:inf_pet-agent"
+          }
+        },
+        "contactsCard": null,
+        "pushId": "push-pet-agent",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "person:inf_pet-agent",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Still yours to do? Life sees no sign it is done.\n\n> je vais lancer une recherche sur Google Maps\n\n*voice, 14 Nov*",
+        "deadline": "2026-11-18T12:00:00.000Z",
+        "draft": null,
+        "goal": null,
+        "group": "your move",
+        "kind": "your move",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [
+          {
+            "id": "matter_000000000001",
+            "name": "Install the windows and doors at the beach house"
+          }
+        ],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "ends": "step",
+            "id": "done",
+            "label": "Mark as done",
+            "takes": null,
+            "icon": "done"
+          },
+          {
+            "icon": "agent",
+            "id": "start",
+            "label": "Hand over",
+            "takes": null
+          },
+          {
+            "icon": "later",
+            "id": "not-now",
+            "label": "Not now",
+            "takes": null
+          },
+          {
+            "ends": "step",
+            "icon": "drop",
+            "id": "drop",
+            "label": "Drop",
+            "takes": null
+          }
+        ],
+        "preTicked": null,
+        "question": "Call the two lawyers again about the builder.",
+        "ref": "move:matter_000000000001/obs_000000000001",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": {
+          "at": "2026-11-14",
+          "by": "You",
+          "channel": "lifelog",
+          "text": "je vais lancer une recherche sur Google Maps",
+          "to": "Conversation at 12:47"
+        },
+        "since": null,
+        "subject": "obs_000000000001",
+        "title": "Install the windows and doors at the beach house",
+        "matter": {
+          "id": "matter_000000000001",
+          "name": "Install the windows and doors at the beach house"
+        },
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-move-matter_000000000001-obs_000000000001",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "move:matter_000000000001/obs_000000000001",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": null,
+        "clips": [],
+        "context": "Still yours to do? Life sees no sign it is done.\n\n> je le rajoute sur ma liste des choses à faire\n\n*voice, 14 Nov*",
+        "deadline": null,
+        "draft": null,
+        "goal": null,
+        "group": "your move",
+        "kind": "your move",
+        "likelyPeople": [],
+        "links": [],
+        "lifeLinks": [],
+        "onMatters": [
+          {
+            "id": "matter_000000000002",
+            "name": "Get the house's wastewater plans and close the permits"
+          }
+        ],
+        "onSilence": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "ends": "step",
+            "id": "done",
+            "label": "Mark as done",
+            "takes": null,
+            "icon": "done"
+          },
+          {
+            "icon": "agent",
+            "id": "start",
+            "label": "Hand over",
+            "takes": null
+          },
+          {
+            "icon": "later",
+            "id": "not-now",
+            "label": "Not now",
+            "takes": null
+          },
+          {
+            "ends": "step",
+            "icon": "drop",
+            "id": "drop",
+            "label": "Drop",
+            "takes": null
+          }
+        ],
+        "preTicked": null,
+        "question": "Check the plans filed with the town hall.",
+        "ref": "move:matter_000000000002/obs_000000000002",
+        "ridesOn": {
+          "matterIds": [],
+          "matters": 0,
+          "observations": 0,
+          "pages": 0
+        },
+        "said": {
+          "at": "2026-11-14",
+          "by": "You",
+          "channel": "lifelog",
+          "text": "je le rajoute sur ma liste des choses à faire",
+          "to": "Conversation at 12:47"
+        },
+        "since": null,
+        "subject": "obs_000000000002",
+        "title": "Get the house's wastewater plans and close the permits",
+        "matter": {
+          "id": "matter_000000000002",
+          "name": "Get the house's wastewater plans and close the permits"
+        },
+        "misread": {
+          "cause": "0000000000000000"
+        },
+        "confirm": [],
+        "networkIdentity": null,
+        "contactsCard": null,
+        "pushId": "push-move-matter_000000000002-obs_000000000002",
+        "urgency": "improves"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "move:matter_000000000002/obs_000000000002",
+      "state": "needs_you"
+    }
+  ],
+  "version": "waiting"
+}
