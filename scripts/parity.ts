@@ -40,6 +40,8 @@ interface Row {
   flow: string;
   id: string;
   proto: string[];
+  /** Words the prototype shows once the state is reached, when its clicks start something slow (an answer written). */
+  ready?: string;
   taps: number;
   title: string;
 }
@@ -133,8 +135,16 @@ export const ROWS: Row[] = [
     flow: "M1SlowAnswerTests",
     id: "slow-answer",
     proto: ['[data-try="house"]'],
+    ready: "The rest hasn’t moved",
     taps: 0,
     title: "Where are we regarding the house? (an answer as it is written)",
+  },
+  {
+    flow: "V1VoiceGuessTests",
+    id: "voice-guess",
+    proto: ['[data-v4="vguess"]'],
+    taps: 2,
+    title: "A voice: Life suggests someone",
   },
 ];
 
@@ -251,6 +261,10 @@ async function shootPrototype(rows: Row[]) {
       // biome-ignore lint/performance/noAwaitInLoops: each click acts on the state the one before it brought
       await page.click(click);
       await page.waitForTimeout(2500); // its lines arrive and ink in
+    }
+    if (row.ready) {
+      await page.getByText(row.ready).first().waitFor({ timeout: 30_000 });
+      await page.waitForTimeout(1500);
     }
     await page
       .locator("#ph")
