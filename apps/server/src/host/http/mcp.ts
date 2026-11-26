@@ -95,6 +95,7 @@ import { text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
 import { deleteFromMemoryTool } from "./mcp-deletions";
 import { mainSessionTool } from "./mcp-main-session";
+import { networkSignInTool } from "./mcp-network-sign-in";
 import { personPicturesTool } from "./mcp-people";
 import { spendingTool } from "./mcp-spending";
 import {
@@ -322,6 +323,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
     spendingTool(server, NOT_HIS);
     deleteFromMemoryTool(server, NOT_HIS);
     mainSessionTool(server, NOT_HIS);
+    networkSignInTool(server, NOT_HIS);
     tool(
       server,
       "read_resource_samples",

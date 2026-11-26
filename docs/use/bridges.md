@@ -13,7 +13,7 @@ session: linking its bridge signs LINE out of Beeper Desktop (and the Chrome ext
 ```sh
 bun life bridge                         # every messaging connector checked at once: ✓ or ✗, and why
 bun life bridge add <network>           # line, instagram, messenger, linkedin or telegram: builds it, then links it
-bun life bridge link <network> [flow]   # links it again (another way to log in: its flow id, listed when linking)
+bun life bridge link <network> [flow]   # links it again, by its login flow (or another flow's id)
 bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays. With no bridge, a
                                         # network Beeper Desktop holds is copied from Beeper (turn its source back on)
 ```
@@ -25,7 +25,18 @@ network needs (your email and password, a code), hidden as you type. When a netw
 (a fresh profile of its own, deleted after, presenting itself as the browser the bridge claims to be: LinkedIn revokes
 cookies another browser signed in for). Without Chrome, it asks you to paste one request ("Copy as cURL" from
 the developer tools' Network tab); LinkedIn revokes those within minutes. A linked network is turned on as a
-source; Life copies it once it restarts.
+source, and Life starts copying it within seconds.
+
+## Sign in from your phone
+
+When a bridge signs you out, or one is added and not linked yet, a card asks you to sign in ("Sign in to LINE again?",
+"Connect LINE?"). Its Sign in opens the network's own sign-in in Life's app, one step at a time: its web page, a short
+form, or a code to type in the network's app (the sheet waits while you switch to it). The sign-in goes from your phone
+to the bridge on your Mac; Life keeps none of it. Each network signs in one way (its `loginFlow`); the CLI uses the same.
+A network that is signed in already can't be signed in again from the phone. Telegram's own keys stay a Mac step.
+
+While a bridge was signed out, its network keeps your messages: once it is back, the bridge catches up on them (up to
+500 a chat), and Life copies them as usual. They arrive late; one from a day already read is read at night.
 
 Telegram needs two keys of your own first, once: at https://my.telegram.org (log in with your phone number) open
 "API development tools" and make an app; `link telegram` asks for its `api_id` and `api_hash` (the hash hidden as you
@@ -42,10 +53,10 @@ A group the bridge never saw can't be opened. Other networks send only into a ch
 ## LINE: from Beeper to its own bridge
 
 Life reads your LINE from Beeper Desktop until you link its own bridge, and nothing changes the day the bridge is
-added: `bun life bridge` shows LINE as "read from Beeper until linked". LINE allows one session, so linking is your step:
+added: `bun life bridge` shows LINE as "read from Beeper until you sign in from your phone". LINE allows one session, so linking is your step:
 
 1. Keep Beeper open until you have linked (Life keeps copying from it).
-2. Run `bun life bridge link line` and follow its login (your LINE email and password, then the code LINE shows).
+2. Sign in from the card on your phone (or run `bun life bridge link line`): your LINE email and password, then the code to enter in LINE.
 3. LINE signs Beeper's LINE out by itself. Never sign back in to LINE in Beeper: that would sign the bridge out.
 4. `bun life bridge` shows LINE as "bridge running".
 

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { MIN } from "./clock";
 import { log } from "./log";
 import { cliEnv, HAS_LOGIN_SHELL } from "./platform";
+import { readSettings } from "./settings";
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -181,6 +182,13 @@ export const codeAt = (root: string) =>
     "HEAD:prompts",
     "HEAD:assets",
   ]).stdout.toString();
+
+/**
+ * What a kept process runs: its code and the sources he turned on, read afresh. The archive and the watcher end when it
+ * changes, and the app starts them again: a network linked from his phone or the CLI is copied with no Restart.
+ */
+export const readRunning = (root: string) =>
+  `${codeAt(root)}${readSettings().sources.join(",")}`;
 
 /** What `probe` gives once it gives anything, tried once a second, `tries` times at most; else throws `what` isn't answering. */
 export async function untilAnswers<T>(

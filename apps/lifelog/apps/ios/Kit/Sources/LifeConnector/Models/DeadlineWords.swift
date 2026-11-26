@@ -58,10 +58,10 @@ extension Check {
             || needs?.contains { [.amount, .account, .qr].contains($0.kind) } == true
     }
 
-    /// The network a signed-out fix names (`fix:signed-out/<network>`, `memory/fix-checks.ts`): its row shows its mark.
-    public var signedOutNetwork: String? {
-        let prefix = "fix:signed-out/"
-        return ref.hasPrefix(prefix) ? String(ref.dropFirst(prefix.count)) : nil
+    /// The network a sign-in fix names (`fix:signed-out/<network>`, `fix:not-linked/<network>`, `memory/fix-checks.ts`):
+    /// its row shows that network's mark.
+    public var signInNetwork: String? {
+        ["fix:signed-out/", "fix:not-linked/"].first { ref.hasPrefix($0) }.map { String(ref.dropFirst($0.count)) }
     }
 
     /// Who an ask of his list is about, under its title (the prototype's `sub`): the chat or network it comes

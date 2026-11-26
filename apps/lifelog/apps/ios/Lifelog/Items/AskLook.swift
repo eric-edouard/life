@@ -33,7 +33,7 @@ struct AskLook {
     /// Who the ask is about, when its answer is a person: the guess leads. A payment shows only the payee an account
     /// names (`Check.namedPayee`), never a guess.
     var face: ItemFace? {
-        if let network = check.signedOutNetwork { return .network(network) }
+        if let network = check.signInNetwork { return .network(network) }
         if check.group == .guessedPerson {
             return (check.networkIdentity?.party ?? check.likelyPeople.first).map { .party($0) }
         }
@@ -48,7 +48,9 @@ struct AskLook {
     var line: String? {
         if check.group == .samePerson { return check.question.nilIfEmpty }
         if [.contactsCard, .atOrganization].contains(check.group) { return check.likelyPeople.first?.line }
-        if check.signedOutNetwork != nil { return "Messages stop reaching Life" }
+        if check.signInNetwork != nil {
+            return check.ref.hasPrefix("fix:signed-out/") ? "Messages stop reaching Life" : "Not connected yet"
+        }
         if check.group == .yourMove { return "Your move" }
         return check.rowWho()
     }

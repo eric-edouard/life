@@ -57,8 +57,8 @@ private func check(_ extra: String, group: String = "decision") throws -> Check 
         from: Data(
             #"{"ref":"fix:signed-out/line","group":"fix","title":"t","question":"q","asker":"life","options":[],"clips":[],"likelyPeople":[],"links":[]}"#
                 .utf8))
-    #expect(fix.signedOutNetwork == "line")
-    #expect(try check("").signedOutNetwork == nil)
+    #expect(fix.signInNetwork == "line")
+    #expect(try check("").signInNetwork == nil)
 }
 
 @Test func anAskSaysAnswerByOrWhatItGoesWithAfter() throws {

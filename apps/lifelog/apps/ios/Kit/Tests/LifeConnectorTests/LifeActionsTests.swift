@@ -390,3 +390,15 @@ private func repairedDuringTheCall() -> (actions: LifeActions, a: URL, reachedB:
     #expect(page.asks[1].state == .unknown)
     #expect(page.earlier == "2026-11-20" && page.version == "v1")
 }
+
+@Test func whatIsBrokenIsTheOpenFixAsksNoOneIsOn() throws {
+    func card(_ ref: String, _ group: String, _ extra: String = "") -> String {
+        #"{"kind":"ask","ref":"\#(ref)","state":"needs_you","card":{"ref":"\#(ref)","group":"\#(group)","title":"T","question":"Q","asker":"Life","options":[],"clips":[],"likelyPeople":[],"links":[]\#(extra)}}"#
+    }
+    let page = try ThreadRead.parsed(
+        #"{"items":[\#(card("fix:signed-out/chat", "fix")),\#(card("dec_1", "decision")),"#
+            + #"\#(card("fix:signed-out/mail", "fix", #","beingFixed":{"ask":"a1","line":"L","context":"C"}"#)),"#
+            + #"{"kind":"ask","ref":"fix:old","state":"settled","card":{"title":"T"}}]}"#)
+    #expect(page.asks.count == 4 && page.asks[2].check?.beingFixed != nil)
+    #expect(page.broken.map(\.ref) == ["fix:signed-out/chat"])
+}

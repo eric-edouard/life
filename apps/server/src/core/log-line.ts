@@ -117,6 +117,7 @@ export const errorOf = (e: unknown) => {
 /** Fields named for content, dropped from every line at any depth: a net under the writers, which never pass them. */
 const CONTENT = [
   "after",
+  "answers",
   "answer",
   "body",
   "content",
