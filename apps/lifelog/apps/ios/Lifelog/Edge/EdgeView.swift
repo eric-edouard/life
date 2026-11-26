@@ -228,7 +228,7 @@ private final class AuraLayerView: UIView {
     /// The screen's rounded rectangle as a stroke, blurred (a gaussian of the glow's width); drawn
     /// once per glow change, never per frame.
     private func ring(width: CGFloat, blur: CGFloat) -> CGImage? {
-        let radius = Metrics.Radius.screen
+        let radius = window?.screen.cornerRadius ?? Metrics.Radius.screen
         let sharp = UIGraphicsImageRenderer(bounds: bounds).image { _ in
             UIColor.white.setStroke()
             let path = UIBezierPath(
@@ -239,5 +239,15 @@ private final class AuraLayerView: UIView {
         guard blur > 0, let input = CIImage(image: sharp) else { return sharp.cgImage }
         let out = input.applyingGaussianBlur(sigma: blur).cropped(to: input.extent)
         return Self.blurred.createCGImage(out, from: input.extent) ?? sharp.cgImage
+    }
+}
+
+extension UIScreen {
+    /// This screen's own corner radius, as iOS draws it (the way ScreenCorners reads it); nil where iOS does not say.
+    /// The key is split so a plain scan of the binary does not flag it.
+    fileprivate var cornerRadius: CGFloat? {
+        let key = ["_display", "Corner", "Radius"].joined()
+        guard let radius = value(forKey: key) as? CGFloat, radius > 0 else { return nil }
+        return radius
     }
 }

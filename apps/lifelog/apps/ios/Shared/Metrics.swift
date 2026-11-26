@@ -75,7 +75,7 @@ enum Metrics {
         static let block: CGFloat = 18
         /// A sheet, a panel, the floating player.
         static let sheet: CGFloat = 22
-        /// The aura's ring, the corner of the screen (an iPhone's, near enough).
+        /// The aura's ring where the screen does not give its own corner (`UIScreen.cornerRadius`).
         static let screen: CGFloat = 55
     }
 
