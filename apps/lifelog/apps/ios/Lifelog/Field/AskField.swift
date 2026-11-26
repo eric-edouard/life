@@ -19,7 +19,8 @@ struct AskField: View {
                 .buttonStyle(.glass).buttonBorderShape(.circle).accessibilityLabel("Stop").appears()
             }
             DictationField(
-                prompt: "Ask Life", text: $text, axis: .vertical, focused: isFocused, send: send, isCard: true,
+                prompt: "Ask Life or hold to talk", text: $text, axis: .vertical, focused: isFocused, send: send,
+                isCard: true,
                 listening: $isSpeaking
             )
             .font(.body15).foregroundStyle(Palette.fg)

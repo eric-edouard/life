@@ -106,12 +106,15 @@ struct DictationField: View {
             if let problem = dictation.problem { ProblemLine(problem: problem) { fix(problem) }.appears() }
             cardWords.frame(maxWidth: .infinity, alignment: .leading).padding(.top, Metrics.Spacing.m)
             HStack(spacing: Metrics.Spacing.s) {
-                Button(action: cancel) {
-                    Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
-                        .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
-                        .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+                // The cross belongs to listening: the idle field is one capsule (the prototype's `idleField`).
+                if dictation.phase != .rest {
+                    Button(action: cancel) {
+                        Image(systemName: "xmark").font(.system(size: 14)).foregroundStyle(Palette.muted)
+                            .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
+                            .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget).contentShape(.rect)
+                    }
+                    .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
                 }
-                .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
                 Group {
                     if dictation.phase == .rest {
                         Color.clear

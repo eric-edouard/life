@@ -48,7 +48,7 @@ struct ItemRow: View {
                 .joined(separator: " · ").nilIfEmpty
         case .later: ask.later.map { "Later · \(when($0, withTime: true))" } ?? "Later"
         case .waitingOnSomeone: "Waiting for a reply"
-        case .settled: ask.closed?.sent == nil ? "Done" : "Sent"
+        case .settled: ask.closed?.sent == nil ? "Done" : keptTo.map { "Sent to \($0)" } ?? "Sent"
         case .outdated: ask.closed?.withdrawn?.why ?? "Out of date"
         case .underWay: nil
         }
@@ -67,6 +67,11 @@ struct ItemRow: View {
     /// Its face: the chat's when it is a message, a person's when the answer is a person; it keeps it once settled or
     /// out of date, when the wire no longer carries the draft.
     @State private var kept: String?
+    @State private var keptTo: String?
+    /// Who it is for, as their initial; the mark only when there is no one to show.
+    private var face: ItemFace? {
+        (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
+    }
     private var icon: String {
         if let check = ask.check {
             if check.draft != nil { return "bubble.left" }
@@ -83,13 +88,22 @@ struct ItemRow: View {
         .motion(Motion.standard, value: hasRating)
     }
 
+    /// "How am I doing?" shows under one ask a day at most: the first to show it keeps the day until its mark.
     private var hasRating: Bool {
-        !isRatingClosed && (rated != nil || (ask.closed?.rate != nil && ask.closed?.rate?.mark == nil))
+        guard !isRatingClosed else { return false }
+        if rated != nil { return true }
+        guard ask.closed?.rate != nil, ask.closed?.rate?.mark == nil else { return false }
+        let today = life.now().formatted(.iso8601.year().month().day())
+        let key = "ratingDay", refKey = "ratingRef"
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: key) == today { return defaults.string(forKey: refKey) == ask.ref }
+        return true
     }
 
     private var row: some View {
         ThreadItemRow(
             title: isOnTheirMatter && !ask.question.isEmpty ? ask.question : ask.title, state: state, icon: icon,
+            face: face,
             line: line, isOpen: isOpen, ref: ask.ref,
             toggle: {
                 Motion.animate { isOpen.toggle() }
@@ -105,10 +119,17 @@ struct ItemRow: View {
             .padding(Metrics.Spacing.l).presentationDetents([.medium, .large])
         }
         .onAppear { isOpen = life.focused == ask.ref }
+        .onChange(of: hasRating, initial: true) {
+            guard hasRating else { return }
+            let defaults = UserDefaults.standard
+            defaults.set(life.now().formatted(.iso8601.year().month().day()), forKey: "ratingDay")
+            defaults.set(ask.ref, forKey: "ratingRef")
+        }
         .onChange(
             of: ask.check?.draft != nil || ask.check?.options.contains { $0.takes == .person } == true, initial: true
         ) {
             if ask.check != nil, icon != "circle.dashed" { kept = icon }
+            if let to = ask.check?.draft?.to { keptTo = to }
         }
         .onChange(of: life.focused) { if life.focused == ask.ref { Motion.animate { isOpen = true } } }
         // Answered or out of date, it folds back to its row and its line.

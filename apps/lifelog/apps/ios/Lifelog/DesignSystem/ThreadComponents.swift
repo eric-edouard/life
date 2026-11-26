@@ -193,12 +193,21 @@ enum ItemState: Hashable {
     }
 }
 
-/// One item of the thread as a bare row that unfolds: its round icon, the title, a line under it when the state has
-/// one, its state's mark at the end; unfolded it sits on a `wash` that fades out to the screen's edges (`washed`), with no dividers between rows.
+/// Whose face an item has: a person's picture or initial (who asks), else a mark (a thing with no one behind it).
+enum ItemFace: Equatable {
+    case party(Party)
+    case initial(String)
+}
+
+/// One item of the thread as a bare row that unfolds: its round face, the title, a line under it that says how it
+/// stands (a settled one starts with a green tick); nothing trails it. Unfolded it is the same row, larger, with a fold
+/// button, on a `wash` that fades out to the screen's edges (`washed`), with no dividers between rows.
 struct ThreadItemRow<Detail: View>: View {
     let title: String
     let state: ItemState
     var icon = "circle.dashed"
+    /// A person's face, when someone asks; the `icon` mark otherwise.
+    var face: ItemFace?
     /// What the row says under its title: "Jade · today", "Later · 9:00", why it went out of date.
     var line: String?
     var isOpen = false
@@ -206,14 +215,15 @@ struct ThreadItemRow<Detail: View>: View {
     var ref: String?
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
+    /// The disc grows with the text size, so a mark or an initial stays inside it.
+    @ScaledMetric private var disc = Metrics.disc
+    @ScaledMetric private var askDisc = Metrics.askDisc
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
             Button(action: toggle) {
                 HStack(spacing: Metrics.Spacing.m) {
-                    Image(systemName: icon).font(.rowTitle).foregroundStyle(Palette.muted)
-                        .frame(width: Metrics.disc, height: Metrics.disc).background(Palette.tint, in: .circle)
-                        .accessibilityHidden(true)
+                    faceView
                     VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
                         Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
                         lineView
@@ -227,10 +237,34 @@ struct ThreadItemRow<Detail: View>: View {
             .buttonStyle(.plain).identified(ref.map(AID.askRow))
             if isOpen { detail }
         }
+        .overlay(alignment: .topTrailing) {
+            if isOpen {
+                Button(action: toggle) {
+                    Image(systemName: "chevron.up").font(.lineStrong).foregroundStyle(Palette.muted)
+                        .frame(width: Metrics.tapTarget * 0.7, height: Metrics.tapTarget * 0.7)
+                        .background(Palette.tint, in: .circle)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Fold")
+            }
+        }
         .opacity(state == .outdated ? Metrics.Opacity.faded : 1)
         .padding(.vertical, isOpen ? Metrics.Spacing.m : 0).washed(isOpen)
         .motion(Motion.standard, value: state.kind).motion(Motion.standard, value: line)
         .washes(on: state.kind)
+    }
+
+    /// The row's face, 40 pt (48 unfolded): who asks, else a mark.
+    @ViewBuilder private var faceView: some View {
+        let size = isOpen ? askDisc : disc
+        Group {
+            switch face {
+            case .party(let party): Face(party: party, size: size)
+            case .initial(let letter):
+                Text(letter.uppercased()).font(isOpen ? .header : .rowTitle).foregroundStyle(Palette.muted)
+            case nil: Image(systemName: icon).font(isOpen ? .header : .rowTitle).foregroundStyle(Palette.muted)
+            }
+        }
+        .frame(width: size, height: size).background(Palette.tint, in: .circle).accessibilityHidden(true)
     }
 
     @ViewBuilder private var lineView: some View {
@@ -240,8 +274,18 @@ struct ThreadItemRow<Detail: View>: View {
                 StillRing(progress: progress, size: Metrics.pieSmall)
                 Text(estimate ?? "Under way").font(.line).foregroundStyle(Palette.muted)
             }
-        case .undone(let outcome): Text(outcome).font(.line).foregroundStyle(Palette.muted)
+        case .undone(let outcome):
+            HStack(spacing: Metrics.Spacing.xs) {
+                Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)
+                Text(outcome).font(.line).foregroundStyle(Palette.muted)
+            }
         case .stopped: Text("Stopped").font(.line).foregroundStyle(Palette.muted)
+        case .settled:
+            HStack(spacing: Metrics.Spacing.xs) {
+                Image(systemName: "checkmark").font(.lineStrong).foregroundStyle(Palette.ok)
+                    .accessibilityLabel("Settled").identified(ref.map(AID.askSettled))
+                if let line { Text(line).font(.line).foregroundStyle(Palette.muted) }
+            }
         default: if let line { Self.coral(line).font(.line).foregroundStyle(Palette.muted).contentTransition(.opacity) }
         }
     }
@@ -261,21 +305,12 @@ struct ThreadItemRow<Detail: View>: View {
 
     @ViewBuilder private var markFace: some View {
         switch state {
-        case .needsYou:
-            Circle().fill(Palette.flag).frame(width: Metrics.flagDot, height: Metrics.flagDot).accessibilityLabel(
-                "Needs you")
-        case .later: Image(systemName: "clock").foregroundStyle(Palette.muted).accessibilityLabel("Later")
-        case .waitingOnSomeone:
-            Image(systemName: "hourglass").foregroundStyle(Palette.muted).accessibilityLabel("Waiting on someone")
-        case .settled, .undone:
-            Image(systemName: "checkmark").foregroundStyle(Palette.ok).accessibilityLabel("Settled")
-                .identified(ref.map(AID.askSettled))
         case .queued:
             Image(systemName: "arrow.up.circle").foregroundStyle(Palette.muted).accessibilityLabel(
                 "Goes when Life is back"
             ).identified(ref.map(AID.askQueued))
         case .stopped: Image(systemName: "stop.circle").foregroundStyle(Palette.muted).accessibilityLabel("Stopped")
-        case .underWay, .outdated: EmptyView()
+        default: EmptyView()
         }
     }
 }
@@ -393,13 +428,15 @@ struct NoticeBlock<Detail: View>: View {
     /// The tests' handle (`AID`), on the tap itself.
     var id: String?
     @ViewBuilder var detail: Detail
+    /// The disc grows with the text size, so the mark stays inside it and inside the gutter.
+    @ScaledMetric private var disc = Metrics.disc
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
             Button(action: toggle) {
                 HStack(spacing: Metrics.Spacing.m) {
                     Image(systemName: symbol).font(.rowTitle).foregroundStyle(Palette.muted)
-                        .frame(width: Metrics.disc, height: Metrics.disc).background(Palette.tint, in: .circle)
+                        .frame(width: disc, height: disc).background(Palette.tint, in: .circle)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
                         Text(title).font(.rowTitle).multilineTextAlignment(.leading)
