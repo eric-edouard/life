@@ -54,9 +54,11 @@ struct VoicesRow: View {
             if let last = life.namedVoice, last.ref != check.ref { lastLine(last) }
             if !check.clips.isEmpty { moment(check) }
             // Why Life suggests who it suggests, under the moment, while he has not turned to someone else.
-            if !isNaming, let why = suggestion(check).flatMap({ guess in
-                check.voiceGuesses?.first { $0.person.ref == guess.ref }?.why
-            }) {
+            if !isNaming,
+                let why = suggestion(check).flatMap({ guess in
+                    check.voiceGuesses?.first { $0.person.ref == guess.ref }?.why
+                })
+            {
                 Text(why).font(.line).foregroundStyle(Palette.muted)
             }
             if isNaming { naming(check) } else { answers(check) }
