@@ -18,6 +18,29 @@ prototype's literal greys. Read from the code; the prototype was not rendered (t
 
 ## Low cognitive load: the principles
 
+### Start from his seat (his word, 26 Nov)
+
+He uses Life so that it lowers his cognitive load and does things for him. He switches context all day, between
+people, apps and AIs, so every screen is handed to him on a silver platter. Before anything else, a card or row must let
+him answer two questions at a glance, with no prior context: **what is this about?** and **what is asked of me?** If a
+plain sentence would answer them better than the drawn component, the sentence wins.
+
+Rules he set on 26 Nov, which win over anything below:
+
+- **Every fact once.** Never say the same thing twice on one card: a person's name, a "voice at lunch" title and a "heard
+  at lunch" line, the same icon in two places. Each element has one purpose, or it goes.
+- **No numbers he doesn't need.** No word counts, durations or "heard at 2 lunches": what matters is that Life grouped
+  right and guessed right, so he just says yes.
+- **An ask does not show its matter**, for now (no matter header, no matter line on an ask).
+- **The recommended answer is on the right**, in cream, where the thumb is.
+- **A message's source looks like its app:** the app's mark in its brand colour and its link ("Open WhatsApp"), one
+  component everywhere a message is quoted (prototype `chatHTML`, `:646`).
+- **Voice is read, not drawn:** no waveforms, no duration. The words show dim; when he taps play (with a loading state on
+  the button) each word turns white as it is spoken, the way Life's own words ink in (`.w.on`, `:356`).
+- **A closing check opens with the matter's name, then why Life thinks it is done, then the question.**
+- **Scored by fresh eyes:** a new or changed card is shown, as a screenshot only, to a reviewer with no context
+  (`2026-11-26-fresh-eyes-review.md`) before it goes to him.
+
 The goal under every choice (product.md: the bar is "a 70-year-old who doesn't know how to use an iPhone"; brand.md
 Wording: "Removing the person's load comes first"). Each principle: where it comes from, how the prototype applies it,
 and how to apply it to something new.

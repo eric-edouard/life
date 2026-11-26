@@ -48,7 +48,7 @@ const SYSTEM_RULES: Record<string, RegExp> = {
 };
 const SYSTEM_CAPS: Record<string, Record<string, number>> = {
   "DesignSystem/DraftBlock.swift": { padding: 11 },
-  "DesignSystem/Pieces.swift": { padding: 12 },
+  "DesignSystem/Pieces.swift": { padding: 11 },
 };
 
 const countsOf = (text: string, rules: Record<string, RegExp> = RULES) =>
