@@ -458,8 +458,8 @@ own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
   only on his "Continue on your Mac" (`continue_on_mac`, `desk/continue-on-mac.ts`); pi there loads Life's extension, the
   Claude app the Life plugin, so the send guard holds, and the plugin turns his app's asks into allows in an agent's
   session (`tool.check`: his app imports bypass as accept edits; his words of 26 Nov 2026: "fully transparent regarding
-  the permissions mode"). A holder quiet 10 minutes when a wake is due, or any time for the main session, is ended by the
-  desk (`takeBackIfLeft`, `desk-clock.ts`; his ruling of 22 Nov 2026).
+  the permissions mode"). A holder quiet 10 minutes when a wake is due (for the main session, with no wake needed) is ended by
+  the desk (`takeBackIfLeft`, `continue-on-mac.ts`; his ruling of 22 Nov 2026).
 - The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`). The desk takes a call's words as in the same way (`recordingsOf`, `sources/lifelog-speech.ts`): a turn past the call's end, or `endedOnSilence` or `closed`, and no earlier recording queued or submitted.
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).

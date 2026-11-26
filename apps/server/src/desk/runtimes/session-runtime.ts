@@ -49,7 +49,7 @@ export const openingOf = (): Opening => {
 /** A session kept open across prompts (`talk`, `keep`), reserved in `kept` and `live` before it opens (`ready`). */
 interface Kept {
   active: Active;
-  /** Its agent, while its session is new: listed in his app (`listInApp`) once Life's process lets it go. */
+  /** Its agent, while its session is new: listed in his app (`listInApp`) once Life's process lets it go. ponytail: in memory, so a restart before that close drops this one listing. */
   agentToList?: Agent;
   c?: Connection;
   id: string;

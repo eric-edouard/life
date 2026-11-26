@@ -1,15 +1,12 @@
-import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { clock, HOUR } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
 import { isOwnLife } from "../core/platform";
-import { exec } from "../core/proc";
 import {
   type AgentRow,
   type AssignmentRow,
-  agentInRole,
   agentOf,
   anchorsOf,
   assignmentOf,
@@ -44,13 +41,6 @@ import {
   moveOn,
   notesTurnsOf,
 } from "../host/move-read";
-import {
-  hasLeftOf,
-  readOpenSessionRecords,
-  sessionOpenInOf,
-  TERMINAL_ENTRYPOINT,
-  TERMINAL_SESSIONS,
-} from "../host/open-session-records";
 import { monthBudgetOf, spendingStopOf } from "../host/spending";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
@@ -73,6 +63,7 @@ import {
 import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
+import { takeBackIfLeft, takeBackMainIfLeft } from "./continue-on-mac";
 import { type Desk, saveCursor } from "./desk-store";
 import {
   agentWakesOf,
@@ -420,50 +411,6 @@ function dueOf(db: Desk["db"], agent: string, assignment: string) {
     rank = 1;
   }
   return { ...d, a, events, move, rank, s };
-}
-
-/** The holders ended, each once: a holder still ending stays in its record a moment. ponytail: grows by one pid per take-back, for the helper's life. */
-const takenBack = new Set<number>();
-
-/**
- * Takes agent `a`'s session back from his Mac once he left it (`hasLeftOf`, his ruling of 22 Nov 2026: no button, Life
- * takes control back by itself): its holder (Life's Terminal launcher, or his Claude app's process for it, each checked by
- * its command line) is ended with SIGTERM, logged once, and the next tick wakes it. Never the desk's own runs (`sdk-*`).
- */
-async function takeBackIfLeft(a: AgentRow) {
-  const r = a.session ? readOpenSessionRecords().get(a.session) : undefined;
-  if (
-    !(r && sessionOpenInOf(r) && hasLeftOf(r, clock().getTime())) ||
-    takenBack.has(r.pid)
-  ) {
-    return;
-  }
-  // The holder checked by its command line, a record outliving its process (its pid reused) never ends another.
-  const { stdout } = await exec(["ps", "-o", "command=", "-p", String(r.pid)]);
-  const holder =
-    r.entrypoint === TERMINAL_ENTRYPOINT ? "pi-terminal" : "claude";
-  if (!stdout.toLowerCase().includes(holder)) {
-    // Life's own record outlived its launcher: dropped, so its pid's new owner never holds the agent's wakes.
-    if (r.entrypoint === TERMINAL_ENTRYPOINT) {
-      rmSync(join(TERMINAL_SESSIONS, `${r.pid}.json`), { force: true });
-    }
-    return;
-  }
-  try {
-    process.kill(r.pid, "SIGTERM");
-    takenBack.add(r.pid);
-    log("desk.session_taken_back", { agent: a.id, runtime: a.runtime });
-  } catch (e) {
-    log("desk.session_taken_back", { agent: a.id, ok: false, ...errorOf(e) });
-  }
-}
-
-/** `takeBackIfLeft` for the main session, which has no due wake: his app never holds Ask Life past `LEFT_AFTER_MS` quiet. */
-async function takeBackMainIfLeft(desk: Desk) {
-  const main = agentInRole(desk.db, "main");
-  if (main?.status === "active") {
-    await takeBackIfLeft(main);
-  }
 }
 
 /**
