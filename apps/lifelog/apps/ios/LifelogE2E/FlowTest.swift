@@ -28,7 +28,9 @@ class FlowTest: XCTestCase {
 
     override func tearDown() async throws {
         // The board's Taps: every tap of the flow, the task's included, written once it ended.
-        if let shot { try? String(taps).write(to: Self.parity.appending(path: "\(shot).taps"), atomically: true, encoding: .utf8) }
+        if let shot {
+            try? String(taps).write(to: Self.parity.appending(path: "\(shot).taps"), atomically: true, encoding: .utf8)
+        }
         app.terminate()
     }
 
@@ -77,7 +79,8 @@ class FlowTest: XCTestCase {
 
     /// The field at the bottom of the thread: shown once the thread is.
     var field: XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Ask Life or hold to talk")).firstMatch
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Ask Life or hold to talk"))
+            .firstMatch
     }
 
     /// His words to Life, typed and sent; the fake Life answers with the scenario's `items` (or `text`).

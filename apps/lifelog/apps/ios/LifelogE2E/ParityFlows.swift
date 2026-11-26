@@ -8,7 +8,8 @@ import XCTest
     func testOpeningClean() {
         launch("OP1")
         appears(field, "the thread")
-        appears(app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "waiting on you")).firstMatch, "the count")
+        appears(
+            app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "waiting on you")).firstMatch, "the count")
         shoot("open-clean")
     }
 }
@@ -63,7 +64,9 @@ import XCTest
     func testSlowAnswer() {
         launch("M1")
         askLife("Where are we regarding the house?")
-        appears(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch, "the answer's last words", within: 30)
+        appears(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch,
+            "the answer's last words", within: 30)
         shoot("slow-answer")
     }
 }
