@@ -44,8 +44,8 @@ import SwiftUI
         /// `-auraState still` starts the aura page on that state, for screenshots.
         private static var launchState: EdgeState {
             let named = CommandLine.arguments.drop { $0 != "-auraState" }.dropFirst().first
-            return AuraKnobs.stateNames.first { $0.value.lowercased().replacingOccurrences(of: " ", with: "") == named }?.key
-                ?? .rest
+            let names = AuraKnobs.stateNames
+            return names.first { $0.value.lowercased().replacingOccurrences(of: " ", with: "") == named }?.key ?? .rest
         }
 
         private static let sample: CGFloat = 64

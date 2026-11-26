@@ -331,7 +331,7 @@ export function changeSetting({
     throw new Error("Not done: name `monthlyUsd` or `aura`.");
   }
   setSettings({
-    ...(aura && { aura }),
+    ...(aura !== undefined && { aura }),
     ...(monthlyUsd !== undefined && { budget: { monthlyUsd } }),
   });
   return { aura: settings().aura, budget: settings().budget };
