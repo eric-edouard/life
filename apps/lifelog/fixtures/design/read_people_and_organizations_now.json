@@ -106,7 +106,8 @@
     },
     "situation": [
       {
-        "text": "You are planning Mum’s 60th with her: she wants the table at Chez Odile on Friday 27th, and has asked twice this week whether the signed lease has gone to Hélène. She is away in Lyon until Sunday, and the cake has to be ordered before Thursday."
+        "cites": ["person:camille"],
+        "markdown": "You are planning Mum’s 60th with her: she wants the table at Chez Odile on Friday 27th, and has asked twice this week whether the signed lease has gone to Hélène. She is away in Lyon until Sunday, and the cake has to be ordered before Thursday."
       }
     ],
     "knows": [

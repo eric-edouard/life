@@ -3,16 +3,14 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readChangeStamp, writeJson } from "../../core/files";
 import { setSettings } from "../../core/settings";
-import {
-  matterSituationPath,
-  PROJECT_SITUATIONS,
-  projectSituationPath,
-} from "../../memory/memory-files";
 import { withNetworkIdentity } from "../../memory/network-identity";
 import { PERSON_PICTURES, pictureFileOf } from "../../memory/party";
 import {
   MATTER_SITUATION_PROMPT,
+  matterSituationPath,
   PROJECT_SITUATION_PROMPT,
+  PROJECT_SITUATIONS,
+  projectSituationPath,
   promptNameNow,
 } from "../../memory/situation-parts";
 import type { WakeLine } from "../registered-agents";

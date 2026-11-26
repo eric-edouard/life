@@ -4,9 +4,8 @@ import type { MatterView } from "./matter-read";
 import { matterSituationInputOf, matterSituations } from "./matter-situations";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
-import { matterSituationPath } from "./memory-files";
 import { inputsOf } from "./run";
-import { readMatterSituationNow } from "./situation-parts";
+import { matterSituationPath, readMatterSituationNow } from "./situation-parts";
 import type { People } from "./who";
 
 const S1 = "obs_aaaaaaaaaaaa";
@@ -22,7 +21,7 @@ afterEach(async () => {
 const step = (ref: string, day: string, text: string) => ({
   at: `${day}T09:00:00Z`,
   day,
-  kind: "fact" as const,
+  kind: "news" as const,
   quote: "",
   ref,
   text,

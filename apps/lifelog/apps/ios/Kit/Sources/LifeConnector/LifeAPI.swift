@@ -52,6 +52,8 @@ public protocol LifeAPI: Sendable {
     /// One part of a read by its ref (`person:<id>/now`, `…/latest/before/<day>`, `…/page`), as `fetch` opens it.
     func readPart(_ ref: String) async throws -> String
 
+    /// A matter in full (`read_matter`), as `Matter`: its page.
+    func readMatter(_ id: String) async throws -> String
     /// His directory: everyone with a page, as `PeopleList` (`read_people_and_organizations` with no name).
     func readPeople() async throws -> String
 
@@ -106,6 +108,7 @@ public struct MCPLifeAPI: LifeAPI {
         try await client.call("read_person_pictures", ["ids": ids])
     }
     public func readPart(_ ref: String) async throws -> String { try await client.call("fetch", ["id": ref]) }
+    public func readMatter(_ id: String) async throws -> String { try await client.call("read_matter", ["id": id]) }
     public func readPeople() async throws -> String {
         try await client.call("read_people_and_organizations", [String: String]())
     }

@@ -126,9 +126,22 @@ public struct MatterStep: Decodable, Sendable, Equatable, Identifiable {
     public let ending: Ending?
 }
 
+/// One part of a situation (a person's, a matter's): Markdown written to him, and the refs it rests on.
+public struct SituationPart: Decodable, Sendable, Equatable {
+    public let markdown: String
+    public let cites: [String]
+
+    /// The parts as one Markdown text, for Ask Life's renderer (`AnswerPart.parts`).
+    public static func markdown(of parts: [SituationPart]) -> String {
+        parts.map(\.markdown).joined(separator: "\n\n")
+    }
+}
+
 /// `read_matter`: a matter in full.
 public struct Matter: Decodable, Sendable, Equatable {
     public let row: MatterRow
+    /// Life's reading of what it is and where it stands; empty until the night writes it.
+    public let situation: [SituationPart]
     public let steps: [MatterStep]
     public let agents: [RegisteredAgent]
     /// Every open check about it, of every kind (`checksOnMatterOf`, `memory/checks.ts`).
@@ -142,11 +155,14 @@ public struct Matter: Decodable, Sendable, Equatable {
     public let moveBlocked: MoveBlocked?
     public let move: AgentMove?
 
-    private enum Key: String, CodingKey { case steps, agents, checks, spending, holder, moveTo, moveBlocked, move }
+    private enum Key: String, CodingKey {
+        case situation, steps, agents, checks, spending, holder, moveTo, moveBlocked, move
+    }
 
     public init(from decoder: any Decoder) throws {
         row = try MatterRow(from: decoder)
         let container = try decoder.container(keyedBy: Key.self)
+        situation = try container.decodeIfPresent([SituationPart].self, forKey: .situation) ?? []
         steps = try container.decode([MatterStep].self, forKey: .steps)
         agents = try container.decode([RegisteredAgent].self, forKey: .agents)
         checks = try container.decode([Check].self, forKey: .checks)

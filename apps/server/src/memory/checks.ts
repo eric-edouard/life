@@ -74,7 +74,6 @@ import {
   CLOSENESS,
   deletionsNow,
   PAGES,
-  PROJECT_SITUATIONS,
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
@@ -93,6 +92,7 @@ import {
   samePersonPairOf,
   samePersonPairsOf,
 } from "./same-person";
+import { PROJECT_SITUATIONS } from "./situation-parts";
 import { voiceChecksOf } from "./voice-checks";
 import { withConversations, withVoiceGuesses } from "./voice-guesses";
 import { readPeople, readUnresolvedPeople } from "./who";

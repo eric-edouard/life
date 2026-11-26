@@ -11,7 +11,7 @@ import {
   messageMatchableOf,
   messagePayloadOf,
 } from "../host/events";
-import { projectSituationPath } from "../memory/memory-files";
+import { projectSituationPath } from "../memory/situation-parts";
 import { readPeople } from "../memory/who";
 import { promptNameOf } from "../models/prompt-parts";
 import type { SourceEvent } from "../records/source";

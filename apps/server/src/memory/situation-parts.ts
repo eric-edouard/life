@@ -1,12 +1,9 @@
+import { join } from "node:path";
 import { readJson } from "../core/files";
 import { MAY_KEEP, promptNameOf, readOwnerName } from "../models/prompt-parts";
 import { Situation, SituationPart } from "../records/situation";
 import { isHiddenUntilRedone, shownKeyOf } from "./deletions";
-import {
-  deletionsNow,
-  matterSituationPath,
-  projectSituationPath,
-} from "./memory-files";
+import { deletionsNow, MEMORY } from "./memory-files";
 import { locate } from "./quote-check";
 import { readMayKeep } from "./read-truth";
 import { lifeRefsOf } from "./refs";
@@ -15,6 +12,15 @@ import { replyLines } from "./run";
 // The situations' one set of rules (docs/glossary.md: situation): a person's, a project's and a matter's are written by
 // their own steps (`situations.ts`, `project-situations.ts`, `matter-situations.ts`) as Markdown parts to him ("you"),
 // checked here when written (`partsOf`) and read here (`situationPartsNow`).
+
+/** Where each project underway stands (`project-situations.ts`), one file per project, apart from the people's. */
+export const PROJECT_SITUATIONS = join(MEMORY, "project-situations");
+export const projectSituationPath = (project: string) =>
+  join(PROJECT_SITUATIONS, `${project}.json`);
+/** Where each matter stands (`matter-situations.ts`), one file per matter. */
+export const MATTER_SITUATIONS = join(MEMORY, "matter-situations");
+export const matterSituationPath = (matter: string) =>
+  join(MATTER_SITUATIONS, `${matter}.json`);
 
 /** A prompt's name as the add-ons choose it now: a situation made by another variant is hidden at once, until redone. */
 export const promptNameNow = (prompt: string, mayKeep = readMayKeep()) =>
@@ -91,14 +97,12 @@ export const situationBlock = (
     : [];
 
 /** Every string in a value: where a quote may be found. */
-const stringsOf = (x: unknown): string[] =>
-  typeof x === "string"
-    ? [x]
-    : Array.isArray(x)
-      ? x.flatMap(stringsOf)
-      : x && typeof x === "object"
-        ? Object.values(x).flatMap(stringsOf)
-        : [];
+const stringsOf = (x: unknown): string[] => {
+  if (typeof x === "string") {
+    return [x];
+  }
+  return x && typeof x === "object" ? Object.values(x).flatMap(stringsOf) : [];
+};
 
 /** Words given as someone's: a `>` quote's line, or 12 characters or more in quotation marks. */
 const QUOTED = /[“"«]([^”"»\n]{12,})[”"»]/g;

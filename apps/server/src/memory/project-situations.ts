@@ -5,14 +5,15 @@ import { isUnderway } from "../records/truth";
 import { shownKeyOf } from "./deletions";
 import { isRunning, type MatterView, nextStepNow } from "./matter-read";
 import { matterBookAgain, readMatterRecords } from "./matters";
-import { PROJECT_SITUATIONS, projectSituationPath } from "./memory-files";
 import { meContext } from "./model-context";
 import { openDecisions, projectOf } from "./read-matters";
 import { readMayKeep } from "./read-truth";
 import { begin, inBatches, inputsOf, readsOf } from "./run";
 import {
+  PROJECT_SITUATIONS,
   PROJECT_SITUATION_PROMPT as PROMPT,
   partsOf,
+  projectSituationPath,
   promptNameNow,
   readStoredSituation,
 } from "./situation-parts";

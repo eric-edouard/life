@@ -5,7 +5,6 @@ import { promptNameOf } from "../models/prompt-parts";
 import { type MatterView, nextStepNow } from "./matter-read";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
-import { projectSituationPath } from "./memory-files";
 import {
   projectInputOf,
   projectSituations,
@@ -13,7 +12,10 @@ import {
 } from "./project-situations";
 import { projectStepRefsOf } from "./read-matters";
 import { inputsOf } from "./run";
-import { readProjectSituationNow } from "./situation-parts";
+import {
+  projectSituationPath,
+  readProjectSituationNow,
+} from "./situation-parts";
 import type { People } from "./who";
 
 const ID = "test-harbor";

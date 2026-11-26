@@ -28,9 +28,7 @@ import { instructionsHolding } from "./instructions";
 import { mattersNow, readMatters } from "./matters";
 import {
   HISTORIES,
-  MATTER_SITUATIONS,
   PERSONAS,
-  PROJECT_SITUATIONS,
   readEpisodes,
   readIndex,
   readLedger,
@@ -45,6 +43,7 @@ import { readFiles } from "./message-files";
 import { locate } from "./quote-check";
 import { deletionRefusalOf, lifeRefsOf, parseRef } from "./refs";
 import { search } from "./search";
+import { MATTER_SITUATIONS, PROJECT_SITUATIONS } from "./situation-parts";
 import { publishUnits } from "./unit-writer";
 import { clip, isFrozen } from "./units";
 import { readPeople } from "./who";

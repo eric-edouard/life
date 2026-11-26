@@ -145,9 +145,7 @@ test("`now` holds under PART_CHARS with hundreds of open matters, the top-ranked
       },
     ],
     row: row("person:me"),
-    situation: [
-      { cites: ["ep_000000000001"], markdown: "Busy with the move." },
-    ],
+    situation: [{ cites: ["ep_000000000001"], markdown: "On the move." }],
     today: "2026-03-10",
   });
   expect(JSON.stringify(now).length).toBeLessThanOrEqual(PART_CHARS);

@@ -180,6 +180,34 @@ async function situationTargets() {
   };
 }
 
+/** What a situation's call is shown, and the refs a part may cite: the page, the story while there is one, the episodes. */
+const callOf = (
+  t: { episodes: Episode[]; ref: string },
+  digested: ReturnType<typeof situationInputOf>,
+  shown: {
+    page: string;
+    persona: PersonaReading[];
+    story: string | undefined;
+    today: string;
+  }
+) => ({
+  input: {
+    episodes: digested.episodes,
+    page: { ref: t.ref, text: shown.page },
+    // To tell what repeats from what is new (its prompt part is cut while the add-on is off).
+    ...(hasAddOn("personas") ? { persona: shown.persona } : {}),
+    ...(shown.story
+      ? { story: { ref: `${t.ref}/story`, text: shown.story } }
+      : {}),
+    today: shown.today,
+  },
+  shown: new Set([
+    t.ref,
+    ...(shown.story ? [`${t.ref}/story`] : []),
+    ...t.episodes.map((m) => m.id),
+  ]),
+});
+
 const pageText = (ref: string) =>
   existsSync(pagePath(ref)) ? readFileSync(pagePath(ref), "utf8") : "";
 
@@ -215,15 +243,12 @@ export async function situations({ personaOf, storyOf }: SituationReadings) {
           return;
         }
         // The story is another summary: shown, never in the digest (AGENTS.md, "A summary is redone only when…").
-        const story = t.ref === OWNER ? undefined : storyOf(t.ref);
-        const input = {
-          episodes: digested.episodes,
-          page: { ref: t.ref, text },
-          // To tell what repeats from what is new (its prompt part is cut while the add-on is off).
-          ...(hasAddOn("personas") ? { persona } : {}),
-          ...(story ? { story: { ref: `${t.ref}/story`, text: story } } : {}),
+        const { input, shown } = callOf(t, digested, {
+          page: text,
+          persona,
+          story: t.ref === OWNER ? undefined : storyOf(t.ref),
           today: step.today,
-        };
+        });
         const reply = await step.ask({
           context: refs.context,
           dir,
@@ -242,15 +267,7 @@ export async function situations({ personaOf, storyOf }: SituationReadings) {
           built: step.now.toISOString(),
           inputs,
           madeBy: step.madeBy(SITUATION_PROMPT),
-          parts: partsOf(
-            reply,
-            new Set([
-              t.ref,
-              ...(story ? [`${t.ref}/story`] : []),
-              ...t.episodes.map((m) => m.id),
-            ]),
-            input
-          ),
+          parts: partsOf(reply, shown, input),
           schemaVersion: 2,
           subject: t.ref,
         };

@@ -1,0 +1,18 @@
+{
+  "name": "A person's page and a matter's",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "life/read_thread_draft.json",
+        "fetch": "life/read_people_and_organizations_now.json",
+        "read_matter": "life/read_matter.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": [],
+  "text": "Ana is [Test Ana](life:person:test-ana); her quote is on [the watch](life:matter_aaaaaaaaaaaa)."
+}

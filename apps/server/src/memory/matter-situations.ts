@@ -10,11 +10,12 @@ import {
   readMatterBookAndRecords,
   type readMatterRecords,
 } from "./matters";
-import { MATTER_SITUATIONS, matterSituationPath } from "./memory-files";
 import { meContext } from "./model-context";
 import { readMayKeep } from "./read-truth";
 import { begin, inBatches, inputsOf, readsOf } from "./run";
 import {
+  MATTER_SITUATIONS,
+  matterSituationPath,
   MATTER_SITUATION_PROMPT as PROMPT,
   partsOf,
   promptNameNow,
