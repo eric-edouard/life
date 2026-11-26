@@ -1,7 +1,7 @@
 import LifeConnector
 import SwiftUI
 
-/// The one endless conversation, opening clean (`Opening`, the app v4 prototype): his greeting, what is broken, at most
+/// The one endless conversation, opening clean (`OpeningScreen`, the app v4 prototype): his greeting, what is broken, at most
 /// three asks that block him and a pill for the rest, then what he asks this sitting; Show earlier brings the thread back
 /// a day at a time, with day separators, an earlier greeting kept only as its time.
 struct ThreadView: View {
@@ -14,7 +14,7 @@ struct ThreadView: View {
     /// The field that covers the thread's bottom: the last row rests above it. Kept as a margin on purpose: the
     /// safe-area inset alone left the last row under the field (the flow tests failed without it).
     var fieldHeight: CGFloat = 0
-    @State private var opening = Opening()
+    @State private var opening = OpeningScreen()
     /// The rest of the opening's asks, shown on the pill's tap.
     @State private var showsMore = false
     /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
@@ -117,7 +117,7 @@ struct ThreadView: View {
 
     /// Earlier openings' greetings between `after` and `upTo`, kept only as their time.
     private func greetings(after: Date?, upTo: Date) -> [Date] {
-        opening.earlier.filter { d in opening.isShown(d) && (after.map { d > $0 } ?? true) && d < upTo }
+        opening.earlierGreetings.filter { d in opening.isShown(d) && (after.map { d > $0 } ?? true) && d < upTo }
     }
 
     /// Today and yesterday by name, else the weekday and date.

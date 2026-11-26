@@ -2,17 +2,17 @@ import Foundation
 
 /// The opening screen (the app v4 prototype, his yes of 26 Nov 2026). At launch, or back after `cleanAfter` or more in the
 /// background, the thread opens clean: his greeting, what is broken (never capped), then at most `cap` asks that block
-/// him (Life's `opening`, in his inbox's order) and a pill for the rest; his unread count stays the full total. What came
+/// him (Life's `openingAsks`, in his inbox's order) and a pill for the rest; his unread count stays the full total. What came
 /// before is one Show earlier away, a day at a time, and an earlier opening's greeting stays only as its time. Back
 /// sooner, nothing changes. Held for the launch only, never stored.
-public struct Opening: Equatable, Sendable {
+public struct OpeningScreen: Equatable, Sendable {
     public static let cleanAfter: TimeInterval = 5 * 60
     public static let cap = 3
 
     /// When the screen last opened clean: the greeting's time. Nil until the first opening.
     public private(set) var at: Date?
     /// This launch's earlier openings, oldest first: their greetings, kept only as their time.
-    public private(set) var earlier: [Date] = []
+    public private(set) var earlierGreetings: [Date] = []
     /// From when the thread shows; Show earlier moves it back a day at a time.
     public private(set) var shownFrom: Date?
     /// The rows of this opening, as refs: they keep their place while he answers them (each row shows its own state).
@@ -32,7 +32,7 @@ public struct Opening: Equatable, Sendable {
     public mutating func came(at now: Date) -> Bool {
         defer { leftAt = nil }
         if at != nil, leftAt.map({ now.timeIntervalSince($0) < Self.cleanAfter }) ?? true { return false }
-        if let at { earlier.append(at) }
+        if let at { earlierGreetings.append(at) }
         (at, shownFrom, hasRows) = (now, now, false)
         (broken, top, more) = ([], [], [])
         return true
@@ -43,7 +43,7 @@ public struct Opening: Equatable, Sendable {
     public mutating func take(_ read: ThreadRead) {
         let fixes = read.broken.map(\.ref)
         guard hasRows else {
-            let asks = read.opening.filter { read.ask($0)?.isAnswerable == true }
+            let asks = read.openingAsks.filter { read.ask($0)?.isAnswerable == true }
             (broken, top, more) = (fixes, Array(asks.prefix(Self.cap)), Array(asks.dropFirst(Self.cap)))
             hasRows = true
             return

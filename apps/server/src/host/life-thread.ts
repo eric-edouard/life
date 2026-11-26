@@ -174,7 +174,7 @@ const closedCardOf = (
  * one whose answer cites what he deleted) and the cards delivered in it, each with its state (`itemStateOf`); the
  * first page also holds Life's own open checks that were never asked at an instant. `earlier`: pass it as `before` for
  * the page before, null when there is none. The first page also says what his phone's opening screen shows (his yes of
- * 26 Nov 2026): `owner`, what he is called (its greeting), and `opening`, the refs of the open asks that block him,
+ * 26 Nov 2026): `owner`, what he is called (its greeting), and `openingAsks`, the refs of the open asks that block him,
  * fixes aside, in his inbox's order (`inboxOrderOf`, `urgencyOf`). With `ifNot` its version, only `unchangedOf` it.
  */
 export async function readThread(o: { before?: string; ifNot?: string } = {}) {
@@ -190,16 +190,17 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     desk.state === "ok" ? desk.value : { entries: [], isOlder: false };
   const all = decisionsNow(now);
   const offers = rateOffersOf(all);
-  const cards = all.filter(
-    (d) =>
-      d.at >= from &&
-      d.at < to &&
-      deliveryOf(d, now).state === "delivered" &&
-      !gone.has(d.id)
-  );
   // An ending check shows on its matter's page, never in the thread or its count (`isInboxCheck`).
   const open = new Map(
     (await openChecksNow()).filter(isInboxCheck).map((c) => [c.ref, c])
+  );
+  // The first page also holds every card still open, however old: what waits on him is never a page away.
+  const cards = all.filter(
+    (d) =>
+      (d.at >= from || (!o.before && open.has(d.id))) &&
+      d.at < to &&
+      deliveryOf(d, now).state === "delivered" &&
+      !gone.has(d.id)
   );
   const running = readDesk(
     (db) =>
@@ -271,15 +272,15 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
     // What is broken and needs him comes before anything else (docs/product.md): open fix checks lead the page.
     (a, b) => Number(isFix(b)) - Number(isFix(a)) || a.at.localeCompare(b.at)
   );
-  const opening = o.before
+  const openingScreen = o.before
     ? undefined
     : {
-        opening: [...open.values()]
+        openingAsks: [...open.values()]
           .filter((c) => c.urgency === "blocks" && c.group !== "fix")
           .map((c) => c.ref),
         owner: ownerNameOf(),
       };
-  const version = versionOf(JSON.stringify({ items, opening }));
+  const version = versionOf(JSON.stringify({ items, openingScreen }));
   if (o.ifNot === version) {
     return unchangedOf(version);
   }
@@ -287,7 +288,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   return {
     earlier: isOlder || isOlderCard ? from : null,
     items,
-    ...opening,
+    ...openingScreen,
     version,
   };
 }

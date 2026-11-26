@@ -14,11 +14,11 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     }
     let list = opening.map { #""\#($0)""# }.joined(separator: ",")
     return try ThreadRead.parsed(
-        #"{"owner":"Kit","opening":[\#(list)],"items":[\#(items.joined(separator: ","))]}"#)
+        #"{"owner":"Kit","openingAsks":[\#(list)],"items":[\#(items.joined(separator: ","))]}"#)
 }
 
 @Test func theScreenOpensCleanAtLaunchAndAfterFiveMinutesAwayButNotSooner() {
-    var o = Opening()
+    var o = OpeningScreen()
     let atLaunch = o.came(at: t0)
     // Inactive and back (a notification pulled down): nothing changes.
     let inactive = o.came(at: t0 + minute)
@@ -28,11 +28,11 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     o.left(at: t0 + 10 * minute)
     let later = o.came(at: t0 + 15 * minute)
     #expect(later)
-    #expect(o.at == t0 + 15 * minute && o.earlier == [t0])
+    #expect(o.at == t0 + 15 * minute && o.earlierGreetings == [t0])
 }
 
 @Test func brokenIsNeverCappedThenThreeAsksThatBlockAndTheRestBehindThePill() throws {
-    var o = Opening()
+    var o = OpeningScreen()
     o.came(at: t0)
     let page = try read(
         [
@@ -48,7 +48,7 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
 }
 
 @Test func rowsKeepTheirPlaceWhileHeAnswersAndANewFixShowsAtOnce() throws {
-    var o = Opening()
+    var o = OpeningScreen()
     o.came(at: t0)
     o.take(try read([("d1", "decision"), ("d2", "decision")], opening: ["d1", "d2"]))
     // d1 answered: it leaves Life's opening, its row stays; LINE breaks meanwhile.
@@ -66,7 +66,7 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     calendar.timeZone = TimeZone(identifier: "UTC")!
     let day: TimeInterval = 86_400
     let dates = [t0 - 3 * day, t0 - day - 3600, t0 - day, t0 - 600, t0 + minute]
-    var o = Opening()
+    var o = OpeningScreen()
     let beforeAny = o.isShown(t0 - 9 * day)
     var counts: [Int] = []
     o.came(at: t0)

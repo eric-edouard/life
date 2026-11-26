@@ -37,7 +37,7 @@
       "state": "settled"
     }
   ],
-  "opening": [],
+  "openingAsks": [],
   "owner": "Test",
   "version": "fixed"
 }

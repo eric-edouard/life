@@ -61,7 +61,7 @@
       "state": "later"
     }
   ],
-  "opening": ["dec_000000000001"],
+  "openingAsks": ["dec_000000000001"],
   "owner": "Test",
   "version": "fixed"
 }
