@@ -56,6 +56,16 @@ export type MainSessionAct =
   | { agent: string; kind: "agent"; told: string }
   | { card: string; kind: "card" }
   | { kind: "fix" };
+/** Each kind of act, once: a kind added to `MainSessionAct` without its entry here does not compile. */
+const ACTS: Record<MainSessionAct["kind"], true> = {
+  agent: true,
+  card: true,
+  done: true,
+  fix: true,
+};
+export const MAIN_SESSION_ACT_KINDS = Object.keys(
+  ACTS
+) as MainSessionAct["kind"][];
 
 /**
  * The answer: `reply`, its thread entry (`entry`), its Markdown (`text`, the blocks that passed their checks left in,
@@ -86,3 +96,15 @@ export type MainSessionLine =
   | { block: unknown; kind: "block"; type: BlockKind }
   | { kind: "reaction"; with: string }
   | { answer: MainSessionAnswer; kind: "answer" };
+/** Each kind of line, once: a kind added to `MainSessionLine` without its entry here does not compile. */
+const LINES: Record<MainSessionLine["kind"], true> = {
+  answer: true,
+  block: true,
+  reaction: true,
+  step: true,
+  thinking: true,
+  words: true,
+};
+export const MAIN_SESSION_LINE_KINDS = Object.keys(
+  LINES
+) as MainSessionLine["kind"][];

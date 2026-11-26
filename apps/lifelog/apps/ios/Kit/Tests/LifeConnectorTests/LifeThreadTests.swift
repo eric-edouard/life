@@ -106,3 +106,64 @@ private let replyText = #"{"kind":"reply","entry":4,"text":"Done.","refs":[],"ac
     #expect(AnswerPart.parts(of: text, sent: [sentKey]) == [.markdown("Hi"), .block(.items(["life:card/a"]))])
     #expect(AnswerPart.parts(of: text, sent: []) == [.markdown("Hi")])
 }
+
+private func wireEntry(
+    _ id: Int, words: String, answer: String? = nil, error: String? = nil, at: Date = Date()
+) throws -> ThreadWireEntry {
+    var fields: [String: Any] = [
+        "id": id, "at": ISO8601DateFormatter().string(from: at), "words": words, "handed": [], "reactions": [],
+        "refs": [],
+    ]
+    fields["answer"] = answer
+    fields["error"] = error
+    return try JSONDecoder.wire.decode(ThreadWireEntry.self, from: JSONSerialization.data(withJSONObject: fields))
+}
+
+extension JSONDecoder {
+    fileprivate static var wire: JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }
+}
+
+/// His ask Life's record now holds shows once, and a waiting ask keeps its key, so the send still happens once.
+@MainActor @Test func aReadThatHoldsHisAskShowsItOnceAndAWaitingAskKeepsItsKey() async throws {
+    let life = FakeLife()
+    life.asked = { _ in throw MCPError.timedOut }
+    let thread = LifeThread(api: life)
+    thread.ask("Hello", screen: MainSessionScreen())
+    try await Task.sleep(for: .milliseconds(100))
+    thread.adopt([try wireEntry(7, words: "Hello")])
+    #expect(thread.entries.count == 1 && thread.entries[0].phase == .waiting)
+    life.asked = { _ in replyText }
+    await thread.sendWaiting(screen: MainSessionScreen())
+    let keys = life.askedKeys.withLock { $0 }
+    #expect(keys.count == 2 && keys[0] == keys[1])
+}
+
+/// An answered entry the read holds drops the phone's copy, and his reaction survives a read that lacks it.
+@MainActor @Test func anAdoptedAnswerDropsItsPendingCopyAndHisReactionSurvives() async throws {
+    let life = FakeLife()
+    life.asked = { _ in replyText }
+    let thread = LifeThread(api: life)
+    thread.ask("Hello", screen: MainSessionScreen())
+    try await Task.sleep(for: .milliseconds(200))
+    await thread.react(thread.entries[0].id, with: "👍")
+    thread.adopt([try wireEntry(4, words: "Hello", answer: "Done.")])
+    #expect(thread.entries.count == 1 && thread.entries[0].answer == "Done.")
+    #expect(thread.entries[0].ownerReaction == "👍")
+}
+
+/// A failed entry of Life's record asked again is a new ask with a new key, and the old one is no longer shown.
+@MainActor @Test func aFailedEntryOfLifesRecordCanBeAskedAgain() async throws {
+    let life = FakeLife()
+    life.asked = { _ in replyText }
+    let thread = LifeThread(api: life)
+    thread.adopt([try wireEntry(9, words: "Hello", error: "It broke.")])
+    #expect(thread.entries[0].phase == .failed)
+    thread.askAgain(thread.entries[0].id, screen: MainSessionScreen())
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(thread.entries.count == 1 && thread.entries[0].phase == .answered)
+    #expect(life.askedKeys.withLock { $0.count } == 1)
+}

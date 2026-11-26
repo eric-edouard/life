@@ -33,13 +33,15 @@ import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 const PAGE_DAYS = 3;
 
 /** A thread item's state, the only place that names one. The phone alone adds `queued` (answered while offline). */
-export type ItemState =
-  | "later"
-  | "needs_you"
-  | "outdated"
-  | "settled"
-  | "under_way"
-  | "waiting_on_someone";
+export const ITEM_STATES = [
+  "later",
+  "needs_you",
+  "outdated",
+  "settled",
+  "under_way",
+  "waiting_on_someone",
+] as const;
+export type ItemState = (typeof ITEM_STATES)[number];
 
 /**
  * Where a thread item stands: an open check needs him, unless his Later holds it (`later`, its until); a card he

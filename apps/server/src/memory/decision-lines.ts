@@ -189,6 +189,8 @@ export const Line = z.discriminatedUnion("kind", [
   AnswerWithdrawn,
   Rated,
 ]);
+/** Every kind of line a card's `done` holds on the wire. */
+export const LINE_KINDS = Line.options.map((o) => o.shape.kind.value);
 /** A line of an earlier version: skipped. */
 const Historical = z.object({ schemaVersion: z.literal([1, 2]) }).loose();
 export const Stored = z.union([Line, Historical]);

@@ -166,6 +166,7 @@ final class LifeStore {
         if items.value != nil { setBadge(waitingCount ?? 0) }
         // Only a whole read says what is no longer open: a cached or failed one does not.
         if items.loadedAt != before, let asked = items.loadedAt, let read = items.value {
+            thread.adopt(read.entries, asked: asked)
             let open = Set(read.asks.compactMap { $0.isAnswerable ? $0.check?.pushId : nil })
             await Self.removeNotifications(deliveredBefore: asked) { !open.contains($0) }
         }

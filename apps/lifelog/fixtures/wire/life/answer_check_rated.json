@@ -1,0 +1,13 @@
+{
+  "done": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "id": "dec_000000000001",
+      "kind": "rated",
+      "mark": "good",
+      "schemaVersion": 3
+    }
+  ],
+  "kind": "decision",
+  "ref": "dec_000000000001"
+}

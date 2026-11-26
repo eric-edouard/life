@@ -144,6 +144,34 @@ test("an agent's late reply is an entry of its own that follows his ask", async 
   expectWire("read_thread_late_reply", { ...page, version: "fixed" }, true);
 });
 
+test("an entry carries its handed work (kind, estimate, whether it runs) and both sides' reactions", async () => {
+  entry("Find me a plumber", []);
+  const at = new Date(Date.now() - 50_000).toISOString();
+  db.run("update thread_entry set reactions = ? where id = 1", [
+    JSON.stringify([
+      { at, by: "life", with: "👀" },
+      { at, by: "owner", with: "👍" },
+    ]),
+  ]);
+  db.run(
+    "insert into handed_work (entry_id, assignment_id, kind, handed_at) values (1, 'asg_a', 'research', ?), (1, 'asg_b', 'reply', ?)",
+    [at, at]
+  );
+  // The reply's agent finished its first turn after the hand-over; the research is still going.
+  db.run(
+    "insert into turn (assignment_id, started_at, ended_at) values ('asg_b', ?, ?)",
+    [new Date(Date.now() - 40_000).toISOString(), new Date().toISOString()]
+  );
+  const page = (await readThread()) as {
+    items: { handed: { kind: string; state: string }[] }[];
+  };
+  expect(page.items[0]?.handed.map((h) => [h.kind, h.state])).toEqual([
+    ["research", "under_way"],
+    ["reply", "settled"],
+  ]);
+  expectWire("read_thread_handed", { ...page, version: "fixed" }, true);
+});
+
 test("an entry his deletion names is hidden at read, before the desk blanks it", async () => {
   entry("Where is the spare key?", []);
   appendJsonl(CORRECTIONS, Correction, [

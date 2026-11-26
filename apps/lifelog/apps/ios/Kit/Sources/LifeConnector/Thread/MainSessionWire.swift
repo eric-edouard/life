@@ -25,14 +25,40 @@ public struct MainSessionRequest: Encodable, Sendable, Equatable {
     public var react: Reaction?
     public var screen: MainSessionScreen?
     public var stop: Bool?
+    /// His words are what he tapped (a quick edit's label, a question's answer, an offer), so a redraft on them is `edit:tap`.
+    public var tap: Bool?
     public var words: String?
 
-    public static func ask(_ words: String, screen: MainSessionScreen) -> Self {
-        Self(catalog: LifeBlock.catalog, screen: screen, words: words)
+    public static func ask(_ words: String, screen: MainSessionScreen, tap: Bool = false) -> Self {
+        Self(catalog: LifeBlock.catalog, screen: screen, tap: tap ? true : nil, words: words)
     }
     public static let stop = Self(stop: true)
     public static func react(entry: Int, with: String) -> Self { Self(react: Reaction(entry: entry, with: with)) }
     public static let present = Self()
+}
+
+/// What the main session did on a turn, as its door recorded it (`MainSessionAct`, `records/main-session-wire.ts`).
+public enum MainSessionAct: Equatable, Sendable {
+    /// A correction, on a matter when it named one.
+    case done(matter: String?)
+    /// His word about an agent, or his words to it.
+    case agent(name: String, told: String)
+    /// A card asked as his own.
+    case card(String)
+    /// His complaint, received by the caretaker.
+    case fix
+
+    init?(_ o: [String: Any]) {
+        switch o["kind"] as? String {
+        case "done": self = .done(matter: o["matter"] as? String)
+        case "agent":
+            guard let name = o["agent"] as? String, let told = o["told"] as? String else { return nil }
+            self = .agent(name: name, told: told)
+        case "card": guard let card = o["card"] as? String else { return nil }; self = .card(card)
+        case "fix": self = .fix
+        default: return nil
+        }
+    }
 }
 
 /// A line the session streams before its answer. A `step` after words starts the answer again (it is the text after the
@@ -66,7 +92,7 @@ enum MainSessionLine: Equatable {
 
 /// The call's end: Life's thread entry and Markdown, or why it failed.
 enum MainSessionResult: Equatable {
-    case reply(entry: Int, text: String, refs: [String], reaction: String?)
+    case reply(entry: Int, text: String, refs: [String], reaction: String?, acts: [MainSessionAct])
     case error(what: String, entry: Int?)
     /// The server's replay of a key it has not answered yet: Life is still on it.
     case working
@@ -77,7 +103,8 @@ enum MainSessionResult: Equatable {
         if o["kind"] as? String == "reply", let entry = o["entry"] as? Int {
             self = .reply(
                 entry: entry, text: o["text"] as? String ?? "", refs: o["refs"] as? [String] ?? [],
-                reaction: o["reaction"] as? String)
+                reaction: o["reaction"] as? String,
+                acts: (o["acts"] as? [[String: Any]] ?? []).compactMap(MainSessionAct.init))
         } else {
             self = .error(what: o["what"] as? String ?? "Life did not say why.", entry: o["entry"] as? Int)
         }

@@ -1,0 +1,65 @@
+[
+  {
+    "bank": "Kasikornbank",
+    "holder": "Blue Reef Diving Co., Ltd.",
+    "kind": "account",
+    "number": "012-3-45678-9",
+    "scheme": "th_account",
+    "line": "Kasikornbank 012-3-45678-9, Blue Reef Diving Co., Ltd."
+  },
+  {
+    "currency": "THB",
+    "kind": "amount",
+    "value": 4500,
+    "line": "4,500 THB"
+  },
+  {
+    "actor": "made/up-actor",
+    "estimateUsd": 0.1,
+    "input": {
+      "query": "clinics"
+    },
+    "kind": "apify",
+    "maxUsd": 0.5,
+    "what": "20 clinics",
+    "line": "Apify: 20 clinics, by made/up-actor, about $0.1, at most $0.5. Input: {\"query\":\"clinics\"}"
+  },
+  {
+    "kind": "app",
+    "name": "Grab",
+    "url": "https://grab.example.com/open",
+    "line": "In Grab"
+  },
+  {
+    "end": "2026-12-01T12:00:00+07:00",
+    "kind": "event",
+    "reminders": [60],
+    "start": "2026-12-01T08:00:00+07:00",
+    "title": "Dive course",
+    "line": "Dive course, 2026-12-01 08:00"
+  },
+  {
+    "kind": "link",
+    "url": "https://pay.example.com/i/123",
+    "vendor": "Fibrenet",
+    "line": "Fibrenet: pay.example.com"
+  },
+  {
+    "kind": "place",
+    "name": "Chatuchak vehicle office",
+    "line": "Chatuchak vehicle office"
+  },
+  {
+    "kind": "qr",
+    "payload": "00020101",
+    "source": "Kit's WhatsApp of 20 Nov",
+    "line": "QR code from Kit's WhatsApp of 20 Nov: 00020101"
+  },
+  {
+    "copy": true,
+    "kind": "text",
+    "label": "Reference",
+    "text": "INV-2041",
+    "line": "Reference: INV-2041"
+  }
+]

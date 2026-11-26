@@ -143,3 +143,16 @@ test("an open draft card, a sent iMessage draft with no Undo and a card that wen
   expect(JSON.stringify(outdated)).toContain('"outdated"');
   expectWire("read_thread_outdated", outdated, true);
 });
+
+test("an open card his Later holds is later, with the day it comes back", async () => {
+  const held = await card("whatsapp", "Ask Kit");
+  open = [held];
+  const later = spyOn(
+    await import("../memory/matters"),
+    "laterUntilOf"
+  ).mockReturnValue("2026-11-19T09:00:00.000Z");
+  const page = await thread();
+  later.mockRestore();
+  expect(JSON.stringify(page)).toContain('"later"');
+  expectWire("read_thread_later", page, true);
+});

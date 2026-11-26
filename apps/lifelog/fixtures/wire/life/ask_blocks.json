@@ -1,0 +1,61 @@
+{
+  "document": {
+    "body": {
+      "from": "life:msg:whatsapp|1",
+      "kind": "receipt",
+      "lines": ["2 coffees", "90 THB"],
+      "title": "Cafe receipt",
+      "total": 90
+    },
+    "kind": "document"
+  },
+  "items": {
+    "body": ["life:dec_000000000001"],
+    "kind": "items"
+  },
+  "phrase": {
+    "body": {
+      "lang": "th",
+      "mine": "Thank you",
+      "text": "ขอบคุณ"
+    },
+    "kind": "phrase"
+  },
+  "pictures": {
+    "body": ["life:file:1"],
+    "kind": "pictures"
+  },
+  "place": {
+    "body": {
+      "address": "1 Made Up Road",
+      "name": "Made Up Clinic"
+    },
+    "kind": "place"
+  },
+  "question": {
+    "body": {
+      "answers": ["Yes", "No"],
+      "recommended": "Yes"
+    },
+    "kind": "question"
+  },
+  "settings": {
+    "body": {
+      "keys": ["quiet"],
+      "offer": {
+        "key": "quiet",
+        "label": "Keep Kit quiet until Monday?"
+      }
+    },
+    "kind": "settings"
+  },
+  "table": {
+    "body": {
+      "columns": ["Day", "THB"],
+      "from": "life:msg:whatsapp|2",
+      "rows": [["Mon", 10]],
+      "total": 10
+    },
+    "kind": "table"
+  }
+}
