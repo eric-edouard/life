@@ -74,8 +74,8 @@ extension View {
         background {
             if isOn {
                 EllipticalGradient(
-                    colors: [Palette.wash, Palette.wash.opacity(0)], center: UnitPoint(x: 0.4, y: 0.4),
-                    startRadiusFraction: 0, endRadiusFraction: 0.4
+                    colors: [Palette.wash, Palette.wash.opacity(0)], center: UnitPoint(x: 0.35, y: 0.4),
+                    startRadiusFraction: 0, endRadiusFraction: 0.65
                 )
                 .padding(.horizontal, -Metrics.Spacing.l).padding(.vertical, -Metrics.Spacing.l).allowsHitTesting(false)
             }

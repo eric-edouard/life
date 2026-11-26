@@ -5,7 +5,7 @@ import SwiftUI
 // block. Words go only on an ask's and a question's answers, a confirm's two choices and a draft's chips; every other
 // control is a mark, or "Later".
 
-/// An ask's answers: the recommended one filled and full width, the rest two to a row, "Later" last. An answer is
+/// An ask's answers: the recommended one filled and full width, the rest two to a row, "Later" first. An answer is
 /// never cut off: a long one wraps. While one is busy, it keeps its fill and its spinner and the others dim.
 struct AnswerPills: View {
     let answers: [String]
@@ -20,7 +20,7 @@ struct AnswerPills: View {
     @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
-        let rest = answers.filter { $0 != recommended } + (hasLater ? ["Later"] : [])
+        let rest = (hasLater ? ["Later"] : []) + answers.filter { $0 != recommended }
         // At the largest sizes each answer gets the full width: a word is never broken to fit two.
         let per = size.isAccessibilitySize ? 1 : 2
         VStack(spacing: Metrics.Spacing.s) {
@@ -157,9 +157,8 @@ struct AskCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            if isInItem {
-                Text(question).font(.header)
-            } else {
+            // Inside an item the row's own header is the title: its question is not said again.
+            if !isInItem {
                 HStack(spacing: Metrics.Spacing.m) {
                     Image(systemName: icon).font(.header).foregroundStyle(Palette.muted)
                         .frame(width: Metrics.askDisc, height: Metrics.askDisc).background(Palette.tint, in: .circle)

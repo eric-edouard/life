@@ -42,6 +42,8 @@ struct RootView: View {
     @State private var fieldHeight: CGFloat = 0
     /// The two round buttons and the notices over the thread: it starts below them.
     @State private var topHeight: CGFloat = 0
+    @State private var noticeHeight: CGFloat = 0
+    @State private var screenHeight: CGFloat = 800
 
     private struct Profile: Hashable { let ref: String }
     @Namespace private var profileZoom
@@ -71,15 +73,30 @@ struct RootView: View {
             .overlay(alignment: .top) {
                 VStack(spacing: Metrics.Spacing.s) {
                     buttons
-                    Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
+                    // The notice, opened, grows to its words up to 60% of the screen, then scrolls: the buttons above it
+                    // always stay in view, at the largest text size too.
+                    ScrollView {
+                        Notices { sheet = .settings }.padding(.horizontal, Metrics.Spacing.l)
+                            .onGeometryChange(for: CGFloat.self) {
+                                $0.size.height
+                            } action: {
+                                noticeHeight = $0
+                            }
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .frame(height: min(noticeHeight, screenHeight * 0.5))
                 }
-                // The notice, opened, grows to its words: nothing in it is squeezed into a height it was not given.
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) {
                     $0.size.height
                 } action: {
                     topHeight = $0
                 }
+            }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                screenHeight = $0
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Profile.self) {

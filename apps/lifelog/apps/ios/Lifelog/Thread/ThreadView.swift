@@ -16,6 +16,9 @@ struct ThreadView: View {
     /// Whether he is reading at the end: only then does new text carry the view with it (his own scroll up is left alone).
     @State private var followsEnd = true
     @State private var isNearEnd = true
+    /// Whether the rows fill the view: a short thread rests at the bottom by its anchors, and a scroll to the end would
+    /// put the end under the field (the thread went blank while a slow answer wrote).
+    @State private var isScrollable = false
     /// The rows he has seen: what comes after the first showing arrives with motion, the first showing does not.
     @State private var seenRows = 0
     @Environment(\.calendar) private var calendar
@@ -138,14 +141,19 @@ struct ThreadView: View {
             // His own ask goes to the end whatever he was reading; a late reply or a new card only when he is there.
             .onChange(of: thread.entries.count) {
                 if thread.entries.last?.phase == .sending { followsEnd = true }
-                if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
+                if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) }
             }
             // The keyboard or the field growing shrinks the view from below: at the end, it stays at the end.
-            .onChange(of: fieldHeight) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
+            .onChange(of: fieldHeight) { if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) } }
+            .onScrollGeometryChange(for: Bool.self) {
+                $0.contentSize.height > $0.containerSize.height
+            } action: { _, new in
+                isScrollable = new
+            }
             .onScrollGeometryChange(for: CGFloat.self) {
                 $0.containerSize.height
             } action: { _, _ in
-                if followsEnd { proxy.scrollTo("end", anchor: .bottom) }
+                if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) }
             }
             .onChange(of: life.focused) {
                 guard let ref = life.focused else { return }
@@ -156,7 +164,6 @@ struct ThreadView: View {
                     proxy.scrollTo("end", anchor: .bottom)
                 }
             }
-            .onChange(of: thread.live) { if followsEnd { proxy.scrollTo("end", anchor: .bottom) } }
         }
     }
 }
@@ -204,10 +211,9 @@ private struct EntryView: View {
             }
             if let live {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-                    if let step = live.step {
-                        StepsLine(verb: step.verb, what: step.what).appears(Motion.fade)
-                    } else if live.parts.isEmpty {
-                        StepsLine().appears(Motion.fade)
+                    // The steps line blurs away where the words ink in.
+                    if live.parts.isEmpty {
+                        StepsLine(verb: live.step?.verb, what: live.step?.what ?? "").appears(Motion.arrives)
                     }
                     AnswerView(parts: live.parts, actions: actions, isLive: true)
                 }
