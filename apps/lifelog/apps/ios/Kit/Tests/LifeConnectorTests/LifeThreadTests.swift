@@ -225,6 +225,7 @@ extension JSONDecoder {
             == [.block(.items(["life:card/a", "life:card/b"]))])
     thread.showWaiting([])
     #expect(thread.entries.last?.answer == "Nothing waits on you.")
+}
 
 @Test func theHaloSettingsAreTheSettingsBlocksAuraKeyAndTheirSaveReadsBack() throws {
     #expect(
