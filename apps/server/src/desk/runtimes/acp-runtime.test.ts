@@ -187,6 +187,18 @@ test("a rejected prompt ends the run failed with the error, and its begun reject
   expect(end.usage).toBeUndefined();
 });
 
+test("a background turn the adapter answers with an error pauses the runtime's background turns, a good run lifts it; his ask's error never does (the spend limit loop of 26 Nov 2026)", async () => {
+  const dir = made();
+  const rt = acpRuntime(rowFor(dir), LAUNCH_WITHIN_MS, 300);
+  const ask = await rt.talk(agentIn(), null, "[fail]", () => undefined);
+  expect((await ask.ended).ok).toBe(false);
+  expect(rt.paused?.()).toBeUndefined();
+  await (await rt.start(agentIn(), "[fail]")).ended;
+  expect(rt.paused?.()).toContain("the model provider is failing");
+  await (await rt.start(agentIn(), "[answer]")).ended;
+  expect(rt.paused?.()).toBeUndefined();
+});
+
 test("stop ends a hung run cancelled and failed, its adapter gone, its session no longer running", async () => {
   const dir = made();
   const rt = acpRuntime(rowFor(dir));
@@ -237,9 +249,12 @@ test("a live run reads running and refuses a second send; two sends racing acros
 
 test("an adapter killed mid-turn (a desk restart) ends the run failed; a new runtime reads the session from its row", async () => {
   const dir = made();
-  const run = await acpRuntime(rowFor(dir)).start(agentIn(), "[hang]");
+  const rt = acpRuntime(rowFor(dir));
+  const run = await rt.start(agentIn(), "[hang]");
   process.kill(logOf(dir)[0]?.pid ?? 0, "SIGKILL");
   expect(await run.ended).toEqual({ ok: false, why: "ACP connection closed" });
+  // A closed connection is no provider error: it pauses nothing.
+  expect(rt.paused?.()).toBeUndefined();
   const after = acpRuntime(rowFor(dir, () => Promise.resolve("gone")));
   expect(await after.state(run.ref)).toBe("gone");
 });
