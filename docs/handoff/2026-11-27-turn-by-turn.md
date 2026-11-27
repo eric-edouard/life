@@ -48,13 +48,8 @@ The page answers each one. There is a "heard" notification as early as Life can 
 visible outcome (failures included), and timing is honest while the words are written down. Its "When it doesn't",
 "How it moves" and "Decided" sections hold the details.
 
-The owner decided on 27 Nov 2026:
-
-- A notification, replaced by the answer. A Live Activity is parked for later.
-- The answer is not read aloud.
-- No live listening: "hey Life" is found in the written words, which Life makes as fast as it can. The 33 minutes came
-  from something being offline, not from the normal path; the "heard late" state covers that case.
-- The pendant only: the owner's phone works differently and is not part of this flow.
+The owner made four decisions on 27 Nov 2026, listed in the page's "Decided" section. In short: a notification (Live
+Activity parked), not read aloud, no live listening, the pendant only.
 
 ## Still open
 
@@ -85,5 +80,6 @@ When you change a shared file, screenshot every state of every page that links i
 
 - Merged in [PR 1504](https://github.com/eric-edouard/life/pull/1504): the "hey Life" page, `2026-11-27-turns.css`,
   the shared CSS fix and this note.
-- Next: the arrivals rule (the owner's four "hey Life" decisions are made). Only after it comes the first build slice in the app (`Thread/ThreadView.swift` and one mesh view).
+- Next: the arrivals rule. Only after it comes the first build slice in the app (`Thread/ThreadView.swift` and one
+  mesh view).
 - Nothing turn by turn is approved; the app is still built to app v4.
