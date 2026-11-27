@@ -59,7 +59,7 @@ window.Shell=(function(){
 
   function fit(){var box=phone.parentNode,embedded=document.documentElement.classList.contains('embedded');
     if(innerWidth<=500){box.style.width=box.style.height='';phone.style.transform='';return;}
-    var side=embedded?0:320,k=Math.min(1,(innerHeight-(embedded?24:40))/844,(innerWidth-side-(embedded?24:40))/390);
+    var side=embedded?0:320,k=Math.min((innerHeight-(embedded?16:40))/844,(innerWidth-side-(embedded?16:40))/390);
     phone.style.transform='scale('+k+')';box.style.width=390*k+'px';box.style.height=844*k+'px';}
 
   return {

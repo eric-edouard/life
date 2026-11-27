@@ -36,7 +36,7 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 .side .play{background:var(--tint);margin-bottom:6px}
 /* inside the comparison page: the phone alone, filling the frame */
 .embedded .side{display:none}
-.embedded .shell{padding:12px}
+.embedded .shell{padding:8px}
 @media (max-width:500px){.shell{flex-direction:column;padding:0;gap:16px}.fit{width:100vw!important;height:100dvh!important}.ph{transform:none!important;width:100vw;height:100dvh;--r:0px}.side{width:100%;max-height:none;padding:0 16px 24px}}
 @media (prefers-reduced-motion:reduce){.ph *{animation:none!important;transition:none!important}}
 /* the lock screen (ctx.lock) and Life's one notification on it (ctx.notify) */
