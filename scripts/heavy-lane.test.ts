@@ -24,6 +24,22 @@ test("a dead holder's lane lock is taken over", () => {
   expect(run(state)).toBe(0);
 });
 
+test("a job inside a held slot runs at once, even on its own lane's lock", () => {
+  const state = mkdtempSync(join(tmpdir(), "heavy-"));
+  mkdirSync(join(state, "check.lock.release"));
+  writeFileSync(join(state, "check.lock.release", "pid"), `${process.pid}\n`);
+  const out = Bun.spawnSync(["bash", "tools/heavy.sh", "true"], {
+    env: {
+      ...process.env,
+      HEAVY_HELD: "1",
+      HEAVY_LANE: "release",
+      LIFE_TOOLS_STATE: state,
+    },
+    timeout: 15_000,
+  });
+  expect(out.exitCode).toBe(0);
+});
+
 // .githooks/pre-push takes a heavy slot for the check, except a push already inside one (26 Nov: a builder's plain push
 // ran the full check beside other heavy jobs). The check is a stub `bun` that prints what it ran under.
 const push = (extra: Record<string, string>) => {

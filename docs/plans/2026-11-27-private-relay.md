@@ -27,7 +27,9 @@ only carries encrypted bytes.
 1. **The relay forwards, never decrypts.** A small open-source service on `*.hostedbyme.app` (bought 27 Nov 2026 at Porkbun) reads the
    hostname from the first packet of a TLS connection (SNI) and pipes the still-encrypted connection to the Mac that
    registered it, over one outbound connection the Mac keeps open. It holds no certificate for any user's address.
-   Candidates before writing our own: sish, frp in TCP mode, or OpenTunnel's server if it is open source.
+   The relay is OpenTunnel's server ([anomalyco/opentunnel](https://github.com/anomalyco/opentunnel), MIT; chosen
+   28 Nov 2026), pinned to a reviewed commit, and the Mac talks to it with its TypeScript client
+   (`@opentunnel/client`).
 2. **Each Mac makes its own key.** On first run, Life makes a private key on the Mac (never written anywhere else, never
    sent) and picks a random id. It asks Let's Encrypt for a certificate for `<random id>.hostedbyme.app` with the
    TLS-ALPN-01 challenge, which arrives through the relay still encrypted, so the Mac answers it itself. Renewal is the
@@ -60,22 +62,58 @@ can delay or drop traffic, never read it.
 What the relay does see, and SECURITY.md must say once: the address used, the user's IP addresses, when they connect
 and how much data moves. Addresses are random ids, never names, because the certificate logs are public.
 
+## Where the relay runs
+
+On Fly.io (chosen 28 Nov 2026), the one developer-friendly host found that passes raw TCP on port 443 under our own
+wildcard domain without holding a certificate: a service with `handlers = []` behind one dedicated anycast IPv4, so
+a phone anywhere reaches the nearest region. About $9 a month for three regions (three 256 MB machines and the IPv4),
+egress $0.02 per GB in Europe and North America, $0.04 in Asia. Users pay nothing. Railway, Render, Koyeb,
+Northflank, Zeabur, DigitalOcean's App Platform and Cloudflare's proxy were ruled out: each decrypts, or allows only
+HTTP, or gives a random port.
+
+- A Mac connects to the nearest region; a visitor may arrive at another. The relay keeps its own registry of which
+  machine holds each Mac and pipes across regions over Fly's private network (6PN). The Mac sends heartbeats: one
+  report says long 6PN connections drop.
+- Fly's removal of TCP idle timeouts is a forum post, not its docs: test a connection idle for hours before launch.
+- A user who wants their own relay runs `fly launch --from <this repository>`, allocates a dedicated IPv4 and points
+  their own wildcard record at it; the relay's `fly.toml` keeps passthrough. Fly has no one-click button.
+- DNS stays on Cloudflare in DNS-only mode, so Cloudflare never carries the traffic.
+
+## The relay software
+
+OpenTunnel already does what step 1 needs: blind SNI passthrough, a mesh over Fly's private network that forwards a
+visitor to the machine holding the Mac's connection, WebSocket bridging with reconnects, per-tenant limits and
+draining on deploy, running in 11 Fly regions. Its own setup is ours: raw TCP on 443 behind a dedicated IPv4.
+
+What we change or check before launch:
+
+- Ownership: it gives a Mac a bearer token for its id. Patch it so the Mac proves ownership with a signature from its
+  own key.
+- Certificates: it issues a certificate per tunnel over DNS-01 from the Mac's CSR, so it never holds the key but does
+  hold our DNS. Prefer the Mac's own TLS-ALPN-01 (the server replays the ClientHello untouched, so it should pass;
+  untested). Either way, steps 3 and 4 hold.
+- Its MySQL dependency (PlanetScale in its production): pick the smallest database Fly can run beside it.
+- Size and age: about 18,000 lines of Rust, eight months old, one main maintainer. We pin a commit we reviewed and
+  read each upgrade's diff before taking it.
+
+Rejected: sish (one region; an offline Mac's name can be taken), frp (one region, large), piko (routes HTTP, not
+TLS), rathole, bore and chisel (no SNI routing), and writing our own (1,000 to 2,000 lines, mostly rebuilding the
+mesh and limits OpenTunnel has).
+
 ## Open questions
 
-- Where the relay runs. Users pay nothing: the developer runs one small VPS (about €4 a month at Hetzner, 20 TB of
-  traffic included), which carries bytes and does no compute.
 - Each user's address needs no DNS change at onboarding: one wildcard record points `*.hostedbyme.app` at the relay.
 - Let's Encrypt issues at most 50 certificates a week per registered domain. Put the domain on the Public Suffix List
   before launch: each user's address then counts on its own, and browsers keep one user's address from setting
   cookies on another's.
-- Write the relay or adopt an existing one (step 1's candidates).
 - Whether the Claude.ai and ChatGPT connectors are worth a warning in the app that they rely on point 4 only.
 
 ## Milestones
 
 - [x] Domain: hostedbyme.app.
-- [ ] Pick the relay (adopt or write).
-- [ ] Relay live, open source in this repository, with its own tests.
+- [x] Host: Fly.io.
+- [x] Relay software: OpenTunnel.
+- [ ] OpenTunnel self-hosted on Fly, keypair ownership patch, TLS-ALPN-01 from the Mac tested.
 - [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
 - [ ] iPhone app: key fingerprint in the pairing code, pinning.
 - [ ] Certificate log watch and its warning.

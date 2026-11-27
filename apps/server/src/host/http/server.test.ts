@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
 import { OWN_PORT, portOf } from "./http";
 import { pair } from "./oauth";
-import { signedIn } from "./server";
+import { publicPortRoutes } from "./server";
 
 // The issuer as served opens /mcp: its keys and its owner are the ones the connector checks.
 test("an app paired on the public port reads /mcp with the token it gets", async () => {
-  const app = signedIn();
+  const app = publicPortRoutes();
   const at = (path: string, init?: RequestInit) =>
     app.request(`https://life.example.test${path}`, init);
   const form = (fields: Record<string, string>) => ({
@@ -63,7 +63,7 @@ test("an app paired on the public port reads /mcp with the token it gets", async
 
 // The public port's app as served, its parts mounted in order: nothing of his before a token, and no route but theirs.
 test("the public port refuses /mcp without a token, serves Life's brand to anyone, and answers 404 for anything else", async () => {
-  const app = signedIn();
+  const app = publicPortRoutes();
   const get = (path: string, init?: RequestInit) =>
     app.request(`https://life.example.test${path}`, init);
   expect((await get("/mcp")).status).toBe(401);

@@ -231,7 +231,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   tool that sends or edits anything else. Its message poll, like the desk's, first hears a chat's voice notes that have
   no line (`hearVoiceNotes`: a line of `memory/files.jsonl`, Thai turns through Scribe once per note); that is Life
   reading what was said, not an act.
-- **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
+- **Life serves no page.** Only `/mcp`, its OAuth, the voice server's routes under `/voice` (forwarded as they came, its own tokens their only auth, never its map page; `voice-forward.ts`), the app's status reads behind the local key, and the desk's door,
   on loopback only, one key per registered agent (with its guard's answer, `/guard`, its spending stop's answer inside a pi turn, `/spending`, and the Life plugin's lookup of
   an agent's session, `/session`, by a loopback `Host` only; and `/main-session`, his Ask Life words from the connector, behind the local key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
@@ -486,6 +486,11 @@ ruling of 29 Oct).
 
 - Handoffs, research, audits and plans are dated (his word of 23 Nov 2026): one file is `YYYY-MM-DD-<name>.md`; several
   files go in one folder `YYYY-MM-DD-<name>/`, in `docs/handoff/`, `docs/plans/` or where they belong.
+- **Designs live in the repo only** (his rule of 27 Nov 2026): every design, prototype and exploration is a dated file under
+  `docs/design/`, listed in `docs/design/README.md` (its sections are the designs app's tabs). He views them at
+  https://designs.ericedouard.com: the designs app (`apps/design`), served by the Mac from `~/Work/life`, which
+  fast-forwards to `origin/main` every minute, so a merged design is live within a minute. Give him that link, at the
+  design's path (`https://designs.ericedouard.com/#/<path under docs/design>`). Never a claude.ai artifact or any other copy.
 - An iPhone app change can't land if a row green on the Mac's last parity board stops matching: the check's parity gate
   (`bun run parity --gate`, after the Swift builds) runs those rows' flows (`docs/handoff/2026-11-27-app-parity.md`).
 - A branch and a PR per change, small commits. Prefer deleting code to adding it; one way to do each thing; docs stay

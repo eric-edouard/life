@@ -292,6 +292,10 @@ models read. The reads an app shows (`read_matters`, `read_matter`, `read_inbox`
 in JSON, sent once as text; it acts through the same tools (`answer_check`, `change_registered_agent`,
 `correct_memory`, `change_todo_item`).
 
+- **The voice server** (`voice-forward.ts`: `/voice/*`, with the `lifelog` setting): the phone's one origin. Each
+  request goes to the voice server on loopback as it came, without the prefix, its body and answer streamed (up to
+  65 MiB; Life's own routes keep 256 KiB) with no time limit for its long polls; the voice server's tokens are its only
+  auth, and its map page is never served here.
 - **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), open to all: Life's
   own files, nothing of the owner's, for his agent to style what it makes for him.
 
