@@ -113,7 +113,8 @@ mesh and limits OpenTunnel has).
 - [x] Domain: hostedbyme.app.
 - [x] Host: Fly.io.
 - [x] Relay software: OpenTunnel.
-- [ ] OpenTunnel self-hosted on Fly, keypair ownership patch, TLS-ALPN-01 from the Mac tested.
+- [x] OpenTunnel self-hosted on Fly (Singapore), a test tunnel served end to end (28 Nov 2026).
+- [ ] Keypair ownership patch; TLS-ALPN-01 from the Mac tested; two more regions.
 - [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
 - [ ] iPhone app: key fingerprint in the pairing code, pinning.
 - [ ] Certificate log watch and its warning.
