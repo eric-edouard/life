@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { EMBEDDER_URL } from "../core/embedder";
@@ -11,10 +11,17 @@ import {
   OWNER_DATA_DIR,
 } from "../core/paths";
 import { APP_DATA, CODEX, HOME, isOwnLife } from "../core/platform";
-import { execOk } from "../core/proc";
-import { writeSecret } from "../core/secret";
-import { isKeptAs, isLoaded, keepRunning, stopRunning } from "../core/service";
-import { settings } from "../core/settings";
+import { exec, execOk } from "../core/proc";
+import { SECRETS, writeSecret } from "../core/secret";
+import {
+  isKeptAs,
+  isLoaded,
+  keepRunning,
+  logOf,
+  readJobState,
+  stopRunning,
+} from "../core/service";
+import { setSettings, settings } from "../core/settings";
 import {
   readOwnerOnly,
   readVoiceSecrets,
@@ -266,6 +273,17 @@ export function mintVoiceSecrets() {
   return secrets;
 }
 
+/** The keys the owner gives voice in Life.app's Settings: ElevenLabs' (transcription) and the Claude token (summaries). */
+const OWNER_KEYS = ["elevenLabsKey", "claudeToken"];
+
+/** One owner key set (blank removes it), every other secret kept as stored. */
+export function setVoiceKey(name: string, value: string) {
+  const { [name]: _, ...rest } = readVoiceSecrets();
+  const secrets = value.trim() ? { ...rest, [name]: value.trim() } : rest;
+  writeSecret("voiceSecrets", JSON.stringify(secrets));
+  return secrets;
+}
+
 /**
  * Which Life.app build this is: the start of the helper's own digest, the one thing every new build changes (its
  * Info.plist's version does not), so a new build rewrites every job and voice runs the new app's programs.
@@ -318,7 +336,9 @@ export const jobArgsOf = (
  */
 export async function voiceStart(
   at = voicePathsHere(),
-  o = { keep: keepRunning, loaded: isLoaded, stop: stopRunning }
+  o = { keep: keepRunning, loaded: isLoaded, stop: stopRunning },
+  /** A child restarted even when its plist is unchanged: the Mac helper, which reads the Claude token only at launch. */
+  restart?: VoiceChild
 ) {
   const inputs = await readVoiceInputs(at, mintVoiceSecrets());
   mkdirSync(join(at.support, "audio"), { recursive: true });
@@ -332,7 +352,10 @@ export async function voiceStart(
       continue;
     }
     const args = jobArgsOf(child, launch, inputs.build);
-    if (await isKeptAs(jobOf(child), at.support, args, o.loaded)) {
+    if (
+      child !== restart &&
+      (await isKeptAs(jobOf(child), at.support, args, o.loaded))
+    ) {
       states[child] = "running";
       continue;
     }
@@ -350,6 +373,14 @@ export async function voiceStop(stop = stopRunning) {
   }
 }
 
+/** What a child is given of this process's environment (`PASSED`), with `own` over it. */
+const passedWith = (own: Record<string, string>) => ({
+  ...Object.fromEntries(
+    PASSED.flatMap((k) => (process.env[k] ? [[k, process.env[k]]] : []))
+  ),
+  ...own,
+});
+
 /**
  * Becomes `child` (launchd's job runs this): its launch worked out now, speaker recognition installed first (both
  * steps no-ops once done, offline too), then this process replaced by it, never its parent. Returns only when it
@@ -362,12 +393,7 @@ export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
     console.error(`voice ${child}: ${launch ?? "off"}`);
     return 1;
   }
-  const env = {
-    ...Object.fromEntries(
-      PASSED.flatMap((k) => (process.env[k] ? [[k, process.env[k]]] : []))
-    ),
-    ...launch.env,
-  };
+  const env = passedWith(launch.env);
   if (child === "identity") {
     const project = identityProjectOf(at);
     await execOk(
@@ -388,9 +414,74 @@ export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
   return 1;
 }
 
-/** `voice start | stop | run <child>`: what Life.app and launchd run. */
+/** The Mac helper's own ChatGPT login (`codex login`), apart from the owner's everyday Codex. */
+const CODEX_HOME = join(dirname(SECRETS.voiceSecrets), "codex");
+
+/**
+ * What Life.app's Settings shows of voice: each job as launchd has it (`running`, or none when not loaded), whether the
+ * server answers `/health` on loopback, what is set up, and each job's log. Never a secret.
+ */
+export async function voiceStatus(at = voicePathsHere()) {
+  const secrets = readVoiceSecrets();
+  const states = await Promise.all(
+    VOICE_CHILDREN.map(async (c) => [c, await readJobState(jobOf(c))] as const)
+  );
+  const answering = await fetch(`${VOICE_URL}/health`, {
+    signal: AbortSignal.timeout(2000),
+  }).then(
+    (r) => r.ok,
+    () => false
+  );
+  return {
+    answering,
+    archive: existsSync(archiveEnvOf(at.support).DATABASE_PATH),
+    chatgpt: existsSync(join(CODEX_HOME, "auth.json")),
+    children: Object.fromEntries(states.map(([c, s]) => [c, s ?? null])),
+    claudeToken: secretOf(secrets, "claudeToken") !== undefined,
+    elevenLabsKey: secretOf(secrets, "elevenLabsKey") !== undefined,
+    iCloud: existsSync(dirname(dirname(at.backups))),
+    logs: Object.fromEntries(VOICE_CHILDREN.map((c) => [c, logOf(jobOf(c))])),
+  };
+}
+
+/**
+ * `lifelog-server export|import <folder>` with only the archive's paths, as one plain line. An import stops the server
+ * first (the server refuses an install that holds recordings) and starts voice again after.
+ */
+export async function voiceArchive(
+  verb: "export" | "import",
+  folder: string,
+  at = voicePathsHere()
+) {
+  mkdirSync(join(at.support, "audio"), { recursive: true });
+  if (verb === "import") {
+    await stopRunning(jobOf("server"));
+  }
+  const r = await exec([join(at.helpers, "lifelog-server"), verb, folder], {
+    env: passedWith(archiveEnvOf(at.support)),
+    timeout: 3_600_000,
+  });
+  if (verb === "import") {
+    await voiceStart(at);
+  }
+  const last = r.stdout.trim().split("\n").at(-1) ?? "";
+  let result: { bytes?: number; error?: string; files?: number; ok?: boolean };
+  try {
+    result = JSON.parse(last);
+  } catch {
+    result = { error: last || `it stopped with status ${r.code}` };
+  }
+  const done = verb === "export" ? "Exported" : "Imported";
+  return result.ok && r.code === 0
+    ? { line: `${done} ${result.files ?? 0} files.`, ok: true }
+    : { line: `The ${verb} failed: ${result.error ?? r.code}`, ok: false };
+}
+
+const USAGE = `usage: life voice start | stop | status | key <${OWNER_KEYS.join("|")}> (value on stdin) | backup-password | sign-in-chatgpt | export <folder> | import <folder> | run <${VOICE_CHILDREN.join("|")}>`;
+
+/** `voice …`: what Life.app's Settings and launchd run. */
 export async function voiceCommand(args: string[]) {
-  const [verb, child] = args;
+  const [verb, arg] = args;
   if (!IS_COMPILED_HELPER) {
     console.error(
       "voice runs from Life.app's helper only: its programs are in the app"
@@ -398,6 +489,10 @@ export async function voiceCommand(args: string[]) {
     return 2;
   }
   if (verb === "start") {
+    // The phone reaches voice through Life's origin (`/voice`), which forwards to the `lifelog` address: loopback here.
+    if (!settings().lifelog) {
+      setSettings({ lifelog: { url: VOICE_URL } });
+    }
     console.log(JSON.stringify(await voiceStart(), null, 2));
     return 0;
   }
@@ -405,11 +500,42 @@ export async function voiceCommand(args: string[]) {
     await voiceStop();
     return 0;
   }
-  if (verb === "run" && VOICE_CHILDREN.includes(child as VoiceChild)) {
-    return await voiceRun(child as VoiceChild);
+  if (verb === "status") {
+    console.log(JSON.stringify(await voiceStatus()));
+    return 0;
   }
-  console.error(
-    `usage: life voice start | stop | run <${VOICE_CHILDREN.join("|")}>`
-  );
+  if (verb === "key" && arg && OWNER_KEYS.includes(arg)) {
+    setVoiceKey(arg, await Bun.stdin.text());
+    await voiceStart(
+      voicePathsHere(),
+      undefined,
+      arg === "claudeToken" ? "quiet" : undefined
+    );
+    return 0;
+  }
+  if (verb === "backup-password") {
+    console.log(secretOf(mintVoiceSecrets(), "resticPassword"));
+    return 0;
+  }
+  if (verb === "sign-in-chatgpt") {
+    // Becomes `codex login` in the browser, so Life.app's Cancel stops it; the helper reads the login on every call.
+    const { codex } = voicePathsHere();
+    mkdirSync(CODEX_HOME, { mode: 0o700, recursive: true });
+    (process.execve as NonNullable<typeof process.execve>)(
+      codex,
+      [codex, "login"],
+      passedWith({ CODEX_HOME })
+    );
+    return 1;
+  }
+  if ((verb === "export" || verb === "import") && arg) {
+    const r = await voiceArchive(verb, arg);
+    console.log(r.line);
+    return r.ok ? 0 : 1;
+  }
+  if (verb === "run" && VOICE_CHILDREN.includes(arg as VoiceChild)) {
+    return await voiceRun(arg as VoiceChild);
+  }
+  console.error(USAGE);
   return 2;
 }

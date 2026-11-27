@@ -28,6 +28,7 @@ import {
   pairLinkOf,
   pairTokenOf,
   serverEnvOf,
+  setVoiceKey,
   type VoiceInputs,
   type VoicePaths,
   voiceStart,
@@ -320,5 +321,19 @@ test("only his own Life's helper reads voice's secrets: a checkout or a second L
       process.env.LIFELOG_TOKEN = token;
     }
     server.stop(true);
+  }
+});
+
+test("an owner key is set or removed, every other secret kept, the file still owner-only", () => {
+  try {
+    rmSync(VOICE_SECRETS, { force: true });
+    const stored = mintVoiceSecrets();
+    setVoiceKey("elevenLabsKey", " el-key\n");
+    expect(readVoiceSecrets()).toEqual({ ...stored, elevenLabsKey: "el-key" });
+    setVoiceKey("elevenLabsKey", "");
+    expect(readVoiceSecrets()).toEqual(stored);
+    expect(statSync(VOICE_SECRETS).mode.toString(8)).toEndWith("600");
+  } finally {
+    rmSync(VOICE_SECRETS, { force: true });
   }
 });

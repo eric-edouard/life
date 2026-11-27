@@ -30,10 +30,14 @@ const domain = () => `gui/${process.getuid?.()}`;
 const xml = (s: string) =>
   s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
+/** Job `job`'s output. */
+export const logOf = (job: string) =>
+  join(HOME, "Library", "Logs", `${labelOf(job)}.log`);
+
 /** The plist `keepRunning` writes for job `job`, and where. */
 export function plistOf(job: string, dir: string, args: string[]) {
   const label = labelOf(job);
-  const output = join(HOME, "Library", "Logs", `${label}.log`);
+  const output = logOf(job);
   return {
     path: join(AGENTS, `${label}.plist`),
     text: `<?xml version="1.0" encoding="UTF-8"?>
@@ -49,10 +53,16 @@ export function plistOf(job: string, dir: string, args: string[]) {
   };
 }
 
+const JOB_STATE = /^\s*state = (\S+)/m;
+/** Job `job`'s state as launchd prints it (`running`, `waiting`…); none when it isn't loaded. */
+export async function readJobState(job: string) {
+  const r = await exec(["launchctl", "print", `${domain()}/${labelOf(job)}`]);
+  return r.code === 0 ? (JOB_STATE.exec(r.stdout)?.[1] ?? "loaded") : undefined;
+}
+
 /** Whether launchd has job `job` loaded. */
 export const isLoaded = async (job: string) =>
-  (await exec(["launchctl", "print", `${domain()}/${labelOf(job)}`])).code ===
-  0;
+  (await readJobState(job)) !== undefined;
 
 /** Whether job `job` is loaded with the plist `keepRunning(job, dir, args)` would write (a failed bootstrap is not). */
 export async function isKeptAs(
