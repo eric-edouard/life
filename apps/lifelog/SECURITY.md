@@ -61,6 +61,8 @@ the server compares its hash.
   gate. Keep the tailnet to your own devices.
 - **Through your own domain** (a Cloudflare tunnel), the server is on the public internet behind its tokens. Add
   Cloudflare Access in front if you can.
+- **Through Life's origin** (`/voice/…`), Life's server forwards each request to it as it came, so it is as public as
+  Life's connector, behind its own tokens; its map page is not reachable there.
 - The ElevenLabs webhook route refuses everything unless `ELEVENLABS_WEBHOOK_SECRET` is set, and then checks each
   call's signature.
 - The optional identity service (`apps/identity`) listens on every interface with a shared secret: run it on the

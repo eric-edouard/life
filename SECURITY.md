@@ -93,7 +93,8 @@ A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his paymen
 ## Network
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
-PKCE); Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
+PKCE). Its origin also forwards `/voice/…` to lifelog's server on loopback, as it came, behind lifelog's own tokens
+(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
 optionally a tunnel he controls.
 
 ## What leaves the Mac
