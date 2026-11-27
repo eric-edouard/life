@@ -218,6 +218,9 @@ async function prepare(
   await Bun.write(src, bytes);
   if (isVoiceNote(f)) {
     const ogg = await toOggOpus(src, f.mime);
+    if (ogg === null) {
+      return { text: "" };
+    }
     const heard =
       ogg &&
       (await readVoiceNoteWords(ogg, { at, key: digest("sha256", bytes, 64) }));
