@@ -1,0 +1,200 @@
+{
+ "adds": {
+  "at": "2026-11-26T03:09:04.653Z",
+  "mix": {},
+  "note": "",
+  "pick": "B2"
+ },
+ "anatomy": {
+  "at": "2026-11-26T03:06:20.190Z",
+  "mix": {},
+  "note": "None: an ask does not show its matter, for now.",
+  "pick": "C"
+ },
+ "apify": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "A to start with; can be improved later.",
+  "pick": "A"
+ },
+ "atorg": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "A for one person, as A v2: recommended on the right, for the thumb.",
+  "pick": "A2"
+ },
+ "clip": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Agreed with the fresh-eyes pick (read-along words).",
+  "pick": "C2"
+ },
+ "contacts": {
+  "at": "2026-11-26T11:00:00Z",
+  "mix": {},
+  "note": "Agreed with the fresh-eyes pick.",
+  "pick": "A2"
+ },
+ "context": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Later: deep links are not designed or planned yet.",
+  "pick": null
+ },
+ "doneseen": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "C"
+ },
+ "edit-tap": {
+  "at": "2026-11-26T03:09:52.118Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "edit-words": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Make it clear the change comes from him.",
+  "pick": "A"
+ },
+ "ending": {
+  "at": "2026-11-26T11:00:00Z",
+  "mix": {},
+  "note": "Agreed with the fresh-eyes pick.",
+  "pick": "B2"
+ },
+ "event": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "A with its reminders; tapping a reminder or time pill (1 hour before, 17:30) changes it.",
+  "pick": "A"
+ },
+ "follows": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "handed": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "",
+  "pick": "A"
+ },
+ "link": {
+  "at": "2026-11-26T03:08:15.100Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov; the link itself gets the per-site link card.",
+  "pick": "B2"
+ },
+ "looks": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "matterpage": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Confusing (the kitchen leak shows it); needs a proper rework.",
+  "pick": null
+ },
+ "newmatter": {
+  "at": "2026-11-26T03:06:38.764Z",
+  "mix": {},
+  "note": "Agreed with the fresh-eyes pick.",
+  "pick": "C2"
+ },
+ "payment": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Already in the original; use it.",
+  "pick": null
+ },
+ "plan": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Agreed with the fresh-eyes pick.",
+  "pick": "C2"
+ },
+ "qr": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "rate": {
+  "at": "2026-11-26T03:09:41.881Z",
+  "mix": {},
+  "note": "",
+  "pick": "A"
+ },
+ "reaction": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "runs": {
+  "at": "2026-11-26T03:09:12.652Z",
+  "mix": {},
+  "note": "",
+  "pick": "A"
+ },
+ "same": {
+  "at": "2026-11-26T11:00:00Z",
+  "mix": {},
+  "note": "Agreed with the fresh-eyes pick.",
+  "pick": "C2"
+ },
+ "settings-1": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "C"
+ },
+ "settings-2": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "B"
+ },
+ "settings-3": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "swipe": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A"
+ },
+ "v3-pendant": {
+  "at": "2026-11-26T12:00:00Z",
+  "mix": {},
+  "note": "Recommended pick (fresh eyes 8/7), by his word of 26 Nov.",
+  "pick": "D"
+ },
+ "voice-guess": {
+  "at": "2026-11-26T03:06:24.818Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov: anything unselected goes with the recommendation.",
+  "pick": "A2"
+ },
+ "voice-new": {
+  "at": "2026-11-26T03:06:31.361Z",
+  "mix": {},
+  "note": "Recommended pick, by his word of 26 Nov.",
+  "pick": "A2"
+ },
+ "yourmove": {
+  "at": "2026-11-26T10:00:00Z",
+  "mix": {},
+  "note": "Use the original prototype's design; it is the source of truth.",
+  "pick": null
+ }
+}
