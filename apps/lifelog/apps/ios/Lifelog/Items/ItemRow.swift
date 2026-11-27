@@ -104,7 +104,16 @@ struct ItemRow: View {
     private var look: AskLook? { ask.check.map(AskLook.init) }
     private var face: ItemFace? {
         look?.face ?? (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
-            ?? (ask.check?.matter ?? ask.check?.onMatters?.first)?.symbol.map { .symbol($0) }
+            ?? (matterMark == nil ? matterRef?.symbol.map { .symbol($0) } : nil)
+    }
+    private var matterRef: Check.MatterRef? { ask.check?.matter ?? ask.check?.onMatters?.first }
+    /// The prototype's own marks for the matters whose icon it draws itself: a place's pin, a bank's columns.
+    private var matterMark: Glyph.Mark? {
+        switch matterRef?.icon {
+        case "bank": .bank
+        case "place": .pin
+        default: nil
+        }
     }
     private var icon: Glyph.Mark {
         if let check = ask.check {
@@ -116,6 +125,7 @@ struct ItemRow: View {
             if check.needs?.contains(where: { $0.kind == .event }) == true { return .calendar }
             if check.needs?.contains(where: { $0.kind == .apify }) == true { return .search }
             if check.needs?.contains(where: { $0.kind == .link }) == true { return .pin }
+            if let matterMark { return matterMark }
         }
         return ask.closed?.sent != nil ? .bubble : kept ?? .doc
     }

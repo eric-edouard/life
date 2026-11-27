@@ -58,7 +58,7 @@
         "at": "2026-11-18T10:00:00.000Z",
         "clips": [],
         "context": null,
-        "deadline": "2026-11-18T13:00:00.000Z",
+        "deadline": "2026-11-18T19:00:00.000Z",
         "draft": null,
         "group": "decision",
         "isPlan": false,
@@ -204,7 +204,13 @@
           }
         ],
         "links": [],
-        "onMatters": [],
+        "onMatters": [
+          {
+            "id": "mat_clinic",
+            "name": "Tattoo",
+            "icon": "place"
+          }
+        ],
         "onSilence": "wait",
         "ask": null,
         "changed": null,
@@ -330,7 +336,13 @@
         "kind": "your move",
         "likelyPeople": [],
         "links": [],
-        "onMatters": [],
+        "onMatters": [
+          {
+            "id": "mat_card",
+            "name": "New card",
+            "icon": "bank"
+          }
+        ],
         "onSilence": "wait",
         "ask": null,
         "changed": null,
@@ -730,6 +742,184 @@
       "later": null,
       "ref": "dec_000000000044",
       "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T09:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": null,
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [
+          {
+            "ref": "person:tomas",
+            "name": "Tomas",
+            "kind": "person",
+            "line": null,
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000051",
+        "question": "Where the rail ends",
+        "ref": "dec_000000000051",
+        "title": "Where the rail ends",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000051",
+      "state": "waiting_on_someone"
+    },
+    {
+      "at": "2026-11-26T09:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": null,
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000052",
+        "question": "Send the Article 23 letter",
+        "ref": "dec_000000000052",
+        "title": "Send the Article 23 letter",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000052",
+      "state": "under_way"
+    },
+    {
+      "at": "2026-11-26T09:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": null,
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [
+          {
+            "ref": "person:oaklaw",
+            "name": "Oak Law",
+            "kind": "person",
+            "line": null,
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000053",
+        "question": "The lawyer’s answer",
+        "ref": "dec_000000000053",
+        "title": "The lawyer’s answer",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000053",
+      "state": "waiting_on_someone"
     }
   ]
 }

@@ -34,7 +34,8 @@ extension Check {
 }
 
 extension DeadlineWords {
-    /// A row's day, the prototype's `when`: "today", "tomorrow", the weekday within the week ahead, else "3 Dec".
+    /// A row's day, the prototype's `when`: "today" (or "tonight", when it is still to come and after 17:00), "tomorrow",
+    /// the weekday within the week ahead, else "3 Dec".
     public static func day(_ date: Date, now: Date, calendar: Calendar = .current, locale: Locale = .current) -> String
     {
         let days =
@@ -42,7 +43,7 @@ extension DeadlineWords {
             ?? 0
         let style = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
         return switch days {
-        case 0: "today"
+        case 0: date > now && calendar.component(.hour, from: date) >= 17 ? "tonight" : "today"
         case 1: "tomorrow"
         case 2...6: date.formatted(style.weekday(.abbreviated))
         default: date.formatted(style.day().month(.abbreviated))

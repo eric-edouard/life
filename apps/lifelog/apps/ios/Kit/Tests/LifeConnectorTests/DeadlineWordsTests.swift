@@ -42,7 +42,9 @@ private func check(_ extra: String, group: String = "decision") throws -> Check 
     let day = { (hours: Double) in
         DeadlineWords.day(thursday.addingTimeInterval(hours * 3600), now: thursday, calendar: calendar, locale: english)
     }
-    #expect(day(2) == "today")
+    // Later this evening is "tonight"; an hour already gone is "today".
+    #expect(day(2) == "tonight")
+    #expect(day(-2) == "today")
     #expect(day(24) == "tomorrow")
     #expect(day(48) == "Sat")
     #expect(day(24 * 14) == "3 Dec")
