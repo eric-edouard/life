@@ -102,15 +102,17 @@ test("a row is green only when every column passes", () => {
 });
 
 test("accessibility blocks on clipped text and on what the prototype's state lacks", () => {
+  const hit = "XCUIAccessibilityAuditType(rawValue: 4): Hit area is too small";
+  const clipped = "XCUIAccessibilityAuditType(rawValue: 131072): Text clipped";
   const audit = [
     "XCUIAccessibilityAuditType(rawValue: 1): Contrast failed",
     "XCUIAccessibilityAuditType(rawValue: 65536): Dynamic Type font sizes are partially unsupported",
-    "XCUIAccessibilityAuditType(rawValue: 4): Hit area is too small",
-    "XCUIAccessibilityAuditType(rawValue: 131072): Text clipped",
+    hit,
+    clipped,
   ];
-  expect(blockingA11yOf(audit, { hasSmallHits: true })).toEqual([audit[3]]);
+  expect(blockingA11yOf(audit, { hasSmallHits: true })).toEqual([clipped]);
   expect(blockingA11yOf(audit, { hasSmallHits: false })).toEqual([
-    audit[2],
-    audit[3],
+    hit,
+    clipped,
   ]);
 });
