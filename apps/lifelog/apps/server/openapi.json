@@ -3624,7 +3624,7 @@
                   },
                   "kind": {
                     "type": "string",
-                    "enum": ["calendar.added"]
+                    "enum": ["calendar.added", "thread.reply"]
                   },
                   "level": {
                     "type": "string",

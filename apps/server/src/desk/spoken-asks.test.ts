@@ -87,7 +87,7 @@ const settle = async () => {
   }
 };
 
-test("a spoken ask is the desk's to route, never pulled as a change", () => {
+test("a spoken ask is the desk's, never pulled as a change", () => {
   const id = spoken();
   expect(
     asksFor(DESK_AGENT, undefined, 10_000).asks.map((a) => a.id)
@@ -114,7 +114,14 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
     // Never his words through Apple.
     const pushId = expect.stringMatching(PUSH_ID);
     expect(pushes.mock.calls).toEqual([
-      [{ body: "On it.", pushId, title: "Life heard you" }],
+      [
+        {
+          body: "On it.",
+          kind: "thread.reply",
+          pushId,
+          title: "Life heard you",
+        },
+      ],
     ]);
     // A tick while it runs (and a lost cursor) asks nothing again.
     saveSpokenAsksCursor(d.s.desk.db, {
@@ -131,8 +138,22 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
     expect(d.s.fake.said).toHaveLength(1);
     // Its answer replaces the heard push: the same id, still no words.
     expect(pushes.mock.calls).toEqual([
-      [{ body: "On it.", pushId, title: "Life heard you" }],
-      [{ body: "Open Life to read it.", pushId, title: "Life answered" }],
+      [
+        {
+          body: "On it.",
+          kind: "thread.reply",
+          pushId,
+          title: "Life heard you",
+        },
+      ],
+      [
+        {
+          body: "Open Life to read it.",
+          kind: "thread.reply",
+          pushId,
+          title: "Life answered",
+        },
+      ],
     ]);
     expect(pushes.mock.calls[1]?.[0].pushId).toBe(
       pushes.mock.calls[0]?.[0].pushId
@@ -183,6 +204,7 @@ test("every spoken ask ends with an answer or an error in his thread: a reply, n
       [
         {
           body: "Open Life to read it.",
+          kind: "thread.reply",
           pushId: expect.stringMatching(PUSH_ID),
           title: "Life couldn't do it",
         },

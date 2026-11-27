@@ -1,4 +1,3 @@
-import { clock } from "../core/clock";
 import { readLines } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -17,12 +16,13 @@ import {
   saveSpokenAsksCursor,
 } from "./desk-store";
 import { queue } from "./event-queue";
-import { askEntryOf, askMainSession } from "./main-session";
+import { askMainSession, isAsking } from "./main-session";
 import {
   PERSONAL_BRIEF,
   roleAssignmentOf,
   roleStartBlockOf,
 } from "./role-agents";
+import { askEntryOf, endEntryWith, openEntry } from "./thread-entries";
 
 // The desk's intake of his spoken asks ("hey Life", `host/hear.ts`: asks of the desk in the ledger), each tick after his
 // complaints. Every spoken ask is one ask of the main session, as his words through Ask Life are (his decision of 27 Nov
@@ -92,25 +92,9 @@ const spokenOf = (a: LedgerEntry) => {
     : {};
 };
 
-/** The spoken asks this process asked of the main session and whose answer it still waits for. */
-const running = new WeakMap<Desk["db"], Set<string>>();
-
 /** What he sees on words heard with low confidence (a misheard wake, or another voice): no turn runs on them. */
 export const NOT_SURE =
   "Life wasn't sure you were talking to it: say it again.";
-
-/** Ends spoken ask `a`'s entry with line `why` (opened here when it has none), answered, never asked again. */
-function endWith(db: Desk["db"], a: LedgerEntry, why: string) {
-  const at = clock().toISOString();
-  db.run(
-    "insert or ignore into thread_entry (ask_key, asked_at, words) values (?, ?, ?)",
-    [a.id, at, a.instruction?.quote ?? ""]
-  );
-  db.run(
-    "update thread_entry set error = ?, answered_at = ? where ask_key = ? and answered_at is null and deleted_at is null",
-    [why, at, a.id]
-  );
-}
 
 /**
  * Spoken ask `a`, asked of the main session unless this process waits on it: one push that Life heard him, which its
@@ -119,9 +103,7 @@ function endWith(db: Desk["db"], a: LedgerEntry, why: string) {
  */
 function askSpoken(desk: Desk, a: LedgerEntry) {
   const { db } = desk;
-  const held = running.get(db) ?? new Set<string>();
-  running.set(db, held);
-  if (held.has(a.id)) {
+  if (isAsking(desk, a.id)) {
     return;
   }
   const outcome =
@@ -129,6 +111,7 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     () =>
       notifyPhone({
         body,
+        kind: "thread.reply",
         pushId: pushIdOf(`thread:${askEntryOf(db, a.id)?.id}`),
         title,
       });
@@ -137,11 +120,15 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     ? CUT_BY_RESTART
     : a.after.confidence === "low" && NOT_SURE;
   if (why) {
-    endWith(db, a, why);
+    endEntryWith(
+      db,
+      before?.id ?? openEntry(db, { key: a.id, words: a.instruction?.quote }),
+      why,
+      true
+    );
     outcome("Life couldn't do it")();
     return;
   }
-  held.add(a.id);
   // Not waited for: a turn of minutes never holds the tick.
   const answered = askMainSession(
     desk,
@@ -162,8 +149,7 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     )
     .catch((error: unknown) =>
       log("desk.asks", { ...errorOf(error), ok: false, what: "main" })
-    )
-    .finally(() => held.delete(a.id));
+    );
 }
 
 /** Receives his new spoken asks, each once: a spoken one asked of the main session, a told one queued for its agent. */
@@ -266,7 +252,7 @@ export function readSpokenAsk(
   ask: string
 ) {
   const a = receiptOf(db, ask)?.assignment_id === s.id ? askOf(ask) : undefined;
-  if (!(a?.instruction && isSpokenAsk(a))) {
+  if (!(a?.instruction && isSpokenAsk(a) && toldToOf(a))) {
     return { error: `Not done: no spoken ask ${ask} was received here.` };
   }
   return { at: a.instruction.at, words: a.instruction.quote };

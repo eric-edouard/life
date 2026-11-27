@@ -35,3 +35,12 @@ import Testing
     ]
     #expect(NotificationRoute(userInfo: added) == .appointment("0123456789abcdef"))
 }
+
+@Test func aSpokenAsksReplyOpensTheThreadNeverACard() {
+    // `kind` `thread.reply`: its `pushId` only collapses "heard" into the answer; no category.
+    let reply: [AnyHashable: Any] = [
+        "aps": ["alert": ["title": "Life answered", "body": "Open Life to read it."]],
+        "kind": "thread.reply", "pushId": "0123456789abcdef",
+    ]
+    #expect(NotificationRoute(userInfo: reply) == .inbox)
+}

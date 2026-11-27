@@ -7,7 +7,7 @@ import { startBlockOf } from "./runtime-fallback";
 // The desk's standing roles (the main session, the caretaker, the Personal agent): the one place their agent is found, or
 // registered by the desk itself: the main session and the caretaker from the desk's start (`standUp`, his word of 22 Nov
 // 2026: "we should create a main agent, and then we should also create the caretaker"), the Personal agent when his word
-// needs one (his spoken ask or an arrival no matter's agent takes, Direction's ruling of 21 Nov 2026); one at most of
+// needs one (an arrival no matter's agent takes, or his words told to an agent that ended, Direction's ruling of 21 Nov 2026); one at most of
 // each, never a second while one is active or stopped.
 
 /** The Personal agent's brief when the desk registers it (Direction's ruling of 21 Nov 2026): his words come in its events. */

@@ -55,6 +55,7 @@ import {
   type Update,
 } from "./runtimes/contract";
 import { blankDeletedThreadEntries } from "./thread-deletions";
+import { askEntryOf, endEntryWith, openEntry, react } from "./thread-entries";
 import {
   claimTurn,
   recordSession,
@@ -100,6 +101,7 @@ const LIFE_REACTION = /^\s*(👀|👍)\s*/u;
 interface Heard {
   end: Promise<MainSessionAnswer>;
   hearers: Set<(l: MainSessionLine) => void>;
+  isSettled: boolean;
   lines: MainSessionLine[];
   words?: string;
 }
@@ -525,39 +527,6 @@ function hearAnswer(
   };
 }
 
-/** His ask as a new thread entry: its id. */
-const openEntry = (db: Desk["db"], ask: MainSessionAsk) =>
-  Number(
-    db.run(
-      "insert into thread_entry (ask_key, asked_at, words, screen) values (?, ?, ?, ?)",
-      [
-        ask.key ?? null,
-        clock().toISOString(),
-        ask.words ?? "",
-        ask.screen ? JSON.stringify(ask.screen) : null,
-      ]
-    ).lastInsertRowid
-  );
-
-interface StoredEntry {
-  answer: string | null;
-  answered_at: string | null;
-  deleted_at: string | null;
-  error: string | null;
-  id: number;
-  refs: string;
-  turn_id: number | null;
-  words: string | null;
-}
-
-/** The thread entry of the ask kept under key `key`, if any: answered once `answered_at` is set (an answer or an error). */
-export const askEntryOf = (db: Desk["db"], key: string) =>
-  db
-    .query<StoredEntry, [string]>(
-      "select id, words, answer, error, refs, answered_at, deleted_at, turn_id from thread_entry where ask_key = ?"
-    )
-    .get(key);
-
 /**
  * An ask stored under key `key` before this process knew it (a retry after a restart): its answer as stored, or why
  * not (other words); a stored ask that never ended runs again on its entry. Never rewrites what was answered.
@@ -588,31 +557,9 @@ function storedAnswerOf(
       };
 }
 
-/** Puts reaction `r` by `by` on entry `entry`'s words (Life's) or answer (his), once each. Whether it was put. */
-function react(db: Desk["db"], entry: number, by: "life" | "owner", r: string) {
-  const row = db
-    .query<{ reactions: string }, [number]>(
-      "select reactions from thread_entry where id = ? and deleted_at is null"
-    )
-    .get(entry);
-  if (!row) {
-    return false;
-  }
-  const reactions = JSON.parse(row.reactions) as {
-    at: string;
-    by: string;
-    with: string;
-  }[];
-  if (reactions.some((x) => x.by === by && x.with === r)) {
-    return false;
-  }
-  reactions.push({ at: clock().toISOString(), by, with: r });
-  db.run("update thread_entry set reactions = ? where id = ?", [
-    JSON.stringify(reactions),
-    entry,
-  ]);
-  return true;
-}
+/** Whether this process is asking the main session the ask kept under key `key` (queued or running). */
+export const isAsking = (desk: Desk, key: string) =>
+  asksOf.get(desk.db)?.get(key)?.isSettled === false;
 
 /** His reaction to Life's entry `entry`: kept on it, never his word for an act or an answer; it starts no turn. Why not, when it can't be. */
 export const reactToEntry = (desk: Desk, entry: number, r: string) =>
@@ -689,12 +636,12 @@ export function askMainSession(
     )
     .then((answered) => {
       // An ask that never reached the session stays open on its entry, so a retry under its key asks again.
-      const at = isAsked || ask.spoken ? clock().toISOString() : null;
       if (answered.kind === "error") {
-        desk.db.run(
-          "update thread_entry set error = ?, answered_at = ? where id = ? and deleted_at is null",
-          [answered.what, at, entry]
-        );
+        endEntryWith(desk.db, entry, answered.what, isAsked || ask.spoken);
+      }
+      const h = key ? byKey.get(key) : undefined;
+      if (h) {
+        h.isSettled = true;
       }
       if (key && !isAsked) {
         byKey.delete(key);
@@ -702,8 +649,9 @@ export function askMainSession(
       return answered;
     });
   if (key) {
-    byKey.set(key, { end, hearers, lines, words: ask.words });
-    const [oldest] = byKey.keys();
+    byKey.set(key, { end, hearers, isSettled: false, lines, words: ask.words });
+    // Only an ask that ended is forgotten: a running one is never asked twice.
+    const oldest = [...byKey].find(([, h]) => h.isSettled)?.[0];
     if (byKey.size > ASKS_KEPT && oldest) {
       byKey.delete(oldest);
     }

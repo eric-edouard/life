@@ -35,17 +35,18 @@ const agent = (brief = "Test brief: a made-up bakery's order") => {
 };
 let spokenCount = 0;
 /** His spoken ask of the desk, recorded: its id. */
-const spokenAsk = () => {
+/** His words the main session told one agent (`tell_agent`). */
+const toldAsk = () => {
   spokenCount += 1;
   return recordAsk(
     {
       at: clock().toISOString(),
-      quote: "hey Life, order the test cake",
-      ref: `door-job:${spokenCount}@x`,
+      quote: "order the test cake",
+      ref: `tell-life:door-${spokenCount}`,
     },
-    { agent: DESK_AGENT, confidence: "high", conversation: "c1", turns: [0] },
-    "watch",
-    "heard its wake"
+    { agent: DESK_AGENT, to: "asg_test" },
+    "connector",
+    "his words through Ask Life to one agent"
   ).id;
 };
 const turnOn = (id: string, assignment: string) =>
@@ -202,10 +203,10 @@ test("a new agent may wait or finish with no card", async () => {
   ).toBe(false);
 });
 
-test("a spoken ask is read at the door only by the assignment it was routed to", async () => {
+test("his told words are read at the door only by the assignment they were told to", async () => {
   const id = agent();
   const other = agent();
-  const spoken = spokenAsk();
+  const spoken = toldAsk();
   desk.db.run(
     "insert into event (assignment_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
     [on(desk, id).id, spoken, ASK_SPOKEN, clock().toISOString()]
@@ -213,7 +214,7 @@ test("a spoken ask is read at the door only by the assignment it was routed to",
   const read = (who: string) =>
     call(who, doorOf(who).key, "read_spoken_ask", { ask: spoken });
   expect(JSON.parse((await read(id)).text ?? "{}")).toMatchObject({
-    words: "hey Life, order the test cake",
+    words: "order the test cake",
   });
   expect((await read(other)).text).toContain("was received here");
 });
