@@ -182,14 +182,15 @@ function Live({ v }: { v: Variation }) {
     : 0;
   return (
     <div
-      className="relative overflow-hidden rounded-block bg-card"
+      className="relative overflow-clip rounded-block bg-card"
       ref={box}
       style={{ height: crop ? crop.height * scale : 240 }}
     >
       {near ? (
-        // The drawing's own window, centred: the page around the part never shows beside it.
+        // The drawing's own window, centred: the page around the part never shows beside it. Clipped, never hidden: a
+        // scene that focuses a field would scroll a hidden box.
         <div
-          className="absolute inset-y-0 overflow-hidden"
+          className="absolute inset-y-0 overflow-clip"
           style={{
             left: crop ? (width - crop.width * scale) / 2 : 0,
             width: crop ? crop.width * scale : "100%",
