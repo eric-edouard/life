@@ -1,22 +1,36 @@
 import { existsSync } from "node:fs";
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { bundleLlama, download } from "@life/server/src/core/pinned";
+import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { EMBEDDER_FILE } from "@life/server/src/core/embedder";
+import {
+  bundleLlama,
+  download,
+  type Pin,
+  resticRelease,
+  uvRelease,
+} from "@life/server/src/core/pinned";
 import { execOk } from "@life/server/src/core/proc";
+import { buildHost } from "../apps/lifelog/apps/server/scripts/build-host";
 
 // Life.app, assembled: the menu-bar app (apps/mac/, Swift) as its executable, the helper (scripts/helper.ts) in
-// Contents/Helpers with its files in Contents/Resources/life, signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued
+// Contents/Helpers with its files in Contents/Resources/life, and what voice's launchd jobs run (`host/voice.ts`): its
+// server, the Mac helper, restic and uv in Contents/Helpers, speaker recognition's files and the embedder's model in
+// Contents/Resources, llama.cpp's server shared with the describer, the pinned codex the helper's own. Signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued
 // certificate, Apple Development or Developer ID, by hash or name, from `.env`) under the hardened runtime, which
 // loads Sparkle only from the same team (so no self-signed one), else ad hoc. An ad hoc app is a new app to macOS at each build, so
 // it loses its Keychain items and Full Disk Access; one certificate keeps them (a Developer ID for a release).
-// Usage: `bun scripts/app.ts [out]`.
+// Usage: `bun scripts/app.ts [out]`; `--sparkle` only fetches Sparkle (the gate's Swift build needs it).
 
 const ROOT = join(import.meta.dir, "..");
-const out = process.argv[2] ?? join(ROOT, "dist");
+const sparkleOnly = process.argv[2] === "--sparkle";
+const out = (!sparkleOnly && process.argv[2]) || join(ROOT, "dist");
 const app = join(out, "Life.app");
 const contents = join(app, "Contents");
 const identity = process.env.LIFE_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFE_VERSION ?? "0.1.0";
+const arch = process.arch === "arm64" ? "arm64" : "amd64";
+// The commit it is built from: the helper passes it to voice's server as its build (`LIFE_BUILD`).
+const commit = (await execOk(["git", "-C", ROOT, "rev-parse", "HEAD"])).trim();
 
 const hardened =
   identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
@@ -52,6 +66,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${version}</string>
   <key>CFBundleVersion</key><string>${version}</string>
+  <key>LifeCommit</key><string>${commit}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>ATSApplicationFontsPath</key><string>Fonts</string>
@@ -83,6 +98,10 @@ const APP_ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
 </dict></plist>
 `;
 
+if (sparkleOnly) {
+  await sparkle();
+  process.exit(0);
+}
 await rm(app, { force: true, recursive: true });
 await mkdir(join(contents, "MacOS"), { recursive: true });
 await mkdir(join(contents, "Helpers"), { recursive: true });
@@ -113,6 +132,75 @@ await bundleLlama(
   out,
   (file) => run(["codesign", "--force", "--sign", identity, ...hardened, file])
 );
+
+// Voice: its server (one Bun binary, its licenses to Resources: Helpers holds only code), the Mac helper (Swift),
+// restic and uv from their releases, speaker recognition's files (installed by `voice run identity`) and the
+// embedder's model. Downloads are kept in lifelog's own cache, beside Lifelog Host's build's.
+const LIFELOG = join(ROOT, "apps", "lifelog");
+const helpers = join(contents, "Helpers");
+const resources = join(contents, "Resources");
+const fetched = (pin: Pin) =>
+  download(pin, join(LIFELOG, ".build", "host-downloads", basename(pin.url)));
+const quiet = ["--package-path", join(LIFELOG, "apps", "mac-quiet")];
+const scratch = [
+  "--scratch-path",
+  join(LIFELOG, ".build", "mac-quiet-release"),
+];
+await run([
+  "swift",
+  "build",
+  "-c",
+  "release",
+  ...quiet,
+  ...scratch,
+  "--product",
+  "lifelog-quiet",
+]);
+const quietBin = (
+  await run([
+    "swift",
+    "build",
+    "-c",
+    "release",
+    ...quiet,
+    ...scratch,
+    "--show-bin-path",
+  ])
+).trim();
+await cp(join(quietBin, "lifelog-quiet"), join(helpers, "lifelog-quiet"));
+await buildHost(helpers);
+await rename(join(helpers, "NOTICE"), join(resources, "voice-NOTICE"));
+await run([
+  "sh",
+  "-c",
+  'bunzip2 -c "$1" > "$2"',
+  "sh",
+  await fetched(resticRelease(arch)),
+  join(helpers, "restic"),
+]);
+const uv = uvRelease(arch);
+await run([
+  ...["tar", "-xzf", await fetched(uv), "-C", helpers],
+  ...["--strip-components", "1", `${basename(uv.url, ".tar.gz")}/uv`],
+]);
+await run(["chmod", "755", join(helpers, "restic"), join(helpers, "uv")]);
+await mkdir(join(resources, "embedder"));
+await cp(
+  await fetched(EMBEDDER_FILE),
+  join(resources, "embedder", "model.gguf")
+);
+await writeFile(
+  join(resources, "embedder", "NOTICE"),
+  "The model (EmbeddingGemma-300M) is Gemma, provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms.\n"
+);
+await mkdir(join(resources, "identity"));
+for (const f of ["app.py", "pyproject.toml", "uv.lock"]) {
+  // biome-ignore lint/performance/noAwaitInLoops: three small copies
+  await cp(
+    join(LIFELOG, "apps", "identity", f),
+    join(resources, "identity", f)
+  );
+}
 
 const helper = join(out, "helper");
 await run(["bun", join(ROOT, "scripts", "helper.ts"), helper]);
@@ -201,14 +289,28 @@ await run([
   appEntitlements,
   join(contents, "Helpers", "life-eventkit"),
 ]);
+// Voice's server is Bun too: the helper's entitlements.
 await run([
   "codesign",
   "--force",
   "--sign",
   identity,
   ...hardened,
-  join(contents, "Helpers", "life-foundation-model"),
+  "--entitlements",
+  entitlements,
+  join(helpers, "lifelog-server"),
 ]);
+for (const tool of ["life-foundation-model", "lifelog-quiet", "restic", "uv"]) {
+  // biome-ignore lint/performance/noAwaitInLoops: signing order matters
+  await run([
+    "codesign",
+    "--force",
+    "--sign",
+    identity,
+    ...hardened,
+    join(helpers, tool),
+  ]);
+}
 // Sparkle's parts, inside out (no --deep): its Autoupdate tool and Updater.app, then the framework.
 for (const part of [
   join(framework, "Versions", "B", "Autoupdate"),

@@ -9,7 +9,13 @@ import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
 import { EMBEDDER_FILE } from "../../server/src/core/embedder";
-import { bundleLlama, download } from "../../server/src/core/pinned";
+import {
+  bundleLlama,
+  download,
+  type Pin,
+  resticRelease,
+  uvRelease,
+} from "../../server/src/core/pinned";
 import { buildHost } from "../apps/server/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
@@ -34,38 +40,27 @@ const commit = (await $`git -C ${root} rev-parse HEAD`.text()).trim();
  * core/embedder.ts) from Hugging Face at a fixed revision, all pinned by sha256. */
 const TOOLS = {
   cloudflared: {
-    amd64: "903845b81828c8cb3c5d13d816a2de71c06a3da5785469df8eb0e1b736d92f9f",
-    arm64: "a2f79ff7b9420aa537d74af239f376da170bbabeb529aec416002adac6a72e70",
+    sha256:
+      arch === "arm64"
+        ? "a2f79ff7b9420aa537d74af239f376da170bbabeb529aec416002adac6a72e70"
+        : "903845b81828c8cb3c5d13d816a2de71c06a3da5785469df8eb0e1b736d92f9f",
     url: `https://github.com/cloudflare/cloudflared/releases/download/2026.10.0/cloudflared-darwin-${arch}.tgz`,
   },
   codex: {
-    amd64: "d68e39d8f62639f33f7d00656554cb9c3ef7809e664a3827e62ab3ace3c21b21",
-    arm64: "b293a0fcdd871900a44c0a4f40a1aa401b31e02854f790ebdb8bd5d1177fd1fe",
+    sha256:
+      arch === "arm64"
+        ? "b293a0fcdd871900a44c0a4f40a1aa401b31e02854f790ebdb8bd5d1177fd1fe"
+        : "d68e39d8f62639f33f7d00656554cb9c3ef7809e664a3827e62ab3ace3c21b21",
     url: `https://github.com/openai/codex/releases/download/rust-v0.162.1/${codex}.tar.gz`,
   },
-  embedder: {
-    amd64: EMBEDDER_FILE.sha256,
-    arm64: EMBEDDER_FILE.sha256,
-    url: EMBEDDER_FILE.url,
-  },
-  restic: {
-    amd64: "c38d579622cf602f665234c5a8c315030b6cf70656028fe6dc29a786b60e5f35",
-    arm64: "7be0a144ccc377880f294204aa271d76e4b79554b42a751151d425ce6ebac143",
-    url: `https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_darwin_${arch}.bz2`,
-  },
-  uv: {
-    amd64: "4fa82e37cb94767661f532b001e470b67a186c7260e305bd84ddb78fd545c0b6",
-    arm64: "0c4346de7abdb49495b393b9ec809fe387aa43e586be20fecb972216c1e71732",
-    url: `https://github.com/astral-sh/uv/releases/download/0.12.24/uv-${triple}.tar.gz`,
-  },
+  embedder: EMBEDDER_FILE,
+  restic: resticRelease(arch),
+  uv: uvRelease(arch),
 };
 
 /** The release's file, downloaded once into .build/host-downloads and refused unless it matches its sha256. */
-const fetched = (tool: (typeof TOOLS)[keyof typeof TOOLS]) =>
-  download(
-    { sha256: tool[arch], url: tool.url },
-    join(root, ".build/host-downloads", basename(tool.url))
-  );
+const fetched = (tool: Pin) =>
+  download(tool, join(root, ".build/host-downloads", basename(tool.url)));
 
 /** The menu bar's mark at 18 pt: the iPhone icon's ring (outer 316, inner 244 of 1024) and dot (128), filling it. */
 const MENUBAR = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
