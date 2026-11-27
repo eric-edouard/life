@@ -168,6 +168,13 @@ public actor TimelineScanner {
         try store.spanEnd(deviceID: deviceID, atOrBefore: instant)
     }
 
+    /// When the last run of a page at or before `page` starts: with `page` the end of the unbroken run the phone saved
+    /// (`Backlog.savedPage`), everything captured before it is stored. `nil` while none is indexed.
+    public func start(ofSavedPage page: UInt64) throws -> CaptureInstant? {
+        try store.spans(deviceID: deviceID, startingBelow: page + 1).lazy.flatMap { $0.runs.reversed() }
+            .first { $0.page <= page }?.start
+    }
+
     func start(ofPage page: UInt64) throws -> CaptureInstant? {
         let candidates =
             try store.spans(deviceID: deviceID, startingBelow: page + 1).prefix(1)

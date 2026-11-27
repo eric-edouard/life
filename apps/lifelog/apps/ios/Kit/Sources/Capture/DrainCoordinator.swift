@@ -531,7 +531,7 @@ public actor DrainCoordinator {
             await recordClockSync(set, after: storage, base: base)
         }
         let savedThrough = try? await sink.savedIndex(deviceID: deviceID, startingAt: base + storage.oldestPage)
-        let unsaved = updateBacklog(storage, savedThrough: (savedThrough ?? nil).map { $0 - base }, at: at)
+        let unsaved = updateBacklog(storage, savedThrough: savedThrough ?? nil, base: base, at: at)
         // Any other status (a push after a state change, a refresh, a confirmation) is a Pendant event.
         if purpose == .drain {
             await beginDrain(storage, unsaved: unsaved, generation)
@@ -588,13 +588,15 @@ public actor DrainCoordinator {
     /// Returns the unsaved pages: the newest ones, past the run the phone has (`PageSink.savedIndex`: held pages
     /// count as saved).
     @discardableResult
-    private func updateBacklog(_ storage: StorageState, savedThrough saved: UInt64?, at: Date) -> UInt64 {
+    private func updateBacklog(_ storage: StorageState, savedThrough stored: UInt64?, base: UInt64, at: Date) -> UInt64 {
         let beforeOldest = Int64(storage.oldestPage) - 1
-        let savedThrough = max(saved.map { Int64(clamping: $0) } ?? beforeOldest, beforeOldest)
+        let savedThrough = max(stored.map { Int64(clamping: $0 - base) } ?? beforeOldest, beforeOldest)
         let unsaved = UInt64(max(0, storage.newestPage - savedThrough))
         let perPage = measuredAudio.pages > 0 ? measuredAudio.seconds / Double(measuredAudio.pages) : nil
         status.backlog = Observed(
-            Backlog(pages: unsaved, estimatedDuration: perPage.map { .seconds($0 * Double(unsaved)) }), at: at)
+            Backlog(
+                pages: unsaved, estimatedDuration: perPage.map { .seconds($0 * Double(unsaved)) }, savedPage: stored),
+            at: at)
         return unsaved
     }
 
@@ -985,7 +987,7 @@ public actor DrainCoordinator {
         // page, so only now does its backlog shrink to the page being written (`FactsBuilder.savedThrough`). A status
         // newer than `savedThrough` only counts more pages unsaved.
         if let storage = status.storage {
-            updateBacklog(storage.value, savedThrough: savedThrough.map { $0 - drain.base }, at: storage.at)
+            updateBacklog(storage.value, savedThrough: savedThrough, base: drain.base, at: storage.at)
         }
         if let settled, settled >= drain.newest {
             // A pushed page is caught up only with the Pendant's newest: after a download that ended early, the

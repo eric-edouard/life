@@ -95,11 +95,12 @@ public actor Uploader {
     // MARK: Runs
 
     /// One pass: fragments, then the timeline. `savedThrough`: all audio the Pendant captured before it is on the phone
-    /// (`FactsBuilder.savedThrough`, read before this pass). The Mac's word is the server's to wait for
-    /// (`docs/processing.md`).
-    public func run(savedThrough: Date?) async throws {
+    /// (`FactsBuilder.savedThrough`, read before this pass). `savedPage`: the end of the unbroken run of pages the phone
+    /// saved (`Backlog.savedPage`), for while the Pendant still holds a backlog. The Mac's word is the server's to wait
+    /// for (`docs/processing.md`).
+    public func run(savedThrough: Date?, savedPage: UInt64? = nil) async throws {
         do {
-            try await pass(savedThrough: savedThrough)
+            try await pass(savedThrough: savedThrough, savedPage: savedPage)
             runError = nil
         } catch {
             switch error {
@@ -112,7 +113,7 @@ public actor Uploader {
         }
     }
 
-    private func pass(savedThrough: Date?) async throws {
+    private func pass(savedThrough: Date?, savedPage: UInt64?) async throws {
         var state = try state()
         if state == nil { state = try await restore() }
         guard var state else { return }
@@ -123,8 +124,14 @@ public actor Uploader {
             try await scanner.storedSeen(from: stored)
         }
         newestStored = try await timeline.audioEnd(atOrBefore: CaptureInstant(millis: .max))
+        // While the Pendant holds a backlog: what is before the run's last saved page. It sends oldest first, so a quiet
+        // stretch in that run is silence, never audio still to come; speech goes as it arrives (27 Nov 2026).
+        var saved = savedThrough.map(CaptureInstant.init)
+        if saved == nil, let savedPage {
+            saved = try await scanner.start(ofSavedPage: savedPage)?.advanced(by: -FactsBuilder.savedMarginMillis)
+        }
         let heard = FactsBuilder.heardThrough(
-            savedThrough: savedThrough.map(CaptureInstant.init),
+            savedThrough: saved,
             newestStored: newestStored,
             unanalyzedFrom: timeline.unanalyzedFrom, sent: state.heardThrough)
         let unsent = try await sendSpeech(timeline, heardThrough: heard, state: &state)
