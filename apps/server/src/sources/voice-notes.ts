@@ -12,8 +12,9 @@ export const VoiceNoteWords = z.object({ text: z.string() });
 const OGG = new Set(["audio/ogg", "audio/opus"]);
 
 /**
- * The file at `path` as Ogg Opus bytes, or nothing when ffmpeg failed or is missing (logged). macOS's afconvert lists
- * Ogg Opus but cannot write it (20 Nov 2026), hence ffmpeg.
+ * The file at `path` as Ogg Opus bytes; `null` when ffmpeg ran and refused it (no audio it can read: never asked
+ * again); nothing when ffmpeg is missing or was stopped (logged, asked again later). macOS's afconvert lists Ogg Opus
+ * but cannot write it (20 Nov 2026), hence ffmpeg.
  */
 export async function toOggOpus(path: string, mime: string) {
   if (OGG.has(mime)) {
@@ -31,10 +32,10 @@ export async function toOggOpus(path: string, mime: string) {
       out,
     ]),
     { timeout: 120_000 }
-  ).catch((error: unknown) => ({ code: 1, stderr: String(error) }));
+  );
   if (made.code !== 0) {
     log("file.read", { cmd: "ffmpeg", error: made.stderr.trim().slice(-200) });
-    return;
+    return made.code > 0 && !made.killed ? null : undefined;
   }
   return Bun.file(out).bytes();
 }
