@@ -22,7 +22,7 @@ own hand-over, `2026-11-27-turn-by-turn.md`, and is design only so far.
   - it has no clipped text;
   - he has not said "not right" about it (his verdicts, told in chat, are `docs/design/parity-verdicts.json`).
 - **His rule (27 Nov):** contrast and text size never block a row. Only clipped text, or an issue the prototype doesn't share, does.
-- **The gate:** a change to the iPhone app can't merge if it breaks a green row: `bun run check` runs `bun run parity --gate` after the Swift builds (landing push), re-running the flows of the rows green on the Mac's last board; it fails on a flow that now fails or takes more taps, and skips on battery.
+- **The gate:** `AGENTS.md`'s parity gate rule; it skips on battery or with no green row, never recorded as a pass.
 - The scheduled task "parity-board-evening" runs every day at 19:00 and emails him only when rows change.
 
 ## What landed (26–27 Nov)

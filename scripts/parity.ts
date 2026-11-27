@@ -16,6 +16,7 @@ import {
   placementOf,
   type ScreenNode,
 } from "./design-compare";
+import { GATE_SKIPPED, RESULT, SHOTS } from "./e2e-dirs";
 
 // The parity board (docs/plans/2026-11-26-app-matches-prototype.md): each state of the approved prototype
 // (`2026-11-25-app-v4.html`, one side-panel button) beside the app reaching it in a flow test over the same made-up data.
@@ -35,8 +36,6 @@ const PROTO = join(
 const BOARD_DIR = "docs/design/2026-11-23-chat-first/parity";
 const OUT = join(REPO, BOARD_DIR);
 const VERDICTS = join(REPO, "docs/design/parity-verdicts.json");
-const SHOTS = "/tmp/lifelog-parity"; // FlowTest.shoot's
-const RESULT = "/tmp/lifelog-e2e-dd/result.xcresult"; // e2e-phone.ts's
 const FRAME: [number, number] = [390, 844];
 const LOOKS_PASS = 8;
 
@@ -403,8 +402,8 @@ const tapsOf = (id: string) => {
   return existsSync(file) ? Number(readFileSync(file, "utf8")) : null;
 };
 /** No more taps than the prototype's, when its task takes any. */
-const isTapsOk = (taps: BoardRow["taps"]) =>
-  !taps || (taps.app !== null && taps.app <= taps.proto);
+const isTapsOk = (app: number | null, proto: number) =>
+  proto === 0 || (app !== null && app <= proto);
 
 /** The gate's failures: of rows green before, those whose flow failed or took more taps than the prototype. */
 export const regressedOf = (
@@ -413,9 +412,7 @@ export const regressedOf = (
   taps: (id: string) => number | null
 ) =>
   rows.filter(
-    (r) =>
-      results.get(r.flow) !== true ||
-      !isTapsOk(r.taps ? { app: taps(r.id), proto: r.taps } : null)
+    (r) => results.get(r.flow) !== true || !isTapsOk(taps(r.id), r.taps)
   );
 
 const read = <T>(file: string): T | null =>
@@ -453,7 +450,7 @@ export const greenOf = (r: Omit<BoardRow, "changed" | "green" | "pair">) =>
   r.review !== null &&
   r.review.score >= LOOKS_PASS &&
   r.works === true &&
-  isTapsOk(r.taps) &&
+  isTapsOk(r.taps?.app ?? null, r.taps?.proto ?? 0) &&
   r.owner?.verdict !== "not right";
 
 export function boardRowOf(
@@ -538,37 +535,46 @@ export function withReviews(
   });
 }
 
+/** The gate's rows: those green on a board (the Mac's last), or why it runs none. */
+export function gateRowsOf(board: string): Row[] | string {
+  const baseline = read<{ rows: BoardRow[] }>(board);
+  const green = new Set(baseline?.rows.filter((r) => r.green).map((r) => r.id));
+  const rows = ROWS.filter((r) => green.has(r.id));
+  if (rows.length) {
+    return rows;
+  }
+  return baseline
+    ? "no green row on the Mac's last board"
+    : "no board from the Mac yet";
+}
+
 /** `--gate`: the rows green on the Mac's last board (the main checkout's, from any worktree), their flows run again. */
 function gate() {
   const power = Bun.spawnSync(["pmset", "-g", "batt"]).stdout.toString();
-  if (power.includes("Battery Power")) {
-    console.log("skipped: on battery");
-    return 0;
-  }
   const common = Bun.spawnSync(
     ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
     { cwd: REPO }
   )
     .stdout.toString()
     .trim();
-  const baseline = read<{ rows: BoardRow[] }>(
-    join(dirname(common), BOARD_DIR, "board.json")
-  );
-  const green = new Set(baseline?.rows.filter((r) => r.green).map((r) => r.id));
-  const rows = ROWS.filter((r) => green.has(r.id));
-  if (!rows.length) {
-    console.log(
-      `skipped: ${baseline ? "no green row on the Mac's last board" : "no board from the Mac yet"}`
-    );
-    return 0;
+  const rows = power.includes("Battery Power")
+    ? "on battery"
+    : gateRowsOf(join(dirname(common), BOARD_DIR, "board.json"));
+  if (typeof rows === "string") {
+    console.log(`skipped: ${rows}`);
+    return GATE_SKIPPED;
   }
   runFlows(rows);
+  const ran = existsSync(RESULT);
   const results = flowResults();
   const regressed = regressedOf(rows, results, tapsOf);
   for (const r of regressed) {
-    const why = results.get(r.flow)
-      ? `takes ${tapsOf(r.id) ?? "?"} taps, the prototype ${r.taps}`
-      : "its flow fails";
+    let why = "its flow fails";
+    if (!ran) {
+      why = "the flows didn't run (build failed?)";
+    } else if (results.get(r.flow)) {
+      why = `takes ${tapsOf(r.id) ?? "?"} taps, the prototype ${r.taps}`;
+    }
     console.error(`✗ ${r.id} (${r.title}): ${why}`);
   }
   console.log(

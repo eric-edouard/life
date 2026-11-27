@@ -486,6 +486,8 @@ ruling of 29 Oct).
 
 - Handoffs, research, audits and plans are dated (his word of 23 Nov 2026): one file is `YYYY-MM-DD-<name>.md`; several
   files go in one folder `YYYY-MM-DD-<name>/`, in `docs/handoff/`, `docs/plans/` or where they belong.
+- An iPhone app change can't land if a row green on the Mac's last parity board stops matching: the check's parity gate
+  (`bun run parity --gate`, after the Swift builds) runs those rows' flows (`docs/handoff/2026-11-27-app-parity.md`).
 - A branch and a PR per change, small commits. Prefer deleting code to adding it; one way to do each thing; docs stay
   short and written for humans.
 - Every PR follows the `work-on-code` skill where available: a debt plan checked before code, and the debt

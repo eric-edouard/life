@@ -1,7 +1,14 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { blockingA11yOf, greenOf, ROWS, regressedOf } from "./parity";
+import {
+  blockingA11yOf,
+  gateRowsOf,
+  greenOf,
+  ROWS,
+  regressedOf,
+} from "./parity";
 
 // Each parity fixture (the prototype's own made-up data) keeps the shape of the fixture it was copied from:
 // every key path it holds exists in that source, so the app's decoders see no new field.
@@ -129,4 +136,12 @@ test("the gate names a green row whose flow fails or takes more taps than the pr
   expect(regressedOf(rows, results, taps).map((r) => r.id)).toEqual(
     ids.slice(1)
   );
+});
+
+test("the gate runs the rows green on the Mac's board, and skips without one", () => {
+  const board = join(mkdtempSync(join(tmpdir(), "parity-")), "board.json");
+  const rows = ROWS.slice(0, 3).map((r, i) => ({ green: i < 2, id: r.id }));
+  writeFileSync(board, JSON.stringify({ rows }));
+  expect(gateRowsOf(board)).toEqual(ROWS.slice(0, 2));
+  expect(typeof gateRowsOf(`${board}.missing`)).toBe("string");
 });

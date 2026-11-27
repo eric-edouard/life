@@ -4,6 +4,7 @@ import { rm } from "node:fs/promises";
 import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
 import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
+import { GATE_SKIPPED } from "./e2e-dirs";
 
 // One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
 await hold("check", process.cwd(), 5000);
@@ -230,8 +231,17 @@ function killAll() {
   }
 }
 
+// The parity gate, last in the Swift chain, ran nothing: shown, and the tree is not recorded as passing the Swift part.
+let paritySkipped = false;
 const results = procs.map(async ({ name, output, proc }) => {
   const code = await proc.exited;
+  if (code === GATE_SKIPPED && name === "swift builds") {
+    paritySkipped = true;
+    console.log(
+      `✓ ${name}; parity gate ${(await output).trim().split("\n").at(-1)}`
+    );
+    return;
+  }
   if (code === 0) {
     console.log(
       `✓ ${name} (${((performance.now() - started) / 1000).toFixed(1)} s)`
@@ -258,5 +268,5 @@ await Promise.all(results);
 
 // Recorded only when nothing changed while it ran.
 if (!passed && tree && tree === readCleanTree(".")) {
-  recordPassed(".", tree, swift);
+  recordPassed(".", tree, swift && !paritySkipped);
 }

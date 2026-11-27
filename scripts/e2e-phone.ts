@@ -1,16 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DERIVED, RESULT, SHOTS } from "./e2e-dirs";
 
 // The iPhone app's end-to-end flows (apps/lifelog/apps/ios/LifelogE2E): build once when Swift changed, keep three
 // cloned simulators warm, run one flow per test class over them, print failures only.
-// Usage: `bun run e2e:phone [TestClass …]`. Not in `bun run check` yet.
+// Usage: `bun run e2e:phone [TestClass …]`. The check runs the green parity rows' flows (`bun run parity --gate`).
 
 const IOS = join(import.meta.dir, "..", "apps/lifelog/apps/ios");
-const DERIVED = "/tmp/lifelog-e2e-dd";
 const SOURCE = "iPhone 18 Pro";
 const CLONES = ["e2e-1"];
 const WORKERS = 3;
-const RESULT = join(DERIVED, "result.xcresult");
 const STAMP = join(DERIVED, "built");
 
 /** The test class of a flow id (`O7` is `O7QueueTiedToItsLifeTests`), or the name as given. */
@@ -143,6 +142,7 @@ if (flow) {
   ]);
   process.env.TEST_RUNNER_E2E_WATCH = "1";
 }
+process.env.TEST_RUNNER_PARITY_SHOTS = SHOTS;
 const only = classes.flatMap((c) => ["-only-testing", `LifelogE2E/${c}`]);
 run(["rm", "-rf", RESULT]);
 const test = run([
