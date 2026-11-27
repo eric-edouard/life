@@ -22,7 +22,7 @@ import {
 // `bun run parity [row …] [--no-app] [--verdicts <file>] [--digest <board url>]` writes `parity/board.json` and the pairs.
 // A row is green when every column it has passes: Looks (the reviewer's score of the pair, 8 or more; the words-and-boxes
 // gaps are its evidence), Works (the flow test, which checks the calls the app made), Taps (no more than the
-// prototype's), Accessibility (Apple's audit), Owner (his "not right" is a failing note until the next batch fixes it).
+// prototype's), Accessibility (Apple's audit, blocking only as `blockingA11yOf` says), Owner (his "not right" is a failing note until the next batch fixes it).
 
 const REPO = join(import.meta.dir, "..");
 const PROTO = join(REPO, "docs/design/chat-first/prototypes/shell.html");
@@ -159,6 +159,8 @@ interface Verdict {
 }
 export interface BoardRow {
   a11y: string[] | null;
+  /** The audit's issues that keep the row red (`blockingA11yOf`); the rest are shown only. */
+  a11yBlocking: string[] | null;
   changed: boolean;
   gaps: string[];
   green: boolean;
@@ -243,6 +245,50 @@ function elementsOf(page: Page): Promise<DesignElement[]> {
   }, FRAME);
 }
 
+/**
+ * The owner's rule (27 Nov 2026): "accessibility, like contrast and text size, we don't care about much if it's already
+ * what the design has provided for… we just want to follow the design. Cut-off text, yes it's an issue." Clipped text
+ * always blocks; contrast and Dynamic Type follow the design's own colours and sizes, shown, never blocking; any other
+ * issue blocks unless the prototype's state has it too (of those, only a small hit area can be read from its boxes).
+ */
+const AUDIT_TYPE = /rawValue: (\d+)/;
+const A11Y = { contrast: 1, dynamicType: 65_536, hitRegion: 4 };
+export function blockingA11yOf(
+  audit: string[],
+  proto: { hasSmallHits: boolean }
+) {
+  const shared = [
+    A11Y.contrast,
+    A11Y.dynamicType,
+    ...(proto.hasSmallHits ? [A11Y.hitRegion] : []),
+  ];
+  return audit.filter(
+    (issue) => !shared.includes(Number(AUDIT_TYPE.exec(issue)?.[1]))
+  );
+}
+
+/** Whether the prototype's state shows a control under Apple's 44-point tap target, in frame points. */
+function hasSmallHitsOf(page: Page) {
+  return page.evaluate(([w, h]) => {
+    const ph = document.getElementById("ph") as HTMLElement;
+    const r0 = ph.getBoundingClientRect();
+    const k = r0.width / w;
+    return [
+      ...ph.querySelectorAll("button, a, input, textarea, [role=button]"),
+    ].some((el) => {
+      const r = el.getBoundingClientRect();
+      const y = (r.y - r0.y) / k;
+      const isShown =
+        r.width > 0 &&
+        r.height > 0 &&
+        y < h &&
+        y + r.height / k > 0 &&
+        getComputedStyle(el).visibility !== "hidden";
+      return isShown && Math.min(r.width, r.height) / k < 44;
+    });
+  }, FRAME);
+}
+
 /** Shoots each row's prototype state, all at once, each on its own page: the picture and its elements. */
 async function shootPrototype(rows: Row[]) {
   const browser = await chromium.launch();
@@ -251,7 +297,7 @@ async function shootPrototype(rows: Row[]) {
       deviceScaleFactor: 2,
       viewport: { height: 960, width: 1400 },
     });
-    await page.goto(`file://${PROTO}`);
+    await page.goto(`file://${PROTO}`, { timeout: 180_000 }); // a loaded Mac (a build) slows a cold page
     await page.waitForTimeout(800);
     return page;
   };
@@ -270,13 +316,22 @@ async function shootPrototype(rows: Row[]) {
       .locator("#ph")
       .screenshot({ path: join(OUT, `${row.id}.proto.png`) });
     const elements = await elementsOf(page);
+    const hasSmallHits = await hasSmallHitsOf(page);
     await page.close();
-    return [row.id, elements] as const;
+    return [row.id, { elements, hasSmallHits }] as const;
   };
   const panel = await open();
   const [titles, shots] = await Promise.all([
     panelOf(panel),
-    Promise.all(rows.map(shot)),
+    // Four pages at a time: a dozen at once time out while the Mac builds.
+    (async () => {
+      const out: Awaited<ReturnType<typeof shot>>[] = [];
+      for (let i = 0; i < rows.length; i += 4) {
+        // biome-ignore lint/performance/noAwaitInLoops: one batch of pages after another
+        out.push(...(await Promise.all(rows.slice(i, i + 4).map(shot))));
+      }
+      return out;
+    })(),
   ]);
   await browser.close();
   return { design: new Map(shots), titles };
@@ -337,13 +392,14 @@ const signatureOf = (r: BoardRow) =>
     r.works,
     r.taps,
     r.a11y?.length,
+    r.a11yBlocking?.length,
   ]);
 
-/** Green: a pair the app reached in a flow that passed, every column it has passing (a review of 8 or more, his word never "not right"). */
+/** Green: a pair the app reached in a flow that passed, every column it has passing (a review of 8 or more, no blocking accessibility issue, his word never "not right"). */
 export const greenOf = (r: Omit<BoardRow, "changed" | "green" | "pair">) =>
   r.status === "filled" &&
-  r.a11y !== null &&
-  r.a11y.length === 0 &&
+  r.a11yBlocking !== null &&
+  r.a11yBlocking.length === 0 &&
   r.review !== null &&
   r.review.score >= LOOKS_PASS &&
   r.works === true &&
@@ -354,6 +410,7 @@ export function boardRowOf(
   row: Row,
   gaps: string[],
   shot: { a11y: string[]; taps: number | null } | null,
+  proto: { hasSmallHits: boolean },
   works: boolean | null,
   review: Review | null,
   owner: Verdict | null
@@ -361,6 +418,7 @@ export function boardRowOf(
   const taps = row.taps ? { app: shot?.taps ?? null, proto: row.taps } : null;
   const fields = {
     a11y: shot?.a11y ?? null,
+    a11yBlocking: shot ? blockingA11yOf(shot.a11y, proto) : null,
     gaps,
     id: row.id,
     owner,
@@ -376,7 +434,7 @@ export function boardRowOf(
 /** A row the app reaches, from its flow's shot in `SHOTS`: the pair, its gaps, the flow's result, his word. */
 function filledRowOf(
   row: Row,
-  design: DesignElement[],
+  design: { elements: DesignElement[]; hasSmallHits: boolean },
   was: BoardRow | undefined,
   passed: boolean | undefined,
   owner: Verdict | null
@@ -397,7 +455,7 @@ function filledRowOf(
     : null;
   const gaps = shot
     ? gapsOf(
-        design,
+        design.elements,
         shot.nodes,
         shot.window,
         placementOf(FRAME, [shot.window.width, shot.window.height], "fit")
@@ -409,6 +467,7 @@ function filledRowOf(
     row,
     gaps,
     shot ? { a11y: shot.audit, taps } : null,
+    design,
     passed ?? (shot ? null : false),
     review,
     owner
@@ -492,7 +551,7 @@ if (import.meta.main) {
       add(
         filledRowOf(
           row,
-          design.get(row.id) ?? [],
+          design.get(row.id) ?? { elements: [], hasSmallHits: false },
           was,
           results.get(row.flow),
           verdicts[row.id] ?? was?.owner ?? null
@@ -503,6 +562,7 @@ if (import.meta.main) {
       const id = selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
       add({
         a11y: null,
+        a11yBlocking: null,
         changed: false,
         gaps: [],
         green: false,

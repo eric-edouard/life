@@ -62,7 +62,9 @@ function checks(r) {
   c.push(["Looks", looks === null ? "needs review" : `${r.review.score}/10`, looks]);
   if (r.works !== null) c.push(["Works", r.works ? "passes" : "fails", r.works]);
   if (r.taps) c.push(["Taps", `${r.taps.app ?? "?"} vs ${r.taps.proto}`, r.taps.app !== null && r.taps.app <= r.taps.proto]);
-  if (r.a11y) c.push(["Accessibility", r.a11y.length ? `${r.a11y.length} issues` : "clean", r.a11y.length === 0]);
+  // His rule of 27 Nov 2026: only clipped text, or an issue the prototype's state lacks, blocks; contrast and text size are shown.
+  if (r.a11y) { const n = (r.a11yBlocking ?? r.a11y).length, shown = r.a11y.length - n;
+    c.push(["Accessibility", n ? `${n} blocking${shown ? `, ${shown} shown` : ""}` : shown ? `${shown} shown, none blocking` : "clean", n === 0]); }
   return c;
 }
 
