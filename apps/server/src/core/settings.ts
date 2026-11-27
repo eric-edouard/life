@@ -190,7 +190,7 @@ export const Settings = z
       .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
-    /** lifelog's server, on loopback (Life's origin forwards `/voice` to it: never Life's own address); its token is voice's reader token (`sources/lifelog-call.ts`), else `LIFELOG_TOKEN`. */
+    /** lifelog's server, on loopback (Life's origin forwards `/voice` to it: never Life's own address); absent, voice's own (`VOICE_URL`); its token is voice's device token (`sources/lifelog-call.ts`), else `LIFELOG_TOKEN`. */
     lifelog: z.object({ url: z.url() }).strict().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),

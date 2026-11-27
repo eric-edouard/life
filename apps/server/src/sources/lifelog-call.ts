@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { APP_DATA } from "../core/platform";
+import { isOwnLife } from "../core/platform";
+import { SECRETS } from "../core/secret";
 import { settings } from "../core/settings";
 
-/** Voice's secrets on this Mac, in one owner-only file: written by `host/voice.ts` alone, read by voice's Mac helper too. */
-export const VOICE_SECRETS = join(APP_DATA, "lifelog-quiet", "secrets.json");
+/** Voice's server, on loopback only (`host/voice.ts` runs it there); Life's origin forwards `/voice` to it. */
+export const VOICE_URL = "http://127.0.0.1:47613";
 
 /** `file`'s text, none when there is none; a file group or others can access is refused. */
 export function readOwnerOnly(file: string) {
@@ -23,7 +23,7 @@ export function readOwnerOnly(file: string) {
 }
 
 /** Voice's secrets as stored (`{}` without the file), refused when others can read them. */
-export const readVoiceSecrets = (file = VOICE_SECRETS) =>
+export const readVoiceSecrets = (file = SECRETS.voiceSecrets) =>
   JSON.parse(readOwnerOnly(file) ?? "{}") as Record<string, unknown>;
 
 /** One secret of them, trimmed; none when absent or blank. */
@@ -32,10 +32,11 @@ export const secretOf = (secrets: Record<string, unknown>, key: string) => {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 };
 
-/** lifelog's server (REST API): its address from settings; its token voice's device token (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
-const lifelogUrl = () => settings().lifelog?.url;
+/** lifelog's server (REST API): its address from settings, else voice's; its token voice's device token (his own Life only) (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
+const lifelogUrl = () => settings().lifelog?.url ?? VOICE_URL;
 const lifelogToken = () =>
-  secretOf(readVoiceSecrets(), "deviceToken") ?? process.env.LIFELOG_TOKEN;
+  (isOwnLife() ? secretOf(readVoiceSecrets(), "deviceToken") : undefined) ??
+  process.env.LIFELOG_TOKEN;
 
 /** What keeps lifelog from being read: its address or its token missing, or its secrets file unsafe; nothing when it is set up. */
 export function lifelogMissing() {
