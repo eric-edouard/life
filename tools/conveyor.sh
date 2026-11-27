@@ -17,12 +17,11 @@ jq -r '.[] | select(.isDraft|not) | select(.title|test("^(Trial|Land train)";"i"
   | (.body|[split("\n")[]|select(startswith("Verdict: "))][0] // "") as $v
   | select($v != "" and ($v|test("^Verdict: (rework needed|debt added)")|not))
   | [.number, .mergeable, .headRefName,
-     (if any(.files[].path; startswith("apps/lifelog/apps/ios/")) then "phone" else "server" end),
-     (if any(.files[].path; startswith("apps/lifelog/")) then "voice" else "-" end)] | @tsv' \
+     (if any(.files[].path; startswith("apps/lifelog/apps/ios/")) then "phone" else "server" end)] | @tsv' \
   "$ST/conveyor-prs.json" >"$ST/conveyor-ready.tsv"
 
-SERVER=(); PHONE=(); VOICE=0
-while IFS=$'\t' read -r n m ref kind voice; do
+SERVER=(); PHONE=()
+while IFS=$'\t' read -r n m ref kind; do
   [ -z "$n" ] && continue
   # A PR blamed for a failed train waits until its head changes.
   [ -f "$ST/blocked/$n" ] && [ "$(cat "$ST/blocked/$n")" = "$(jq -r --argjson n "$n" '.[]|select(.number==$n)|.headRefOid' "$ST/conveyor-prs.json")" ] && continue
@@ -41,7 +40,7 @@ while IFS=$'\t' read -r n m ref kind voice; do
     continue
   fi
   [ "$m" = MERGEABLE ] || continue
-  if [ "$kind" = phone ]; then PHONE+=("$n"); else SERVER+=("$n"); [ "$voice" = voice ] && VOICE=1; fi
+  if [ "$kind" = phone ]; then PHONE+=("$n"); else SERVER+=("$n"); fi
 done <"$ST/conveyor-ready.tsv"
 
 # One train for everything ready: one check instead of a server check and a phone check (velocity, 21 Nov).
@@ -49,8 +48,8 @@ ALL=("${SERVER[@]}" "${PHONE[@]}")
 if [ ${#ALL[@]} -gt 0 ]; then
   say "train: ${ALL[*]}"; out=$("$SP/land-train.sh" "${ALL[@]}" 2>&1 | tail -4); say "$out"
   if [ ${#SERVER[@]} -gt 0 ] && echo "$out" | grep -q "MERGED"; then
-    ( say "swap Life.app: $("$SP/build-and-swap.sh" 2>&1 | grep -E "SWAP|BAD|FAILED" | tail -1)"
-      [ "$VOICE" = 1 ] && say "swap Lifelog Host: $("$SP/host-build-and-swap.sh" 2>&1 | tail -1)" ) </dev/null >/dev/null 2>&1 &
+    # Life.app carries voice (its launchd jobs restart on a new build); Lifelog Host is no longer swapped.
+    ( say "swap Life.app: $("$SP/build-and-swap.sh" 2>&1 | grep -E "SWAP|BAD|FAILED" | tail -1)" ) </dev/null >/dev/null 2>&1 &
   fi
 fi
 # After any landing: remove the worktrees and branches of merged or closed PRs (his rule of 21 Nov).
