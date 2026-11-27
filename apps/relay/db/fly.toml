@@ -1,0 +1,22 @@
+# The relay's MySQL, reached only over Fly's private network (hostedbyme-db.internal:3306, ssl-mode=REQUIRED).
+# Secrets: MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD. Volume: `fly volumes create mysqldata --size 1 --region sin`.
+app = "hostedbyme-db"
+primary_region = "sin"
+
+[build]
+  image = "mysql:8.4"
+
+[env]
+  MYSQL_DATABASE = "opentunnel"
+  MYSQL_USER = "opentunnel"
+
+[mounts]
+  source = "mysqldata"
+  destination = "/var/lib/mysql"
+
+[processes]
+  app = "--datadir /var/lib/mysql/data --performance-schema=OFF --innodb-buffer-pool-size=64M"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

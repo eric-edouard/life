@@ -1,0 +1,796 @@
+{
+  "about": "App v4's components, by scene and part; docs/design/README.md says how the designs app reads it.",
+  "groups": [
+    {
+      "name": "The edge",
+      "variations": [
+        {
+          "name": "Idle",
+          "page": "2026-11-28-edge-states.html#rest",
+          "row": "data-s-rest",
+          "status": "designed"
+        },
+        {
+          "name": "You speak",
+          "page": "2026-11-28-edge-states.html#listen",
+          "row": "data-s-listen",
+          "status": "designed"
+        },
+        {
+          "name": "Life works",
+          "page": "2026-11-28-edge-states.html#work",
+          "row": "data-s-work",
+          "status": "designed"
+        },
+        {
+          "name": "An answer lands",
+          "page": "2026-11-28-edge-states.html#landed",
+          "row": null,
+          "status": "designed"
+        },
+        {
+          "name": "Still: no Mac answers",
+          "page": "2026-11-28-edge-states.html#still",
+          "row": null,
+          "status": "designed"
+        },
+        {
+          "name": "Each in turn",
+          "page": "2026-11-28-edge-states.html#cycle",
+          "row": null,
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "Opening the app",
+      "variations": [
+        {
+          "name": "After 5 minutes: a clean screen",
+          "scene": [
+            "[data-v4=\"openlong\"]"
+          ],
+          "row": "open-clean",
+          "status": "next"
+        },
+        {
+          "name": "Sooner: as you left it",
+          "scene": [
+            "[data-v4=\"openshort\"]"
+          ],
+          "row": "data-v4-openshort",
+          "status": "designed"
+        },
+        {
+          "name": "Something is broken",
+          "scene": [
+            "[data-v4=\"broken\"]"
+          ],
+          "row": "open-broken",
+          "status": "next"
+        }
+      ]
+    },
+    {
+      "name": "The item row",
+      "variations": [
+        {
+          "name": "What waits on you",
+          "scene": [
+            "[data-v4=\"openlong\"]",
+            "#ph [aria-label$=\"waiting on you\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "waiting",
+          "status": "next"
+        },
+        {
+          "name": "Three",
+          "scene": [
+            "[data-v4=\"ltlist3\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-ltlist3",
+          "status": "designed"
+        },
+        {
+          "name": "Eight",
+          "scene": [
+            "[data-v4=\"ltlist8\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-ltlist8",
+          "status": "designed"
+        },
+        {
+          "name": "Twenty",
+          "scene": [
+            "[data-v4=\"ltlist20\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-ltlist20",
+          "status": "designed"
+        },
+        {
+          "name": "Real-length titles",
+          "scene": [
+            "[data-v4=\"rowstoday\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-rowstoday",
+          "status": "designed"
+        },
+        {
+          "name": "Settled",
+          "scene": [
+            "[data-v4=\"rate\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "rate",
+          "status": "next"
+        },
+        {
+          "name": "Replied outside Life",
+          "scene": [
+            "#o2"
+          ],
+          "part": ".bt.wide",
+          "row": "o2",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "Show earlier and more",
+      "variations": [
+        {
+          "name": "More",
+          "scene": [
+            "[data-v4=\"openlong\"]"
+          ],
+          "part": ".more",
+          "row": "open-clean",
+          "status": "next"
+        },
+        {
+          "name": "Held while you were busy",
+          "scene": [
+            "[data-v4=\"meetend\"]"
+          ],
+          "part": ".sep.held",
+          "row": "data-v4-meetend",
+          "status": "designed"
+        },
+        {
+          "name": "Held while you slept",
+          "scene": [
+            "[data-v4=\"sleep\"]"
+          ],
+          "part": ".sep.held",
+          "row": "data-v4-sleep",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "A reply to send",
+      "variations": [
+        {
+          "name": "A draft",
+          "scene": [
+            "[data-v4=\"draft\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "draft",
+          "status": "next"
+        },
+        {
+          "name": "Redrafted in your words",
+          "scene": [
+            "[data-v4=\"redraft\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-redraft",
+          "status": "designed"
+        },
+        {
+          "name": "Out of date",
+          "scene": [
+            "[data-v4=\"draft\"]",
+            "#o1"
+          ],
+          "part": ".pg.expanded",
+          "row": "outdated",
+          "status": "waiting",
+          "on": "design"
+        },
+        {
+          "name": "WhatsApp: Undo after",
+          "scene": [
+            "[data-v4=\"wa\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "undo-whatsapp",
+          "status": "next"
+        },
+        {
+          "name": "iMessage: no Undo",
+          "scene": [
+            "[data-v4=\"im\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "imessage-no-undo",
+          "status": "next"
+        }
+      ]
+    },
+    {
+      "name": "An ask",
+      "variations": [
+        {
+          "name": "An event",
+          "scene": [
+            "[data-v4=\"event\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-event",
+          "status": "designed"
+        },
+        {
+          "name": "A paid search",
+          "scene": [
+            "[data-v4=\"paidsearch\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-paidsearch",
+          "status": "designed"
+        },
+        {
+          "name": "A new matter",
+          "scene": [
+            "[data-v4=\"newmatter\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-newmatter",
+          "status": "designed"
+        },
+        {
+          "name": "Is this done?",
+          "scene": [
+            "[data-v4=\"isdone\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-isdone",
+          "status": "designed"
+        },
+        {
+          "name": "Same person?",
+          "scene": [
+            "[data-v4=\"sameperson\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-sameperson",
+          "status": "designed"
+        },
+        {
+          "name": "A Contacts card",
+          "scene": [
+            "[data-v4=\"contactcard\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-contactcard",
+          "status": "designed"
+        },
+        {
+          "name": "At an organization",
+          "scene": [
+            "[data-v4=\"atorg\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-atorg",
+          "status": "designed"
+        },
+        {
+          "name": "A payment code",
+          "scene": [
+            "[data-v4=\"paycode\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-paycode",
+          "status": "designed"
+        },
+        {
+          "name": "A link",
+          "scene": [
+            "[data-v4=\"link\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-link",
+          "status": "designed"
+        },
+        {
+          "name": "Planned steps",
+          "scene": [
+            "[data-v4=\"plan\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-plan",
+          "status": "designed"
+        },
+        {
+          "name": "A clip",
+          "scene": [
+            "[data-v4=\"clip\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-clip",
+          "status": "designed"
+        },
+        {
+          "name": "Life sees it done",
+          "scene": [
+            "[data-v4=\"seesdone\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-seesdone",
+          "status": "designed"
+        },
+        {
+          "name": "Life looks for it",
+          "scene": [
+            "[data-v4=\"looksdone\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-looksdone",
+          "status": "designed"
+        },
+        {
+          "name": "Couldn't wait for your meeting",
+          "scene": [
+            "[data-v4=\"meet\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-v4-meet",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "A fix",
+      "variations": [
+        {
+          "name": "Sign back in",
+          "scene": [
+            "[data-k=\"login\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "signed-out",
+          "status": "waiting",
+          "on": "server"
+        },
+        {
+          "name": "The pendant",
+          "scene": [
+            "[data-k=\"pendant\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-k-pendant",
+          "status": "designed"
+        },
+        {
+          "name": "The budget",
+          "scene": [
+            "[data-k=\"budget\"]"
+          ],
+          "part": ".pg.expanded",
+          "row": "data-k-budget",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "The notice",
+      "variations": [
+        {
+          "name": "Offline",
+          "scene": [
+            "[data-k=\"offline\"]"
+          ],
+          "part": ".sys",
+          "row": "offline",
+          "status": "next"
+        },
+        {
+          "name": "No Mac",
+          "scene": [
+            "[data-k=\"mac\"]"
+          ],
+          "part": ".sys",
+          "row": "mac-out",
+          "status": "next"
+        },
+        {
+          "name": "Offline: the phone's settings",
+          "scene": [
+            "[data-v4=\"setoff\"]"
+          ],
+          "part": ".sys",
+          "row": "data-v4-setoff",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "His bubble",
+      "variations": [
+        {
+          "name": "His words",
+          "scene": [
+            "[data-v4=\"peek\"]"
+          ],
+          "part": ".bm",
+          "row": "data-v4-peek",
+          "status": "designed"
+        },
+        {
+          "name": "With a reaction",
+          "scene": [
+            "[data-v4=\"thanks\"]"
+          ],
+          "part": ".bm",
+          "row": "data-v4-thanks",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "Reactions",
+      "variations": [
+        {
+          "name": "Remind me",
+          "scene": [
+            "[data-v4=\"remind\"]"
+          ],
+          "row": "data-v4-remind",
+          "status": "designed"
+        },
+        {
+          "name": "He reacts to Life's line",
+          "scene": [
+            "[data-v4=\"hold\"]"
+          ],
+          "row": "data-v4-hold",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "The rating",
+      "variations": [
+        {
+          "name": "Life asks",
+          "scene": [
+            "[data-v4=\"rate\"]"
+          ],
+          "part": ".hd",
+          "row": "rate",
+          "status": "next"
+        }
+      ]
+    },
+    {
+      "name": "Life at work",
+      "variations": [
+        {
+          "name": "Long work, handed off",
+          "scene": [
+            "[data-v4=\"async\"]"
+          ],
+          "row": "data-v4-async",
+          "status": "designed"
+        },
+        {
+          "name": "The result lands",
+          "scene": [
+            "[data-v4=\"asyncdone\"]"
+          ],
+          "row": "data-v4-asyncdone",
+          "status": "designed"
+        },
+        {
+          "name": "Ask how it's going",
+          "scene": [
+            "[data-v4=\"peek\"]"
+          ],
+          "row": "data-v4-peek",
+          "status": "designed"
+        },
+        {
+          "name": "What it may spend",
+          "scene": [
+            "[data-v4=\"budget\"]"
+          ],
+          "row": "data-v4-budget",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "Answers",
+      "variations": [
+        {
+          "name": "The kinds",
+          "row": null,
+          "status": "designed",
+          "page": "2026-11-23-chat-first/2026-11-25-answer-components.html",
+          "wide": true
+        },
+        {
+          "name": "The house, as it is written",
+          "scene": [
+            "[data-try=\"house\"]"
+          ],
+          "row": "slow-answer",
+          "status": "waiting",
+          "on": "server"
+        },
+        {
+          "name": "A document",
+          "scene": [
+            "[data-try=\"order\"]"
+          ],
+          "row": "data-try-order",
+          "status": "designed"
+        },
+        {
+          "name": "A phrase",
+          "scene": [
+            "[data-try=\"shop\"]"
+          ],
+          "row": "data-try-shop",
+          "status": "designed"
+        },
+        {
+          "name": "What keeps coming up",
+          "scene": [
+            "[data-try=\"nora\"]"
+          ],
+          "row": "data-try-nora",
+          "status": "designed"
+        },
+        {
+          "name": "An offer",
+          "scene": [
+            "[data-try=\"bill\"]"
+          ],
+          "row": "data-try-bill",
+          "status": "designed"
+        },
+        {
+          "name": "An option that starts work",
+          "scene": [
+            "[data-try=\"hugo\"]"
+          ],
+          "row": "data-try-hugo",
+          "status": "designed"
+        },
+        {
+          "name": "A yes before an act",
+          "scene": [
+            "[data-try=\"lawyer\"]"
+          ],
+          "row": "data-try-lawyer",
+          "status": "designed"
+        },
+        {
+          "name": "Which one",
+          "scene": [
+            "[data-try=\"which\"]"
+          ],
+          "row": "data-try-which",
+          "status": "designed"
+        },
+        {
+          "name": "Which person",
+          "scene": [
+            "[data-try=\"person\"]"
+          ],
+          "row": "which-person",
+          "status": "next"
+        },
+        {
+          "name": "A value",
+          "scene": [
+            "[data-try=\"value\"]"
+          ],
+          "row": "data-try-value",
+          "status": "designed"
+        },
+        {
+          "name": "Your words",
+          "scene": [
+            "[data-try=\"words\"]"
+          ],
+          "row": "data-try-words",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "Voices",
+      "variations": [
+        {
+          "name": "N more",
+          "scene": [
+            "[data-v4=\"vlist\"]"
+          ],
+          "row": "data-v4-vlist",
+          "status": "designed"
+        },
+        {
+          "name": "Life suggests someone",
+          "scene": [
+            "[data-v4=\"vguess\"]"
+          ],
+          "row": "voice-guess",
+          "status": "next"
+        },
+        {
+          "name": "It may be you",
+          "scene": [
+            "[data-v4=\"vme\"]"
+          ],
+          "row": "data-v4-vme",
+          "status": "designed"
+        },
+        {
+          "name": "No guess",
+          "scene": [
+            "[data-v4=\"vnone\"]"
+          ],
+          "row": "data-v4-vnone",
+          "status": "designed"
+        },
+        {
+          "name": "He names someone else",
+          "scene": [
+            "[data-v4=\"vtyped\"]"
+          ],
+          "row": "data-v4-vtyped",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "Settings in the thread",
+      "variations": [
+        {
+          "name": "Said in words",
+          "scene": [
+            "[data-v4=\"setnews\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-setnews",
+          "status": "designed"
+        },
+        {
+          "name": "What can I change?",
+          "scene": [
+            "[data-v4=\"setall\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-setall",
+          "status": "designed"
+        },
+        {
+          "name": "Life offers one",
+          "scene": [
+            "[data-v4=\"setoffer\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-setoffer",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "The aura",
+      "variations": [
+        {
+          "name": "The knobs",
+          "scene": [
+            "[data-v4=\"auraknobs\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-auraknobs",
+          "status": "designed"
+        },
+        {
+          "name": "A colour",
+          "scene": [
+            "[data-v4=\"auraset\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-auraset",
+          "status": "designed"
+        },
+        {
+          "name": "One step at a time",
+          "scene": [
+            "[data-v4=\"aurared\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-aurared",
+          "status": "designed"
+        },
+        {
+          "name": "More active",
+          "scene": [
+            "[data-v4=\"auraactive\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-auraactive",
+          "status": "designed"
+        },
+        {
+          "name": "Held at its limit",
+          "scene": [
+            "[data-v4=\"auracrazy\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-auracrazy",
+          "status": "designed"
+        },
+        {
+          "name": "The colours",
+          "scene": [
+            "[data-v4=\"aurapal\"]"
+          ],
+          "part": ".bt.wide",
+          "row": "data-v4-aurapal",
+          "status": "designed"
+        }
+      ]
+    },
+    {
+      "name": "The field",
+      "variations": [
+        {
+          "name": "Ask Life",
+          "scene": [
+            "[data-v4=\"openlong\"]"
+          ],
+          "part": "#cmp",
+          "row": "open-clean",
+          "status": "next"
+        }
+      ]
+    },
+    {
+      "name": "The count and the pendant",
+      "variations": [
+        {
+          "name": "At rest",
+          "scene": [
+            "[data-v4=\"openlong\"]"
+          ],
+          "part": ".pills",
+          "row": "open-clean",
+          "status": "next"
+        }
+      ]
+    }
+  ],
+  "leftOut": {
+    "[data-v4=\"lttiles3\"]": "Tiles: rows were approved",
+    "[data-v4=\"lttiles8\"]": "Tiles: rows were approved",
+    "[data-v4=\"lttiles20\"]": "Tiles: rows were approved",
+    "[data-v4=\"ltcap20\"]": "A proposal, not picked",
+    "[data-v4=\"rowstwo\"]": "A proposal, not picked",
+    "[data-v4=\"rowsone\"]": "A proposal, not picked",
+    "[data-loc=\"home\"]": "Where you are: changes what Life offers, draws no component",
+    "[data-loc=\"away\"]": "Where you are: changes what Life offers, draws no component",
+    "[data-nact=\"ben\"]": "The notification: iOS draws it, outside the app",
+    "[data-nlater=\"ben\"]": "The notification: iOS draws it, outside the app"
+  }
+}
