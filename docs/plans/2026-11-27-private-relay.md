@@ -63,7 +63,12 @@ and how much data moves. Addresses are random ids, never names, because the cert
 ## Open questions
 
 - The domain's name.
-- Who pays for the relay and where it runs (a small VPS is enough: it carries bytes, no compute).
+- Where the relay runs. Users pay nothing: the developer runs one small VPS (about €4 a month at Hetzner, 20 TB of
+  traffic included), which carries bytes and does no compute.
+- Each user's address needs no DNS change at onboarding: one wildcard record points `*.<life domain>` at the relay.
+- Let's Encrypt issues at most 50 certificates a week per registered domain. Put the domain on the Public Suffix List
+  before launch: each user's address then counts on its own, and browsers keep one user's address from setting
+  cookies on another's.
 - Write the relay or adopt an existing one (step 1's candidates).
 - Whether the Claude.ai and ChatGPT connectors are worth a warning in the app that they rely on point 4 only.
 
