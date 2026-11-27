@@ -49,10 +49,24 @@ export function plistOf(job: string, dir: string, args: string[]) {
   };
 }
 
-/** Whether job `job`'s installed plist is the one `keepRunning(job, dir, args)` would write. */
-export function isKeptAs(job: string, dir: string, args: string[]) {
+/** Whether launchd has job `job` loaded. */
+export const isLoaded = async (job: string) =>
+  (await exec(["launchctl", "print", `${domain()}/${labelOf(job)}`])).code ===
+  0;
+
+/** Whether job `job` is loaded with the plist `keepRunning(job, dir, args)` would write (a failed bootstrap is not). */
+export async function isKeptAs(
+  job: string,
+  dir: string,
+  args: string[],
+  loaded = isLoaded
+) {
   const { path, text } = plistOf(job, dir, args);
-  return existsSync(path) && readFileSync(path, "utf8") === text;
+  return (
+    existsSync(path) &&
+    readFileSync(path, "utf8") === text &&
+    (await loaded(job))
+  );
 }
 
 /** Keeps `args` running in `dir` as job `job`, replacing (so restarting) the job of that name if there is one. */
