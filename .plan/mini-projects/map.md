@@ -37,6 +37,7 @@ and seen working live, first on the owner's own Photos library, then on a second
 - [The handover](./tickets/03-the-handover.md) — the main session only writes the one-off project; Life's code registers its agent and hands it the ask with the conversation; promoted work moves to a new agent through `hand_over`.
 - [What an agent can reach on the Mac](./tickets/04-what-an-agent-can-reach.md) — every grant lands on Life.app and covers every script; only the user answers first prompts; Photos changes and deletes need the user's per-batch OK; undo needs a restore log.
 - [The first look](./tickets/05-the-first-look.md) — read-only (allowlisted tools may install), goes as far as it can then one bundled access ask, a second round for data-grounded questions only if access was missing, at most one hour.
+- [Asking for access](./tickets/06-asking-for-access.md) — one phone card of self-ticking plain steps; "I'm at my Mac" fires the prompt or opens Settings there; refused: go on, another way or drop; ignored: stays asked.
 
 ## Not yet specified
 
