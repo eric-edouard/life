@@ -76,6 +76,7 @@ Sources: [product](../../product.md), [brand](../../brand.md), [spec](2026-11-23
 ## How a design is done
 
 - A new or changed card is first scored, as a screenshot only, by a reviewer with no context. [components](2026-11-26-original-components.md#start-from-his-seat-his-word-26-nov)
+- Accessibility follows the design: clipped text is a bug, and so is an issue the prototype's state doesn't have; contrast and text size the prototype shares are shown, never blocking. His words: "accessibility, like contrast and text size, we don't care about much if it's already what the design has provided for… we just want to follow the design. Cut-off text, yes it's an issue. I just want things to be fast." (27 Nov 2026) [plan](../../plans/2026-11-26-app-matches-prototype.md#the-board)
 - Done means ran live: on the owner's real Life, then a screenshot compared element by element with the prototype. [AGENTS.md](../../../AGENTS.md#workflow)
 
 ## Open proposals (not rules until the owner's yes)

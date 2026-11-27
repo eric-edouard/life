@@ -419,7 +419,7 @@
         "recommended": "wait",
         "replaces": null,
         "pushId": "push-dec_000000000001",
-        "question": "You write to two Bens. Which one?",
+        "question": "Which one?",
         "ref": "dec_000000000001",
         "title": "Text Ben",
         "urgency": "blocks"

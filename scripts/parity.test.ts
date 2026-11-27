@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { greenOf } from "./parity";
+import { blockingA11yOf, greenOf } from "./parity";
 
 // Each parity fixture (the prototype's own made-up data) keeps the shape of the fixture it was copied from:
 // every key path it holds exists in that source, so the app's decoders see no new field.
 const WIRE = join(import.meta.dir, "../apps/lifelog/fixtures/wire");
 const SOURCE: Record<string, string[]> = {
   "opening_broken.json": ["lab/opening_broken.json"],
-  "opening.json": ["lab/opening.json"],
+  "opening.json": ["lab/opening.json", "life/read_thread_lab_asks.json"],
   "read_thread_draft_imessage.json": [
     "life/read_thread_draft.json",
     "lab/opening.json",
@@ -20,6 +20,7 @@ const SOURCE: Record<string, string[]> = {
   "read_thread_draft.json": ["life/read_thread_draft.json", "lab/opening.json"],
   "read_thread_outdated.json": [
     "life/read_thread_outdated.json",
+    "life/read_thread_draft.json",
     "lab/opening.json",
   ],
   "read_thread_person.json": [
@@ -79,6 +80,7 @@ for (const [name, sources] of Object.entries(SOURCE)) {
 test("a row is green only when every column passes", () => {
   const row = {
     a11y: [],
+    a11yBlocking: [],
     gaps: [],
     id: "draft",
     owner: null,
@@ -92,8 +94,25 @@ test("a row is green only when every column passes", () => {
   expect(greenOf({ ...row, review: { ...row.review, score: 7 } })).toBe(false);
   expect(greenOf({ ...row, works: null })).toBe(false);
   expect(greenOf({ ...row, taps: { app: 2, proto: 1 } })).toBe(false);
-  expect(greenOf({ ...row, a11y: ["contrast"] })).toBe(false);
+  expect(greenOf({ ...row, a11yBlocking: ["clipped"] })).toBe(false);
+  expect(greenOf({ ...row, a11y: ["contrast"] })).toBe(true);
   expect(greenOf({ ...row, owner: { verdict: "not right" as const } })).toBe(
     false
   );
+});
+
+test("accessibility blocks on clipped text and on what the prototype's state lacks", () => {
+  const hit = "XCUIAccessibilityAuditType(rawValue: 4): Hit area is too small";
+  const clipped = "XCUIAccessibilityAuditType(rawValue: 131072): Text clipped";
+  const audit = [
+    "XCUIAccessibilityAuditType(rawValue: 1): Contrast failed",
+    "XCUIAccessibilityAuditType(rawValue: 65536): Dynamic Type font sizes are partially unsupported",
+    hit,
+    clipped,
+  ];
+  expect(blockingA11yOf(audit, { hasSmallHits: true })).toEqual([clipped]);
+  expect(blockingA11yOf(audit, { hasSmallHits: false })).toEqual([
+    hit,
+    clipped,
+  ]);
 });
