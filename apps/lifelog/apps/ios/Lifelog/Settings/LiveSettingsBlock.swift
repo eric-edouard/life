@@ -12,7 +12,6 @@ struct LiveSettingsBlock: View {
     var openSettings: () -> Void = {}
     @State private var ticked: String?
     @State private var isOffered = false
-    @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceID = false
 
     private static let known = ["faceid", "appear", "pair"]
 
@@ -36,8 +35,7 @@ struct LiveSettingsBlock: View {
     @ViewBuilder private func row(_ key: String) -> some View {
         switch key {
         case "faceid":
-            SettingSwitchRow(title: "Face ID before Send", isOn: asksFaceID) { asksFaceID = $0 }
-                .accessibilityIdentifier("settings.switch.faceIDToSend")
+            FaceIDRow()
         case "appear":
             AppearanceRow()
         case "aura":
