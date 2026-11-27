@@ -98,7 +98,8 @@ import Testing
     #expect(Host.domainAddress("lifelog.example.com")?.absoluteString == "https://lifelog.example.com")
     #expect(Host.domainAddress("https://lifelog.example.com/")?.absoluteString == "https://lifelog.example.com")
     #expect(Host.domainAddress("http://lifelog.example.com") == nil, "HTTPS only")
-    #expect(Host.domainAddress("https://example.com/lifelog") == nil)
+    #expect(Host.domainAddress("life.example.com/voice/")?.absoluteString == "https://life.example.com/voice")
+    #expect(Host.domainAddress("https://life.example.com/voice?x=1") == nil)
 }
 
 @Test func exportAndImportGetOnlyTheArchiveAndSayHowTheyEnded() {

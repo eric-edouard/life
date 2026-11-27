@@ -37,13 +37,15 @@ public enum Host {
         ["tunnel", "--no-autoupdate"] + tunnelOptions + ["run", "--url", loopback]
     }
 
-    /// The owner's own address, as typed: HTTPS, a host, nothing after it.
+    /// The owner's own address, as typed: HTTPS, a host, and the path the server sits under when there is one (Life's
+    /// origin, `/voice`); no query.
     public static func domainAddress(_ text: String) -> URL? {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: text.contains("://") ? text : "https://\(text)"),
-            url.scheme == "https", let host = url.host(), !host.isEmpty, ["", "/"].contains(url.path())
+            url.scheme == "https", let host = url.host(), !host.isEmpty, url.query() == nil, url.fragment() == nil
         else { return nil }
-        return URL(string: "https://\(host)")
+        let path = url.path().hasSuffix("/") ? String(url.path().dropLast()) : url.path()
+        return URL(string: "https://\(host)\(path)")
     }
 
     /// `secrets` with what it lacks minted: the phone's token (in the pairing link), the helper's (its socket only),

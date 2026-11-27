@@ -84,7 +84,7 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   alias, phone, email, handle or chat id from the owner's `truth/` (Life's `scripts/scrub-check.ts`; it skips
   without his data); first
   names, places and git history are on you.
-- lifelog serves one local page, the voice map (9 Nov, `docs/decisions.md`), behind its scoped map token; its map routes are also reachable through the public tunnel with that token.
+- lifelog serves one local page, the voice map (9 Nov, `docs/decisions.md`), behind its scoped map token; its map routes are also reachable through its own public tunnel with that token, never through Life's origin (`/voice`).
 - **Apple Health is read-only on the phone.** Settings alone asks for sleep and workouts; uploads go to `/apple-health`,
   device-token only, with their own sequence cursor, never `change_log` (`docs/decisions.md`).
 - **One process writes the archive.** The server holds `<file>.lock`; scripts open it read-only. Read production

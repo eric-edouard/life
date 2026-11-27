@@ -16,6 +16,14 @@
     }
   },
   {
+    "case": "the server under Life's origin, at /voice",
+    "link": "lifelog://pair?url=https://life.example/voice&token=abc_DEF-123-xyz_789",
+    "pairing": {
+      "server": "https://life.example/voice",
+      "token": "abc_DEF-123-xyz_789"
+    }
+  },
+  {
     "case": "plain HTTP",
     "link": "lifelog://pair?url=http%3A%2F%2Fmac.example.ts.net&token=abcdefghijklmnop",
     "pairing": null
