@@ -428,7 +428,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     }
     return issues.length === 0 ? 0 : 1;
   },
-  /** Voice's processes as launchd jobs (host/voice.ts): `voice start|stop`, or `voice run <child>`, which launchd runs. */
+  /** Voice's processes as launchd jobs (host/voice.ts): `voice start [--refresh]|stop|status`, its keys and recordings for Life.app's Settings (`key`, `backup-password`, `sign-in-chatgpt`, `export`, `import`), or `voice run <child>`, which launchd runs. */
   voice: () => voiceCommand(process.argv.slice(3)),
   /** Follows lifelog's change feed and keeps the lifelog units current; never returns (kept running by the app). */
   watch,
