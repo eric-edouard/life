@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Life: 30 days of building</title>
+<link rel="stylesheet" href="/brand.css">
+<style>
+  .wrap{max-width:880px;margin:0 auto;padding:64px 16px 120px}
+  .tag{font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  h1{font-size:clamp(30px,6vw,44px);font-weight:250;letter-spacing:-.02em;line-height:1.1;margin:10px 0 12px}
+  h1 b{font-weight:650}
+  .lead{color:var(--muted);margin:0 0 40px;max-width:560px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:48px}
+  .kpi{background:var(--card);border-radius:var(--radius);padding:18px 20px}
+  .kpi .v{font-size:34px;font-weight:250;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .kpi .l{font-size:12px;color:var(--muted)}
+  section{margin-bottom:56px}
+  .head{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  h2{font-size:19px;font-weight:600;margin:0}
+  .seg{display:inline-flex;background:var(--card);border-radius:999px;padding:3px}
+  .seg button{font:inherit;font-size:13px;border:0;background:none;color:var(--muted);padding:6px 14px;border-radius:999px;cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+  .chart{position:relative;background:var(--card);border-radius:var(--radius);padding:20px 16px 12px}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .grid line{stroke:var(--line)}
+  .axis text{fill:var(--faint);font-size:11px;font-variant-numeric:tabular-nums}
+  .bar{fill:var(--ai)}
+  .bar.dim{opacity:.35}
+  .hit{fill:transparent;cursor:crosshair}
+  .tip{position:absolute;pointer-events:none;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:12px;white-space:nowrap;opacity:0;transition:opacity .1s}
+  .tip b{display:block;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
+  .tip span{color:var(--muted)}
+  .rows{display:grid;gap:10px}
+  .row{display:grid;grid-template-columns:120px 1fr 72px;align-items:center;gap:12px;font-size:13.5px}
+  .row .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .track{height:10px;border-radius:999px;background:color-mix(in srgb,var(--fg) 6%,transparent)}
+  .fill{height:100%;border-radius:999px;background:var(--fg);opacity:.75}
+  .toggle{font:inherit;font-size:13px;background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0;margin-top:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;margin-top:12px}
+  th{text-align:left;font-weight:650;color:var(--muted);font-size:12px}
+  th,td{padding:7px 12px 7px 0;border-bottom:1px solid var(--line)}
+  .note{font-size:12px;color:var(--faint)}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="tag">Life · main branch · 28 Oct to 27 Nov 2026</div>
+  <h1>30 days of <b>building</b></h1>
+  <p class="lead">Every pull request merged into Life's main branch over the last month, almost all of it written by agents and gated by a debt review before merge.</p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <div class="head">
+      <h2 id="chartTitle">Pull requests merged per day</h2>
+      <div class="seg" role="group" aria-label="Metric">
+        <button data-m="prs" aria-pressed="true">PRs</button>
+        <button data-m="added" aria-pressed="false">Lines added</button>
+        <button data-m="deleted" aria-pressed="false">Lines deleted</button>
+      </div>
+    </div>
+    <div class="chart" id="chart"><svg id="svg" role="img" aria-labelledby="chartTitle"></svg><div class="tip" id="tip"></div></div>
+    <button class="toggle" id="tableToggle" aria-expanded="false">Show as table</button>
+    <div id="tableWrap" hidden></div>
+  </section>
+
+  <section>
+    <div class="head"><h2>Where the lines went</h2><span class="note">lines added + deleted, lockfiles and images left out</span></div>
+    <div class="rows" id="areas"></div>
+  </section>
+
+  <p class="note">From <code>git log</code> on origin/main: merges of pull requests, and per-commit line counts without merges.</p>
+</main>
+<script>
+const DAYS = [["2026-10-28",9,575,603],["2026-10-29",36,11913,5205],["2026-10-30",5,6419,3580],["2026-10-31",4,1572,2382],["2026-11-01",1,103,77],["2026-11-02",8,1466,6285],["2026-11-03",11,2003,992],["2026-11-04",4,1021,593],["2026-11-05",16,9318,2898],["2026-11-06",12,3990,1033],["2026-11-07",2,211,109],["2026-11-08",18,9773,8772],["2026-11-09",7,12882,2013],["2026-11-10",18,15666,2070],["2026-11-11",26,16685,4612],["2026-11-12",15,5549,977],["2026-11-13",8,4681,3028],["2026-11-14",35,13736,7208],["2026-11-15",7,4310,4211],["2026-11-16",23,11192,9422],["2026-11-17",1,23,49],["2026-11-18",28,27534,17406],["2026-11-19",60,27977,13977],["2026-11-20",84,62143,17265],["2026-11-21",137,81602,30306],["2026-11-22",95,28215,9590],["2026-11-23",0,0,0],["2026-11-24",1,3459,523],["2026-11-25",8,13457,23021],["2026-11-26",47,33685,7527],["2026-11-27",29,10834,5955]]
+  .map(([day, prs, added, deleted]) => ({ day, prs, added, deleted }));
+const AREAS = [["Server (apps/server)",293131],["Pendant (apps/lifelog)",253885],["Docs",30406],["Scripts",19746],["Prompts",4513],["Web",4416],["Brand assets",4184],["Designs app",2161],["AGENTS.md",1715]];
+const LABEL = { prs: "Pull requests merged per day", added: "Lines added per day", deleted: "Lines deleted per day" };
+const UNIT = { prs: "PRs", added: "lines added", deleted: "lines deleted" };
+const fmt = n => n.toLocaleString("en-US");
+const short = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n);
+const dayLabel = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const sum = k => DAYS.reduce((s, d) => s + d[k], 0);
+
+const peak = DAYS.reduce((a, b) => (b.prs > a.prs ? b : a));
+document.getElementById("kpis").innerHTML = [
+  [fmt(sum("prs")), "pull requests merged"],
+  [fmt(Math.round(sum("prs") / DAYS.length)), "a day on average"],
+  [short(sum("added")), "lines added"],
+  [short(sum("deleted")), "lines deleted"],
+  [peak.prs, "on " + dayLabel(peak.day) + ", the busiest day"],
+].map(([v, l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+const svg = document.getElementById("svg"), tip = document.getElementById("tip"), chart = document.getElementById("chart");
+const W = 820, H = 260, L = 40, B = 24, T = 8;
+let metric = "prs";
+function niceMax(v) { const p = 10 ** Math.floor(Math.log10(v)); return Math.ceil(v / p / 2) * 2 * p; }
+function draw() {
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const max = niceMax(Math.max(...DAYS.map(d => d[metric])));
+  const y = v => H - B - (v / max) * (H - B - T);
+  const slot = (W - L) / DAYS.length, bw = Math.max(4, slot - 2);
+  let s = '<g class="grid axis">';
+  for (let i = 0; i <= 4; i++) { const v = (max / 4) * i; s += `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${short(v)}</text>`; }
+  s += "</g><g class=\"axis\">";
+  DAYS.forEach((d, i) => { if (i % 5 === 0 || i === DAYS.length - 1) s += `<text x="${L + i * slot + slot / 2}" y="${H - 6}" text-anchor="middle">${dayLabel(d.day)}</text>`; });
+  s += "</g>";
+  DAYS.forEach((d, i) => {
+    const x = L + i * slot + 1, h = H - B - y(d[metric]), r = Math.min(4, h, bw / 2);
+    if (h > 0) s += `<path class="bar" data-i="${i}" d="M${x},${H - B} v${-(h - r)} q0,${-r} ${r},${-r} h${bw - 2 * r} q${r},0 ${r},${r} v${h - r} z"/>`;
+    s += `<rect class="hit" data-i="${i}" x="${x - 1}" y="${T}" width="${slot}" height="${H - B - T}"/>`;
+  });
+  svg.innerHTML = s;
+  document.getElementById("chartTitle").textContent = LABEL[metric];
+  renderTable();
+}
+svg.addEventListener("pointermove", e => {
+  const i = e.target.dataset?.i; if (i === undefined) return;
+  const d = DAYS[i];
+  svg.querySelectorAll(".bar").forEach(b => b.classList.toggle("dim", b.dataset.i !== i));
+  tip.innerHTML = `<b>${fmt(d[metric])} ${UNIT[metric]}</b><span>${dayLabel(d.day)} · ${d.prs} PRs · +${fmt(d.added)} / −${fmt(d.deleted)}</span>`;
+  const box = chart.getBoundingClientRect(), x = e.clientX - box.left;
+  tip.style.left = Math.min(Math.max(x - tip.offsetWidth / 2, 8), box.width - tip.offsetWidth - 8) + "px";
+  tip.style.top = (e.clientY - box.top - tip.offsetHeight - 14) + "px";
+  tip.style.opacity = 1;
+});
+svg.addEventListener("pointerleave", () => { tip.style.opacity = 0; svg.querySelectorAll(".bar").forEach(b => b.classList.remove("dim")); });
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  metric = b.dataset.m;
+  document.querySelectorAll(".seg button").forEach(o => o.setAttribute("aria-pressed", o === b));
+  draw();
+}));
+function renderTable() {
+  document.getElementById("tableWrap").innerHTML = `<table><thead><tr><th>Day</th><th>PRs</th><th>Lines added</th><th>Lines deleted</th></tr></thead><tbody>${DAYS.map(d => `<tr><td>${dayLabel(d.day)}</td><td>${d.prs}</td><td>${fmt(d.added)}</td><td>${fmt(d.deleted)}</td></tr>`).join("")}</tbody></table>`;
+}
+const tt = document.getElementById("tableToggle");
+tt.addEventListener("click", () => {
+  const w = document.getElementById("tableWrap"); w.hidden = !w.hidden;
+  tt.setAttribute("aria-expanded", !w.hidden); tt.textContent = w.hidden ? "Show as table" : "Hide table";
+});
+const top = AREAS[0][1];
+document.getElementById("areas").innerHTML = AREAS.map(([name, n]) =>
+  `<div class="row"><span>${name}</span><div class="track"><div class="fill" style="width:${(n / top) * 100}%"></div></div><span class="n">${short(n)}</span></div>`).join("");
+draw();
+</script>
+</body>
+</html>
