@@ -47,7 +47,7 @@ landing, bundles, `debt` issues, the architecture naming rigour. Mini projects s
   user's intention, never taste: a finding must change whether the result does what the user asked, or it is dropped.
   A nitpick never reaches the user. Another round only when a finding justifies it.
 - **Skills:** at the start, the agent looks for skills relevant to the project with the `find-skills` skill and uses
-  them.
+  them: only well-proven ones, with many downloads, never obscure ones.
 - **Stuck:** revert each failed fix; after two, rethink and re-plan once; after that, stop and tell the user plainly
   what works, what doesn't, and what Life suggests (drop that part, or try another way). (Owner: no preference; this
   default stands.)

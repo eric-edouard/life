@@ -40,9 +40,6 @@ and seen working live, first on the owner's own Photos library, then on a second
 - **Many projects at once.** How spending caps, the agents' places on the desk and the user's attention hold when
   several one-off projects run together. <clears-with: 10>
 
-- **Which skill sources are trusted.** `find-skills` installs skills from outside, and a skill runs with the agent's
-  full power: which sources are allowed, and whether a new one takes the owner's yes like the tools allowlist.
-
 ## Out of scope
 
 - Projects shared between two people (two people on one library): a later map.
