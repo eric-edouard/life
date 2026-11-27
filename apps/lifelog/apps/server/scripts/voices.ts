@@ -1,4 +1,5 @@
-// Opens the installed Host's voice map, reusing its scoped token from the macOS Keychain.
+// Opens the running voice server's map (Life's launchd job or Lifelog Host's), reusing its scoped token from the
+// macOS Keychain.
 import { randomUUID } from "node:crypto";
 import { lstat, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -20,19 +21,21 @@ export function parseHostServer(table: string) {
     })
   );
   const suffix = "/Contents/Helpers/lifelog-server";
+  // Lifelog Host's child, or voice's launchd job (Life.app's, parent launchd).
   const servers = processes.filter(
     (p) =>
       p.path.endsWith(suffix) &&
-      processes.some(
-        (parent) =>
-          parent.pid === p.parent &&
-          parent.path ===
-            `${p.path.slice(0, -suffix.length)}/Contents/MacOS/LifelogHost`
-      )
+      ((p.parent === 1 && p.path.endsWith(`/Life.app${suffix}`)) ||
+        processes.some(
+          (parent) =>
+            parent.pid === p.parent &&
+            parent.path ===
+              `${p.path.slice(0, -suffix.length)}/Contents/MacOS/LifelogHost`
+        ))
   );
   if (servers.length !== 1 || !servers[0]) {
     throw new Error(
-      "Expected one running server managed by Lifelog Host; no token or process changed."
+      "Expected one running voice server, Life's or Lifelog Host's; no token or process changed."
     );
   }
   return servers[0];

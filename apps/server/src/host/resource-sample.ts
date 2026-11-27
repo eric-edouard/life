@@ -46,6 +46,13 @@ const RULES: [RegExp, (m: RegExpMatchArray) => string | undefined][] = [
   [new RegExp(`${AT}/llama-server .*--embedding`), () => "embedder"],
   [new RegExp(`${AT}/llama-server `), () => "describer"],
   [new RegExp(`${AT}/Life\\.app/Contents/Helpers/life (\\S+)`), commandOf],
+  // Voice's launchd jobs, each its child once `life voice run` replaced itself (`host/voice.ts`).
+  [
+    new RegExp(
+      `${AT}/Life\\.app/Contents/Helpers/(lifelog-server|lifelog-quiet)\\b`
+    ),
+    (m) => `voice.${m[1]}`,
+  ],
   [
     new RegExp(`${AT}/Life\\.app/Contents/Helpers/life-foundation-model\\b`),
     () => "foundation",
