@@ -1,9 +1,10 @@
 // The designs app: a viewer over docs/design, themed by assets/brand/tokens.css. The Mac serves it from the live
-// checkout (`bun run design`, kept up by launchd, at designs.ericedouard.com), so what it shows is always what the
-// checkout holds: nothing is built, copied or deployed. Both folders are served at their repo paths, so every design's
+// checkout, so what it shows is always what the checkout holds: nothing is built, copied or deployed. On the owner's
+// Mac (not in the repo): the LaunchAgent `com.ericedouard.life-designs` runs `bun run design` in ~/Work/life, and the
+// cloudflared route `designs.ericedouard.com` in ~/.cloudflared/config.yml points at its port. Both folders are served at their repo paths, so every design's
 // own relative links keep working.
 import { execFileSync } from "node:child_process";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { extname, join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -26,62 +27,52 @@ const TYPES: Record<string, string> = {
   ".webm": "video/webm",
 };
 
-/** The files of docs/design in the working tree, committed or not (a new design shows before it is committed). */
-const designFiles = () =>
+/** The files the app may serve: docs/design's and the brand's in the working tree, committed or not (a new design shows
+ *  before it is committed), never one git ignores (generated output such as the parity board's pictures). */
+const servedFiles = () =>
   execFileSync(
     "git",
-    [
-      "ls-files",
-      "--cached",
-      "--others",
-      "--exclude-standard",
-      "--",
-      "docs/design",
-    ],
+    ["ls-files", "--cached", "--others", "--exclude-standard", "--", ...SERVED],
     { cwd: REPO, encoding: "utf8" }
   )
     .split("\n")
     .filter((f) => f && existsSync(join(REPO, f)));
 
 function servedFolders(): Plugin {
+  let served = new Set(servedFiles());
   return {
     configureServer: (server) => {
-      // A design added or removed changes the list: reload it.
-      server.watcher.add(join(REPO, "docs/design"));
+      // A file added or removed changes what is served and listed: read the list again and reload.
+      server.watcher.add(SERVED.map((s) => join(REPO, s)));
       server.watcher.on("all", (event) => {
-        if (event === "add" || event === "unlink") {
-          const list = server.moduleGraph.getModuleById(`\0${LIST}`);
-          if (list) {
-            server.moduleGraph.invalidateModule(list);
-            server.ws.send({ type: "full-reload" });
-          }
+        if (event !== "add" && event !== "unlink") {
+          return;
+        }
+        served = new Set(servedFiles());
+        const list = server.moduleGraph.getModuleById(`\0${LIST}`);
+        if (list) {
+          server.moduleGraph.invalidateModule(list);
+          server.ws.send({ type: "full-reload" });
         }
       });
       server.middlewares.use((req, res, next) => {
         const path = decodeURIComponent(
           (req.url ?? "").split("?")[0] ?? ""
         ).slice(1);
-        const file = join(REPO, path);
-        const isServed = SERVED.some((s) => path.startsWith(`${s}/`));
-        if (
-          !isServed ||
-          path.includes("..") ||
-          !existsSync(file) ||
-          statSync(file).isDirectory()
-        ) {
+        if (!served.has(path)) {
           return next();
         }
         res.setHeader(
           "Content-Type",
-          TYPES[extname(file)] ?? "application/octet-stream"
+          TYPES[extname(path)] ?? "application/octet-stream"
         );
         res.setHeader("Cache-Control", "no-cache");
-        createReadStream(file).pipe(res);
+        createReadStream(join(REPO, path)).pipe(res);
       });
     },
     load: (id) =>
       id === `\0${LIST}`
-        ? `export default ${JSON.stringify(designFiles())};`
+        ? `export default ${JSON.stringify([...served].filter((f) => f.startsWith("docs/")))};`
         : undefined,
     name: "served-folders",
     resolveId: (id) => (id === LIST ? `\0${LIST}` : undefined),

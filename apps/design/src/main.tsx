@@ -1,13 +1,15 @@
+import files from "virtual:design-files";
 import { marked } from "marked";
 import { type ReactNode, StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import readme from "../../../docs/design/README.md?raw";
 import {
   dateLabelOf,
-  filesIn,
+  filesIn as filesUnder,
   type Item,
   itemPathOf,
   itemsOf,
+  pathsOf,
   README,
   ROOT,
   readmeRowsOf,
@@ -18,7 +20,10 @@ import {
 import { DesignSystem } from "./design-system";
 import "./styles.css";
 
-const ITEMS = itemsOf(readmeRowsOf(readme));
+const PATHS = pathsOf(files);
+const ITEMS = itemsOf(readmeRowsOf(readme), PATHS);
+const APPROVED = ITEMS.find((i) => i.status === "Approved");
+const filesIn = (folder: string) => filesUnder(PATHS, folder);
 const SOURCE = "https://github.com/eric-edouard/life/blob/main/";
 const MEDIA = /\.(png|jpe?g|gif|svg|mp4|webm)$/;
 const VIDEO = /\.(mp4|webm)$/;
@@ -245,11 +250,16 @@ function Note({ markdown, path }: { markdown?: string; path: string }) {
   const [text, setText] = useState(markdown ?? "");
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (markdown === undefined) {
-      fetch(urlOf(path))
-        .then((r) => r.text())
-        .then(setText);
+    if (markdown !== undefined) {
+      return;
     }
+    let current = true;
+    fetch(urlOf(path))
+      .then((r) => (r.ok ? r.text() : `Could not read ${path} (${r.status}).`))
+      .then((t) => current && setText(t));
+    return () => {
+      current = false;
+    };
   }, [path, markdown]);
   useEffect(() => {
     const el = box.current;
@@ -400,26 +410,25 @@ function Viewer({ path }: { path: string }) {
   );
 }
 
-/** Home: the approved design, live and whole, then the README (statuses, dates) as the one index. */
+/** Home: the APPROVED design, live and whole, then the README (statuses, dates) as the one index. */
 function Home() {
-  const approved = ITEMS.find((i) => i.status === "Approved");
   return (
     <div className="flex flex-col gap-12">
-      {approved ? (
+      {APPROVED ? (
         <section className={`flex flex-col gap-4 ${FULL_HEIGHT}`}>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <h1 className="m-0 font-bold text-[clamp(1.75rem,4vw,2.75rem)] leading-none tracking-tight">
-              {approved.title}
+              {APPROVED.title}
             </h1>
-            <Meta item={approved} />
+            <Meta item={APPROVED} />
             <a
               className="ml-auto rounded-full bg-fg px-5 py-2 font-semibold text-body text-on no-underline"
-              href={hrefOf(approved.path)}
+              href={hrefOf(APPROVED.path)}
             >
               Open
             </a>
           </div>
-          <Frame path={approved.path} />
+          <Frame path={APPROVED.path} />
         </section>
       ) : null}
       <Note markdown={readme} path={README} />
@@ -427,15 +436,14 @@ function Home() {
   );
 }
 
-/** Opened from the home screen: the approved prototype alone, full screen, as the app would be. */
+/** Opened from the home screen: the APPROVED prototype alone, full screen, as the app would be. */
 function AppScreen() {
-  const approved = ITEMS.find((i) => i.status === "Approved");
-  if (!approved) {
+  if (!APPROVED) {
     return <Home />;
   }
   return (
     <div className="fixed inset-0 flex">
-      <Frame app path={approved.path} />
+      <Frame app path={APPROVED.path} />
     </div>
   );
 }

@@ -1,14 +1,17 @@
 // What docs/design holds, as the app lists it: each dated file or folder is one item, its status and words taken from
 // docs/design/README.md's tables (the one list of what is approved), its date from its name.
 
-import files from "virtual:design-files";
 import { lexer, type Tokens } from "marked";
 
 export const ROOT = "docs/design/";
 export const README = "README.md";
 
 export type Kind = "design" | "folder" | "note";
-export type Status = "Approved" | "Proposals" | "Superseded" | "Tools";
+/** The README's headings that give a status; a table under any other heading gives none. */
+const STATUSES = ["Approved", "Proposals", "Tools", "Superseded"] as const;
+export type Status = (typeof STATUSES)[number];
+const isStatus = (text: string): text is Status =>
+  (STATUSES as readonly string[]).includes(text);
 
 export interface Item {
   about?: string;
@@ -24,8 +27,9 @@ const DATED = /^(\d{4}-\d{2}-\d{2})-(.+?)(\.(html|md))?$/;
 export const SHOWN = /\.(html|md)$/;
 const TRAILING_SLASH = /\/$/;
 
-/** Every file under docs/design, relative to it. */
-export const paths = (files as string[]).map((f) => f.slice(ROOT.length));
+/** Repo paths of docs/design's files, made relative to it. */
+export const pathsOf = (files: string[]) =>
+  files.map((f) => f.slice(ROOT.length));
 
 const titleOf = (name: string) => {
   const words = name.replaceAll("-", " ");
@@ -43,9 +47,10 @@ export const dateLabelOf = (date: string) =>
 export const itemPathOf = (path: string) => {
   const parts = path.split("/");
   const last = parts.length - 1;
-  // A dated folder, or a dated page; a dated screenshot belongs to its folder.
+  // A dated page, or a dated folder inside an exploration (the first folder groups, it is never an item itself); a
+  // dated screenshot or stylesheet belongs to its folder.
   const at = parts.findLastIndex(
-    (p, i) => DATED.test(p) && (i < last || SHOWN.test(p))
+    (p, i) => DATED.test(p) && (i < last ? i > 0 : SHOWN.test(p))
   );
   if (at < 0) {
     return;
@@ -62,7 +67,8 @@ export const readmeRowsOf = (markdown: string) => {
   let status: Status | undefined;
   for (const token of lexer(markdown)) {
     if (token.type === "heading") {
-      status = (token as Tokens.Heading).text as Status;
+      const { text } = token as Tokens.Heading;
+      status = isStatus(text) ? text : undefined;
     }
     if (token.type !== "table" || !status) {
       continue;
@@ -87,7 +93,10 @@ const kindOf = (item: string): Kind => {
   return item.endsWith(".md") ? "note" : "design";
 };
 
-export const itemsOf = (readme: ReturnType<typeof readmeRowsOf>): Item[] => {
+export const itemsOf = (
+  readme: ReturnType<typeof readmeRowsOf>,
+  paths: string[]
+): Item[] => {
   const seen = new Map<string, Item>();
   for (const path of paths) {
     const item = itemPathOf(path);
@@ -111,7 +120,7 @@ export const itemsOf = (readme: ReturnType<typeof readmeRowsOf>): Item[] => {
 };
 
 /** The files directly inside a folder item, and the ones below it. */
-export const filesIn = (folder: string) =>
+export const filesIn = (paths: string[], folder: string) =>
   paths.filter((p) => p.startsWith(folder));
 
 export const urlOf = (path: string) => `/${ROOT}${path}`;

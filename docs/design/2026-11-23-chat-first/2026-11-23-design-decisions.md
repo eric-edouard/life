@@ -4,8 +4,8 @@ Explanation: the history of the design session of 23 Nov 2026, in the order thin
 later reversed. **What the app does now is [`2026-11-23-current-spec.md`](2026-11-23-current-spec.md), which wins
 wherever this log differs**; read this log only to learn why something was decided. The plan is [`docs/plans/2026-11-23-chat-first-app.md`](../../plans/2026-11-23-chat-first-app.md);
 the product rules are [`docs/product.md`](../../product.md); the brand is [`docs/brand.md`](../../brand.md). The canvas is
-[Life app (Chat)](https://claude.ai/artifact/CwiSJncrntgP6CsKSFrkpu); the clickable shell is the
-[shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg). Both are private to the owner.
+Life app (Chat) (a claude.ai copy, since retired); the clickable shell is the
+shell prototype (a claude.ai copy, since retired). Both are private to the owner.
 
 ## How to work
 

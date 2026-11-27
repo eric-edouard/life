@@ -73,6 +73,7 @@ const steps: Record<string, string[]> = {
     "./apps/server/src/",
     "./scripts/",
     "./apps/edge/",
+    "./apps/design/",
   ],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
   // Replays his answered voices (on his Mac only) against the committed counts.

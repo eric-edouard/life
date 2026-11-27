@@ -78,6 +78,16 @@ function Swatch({ name, value }: { name: string; value: string }) {
   );
 }
 
+function Swatches({ list }: { list: { name: string; value: string }[] }) {
+  return (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-x-6 gap-y-4 rounded-panel bg-card p-6">
+      {list.map((t) => (
+        <Swatch key={t.name} {...t} />
+      ))}
+    </div>
+  );
+}
+
 export function DesignSystem() {
   return (
     <div className="flex max-w-5xl flex-col gap-12">
@@ -106,18 +116,10 @@ export function DesignSystem() {
         </div>
       </header>
       <Section title="Colours">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-x-6 gap-y-4 rounded-panel bg-card p-6">
-          {colours.map((t) => (
-            <Swatch key={t.name} {...t} />
-          ))}
-        </div>
+        <Swatches list={colours} />
       </Section>
       <Section title="Fills over anything">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-x-6 gap-y-4 rounded-panel bg-card p-6">
-          {fills.map((t) => (
-            <Swatch key={t.name} {...t} />
-          ))}
-        </div>
+        <Swatches list={fills} />
       </Section>
       <Section title="Aura">
         <div className="flex flex-wrap gap-4">
