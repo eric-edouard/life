@@ -5,6 +5,8 @@
 import { lexer, type Tokens } from "marked";
 
 export const ROOT = "docs/design/";
+/** Where the designs app asks for each design file's newest commit (`latestCommits` in vite.config.ts). */
+export const LATEST_URL = "/__design-latest";
 
 export interface Entry {
   about: string;
@@ -88,3 +90,57 @@ export interface Variation {
   /** Drawn across the whole row (a page wider than the phone). */
   wide?: boolean;
 }
+
+/** Each file's newest commit, from `git log --format=%x00%ct --name-only`: [repo path, unix seconds], newest first. */
+export const newestCommitsOf = (log: string): [string, number][] => {
+  const newest = new Map<string, number>();
+  for (const commit of log.split("\0").slice(1)) {
+    const [time, ...files] = commit.split("\n");
+    for (const file of files) {
+      if (file && !newest.has(file)) {
+        newest.set(file, Number(time));
+      }
+    }
+  }
+  return [...newest];
+};
+
+/** An entry's folder when it is a folder's page (`…/index.html`), so any file of it counts as a change to it. */
+const changedUnder = (path: string) =>
+  path.endsWith("/index.html") ? path.slice(0, -"index.html".length) : path;
+
+/** The entries changed most recently, newest first, by their files' newest commits (paths under docs/design). */
+export const latestOf = (
+  entries: Entry[],
+  commits: [string, number][],
+  count = 3
+) =>
+  entries
+    .map((entry) => {
+      const under = changedUnder(entry.path);
+      const at = Math.max(
+        0,
+        ...commits
+          .filter(([p]) =>
+            under === entry.path ? p === under : p.startsWith(under)
+          )
+          .map(([, t]) => t)
+      );
+      return { at, entry };
+    })
+    .filter((e) => e.at > 0)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, count);
+
+/** How long ago a time was, short: "just now", "12 min ago", "2 h ago", "3 d ago". */
+export const agoOf = (seconds: number, now = Date.now()) => {
+  const minutes = Math.floor((now / 1000 - seconds) / 60);
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes} min ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+};

@@ -1,14 +1,24 @@
 import files from "virtual:design-files";
 import { marked } from "marked";
-import { StrictMode, useEffect, useRef, useState } from "react";
+import {
+  createElement,
+  StrictMode,
+  type TouchEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import readme from "../../../docs/design/README.md?raw";
 import { Brand } from "./brand";
 import {
+  agoOf,
   dateLabelOf,
   dateOf,
   type Entry,
   filesIn as filesUnder,
+  LATEST_URL,
+  latestOf,
   pathsOf,
   ROOT,
   SHOWN,
@@ -17,6 +27,7 @@ import {
   urlOf,
 } from "./catalog";
 import { Components, Glow } from "./components";
+import { dragOf, isClosingDrag } from "./sheet";
 import "./styles.css";
 
 const PATHS = pathsOf(files);
@@ -89,7 +100,19 @@ const tabPartsOf = (tab: Tab) => {
   return { entries: tab.entries.slice(1), page: tab.entries[0]?.path ?? null };
 };
 
-function Sidebar({ onPick, route }: { onPick: () => void; route: string }) {
+type Latest = ReturnType<typeof latestOf>;
+
+function Sidebar({
+  latest = [],
+  onPick,
+  route,
+  scenes = [],
+}: {
+  latest?: Latest;
+  onPick: () => void;
+  route: string;
+  scenes?: HTMLButtonElement[];
+}) {
   const [query, setQuery] = useState("");
   const matches = (e: Entry) =>
     `${e.title} ${e.about}`.toLowerCase().includes(query.toLowerCase());
@@ -104,6 +127,52 @@ function Sidebar({ onPick, route }: { onPick: () => void; route: string }) {
         type="search"
         value={query}
       />
+      {scenes.length > 0 && !query ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="m-0 px-2.5 font-semibold text-heading text-muted">
+            Scenes
+          </h2>
+          <div
+            className="-mx-3 flex snap-x snap-mandatory scroll-px-3 gap-1.5 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none]"
+            data-scenes
+          >
+            {scenes.map((scene, i) => (
+              <button
+                aria-pressed={scene.getAttribute("aria-pressed") === "true"}
+                className="min-h-9 flex-none snap-start whitespace-nowrap rounded-full bg-tint px-3.5 text-fg text-meta aria-pressed:bg-fg aria-pressed:text-on"
+                // biome-ignore lint/suspicious/noArrayIndexKey: a page's scene buttons have no id, and their order is fixed
+                key={i}
+                onClick={() => {
+                  scene.click();
+                  onPick();
+                }}
+                type="button"
+              >
+                {scene.textContent}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {latest.length > 0 && !query ? (
+        <section className="flex flex-col gap-0.5">
+          <h2 className="m-0 px-2.5 py-1.5 font-semibold text-heading text-muted">
+            Latest changes
+          </h2>
+          {latest.map(({ at, entry }) => (
+            <a
+              aria-current={here === entry.path ? "page" : undefined}
+              className={`flex flex-col rounded-control px-2.5 py-1.5 text-fg no-underline hover:bg-wash ${here === entry.path ? "bg-tint" : ""}`}
+              href={hrefOf(entry.path)}
+              key={entry.path}
+              onClick={onPick}
+            >
+              <span className="truncate text-row-line">{entry.title}</span>
+              <span className="text-faint text-meta">{agoOf(at)}</span>
+            </a>
+          ))}
+        </section>
+      ) : null}
       {TABS.map((tab) => {
         const { entries, page } = tabPartsOf(tab);
         const shown = query ? tab.entries.filter(matches) : entries;
@@ -149,30 +218,67 @@ function Sidebar({ onPick, route }: { onPick: () => void; route: string }) {
   );
 }
 
-/** At phone width the prototype fills the screen: its drawn status bar (`.sb`) goes, the phone's real one shows. */
-const hideDrawnStatusBar = (frame: HTMLIFrameElement) => {
+/** On the home-screen app a page drawing one phone (`.ph`: App v4's, the turn by turn shell's) becomes the screen: the
+ *  phone fills it edge to edge with no frame, its drawn status bar and home indicator give way to the real ones, its side
+ *  panel and hint go, and the page never scrolls. The pages' own phone-width rules lose to their `!important` padding. */
+const SCREEN_CSS = `html,body{height:100%;overflow:hidden;overscroll-behavior:none;background:#000}
+main,.shell{display:block!important;padding:0!important;min-height:0!important}
+.fitbox,.fit{width:100vw!important;height:100dvh!important}
+.ph{transform:none!important;width:100vw!important;height:100dvh!important;--r:0px!important}
+.sb,.sbar,.home,.side,.hint{display:none!important}`;
+
+/** Whether a loaded page draws one phone, made the screen if so. */
+const fillScreen = (frame: HTMLIFrameElement) => {
   const page = frame.contentDocument;
-  const style = page?.createElement("style");
-  if (page && style) {
-    style.textContent = "@media (max-width:500px){.sb{display:none}}";
-    page.head.append(style);
+  if (page?.querySelectorAll(".ph").length !== 1) {
+    return false;
   }
+  const style = page.createElement("style");
+  style.textContent = SCREEN_CSS;
+  page.head.append(style);
+  return true;
 };
 
 /** A design page, live. Below its layout width (and above a phone's) it is scaled down whole to fit the box. */
-function Frame({ app = false, path }: { app?: boolean; path: string }) {
+function Frame({
+  app = false,
+  onScenes,
+  path,
+}: {
+  app?: boolean;
+  onScenes?: (scenes: HTMLButtonElement[]) => void;
+  path: string;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [size, setSize] = useState({ height: 0, width: 0 });
+  // A page that is one phone fills the screen; any other keeps clear of the status bar and home indicator.
+  const [filled, setFilled] = useState(false);
   useEffect(() => {
     const el = frame.current;
     if (!(app && el)) {
       return;
     }
-    const on = () => hideDrawnStatusBar(el);
+    // A full-screen page's side panel is hidden: its scene buttons are run from the list instead.
+    const on = () => {
+      const isFilled = fillScreen(el);
+      setFilled(isFilled);
+      onScenes?.(
+        isFilled
+          ? [
+              ...(el.contentDocument?.querySelectorAll<HTMLButtonElement>(
+                ".side button"
+              ) ?? []),
+            ]
+          : []
+      );
+    };
     el.addEventListener("load", on);
-    return () => el.removeEventListener("load", on);
-  }, [app]);
+    return () => {
+      el.removeEventListener("load", on);
+      onScenes?.([]);
+    };
+  }, [app, onScenes]);
   useEffect(() => {
     const el = box.current;
     if (!el) {
@@ -189,11 +295,11 @@ function Frame({ app = false, path }: { app?: boolean; path: string }) {
     watch.observe(el);
     return () => watch.disconnect();
   }, []);
-  const fits = size.width >= DESIGN_WIDTH || size.width < PHONE_WIDTH;
+  const fits = filled || size.width >= DESIGN_WIDTH || size.width < PHONE_WIDTH;
   const scale = fits ? 1 : size.width / DESIGN_WIDTH;
   return (
     <div
-      className={`relative min-h-0 flex-1 overflow-hidden bg-card ${app ? "" : "rounded-panel"}`}
+      className={`relative min-h-0 flex-1 overflow-hidden ${app ? "" : "rounded-panel bg-card"}`}
       ref={box}
     >
       <iframe
@@ -366,18 +472,29 @@ function Viewer({ path }: { path: string }) {
   );
 }
 
-/** Opened from the home screen: the approved prototype alone, full screen, as the app would be. */
-function AppScreen({ path }: { path: string }) {
+/** On the home-screen app: a page alone, full screen, as the app would be. */
+function AppScreen({
+  onScenes,
+  path,
+}: {
+  onScenes: (scenes: HTMLButtonElement[]) => void;
+  path: string;
+}) {
   return (
-    <div className="fixed inset-0 flex">
-      <Frame app path={path} />
+    <div className="fixed inset-0 flex bg-black">
+      <Frame app key={path} onScenes={onScenes} path={path} />
     </div>
   );
 }
 
+/** Opened from the home screen (or `?standalone`, to try it in a browser). */
 const STANDALONE =
   matchMedia("(display-mode: standalone)").matches ||
-  (navigator as { standalone?: boolean }).standalone === true;
+  (navigator as { standalone?: boolean }).standalone === true ||
+  new URLSearchParams(location.search).has("standalone");
+if (STANDALONE) {
+  document.documentElement.classList.add("standalone");
+}
 const LIST_KEY = "design.list";
 const WIDE = "(min-width: 64rem)";
 
@@ -389,46 +506,47 @@ const readList = () => {
   }
 };
 
-/** The page for a route: the prototype alone on the home screen, a design system page, else an entry. */
-function Page({ isApp, route }: { isApp: boolean; route: string }) {
-  if (isApp && PROTOTYPE) {
-    return <AppScreen path={PROTOTYPE.path} />;
+/** The page for a route ("" the prototype): a design system page, else an entry. On the home-screen app a design page
+ *  is the whole screen, anything else scrolls in its own box clear of the status bar and home indicator. */
+function Page({
+  onScenes,
+  route,
+}: {
+  onScenes: (scenes: HTMLButtonElement[]) => void;
+  route: string;
+}) {
+  const path = route || (PROTOTYPE?.path ?? "");
+  if (STANDALONE && path.endsWith(".html") && filesIn(path).length > 0) {
+    return <AppScreen onScenes={onScenes} path={path} />;
   }
-  if (isSystemPage(route)) {
-    const Draw = SYSTEM_PAGES[route].draw;
-    return <Draw />;
-  }
-  return <Viewer path={route || (PROTOTYPE?.path ?? "")} />;
+  const page = isSystemPage(route) ? (
+    createElement(SYSTEM_PAGES[route].draw)
+  ) : (
+    <Viewer path={path} />
+  );
+  return STANDALONE ? (
+    <div className="fixed inset-0 overflow-y-auto overscroll-contain px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-[calc(env(safe-area-inset-bottom)+5rem)]">
+      {page}
+    </div>
+  ) : (
+    page
+  );
 }
 
-/** Opens the list: a round button, or on the home-screen app a small grabber at the top, out of the prototype's way. */
+/** Opens the list: a round button; on the home-screen app it floats low on the right, in reach of the thumb, above the
+ *  design's field and home indicator. */
 function MenuButton({
-  isApp,
   isOpen,
   onClick,
 }: {
-  isApp: boolean;
   isOpen: boolean;
   onClick: () => void;
 }) {
-  if (isApp) {
-    return (
-      <button
-        aria-expanded={isOpen}
-        aria-label="Designs"
-        className="fixed top-[env(safe-area-inset-top)] left-1/2 z-30 grid h-6 w-16 -translate-x-1/2 place-items-center"
-        onClick={onClick}
-        type="button"
-      >
-        <span className="h-1 w-9 rounded-full bg-glass" />
-      </button>
-    );
-  }
   return (
     <button
       aria-expanded={isOpen}
       aria-label="Designs"
-      className="fixed top-3 left-3 z-30 grid size-9 place-items-center rounded-full bg-glass text-fg backdrop-blur"
+      className={`fixed z-30 grid place-items-center rounded-full bg-glass text-fg backdrop-blur ${STANDALONE ? "right-[max(env(safe-area-inset-right),0.5rem)] bottom-[calc(env(safe-area-inset-bottom)+7.5rem)] size-11 opacity-70" : "top-3 left-3 size-9"}`}
       onClick={onClick}
       type="button"
     >
@@ -447,25 +565,83 @@ function MenuButton({
   );
 }
 
-/** Wide: the list beside the page when shown; else a drawer when open (the app screen's), else gone. */
-const asideWideOf = (shown: boolean, drawer: boolean) => {
-  if (shown) {
-    return "lg:translate-x-0";
+/** The list's look: on the home-screen app a sheet from the bottom, swiped down to close; else a drawer from the left
+ *  (beside the page on a wide screen when shown). Same list, same motion. */
+const asideOf = (open: boolean, shown: boolean) => {
+  if (STANDALONE) {
+    return `inset-x-0 bottom-0 top-[calc(max(env(safe-area-inset-top),1rem)+1.5rem)] rounded-t-panel pt-2 pb-[env(safe-area-inset-bottom)] ${open ? "translate-y-0" : "translate-y-full"}`;
   }
-  return drawer ? "lg:fixed lg:h-auto" : "lg:hidden";
+  return `inset-y-0 left-0 w-[min(20rem,86vw)] pt-12 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${open ? "translate-x-0" : "-translate-x-full"} ${shown ? "lg:translate-x-0" : "lg:hidden"}`;
+};
+
+/** On the home-screen app, a swipe down on the sheet drags it and, far enough, closes it: only from a list at its
+ *  top, never from the sideways row of scenes. */
+const useSwipeDown = (close: () => void) => {
+  const from = useRef<number | null>(null);
+  const drag = useRef(0);
+  if (!STANDALONE) {
+    return {};
+  }
+  return {
+    onTouchEnd: (e: TouchEvent<HTMLElement>) => {
+      e.currentTarget.style.translate = "";
+      e.currentTarget.style.transition = "";
+      from.current = null;
+      if (isClosingDrag(drag.current)) {
+        close();
+      }
+    },
+    onTouchMove: (e: TouchEvent<HTMLElement>) => {
+      const y = e.touches[0]?.clientY;
+      if (from.current === null || y === undefined) {
+        return;
+      }
+      drag.current = dragOf(from.current, y);
+      e.currentTarget.style.translate = `0 ${drag.current}px`;
+    },
+    onTouchStart: (e: TouchEvent<HTMLElement>) => {
+      const isAtTop = !e.currentTarget.querySelector("nav")?.scrollTop;
+      const isOnScenes = (e.target as Element).closest("[data-scenes]");
+      from.current =
+        isAtTop && !isOnScenes ? (e.touches[0]?.clientY ?? null) : null;
+      drag.current = 0;
+      e.currentTarget.style.transition = "none";
+    },
+  };
+};
+
+/** The latest changed entries, asked of the server each time the list opens (the checkout moves every minute); none
+ *  when the ask fails, and an answer that comes after the list closed is dropped. */
+const useLatest = (open: boolean) => {
+  const [latest, setLatest] = useState<Latest>([]);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const ask = new AbortController();
+    fetch(LATEST_URL, { signal: ask.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then((commits) => setLatest(latestOf(ENTRIES, commits)))
+      .catch(() => ask.signal.aborted || setLatest([]));
+    return () => ask.abort();
+  }, [open]);
+  return latest;
 };
 
 function App() {
   const route = useRoute();
-  // A phone or a narrow window: the list is a drawer over the page.
-  const [drawer, setDrawer] = useState(false);
+  // A phone or a narrow window: the list is a drawer over the page. The home-screen app opens on it.
+  const [drawer, setDrawer] = useState(STANDALONE);
   // A wide screen: the list beside the page, or hidden so the design takes the whole width; remembered per device.
   const [list, setList] = useState(readList);
-  // From the home screen, home is the prototype itself, the list a drawer under a small grabber.
-  const isApp = STANDALONE && route === "" && PROTOTYPE !== undefined;
-  const shown = list && !isApp;
+  // From the home screen every design is the whole screen, the list a sheet under a floating button.
+  const shown = list && !STANDALONE;
+  const swipe = useSwipeDown(() => setDrawer(false));
+  const latest = useLatest(STANDALONE && drawer);
+  // The open design's scene buttons: set when it loads, emptied when it closes.
+  const [scenes, setScenes] = useState<HTMLButtonElement[]>([]);
   const toggle = () => {
-    if (isApp || !matchMedia(WIDE).matches) {
+    if (STANDALONE || !matchMedia(WIDE).matches) {
       setDrawer(!drawer);
       return;
     }
@@ -480,11 +656,22 @@ function App() {
     <div
       className={`min-h-dvh lg:grid ${shown ? "lg:grid-cols-[16rem_1fr]" : "lg:grid-cols-[1fr]"}`}
     >
-      <MenuButton isApp={isApp} isOpen={drawer || shown} onClick={toggle} />
+      <MenuButton isOpen={drawer || shown} onClick={toggle} />
       <aside
-        className={`fixed inset-y-0 left-0 z-20 w-[min(20rem,86vw)] bg-sheet pt-12 transition-transform duration-200 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${drawer ? "translate-x-0" : "-translate-x-full"} ${asideWideOf(shown, drawer)}`}
+        className={`fixed z-20 flex flex-col bg-sheet transition-transform duration-200 ${asideOf(drawer, shown)}`}
+        {...swipe}
       >
-        <Sidebar onPick={() => setDrawer(false)} route={route} />
+        {STANDALONE ? (
+          <span className="mx-auto h-1 w-9 flex-none rounded-full bg-glass" />
+        ) : null}
+        <div className="min-h-0 flex-1">
+          <Sidebar
+            latest={latest}
+            onPick={() => setDrawer(false)}
+            route={route}
+            scenes={scenes}
+          />
+        </div>
       </aside>
       {drawer ? (
         <button
@@ -497,7 +684,7 @@ function App() {
       <main
         className={`min-w-0 px-3 pt-14 pb-3 sm:px-4 lg:pt-3 lg:pr-3 ${shown ? "lg:pl-2" : "lg:pl-16"}`}
       >
-        <Page isApp={isApp} route={route} />
+        <Page onScenes={setScenes} route={route} />
       </main>
     </div>
   );

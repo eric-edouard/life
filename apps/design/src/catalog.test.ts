@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { dateOf, filesIn, pathsOf, ROOT, tabsOf } from "./catalog";
+import {
+  agoOf,
+  dateOf,
+  filesIn,
+  latestOf,
+  newestCommitsOf,
+  pathsOf,
+  ROOT,
+  tabsOf,
+} from "./catalog";
 
 const README = `# Designs
 
@@ -100,4 +109,38 @@ test("the real README opens on a prototype, and every entry it lists exists", as
     .flatMap((t) => t.entries)
     .filter(({ path }) => !existsSync(`${ROOT}${path}`));
   expect(missing).toEqual([]);
+});
+
+test("each file's newest commit, from git log", () => {
+  const log = "\x00300\n\na.html\n\x00200\n\na.html\nlab/x.css\n";
+  expect(newestCommitsOf(log)).toEqual([
+    ["a.html", 300],
+    ["lab/x.css", 200],
+  ]);
+});
+
+test("the latest changed entries: a folder's page by any file of its folder, newest first", () => {
+  const entries = ["a.html", "lab/index.html", "b.md", "c.md", "never.md"].map(
+    (path) => ({ about: "", path, title: path })
+  );
+  const commits: [string, number][] = [
+    ["lab/x.css", 500],
+    ["a.html", 300],
+    ["b.md", 400],
+    ["c.md", 100],
+    ["labx.html", 900],
+  ];
+  expect(latestOf(entries, commits).map((l) => [l.entry.path, l.at])).toEqual([
+    ["lab/index.html", 500],
+    ["b.md", 400],
+    ["a.html", 300],
+  ]);
+});
+
+test("how long ago, short", () => {
+  const now = 1_000_000_000_000;
+  expect(agoOf(now / 1000 - 30, now)).toBe("just now");
+  expect(agoOf(now / 1000 - 12 * 60, now)).toBe("12 min ago");
+  expect(agoOf(now / 1000 - 2 * 3600 - 5, now)).toBe("2 h ago");
+  expect(agoOf(now / 1000 - 3 * 86_400, now)).toBe("3 d ago");
 });
