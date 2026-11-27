@@ -338,10 +338,12 @@ export const jobArgsOf = (
 /** Why voice doesn't start: Lifelog Host runs it (same ports, recordings and outbox; two Mac helpers stall processing). */
 export const HOST_RUNS = "Lifelog Host runs voice";
 /**
- * Whether Lifelog Host runs: a process of its app. ponytail: goes with Host in bundle 4, with `HOST_RUNS` and every use.
+ * Whether Lifelog Host runs: its app's own process, by its name alone (a command line naming its path, a shell or a
+ * script, is not Host: on 28 Nov one made Life's voice jobs remove themselves). ponytail: goes with Host in bundle 4,
+ * with `HOST_RUNS` and every use.
  */
 export const isHostRunning = async () =>
-  (await exec(["pgrep", "-f", "Lifelog Host.app/Contents/"])).code === 0;
+  (await exec(["pgrep", "-x", "LifelogHost"])).code === 0;
 
 /**
  * Each child's launchd job written as it should run now: (re)started only when its plist changed, stopped when it is
