@@ -21,7 +21,7 @@ struct VoicesRow: View {
         if let check = current {
             ThreadItemRow(
                 title: isOpen ? "Who is this?" : asks.count == 1 ? "Name one voice" : "Name \(asks.count) voices",
-                state: .needsYou, icon: .person, line: isOpen ? heard(check) : "Voices from your conversations",
+                state: .needsYou, icon: .person, line: isOpen ? heard(check) : "From your conversations",
                 isOpen: isOpen, ref: OpeningScreen.voices,
                 pill: RowPill(title: "Later", id: nil) { Task { for ask in asks { await life.later(ask.ref) } } },
                 toggle: {
@@ -116,7 +116,6 @@ struct VoicesRow: View {
                 }
                 pill("Later", .quiet, id: "later") { Task { await life.later(check.ref) } }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -125,7 +124,7 @@ struct VoicesRow: View {
         check.options.contains { $0.id == "is-them" } ? check.likelyPeople.first : nil
     }
 
-    /// A pill sized to its words, so the four answers stay on one line.
+    /// A pill filling its share of the row (the prototype's full-width answers).
     private func pill(
         _ title: String, _ kind: PillStyle.Kind, id: String, isFull: Bool = false, action: @escaping () -> Void
     ) -> some View {
@@ -134,13 +133,12 @@ struct VoicesRow: View {
             Text(title).font(.heading).lineLimit(typeSize > .large ? nil : 1).foregroundStyle(
                 isFilled ? Palette.on : Palette.fg
             )
-            .padding(.horizontal, Metrics.Spacing.m).frame(
-                maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
+            .minimumScaleFactor(0.8).padding(.horizontal, Metrics.Spacing.s).frame(
+                maxWidth: .infinity, minHeight: isFull ? 48 : 44
             )
             .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
         }
-        .buttonStyle(.plain).fixedSize(horizontal: !isFull && typeSize <= .large, vertical: false)
-        .identified(AID.voicesAnswer(id))
+        .buttonStyle(.plain).identified(AID.voicesAnswer(id))
     }
 
     private func startNaming(_ check: Check) {
