@@ -24,12 +24,12 @@ only carries encrypted bytes.
 
 ## The design
 
-1. **The relay forwards, never decrypts.** A small open-source service on Life's domain (`*.<life domain>`) reads the
+1. **The relay forwards, never decrypts.** A small open-source service on `*.hostedbyme.app` (bought 27 Nov 2026 at Porkbun) reads the
    hostname from the first packet of a TLS connection (SNI) and pipes the still-encrypted connection to the Mac that
    registered it, over one outbound connection the Mac keeps open. It holds no certificate for any user's address.
    Candidates before writing our own: sish, frp in TCP mode, or OpenTunnel's server if it is open source.
 2. **Each Mac makes its own key.** On first run, Life makes a private key on the Mac (never written anywhere else, never
-   sent) and picks a random id. It asks Let's Encrypt for a certificate for `<random id>.<life domain>` with the
+   sent) and picks a random id. It asks Let's Encrypt for a certificate for `<random id>.hostedbyme.app` with the
    TLS-ALPN-01 challenge, which arrives through the relay still encrypted, so the Mac answers it itself. Renewal is the
    same, every 60 days. The relay and the developer never see the key.
 3. **Life's iPhone app pins the Mac's key.** Pairing happens next to the Mac (a QR code shown by the Mac, or the same
@@ -62,10 +62,9 @@ and how much data moves. Addresses are random ids, never names, because the cert
 
 ## Open questions
 
-- The domain's name.
 - Where the relay runs. Users pay nothing: the developer runs one small VPS (about €4 a month at Hetzner, 20 TB of
   traffic included), which carries bytes and does no compute.
-- Each user's address needs no DNS change at onboarding: one wildcard record points `*.<life domain>` at the relay.
+- Each user's address needs no DNS change at onboarding: one wildcard record points `*.hostedbyme.app` at the relay.
 - Let's Encrypt issues at most 50 certificates a week per registered domain. Put the domain on the Public Suffix List
   before launch: each user's address then counts on its own, and browsers keep one user's address from setting
   cookies on another's.
@@ -74,7 +73,8 @@ and how much data moves. Addresses are random ids, never names, because the cert
 
 ## Milestones
 
-- [ ] Pick the relay (adopt or write) and the domain.
+- [x] Domain: hostedbyme.app.
+- [ ] Pick the relay (adopt or write).
 - [ ] Relay live, open source in this repository, with its own tests.
 - [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
 - [ ] iPhone app: key fingerprint in the pairing code, pinning.
