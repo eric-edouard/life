@@ -473,11 +473,8 @@ export async function voiceStatus(
     await Promise.all(
       VOICE_CHILDREN.map(async (c) => {
         const launch = VOICE_LAUNCHES[c](inputs);
-        const why = host
-          ? HOST_RUNS
-          : typeof launch === "object"
-            ? null
-            : (launch ?? "off");
+        const reason = typeof launch === "object" ? null : (launch ?? "off");
+        const why = host ? HOST_RUNS : reason;
         return [c, { state: (await readJobState(jobOf(c))) ?? null, why }];
       })
     )
