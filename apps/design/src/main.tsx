@@ -3,6 +3,7 @@ import { marked } from "marked";
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import readme from "../../../docs/design/README.md?raw";
+import { Brand } from "./brand";
 import {
   dateLabelOf,
   dateOf,
@@ -15,11 +16,31 @@ import {
   tabsOf,
   urlOf,
 } from "./catalog";
-import { DesignSystem } from "./design-system";
+import { Components, Glow } from "./components";
 import "./styles.css";
 
 const PATHS = pathsOf(files);
-const TABS = tabsOf(readme);
+/** The design system's pages, drawn by the app: the README's section names them in words, never as rows. */
+const SYSTEM_PAGES = {
+  brand: { draw: Brand, title: "Brand" },
+  components: { draw: Components, title: "Components" },
+  glow: { draw: Glow, title: "Glow" },
+} as const;
+type SystemPage = keyof typeof SYSTEM_PAGES;
+const isSystemPage = (route: string): route is SystemPage =>
+  Object.hasOwn(SYSTEM_PAGES, route);
+const TABS: Tab[] = tabsOf(readme).map((t) =>
+  t.title === "Design system"
+    ? {
+        ...t,
+        entries: Object.entries(SYSTEM_PAGES).map(([path, p]) => ({
+          about: "",
+          path,
+          title: p.title,
+        })),
+      }
+    : t
+);
 const ENTRIES = TABS.flatMap((t) => t.entries);
 /** The approved prototype: the Prototype tab's first entry. Home shows it, and the home-screen app opens on it. */
 const PROTOTYPE = TABS.find((t) => t.title === "Prototype")?.entries[0];
@@ -34,13 +55,13 @@ const DESIGN_WIDTH = 1180;
 const PHONE_WIDTH = 600;
 /** The screen's height less the page padding (and on a phone, the menu button's row). */
 const FULL_HEIGHT = "h-[calc(100dvh-4.25rem)] lg:h-[calc(100dvh-1.75rem)]";
-/** A tab's own page when it isn't its first entry: the design system is drawn live; explorations are only a group. */
+/** A tab's own page when it isn't its first entry: the design system opens on its brand; explorations are only a group. */
 const TAB_PAGE: Record<string, string | null> = {
-  "Design system": "system",
+  "Design system": "brand",
   Explorations: null,
 };
 
-/** The route is the hash: "" the prototype, "system", or a path under docs/design. */
+/** The route is the hash: "" the prototype, a design system page, or a path under docs/design. */
 const readRoute = () => decodeURIComponent(location.hash.replace(HASH, ""));
 const useRoute = () => {
   const [route, setRoute] = useState(readRoute);
@@ -366,13 +387,14 @@ const readList = () => {
   }
 };
 
-/** The page for a route: the prototype alone on the home screen, the design system, else an entry. */
+/** The page for a route: the prototype alone on the home screen, a design system page, else an entry. */
 function Page({ isApp, route }: { isApp: boolean; route: string }) {
   if (isApp && PROTOTYPE) {
     return <AppScreen path={PROTOTYPE.path} />;
   }
-  if (route === "system") {
-    return <DesignSystem />;
+  if (isSystemPage(route)) {
+    const Draw = SYSTEM_PAGES[route].draw;
+    return <Draw />;
   }
   return <Viewer path={route || (PROTOTYPE?.path ?? "")} />;
 }

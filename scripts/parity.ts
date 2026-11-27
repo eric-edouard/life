@@ -181,6 +181,10 @@ export interface BoardRow {
   works: boolean | null;
 }
 
+/** A side-panel scene no row brings the app to: its board row's id, from its button's selector. */
+export const notBuiltIdOf = (selector: string) =>
+  selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
+
 /** The side panel's buttons: one prototype state each, the board's rows, titled by their words. */
 function panelOf(page: Page) {
   return page.$$eval(".side button", (buttons) =>
@@ -642,7 +646,7 @@ if (import.meta.main) {
       );
     }
     for (const { selector, title } of notBuilt) {
-      const id = selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
+      const id = notBuiltIdOf(selector);
       add({
         a11y: null,
         a11yBlocking: null,
