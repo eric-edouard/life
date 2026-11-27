@@ -1065,3 +1065,28 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
             == .init(transcription: false, ai: true, openAppAfterMinutes: 30),
         "each waiting change applies over the feed's")
 }
+
+@Test func whileThePendantHoldsABacklogSpeechIsHeardUpToTheSavedRunsLastPage() async throws {
+    // 27 Nov 2026: a 15-hour backlog held every word until the last page was off the Pendant.
+    let host = "draining-\(UUID().uuidString).test"
+    let fixture = try ScannerFixture()
+    try await fixture.store(0..<10)
+    let uploader = try makeUploader(fixture, host: host)
+    try await uploader.run(savedThrough: nil)
+    #expect(RebuildServer.requests(host, "PUT", "/sources/pendant-1/timeline").isEmpty, "nothing vouched for yet")
+    try await uploader.run(savedThrough: nil, savedPage: 6)
+    let body = try json(try #require(RebuildServer.requests(host, "PUT", "/sources/pendant-1/timeline").last).body)
+    #expect(try seconds(body["heardThrough"]) == 3, "page 6's start, less the 3 s margin")
+}
+
+@Test func aSavedPageAboveAHoleNeverCarriesHeardThroughPastTheHole() async throws {
+    // Pages stored above the saved run (a live page during a drain) never pull heard-through up.
+    let host = "hole-\(UUID().uuidString).test"
+    let fixture = try ScannerFixture()
+    try await fixture.store(0..<5)
+    try await fixture.store(20..<25)
+    let uploader = try makeUploader(fixture, host: host)
+    try await uploader.run(savedThrough: nil, savedPage: 8)
+    let body = try json(try #require(RebuildServer.requests(host, "PUT", "/sources/pendant-1/timeline").last).body)
+    #expect(try seconds(body["heardThrough"]) == 1, "page 4's start, less the 3 s margin; page 20 is never reached")
+}
