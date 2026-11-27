@@ -99,6 +99,8 @@ function Live({ v }: { v: Variation }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [near, setNear] = useState(false);
   const [crop, setCrop] = useState<Box | null>(null);
+  // Brought to its scene in the frame mounted now; the last crop keeps the card's height while it is away.
+  const [isDrawn, setDrawn] = useState(false);
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const el = box.current;
@@ -109,7 +111,7 @@ function Live({ v }: { v: Variation }) {
       ([e]) => {
         setNear(Boolean(e?.isIntersecting));
         if (!e?.isIntersecting) {
-          setCrop(null);
+          setDrawn(false);
         }
       },
       { rootMargin: "600px" }
@@ -156,7 +158,13 @@ function Live({ v }: { v: Variation }) {
         await wait(STEP_MS);
       }
       showInThread(page, v.part);
-      const measure = () => setCrop(cropOf(page, v.part));
+      const measure = () => {
+        const now = cropOf(page, v.part);
+        if (now) {
+          setCrop(now);
+        }
+        setDrawn(Boolean(now));
+      };
       measure();
       if (!stopped) {
         tick = window.setInterval(measure, 1000);
@@ -193,7 +201,7 @@ function Live({ v }: { v: Variation }) {
             src={urlOf(v.page ?? PROTOTYPE)}
             style={{
               height: PAGE_HEIGHT,
-              opacity: crop ? 1 : 0,
+              opacity: isDrawn ? 1 : 0,
               transform: crop
                 ? `scale(${scale}) translate(${-crop.x}px, ${-crop.y}px)`
                 : undefined,
