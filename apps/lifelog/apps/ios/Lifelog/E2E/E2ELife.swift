@@ -290,8 +290,29 @@
             return data
         }
 
+        /// A fixture of `wire/`. A parity `read_thread_*` holds only what differs from `parity/opening.json`: its `items`
+        /// replace the opening's of the same id (the others follow), and its `without` ids leave the opening's items out.
         private func fixture(_ path: String, in held: Held) -> String {
-            (try? String(contentsOf: held.fixtures.appending(path: "wire/\(path)"), encoding: .utf8)) ?? "{}"
+            func text(_ path: String) -> String? {
+                try? String(contentsOf: held.fixtures.appending(path: "wire/\(path)"), encoding: .utf8)
+            }
+            let base = "parity/opening.json"
+            guard path.hasPrefix("parity/read_thread_"), var read = text(path).flatMap(Self.object),
+                let opening = text(base).flatMap(Self.object)
+            else { return text(path) ?? "{}" }
+            let own = read["items"] as? [[String: Any]] ?? []
+            let id = { (item: [String: Any]) in "\(item["id"] ?? item["ref"] ?? "")" }
+            let without = Set(read.removeValue(forKey: "without") as? [String] ?? [])
+            let ownIds = Set(own.map(id))
+            let kept = (opening["items"] as? [[String: Any]] ?? []).filter {
+                !without.contains(id($0)) && !ownIds.contains(id($0))
+            }
+            read["items"] = kept + own
+            return String(decoding: (try? JSONSerialization.data(withJSONObject: read)) ?? Data(), as: UTF8.self)
+        }
+
+        private static func object(_ text: String) -> [String: Any]? {
+            try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
         }
 
         private static func message(_ result: String, isError: Bool = false) -> String {

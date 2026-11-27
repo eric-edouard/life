@@ -78,8 +78,11 @@ function paths(value: unknown, at = ""): string[] {
   }
   return [];
 }
+// `.without` is the fake Life's own: opening items a read_thread fixture leaves out (E2ELife.swift `fixture`).
 // Keys `read_thread` documents (apps/server/src/host/http/mcp.ts) that no wire fixture shows filled yet.
 const DOCUMENTED = [
+  ".without[]",
+  ".without",
   ".items[].card.onMatters[].id",
   ".items[].card.onMatters[].name",
   ".items[].card.onMatters[].icon",
