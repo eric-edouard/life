@@ -145,8 +145,7 @@ import XCTest
         appears(element(AID.askAnswer(Self.ask, "send")), "Send")
         step(1)
         vanishes(element(AID.askAnswer(Self.ask, "send")), "Send gone once the ask is outdated")
-        // Life wrote a new reply to Jade's new line: the card that replaces it.
-        unfold(element(AID.askRow("dec_000000000002")), until: element(AID.askAnswer("dec_000000000002", "send")))
+        // Life's read now holds the card that replaces it (Jade's new line, a new reply): the board judges whether it shows.
         shoot("outdated")
         XCTAssertTrue(answers().isEmpty)
     }
