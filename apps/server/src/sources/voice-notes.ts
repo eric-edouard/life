@@ -10,9 +10,12 @@ import { call } from "./lifelog-call";
 export const VoiceNoteWords = z.object({ text: z.string() });
 /** What lifelog takes as it is; anything else (iMessage's CAF, a bridge's M4A) is made Ogg Opus by ffmpeg. */
 const OGG = new Set(["audio/ogg", "audio/opus"]);
-/** ffmpeg's own words for an input it can never make audio of: not a media file, or no audio stream in it. */
+/**
+ * ffmpeg's own words, when it opens the files, for an input it can never make audio of: not a media file, or no audio
+ * stream in it. A damaged frame met later while decoding is not one.
+ */
 const NO_AUDIO =
-  /Invalid data found when processing input|does not contain any stream/;
+  /Error opening input files: Invalid data found when processing input|Output file does not contain any stream/;
 
 /**
  * The file at `path` as Ogg Opus bytes; `null` when ffmpeg says it holds no audio (never asked again); nothing on any
