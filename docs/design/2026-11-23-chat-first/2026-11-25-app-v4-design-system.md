@@ -212,3 +212,10 @@ Verdict: a list of matters or asks is always rows. Tiles never show matters. The
 by stepping one card at a time in place, with no sideways track. Code decides the rule, not the agent per answer, so a
 list never changes shape between two answers. No setting either: it would be a toggle just in case. A list in an
 answer shows its first 8 rows, then "N more", as the opening screen does with 3.
+
+## The lab's picks, baked in (27 Nov 2026)
+
+New parts, all on App v4's own: a `note` line under any ask (what its answer leads to); a `paycode` kind (the payment
+code, large, ready to scan); a link drawn as where it goes (`lkpHTML`: the site's mark, the key fact, what is there);
+reminder pills that change on a tap; and one `result` per ask (a title for the settled row, a busy line on a still
+ring, what it adds below, like the day with the new slot, and where a run ends), applied on the main answer only.

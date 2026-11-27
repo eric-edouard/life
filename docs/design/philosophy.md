@@ -87,7 +87,8 @@ line links there.
 - The edge goes still while Life can't be reached (owner, 23 Nov 2026).
 - The pendant: the lit cream dot, breathing, while it records; a hollow ring when paused; coral only when it needs him,
   never while it simply records (owner, 23 Nov 2026).
-- Pausing the pendant is one tap, never a turn of the main session (owner, 23 Nov 2026).
+- Pausing the pendant is its page's Pause switch, never a turn of the main session (owner, 23 Nov 2026; the page, his
+  ruling of 27 Nov 2026).
 - The pendant's own screen is a page (owner, 26 Nov 2026, lab pick D).
 - The count is a round button showing the number; it becomes a coral mark when Life is out of reach (owner, 26 Nov
   2026, lab pick Settings 2 B).
@@ -381,7 +382,6 @@ line links there.
 - Settings: the 9 proposals of 24 Nov ([board][settings]). The lab took 1 C, 2 B and 3 A; still open whether 1 B, 2 C
   and 3 C join them, whether Settings keeps only mode, devices and sending with logs and diagnostics behind one "For
   the developer" row, and Face ID before a Send changed by voice ([prototypes notes][prototypes]).
-- The pendant's tap: the spec makes pausing one tap, the lab's page D opens a screen; which one the tap does.
 - How answer shapes are made (fixed blocks, components the agent composes, or generated HTML): the plan's; the
   components of 23 Nov are a proposal, and the lab left them open ([answer components][answers]).
 - The icons of the count and the pendant; what Later offers (a fixed "tomorrow morning", or a few choices); haptics.
@@ -407,6 +407,8 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 ### 27 Nov 2026
 
+- The pendant's page is built (lab pendant D, "yes build it anyway"): its dot opens the page, one status line and
+  Pause as a switch that acts at once; when it lost the phone, only the fix ([product][product-rules]).
 - Turn by turn chosen as the app's direction, after "Not now" earlier the same day; app v4 stays the approved design
   until he picks a drawn one ([hand-over][turns], [proposal][v5]).
 - "Hey Life": a notification replaced by the answer (Live Activity parked), not read aloud, no live listening, the
