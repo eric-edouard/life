@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { dateOf, filesIn, pathsOf, tabsOf } from "./catalog";
+import { existsSync } from "node:fs";
+import { dateOf, filesIn, pathsOf, ROOT, tabsOf } from "./catalog";
 
 const README = `# Designs
 
@@ -88,4 +89,15 @@ test("the files of a folder", () => {
     "docs/design/b.md",
   ]);
   expect(filesIn(paths, "a/")).toEqual(["a/1.png", "a/2.png"]);
+});
+
+test("the real README opens on a prototype, and every entry it lists exists", async () => {
+  const tabs = tabsOf(await Bun.file(`${ROOT}README.md`).text());
+  expect(
+    tabs.find((t) => t.title === "Prototype")?.entries.length
+  ).toBeGreaterThan(0);
+  const missing = tabs
+    .flatMap((t) => t.entries)
+    .filter(({ path }) => !existsSync(`${ROOT}${path}`));
+  expect(missing).toEqual([]);
 });
