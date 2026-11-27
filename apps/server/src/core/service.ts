@@ -1,11 +1,13 @@
 import {
   closeSync,
   constants,
+  existsSync,
   fstatSync,
   ftruncateSync,
   mkdirSync,
   openSync,
   readdirSync,
+  readFileSync,
   readSync,
   renameSync,
   rmSync,
@@ -19,7 +21,7 @@ import { HOME } from "./platform";
 import { exec, execOk, untilAnswers } from "./proc";
 
 // A program the Mac keeps running on its own, outside Life.app, as one launchd job (the bridges and their homeserver
-// together, `host/bridges.ts`): started at login, started again 10 s after it stops, its output in
+// together, `host/bridges.ts`; each of voice's processes, `host/voice.ts`): started at login, started again 10 s after it stops, its output in
 // ~/Library/Logs/<label>.log. macOS only.
 
 const AGENTS = join(HOME, "Library", "LaunchAgents");
@@ -28,15 +30,13 @@ const domain = () => `gui/${process.getuid?.()}`;
 const xml = (s: string) =>
   s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-/** Keeps `args` running in `dir` as job `job`, replacing (so restarting) the job of that name if there is one. */
-export async function keepRunning(job: string, dir: string, args: string[]) {
+/** The plist `keepRunning` writes for job `job`, and where. */
+export function plistOf(job: string, dir: string, args: string[]) {
   const label = labelOf(job);
   const output = join(HOME, "Library", "Logs", `${label}.log`);
-  const plist = join(AGENTS, `${label}.plist`);
-  mkdirSync(AGENTS, { recursive: true });
-  writeFileSync(
-    plist,
-    `<?xml version="1.0" encoding="UTF-8"?>
+  return {
+    path: join(AGENTS, `${label}.plist`),
+    text: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>${label}</string>
@@ -45,8 +45,32 @@ export async function keepRunning(job: string, dir: string, args: string[]) {
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>10</integer>
 <key>StandardOutPath</key><string>${xml(output)}</string><key>StandardErrorPath</key><string>${xml(output)}</string>
 </dict></plist>
-`
-  );
+`,
+  };
+}
+
+/** Whether job `job`'s installed plist is the one `keepRunning(job, dir, args)` would write. */
+export function isKeptAs(job: string, dir: string, args: string[]) {
+  const { path, text } = plistOf(job, dir, args);
+  return existsSync(path) && readFileSync(path, "utf8") === text;
+}
+
+/** Keeps `args` running in `dir` as job `job`, replacing (so restarting) the job of that name if there is one. */
+export async function keepRunning(job: string, dir: string, args: string[]) {
+  const { path, text } = plistOf(job, dir, args);
+  mkdirSync(AGENTS, { recursive: true });
+  writeFileSync(path, text);
+  await stopJob(labelOf(job));
+  await execOk(["launchctl", "bootstrap", domain(), path]);
+}
+
+/** Stops job `job` and removes its plist, so it never starts again; nothing when there is none. */
+export async function stopRunning(job: string) {
+  await stopJob(labelOf(job));
+  rmSync(plistOf(job, "", []).path, { force: true });
+}
+
+async function stopJob(label: string) {
   const target = `${domain()}/${label}`;
   await exec(["launchctl", "bootout", target]);
   // bootout returns before the job is gone, and a bootstrap then fails (6 Nov 2026: every bridge down): wait for it.
@@ -55,13 +79,12 @@ export async function keepRunning(job: string, dir: string, args: string[]) {
       (await exec(["launchctl", "print", target])).code !== 0 || undefined,
     `${label} stopping`
   );
-  await execOk(["launchctl", "bootstrap", domain(), plist]);
 }
 
 const LOG_END = /\.log$/;
 /** The process logs past this size are rotated (`rotateProcessLogs`). */
 const LOG_CAP = 10_000_000;
-/** Life's process logs: Life.app's helpers, Lifelog Host's children and the launchd jobs; never a `.old.log`. */
+/** Life's process logs: Life.app's helpers, Lifelog Host's children (until it goes) and the launchd jobs (voice's among them); never a `.old.log`. */
 const PROCESS_LOG =
   /^(?:life-|lifelog-|com\.ericedouard\.life\.).*(?<!\.old)\.log$/;
 

@@ -1,6 +1,7 @@
 // Every step of the chains, in time order, from the three places they happen: the server and the
 // phone (GET /events, through scripts/server.ts: LIFELOG_SERVER_URL and the device token) and the Mac
-// helper's log (~/Library/Logs/lifelog-quiet.log, when run on the owner's Mac).
+// helper's log (~/Library/Logs/com.ericedouard.life.voice-quiet.log under Life's launchd job, lifelog-quiet.log under
+// Lifelog Host until it goes; when run on the owner's Mac).
 //   bun run events [--since 10m|2h|1d] [name prefix ...]
 // A prefix keeps only events whose name starts with it ("apns", "mac."); the Mac's log lines count
 // as "mac".
@@ -50,9 +51,14 @@ const lines: Line[] = events.map((e) => ({
     .join(" ")}`,
 }));
 
-// The kept copy first: Life's rotation (`rotateProcessLogs`) moves the older lines there.
+// Host's log, then launchd's; each one's kept copy first: Life's rotation (`rotateProcessLogs`) moves the older lines there.
 let macText = "";
-for (const name of ["lifelog-quiet.old.log", "lifelog-quiet.log"]) {
+for (const name of [
+  "lifelog-quiet.old.log",
+  "lifelog-quiet.log",
+  "com.ericedouard.life.voice-quiet.old.log",
+  "com.ericedouard.life.voice-quiet.log",
+]) {
   const file = Bun.file(`${homedir()}/Library/Logs/${name}`);
   // biome-ignore lint/performance/noAwaitInLoops: the older file first
   macText += (await file.exists()) ? `${await file.text()}\n` : "";
