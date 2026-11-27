@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- Turn by turn v2: the five variations side by side in time. Pick one, then a scene: the same moment plays in each.
+     Every variant page is built on shell.js and implements the same scene ids. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Turn by turn v2: compare</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;gap:10px;padding:14px}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.bar b{font-size:var(--text-heading);font-weight:650;color:var(--muted);margin-right:6px}
+.bar button{height:34px;padding:0 14px;border-radius:17px;background:var(--tile);font-size:14px;font-weight:600}
+.bar button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.view{flex:1;min-height:0;position:relative;border-radius:var(--panel-radius);background:var(--card);overflow:hidden}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--text-body)}
+</style>
+</head>
+<body>
+<div class="bar" id="variants"><b>Variation</b></div>
+<div class="bar" id="scenes"><b>Scene</b></div>
+<div class="view" id="view"></div>
+<script>
+var VARIANTS=['a','b','c','d','e'],
+  SCENES=[['idle','Idle'],['type-send','Types an ask'],['voice-send','Says an ask'],['working','Life works'],['slow','A slow step'],
+    ['answer-day','Answer: the day'],['answer-jade','Answer: Jade'],['follow-up','Follow-up'],['history','Earlier turns'],['failure','A step fails']],
+  view=document.getElementById('view'),frame=null,scene='idle',variant=null;
+function press(bar,v){document.querySelectorAll('#'+bar+' button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===v));});}
+function post(){if(frame)frame.contentWindow.postMessage({scene:scene},'*');}
+/* a missing page falls back to the designs app itself, so a variant counts as built only when it loads the shell */
+async function show(v){variant=v;press('variants',v);location.hash=v;var url='variant-'+v+'.html',built=false;
+  try{var r=await fetch(url,{cache:'no-store'});built=r.ok&&(await r.text()).indexOf('shell.js')>=0;}catch(e){}
+  if(variant!==v)return;view.innerHTML='';frame=null;
+  if(!built){view.innerHTML='<div class="none">Variation '+v.toUpperCase()+' is not built yet</div>';return;}
+  frame=document.createElement('iframe');frame.title='Variation '+v.toUpperCase();frame.src=url+'#scene='+scene;view.appendChild(frame);}
+VARIANTS.concat('template').forEach(function(v){var b=document.createElement('button');b.type='button';b.dataset.v=v;b.textContent=v==='template'?'Template':v.toUpperCase();b.onclick=function(){show(v);};document.getElementById('variants').appendChild(b);});
+SCENES.forEach(function(s){var b=document.createElement('button');b.type='button';b.dataset.v=s[0];b.textContent=s[1];b.onclick=function(){scene=s[0];press('scenes',scene);post();};document.getElementById('scenes').appendChild(b);});
+press('scenes',scene);show(location.hash.slice(1)||'a');
+</script>
+</body>
+</html>

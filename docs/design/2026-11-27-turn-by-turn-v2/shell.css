@@ -1,0 +1,41 @@
+/* The turn by turn prototypes' shared shell: the page, the phone (390 x 844 points, scaled to fit), its status bar,
+   home indicator and safe areas, the Ask Life field, and the side panel of scenes. Variants style only what they put
+   in .stage. Dark only: tokens.css's dark values. */
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#121316;color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.shell{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:40px;padding:20px}
+.fit{flex:none;position:relative}
+/* the phone: its safe areas are --safe-top and --safe-bottom; .stage sits between them and the field */
+.ph{--r:54px;--safe-top:59px;--safe-bottom:34px;--glass:rgba(26,27,32,.66);position:absolute;top:0;left:0;transform-origin:0 0;width:390px;height:844px;border-radius:var(--r);background:var(--bg);overflow:hidden;font-size:var(--text-body);line-height:1.42;font-weight:450}
+.ph .gl{-webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);background:var(--glass);box-shadow:0 14px 40px rgba(0,0,0,.55),inset 0 0 0 .5px rgba(255,248,234,.09)}
+.sbar{position:absolute;top:16px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:15px;font-weight:650;z-index:6}
+.sbar span:last-child{font-size:10px;letter-spacing:1px;opacity:.9}
+.home{position:absolute;bottom:8px;left:50%;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:var(--fg);z-index:6}
+.stage{position:absolute;top:var(--safe-top);bottom:110px;left:0;right:0;overflow-y:auto;scrollbar-width:none;z-index:2;padding:0 20px;display:flex;flex-direction:column}
+.stage::-webkit-scrollbar{display:none}
+/* the Ask Life field (app v4's): text, then the mic (tap, or hold to talk) and send */
+.field{position:absolute;left:16px;right:16px;bottom:30px;min-height:52px;padding:8px 8px 8px 18px;border-radius:26px;display:flex;align-items:center;gap:8px;z-index:5}
+.field input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--fg);font:inherit;font-size:16px;padding:0}
+.field input::placeholder{color:var(--muted)}
+.field .heard{flex:1;min-width:0;font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.field .k{flex:none;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;touch-action:none}
+.field .mic{background:var(--tint)}
+.field .snd{background:var(--fg);color:#000}
+.field .snd:disabled{opacity:.35;cursor:default}
+.field.live .mic{background:var(--fg);color:#000}
+.field.live input,.field:not(.live) .heard{display:none}
+/* the side panel */
+.side{width:280px;flex:none;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}
+.side h1{font-size:var(--text-header);font-weight:650;margin:0 0 2px}
+.side p{font-size:var(--text-line);color:var(--muted);margin:0 0 8px;line-height:1.4}
+.side button{text-align:left;min-height:38px;padding:8px 16px;border-radius:16px;background:#1d1e23;font-size:14px;font-weight:650}
+.side button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.side .play{background:var(--tint);margin-bottom:6px}
+/* inside the comparison page: the phone alone, filling the frame */
+.embedded .side{display:none}
+.embedded .shell{padding:12px}
+@media (max-width:500px){.shell{flex-direction:column;padding:0;gap:16px}.fit{width:100vw!important;height:100dvh!important}.ph{transform:none!important;width:100vw;height:100dvh;--r:0px}.side{width:100%;max-height:none;padding:0 16px 24px}}
+@media (prefers-reduced-motion:reduce){.ph *{animation:none!important;transition:none!important}}
