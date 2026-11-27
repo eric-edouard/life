@@ -425,7 +425,7 @@ struct RatingRow: View {
                 Button {
                     pick(mark)
                 } label: {
-                    ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
+                    ReactionMark(reaction: mark).fixedSize().frame(minWidth: Metrics.ratingMark, minHeight: Metrics.tapTarget)
                 }
                 .accessibilityLabel(
                     ["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate"

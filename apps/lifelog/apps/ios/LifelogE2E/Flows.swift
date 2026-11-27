@@ -103,6 +103,7 @@ import XCTest
         askLife()
         appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
         shoot("rate")
+        taps = 0  // the rating's own taps (the prototype's 1), not the ask before it
         // The thread fills the screen under the buttons: a thread squeezed to the bottom hid every earlier row.
         XCTAssertLessThan(app.scrollViews.firstMatch.frame.minY, app.frame.height / 4)
         tap(AID.askRate(Self.ask, "good"))
@@ -118,6 +119,7 @@ import XCTest
     func testPersonAsTheAnswer() {
         launch("C12")
         askLife("Text Ben that I’m running late")
+        taps = 0  // the answer's own taps (the prototype's 1), not the ask before it
         let row = element(AID.askRow(Self.ask))
         appears(row, "the ask in the thread")
         // The two Bens are cards in the thread: one tap answers.
@@ -126,6 +128,7 @@ import XCTest
         appears(ben, "the people")
         shoot("which-person")
         ben.tap()
+        taps += 1
         poll("the answer reached Life") { !answers().isEmpty }
         XCTAssertEqual(answers().count, 1)
         XCTAssertEqual(answers()[0]["person"] as? String, "person:ben-martin")
