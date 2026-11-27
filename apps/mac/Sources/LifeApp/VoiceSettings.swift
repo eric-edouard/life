@@ -38,7 +38,7 @@ struct VoiceSettings: View {
         "Get one at elevenlabs.io: Developers, then API keys",
         destination: URL(string: "https://elevenlabs.io/app/developers/api-keys")!
       ).font(Brand.serif(11))
-      Button(voice?.archive == false ? "Start fresh" : "Save the key") {
+      Button(voice?.recorded == false ? "Start fresh" : "Save the key") {
         Task {
           await act(["voice", "key", "elevenLabsKey"], input: elevenLabs, done: "Saved.")
           elevenLabs = ""
@@ -46,10 +46,11 @@ struct VoiceSettings: View {
       }
       .disabled(elevenLabs.isEmpty || busy)
       Toggle("Recognize speakers by their voice", isOn: saving($speakers))
+        .disabled(voice?.speakers == nil)
       Text("Names the voices you've named before, on this Mac; installs about 630 MB once. Off, voices stay unnamed.")
         .caption()
       Toggle("Back up to iCloud Drive every day", isOn: saving($backups))
-        .disabled(voice?.iCloud != true)
+        .disabled(voice?.iCloud != true || voice?.backups == nil)
       if voice?.iCloud == false {
         Text("Turn on iCloud Drive in System Settings first.").caption()
       } else if backups {
@@ -110,12 +111,16 @@ struct VoiceSettings: View {
 
   private func load() async {
     await readStatus()
-    speakers = voice?.speakers ?? speakers
-    backups = voice?.backups ?? backups
   }
 
+  /// The status again; the switches take its values the first time it has them (until then they are disabled).
   private func readStatus() async {
+    let loaded = voice?.speakers != nil
     voice = try? JSONDecoder().decode(VoiceStatus.self, from: Data(await Helper.run(["voice", "status"]).out.utf8))
+    if !loaded, let s = voice?.speakers, let b = voice?.backups {
+      speakers = s
+      backups = b
+    }
   }
 
   /// A switch that saves when he flips it (never when `load` sets it).
@@ -191,16 +196,17 @@ struct VoiceSettings: View {
 }
 
 /// The helper's `voice status`, decided there (`host/voice.ts`): its line, whether the server answers, the switches as
-/// they apply, what is set up, and each job's log. The app only shows it.
+/// they apply, what is set up, and each job's log. The app only shows it. When voice's files can't be read, only the
+/// line comes, saying why.
 struct VoiceStatus: Decodable {
-  let answering: Bool
-  let archive: Bool
-  let backups: Bool
-  let chatgpt: Bool
-  let claudeToken: Bool
-  let elevenLabsKey: Bool
-  let iCloud: Bool
   let line: String
-  let logs: [String: String]
-  let speakers: Bool
+  let answering: Bool?
+  let backups: Bool?
+  let chatgpt: Bool?
+  let claudeToken: Bool?
+  let elevenLabsKey: Bool?
+  let iCloud: Bool?
+  let logs: [String: String]?
+  let recorded: Bool?
+  let speakers: Bool?
 }
