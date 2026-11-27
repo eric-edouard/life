@@ -497,12 +497,11 @@ export const isRunning = (
     Partial<Pick<MatterView, "important">>
 ) => v.open && (v.status !== "dormant" || v.important === true);
 
-/** What a lone observation is: his own promise, wait or to-do, at the top importance. */
+/** What a lone observation is: his own promise or to-do at any importance (his decision of 27 Nov 2026: every open one gets a row), or a wait at the top importance. */
 const isOpenKind = (o: StepObservation) =>
-  o.importance === TOP_AT &&
-  (o.type === "promise" ||
-    o.type === "waiting_on_someone" ||
-    (o.type === "to_do" && o.speaker === OWNER));
+  o.type === "promise" ||
+  (o.type === "to_do" && o.speaker === OWNER) ||
+  (o.type === "waiting_on_someone" && o.importance === TOP_AT);
 
 /** What a matter is to its finder: its id and its steps' ids. */
 

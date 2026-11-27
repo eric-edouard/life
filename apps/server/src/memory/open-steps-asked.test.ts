@@ -46,7 +46,9 @@ const quiet = step(4, { at: "2026-08-01T09:00:00.000Z", date: "2026-08-01" });
 const mailer = step(5, { speaker: "unknown:no-reply@shop.test" });
 const overNoProof = step(6);
 const byStopped = step(7, { type: "promise" });
-const ITEM = "entry_000000000008";
+// A lone step no matter holds, at the lowest importance: a matter of one all the same.
+const lone = step(8, { importance: 1 });
+const ITEM = "entry_000000000009";
 
 const records: MatterRecords = {
   current: new Set(),
@@ -66,7 +68,7 @@ const records: MatterRecords = {
   ledger: [],
   linkEndings: new Map(),
   observations: succeedsOf(
-    [reread, missed, quiet, mailer, overNoProof, byStopped],
+    [reread, missed, quiet, mailer, overNoProof, byStopped, lone],
     [first]
   ),
   projects: [],
@@ -113,7 +115,7 @@ test("every open step of his is asked, or has a recorded ending", () => {
   );
   // Each step of his the records hold is in the book, open, and its matter asked.
   expect(his.toSorted()).toEqual(
-    [reread, missed, quiet, mailer, overNoProof, byStopped]
+    [reread, missed, quiet, mailer, overNoProof, byStopped, lone]
       .map((o) => [o.id, true] as const)
       .concat([[ITEM, true]])
       .toSorted()
