@@ -36,13 +36,14 @@ class FlowTest: XCTestCase {
 
     /// Starts the app on `scenario` (a file of `scenarios/`). `paired`: the fake Life it starts paired to. `reset: false`
     /// is a relaunch: what the app kept stays.
-    func launch(_ scenario: String, paired: String? = "a", reset: Bool = true, open: String? = nil) {
+    func launch(_ scenario: String, paired: String? = "a", reset: Bool = true, open: String? = nil, asksFaceID: Bool = false) {
         let fixtures = Self.ios.deletingLastPathComponent().deletingLastPathComponent().appending(path: "fixtures")
         var arguments = [
             "-e2eScenario", Self.ios.appending(path: "LifelogE2E/scenarios/\(scenario).json").path,
             "-e2eFixtures", fixtures.path, "-e2eDir", dir.path, "-e2eClock", "2026-11-18T10:00:00Z",
         ]
         if let paired { arguments += ["-e2ePaired", paired] }
+        if asksFaceID { arguments += ["-asksFaceIDToSend", "YES"] }
         if reset { arguments += ["-e2eReset", "YES"] }
         if let open { arguments += ["-e2eOpenURL", open] }
         if Self.isWatched { arguments += ["-e2eKeepAnimations", "YES"] }

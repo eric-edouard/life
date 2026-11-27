@@ -181,13 +181,20 @@
         "asker": "planner",
         "at": "2026-11-18T10:00:00.000Z",
         "clips": [],
-        "context": "For you and Nora",
+        "context": null,
         "deadline": "2026-11-24T10:00:00.000Z",
         "draft": null,
         "group": "decision",
         "isPlan": false,
         "kind": "decision",
         "likelyPeople": [
+          {
+            "ref": "person:me",
+            "name": "Sam",
+            "kind": "person",
+            "line": null,
+            "picture": null
+          },
           {
             "ref": "person:nora",
             "name": "Nora",
@@ -372,6 +379,546 @@
       "later": null,
       "ref": "dec_000000000019",
       "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T09:30:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": "2026-11-18T09:30:00.000Z",
+        "clips": [
+          {
+            "at": "2026-11-17T14:20:00.000Z",
+            "until": "2026-11-17T14:20:09.000Z",
+            "text": "So the landlord says the deposit comes back in two weeks, minus the cleaning, which honestly is fair.",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 9
+            }
+          },
+          {
+            "at": "2026-11-17T14:20:29.000Z",
+            "until": "2026-11-17T14:20:36.000Z",
+            "text": "I can send you the photos tonight if you want them for the letter.",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 7
+            }
+          }
+        ],
+        "context": null,
+        "conversations": 3,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "voice",
+        "isPlan": false,
+        "kind": "voice",
+        "likelyPeople": [
+          {
+            "ref": "person:clara",
+            "name": "Clara Hart",
+            "kind": "person",
+            "line": "A friend",
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "is-them",
+            "label": "Yes",
+            "takes": null,
+            "icon": "done"
+          },
+          {
+            "id": "this-is",
+            "label": "Someone else…",
+            "takes": "person",
+            "icon": "person"
+          },
+          {
+            "id": "media",
+            "label": "TV or video",
+            "takes": null
+          },
+          {
+            "id": "not-relevant",
+            "label": "Don't name",
+            "takes": null,
+            "icon": "hide"
+          }
+        ],
+        "plan": null,
+        "recommended": "is-them",
+        "replaces": null,
+        "pushId": "push-dec_000000000041",
+        "question": "Who is this?",
+        "ref": "dec_000000000041",
+        "title": "Name a voice",
+        "urgency": "blocks",
+        "voiceGuesses": [
+          {
+            "person": {
+              "ref": "person:clara",
+              "name": "Clara Hart",
+              "kind": "person",
+              "line": "A friend",
+              "picture": null
+            },
+            "why": "You called Clara at 14:20, and this voice is on that call."
+          }
+        ]
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000041",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T09:30:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": "2026-11-18T09:30:00.000Z",
+        "clips": [
+          {
+            "at": "2026-11-18T09:05:00.000Z",
+            "until": "2026-11-18T09:05:08.000Z",
+            "text": "Okay, let’s push the call to Thursday and I’ll check the numbers before then.",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 8
+            }
+          }
+        ],
+        "context": null,
+        "conversations": 6,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "voice",
+        "isPlan": false,
+        "kind": "voice",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "this-is",
+            "label": "Someone else…",
+            "takes": "person",
+            "icon": "person"
+          },
+          {
+            "id": "media",
+            "label": "TV or video",
+            "takes": null
+          },
+          {
+            "id": "not-relevant",
+            "label": "Don't name",
+            "takes": null,
+            "icon": "hide"
+          }
+        ],
+        "plan": null,
+        "recommended": "this-is",
+        "replaces": null,
+        "pushId": "push-dec_000000000042",
+        "question": "Who is this?",
+        "ref": "dec_000000000042",
+        "title": "Name a voice",
+        "urgency": "blocks",
+        "voiceGuesses": null
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000042",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T09:30:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": "2026-11-18T09:30:00.000Z",
+        "clips": [
+          {
+            "at": "2026-11-15T19:40:00.000Z",
+            "until": "2026-11-15T19:40:06.000Z",
+            "text": "Two more coffees and the tart for the table by the window, please.",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 6
+            }
+          },
+          {
+            "at": "2026-11-15T19:40:26.000Z",
+            "until": "2026-11-15T19:40:31.000Z",
+            "text": "It’s on the house tonight, don’t worry.",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 5
+            }
+          }
+        ],
+        "context": null,
+        "conversations": 1,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "voice",
+        "isPlan": false,
+        "kind": "voice",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "this-is",
+            "label": "Someone else…",
+            "takes": "person",
+            "icon": "person"
+          },
+          {
+            "id": "media",
+            "label": "TV or video",
+            "takes": null
+          },
+          {
+            "id": "not-relevant",
+            "label": "Don't name",
+            "takes": null,
+            "icon": "hide"
+          }
+        ],
+        "plan": null,
+        "recommended": "this-is",
+        "replaces": null,
+        "pushId": "push-dec_000000000043",
+        "question": "Who is this?",
+        "ref": "dec_000000000043",
+        "title": "Name a voice",
+        "urgency": "blocks",
+        "voiceGuesses": null
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000043",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-18T09:30:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "life",
+        "at": "2026-11-18T09:30:00.000Z",
+        "clips": [
+          {
+            "at": "2026-11-16T11:10:00.000Z",
+            "until": "2026-11-16T11:10:08.000Z",
+            "text": "We should all go back to that place by the lake before it closes for winter.",
+            "audio": {
+              "jobId": "11111111-2222-3333-4444-555555555555",
+              "start": 0,
+              "end": 8
+            }
+          }
+        ],
+        "context": null,
+        "conversations": 1,
+        "deadline": "2026-11-18T10:00:00.000Z",
+        "draft": null,
+        "group": "voice",
+        "isPlan": false,
+        "kind": "voice",
+        "likelyPeople": [
+          {
+            "ref": "person:mira",
+            "name": "Mira Moreau",
+            "kind": "person",
+            "line": "A friend",
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "is-them",
+            "label": "Yes",
+            "takes": null,
+            "icon": "done"
+          },
+          {
+            "id": "this-is",
+            "label": "Someone else…",
+            "takes": "person",
+            "icon": "person"
+          },
+          {
+            "id": "media",
+            "label": "TV or video",
+            "takes": null
+          },
+          {
+            "id": "not-relevant",
+            "label": "Don't name",
+            "takes": null,
+            "icon": "hide"
+          }
+        ],
+        "plan": null,
+        "recommended": "is-them",
+        "replaces": null,
+        "pushId": "push-dec_000000000044",
+        "question": "Who is this?",
+        "ref": "dec_000000000044",
+        "title": "Name a voice",
+        "urgency": "blocks",
+        "voiceGuesses": [
+          {
+            "person": {
+              "ref": "person:mira",
+              "name": "Mira Moreau",
+              "kind": "person",
+              "line": "A friend",
+              "picture": null
+            },
+            "why": "Mira was at lunch with you on Sunday, by your calendar."
+          }
+        ]
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000044",
+      "state": "needs_you"
+    },
+    {
+      "at": "2026-11-26T09:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": null,
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [
+          {
+            "ref": "person:tomas",
+            "name": "Tomas",
+            "kind": "person",
+            "line": null,
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000051",
+        "question": "Where the rail ends",
+        "ref": "dec_000000000051",
+        "title": "Where the rail ends",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000051",
+      "state": "waiting_on_someone"
+    },
+    {
+      "at": "2026-11-26T09:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": null,
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000052",
+        "question": "Send the Article 23 letter",
+        "ref": "dec_000000000052",
+        "title": "Send the Article 23 letter",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000052",
+      "state": "under_way"
+    },
+    {
+      "at": "2026-11-26T09:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": null,
+        "deadline": null,
+        "draft": null,
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [
+          {
+            "ref": "person:oaklaw",
+            "name": "Oak Law",
+            "kind": "person",
+            "line": null,
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": null,
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": null,
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "book",
+            "label": "Done",
+            "takes": null,
+            "outgoing": true
+          },
+          {
+            "id": "other",
+            "label": "Not now",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "book",
+        "replaces": null,
+        "pushId": "push-dec_000000000053",
+        "question": "The lawyer’s answer",
+        "ref": "dec_000000000053",
+        "title": "The lawyer’s answer",
+        "urgency": "blocks"
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000053",
+      "state": "waiting_on_someone"
     },
     {
       "at": "2026-11-18T10:00:00.000Z",

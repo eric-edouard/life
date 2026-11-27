@@ -77,7 +77,7 @@ struct ItemRow: View {
             [look?.line, ask.check?.deadline.map { when($0) }].compactMap(\.self).joined(separator: " · ").nilIfEmpty
         case .later: ask.later.map { "Later · \(when($0, withTime: true))" } ?? "Later"
         case .waitingOnSomeone: waitingLine
-        case .settled: ask.closed?.sent == nil ? "Done" : keptTo.map { "Sent to \($0)" } ?? "Sent"
+        case .settled: ask.closed?.sent == nil ? "Done" : recipient.map { "Sent to \($0)" } ?? "Sent"
         case .outdated: ask.closed?.withdrawn?.why ?? "Out of date"
         case .underWay: nil
         }
@@ -99,11 +99,13 @@ struct ItemRow: View {
     /// out of date, when the wire no longer carries the draft.
     @State private var kept: Glyph.Mark?
     @State private var keptTo: String?
+    /// Who a draft is for: its card's, as kept, or what a settled card's answered option says.
+    private var recipient: String? { ask.check?.draft?.to ?? keptTo ?? ask.closed?.sentTo }
     /// Its face (the prototype's "their face or mark"): who it is for, their picture or initial; else its matter's icon;
     /// else a mark by kind (`icon`).
     private var look: AskLook? { ask.check.map(AskLook.init) }
     private var face: ItemFace? {
-        look?.face ?? (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
+        look?.face ?? recipient.flatMap { $0.first }.map { .initial(String($0)) }
             ?? (matterMark == nil ? matterRef?.symbol.map { .symbol($0) } : nil)
     }
     private var matterRef: Check.MatterRef? { ask.check?.matter ?? ask.check?.onMatters?.first }
@@ -132,7 +134,7 @@ struct ItemRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            if isBrought, let lead { Text(lead).font(.body15).foregroundStyle(Palette.fg) }
+            if isBrought || ask.state == .outdated, let lead { Text(lead).font(.body15).foregroundStyle(Palette.fg) }
             row
             if isConfirmingUndo || (action.isRunning && ask.undoLine != nil) { undo.appears(Motion.fade) }
             if hasRating { rating.appears() }

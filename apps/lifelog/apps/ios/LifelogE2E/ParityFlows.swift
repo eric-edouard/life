@@ -40,7 +40,7 @@ import XCTest
 /// O2: the phone goes offline at the opening: the thread stays, one notice says what waits.
 @MainActor final class O2OfflineNoticeTests: FlowTest {
     func testOfflineNotice() {
-        launch("O2")
+        launch("O2", asksFaceID: true)
         appears(field, "the thread")
         step(1)
         poll("You're offline") { element(AID.noticeOutOfReach).label.hasPrefix("You're offline") }
@@ -51,7 +51,7 @@ import XCTest
 /// L5: Life stops answering: the thread stays, one notice says why, and nothing is lost.
 @MainActor final class L5MacOutOfReachTests: FlowTest {
     func testMacOutOfReach() {
-        launch("L5")
+        launch("L5", asksFaceID: true)
         appears(field, "the thread")
         step(1)
         appears(element(AID.noticeOutOfReach), "Your Mac isn't answering")
