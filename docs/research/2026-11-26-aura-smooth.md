@@ -1,7 +1,7 @@
 # Making the aura smooth (26 Nov 2026)
 
 Research only. Code read: `Lifelog/Edge/EdgeView.swift` on main and in PR #1400 (`~/Work/life-v41-ds`), its one
-use in `RootView.swift`, the prototype's edge CSS (`docs/design/chat-first/prototypes/shell.html`) and `docs/brand.md`.
+use in `RootView.swift`, the prototype's edge CSS (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`) and `docs/brand.md`.
 
 ## Why it lags
 

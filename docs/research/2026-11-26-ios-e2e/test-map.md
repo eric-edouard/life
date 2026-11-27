@@ -3,13 +3,13 @@
 Research, 26 Nov 2026: the end-to-end tests the Life iPhone app needs, front end only, each run in the iOS Simulator
 against a fake Life connector (no Mac, no models). Nothing here is built; v4 shipped "no app tests"
 (`docs/plans/2026-11-25-overhaul/README.md`, "The app"). Read with the current spec
-(`docs/design/chat-first/2026-11-23-current-spec.md`), the v4.1 plan (`docs/plans/2026-11-26-v4.1.md`) and the
-prototype's side panel (`docs/design/chat-first/prototypes/shell.html`).
+(`docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md`), the v4.1 plan (`docs/plans/2026-11-26-v4.1.md`) and the
+prototype's side panel (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`).
 
 ## How to read it
 
 - **Status**: Built (in the app on `main`: P2, P3), v4.1 (DS, P4, or G/H's wire, drawn by P4), Prototype (drawn in
-  `shell.html`, in no plan yet).
+  `2026-11-25-app-v4.html`, in no plan yet).
 - **P0** guards money, a send, a deletion, pairing, or the offline queue (never sending twice). P1 is a core flow he
   uses daily. P2 is polish, motion, or rare.
 - **Server** names fixtures in `apps/lifelog/fixtures/wire/life/` (written by Life's server tests) or

@@ -1,6 +1,6 @@
 # The app matches the prototype: the plan
 
-Explanation: how to bring the iPhone app to the approved prototype (app v4, `docs/design/chat-first/prototypes/shell.html`,
+Explanation: how to bring the iPhone app to the approved prototype (app v4, `docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`,
 read with its rulebook `2026-11-26-original-components.md`) and keep it there, without the owner acting as QA. Research
 and plan only, 26 Nov 2026. The lab picks (`2026-11-26-lab-decisions.md`) are not approved and are not a target.
 
@@ -109,7 +109,7 @@ Already there: the fake Life in the app (`Lifelog/E2E/E2ELife.swift`, scenarios 
 headless Chromium, each state one side-panel click; `argent` and `agent-device` for the simulator; `design-compare.ts`;
 the fresh-eyes prompt; the heavy lane for builds.
 
-New: one script, `bun run parity [ids]`, which writes `docs/design/chat-first/parity/<row>.png` and
+New: one script, `bun run parity [ids]`, which writes `docs/design/2026-11-23-chat-first/parity/<row>.png` and
 `parity/board.json`; about 50 new scenario files with the prototype's made-up data (Ben, Jade, the clinic, the beads);
 an `expect` part in a scenario (the calls a task must produce); the audit call in the XCUITest journeys; two snapshot
 tests; the board as a private artifact he opens on his phone, showing changed rows first.
