@@ -427,7 +427,9 @@ struct RatingRow: View {
                 } label: {
                     ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
                 }
-                .accessibilityLabel(["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate")
+                .accessibilityLabel(
+                    ["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate"
+                )
                 .identified(identify(mark))
                 .scaleEffect(picked == mark ? 1.1 : 1).opacity(picked == nil || picked == mark ? 1 : 0)
                 .disabled(picked != nil)
