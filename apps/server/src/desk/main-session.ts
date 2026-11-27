@@ -110,9 +110,9 @@ interface TurnState {
   entry: number;
   /** His words are what he tapped (`MainSessionAsk.tap`). */
   isTap: boolean;
-  /** His words were heard with low confidence ("hey Life" misheard, or another voice): no act takes them. */
-  isUnsure: boolean;
   say: (l: MainSessionLine) => void;
+  /** His spoken ask's facts: heard with low confidence ("hey Life" misheard, or another voice), no act takes them. */
+  spoken: Ask["spoken"];
   words: string;
 }
 const turnsOf = new WeakMap<Desk["db"], Map<number, TurnState>>();
@@ -130,7 +130,7 @@ const turnsIn = (db: Desk["db"]) => {
  */
 export function hisWordsIn(desk: Desk, turn: number, said: string) {
   const state = turnsIn(desk.db).get(turn);
-  const words = state?.isUnsure ? undefined : state?.words;
+  const words = state?.spoken?.isUnsure ? undefined : state?.words;
   const found = words === undefined ? null : locate(said, [words]);
   if (!found) {
     throw new Error(
@@ -349,8 +349,8 @@ async function answerNow(
     acts: [],
     entry,
     isTap: ask.tap === true,
-    isUnsure: ask.spoken?.isUnsure === true,
     say,
+    spoken: ask.spoken,
     words: ask.words ?? "",
   };
   turnsIn(db).set(turn, state);
