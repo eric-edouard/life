@@ -49,6 +49,7 @@ Proposals: none is built until the owner bakes it into the prototype.
 
 | Design | What it is |
 |---|---|
+| [Turn by turn: five directions](2026-11-27-turn-by-turn-v2/index.html) | Five ways the turn by turn could look and move (cinema, living page, face to face, cards on the table, path of work), on App v4's edge glow; play the same moment in each |
 | [Hey Life, turn by turn](2026-11-23-chat-first/2026-11-27-hey-life-turns.html) | “Hey Life” from your words to the answer: heard, the tap, Life working, the answer; not heard, offline, slow, couldn’t do it, heard late |
 | [v5 turn by turn](2026-11-23-chat-first/2026-11-27-v5-turns.html) | Turn by turn instead of a thread, chosen as the next direction on 27 Nov 2026; [the verdict](2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md), [where it stands](../handoff/2026-11-27-turn-by-turn.md) |
 | [First screen](2026-11-23-chat-first/2026-11-26-first-screen.html) | What the phone opens on |
