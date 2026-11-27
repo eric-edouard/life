@@ -36,13 +36,13 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 .nt .h{display:flex;justify-content:space-between;gap:8px}.nt .h b{font-weight:650}.nt .h span{color:var(--muted);font-size:13px}
 .nt .q{color:#d8d3c8}
 .nt .acts{display:flex;gap:6px;margin-top:8px}.nt .acts span{height:30px;padding:0 12px;border-radius:15px;background:rgba(255,248,234,.12);display:inline-flex;align-items:center;font-size:13px;font-weight:600}
-.tap{position:absolute;width:44px;height:44px;border-radius:22px;background:rgba(255,248,234,.25);box-shadow:0 0 0 8px rgba(255,248,234,.08);z-index:9}
-/* where his words came from, under his turn */
+.tap{left:300px;top:352px;position:absolute;width:44px;height:44px;border-radius:22px;background:rgba(255,248,234,.25);box-shadow:0 0 0 8px rgba(255,248,234,.08);z-index:9}
+/* where the owner's words came from, under the owner's turn */
 .me .from{display:block;margin-top:6px;font-size:12px;font-weight:500;color:var(--muted)}
 .me .from.wait{color:var(--fg)}
-/* his turn, part unclear */
+/* the owner's turn, part unclear */
 .me q s{text-decoration:none;color:var(--muted);font-weight:450}
-/* a quiet state line in the centre, under his turn */
+/* a quiet state line in the centre, under the owner's turn */
 .state{margin:auto 0;text-align:center;font-size:16px;line-height:1.45}
 .state span{display:block;color:var(--muted);font-size:13.5px;margin-top:8px}
 .state .acts{display:flex;gap:8px;justify-content:center;margin-top:18px}
@@ -50,6 +50,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 .state .acts button.p{background:var(--fg);color:#000}
 .still .edge{box-shadow:inset 0 0 0 1.5px rgba(255,248,234,.07)}
 /* the play-through */
+.demo .cap{font-size:16px;font-weight:650}.demo .cap span{display:block;font-size:13.5px;font-weight:450;color:var(--muted);margin-top:2px}
 .demo{display:flex;flex-direction:column;gap:12px;width:min(390px,100%);margin-top:24px}
 .ctl{display:flex;gap:8px;flex-wrap:wrap}
 .ctl button{height:38px;padding:0 16px;border-radius:19px;background:var(--tint);font-size:14px;font-weight:650}
@@ -84,7 +85,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 </ol>
 
 <div class="demo">
-<div style="font-size:16px;font-weight:650">Try it<span style="display:block;font-size:13.5px;font-weight:450;color:var(--muted);margin-top:2px">From your words to the answer, at its real pace.</span></div>
+<div class="cap">Try it<span>From your words to the answer, at its real pace.</span></div>
 <div id="demo"></div>
 <div class="ctl"><button type="button" id="play">Say “hey Life”</button><button type="button" id="again">Start again</button></div>
 </div>
@@ -103,16 +104,16 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 var ASK='Did Jade answer about Saturday?';
 var MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 var WA='<svg viewBox="0 0 24 24"><path fill="#25D366" d="M12 1.8A10.2 10.2 0 0 0 3.3 17.2L2 22l4.9-1.3A10.2 10.2 0 1 0 12 1.8Z"/></svg>';
-function phone(cls,stage,field,top){
-  return '<div class="ph '+cls+'"><div class="sb"><span>14:02</span><span>●●● ▮</span></div>'+
+function phone(cls,stage,field,top,time){
+  return '<div class="ph '+cls+'"><div class="sb"><span>'+(time||'14:02')+'</span><span>●●● ▮</span></div>'+
    (top===false?'':'<div class="top"><span class="rb" aria-label="3 waiting on you">3</span><span class="rb" aria-label="Pendant recording"><i class="dot"></i></span></div>')+
    '<div class="mesh"></div><div class="edge"></div><div class="stage">'+stage+'</div>'+
    '<div class="field"><span>'+(field||'Ask Life or hold to talk')+'</span><span class="sp"></span><span class="k">'+MIC+'</span></div></div>';}
-function lock(title,body,acts,tap){
-  return '<div class="ph lock"><div class="sb"><span></span><span>●●● ▮</span></div><div class="clock"><div class="d">Friday 27 November</div><div class="t">14:02</div></div>'+
-   '<div class="nots"><div class="nt"><div class="av"><i></i></div><div class="bd"><div class="h"><b>'+title+'</b><span>now</span></div><div class="q">'+body+'</div>'+
-   (acts?'<div class="acts">'+acts.map(function(a){return '<span>'+a+'</span>';}).join('')+'</div>':'')+'</div></div></div>'+
-   (tap?'<span class="tap" style="left:300px;top:352px"></span>':'')+'</div>';}
+function lock(title,body,acts,tap,time){
+  return '<div class="ph lock"><div class="sb"><span></span><span>●●● ▮</span></div><div class="clock"><div class="d">Friday 27 November</div><div class="t">'+(time||'14:02')+'</div></div>'+
+   (title?'<div class="nots"><div class="nt"><div class="av"><i></i></div><div class="bd"><div class="h"><b>'+title+'</b><span>now</span></div><div class="q">'+body+'</div>'+
+   (acts?'<div class="acts">'+acts.map(function(a){return '<span>'+a+'</span>';}).join('')+'</div>':'')+'</div></div></div>':'')+
+   (tap?'<span class="tap"></span>':'')+'</div>';}
 function me(words,from,wait){return '<div class="me"><small>You</small><q>'+words+'</q><span class="from'+(wait?' wait':'')+'">'+from+'</span></div>';}
 var FROM='To your pendant · 14:02';
 var ANSWER='<div class="ans"><span class="life-lbl">Life</span><h2>Yes: dinner Saturday at 8, and she’ll book.</h2><p>She asked an hour ago. Here’s a reply, for your yes:</p>'+
@@ -130,8 +131,8 @@ var F={
  offlineLock:lock('Life heard you','“'+ASK+'” Your Mac isn’t answering, so I’ll answer when it’s back.'),
  failed:phone('answered',me('Add oat milk to my list','To your pendant · 14:02')+'<div class="ans"><span class="life-lbl">Life</span><h2>I couldn’t add it to your list.</h2><p>Reminders isn’t answering on your Mac. I’ll add it as soon as it is, and tell you.</p><div class="two"><button>Try now</button><button>Never mind</button></div></div>','What else is on my list?'),
  failedLock:lock('Life couldn’t do it','“Add oat milk to my list”: Reminders isn’t answering. I’ll add it when it is.'),
- lateLock:lock('Life heard you','“'+ASK+'”, said at 14:02. Writing your words down took a while; on it now.').replace('<div class="t">14:02</div>','<div class="t">14:35</div>'),
- late:phone('working',me(ASK,'To your pendant at 14:02 · heard at 14:35')+'<div class="step"><span>Reading your chat with</span> <b>Jade</b><em>Thinking…</em></div>','').replace('<span>14:02</span>','<span>14:35</span>'),
+ lateLock:lock('Life heard you','“'+ASK+'”, said at 14:02. Writing your words down took a while; on it now.',null,0,'14:35'),
+ late:phone('working',me(ASK,'To your pendant at 14:02 · heard at 14:35')+'<div class="step"><span>Reading your chat with</span> <b>Jade</b><em>Thinking…</em></div>','',true,'14:35'),
  writing:phone('',
   '<div class="hi"><div class="state">Writing down what you said since 14:00.<span>If you asked me something, I’ll answer it as soon as it’s written.</span></div></div>',''),
  slow:phone('working',me(ASK,FROM)+'<div class="step"><span>Looking through your mail with</span> <b>Jade</b><em>You can close the app. I’ll tell you when it’s ready.</em></div>','')
@@ -163,7 +164,7 @@ addEventListener('resize',fit);
 /* the play-through */
 var d=document.getElementById('demo'),timers=[];
 function put(html){d.innerHTML=html;d.firstChild.classList.add('fade');fit();}
-function reset(){timers.forEach(clearTimeout);timers=[];put(lock('','',null).replace('<div class="nots">','<div class="nots" style="display:none">'));}
+function reset(){timers.forEach(clearTimeout);timers=[];put(lock(''));}
 function play(){reset();[[600,F.heard],[2600,F.open],[3500,F.working],[6500,F.answer]].forEach(function(s){timers.push(setTimeout(function(){put(s[1]);},s[0]));});}
 document.getElementById('play').addEventListener('click',play);
 document.getElementById('again').addEventListener('click',reset);
